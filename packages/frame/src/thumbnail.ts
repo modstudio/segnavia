@@ -15,7 +15,7 @@ import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
-import { internalThumbnailDeckLoad, internalThumbnailPageLoad } from './document-value-load.ts'
+import { internalThumbnailDeckLoad, internalThumbnailPageLoad, loadPageValue } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
@@ -291,7 +291,7 @@ export class SegnaviaThumbnail extends HTMLElement {
     })
     this.controller = controller
     try {
-      await controller.load(deck, this.baseUrl)
+      await controller.loadDeckValue(deck, this.baseUrl)
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
       const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet)
@@ -355,6 +355,6 @@ export class SegnaviaThumbnail extends HTMLElement {
     page.part.add('canvas')
     page.style.inlineSize = '100%'
     this.viewport.append(page)
-    page.load(projection.page)
+    loadPageValue(page, projection.page)
   }
 }

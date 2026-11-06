@@ -27,10 +27,13 @@ export async function verifyFontSource(renderer: Renderer, work: string, check: 
     font: async (name) => (name === 'serif' ? serif : undefined),
   }
   const pdf = await renderer.pagePdf(
-    screenPage({ html: '<p style="font-family: var(--segnavia-font-serif)">Embedded</p>' }, {
-      style: { fonts: [{ app: 'serif' }] },
-      size: { width: 400, height: 200 },
-    }),
+    screenPage(
+      { html: '<p style="font-family: var(--segnavia-font-serif)">Embedded</p>' },
+      {
+        style: { fonts: [{ app: 'serif' }] },
+        size: { width: 400, height: 200 },
+      },
+    ),
     {
       fontSource,
       css: 'p{font-size:40px}',

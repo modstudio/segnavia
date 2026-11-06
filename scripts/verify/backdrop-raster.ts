@@ -4,9 +4,9 @@ import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
 import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { loadPdf } from '../../packages/render/src/pdf-load.ts'
+import { screenPage } from '../screen-document.ts'
 import { pngPixels } from './browser-pixels.ts'
 import { readPpm } from './pdf-raster.ts'
-import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 

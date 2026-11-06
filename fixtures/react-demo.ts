@@ -1,5 +1,5 @@
-import type { SegnaviaPaper } from '@segnavia/frame'
 import type { DocumentInput } from '@segnavia/format'
+import type { SegnaviaPaper } from '@segnavia/frame'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { Page, Document as PageDocument, Paper, PaperPicker, Player, Thumbnail, useAuthoring, useDeckController } from '@segnavia/react'
 import { createElement, Fragment, StrictMode, useEffect, useRef, useState } from 'react'

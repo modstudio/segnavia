@@ -120,6 +120,19 @@ Object.assign(globalThis, {
 
 const { SegnaviaPage } = await import('./page.ts')
 
+const htmlPage = (html: string, scripts: 'refuse' | 'sandboxed' = 'refuse') => ({
+  type: 'document' as const,
+  kind: 'page' as const,
+  settings: { scripts },
+  children: [{ type: 'page' as const, body: { html } }],
+})
+const markdownPage = (markdown: string, scripts: 'refuse' | 'sandboxed' = 'refuse') => ({
+  type: 'document' as const,
+  kind: 'page' as const,
+  settings: { scripts },
+  children: [{ type: 'page' as const, body: { markdown } }],
+})
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((done) => {
@@ -179,9 +192,8 @@ function loadSlottedPage(harness: ReturnType<typeof selectionHarness>) {
     resolveAsset: () => asset.promise,
   } as SlotsOptions
   harness.page.load({
-    html: '<img data-slot-src="logo">',
-    scripts: 'refuse',
-    slots: [{ key: 'logo', label: 'Logo', type: 'image' }],
+    ...htmlPage('<img data-slot-src="logo">'),
+    data: { slots: [{ key: 'logo', label: 'Logo', type: 'image' }] },
   })
   return asset
 }
@@ -233,7 +245,7 @@ test('a selection read after a slot replacement waits for the replacing document
 
 test('a ready before the current document load is ignored', async () => {
   const harness = selectionHarness()
-  harness.page.load({ html: '<p>Page</p>', scripts: 'refuse' })
+  harness.page.load(htmlPage('<p>Page</p>'))
   const frame = harness.frame()
   const pending = harness.page.readSelection()
 
@@ -270,7 +282,7 @@ test('a selection posted to the unfilled document is cancelled when the fill rep
 
 test('an oversize selection reply is refused', async () => {
   const harness = selectionHarness()
-  harness.page.load({ html: '<p>Page</p>', scripts: 'refuse' })
+  harness.page.load(htmlPage('<p>Page</p>'))
   const frame = harness.frame()
   frame.load()
   harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
@@ -291,7 +303,7 @@ test('an oversize selection reply is refused', async () => {
 
 test('an unknown heading resolves false', async () => {
   const harness = selectionHarness()
-  harness.page.load({ markdown: '# Known', scripts: 'refuse' })
+  harness.page.load(markdownPage('# Known'))
   const frame = harness.frame()
   frame.load()
   harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
@@ -305,7 +317,7 @@ test('an unknown heading resolves false', async () => {
 
 test('a heading reply scrolls a clamped marker in sheet coordinates', async () => {
   const harness = selectionHarness()
-  harness.page.load({ markdown: '# Known', scripts: 'refuse' })
+  harness.page.load(markdownPage('# Known'))
   const frame = harness.frame()
   frame.load()
   harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
@@ -331,7 +343,7 @@ test('a heading reply scrolls a clamped marker in sheet coordinates', async () =
 test('heading scrolling refuses unsafe pages and an over-long id', async () => {
   const harness = selectionHarness()
   await expect(harness.page.scrollToHeading('x'.repeat(257))).rejects.toThrow('not a string from 1 to 256 characters')
-  harness.page.load({ markdown: '# Scripted', scripts: 'sandboxed' })
+  harness.page.load(markdownPage('# Scripted', 'sandboxed'))
   await expect(harness.page.scrollToHeading('scripted')).rejects.toThrow('while author scripts run')
   harness.page.showUrl('https://example.com/page')
   await expect(harness.page.scrollToHeading('hosted')).rejects.toThrow('host-served document')
@@ -340,13 +352,13 @@ test('heading scrolling refuses unsafe pages and an over-long id', async () => {
 
 test('a pending heading request is cancelled when the page changes', async () => {
   const harness = selectionHarness()
-  harness.page.load({ markdown: '# First', scripts: 'refuse' })
+  harness.page.load(markdownPage('# First'))
   const frame = harness.frame()
   frame.load()
   harness.dispatch(frame.contentWindow, { type: MESSAGE.ready })
   const pending = harness.page.scrollToHeading('first')
   expect(frame.posts).toHaveLength(1)
-  harness.page.load({ markdown: '# Second', scripts: 'refuse' })
+  harness.page.load(markdownPage('# Second'))
   await expect(pending).rejects.toThrow('page changed before it replied')
   harness.restore()
 })

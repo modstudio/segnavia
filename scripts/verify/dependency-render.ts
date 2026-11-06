@@ -11,7 +11,10 @@ export async function verifyDependencyRender(
   check: (what: string, ok: boolean, detail?: string) => void,
 ) {
   const url = 'https://cdn.jsdelivr.net/npm/segnavia-render-stub@1.2.3/index.js'
-  const page = screenPage({ html: `<p id="result">waiting</p><script src="${url}"></script>` }, { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } })
+  const page = screenPage(
+    { html: `<p id="result">waiting</p><script src="${url}"></script>` },
+    { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } },
+  )
   const pdf = await renderer.pagePdf(page, {
     dependencyOrigins: ['https://cdn.jsdelivr.net'],
     dependencies: async (request) =>
@@ -30,10 +33,13 @@ export async function verifyDependencyRender(
   const lateUrl = 'https://cdn.jsdelivr.net/npm/segnavia-render-stub@1.2.3/late.js'
   const late = await refusal(
     renderer.pagePdf(
-      screenPage({ html: `<script>setTimeout(function(){import('${lateUrl}').finally(function(){pageReady()})},0)</script>` }, {
-        settings: { scripts: 'sandboxed' },
-        size: { width: 400, height: 200 },
-      }),
+      screenPage(
+        { html: `<script>setTimeout(function(){import('${lateUrl}').finally(function(){pageReady()})},0)</script>` },
+        {
+          settings: { scripts: 'sandboxed' },
+          size: { width: 400, height: 200 },
+        },
+      ),
       { dependencyOrigins: ['https://cdn.jsdelivr.net'] },
     ),
   )

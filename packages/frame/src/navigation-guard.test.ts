@@ -56,8 +56,8 @@ test('concurrent loads have distinct provenance while awaiting one guard', async
   expect(first).not.toBe(second)
   release()
   await Promise.all([first, second])
-  expect(deckPreservesNotes(parseDeckLoad(deck, first), 'one')).toBe(true)
-  expect(deckPreservesNotes(parseDeckLoad(deck, second), 'one')).toBe(false)
+  expect(deckPreservesNotes(parseDeckLoad(deck, first, true), 'one')).toBe(true)
+  expect(deckPreservesNotes(parseDeckLoad(deck, second, true), 'one')).toBe(false)
 })
 
 test('guards run in order and a removed guard stops running', async () => {

@@ -104,7 +104,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set fonts(value: FontsOptions | undefined) {
     this.fontOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get page(): Page | null {

@@ -2,11 +2,11 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { type Page, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
+import { Page, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
-import { internalDocumentPagesLoad } from './document-value-load.ts'
+import { internalDocumentPagesLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -301,7 +301,9 @@ export class SegnaviaDocument extends HTMLElement {
     page.dependencyOrigins = this.dependencyOrigins
     page.part.add('page')
     sheet.append(page)
-    page.load({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? source.html })
+    page[internalPageLoad](
+      Page.parse({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? source.html }),
+    )
   }
 
   private onMessage = (event: MessageEvent) => {

@@ -10,11 +10,12 @@ import { pressColor } from '../../packages/render/src/press/color-policy.ts'
 import { visitContentOperators } from '../../packages/render/src/press/content.ts'
 import { arrayNumbers, decodeContent, nameOf, numberOf, rawStreamOf } from '../../packages/render/src/press/pdf-objects.ts'
 import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
+import { screenDeck, screenPage } from '../screen-document.ts'
 import { verifyGrayPress } from './gray-press.ts'
 import { type Raster, readPpm } from './pdf-raster.ts'
 import { verifyConvertedPressImages } from './press-images.ts'
+import { PRESS_PAGE_HTML } from './press-page-fixture.ts'
 import { verifyPressProof } from './press-proof.ts'
-import { screenDeck, screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -24,20 +25,6 @@ const pressProfiles = [
 ]
 const renderRequire = createRequire(new URL('../../packages/render/package.json', import.meta.url))
 const { PDFArray, PDFDocument, PDFName } = renderRequire('pdf-lib')
-const html = `<!doctype html><style>
-@page{size:1200px 800px;margin:0}*{box-sizing:border-box}html,body{margin:0;width:1200px;height:800px}
-body{padding:34px;font:18px Arial,sans-serif;color:#000;background:#fff}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}
-.tile{min-height:105px;padding:12px;border:5px solid #0080ff}.gray{color:#333}.color{color:#e02070}.solid{background:#f4b942}
-.two{background:linear-gradient(90deg,#f00,#00f)}.three{background:linear-gradient(90deg,#0f0 0%,#f0f 45%,#0ff 100%)}
-.radial{background:radial-gradient(circle,#ff0 0%,#ff8000 55%,#202080 100%)}.shadow{background:#eee;box-shadow:8px 8px 12px rgba(20,100,220,.7)}
-.textshadow{color:#804000;text-shadow:4px 4px 4px rgba(0,180,40,.75)}.under{background:#0060d0;padding:10px}.opacity{opacity:.5;background:#ff2000;padding:18px}
-svg{width:100%;height:78px}img{width:96px;height:64px;object-fit:cover;margin-right:8px}
-</style><h1>Press color probe: <span class="gray">#333 gray</span> <span class="color">colored text</span></h1><div class="grid">
-<div class="tile solid">Solid fill and blue border</div><div class="tile two">Two-stop linear gradient</div><div class="tile three">Three-stop linear gradient</div>
-<div class="tile radial">Radial gradient</div><div class="tile shadow">Blurred box shadow</div><div class="tile textshadow">Blurred text shadow</div>
-<div class="tile under"><div class="opacity">50% opacity over blue</div></div><div class="tile"><svg viewBox="0 0 240 80"><rect x="8" y="8" width="88" height="62" fill="#20c080"/><circle cx="165" cy="40" r="30" fill="#f05020" stroke="#7020c0" stroke-width="9"/></svg></div>
-<div class="tile"><img id="png"><img id="jpeg"><div>embedded PNG + JPEG</div></div><div class="tile" style="color:#00ff00;font-weight:bold">Saturated green</div><div class="tile">Black text #000 😀</div></div>
-<script>function image(type){const c=document.createElement('canvas');c.width=96;c.height=64;const x=c.getContext('2d');const g=x.createLinearGradient(0,0,96,64);g.addColorStop(0,'#ff3040');g.addColorStop(1,'#10d0ff');x.fillStyle=g;x.fillRect(0,0,96,64);x.fillStyle='#00ff00';x.fillRect(34,18,28,28);if(type==='image/png')x.clearRect(0,0,12,12);return c.toDataURL(type,.86)}png.src=image('image/png');jpeg.src=image('image/jpeg');pageReady()</script>`
 
 function reportOption(profile: Uint8Array, receive: (report: PressReport) => void) {
   return { press: { profile, report: receive } }
@@ -192,7 +179,9 @@ async function verifyNeutralTolerance(renderer: Renderer, check: Check, profileB
     [182, 181, 180],
   ] as const
   const page = screenPage(
-    { html: `<style>@page{size:400px 220px;margin:0}body{margin:40px}.shadow{width:120px;height:60px;background:white;box-shadow:12px 12px 8px rgb(103,101,100)}.gradient{margin-top:40px;width:240px;height:60px;background:linear-gradient(90deg,rgb(62,61,60),rgb(182,181,180))}</style><div class="shadow"></div><div class="gradient"></div>` },
+    {
+      html: `<style>@page{size:400px 220px;margin:0}body{margin:40px}.shadow{width:120px;height:60px;background:white;box-shadow:12px 12px 8px rgb(103,101,100)}.gradient{margin-top:40px;width:240px;height:60px;background:linear-gradient(90deg,rgb(62,61,60),rgb(182,181,180))}</style><div class="shadow"></div><div class="gradient"></div>`,
+    },
     { size: { width: 400, height: 220 } },
   )
   let defaultReport: PressReport | undefined
@@ -298,7 +287,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   }
   const profile = new Uint8Array(readFileSync(found.path))
   console.log(`PRESS PROFILE [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: ${found.name}`)
-  const page = screenPage({ html }, { settings: { scripts: 'sandboxed' }, size: { width: 1200, height: 800 } })
+  const page = screenPage({ html: PRESS_PAGE_HTML }, { settings: { scripts: 'sandboxed' }, size: { width: 1200, height: 800 } })
   const unconverted = await renderer.pagePdf(page)
   let pageReport: PressReport | undefined
   const converted = await renderer.pagePdf(page, { waitForPageReady: true, ...reportOption(profile, (report) => (pageReport = report)) })
@@ -348,7 +337,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     pagesReport ? JSON.stringify(pagesReport) : 'report not called',
   )
 
-  const deck = screenDeck([{ type: 'slide', id: 'press', content: { kind: 'html', html } }], {
+  const deck = screenDeck([{ type: 'slide', id: 'press', content: { kind: 'html', html: PRESS_PAGE_HTML } }], {
     title: 'Press',
     layout: 'fixed',
     fit: 'contain',
@@ -365,7 +354,10 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
 
   let emojiReport: PressReport | undefined
   await renderer.pagePdf(
-    screenPage({ html: '<!doctype html><style>@page{size:600px 200px;margin:0}body{font:72px Arial}</style><p>Emoji 😀 🎉 ❤️</p>' }, { size: { width: 600, height: 200 } }),
+    screenPage(
+      { html: '<!doctype html><style>@page{size:600px 200px;margin:0}body{font:72px Arial}</style><p>Emoji 😀 🎉 ❤️</p>' },
+      { size: { width: 600, height: 200 } },
+    ),
     { press: { profile, images: 'convert', report: (report) => (emojiReport = report) } },
   )
   check(
@@ -374,18 +366,21 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     emojiReport ? JSON.stringify(emojiReport) : 'report not called',
   )
 
-  const longDeck = screenDeck(Array.from({ length: 24 }, (_, index) => ({
-    type: 'slide',
-    id: `press-${index}`,
-    content: { kind: 'html', html: `<style>body{font:48px Arial;color:rgb(${index * 9},80,180)}</style><h1>Press page ${index + 1}</h1>` },
-  })), {
-    title: 'Press content bound',
-    layout: 'fixed',
-    fit: 'contain',
-    frame: false,
-    size: { width: 1200, height: 800 },
-    settings: { scripts: 'refuse' },
-  })
+  const longDeck = screenDeck(
+    Array.from({ length: 24 }, (_, index) => ({
+      type: 'slide',
+      id: `press-${index}`,
+      content: { kind: 'html', html: `<style>body{font:48px Arial;color:rgb(${index * 9},80,180)}</style><h1>Press page ${index + 1}</h1>` },
+    })),
+    {
+      title: 'Press content bound',
+      layout: 'fixed',
+      fit: 'contain',
+      frame: false,
+      size: { width: 1200, height: 800 },
+      settings: { scripts: 'refuse' },
+    },
+  )
   const longPdf = await renderer.deckPdf(longDeck)
   console.log(
     `PRESS CONTENT [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: 24-page deck largest stream=${await largestContentStream(longPdf)} bytes`,

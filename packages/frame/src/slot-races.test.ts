@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { Deck, type SlotsOptions } from '@segnavia/format'
 import { prepareSlots } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
+import { pageDocument } from './page-document.test-helper.ts'
 
 class TestElement extends EventTarget {}
 Object.assign(globalThis, {
@@ -29,7 +30,6 @@ function deferred<T>() {
 }
 
 const assetSlot = [{ key: 'logo', label: 'Logo', type: 'image' as const, required: false }]
-
 test('page keeps its pending fill when replacement input is refused', async () => {
   const asset = deferred<string>()
   let iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }
@@ -53,7 +53,7 @@ test('page keeps its pending fill when replacement input is refused', async () =
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
   }
   Object.setPrototypeOf(page, SegnaviaPage.prototype)
-  page.load({ html: '<img data-slot-src="logo">', slots: assetSlot })
+  page.load(pageDocument('<img data-slot-src="logo">', 'refuse', assetSlot))
   const generation = page.loadGeneration
   const preparation = page.slotPreparation
   expect(() => page.load({ html: 1 })).toThrow()
@@ -90,14 +90,10 @@ test('page ignores slot fit from a filled frame after loading an unfilled sandbo
       return true
     },
   })
-  page.load({
-    html: '<p data-slot-value="name">Name</p>',
-    scripts: 'refuse',
-    slots: [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }],
-  })
+  page.load(pageDocument('<p data-slot-value="name">Name</p>', 'refuse', [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }]))
   await new Promise((resolve) => setTimeout(resolve, 0))
   page.slots = undefined
-  page.load({ html: '<p>Unfilled</p>', scripts: 'sandboxed' })
+  page.load(pageDocument('<p>Unfilled</p>', 'sandboxed'))
   ;(page as unknown as { onMessage(event: MessageEvent): void }).onMessage({
     source: iframe.contentWindow,
     data: { type: MESSAGE.slotFit, slots: { name: 'overflowed' } },

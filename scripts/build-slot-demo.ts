@@ -18,14 +18,30 @@ export const slotCardPages: DocumentInput[] = [
     kind: 'page',
     size: { width: 336, height: 192 },
     data: { slots: cardSlots },
-    children: [{ type: 'page', id: 'front', body: { html: `<!doctype html><html><body style="${base};display:grid;grid-template-columns:1fr 72px;gap:16px;align-items:center"><main><strong data-slot-value="name" style="font-size:26px">Design Name</strong><p data-slot-value="role">Design Role</p></main><img data-slot-src="logo" alt="Logo" style="max-width:72px;max-height:72px"></body></html>` } }],
+    children: [
+      {
+        type: 'page',
+        id: 'front',
+        body: {
+          html: `<!doctype html><html><body style="${base};display:grid;grid-template-columns:1fr 72px;gap:16px;align-items:center"><main><strong data-slot-value="name" style="font-size:26px">Design Name</strong><p data-slot-value="role">Design Role</p></main><img data-slot-src="logo" alt="Logo" style="max-width:72px;max-height:72px"></body></html>`,
+        },
+      },
+    ],
   },
   {
     type: 'document',
     kind: 'page',
     size: { width: 336, height: 192 },
     data: { slots: cardSlots },
-    children: [{ type: 'page', id: 'back', body: { html: `<!doctype html><html><body style="${base};display:grid;place-content:center;gap:8px"><span data-slot-value="phone">Design Phone</span><span data-slot-value="email">design@example.com</span></body></html>` } }],
+    children: [
+      {
+        type: 'page',
+        id: 'back',
+        body: {
+          html: `<!doctype html><html><body style="${base};display:grid;place-content:center;gap:8px"><span data-slot-value="phone">Design Phone</span><span data-slot-value="email">design@example.com</span></body></html>`,
+        },
+      },
+    ],
   },
 ]
 

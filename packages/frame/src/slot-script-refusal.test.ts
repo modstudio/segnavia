@@ -19,6 +19,7 @@ const { SegnaviaPaper } = await import('./paper.ts')
 const { thumbnailHarness } = await import('./thumbnail-slot.test-helper.ts')
 const writeDocument = (SegnaviaPage.prototype as unknown as { writeDocument(iframe: HTMLIFrameElement, srcdoc: string): void }).writeDocument
 const resetDocumentReadiness = (SegnaviaPage.prototype as unknown as { resetDocumentReadiness(): void }).resetDocumentReadiness
+const loadPageValue = (SegnaviaPage.prototype as unknown as { loadValue(page: Page): void }).loadValue
 
 function pageFrame() {
   return { srcdoc: '', addEventListener() {} }
@@ -41,9 +42,10 @@ test('page fast path and expanded print path refuse the same reserved motif plac
       return true
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
+    loadValue: loadPageValue,
   }
   const page = Page.parse({ html: '<div DATA-MOTIF=segnavia:folio></div>' })
-  pageElement.load(page)
+  pageElement.load({ type: 'document', kind: 'page', children: [{ type: 'page', body: page.body }] })
   expect(iframe.srcdoc).toBe('')
   expect(errors).toHaveLength(1)
 
@@ -80,11 +82,14 @@ test('page keeps authored HTML and reports a refused fill for a scripted item', 
       return true
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
+    loadValue: loadPageValue,
   }
   page.load({
-    html: '<p data-slot-value="name">Authored</p>',
-    scripts: 'sandboxed',
-    slots: [{ key: 'name', label: 'Name', type: 'text' }],
+    type: 'document',
+    kind: 'page',
+    settings: { scripts: 'sandboxed' },
+    data: { slots: [{ key: 'name', label: 'Name', type: 'text' }] },
+    children: [{ type: 'page', body: { html: '<p data-slot-value="name">Authored</p>' } }],
   })
   expect(iframe.srcdoc).toContain('Authored')
   expect(iframe.srcdoc).not.toContain('Filled')
@@ -118,12 +123,14 @@ test('page expands a data-free motif before refusing a scripted page fill withou
       return true
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
+    loadValue: loadPageValue,
   }
   page.load({
-    html: '<main data-motif="held"><i>Authored</i></main><p data-slot-value="name"></p>',
-    lang: 'en',
-    scripts: 'sandboxed',
-    slots: [{ key: 'name', label: 'Name', type: 'text' }],
+    type: 'document',
+    kind: 'page',
+    settings: { lang: 'en', scripts: 'sandboxed' },
+    data: { slots: [{ key: 'name', label: 'Name', type: 'text' }] },
+    children: [{ type: 'page', body: { html: '<main data-motif="held"><i>Authored</i></main><p data-slot-value="name"></p>' } }],
   })
   expect(iframe.srcdoc).toBe('')
   await new Promise((resolve) => setTimeout(resolve, 0))
@@ -154,8 +161,14 @@ test('page assigns a motif-expanded document once expansion succeeds', async () 
       return true
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
+    loadValue: loadPageValue,
   }
-  page.load({ html: '<main data-motif="held">Authored</main>', lang: 'en', scripts: 'sandboxed' })
+  page.load({
+    type: 'document',
+    kind: 'page',
+    settings: { lang: 'en', scripts: 'sandboxed' },
+    children: [{ type: 'page', body: { html: '<main data-motif="held">Authored</main>' } }],
+  })
   expect(iframe.srcdoc).toBe('')
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(iframe.srcdoc).toContain('<main data-motif="held" lang="en" dir="ltr"><b>Motif</b></main>')

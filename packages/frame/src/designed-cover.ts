@@ -2,7 +2,7 @@ import type { SlotsOptions } from '@segnavia/format'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { coverImage } from './cover-element.ts'
 import type { CoverPresentation } from './designed-cover-policy.ts'
-import { internalPageLoad } from './document-value-load.ts'
+import { loadPageValue } from './document-value-load.ts'
 import { fitDesignedCover } from './fit.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { MountedElement } from './mounted-element.ts'
@@ -39,7 +39,7 @@ export function mountDesignedCover(
   page.slots = slots
   page.style.inlineSize = `${projection.box.width}px`
   page.style.blockSize = `${projection.box.height}px`
-  page[internalPageLoad](projection.page)
+  loadPageValue(page, projection.page)
   sheet.append(page)
   frame.append(sheet)
   const fit = () => {

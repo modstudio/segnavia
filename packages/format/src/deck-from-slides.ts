@@ -1,5 +1,6 @@
 import type { DeckInput } from './deck.ts'
 import { Document } from './document.ts'
+import { deckFromDocument } from './document-lowering.ts'
 
 type SlideInput = DeckInput['slides'][number]
 type SlideFields = Omit<SlideInput, 'content'>
@@ -39,7 +40,7 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
           },
         }
   })
-  return Document.parse({
+  const document = Document.parse({
     type: 'document',
     kind: 'deck',
     title,
@@ -54,4 +55,6 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
     data: { slots },
     children: slides.map((slide) => ({ type: 'slide' as const, ...slide })),
   })
+  deckFromDocument(document)
+  return document
 }

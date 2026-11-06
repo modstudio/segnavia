@@ -79,7 +79,18 @@ function pageHarness() {
   return page
 }
 
-const content = { html: '<p>Page</p>', size: 'fluid' as const }
+const content = {
+  type: 'document' as const,
+  kind: 'page' as const,
+  size: 'fluid' as const,
+  children: [{ type: 'page' as const, body: { html: '<p>Page</p>' } }],
+}
+const measured = (html: string) => ({
+  type: 'document' as const,
+  kind: 'page' as const,
+  size: { width: 'standard' as const, height: 'auto' as const },
+  children: [{ type: 'page' as const, body: { html } }],
+})
 
 test('a label names the mounted page frame', () => {
   const page = pageHarness()
@@ -102,7 +113,7 @@ test('the label names a later frame mounted by load', () => {
   page.label = 'Notice'
   page.load(content)
   const first = page.querySelector('iframe')
-  page.load({ html: '<p>Later page</p>', size: 'fluid' })
+  page.load({ type: 'document', kind: 'page', size: 'fluid', children: [{ type: 'page', body: { html: '<p>Later page</p>' } }] })
   const later = page.querySelector<HTMLIFrameElement>('iframe')
   expect(later).not.toBe(first)
   expect(later?.title).toBe('Notice')
@@ -121,7 +132,7 @@ test('a named page applies its cap and centering inline, including when unstyled
   const page = pageHarness()
   Object.assign(page, { hasAttribute: (name: string) => name === 'unstyled' })
   page.pageWidths = { standard: 900 }
-  page.load({ html: '<p>Measured</p>', size: { width: 'standard', height: 'auto' } })
+  page.load(measured('<p>Measured</p>'))
   const sheet = page.querySelector<HTMLElement>('.segnavia-page__sheet')
   expect(sheet?.style.inlineSize).toBe('100%')
   expect(sheet?.style.maxInlineSize).toBe('900px')
@@ -130,7 +141,7 @@ test('a named page applies its cap and centering inline, including when unstyled
 
 test('equivalent page width assignments do not remount, while a changed width does', () => {
   const page = pageHarness()
-  page.load({ html: '<p>Measured</p>', size: { width: 'standard', height: 'auto' } })
+  page.load(measured('<p>Measured</p>'))
   const initial = page.querySelector('iframe')
   page.pageWidths = { standard: 1024 }
   expect(page.querySelector('iframe')).toBe(initial)

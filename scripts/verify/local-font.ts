@@ -15,10 +15,13 @@ export async function verifyLocalFont(renderer: Renderer, work: string, check: C
   const faces = packLocalFaces([{ family, data: readFileSync(ALEF), format: 'truetype' }], references)
   const reports: unknown[] = []
   const pdf = await renderer.pagePdf(
-    screenPage({ html: `<p style="font-family:'${family}',var(--segnavia-font-serif)">Local face</p>` }, {
-      style: { fonts: [...references] },
-      size: { width: 400, height: 200 },
-    }),
+    screenPage(
+      { html: `<p style="font-family:'${family}',var(--segnavia-font-serif)">Local face</p>` },
+      {
+        style: { fonts: [...references] },
+        size: { width: 400, height: 200 },
+      },
+    ),
     {
       fontSource: { font: async (name) => (name === 'serif' ? { family: 'Fallback Serif', faces: [], generic: 'serif' } : undefined) },
       localFonts: { faces, report: (report) => reports.push(report) },

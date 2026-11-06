@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { type DocumentInput, Document, pageFromDocument, Print, printBoxes } from '@segnavia/format'
+import { Document, type DocumentInput, Print, pageFromDocument, printBoxes } from '@segnavia/format'
 import { openRenderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
 import { readProfile } from '../../packages/render/src/color/index.ts'

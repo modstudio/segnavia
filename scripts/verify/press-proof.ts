@@ -1,8 +1,8 @@
 import type { Renderer } from '@segnavia/render'
 import { proof } from '../../packages/render/src/color/engine.ts'
 import { readProfile } from '../../packages/render/src/color/profile.ts'
-import { pngPixels as pixels } from './browser-pixels.ts'
 import { screenPage } from '../screen-document.ts'
+import { pngPixels as pixels } from './browser-pixels.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 type Pixel = [number, number, number]

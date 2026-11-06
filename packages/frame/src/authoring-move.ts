@@ -23,7 +23,7 @@ export async function moveSlideOptimistically(
   fromIndex: number,
   toIndex: number,
   save: MoveSlideHandler,
-  load: LoadDeck = (deck) => controller.load(deck),
+  load: LoadDeck = (deck) => controller.loadDeckValue(deck),
 ): Promise<void> {
   const previous = controller.state.deck
   const slide = previous?.slides[fromIndex]

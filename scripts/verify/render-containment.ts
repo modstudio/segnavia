@@ -21,7 +21,10 @@ export async function verifyRenderContainment(renderer: Renderer, check: Check, 
   const [heapResult, ordinaryPdf] = await Promise.all([
     refusal(
       renderer.pagePdf(
-        screenPage({ html: '<script>const chunks = []; for (;;) chunks.push(new Array(1e5).fill(0))</script>' }, { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } }),
+        screenPage(
+          { html: '<script>const chunks = []; for (;;) chunks.push(new Array(1e5).fill(0))</script>' },
+          { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } },
+        ),
         { waitForPageReady: false },
       ),
     ),
@@ -34,14 +37,11 @@ export async function verifyRenderContainment(renderer: Renderer, check: Check, 
   )
   const crashStarted = performance.now()
   const crashed = await unavailable(
-    renderer.pagePdf(
-      screenPage({ html: '<p>crash</p>' }, { size: { width: 400, height: 200 } }),
-      {
-        beforeOutput: async (tab) => {
-          await (await tab.context().newCDPSession(tab)).send('Browser.crash')
-        },
+    renderer.pagePdf(screenPage({ html: '<p>crash</p>' }, { size: { width: 400, height: 200 } }), {
+      beforeOutput: async (tab) => {
+        await (await tab.context().newCDPSession(tab)).send('Browser.crash')
       },
-    ),
+    }),
   )
   const crashElapsedMs = Math.round(performance.now() - crashStarted)
   check(
