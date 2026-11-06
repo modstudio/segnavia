@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { PDFArray, PDFDict, PDFDocument, PDFHexString, PDFName, PDFRef, PDFString } from 'pdf-lib'
-import type { GoldenOutlineItem, GoldenPdf } from './model.ts'
+import { PDFDocument } from 'pdf-lib'
+import { pdfOutlineItems } from '../book-pdf-readback.ts'
+import type { GoldenPdf } from './model.ts'
 
 const run = (command: string, arguments_: string[]): string => execFileSync(command, arguments_, { encoding: 'utf8' }).replaceAll('\r\n', '\n')
 
@@ -28,10 +29,11 @@ function pageSizes(file: string): [number, number][] {
 
 function infoFields(file: string): Record<string, string> {
   const output: Record<string, string> = {}
-  const volatile = new Set(['CreationDate', 'ModDate', 'File size'])
+  // Page count and geometry live in the typed pages record.
+  const excluded = new Set(['CreationDate', 'ModDate', 'File size', 'Pages', 'Page size', 'Page rot'])
   for (const line of run('pdfinfo', [file]).split('\n')) {
     const match = /^([^:]+):\s*(.*)$/.exec(line)
-    if (!match || volatile.has(match[1] as string)) continue
+    if (!match || excluded.has(match[1] as string)) continue
     const key = match[1] as string
     const value = match[2] as string
     output[key] = key === 'Creator' && value.includes('HeadlessChrome/') ? 'HeadlessChrome' : value.replace(/Skia\/PDF m\d+/, 'Skia/PDF')
@@ -62,33 +64,6 @@ function embeddedFonts(file: string): string[] {
   return parsePdfFonts(run('pdffonts', [file]))
 }
 
-const resolve = (document: PDFDocument, value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)
-
-function text(value: unknown): string | undefined {
-  return value instanceof PDFString || value instanceof PDFHexString ? value.decodeText() : undefined
-}
-
-function outline(document: PDFDocument): GoldenOutlineItem[] {
-  const output: GoldenOutlineItem[] = []
-  const visit = (value: unknown, depth: number): void => {
-    let current = resolve(document, value)
-    while (current instanceof PDFDict) {
-      const title = text(resolve(document, current.get(PDFName.of('Title'))))
-      const target = resolve(document, current.get(PDFName.of('Dest')))
-      if (title !== undefined && target instanceof PDFArray) {
-        const reference = target.get(0)
-        const page = document.getPages().findIndex((candidate) => candidate.ref.toString() === reference?.toString()) + 1
-        output.push({ title, page, depth })
-      }
-      visit(current.get(PDFName.of('First')), depth + 1)
-      current = resolve(document, current.get(PDFName.of('Next')))
-    }
-  }
-  const outlines = resolve(document, document.catalog.get(PDFName.of('Outlines')))
-  if (outlines instanceof PDFDict) visit(outlines.get(PDFName.of('First')), 0)
-  return output
-}
-
 export async function readGoldenPdf(file: string): Promise<GoldenPdf> {
   const document = await PDFDocument.load(readFileSync(file), { updateMetadata: false })
   const sizes = pageSizes(file)
@@ -97,7 +72,7 @@ export async function readGoldenPdf(file: string): Promise<GoldenPdf> {
   if (extracted.length !== sizes.length) throw new Error(`pdftotext reported ${extracted.length} pages for ${file}; expected ${sizes.length}.`)
   return {
     pages: sizes.map((size, index) => ({ size, text: normalizedText(extracted[index] as string) })),
-    outline: outline(document),
+    outline: pdfOutlineItems(document),
     fonts: embeddedFonts(file),
     info: infoFields(file),
     xmp: normalizedText(run('pdfinfo', ['-meta', file])),

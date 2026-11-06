@@ -1,24 +1,32 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { GOLDEN_FIXTURES } from './model.ts'
+import { GOLDEN_FIXTURES, goldenFixturePath } from './model.ts'
+import { REPOSITORY_ROOT } from './paths.ts'
 import { readGoldenPdf } from './read.ts'
+import { assertGoldenRecordable } from './record-policy.ts'
 
-const root = path.resolve(import.meta.dirname, '../../..')
-
-export function goldenRecordingPaths(outputRoot = path.join(root, 'out')) {
+function goldenRecordingPaths(repositoryRoot: string, outputRoot: string) {
   return GOLDEN_FIXTURES.map((fixture) => ({
     fixture,
-    source: path.join(outputRoot, path.relative('out', fixture.pdf)),
-    destination: path.join(root, fixture.golden),
+    source: path.join(outputRoot, fixture.pdf),
+    destination: path.join(repositoryRoot, goldenFixturePath(fixture)),
   }))
 }
 
-export async function recordGoldenPdfs(outputRoot?: string): Promise<void> {
-  for (const { fixture, source, destination } of goldenRecordingPaths(outputRoot)) {
+export async function recordGoldenPdfs(repositoryRoot: string, outputRoot: string): Promise<void> {
+  for (const { fixture, source, destination } of goldenRecordingPaths(repositoryRoot, outputRoot)) {
+    const golden = await readGoldenPdf(source)
+    assertGoldenRecordable(fixture.id, golden)
     mkdirSync(path.dirname(destination), { recursive: true })
-    writeFileSync(destination, `${JSON.stringify(await readGoldenPdf(source), null, 2)}\n`)
-    console.log(`recorded ${fixture.id}: ${fixture.golden}`)
+    writeFileSync(destination, `${JSON.stringify(golden, null, 2)}\n`)
+    console.log(`recorded ${fixture.id}: ${goldenFixturePath(fixture)}`)
   }
 }
 
-if (import.meta.main) await recordGoldenPdfs(process.argv[2] ? path.resolve(process.argv[2]) : undefined)
+if (import.meta.main) {
+  const directory = process.argv[2]
+  if (!directory) {
+    throw new Error('An Ubuntu CI demo artifact directory is required; follow scripts/verify/golden/README.md to download and record it.')
+  }
+  await recordGoldenPdfs(REPOSITORY_ROOT, path.resolve(directory))
+}

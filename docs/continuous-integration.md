@@ -11,7 +11,8 @@ success only when every job below succeeds:
   shard of the browser verification and poppler's PDF tools.
 - `verify-render` runs the rendering verification on Ubuntu under both Bun and
   Node, with Ubuntu's poppler and the FOGRA39L press profile from colord-data.
-  Its Bun leg proves the Bun support declared by `@segnavia/render`,
+  Its Bun leg also checks the structural PDF goldens with poppler against
+  baselines recorded from the Ubuntu `demo` artifact. That leg proves the Bun support declared by `@segnavia/render`,
   `@segnavia/format`, `@segnavia/html` and `@segnavia/capture`, and the
   `bun-engine` gate rule keeps that package list and their minimum version
   aligned with the leg.
