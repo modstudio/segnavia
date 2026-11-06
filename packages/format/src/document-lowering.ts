@@ -221,5 +221,5 @@ export function boardFromDocument(document: Document): BoardValue {
   const sections = document.children
     .filter((node): node is Extract<DocumentNode, { type: 'boardSection' }> => node.type === 'boardSection')
     .map(({ type: _type, ...section }) => section)
-  return Board.parse({ title: title(document), direction: document.direction, items, labels, sections })
+  return Board.parse({ title: title(document), direction: document.settings?.dir, items, labels, sections })
 }

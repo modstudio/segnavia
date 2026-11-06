@@ -175,7 +175,7 @@ describe('Document lowering', () => {
       type: 'document',
       kind: 'board',
       title: expected.title,
-      direction: expected.direction,
+      settings: { dir: expected.direction },
       children: [
         ...expected.items.map(({ id, ...item }) => ({ type: 'item' as const, id, ...item })),
         ...expected.labels.map(({ id, ...label }) => ({ type: 'label' as const, id, ...label })),

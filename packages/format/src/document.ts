@@ -1,6 +1,5 @@
 import { z } from 'zod'
-import { BoardProperties } from './board.ts'
-import { BookMode, BookPage, BookRunningHead, BookShape } from './book.ts'
+import { BookMode, BookPage, BookShape } from './book.ts'
 import { DeckShape } from './deck.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
@@ -8,6 +7,7 @@ import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNo
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { FontReference } from './fonts.ts'
 import { Motif } from './motif.ts'
+import { NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Print } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
@@ -30,23 +30,22 @@ const DocumentShape = z.object({
   data: DocumentData.optional(),
   size: PageSize.optional(),
   print: Print.optional(),
-  direction: BoardProperties.shape.direction.optional(),
-  layout: DeckShape.shape.layout.optional(),
-  fit: DeckShape.shape.fit.optional(),
-  frame: DeckShape.shape.frame.optional(),
+  layout: DeckShape.shape.layout.unwrap().optional(),
+  fit: DeckShape.shape.fit.unwrap().optional(),
+  frame: DeckShape.shape.frame.unwrap().optional(),
   transition: DeckShape.shape.transition,
   playback: DeckShape.shape.playback,
   captions: DeckShape.shape.captions,
   mode: BookMode.optional(),
   page: BookPage.optional(),
-  numbering: z.union([BookShape.shape.numbering, z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew'])]).optional(),
-  footnotes: BookShape.shape.footnotes.optional(),
-  endnotes: BookShape.shape.endnotes.optional(),
-  rectoOpenings: BookShape.shape.rectoOpenings.optional(),
-  orphans: BookShape.shape.orphans.optional(),
-  widows: BookShape.shape.widows.optional(),
-  fragmentation: BookShape.shape.fragmentation.optional(),
-  runningHead: BookRunningHead.optional(),
+  numbering: z.union([BookShape.shape.numbering.unwrap(), NumberSystem]).optional(),
+  footnotes: BookShape.shape.footnotes.unwrap().optional(),
+  endnotes: BookShape.shape.endnotes.unwrap().optional(),
+  rectoOpenings: BookShape.shape.rectoOpenings.unwrap().optional(),
+  orphans: BookShape.shape.orphans.unwrap().optional(),
+  widows: BookShape.shape.widows.unwrap().optional(),
+  fragmentation: BookShape.shape.fragmentation.unwrap().optional(),
+  runningHead: BookShape.shape.runningHead.unwrap().optional(),
   rules: PrintedPageRules.optional(),
   children: z.array(DocumentNode),
   parentPages: z.array(ParentPageNode).default([]),
@@ -57,6 +56,7 @@ const DocumentShape = z.object({
 })
 
 const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const
+const structuralFields = new Set(['type', 'id', 'kind', 'children', ...definitionCollections])
 
 function walk(nodes: DocumentNodeValue[], visit: (node: DocumentNodeValue, path: (string | number)[]) => void, path: (string | number)[] = ['children']): void {
   nodes.forEach((node, index) => {
@@ -68,12 +68,27 @@ function walk(nodes: DocumentNodeValue[], visit: (node: DocumentNodeValue, path:
 
 export const Document = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
+  for (const [field, value] of Object.entries(document)) {
+    if (value !== undefined && !structuralFields.has(field) && !(profile.fields as readonly string[]).includes(field)) {
+      ctx.addIssue({ code: 'custom', path: [field], message: profileRefusal(field, document.kind, profile.fields, 'root field') })
+    }
+  }
   walk(document.children, (node, path) => {
     if (!(profile.children as readonly string[]).includes(node.type)) {
       ctx.addIssue({ code: 'custom', path: [...path, 'type'], message: profileRefusal(node.type, document.kind, profile.children) })
     }
     if (node.type === 'record') {
       ctx.addIssue({ code: 'custom', path, message: `record ${node.name} is not yet supported; remove it to clear this refusal` })
+    }
+    if (node.type === 'section') {
+      if (node.opens === 'continue') {
+        ctx.addIssue({ code: 'custom', path: [...path, 'opens'], message: 'section field opens is not yet supported; remove it to clear this refusal' })
+      }
+      for (const field of ['headTemplate', 'pageGeometry'] as const) {
+        if (node[field] !== undefined) {
+          ctx.addIssue({ code: 'custom', path: [...path, field], message: `section field ${field} is not yet supported; remove it to clear this refusal` })
+        }
+      }
     }
   })
   for (const collection of definitionCollections) {
@@ -85,6 +100,28 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
   document.conditions.forEach((condition, index) => {
     ctx.addIssue({ code: 'custom', path: ['conditions', index], message: `condition ${condition.name} is not yet supported; remove it to clear this refusal` })
   })
+  document.parentPages.forEach((parent, index) => {
+    if (parent.regions !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['parentPages', index, 'regions'],
+        message: 'parentPage field regions is not yet supported; remove it to clear this refusal',
+      })
+    }
+  })
+  if (document.brand !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['brand'], message: 'document field brand is not yet supported; remove it to clear this refusal' })
+  }
+  if (document.variables.length > 0) {
+    ctx.addIssue({ code: 'custom', path: ['variables'], message: 'document field variables is not yet supported; remove it to clear this refusal' })
+  }
+  if (document.kind === 'board' && document.settings?.dir === 'auto') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['settings', 'dir'],
+      message: profileRefusal('auto', document.kind, ['ltr', 'rtl'], 'settings.dir value'),
+    })
+  }
   if (document.kind === 'page' && (document.children.length !== 1 || document.children[0]?.type !== 'page')) {
     ctx.addIssue({ code: 'custom', path: ['children'], message: 'a page document needs exactly one page node; provide one page node to clear this refusal' })
   }

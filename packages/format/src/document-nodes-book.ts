@@ -32,7 +32,7 @@ export const ParentPageNode = NodeId.extend({
   geometry: z.object({ margin: RequiredLogicalMargin.optional() }).default({}),
   head: z.string().optional(),
   foot: z.string().optional(),
-  regions: z.record(z.string(), z.string()).default({}),
+  regions: z.record(z.string(), z.string()).optional(),
 })
 export const TemplateNode = BookTemplate.extend({ type: z.literal('template'), id: z.string().optional() })
 export const NoteSeriesNode = NoteSeries.extend({ type: z.literal('noteSeries'), id: z.string().optional() })
