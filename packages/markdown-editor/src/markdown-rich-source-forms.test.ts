@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import './prosemirror-environment.test-helper.ts'
 import type { JSONContent } from '@tiptap/core'
 
-const { parseRichDocument, saveRichDocument } = await import('./markdown-rich-save.ts')
+const { chooseBracketEscapes, parseRichDocument, saveRichDocument } = await import('./markdown-rich-save.ts')
 
 function replaceText(nodes: JSONContent[], before: string, after: string) {
   const visit = (node: JSONContent): boolean => {
@@ -74,6 +74,30 @@ test('brackets are escaped when plain output would read back as a link', () => {
   expect(saved.match(/\\(?:\[|\])/g)).toHaveLength(1)
 })
 
+test('bracket selection uses the all-unescaped, selective, and conservative paths', () => {
+  expect(
+    chooseBracketEscapes(
+      '\\[plain\\]',
+      (value) => value === '[plain]',
+      () => [],
+    ),
+  ).toBe('[plain]')
+  expect(
+    chooseBracketEscapes(
+      '\\[link\\](/target)',
+      (value) => value === '\\[link](/target)',
+      () => [0],
+    ),
+  ).toBe('\\[link](/target)')
+  expect(
+    chooseBracketEscapes(
+      '\\[unknown\\]',
+      () => false,
+      () => [],
+    ),
+  ).toBe('\\[unknown\\]')
+})
+
 test('command-created nodes use the current default source forms', () => {
   const nodes: JSONContent[] = [
     { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Heading' }] },
@@ -104,7 +128,7 @@ test('a recorded form that changes meaning in its new context falls back to the 
   const source = 'A _word_ here.\n'
   const nodes = structuredClone(parseRichDocument(source))
   const leading = nodes[0]?.content?.[0]
-  if (!leading || leading.text !== 'A ') throw new Error('missing leading text')
+  if (leading?.text !== 'A ') throw new Error('missing leading text')
   leading.text = 'A'
   expect(saveRichDocument(source, nodes)).toBe('A*word* here.\n')
 })

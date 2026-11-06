@@ -188,22 +188,56 @@ function sameDocument(markdown: string, nodes: Json[], manager: MarkdownManager)
   return JSON.stringify(semantic(parsed)) === JSON.stringify(semantic(nodes))
 }
 
-function restoreUnlinkedBrackets(markdown: string, nodes: Json[], manager: MarkdownManager, restoreProtected: (value: string) => string): string {
-  if (!/\\(?:\[|\])/.test(markdown)) return markdown
-  const readsSame = (value: string) => sameDocument(restoreProtected(value), nodes, manager)
+export function chooseBracketEscapes(markdown: string, readsSame: (candidate: string) => boolean, dangerousOffsets: (candidate: string) => number[]): string {
+  if (!/\\(?:\[|\])/.test(markdown)) {
+    readsSame(markdown)
+    return markdown
+  }
   const all = markdown.replace(/\\(\[|\])/g, '$1')
   if (readsSame(all)) return all
-  let kept = markdown
-  let at = 0
-  while (at < kept.length) {
-    const match = /\\(?:\[|\])/.exec(kept.slice(at))
-    if (!match || match.index === undefined) break
-    const index = at + match.index
-    const candidate = `${kept.slice(0, index)}${kept.slice(index + 1)}`
-    if (readsSame(candidate)) kept = candidate
-    else at = index + match[0].length
+  let selective = all
+  for (const offset of dangerousOffsets(all).sort((left, right) => right - left)) selective = `${selective.slice(0, offset)}\\${selective.slice(offset)}`
+  if (selective !== all && readsSame(selective)) return selective
+  readsSame(markdown)
+  return markdown
+}
+
+function dangerousBracketOffsets(markdown: string, manager: MarkdownManager): number[] {
+  const sources: string[] = []
+  const seen = new Set<object>()
+  const pending: unknown[] = [manager.instance.lexer(markdown)]
+  while (pending.length) {
+    const value = pending.pop()
+    if (!value || typeof value !== 'object' || seen.has(value as object)) continue
+    seen.add(value as object)
+    if (Array.isArray(value)) {
+      pending.push(...[...value].reverse())
+      continue
+    }
+    const token = value as Record<string, unknown>
+    const raw = typeof token.raw === 'string' ? token.raw : ''
+    const type = token.type
+    const source = typeof token.source === 'string' ? token.source : raw
+    if ((type === 'link' || type === 'image' || type === RAW_INLINE_NAME) && source.includes('[')) {
+      sources.push(raw || source)
+      continue
+    }
+    const children = Object.entries(token)
+      .filter(([key]) => key !== 'raw' && key !== 'text' && key !== 'source')
+      .map(([, child]) => child)
+      .reverse()
+    pending.push(...children)
   }
-  return kept
+  const offsets: number[] = []
+  let cursor = 0
+  for (const source of sources) {
+    const at = markdown.indexOf(source, cursor)
+    const bracket = source.indexOf('[')
+    if (at < 0 || bracket < 0) continue
+    offsets.push(at + bracket)
+    cursor = at + source.length
+  }
+  return offsets
 }
 
 function withoutSourceAttrs(value: Json, onlyPath?: readonly number[], path: number[] = []): Json {
@@ -215,15 +249,15 @@ function withoutSourceAttrs(value: Json, onlyPath?: readonly number[], path: num
   return {
     ...value,
     attrs,
-    marks: value.marks?.map((mark, index) => withoutSourceAttrs(mark as Json, onlyPath, [...path, -1, index])),
+    marks: value.marks?.map((mark, index) => withoutSourceAttrs(mark as Json, onlyPath, [...path, -1, index])) as Json['marks'],
     content: value.content?.map((child, index) => withoutSourceAttrs(child, onlyPath, [...path, index])),
   }
 }
 
 function sourceAttrPaths(value: Json, path: number[] = [], out: number[][] = []): number[][] {
   if (value.type !== RAW_INLINE_NAME && Object.keys(value.attrs ?? {}).some((key) => key.startsWith('source'))) out.push(path)
-  value.marks?.forEach((mark, index) => sourceAttrPaths(mark as Json, [...path, -1, index], out))
-  value.content?.forEach((child, index) => sourceAttrPaths(child, [...path, index], out))
+  for (const [index, mark] of (value.marks ?? []).entries()) sourceAttrPaths(mark as Json, [...path, -1, index], out)
+  for (const [index, child] of (value.content ?? []).entries()) sourceAttrPaths(child, [...path, index], out)
   return out
 }
 
@@ -234,9 +268,17 @@ function serializeNodes(nodes: readonly RichDocumentNode[], definitionLabels: Re
   while (source.includes(marker)) marker += '-'
   const openMarker = `${marker}open`
   const closeMarker = `${marker}close`
+  let textMarkerCode = 0xe100
+  while (source.includes(String.fromCodePoint(textMarkerCode)) || source.includes(String.fromCodePoint(textMarkerCode + 1))) textMarkerCode += 2
+  const textOpenMarker = String.fromCodePoint(textMarkerCode)
+  const textCloseMarker = String.fromCodePoint(textMarkerCode + 1)
   const restoreProtected = (value: string) => value.replaceAll(openMarker, '\\[').replaceAll(closeMarker, '\\]')
   const protect = (node: Json): Json => ({
     ...node,
+    text:
+      node.type === 'text' && typeof node.text === 'string' && !node.marks?.some((mark) => mark.type === 'link')
+        ? node.text.replaceAll('[', textOpenMarker).replaceAll(']', textCloseMarker)
+        : node.text,
     attrs:
       node.type === RAW_INLINE_NAME && typeof node.attrs?.source === 'string'
         ? {
@@ -247,15 +289,30 @@ function serializeNodes(nodes: readonly RichDocumentNode[], definitionLabels: Re
     content: node.content?.map(protect),
   })
   const manager = scopedRichMarkdownManager(definitionLabels)
-  const render = (content: Json[]) => restoreAmpersands(manager.serialize({ type: 'doc', content: content.map(protect) }).replace(/^\n+|\n+$/g, ''))
-  let serialized = render(json)
-  if (!sameDocument(restoreProtected(serialized), json, manager)) {
-    const singleFallback = sourceAttrPaths({ type: 'doc', content: json })
-      .map((path) => render(json.map((node, index) => withoutSourceAttrs(node, path, [index]))))
-      .find((candidate) => sameDocument(restoreProtected(candidate), json, manager))
-    serialized = singleFallback ?? render(json.map((node) => withoutSourceAttrs(node)))
+  const render = (content: Json[]) =>
+    restoreAmpersands(manager.serialize({ type: 'doc', content: content.map(protect) }).replace(/^\n+|\n+$/g, ''))
+      .replaceAll(textOpenMarker, '\\[')
+      .replaceAll(textCloseMarker, '\\]')
+  const meaningful = (candidate: string) => {
+    let same = false
+    const markdown = chooseBracketEscapes(
+      candidate,
+      (value) => {
+        same = sameDocument(restoreProtected(value), json, manager)
+        return same
+      },
+      (value) => dangerousBracketOffsets(value, manager),
+    )
+    return { markdown, same }
   }
-  return restoreProtected(restoreUnlinkedBrackets(serialized, json, manager, restoreProtected)).replaceAll(marker, '&')
+  let result = meaningful(render(json))
+  if (!result.same) {
+    const singleFallback = sourceAttrPaths({ type: 'doc', content: json })
+      .map((path) => meaningful(render(json.map((node, index) => withoutSourceAttrs(node, path, [index])))))
+      .find((candidate) => candidate.same)
+    result = singleFallback ?? meaningful(render(json.map((node) => withoutSourceAttrs(node))))
+  }
+  return restoreProtected(result.markdown).replaceAll(marker, '&')
 }
 
 function matchingBlockIndex(entry: CachedOriginal, keys: readonly string[], keyIndex: number, blockIndex: number): number {
