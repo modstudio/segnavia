@@ -135,15 +135,14 @@ test('stacks settled note pieces from the bottom and refuses only a new body ove
   expect(noteSettlementOverlapsBody(500, 480, 470)).toBeFalse()
 })
 
-test('refuses a page reference beyond the folio table', () => {
+test('refuses a page reference beyond the computed folios', () => {
   expect(
     pageReferenceFolio(
       'appendix',
       501,
-      Array.from({ length: 500 }, (_, index) => String(index + 1)),
+      Array.from({ length: 500 }, (_, index) => ({ number: index + 1, text: String(index + 1) })),
     ),
   ).toEqual({
-    refusal:
-      'page reference target appendix lands on folio 501, beyond the supported folio table; shorten the book to 500 folios or fewer to clear this refusal',
+    refusal: 'page reference target appendix lands on page 501, beyond the 500 computed folios; shorten the book to 500 pages or fewer to clear this refusal',
   })
 })

@@ -1,6 +1,8 @@
+import { computeFolios } from '@segnavia/format'
 import type { ContentValue } from './content-value.ts'
 import { comparableContent, sameContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
+import { deckNumbering } from './deck-numbering.ts'
 import { FrameEntry, type FrameReadiness } from './frame-entry.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -70,6 +72,7 @@ export function removeFrame(entries: Map<string, FrameEntry>, controller: DeckCo
 export function syncFrames(entries: Map<string, FrameEntry>, pending: { id: string; visibleId: string } | null, state: DeckState, frameTitle: FrameTitle) {
   const deck = state.deck
   if (!deck || !state.slide) return
+  const folios = computeFolios(deckNumbering(deck.slides.length))
   for (const [index, slide] of deck.slides.entries()) {
     const canvas = entries.get(slide.id)?.canvas
     if (!canvas) continue
@@ -80,6 +83,6 @@ export function syncFrames(entries: Map<string, FrameEntry>, pending: { id: stri
     canvas.setAttribute('aria-hidden', String(!visible))
     canvas.inert = !visible
     const frame = canvas.querySelector('iframe')
-    if (frame) frame.title = frameTitle(deck.title, index + 1)
+    if (frame) frame.title = frameTitle(deck.title, folios[index]?.number ?? index + 1)
   }
 }

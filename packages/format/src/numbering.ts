@@ -83,6 +83,12 @@ export function formatNumber(value: number, system: NumberSystem): string {
   return system === 'roman-lower' ? result.toLowerCase() : result
 }
 
+export function numberingScript(): string {
+  const constants = `var ROMAN_DIGITS=${JSON.stringify(ROMAN_DIGITS)};var HEBREW_ONES=${JSON.stringify(HEBREW_ONES)};var HEBREW_TENS=${JSON.stringify(HEBREW_TENS)};`
+  const functions = [positiveInteger, inRange, roman, hebrewBelowThousand, hebrew, formatNumber]
+  return `${constants}${functions.map((fn) => fn.toString()).join('\n')}`
+}
+
 export function noteMarker(index: number, marker: NoteMarker): string {
   positiveInteger(index)
   if (marker !== 'symbols') return formatNumber(index, marker)

@@ -1,15 +1,4 @@
-import {
-  BOOK_PARENT_NAMES,
-  type Book,
-  type BookView,
-  type BookViewPagination,
-  type FolioTable,
-  formatNumber,
-  PRINTED_PAGE_LIMIT,
-  PX_PER_MM,
-  resolveParentPages,
-  textArea,
-} from '@segnavia/format'
+import { BOOK_PARENT_NAMES, type BookView, type BookViewPagination, PRINTED_PAGE_LIMIT, PX_PER_MM, resolveParentPages, textArea } from '@segnavia/format'
 import { bookStylesheet } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
@@ -27,10 +16,6 @@ export interface PaginatedDocumentOptions {
 
 function px(value: number): number {
   return value * PX_PER_MM
-}
-
-function folios(system: Book['numbering']['body']): FolioTable {
-  return Array.from({ length: PRINTED_PAGE_LIMIT }, (_, index) => formatNumber(index + 1, system))
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
@@ -61,7 +46,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     runningHead: pagination.runningHead,
     parents,
     parentNames: BOOK_PARENT_NAMES,
-    folios: { front: folios(pagination.numbering.frontMatter), body: folios(pagination.numbering.body) },
+    numbering: pagination.numbering,
     limit: PRINTED_PAGE_LIMIT,
     ...(options.screen ? { screen: options.screen } : {}),
   }

@@ -1,6 +1,8 @@
+import { computeFolios } from '@segnavia/format'
 import { animationMessage, MESSAGE } from './bridge.ts'
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
+import { deckNumbering } from './deck-numbering.ts'
 import { COMPACT_PLAYER_WIDTH } from './player-layout.ts'
 import { railOverflow, railSelection } from './rail-navigation.ts'
 import { railOrderMoves } from './rail-order.ts'
@@ -199,6 +201,8 @@ export class SegnaviaRail extends SegnaviaControl {
     const wanted = new Set(state.deck?.slides.map((slide) => slide.id))
     for (const [id, item] of existing) if (!id || !wanted.has(id)) item.remove()
     const ordered = new Map<string, HTMLLIElement>()
+    const folios = computeFolios(deckNumbering(state.deck?.slides.length ?? 0))
+    const total = folios.at(-1)?.number ?? 0
     state.deck?.slides.forEach((slide, index) => {
       let item = existing.get(slide.id)
       if (!item) {
@@ -208,8 +212,9 @@ export class SegnaviaRail extends SegnaviaControl {
       }
       const button = item.querySelector('button') as HTMLButtonElement
       button.dataset.index = String(index)
-      button.setAttribute('aria-label', this.labels.slide(index + 1, state.deck?.slides.length ?? 0))
-      ;(button.querySelector('.number') as HTMLElement).textContent = String(index + 1)
+      const folio = folios[index]
+      button.setAttribute('aria-label', this.labels.slide(folio?.number ?? index + 1, total))
+      ;(button.querySelector('.number') as HTMLElement).textContent = folio?.text ?? String(index + 1)
       ordered.set(slide.id, item)
       this.decorateSlideSettings(item, slide.id)
     })
