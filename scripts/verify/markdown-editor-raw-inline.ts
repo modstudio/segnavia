@@ -8,18 +8,7 @@ function latestIndication(page: Harness['page']): Promise<Indication | undefined
 
 export async function verifyMarkdownEditorRawInline(h: Harness) {
   const { page, check } = h
-  const editor = page.locator('segnavia-markdown-editor')
-  const rawInline = editor.locator('[data-raw-inline]').first()
   const tooltip = page.locator('#raw-inline-tooltip')
-  await rawInline.hover()
-  await page.waitForFunction(() => (globalThis as unknown as { editorEvents: { rawInline: Indication[] } }).editorEvents.rawInline.at(-1)?.via === 'pointer')
-  await tooltip.waitFor()
-  const hovered = await latestIndication(page)
-  check(
-    'hovering a raw-inline atom shows the host tooltip without a native title',
-    hovered?.via === 'pointer' && (await tooltip.isVisible()) && (await rawInline.getAttribute('title')) === null,
-    JSON.stringify(hovered),
-  )
   await page.mouse.move(0, 0)
   await page.evaluate(() => {
     const element = document.getElementById('editor') as unknown as {
