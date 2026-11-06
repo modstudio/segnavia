@@ -1,5 +1,12 @@
 # @segnavia/idml
 
+## 0.46.0
+
+### Patch Changes
+
+- @segnavia/format@0.46.0
+- @segnavia/html@0.46.0
+
 ## 0.45.0
 
 ### Patch Changes

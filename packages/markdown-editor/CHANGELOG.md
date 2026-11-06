@@ -1,5 +1,19 @@
 # @segnavia/markdown-editor
 
+## 0.46.0
+
+### Minor Changes
+
+- d6fd8e6: Replace raw-inline native tooltips with accessible names and a host tooltip indication event.
+
+### Patch Changes
+
+- 2eb686f: Keep recorded Markdown source forms when rich mode serializes an edited block.
+- Updated dependencies [19d356b]
+  - @segnavia/frame@0.46.0
+  - @segnavia/format@0.46.0
+  - @segnavia/html@0.46.0
+
 ## 0.45.0
 
 ### Minor Changes

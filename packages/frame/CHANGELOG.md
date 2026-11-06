@@ -1,5 +1,13 @@
 # @segnavia/frame
 
+## 0.46.0
+
+### Patch Changes
+
+- 19d356b: Count printed papers through the last column painted by each content fragment.
+  - @segnavia/format@0.46.0
+  - @segnavia/html@0.46.0
+
 ## 0.45.0
 
 ### Minor Changes
