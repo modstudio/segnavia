@@ -135,6 +135,13 @@ justifies it. Unit tests run in process, spawn nothing, and sit beside their
 module as `<module>.test.ts`. A browser belongs to `bun run demo`, which plays
 the deck in Chromium and checks what is on screen; it is not part of the gate.
 
+A browser check that fails intermittently is deleted by default. Timing and
+sub-pixel geometry make such checks costly to stabilize, and a fixed one tends
+to flake again. Keep one only when it guards a costly defect that no unit test
+or golden catches; then fix it once, and delete it if it flakes again. Never
+rerun a check to green. A deletion's commit names what the check covered and
+why losing it is acceptable.
+
 ## Commits
 
 - The pre-commit hook runs `bun run check --changed --staged`. A failed check
