@@ -69,45 +69,6 @@ export async function openHarness(): Promise<Harness> {
     args: ['--autoplay-policy=no-user-gesture-required'],
   })
   const context = await browser.newContext({ viewport: { width: 1280, height: 816 } })
-  await context.addInitScript(() => {
-    const events: unknown[] = []
-    ;(window as unknown as { __focusProbe: unknown[] }).__focusProbe = events
-    const record = (type: string, detail: unknown = {}) => events.push({ at: performance.timeOrigin + performance.now(), type, detail })
-    const focusDetail = (event: FocusEvent) => ({
-      hasFocus: document.hasFocus(),
-      target: event.target instanceof Element ? `${event.target.tagName.toLowerCase()}#${event.target.id}` : String(event.target),
-      active: document.activeElement instanceof Element ? `${document.activeElement.tagName.toLowerCase()}#${document.activeElement.id}` : null,
-      related: event.relatedTarget instanceof Element ? `${event.relatedTarget.tagName.toLowerCase()}#${event.relatedTarget.id}` : null,
-      path: event.composedPath().filter((entry): entry is Element => entry instanceof Element).map((entry) => entry.tagName.toLowerCase()),
-    })
-    addEventListener('focus', (event) => record('focus', focusDetail(event)), true)
-    addEventListener('blur', (event) => record('blur', focusDetail(event)), true)
-    for (const type of ['pointerdown', 'pointerup', 'click']) {
-      addEventListener(type, (event) => record(type, {
-        target: event.target instanceof Element ? event.target.tagName.toLowerCase() : String(event.target),
-        x: (event as PointerEvent).clientX,
-        y: (event as PointerEvent).clientY,
-      }), true)
-    }
-    addEventListener('load', () => record('load', { hasFocus: document.hasFocus() }), true)
-    addEventListener('message', (event) => {
-      if ((event.data as { type?: string } | null)?.type === 'segnavia:ready') record('ready')
-    })
-    addEventListener('DOMContentLoaded', () => {
-      new MutationObserver((records) => {
-        for (const entry of records) {
-          const canvas = entry.target as HTMLElement
-          record('canvas-attribute', {
-            attribute: entry.attributeName,
-            slide: canvas.dataset.slideId,
-            active: canvas.hasAttribute('data-active'),
-            incoming: canvas.hasAttribute('data-incoming'),
-            inert: canvas.inert,
-          })
-        }
-      }).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['data-active', 'data-incoming'] })
-    })
-  })
   const page = await context.newPage()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
@@ -148,33 +109,34 @@ export async function openHarness(): Promise<Harness> {
     async clickFrame(selector) {
       const box = await page.locator(selector).boundingBox({ timeout: 20000 })
       if (!box) throw new Error(`${selector} has no box to click.`)
-      const clickedAt = Date.now()
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
-      // A sandboxed frame runs in its own process, so focus reaches it after
-      // the click returns. A key pressed before then goes to the host page.
       const frame = await (await page.locator(selector).elementHandle())?.contentFrame()
       if (!frame) throw new Error(`${selector} has no frame to focus.`)
-      let focused = true
-      await frame.waitForFunction(() => document.hasFocus(), undefined, { timeout: BOUNDED_WAIT_MS }).catch(() => {
-        focused = false
+      const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+      await frame.evaluate(() => {
+        ;(window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered = false
+        addEventListener('pointermove', () => {
+          ;(window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered = true
+        }, { once: true })
       })
-      const handles = await page.locator(selector).elementHandles()
-      const frames = (await Promise.all(handles.map((handle) => handle.contentFrame()))).filter((candidate) => candidate !== null)
-      const facts = await Promise.all([
-        page.evaluate(() => {
-          const player = document.querySelector('segnavia-player')
-          const shadowActive = player?.shadowRoot?.activeElement
-          return { focus: document.hasFocus(), active: document.activeElement instanceof Element ? `${document.activeElement.tagName.toLowerCase()}#${document.activeElement.id}` : null, shadowActive: shadowActive instanceof Element ? `${shadowActive.tagName.toLowerCase()}#${shadowActive.id}` : null, events: (window as unknown as { __focusProbe?: unknown[] }).__focusProbe ?? [] }
-        }),
-        page.locator(selector).evaluateAll((iframes) => iframes.map((iframe, index) => {
-          const canvas = iframe.closest('.segnavia-stage__canvas') as HTMLElement | null
-          const rect = iframe.getBoundingClientRect()
-          return { index, slide: canvas?.dataset.slideId, active: canvas?.hasAttribute('data-active'), incoming: canvas?.hasAttribute('data-incoming'), inert: canvas?.inert, opacity: canvas ? getComputedStyle(canvas).opacity : null, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }
-        })),
-        ...frames.map((candidate) => candidate.evaluate(() => ({ focus: document.hasFocus(), active: document.activeElement instanceof Element ? `${document.activeElement.tagName.toLowerCase()}#${document.activeElement.id}` : null, events: (window as unknown as { __focusProbe?: unknown[] }).__focusProbe ?? [] }))),
-      ])
-      console.error(focused ? 'FOCUS_PROBE_PASS' : 'FOCUS_PROBE_FAIL', JSON.stringify({ selector, clickedAt, clickedBox: box, facts }))
-      if (!focused) throw new Error(`${selector} did not take focus within ${BOUNDED_WAIT_MS} ms of the click.`)
+      // A stationary pointer can leave Chromium's out-of-process frame hit test
+      // on the frame owner. Entering the child first proves the click will reach it.
+      await page.mouse.move(0, 0)
+      await page.mouse.move(point.x, point.y)
+      await frame
+        .waitForFunction(() => (window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered === true, undefined, {
+          timeout: BOUNDED_WAIT_MS,
+        })
+        .catch(() => {
+          throw new Error(`${selector} did not receive the pointer within ${BOUNDED_WAIT_MS} ms.`)
+        })
+      await page.mouse.click(point.x, point.y)
+      // A sandboxed frame runs in its own process, so focus reaches it after
+      // the click returns. A key pressed before then goes to the host page.
+      await frame
+        .waitForFunction(() => document.hasFocus(), undefined, { timeout: BOUNDED_WAIT_MS })
+        .catch(() => {
+          throw new Error(`${selector} did not take focus within ${BOUNDED_WAIT_MS} ms of the click.`)
+        })
     },
     evidence: async (name) => {
       await page.screenshot({ path: path.join(EVIDENCE, name) })
