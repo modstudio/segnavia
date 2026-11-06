@@ -6,7 +6,7 @@ export type RawInlineIndicationDetail = Readonly<{
   source: string
   display: string
   rect: Readonly<{ x: number; y: number; width: number; height: number }>
-  via: 'pointer' | 'keyboard'
+  via: 'pointer' | 'selection'
 }>
 
 const rawInlineSelector = '[data-raw-inline]'
@@ -46,7 +46,7 @@ function detail(atom: HTMLElement, via: RawInlineIndicationDetail['via']): RawIn
 
 export class RawInlineIndicator {
   private pointer: HTMLElement | null = null
-  private keyboard: HTMLElement | null = null
+  private selection: HTMLElement | null = null
   private key = 'null'
 
   constructor(private readonly dispatch: (detail: RawInlineIndicationDetail | null) => void) {}
@@ -61,19 +61,19 @@ export class RawInlineIndicator {
     this.emit()
   }
 
-  keyboardSelect(atom: HTMLElement | null) {
-    this.keyboard = atom
+  selectionSelect(atom: HTMLElement | null) {
+    this.selection = atom
     this.emit()
   }
 
   end() {
     this.pointer = null
-    this.keyboard = null
+    this.selection = null
     this.emit()
   }
 
   private emit() {
-    const next = this.keyboard ? detail(this.keyboard, 'keyboard') : this.pointer ? detail(this.pointer, 'pointer') : null
+    const next = this.selection ? detail(this.selection, 'selection') : this.pointer ? detail(this.pointer, 'pointer') : null
     const key = JSON.stringify(next)
     if (key === this.key) return
     this.key = key

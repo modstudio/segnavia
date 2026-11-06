@@ -338,8 +338,8 @@ transactions and selection changes, and is suppressed while unchanged.
 `segnavia-link-request { href }` is emitted only by Mod-K; the host answers
 with `run('link', { href })`. `segnavia-raw-inline-indicate` carries
 `{ source, display, rect: { x, y, width, height }, via }` when a raw-inline atom
-is under the pointer or selected as a node by keyboard, and `null` when none is
-indicated. Keyboard indication wins while pointer and keyboard indications
+is under the pointer or selected as a node, and `null` when none is indicated.
+Selection indication wins while pointer and selection indications
 both hold. The event is suppressed while unchanged and ends on pointer leave,
 selection departure, blur, mode change or disconnect.
 

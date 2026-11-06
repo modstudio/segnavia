@@ -36,7 +36,7 @@ test('pointer indication enters, suppresses an identical state, and leaves', () 
   expect(events).toEqual([{ source: '[מוצג][מקור]', display: 'מוצג', rect: { x: 1, y: 2, width: 3, height: 4 }, via: 'pointer' }, null])
 })
 
-test('a raw-inline node selection indicates by keyboard and leaving it clears', () => {
+test('a raw-inline node selection is found and leaving it clears', () => {
   const element = atom()
   const selection = Object.create(NodeSelection.prototype) as NodeSelection
   Object.defineProperties(selection, {
@@ -47,20 +47,34 @@ test('a raw-inline node selection indicates by keyboard and leaving it clears', 
   expect(selectedRawInlineAtom(editor)).toBe(element)
   const events: Array<RawInlineIndicationDetail | null> = []
   const indicator = new RawInlineIndicator((detail) => events.push(detail))
-  indicator.keyboardSelect(selectedRawInlineAtom(editor))
-  indicator.keyboardSelect(null)
-  expect(events.map((event) => event?.via ?? null)).toEqual(['keyboard', null])
+  indicator.selectionSelect(selectedRawInlineAtom(editor))
+  indicator.selectionSelect(null)
+  expect(events.map((event) => event?.via ?? null)).toEqual(['selection', null])
 })
 
-test('keyboard indication wins while pointer indication continues to hold', () => {
+test('a NodeSelection set without a key press reports selection indication', () => {
+  const element = atom()
+  const selection = Object.create(NodeSelection.prototype) as NodeSelection
+  Object.defineProperties(selection, {
+    from: { value: 5 },
+    node: { value: { type: { name: 'rawInline' } } },
+  })
+  const editor = { state: { selection }, view: { nodeDOM: () => element } }
+  const events: Array<RawInlineIndicationDetail | null> = []
+  const indicator = new RawInlineIndicator((detail) => events.push(detail))
+  indicator.selectionSelect(selectedRawInlineAtom(editor))
+  expect(events.at(-1)?.via).toBe('selection')
+})
+
+test('selection indication wins while pointer indication continues to hold', () => {
   const events: Array<RawInlineIndicationDetail | null> = []
   const indicator = new RawInlineIndicator((detail) => events.push(detail))
   const pointer = atom('pointer', 'Pointer')
-  const keyboard = atom('keyboard', 'Keyboard')
+  const selection = atom('selection', 'Selection')
   indicator.pointerEnter(pointer)
-  indicator.keyboardSelect(keyboard)
+  indicator.selectionSelect(selection)
   indicator.pointerEnter(atom('moved', 'Moved'))
-  indicator.keyboardSelect(null)
-  expect(events.map((event) => event?.source ?? null)).toEqual(['pointer', 'keyboard', 'moved'])
-  expect(events.map((event) => event?.via ?? null)).toEqual(['pointer', 'keyboard', 'pointer'])
+  indicator.selectionSelect(null)
+  expect(events.map((event) => event?.source ?? null)).toEqual(['pointer', 'selection', 'moved'])
+  expect(events.map((event) => event?.via ?? null)).toEqual(['pointer', 'selection', 'pointer'])
 })

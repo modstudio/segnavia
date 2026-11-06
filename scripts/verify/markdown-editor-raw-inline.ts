@@ -1,6 +1,6 @@
 import type { Harness } from './harness.ts'
 
-type Indication = { via: 'pointer' | 'keyboard' } | null
+type Indication = { via: 'pointer' | 'selection' } | null
 
 function latestIndication(page: Harness['page']): Promise<Indication | undefined> {
   return page.evaluate(() => (globalThis as unknown as { editorEvents: { rawInline: Indication[] } }).editorEvents.rawInline.at(-1))
@@ -38,6 +38,6 @@ export async function verifyMarkdownEditorRawInline(h: Harness) {
     element.richView.view.focus()
   })
   await page.keyboard.press('ArrowRight')
-  const keyboard = await latestIndication(page)
-  check('arrowing onto a raw-inline atom shows the host tooltip', keyboard?.via === 'keyboard' && (await tooltip.isVisible()), JSON.stringify(keyboard))
+  const selection = await latestIndication(page)
+  check('arrowing onto a raw-inline atom shows the host tooltip', selection?.via === 'selection' && (await tooltip.isVisible()), JSON.stringify(selection))
 }

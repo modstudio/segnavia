@@ -129,7 +129,7 @@ export function mountRichEditor(options: RichAdapterOptions): Editor {
     onBlur: () => options.indicator.end(),
   })
   const indicateSelection = () => {
-    options.indicator.keyboardSelect(selectedRawInlineAtom(editor))
+    options.indicator.selectionSelect(selectedRawInlineAtom(editor))
   }
   editor.on('transaction', indicateSelection)
   editor.on('selectionUpdate', indicateSelection)
