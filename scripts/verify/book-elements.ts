@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import type { Page } from 'playwright-core'
 import { verifyComposeFailure } from './book-compose-failure.ts'
@@ -6,89 +5,18 @@ import { verifyHiddenBookElements } from './book-hidden-elements.ts'
 import { verifyBookLayoutSwitching, verifyNonceAuthorizedAuthorScripts } from './book-layout-elements.ts'
 import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
 import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
+import { pagesText } from './book-text.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
-import { graphemes, type PdfPageText, pageTextRelation } from './page-text-relation.ts'
 import { inspectNoteViewGeometry, pageContainsNoteText } from './paginated-notes.ts'
 
-interface ClipRect {
-  left: number
-  top: number
-  right: number
-  bottom: number
-}
-
-interface ScreenPageText {
-  text: string
-  paper: { width: number; height: number }
-  clips: ClipRect[]
+interface ScreenPageNotes {
   notes: string[]
 }
 
-interface PdfWord extends ClipRect {
-  text: string
-  line: number
-  lineTop: number
-  lineInline: number
-}
-
-interface SkippedRun {
-  page: number
-  text: string
-}
-
-function normalizedPageText(): ScreenPageText[] {
-  const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-  const inside = (inner: DOMRect, outer: DOMRect) => {
-    const x = inner.left + inner.width / 2
-    const y = inner.top + inner.height / 2
-    return x >= outer.left && x <= outer.right && y >= outer.top && y <= outer.bottom
-  }
-  const visibleNodeText = (node: Text): string => {
-    const parent = node.parentElement
-    if (parent?.closest('[data-segnavia-galley-source]')) return ''
-    const clip = parent?.closest('[data-segnavia-head],[data-segnavia-window],[data-segnavia-page-note],[data-segnavia-foot],[data-segnavia-book-page]')
-    const clipRect = clip?.getBoundingClientRect()
-    if (!clipRect) return ''
-    let text = ''
-    for (const segment of segmenter.segment(node.textContent ?? '')) {
-      const range = document.createRange()
-      range.setStart(node, segment.index)
-      range.setEnd(node, segment.index + segment.segment.length)
-      if (inside(range.getBoundingClientRect(), clipRect)) text += segment.segment
-    }
-    return text
-  }
-  const regionText = (region: Element): string => {
-    let text = ''
-    const walker = document.createTreeWalker(region, NodeFilter.SHOW_TEXT)
-    let node = walker.nextNode() as Text | null
-    while (node) {
-      text += visibleNodeText(node)
-      node = walker.nextNode() as Text | null
-    }
-    return text
-  }
+function screenPageNotes(): ScreenPageNotes[] {
   return Array.from(document.querySelectorAll('[data-segnavia-book-page]')).map((page) => {
-    // Each paginated window holds a translated clone of its whole flow, so textContent includes
-    // text clipped off this page. Range geometry keeps only graphemes visibly inside its clip.
-    const direction = getComputedStyle(page).direction
-    const regions = Array.from(page.querySelectorAll('[data-segnavia-head],[data-segnavia-window],[data-segnavia-page-note],[data-segnavia-foot]'))
-    regions.sort((left, right) => {
-      const leftRect = left.getBoundingClientRect()
-      const rightRect = right.getBoundingClientRect()
-      const block = leftRect.top - rightRect.top
-      if (block !== 0) return block
-      return direction === 'rtl' ? rightRect.right - leftRect.right : leftRect.left - rightRect.left
-    })
-    const paper = page.getBoundingClientRect()
     return {
-      text: regions.map(regionText).join(''),
-      paper: { width: paper.width, height: paper.height },
-      clips: regions.map((region) => {
-        const rect = region.getBoundingClientRect()
-        return { left: rect.left - paper.left, top: rect.top - paper.top, right: rect.right - paper.left, bottom: rect.bottom - paper.top }
-      }),
       notes: Array.from(page.querySelectorAll('[data-segnavia-page-note]')).map((view) => {
         const id = view.getAttribute('data-segnavia-page-note') ?? ''
         const galley = document.querySelector(`[data-segnavia-galley-source] [data-segnavia-note="${id}"]`)
@@ -98,81 +26,9 @@ function normalizedPageText(): ScreenPageText[] {
   })
 }
 
-function decodeXml(value: string): string {
-  return value.replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&amp;', '&').replaceAll('&quot;', '"').replaceAll('&#39;', "'")
-}
-
-function bboxPages(language: 'en' | 'he'): { width: number; height: number; words: PdfWord[] }[] {
-  const file = path.join(SITE, `book-paginated-large-${language}.pdf`)
-  const xml = execFileSync('pdftotext', ['-bbox-layout', file, '-'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-  return [...xml.matchAll(/<page width="([\d.]+)" height="([\d.]+)">([\s\S]*?)<\/page>/g)].map((page) => {
-    let line = 0
-    const words: PdfWord[] = []
-    for (const match of (page[3] ?? '').matchAll(/<line xMin="([\d.]+)" yMin="([\d.]+)"[^>]*>([\s\S]*?)<\/line>/g)) {
-      const lineInline = Number(match[1])
-      const lineTop = Number(match[2])
-      for (const word of (match[3] ?? '').matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="([\d.]+)">([\s\S]*?)<\/word>/g)) {
-        words.push({
-          left: Number(word[1]),
-          top: Number(word[2]),
-          right: Number(word[3]),
-          bottom: Number(word[4]),
-          text: decodeXml(word[5] ?? ''),
-          line,
-          lineTop,
-          lineInline,
-        })
-      }
-      line++
-    }
-    return { width: Number(page[1]), height: Number(page[2]), words }
-  })
-}
-
-function pdfPageText(language: 'en' | 'he', screens: ScreenPageText[]): { pages: PdfPageText[]; dropped: number } {
-  let dropped = 0
-  const pages = bboxPages(language).map((page, index) => {
-    const screen = screens[index]
-    if (!screen) return { text: '', graphemes: [] }
-    const clips = screen.clips.map((clip) => ({
-      left: (clip.left / screen.paper.width) * page.width,
-      top: (clip.top / screen.paper.height) * page.height,
-      right: (clip.right / screen.paper.width) * page.width,
-      bottom: (clip.bottom / screen.paper.height) * page.height,
-    }))
-    const regions = clips.map(() => new Map<number, PdfWord[]>())
-    for (const word of page.words) {
-      const x = (word.left + word.right) / 2
-      const y = (word.top + word.bottom) / 2
-      const region = clips.findIndex((clip) => x >= clip.left && x <= clip.right && y >= clip.top && y <= clip.bottom)
-      if (region < 0) {
-        dropped++
-        continue
-      }
-      const line = regions[region]?.get(word.line) ?? []
-      line.push(word)
-      regions[region]?.set(word.line, line)
-    }
-    const orderedWords = regions.flatMap((region) =>
-      [...region.values()]
-        .sort((left, right) => (left[0]?.lineTop ?? 0) - (right[0]?.lineTop ?? 0) || (left[0]?.lineInline ?? 0) - (right[0]?.lineInline ?? 0))
-        .flatMap((line) =>
-          line
-            .sort((left, right) => (language === 'he' ? right.right - left.right : left.left - right.left))
-            .map((word) => (language === 'he' && /[\u0590-\u05ff]/.test(word.text) ? [...word.text].reverse().join('') : word.text)),
-        ),
-    )
-    return {
-      text: orderedWords.join(''),
-      graphemes: orderedWords.flatMap((word, index) => graphemes(unpointed(word)).map((text) => ({ text, word: index }))),
-    }
-  })
-  return { pages, dropped }
-}
-
-function missingNotePages(screens: ScreenPageText[], pages: PdfPageText[]): { page: number; note: string }[] {
+function missingNotePages(screens: ScreenPageNotes[], pages: string[]): { page: number; note: string }[] {
   return screens.flatMap((screen, index) => {
-    const pdfText = pages[index]?.text ?? ''
+    const pdfText = pages[index] ?? ''
     return screen.notes.flatMap((note) => (pageContainsNoteText(pdfText, note) ? [] : [{ page: index + 1, note: unpointed(note) }]))
   })
 }
@@ -213,9 +69,12 @@ async function spreadFacts(h: Harness, language: 'en' | 'he') {
 }
 
 async function verifyLargeBookComposition(check: Harness['check'], stressPage: Page) {
-  const screenTexts: Record<string, ScreenPageText[]> = {}
+  const screenPages: Record<'en' | 'he', ScreenPageNotes[]> = { en: [], he: [] }
+  const pdfPages: Record<'en' | 'he', string[]> = { en: [], he: [] }
   for (const language of ['en', 'he'] as const) {
-    const expectedPages = bboxPages(language).length
+    const pages = pagesText(path.join(SITE, `book-paginated-large-${language}.pdf`))
+    pdfPages[language] = pages
+    const expectedPages = pages.length
     const frame = stressPage.frameLocator(`#book-large-${language} iframe`)
     // Stable Chrome can expose an intermediate empty srcdoc composition while the large src view
     // is mounting. Wait for the page count rendered into the matching PDF, without accepting that transient.
@@ -226,7 +85,7 @@ async function verifyLargeBookComposition(check: Harness['check'], stressPage: P
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
       ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
     }))
-    screenTexts[language] = await frame.locator('html').evaluate(normalizedPageText)
+    screenPages[language] = await frame.locator('html').evaluate(screenPageNotes)
     const geometry = await frame.locator('html').evaluate(inspectNoteViewGeometry)
     check(
       `book-large-${language} composes 300+ pages within the repagination bound`,
@@ -240,46 +99,10 @@ async function verifyLargeBookComposition(check: Harness['check'], stressPage: P
     )
   }
   for (const language of ['en', 'he'] as const) {
-    const pdf = pdfPageText(language, screenTexts[language] ?? [])
-    check(
-      `book-large-${language} has the PDF's page count`,
-      screenTexts[language]?.length === pdf.pages.length,
-      `${screenTexts[language]?.length ?? 0}/${pdf.pages.length} pages`,
-    )
-    const relations = (screenTexts[language] ?? []).map((screen, index) => pageTextRelation(screen.text, pdf.pages[index] ?? { text: '', graphemes: [] }))
-    const different = relations.findIndex(({ matches }) => !matches)
-    const skippedRuns: SkippedRun[] = relations.flatMap(({ skipped }, index) => skipped.map((text) => ({ page: index + 1, text })))
-    const longestSkippedRun = skippedRuns.reduce((longest, run) => Math.max(longest, graphemes(run.text).length), 0)
-    const skippedPageCounts = new Map<number, number>()
-    for (const { page } of skippedRuns) skippedPageCounts.set(page, (skippedPageCounts.get(page) ?? 0) + 1)
-    const skippedPages = [...skippedPageCounts].map(([page, count]) => ({ page, count }))
-    const excessPoints = relations.flatMap(({ excessPoints }, index) => (excessPoints ? [{ page: index + 1, points: excessPoints }] : []))
-    const relationDetail = {
-      pages: pdf.pages.length,
-      droppedPdfWords: pdf.dropped,
-      skippedRuns: skippedRuns.length,
-      longestSkippedRun,
-      skippedPages,
-      skippedExamples: skippedRuns.slice(0, 3),
-      excessPoints,
-    }
-    // The bounded-gap subsequence rule treats each bbox word as one run. It admits Poppler's clipped
-    // edge-glyph fragments while rejecting missing, reordered or misplaced text and leaked words over three graphemes.
-    check(
-      `book-large-${language} has the PDF's text on every page`,
-      different === -1,
-      different === -1
-        ? JSON.stringify(relationDetail)
-        : JSON.stringify({
-            page: different + 1,
-            screen: screenTexts[language]?.[different]?.text,
-            pdf: pdf.pages[different]?.text,
-            relation: relations[different],
-            ...relationDetail,
-          }),
-    )
-    const screens = screenTexts[language] ?? []
-    const missing = missingNotePages(screens, pdf.pages)
+    const pdf = pdfPages[language]
+    check(`book-large-${language} has the PDF's page count`, screenPages[language].length === pdf.length, `${screenPages[language].length}/${pdf.length} pages`)
+    const screens = screenPages[language]
+    const missing = missingNotePages(screens, pdf)
     const noteCount = screens.reduce((count, screen) => count + screen.notes.length, 0)
     check(
       `book-large-${language} prints each page note's whole text`,
