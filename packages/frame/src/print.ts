@@ -123,7 +123,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     placePrintImages(win.document)
     const sheetsLimit = options.limits?.sheets
     const pagination = paginateNotes(win.document, sheetsLimit)
-    if (sheetsLimit !== undefined && pagination.exceeded) throw new RangeError(limitRefusal('sheets', pagination.sheets, sheetsLimit))
+    if (sheetsLimit !== undefined && pagination.exceeded) throw new RangeError(limitRefusal('sheets', pagination.sheets, sheetsLimit, { atLeast: true }))
     await waitForPaint(win.requestAnimationFrame.bind(win), Math.max(PAINT_FALLBACK_MS, deadlineAt - Date.now()))
     if (options.print) await options.print(win)
     else {

@@ -34,7 +34,7 @@ test('pagination segments only a bounded prefix when the remaining note is enorm
   }
   Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: CountingSegmenter })
   try {
-    expect(paginateNotes(target as unknown as Document, 1)).toEqual({ sheets: 1, exceeded: true })
+    expect(paginateNotes(target as unknown as Document, 1)).toEqual({ sheets: 2, exceeded: true })
     expect(segmented).toBeLessThan(10_000)
   } finally {
     Object.defineProperty(Intl, 'Segmenter', { configurable: true, value: OriginalSegmenter })

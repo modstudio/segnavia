@@ -72,6 +72,12 @@ describe('limitRefusal', () => {
     expect(refusal).toContain('slide 3')
   })
 
+  test('names a lower-bound actual as at least', () => {
+    expect(limitRefusal('sheets', 3, 2, { atLeast: true })).toBe(
+      "The PDF is at least 3 sheets, above the sheets limit of 2; raise the host's limits.sheets, or reduce the content to clear this refusal.",
+    )
+  })
+
   test('fills the shared template to the direct refusal', () => {
     const options = { pagesSource: 'host' as const }
     expect(fillLimitRefusal(limitRefusalTemplate('pages', 5, options), 6)).toBe(limitRefusal('pages', 6, 5, options))

@@ -17,7 +17,7 @@ import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { dependencySetup, enforceDeckLimits, innerLimits, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
+import { copyLimits, dependencySetup, enforceDeckLimits, innerLimits, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
 import { printWithOverflow } from './overflow.ts'
 import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
@@ -277,7 +277,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           )
           return renderDeckPdf(
             prepared,
-            { ...opts, limits: innerLimits(opts.limits), press: undefined },
+            { ...opts, limits: copyLimits(opts.limits, opts.slots), press: undefined },
             {
               renderPdf: (setup, pdf) =>
                 withTab({ ...setup, slots: preparedSlotsFor(prepared), readiness: renderReadiness('refuse', false, false), deadline }, (tab) =>

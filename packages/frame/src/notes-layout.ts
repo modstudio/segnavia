@@ -37,6 +37,7 @@ export interface NotesDocumentOptions {
 }
 
 export interface NotesPaginationResult {
+  /** The sheet count, or its lower bound when pagination stopped early because it passed the limit. */
   sheets: number
   exceeded: boolean
 }
@@ -123,6 +124,7 @@ export function paginateNotes(target: Document | null, sheetLimit?: number): Not
     let after = sheet
     while (rest) {
       if (sheetLimit !== undefined && sheets >= sheetLimit) {
+        sheets++
         exceeded = true
         return
       }

@@ -155,6 +155,8 @@ export interface LimitRefusalOptions {
   where?: string
   pagesSource?: PageLimitSource
   setting?: string
+  /** The actual is a lower bound: the measurement stopped once it passed the limit. */
+  atLeast?: boolean
 }
 
 export const LIMIT_ACTUAL_PLACEHOLDER = '{{limit.actual}}'
@@ -168,7 +170,7 @@ function clearingAction(measure: LimitMeasure, options: LimitRefusalOptions): st
 function refusal(measure: LimitMeasure, actual: string | number, limit: number, options: LimitRefusalOptions): string {
   const text = TEXT[measure]
   const subject = options.where ? `${text.subject} for ${options.where}` : text.subject
-  return `The ${subject} is ${actual} ${text.unit}, above the ${measure} limit of ${limit}; ${clearingAction(measure, options)} to clear this refusal.`
+  return `The ${subject} is ${options.atLeast ? 'at least ' : ''}${actual} ${text.unit}, above the ${measure} limit of ${limit}; ${clearingAction(measure, options)} to clear this refusal.`
 }
 
 export function limitRefusal(measure: LimitMeasure, actual: number, limit: number, options: LimitRefusalOptions = {}): string {

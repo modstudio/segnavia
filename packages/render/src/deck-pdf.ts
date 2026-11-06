@@ -137,7 +137,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
             const sheetsLimit = opts.limits?.sheets
             const pagination = await paginateRenderedNotes(tab, sheetsLimit)
             if (sheetsLimit !== undefined && pagination.exceeded) {
-              throw new RenderRefusedError(limitRefusal('sheets', pagination.sheets, sheetsLimit))
+              throw new RenderRefusedError(limitRefusal('sheets', pagination.sheets, sheetsLimit, { atLeast: true }))
             }
             pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
           }

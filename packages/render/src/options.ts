@@ -110,6 +110,11 @@ export function innerLimits(limits: Limits | undefined): Limits | undefined {
   }
 }
 
+/** Slot printing renders one copy per fill; a lone copy is the whole output, so it carries the whole output's limits. */
+export function copyLimits(limits: Limits | undefined, slots: SlotPrintOptions | undefined): Limits | undefined {
+  return (slots?.fills?.length ?? 1) === 1 ? limits : innerLimits(limits)
+}
+
 export function enforceDeckLimits(deck: Deck, limits: Limits | undefined): void {
   const reasons = exceedsLimits(deck, limits ?? {})
   if (reasons.length > 0) throw new RenderRefusedError(reasons.join('; '))
