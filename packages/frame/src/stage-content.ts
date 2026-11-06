@@ -20,7 +20,6 @@ export function stageCanvas(
   controller: DeckController,
   deck: Deck,
   slide: Slide,
-  _index: number,
   content: ResolvedContent,
   options: {
     css: string

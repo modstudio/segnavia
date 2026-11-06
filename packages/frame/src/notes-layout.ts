@@ -1,4 +1,5 @@
-import { type Deck, Print, type PrintInput, PX_PER_MM, resolveDirection, type Slide, sequenceFolios, sheetMm } from '@segnavia/format'
+import { type Deck, Print, type PrintInput, PX_PER_MM, resolveDirection, type Slide, sheetMm } from '@segnavia/format'
+import { deckFolios } from './deck-folios.ts'
 import { DEFAULT_NOTES_FONT_FAMILY } from './page-fonts.ts'
 import { escapeHtml } from './svg.ts'
 
@@ -147,7 +148,7 @@ export function notesDocument(deck: Deck, options: NotesDocumentOptions): string
   const someHaveNotes = deck.slides.some((slide) => speakerNotes(slide) !== '')
   // Empty-slide copy lives in the notes box, so dir=auto follows the label.
   const emptyNotes = someHaveNotes ? (options.labels?.noSpeakerNotes ?? 'No speaker notes') : ''
-  const folios = sequenceFolios(deck.slides.length, 'arabic')
+  const folios = deckFolios(deck)
   const sheets = folios.map((folio, index) => {
     const slide = deck.slides[index]
     if (!slide) throw new RangeError(`Folio ${index} has no slide.`)

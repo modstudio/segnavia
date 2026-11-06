@@ -1,6 +1,7 @@
-import { type Deck, type Slide, sequenceFolios } from '@segnavia/format'
+import type { Deck, Slide } from '@segnavia/format'
 import { documentNeedsSlotFit } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
+import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { defaultFrameTitle } from './frame-title.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { stageCanvas } from './stage-content.ts'
@@ -21,9 +22,8 @@ export function thumbnailCanvas(
   reportsAnimation = false,
 ): HTMLElement {
   const bridge = reportsAnimation || (content.kind === 'html' && documentNeedsSlotFit(slotHtml(content.html, slots)))
-  const folio = sequenceFolios(deck.slides.length, 'arabic')[index]
-  if (!folio) throw new RangeError(`Slide ${index} has no computed folio.`)
-  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, index, content, {
+  const folio = deckFolioAt(deckFolios(deck), index)
+  const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, content, {
     css,
     csp: '',
     frameTitle: defaultFrameTitle,

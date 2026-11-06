@@ -26,8 +26,8 @@ describe('stageCanvas', () => {
     const htmlSlide = deck.slides[0]
     const urlSlide = deck.slides[1]
     if (!htmlSlide || !urlSlide) throw new Error('Expected the HTML and URL test slides.')
-    const html = stageCanvas(controller, deck, htmlSlide, 0, htmlSlide.content as ResolvedContent, options)
-    const url = stageCanvas(controller, deck, urlSlide, 1, urlSlide.content as ResolvedContent, options)
+    const html = stageCanvas(controller, deck, htmlSlide, htmlSlide.content as ResolvedContent, options)
+    const url = stageCanvas(controller, deck, urlSlide, urlSlide.content as ResolvedContent, options)
     expect(html.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts allow-forms')
     expect(url.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts')
   })
