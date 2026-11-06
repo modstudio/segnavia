@@ -287,8 +287,10 @@ and every item's written number, and link-title quoting. Content created by a
 command or paste has no recorded form and uses the serializer default. A
 recorded form that would change meaning in its new context also falls back to
 that default. The renderers decide the cases that data settles, such as an
-unsafe fence, a title quote or reordered list numbering, one construct at a
-time. In the rare case that a block still does not read back as the same
+unsafe fence or a title quote, one construct at a time. An ordered list keeps
+its written numbers only while its items keep their recorded positions; once
+an item is added, removed or moved, the whole list is numbered from its start,
+keeping its delimiter. In the rare case that a block still does not read back as the same
 document, all of that block's recorded forms revert to the defaults, so a
 block takes at most two renders.
 
