@@ -2,7 +2,7 @@ import { Book, Cover, type Deck, DocumentMetadata, Page } from '@segnavia/format
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
-import { type HtmlPage, type PreparedSlots, resolvePageHtml } from '@segnavia/html'
+import { type PreparedSlots, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
@@ -12,17 +12,16 @@ import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
+import { resolveDiagramScript } from './diagram-script.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { dependencySetup, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
-import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
-import { containFixedPageOverflow } from './overflow-containment.ts'
-import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts, resolvedPageDocument } from './page-document.ts'
-import { assertPrintOptions, printPage } from './page-paper.ts'
+import { printWithOverflow } from './overflow.ts'
+import { prepareRenderedPage, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
+import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
-import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce, finishPdf } from './pdf-finish.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
@@ -30,7 +29,7 @@ import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './pro
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
-import { renderReadiness } from './render-readiness.ts'
+import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 import { DEFAULT_JS_HEAP_MB, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
@@ -159,79 +158,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       (tab) => finishPdf(pdf, options, browserJpegDecoder(tab)),
     )
   }
-  async function renderPagePdf(page: HtmlPage, opts: RenderOptions, inputIndex?: number, deadline?: RenderDeadline): Promise<PrintResult<true>> {
-    if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
-    const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
-    return withTab(
-      {
-        viewport,
-        scripts: true,
-        slots: preparedSlotsFor(page),
-        html: renderedPageDocument(page, opts, true),
-        readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
-        boundMs: opts.boundMs,
-        deadline,
-        beforeOutput: opts.beforeOutput,
-        ...dependencySetup(opts),
-      },
-      async (tab) => {
-        await awaitPrintedPageComposition(tab, page)
-        const captures = await prepareBackdropRasters(tab, opts.effects)
-        if (page.print) {
-          const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex)
-          return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
-        }
-        const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
-        const height = fixedHeight ?? (await contentHeight(tab))
-        if (fixedHeight !== null) {
-          const overflow = await measureOverflow(tab, viewport.width, 'page', inputIndex)
-          return {
-            bytes: await tagBackdropRasters(await tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true }), captures),
-            overflow,
-          }
-        }
-        const printed = await printWithOverflow(
-          tab,
-          viewport.width,
-          'page',
-          { width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: '1' },
-          inputIndex,
-        )
-        return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
-      },
-    )
-  }
-
-  async function renderPiecePdf(page: HtmlPage, geometry: PieceGeometry, css: string, opts: RenderOptions, deadline?: RenderDeadline): Promise<Uint8Array> {
-    const html = resolvedPageDocument(page, containFixedPageOverflow(css), opts)
-    return withTab(
-      {
-        viewport: geometry.viewport,
-        scripts: true,
-        slots: preparedSlotsFor(page),
-        html,
-        readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
-        boundMs: opts.boundMs,
-        deadline,
-        beforeOutput: opts.beforeOutput,
-        ...dependencySetup(opts),
-      },
-      (tab) =>
-        pdfWithBackdropRasters(
-          tab,
-          {
-            width: geometry.pdf.width,
-            height: geometry.pdf.height,
-            printBackground: true,
-            preferCSSPageSize: false,
-            pageRanges: '1',
-            margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-          },
-          opts.effects,
-        ),
-    )
-  }
-
   const renderer: Renderer = {
     async bookPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
@@ -257,7 +183,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'print')
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const page = await filledPage(prepared.page, copySlots, deadline.signal)
-          const printed = await renderPagePdf(page, { ...prepared.options, limits: undefined, press: undefined, overflow: undefined }, undefined, deadline)
+          const diagramScript = await resolveDiagramScript(page.html)
+          const printed = await renderPagePdf(
+            page,
+            { ...prepared.options, limits: undefined, press: undefined, overflow: undefined },
+            { withTab },
+            undefined,
+            deadline,
+            diagramScript,
+          )
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
         })
@@ -272,6 +206,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'screen')
         const page = await filledPage(prepared.page, opts.slots, deadline.signal)
+        const diagramScript = await resolveDiagramScript(page.html)
         const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
         return withTab(
           {
@@ -279,7 +214,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             scripts: true,
             slots: preparedSlotsFor(page),
             scale: opts.scale,
-            html: renderedPageDocument(page, prepared.options),
+            html: renderedPageDocument(page, prepared.options, false, diagramScript),
             readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
             boundMs: opts.boundMs,
             deadline,
@@ -316,12 +251,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const parsed = expanded.map((item) => item.page)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const pages = await filledPages(parsed, copySlots, deadline.signal)
+          const diagramScript = await resolveDiagramScript(pages.map((page) => page.html).join(''))
           return renderPagesPdf(
             pages,
             { ...withFonts, limits: undefined, press: undefined },
             {
-              pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, inputIndex, deadline),
-              piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, deadline),
+              pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, { withTab }, inputIndex, deadline, diagramScript),
+              piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => fontFaces(options.fonts),
               finish: async (pdf) => pdf,
             },
@@ -335,6 +271,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const prepared = await filledDeck(deck, copySlots, deadline.signal)
+          const diagramScript = await resolveDiagramScript(
+            prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join(''),
+          )
           return renderDeckPdf(
             prepared,
             { ...opts, press: undefined },
@@ -347,6 +286,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               finish: async (pdf) => pdf,
               signal: deadline.signal,
             },
+            diagramScript,
           )
         })
         return finishWithBrowser(bytes, opts, deadline)
@@ -360,8 +300,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const slide = preparedDeck.slides[index]
         if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
         const single: Deck = { ...preparedDeck, slides: [slide] }
+        const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
+        const diagramScript = await resolveDiagramScript(slideHtml)
+        const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false)
         const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
-        const html = printableDeck(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins })
+        const html = printableDeck(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins, diagramScript })
         return withTab(
           {
             viewport: deck.size,
@@ -375,7 +318,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             beforeOutput: opts.beforeOutput,
             ...dependencySetup(opts),
           },
-          async (tab) => proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts),
+          async (tab) => {
+            await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)
+            return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
+          },
         )
       })
     },

@@ -102,6 +102,12 @@ describe('architecture rules', () => {
     expect(checkImports(file, workspace('voice'), all)[0]?.message).toContain('declare it in architecture.ts')
   })
 
+  test('a source may import a dependency that its build bundles', () => {
+    const bundled = { ...workspace('diagrams'), devDependencies: { mermaid: '12.2.0' } }
+    const file = { path: 'packages/diagrams/src/script.ts', text: '', imports: ['mermaid/dist/mermaid.min.js'] }
+    expect(checkImports(file, bundled, all)).toEqual([])
+  })
+
   test('test fixtures can be imported only by tests and test helpers in package source', () => {
     const source = { path: 'packages/render/src/color/reference.ts', text: '', imports: ['../../test-fixtures/lcms/reference.ts'] }
     expect(checkImports(source, workspace('render'), all).map((finding) => finding.message)).toContain(
@@ -127,6 +133,20 @@ describe('architecture rules', () => {
   test('package.json and architecture.ts must agree both ways', () => {
     const drifted = { ...workspace('voice'), manifestImports: ['@segnavia/format', 'left-pad'] }
     expect(checkManifest(drifted).map((f) => f.message)).toEqual(['left-pad is a dependency that architecture.ts does not allow.'])
+  })
+
+  test('a bundled dependency must appear only in devDependencies', () => {
+    const diagrams = workspace('diagrams')
+    const bundled = {
+      ...diagrams,
+      devDependencies: { mermaid: '12.2.0' },
+      sources: (diagrams.rule.serverSafe ?? []).map((source) => `packages/diagrams/${source}`),
+    }
+    expect(checkManifest(bundled)).toEqual([])
+    const runtime = { ...bundled, dependencies: { mermaid: '12.2.0' } }
+    expect(checkManifest(runtime).map((finding) => finding.message)).toEqual([
+      '@segnavia/diagrams bundles mermaid; put mermaid in devDependencies and remove it from dependencies and peerDependencies to clear this refusal.',
+    ])
   })
 
   test('only the modeled adapter package may name React in any dependency field', () => {

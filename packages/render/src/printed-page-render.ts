@@ -1,4 +1,3 @@
-import { diagramScript } from '@segnavia/diagrams/script'
 import { newNonce } from '@segnavia/frame/bridge'
 import { PRINTED_PAGE_COMPOSED_ATTRIBUTE, PRINTED_PAGE_FAILURE_ATTRIBUTE, printedPageDocument } from '@segnavia/frame/printed-page-document'
 import type { HtmlPage } from '@segnavia/html'
@@ -9,8 +8,8 @@ import type { RenderOptions } from './options.ts'
 import { renderPageDocument } from './page-document.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
 
-export function renderedPageDocument(page: HtmlPage, options: RenderOptions, printing = false): string {
-  if (!page.printedPages) return renderPageDocument(page, options, printing)
+export function renderedPageDocument(page: HtmlPage, options: RenderOptions, printing = false, diagramScript?: string): string {
+  if (!page.printedPages) return renderPageDocument(page, options, printing, undefined, '', diagramScript)
   return printedPageDocument(page, {
     nonce: newNonce(),
     css: `${fontFaces(options.fonts)}${options.css ?? ''}`,

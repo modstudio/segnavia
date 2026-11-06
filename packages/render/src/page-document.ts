@@ -1,4 +1,3 @@
-import { diagramScript } from '@segnavia/diagrams/script'
 import { Book, type BookInput, type FontFace, type FontReference, type FontSource, Page, type PageInput, resolvePageWidth } from '@segnavia/format'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
@@ -85,6 +84,7 @@ export async function renderOptionsWithBookFonts(
 }
 
 interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOrigins'> {
+  diagramScript?: string
   nonce?: string
   relayKeys?: boolean
   reportHeight?: boolean
@@ -92,7 +92,7 @@ interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOri
 
 export function resolvedPageDocument(page: HtmlPage, css: string, options: ResolvedPageDocumentOptions): string {
   const nonce = options.nonce ?? newNonce()
-  return frameDocument(withDiagramScript(page.html, nonce, diagramScript), {
+  return frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
     scripts: page.scripts,
     nonce,
     dir: page.dir,
@@ -105,7 +105,7 @@ export function resolvedPageDocument(page: HtmlPage, css: string, options: Resol
   })
 }
 
-export function renderPageDocument(input: PageInput, options: RenderOptions, printing = false, nonce?: string, fontCss = ''): string {
+export function renderPageDocument(input: PageInput, options: RenderOptions, printing = false, nonce?: string, fontCss = '', diagramScript?: string): string {
   const page = resolvePageHtml(Page.parse(input))
   const namedMeasure =
     page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')
@@ -115,5 +115,5 @@ export function renderPageDocument(input: PageInput, options: RenderOptions, pri
   const hostCss = `${page.print ? printCss(page.print) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}${options.css ?? ''}`
   const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
   const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
-  return resolvedPageDocument(page, css, { dependencyOrigins: options.dependencyOrigins, nonce, relayKeys: false, reportHeight: false })
+  return resolvedPageDocument(page, css, { dependencyOrigins: options.dependencyOrigins, diagramScript, nonce, relayKeys: false, reportHeight: false })
 }

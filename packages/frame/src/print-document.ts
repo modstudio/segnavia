@@ -110,6 +110,7 @@ export interface PrintOptions {
   omitHtmlSlideFrames?: boolean
   slots?: SlotsOptions
   dependencyOrigins?: Iterable<string>
+  diagramScript?: string
 }
 
 function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
@@ -122,9 +123,9 @@ const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-p
 export function htmlSlideDocument(
   deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>,
   html: string,
-  options: { css?: string; nonce: string; printAtMs?: number; dependencyOrigins?: Iterable<string> },
+  options: { css?: string; nonce: string; printAtMs?: number; dependencyOrigins?: Iterable<string>; diagramScript?: string },
 ): string {
-  return frameDocument(html, {
+  return frameDocument(withDiagramScript(html, options.nonce, options.diagramScript), {
     scripts: deck.scripts,
     nonce: options.nonce,
     dir: deck.dir,
@@ -172,7 +173,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   if ('media' in content)
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
   const frame = (html: string) =>
-    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins, diagramScript: options.diagramScript }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)

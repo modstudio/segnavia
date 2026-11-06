@@ -21,9 +21,9 @@ test('a markdown page and its HTML equivalent build the same frame document', ()
 })
 
 test('inlines the offline diagram renderer only for a diagram body', () => {
-  const plain = renderPageDocument({ markdown: '# Plain' }, {}, false, 'test')
-  const diagram = renderPageDocument({ markdown: '```mermaid\nflowchart TD\n  A --> B\n```' }, {}, false, 'test')
-  expect(plain).not.toContain('data-segnavia-diagrams-drawn')
-  expect(diagram).toContain('data-segnavia-diagrams-drawn')
+  const plain = renderPageDocument({ markdown: '# Plain' }, {}, false, 'test', '', 'DRAW')
+  const diagram = renderPageDocument({ markdown: '```mermaid\nflowchart TD\n  A --> B\n```' }, {}, false, 'test', '', 'DRAW')
+  expect(plain).not.toContain('DRAW')
+  expect(diagram).toContain('DRAW')
   expect(diagram).toContain('<script nonce="test">')
 })

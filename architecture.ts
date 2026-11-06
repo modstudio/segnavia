@@ -35,6 +35,8 @@ export interface PackageRule {
   // Every package this one may import, by bare name. A workspace package may
   // be imported only through an entry point its package.json exports.
   imports: string[]
+  // Packages the build imports only to inline them into published output.
+  bundles?: string[]
   // Entry points that must stay importable on a server although the package
   // as a whole is for the browser, with the files each may reach.
   serverSafe?: string[]
@@ -64,7 +66,8 @@ export const PACKAGES: Record<string, PackageRule> = {
   idml: { runtime: 'universal', imports: ['@segnavia/format', '@segnavia/html', 'htmlparser2', 'domhandler', 'dom-serializer'] },
   diagrams: {
     runtime: 'browser',
-    imports: ['@segnavia/format', '@segnavia/frame', 'mermaid'],
+    imports: ['@segnavia/format', '@segnavia/frame'],
+    bundles: ['mermaid'],
     // The provider and explicit script entries are server-safe; auto registration is browser-only.
     serverSafe: ['src/index.ts', 'src/script.ts', 'src/runtime.ts'],
   },

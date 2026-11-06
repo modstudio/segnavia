@@ -52,7 +52,9 @@
   },
   "dependencies": {
     "@segnavia/format": "workspace:*",
-    "@segnavia/frame": "workspace:*",
+    "@segnavia/frame": "workspace:*"
+  },
+  "devDependencies": {
     "mermaid": "12.2.0"
   }
 }

@@ -1,4 +1,3 @@
-import { diagramScript } from '@segnavia/diagrams/script'
 import { type Book, type BookInput, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
@@ -8,9 +7,10 @@ import {
 } from '@segnavia/frame/book-document'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
-import { bookStylesheet, type PreparedSlots } from '@segnavia/html'
+import { bookDocument, bookStylesheet, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
+import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type DependencyCache, dependencySetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
@@ -50,7 +50,15 @@ export function usesKeepWith(...sources: Array<string | undefined>): boolean {
   return sources.some((source) => source?.includes('--segnavia-keep-with') === true)
 }
 
-function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marginLayer: boolean, dependencyOrigins?: Iterable<string>): string {
+function bookSrcdoc(
+  html: string,
+  book: Book,
+  fontCss: string,
+  css: string,
+  marginLayer: boolean,
+  diagramScript: string | undefined,
+  dependencyOrigins?: Iterable<string>,
+): string {
   const nonce = newNonce()
   if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true, diagramScript })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
@@ -66,13 +74,14 @@ function bookSrcdoc(html: string, book: Book, fontCss: string, css: string, marg
   })
 }
 
-function printBook(
+async function printBook(
   html: string,
   book: Book,
   renderOptions: RenderOptions,
   part: BookOverflowPart,
   layerCss: string,
   resolvedFontCss: string,
+  diagramScript: string | undefined,
   dependencies: BrowserBookDependencies,
 ): Promise<PrintResult<true>> {
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
@@ -83,7 +92,7 @@ function printBook(
   const css = `${bookPageCss(book, marginLayer || paginated)}${layerCss}${renderOptions.css ?? ''}`
   let srcdoc: string
   try {
-    srcdoc = bookSrcdoc(html, book, fontCss, css, marginLayer, renderOptions.dependencyOrigins)
+    srcdoc = bookSrcdoc(html, book, fontCss, css, marginLayer, diagramScript, renderOptions.dependencyOrigins)
   } catch (error) {
     if (error instanceof PaginatedBookRefusedError) throw new RenderRefusedError(error.message)
     throw error
@@ -118,8 +127,12 @@ function printBook(
 }
 
 export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+  let script: Promise<string | undefined> | undefined
   return renderBookPdf(input, options, {
-    print: (html, book, renderOptions, part, layerCss = '') => printBook(html, book, renderOptions, part, layerCss, fontCss, dependencies),
+    print: async (html, book, renderOptions, part, layerCss = '') => {
+      script ??= resolveDiagramScript(bookDocument(book).html)
+      return printBook(html, book, renderOptions, part, layerCss, fontCss, await script, dependencies)
+    },
     finish: dependencies.finish,
   })
 }

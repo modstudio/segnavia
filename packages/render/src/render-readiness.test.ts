@@ -17,10 +17,10 @@ describe('renderReadiness', () => {
 
   test('a refusal names every applicable fact that did not settle', () => {
     expect(readinessRefusal({ author: true, diagrams: true }, { author: false, diagrams: false }, 10)).toBe(
-      "The page did not call window.pageReady() and the page's diagrams did not finish drawing within 10s.",
+      "The page did not call window.pageReady() and the page's diagrams did not finish drawing within 10s. Call window.pageReady() or render with waitForPageReady: false; correct or simplify the diagram source so it draws within the bound to clear this refusal.",
     )
     expect(readinessRefusal({ author: false, diagrams: true }, { author: true, diagrams: false }, 10)).toBe(
-      "The page's diagrams did not finish drawing within 10s.",
+      "The page's diagrams did not finish drawing within 10s. Correct or simplify the diagram source so it draws within the bound to clear this refusal.",
     )
   })
 })
