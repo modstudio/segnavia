@@ -41,7 +41,8 @@ interface DiagramScope {
   }
 }
 
-export async function waitForDiagramReadiness(scope: DiagramScope): Promise<void> {
+export async function waitForDiagramReadiness(scope: DiagramScope, readiness: RenderReadiness): Promise<void> {
+  if (!readiness.diagrams) return
   await scope
     .locator(`html[${DIAGRAMS_DRAWN_ATTRIBUTE}]`)
     .waitFor({ timeout: PAGE_READY_BOUND_MS })

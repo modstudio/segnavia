@@ -136,6 +136,39 @@ test('deck PDF refuses a diagram slide that does not finish drawing', async () =
   )
 })
 
+test('deck PDF does not wait for an undrawn diagram when page readiness is disabled', async () => {
+  const diagramDeck = Deck.parse({
+    ...deck,
+    slides: [{ id: 'diagram-slide', content: { kind: 'html', html: '<pre data-segnavia-diagram="mermaid"></pre>' } }],
+  })
+  let diagramWaits = 0
+  await renderDeckPdf(
+    diagramDeck,
+    { waitForPageReady: false },
+    {
+      renderPdf: async (setup) => {
+        if (!setup.html.includes('<section class="sheet">')) {
+          const tab = {
+            locator: (selector: string) => ({
+              waitFor: () => {
+                if (selector === `html[${DIAGRAMS_DRAWN_ATTRIBUTE}]`) diagramWaits++
+                return Promise.resolve()
+              },
+            }),
+          } as unknown as Tab
+          await setup.beforeOutput?.(tab)
+        }
+        return onePage(400, 200)
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+    'DRAW',
+  )
+
+  expect(diagramWaits).toBe(0)
+})
+
 test('a failed HTML slide render names the slide id', async () => {
   const rendering = renderDeckPdf(
     deck,

@@ -302,6 +302,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const single: Deck = { ...preparedDeck, slides: [slide] }
         const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
         const diagramScript = await resolveDiagramScript(slideHtml)
+        const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false)
         const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
         const html = printableDeck(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins, diagramScript })
         return withTab(
@@ -318,7 +319,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             ...dependencySetup(opts),
           },
           async (tab) => {
-            if (hasDiagram(slideHtml)) await waitForDiagramReadiness(tab.locator('iframe').contentFrame())
+            await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)
             return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
           },
         )

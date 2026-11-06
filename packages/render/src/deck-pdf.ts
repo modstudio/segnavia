@@ -30,7 +30,7 @@ import { fontCssForRender } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
-import { waitForDiagramReadiness } from './render-readiness.ts'
+import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
 
@@ -52,13 +52,12 @@ interface DeckPdfServices {
   signal?: AbortSignal
 }
 
-async function waitForPrintReady(tab: Tab, diagrams: boolean): Promise<void> {
+async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<void> {
   await tab
     .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
     .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
     .catch(() => {})
-  if (!diagrams) return
-  await waitForDiagramReadiness(tab)
+  await waitForDiagramReadiness(tab, readiness)
 }
 
 function nameSlideError(error: unknown, id: string): never {
@@ -157,7 +156,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
               html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs, dependencyOrigins: opts.dependencyOrigins, diagramScript }),
               boundMs: opts.boundMs,
               ...dependencySetup(opts),
-              beforeOutput: (tab) => waitForPrintReady(tab, hasDiagram(html)),
+              beforeOutput: (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
             },
             {
               width: `${deck.size.width}px`,
@@ -224,7 +223,7 @@ async function imposedDeckPdf(
             ...dependencySetup(opts),
             beforeOutput:
               'kind' in slide.content && slide.content.kind === 'html'
-                ? (tab) => waitForPrintReady(tab, diagrams)
+                ? (tab) => waitForPrintReady(tab, renderReadiness('refuse', diagrams, opts.waitForPageReady !== false))
                 : 'kind' in slide.content && slide.content.kind === 'image'
                   ? placeRenderedImages
                   : undefined,
