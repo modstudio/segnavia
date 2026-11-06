@@ -19,8 +19,5 @@ export function columnOf(span: FragmentSpan, textWidth: number): number {
 }
 
 export function paperCount(spans: FragmentSpan[], textWidth: number): number {
-  return spans.reduce(
-    (count, span) => Math.max(count, Math.max(0, Math.floor((span.start + span.end) / 2 / textWidth)) + 1),
-    1,
-  )
+  return spans.reduce((count, span) => Math.max(count, Math.max(0, Math.floor((span.start + span.end) / 2 / textWidth)) + 1), 1)
 }
