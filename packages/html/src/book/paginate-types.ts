@@ -1,4 +1,5 @@
 import type { BOOK_PARENT_NAMES, BookOpens, BookSectionParents, TextArea } from '@segnavia/format'
+import type { PrintedPageFace } from '../printed-pages.ts'
 
 export type PaginateSequence = 'front' | 'body'
 
@@ -117,6 +118,7 @@ export interface PaginateBookPage {
   parts?: Record<string, string>
   marks?: PaginatePageMarks
   parent: string
+  face: PrintedPageFace
   side: 'left' | 'right'
 }
 

@@ -1,4 +1,4 @@
-import { selectBookParent } from '../printed-pages.ts'
+import { type BookPrintedPagePlan, selectBookParent } from '../printed-pages.ts'
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateMarks } from './paginate-marks.ts'
 import type {
@@ -117,6 +117,7 @@ export function paginateSequence(
       blank: true,
       sectionOpening: false,
       parent: planned.parent,
+      face: planned.face,
       side: planned.side,
     }
   }
@@ -129,7 +130,7 @@ export function paginateSequence(
     placed: PaginateUnit[],
     fragments: PaginatePageNote[],
     marks: PaginatePageMarks,
-    planned: { parent: string; side: 'left' | 'right' },
+    planned: Pick<BookPrintedPagePlan, 'parent' | 'face' | 'side'>,
   ): PaginateBookPage {
     const layout = paginateColumns(placed)
     return {
@@ -147,6 +148,7 @@ export function paginateSequence(
       ...(flow.parts === undefined ? {} : { parts: flow.parts }),
       marks,
       parent: planned.parent,
+      face: planned.face,
       side: planned.side,
     }
   }
@@ -176,6 +178,7 @@ export function paginateSequence(
       ...(flow.parts === undefined ? {} : { parts: flow.parts }),
       marks,
       parent: planned.parent,
+      face: planned.face,
       side: planned.side,
     }
   }
@@ -188,7 +191,7 @@ export function paginateSequence(
     fragments: PaginatePageNote[],
     pages: PaginateBookPage[],
     carried: PaginatePageMarks,
-    planned: { parent: string; side: 'left' | 'right' },
+    planned: Pick<BookPrintedPagePlan, 'parent' | 'face' | 'side'>,
   ): PaginatePageMarks {
     const marked = paginateMarks(placed, carried)
     pages.push(makeContent(part, pages.length + 1, flow, opener, placed, fragments, marked.marks, planned))

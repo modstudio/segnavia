@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, defaultPageNumbering } from '@segnavia/format'
-import { planBookPages, planPrintedPages, printedPageAt } from './printed-pages.ts'
+import { planBookPages, planPrintedPages, printedPageAt, selectBookParent } from './printed-pages.ts'
 
 describe('planPrintedPages', () => {
   const rules = { every: 'body', first: 'opening', last: 'ending', recto: 'odd', verso: 'even' }
@@ -16,7 +16,10 @@ describe('planPrintedPages', () => {
     for (const direction of ['ltr', 'rtl'] as const) {
       for (let count = 1; count <= 5; count += 1) {
         expect(planPrintedPages(rules, count, direction).map(({ role, parent, side }) => ({ role, parent, side }))).toEqual(
-          Array.from({ length: count }, (_, index) => printedPageAt(rules, index + 1, count, direction)),
+          Array.from({ length: count }, (_, index) => {
+            const { role, parent, side } = printedPageAt(rules, index + 1, count, direction)
+            return { role, parent, side }
+          }),
         )
       }
     }
@@ -33,6 +36,17 @@ describe('planPrintedPages', () => {
     expect(defaultPageNumbering('iw-IL')).toBe('hebrew')
     expect(defaultPageNumbering('en')).toBe('arabic')
   })
+
+  test('keeps recto and verso faces independent of physical direction', () => {
+    expect([printedPageAt(rules, 1, 3, 'ltr'), printedPageAt(rules, 2, 3, 'ltr')].map(({ face, side }) => ({ face, side }))).toEqual([
+      { face: 'recto', side: 'right' },
+      { face: 'verso', side: 'left' },
+    ])
+    expect([printedPageAt(rules, 1, 3, 'rtl'), printedPageAt(rules, 2, 3, 'rtl')].map(({ face, side }) => ({ face, side }))).toEqual([
+      { face: 'recto', side: 'left' },
+      { face: 'verso', side: 'right' },
+    ])
+  })
 })
 
 describe('planBookPages', () => {
@@ -48,11 +62,16 @@ describe('planBookPages', () => {
     )
 
     expect(pages).toEqual([
-      { index: 1, role: 'opener', parent: BOOK_PARENT_NAMES.opener, side: 'right', folio: 'i' },
-      { index: 2, role: 'verso', parent: BOOK_PARENT_NAMES.verso, side: 'left', folio: 'ii', runningHead: 'Front' },
-      { index: 3, role: 'blank', parent: BOOK_PARENT_NAMES.blank, side: 'right' },
-      { index: 4, role: 'verso', parent: BOOK_PARENT_NAMES.verso, side: 'left', folio: 'iv', runningHead: 'Next' },
+      { index: 1, role: 'opener', parent: BOOK_PARENT_NAMES.opener, face: 'recto', side: 'right', folio: 'i' },
+      { index: 2, role: 'verso', parent: BOOK_PARENT_NAMES.verso, face: 'verso', side: 'left', folio: 'ii', runningHead: 'Front' },
+      { index: 3, role: 'blank', parent: BOOK_PARENT_NAMES.blank, face: 'recto', side: 'right' },
+      { index: 4, role: 'verso', parent: BOOK_PARENT_NAMES.verso, face: 'verso', side: 'left', folio: 'iv', runningHead: 'Next' },
     ])
+  })
+
+  test('keeps the physical face when role precedence selects an opener or blank', () => {
+    expect(selectBookParent({ blank: false, sectionOpening: true }, 1, 2, 'ltr', BOOK_PARENT_NAMES).face).toBe('recto')
+    expect(selectBookParent({ blank: true, sectionOpening: false }, 2, 2, 'rtl', BOOK_PARENT_NAMES).face).toBe('verso')
   })
 
   test('puts odd physical pages on the left for right-to-left books', () => {

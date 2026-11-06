@@ -3,11 +3,13 @@ import { BOOK_PARENT_NAMES, type BookSectionParents, formatNumber, type NumberSy
 export type { BookSectionParents }
 
 export type PrintedPageSide = 'left' | 'right'
+export type PrintedPageFace = 'recto' | 'verso'
 
 export interface PrintedPagePlan {
   index: number
   role: PrintedPageRole
   parent: string
+  face: PrintedPageFace
   side: PrintedPageSide
   number: string
   total: string
@@ -28,6 +30,7 @@ export interface BookPrintedPagePlan extends Omit<BookPageFacts, 'blank' | 'sect
   index: number
   role: BookPrintedPageRole
   parent: string
+  face: PrintedPageFace
   side: PrintedPageSide
 }
 
@@ -36,8 +39,9 @@ export function printedPageAt(
   index: number,
   count: number,
   direction: 'ltr' | 'rtl',
-): Pick<PrintedPagePlan, 'role' | 'parent' | 'side'> {
+): Pick<PrintedPagePlan, 'role' | 'parent' | 'face' | 'side'> {
   const recto = index % 2 === 1
+  const face: PrintedPageFace = recto ? 'recto' : 'verso'
   const side: PrintedPageSide = recto === (direction === 'ltr') ? 'right' : 'left'
   let role: PrintedPageRole = 'every'
   let parent = rules.every
@@ -56,7 +60,7 @@ export function printedPageAt(
     role = 'first'
     parent = rules.first
   }
-  return { role, parent, side }
+  return { role, parent, face, side }
 }
 
 export function planPrintedPages(rules: PrintedPageRules, count: number, direction: 'ltr' | 'rtl', numbering: NumberSystem = 'arabic'): PrintedPagePlan[] {
@@ -74,14 +78,14 @@ export function selectBookParent(
   count: number,
   direction: 'ltr' | 'rtl',
   names: typeof BOOK_PARENT_NAMES,
-): Pick<BookPrintedPagePlan, 'role' | 'parent' | 'side'> {
+): Pick<BookPrintedPagePlan, 'role' | 'parent' | 'face' | 'side'> {
   const physical = printedPageAt({ every: names.recto, recto: names.recto, verso: names.verso }, index, count, direction)
   const named = fact.parents
-  if (fact.blank) return { role: 'blank', parent: named?.blank ?? names.blank, side: physical.side }
-  if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? names.blank, side: physical.side }
-  if (fact.sectionOpening && fact.role !== 'body') return { role: 'opener', parent: named?.opener ?? names.opener, side: physical.side }
-  if (physical.role === 'verso') return { role: 'verso', parent: named?.verso ?? names.verso, side: physical.side }
-  return { role: 'recto', parent: named?.recto ?? names.recto, side: physical.side }
+  if (fact.blank) return { role: 'blank', parent: named?.blank ?? names.blank, face: physical.face, side: physical.side }
+  if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? names.blank, face: physical.face, side: physical.side }
+  if (fact.sectionOpening && fact.role !== 'body') return { role: 'opener', parent: named?.opener ?? names.opener, face: physical.face, side: physical.side }
+  if (physical.role === 'verso') return { role: 'verso', parent: named?.verso ?? names.verso, face: physical.face, side: physical.side }
+  return { role: 'recto', parent: named?.recto ?? names.recto, face: physical.face, side: physical.side }
 }
 
 export function planBookPages(facts: BookPageFacts[], direction: 'ltr' | 'rtl', names = BOOK_PARENT_NAMES): BookPrintedPagePlan[] {

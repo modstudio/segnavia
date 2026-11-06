@@ -8,6 +8,7 @@ export interface PaginatedDesignedReport {
 
 export interface PaginatedReport {
   failure: string | null
+  faces: (string | null)[]
   pages: number
   lost: number
   repeated: number
@@ -367,6 +368,9 @@ export function inspectPaginatedBook(): PaginatedReport {
   const counted = coverage()
   return {
     failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
+    faces: Array.from(document.querySelectorAll('[data-segnavia-book-page]'))
+      .slice(0, 2)
+      .map((page) => page.getAttribute('data-segnavia-side')),
     pages: document.querySelectorAll('[data-segnavia-book-page]').length,
     lost: counted.lost,
     repeated: counted.repeated,
