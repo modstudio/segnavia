@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
-import { PDFDict, PDFName, PDFRawStream } from 'pdf-lib'
+import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { loadPdf } from '../../packages/render/src/pdf-load.ts'
 import { pngPixels } from './browser-pixels.ts'
 import { readPpm } from './pdf-raster.ts'
@@ -20,15 +20,14 @@ const html = `<style>
 .mix{position:absolute;left:4px;top:4px;width:12px;height:12px;background:#00ff00;mix-blend-mode:screen}
 </style><div class="mix"></div><section class="glass">FROSTED <a href="https://example.invalid/">selectable</a></section>`
 
-// Chromium stamps each PDF with the second it was written, so two renders of
-// one page differ in their dates and nowhere else.
-function withoutDates(pdf: Uint8Array): Buffer {
-  return Buffer.from(
-    Buffer.from(pdf)
-      .toString('latin1')
-      .replace(/\/(CreationDate|ModDate)\s*\([^)]*\)/g, ''),
-    'latin1',
-  )
+// Chromium's dates live in the Info dictionary, which may sit in a compressed
+// object stream, so the comparison removes them through the parsed document.
+async function withoutDates(pdf: Uint8Array): Promise<Uint8Array> {
+  const document = await PDFDocument.load(pdf, { updateMetadata: false })
+  const info = document.context.lookup(document.context.trailerInfo.Info, PDFDict)
+  info.delete(PDFName.of('CreationDate'))
+  info.delete(PDFName.of('ModDate'))
+  return document.save({ useObjectStreams: false })
 }
 
 function rgbOf(rgba: number[]): Uint8Array {
@@ -119,8 +118,9 @@ export async function verifyBackdropRaster(renderer: Renderer, work: string, che
   )
   const plain = { html: '<p>no effects</p>', size: { width: 200, height: 100 } } as const
   const [enabled, disabled] = await Promise.all([renderer.pagePdf(plain), renderer.pagePdf(plain, { effects: false })])
+  const [enabledWithoutDates, disabledWithoutDates] = await Promise.all([withoutDates(enabled), withoutDates(disabled)])
   check(
     'a page without backdrop-filter is byte-identical with effects enabled or disabled, apart from its dates',
-    Buffer.compare(withoutDates(enabled), withoutDates(disabled)) === 0,
+    Buffer.compare(enabledWithoutDates, disabledWithoutDates) === 0,
   )
 }
