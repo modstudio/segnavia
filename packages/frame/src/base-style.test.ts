@@ -37,9 +37,10 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain('button[hidden]){display:none}')
   })
 
-  test('an incoming canvas stacks above the active canvas without becoming visible', () => {
+  test('an incoming canvas is drawn beneath the active canvas until its transition starts', () => {
     expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}')
-    expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-incoming]){z-index:2}')
+    expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-incoming]){opacity:1;z-index:0}')
+    expect(BASE_CSS).toContain('.segnavia-stage__canvas[data-entering]){z-index:2}')
   })
 
   test('turn motion uses only geometry and opacity with the duration custom property', () => {
