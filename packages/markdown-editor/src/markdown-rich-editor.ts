@@ -4,10 +4,11 @@ import type { FontsOptions } from '@segnavia/frame/fonts'
 import { safeMarkdownUrl } from '@segnavia/html'
 import { Editor, type JSONContent } from '@tiptap/core'
 import type { Node } from '@tiptap/pm/model'
+import { labelRawInline, type RawInlineIndicator, selectedRawInlineAtom } from './markdown-raw-inline-indication.ts'
 import { type RichEditorState, richEditorState, richKeyboard } from './markdown-rich-commands.ts'
 import { richExtensions } from './markdown-rich-extensions.ts'
 import { LOCKED_BLOCK_NAME, LockedBlock } from './markdown-rich-locked.ts'
-import { RAW_INLINE_NAME, RawInline } from './markdown-rich-raw-inline.ts'
+import { RAW_INLINE_ATTRIBUTE, RAW_INLINE_DISPLAY_ATTRIBUTE, RAW_INLINE_NAME, RAW_INLINE_SOURCE_ATTRIBUTE, RawInline } from './markdown-rich-raw-inline.ts'
 
 if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
 
@@ -48,28 +49,32 @@ function lockedView(options: () => LockedViewOptions) {
   })
 }
 
-const rawInlineView = RawInline.extend({
-  addNodeView() {
-    return ({ node }) => {
-      const dom = document.createElement('span')
-      dom.part.add('raw-inline')
-      dom.dataset.rawInline = ''
-      dom.dataset.rawSource = String(node.attrs.source ?? '')
-      dom.dataset.rawDisplay = String(node.attrs.display ?? '')
-      dom.dir = 'auto'
-      dom.contentEditable = 'false'
-      dom.title = String(node.attrs.source ?? '')
-      dom.textContent = String(node.attrs.display ?? '')
-      return { dom }
-    }
-  },
-})
+function rawInlineView(options: () => RichAdapterOptions) {
+  return RawInline.extend({
+    addNodeView() {
+      return ({ node }) => {
+        const dom = document.createElement('span')
+        dom.part.add('raw-inline')
+        dom.setAttribute(RAW_INLINE_ATTRIBUTE, '')
+        dom.setAttribute(RAW_INLINE_SOURCE_ATTRIBUTE, String(node.attrs.source ?? ''))
+        dom.setAttribute(RAW_INLINE_DISPLAY_ATTRIBUTE, String(node.attrs.display ?? ''))
+        dom.dir = 'auto'
+        dom.contentEditable = 'false'
+        dom.textContent = String(node.attrs.display ?? '')
+        labelRawInline(dom, options().labels())
+        dom.addEventListener('pointerenter', () => options().indicator.pointerEnter(dom))
+        dom.addEventListener('pointerleave', () => options().indicator.pointerLeave(dom))
+        return { dom, destroy: () => options().indicator.pointerLeave(dom) }
+      }
+    },
+  })
+}
 
-function extensions(options: () => LockedViewOptions, keyboard: Parameters<typeof richKeyboard>[0]) {
+function extensions(options: () => RichAdapterOptions, keyboard: Parameters<typeof richKeyboard>[0]) {
   return [
     ...richExtensions().map((extension) => {
       if (extension.name === LOCKED_BLOCK_NAME) return lockedView(options)
-      return extension.name === RAW_INLINE_NAME ? rawInlineView : extension
+      return extension.name === RAW_INLINE_NAME ? rawInlineView(options) : extension
     }),
     richKeyboard(keyboard),
   ]
@@ -91,7 +96,9 @@ export type RichAdapterOptions = LockedViewOptions & {
   editLocked: () => boolean
   linkOrigins: () => Iterable<string> | undefined
   linkRequest: (href: string | null) => void
+  labels: () => import('./markdown-editor-labels.ts').MarkdownEditorLabels
   mount: HTMLElement
+  indicator: RawInlineIndicator
   change: (content: readonly Node[]) => void
   save: () => void
   state: (state: RichEditorState) => void
@@ -116,8 +123,15 @@ export function mountRichEditor(options: RichAdapterOptions): Editor {
       transformPastedHTML: (html) => pastedHtml(html, options.linkOrigins()),
     },
     onUpdate: ({ editor: instance }) => options.change(Array.from(instance.state.doc.content.content)),
-    onTransaction: ({ editor: instance }) => options.state(richEditorState(instance)),
-    onSelectionUpdate: ({ editor: instance }) => options.state(richEditorState(instance)),
+    onTransaction: ({ editor: instance }) => {
+      options.state(richEditorState(instance))
+      options.indicator.selectionSelect(selectedRawInlineAtom(instance))
+    },
+    onSelectionUpdate: ({ editor: instance }) => {
+      options.state(richEditorState(instance))
+      options.indicator.selectionSelect(selectedRawInlineAtom(instance))
+    },
+    onBlur: () => options.indicator.end(),
   })
   options.state(richEditorState(editor))
   return editor

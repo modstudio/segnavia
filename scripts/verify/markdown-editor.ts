@@ -1,6 +1,7 @@
 import type { SegnaviaMarkdownEditor } from '@segnavia/markdown-editor'
 import type { Harness } from './harness.ts'
 import { selectStableLockedAtom } from './locked-atom.ts'
+import { verifyMarkdownEditorRawInline } from './markdown-editor-raw-inline.ts'
 import { sourceDirectionsAtDocumentEnds } from './source-directions.ts'
 
 type EditorEvents = {
@@ -174,6 +175,8 @@ export async function verifyMarkdownEditor(h: Harness) {
     richDirections.includes('ltr') && richDirections.includes('rtl'),
     richDirections.join(','),
   )
+
+  await verifyMarkdownEditorRawInline(h)
 
   const locked = editor.locator('[part~="locked-block"]')
   const nestedPage = locked.locator('segnavia-page').first()

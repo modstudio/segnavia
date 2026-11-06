@@ -1,6 +1,9 @@
 import { Node } from '@tiptap/core'
 
 export const RAW_INLINE_NAME = 'rawInline'
+export const RAW_INLINE_ATTRIBUTE = 'data-raw-inline'
+export const RAW_INLINE_SOURCE_ATTRIBUTE = 'data-raw-source'
+export const RAW_INLINE_DISPLAY_ATTRIBUTE = 'data-raw-display'
 
 const ASCII_PUNCTUATION = String.raw`[!-/:-@\[-` + '{-~]'
 const escapePattern = new RegExp(`^\\\\${ASCII_PUNCTUATION}`)
@@ -50,21 +53,21 @@ export function rawInline(labels: ReadonlySet<string> = new Set()) {
       return {
         source: {
           default: '',
-          parseHTML: (element) => element.getAttribute('data-raw-source') ?? '',
-          renderHTML: (attrs) => ({ 'data-raw-source': attrs.source }),
+          parseHTML: (element) => element.getAttribute(RAW_INLINE_SOURCE_ATTRIBUTE) ?? '',
+          renderHTML: (attrs) => ({ [RAW_INLINE_SOURCE_ATTRIBUTE]: attrs.source }),
         },
         display: {
           default: '',
-          parseHTML: (element) => element.getAttribute('data-raw-display') ?? '',
-          renderHTML: (attrs) => ({ 'data-raw-display': attrs.display }),
+          parseHTML: (element) => element.getAttribute(RAW_INLINE_DISPLAY_ATTRIBUTE) ?? '',
+          renderHTML: (attrs) => ({ [RAW_INLINE_DISPLAY_ATTRIBUTE]: attrs.display }),
         },
       }
     },
     parseHTML() {
-      return [{ tag: 'span[data-raw-inline]' }]
+      return [{ tag: `span[${RAW_INLINE_ATTRIBUTE}]` }]
     },
     renderHTML({ HTMLAttributes }) {
-      return ['span', { ...HTMLAttributes, 'data-raw-inline': '', dir: 'auto' }]
+      return ['span', { ...HTMLAttributes, [RAW_INLINE_ATTRIBUTE]: '', dir: 'auto' }]
     },
     parseMarkdown(token) {
       return { type: RAW_INLINE_NAME, attrs: { source: token.source, display: token.display } }
