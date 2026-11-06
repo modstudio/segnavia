@@ -3,63 +3,6 @@ import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 const STAGE = '#deck'
 
-interface PaintCapture {
-  pixel: [number, number, number]
-  ready: boolean
-  canvases: Array<{ id: string | undefined; active: boolean; incoming: boolean; loaded: boolean; opacity: string }>
-}
-
-export async function captureDelayedPaintTurn(h: Harness): Promise<{ captures: PaintCapture[]; duration: number }> {
-  await h.page.evaluate(async () => {
-    const host = (window as unknown as { __deckHost: { loadDelayedPaint(): Promise<void> } }).__deckHost
-    await host.loadDelayedPaint()
-  })
-  await h.page.waitForFunction(() => document.querySelector('#deck [data-active]')?.getAttribute('data-slide-id') === 'paint-outgoing')
-  await h.page.evaluate(() => {
-    const stage = document.querySelector('#deck') as HTMLElement
-    const state = { ready: false }
-    Object.defineProperty(window, '__delayedPaint', { configurable: true, value: state })
-    const watch = (frame: HTMLIFrameElement) => frame.addEventListener('load', () => frame.setAttribute('data-capture-loaded', ''), { once: true })
-    const observer = new MutationObserver(() => {
-      for (const frame of stage.querySelectorAll<HTMLIFrameElement>('iframe:not([data-capture-watched])')) {
-        frame.setAttribute('data-capture-watched', '')
-        watch(frame)
-      }
-    })
-    observer.observe(stage, { childList: true, subtree: true })
-    window.addEventListener('message', (event) => {
-      const incoming = stage.querySelector<HTMLIFrameElement>('[data-slide-id="paint-delayed"] iframe')
-      if (event.source === incoming?.contentWindow && event.data?.type === 'segnavia:ready') state.ready = true
-    })
-    const host = (window as unknown as { __deckHost: { controller: { go(index: number): Promise<void> } } }).__deckHost
-    void host.controller.go(1)
-  })
-  const captures: PaintCapture[] = []
-  const started = performance.now()
-  while (performance.now() - started < BOUNDED_WAIT_MS) {
-    const pixel = await stageCenterPixel(h)
-    const state = await h.page.locator(STAGE).evaluate((stage) => {
-      const ready = Boolean((Reflect.get(window, '__delayedPaint') as { ready?: boolean } | undefined)?.ready)
-      const canvases = [...stage.querySelectorAll<HTMLElement>('.segnavia-stage__canvas')].map((canvas) => ({
-        id: canvas.dataset.slideId,
-        active: canvas.hasAttribute('data-active'),
-        incoming: canvas.hasAttribute('data-incoming'),
-        loaded: canvas.querySelector('iframe')?.hasAttribute('data-capture-loaded') === true,
-        opacity: getComputedStyle(canvas).opacity,
-      }))
-      return { ready, canvases }
-    })
-    captures.push({ pixel, ...state })
-    const active = state.canvases.find((canvas) => canvas.active)?.id
-    if (active === 'paint-delayed' && state.ready && !barePixel(pixel)) break
-  }
-  return { captures, duration: performance.now() - started }
-}
-
-export function barePixel([red, green, blue]: [number, number, number]): boolean {
-  return Math.abs(red - 238) < 3 && Math.abs(green - 238) < 3 && Math.abs(blue - 238) < 3
-}
-
 export async function captureSandboxedTurns(h: Harness, durations: number[], pixels: Array<[number, number, number]>) {
   for (const [index, id] of [
     [1, 'sandboxed-2'],

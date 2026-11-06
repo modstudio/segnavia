@@ -1,4 +1,4 @@
-import { barePixel, captureDelayedPaintTurn, captureSandboxedTurns, sampleSandboxedTurns } from './deck-host-sampling.ts'
+import { captureSandboxedTurns, sampleSandboxedTurns } from './deck-host-sampling.ts'
 import { neighborTurnFacts, waitForSettledWindow } from './deck-host-waits.ts'
 import { verifyDeckTransitions } from './deck-transitions.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
@@ -214,14 +214,6 @@ export async function verifyDeckHost(h: Harness) {
     JSON.stringify({ authorColor, ...documentFacts }),
   )
 
-  const delayedPaint = await captureDelayedPaintTurn(h)
-  const delayedBare = delayedPaint.captures.filter(({ pixel }) => barePixel(pixel))
-  check(
-    'deck host: a sandboxed turn keeps the outgoing canvas painted until the incoming frame reports its first paint',
-    delayedPaint.captures.length >= 2 && delayedBare.length === 0,
-    JSON.stringify({ captures: delayedPaint.captures, bare: delayedBare.length, duration: delayedPaint.duration }),
-  )
-
   await page.evaluate(async () => {
     const host = (window as unknown as { __deckHost: { loadSandboxed(): Promise<void> } }).__deckHost
     await host.loadSandboxed()
@@ -283,7 +275,7 @@ export async function verifyDeckHost(h: Harness) {
   const turnDurations: number[] = []
   const pixels: Array<[number, number, number]> = []
   await captureSandboxedTurns(h, turnDurations, pixels)
-  const bare = pixels.filter(barePixel)
+  const bare = pixels.filter(([red, green, blue]) => Math.abs(red - 238) < 3 && Math.abs(green - 238) < 3 && Math.abs(blue - 238) < 3)
   const sampled = await sampleSandboxedTurns(h)
   const sandboxedCount = await page.locator(`${STAGE} iframe`).count()
   check(
