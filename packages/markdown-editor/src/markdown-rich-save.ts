@@ -18,6 +18,7 @@ type CachedOriginal = {
   nodes: Json[]
   keys: string[]
   indicesByFirstKey: Map<string, number[]>
+  definitionLabels: Set<string>
 }
 export type DocumentBodyTransform = { split: (source: string) => { editable: string; retained: string }; join: (editable: string, retained: string) => string }
 export type RichDocumentOptions = { bodyTransform?: DocumentBodyTransform; lockedFences?: Record<string, string> }
@@ -94,6 +95,15 @@ function blocks(markdown: string, lockedFences: Record<string, string> = {}): Bl
   return out
 }
 
+function definitionLabels(markdown: string): Set<string> {
+  const labels = new Set<string>()
+  for (const token of richMarkdownManager().instance.lexer(markdown) as MarkedToken[]) {
+    const definition = token.type === 'def' ? /^ {0,3}\[([^\]]+)\]:/.exec(token.raw)?.[1] : undefined
+    if (definition !== undefined) labels.add(normalizeReferenceLabel(definition))
+  }
+  return labels
+}
+
 function fencesKey(lockedFences: Record<string, string> | undefined): string {
   return JSON.stringify(Object.entries(lockedFences ?? {}).sort(([left], [right]) => left.localeCompare(right)))
 }
@@ -114,7 +124,17 @@ function originalEntry(original: string, options: RichDocumentOptions): CachedOr
     indices.push(index)
     indicesByFirstKey.set(first, indices)
   }
-  cachedOriginal = { original, fencesKey: nextFencesKey, bodyTransform: options.bodyTransform, split, blocks: editableBlocks, nodes, keys, indicesByFirstKey }
+  cachedOriginal = {
+    original,
+    fencesKey: nextFencesKey,
+    bodyTransform: options.bodyTransform,
+    split,
+    blocks: editableBlocks,
+    nodes,
+    keys,
+    indicesByFirstKey,
+    definitionLabels: definitionLabels(split?.editable ?? original),
+  }
   return cachedOriginal
 }
 
@@ -129,24 +149,85 @@ function firstAtOrAfter(indices: readonly number[], minimum: number): number {
   return indices[low] ?? -1
 }
 
-function serializeNodes(nodes: readonly RichDocumentNode[]): string {
+function semantic(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const values = value.map(semantic)
+    const merged: unknown[] = []
+    for (const item of values) {
+      const previous = merged.at(-1)
+      if (
+        isRecord(item) &&
+        item.type === 'text' &&
+        typeof item.text === 'string' &&
+        isRecord(previous) &&
+        previous.type === 'text' &&
+        typeof previous.text === 'string' &&
+        JSON.stringify(previous.marks) === JSON.stringify(item.marks)
+      ) {
+        previous.text += item.text
+      } else merged.push(item)
+    }
+    return merged
+  }
+  if (!isRecord(value)) return value
+  if (value.type === RAW_INLINE_NAME && isRecord(value.attrs) && /^\\[\[\]]$/.test(String(value.attrs.source))) {
+    return { type: 'text', text: value.attrs.display }
+  }
+  const out: Record<string, unknown> = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'dir' || key.startsWith('source') || item === null || item === undefined || (Array.isArray(item) && item.length === 0)) continue
+    const next = semantic(item)
+    if (next && typeof next === 'object' && !Array.isArray(next) && Object.keys(next as Record<string, unknown>).length === 0) continue
+    out[key] = next
+  }
+  return out
+}
+
+function sameDocument(markdown: string, nodes: Json[], manager: MarkdownManager): boolean {
+  const parsed = Node.fromJSON(richSchema(), manager.parse(markdown)).toJSON().content ?? []
+  return JSON.stringify(semantic(parsed)) === JSON.stringify(semantic(nodes))
+}
+
+function restoreUnlinkedBrackets(markdown: string, nodes: Json[], manager: MarkdownManager, restoreProtected: (value: string) => string): string {
+  if (!/\\[\[\]]/.test(markdown)) return markdown
+  const readsSame = (value: string) => sameDocument(restoreProtected(value), nodes, manager)
+  const all = markdown.replace(/\\([\[\]])/g, '$1')
+  if (readsSame(all)) return all
+  let kept = markdown
+  let at = 0
+  while (at < kept.length) {
+    const match = /\\[\[\]]/.exec(kept.slice(at))
+    if (!match || match.index === undefined) break
+    const index = at + match.index
+    const candidate = `${kept.slice(0, index)}${kept.slice(index + 1)}`
+    if (readsSame(candidate)) kept = candidate
+    else at = index + match[0].length
+  }
+  return kept
+}
+
+function serializeNodes(nodes: readonly RichDocumentNode[], definitionLabels: ReadonlySet<string>): string {
   const json = nodes.map(asJson)
   let marker = '\uE000raw-inline-amp\uE001'
   const source = JSON.stringify(json)
   while (source.includes(marker)) marker += '-'
+  const openMarker = `${marker}open`
+  const closeMarker = `${marker}close`
+  const restoreProtected = (value: string) => value.replaceAll(openMarker, '\\[').replaceAll(closeMarker, '\\]')
   const protect = (node: Json): Json => ({
     ...node,
     attrs:
       node.type === RAW_INLINE_NAME && typeof node.attrs?.source === 'string'
-        ? { ...node.attrs, source: node.attrs.source.replaceAll('&', marker) }
+        ? {
+            ...node.attrs,
+            source: node.attrs.source.replaceAll('&', marker).replaceAll('\\[', openMarker).replaceAll('\\]', closeMarker),
+          }
         : node.attrs,
     content: node.content?.map(protect),
   })
-  return restoreAmpersands(
-    richMarkdownManager()
-      .serialize({ type: 'doc', content: json.map(protect) })
-      .trim(),
-  ).replaceAll(marker, '&')
+  const manager = scopedRichMarkdownManager(definitionLabels)
+  const serialized = restoreAmpersands(manager.serialize({ type: 'doc', content: json.map(protect) }).replace(/^\n+|\n+$/g, ''))
+  return restoreProtected(restoreUnlinkedBrackets(serialized, json, manager, restoreProtected)).replaceAll(marker, '&')
 }
 
 function matchingBlockIndex(entry: CachedOriginal, keys: readonly string[], keyIndex: number, blockIndex: number): number {
@@ -171,7 +252,7 @@ function stitch(entry: CachedOriginal, edited: readonly RichDocumentNode[], keys
   const pending: RichDocumentNode[] = []
   const emitNew = () => {
     if (!pending.length) return
-    out += (out ? '\n\n' : (bs[blockIndex]?.sep ?? '')) + serializeNodes(pending.splice(0))
+    out += (out ? '\n\n' : (bs[blockIndex]?.sep ?? '')) + serializeNodes(pending.splice(0), entry.definitionLabels)
     last = -1
   }
   const emitOld = (hit: number) => {
