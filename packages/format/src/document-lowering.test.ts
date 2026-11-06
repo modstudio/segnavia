@@ -128,6 +128,7 @@ describe('Document lowering', () => {
       kind: 'book',
       metadata: { title: expected.title },
       mode: expected.mode,
+      limits: { pages: 120 },
       page: expected.page,
       numbering: expected.numbering,
       settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
@@ -160,7 +161,7 @@ describe('Document lowering', () => {
         },
       ],
     })
-    expect(bookFromDocument(document)).toEqual(expected)
+    expect(bookFromDocument(document)).toEqual({ ...expected, limits: { pages: 120 } })
   })
 
   test('lowers the board demo shape to its current parsed value', () => {

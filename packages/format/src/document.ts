@@ -6,6 +6,7 @@ import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { FontReference } from './fonts.ts'
+import { DocumentLimitsValue } from './limits.ts'
 import { Motif } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
@@ -25,6 +26,7 @@ const DocumentShape = z.object({
   metadata: DocumentMetadata.optional(),
   title: z.string().optional(),
   brand: z.string().optional(),
+  limits: DocumentLimitsValue.optional(),
   settings: DocumentSettings.optional(),
   style: DocumentStyle.optional(),
   data: DocumentData.optional(),
@@ -115,12 +117,15 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
   if (document.variables.length > 0) {
     ctx.addIssue({ code: 'custom', path: ['variables'], message: 'document field variables is not yet supported; remove it to clear this refusal' })
   }
-  if (document.kind === 'board' && document.settings?.dir === 'auto') {
+  if (document.settings?.dir !== undefined && !(profile.settingsDir as readonly string[]).includes(document.settings.dir)) {
     ctx.addIssue({
       code: 'custom',
       path: ['settings', 'dir'],
-      message: profileRefusal('auto', document.kind, ['ltr', 'rtl'], 'settings.dir value'),
+      message: profileRefusal(document.settings.dir, document.kind, profile.settingsDir, 'settings.dir value'),
     })
+  }
+  if (document.limits !== undefined && (document.kind === 'deck' || document.kind === 'board')) {
+    ctx.addIssue({ code: 'custom', path: ['limits'], message: 'document field limits is not yet supported; remove it to clear this refusal' })
   }
   if (document.kind === 'page' && (document.children.length !== 1 || document.children[0]?.type !== 'page')) {
     ctx.addIssue({ code: 'custom', path: ['children'], message: 'a page document needs exactly one page node; provide one page node to clear this refusal' })

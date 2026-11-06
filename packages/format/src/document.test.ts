@@ -41,6 +41,13 @@ describe('Document', () => {
     )
   })
 
+  test('keeps direction policy in profiles and refuses limits where the current pipeline cannot carry them', () => {
+    expect(Document.parse({ type: 'document', kind: 'book', settings: { dir: 'auto' }, limits: { pages: 12 }, children: [] }).limits).toEqual({ pages: 12 })
+    expect(() => Document.parse({ type: 'document', kind: 'board', limits: { pages: 12 }, children: [] })).toThrow(
+      'document field limits is not yet supported; remove it to clear this refusal',
+    )
+  })
+
   test('refuses declared fields that lowering does not yet support', () => {
     const values = [
       { type: 'document', kind: 'book', children: [{ type: 'section', opens: 'continue', children: [] }] },

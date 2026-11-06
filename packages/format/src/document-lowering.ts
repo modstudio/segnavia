@@ -6,6 +6,12 @@ import type { Document } from './document.ts'
 import type { DocumentNode, PartNode, SectionNode } from './document-nodes.ts'
 import { Page, type Page as PageValue } from './page.ts'
 
+function requireKind(document: Document, kind: Document['kind']): void {
+  if (document.kind !== kind) {
+    throw new Error(`document kind ${document.kind} is not accepted here; use kind ${kind} to clear this refusal`)
+  }
+}
+
 function settings(document: Document) {
   return document.settings ?? {}
 }
@@ -129,12 +135,14 @@ function contentsOptions(document: Document) {
 }
 
 export function bookFromDocument(document: Document): BookValue {
+  requireKind(document, 'book')
   const metadata = document.metadata
   return Book.parse(
     defined({
       title: title(document),
       authors: metadata?.authors,
       subject: metadata?.subject,
+      limits: document.limits,
       mode: document.mode,
       page: document.page,
       ...settings(document),
@@ -174,6 +182,7 @@ function pageValue(document: Document, printed: boolean): PageValue {
       body: child.body,
       size: document.size,
       print: document.print,
+      limits: document.limits,
       ...settings(document),
       ...style(document),
       ...data(document),
@@ -183,14 +192,17 @@ function pageValue(document: Document, printed: boolean): PageValue {
 }
 
 export function printedFromDocument(document: Document): PageValue {
+  requireKind(document, 'printed')
   return pageValue(document, true)
 }
 
 export function pageFromDocument(document: Document): PageValue {
+  requireKind(document, 'page')
   return pageValue(document, false)
 }
 
 export function deckFromDocument(document: Document): DeckValue {
+  requireKind(document, 'deck')
   const slides = document.children
     .filter((node): node is Extract<DocumentNode, { type: 'slide' }> => node.type === 'slide')
     .map(({ type: _type, ...slide }) => slide)
@@ -212,6 +224,7 @@ export function deckFromDocument(document: Document): DeckValue {
 }
 
 export function boardFromDocument(document: Document): BoardValue {
+  requireKind(document, 'board')
   const items = document.children
     .filter((node): node is Extract<DocumentNode, { type: 'item' }> => node.type === 'item')
     .map(({ type: _type, ...item }) => item)

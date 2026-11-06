@@ -2,6 +2,7 @@ export const DOCUMENT_PROFILES = {
   book: {
     children: ['division', 'part', 'section', 'flow', 'page', 'placed', 'contents', 'record'],
     definitions: ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'],
+    settingsDir: ['ltr', 'rtl', 'auto'],
     fields: [
       'metadata',
       'title',
@@ -19,27 +20,32 @@ export const DOCUMENT_PROFILES = {
       'widows',
       'fragmentation',
       'runningHead',
+      'limits',
     ],
   },
   printed: {
     children: ['section', 'page', 'flow', 'placed', 'record'],
     definitions: ['parentPages', 'templates', 'variables', 'conditions'],
-    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'data', 'size', 'print', 'numbering', 'fragmentation', 'rules'],
+    settingsDir: ['ltr', 'rtl', 'auto'],
+    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'data', 'size', 'print', 'numbering', 'fragmentation', 'rules', 'limits'],
   },
   deck: {
     children: ['slide'],
     definitions: ['conditions'],
-    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'data', 'size', 'layout', 'fit', 'frame', 'transition', 'playback', 'captions'],
+    settingsDir: ['ltr', 'rtl', 'auto'],
+    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'data', 'size', 'layout', 'fit', 'frame', 'transition', 'playback', 'captions', 'limits'],
   },
   page: {
     children: ['page'],
     definitions: ['conditions'],
-    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'data', 'size', 'print'],
+    settingsDir: ['ltr', 'rtl', 'auto'],
+    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'data', 'size', 'print', 'limits'],
   },
   board: {
     children: ['item', 'label', 'boardSection'],
     definitions: ['conditions'],
-    fields: ['metadata', 'title', 'brand', 'settings'],
+    settingsDir: ['ltr', 'rtl'],
+    fields: ['metadata', 'title', 'brand', 'settings', 'limits'],
   },
 } as const
 

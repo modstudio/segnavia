@@ -10,8 +10,7 @@ import {
   type ImpositionInput,
   impose,
   type Limits,
-  Page,
-  type PageInput,
+  type Page,
   PageWidths,
   type PrintInput,
   pagePlacementLayout,
@@ -24,6 +23,7 @@ import {
 import { classifyMediaAnswer, type HtmlPage, type PlacementsOptions, placementPlaceholderSource, resolvePageHtml } from '@segnavia/html'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
+import { pageOrPrintedFromInput, type PageOrPrintedInput } from './document-input.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
@@ -346,8 +346,8 @@ export function printablePaper(
 // This frame-based document is for a browser to show and print. The frame
 // bridge carries propagated root backgrounds onto a printable element; the
 // server renderer still uses top-level page renders for PDF composition.
-export function printablePagesDocument(inputs: PageInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
-  const pages = inputs.map((page) => resolvePageHtml(Page.parse(page)))
+export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+  const pages = inputs.map((page) => resolvePageHtml(pageOrPrintedFromInput(page)))
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
   const imposed = impose(imposition, pages.length)

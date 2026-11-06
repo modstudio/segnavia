@@ -1,4 +1,4 @@
-import { Book, Cover, type Deck, DocumentMetadata, Page } from '@segnavia/format'
+import { bookFromDocument, Cover, type Deck, Document, DocumentMetadata } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
@@ -14,6 +14,7 @@ import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
+import { pageOrPrintedFromInput } from './document-input.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
@@ -161,7 +162,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async bookPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const expanded = await expandFrameBook(Book.parse(input), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
+        const document = Document.parse(input)
+        const expanded = await expandFrameBook(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
           render: (setup, pdf, pageWidth, part) =>
@@ -239,7 +241,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFramePages(
-          inputs.map((input) => resolvePageHtml(Page.parse(input))),
+          inputs.map((input) => resolvePageHtml(pageOrPrintedFromInput(input))),
           opts.motifs,
           deadline.signal,
           opts.placements,

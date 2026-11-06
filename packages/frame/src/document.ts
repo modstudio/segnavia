@@ -2,12 +2,13 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { Page, type PageInput, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
+import { type Page, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
+import { pageOrPrintedFromInput, type PageOrPrintedInput } from './document-input.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -123,8 +124,8 @@ export class SegnaviaDocument extends HTMLElement {
     return this.currentPage
   }
 
-  set pages(value: PageInput[] | undefined) {
-    this.sourceValues = (value ?? []).map((page) => Page.parse(page))
+  set pages(value: PageOrPrintedInput[] | undefined) {
+    this.sourceValues = (value ?? []).map(pageOrPrintedFromInput)
     this.pageValues = this.sourceValues.map(resolvePageHtml)
     this.paint()
     this.changed()
@@ -154,8 +155,8 @@ export class SegnaviaDocument extends HTMLElement {
     this.observer = null
   }
 
-  load(pageInputs: PageInput[], printInput: PrintInput): void {
-    const sources = pageInputs.map((page) => Page.parse(page))
+  load(pageInputs: PageOrPrintedInput[], printInput: PrintInput): void {
+    const sources = pageInputs.map(pageOrPrintedFromInput)
     const pages = sources.map(resolvePageHtml)
     const print = Print.parse(printInput)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')

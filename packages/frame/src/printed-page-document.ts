@@ -7,8 +7,6 @@ import {
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
-  Page,
-  type PageInput,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_ROLES,
   PRINTED_PAGE_TOTAL_PATH,
@@ -19,7 +17,7 @@ import {
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
-import { embedFunction, fragmentationCss, type HtmlPage, printedPageAt, resolvePageHtml } from '@segnavia/html'
+import { embedFunction, fragmentationCss, type HtmlPage, printedPageAt } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { DIAGRAM_READY_EXPR, withDiagramScript } from './diagram-document.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
@@ -153,7 +151,7 @@ var furniture=function(region,html){if(!html)return;var held=document.createElem
 }
 
 export function printedPageDocument(
-  input: PageInput,
+  page: HtmlPage,
   options: {
     nonce: string
     css?: string
@@ -167,7 +165,6 @@ export function printedPageDocument(
     limits?: Limits
   },
 ): string {
-  const page = resolvePageHtml(Page.parse(input))
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)

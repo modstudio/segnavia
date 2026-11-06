@@ -4,10 +4,11 @@
 // has reported itself painted, or once the deadline passes so a slide that
 // never reports cannot hold the dialog closed for ever.
 
-import { type Deck, exceedsLimits, Imposition, type ImpositionInput, type Limits, limitRefusal, Page, type PageInput, parseLimits } from '@segnavia/format'
+import { type Deck, exceedsLimits, Imposition, type ImpositionInput, type Limits, limitRefusal, parseLimits } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { loadDiagramScript } from './diagram-document.ts'
+import { pageOrPrintedFromInput, type PageOrPrintedInput } from './document-input.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
 import { parsePageWidths } from './page-widths.ts'
@@ -253,12 +254,12 @@ export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 's
   placements?: PlacementsOptions
 }
 
-export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
+export async function printPages(pagesInput: PageOrPrintedInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
   options = { ...options, limits: parseLimits(options.limits, 'host'), pageWidths: parsePageWidths(options.pageWidths) }
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
   const expanded = await expandFramePages(
-    pagesInput.map((page) => resolvePageHtml(Page.parse(page))),
+    pagesInput.map((page) => resolvePageHtml(pageOrPrintedFromInput(page))),
     options.motifs,
     signal,
     options.placements,
