@@ -43,6 +43,7 @@ test('a backslash hard break survives a Hebrew paragraph edit', () => {
 test('tilde and long backtick fences and info spacing survive code edits', () => {
   expect(onlyWordChanged('~~~~  ts extra  \nconst old = 1\n~~~~\n', 'old', 'fresh')).toBe(true)
   expect(onlyWordChanged('`````\nold value\n`````\n', 'old', 'fresh')).toBe(true)
+  expect(onlyWordChanged('~~~  text\nשורה ישנה בקוד\n~~~\n', 'ישנה', 'חדשה')).toBe(true)
 })
 
 test('an unsafe recorded fence grows around edited content and leaves the following block outside', () => {
