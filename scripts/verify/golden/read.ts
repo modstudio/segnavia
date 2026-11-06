@@ -39,14 +39,28 @@ function infoFields(file: string): Record<string, string> {
   return output
 }
 
-function embeddedFonts(file: string): string[] {
-  const fonts = run('pdffonts', [file])
-    .split('\n')
+export function parsePdfFonts(output: string): string[] {
+  const lines = output.split('\n')
+  const extents = [...(lines[1] ?? '').matchAll(/-+/g)].map((match) => ({ start: match.index, end: match.index + match[0].length }))
+  const header = lines[0] ?? ''
+  const name = extents.find((extent) => header.slice(extent.start, extent.end).trim() === 'name')
+  const embedded = extents.find((extent) => header.slice(extent.start, extent.end).trim() === 'emb')
+  if (!name || !embedded) return []
+  const fonts = lines
     .slice(2)
-    .map((line) => line.trim().split(/\s+/))
-    .filter((columns) => columns.length >= 5 && columns[3] === 'yes')
-    .map((columns) => (columns[0] as string).replace(/^[A-Z]{6}\+/, ''))
+    .filter((line) => line.slice(embedded.start, embedded.end).trim() === 'yes')
+    .map((line) =>
+      line
+        .slice(name.start, name.end)
+        .trim()
+        .replace(/^[A-Z]{6}\+/, ''),
+    )
+    .filter((font) => font.length > 0)
   return [...new Set(fonts)].sort()
+}
+
+function embeddedFonts(file: string): string[] {
+  return parsePdfFonts(run('pdffonts', [file]))
 }
 
 const resolve = (document: PDFDocument, value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)

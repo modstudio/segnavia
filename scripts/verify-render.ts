@@ -54,6 +54,7 @@ check(
   collectionPdf.length > 0 && collectionPdf.equals(standalonePdf),
   `${collectionPdf.length} and ${standalonePdf.length} bytes`,
 )
+
 // A server the renders try to reach, counting every request that arrives.
 let hits = 0
 const server = createServer((request, response) => {
@@ -66,7 +67,6 @@ const server = createServer((request, response) => {
 await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
 const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 const output = path.resolve(import.meta.dirname, '../out')
-
 const renderer = await openRenderer({ executablePath: CHROMIUM, concurrency: 2, jsHeapMb })
 const work = mkdtempSync(path.join(tmpdir(), 'segnavia-render-'))
 try {
