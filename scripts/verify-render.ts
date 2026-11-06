@@ -395,5 +395,6 @@ try {
   server.close()
   rmSync(work, { recursive: true, force: true })
 }
+await (await import('./verify/golden/index.ts')).verifyGoldenPdfs(path.dirname(output))
 console.log(failures === 0 ? `all render checks passed under ${runtime}` : `${failures} render checks failed under ${runtime}`)
 process.exit(failures === 0 ? 0 : 1)

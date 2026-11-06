@@ -1,0 +1,41 @@
+{
+  "pages": [
+    {
+      "size": [960, 540],
+      "text": "Creating\na\nclass\nA two-minute walkthrough"
+    },
+    {
+      "size": [960, 540],
+      "text": "1"
+    },
+    {
+      "size": [960, 540],
+      "text": "2\n3\n\nSave it"
+    },
+    {
+      "size": [960, 540],
+      "text": "Your classes: 3\nMorning reading, grade 2\nNumber sense, grade 3\nAfternoon art, grade 2"
+    }
+  ],
+  "outline": [],
+  "fonts": [],
+  "info": {
+    "Title": "Creating a class",
+    "Creator": "HeadlessChrome",
+    "Producer": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "Custom Metadata": "no",
+    "Metadata Stream": "no",
+    "Tagged": "no",
+    "UserProperties": "no",
+    "Suspects": "no",
+    "Form": "none",
+    "JavaScript": "no",
+    "Pages": "4",
+    "Encrypted": "no",
+    "Page size": "960 x 540 pts",
+    "Page rot": "0",
+    "Optimized": "no",
+    "PDF version": "1.7"
+  },
+  "xmp": ""
+}
