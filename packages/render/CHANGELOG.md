@@ -1,5 +1,22 @@
 # @segnavia/render
 
+## 0.48.0
+
+### Minor Changes
+
+- e25fc69: Add shared document metadata for printed-page previews and PDFs.
+
+### Patch Changes
+
+- ed0f315: Make printed-page composition independent of the host window and share the paper viewport calculation across browser and server printing.
+- 8d1c362: Load the offline diagram script only for rendered content that contains a diagram, and keep Mermaid out of runtime installations.
+- Updated dependencies [ed0f315]
+- Updated dependencies [8d1c362]
+- Updated dependencies [e25fc69]
+  - @segnavia/format@0.48.0
+  - @segnavia/frame@0.48.0
+  - @segnavia/html@0.48.0
+
 ## 0.47.0
 
 ### Minor Changes

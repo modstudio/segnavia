@@ -1,5 +1,16 @@
 # @segnavia/diagrams
 
+## 0.48.0
+
+### Patch Changes
+
+- 8d1c362: Load the offline diagram script only for rendered content that contains a diagram, and keep Mermaid out of runtime installations.
+- Updated dependencies [ed0f315]
+- Updated dependencies [8d1c362]
+- Updated dependencies [e25fc69]
+  - @segnavia/format@0.48.0
+  - @segnavia/frame@0.48.0
+
 ## 0.47.0
 
 ### Patch Changes

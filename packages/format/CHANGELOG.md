@@ -1,5 +1,12 @@
 # @segnavia/format
 
+## 0.48.0
+
+### Minor Changes
+
+- ed0f315: Make printed-page composition independent of the host window and share the paper viewport calculation across browser and server printing.
+- e25fc69: Add shared document metadata for printed-page previews and PDFs.
+
 ## 0.47.0
 
 ### Minor Changes
