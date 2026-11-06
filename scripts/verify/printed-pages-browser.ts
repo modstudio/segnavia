@@ -29,6 +29,42 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
   const work = mkdtempSync(path.join(tmpdir(), 'segnavia-browser-pages-'))
   try {
     await page.goto(url)
+    const countPrintedPapers = (printedPage: unknown) =>
+      page.evaluate(async (input) => {
+        const bundle = '/segnavia.js'
+        const { printPages } = (await import(bundle)) as {
+          printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void>
+        }
+        let papers = 0
+        await printPages(
+          [input],
+          { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } },
+          { print: (win: Window) => (papers = win.document.querySelectorAll('.paper').length) },
+        )
+        return papers
+      }, printedPage)
+    const parentPages = {
+      parents: [{ name: 'body', margin: { top: 15, bottom: 15, inner: 15, outer: 15 } }],
+      rules: { every: 'body' },
+    }
+    for (const fixture of [
+      { name: 'LTR', page: { html: '<div>Short block</div>', lang: 'en', print: { paper: 'letter' }, printedPages: parentPages } },
+      {
+        name: 'Hebrew RTL',
+        page: { html: '<div>קטע קצר</div>', lang: 'he', dir: 'rtl', print: { paper: 'letter' }, printedPages: parentPages },
+      },
+    ]) {
+      const papers = await countPrintedPapers(fixture.page)
+      check(`a short ${fixture.name} block prints exactly one paper`, papers === 1, `papers=${papers}`)
+    }
+    const exactPapers = await countPrintedPapers({
+      html: '<div style="block-size:249.4mm"></div><div style="block-size:249.4mm"></div><div style="block-size:249.4mm"></div>',
+      lang: 'en',
+      print: { paper: 'letter' },
+      printedPages: parentPages,
+    })
+    check('content that exactly fills three columns prints exactly three papers', exactPapers === 3, `papers=${exactPapers}`)
+
     const fixtures = (await page.evaluate(() => fetch('/parent-pages-print.json').then((response) => response.json()))) as {
       cases: Array<{ name: string; page: unknown }>
       motifs: Array<{ key: string }>
