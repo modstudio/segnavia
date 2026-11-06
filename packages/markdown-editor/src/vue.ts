@@ -2,6 +2,7 @@ import type { Assert, EventProps } from '@segnavia/frame/vue-types'
 import type { DefineComponent } from 'vue'
 import type { MARKDOWN_EDITOR_PROPERTIES } from './element-properties.ts'
 import type { MarkdownEditorMode, MarkdownEditorStateDetail, SegnaviaMarkdownEditor } from './markdown-editor.ts'
+import type { RawInlineIndicationDetail } from './markdown-raw-inline-indication.ts'
 
 export interface MarkdownEditorVueEventDetails {
   'segnavia-markdown-change': { markdown: string }
@@ -10,6 +11,7 @@ export interface MarkdownEditorVueEventDetails {
   'segnavia-save': unknown
   'segnavia-editor-state': MarkdownEditorStateDetail
   'segnavia-link-request': { href: string | null }
+  'segnavia-raw-inline-indicate': RawInlineIndicationDetail | null
 }
 
 type EventName = (typeof MARKDOWN_EDITOR_PROPERTIES.events)[number]

@@ -262,9 +262,13 @@ nested `<segnavia-page>` rendering that block as Markdown with author scripts
 refused. It exposes `part="locked-block"` and labeled atoms also expose
 `data-locked-label`; there is no editor chrome.
 
-An opaque inline atom exposes `part="raw-inline"` and keeps its exact source in
-the native `title` tooltip. It has no appearance by default beyond inline
-padding and bidirectional isolation. Hosts may style it with these properties:
+An opaque inline atom exposes `part="raw-inline"` and has no native tooltip.
+Its `img` role represents the non-editable inline atom as one named object
+inside the editable region. Its accessible name includes both its display text
+and exact source; the source is direction-resolved and isolated, and the host
+may replace the `labels.rawInline(display, source)` wording. It has no
+appearance by default beyond inline padding and bidirectional isolation. Hosts
+may style it with these properties:
 
 | Property | Default |
 |---|---|
@@ -302,7 +306,9 @@ page element's font source option and `fontReferences` is the page-style
 reference list, resolved and refused exactly as a page resolves and refuses
 them. Faces are registered in `document.fonts` as `FontFace` objects and removed on
 change or disconnect, because Chromium ignores shadow-root `@font-face`.
-`alertLabels` flows to locked nested pages. Every rich block carries
+`alertLabels` flows to locked nested pages. `labels` is a partial override of
+the editor's English library-written strings, currently the raw-inline
+accessible-name function. Every rich block carries
 `dir="auto"`.
 
 The source editor is CodeMirror with GFM, history, wrapping and per-line text
@@ -330,7 +336,12 @@ change. `segnavia-save` carries no detail. `segnavia-editor-state` carries
 `{ marks, nodes, canUndo, canRedo }` in command vocabulary, fires after rich
 transactions and selection changes, and is suppressed while unchanged.
 `segnavia-link-request { href }` is emitted only by Mod-K; the host answers
-with `run('link', { href })`.
+with `run('link', { href })`. `segnavia-raw-inline-indicate` carries
+`{ source, display, rect: { x, y, width, height }, via }` when a raw-inline atom
+is under the pointer or selected as a node by keyboard, and `null` when none is
+indicated. Keyboard indication wins while pointer and keyboard indications
+both hold. The event is suppressed while unchanged and ends on pointer leave,
+selection departure, blur, mode change or disconnect.
 
 `run(command, args?)` returns whether it applied. Commands cover bold, italic,
 code, strike, paragraph and heading levels, bullet, ordered and task lists,

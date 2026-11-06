@@ -4,6 +4,7 @@ import {
   type MarkdownEditorMode,
   type MarkdownEditorStateDetail,
   type MarkdownTitleSource,
+  type RawInlineIndicationDetail,
   type SegnaviaMarkdownEditor,
 } from '@segnavia/markdown-editor'
 import { type ElementDescriptor, invertEvents, type PropsFor } from './elements.ts'
@@ -24,12 +25,14 @@ export interface MarkdownEditorProps extends Omit<ElementProps<HTMLElement>, 'ti
   fontReferences?: SegnaviaMarkdownEditor['fontReferences']
   linkOrigins?: SegnaviaMarkdownEditor['linkOrigins']
   alertLabels?: SegnaviaMarkdownEditor['alertLabels']
+  labels?: SegnaviaMarkdownEditor['labels']
   onSegnaviaMarkdownChange?: CustomEventProp<{ markdown: string }>
   onSegnaviaTitleChange?: CustomEventProp<{ title: string }>
   onSegnaviaModeChange?: CustomEventProp<{ mode: MarkdownEditorMode }>
   onSegnaviaSave?: CustomEventProp
   onSegnaviaEditorState?: CustomEventProp<MarkdownEditorStateDetail>
   onSegnaviaLinkRequest?: CustomEventProp<{ href: string | null }>
+  onSegnaviaRawInlineIndicate?: CustomEventProp<RawInlineIndicationDetail | null>
 }
 
 const markdownEditor: ElementDescriptor<SegnaviaMarkdownEditor, MarkdownEditorProps, 'segnavia-markdown-editor'> = {
@@ -41,6 +44,7 @@ const markdownEditor: ElementDescriptor<SegnaviaMarkdownEditor, MarkdownEditorPr
     'segnavia-save': 'onSegnaviaSave',
     'segnavia-editor-state': 'onSegnaviaEditorState',
     'segnavia-link-request': 'onSegnaviaLinkRequest',
+    'segnavia-raw-inline-indicate': 'onSegnaviaRawInlineIndicate',
   } satisfies Record<(typeof MARKDOWN_EDITOR_PROPERTIES.events)[number], Extract<keyof MarkdownEditorProps, `on${string}`>>),
 }
 

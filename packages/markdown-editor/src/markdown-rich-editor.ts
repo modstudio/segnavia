@@ -4,6 +4,8 @@ import type { FontsOptions } from '@segnavia/frame/fonts'
 import { safeMarkdownUrl } from '@segnavia/html'
 import { Editor, type JSONContent } from '@tiptap/core'
 import type { Node } from '@tiptap/pm/model'
+import type { MarkdownEditorLabels } from './markdown-editor-labels.ts'
+import { labelRawInline, type RawInlineIndicator, selectedRawInlineAtom } from './markdown-raw-inline-indication.ts'
 import { type RichEditorState, richEditorState, richKeyboard } from './markdown-rich-commands.ts'
 import { richExtensions } from './markdown-rich-extensions.ts'
 import { LOCKED_BLOCK_NAME, LockedBlock } from './markdown-rich-locked.ts'
@@ -48,28 +50,32 @@ function lockedView(options: () => LockedViewOptions) {
   })
 }
 
-const rawInlineView = RawInline.extend({
-  addNodeView() {
-    return ({ node }) => {
-      const dom = document.createElement('span')
-      dom.part.add('raw-inline')
-      dom.dataset.rawInline = ''
-      dom.dataset.rawSource = String(node.attrs.source ?? '')
-      dom.dataset.rawDisplay = String(node.attrs.display ?? '')
-      dom.dir = 'auto'
-      dom.contentEditable = 'false'
-      dom.title = String(node.attrs.source ?? '')
-      dom.textContent = String(node.attrs.display ?? '')
-      return { dom }
-    }
-  },
-})
+function rawInlineView(labels: () => MarkdownEditorLabels, indicator: RawInlineIndicator) {
+  return RawInline.extend({
+    addNodeView() {
+      return ({ node }) => {
+        const dom = document.createElement('span')
+        dom.part.add('raw-inline')
+        dom.dataset.rawInline = ''
+        dom.dataset.rawSource = String(node.attrs.source ?? '')
+        dom.dataset.rawDisplay = String(node.attrs.display ?? '')
+        dom.dir = 'auto'
+        dom.contentEditable = 'false'
+        dom.textContent = String(node.attrs.display ?? '')
+        labelRawInline(dom, labels())
+        dom.addEventListener('pointerenter', () => indicator.pointerEnter(dom))
+        dom.addEventListener('pointerleave', () => indicator.pointerLeave(dom))
+        return { dom }
+      }
+    },
+  })
+}
 
-function extensions(options: () => LockedViewOptions, keyboard: Parameters<typeof richKeyboard>[0]) {
+function extensions(options: () => RichAdapterOptions, keyboard: Parameters<typeof richKeyboard>[0]) {
   return [
     ...richExtensions().map((extension) => {
       if (extension.name === LOCKED_BLOCK_NAME) return lockedView(options)
-      return extension.name === RAW_INLINE_NAME ? rawInlineView : extension
+      return extension.name === RAW_INLINE_NAME ? rawInlineView(() => options().labels, options().indicator) : extension
     }),
     richKeyboard(keyboard),
   ]
@@ -91,7 +97,9 @@ export type RichAdapterOptions = LockedViewOptions & {
   editLocked: () => boolean
   linkOrigins: () => Iterable<string> | undefined
   linkRequest: (href: string | null) => void
+  labels: MarkdownEditorLabels
   mount: HTMLElement
+  indicator: RawInlineIndicator
   change: (content: readonly Node[]) => void
   save: () => void
   state: (state: RichEditorState) => void
@@ -118,7 +126,13 @@ export function mountRichEditor(options: RichAdapterOptions): Editor {
     onUpdate: ({ editor: instance }) => options.change(Array.from(instance.state.doc.content.content)),
     onTransaction: ({ editor: instance }) => options.state(richEditorState(instance)),
     onSelectionUpdate: ({ editor: instance }) => options.state(richEditorState(instance)),
+    onBlur: () => options.indicator.end(),
   })
+  const indicateSelection = () => {
+    options.indicator.keyboardSelect(selectedRawInlineAtom(editor))
+  }
+  editor.on('transaction', indicateSelection)
+  editor.on('selectionUpdate', indicateSelection)
   options.state(richEditorState(editor))
   return editor
 }

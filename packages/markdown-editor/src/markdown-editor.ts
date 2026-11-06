@@ -8,6 +8,7 @@ import type { Editor } from '@tiptap/core'
 import { ensureEditorStyle } from './editor-style.ts'
 import { MARKDOWN_EDITOR_TAG } from './element-properties.ts'
 import { MarkdownEditorFontRegistration } from './markdown-editor-font-registration.ts'
+import { ENGLISH_MARKDOWN_EDITOR_LABELS, type MarkdownEditorLabels, markdownEditorLabels } from './markdown-editor-labels.ts'
 import { validateMarkdownLink } from './markdown-editor-link.ts'
 import {
   type MarkdownEditorModel,
@@ -38,6 +39,7 @@ import {
 } from './markdown-editor-policy.ts'
 import { renderMarkdownEditorTitle, updateMarkdownEditorTitle } from './markdown-editor-title.ts'
 import type { MarkdownEditorStateDetail, SegnaviaMarkdownEditor as SegnaviaMarkdownEditorInterface } from './markdown-editor-types.ts'
+import { RawInlineIndicator } from './markdown-raw-inline-indication.ts'
 import { lockedBlockSourceOffset, RICH_COMMANDS, richEditorState, selectedLockedBlock } from './markdown-rich-commands.ts'
 import { mountRichEditor } from './markdown-rich-editor.ts'
 import { parseRichDocument, type RichDocumentNode, saveRichDocument } from './markdown-rich-save.ts'
@@ -45,11 +47,8 @@ import { markdownSourceState } from './markdown-source.ts'
 import { normalizeMarkdownTitle } from './markdown-title.ts'
 
 export type { MarkdownEditorStateDetail } from './markdown-editor-types.ts'
-
 export interface SegnaviaMarkdownEditor extends SegnaviaMarkdownEditorInterface {}
-
 const COMMAND_NAMES = new Set<string>(MARKDOWN_EDITOR_COMMANDS.map(({ name }) => name))
-
 class MarkdownEditorElement extends HTMLElement {
   static observedAttributes = ['markdown', 'mode', 'title', 'title-source']
   private readonly root = this.attachShadow({ mode: 'open' })
@@ -71,8 +70,9 @@ class MarkdownEditorElement extends HTMLElement {
   private fontReferenceOptions: FontReference[] = []
   private linkOriginOptions: Iterable<string> | undefined
   private alertLabelOptions: Partial<AlertLabels> | undefined
+  private words = ENGLISH_MARKDOWN_EDITOR_LABELS
+  private readonly rawInlineIndicator = new RawInlineIndicator((detail) => this.emit('segnavia-raw-inline-indicate', detail))
   private readonly fontRegistration = new MarkdownEditorFontRegistration(this)
-
   constructor() {
     super()
     upgradeProperties(this)
@@ -86,7 +86,6 @@ class MarkdownEditorElement extends HTMLElement {
     this.container.append(this.titleField, this.sourceMount, this.richMount)
     this.root.append(this.richStyle, this.container)
   }
-
   connectedCallback() {
     ensureEditorStyle(this.container)
     this.titleField.addEventListener('input', this.onTitleInput)
@@ -95,8 +94,8 @@ class MarkdownEditorElement extends HTMLElement {
     this.mountMode()
     renderMarkdownEditorTitle(this.titleField, this.model)
   }
-
   disconnectedCallback() {
+    this.rawInlineIndicator.end()
     this.titleField.removeEventListener('input', this.onTitleInput)
     this.titleField.removeEventListener('keydown', this.onTitleKeyDown)
     this.titleField.removeEventListener('paste', this.onTitlePaste)
@@ -106,7 +105,6 @@ class MarkdownEditorElement extends HTMLElement {
     this.richView = null
     this.fontRegistration.clear()
   }
-
   attributeChangedCallback(name: string, _old: string | null, value: string | null) {
     if (this.reflecting) return
     if (name === 'markdown') this.markdown = value ?? ''
@@ -116,7 +114,6 @@ class MarkdownEditorElement extends HTMLElement {
       this.setTitle(value, 'attribute')
     } else this.titleSource = value === 'leading-heading' ? 'leading-heading' : 'separate'
   }
-
   get markdown() {
     return this.model.markdown
   }
@@ -128,7 +125,6 @@ class MarkdownEditorElement extends HTMLElement {
     renderMarkdownEditorTitle(this.titleField, this.model)
     this.resetVisibleEditor()
   }
-
   get mode() {
     return this.modeValue
   }
@@ -138,14 +134,12 @@ class MarkdownEditorElement extends HTMLElement {
   get modes() {
     return MARKDOWN_EDITOR_MODES
   }
-
   get title(): string {
     return this.model.title as unknown as string
   }
   set title(value: string | null | undefined) {
     this.setTitle(value, 'property')
   }
-
   private setTitle(value: string | null | undefined, source: 'attribute' | 'property') {
     const { model, removeTitleAttribute } = updateMarkdownEditorTitle(this.model, value, source)
     if (model !== this.model) {
@@ -154,7 +148,6 @@ class MarkdownEditorElement extends HTMLElement {
     }
     if (removeTitleAttribute) this.reflect('title', null)
   }
-
   get titleSource() {
     return this.model.titleSource
   }
@@ -168,7 +161,6 @@ class MarkdownEditorElement extends HTMLElement {
     renderMarkdownEditorTitle(this.titleField, this.model)
     this.resetVisibleEditor()
   }
-
   get lockedFences() {
     return this.lockedFenceOptions
   }
@@ -223,13 +215,21 @@ class MarkdownEditorElement extends HTMLElement {
     this.alertLabelOptions = next
     if (this.modeValue === 'rich') this.resetRich()
   }
+  get labels() {
+    return this.words
+  }
+  set labels(value: Partial<MarkdownEditorLabels>) {
+    const next = markdownEditorLabels(value ?? {})
+    if (next.rawInline === this.words.rawInline) return
+    this.words = next
+    if (this.modeValue === 'rich') this.resetRich()
+  }
   get unstyled() {
     return this.hasAttribute('unstyled')
   }
   set unstyled(value: boolean) {
     this.toggleAttribute('unstyled', value)
   }
-
   run(command: MarkdownEditorCommand, args?: Record<string, unknown>): boolean {
     if (!COMMAND_NAMES.has(command)) throw new Error(`Unknown markdown editor command ${JSON.stringify(command)}.`)
     if (command === 'toggle-mode') return this.setMode(this.modeValue === 'rich' ? 'source' : 'rich', true)
@@ -240,22 +240,20 @@ class MarkdownEditorElement extends HTMLElement {
     if (command === 'link') validateMarkdownLink(String(args?.href ?? ''), this.linkOriginOptions)
     return RICH_COMMANDS[command as keyof typeof RICH_COMMANDS].apply(editor, args)
   }
-
   private runSourceCommand(command: MarkdownEditorCommand): boolean {
     if (command === 'undo') return this.sourceView ? undo(this.sourceView) : false
     if (command === 'redo') return this.sourceView ? redo(this.sourceView) : false
     throw richModeCommandRefusal(command)
   }
-
   private setMode(mode: MarkdownEditorMode, emit: boolean): boolean {
     if (mode === this.modeValue) return false
     this.modeValue = mode
+    this.rawInlineIndicator.end()
     this.reflect('mode', mode)
     this.mountMode()
     if (emit) this.emit('segnavia-mode-change', { mode })
     return true
   }
-
   private mountMode() {
     if (!this.isConnected) return
     this.sourceMount.hidden = this.modeValue !== 'source'
@@ -264,14 +262,12 @@ class MarkdownEditorElement extends HTMLElement {
     else this.resetRich()
     this.fontRegistration.load(this.fontReferenceOptions, this.fontOptions)
   }
-
   private mountSource() {
     this.sourceView?.destroy()
     this.sourceMount.replaceChildren()
     this.sourceView = new EditorView({ parent: this.sourceMount, root: this.root, state: this.sourceState() })
     this.emitSourceState(false, false)
   }
-
   private sourceState() {
     return markdownSourceState(this.model.editable, {
       change: (markdown) => this.onSourceChange(markdown),
@@ -280,15 +276,14 @@ class MarkdownEditorElement extends HTMLElement {
       state: (canUndo, canRedo) => this.emitSourceState(canUndo, canRedo),
     })
   }
-
   private resetVisibleEditor() {
     if (this.modeValue === 'source' && this.sourceView) this.sourceView.setState(this.sourceState())
     if (this.modeValue === 'rich') this.resetRich()
     this.emitVisibleState()
   }
-
   private resetRich() {
     if (!this.isConnected) return
+    this.rawInlineIndicator.end()
     this.richView?.destroy()
     this.richMount.replaceChildren()
     this.richOriginal = this.model.editable
@@ -300,6 +295,8 @@ class MarkdownEditorElement extends HTMLElement {
       fontReferences: this.fontReferenceOptions,
       alertLabels: this.alertLabelOptions as Record<string, string> | undefined,
       linkOrigins: () => this.linkOriginOptions,
+      labels: this.words,
+      indicator: this.rawInlineIndicator,
       change: (content) => this.onRichChange(content),
       state: (state) => this.emitState(state),
       linkRequest: (href) => this.emit('segnavia-link-request', { href }),
@@ -392,8 +389,10 @@ class MarkdownEditorElement extends HTMLElement {
 
 export type { FontsOptions } from '@segnavia/frame/fonts'
 export { MARKDOWN_EDITOR_PROPERTIES, MARKDOWN_EDITOR_TAG } from './element-properties.ts'
+export { ENGLISH_MARKDOWN_EDITOR_LABELS, type MarkdownEditorLabels } from './markdown-editor-labels.ts'
 export type { MarkdownTitleSource } from './markdown-editor-model.ts'
 export { MARKDOWN_EDITOR_COMMANDS, MARKDOWN_EDITOR_MODES, type MarkdownEditorCommand, type MarkdownEditorMode } from './markdown-editor-policy.ts'
+export type { RawInlineIndicationDetail } from './markdown-raw-inline-indication.ts'
 export { joinLeadingHeading, normalizeMarkdownTitle, splitLeadingHeading } from './markdown-title.ts'
 export const SegnaviaMarkdownEditor: { new (): SegnaviaMarkdownEditor } = MarkdownEditorElement as unknown as { new (): SegnaviaMarkdownEditor }
 if (!customElements.get(MARKDOWN_EDITOR_TAG)) customElements.define(MARKDOWN_EDITOR_TAG, SegnaviaMarkdownEditor as unknown as CustomElementConstructor)
