@@ -73,8 +73,22 @@ export async function openHarness(): Promise<Harness> {
     const events: unknown[] = []
     ;(window as unknown as { __focusProbe: unknown[] }).__focusProbe = events
     const record = (type: string, detail: unknown = {}) => events.push({ at: performance.timeOrigin + performance.now(), type, detail })
-    addEventListener('focus', () => record('focus', { hasFocus: document.hasFocus() }), true)
-    addEventListener('blur', () => record('blur', { hasFocus: document.hasFocus() }), true)
+    const focusDetail = (event: FocusEvent) => ({
+      hasFocus: document.hasFocus(),
+      target: event.target instanceof Element ? `${event.target.tagName.toLowerCase()}#${event.target.id}` : String(event.target),
+      active: document.activeElement instanceof Element ? `${document.activeElement.tagName.toLowerCase()}#${document.activeElement.id}` : null,
+      related: event.relatedTarget instanceof Element ? `${event.relatedTarget.tagName.toLowerCase()}#${event.relatedTarget.id}` : null,
+      path: event.composedPath().filter((entry): entry is Element => entry instanceof Element).map((entry) => entry.tagName.toLowerCase()),
+    })
+    addEventListener('focus', (event) => record('focus', focusDetail(event)), true)
+    addEventListener('blur', (event) => record('blur', focusDetail(event)), true)
+    for (const type of ['pointerdown', 'pointerup', 'click']) {
+      addEventListener(type, (event) => record(type, {
+        target: event.target instanceof Element ? event.target.tagName.toLowerCase() : String(event.target),
+        x: (event as PointerEvent).clientX,
+        y: (event as PointerEvent).clientY,
+      }), true)
+    }
     addEventListener('load', () => record('load', { hasFocus: document.hasFocus() }), true)
     addEventListener('message', (event) => {
       if ((event.data as { type?: string } | null)?.type === 'segnavia:ready') record('ready')
@@ -147,14 +161,19 @@ export async function openHarness(): Promise<Harness> {
       const handles = await page.locator(selector).elementHandles()
       const frames = (await Promise.all(handles.map((handle) => handle.contentFrame()))).filter((candidate) => candidate !== null)
       const facts = await Promise.all([
-        page.evaluate(() => ({ focus: document.hasFocus(), events: (window as unknown as { __focusProbe?: unknown[] }).__focusProbe ?? [] })),
+        page.evaluate(() => {
+          const player = document.querySelector('segnavia-player')
+          const shadowActive = player?.shadowRoot?.activeElement
+          return { focus: document.hasFocus(), active: document.activeElement instanceof Element ? `${document.activeElement.tagName.toLowerCase()}#${document.activeElement.id}` : null, shadowActive: shadowActive instanceof Element ? `${shadowActive.tagName.toLowerCase()}#${shadowActive.id}` : null, events: (window as unknown as { __focusProbe?: unknown[] }).__focusProbe ?? [] }
+        }),
         page.locator(selector).evaluateAll((iframes) => iframes.map((iframe, index) => {
           const canvas = iframe.closest('.segnavia-stage__canvas') as HTMLElement | null
-          return { index, slide: canvas?.dataset.slideId, active: canvas?.hasAttribute('data-active'), incoming: canvas?.hasAttribute('data-incoming'), inert: canvas?.inert, opacity: canvas ? getComputedStyle(canvas).opacity : null }
+          const rect = iframe.getBoundingClientRect()
+          return { index, slide: canvas?.dataset.slideId, active: canvas?.hasAttribute('data-active'), incoming: canvas?.hasAttribute('data-incoming'), inert: canvas?.inert, opacity: canvas ? getComputedStyle(canvas).opacity : null, rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }
         })),
-        ...frames.map((candidate) => candidate.evaluate(() => ({ focus: document.hasFocus(), events: (window as unknown as { __focusProbe?: unknown[] }).__focusProbe ?? [] }))),
+        ...frames.map((candidate) => candidate.evaluate(() => ({ focus: document.hasFocus(), active: document.activeElement instanceof Element ? `${document.activeElement.tagName.toLowerCase()}#${document.activeElement.id}` : null, events: (window as unknown as { __focusProbe?: unknown[] }).__focusProbe ?? [] }))),
       ])
-      console.error(focused ? 'FOCUS_PROBE_PASS' : 'FOCUS_PROBE_FAIL', JSON.stringify({ selector, clickedAt, facts }))
+      console.error(focused ? 'FOCUS_PROBE_PASS' : 'FOCUS_PROBE_FAIL', JSON.stringify({ selector, clickedAt, clickedBox: box, facts }))
       if (!focused) throw new Error(`${selector} did not take focus within ${BOUNDED_WAIT_MS} ms of the click.`)
     },
     evidence: async (name) => {
