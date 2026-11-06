@@ -9,6 +9,7 @@ import {
   Imposition,
   type ImpositionInput,
   impose,
+  type Limits,
   Page,
   type PageInput,
   PageWidths,
@@ -111,6 +112,7 @@ export interface PrintOptions {
   slots?: SlotsOptions
   dependencyOrigins?: Iterable<string>
   diagramScript?: string
+  limits?: Limits
 }
 
 function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
@@ -225,6 +227,7 @@ export interface PrintablePagesOptions {
   dependencyOrigins?: Iterable<string>
   pageWidths?: PageWidths
   diagramScript?: string
+  limits?: Limits
 }
 
 export interface PrintablePagesDocument {

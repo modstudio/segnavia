@@ -82,7 +82,7 @@ export async function buildPagePdfs(renderer: Renderer, output: string, site?: s
     path.join(output, 'pages-two-sided-odd.pdf'),
     await renderer.pagesPdf(twoSidedCardPages.slice(0, 5), { imposition: twoSidedSequenceImposition }),
   )
-  const refusal = await renderer.pagesPdf(labelPages, { imposition: labelsImposition, limits: { maxSheets: 1 } }).then(
+  const refusal = await renderer.pagesPdf(labelPages, { imposition: labelsImposition, limits: { sheets: 1 } }).then(
     () => 'rendered',
     (error) => (error instanceof Error ? error.message : `unexpected ${error}`),
   )

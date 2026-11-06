@@ -369,7 +369,7 @@ try {
     },
   })
   writeFileSync(path.join(OUT, 'measured.txt'), String(measured))
-  const refused = await renderer.deckPdf(printable, { inline, limits: { maxSheets: 2 } }).then(
+  const refused = await renderer.deckPdf(printable, { inline, limits: { sheets: 2 } }).then(
     () => 'rendered',
     (error) => (error instanceof RenderRefusedError ? error.message : `unexpected ${error}`),
   )

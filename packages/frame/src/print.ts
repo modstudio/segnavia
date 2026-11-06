@@ -4,7 +4,7 @@
 // has reported itself painted, or once the deadline passes so a slide that
 // never reports cannot hold the dialog closed for ever.
 
-import { type Deck, Imposition, type ImpositionInput, Page, type PageInput } from '@segnavia/format'
+import { type Deck, exceedsLimits, Imposition, type ImpositionInput, type Limits, limitRefusal, Page, type PageInput, parseLimits } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { loadDiagramScript } from './diagram-document.ts'
@@ -25,6 +25,7 @@ import {
 } from './print-document.ts'
 import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
+import { pagesSheetsRefusal } from './print-limits.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
 import {
@@ -62,6 +63,8 @@ interface PrintFrameOptions extends PrintDialogOptions {
   output?: 'print' | 'measure'
   strictFrameReadiness?: boolean
   deadlineAt?: number
+  limits?: Limits
+  sheets?: number
 }
 
 async function printFrame(options: PrintFrameOptions): Promise<void> {
@@ -118,7 +121,9 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     if (measurementRefusal) throw measurementRefusal
     if (options.output === 'measure') return
     placePrintImages(win.document)
-    paginateNotes(win.document)
+    const sheetsLimit = options.limits?.sheets
+    const pagination = paginateNotes(win.document, sheetsLimit)
+    if (sheetsLimit !== undefined && pagination.exceeded) throw new RangeError(limitRefusal('sheets', pagination.sheets, sheetsLimit, { atLeast: true }))
     await waitForPaint(win.requestAnimationFrame.bind(win), Math.max(PAINT_FALLBACK_MS, deadlineAt - Date.now()))
     if (options.print) await options.print(win)
     else {
@@ -190,10 +195,16 @@ async function preparedPagesPrint(
       ...options,
       deadlineAt: options.deadlineAt ?? Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS),
     })
-    return { ...paperBoxSize(printable.paper), html: printable.html, ...options, slots: resolvedSlots, strictFrameReadiness: true }
+    return { ...paperBoxSize(printable.paper), html: printable.html, ...options, slots: resolvedSlots, sheets: printable.sheets, strictFrameReadiness: true }
   }
   const printable = printablePagesDocument(filled, imposition, options)
-  return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
+  return {
+    ...paperBoxSize(printable.imposed.paper),
+    html: printable.html,
+    ...options,
+    slots: resolvedSlots,
+    sheets: printable.imposed.papers * printable.imposed.sides,
+  }
 }
 
 /**
@@ -205,10 +216,24 @@ export function copiesPrint(copies: readonly PrintFrameOptions[]): PrintFrameOpt
   const first = copies[0]
   if (!first) throw new RangeError('There is nothing to print. Pass at least one fill, or omit fills, to clear this refusal.')
   if (copies.length === 1) return first
-  return { ...first, html: joinPrintDocuments(copies.map((copy) => copy.html)), slots: EMPTY_SLOTS }
+  return {
+    ...first,
+    html: joinPrintDocuments(copies.map((copy) => copy.html)),
+    slots: EMPTY_SLOTS,
+    sheets: copies.reduce((total, copy) => total + (copy.sheets ?? 0), 0),
+  }
+}
+
+function refusePagesSheets(options: PrintFrameOptions): void {
+  if (options.sheets === undefined) return
+  const refusal = pagesSheetsRefusal(options.sheets, options.limits)
+  if (refusal) throw new RangeError(refusal)
 }
 
 export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
+  options = { ...options, limits: parseLimits(options.limits, 'host') }
+  const reasons = exceedsLimits(deck, options.limits ?? {})
+  if (reasons.length > 0) throw new RangeError(reasons.join('; '))
   const signal = new AbortController().signal
   const notesSheetFont = options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined
   const preparedOptions = { ...options, notesSheetFont }
@@ -229,7 +254,7 @@ export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 's
 }
 
 export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
-  options = { ...options, pageWidths: parsePageWidths(options.pageWidths) }
+  options = { ...options, limits: parseLimits(options.limits, 'host'), pageWidths: parsePageWidths(options.pageWidths) }
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
   const expanded = await expandFramePages(
@@ -243,11 +268,17 @@ export async function printPages(pagesInput: PageInput[], impositionInput: Impos
   const fontCss = await expandedPagesFontCss(expanded, options.fonts, signal)
   const pages = expanded.map((item) => item.page)
   const preparedOptions = { ...options, motifs: undefined, fonts: undefined, css: `${fontCss}${options.css ?? ''}`, deadlineAt }
-  if (!options.slots?.fills) return printFrame(await preparedPagesPrint(pages, impositionInput, preparedOptions))
+  if (!options.slots?.fills) {
+    const prepared = await preparedPagesPrint(pages, impositionInput, preparedOptions)
+    refusePagesSheets(prepared)
+    return printFrame(prepared)
+  }
   const copies = await collectSlotPrintCopies(options.slots, async (copySlots) => {
     const prepared = await preparedPagesPrint(pages, impositionInput, { ...preparedOptions, slots: copySlots })
     await printFrame({ ...prepared, output: 'measure' })
     return prepared
   })
-  return printFrame(copiesPrint(copies))
+  const prepared = copiesPrint(copies)
+  refusePagesSheets(prepared)
+  return printFrame(prepared)
 }

@@ -269,7 +269,7 @@ var decision=decideBookMeasurement({frameWidth:document.documentElement.clientWi
 if(decision==='wait-for-width'){visibleElapsed+=performance.now()-visibleStartedAt;visibleStartedAt=null;return nextAnimationFrame().then(composeWhenMeasurable);}
 if(decision==='retry')return nextLayoutFrame().then(composeWhenMeasurable);
 if(decision==='refuse'){var missingFlows=unmeasuredFlows(flowMeasurements);if(missingFlows.length)fail('The book could not establish measured lines for source flows '+missingFlows.join(', ')+'; allow every named flow to finish layout and yield a line to clear this refusal.');else fail('The book could not measure line boxes or plan a page because the frame or galley has no size, or layout stayed deferred; give the frame and galley a non-zero size or allow layout to finish to clear this refusal.');return;}
-if(plan.pages.length>config.limit){fail('the composed book needs '+plan.pages.length+' papers, above the limit '+config.limit+'; shorten the content to clear this refusal');return;}
+if(plan.pages.length>config.limit){fail(config.limitRefusal.template.split(config.limitRefusal.placeholder).join(String(plan.pages.length)));return;}
 var composed=compose(plan,input.geometry.noteSeries||[]);
 if(document.documentElement.hasAttribute('${BOOK_FAILURE_ATTRIBUTE}'))return;
 return Promise.all([document.fonts?document.fonts.ready:Promise.resolve(),readyImages(composed)]).then(function(){if(!settleHeldNoteViews())return;presentScreen(composed,plan.pages.length);document.documentElement.setAttribute('${BOOK_COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${BOOK_COMPOSED_ATTRIBUTE}','');});

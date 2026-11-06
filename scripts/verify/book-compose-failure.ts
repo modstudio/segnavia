@@ -37,7 +37,7 @@ export async function verifyComposeFailure(h: Harness) {
   check(
     'a paginated book over the page limit reports its refusal and keeps the working layout shown',
     facts.errors.length === 1 &&
-      facts.errors[0]?.includes('above the limit 500') === true &&
+      facts.errors[0]?.includes('above the pages limit of 500') === true &&
       facts.ready === readyBefore &&
       facts.layout === 'flow' &&
       facts.shown.join() === 'flow',

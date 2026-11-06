@@ -1,4 +1,4 @@
-import { type Book, type BookInput, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
+import { type Book, type BookInput, type Limits, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
   BOOK_FAILURE_ATTRIBUTE,
@@ -58,9 +58,10 @@ function bookSrcdoc(
   marginLayer: boolean,
   diagramScript: string | undefined,
   dependencyOrigins?: Iterable<string>,
+  limits?: Limits,
 ): string {
   const nonce = newNonce()
-  if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true, diagramScript })
+  if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true, diagramScript, limits })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
     nonce,
@@ -92,7 +93,7 @@ async function printBook(
   const css = `${bookPageCss(book, marginLayer || paginated)}${layerCss}${renderOptions.css ?? ''}`
   let srcdoc: string
   try {
-    srcdoc = bookSrcdoc(html, book, fontCss, css, marginLayer, diagramScript, renderOptions.dependencyOrigins)
+    srcdoc = bookSrcdoc(html, book, fontCss, css, marginLayer, diagramScript, renderOptions.dependencyOrigins, renderOptions.limits)
   } catch (error) {
     if (error instanceof PaginatedBookRefusedError) throw new RenderRefusedError(error.message)
     throw error

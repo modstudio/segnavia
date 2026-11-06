@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Page } from '@segnavia/format'
+import { limitRefusal, Page } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -16,9 +16,9 @@ const composed = resolvePageHtml(
 test('turns a composer failure including its page bound into a render refusal', async () => {
   const tab = {
     waitForFunction: async () => {},
-    evaluate: async () => 'the composed flow needs 501 papers, above the limit 500; shorten the content to clear this refusal',
+    evaluate: async () => limitRefusal('pages', 501, 500, { pagesSource: 'default' }),
   } as unknown as Tab
   const rendering = awaitPrintedPageComposition(tab, composed)
   await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
-  await expect(rendering).rejects.toThrow('501 papers, above the limit 500')
+  await expect(rendering).rejects.toThrow('501 papers, above the pages limit of 500')
 })

@@ -1,6 +1,7 @@
+import { type Limits, limitRefusal } from '@segnavia/format'
 import { rewriteEffectsPdf } from './effects/adapter.ts'
 import { RenderRefusedError } from './errors.ts'
-import type { RenderLimits, RenderOptions } from './options.ts'
+import type { RenderOptions } from './options.ts'
 import { loadPdf } from './pdf-load.ts'
 import { rewritePressPdf } from './press/adapter.ts'
 import { assertNeutralTolerance, DEFAULT_NEUTRAL_TOLERANCE } from './press/color-policy.ts'
@@ -11,20 +12,20 @@ async function sheets(pdf: Uint8Array): Promise<number> {
   return (await loadPdf(pdf)).getPageCount()
 }
 
-export async function enforce(pdf: Uint8Array, limits: RenderLimits | undefined): Promise<Uint8Array> {
-  if (limits?.maxBytes !== undefined && pdf.byteLength > limits.maxBytes) {
-    throw new RenderRefusedError(`The PDF is ${pdf.byteLength} bytes; the limit is ${limits.maxBytes}.`)
+export async function enforce(pdf: Uint8Array, limits: Limits | undefined): Promise<Uint8Array> {
+  if (limits?.bytes !== undefined && pdf.byteLength > limits.bytes) {
+    throw new RenderRefusedError(limitRefusal('bytes', pdf.byteLength, limits.bytes))
   }
-  if (limits?.maxSheets !== undefined) {
+  if (limits?.sheets !== undefined) {
     const count = await sheets(pdf)
-    if (count > limits.maxSheets) throw new RenderRefusedError(`The PDF has ${count} sheets; the limit is ${limits.maxSheets}.`)
+    if (count > limits.sheets) throw new RenderRefusedError(limitRefusal('sheets', count, limits.sheets))
   }
   return pdf
 }
 
 export async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>, decodeJpeg?: JpegDecoder): Promise<Uint8Array> {
-  if (options.limits?.maxBytes !== undefined && pdf.byteLength > options.limits.maxBytes)
-    throw new RenderRefusedError(`The PDF is ${pdf.byteLength} bytes; the limit is ${options.limits.maxBytes}.`)
+  if (options.limits?.bytes !== undefined && pdf.byteLength > options.limits.bytes)
+    throw new RenderRefusedError(limitRefusal('bytes', pdf.byteLength, options.limits.bytes))
   let output = pdf
   if (options.effects !== false) {
     const rewritten = await rewriteEffectsPdf(output)

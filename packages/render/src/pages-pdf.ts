@@ -2,7 +2,7 @@ import { Imposition, type ImpositionInput, impose, impositionMarks, isPrintedPag
 import type { HtmlPage } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
-import { parseRenderOptions } from './options.ts'
+import { innerLimits, parseRenderOptions } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
@@ -44,7 +44,7 @@ async function composedPdf(pages: HtmlPage[], imposition: Imposition, opts: Page
         return {
           group,
           bytes: await setPdfPageSize(
-            await services.piecePdf(page, geometry, css, opts),
+            await services.piecePdf(page, geometry, css, { ...opts, limits: innerLimits(opts.limits) }),
             geometry.paper,
             'An imposition piece prints at its paper, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
           ),
@@ -74,7 +74,7 @@ export async function renderPagesPdf(pages: HtmlPage[], opts: PagesPdfOptions, s
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {
     const rendered = await Promise.all(
-      pages.map((page, inputIndex) => services.pagePdf(page, { ...opts, limits: undefined, press: undefined, overflow: undefined }, inputIndex)),
+      pages.map((page, inputIndex) => services.pagePdf(page, { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined }, inputIndex)),
     )
     const output = await services.finish(await joinPdfs(rendered.map((part) => part.bytes)), opts)
     opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
@@ -97,7 +97,7 @@ export async function renderPagesPdf(pages: HtmlPage[], opts: PagesPdfOptions, s
     const parts = await Promise.all(
       pages.map(async (page, inputIndex) => {
         if (!page.printedPages) return composedPdf([page], imposition, opts, services)
-        const rendered = await services.pagePdf(page, { ...opts, limits: undefined, press: undefined, overflow: undefined }, inputIndex)
+        const rendered = await services.pagePdf(page, { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined }, inputIndex)
         if (rendered.overflow) overflow.push(rendered.overflow)
         return rendered.bytes
       }),

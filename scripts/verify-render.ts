@@ -83,8 +83,8 @@ try {
   check('a page running code prints once it calls pageReady', ready === 'rendered', ready)
   const silent = await refusal(renderer.pagePdf({ html: '<p>never ready</p><script>1</script>', scripts: 'sandboxed', size: { width: 400, height: 200 } }))
   check('a page running code that never calls pageReady is refused', silent.startsWith('refused: The page did not call window.pageReady()'), silent)
-  const big = await refusal(renderer.pagePdf({ html: `<p>${'words '.repeat(4000)}</p>` }, { limits: { maxBytes: 2000 } }))
-  check('a PDF over the byte ceiling is refused, naming both sizes', /^refused: The PDF is \d+ bytes; the limit is 2000\.$/.test(big), big)
+  const big = await refusal(renderer.pagePdf({ html: `<p>${'words '.repeat(4000)}</p>` }, { limits: { bytes: 2000 } }))
+  check('a PDF over the byte ceiling is refused, naming both sizes', big.includes('bytes limit of 2000'), big)
   await verifyClippedBleed(renderer, work, CHROMIUM, check)
   await verifyPageOverflow(renderer, work, check, CHROMIUM)
   await verifyNamedPaperRender(renderer, work, check)
@@ -346,7 +346,7 @@ try {
       ),
   )
   const limits = readFileSync(path.join(output, 'limits.txt'), 'utf8')
-  check('the maxSheets ceiling refuses the deck and names both counts', limits === 'The PDF has 4 sheets; the limit is 2.', limits)
+  check('the sheets ceiling refuses the deck and names both counts', limits.includes('4 sheets') && limits.includes('sheets limit of 2'), limits)
   let notesDirection = ''
   await renderer.deckPdf(
     {

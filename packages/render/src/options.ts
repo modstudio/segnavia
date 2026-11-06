@@ -1,8 +1,9 @@
-import { type FontFace, type FontSource, type OmittedImpositionMark, PageWidths } from '@segnavia/format'
+import { type Deck, exceedsLimits, type FontFace, type FontSource, type Limits, type OmittedImpositionMark, PageWidths, parseLimits } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
+import { RenderRefusedError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
 import type { PressReport } from './press/types.ts'
 
@@ -54,11 +55,6 @@ export interface MarksReport {
   omittedMarks: OmittedImpositionMark[]
 }
 
-export interface RenderLimits {
-  maxSheets?: number
-  maxBytes?: number
-}
-
 export interface RenderOptions {
   dependencyOrigins?: Iterable<string>
   dependencies?: DependencyCache
@@ -66,7 +62,7 @@ export interface RenderOptions {
   fonts?: Font[]
   fontSource?: FontSource
   localFonts?: LocalFontsOptions
-  limits?: RenderLimits
+  limits?: Limits
   boundMs?: number
   waitForPageReady?: boolean
   preferCssPageSize?: boolean
@@ -96,8 +92,32 @@ export interface RenderOptions {
 }
 
 export function parseRenderOptions<T extends RenderOptions>(options: T): T {
-  if (options.pageWidths === undefined) return options
-  return { ...options, pageWidths: PageWidths.parse(options.pageWidths) }
+  if (typeof options.localFonts === 'object' && options.localFonts !== null && 'limits' in options.localFonts) {
+    parseLimits({ localFonts: { limits: options.localFonts.limits } }, 'host')
+  }
+  return {
+    ...options,
+    limits: parseLimits(options.limits, 'host'),
+    ...(options.pageWidths === undefined ? {} : { pageWidths: PageWidths.parse(options.pageWidths) }),
+  }
+}
+
+export function innerLimits(limits: Limits | undefined): Limits | undefined {
+  if (limits === undefined) return undefined
+  return {
+    ...(limits.pages === undefined ? {} : { pages: limits.pages }),
+    ...(limits.localFonts === undefined ? {} : { localFonts: limits.localFonts }),
+  }
+}
+
+/** Slot printing renders one copy per fill; a lone copy is the whole output, so it carries the whole output's limits. */
+export function copyLimits(limits: Limits | undefined, slots: SlotPrintOptions | undefined): Limits | undefined {
+  return (slots?.fills?.length ?? 1) === 1 ? limits : innerLimits(limits)
+}
+
+export function enforceDeckLimits(deck: Deck, limits: Limits | undefined): void {
+  const reasons = exceedsLimits(deck, limits ?? {})
+  if (reasons.length > 0) throw new RenderRefusedError(reasons.join('; '))
 }
 
 export const dependencySetup = (options: RenderOptions): Pick<RenderOptions, 'dependencyOrigins' | 'dependencies'> => ({

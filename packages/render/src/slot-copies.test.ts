@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Deck, Page } from '@segnavia/format'
+import { Deck, limitRefusal, Page } from '@segnavia/format'
 import { RequiredSlotsRefusedError, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import { enforce } from './pdf-finish.ts'
@@ -102,8 +102,8 @@ test('fills together with fill is refused before any copy renders', async () => 
   expect(rendered).toBe(0)
 })
 
-test('a fills job counts every copy against maxSheets', async () => {
+test('a fills job counts every copy against the sheets limit', async () => {
   const pdf = await renderSlotCopyPdfs({ fills: [ada, bea] }, async () => pdfWithPages(1))
   expect((await PDFDocument.load(pdf)).getPageCount()).toBe(2)
-  await expect(enforce(pdf, { maxSheets: 1 })).rejects.toThrow('The PDF has 2 sheets; the limit is 1.')
+  await expect(enforce(pdf, { sheets: 1 })).rejects.toThrow(limitRefusal('sheets', 2, 1))
 })

@@ -23,6 +23,13 @@ const book = Book.parse({
 })
 
 describe('bookDocument', () => {
+  test('builds the book composer config from document and host page ceilings', () => {
+    expect(bookDocument(Book.parse({ ...book, limits: { pages: 600 } }), { nonce: 'held' })).toContain('"limit":600')
+    const capped = bookDocument(Book.parse({ ...book, limits: { pages: 600 } }), { nonce: 'held', limits: { pages: 300 } })
+    expect(capped).toContain('"limit":300')
+    expect(capped).toContain("raise the host's limits.pages")
+  })
+
   test('minified embedded composer functions retain their aliases and have no module dependencies', async () => {
     const built = await Bun.build({
       entrypoints: ['virtual:composer-functions'],

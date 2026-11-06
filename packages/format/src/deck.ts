@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { Direction, TextDirection } from './direction.ts'
 import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
+import { type Limits, limitRefusal } from './limits.ts'
 import { Placement, PlacementShape } from './placement.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
@@ -191,26 +192,20 @@ export const Manifest = z.object({
 })
 export type Manifest = z.infer<typeof Manifest>
 
-export interface DeckLimits {
-  maxSlides?: number
-  maxSlideBytes?: number
-  maxNotesBytes?: number
-}
-
 // A host's own ceilings, checked where it accepts a deck. Returns the reasons
 // a deck exceeds them; an empty list means it fits.
-export function exceedsLimits(deck: Deck, limits: DeckLimits): string[] {
+export function exceedsLimits(deck: Deck, limits: Limits): string[] {
   const reasons: string[] = []
   const bytes = (text: string) => new TextEncoder().encode(text).length
-  if (limits.maxSlides !== undefined && deck.slides.length > limits.maxSlides) {
-    reasons.push(`the deck has ${deck.slides.length} slides; the limit is ${limits.maxSlides}`)
+  if (limits.slides !== undefined && deck.slides.length > limits.slides) {
+    reasons.push(limitRefusal('slides', deck.slides.length, limits.slides))
   }
   deck.slides.forEach((slide, index) => {
-    if (limits.maxSlideBytes !== undefined && 'kind' in slide.content && slide.content.kind === 'html' && bytes(slide.content.html) > limits.maxSlideBytes) {
-      reasons.push(`slide ${index + 1} is ${bytes(slide.content.html)} bytes; the limit is ${limits.maxSlideBytes}`)
+    if (limits.slideBytes !== undefined && 'kind' in slide.content && slide.content.kind === 'html' && bytes(slide.content.html) > limits.slideBytes) {
+      reasons.push(limitRefusal('slideBytes', bytes(slide.content.html), limits.slideBytes, { where: `slide ${index + 1}` }))
     }
-    if (limits.maxNotesBytes !== undefined && slide.notes && bytes(slide.notes) > limits.maxNotesBytes) {
-      reasons.push(`slide ${index + 1} has ${bytes(slide.notes)} bytes of notes; the limit is ${limits.maxNotesBytes}`)
+    if (limits.notesBytes !== undefined && slide.notes && bytes(slide.notes) > limits.notesBytes) {
+      reasons.push(limitRefusal('notesBytes', bytes(slide.notes), limits.notesBytes, { where: `slide ${index + 1}` }))
     }
   })
   return reasons

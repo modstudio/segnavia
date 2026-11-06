@@ -4,15 +4,18 @@ import {
   defaultPageNumbering,
   folioScript,
   htmlTextSample,
+  LIMIT_ACTUAL_PLACEHOLDER,
+  type Limits,
+  limitRefusalTemplate,
   Page,
   type PageInput,
-  PRINTED_PAGE_LIMIT,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_ROLES,
   PRINTED_PAGE_TOTAL_PATH,
   PX_PER_MM,
   type ResolvedParentPage,
   resolveDirection,
+  resolveLimits,
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
@@ -138,7 +141,7 @@ try{var parentByName={};for(var p=0;p<config.parents.length;p++)parentByName[con
 var measure=document.createElement('div');measure.setAttribute('data-segnavia-measure','');measure.style.cssText='position:absolute;visibility:hidden;inset-block-start:0;inset-inline-start:0;inline-size:'+config.geometry.textWidth+'px;block-size:'+config.geometry.textHeight+'px;column-width:'+config.geometry.textWidth+'px;column-gap:0;column-fill:auto;direction:'+config.direction+';';
 var spacer=Math.max(0,config.geometry.textHeight-config.geometry.firstHeight);if(spacer){var space=document.createElement('div');space.style.cssText='block-size:'+spacer+'px;break-after:avoid';measure.append(space);}while(source.firstChild)measure.append(source.firstChild);source.replaceWith(measure);
 var all=measure.querySelectorAll('*');for(var b=0;b<all.length;b++){var style=getComputedStyle(all[b]);if(style.breakBefore==='page')all[b].style.breakBefore='column';if(style.breakAfter==='page')all[b].style.breakAfter='column';}
-return new Promise(function(resolve,reject){var previous;var startedAt=performance.now();var channel=new MessageChannel();var sample=function(){var current={inlineSize:measure.getBoundingClientRect().width,scrollWidth:measure.scrollWidth};var decision=decideLayoutSettle(current,previous,config.geometry,performance.now()-startedAt,${LAYOUT_SETTLE_MS});if(decision==='settled'){channel.port1.close();channel.port2.close();resolve();return;}if(decision==='refuse'){channel.port1.close();channel.port2.close();reject(new Error('the measure box did not hold the configured text width with a stable scroll width within ${LAYOUT_SETTLE_MS} ms; remove author CSS that changes the composer measure box size, such as padding, border, transform or inline-size on every element, or let content whose layout keeps changing settle, to clear this refusal'));return;}previous=current;if(decision==='wait-for-layout'){setTimeout(sample,0);return;}channel.port2.postMessage(0);};channel.port1.onmessage=sample;channel.port2.postMessage(0);}).then(function(){var box=measure.getBoundingClientRect();var spans=[];var keepRect=function(rect){if(rect.height)spans.push(fragmentSpan(rect,box,config.direction));};var walker=document.createTreeWalker(measure,NodeFilter.SHOW_TEXT);var text;while(text=walker.nextNode()){if(!(text.textContent||'').trim())continue;var range=document.createRange();range.selectNodeContents(text);var textRects=range.getClientRects();for(var t=0;t<textRects.length;t++)keepRect(textRects[t]);range.detach();}var elements=measure.querySelectorAll('*');for(var e=0;e<elements.length;e++){var elementRects=elements[e].getClientRects();for(var r=0;r<elementRects.length;r++)keepRect(elementRects[r]);}var count=paperCount(spans,config.geometry.textWidth);var setHeight=function(papers){var height=(papers*config.geometry.paperHeight)+'px';document.documentElement.style.blockSize=height;document.body.style.blockSize=height;};if(count>config.limit){fail('the composed flow needs '+count+' papers, above the limit '+config.limit+'; shorten the content to clear this refusal');measure.remove();if(config.measure){setHeight(count);document.documentElement.setAttribute('${PRINTED_PAGE_COMPOSED_ATTRIBUTE}','');}return;}if(config.expectedCount!==null&&count!==config.expectedCount){throw new Error('the composed page count changed from '+config.expectedCount+' to '+count+' between measurement and paper composition; wait for the page layout to settle or shorten the content to clear this refusal');}
+return new Promise(function(resolve,reject){var previous;var startedAt=performance.now();var channel=new MessageChannel();var sample=function(){var current={inlineSize:measure.getBoundingClientRect().width,scrollWidth:measure.scrollWidth};var decision=decideLayoutSettle(current,previous,config.geometry,performance.now()-startedAt,${LAYOUT_SETTLE_MS});if(decision==='settled'){channel.port1.close();channel.port2.close();resolve();return;}if(decision==='refuse'){channel.port1.close();channel.port2.close();reject(new Error('the measure box did not hold the configured text width with a stable scroll width within ${LAYOUT_SETTLE_MS} ms; remove author CSS that changes the composer measure box size, such as padding, border, transform or inline-size on every element, or let content whose layout keeps changing settle, to clear this refusal'));return;}previous=current;if(decision==='wait-for-layout'){setTimeout(sample,0);return;}channel.port2.postMessage(0);};channel.port1.onmessage=sample;channel.port2.postMessage(0);}).then(function(){var box=measure.getBoundingClientRect();var spans=[];var keepRect=function(rect){if(rect.height)spans.push(fragmentSpan(rect,box,config.direction));};var walker=document.createTreeWalker(measure,NodeFilter.SHOW_TEXT);var text;while(text=walker.nextNode()){if(!(text.textContent||'').trim())continue;var range=document.createRange();range.selectNodeContents(text);var textRects=range.getClientRects();for(var t=0;t<textRects.length;t++)keepRect(textRects[t]);range.detach();}var elements=measure.querySelectorAll('*');for(var e=0;e<elements.length;e++){var elementRects=elements[e].getClientRects();for(var r=0;r<elementRects.length;r++)keepRect(elementRects[r]);}var count=paperCount(spans,config.geometry.textWidth);var setHeight=function(papers){var height=(papers*config.geometry.paperHeight)+'px';document.documentElement.style.blockSize=height;document.body.style.blockSize=height;};if(count>config.limit){fail(config.limitRefusal.template.split(config.limitRefusal.placeholder).join(String(count)));measure.remove();if(config.measure){setHeight(count);document.documentElement.setAttribute('${PRINTED_PAGE_COMPOSED_ATTRIBUTE}','');}return;}if(config.expectedCount!==null&&count!==config.expectedCount){throw new Error('the composed page count changed from '+config.expectedCount+' to '+count+' between measurement and paper composition; wait for the page layout to settle or shorten the content to clear this refusal');}
 var firstColumn=function(element){var held=element.getClientRects();if(!held.length)return 0;return fragmentColumns(fragmentSpan(held[0],box,config.direction),config.geometry.textWidth).first;};
 var folios=sequenceFolios(count,config.numbering);var total=folios[count-1].text;
 var fill=function(root,index){var data={};data['${PRINTED_PAGE_NUMBER_PATH}']=folios[index-1].text;data['${PRINTED_PAGE_TOTAL_PATH}']=total;var bindings=root.querySelectorAll('[data-slot-value]');for(var i=0;i<bindings.length;i++){var path=bindings[i].getAttribute('data-slot-value');if(Object.prototype.hasOwnProperty.call(data,path)){bindings[i].removeAttribute('data-slot-value');bindings[i].textContent=data[path];if(!bindings[i].hasAttribute('dir'))bindings[i].setAttribute('dir','auto');}}};
@@ -161,6 +164,7 @@ export function printedPageDocument(
     diagramScript?: string
     readyCallback?: string
     metadata?: DocumentMetadataValue
+    limits?: Limits
   },
 ): string {
   const page = resolvePageHtml(Page.parse(input))
@@ -171,6 +175,7 @@ export function printedPageDocument(
   const measured = geometry(page, resolved, paper.width, paper.height)
   const direction = resolveDirection(page.dir, page.lang, htmlTextSample(page.html))
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
+  const limits = resolveLimits(page.limits, options.limits)
   const parents = resolved.map((parent) => ({
     ...parent,
     margin: Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])),
@@ -178,7 +183,11 @@ export function printedPageDocument(
   const config = {
     direction,
     geometry: measured,
-    limit: PRINTED_PAGE_LIMIT,
+    limit: limits.pages,
+    limitRefusal: {
+      template: limitRefusalTemplate('pages', limits.pages, { pagesSource: limits.pagesSource }),
+      placeholder: LIMIT_ACTUAL_PLACEHOLDER,
+    },
     only: options.only ?? null,
     expectedCount: options.expectedCount ?? null,
     measure: options.measure ?? false,

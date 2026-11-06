@@ -1,11 +1,19 @@
 import { describe, expect, test } from 'bun:test'
-import type { LocalFacesInput } from '@segnavia/format'
+import { DEFAULT_LIMITS, type LocalFacesInput, type ResolvedLimits } from '@segnavia/format'
 import { bytesToBase64 } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
-import { localFontsForRender } from './local-fonts.ts'
+import { type LocalFontsOptions, localFontsForRender as renderLocalFonts } from './local-fonts.ts'
 
 const truetype = 'AAEAAA=='
 const references = [{ local: 'Declared Family', fallback: 'serif' }] as const
+
+function localFontsForRender(
+  options: LocalFontsOptions | undefined,
+  heldReferences: Parameters<typeof renderLocalFonts>[1],
+  limits: ResolvedLimits['localFonts'] = DEFAULT_LIMITS.localFonts,
+) {
+  return renderLocalFonts(options, heldReferences, limits)
+}
 
 function collectionData(name: string): string {
   const encoded = Uint8Array.from([...name].flatMap((character) => [0, character.charCodeAt(0)]))
@@ -91,21 +99,24 @@ describe('local fonts for a render', () => {
       { family: 'First', format: 'truetype', data: truetype },
       { family: 'Second', format: 'truetype', data: truetype },
     ]
-    expect(() => localFontsForRender({ faces, limits: { count: 1 } }, [])).toThrow('"Second" exceeds the count limit of 1')
-    expect(() => localFontsForRender({ faces: faces.slice(0, 1), limits: { bytes: 3 } }, [])).toThrow('"First" exceeds the byte limit of 3')
+    expect(() => localFontsForRender({ faces }, [], { count: 1, bytes: DEFAULT_LIMITS.localFonts.bytes })).toThrow('localFonts.count limit of 1')
+    expect(() => localFontsForRender({ faces: faces.slice(0, 1) }, [], { count: DEFAULT_LIMITS.localFonts.count, bytes: 3 })).toThrow(
+      'localFonts.bytes limit of 3',
+    )
     expect(() =>
-      localFontsForRender({ faces: [{ family: 'First', format: 'truetype', data: 'not-canonical-but-oversized' }], limits: { bytes: 1 } }, []),
-    ).toThrow('"First" exceeds the byte limit of 1')
+      localFontsForRender({ faces: [{ family: 'First', format: 'truetype', data: 'not-canonical-but-oversized' }] }, [], {
+        count: DEFAULT_LIMITS.localFonts.count,
+        bytes: 1,
+      }),
+    ).toThrow('above the localFonts.bytes limit of 1')
   })
 
   test('accepts 18 faces and shares default overflow refusals with frame packing', () => {
     const face = { family: 'Local Family', format: 'truetype' as const, data: truetype }
     expect(localFontsForRender({ faces: Array.from({ length: 18 }, () => face) }, [{ local: 'Local Family', fallback: 'serif' }]).faces).toHaveLength(18)
-    expect(() => localFontsForRender({ faces: Array.from({ length: 65 }, () => face) }, [])).toThrow(
-      'The local face "Local Family" exceeds the count limit of 64; pass higher limits or declare fewer local font families to clear this refusal.',
-    )
-    expect(() => localFontsForRender({ faces: [face], limits: { bytes: 3 } }, [])).toThrow(
-      'The local face "Local Family" exceeds the byte limit of 3; pass higher limits or declare fewer local font families to clear this refusal.',
+    expect(() => localFontsForRender({ faces: Array.from({ length: 65 }, () => face) }, [])).toThrow('above the localFonts.count limit of 64')
+    expect(() => localFontsForRender({ faces: [face] }, [], { count: DEFAULT_LIMITS.localFonts.count, bytes: 3 })).toThrow(
+      'The local fonts for "Local Family" is 4 decoded bytes, above the localFonts.bytes limit of 3',
     )
   })
 

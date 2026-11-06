@@ -15,6 +15,7 @@ import {
 } from './book-section.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
+import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
@@ -83,6 +84,7 @@ export const BookShape = z.object({
   authors: z.array(z.string()).optional(),
   subject: z.string().optional(),
   mode: BookMode,
+  limits: DocumentLimitsValue.optional(),
   page: BookPage.optional(),
   scripts: Scripts.default('refuse'),
   dir: Direction.optional(),
@@ -140,7 +142,7 @@ export const BookViewPagination = z.object({
 })
 export type BookViewPagination = z.infer<typeof BookViewPagination>
 
-export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true, fonts: true, css: true }).extend({
+export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true, fonts: true, css: true, limits: true }).extend({
   title: BookShape.shape.title.optional(),
   html: z.string(),
   flow: z.string().optional(),

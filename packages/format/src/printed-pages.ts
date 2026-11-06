@@ -3,7 +3,6 @@ import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 
-export const PRINTED_PAGE_LIMIT = 500
 export const PRINTED_PAGE_ROLES = ['every', 'first', 'recto', 'verso', 'last'] as const
 export type PrintedPageRole = (typeof PRINTED_PAGE_ROLES)[number]
 

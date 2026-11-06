@@ -123,7 +123,7 @@ export function verifyCapture(h: Harness) {
   check('a byte ceiling low enough uses the next WebP quality', qualityFallbackWorked(facts.outputFacts), JSON.stringify(facts.outputFacts))
   check(
     'a byte ceiling below every quality refuses the shot',
-    !facts.outputFacts.tooSmall.ok && (facts.outputFacts.tooSmall.error ?? '').includes('larger than 1 bytes at every quality tried'),
+    !facts.outputFacts.tooSmall.ok && (facts.outputFacts.tooSmall.error ?? '').includes('above the bytes limit of 1;'),
     facts.outputFacts.tooSmall.error,
   )
   verifyFailedFlows(h, facts, manifest)

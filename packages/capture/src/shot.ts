@@ -123,7 +123,11 @@ export async function takeShot(page: Page, spec: ShotSpec, options: { step: stri
   const viewport = page.viewportSize() as { width: number; height: number }
   const extension = options.output.format === 'jpeg' ? 'jpg' : options.output.format
   const encode = () =>
-    captureImage(page, { format: options.output.format, quality: options.output.quality, limits: { maxBytes: options.output.maxBytes } }, false)
+    captureImage(
+      page,
+      { format: options.output.format, quality: options.output.quality, limits: { bytes: options.output.maxBytes }, limitSetting: 'output.maxBytes' },
+      false,
+    )
   const file = `${spec.key}.${extension}`
   writeFileSync(path.join(options.directory, file), await encode())
   let annotatedFile: string | null = null
