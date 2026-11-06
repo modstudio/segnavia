@@ -6,9 +6,8 @@
     }
   ],
   "outline": [],
-  "fonts": [],
+  "fonts": ["LiberationSans"],
   "info": {
-    "Title": "about:blank",
     "Creator": "HeadlessChrome",
     "Producer": "Skia/PDF",
     "Custom Metadata": "no",

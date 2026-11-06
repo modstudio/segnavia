@@ -2,7 +2,7 @@
   "pages": [
     {
       "size": [960, 540],
-      "text": "Creating\na\nclass\nA two-minute walkthrough"
+      "text": "Creating a class\nA two-minute walkthrough"
     },
     {
       "size": [960, 540],
@@ -10,7 +10,7 @@
     },
     {
       "size": [960, 540],
-      "text": "2\n3\n\nSave it"
+      "text": "2\n\n3\n\nSave it"
     },
     {
       "size": [960, 540],
@@ -18,7 +18,7 @@
     }
   ],
   "outline": [],
-  "fonts": [],
+  "fonts": ["DejaVuSans", "DejaVuSans-Bold"],
   "info": {
     "Title": "Creating a class",
     "Creator": "HeadlessChrome",

@@ -10,7 +10,7 @@
     }
   ],
   "outline": [],
-  "fonts": [],
+  "fonts": ["LiberationSans"],
   "info": {
     "Creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
     "Producer": "pdf-lib (https://github.com/Hopding/pdf-lib)",
