@@ -5,7 +5,7 @@ import { FontRefusedError } from '@segnavia/frame/fonts'
 import { expandFramePage } from '@segnavia/frame/motifs'
 import { resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
-import { prepareRenderedPageValue, prepareRenderedPages, renderOptionsWithBookFonts } from './page-document.ts'
+import { prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
 
 const data = new Uint8Array([0])
 const serifFace: FontFace = { family: 'Body Serif', data, format: 'truetype' }

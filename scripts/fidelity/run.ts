@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { type PageInput, Print, printBoxes } from '@segnavia/format'
+import { type DocumentInput, Document, pageFromDocument, Print, printBoxes } from '@segnavia/format'
 import { openRenderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
 import { readProfile } from '../../packages/render/src/color/index.ts'
@@ -52,20 +52,22 @@ const session: FidelitySession = {
 let posterEvidence: PosterEvidence | undefined
 
 interface ScreenReference {
-  page: PageInput
+  page: DocumentInput
   css: string
   crop?: Box
   description: string
 }
 
-function screenReference(page: PageInput): ScreenReference {
-  if (!page.print) return { page, css: MEASUREMENT_CSS, description: 'viewport matching the PDF TrimBox' }
-  const print = Print.parse(page.print)
+function screenReference(page: DocumentInput): ScreenReference {
+  const parsed = Document.parse(page)
+  const value = pageFromDocument(parsed)
+  if (!value.print) return { page, css: MEASUREMENT_CSS, description: 'viewport matching the PDF TrimBox' }
+  const print = Print.parse(value.print)
   const boxes = printBoxes(print)
   const { width, height } = bleedViewport(boxes.bleedBox)
   const crop = trimRasterBox(boxes.bleedBox, boxes.trim, SCALE)
   return {
-    page: { ...page, print: undefined, size: { width, height } },
+    page: { ...parsed, print: undefined, size: { width, height } },
     css: `${printCss(print, 'ltr')}${MEASUREMENT_CSS}`,
     crop,
     description: `TrimBox crop of a ${boxes.bleedBox.width}×${boxes.bleedBox.height} mm BleedBox layout`,

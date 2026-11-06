@@ -1,6 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import type { PageInput } from '@segnavia/format'
+import { Document, type DocumentInput } from '@segnavia/format'
 import type { openRenderer } from '@segnavia/render'
 import { EXPECTED_MARKER_POSITION, MEASUREMENT_CSS, SCALE } from './config.ts'
 import { alignmentOffset, cropImage, glyphLineBoxes, imageSize } from './image.ts'
@@ -10,7 +10,10 @@ import type { PosterEvidence } from './types.ts'
 
 type Renderer = Awaited<ReturnType<typeof openRenderer>>
 
-export async function measurePosterLayout(renderer: Renderer, directory: string, poster: PageInput): Promise<PosterEvidence> {
+export async function measurePosterLayout(renderer: Renderer, directory: string, poster: DocumentInput): Promise<PosterEvidence> {
+  const parsed = Document.parse(poster)
+  const source = parsed.children[0]
+  if (source?.type !== 'page' || !source.body || !('html' in source.body)) throw new Error('The poster fixture needs an HTML page body.')
   const evidenceDirectory = path.join(directory, 'poster', 'layout-evidence')
   mkdirSync(evidenceDirectory, { recursive: true })
   const diagnosticCss =
@@ -22,7 +25,10 @@ export async function measurePosterLayout(renderer: Renderer, directory: string,
   ]
   const results: PosterEvidence['variants'] = []
   for (const variant of variants) {
-    const page = { ...poster, html: `${poster.html}${diagnosticCss}${variant.css}` }
+    const page: DocumentInput = {
+      ...parsed,
+      children: [{ ...source, body: { html: `${source.body.html}${diagnosticCss}${variant.css}` } }],
+    }
     let headline = { x: 0, y: 0, width: 0, height: 0 }
     const screen = path.join(evidenceDirectory, `${variant.id}-screen-page.png`)
     const pdf = path.join(evidenceDirectory, `${variant.id}.pdf`)

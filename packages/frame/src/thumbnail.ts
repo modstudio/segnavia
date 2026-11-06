@@ -1,13 +1,13 @@
 import {
   type Deck,
-  deckFromDocument,
   Document,
   type DocumentInput,
+  deckFromDocument,
   type Page,
-  pageFromDocument,
   type PageWidths,
   Print,
   type PrintInput,
+  pageFromDocument,
   type SlotsOptions,
 } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
@@ -15,8 +15,8 @@ import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
-import { upgradeProperties } from './element-properties.ts'
 import { internalThumbnailDeckLoad, internalThumbnailPageLoad } from './document-value-load.ts'
+import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'

@@ -1,6 +1,6 @@
 import type { Page, Print, SlotsOptions } from '@segnavia/format'
-import type { FontsOptions } from './page-fonts.ts'
 import { internalThumbnailPageLoad } from './document-value-load.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { railSelection } from './rail-navigation.ts'
 import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
 import type { SegnaviaThumbnail } from './thumbnail.ts'

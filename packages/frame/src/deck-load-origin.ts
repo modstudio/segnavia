@@ -1,4 +1,4 @@
-import { Deck, deckFromDocument, Document } from '@segnavia/format'
+import { Deck, Document, deckFromDocument } from '@segnavia/format'
 
 const registryKey = Symbol.for('@segnavia/frame/deck-load-origin-registry')
 export const internalDeckLoad = Symbol.for('@segnavia/frame/internal-deck-load-method')

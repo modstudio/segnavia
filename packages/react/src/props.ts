@@ -1,9 +1,9 @@
 import type {
   ControllerOptions,
   DeckController,
+  DocumentInput,
   FittedSize,
   HostTransition,
-  DocumentInput,
   PrintInput,
   SegnaviaBook,
   SegnaviaDocument,

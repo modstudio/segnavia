@@ -5,8 +5,8 @@ import {
   type FontReference,
   type FontSource,
   htmlTextSample,
-  type PageInput,
   type Page,
+  type PageInput,
   resolveDirection,
   resolveLimits,
   resolvePageWidth,
@@ -140,14 +140,14 @@ export function renderPageDocument(
 }
 
 export function renderPageValueDocument(
-  input: Page,
+  input: Page | HtmlPage,
   options: RenderOptions,
   printing = false,
   nonce?: string,
   fontCss = '',
   diagramScript?: string,
 ): string {
-  const page = resolvePageHtml(input)
+  const page = 'html' in input ? input : resolvePageHtml(input)
   const namedMeasure =
     page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')
       ? resolvePageWidth(page.size, options.pageWidths).measure

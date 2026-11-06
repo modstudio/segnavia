@@ -4,6 +4,7 @@ import path from 'node:path'
 import { MM_PER_PT, PAPER_MM } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
+import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -20,7 +21,7 @@ export async function verifyNamedPaperRender(renderer: Renderer, work: string, c
   for (const paper of papers) {
     const { width, height } = PAPER_MM[paper]
     const file = path.join(work, `${paper}.pdf`)
-    const bytes = await renderer.pagePdf({ html: '<p>Named paper</p>', print: { paper, orientation: 'portrait' } })
+    const bytes = await renderer.pagePdf(screenPage({ html: '<p>Named paper</p>' }, { print: { paper, orientation: 'portrait' } }))
     writeFileSync(file, bytes)
     const actual = (await PDFDocument.load(bytes)).getPage(0).getMediaBox()
     check(
@@ -31,8 +32,8 @@ export async function verifyNamedPaperRender(renderer: Renderer, work: string, c
   }
 
   const sequential = await renderer.pagesPdf([
-    { html: '<p>A4</p>', print: { paper: 'a4', orientation: 'portrait' } },
-    { html: '<p>Letter</p>', print: { paper: 'letter', orientation: 'portrait' } },
+    screenPage({ html: '<p>A4</p>' }, { print: { paper: 'a4', orientation: 'portrait' } }),
+    screenPage({ html: '<p>Letter</p>' }, { print: { paper: 'letter', orientation: 'portrait' } }),
   ])
   const pages = (await PDFDocument.load(sequential)).getPages()
   const expected = [PAPER_MM.a4, PAPER_MM.letter]
@@ -51,7 +52,7 @@ export async function verifyNamedPaperRender(renderer: Renderer, work: string, c
   const margin = { blockStart: 0, blockEnd: 0, inlineStart: 0, inlineEnd: 0 }
   let raw: Uint8Array<ArrayBufferLike> = new Uint8Array()
   const corrected = await renderer.pagePdf(
-    { html: markerHtml, print: { paper: { width: 100, height: 150, unit: 'mm' }, orientation: 'portrait', margin } },
+    screenPage({ html: markerHtml }, { print: { paper: { width: 100, height: 150, unit: 'mm' }, orientation: 'portrait', margin } }),
     {
       css: 'html,body{margin:0}body{padding-top:24px;font:12px/12px sans-serif}',
       beforeOutput: async (tab) => {

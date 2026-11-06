@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fontFaceCss } from '@segnavia/html'
 import type { Renderer } from '@segnavia/render'
+import { screenPage } from './screen-document.ts'
 
 interface SfntTable {
   record: Uint8Array
@@ -56,7 +57,7 @@ export async function buildFontCollectionDemo(root: string, site: string, output
     path.join(site, 'font-collection.html'),
     `<!doctype html><meta charset="utf-8"><style>${collectionCss}${standaloneCss}body{margin:0}.probe{display:block;width:max-content;font-size:72px;line-height:1;font-weight:400;color:#000;background:#fff}.collection{font-family:"Collection Alef"}.standalone{font-family:"Standalone Alef"}</style><span class="probe collection">אבגדהוז</span><span class="probe standalone">אבגדהוז</span>`,
   )
-  const page = { html: '<p style="margin:0;font-family:CollectionDemo;font-size:72px">אבגדהוז</p>' }
+  const page = screenPage({ html: '<p style="margin:0;font-family:CollectionDemo;font-size:72px">אבגדהוז</p>' })
   writeFileSync(
     path.join(output, 'font-collection.pdf'),
     await renderer.pagePdf(page, {

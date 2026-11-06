@@ -14,21 +14,7 @@ export type DeckFromSlidesOptions = Omit<DeckInput, 'slides'> & {
 const optionalPrintAt = (printAtMs: number | undefined) => (printAtMs === undefined ? {} : { printAtMs })
 
 export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions) {
-  const {
-    omitNotes = false,
-    title,
-    size,
-    layout,
-    fit,
-    frame,
-    transition,
-    playback,
-    captions,
-    scripts,
-    dir,
-    lang,
-    slots,
-  } = options
+  const { omitNotes = false, title, size, layout, fit, frame, transition, playback, captions, scripts, dir, lang, slots } = options
   const slides = rows.map(({ kind, ...row }) => {
     const { id, notes, narration, beforeMs, afterMs, holdMs, printAtMs } = row
     const common = {

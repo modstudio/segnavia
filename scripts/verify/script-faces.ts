@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
+import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -23,7 +24,7 @@ export async function verifyScriptFaces(renderer: Renderer, work: string, check:
     return
   }
   const pdf = await renderer.pagePdf(
-    { html: '<p style="font-family:\'Segnavia Scripts\'">שלום Hello</p>', size: { width: 400, height: 200 } },
+    screenPage({ html: '<p style="font-family:\'Segnavia Scripts\'">שלום Hello</p>' }, { size: { width: 400, height: 200 } }),
     {
       fonts: [
         { family: 'Segnavia Scripts', data: readFileSync(ALEF), format: 'truetype', unicodeRange: 'U+0590-05FF, U+FB1D-FB4F' },

@@ -6,6 +6,7 @@ import { PDFDict, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import { loadPdf } from '../../packages/render/src/pdf-load.ts'
 import { pngPixels } from './browser-pixels.ts'
 import { readPpm } from './pdf-raster.ts'
+import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -68,7 +69,7 @@ function difference(reference: Uint8Array, rendered: Uint8Array): { mean: number
 }
 
 export async function verifyBackdropRaster(renderer: Renderer, work: string, check: Check): Promise<void> {
-  const page = { html, size: { width: WIDTH, height: HEIGHT } } as const
+  const page = screenPage({ html }, { size: { width: WIDTH, height: HEIGHT } })
   const pdfFile = path.join(work, 'backdrop.pdf')
   const rasterPrefix = path.join(work, 'backdrop-pdf')
   const screen = await pngPixels(renderer, await renderer.pageImage(page, { format: 'png', scale: SCALE }))
@@ -116,7 +117,7 @@ export async function verifyBackdropRaster(renderer: Renderer, work: string, che
       !Buffer.from(pdf).includes(Buffer.from('/ICCBased')) &&
       !Buffer.from(pdf).includes(Buffer.from('ICC_PROFILE')),
   )
-  const plain = { html: '<p>no effects</p>', size: { width: 200, height: 100 } } as const
+  const plain = screenPage({ html: '<p>no effects</p>' }, { size: { width: 200, height: 100 } })
   const [enabled, disabled] = await Promise.all([renderer.pagePdf(plain), renderer.pagePdf(plain, { effects: false })])
   const [enabledWithoutDates, disabledWithoutDates] = await Promise.all([withoutDates(enabled), withoutDates(disabled)])
   check(

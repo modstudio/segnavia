@@ -9,6 +9,7 @@ import { visitContentOperators } from '../../packages/render/src/press/content.t
 import { decodeContent } from '../../packages/render/src/press/pdf-objects.ts'
 import { walkPressGraph } from '../../packages/render/src/press/visitor.ts'
 import { processColorResidues } from './gray-residue.ts'
+import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 const genericGrayProfile = '/System/Library/ColorSync/Profiles/Generic Gray Gamma 2.2 Profile.icc'
@@ -54,10 +55,10 @@ export async function verifyGrayPress(renderer: Renderer, check: Check): Promise
   const bytes = existsSync(genericGrayProfile) ? new Uint8Array(readFileSync(genericGrayProfile)) : buildGrayProfile('trc-gamma')
   const profile = readProfile(bytes)
   const mid = [0.4, 0.4, 0.4] as [number, number, number]
-  const page = {
-    html: '<style>@page{size:400px 260px;margin:0}body{margin:24px;font:32px Arial;color:rgb(102,102,102)}.box{width:180px;height:60px;background:linear-gradient(90deg,#f20,#04e);box-shadow:12px 12px 9px #357}.mask{width:160px;height:40px;background:#468;mask-image:linear-gradient(90deg,transparent,black)}img{width:40px;height:20px}</style><p>Gray press</p><div class="box"></div><div class="mask"></div><img id="png"><img id="jpeg">',
-    size: { width: 400, height: 220 },
-  }
+  const page = screenPage(
+    { html: '<style>@page{size:400px 260px;margin:0}body{margin:24px;font:32px Arial;color:rgb(102,102,102)}.box{width:180px;height:60px;background:linear-gradient(90deg,#f20,#04e);box-shadow:12px 12px 9px #357}.mask{width:160px;height:40px;background:#468;mask-image:linear-gradient(90deg,transparent,black)}img{width:40px;height:20px}</style><p>Gray press</p><div class="box"></div><div class="mask"></div><img id="png"><img id="jpeg">' },
+    { size: { width: 400, height: 220 } },
+  )
   let report: PressReport | undefined
   const output = await renderer.pagePdf(page, {
     beforeOutput: async (tab) => {

@@ -18,7 +18,16 @@ import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { copyLimits, dependencySetup, enforceDeckLimits, type ImageOptions, innerLimits, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
+import {
+  copyLimits,
+  dependencySetup,
+  enforceDeckLimits,
+  type ImageOptions,
+  innerLimits,
+  type OverflowEntry,
+  parseRenderOptions,
+  type RenderOptions,
+} from './options.ts'
 import { printWithOverflow } from './overflow.ts'
 import { prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'

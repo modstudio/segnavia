@@ -34,9 +34,7 @@ export function buildProgressDemo(site: string, shell: (body: string) => string)
     path.join(site, 'deck-progress-strict.json'),
     JSON.stringify({
       ...deck,
-      children: deck.children.map((item) =>
-        item.type === 'slide' ? { ...item, narration: { ...item.narration, audio: 'audio/progress.wav?strict' } } : item,
-      ),
+      children: deck.children.map((item) => (item.type === 'slide' ? { ...item, narration: { ...item.narration, audio: 'audio/progress.wav?strict' } } : item)),
     }),
   )
   writeFileSync(

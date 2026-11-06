@@ -69,7 +69,11 @@ test('boardItemFrom maps media answers to the unchanged board image answer', asy
 
 test('deck media content resolves through placements as existing image content', async () => {
   const controller = new DeckController({ placements: { resolve: async () => ({ kind: 'media', media, src }) }, hash: null, persist: false })
-  await controller.loadDeckValue({ title: 'Placed', size: { width: 640, height: 360 }, slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }] })
+  await controller.loadDeckValue({
+    title: 'Placed',
+    size: { width: 640, height: 360 },
+    slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }],
+  })
   expect(controller.state.content).toEqual({ kind: 'image', src, alt: '', fit: undefined })
   controller.destroy()
 })
@@ -89,7 +93,11 @@ test('deck media reports each unusable resolver answer and keeps the placeholder
   for (const entry of cases) {
     const reports: Array<{ reason: string }> = []
     const controller = new DeckController({ placements: { resolve: entry.resolve, report: (report) => reports.push(report) }, hash: null, persist: false })
-    await controller.loadDeckValue({ title: 'Placed', size: { width: 640, height: 360 }, slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }] })
+    await controller.loadDeckValue({
+      title: 'Placed',
+      size: { width: 640, height: 360 },
+      slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }],
+    })
     expect(controller.state.content).toMatchObject({ kind: 'image', src: placementPlaceholderSource() })
     expect(reports).toEqual([expect.objectContaining({ reason: entry.reason })])
     controller.destroy()
@@ -100,7 +108,11 @@ test('changing controller placements re-resolves the shown media slide', async (
   const first = 'data:image/png;base64,AA=='
   const second = 'data:image/png;base64,AQ=='
   const controller = new DeckController({ placements: { resolve: async () => ({ kind: 'media', media, src: first }) }, hash: null, persist: false })
-  await controller.loadDeckValue({ title: 'Placed', size: { width: 640, height: 360 }, slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }] })
+  await controller.loadDeckValue({
+    title: 'Placed',
+    size: { width: 640, height: 360 },
+    slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }],
+  })
   const shown = new Promise<void>((resolve) => controller.addEventListener('slide', () => resolve(), { once: true }))
   controller.placements = { resolve: async () => ({ kind: 'media', media, src: second }) }
   await shown

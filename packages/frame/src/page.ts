@@ -4,12 +4,12 @@
 // own `bridgeForHost` reports height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
-import { Document, type DocumentInput, FULL_PAGE_SIZE, Page, pageFromDocument, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
+import { Document, type DocumentInput, FULL_PAGE_SIZE, Page, type PageWidths, pageFromDocument, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
-import { upgradeProperties } from './element-properties.ts'
 import { internalPageLoad } from './document-value-load.ts'
+import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'

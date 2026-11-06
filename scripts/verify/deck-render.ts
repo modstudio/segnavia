@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { fitPage, Imposition, impose, MM_PER_PT, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
+import { deckFromDocument, Document, fitPage, Imposition, impose, MM_PER_PT, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
 import { annotationFocusBox, fitImage } from '@segnavia/frame/image-fit'
 import { notesLayoutGeometry } from '@segnavia/frame/print-document'
 import { backgroundDeck, deckPdfShades, handoutDeck, handoutImposition } from '../demo-deck-pdf-fixtures.ts'
@@ -44,14 +44,15 @@ function coloredBounds(
 }
 
 function verifyFitPdf(output: string, work: string, check: Check): void {
+  const fitDeckValue = deckFromDocument(Document.parse(fitDeck))
   for (const [mode, page] of [
     ['contain', 1],
     ['focus', 4],
   ] as const) {
-    const content = fitDeck.slides[page - 1]?.content
+    const content = fitDeckValue.slides[page - 1]?.content
     if (!content || !('kind' in content) || content.kind !== 'shot') throw new Error(`The ${mode} fit fixture is missing.`)
     const focus = annotationFocusBox(fitShot.size, fitShot.annotations)
-    const placement = fitImage(fitDeck.size, fitShot.size, content.fit ?? fitDeck.fit, focus)
+    const placement = fitImage(fitDeckValue.size, fitShot.size, content.fit ?? fitDeckValue.fit, focus)
     const ring = fitShot.annotations[0]?.ring
     if (!ring) throw new Error('The fit fixture has no ring.')
     const stroke = (3 * placement.scale * 0.75) / 2
@@ -68,7 +69,7 @@ function verifyFitPdf(output: string, work: string, check: Check): void {
       `actual=${JSON.stringify(actual)}, expected=${JSON.stringify(expected)}`,
     )
   }
-  const framed = fitImage(fitDeck.size, { width: 1280, height: 400 }, 'contain', undefined, true)
+  const framed = fitImage(fitDeckValue.size, { width: 1280, height: 400 }, 'contain', undefined, true)
   const expected = {
     left: framed.x * 0.75,
     top: framed.y * 0.75,
@@ -113,7 +114,7 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
     )
     imageRasters.push(slides[3] as Raster)
 
-    const geometry = notesLayoutGeometry(backgroundDeck(scripts, 'image').size)
+    const geometry = notesLayoutGeometry(deckFromDocument(Document.parse(backgroundDeck(scripts, 'image'))).size)
     const localPoints = [
       { x: 1000, y: 600, shade: deckPdfShades.root },
       { x: 1000, y: 600, shade: deckPdfShades.body },
@@ -148,7 +149,7 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
   check('the image slide is unchanged between deck script settings and is not blank', sameImage)
 
   const imposition = Imposition.parse(handoutImposition)
-  const deck = handoutDeck('refuse', 'image', {
+  const deckDocument = handoutDeck('refuse', 'image', {
     key: 'fixture',
     title: 'Fixture',
     file: 'image',
@@ -162,6 +163,7 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
     dir: 'ltr',
     meta: {},
   })
+  const deck = deckFromDocument(Document.parse(deckDocument))
   const imposed = impose(imposition, deck.slides.length)
   const info = execFileSync('pdfinfo', [path.join(output, 'deck-handout.pdf')], { encoding: 'utf8' })
   check('an imposed seven-slide deck prints on two papers', /Pages:\s+2\b/.test(info), info.match(/Pages:\s+\d+/)?.[0])

@@ -12,7 +12,11 @@ export function buildScriptedDependencyDemo(site: string, shell: (body: string) 
     kind: 'page',
     settings: { scripts: 'sandboxed' },
     size: { width: 640, height: 430 },
-    children: [{ type: 'page', body: { html: `<link rel="stylesheet" href="${SCRIPTED_FONT_CSS_URL}"><style>
+    children: [
+      {
+        type: 'page',
+        body: {
+          html: `<link rel="stylesheet" href="${SCRIPTED_FONT_CSS_URL}"><style>
       body{box-sizing:border-box;margin:0;padding:24px;font:16px "Scripted Demo Fixture",sans-serif;color:#172033}
       form{display:flex;gap:8px;margin-block:8px}#chart-rendered{display:flex;align-items:end;gap:5px;height:38px;margin-block:18px}
       #chart-rendered i{display:block;width:18px;background:#2563eb}output,p{display:block;margin-block:12px}
@@ -52,7 +56,10 @@ export function buildScriptedDependencyDemo(site: string, shell: (body: string) 
         localStorage.setItem('demo-local', 'local-ok')
         sessionStorage.setItem('demo-session', 'session-ok')
         document.getElementById('storage').textContent = localStorage.getItem('demo-local') + ' / ' + sessionStorage.getItem('demo-session')
-      </script>` } }],
+      </script>`,
+        },
+      },
+    ],
   })
   writeFileSync(path.join(site, 'scripted-dependencies-page.json'), JSON.stringify(page))
   writeFileSync(

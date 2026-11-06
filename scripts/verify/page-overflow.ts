@@ -4,6 +4,7 @@ import path from 'node:path'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { chromium } from 'playwright-core'
 import { pageContentScale } from './pdf-content.ts'
+import { screenPage } from '../screen-document.ts'
 
 interface PdfFacts {
   pages: number
@@ -53,7 +54,7 @@ function pgmPixel(file: string, x: number, y: number): number {
 }
 
 async function verifyRtlOverflow(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
-  const baseline = await renderer.pagePdf({ html: flowingHtml(undefined, true), size: { width: 400, height: 'auto' }, dir: 'rtl' }, { effects: false })
+  const baseline = await renderer.pagePdf(screenPage({ html: flowingHtml(undefined, true) }, { size: { width: 400, height: 'auto' }, settings: { dir: 'rtl' } }), { effects: false })
   const baselineFacts = pdfFacts(baseline, work, 'rtl-baseline')
   for (const [label, leftward] of [
     ['inline-start', false],
@@ -61,7 +62,7 @@ async function verifyRtlOverflow(renderer: Renderer, work: string, check: (what:
   ] as const) {
     let report: OverflowReport | undefined
     const bytes = await renderer.pagePdf(
-      { html: flowingHtml(1200, leftward), size: { width: 400, height: 'auto' }, dir: 'rtl' },
+      screenPage({ html: flowingHtml(1200, leftward) }, { size: { width: 400, height: 'auto' }, settings: { dir: 'rtl' } }),
       { effects: false, overflow: { report: (value) => (report = value) } },
     )
     const facts = pdfFacts(bytes, work, `rtl-${leftward ? 'end' : 'start'}-overflow`)
@@ -92,10 +93,9 @@ async function verifyAdaptiveOverflow(
   ] as const) {
     let report: OverflowReport | undefined
     const bytes = await renderer.pagePdf(
-      {
-        html: `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.fixed{position:fixed;top:8px;left:200px}</style><div class="fixed">FIXED_MARKER</div><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p>${block}`,
+      screenPage({ html: `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.fixed{position:fixed;top:8px;left:200px}</style><div class="fixed">FIXED_MARKER</div><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p>${block}` }, {
         print: { paper, orientation: 'portrait' },
-      },
+      }),
       { effects: false, overflow: { report: (value) => (report = value) } },
     )
     const facts = pdfFacts(bytes, work, `overflow-${label.replaceAll(' ', '-')}`)
@@ -123,10 +123,9 @@ export async function verifyPageOverflow(
 ): Promise<void> {
   let fixedReport: OverflowReport | undefined
   const overflowing = await renderer.pagePdf(
-    {
-      html: '<style>html,body{margin:0}.overflow{position:absolute;left:360px;top:80px;width:100px;height:100px;background:black;transform:rotate(20deg)}</style><div class="overflow"></div>',
+    screenPage({ html: '<style>html,body{margin:0}.overflow{position:absolute;left:360px;top:80px;width:100px;height:100px;background:black;transform:rotate(20deg)}</style><div class="overflow"></div>' }, {
       size: { width: 400, height: 300 },
-    },
+    }),
     { effects: false, overflow: { report: (value) => (fixedReport = value) } },
   )
   const overflowScale = await pageContentScale(overflowing)
@@ -137,7 +136,7 @@ export async function verifyPageOverflow(
   )
 
   const paper = { width: 105.833333, height: 132.291667, unit: 'mm' as const }
-  const baseline = await renderer.pagePdf({ html: flowingHtml(), print: { paper, orientation: 'portrait' } }, { effects: false })
+  const baseline = await renderer.pagePdf(screenPage({ html: flowingHtml() }, { print: { paper, orientation: 'portrait' } }), { effects: false })
   const baselineFacts = pdfFacts(baseline, work, 'overflow-baseline')
   for (const [label, width] of [
     ['1.25x', 500],
@@ -145,7 +144,7 @@ export async function verifyPageOverflow(
   ] as const) {
     let report: OverflowReport | undefined
     const bytes = await renderer.pagePdf(
-      { html: flowingHtml(width), print: { paper, orientation: 'portrait' } },
+      screenPage({ html: flowingHtml(width) }, { print: { paper, orientation: 'portrait' } }),
       { effects: false, overflow: { report: (value) => (report = value) } },
     )
     const facts = pdfFacts(bytes, work, `overflow-${label}`)
@@ -168,7 +167,7 @@ export async function verifyPageOverflow(
 
   let leftwardReport: OverflowReport | undefined
   const leftward = await renderer.pagePdf(
-    { html: flowingHtml(1200, true), print: { paper, orientation: 'portrait' } },
+    screenPage({ html: flowingHtml(1200, true) }, { print: { paper, orientation: 'portrait' } }),
     { effects: false, overflow: { report: (value) => (leftwardReport = value) } },
   )
   const leftwardFacts = pdfFacts(leftward, work, 'overflow-ltr-leftward')
@@ -191,10 +190,9 @@ export async function verifyPageOverflow(
     const width = printOnly ? 1 : 1200
     let report: OverflowReport | undefined
     const bytes = await renderer.pagePdf(
-      {
-        html: `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.wide{position:relative;width:1px;height:1px}.wide::before{content:'';position:absolute;left:0;width:${width}px;height:10px}${media}</style><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p><div class="wide"></div>`,
+      screenPage({ html: `<style>html,body{margin:0}.flow{font:16px/24px serif;width:300px}.wide{position:relative;width:1px;height:1px}.wide::before{content:'';position:absolute;left:0;width:${width}px;height:10px}${media}</style><p class="flow">FLOW_MARKER ${'flowing text '.repeat(700)}</p><div class="wide"></div>` }, {
         print: { paper, orientation: 'portrait' },
-      },
+      }),
       { effects: false, overflow: { report: (value) => (report = value) } },
     )
     const facts = pdfFacts(bytes, work, `overflow-${printOnly ? 'print-media' : 'generated'}`)
@@ -231,10 +229,10 @@ export async function verifyPageOverflow(
 
   let growingReport: OverflowReport | undefined
   const growingOverflow = await renderer.pagePdf(
-    { html: flowingHtml(1200), size: { width: 400, height: 'auto' } },
+    screenPage({ html: flowingHtml(1200) }, { size: { width: 400, height: 'auto' } }),
     { effects: false, overflow: { report: (value) => (growingReport = value) } },
   )
-  const growingBaseline = await renderer.pagePdf({ html: flowingHtml(), size: { width: 400, height: 'auto' } }, { effects: false })
+  const growingBaseline = await renderer.pagePdf(screenPage({ html: flowingHtml() }, { size: { width: 400, height: 'auto' } }), { effects: false })
   const growingOverflowFacts = pdfFacts(growingOverflow, work, 'growing-overflow')
   const growingBaselineFacts = pdfFacts(growingBaseline, work, 'growing-baseline')
   check(
@@ -250,10 +248,9 @@ export async function verifyPageOverflow(
   await verifyRtlOverflow(renderer, work, check)
 
   const growing = await renderer.pagePdf(
-    {
-      html: '<style>html,body{margin:0}.bottom{position:absolute;top:1500px;left:20px;width:100px;height:100px;background:black}</style><div class="bottom"></div>',
+    screenPage({ html: '<style>html,body{margin:0}.bottom{position:absolute;top:1500px;left:20px;width:100px;height:100px;background:black}</style><div class="bottom"></div>' }, {
       size: { width: 400, height: 'auto' },
-    },
+    }),
     { effects: false },
   )
   const growingFile = path.join(work, 'growing-absolute.pdf')
@@ -270,10 +267,9 @@ export async function verifyPageOverflow(
   )
 
   const repeatedFixed = await renderer.pagePdf(
-    {
-      html: '<style>body{margin:0}.fixed{position:fixed;top:20px;left:20px}.long{height:40in}</style><div class="fixed">FIXED_ON_EVERY_PAGE</div><div class="long"></div>',
+    screenPage({ html: '<style>body{margin:0}.fixed{position:fixed;top:20px;left:20px}.long{height:40in}</style><div class="fixed">FIXED_ON_EVERY_PAGE</div><div class="long"></div>' }, {
       print: { paper: 'letter', orientation: 'portrait' },
-    },
+    }),
     { effects: false },
   )
   const repeatedFixedFile = path.join(work, 'repeated-fixed.pdf')

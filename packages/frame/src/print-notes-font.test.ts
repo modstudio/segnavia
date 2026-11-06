@@ -1,16 +1,16 @@
 import { expect, test } from 'bun:test'
-import { type AppFont, Document, deckFromDocument, type FontSource } from '@segnavia/format'
+import { type AppFont, Document, type DocumentInput, deckFromDocument, type FontSource } from '@segnavia/format'
 import { FontRefusedError, resolveNotesFontCss } from './page-fonts.ts'
 import { preparedDeckValuePrint, printDeck } from './print.ts'
 import { printableDeckValue } from './print-document.ts'
 
-const deckDocument = {
+const deckDocument: DocumentInput = {
   type: 'document',
   kind: 'deck',
   title: 'Notes font',
   size: { width: 400, height: 200 },
   children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '<p>Slide</p>' }, notes: 'Speak this' }],
-} as const
+}
 const deck = deckFromDocument(Document.parse(deckDocument))
 
 const serif: AppFont = {

@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test'
-import type { DocumentInput, Slot } from '@segnavia/format'
+import type { DocumentInput, SlotDeclarationInput } from '@segnavia/format'
 import { RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { copiesPrint, printDeck, printPages } from './print.ts'
 import { EMPTY_SLOTS } from './slot-render.ts'
 
-function deckDocument(title: string, html: string, slots?: Slot[], scripts?: 'sandboxed'): DocumentInput {
+function deckDocument(title: string, html: string, slots?: SlotDeclarationInput[], scripts?: 'sandboxed'): DocumentInput {
   return {
     type: 'document',
     kind: 'deck',
@@ -16,7 +16,7 @@ function deckDocument(title: string, html: string, slots?: Slot[], scripts?: 'sa
   }
 }
 
-function pageDocument(html: string, slots?: Slot[], size?: { width: number; height: number }): DocumentInput {
+function pageDocument(html: string, slots?: SlotDeclarationInput[], size?: { width: number; height: number }): DocumentInput {
   return { type: 'document', kind: 'page', size, data: { slots }, children: [{ type: 'page', body: { html } }] }
 }
 

@@ -261,22 +261,24 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
   check('a fixed-width growing page with no left bleed fills its trim without repainting its neighbor', growingFixedOk)
 
   const info = execFileSync('pdfinfo', ['-box', '-f', '1', '-l', '2', path.join(output, 'pages-postcard.pdf')], { encoding: 'utf8' })
-  const boxesMatch = [postcardPage, postcardBackPage].map((input) => pageFromDocument(Document.parse(input))).every((page, index) => {
-    if (!page.print) return false
-    const boxes = printBoxes(page.print)
-    const actual = (name: string) =>
-      info
-        .match(new RegExp(`Page\\s+${index + 1}\\s+${name}:\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)`))
-        ?.slice(1)
-        .map(Number)
-    const expected = (box: { x: number; y: number; width: number; height: number }) =>
-      [box.x, boxes.media.height - box.y - box.height, box.x + box.width, boxes.media.height - box.y].map((mm) => mm / MM_PER_PT)
-    return (
-      closeBox(actual('MediaBox'), [0, 0, boxes.media.width / MM_PER_PT, boxes.media.height / MM_PER_PT]) &&
-      closeBox(actual('BleedBox'), expected(boxes.bleedBox)) &&
-      closeBox(actual('TrimBox'), expected(boxes.trim))
-    )
-  })
+  const boxesMatch = [postcardPage, postcardBackPage]
+    .map((input) => pageFromDocument(Document.parse(input)))
+    .every((page, index) => {
+      if (!page.print) return false
+      const boxes = printBoxes(page.print)
+      const actual = (name: string) =>
+        info
+          .match(new RegExp(`Page\\s+${index + 1}\\s+${name}:\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)\\s+([\\d.-]+)`))
+          ?.slice(1)
+          .map(Number)
+      const expected = (box: { x: number; y: number; width: number; height: number }) =>
+        [box.x, boxes.media.height - box.y - box.height, box.x + box.width, boxes.media.height - box.y].map((mm) => mm / MM_PER_PT)
+      return (
+        closeBox(actual('MediaBox'), [0, 0, boxes.media.width / MM_PER_PT, boxes.media.height / MM_PER_PT]) &&
+        closeBox(actual('BleedBox'), expected(boxes.bleedBox)) &&
+        closeBox(actual('TrimBox'), expected(boxes.trim))
+      )
+    })
   check('postcard front and back keep both pages and each page’s print boxes', /Pages:\s+2\b/.test(info) && boxesMatch)
 
   const twoSidedTextCheck = (file: string, flip: 'long' | 'short') => {

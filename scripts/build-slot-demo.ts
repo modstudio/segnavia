@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Fill, ImpositionInput, PageInput, SlotDeclarationInput } from '@segnavia/format'
+import type { DocumentInput, Fill, ImpositionInput, SlotDeclarationInput } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 
 export const cardSlots: SlotDeclarationInput[] = [
@@ -12,18 +12,20 @@ export const cardSlots: SlotDeclarationInput[] = [
 ]
 
 const base = 'box-sizing:border-box;margin:0;width:336px;height:192px;padding:24px;background:#fff;color:#17324d;font:16px system-ui'
-export const slotCardPages: PageInput[] = [
+export const slotCardPages: DocumentInput[] = [
   {
-    id: 'front',
+    type: 'document',
+    kind: 'page',
     size: { width: 336, height: 192 },
-    slots: cardSlots,
-    html: `<!doctype html><html><body style="${base};display:grid;grid-template-columns:1fr 72px;gap:16px;align-items:center"><main><strong data-slot-value="name" style="font-size:26px">Design Name</strong><p data-slot-value="role">Design Role</p></main><img data-slot-src="logo" alt="Logo" style="max-width:72px;max-height:72px"></body></html>`,
+    data: { slots: cardSlots },
+    children: [{ type: 'page', id: 'front', body: { html: `<!doctype html><html><body style="${base};display:grid;grid-template-columns:1fr 72px;gap:16px;align-items:center"><main><strong data-slot-value="name" style="font-size:26px">Design Name</strong><p data-slot-value="role">Design Role</p></main><img data-slot-src="logo" alt="Logo" style="max-width:72px;max-height:72px"></body></html>` } }],
   },
   {
-    id: 'back',
+    type: 'document',
+    kind: 'page',
     size: { width: 336, height: 192 },
-    slots: cardSlots,
-    html: `<!doctype html><html><body style="${base};display:grid;place-content:center;gap:8px"><span data-slot-value="phone">Design Phone</span><span data-slot-value="email">design@example.com</span></body></html>`,
+    data: { slots: cardSlots },
+    children: [{ type: 'page', id: 'back', body: { html: `<!doctype html><html><body style="${base};display:grid;place-content:center;gap:8px"><span data-slot-value="phone">Design Phone</span><span data-slot-value="email">design@example.com</span></body></html>` } }],
   },
 ]
 

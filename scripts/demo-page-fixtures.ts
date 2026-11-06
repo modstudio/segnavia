@@ -1,5 +1,6 @@
 import './source-guard.ts'
 import type { DocumentInput, ImpositionInput, Motif, MotifSource, PrintedPageRules } from '@segnavia/format'
+
 export * from './demo-screen-page-fixtures.ts'
 
 export const printedPageMotifs: Motif[] = [

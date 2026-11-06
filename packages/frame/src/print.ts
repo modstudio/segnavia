@@ -6,8 +6,8 @@
 
 import {
   type Deck,
-  Document as DocumentSchema,
   type DocumentInput,
+  Document as DocumentSchema,
   deckFromDocument,
   exceedsLimits,
   Imposition,

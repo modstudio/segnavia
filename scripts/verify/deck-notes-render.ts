@@ -3,8 +3,19 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { AppFont, FontSource } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
+import { screenDeck } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
+
+const notesDeck = (title: string, id: string, html: string, notes: string, size = { width: 1280, height: 720 }) =>
+  screenDeck([{ type: 'slide', id, content: { kind: 'html', html }, notes }], {
+    title,
+    layout: 'fixed',
+    fit: 'contain',
+    frame: false,
+    settings: { scripts: 'refuse' },
+    size,
+  })
 
 export async function verifyLongDeckNotes(renderer: Renderer, work: string, check: Check): Promise<void> {
   const longToken = `https://example.invalid/${'unbroken'.repeat(30)}`
@@ -14,15 +25,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   writeFileSync(
     file,
     await renderer.deckPdf(
-      {
-        title: 'Long notes',
-        layout: 'fixed',
-        fit: 'contain',
-        frame: false,
-        size: { width: 1280, height: 720 },
-        scripts: 'refuse',
-        slides: [{ id: 'long', content: { kind: 'html', html: '<p>Thumbnail only once</p>' }, notes }],
-      },
+      notesDeck('Long notes', 'long', '<p>Thumbnail only once</p>', notes),
       {
         layout: 'notes',
         beforeOutput: async (tab) => {
@@ -48,15 +51,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   const portraitNotes = 'Portrait notes stay entirely visible.'
   let portraitFacts = { exact: false, visible: false }
   await renderer.deckPdf(
-    {
-      title: 'Portrait notes',
-      layout: 'fixed',
-      fit: 'contain',
-      frame: false,
-      scripts: 'refuse',
-      size: { width: 720, height: 1280 },
-      slides: [{ id: 'portrait', content: { kind: 'html', html: '<p>Portrait</p>' }, notes: portraitNotes }],
-    },
+    notesDeck('Portrait notes', 'portrait', '<p>Portrait</p>', portraitNotes, { width: 720, height: 1280 }),
     {
       layout: 'notes',
       beforeOutput: async (tab) => {
@@ -75,15 +70,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   const emojiNotes = '👨‍👩‍👧‍👦'.repeat(1_000)
   let emojiFacts = { exact: false, intact: false, visible: false }
   await renderer.deckPdf(
-    {
-      title: 'Emoji notes',
-      layout: 'fixed',
-      fit: 'contain',
-      frame: false,
-      scripts: 'refuse',
-      size: { width: 1280, height: 720 },
-      slides: [{ id: 'emoji', content: { kind: 'html', html: '<p>Emoji</p>' }, notes: emojiNotes }],
-    },
+    notesDeck('Emoji notes', 'emoji', '<p>Emoji</p>', emojiNotes),
     {
       layout: 'notes',
       beforeOutput: async (tab) => {
@@ -107,15 +94,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   let reachedOutput = false
   const limited = await renderer
     .deckPdf(
-      {
-        title: 'Limited notes',
-        layout: 'fixed',
-        fit: 'contain',
-        frame: false,
-        scripts: 'refuse',
-        size: { width: 1280, height: 720 },
-        slides: [{ id: 'limited', content: { kind: 'html', html: '<p>Limited</p>' }, notes: 'A line of notes.\n'.repeat(500) }],
-      },
+      notesDeck('Limited notes', 'limited', '<p>Limited</p>', 'A line of notes.\n'.repeat(500)),
       {
         layout: 'notes',
         limits: { sheets: 2 },
@@ -147,15 +126,7 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   writeFileSync(
     namedFile,
     await renderer.deckPdf(
-      {
-        title: 'Named notes font',
-        layout: 'fixed',
-        fit: 'contain',
-        frame: false,
-        size: { width: 1280, height: 720 },
-        scripts: 'refuse',
-        slides: [{ id: 'named', content: { kind: 'html', html: '<p>Named</p>' }, notes: 'Speaker notes in the named face.' }],
-      },
+      notesDeck('Named notes font', 'named', '<p>Named</p>', 'Speaker notes in the named face.'),
       { layout: 'notes', notesFont: 'serif', fontSource },
     ),
   )

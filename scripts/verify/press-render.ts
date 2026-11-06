@@ -2,7 +2,6 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-import type { Deck } from '@segnavia/format'
 import type { PressReport, Renderer } from '@segnavia/render'
 import { proof } from '../../packages/render/src/color/engine.ts'
 import { readProfile } from '../../packages/render/src/color/profile.ts'
@@ -15,6 +14,7 @@ import { verifyGrayPress } from './gray-press.ts'
 import { type Raster, readPpm } from './pdf-raster.ts'
 import { verifyConvertedPressImages } from './press-images.ts'
 import { verifyPressProof } from './press-proof.ts'
+import { screenDeck, screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -191,10 +191,10 @@ async function verifyNeutralTolerance(renderer: Renderer, check: Check, profileB
     [62, 61, 60],
     [182, 181, 180],
   ] as const
-  const page = {
-    html: `<style>@page{size:400px 220px;margin:0}body{margin:40px}.shadow{width:120px;height:60px;background:white;box-shadow:12px 12px 8px rgb(103,101,100)}.gradient{margin-top:40px;width:240px;height:60px;background:linear-gradient(90deg,rgb(62,61,60),rgb(182,181,180))}</style><div class="shadow"></div><div class="gradient"></div>`,
-    size: { width: 400, height: 220 },
-  }
+  const page = screenPage(
+    { html: `<style>@page{size:400px 220px;margin:0}body{margin:40px}.shadow{width:120px;height:60px;background:white;box-shadow:12px 12px 8px rgb(103,101,100)}.gradient{margin-top:40px;width:240px;height:60px;background:linear-gradient(90deg,rgb(62,61,60),rgb(182,181,180))}</style><div class="shadow"></div><div class="gradient"></div>` },
+    { size: { width: 400, height: 220 } },
+  )
   let defaultReport: PressReport | undefined
   let exactReport: PressReport | undefined
   const defaults = await renderer.pagePdf(
@@ -223,7 +223,7 @@ async function verifyNeutralTolerance(renderer: Renderer, check: Check, profileB
 }
 
 async function verifyPressGradients(renderer: Renderer, work: string, check: Check, profile: Uint8Array): Promise<void> {
-  const gradientPage = { html: gradientHtml, scripts: 'refuse' as const, size: { width: 600, height: 400 } }
+  const gradientPage = screenPage({ html: gradientHtml }, { settings: { scripts: 'refuse' }, size: { width: 600, height: 400 } })
   let gradientReport: PressReport | undefined
   const unconvertedGradients = await renderer.pagePdf(gradientPage)
   const convertedGradients = await renderer.pagePdf(
@@ -298,7 +298,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
   }
   const profile = new Uint8Array(readFileSync(found.path))
   console.log(`PRESS PROFILE [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: ${found.name}`)
-  const page = { html, scripts: 'sandboxed' as const, size: { width: 1200, height: 800 } }
+  const page = screenPage({ html }, { settings: { scripts: 'sandboxed' }, size: { width: 1200, height: 800 } })
   const unconverted = await renderer.pagePdf(page)
   let pageReport: PressReport | undefined
   const converted = await renderer.pagePdf(page, { waitForPageReady: true, ...reportOption(profile, (report) => (pageReport = report)) })
@@ -348,15 +348,14 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     pagesReport ? JSON.stringify(pagesReport) : 'report not called',
   )
 
-  const deck: Deck = {
+  const deck = screenDeck([{ type: 'slide', id: 'press', content: { kind: 'html', html } }], {
     title: 'Press',
     layout: 'fixed',
     fit: 'contain',
     frame: false,
     size: { width: 1200, height: 800 },
-    scripts: 'sandboxed',
-    slides: [{ id: 'press', content: { kind: 'html', html } }],
-  }
+    settings: { scripts: 'sandboxed' },
+  })
   let deckReport: PressReport | undefined
   await renderer.deckPdf(
     deck,
@@ -366,7 +365,7 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
 
   let emojiReport: PressReport | undefined
   await renderer.pagePdf(
-    { html: '<!doctype html><style>@page{size:600px 200px;margin:0}body{font:72px Arial}</style><p>Emoji 😀 🎉 ❤️</p>', size: { width: 600, height: 200 } },
+    screenPage({ html: '<!doctype html><style>@page{size:600px 200px;margin:0}body{font:72px Arial}</style><p>Emoji 😀 🎉 ❤️</p>' }, { size: { width: 600, height: 200 } }),
     { press: { profile, images: 'convert', report: (report) => (emojiReport = report) } },
   )
   check(
@@ -375,18 +374,18 @@ export async function verifyPressRender(renderer: Renderer, work: string, check:
     emojiReport ? JSON.stringify(emojiReport) : 'report not called',
   )
 
-  const longDeck: Deck = {
+  const longDeck = screenDeck(Array.from({ length: 24 }, (_, index) => ({
+    type: 'slide',
+    id: `press-${index}`,
+    content: { kind: 'html', html: `<style>body{font:48px Arial;color:rgb(${index * 9},80,180)}</style><h1>Press page ${index + 1}</h1>` },
+  })), {
     title: 'Press content bound',
     layout: 'fixed',
     fit: 'contain',
     frame: false,
     size: { width: 1200, height: 800 },
-    scripts: 'refuse',
-    slides: Array.from({ length: 24 }, (_, index) => ({
-      id: `press-${index}`,
-      content: { kind: 'html', html: `<style>body{font:48px Arial;color:rgb(${index * 9},80,180)}</style><h1>Press page ${index + 1}</h1>` },
-    })),
-  }
+    settings: { scripts: 'refuse' },
+  })
   const longPdf = await renderer.deckPdf(longDeck)
   console.log(
     `PRESS CONTENT [${'Bun' in globalThis ? 'bun' : `node ${process.version}`}]: 24-page deck largest stream=${await largestContentStream(longPdf)} bytes`,

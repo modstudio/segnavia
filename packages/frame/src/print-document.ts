@@ -4,8 +4,8 @@
 
 import {
   type Deck,
-  Document as DocumentSchema,
   type DocumentInput,
+  Document as DocumentSchema,
   deckFromDocument,
   fitPage,
   type Imposed,
@@ -363,7 +363,11 @@ export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition:
 }
 
 export function printablePageValuesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
-  return printableHtmlPagesDocument(pages.map((page) => resolvePageHtml(page)), imposition, options)
+  return printableHtmlPagesDocument(
+    pages.map((page) => resolvePageHtml(page)),
+    imposition,
+    options,
+  )
 }
 
 export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
