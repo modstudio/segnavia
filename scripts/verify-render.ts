@@ -54,7 +54,6 @@ check(
   collectionPdf.length > 0 && collectionPdf.equals(standalonePdf),
   `${collectionPdf.length} and ${standalonePdf.length} bytes`,
 )
-
 // A server the renders try to reach, counting every request that arrives.
 let hits = 0
 const server = createServer((request, response) => {
