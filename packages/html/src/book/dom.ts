@@ -1,4 +1,4 @@
-import { type ChildNode, Element, isTag, type ParentNode, Text } from 'domhandler'
+import { type ChildNode, Element, isTag, isText, type ParentNode, Text } from 'domhandler'
 
 const HEADING_TEXT_BLOCK_ELEMENTS = new Set([
   'address',
@@ -6,6 +6,7 @@ const HEADING_TEXT_BLOCK_ELEMENTS = new Set([
   'aside',
   'blockquote',
   'canvas',
+  'caption',
   'center',
   'dd',
   'details',
@@ -50,6 +51,8 @@ const HEADING_TEXT_BLOCK_ELEMENTS = new Set([
   'video',
 ])
 
+const HEADING_TEXT_HIDDEN_ELEMENTS = new Set(['script', 'style', 'template'])
+
 export function element(name: string, attribs: Record<string, string> = {}, children: ChildNode[] = []): Element {
   const node = new Element(name, attribs, children)
   linkChildren(node)
@@ -92,17 +95,11 @@ export function append(parent: ParentNode, addition: ChildNode): void {
   linkChildren(parent)
 }
 
-export function textContent(node: ChildNode, omitNotes = false): string {
-  if ('data' in node) return node.data
-  if (!('children' in node)) return ''
-  if (omitNotes && isTag(node) && node.name === 'span' && node.attribs['data-note'] !== undefined) return ''
-  return node.children.map((child) => textContent(child, omitNotes)).join('')
-}
-
 export function headingText(node: ChildNode): string {
-  if ('data' in node) return node.data
+  if (isText(node)) return node.data
   if (!('children' in node)) return ''
   if (isTag(node) && node.name === 'span' && node.attribs['data-note'] !== undefined) return ''
+  if (isTag(node) && HEADING_TEXT_HIDDEN_ELEMENTS.has(node.name)) return ''
   if (isTag(node) && node.name === 'br') return ' '
   const content = node.children.map(headingText).join('')
   if (isTag(node) && HEADING_TEXT_BLOCK_ELEMENTS.has(node.name)) return ` ${content} `
