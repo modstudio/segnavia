@@ -308,7 +308,8 @@ them. Faces are registered in `document.fonts` as `FontFace` objects and removed
 change or disconnect, because Chromium ignores shadow-root `@font-face`.
 `alertLabels` flows to locked nested pages. `labels` is a partial override of
 the editor's English library-written strings, currently the raw-inline
-accessible-name function. Every rich block carries
+accessible-name function; a labels change re-labels existing atoms in place
+without rebuilding rich mode. Every rich block carries
 `dir="auto"`.
 
 The source editor is CodeMirror with GFM, history, wrapping and per-line text
@@ -341,7 +342,10 @@ with `run('link', { href })`. `segnavia-raw-inline-indicate` carries
 is under the pointer or selected as a node, and `null` when none is indicated.
 Selection indication wins while pointer and selection indications
 both hold. The event is suppressed while unchanged and ends on pointer leave,
-selection departure, blur, mode change or disconnect.
+selection departure, blur, mode change, any rich-view rebuild or disconnect.
+The disconnect `null` is dispatched after the editor has left the document, so
+it reaches listeners on the element itself, not an ancestor; an ancestor
+listener ends its tooltip when it removes the editor.
 
 `run(command, args?)` returns whether it applied. Commands cover bold, italic,
 code, strike, paragraph and heading levels, bullet, ordered and task lists,

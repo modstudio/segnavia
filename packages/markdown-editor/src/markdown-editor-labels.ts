@@ -7,5 +7,7 @@ export const ENGLISH_MARKDOWN_EDITOR_LABELS: MarkdownEditorLabels = {
 }
 
 export function markdownEditorLabels(labels: Partial<MarkdownEditorLabels>): MarkdownEditorLabels {
-  return { ...ENGLISH_MARKDOWN_EDITOR_LABELS, ...labels }
+  return {
+    rawInline: labels.rawInline ?? ENGLISH_MARKDOWN_EDITOR_LABELS.rawInline,
+  }
 }
