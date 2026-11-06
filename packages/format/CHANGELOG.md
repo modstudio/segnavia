@@ -1,5 +1,11 @@
 # @segnavia/format
 
+## 0.47.0
+
+### Minor Changes
+
+- 6ef773e: Keep small printed structures together by default and allow content CSS to control fragmentation explicitly.
+
 ## 0.46.0
 
 ## 0.45.0

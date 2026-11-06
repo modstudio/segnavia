@@ -1,5 +1,21 @@
 # @segnavia/frame
 
+## 0.47.0
+
+### Minor Changes
+
+- 6ef773e: Keep small printed structures together by default and allow content CSS to control fragmentation explicitly.
+- 1b85f5e: Mark each composed page as recto or verso for direction-independent side-aware styling.
+
+### Patch Changes
+
+- 100d32f: Report printed-page composition refusals to the previewing host.
+- Updated dependencies [6ef773e]
+- Updated dependencies [b9754e3]
+- Updated dependencies [1b85f5e]
+  - @segnavia/format@0.47.0
+  - @segnavia/html@0.47.0
+
 ## 0.46.0
 
 ### Patch Changes
