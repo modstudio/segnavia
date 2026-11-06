@@ -1,11 +1,9 @@
 export interface LayoutSample {
   inlineSize: number
-  paperSize: number
   scrollWidth: number
 }
 
 export interface LayoutGeometry {
-  paperWidth: number
   textWidth: number
 }
 
@@ -24,16 +22,8 @@ export function decideLayoutSettle(
   boundMs: number,
 ): LayoutSettleDecision {
   if (elapsedMs >= boundMs) return 'refuse'
-  const widthsMatch =
-    sample.paperSize !== 0 &&
-    sample.inlineSize !== 0 &&
-    Math.abs(sample.inlineSize - configured.textWidth) <= 0.5 &&
-    Math.abs(sample.paperSize - configured.paperWidth) <= 0.5
+  const widthsMatch = sample.inlineSize !== 0 && Math.abs(sample.inlineSize - configured.textWidth) <= 0.5
   if (!widthsMatch) return 'wait-for-layout'
-  const repeated =
-    previous !== undefined &&
-    sample.inlineSize === previous.inlineSize &&
-    sample.paperSize === previous.paperSize &&
-    sample.scrollWidth === previous.scrollWidth
+  const repeated = previous !== undefined && sample.inlineSize === previous.inlineSize && sample.scrollWidth === previous.scrollWidth
   return repeated ? 'settled' : 'sample-again'
 }

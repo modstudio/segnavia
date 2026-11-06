@@ -60,6 +60,12 @@ describe('printedPageDocument', () => {
     expect(html).toContain(`type:'${MESSAGE.composeFailure}'`)
   })
 
+  test('does not read the window width while composing', () => {
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('clientWidth')
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('innerWidth')
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('documentElement.clientWidth')
+  })
+
   test('writes escaped metadata title while keeping the page language', () => {
     const metadata = printedPageDocument(page, { nonce: 'held', metadata: { title: 'הגדה <של> & "פסח"', lang: 'yi' } })
     const fallback = printedPageDocument(page, { nonce: 'held', metadata: { title: 'הגדה' } })

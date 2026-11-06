@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { MM_PER_PT, Print, printBoxes } from '@segnavia/format'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
-import { addPressBoxes, assertPrintOptions, pressContentPlacement, printCss, printViewport } from './page-paper.ts'
+import { addPressBoxes, assertPrintOptions, pressContentPlacement, printCss } from './page-paper.ts'
 import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
@@ -11,7 +11,6 @@ describe('printed page setup', () => {
   test('safe area alone adds only the print custom properties', () => {
     const print = Print.parse({ paper: 'a4', safe: 5 })
     expect(printCss(print)).toBe(':root{--segnavia-bleed:0mm;--segnavia-safe:5mm}')
-    expect(printViewport(print)).toEqual({ width: 794, height: 1123 })
   })
 
   test('bleed grows the viewport and becomes physical root padding with the margins', () => {
@@ -24,7 +23,6 @@ describe('printed page setup', () => {
     expect(printCss(print)).toBe(
       ':root{--segnavia-bleed:3mm;--segnavia-safe:0mm}:where(html){box-sizing:border-box!important;position:relative!important;width:154mm!important;height:111mm!important;overflow:clip!important;padding:4mm 5mm 6mm 7mm}:where(body){position:absolute!important;inset:4mm 5mm 6mm 7mm!important;width:auto!important;height:auto!important}',
     )
-    expect(printViewport(print)).toEqual({ width: 583, height: 420 })
   })
 
   test('a CSS page size is refused for bleed or marks', () => {
