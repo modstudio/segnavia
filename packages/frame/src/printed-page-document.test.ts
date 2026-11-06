@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { bodyHtml, printedPageAt, resolvePageHtml } from '@segnavia/html'
+import { bodyHtml, fragmentationCss, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
@@ -36,6 +36,17 @@ const changedPage = (parent: object, rules: object) =>
   })
 
 describe('printedPageDocument', () => {
+  test('adds safe fragmentation before host CSS and omits it when disabled', () => {
+    const hostCss = ':where(tr){break-inside:auto}'
+    const safe = printedPageDocument(page, { nonce: 'held', css: hostCss })
+    const none = printedPageDocument(Page.parse({ ...page, printedPages: { ...page.printedPages, fragmentation: 'none' } }), { nonce: 'held', css: hostCss })
+
+    expect(safe).toContain(fragmentationCss('safe'))
+    expect(safe.indexOf(fragmentationCss('safe'))).toBeLessThan(safe.indexOf(hostCss))
+    expect(none).not.toContain(fragmentationCss('safe'))
+    expect(none).toContain(hostCss)
+  })
+
   test('carries resolved config under the bridge nonce and injects the shared policy', () => {
     const html = printedPageDocument(page, { nonce: 'held' })
     expect(html.match(/<script nonce="held">/g)?.length).toBeGreaterThanOrEqual(1)

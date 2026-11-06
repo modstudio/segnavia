@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from './index.ts'
-import { BOOK_PARENT_NAMES, bookParentPages } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, bookParentPages, PrintedPages } from './printed-pages.ts'
 
 const base = {
   html: '<p>body</p>',
@@ -12,6 +12,12 @@ const base = {
 }
 
 describe('Page printedPages', () => {
+  test('fragmentation defaults to safe, accepts none and refuses other values', () => {
+    expect(PrintedPages.parse(base.printedPages).fragmentation).toBe('safe')
+    expect(PrintedPages.parse({ ...base.printedPages, fragmentation: 'none' }).fragmentation).toBe('none')
+    expect(PrintedPages.safeParse({ ...base.printedPages, fragmentation: 'always' }).success).toBe(false)
+  })
+
   test.each([
     [{ ...base, print: undefined }, 'add print.paper'],
     [{ ...base, scripts: 'sandboxed' }, 'deterministic cloned content'],

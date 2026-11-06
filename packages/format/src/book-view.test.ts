@@ -43,7 +43,9 @@ describe('book view', () => {
       contents: { pageNumbers: true, depth: 2 },
       runningHead: { recto: { mark: 'siman', which: 'first' as const }, verso: 'title' as const },
     }
-    expect(BookView.parse({ html: '<main>ספר</main>', pagination })).toMatchObject({ html: '<main>ספר</main>', pagination })
+    const parsed = BookView.parse({ html: '<main>ספר</main>', pagination })
+    expect(parsed).toMatchObject({ html: '<main>ספר</main>', pagination })
+    expect(parsed.pagination).not.toHaveProperty('fragmentation')
   })
 
   test('exports its unresolved JSON Schema', () => {

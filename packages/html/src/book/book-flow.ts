@@ -1,6 +1,7 @@
 import { type Book, bookSections, isPart, MAX_PART_DEPTH, PX_PER_MM, sheetMm } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { isTag } from 'domhandler'
+import { fragmentationCss } from '../fragmentation.ts'
 import type { BookBuild } from './types.ts'
 
 export const BOOK_FLOW_COLUMN_MIN_PX = 240
@@ -81,8 +82,9 @@ export function resolveBookBuild(book: Book, requested: BookBuild | undefined): 
 }
 
 export function bookDocumentCss(book: Book, build: BookBuild): string {
-  if (build === 'galley') return `${contentsCss(book)}${GALLEY_SUFFIX}`
-  return build === 'flow' ? flowCss(book) : printCss(book)
+  const fragmentation = fragmentationCss(book.fragmentation)
+  if (build === 'galley') return `${fragmentation}${contentsCss(book)}${GALLEY_SUFFIX}`
+  return `${fragmentation}${build === 'flow' ? flowCss(book) : printCss(book)}`
 }
 
 export function flowPageStyle(geometry: BookFlowPageGeometry, recto: boolean): string {

@@ -6,6 +6,9 @@ export const PRINTED_PAGE_LIMIT = 500
 export const PRINTED_PAGE_ROLES = ['every', 'first', 'recto', 'verso', 'last'] as const
 export type PrintedPageRole = (typeof PRINTED_PAGE_ROLES)[number]
 
+export const Fragmentation = z.enum(['safe', 'none'])
+export type Fragmentation = z.infer<typeof Fragmentation>
+
 export const ParentPageMargin = z.object({
   top: z.number().nonnegative(),
   bottom: z.number().nonnegative(),
@@ -53,6 +56,7 @@ export const PrintedPages = z.object({
   parents: z.array(ParentPage).min(1),
   rules: PrintedPageRules,
   numbering: NumberSystem.optional(),
+  fragmentation: Fragmentation.default('safe'),
 })
 
 export type ParentPageMargin = z.infer<typeof ParentPageMargin>

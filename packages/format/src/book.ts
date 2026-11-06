@@ -19,7 +19,7 @@ import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.t
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Placement } from './placement.ts'
-import { bookParentPages, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
+import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 
@@ -123,6 +123,7 @@ export const BookShape = z.object({
   rectoOpenings: z.boolean().default(false),
   orphans: z.number().int().min(1).default(2),
   widows: z.number().int().min(1).default(2),
+  fragmentation: Fragmentation.default('safe'),
   runningHead: BookRunningHead.default({ recto: 'title', verso: 'title' }),
   contents: z.object({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
