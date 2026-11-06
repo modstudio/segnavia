@@ -9,8 +9,7 @@ export interface FragmentSpan {
 }
 
 export function fragmentSpan(rect: PrintedPageRect, box: PrintedPageRect, direction: 'ltr' | 'rtl'): FragmentSpan {
-  const originEdge = direction === 'rtl' ? 'right' : 'left'
-  const start = Math.abs(rect[originEdge] - box[originEdge])
+  const start = direction === 'rtl' ? box.right - rect.right : rect.left - box.left
   return { start, end: start + (rect.right - rect.left) }
 }
 
@@ -19,5 +18,5 @@ export function columnOf(span: FragmentSpan, textWidth: number): number {
 }
 
 export function paperCount(spans: FragmentSpan[], textWidth: number): number {
-  return spans.reduce((count, span) => Math.max(count, Math.max(0, Math.floor((span.start + span.end) / 2 / textWidth)) + 1), 1)
+  return spans.reduce((count, span) => Math.max(count, columnOf(span, textWidth) + 1), 1)
 }

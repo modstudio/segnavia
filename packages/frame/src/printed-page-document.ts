@@ -13,7 +13,7 @@ import {
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
-import { type HtmlPage, printedPageAt, resolvePageHtml } from '@segnavia/html'
+import { embedFunction, type HtmlPage, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { DIAGRAM_READY_EXPR, withDiagramScript } from './diagram-document.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
@@ -125,9 +125,9 @@ var fail=function(reason){document.documentElement.setAttribute('${PRINTED_PAGE_
 var config=${configJson};var source=document.querySelector('[data-segnavia-flow]');if(!source){fail('the composed flow element is missing');return;}
 var printedPageAt=${printedPageAt.toString()};
 var decideLayoutSettle=${decideLayoutSettle.toString()};
-var fragmentSpan=${fragmentSpan.toString()};
-var columnOf=${columnOf.toString()};
-var paperCount=${paperCount.toString()};
+${embedFunction('fragmentSpan', fragmentSpan)}
+${embedFunction('columnOf', columnOf)}
+${embedFunction('paperCount', paperCount)}
 var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});Promise.all([loaded,${DIAGRAM_READY_EXPR},document.fonts?document.fonts.ready:Promise.resolve(),readyImages(source)]).then(function(){
 try{var parentByName={};for(var p=0;p<config.parents.length;p++)parentByName[config.parents[p].name]=config.parents[p];

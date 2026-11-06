@@ -29,6 +29,16 @@ describe('printed-page columns', () => {
     expect(paperCount([rtl], 100)).toBe(3)
   })
 
+  test.each([
+    ['left-to-right', fragmentSpan({ left: -800, right: -750 }, { left: 0, right: 300 }, 'ltr')],
+    ['right-to-left', fragmentSpan({ left: 1050, right: 1100 }, { left: 0, right: 300 }, 'rtl')],
+  ])('keeps a fragment before the %s inline-start edge in column zero', (_direction, span) => {
+    const textWidth = 725.291
+    expect(span.start).toBe(-800)
+    expect(columnOf(span, textWidth)).toBe(0)
+    expect(paperCount([span], textWidth)).toBe(1)
+  })
+
   test('keeps one paper when there are no fragments', () => {
     expect(paperCount([], 100)).toBe(1)
   })
