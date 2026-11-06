@@ -217,8 +217,8 @@ export class FramePool {
       cleanup()
       this.pending = null
       this.clearTransitionAttributes()
-      this.retain(controller.state, controller.state.index, options.neighbors)
       this.sync(controller.state, options.frameTitle)
+      this.retain(controller.state, controller.state.index, options.neighbors)
       this.mountWindow(controller.state, controller, options)
       this.changed()
     }
@@ -275,6 +275,7 @@ export class FramePool {
             outgoing.inert = true
           }
           incoming.dataset.active = ''
+          incoming.removeAttribute('data-incoming')
           incoming.setAttribute('aria-hidden', 'false')
           incoming.inert = false
           this.mountWindow(controller.state, controller, options)
