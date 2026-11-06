@@ -107,7 +107,7 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   a ready signal, an animation report, a bounded slot-fit report and, from a
   paginated book frame, a bounded `segnavia:book-place` report: a position key
   parsed by the book model and at most 256 characters. From a paginated book
-  frame, a bounded `segnavia:compose-failure` report: the composer's refusal
+  frame or a printed-page frame, a bounded `segnavia:compose-failure` report: the composer's refusal
   text, at most 1024 characters. The host checks
   selection replies against a size bound. A refused-script page answers exactly three inbound message
   types from its parent: a selection request; a heading request, whose heading
