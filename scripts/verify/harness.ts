@@ -38,6 +38,7 @@ export async function openHarness(): Promise<Harness> {
     fetch: async (request) => {
       const url = new URL(request.url)
       if (url.pathname === '/held-frame.html') {
+        const background = url.searchParams.has('red') ? 'rgb(255,0,0)' : 'rgb(88,28,135)'
         const encoder = new TextEncoder()
         let heldController: ReadableStreamDefaultController<Uint8Array> | undefined
         return new Response(
@@ -47,7 +48,7 @@ export async function openHarness(): Promise<Harness> {
               heldFrames.add(controller)
               controller.enqueue(
                 encoder.encode(
-                  '<!doctype html><style>html{background:rgb(88,28,135)}</style><body style="margin:0;height:100vh;display:grid;place-items:center;color:white">held</body>',
+                  `<!doctype html><style>html{background:${background}}</style><body style="margin:0;height:100vh;display:grid;place-items:center;color:white">held</body>`,
                 ),
               )
             },
@@ -108,11 +109,33 @@ export async function openHarness(): Promise<Harness> {
     async clickFrame(selector) {
       const box = await page.locator(selector).boundingBox({ timeout: 20000 })
       if (!box) throw new Error(`${selector} has no box to click.`)
-      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
-      // A sandboxed frame runs in its own process, so focus reaches it after
-      // the click returns. A key pressed before then goes to the host page.
       const frame = await (await page.locator(selector).elementHandle())?.contentFrame()
       if (!frame) throw new Error(`${selector} has no frame to focus.`)
+      const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+      await frame.evaluate(() => {
+        ;(window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered = false
+        addEventListener(
+          'pointermove',
+          () => {
+            ;(window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered = true
+          },
+          { once: true },
+        )
+      })
+      // A stationary pointer can leave Chromium's out-of-process frame hit test
+      // on the frame owner. Entering the child first proves the click will reach it.
+      await page.mouse.move(0, 0)
+      await page.mouse.move(point.x, point.y)
+      await frame
+        .waitForFunction(() => (window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered === true, undefined, {
+          timeout: BOUNDED_WAIT_MS,
+        })
+        .catch(() => {
+          throw new Error(`${selector} did not receive the pointer within ${BOUNDED_WAIT_MS} ms.`)
+        })
+      await page.mouse.click(point.x, point.y)
+      // A sandboxed frame runs in its own process, so focus reaches it after
+      // the click returns. A key pressed before then goes to the host page.
       await frame
         .waitForFunction(() => document.hasFocus(), undefined, { timeout: BOUNDED_WAIT_MS })
         .catch(() => {

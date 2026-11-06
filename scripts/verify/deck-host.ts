@@ -1,4 +1,4 @@
-import { captureSandboxedTurns, sampleSandboxedTurns } from './deck-host-sampling.ts'
+import { captureLoadingBleed, captureSandboxedTurns, sampleSandboxedTurns } from './deck-host-sampling.ts'
 import { neighborTurnFacts, waitForSettledWindow } from './deck-host-waits.ts'
 import { verifyDeckTransitions } from './deck-transitions.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
@@ -287,6 +287,13 @@ export async function verifyDeckHost(h: Harness) {
     'deck host: a rapid second turn cancels the first incoming frame and retains no neighbor',
     sampled.cancelled && sampled.target === 'sandboxed-1' && sandboxedCount === 1,
     JSON.stringify({ cancelled: sampled.cancelled, target: sampled.target, sandboxedCount }),
+  )
+
+  const bleed = [await captureLoadingBleed(h, 'ltr'), await captureLoadingBleed(h, 'rtl')]
+  check(
+    'deck host: a loading slide beneath a transparent active slide leaves no visible trace in either direction',
+    bleed.every(({ maxDifference }) => maxDifference <= 1),
+    JSON.stringify(bleed),
   )
 
   await verifyDeckTransitions(h)

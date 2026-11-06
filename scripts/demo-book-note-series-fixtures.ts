@@ -1,5 +1,10 @@
 import type { BookInput } from '@segnavia/format'
 
+export function twoPageSeriesRelayoutCss(): string {
+  // This activates only once pages exist, so the note relays out after placement as the check exercises.
+  return ':where(html:has([data-segnavia-pages])) [data-segnavia-note="segnavia-fn-1-1"]{line-height:25px}'
+}
+
 export function noteSeriesFixture(hebrew: boolean): BookInput {
   const first = hebrew ? 'מקור ראשון' : 'First source'
   const second = hebrew ? 'מקור שני' : 'Second source'
