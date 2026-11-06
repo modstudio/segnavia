@@ -1,5 +1,6 @@
 import { expect, mock, test } from 'bun:test'
 import { EventEmitter } from 'node:events'
+import { PDFDocument } from 'pdf-lib'
 import { RendererUnavailableError } from './errors.ts'
 
 let instance: FakeBrowser
@@ -38,7 +39,11 @@ const tab = {
     return Promise.resolve({ extent: 100, endOverflow: 0, extentClipped: false, rtl: false, elements: [] })
   },
   emulateMedia: async () => {},
-  pdf: async () => new Uint8Array([1, 2, 3]),
+  pdf: async () => {
+    const document = await PDFDocument.create({ updateMetadata: false })
+    document.addPage()
+    return document.save()
+  },
   on: () => tab,
 }
 
@@ -78,7 +83,8 @@ test('a browser disconnect settles pending work promptly and the next render rel
   expect(elapsedMs).toBeLessThan(500)
   expect(first.listenerCount('disconnected')).toBe(1)
 
-  expect(await renderer.pagePdf({ html: '<p>again</p>', size: { width: 200, height: 100 } }, { effects: false })).toEqual(new Uint8Array([1, 2, 3]))
+  const next = await renderer.pagePdf({ html: '<p>again</p>', size: { width: 200, height: 100 } }, { effects: false })
+  expect((await PDFDocument.load(next)).getPageCount()).toBe(1)
   expect(launches).toBe(2)
   await renderer.close()
 })

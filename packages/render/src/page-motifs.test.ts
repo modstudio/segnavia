@@ -1,4 +1,5 @@
 import { expect, mock, test } from 'bun:test'
+import { PDFDocument } from 'pdf-lib'
 
 const documents: string[] = []
 const tab = {
@@ -13,8 +14,11 @@ const tab = {
   emulateMedia() {
     return Promise.resolve()
   },
-  pdf() {
-    return Promise.resolve(new Uint8Array([1, 2, 3]))
+  async pdf() {
+    const document = await PDFDocument.create({ updateMetadata: false })
+    document.addPage()
+    document.setTitle('about:blank')
+    return document.save()
   },
   screenshot() {
     return Promise.resolve(new Uint8Array([4, 5, 6]))
@@ -67,11 +71,12 @@ test('pagePdf and pageImage print the same motif-expanded page', async () => {
     },
   }
   const page = { html: '<main data-motif="letterhead">Authored</main>', lang: 'en', size: { width: 200, height: 100 } } as const
-  await renderer.pagePdf(page, { motifs, effects: false })
+  const pdf = await renderer.pagePdf(page, { motifs, effects: false })
   await renderer.pageImage(page, { motifs, effects: false })
   await renderer.close()
 
   expect(documents).toHaveLength(2)
+  expect((await PDFDocument.load(pdf, { updateMetadata: false })).getTitle()).toBeUndefined()
   for (const html of documents) {
     expect(html).toContain('<main data-motif="letterhead" lang="en" dir="ltr"><header>Expanded once</header></main>')
     expect(html).not.toContain('Authored')
