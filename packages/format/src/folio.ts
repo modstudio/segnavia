@@ -38,5 +38,5 @@ export function sequenceFolios(count: number, system: NumberSystem): Folio[] {
 }
 
 export function folioScript(): string {
-  return `${numberingScript()}\n${computeFolios.toString()}\n${sequenceFolios.toString()}`
+  return `${numberingScript()}\n${computeFolios.toString()}\nvar computeFolios=${computeFolios.name};\n${sequenceFolios.toString()}\nvar sequenceFolios=${sequenceFolios.name};`
 }

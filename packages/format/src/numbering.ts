@@ -15,24 +15,6 @@ export function defaultPageNumbering(lang: string | undefined): NumberSystem {
 export const NoteMarker = z.union([NumberSystem, z.literal('symbols')])
 export type NoteMarker = z.infer<typeof NoteMarker>
 
-const ROMAN_DIGITS = [
-  [1000, 'M'],
-  [900, 'CM'],
-  [500, 'D'],
-  [400, 'CD'],
-  [100, 'C'],
-  [90, 'XC'],
-  [50, 'L'],
-  [40, 'XL'],
-  [10, 'X'],
-  [9, 'IX'],
-  [5, 'V'],
-  [4, 'IV'],
-  [1, 'I'],
-] as const
-
-const HEBREW_ONES = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'] as const
-const HEBREW_TENS = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'] as const
 const NOTE_SYMBOLS = ['*', '†', '‡', '§'] as const
 
 function positiveInteger(value: number): void {
@@ -44,9 +26,24 @@ function inRange(value: number, maximum: number, system: NumberSystem): void {
 }
 
 function roman(value: number): string {
+  const digits = [
+    [1000, 'M'],
+    [900, 'CM'],
+    [500, 'D'],
+    [400, 'CD'],
+    [100, 'C'],
+    [90, 'XC'],
+    [50, 'L'],
+    [40, 'XL'],
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I'],
+  ] as const
   let remaining = value
   let result = ''
-  for (const [amount, digit] of ROMAN_DIGITS) {
+  for (const [amount, digit] of digits) {
     while (remaining >= amount) {
       result += digit
       remaining -= amount
@@ -56,19 +53,22 @@ function roman(value: number): string {
 }
 
 function hebrewBelowThousand(value: number): string {
+  const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'] as const
+  const tens = ['', 'י', 'כ', 'ל', 'מ', 'נ', 'ס', 'ע', 'פ', 'צ'] as const
   const hundreds = 'ת'.repeat(Math.floor(value / 400))
   const underFourHundred = value % 400
   const hundredsLetter = ['', 'ק', 'ר', 'ש'][Math.floor(underFourHundred / 100)]
   const remainder = underFourHundred % 100
   if (remainder === 15) return `${hundreds}${hundredsLetter}טו`
   if (remainder === 16) return `${hundreds}${hundredsLetter}טז`
-  return `${hundreds}${hundredsLetter}${HEBREW_TENS[Math.floor(remainder / 10)]}${HEBREW_ONES[remainder % 10]}`
+  return `${hundreds}${hundredsLetter}${tens[Math.floor(remainder / 10)]}${ones[remainder % 10]}`
 }
 
 function hebrew(value: number): string {
+  const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'] as const
   const thousands = Math.floor(value / 1000)
   const rest = value % 1000
-  return `${thousands === 0 ? '' : `${HEBREW_ONES[thousands]}׳`}${hebrewBelowThousand(rest)}`
+  return `${thousands === 0 ? '' : `${ones[thousands]}׳`}${hebrewBelowThousand(rest)}`
 }
 
 export function formatNumber(value: number, system: NumberSystem): string {
@@ -84,9 +84,8 @@ export function formatNumber(value: number, system: NumberSystem): string {
 }
 
 export function numberingScript(): string {
-  const constants = `var ROMAN_DIGITS=${JSON.stringify(ROMAN_DIGITS)};var HEBREW_ONES=${JSON.stringify(HEBREW_ONES)};var HEBREW_TENS=${JSON.stringify(HEBREW_TENS)};`
   const functions = [positiveInteger, inRange, roman, hebrewBelowThousand, hebrew, formatNumber]
-  return `${constants}${functions.map((fn) => fn.toString()).join('\n')}`
+  return `${functions.map((fn) => fn.toString()).join('\n')}\nvar formatNumber=${formatNumber.name};`
 }
 
 export function noteMarker(index: number, marker: NoteMarker): string {

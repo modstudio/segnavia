@@ -72,4 +72,39 @@ describe('folio computation', () => {
       { number: 2, text: 'ii' },
     ])
   })
+
+  test('keeps embedded formatter and folio names after minification', async () => {
+    const built = await Bun.build({
+      entrypoints: ['virtual:folio-script'],
+      minify: true,
+      target: 'browser',
+      conditions: ['@segnavia/source'],
+      format: 'cjs',
+      plugins: [
+        {
+          name: 'folio-script',
+          setup(builder) {
+            builder.onResolve({ filter: /^virtual:folio-script$/ }, () => ({ path: 'folio-script', namespace: 'virtual' }))
+            builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
+              contents: `import { folioScript } from ${JSON.stringify(`${import.meta.dir}/folio.ts`)}; export const script = folioScript();`,
+              loader: 'ts',
+            }))
+          },
+        },
+      ],
+    })
+    expect(built.success).toBe(true)
+    const bundle = await built.outputs[0]?.text()
+    expect(bundle).toBeDefined()
+    const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
+    const embedded = new Function(`${script};return {computeFolios,sequenceFolios}`)() as {
+      computeFolios: typeof computeFolios
+      sequenceFolios: typeof sequenceFolios
+    }
+    expect(embedded.computeFolios([{ numbering: { ...arabic, system: 'hebrew', start: 15 } }])).toEqual([{ number: 15, text: 'טו' }])
+    expect(embedded.sequenceFolios(2, 'roman-lower')).toEqual([
+      { number: 1, text: 'i' },
+      { number: 2, text: 'ii' },
+    ])
+  })
 })
