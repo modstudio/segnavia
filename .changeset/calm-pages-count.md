@@ -2,4 +2,4 @@
 '@segnavia/frame': patch
 ---
 
-Count printed papers from the columns occupied by content fragments.
+Count printed papers through the last column painted by each content fragment.
