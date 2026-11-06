@@ -121,8 +121,6 @@ export function fromMillimeters(millimeters: number, unit: PaperUnit): number {
   return millimeters / (unit === 'in' ? 25.4 : unit === 'pt' ? MM_PER_PT : 1)
 }
 
-type PaperSize = { width: number; height: number; unit: Exclude<PaperUnit, 'pt'> }
-
 const PAPER_SIZE = {
   letter: { width: 8.5, height: 11, unit: 'in' },
   legal: { width: 8.5, height: 14, unit: 'in' },
@@ -151,7 +149,7 @@ const PAPER_SIZE = {
   a2: { width: 420, height: 594, unit: 'mm' },
   a1: { width: 594, height: 841, unit: 'mm' },
   a0: { width: 841, height: 1189, unit: 'mm' },
-} satisfies Record<NamedPaper, PaperSize>
+} satisfies Record<NamedPaper, Size>
 
 const paperMillimeters = (): Record<NamedPaper, { width: number; height: number }> =>
   Object.fromEntries(

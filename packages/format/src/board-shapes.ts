@@ -1,6 +1,6 @@
 import type { Board, BoardItem, BoardLabel } from './board.ts'
 import type { BoardShapes } from './board-geometry.ts'
-import type { PixelSize } from './deck.ts'
+import type { MeasuredSize, PixelSize } from './deck.ts'
 import { resolveDirection } from './direction.ts'
 import type { AssetKind } from './placement.ts'
 
@@ -13,7 +13,7 @@ export type BoardItemFact =
   | { kind: 'shot'; width: number; height: number }
 
 export interface BoardShapesOptions {
-  measureLabel?: (text: string, direction: Board['direction']) => PixelSize | undefined
+  measureLabel?: (text: string, direction: Board['direction']) => MeasuredSize | undefined
 }
 
 export interface ComputedBoardShapes {
@@ -23,26 +23,26 @@ export interface ComputedBoardShapes {
 }
 
 export interface LabelShapeResult {
-  shape: PixelSize
+  shape: MeasuredSize
   source: 'stored' | 'measured' | 'estimated'
 }
 
 // This is the browser-independent fallback for a label whose rendered box is not available.
 export const BOARD_LABEL_ESTIMATE = { widthPerCharacter: 8, height: 19 } as const
 
-export function resolvedShape(fact: BoardItemFact): PixelSize {
+export function resolvedShape(fact: BoardItemFact): MeasuredSize {
   if (fact.kind === 'deck') return fact.deck.size
   if (fact.kind === 'media' || fact.kind === 'shot') return { width: fact.width, height: fact.height }
   return fact.size
 }
 
-export function provisionalShape(kind: AssetKind): PixelSize {
+export function provisionalShape(kind: AssetKind): MeasuredSize {
   if (kind === 'deck') return { width: 16, height: 9 }
   if (kind === 'page' || kind === 'paper' || kind === 'book') return { width: 1, height: Math.SQRT2 }
   return { width: 4, height: 3 }
 }
 
-function itemShape(item: BoardItem, facts: Readonly<Record<string, BoardItemFact>>, provisional: string[]): PixelSize {
+function itemShape(item: BoardItem, facts: Readonly<Record<string, BoardItemFact>>, provisional: string[]): MeasuredSize {
   const fact = facts[item.address]
   if (!fact) {
     provisional.push(item.id)
@@ -56,7 +56,7 @@ function itemShape(item: BoardItem, facts: Readonly<Record<string, BoardItemFact
   return resolvedShape(fact)
 }
 
-function estimatedLabelShape(text: string): PixelSize {
+function estimatedLabelShape(text: string): MeasuredSize {
   return { width: Math.max(1, text.length * BOARD_LABEL_ESTIMATE.widthPerCharacter), height: BOARD_LABEL_ESTIMATE.height }
 }
 

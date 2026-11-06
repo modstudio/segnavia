@@ -1,7 +1,7 @@
 // Annotation geometry: pure functions from measured element boxes to the
 // ring, badge and arrow a viewer draws. Everything is in viewport CSS pixels.
 
-import type { Annotation, Box, TextDirection } from '@segnavia/format'
+import type { Annotation, Box, PixelSize, TextDirection } from '@segnavia/format'
 
 export const SIDES = ['left', 'right', 'top', 'bottom'] as const
 export type Side = (typeof SIDES)[number]
@@ -21,16 +21,11 @@ export interface AnnotationSpec {
   highlight?: boolean
 }
 
-export interface Viewport {
-  width: number
-  height: number
-}
-
 export function padBox(box: Box, padding = RING_PADDING): Box {
   return { x: box.x - padding, y: box.y - padding, width: box.width + padding * 2, height: box.height + padding * 2 }
 }
 
-export function roomAround(box: Box, viewport: Viewport): Record<Side, number> {
+export function roomAround(box: Box, viewport: PixelSize): Record<Side, number> {
   return {
     left: box.x,
     right: viewport.width - (box.x + box.width),
@@ -42,7 +37,7 @@ export function roomAround(box: Box, viewport: Viewport): Record<Side, number> {
 // The named side, or the one with most room, the same way on every run. A named side is drawn there or
 // not at all: a silently moved arrow could point at something the narration
 // does not describe.
-export function chooseArrowSide(box: Box, viewport: Viewport, preferred: Side | 'auto' = 'auto', direction: TextDirection = 'ltr'): Side {
+export function chooseArrowSide(box: Box, viewport: PixelSize, preferred: Side | 'auto' = 'auto', direction: TextDirection = 'ltr'): Side {
   const room = roomAround(box, viewport)
   if (preferred !== 'auto') {
     if (room[preferred] < MIN_ARROW_ROOM) {
@@ -55,7 +50,7 @@ export function chooseArrowSide(box: Box, viewport: Viewport, preferred: Side | 
   return order.reduce((best, side) => (room[side] > room[best] ? side : best), order[0] as Side)
 }
 
-export function arrowGeometry(ring: Box, side: Side, viewport: Viewport) {
+export function arrowGeometry(ring: Box, side: Side, viewport: PixelSize) {
   const center = { x: ring.x + ring.width / 2, y: ring.y + ring.height / 2 }
   const room = roomAround(ring, viewport)
   const span = Math.max(24, Math.min(ARROW_LENGTH, room[side] - ARROW_GAP - EDGE_MARGIN))
@@ -77,7 +72,7 @@ export function arrowGeometry(ring: Box, side: Side, viewport: Viewport) {
 
 // The badge sits on the top corner at the inline end: top right on a left to
 // right screen, top left on a right to left one.
-export function layoutAnnotation(box: Box, spec: AnnotationSpec, viewport: Viewport, direction: TextDirection = 'ltr'): Annotation {
+export function layoutAnnotation(box: Box, spec: AnnotationSpec, viewport: PixelSize, direction: TextDirection = 'ltr'): Annotation {
   const ring = padBox(box)
   const wantsArrow = spec.arrow !== undefined || spec.label !== undefined
   const arrow = wantsArrow

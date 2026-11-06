@@ -1,15 +1,15 @@
 import type { Board, BoardItem, BoardLabel } from './board.ts'
-import type { Box, PixelSize, Point } from './deck.ts'
+import type { Box, MeasuredSize, Point } from './deck.ts'
 
 export interface BoardShapes {
-  items: Record<string, PixelSize>
-  labels: Record<string, PixelSize>
+  items: Record<string, MeasuredSize>
+  labels: Record<string, MeasuredSize>
 }
 
 export interface BoardView {
   zoom: number
   pan: Point
-  viewport: PixelSize
+  viewport: MeasuredSize
 }
 
 export interface ZoomBounds {
@@ -27,7 +27,7 @@ export interface ArrangeOptions {
 export const MIN_BOARD_ZOOM = 0.05
 export const MAX_BOARD_ZOOM = 8
 
-function requireShape(shapes: BoardShapes, kind: 'items' | 'labels', id: string): PixelSize {
+function requireShape(shapes: BoardShapes, kind: 'items' | 'labels', id: string): MeasuredSize {
   if (!Object.hasOwn(shapes[kind], id)) {
     throw new Error(`${kind === 'items' ? 'item' : 'label'} "${id}" has no supplied shape; supply shapes.${kind}["${id}"]`)
   }
@@ -40,7 +40,7 @@ function requireView(view: BoardView): void {
   if (!(view.zoom > 0)) throw new Error(`board view zoom is ${view.zoom}; provide a zoom greater than zero`)
 }
 
-export function itemHeight(item: BoardItem, shape: PixelSize): number {
+export function itemHeight(item: BoardItem, shape: MeasuredSize): number {
   return (item.width * shape.height) / shape.width
 }
 
@@ -85,7 +85,7 @@ export function screenToBoard(view: BoardView, point: Point): Point {
   return { x: (point.x - view.pan.x) / view.zoom, y: (point.y - view.pan.y) / view.zoom }
 }
 
-export function zoomToFit(bounds: Box, viewport: PixelSize, padding: number): BoardView {
+export function zoomToFit(bounds: Box, viewport: MeasuredSize, padding: number): BoardView {
   const availableWidth = viewport.width - padding * 2
   const availableHeight = viewport.height - padding * 2
   if (!(availableWidth > 0 && availableHeight > 0 && bounds.width > 0 && bounds.height > 0)) {
@@ -102,7 +102,7 @@ export function zoomToFit(bounds: Box, viewport: PixelSize, padding: number): Bo
   }
 }
 
-export function revealView(bounds: Box, viewport: PixelSize, padding: number, options: ZoomBounds = {}): BoardView {
+export function revealView(bounds: Box, viewport: MeasuredSize, padding: number, options: ZoomBounds = {}): BoardView {
   const fitted = zoomToFit(bounds, viewport, padding)
   const minZoom = options.minZoom ?? MIN_BOARD_ZOOM
   const maxZoom = options.maxZoom ?? MAX_BOARD_ZOOM

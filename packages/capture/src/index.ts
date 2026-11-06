@@ -5,7 +5,7 @@
 
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Manifest, type Shot } from '@segnavia/format'
+import { Manifest, type PixelSize, type Shot } from '@segnavia/format'
 import { type Browser, type BrowserContextOptions, chromium, type Page } from 'playwright-core'
 import type { FlowIdentity, Host, HostSession } from './host.ts'
 import { type ImageOutput, type ShotSpec, takeShot } from './shot.ts'
@@ -25,7 +25,7 @@ export interface FlowContext<Extras> {
   // Waits for a condition in the page, failing with what was awaited rather
   // than a bare timeout.
   until(predicate: string | ((arg: unknown) => unknown), what: string, options?: { arg?: unknown; timeout?: number }): Promise<void>
-  viewport(size?: { width: number; height: number }): Promise<void>
+  viewport(size?: PixelSize): Promise<void>
   setLocalStorage(entries: Record<string, string | number | boolean>): Promise<void>
   shot(spec: ShotSpec): Promise<Shot>
 }
@@ -39,7 +39,7 @@ export interface CaptureConfig {
   outputDirectory: string
   executablePath: string
   launchArgs?: string[]
-  viewport?: { width: number; height: number }
+  viewport?: PixelSize
   scale?: number
   // Applied under every flow's context, before the host's own options.
   context?: BrowserContextOptions

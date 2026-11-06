@@ -120,6 +120,7 @@ export {
   exceedsLimits,
   ImageFit,
   Manifest,
+  MeasuredSize,
   Narration,
   PixelSize,
   PLAYBACK_MODES,
@@ -196,6 +197,7 @@ export {
   MediaText,
   mediaTextDirection,
   PageSelector,
+  PointSize,
 } from './media.ts'
 export * from './motif.ts'
 export * from './numbering.ts'

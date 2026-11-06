@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Direction, TextDirection } from './direction.ts'
-import { Box, PixelSize, Point } from './geometry.ts'
+import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
 import { Placement, PlacementShape } from './placement.ts'
 import { Scripts } from './scripts.ts'
@@ -8,7 +8,7 @@ import { Slots } from './slots.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
-export { Box, ImageFit, PixelSize, Point }
+export { Box, ImageFit, MeasuredSize, PixelSize, Point }
 
 // One annotation as measured on its element at capture time, in the shot's
 // CSS pixels. It belongs to the image it was measured on: a recapture that

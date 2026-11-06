@@ -50,8 +50,8 @@ export function bookFlowPageGeometry(book: Book): BookFlowPageGeometry | undefin
     paperInline: paper.width * PX_PER_MM,
     paperBlock: paper.height * PX_PER_MM,
     textInline: (paper.width - book.page.margin.inlineStart - book.page.margin.inlineEnd) * PX_PER_MM,
-    textBlock: (paper.height - book.page.margin.top - book.page.margin.bottom) * PX_PER_MM,
-    marginBlockStart: book.page.margin.top * PX_PER_MM,
+    textBlock: (paper.height - book.page.margin.blockStart - book.page.margin.blockEnd) * PX_PER_MM,
+    marginBlockStart: book.page.margin.blockStart * PX_PER_MM,
     marginInlineStartRecto: book.page.margin.inlineStart * PX_PER_MM,
     marginInlineStartVerso: book.page.margin.inlineEnd * PX_PER_MM,
   }

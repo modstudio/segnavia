@@ -5,7 +5,7 @@ import { BOOK_PARENT_NAMES, flowingParentNames, textArea } from './printed-pages
 describe('textArea', () => {
   test('subtracts the parent margins from the paper', () => {
     const parent = { blockStart: 20, blockEnd: 25, inlineStart: 18, inlineEnd: 12 }
-    expect(textArea(parent, { width: 148, height: 210 })).toEqual({ width: 118, height: 165 })
+    expect(textArea({ margin: parent }, { width: 148, height: 210 })).toEqual({ width: 118, height: 165 })
   })
 
   test('resolves the three flowing roles from overrides and defaults', () => {

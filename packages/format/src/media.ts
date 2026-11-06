@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Direction, resolveDirection, type TextDirection } from './direction.ts'
-import { Box } from './geometry.ts'
+import { Box, PixelSize } from './geometry.ts'
 
 export const MediaFormat = z.enum(['png', 'jpeg', 'gif', 'webp', 'svg', 'pdf', 'ai'])
 export type MediaFormat = z.infer<typeof MediaFormat>
@@ -48,12 +48,16 @@ export const MediaPage = z.object({
 })
 export type MediaPage = z.infer<typeof MediaPage>
 
+export const PointSize = z.object({
+  width: z.number().positive('size.width could not be accepted; pass a positive width to clear this refusal'),
+  height: z.number().positive('size.height could not be accepted; pass a positive height to clear this refusal'),
+})
+/** An authored vector or document size measured in PostScript points. */
+export type PointSize = z.infer<typeof PointSize>
+
 const MediaShape = z.object({
   format: MediaFormat,
-  size: z.object({
-    width: z.number().positive('size.width could not be accepted; pass a positive width to clear this refusal'),
-    height: z.number().positive('size.height could not be accepted; pass a positive height to clear this refusal'),
-  }),
+  size: z.union([PixelSize, PointSize]),
   pages: z.array(MediaPage).optional(),
   resolution: z.number().positive('resolution could not be accepted; pass a positive resolution to clear this refusal').optional(),
   alt: MediaText.optional(),
@@ -64,6 +68,12 @@ const MediaShape = z.object({
 
 export const Media = MediaShape.superRefine((media, ctx) => {
   const capabilities = MEDIA_FORMATS[media.format]
+  if (capabilities.raster) {
+    const parsed = PixelSize.safeParse(media.size)
+    if (!parsed.success) {
+      for (const issue of parsed.error.issues) ctx.addIssue({ ...issue, path: ['size', ...issue.path] })
+    }
+  }
   if (media.pages !== undefined && !capabilities.pages) {
     ctx.addIssue({
       code: 'custom',
