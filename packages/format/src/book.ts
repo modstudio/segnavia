@@ -19,7 +19,7 @@ import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.t
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Placement } from './placement.ts'
-import { bookParentPages, flowingParentNames, Fragmentation, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
+import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 

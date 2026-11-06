@@ -39,10 +39,7 @@ describe('printedPageDocument', () => {
   test('adds safe fragmentation before host CSS and omits it when disabled', () => {
     const hostCss = ':where(tr){break-inside:auto}'
     const safe = printedPageDocument(page, { nonce: 'held', css: hostCss })
-    const none = printedPageDocument(
-      Page.parse({ ...page, printedPages: { ...page.printedPages, fragmentation: 'none' } }),
-      { nonce: 'held', css: hostCss },
-    )
+    const none = printedPageDocument(Page.parse({ ...page, printedPages: { ...page.printedPages, fragmentation: 'none' } }), { nonce: 'held', css: hostCss })
 
     expect(safe).toContain(fragmentationCss('safe'))
     expect(safe.indexOf(fragmentationCss('safe'))).toBeLessThan(safe.indexOf(hostCss))
