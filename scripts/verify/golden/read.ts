@@ -40,22 +40,21 @@ function infoFields(file: string): Record<string, string> {
 }
 
 export function parsePdfFonts(output: string): string[] {
-  const lines = output.split('\n')
-  const extents = [...(lines[1] ?? '').matchAll(/-+/g)].map((match) => ({ start: match.index, end: match.index + match[0].length }))
-  const header = lines[0] ?? ''
-  const name = extents.find((extent) => header.slice(extent.start, extent.end).trim() === 'name')
-  const embedded = extents.find((extent) => header.slice(extent.start, extent.end).trim() === 'emb')
-  if (!name || !embedded) return []
-  const fonts = lines
+  const fonts = output
+    .split('\n')
     .slice(2)
-    .filter((line) => line.slice(embedded.start, embedded.end).trim() === 'yes')
-    .map((line) =>
-      line
-        .slice(name.start, name.end)
-        .trim()
-        .replace(/^[A-Z]{6}\+/, ''),
-    )
-    .filter((font) => font.length > 0)
+    .filter((line) => line.trim().length > 0)
+    .flatMap((line) => {
+      const trailing = /\s(yes|no)\s+(yes|no)\s+(yes|no)\s+\d+\s+\d+\s*$/.exec(line)
+      if (!trailing) throw new Error(`pdffonts row has an unrecognized ending: ${line}`)
+      if (trailing[1] !== 'yes') return []
+      return [
+        line
+          .trimStart()
+          .split(/\s/, 1)[0]
+          ?.replace(/^[A-Z]{6}\+/, '') ?? '',
+      ]
+    })
   return [...new Set(fonts)].sort()
 }
 
