@@ -1,4 +1,4 @@
-import { type Print, paperPixels, printBoxes, printProperties, sheetMm } from '@segnavia/format'
+import { type Print, paperViewport, printBoxes, printProperties, sheetMm, usesPressLayout } from '@segnavia/format'
 import { PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -7,8 +7,6 @@ import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 import { drawCropMarks } from './pdf-marks.ts'
 import { pagePdfSize, setPdfPageSize } from './pdf-page-size.ts'
-
-const usesPressLayout = (print: Print) => print.bleed > 0 || print.marks
 
 export function printCss(print: Print): string {
   const properties = printProperties(print)
@@ -73,10 +71,10 @@ export function pressContentPlacement(source: { width: number; height: number },
 }
 
 export async function printPage(tab: Tab, print: Print, preferCssPageSize: boolean | undefined, inputIndex?: number): Promise<PrintResult<true>> {
+  const pageWidth = paperViewport(print).width
   if (!usesPressLayout(print)) {
     const mm = sheetMm(print)
     const margin = print.margin
-    const pageWidth = paperPixels(mm.width)
     const printed = await printWithOverflow(
       tab,
       pageWidth,
@@ -94,7 +92,7 @@ export async function printPage(tab: Tab, print: Print, preferCssPageSize: boole
   const boxes = printBoxes(print)
   const printed = await printWithOverflow(
     tab,
-    paperPixels(boxes.bleedBox.width),
+    pageWidth,
     'page',
     {
       width: `${boxes.bleedBox.width}mm`,

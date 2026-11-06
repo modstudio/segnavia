@@ -60,6 +60,12 @@ describe('printedPageDocument', () => {
     expect(html).toContain(`type:'${MESSAGE.composeFailure}'`)
   })
 
+  test('does not read the window width while composing', () => {
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('clientWidth')
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('innerWidth')
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('documentElement.clientWidth')
+  })
+
   test('keeps whole-document head resources beside a flow holding only body children', () => {
     const full = Page.parse({
       ...page,

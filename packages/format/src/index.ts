@@ -243,7 +243,7 @@ export {
   sheetMm,
   toMillimeters,
 } from './paper.ts'
-export { paperViewport } from './paper-viewport.ts'
+export { paperViewport, usesPressLayout } from './paper-viewport.ts'
 export {
   AssetKind,
   CropEdge,

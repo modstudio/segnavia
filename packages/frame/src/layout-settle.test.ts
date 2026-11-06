@@ -22,8 +22,8 @@ describe('decideLayoutSettle', () => {
     expect(decideLayoutSettle(changed, previous, configured, 1, LAYOUT_SETTLE_MS)).toBe('sample-again')
   })
 
-  test('settles matching repeated geometry independently of the window width', () => {
-    const sample = { inlineSize: 700, scrollWidth: 1400, windowWidth: 800 }
+  test('settles matching repeated geometry', () => {
+    const sample = { inlineSize: 700, scrollWidth: 1400 }
     expect(decideLayoutSettle(sample, sample, configured, 1, LAYOUT_SETTLE_MS)).toBe('settled')
   })
 })
