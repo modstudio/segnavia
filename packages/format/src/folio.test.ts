@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { computeFolios, folioScript, type Numbering } from './folio.ts'
+import { computeFolios, folioScript, type Numbering, sequenceFolios } from './folio.ts'
 
 const arabic: Numbering = { system: 'arabic', start: 1, restart: false, counted: true }
 
@@ -53,8 +53,23 @@ describe('folio computation', () => {
     ])
   })
 
+  test('builds a counted sequence in one number system', () => {
+    expect(sequenceFolios(3, 'roman-upper')).toEqual([
+      { number: 1, text: 'I' },
+      { number: 2, text: 'II' },
+      { number: 3, text: 'III' },
+    ])
+  })
+
   test('embeds the same folio computation in a script', () => {
-    const embedded = new Function(`${folioScript()};return computeFolios`)() as typeof computeFolios
-    expect(embedded([{ numbering: { ...arabic, system: 'roman-upper', start: 4 } }])).toEqual([{ number: 4, text: 'IV' }])
+    const embedded = new Function(`${folioScript()};return {computeFolios,sequenceFolios}`)() as {
+      computeFolios: typeof computeFolios
+      sequenceFolios: typeof sequenceFolios
+    }
+    expect(embedded.computeFolios([{ numbering: { ...arabic, system: 'roman-upper', start: 4 } }])).toEqual([{ number: 4, text: 'IV' }])
+    expect(embedded.sequenceFolios(2, 'roman-lower')).toEqual([
+      { number: 1, text: 'i' },
+      { number: 2, text: 'ii' },
+    ])
   })
 })

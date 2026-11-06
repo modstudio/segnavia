@@ -1,9 +1,9 @@
 ---
-'@segnavia/format': major
+'@segnavia/format': minor
 '@segnavia/frame': minor
 '@segnavia/html': minor
 ---
 
-Replace `FolioTable` with the shared `Numbering` value and `computeFolios`, including restarts and uncounted pages.
+Add the shared `Numbering` value, `computeFolios`, and `sequenceFolios`, including restarts and uncounted pages.
 
 Compute book, printed-page, and deck folios through the shared function without changing their rendered numbering.

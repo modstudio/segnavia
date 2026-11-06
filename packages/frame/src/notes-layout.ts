@@ -1,4 +1,4 @@
-import { computeFolios, type Deck, Print, type PrintInput, PX_PER_MM, resolveDirection, type Slide, sheetMm } from '@segnavia/format'
+import { type Deck, Print, type PrintInput, PX_PER_MM, resolveDirection, type Slide, sequenceFolios, sheetMm } from '@segnavia/format'
 import { DEFAULT_NOTES_FONT_FAMILY } from './page-fonts.ts'
 import { escapeHtml } from './svg.ts'
 
@@ -147,13 +147,11 @@ export function notesDocument(deck: Deck, options: NotesDocumentOptions): string
   const someHaveNotes = deck.slides.some((slide) => speakerNotes(slide) !== '')
   // Empty-slide copy lives in the notes box, so dir=auto follows the label.
   const emptyNotes = someHaveNotes ? (options.labels?.noSpeakerNotes ?? 'No speaker notes') : ''
-  const folios = computeFolios(
-    Array.from({ length: deck.slides.length }, () => ({
-      numbering: { system: 'arabic', start: 1, restart: false, counted: true },
-    })),
-  )
-  const sheets = deck.slides.map((slide, index) => {
-    const number = folios[index]?.text ?? String(index + 1)
+  const folios = sequenceFolios(deck.slides.length, 'arabic')
+  const sheets = folios.map((folio, index) => {
+    const slide = deck.slides[index]
+    if (!slide) throw new RangeError(`Folio ${index} has no slide.`)
+    const number = folio.text
     const notes = speakerNotes(slide) || emptyNotes
     return `<section class="sheet" data-notes-source data-slide-index="${index}" data-slide-number="${number}"><div class="slide" dir="ltr" style="width:${slideWidth}px;height:${slideHeight}px"><div style="width:${deck.size.width}px;height:${deck.size.height}px;transform:scale(${scale});transform-origin:0 0">${options.slideBody(slide)}</div></div><p class="number"><bdi dir="ltr">${number}</bdi></p><div class="notes" dir="auto">${escapeHtml(notes)}</div></section>`
   })

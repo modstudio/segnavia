@@ -29,6 +29,14 @@ export function computeFolios(pages: readonly NumberedPage[]): Array<Folio | nul
   })
 }
 
+export function sequenceFolios(count: number, system: NumberSystem): Folio[] {
+  return computeFolios(
+    Array.from({ length: count }, () => ({
+      numbering: { system, start: 1, restart: false, counted: true },
+    })),
+  ).filter((folio): folio is Folio => folio !== null)
+}
+
 export function folioScript(): string {
-  return `${numberingScript()}\n${computeFolios.toString()}`
+  return `${numberingScript()}\n${computeFolios.toString()}\n${sequenceFolios.toString()}`
 }

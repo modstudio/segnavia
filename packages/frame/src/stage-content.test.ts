@@ -19,7 +19,7 @@ const deck = Deck.parse({
   ],
 })
 const controller = { url: (src: string) => `https://example.test/${src}` } as DeckController
-const options = { css: '', csp: '', frameTitle: () => '', loaded: () => {} }
+const options = { css: '', csp: '', frameTitle: () => '', loaded: () => {}, folio: { number: 1, text: '1' } }
 
 describe('stageCanvas', () => {
   test('permits forms only in frame-policy HTML documents', () => {
