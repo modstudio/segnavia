@@ -114,9 +114,13 @@ export async function openHarness(): Promise<Harness> {
       const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
       await frame.evaluate(() => {
         ;(window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered = false
-        addEventListener('pointermove', () => {
-          ;(window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered = true
-        }, { once: true })
+        addEventListener(
+          'pointermove',
+          () => {
+            ;(window as unknown as { __segnaviaPointerEntered?: boolean }).__segnaviaPointerEntered = true
+          },
+          { once: true },
+        )
       })
       // A stationary pointer can leave Chromium's out-of-process frame hit test
       // on the frame owner. Entering the child first proves the click will reach it.
