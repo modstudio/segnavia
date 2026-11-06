@@ -18,6 +18,8 @@ export async function captureLoadingBleed(h: Harness, dir: 'ltr' | 'rtl'): Promi
     const host = (window as unknown as { __deckHost: { loadBleed(dir: 'ltr' | 'rtl'): Promise<void> } }).__deckHost
     await host.loadBleed(direction)
   }, dir)
+  await h.page.frameLocator('#deck [data-active][data-slide-id="bleed-active"] iframe').locator('span').waitFor()
+  await h.page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
   const stage = h.page.locator(STAGE)
   const reference = decodePng(new Uint8Array(await stage.screenshot({ type: 'png' })))
   await h.page.evaluate((direction) => {
