@@ -286,7 +286,11 @@ code-fence character and length and info-string spacing, ordered-list delimiter
 and every item's written number, and link-title quoting. Content created by a
 command or paste has no recorded form and uses the serializer default. A
 recorded form that would change meaning in its new context also falls back to
-that default.
+that default. Renderers decide data-driven cases such as unsafe fences, title
+quotes and reordered list numbering per construct. If the block still does not
+read back as the same document, the block's recorded forms rarely revert to
+the defaults together; the read-back therefore uses at most two renders per
+block.
 
 Table rows retain their source text. An unchanged row is printed as written;
 an edited row is serialized into its recorded cell spacing where the same

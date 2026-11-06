@@ -129,7 +129,15 @@ const LooseOrderedList = OrderedList.extend({
     }
   },
   renderMarkdown(node, helpers: MarkdownRendererHelpers) {
-    return node.content ? helpers.renderChildren(node.content, listSeparator(node)) : ''
+    if (!node.content) return ''
+    const recorded = node.attrs?.sourceOrderedNumbers
+    const keepsWrittenNumbers =
+      Array.isArray(recorded) && recorded.length === node.content.length && node.content.every((item, index) => item.attrs?.sourceNumber === recorded[index])
+    const content = node.content.map((item) => ({
+      ...item,
+      attrs: { ...item.attrs, sourceKeepWrittenNumbers: keepsWrittenNumbers },
+    }))
+    return helpers.renderChildren(content, listSeparator(node))
   },
 })
 

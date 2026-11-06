@@ -6,6 +6,7 @@ import {
   type RenderContext,
   renderNestedMarkdownContent,
 } from '@tiptap/core'
+import { meaningfulAttributes } from './markdown-rich-source-attrs.ts'
 
 type Token = { raw?: string; type?: string; depth?: number; lang?: string; text?: string; tokens?: Token[]; items?: Token[] }
 type FormAttrs = Record<string, unknown>
@@ -27,7 +28,7 @@ function sourceFormAttrs(names: readonly string[]) {
   return Object.fromEntries(names.map((name) => [name, hidden()]))
 }
 
-function delimiter(token: Token): string | null {
+function emphasisMarker(token: Token): string | null {
   const first = token.raw?.[0]
   return first === '_' || first === '*' ? first : null
 }
@@ -47,6 +48,11 @@ function safeTitleQuote(value: unknown, quote: unknown): string {
   return '"'
 }
 
+function fenceCloseRegex(fence: string, flags = ''): RegExp {
+  const character = fence[0] === '~' ? '~' : '`'
+  return new RegExp(`^ {0,3}${character}{${fence.length},}[ \\t]*$`, flags)
+}
+
 function fenceAttrs(token: Token): FormAttrs {
   const lines = (token.raw ?? '').replace(/\n$/, '').split('\n')
   const opening = /^ {0,3}(`{3,}|~{3,})([^\n]*)/.exec(lines[0] ?? '')
@@ -57,34 +63,34 @@ function fenceAttrs(token: Token): FormAttrs {
   const at = language ? suffix.indexOf(language) : -1
   const infoBefore = at >= 0 ? suffix.slice(0, at) : suffix
   const infoAfter = at >= 0 ? suffix.slice(at + language.length) : ''
-  const closing = new RegExp(`^ {0,3}${fence[0] === '`' ? '`' : '~'}{${fence.length},}[ \\t]*$`).test(lines.at(-1) ?? '')
-    ? (lines.at(-1)?.trim() ?? fence)
-    : fence
+  const closing = fenceCloseRegex(fence).test(lines.at(-1) ?? '') ? (lines.at(-1)?.trim() ?? fence) : fence
   return { sourceFence: fence, sourceClosingFence: closing, sourceInfoBefore: infoBefore, sourceInfoAfter: infoAfter }
 }
 
 function fenceIsSafe(content: string, fence: string): boolean {
   const character = fence[0]
   if ((character !== '`' && character !== '~') || fence.length < 3) return false
-  const close = new RegExp(`^ {0,3}${character === '`' ? '`' : '~'}{${fence.length},}[ \\t]*$`, 'm')
-  return !close.test(content)
+  return !fenceCloseRegex(fence, 'm').test(content)
 }
 
-function stable(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stable)
-  if (!value || typeof value !== 'object') return value
-  const record = value as Record<string, unknown>
-  const out: Record<string, unknown> = {}
-  for (const [key, item] of Object.entries(record)) {
-    if (key.startsWith('source') || key === 'dir' || item === null || item === undefined) continue
-    if ((key === 'colspan' || key === 'rowspan') && item === 1) continue
-    const next = stable(item)
-    if (next && typeof next === 'object' && !Array.isArray(next) && Object.keys(next as Record<string, unknown>).length === 0) continue
-    out[key] = next
+function longestFenceRun(content: string, character: string): number {
+  let longest = 0
+  const pattern = new RegExp(`^ {0,3}(${character === '~' ? '~' : '`'}+)`, 'gm')
+  for (const match of content.matchAll(pattern)) longest = Math.max(longest, match[1]?.length ?? 0)
+  return longest
+}
+
+function safeFallbackFence(content: string, recorded: string): string {
+  const firstCharacter = recorded[0] === '~' ? '~' : '`'
+  for (const character of [firstCharacter, firstCharacter === '~' ? '`' : '~']) {
+    const fence = character.repeat(Math.max(3, longestFenceRun(content, character) + 1))
+    if (fenceIsSafe(content, fence)) return fence
   }
-  return out
+  throw new Error('Unable to choose a safe Markdown code fence.')
 }
 
+// Row signatures retain empty arrays because they describe the exact table-cell content shape.
+const stable = (value: unknown) => meaningfulAttributes(value, { keepEmptyArrays: true, omitDefaultTableSpans: true })
 const rowSignature = (row: JSONContent) => JSON.stringify(stable(row))
 
 function rowCells(line: string): Array<{ start: number; end: number }> {
@@ -146,7 +152,7 @@ function extendInlineForm(extension: AnyExtension): AnyExtension {
     },
     parseMarkdown(this: ParseContext, token: Token, helpers: MarkdownParseHelpers): JSONContent {
       const parsed: unknown = this.parent?.(token, helpers)
-      return withAttrs(parsed, { [attrName]: delimiter(token) }) as JSONContent
+      return withAttrs(parsed, { [attrName]: emphasisMarker(token) }) as JSONContent
     },
     renderMarkdown(node: JSONContent, helpers: MarkdownRendererHelpers) {
       const count = extension.name === 'bold' ? 2 : 1
@@ -211,7 +217,7 @@ function extendCodeBlock(extension: AnyExtension): AnyExtension {
     renderMarkdown(node: JSONContent, helpers: MarkdownRendererHelpers) {
       const content = helpers.renderChildren(node.content ?? [])
       const recorded = typeof node.attrs?.sourceFence === 'string' ? node.attrs.sourceFence : ''
-      const fence = fenceIsSafe(content, recorded) ? recorded : '```'
+      const fence = fenceIsSafe(content, recorded) ? recorded : safeFallbackFence(content, recorded)
       const closing = fence === recorded && typeof node.attrs?.sourceClosingFence === 'string' ? node.attrs.sourceClosingFence : fence
       const language = typeof node.attrs?.language === 'string' ? node.attrs.language : ''
       const before = fence === recorded && typeof node.attrs?.sourceInfoBefore === 'string' ? node.attrs.sourceInfoBefore : ''
@@ -243,11 +249,11 @@ function extendLink(extension: AnyExtension): AnyExtension {
 }
 
 function orderedMarker(attrs: FormAttrs | undefined, index: number): string {
-  const delimiter = attrs?.sourceOrderedDelimiter === ')' ? ')' : '.'
+  const orderedDelimiter = attrs?.sourceOrderedDelimiter === ')' ? ')' : '.'
   const written = attrs?.sourceNumber
   const start = typeof attrs?.start === 'number' ? attrs.start : 1
-  const number = typeof written === 'string' && /^\d{1,9}$/.test(written) ? written : String(start + index)
-  return `${number}${delimiter} `
+  const number = attrs?.sourceKeepWrittenNumbers && typeof written === 'string' && /^\d{1,9}$/.test(written) ? written : String(start + index)
+  return `${number}${orderedDelimiter} `
 }
 
 function extendListItem(extension: AnyExtension): AnyExtension {
@@ -289,12 +295,20 @@ export function sourceFormStarterExtensions(extensions: AnyExtension[]): AnyExte
 
 export function sourceListAttrs(raw: string, ordered = false): FormAttrs {
   const marker = /^\s*([-+*]|\d+([.)]))/.exec(raw)
-  return ordered ? { sourceOrderedDelimiter: marker?.[2] ?? null } : { sourceBulletMarker: marker?.[1] && /^[-+*]$/.test(marker[1]) ? marker[1] : null }
+  if (!ordered) return { sourceBulletMarker: marker?.[1] && /^[-+*]$/.test(marker[1]) ? marker[1] : null }
+  const first = /^(\s*)(\d+)[.)](?:\s|$)/.exec(raw)
+  const sourceOrderedNumbers = raw
+    .split('\n')
+    .map((line) => /^(\s*)(\d+)[.)](?:\s|$)/.exec(line))
+    .filter((match) => match?.[1] === first?.[1])
+    .map((match) => match?.[2])
+  return { sourceOrderedDelimiter: marker?.[2] ?? null, sourceOrderedNumbers }
 }
 
 export const listSourceAttributes = {
   sourceBulletMarker: hidden(),
   sourceOrderedDelimiter: hidden(),
+  sourceOrderedNumbers: hidden(),
 }
 
 export function taskItemSourceExtension(extension: AnyExtension): AnyExtension {

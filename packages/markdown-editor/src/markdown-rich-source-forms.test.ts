@@ -45,13 +45,55 @@ test('tilde and long backtick fences and info spacing survive code edits', () =>
   expect(onlyWordChanged('`````\nold value\n`````\n', 'old', 'fresh')).toBe(true)
 })
 
+test('an unsafe recorded fence grows around edited content and leaves the following block outside', () => {
+  const source = '~~~\nold\n~~~\n\nFollowing paragraph.\n'
+  const nodes = structuredClone(parseRichDocument(source))
+  replaceText(nodes, 'old', 'new\n~~~\n```\nstill code')
+  expect(saveRichDocument(source, nodes)).toBe('~~~~\nnew\n~~~\n```\nstill code\n~~~~\n\nFollowing paragraph.\n')
+})
+
 test('ordered delimiters and every written item number survive Hebrew item edits', () => {
   expect(onlyWordChanged('3) פריט ישן\n8) פריט שני\n', 'ישן', 'חדש')).toBe(true)
+})
+
+test('reordered items use default numbering for the whole ordered list', () => {
+  const source = '1) first\n2) second\n'
+  const nodes = structuredClone(parseRichDocument(source))
+  const items = nodes[0]?.content
+  const first = items?.[0]
+  const second = items?.[1]
+  if (!first || !second || items?.length !== 2) throw new Error('missing ordered list items')
+  nodes[0] = { ...nodes[0], content: [second, first] }
+  expect(saveRichDocument(source, nodes)).toBe('1) second\n2) first\n')
+})
+
+test('a nested non-default bullet marker survives a nested item edit', () => {
+  expect(onlyWordChanged('- Parent\n  + Child old\n  + Inner\n- Sibling\n', 'old', 'new')).toBe(true)
 })
 
 test('single and parenthesized mixed-direction link titles survive paragraph edits', () => {
   expect(onlyWordChanged("עברית ישנה [link](/target 'כותרת English עברית').\n", 'ישנה', 'חדשה')).toBe(true)
   expect(onlyWordChanged('עברית ישנה [link](/target (כותרת English עברית)).\n', 'ישנה', 'חדשה')).toBe(true)
+})
+
+test('unsafe recorded link-title quotes fall back to a reparseable quote', () => {
+  for (const [source, punctuation] of [
+    ["עברית [link](/target 'mixed עברית').\n", "'"],
+    ['עברית [link](/target (mixed עברית)).\n', ')'],
+  ] as const) {
+    const nodes = structuredClone(parseRichDocument(source))
+    const mark = nodes[0]?.content?.find((node) => node.marks?.some((item) => item.type === 'link'))?.marks?.find((item) => item.type === 'link')
+    if (!mark?.attrs || typeof mark.attrs.title !== 'string') throw new Error('missing link title')
+    mark.attrs.title += punctuation
+    const saved = saveRichDocument(source, nodes)
+    expect(saved).toContain(`"${mark.attrs.title}"`)
+    expect(parseRichDocument(saved)[0]?.content?.some((node) => node.marks?.some((item) => item.type === 'link'))).toBe(true)
+  }
+})
+
+test('entities do not discard recorded forms during Hebrew paragraph edits', () => {
+  expect(onlyWordChanged('_מילה_ ו-&nbsp; טקסט ישן.\n', 'ישן', 'חדש')).toBe(true)
+  expect(onlyWordChanged('_מילה_ ו-&#65; טקסט ישן.\n', 'ישן', 'חדש')).toBe(true)
 })
 
 test('unchanged table rows and the delimiter row retain their source text', () => {
@@ -81,21 +123,21 @@ test('bracket selection uses the all-unescaped, selective, and conservative path
       (value) => value === '[plain]',
       () => [],
     ),
-  ).toBe('[plain]')
+  ).toEqual({ markdown: '[plain]', same: true })
   expect(
     chooseBracketEscapes(
       '\\[link\\](/target)',
       (value) => value === '\\[link](/target)',
       () => [0],
     ),
-  ).toBe('\\[link](/target)')
+  ).toEqual({ markdown: '\\[link](/target)', same: true })
   expect(
     chooseBracketEscapes(
       '\\[unknown\\]',
       () => false,
       () => [],
     ),
-  ).toBe('\\[unknown\\]')
+  ).toEqual({ markdown: '\\[unknown\\]', same: false })
 })
 
 test('command-created nodes use the current default source forms', () => {
