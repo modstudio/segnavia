@@ -8,14 +8,14 @@
 
 - **Book and parent-page margins:** replace `{ top, bottom, inner, outer }` with `{ blockStart, blockEnd, inlineStart, inlineEnd }`. All four are required. `inlineStart` is the binding edge and `inlineEnd` the outer edge. Physical or inner/outer names are refused.
 - **Print margins:** replace the physical `{ top, right, bottom, left }` (`Margin`) with the same binding-relative `LogicalMargin`. On a right-to-left single page, the inline edges now mirror.
-- **Sizes:** `Size` is now `PixelSize` (an authored canvas in whole pixels) or `MeasuredSize` (a measured box, which may be fractional). Paper and vector media use point sizes.
+- **Sizes:** `Size` is now `PixelSize` (an authored canvas in whole pixels) or `MeasuredSize` (a measured box, which may be fractional). Paper sizes state their unit (`mm`, `in` or `pt`), and vector media use `PointSize`.
 - **IDML:** `IdmlMargin` is removed; use `PhysicalMargin`, in points.
 - **Limits:** pass one `limits` value to every render and print call:
   - `maxSheets` becomes `limits.sheets` and `maxBytes` becomes `limits.bytes`.
   - On decks, `maxSlides`, `maxSlideBytes` and `maxNotesBytes` become `limits.slides`, `limits.slideBytes` and `limits.notesBytes`.
   - `localFonts.limits` becomes `limits.localFonts`.
-  - Unknown or removed keys are refused, and the refusal names their replacement.
-  - `RenderLimits`, `DeckLimits`, `LocalFontLimits`, `LOCAL_FONT_LIMITS` and `PRINTED_PAGE_LIMIT` are removed; use `Limits`, `DEFAULT_LIMITS` and `resolveLimits`.
+  - A removed key is refused with its replacement named, and an unknown key is refused with an instruction to remove it.
+  - `RenderLimits`, `DeckLimits`, `LocalFontLimits`, `LOCAL_FONT_LIMITS` and `PRINTED_PAGE_LIMIT` are no longer exported; use `Limits`, `DEFAULT_LIMITS` and `resolveLimits`.
 - **Page limit:** a document with printed pages, or a paginated book, may declare `limits.pages`. It defaults to 500, and a host's `limits.pages` is a ceiling over it. Refusals for every limit now share one text.
 
 ### Major Changes
