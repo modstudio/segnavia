@@ -218,8 +218,8 @@ function writeTwoPageSeriesBook(site: string, hebrew: boolean, hebrewFace: strin
 }
 
 export function largePaginatedFixture(hebrew: boolean): BookInput {
-  // Regular paginated fixtures exercise continued notes. This stress fixture keeps a real short
-  // footnote because Poppler reports clipped continuation fragments as in-clip bbox words.
+  // Regular paginated fixtures exercise continued notes. The short footnote lets this stress fixture
+  // check page-note geometry and whole-text output without introducing a continuation.
   const footnote = hebrew ? 'הערה קצרה לספר הגדול.' : 'A short footnote for the large book.'
   const chapters = Array.from({ length: hebrew ? 40 : 54 }, (_, cycle) => {
     const number = cycle * 3
@@ -236,8 +236,8 @@ export function largePaginatedFixture(hebrew: boolean): BookInput {
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     rectoOpenings: true,
     endnotes: { placement: 'chapter' },
-    // Regular paginated fixtures cover numbered contents; this stress fixture keeps pdftotext's
-    // spatial column ordering from obscuring its order-sensitive per-page text comparison.
+    // Regular paginated fixtures cover numbered contents. This stress fixture leaves page numbers
+    // off so its 300-page composition bound measures pagination without page-reference resolution.
     contents: { pageNumbers: false, depth: 2 },
     frontMatter: [
       {

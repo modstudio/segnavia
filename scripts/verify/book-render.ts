@@ -9,7 +9,7 @@ import { verifyContinuousPageReference } from './book-page-reference.ts'
 import { verifyPartsOutlines } from './book-parts-render.ts'
 import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.ts'
 import { expectedBookLinkPages } from './book-render-links.ts'
-import { compact, decodeXml, pageWith } from './book-text.ts'
+import { compact, decodeXml, pagesText, pageWith } from './book-text.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -86,10 +86,6 @@ function fixture(key: 'english' | 'hebrew'): Fixture {
     runningHeads,
     endnotesTitle: hebrew ? 'הערות' : 'Notes',
   }
-}
-
-function pagesText(file: string): string[] {
-  return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' }).split('\f').slice(0, -1)
 }
 
 function bboxPages(file: string): BboxPage[] {

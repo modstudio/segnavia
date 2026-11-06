@@ -1,12 +1,8 @@
-import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { FIRST_CHILD_NOTE_COLOR } from '../demo-book-note-fixtures.ts'
+import { pagesText } from './book-text.ts'
 import { type Harness, SITE } from './harness.ts'
 import { inspectNoteViewGeometry, pageContainsNoteText } from './paginated-notes.ts'
-
-function pdfPageTexts(file: string): string[] {
-  return execFileSync('pdftotext', ['-layout', file, '-'], { encoding: 'utf8' }).split('\f')
-}
 
 function inspectFirstChildNoteColor() {
   const mark = document.querySelector('[data-segnavia-page-note] .first-child-note')
@@ -57,7 +53,7 @@ export async function verifyNoteCaseBooks(h: Harness) {
       JSON.stringify(firstChild),
     )
     const screens = await frame.evaluate(pageNotes)
-    const pages = pdfPageTexts(path.join(SITE, `${id}.pdf`))
+    const pages = pagesText(path.join(SITE, `${id}.pdf`))
     const missing = screens.flatMap((notes, index) =>
       notes.flatMap((note) => (pageContainsNoteText(pages[index] ?? '', note) ? [] : [{ page: index + 1, note }])),
     )
