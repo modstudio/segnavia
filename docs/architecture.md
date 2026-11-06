@@ -1414,3 +1414,247 @@ The library keeps no storage. A host stores decks and pages, its shot library
 `Media` facts it fills for each, designed cover pages and the cover pictures it
 keeps under their `coverDigest`, tickets, sharing and tenancy, and serves
 `PublishedShot` JSON at each shot's address.
+
+## Target design (not the current design)
+
+> **Target:** Everything in this section describes the intended architecture.
+> The sections above describe the architecture that exists today. Until a
+> target slice lands, its names, packages, schemas, pipeline stages and seams
+> are not available.
+
+The target has one layered `Document` model and one composition pipeline for
+deck, page, printed, book and board profiles. Structure, style, content and
+data remain independently editable. Measurements, pagination plans and reports
+are derived values, never authored state. The same model supports screen and
+print, with print developed in depth first.
+
+### Target domain model
+
+```mermaid
+flowchart LR
+  subgraph Authored[Authored Document]
+    DOC[Document<br/>profile, metadata, settings]
+    STRUCT[Structure<br/>typed node tree<br/>minted node ids]
+    STYLE[Style<br/>Brand + StyleSheet]
+    CONTENT[Content<br/>stored HTML fragments<br/>minted block ids]
+    DATA[Data<br/>slots, records, fills]
+    DOC --> STRUCT
+    DOC --> STYLE
+    DOC --> CONTENT
+    DOC --> DATA
+  end
+
+  subgraph Derived[Derived values]
+    MEASURE[Measurements<br/>block and line boxes<br/>fit results]
+    PLAN[Plan<br/>pages, breaks, folios<br/>variables, parent pages]
+    REPORT[Report<br/>overflow, fit, fonts<br/>counts and progress]
+    MEASURE --> PLAN --> REPORT
+  end
+
+  STRUCT --> MEASURE
+  STYLE --> MEASURE
+  CONTENT --> MEASURE
+  DATA --> MEASURE
+  STRUCT --> PLAN
+
+  OPS[DocumentOp batch<br/>atomic and invertible] --> DOC
+  EDIT[editDocument] --> OPS
+  DOC --> DESCRIBE[describeDocument]
+  DOC --> DIFF[diffDocuments]
+  DIFF --> OPS
+```
+
+`Document.kind` is a profile: `deck`, `page`, `printed`, `book` or `board`.
+It constrains the node types and outputs that apply, but does not select a
+different root model. The structure tree includes divisions, parts, sections,
+records, pages, flows, slides, placements, generated contents, parent pages,
+templates, note series, variables, conditions and the board item, label and
+section nodes. Every node has a stable id minted through the `newId` seam.
+Names remain the human address for deliberately named concepts such as styles,
+variables, templates and parent pages.
+
+Shared concepts have one value type each: paper and orientation, logical
+margins, size, direction, numbering, metadata and limits. Logical margins have
+one physical mapping for imposition. Direction uses the shared `Direction` and
+`TextDirection` values rather than inline enums.
+
+The target style layer combines a host-resolved `Brand` with the document's
+partial `StyleSheet`. A style sheet contains typed tokens, a font-face manifest
+with first-class Hebrew faces, named paragraph and character styles with
+`basedOn`, named page geometries, furniture motifs and free CSS. Its token
+schema is compatible with a W3C design-tokens subset and supports import and
+export. The compiler produces one sheet in cascade-layer order:
+`segnavia.base`, `segnavia.brand`, `segnavia.document`, then
+`segnavia.author`. Tokens become `--segnavia-*` custom properties and named
+styles become classes.
+
+Content has one stored form: sanitized HTML. Every block that lacks a
+`data-segnavia-id` receives a minted id at the parse edge, and an existing id
+survives the round trip. Callers can replace a whole HTML fragment or use a
+JSON block view of id, kind, text, style class and attributes. `insertBlock`,
+`setBlock`, `moveBlock` and `removeBlock` update that stored HTML through the
+same sanitizer. Styles are referenced by class and variables by declared name.
+
+`Measurements` records block and line boxes plus fit results. `Plan` records
+pages, first and last block ids, breaks, folios, resolved variables, parent-page
+choices and fingerprints. It unifies saved pagination and forced break plans;
+a stale plan refuses and names the first page that no longer matches. `Report`
+records bounded overflow, fit, font, count and progress facts. Strict mode
+turns report entries into refusals.
+
+`DocumentOp` generalizes the board operation model. Each operation carries the
+prior value that it replaces, and an atomic batch carries its base document
+fingerprint. Applying a stale batch refuses and names what changed. Operations
+insert, remove and move nodes, set structural fields, replace content or one
+block, and set style keys. `invertOps` supplies undo, while `diffDocuments`
+produces operations between two documents. `editDocument` compiles
+agent-facing commands addressed by id or name. `describeDocument` exposes the
+structure, effective styles, plan and report as plain values without requiring
+a browser. Boards use the same operations, including section and label edits
+and rebasing local history over host operations.
+
+### Target composition pipeline
+
+```mermaid
+flowchart TD
+  INPUT[(Stored Document)] --> PARSE[1. Parse<br/>format · universal<br/>validate, sanitize, mint ids]
+  PARSE --> RESOLVE[2. Resolve<br/>host seams<br/>brand, fonts, assets, data, providers]
+  RESOLVE --> REALIZE[3. Realize<br/>html · universal<br/>frame documents, CSS, galley, config]
+  REALIZE --> MEASURE[4. Measure<br/>frame · browser<br/>fonts, fit, block and line boxes]
+  MEASURE --> PLAN[5. Plan<br/>layout · universal<br/>pages, breaks, folios, variables]
+  PLAN --> DRESS[6. Dress<br/>frame · browser<br/>slices, furniture, margins, line numbers]
+  DRESS --> REPORT[7. Report<br/>frame + render<br/>bounded reports; strict refusal]
+  REPORT --> SCREEN[Screen view<br/>frame viewers]
+  REPORT --> PRINT[8. Print<br/>render · server + Chromium<br/>paperViewport]
+  PRINT --> FINISH[9. Finish<br/>render · server<br/>join, impose, metadata, tags, press]
+  FINISH --> PDF[(PDF)]
+```
+
+| Stage | Input | Output | Owner and runtime |
+|---|---|---|---|
+| Parse | Stored input | Validated `Document` with sanitized content and ids | `format`, universal |
+| Resolve | Parsed document and host addresses | Resolved brand, fonts, assets, motifs, placements, data and providers | Host seams at the library edge |
+| Realize | Document plus resolved values | Frame documents, layered CSS, galley and composition configuration | `html`, universal |
+| Measure | Realized documents and loaded fonts | `Measurements` | `frame`, browser |
+| Plan | Structure, settings and measurements, or a saved plan | Fingerprinted `Plan` | `layout`, universal and pure |
+| Dress | Realized content and plan | Page slices with furniture, margins and line numbers | `frame`, browser |
+| Report | Dressed pages and measured outcomes | Bounded `Report`, or a strict-mode refusal | `frame` and `render` |
+| Print | Reported pages and paper settings | Browser-produced PDF pages | `render`, server with Chromium |
+| Finish | Printed pages and document settings | Joined, imposed and structured PDF | `render`, server |
+
+Measure, plan and dress form one composer for every document profile. Planning
+is pure and runs in process, with a capped fixed-point loop for page references
+and running heads. It may replay a saved `Plan` after checking its
+fingerprints. Dressing is separate from page breaking: it slices the planned
+content, selects parent-page regions and adds furniture and marginal material.
+Layout providers run at named measure or dress phases in priority order.
+
+The environment is always an input. `paperViewport` supplies the print
+viewport, timing bounds are options and loaded fonts are measured facts.
+Prepared slot state is explicit rather than hidden. The bridge carries bounded
+composition-progress and layout-report messages, and the receiving edge checks
+their bounds again. Rendering stays offline.
+
+### Target packages and seams
+
+```mermaid
+flowchart LR
+  HOST[Host]
+
+  subgraph Universal[Universal packages]
+    FORMAT[format<br/>Document, values, ops<br/>Measurements, Plan, Report]
+    LAYOUT[layout<br/>pure planning, slicing<br/>variables, parents, folios]
+    HTML[html<br/>sanitize, ids, realize<br/>CSS layer compiler]
+    IDML[idml<br/>map imported structures<br/>onto Document]
+  end
+
+  subgraph Browser[Browser runtime]
+    FRAME[frame<br/>measure, dress, bridge<br/>elements and viewers]
+  end
+
+  subgraph Server[Server runtime]
+    RENDER[render<br/>print and finish]
+  end
+
+  LAYOUT -->|imports| FORMAT
+  HTML -->|imports| FORMAT
+  IDML -->|imports| FORMAT
+  FRAME -->|imports| FORMAT
+  FRAME -->|imports| HTML
+  FRAME -->|embeds planner| LAYOUT
+  RENDER -->|imports server-safe entries| FRAME
+  RENDER -->|imports| FORMAT
+
+  HOST -. brand .-> FORMAT
+  HOST -. newId .-> FORMAT
+  HOST -. assets .-> HTML
+  HOST -. layoutProvider .-> FRAME
+  HOST -. fonts, motifs, placements, data .-> FRAME
+  HOST -. print options .-> RENDER
+```
+
+`format` owns the document schemas, shared value types, style schema,
+operations, agent-facing edit and description functions, and all derived-value
+schemas. The board becomes a document profile. The new universal
+`@segnavia/layout` package owns pure planning, slicing, variable resolution,
+parent-page selection and folio computation; the planner can also be embedded
+as script text in a frame. `html` owns sanitizing, block-id minting, realization
+and CSS compilation. `frame` owns measurement, dressing, the bridge, viewers
+and screen elements. `render` owns printing and finishing, including one
+metadata writer and one outline writer. `idml` maps named styles, regions,
+sections and conditions onto `Document`.
+
+The target adds four host seams: `brand` resolves a brand by name;
+`layoutProvider` registers named work by phase and priority; `newId` mints node
+and block ids; and `assets` resolves an address to bytes within a budget.
+Existing seams remain. A host continues to own storage, its agent, sharing,
+tenancy and UI.
+
+### Target delivery roadmap
+
+This roadmap associates every slice with its child task and every existing
+roadmap task that the slice absorbs. A dash means that the slice introduces no
+absorbed roadmap task.
+
+| Phase | Slice task and title | Absorbed roadmap tasks |
+|---|---|---|
+| 0 | SEGNA-383 — S0.1 Golden structural PDFs (absorbs 353) | SEGNA-353 |
+| 0 | SEGNA-384 — S0.2 The design in the repo docs | — |
+| 1 | SEGNA-385 — S1.1 Shared paper, margin, size and direction values (absorbs 355's types and the 250 folio table) | SEGNA-355 types; SEGNA-250 folio table |
+| 1 | SEGNA-386 — S1.2 One numbering model and one folio function | — |
+| 1 | SEGNA-407 — S1.3 One limits value (rest of 355) | remainder of SEGNA-355 |
+| 2 | SEGNA-408 — S2.1 The `Document` structure schema | — |
+| 2 | SEGNA-387 — S2.2 Minted node and block ids | — |
+| 2 | SEGNA-388 — S2.3 `DocumentOp`, `applyOps`, `invertOps` and `diffDocuments` | — |
+| 2 | SEGNA-409 — S2.4 Block view and block ops | — |
+| 2 | SEGNA-389 — S2.5 `editDocument` and `describeDocument` | — |
+| 2 | SEGNA-390 — S2.6 Boards on `DocumentOp` (absorbs the board-section and label edit request) | Board section and label edit request |
+| 3 | SEGNA-391 — S3.1 `StyleSheet` schema and CSS layer compiler (absorbs 357) | SEGNA-357 |
+| 3 | SEGNA-392 — S3.2 Brand seam and W3C token import and export (absorbs 380) | SEGNA-380 |
+| 3 | SEGNA-393 — S3.3 Font manifest with Hebrew faces (absorbs 356 and the font-load part of 361) | SEGNA-356; font-load part of SEGNA-361 |
+| 3 | SEGNA-410 — S3.4 Asset and font origins (absorbs 354) | SEGNA-354 |
+| 4 | SEGNA-394 — S4.1 `@segnavia/layout` package and the pure plan stage | — |
+| 4 | SEGNA-395 — S4.2 Measure and dress runtime, with one composer | — |
+| 4 | SEGNA-396 — S4.3 Sections, records and openers (absorbs 342, 346, 348 and 350) | SEGNA-342; SEGNA-346; SEGNA-348; SEGNA-350 |
+| 4 | SEGNA-397 — S4.4 Variables and head templates (absorbs 347, 349, 351 and the re-scoped 343) | SEGNA-347; SEGNA-349; SEGNA-351; re-scoped SEGNA-343 |
+| 4 | SEGNA-411 — S4.5 Parent-page regions and selection (absorbs 339) | SEGNA-339 |
+| 4 | SEGNA-398 — S4.6 One saved `Plan` (absorbs 205, 252, 365 and 251) | SEGNA-205; SEGNA-252; SEGNA-365; SEGNA-251 |
+| 5 | SEGNA-399 — S5.1 Layout report and strict mode (absorbs 364, 371 and the report half of 361) | SEGNA-364; SEGNA-371; report part of SEGNA-361 |
+| 5 | SEGNA-412 — S5.2 Compose progress (absorbs the progress half of 359) | progress part of SEGNA-359 |
+| 5 | SEGNA-400 — S5.3 Fit, measured properties, and fill and overflow (absorbs 362, 369 and 363) | SEGNA-362; SEGNA-369; SEGNA-363 |
+| 6 | SEGNA-413 — S6.1 Line numbers and side titles (366) | SEGNA-366 |
+| 6 | SEGNA-401 — S6.2 Layout providers (367) | SEGNA-367 |
+| 6 | SEGNA-414 — S6.3 Printed-pages viewer (370) | SEGNA-370 |
+| 6 | SEGNA-402 — S6.4 Outline and tags (372) | SEGNA-372 |
+| 6 | SEGNA-403 — S6.5 Form fields (345) | SEGNA-345 |
+| 6 | SEGNA-415 — S6.6 Protection and watermark (360) | SEGNA-360 |
+| 6 | SEGNA-404 — S6.7 Variants (241) | SEGNA-241 |
+| 6 | SEGNA-405 — S6.8 Paragraph composer (203) | SEGNA-203 |
+| 6 | SEGNA-406 — S6.9 IDML onto the new model | — |
+
+The critical path is S0.1, S1.1, S1.2, S2.1, S2.2, S4.1, S4.2 and S5.1.
+The structural PDF goldens precede every refactor and characterize output
+through the value-type, model and composer phases. The clean document-model
+break lands in S2.1; there is no compatibility layer or parse-time upgrade.
+Each slice is its own release and can be rolled back by staying on the prior
+release.
