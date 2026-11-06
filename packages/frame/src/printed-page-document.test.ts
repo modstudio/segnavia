@@ -60,6 +60,15 @@ describe('printedPageDocument', () => {
     expect(html).toContain(`type:'${MESSAGE.composeFailure}'`)
   })
 
+  test('writes escaped metadata title while keeping the page language', () => {
+    const metadata = printedPageDocument(page, { nonce: 'held', metadata: { title: 'הגדה <של> & "פסח"', lang: 'yi' } })
+    const fallback = printedPageDocument(page, { nonce: 'held', metadata: { title: 'הגדה' } })
+
+    expect(metadata).toContain('<title>הגדה &lt;של&gt; &amp; &quot;פסח&quot;</title>')
+    expect(metadata).toContain('<html dir="rtl" lang="he">')
+    expect(fallback).toContain('<html dir="rtl" lang="he">')
+  })
+
   test('keeps whole-document head resources beside a flow holding only body children', () => {
     const full = Page.parse({
       ...page,

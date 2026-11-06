@@ -5,6 +5,7 @@ import { BoardOp } from './board-ops.ts'
 import { BookShape, BookView } from './book.ts'
 import { Cover } from './cover.ts'
 import { DeckShape, Manifest, PublishedShot } from './deck.ts'
+import { DocumentMetadata } from './document-metadata.ts'
 import { FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
 import { Imposition } from './imposition-schema.ts'
 import { Lexicon } from './lexicon.ts'
@@ -19,6 +20,7 @@ export function jsonSchemas() {
   return {
     book: z.toJSONSchema(BookShape, { io: 'input' }),
     bookView: z.toJSONSchema(BookView, { io: 'input' }),
+    documentMetadata: z.toJSONSchema(DocumentMetadata, { io: 'input' }),
     page: z.toJSONSchema(Page, { io: 'input' }),
     lexicon: z.toJSONSchema(Lexicon, { io: 'input' }),
     imposition: z.toJSONSchema(Imposition, { io: 'input' }),

@@ -2,9 +2,8 @@ import { type Book, firstStrongDirection, resolveDirection } from '@segnavia/for
 import type { BookHeading } from '@segnavia/html'
 import { type PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFRef } from 'pdf-lib'
 import { type BookDestination, explicit } from './book-destinations.ts'
+import { writeDocumentMetadata } from './document-metadata.ts'
 import { RenderRefusedError } from './errors.ts'
-
-export type BookMetadata = Pick<Book, 'title' | 'authors' | 'subject' | 'lang'>
 
 export interface BookOutlineItem {
   id: string
@@ -45,23 +44,6 @@ export function bookOutline(headings: BookHeading[], destinations: Map<string, B
   return roots
 }
 
-function escapeXml(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&apos;')
-}
-
-export function bookXmp(metadata: BookMetadata): string {
-  const title = escapeXml(metadata.title)
-  const languageTitle = metadata.lang ? `<rdf:li xml:lang="${escapeXml(metadata.lang)}">${title}</rdf:li>` : ''
-  const creators = metadata.authors?.map((author) => `<rdf:li>${escapeXml(author)}</rdf:li>`).join('')
-  const creator = creators ? `<dc:creator><rdf:Seq>${creators}</rdf:Seq></dc:creator>` : ''
-  const subject =
-    metadata.subject === undefined
-      ? ''
-      : `<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${escapeXml(metadata.subject)}</rdf:li></rdf:Alt></dc:description>`
-  const language = metadata.lang === undefined ? '' : `<dc:language><rdf:Bag><rdf:li>${escapeXml(metadata.lang)}</rdf:li></rdf:Bag></dc:language>`
-  return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>\n<x:xmpmeta xmlns:x="adobe:ns:meta/">\n<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/">\n<dc:title><rdf:Alt><rdf:li xml:lang="x-default">${title}</rdf:li>${languageTitle}</rdf:Alt></dc:title>${creator}${subject}${language}\n</rdf:Description>\n</rdf:RDF>\n</x:xmpmeta>\n<?xpacket end="w"?>`
-}
-
 const key = (value: string) => PDFName.of(value)
 
 function descendantCount(item: BookOutlineItem): number {
@@ -96,13 +78,7 @@ function writeSiblings(
 }
 
 export function writeBookStructure(document: PDFDocument, input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book }): void {
-  const metadata = input.book
-  document.setTitle(metadata.title)
-  if (metadata.authors) document.setAuthor(metadata.authors.join('; '))
-  if (metadata.subject !== undefined) document.setSubject(metadata.subject)
-  if (metadata.lang) document.catalog.set(key('Lang'), PDFHexString.fromText(metadata.lang))
-  const xmp = document.context.stream(new TextEncoder().encode(bookXmp(metadata)), { Type: 'Metadata', Subtype: 'XML' })
-  document.catalog.set(key('Metadata'), document.context.register(xmp))
+  writeDocumentMetadata(document, input.book)
 
   const outline = bookOutline(input.headings, input.destinations)
   if (outline.length === 0) return

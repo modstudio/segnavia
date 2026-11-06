@@ -1,4 +1,6 @@
 import {
+  DocumentMetadata,
+  type DocumentMetadata as DocumentMetadataValue,
   defaultPageNumbering,
   formatNumber,
   Page,
@@ -155,9 +157,11 @@ export function printedPageDocument(
     printBackground?: boolean
     diagramScript?: string
     readyCallback?: string
+    metadata?: DocumentMetadataValue
   },
 ): string {
   const page = resolvePageHtml(Page.parse(input))
+  const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)
@@ -191,6 +195,7 @@ export function printedPageDocument(
     nonce: options.nonce,
     dir: direction,
     lang: page.lang,
+    title: metadata?.title,
     css,
     relayKeys: false,
     reportHeight: options.measure === true,
