@@ -1,4 +1,4 @@
-import type { BookInput, CoverInput, Deck, ImpositionInput, PageInput } from '@segnavia/format'
+import type { BookInput, CoverInput, Deck, DocumentMetadata, ImpositionInput, PageInput } from '@segnavia/format'
 import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { PrintOptions } from '@segnavia/frame/print-document'
 import type { CoverImageOptions } from './cover-image.ts'
@@ -18,7 +18,7 @@ export interface RendererOptions {
   jsHeapMb?: number
 }
 
-export type PagePdfOptions = RenderOptions & { motifs?: MotifsOptions }
+export type PagePdfOptions = RenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata }
 export type BookPdfOptions = RenderOptions & { motifs?: MotifsOptions }
 
 export interface Renderer {

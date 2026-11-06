@@ -1,4 +1,4 @@
-import { Book, Cover, type Deck, Page } from '@segnavia/format'
+import { Book, Cover, type Deck, DocumentMetadata, Page } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBook, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeck, resolveDeckMedia } from '@segnavia/frame/print-document'
@@ -12,6 +12,7 @@ import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
+import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
@@ -23,14 +24,14 @@ import { assertPrintOptions, printPage } from './page-paper.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
-import { finishPdf } from './pdf-finish.ts'
+import { enforce, finishPdf } from './pdf-finish.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
 import { renderReadiness } from './render-readiness.ts'
-import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+import { DEFAULT_JS_HEAP_MB, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
 
@@ -69,6 +70,11 @@ export {
   type RendererOptions,
 } from './renderer.ts'
 export { filledBook }
+
+function parsePagePdfOptions(options: PagePdfOptions): PagePdfOptions {
+  const parsed = parseRenderOptions(options)
+  return parsed.metadata === undefined ? parsed : { ...parsed, metadata: DocumentMetadata.parse(parsed.metadata) }
+}
 
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
@@ -245,7 +251,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
     async pagePdf(input, opts = {}) {
-      opts = parseRenderOptions(opts)
+      opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'print')
@@ -255,9 +261,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
         })
-        const output = await finishWithBrowser(bytes, prepared.options, deadline)
+        const output = await withDocumentMetadata(await finishWithBrowser(bytes, prepared.options, deadline), opts.metadata)
         if (overflows.length) opts.overflow?.report?.({ entries: overflows })
-        return output
+        return enforce(output, opts.limits)
       })
     },
 
@@ -296,7 +302,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async pagesPdf(inputs, opts = {}) {
-      opts = parseRenderOptions(opts)
+      opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFramePages(
           inputs.map((input) => resolvePageHtml(Page.parse(input))),
@@ -321,7 +327,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             },
           )
         })
-        return finishWithBrowser(bytes, opts, deadline)
+        return enforce(await withDocumentMetadata(await finishWithBrowser(bytes, opts, deadline), opts.metadata), opts.limits)
       })
     },
 

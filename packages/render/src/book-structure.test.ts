@@ -3,7 +3,7 @@ import { Book } from '@segnavia/format'
 import { bookDocument } from '@segnavia/html'
 import { type PDFDict, PDFDocument, type PDFHexString, PDFName, type PDFNumber, PDFRef } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
-import { bookOutline, bookXmp, outlineTitle, writeBookStructure } from './book-structure.ts'
+import { bookOutline, outlineTitle, writeBookStructure } from './book-structure.ts'
 
 const at = (page: number): BookDestination => ({ page, x: 0, y: 700 })
 
@@ -52,14 +52,6 @@ describe('book outline policy', () => {
       'The heading missing has no printed destination.',
     )
   })
-})
-
-test('XMP escapes metadata and keeps Hebrew and ordered authors', () => {
-  const xmp = bookXmp({ title: 'ספר & <book>', authors: ['Ada & Bob', 'דוד "לוי"'], subject: "One's > two", lang: 'he' })
-  expect(xmp).toContain('<rdf:li xml:lang="x-default">ספר &amp; &lt;book&gt;</rdf:li>')
-  expect(xmp).toContain('<rdf:li xml:lang="he">ספר &amp; &lt;book&gt;</rdf:li>')
-  expect(xmp).toContain('<rdf:Seq><rdf:li>Ada &amp; Bob</rdf:li><rdf:li>דוד &quot;לוי&quot;</rdf:li></rdf:Seq>')
-  expect(xmp).toContain('One&apos;s &gt; two')
 })
 
 test('direction marks appear only when natural and resolved directions differ', () => {

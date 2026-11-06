@@ -11,6 +11,7 @@ import { dependencyOriginSet, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { keepPassScript } from './keep-pass.ts'
+import { escapeHtml } from './svg.ts'
 
 export const MESSAGE = {
   key: 'segnavia:key',
@@ -62,6 +63,7 @@ export interface FrameOptions {
   bridge?: boolean
   dir?: 'ltr' | 'rtl' | 'auto'
   lang?: string
+  title?: string
   // Styles the host applies to every document it shows, such as its house style.
   css?: string
   // Extra CSP directives, appended to the frame's own.
@@ -289,6 +291,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const head = [
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(directives.join('; '))}">`,
+    options.title === undefined ? '' : `<title>${escapeHtml(options.title)}</title>`,
     bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     `<style>${BLOCK_DIRECTION_CSS}</style>`,
