@@ -1,0 +1,29 @@
+{
+  "pages": [
+    {
+      "size": [340.157, 453.543],
+      "text": "Front 1\n\nFront 2\n\nFront 3\n\nFront 4"
+    },
+    {
+      "size": [340.157, 453.543],
+      "text": "Back 2\n\nBack 1\n\nBack 4\n\nBack 3"
+    }
+  ],
+  "outline": [],
+  "fonts": ["LiberationSans"],
+  "info": {
+    "Creator": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "Producer": "pdf-lib (https://github.com/Hopding/pdf-lib)",
+    "Custom Metadata": "no",
+    "Metadata Stream": "no",
+    "Tagged": "no",
+    "UserProperties": "no",
+    "Suspects": "no",
+    "Form": "none",
+    "JavaScript": "no",
+    "Encrypted": "no",
+    "Optimized": "no",
+    "PDF version": "1.7"
+  },
+  "xmp": ""
+}

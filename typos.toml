@@ -1,4 +1,4 @@
-# Names from the PDF and ICC specifications, spelled as the specifications spell them.
+# Names from the PDF, ICC and OpenType specifications, spelled as the specifications spell them.
 [default.extend-words]
 # FlateDecode, the PDF compression filter.
 flate = "flate"
@@ -8,3 +8,5 @@ parms = "parms"
 paeth = "paeth"
 # The ICC mBA tag type, read as "m" and "BA".
 ba = "ba"
+# The OpenType width variation axis tag, as it appears in embedded font names.
+wdth = "wdth"

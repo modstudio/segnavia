@@ -135,6 +135,9 @@ jobs:
           bun --conditions=@segnavia/source scripts/verify-render.ts
         env:
           SEGNAVIA_CHROMIUM: ${{ steps.chrome.outputs.chrome-path }}
+      - name: Verify structural PDF goldens
+        if: matrix.runtime == 'bun'
+        run: bun --conditions=@segnavia/source scripts/verify-golden.ts
       # Node cannot import Mermaid as text, so under the source condition it reads the built diagram string.
       - name: Build packages for Node
         if: matrix.runtime == 'node'
