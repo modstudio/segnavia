@@ -1,5 +1,55 @@
 import { type ChildNode, Element, isTag, type ParentNode, Text } from 'domhandler'
 
+const HEADING_TEXT_BLOCK_ELEMENTS = new Set([
+  'address',
+  'article',
+  'aside',
+  'blockquote',
+  'canvas',
+  'center',
+  'dd',
+  'details',
+  'dialog',
+  'dir',
+  'div',
+  'dl',
+  'dt',
+  'fieldset',
+  'figcaption',
+  'figure',
+  'footer',
+  'form',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'header',
+  'hgroup',
+  'hr',
+  'li',
+  'main',
+  'menu',
+  'nav',
+  'noscript',
+  'ol',
+  'p',
+  'pre',
+  'section',
+  'search',
+  'summary',
+  'table',
+  'tbody',
+  'td',
+  'tfoot',
+  'th',
+  'thead',
+  'tr',
+  'ul',
+  'video',
+])
+
 export function element(name: string, attribs: Record<string, string> = {}, children: ChildNode[] = []): Element {
   const node = new Element(name, attribs, children)
   linkChildren(node)
@@ -47,4 +97,14 @@ export function textContent(node: ChildNode, omitNotes = false): string {
   if (!('children' in node)) return ''
   if (omitNotes && isTag(node) && node.name === 'span' && node.attribs['data-note'] !== undefined) return ''
   return node.children.map((child) => textContent(child, omitNotes)).join('')
+}
+
+export function headingText(node: ChildNode): string {
+  if ('data' in node) return node.data
+  if (!('children' in node)) return ''
+  if (isTag(node) && node.name === 'span' && node.attribs['data-note'] !== undefined) return ''
+  if (isTag(node) && node.name === 'br') return ' '
+  const content = node.children.map(headingText).join('')
+  if (isTag(node) && HEADING_TEXT_BLOCK_ELEMENTS.has(node.name)) return ` ${content} `
+  return content
 }
