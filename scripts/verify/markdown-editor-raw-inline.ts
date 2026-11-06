@@ -12,6 +12,8 @@ export async function verifyMarkdownEditorRawInline(h: Harness) {
   const rawInline = editor.locator('[data-raw-inline]').first()
   const tooltip = page.locator('#raw-inline-tooltip')
   await rawInline.hover()
+  await page.waitForFunction(() => (globalThis as unknown as { editorEvents: { rawInline: Indication[] } }).editorEvents.rawInline.at(-1)?.via === 'pointer')
+  await tooltip.waitFor()
   const hovered = await latestIndication(page)
   check(
     'hovering a raw-inline atom shows the host tooltip without a native title',
