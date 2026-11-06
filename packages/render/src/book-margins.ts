@@ -41,7 +41,7 @@ export function marginDocument(book: Book, pages: BookPrintedPagePlan[], parents
       if (!parent) throw new Error(`The book margin plan names unknown parent page "${page.parent}".`)
       const head = furniture(book, parent.head, page)
       const foot = furniture(book, parent.foot, page)
-      return `<div class="segnavia-margin-page" data-side="${page.side}">${head}${foot}</div>`
+      return `<div class="segnavia-margin-page" data-side="${page.side}" data-segnavia-side="${page.face}">${head}${foot}</div>`
     })
     .join('')
 }
