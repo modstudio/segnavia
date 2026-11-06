@@ -15,7 +15,7 @@ export async function verifyPaginatedBookWithoutContents(renderer: Renderer, wor
     subject: 'Outline destinations without a contents section',
     mode: 'paginated',
     lang: 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     chapters: [{ title: 'Chapter One', html: `<p>OPEN_NO_CONTENTS</p><h2 id="topic-no-contents">Topic</h2><p>${'text '.repeat(40)}</p>` }],
   }
   const bytes = await renderer.bookPdf(book, { effects: false, css: 'body{font:16px serif}' })

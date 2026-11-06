@@ -13,7 +13,7 @@ export function noteSeriesFixture(hebrew: boolean): BookInput {
     title: hebrew ? 'שתי סדרות הערות' : 'Two note series',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     notes: [
       {
         name: 'footnote',
@@ -55,7 +55,7 @@ export function twoPageSeriesFixture(hebrew: boolean): BookInput {
     title: hebrew ? 'שתי סדרות בתחתית העמוד' : 'Two series at the page foot',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     notes: [{ name: 'commentary', placement: 'page', numbering: 'book', marker: 'arabic', title: hebrew ? 'פירוש' : 'Commentary' }],
     body: [
       {

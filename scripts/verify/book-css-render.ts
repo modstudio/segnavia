@@ -12,7 +12,7 @@ export async function verifyBookCssRender(renderer: Renderer, work: string, chec
       title: 'Styled book',
       mode: 'paginated',
       css: '.book-css-check{color:rgb(91, 42, 123);font-size:23px}',
-      page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+      page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
       chapters: [{ title: 'One', html: '<p class="book-css-check">BOOK_CSS_PDF</p>' }],
     },
     {

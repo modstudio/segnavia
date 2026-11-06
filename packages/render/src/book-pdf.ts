@@ -1,4 +1,4 @@
-import { Book, type BookInput, bookParentPages, formatNumber, resolveDirection, sheetMm } from '@segnavia/format'
+import { Book, type BookInput, bookParentPages, formatNumber, physicalMargins, resolveDirection, sheetMm } from '@segnavia/format'
 import {
   type BookDocument,
   type BookHeading,
@@ -383,5 +383,8 @@ export function bookPageCss(book: Book, marginLayer = false): string {
   const size = sheetMm(book.page)
   if (marginLayer) return `@page{size:${size.width}mm ${size.height}mm;margin:0}`
   const edge = book.page.margin
-  return `@page{size:${size.width}mm ${size.height}mm;margin-top:${edge.top}mm;margin-bottom:${edge.bottom}mm}@page :right{margin-left:${edge.inner}mm;margin-right:${edge.outer}mm}@page :left{margin-left:${edge.outer}mm;margin-right:${edge.inner}mm}`
+  const direction = resolveDirection(book.dir, book.lang, book.title)
+  const right = physicalMargins(edge, direction, direction === 'ltr' ? 'recto' : 'verso')
+  const left = physicalMargins(edge, direction, direction === 'ltr' ? 'verso' : 'recto')
+  return `@page{size:${size.width}mm ${size.height}mm;margin-top:${right.top}mm;margin-bottom:${right.bottom}mm}@page :right{margin-left:${right.left}mm;margin-right:${right.right}mm}@page :left{margin-left:${left.left}mm;margin-right:${left.right}mm}`
 }

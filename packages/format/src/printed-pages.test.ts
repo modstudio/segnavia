@@ -52,7 +52,7 @@ describe('Page printedPages', () => {
 
 describe('bookParentPages', () => {
   test('builds mirrored book furniture from one margin', () => {
-    const margin = { top: 15, bottom: 16, inner: 20, outer: 12 }
+    const margin = { blockStart: 15, blockEnd: 16, inlineStart: 20, inlineEnd: 12 }
     const parents = bookParentPages(margin)
 
     expect(parents.map(({ name, head, foot }) => ({ name, head, foot }))).toEqual([

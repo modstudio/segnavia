@@ -26,7 +26,7 @@ export const keepBookFixture = (hebrew: boolean, mode: 'paginated' | 'continuous
   title: hebrew ? 'ספר שמירות' : 'Keep Book',
   mode,
   lang: hebrew ? 'he' : 'en',
-  page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
   css: ':where(html){font:16px/1.5 monospace}',
   chapters: [{ title: hebrew ? 'שמירות' : 'Keeps', html: `${keepProbe(hebrew)}${blockKeepProbe(hebrew)}` }],
 })

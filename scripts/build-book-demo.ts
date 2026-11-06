@@ -135,7 +135,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
   mode: 'paginated',
   lang: hebrew ? 'he' : 'en',
   css: BOOK_STYLE_CHECK_CSS,
-  page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 }, columnGap: 5 },
+  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, columnGap: 5 },
   rectoOpenings: true,
   endnotes: { placement: 'chapter' },
   runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
@@ -165,7 +165,7 @@ const paginatedFixture = (hebrew: boolean): BookInput => ({
 const composeFailureFixture = (): BookInput => ({
   title: 'The Book Beyond the Page Limit',
   mode: 'paginated',
-  page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
   rectoOpenings: true,
   chapters: Array.from({ length: 251 }, (_, index) => ({ title: `Chapter ${index + 1}`, html: `<p>Chapter ${index + 1}</p>` })),
 })
@@ -183,7 +183,7 @@ function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
     title: hebrew ? 'ספר גדול' : 'The Oversize Book',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     chapters: [{ title: hebrew ? 'פרק' : 'Chapter', html: `<pre style="font-size:900px;line-height:1;margin:0">${hebrew ? 'א' : 'X'}</pre>` }],
   })
   writeFileSync(
@@ -233,7 +233,7 @@ export function largePaginatedFixture(hebrew: boolean): BookInput {
     title: hebrew ? 'ספר בן שלוש מאות עמודים' : 'The Three Hundred Page Book',
     mode: 'paginated',
     lang: hebrew ? 'he' : 'en',
-    page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     rectoOpenings: true,
     endnotes: { placement: 'chapter' },
     // Regular paginated fixtures cover numbered contents; this stress fixture keeps pdftotext's
@@ -274,7 +274,10 @@ export async function buildBookPdfs(
       : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(
       path.join(site, `book-${hebrew ? 'he' : 'en'}.pdf`),
-      await bookPdf({ ...fixture(hebrew), page: { paper: 'a5', margin: { top: 16, bottom: 16, inner: 18, outer: 12 } } }, { motifs: bookMotifs }),
+      await bookPdf(
+        { ...fixture(hebrew), page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } } },
+        { motifs: bookMotifs },
+      ),
     )
     writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css, motifs: bookMotifs }))
     writeFileSync(path.join(site, `book-keeps-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew, 'paginated')))

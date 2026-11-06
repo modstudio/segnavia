@@ -7,7 +7,7 @@ export interface PaginatedMarginReport {
 export function inspectPaginatedMargins(): PaginatedMarginReport {
   const parents = JSON.parse(document.documentElement.getAttribute('data-segnavia-parent-margins') ?? '[]') as Array<{
     name: string
-    margin: { top: number; bottom: number; inner: number; outer: number }
+    margin: { blockStart: number; blockEnd: number; inlineStart: number; inlineEnd: number }
   }>
   const margins = new Map(parents.map((parent) => [parent.name, parent.margin]))
   const pages = Array.from(document.querySelectorAll('[data-segnavia-book-page]'))
@@ -22,7 +22,7 @@ export function inspectPaginatedMargins(): PaginatedMarginReport {
     return {
       page: index,
       distance: rightHand(index) ? textBox.left - paperBox.left : paperBox.right - textBox.right,
-      expected: margin.inner,
+      expected: margin.inlineStart,
       side: rightHand(index) ? 'right' : 'left',
     }
   })
@@ -42,7 +42,10 @@ export function inspectPaginatedMargins(): PaginatedMarginReport {
     const top = textBox.top - paperBox.top
     const bottom = paperBox.bottom - textBox.bottom
     const fits =
-      Math.abs(start - margin.inner) < 0.5 && Math.abs(end - margin.outer) < 0.5 && Math.abs(top - margin.top) < 0.5 && Math.abs(bottom - margin.bottom) < 0.5
+      Math.abs(start - margin.inlineStart) < 0.5 &&
+      Math.abs(end - margin.inlineEnd) < 0.5 &&
+      Math.abs(top - margin.blockStart) < 0.5 &&
+      Math.abs(bottom - margin.blockEnd) < 0.5
     if (!fits) outside += 1
     details.push(`${index}:${start.toFixed(2)}/${end.toFixed(2)}/${top.toFixed(2)}/${bottom.toFixed(2)}`)
   }

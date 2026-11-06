@@ -1,4 +1,4 @@
-import { type BoardItem, type BoardView, boardToScreen, itemHeight, type Size } from '@segnavia/format'
+import { type BoardItem, type BoardView, boardToScreen, itemHeight, type PixelSize } from '@segnavia/format'
 import { checkBoardChrome } from './board-chrome.ts'
 import { checkBoardEditing } from './board-editing.ts'
 import { checkFarBoardPan } from './board-far-pan.ts'
@@ -14,7 +14,7 @@ interface MountedBox {
   height: number
 }
 
-const shapes: Record<string, Size> = {
+const shapes: Record<string, PixelSize> = {
   'deck-small': { width: 1280, height: 720 },
   'deck-designed': { width: 1280, height: 720 },
   'deck-designed-picture': { width: 1280, height: 720 },

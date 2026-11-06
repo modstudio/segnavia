@@ -110,7 +110,7 @@ export const fixedPage: PageInput = {
 export const marginPage: PageInput = {
   html: '<span style="font:12px sans-serif">MARGIN_MARKER</span>',
   size: 'fluid',
-  print: { paper: 'letter', orientation: 'portrait', margin: { top: 15, right: 15, bottom: 15, left: 15 } },
+  print: { paper: 'letter', orientation: 'portrait', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } },
 }
 
 export const postcardPage: PageInput = {
@@ -248,13 +248,13 @@ const parentPages = {
   parents: [
     {
       name: 'body',
-      margin: { top: 18, bottom: 18, inner: 22, outer: 12 },
+      margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
       foot: '<footer data-motif="printed-foot"></footer>',
     },
     {
       name: 'first',
       basedOn: 'body',
-      margin: { top: 30, bottom: 18, inner: 22, outer: 12 },
+      margin: { blockStart: 30, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
       head: '<header data-motif="printed-head"></header>',
     },
   ],
@@ -321,7 +321,7 @@ export const parentPageFurnitureOverflow: PageInput = {
     parents: [
       {
         name: 'body',
-        margin: { top: 18, bottom: 18, inner: 22, outer: 12 },
+        margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
         head: '<div style="block-size:200px">Too-tall furniture</div>',
       },
     ],

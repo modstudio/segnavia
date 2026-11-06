@@ -6,7 +6,7 @@ export async function verifyBookOffline(renderer: Renderer, origin: string): Pro
     {
       title: 'Offline book',
       mode: 'continuous',
-      page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } },
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
       chapters: [{ title: 'Chapter', html: `${external}<p>Text<span data-note="footnote">${external}</span></p>` }],
     },
     { effects: false },

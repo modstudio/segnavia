@@ -154,13 +154,10 @@ describe('book', () => {
     expect(vertical.error?.issues[0]?.message).toContain('210mm')
     expect(vertical.error?.issues[0]?.message).toContain('210mm high')
 
-    const horizontal = Book.safeParse(
-      input({ mode: 'paginated', page: { ...page, margin: { ...page.margin, inlineStart: 74, inlineEnd: 74 } } }),
-    )
+    const horizontal = Book.safeParse(input({ mode: 'paginated', page: { ...page, margin: { ...page.margin, inlineStart: 74, inlineEnd: 74 } } }))
     expect(horizontal.error?.issues[0]?.message).toContain('148mm')
     expect(horizontal.error?.issues[0]?.message).toContain('148mm wide')
   })
-
   test('note marker issues require both note kinds and matching markers', () => {
     const same = Book.parse(input({ footnotes: { marker: 'arabic' }, endnotes: { marker: 'arabic' } }))
     const different = Book.parse(input())
