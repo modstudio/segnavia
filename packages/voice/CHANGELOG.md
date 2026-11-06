@@ -1,5 +1,18 @@
 # @segnavia/voice
 
+## 1.0.0
+
+### Migrating from 0.48
+
+See the `@segnavia/format` 1.0.0 changelog for what to change in stored documents and host calls.
+
+### Patch Changes
+
+- Updated dependencies [ed3c7cd]
+- Updated dependencies [7c5952b]
+- Updated dependencies [860d9d3]
+  - @segnavia/format@1.0.0
+
 ## 0.48.0
 
 ### Patch Changes

@@ -1,5 +1,47 @@
 # @segnavia/format
 
+## 1.0.0
+
+### Migrating from 0.48
+
+1.0.0 is a clean break. Stored documents and host calls are not upgraded at parse time, so update them before moving to 1.0.0:
+
+- **Book and parent-page margins:** replace `{ top, bottom, inner, outer }` with `{ blockStart, blockEnd, inlineStart, inlineEnd }`. All four are required. `inlineStart` is the binding edge and `inlineEnd` the outer edge. Physical or inner/outer names are refused.
+- **Print margins:** replace the physical `{ top, right, bottom, left }` (`Margin`) with the same binding-relative `LogicalMargin`. On a right-to-left single page, the inline edges now mirror.
+- **Sizes:** `Size` is now `PixelSize` (an authored canvas in whole pixels) or `MeasuredSize` (a measured box, which may be fractional). Paper and vector media use point sizes.
+- **IDML:** `IdmlMargin` is removed; use `PhysicalMargin`, in points.
+- **Limits:** pass one `limits` value to every render and print call:
+  - `maxSheets` becomes `limits.sheets` and `maxBytes` becomes `limits.bytes`.
+  - On decks, `maxSlides`, `maxSlideBytes` and `maxNotesBytes` become `limits.slides`, `limits.slideBytes` and `limits.notesBytes`.
+  - `localFonts.limits` becomes `limits.localFonts`.
+  - Unknown or removed keys are refused, and the refusal names their replacement.
+  - `RenderLimits`, `DeckLimits`, `LocalFontLimits`, `LOCAL_FONT_LIMITS` and `PRINTED_PAGE_LIMIT` are removed; use `Limits`, `DEFAULT_LIMITS` and `resolveLimits`.
+- **Page limit:** a document with printed pages, or a paginated book, may declare `limits.pages`. It defaults to 500, and a host's `limits.pages` is a ceiling over it. Refusals for every limit now share one text.
+
+### Major Changes
+
+- ed3c7cd: Replace package-local paper, margin, size, and direction types with the shared format values.
+
+  Book and parent-page content margins now require all four logical edges and refuse legacy physical or inner/outer names.
+
+  Print margins are binding-relative, so right-to-left single-page printing mirrors the inline edges.
+
+  Raster media intrinsic sizes now require whole pixels, while vector and document media sizes remain point-valued and may be fractional.
+
+  The IDML package no longer exports `IdmlMargin`; IDML page margins use the shared `PhysicalMargin` type, in points.
+
+- 860d9d3: Replace the separate page, deck, render, image and local-font ceilings with one format-owned `Limits` value.
+
+  Resolve document page declarations against host ceilings and use one refusal text at every enforcement site.
+
+  Render hosts rename `maxSheets` to `sheets` and `maxBytes` to `bytes`; deck hosts rename `maxSlides` to `slides`, `maxSlideBytes` to `slideBytes` and `maxNotesBytes` to `notesBytes`. Local-font count and byte ceilings move from `localFonts.limits` to `limits.localFonts`. Capture keeps its own `output.maxBytes` option and maps it to `limits.bytes`.
+
+### Minor Changes
+
+- 7c5952b: Add the shared `Numbering` value, `computeFolios`, and `sequenceFolios`, including restarts and uncounted pages.
+
+  Compute book, printed-page, deck, and rendered PDF folios through the shared function without changing their rendered numbering.
+
 ## 0.48.0
 
 ### Minor Changes

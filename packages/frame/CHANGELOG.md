@@ -1,5 +1,43 @@
 # @segnavia/frame
 
+## 1.0.0
+
+### Migrating from 0.48
+
+See the `@segnavia/format` 1.0.0 changelog for what to change in stored documents and host calls.
+
+### Major Changes
+
+- ed3c7cd: Replace package-local paper, margin, size, and direction types with the shared format values.
+
+  Book and parent-page content margins now require all four logical edges and refuse legacy physical or inner/outer names.
+
+  Print margins are binding-relative, so right-to-left single-page printing mirrors the inline edges.
+
+  Raster media intrinsic sizes now require whole pixels, while vector and document media sizes remain point-valued and may be fractional.
+
+  The IDML package no longer exports `IdmlMargin`; IDML page margins use the shared `PhysicalMargin` type, in points.
+
+- 860d9d3: Replace the separate page, deck, render, image and local-font ceilings with one format-owned `Limits` value.
+
+  Resolve document page declarations against host ceilings and use one refusal text at every enforcement site.
+
+  Render hosts rename `maxSheets` to `sheets` and `maxBytes` to `bytes`; deck hosts rename `maxSlides` to `slides`, `maxSlideBytes` to `slideBytes` and `maxNotesBytes` to `notesBytes`. Local-font count and byte ceilings move from `localFonts.limits` to `limits.localFonts`. Capture keeps its own `output.maxBytes` option and maps it to `limits.bytes`.
+
+### Minor Changes
+
+- 7c5952b: Add the shared `Numbering` value, `computeFolios`, and `sequenceFolios`, including restarts and uncounted pages.
+
+  Compute book, printed-page, deck, and rendered PDF folios through the shared function without changing their rendered numbering.
+
+### Patch Changes
+
+- Updated dependencies [ed3c7cd]
+- Updated dependencies [7c5952b]
+- Updated dependencies [860d9d3]
+  - @segnavia/format@1.0.0
+  - @segnavia/html@1.0.0
+
 ## 0.48.0
 
 ### Minor Changes
