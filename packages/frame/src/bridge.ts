@@ -11,6 +11,7 @@ import { dependencyOriginSet, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { keepPassScript } from './keep-pass.ts'
+import { escapeHtml } from './svg.ts'
 
 export const MESSAGE = {
   key: 'segnavia:key',
@@ -236,10 +237,6 @@ function escapeAttribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }
 
-function escapeText(value: string): string {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
-
 // A block with its own valid dir keeps that direction. Every other block reads
 // in the direction of its first letter, so English on a right-to-left page
 // keeps its full stop on the right. The exclusion stays inside :where() so its
@@ -294,7 +291,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const head = [
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(directives.join('; '))}">`,
-    options.title === undefined ? '' : `<title>${escapeText(options.title)}</title>`,
+    options.title === undefined ? '' : `<title>${escapeHtml(options.title)}</title>`,
     bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     `<style>${BLOCK_DIRECTION_CSS}</style>`,

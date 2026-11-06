@@ -1,13 +1,4 @@
-import {
-  type DocumentMetadata,
-  Imposition,
-  type ImpositionInput,
-  impose,
-  impositionMarks,
-  isPrintedPageIdentityImposition,
-  printPadding,
-  printProperties,
-} from '@segnavia/format'
+import { Imposition, type ImpositionInput, impose, impositionMarks, isPrintedPageIdentityImposition, printPadding, printProperties } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
@@ -18,7 +9,7 @@ import { composeImposedPdf } from './pdf-compose.ts'
 import { joinPdfs } from './pdf-join.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 
-export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput; metadata?: DocumentMetadata }
+export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
   pagePdf(page: HtmlPage, options: RenderOptions, inputIndex: number): Promise<PrintResult>

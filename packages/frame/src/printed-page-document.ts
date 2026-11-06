@@ -194,7 +194,7 @@ export function printedPageDocument(
     scripts: 'refuse',
     nonce: options.nonce,
     dir: direction,
-    lang: metadata?.lang ?? page.lang,
+    lang: page.lang,
     title: metadata?.title,
     css,
     relayKeys: false,
