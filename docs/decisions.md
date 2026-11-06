@@ -237,9 +237,12 @@ imposition piece is corrected to the paper it was printed at before it is
 embedded. A browser page more than 2 points from the requested paper is refused
 rather than treated as rounding.
 
-**Flowing printed pages are composed inside the page document.** A measuring
-multicol lets Chromium decide keeps, widows, tables and ordinary fragmentation;
-authored page breaks are mapped to column breaks. One clipped clone of that
+**Flowing printed pages are composed inside the page document.** The library
+ships zero-specificity safe fragmentation rules by default, keeping table rows,
+figures and images whole and a heading with what follows; author or host CSS
+overrides them, and `fragmentation: 'none'` removes them. A measuring multicol
+lets Chromium decide widows, orphans and ordinary fragmentation. Authored page
+breaks are mapped to column breaks. One clipped clone of that
 flow is then placed on each exact paper with the parent page selected for its
 role. Head and foot motifs are expanded by the host first, and the nonce-bound
 composer fills their formatted printed-page number and total. Post-print PDF

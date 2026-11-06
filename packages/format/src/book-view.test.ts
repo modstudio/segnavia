@@ -38,13 +38,14 @@ describe('book view', () => {
       rectoOpenings: true,
       orphans: 2,
       widows: 2,
-      fragmentation: 'safe' as const,
       parents: [{ name: 'segnavia:recto', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } }],
       endnotePlacement: 'book' as const,
       contents: { pageNumbers: true, depth: 2 },
       runningHead: { recto: { mark: 'siman', which: 'first' as const }, verso: 'title' as const },
     }
-    expect(BookView.parse({ html: '<main>ספר</main>', pagination })).toMatchObject({ html: '<main>ספר</main>', pagination })
+    const parsed = BookView.parse({ html: '<main>ספר</main>', pagination })
+    expect(parsed).toMatchObject({ html: '<main>ספר</main>', pagination })
+    expect(parsed.pagination).not.toHaveProperty('fragmentation')
   })
 
   test('exports its unresolved JSON Schema', () => {
