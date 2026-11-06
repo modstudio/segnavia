@@ -3,6 +3,46 @@
 Each decision states what holds and why. Challenge one with evidence and a
 replacement, and record the new ruling here.
 
+## Target document architecture
+
+These decisions govern the target architecture and do not describe the
+document architecture that exists today.
+
+**F1 — One layered document model.** Every document profile uses one
+`Document` model with separate structure, style, content and data layers.
+Measurements, plans and reports are derived. One model gives an external agent
+one stable edit surface and lets each layer change without rewriting the
+others; separate models would preserve the coupling the target is intended to
+remove.
+
+**F2 — The document model is a clean break.** The target replaces the current
+deck, page, book and board input models without a parse-time upgrade or a
+compatibility layer. Hosts migrate stored documents, and public breaks receive
+major changesets. A compatibility path would make both models part of the new
+foundation and keep the duplication the model is designed to end.
+
+**F3 — Content has one stored form and two views.** Content is stored as HTML
+with minted block ids. It can be read and changed either as a whole HTML
+fragment or through a JSON block view with per-block operations. A single
+stored form prevents two representations from drifting while retaining both
+native HTML authoring and stable, structured edits.
+
+**F4 — Design tokens use an owned interoperable schema.** Tokens use the
+library's own schema, compatible with a W3C design-tokens subset, with import
+and export. Owning validation keeps the style model bounded and type-safe,
+while subset compatibility lets token data move across tools without making an
+external draft the library's runtime contract.
+
+**F5 — Pure planning belongs in a universal layout package.** The target adds
+`@segnavia/layout` for page planning, slicing, variables, parent-page selection
+and folio computation. Planning must run and be tested in process without a
+browser, while remaining embeddable in a frame for composition.
+
+**F6 — Structural PDF goldens precede the refactor.** Golden fixtures for each
+document family land before the value-type, model or composer changes. A clean
+break removes compatibility checks as a safety net, so structural PDF facts
+are the characterization that shows whether output changed across each slice.
+
 ## Product
 
 **Layers stay separate and uncompiled.** Images, narration text, audio and
