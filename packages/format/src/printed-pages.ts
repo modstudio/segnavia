@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { LogicalMargin } from './margins.ts'
+import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 
@@ -13,7 +13,7 @@ export type Fragmentation = z.infer<typeof Fragmentation>
 export const ParentPage = z.object({
   name: z.string().min(1),
   basedOn: z.string().min(1).optional(),
-  margin: LogicalMargin.optional(),
+  margin: RequiredLogicalMargin.optional(),
   head: z.string().optional(),
   foot: z.string().optional(),
 })

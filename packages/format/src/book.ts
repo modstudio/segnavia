@@ -15,7 +15,7 @@ import {
 } from './book-section.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { FontReference } from './fonts.ts'
-import { LogicalMargin } from './margins.ts'
+import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
@@ -60,7 +60,7 @@ export type BookMode = z.infer<typeof BookMode>
 export const BookPage = z.object({
   paper: Paper,
   orientation: Orientation.default('portrait'),
-  margin: LogicalMargin,
+  margin: RequiredLogicalMargin,
   columnGap: z.number().nonnegative().default(4),
 })
 export type BookPage = z.infer<typeof BookPage>

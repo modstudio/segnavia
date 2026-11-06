@@ -8,6 +8,14 @@ describe('Media', () => {
     expect(Media.parse(input(format)).format).toBe(format)
   })
 
+  test('refuses fractional raster dimensions as non-whole pixels', () => {
+    expect(() => Media.parse({ format: 'png', size: { width: 72.5, height: 19.25 } })).toThrow(/whole-pixel width.*clear this refusal/)
+  })
+
+  test('accepts fractional vector dimensions as points', () => {
+    expect(Media.parse({ format: 'svg', size: { width: 72.5, height: 19.25 } }).size).toEqual({ width: 72.5, height: 19.25 })
+  })
+
   test('accepts page boxes on PDF and Illustrator media', () => {
     const pages = [
       {

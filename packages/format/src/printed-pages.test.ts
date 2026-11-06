@@ -12,6 +12,16 @@ const base = {
 }
 
 describe('Page printedPages', () => {
+  test('requires every logical parent-page margin and refuses legacy margin names', () => {
+    expect(() => PrintedPages.parse({ ...base.printedPages, parents: [{ name: 'body', margin: { inlineStart: 15 } }] })).toThrow('blockStart')
+    expect(() =>
+      PrintedPages.parse({
+        ...base.printedPages,
+        parents: [{ name: 'body', margin: { top: 20, bottom: 20, inner: 15, outer: 15 } }],
+      }),
+    ).toThrow('use blockStart, blockEnd, inlineStart and inlineEnd to clear this refusal')
+  })
+
   test('fragmentation defaults to safe, accepts none and refuses other values', () => {
     expect(PrintedPages.parse(base.printedPages).fragmentation).toBe('safe')
     expect(PrintedPages.parse({ ...base.printedPages, fragmentation: 'none' }).fragmentation).toBe('none')

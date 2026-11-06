@@ -202,12 +202,12 @@ describe('editBoard item commands', () => {
 
   test('names fact kind mismatches and existing-address conflicts', () => {
     const mismatch = editBoard(board(), [{ type: 'item-add', id: 'new', kind: 'page', address: 'new', target: { free: true } }], shapes, {
-      facts: { new: { kind: 'media', width: 4, height: 3 } },
+      facts: { new: { kind: 'media', size: { width: 4, height: 3 } } },
     })
     expect(mismatch.ok ? '' : mismatch.refusal).toMatch(/has a media shape fact instead of page.*pass a page fact/)
 
     const conflict = editBoard(board(), [{ type: 'item-add', id: 'new', kind: 'media', address: 'c', target: { free: true } }], shapes, {
-      facts: { c: { kind: 'media', width: 4, height: 3 } },
+      facts: { c: { kind: 'media', size: { width: 4, height: 3 } } },
     })
     expect(conflict.ok ? '' : conflict.refusal).toMatch(/belongs to a page item instead of media.*pass a media fact for a distinct address/)
   })

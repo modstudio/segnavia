@@ -66,7 +66,7 @@ function screenReference(page: PageInput): ScreenReference {
   const crop = trimRasterBox(boxes.bleedBox, boxes.trim, SCALE)
   return {
     page: { ...page, print: undefined, size: { width, height } },
-    css: `${printCss(print)}${MEASUREMENT_CSS}`,
+    css: `${printCss(print, 'ltr')}${MEASUREMENT_CSS}`,
     crop,
     description: `TrimBox crop of a ${boxes.bleedBox.width}×${boxes.bleedBox.height} mm BleedBox layout`,
   }

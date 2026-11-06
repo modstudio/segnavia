@@ -383,8 +383,7 @@ export function bookPageCss(book: Book, marginLayer = false): string {
   const size = sheetMm(book.page)
   if (marginLayer) return `@page{size:${size.width}mm ${size.height}mm;margin:0}`
   const edge = book.page.margin
-  const direction = resolveDirection(book.dir, book.lang, book.title)
-  const right = physicalMargins(edge, direction, direction === 'ltr' ? 'recto' : 'verso')
-  const left = physicalMargins(edge, direction, direction === 'ltr' ? 'verso' : 'recto')
+  const right = physicalMargins(edge, 'ltr', 'recto')
+  const left = physicalMargins(edge, 'ltr', 'verso')
   return `@page{size:${size.width}mm ${size.height}mm;margin-top:${right.top}mm;margin-bottom:${right.bottom}mm}@page :right{margin-left:${right.left}mm;margin-right:${right.right}mm}@page :left{margin-left:${left.left}mm;margin-right:${left.right}mm}`
 }

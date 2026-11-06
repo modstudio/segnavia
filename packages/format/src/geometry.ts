@@ -1,8 +1,14 @@
 import { z } from 'zod'
 
 export const PixelSize = z.object({
-  width: z.number().int().positive(),
-  height: z.number().int().positive(),
+  width: z
+    .number()
+    .int('size.width could not be accepted; pass a positive whole-pixel width to clear this refusal')
+    .positive('size.width could not be accepted; pass a positive whole-pixel width to clear this refusal'),
+  height: z
+    .number()
+    .int('size.height could not be accepted; pass a positive whole-pixel height to clear this refusal')
+    .positive('size.height could not be accepted; pass a positive whole-pixel height to clear this refusal'),
 })
 /** An authored canvas size, in a whole number of CSS pixels. */
 export type PixelSize = z.infer<typeof PixelSize>

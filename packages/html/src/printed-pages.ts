@@ -1,16 +1,14 @@
-import type { TextDirection } from '@segnavia/format'
+import type { PageSide, TextDirection } from '@segnavia/format'
 import { BOOK_PARENT_NAMES, type BookSectionParents, formatNumber, type NumberSystem, type PrintedPageRole, type PrintedPageRules } from '@segnavia/format'
 
 export type { BookSectionParents }
 
 export type PrintedPageSide = 'left' | 'right'
-export type PrintedPageFace = 'recto' | 'verso'
-
 export interface PrintedPagePlan {
   index: number
   role: PrintedPageRole
   parent: string
-  face: PrintedPageFace
+  face: PageSide
   side: PrintedPageSide
   number: string
   total: string
@@ -31,7 +29,7 @@ export interface BookPrintedPagePlan extends Omit<BookPageFacts, 'blank' | 'sect
   index: number
   role: BookPrintedPageRole
   parent: string
-  face: PrintedPageFace
+  face: PageSide
   side: PrintedPageSide
 }
 
@@ -42,7 +40,7 @@ export function printedPageAt(
   direction: TextDirection,
 ): Pick<PrintedPagePlan, 'role' | 'parent' | 'face' | 'side'> {
   const recto = index % 2 === 1
-  const face: PrintedPageFace = recto ? 'recto' : 'verso'
+  const face: PageSide = recto ? 'recto' : 'verso'
   const side: PrintedPageSide = recto === (direction === 'ltr') ? 'right' : 'left'
   let role: PrintedPageRole = 'every'
   let parent = rules.every

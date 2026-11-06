@@ -76,13 +76,14 @@ export const CUSTOM_PAPER_MAX_MM = 2000
 export const PAPER_UNITS = ['mm', 'in', 'pt'] as const
 export const PaperUnit = z.enum(PAPER_UNITS)
 export type PaperUnit = z.infer<typeof PaperUnit>
-export const Size = z.object({ width: z.number().positive(), height: z.number().positive(), unit: PaperUnit })
-export type Size = z.infer<typeof Size>
+export const PaperSize = z.object({ width: z.number().positive(), height: z.number().positive(), unit: PaperUnit })
+/** Physical paper geometry in the unit stated by the value. */
+export type PaperSize = z.infer<typeof PaperSize>
 export const ORIENTATIONS = ['portrait', 'landscape'] as const
 export const Orientation = z.enum(ORIENTATIONS)
 export type Orientation = z.infer<typeof Orientation>
 
-const CustomPaper = Size.superRefine((paper, ctx) => {
+const CustomPaper = PaperSize.superRefine((paper, ctx) => {
   for (const side of ['width', 'height'] as const) {
     const millimeters = toMillimeters(paper[side], paper.unit)
     if (millimeters < CUSTOM_PAPER_MIN_MM || millimeters > CUSTOM_PAPER_MAX_MM) {
@@ -149,7 +150,7 @@ const PAPER_SIZE = {
   a2: { width: 420, height: 594, unit: 'mm' },
   a1: { width: 594, height: 841, unit: 'mm' },
   a0: { width: 841, height: 1189, unit: 'mm' },
-} satisfies Record<NamedPaper, Size>
+} satisfies Record<NamedPaper, PaperSize>
 
 const paperMillimeters = (): Record<NamedPaper, { width: number; height: number }> =>
   Object.fromEntries(

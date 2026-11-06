@@ -13,11 +13,9 @@ import { placeBoardEntityTarget } from './board-command-targets.ts'
 import type { BoardCommand, BoardCommandOf } from './board-commands.ts'
 import type { BoardEditAdjustment } from './board-edit-result.ts'
 import { labelShape } from './board-shapes.ts'
+import type { MeasuredSize } from './geometry.ts'
 
-function sizedLabel(
-  context: CommandContext,
-  label: BoardLabel,
-): { label: BoardLabel; shape: { width: number; height: number }; adjustment: BoardEditAdjustment } {
+function sizedLabel(context: CommandContext, label: BoardLabel): { label: BoardLabel; shape: MeasuredSize; adjustment: BoardEditAdjustment } {
   const result = labelShape(label, context.options.measureLabel)
   if (result.source === 'measured') {
     if (!(result.shape.width > 0 && result.shape.height > 0))

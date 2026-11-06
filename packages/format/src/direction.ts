@@ -34,6 +34,16 @@ export function firstStrongDirection(text: string): TextDirection | null {
   return textDirection(undefined, undefined, text)
 }
 
+const HIDDEN_HTML_CONTENT = /<(script|style|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi
+const HTML_COMMENT = /<!--[\s\S]*?-->/g
+const HTML_TAG = /<[^>]*>/g
+const HTML_ENTITY = /&(?:#(?:x[\da-f]+|\d+)|[a-z][\da-z]+);/gi
+
+/** Returns the visible-text sample used to resolve an HTML fragment's direction. */
+export function htmlTextSample(html: string): string {
+  return html.replace(HTML_COMMENT, ' ').replace(HIDDEN_HTML_CONTENT, ' ').replace(HTML_TAG, ' ').replace(HTML_ENTITY, ' ')
+}
+
 export function languageDirection(lang: string | undefined): TextDirection | null {
   return lang ? textDirection(undefined, lang, '') : null
 }

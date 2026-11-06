@@ -9,8 +9,8 @@ export type BoardItemFact =
   | { kind: 'page'; size: PixelSize }
   | { kind: 'paper'; size: PixelSize }
   | { kind: 'book'; size: PixelSize }
-  | { kind: 'media'; width: number; height: number }
-  | { kind: 'shot'; width: number; height: number }
+  | { kind: 'media'; size: MeasuredSize }
+  | { kind: 'shot'; size: MeasuredSize }
 
 export interface BoardShapesOptions {
   measureLabel?: (text: string, direction: Board['direction']) => MeasuredSize | undefined
@@ -32,7 +32,6 @@ export const BOARD_LABEL_ESTIMATE = { widthPerCharacter: 8, height: 19 } as cons
 
 export function resolvedShape(fact: BoardItemFact): MeasuredSize {
   if (fact.kind === 'deck') return fact.deck.size
-  if (fact.kind === 'media' || fact.kind === 'shot') return { width: fact.width, height: fact.height }
   return fact.size
 }
 

@@ -11,7 +11,7 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
       if (!edge) throw new Error(`The book margin plan names unknown parent page "${page.parent}".`)
       const selector = `.segnavia-margin-page:nth-of-type(${index + 1})`
       const inline =
-        page.face === 'verso'
+        page.side === 'left'
           ? `inset-inline-start:${edge.inlineEnd}mm;inset-inline-end:${edge.inlineStart}mm;justify-content:flex-start`
           : `inset-inline-start:${edge.inlineStart}mm;inset-inline-end:${edge.inlineEnd}mm;justify-content:flex-end`
       return (

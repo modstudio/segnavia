@@ -59,9 +59,9 @@ export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): Che
 }
 
 export function boardItemFact(resolved: CheckedResolvedBoardItem | ResolvedBoardItem): BoardItemFact {
-  if (resolved.kind === 'image') return { kind: 'media', width: resolved.width, height: resolved.height }
+  if (resolved.kind === 'image') return { kind: 'media', size: { width: resolved.width, height: resolved.height } }
   if (resolved.kind === 'deck') return { kind: 'deck', deck: resolved.deck }
-  if (resolved.kind === 'shot') return { kind: 'shot', width: resolved.width, height: resolved.height }
+  if (resolved.kind === 'shot') return { kind: 'shot', size: { width: resolved.width, height: resolved.height } }
   return { kind: resolved.kind, size: resolved.size }
 }
 

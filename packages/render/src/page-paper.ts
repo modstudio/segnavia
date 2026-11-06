@@ -8,7 +8,7 @@ import { loadPdf } from './pdf-load.ts'
 import { drawCropMarks } from './pdf-marks.ts'
 import { pagePdfSize, setPdfPageSize } from './pdf-page-size.ts'
 
-export function printCss(print: Print, direction: TextDirection = 'ltr'): string {
+export function printCss(print: Print, direction: TextDirection): string {
   const properties = printProperties(print)
   if (!usesPressLayout(print)) return properties
   const { bleedBox } = printBoxes(print)
@@ -74,8 +74,8 @@ export async function printPage(
   tab: Tab,
   print: Print,
   preferCssPageSize: boolean | undefined,
-  inputIndex?: number,
-  direction: TextDirection = 'ltr',
+  inputIndex: number | undefined,
+  direction: TextDirection,
 ): Promise<PrintResult<true>> {
   const pageWidth = paperViewport(print).width
   if (!usesPressLayout(print)) {

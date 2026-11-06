@@ -1,4 +1,4 @@
-import type { BoardItem, BoardView, Size } from '@segnavia/format'
+import type { BoardItem, BoardView, MeasuredSize } from '@segnavia/format'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 // Thumbnail frames run without scripts, so their own load event is the only
@@ -46,7 +46,7 @@ export async function checkPanKeepsFrames(h: Harness) {
     { timeout: BOUNDED_WAIT_MS },
   )
   const result = await h.page.locator('segnavia-board').evaluate(async (element) => {
-    const board = element as HTMLElement & { view: { zoom: number; pan: { x: number; y: number }; viewport: Size } }
+    const board = element as HTMLElement & { view: { zoom: number; pan: { x: number; y: number }; viewport: MeasuredSize } }
     const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
       thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
     )

@@ -1,4 +1,4 @@
-import { resolveDirection } from '@segnavia/format'
+import { htmlTextSample, resolveDirection } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { HtmlPage, PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
@@ -46,7 +46,7 @@ export async function renderPagePdf(
       await awaitPrintedPageComposition(tab, page)
       const captures = await prepareBackdropRasters(tab, opts.effects)
       if (page.print) {
-        const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, resolveDirection(page.dir, page.lang, page.html))
+        const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, resolveDirection(page.dir, page.lang, htmlTextSample(page.html)))
         return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
       }
       const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null

@@ -50,8 +50,8 @@ describe('board policy', () => {
   test('adapts every resolved board item to a shape fact', () => {
     type Resolved = Parameters<typeof boardItemFact>[0]
     const fact = (value: unknown) => boardItemFact(value as Resolved)
-    expect(fact({ kind: 'image', width: 640, height: 480 })).toEqual({ kind: 'media', width: 640, height: 480 })
-    expect(fact({ kind: 'shot', width: 1280, height: 720 })).toEqual({ kind: 'shot', width: 1280, height: 720 })
+    expect(fact({ kind: 'image', width: 640, height: 480 })).toEqual({ kind: 'media', size: { width: 640, height: 480 } })
+    expect(fact({ kind: 'shot', width: 1280, height: 720 })).toEqual({ kind: 'shot', size: { width: 1280, height: 720 } })
     expect(fact({ kind: 'deck', deck: { size: { width: 16, height: 9 } } })).toEqual({ kind: 'deck', deck: { size: { width: 16, height: 9 } } })
     for (const kind of ['page', 'paper', 'book'] as const)
       expect(fact({ kind, size: { width: 8, height: 11 } })).toEqual({ kind, size: { width: 8, height: 11 } })
@@ -64,7 +64,7 @@ describe('board policy', () => {
     const facts = boardShapeFacts(items, (address) =>
       address === 'asset' ? ({ kind: 'image', src: 'image.png', width: 640, height: 480 } as Resolved) : undefined,
     )
-    expect(facts).toEqual({ asset: { kind: 'media', width: 640, height: 480 } })
+    expect(facts).toEqual({ asset: { kind: 'media', size: { width: 640, height: 480 } } })
   })
 
   test('refuses resolved values that do not match the item kind', () => {

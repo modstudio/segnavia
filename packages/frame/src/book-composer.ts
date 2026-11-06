@@ -1,5 +1,6 @@
 import {
   type FlowingParentNames,
+  type FolioTable,
   flowingParentNames,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_TOTAL_PATH,
@@ -118,7 +119,7 @@ export function pixelPhaseOffset(source: number, placed: number): number {
 
 export type PageReferenceFolio = { folio: string } | { refusal: string }
 
-export function pageReferenceFolio(id: string, page: number, folios: string[]): PageReferenceFolio {
+export function pageReferenceFolio(id: string, page: number, folios: FolioTable): PageReferenceFolio {
   const folio = folios[page - 1]
   if (folio !== undefined) return { folio }
   return {

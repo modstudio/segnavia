@@ -55,25 +55,22 @@ export const PointSize = z.object({
 /** An authored vector or document size measured in PostScript points. */
 export type PointSize = z.infer<typeof PointSize>
 
-const MediaShape = z.object({
-  format: MediaFormat,
-  size: z.union([PixelSize, PointSize]),
+const mediaFields = {
   pages: z.array(MediaPage).optional(),
   resolution: z.number().positive('resolution could not be accepted; pass a positive resolution to clear this refusal').optional(),
   alt: MediaText.optional(),
   caption: MediaText.optional(),
   credit: MediaText.optional(),
   derivedFrom: z.object({ address: z.string().min(1), page: PageSelector, name: z.string().min(1).optional() }).optional(),
-})
+}
+
+const MediaShape = z.discriminatedUnion('format', [
+  z.object({ format: z.enum(['png', 'jpeg', 'gif', 'webp']), size: PixelSize, ...mediaFields }),
+  z.object({ format: z.enum(['svg', 'pdf', 'ai']), size: PointSize, ...mediaFields }),
+])
 
 export const Media = MediaShape.superRefine((media, ctx) => {
   const capabilities = MEDIA_FORMATS[media.format]
-  if (capabilities.raster) {
-    const parsed = PixelSize.safeParse(media.size)
-    if (!parsed.success) {
-      for (const issue of parsed.error.issues) ctx.addIssue({ ...issue, path: ['size', ...issue.path] })
-    }
-  }
   if (media.pages !== undefined && !capabilities.pages) {
     ctx.addIssue({
       code: 'custom',

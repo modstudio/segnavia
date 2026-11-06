@@ -4,6 +4,7 @@ import {
   defaultPageNumbering,
   type FolioTable,
   formatNumber,
+  htmlTextSample,
   Page,
   type PageInput,
   PRINTED_PAGE_LIMIT,
@@ -167,7 +168,7 @@ export function printedPageDocument(
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)
   const measured = geometry(page, resolved, paper.width, paper.height)
-  const direction = resolveDirection(page.dir, page.lang, page.html)
+  const direction = resolveDirection(page.dir, page.lang, htmlTextSample(page.html))
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const parents = resolved.map((parent) => ({
     ...parent,
