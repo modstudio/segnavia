@@ -55,7 +55,9 @@ loads when `media-src` allows its origin (for example, `media-src 'self'` for
 same-origin audio). The frame's own policy still limits execution to its bridge.
 
 `architecture.ts` declares each package's runtime and imports, and
-`bun run check` enforces it. The gate also runs `checkVueDependencies`: no
+`bun run check` enforces it. Its `bundles` list records build-only imports that
+are inlined into published output and therefore belong only in devDependencies.
+The gate also runs `checkVueDependencies`: no
 package manifest may name Vue in a dependency field, because consumers supply
 it for the types-only opt-ins. `format`, `html` and `idml` run anywhere. `idml`
 accepts package bytes, refuses unsupported ZIP forms and bounded-resource
@@ -192,8 +194,10 @@ the same provider. The diagrams package's main entry exports only the lazy
 provider: it has no import side effect and does not statically load the script
 module. Only its `./auto` entry registers. A page, book or browser print containing a
 diagram refuses through its existing load-error path when no provider is
-registered. Server render depends on the diagrams package directly and embeds
-the script exported from `@segnavia/diagrams/script`.
+registered. Server render first asks that provider, then dynamically loads the
+optional diagrams package when no provider is registered. It refuses diagram
+content when neither source is available, and imports no diagram module for
+content without a diagram.
 
 **Data the host keeps.** The host keeps the markdown source as the page body.
 Titles remain host data beside a page; markdown does not create a new asset

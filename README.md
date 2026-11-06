@@ -109,6 +109,10 @@ The main diagrams entry exports only this lazy provider. Code that needs the
 complete payload string directly imports `diagramScript` from
 `@segnavia/diagrams/script`.
 
+Server rendering draws diagram placeholders when `@segnavia/diagrams` is
+installed or a provider is registered. It loads the complete drawing script
+only for a page, book or deck that contains a diagram.
+
 Install `@segnavia/markdown-editor` and its required Tiptap, CodeMirror and
 Lezer peers only when the host edits Markdown:
 

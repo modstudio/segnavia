@@ -135,7 +135,7 @@ function checkBare(file: SourceFile, workspace: Workspace, all: Map<string, Work
       : [{ rule: 'architecture', path: file.path, message: `a ${workspace.rule.runtime} package imports ${specifier}.` }]
   }
   const name = bareName(specifier)
-  if (!workspace.rule.imports.includes(name)) {
+  if (!workspace.rule.imports.includes(name) && !workspace.rule.bundles?.includes(name)) {
     return [{ rule: 'architecture', path: file.path, message: `${workspace.name} may not import ${name}; declare it in architecture.ts if it belongs.` }]
   }
   const target = all.get(name)
@@ -168,6 +168,14 @@ export function checkManifest(workspace: Workspace): Finding[] {
   for (const name of workspace.manifestImports) {
     if (!workspace.rule.imports.includes(name))
       findings.push({ rule: 'architecture', path, message: `${name} is a dependency that architecture.ts does not allow.` })
+  }
+  for (const name of workspace.rule.bundles ?? []) {
+    if (workspace.devDependencies?.[name] && !workspace.dependencies?.[name] && !workspace.peerDependencies?.[name]) continue
+    findings.push({
+      rule: 'architecture',
+      path,
+      message: `${workspace.name} bundles ${name}; put ${name} in devDependencies and remove it from dependencies and peerDependencies to clear this refusal.`,
+    })
   }
   for (const entry of workspace.rule.serverSafe ?? []) {
     if (!workspace.sources.includes(`packages/${packageName}/${entry}`))

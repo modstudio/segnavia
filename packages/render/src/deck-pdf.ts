@@ -106,7 +106,7 @@ async function paginateRenderedNotes(tab: Tab, maxSheets?: number): Promise<{ sh
   return tab.evaluate(`(${paginateNotes.toString()})(null,${JSON.stringify(maxSheets)})`)
 }
 
-async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
+async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
   const htmlSlides = deck.slides.flatMap((slide, index) =>
     'kind' in slide.content && slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html, printAtMs: slide.printAtMs ?? 0 }] : [],
   )
@@ -124,7 +124,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
       {
         viewport: notesGeometry ? { width: Math.round(notesGeometry.sheet.width), height: Math.round(notesGeometry.sheet.height) } : deck.size,
         scripts: true,
-        html: printableDeck(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true }),
+        html: printableDeck(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true, diagramScript }),
         boundMs: opts.boundMs,
         ...dependencySetup(opts),
         beforeOutput: async (tab) => {
@@ -150,7 +150,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
               // The nonce policy, rather than disabling JavaScript in Chromium,
               // refuses author code while leaving the print bridge running.
               scripts: true,
-              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs, dependencyOrigins: opts.dependencyOrigins }),
+              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs, dependencyOrigins: opts.dependencyOrigins, diagramScript }),
               boundMs: opts.boundMs,
               ...dependencySetup(opts),
               beforeOutput: waitForPrintReady,
@@ -185,7 +185,13 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
   return services.finish(await output.save(), opts)
 }
 
-async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
+async function imposedDeckPdf(
+  deck: Deck,
+  imposition: ParsedImposition,
+  opts: DeckPdfOptions,
+  services: DeckPdfServices,
+  diagramScript?: string,
+): Promise<Uint8Array> {
   const css = containFixedPageOverflow(`${services.fontFaces(opts)}${opts.css ?? ''}`)
   const imposed = impose(imposition, deck.slides.length)
   const marks = impositionMarks(imposition)
@@ -201,8 +207,9 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
                 css,
                 printAtMs: slide.printAtMs ?? 0,
                 dependencyOrigins: opts.dependencyOrigins,
+                diagramScript,
               })
-            : printableDeck(single, { ...opts, layout: 'slides', imposition: undefined, css })
+            : printableDeck(single, { ...opts, layout: 'slides', imposition: undefined, css, diagramScript })
         const bytes = await services.renderPdf(
           {
             viewport: deck.size,
@@ -247,11 +254,11 @@ async function imposedDeckPdf(deck: Deck, imposition: ParsedImposition, opts: De
   return services.finish(await composeImposedPdf(imposed, pieces, marks, imposition.markColor), opts)
 }
 
-export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices): Promise<Uint8Array> {
+export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
   const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', services.signal ?? AbortSignal.any([]))
-  if (!opts.imposition) return regularDeckPdf(resolvedDeck, opts, services)
+  if (!opts.imposition) return regularDeckPdf(resolvedDeck, opts, services, diagramScript)
   if (opts.layout === 'notes') {
     throw new RenderRefusedError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
-  return imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, services)
+  return imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, services, diagramScript)
 }

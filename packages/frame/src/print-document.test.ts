@@ -137,6 +137,13 @@ describe('printableDeck', () => {
     expect(document).toContain('data-segnavia-print-background')
   })
 
+  test('inlines a resolved diagram script only into HTML slides that contain diagrams', () => {
+    const plain = htmlSlideDocument(deck, '<p>Plain</p>', { nonce: 'known', diagramScript: 'DRAW' })
+    const diagram = htmlSlideDocument(deck, '<pre data-segnavia-diagram="mermaid"></pre>', { nonce: 'known', diagramScript: 'DRAW' })
+    expect(plain).not.toContain('DRAW')
+    expect(diagram).toContain('<script nonce="known">DRAW</script>')
+  })
+
   test('freezes built HTML slide documents at their chosen print moments and leaves URL slides alone', () => {
     const timed = Deck.parse({
       ...deck,

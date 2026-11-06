@@ -53,6 +53,8 @@
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
+      },
+      "devDependencies": {
         "mermaid": "12.2.0",
       },
     },
@@ -167,18 +169,22 @@
       "name": "@segnavia/render",
       "version": "0.47.0",
       "dependencies": {
-        "@segnavia/diagrams": "workspace:*",
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
         "@segnavia/html": "workspace:*",
         "pdf-lib": "^1.17.1",
       },
       "devDependencies": {
+        "@segnavia/diagrams": "workspace:*",
         "playwright-core": "1.55.1",
       },
       "peerDependencies": {
+        "@segnavia/diagrams": ">=0.47.0 <1.0.0",
         "playwright-core": "^1.55.1",
       },
+      "optionalPeers": [
+        "@segnavia/diagrams",
+      ],
     },
     "packages/voice": {
       "name": "@segnavia/voice",
