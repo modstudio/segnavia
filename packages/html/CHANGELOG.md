@@ -1,5 +1,18 @@
 # @segnavia/html
 
+## 0.47.0
+
+### Minor Changes
+
+- 6ef773e: Keep small printed structures together by default and allow content CSS to control fragmentation explicitly.
+- 1b85f5e: Mark each composed page as recto or verso for direction-independent side-aware styling.
+
+### Patch Changes
+
+- b9754e3: Keep a line break or block boundary inside a book heading as a space in its outline and contents text.
+- Updated dependencies [6ef773e]
+  - @segnavia/format@0.47.0
+
 ## 0.46.0
 
 ### Patch Changes

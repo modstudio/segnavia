@@ -1,5 +1,22 @@
 # @segnavia/render
 
+## 0.47.0
+
+### Minor Changes
+
+- 1b85f5e: Mark each composed page as recto or verso for direction-independent side-aware styling.
+
+### Patch Changes
+
+- Updated dependencies [6ef773e]
+- Updated dependencies [b9754e3]
+- Updated dependencies [100d32f]
+- Updated dependencies [1b85f5e]
+  - @segnavia/format@0.47.0
+  - @segnavia/html@0.47.0
+  - @segnavia/frame@0.47.0
+  - @segnavia/diagrams@0.47.0
+
 ## 0.46.0
 
 ### Patch Changes
