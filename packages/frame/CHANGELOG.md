@@ -1,5 +1,18 @@
 # @segnavia/frame
 
+## 0.45.0
+
+### Minor Changes
+
+- ae3c3e7: Let hosts scroll a page element to a markdown heading.
+
+### Patch Changes
+
+- 43e786b: Keep paginated page notes inside their planned space when fonts or images finish loading after composition: the composer re-derives each note view's extent from its laid-out lines and re-stacks the views, and refuses a note whose lines changed after pagination or whose settled stack would move into the body.
+- 5b151b7: Draw an incoming deck frame beneath the active slide while it loads so a turn never reveals an empty stage.
+  - @segnavia/format@0.45.0
+  - @segnavia/html@0.45.0
+
 ## 0.44.0
 
 ### Minor Changes
