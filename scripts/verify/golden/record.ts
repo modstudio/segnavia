@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { GOLDEN_FIXTURES, goldenFixturePath } from './model.ts'
+import { GOLDEN_FIXTURES, GOLDEN_FIXTURES_DIRECTORY, goldenFixturePath } from './model.ts'
 import { REPOSITORY_ROOT } from './paths.ts'
 import { readGoldenPdf } from './read.ts'
 import { assertGoldenRecordable } from './record-policy.ts'
@@ -22,7 +22,7 @@ export async function recordGoldenPdfs(repositoryRoot: string, outputRoot: strin
     writeFileSync(destination, `${JSON.stringify(golden, null, 2)}\n`)
     console.log(`recorded ${fixture.id}: ${goldenFixturePath(fixture)}`)
   }
-  execFileSync(path.join(repositoryRoot, 'node_modules/.bin/biome'), ['format', '--write', path.join(repositoryRoot, 'scripts/verify/golden/fixtures')], {
+  execFileSync(path.join(repositoryRoot, 'node_modules/.bin/biome'), ['format', '--write', path.join(repositoryRoot, GOLDEN_FIXTURES_DIRECTORY)], {
     cwd: repositoryRoot,
     stdio: 'inherit',
   })
