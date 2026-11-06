@@ -278,16 +278,23 @@ may style it with these properties:
 | `--segnavia-markdown-raw-inline-radius` | `0` |
 | `--segnavia-markdown-raw-inline-padding` | `.15em` |
 
-Rich mode preserves meaning rather than source form for the other syntax in an
-edited block. The current serializer rewrites the forms observed by the editor
-round trip as follows: underscore emphasis uses asterisks; plus and asterisk
-bullets use hyphens; setext headings become ATX headings; backslash hard breaks
-become two trailing spaces; table padding and delimiter rows are normalized;
-ordered-list delimiters become periods and item numbers after the first become
-sequential; single-quoted and parenthesized link titles use double quotes;
-square brackets that form no link or footnote are escaped; and tilde or longer
-backtick code fences use triple backticks. A host can use this
-boundary to warn before switching modes when source form matters.
+Rich mode records source form on the schema node or mark and prints that form
+when an edit elsewhere causes its block to be serialized. This preserves
+underscore or asterisk emphasis and strong delimiters, bullet markers, ATX or
+setext headings (including the written setext underline), hard-break style,
+code-fence character and length and info-string spacing, ordered-list delimiter
+and every item's written number, and link-title quoting. Content created by a
+command or paste has no recorded form and uses the serializer default. A
+recorded form that would change meaning in its new context also falls back to
+that default.
+
+Table rows retain their source text. An unchanged row is printed as written;
+an edited row is serialized into its recorded cell spacing where the same
+columns remain, while a structural row change uses current table formatting.
+The delimiter row remains as written unless the column count changes. Plain
+square brackets remain unescaped when re-reading the serialized block produces
+the same rich document; only a bracket needed to prevent a link, reference or
+footnote is escaped.
 
 Rich mode holds schema nodes, including inline images. Links and images from
 commands or paste use the Markdown reader URL rule. Optional `linkOrigins`

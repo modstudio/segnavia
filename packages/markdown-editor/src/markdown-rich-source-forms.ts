@@ -3,14 +3,19 @@ import {
   type JSONContent,
   type MarkdownParseHelpers,
   type MarkdownRendererHelpers,
+  type RenderContext,
   renderNestedMarkdownContent,
 } from '@tiptap/core'
 
 type Token = { raw?: string; type?: string; depth?: number; lang?: string; text?: string; tokens?: Token[]; items?: Token[] }
 type FormAttrs = Record<string, unknown>
+type AttributeContext = { parent?: () => Record<string, unknown> }
+type ParseContext = { parent?: (token: Token, helpers: MarkdownParseHelpers) => unknown }
+type MarkdownRenderContext = {
+  parent?: (node: JSONContent, helpers: MarkdownRendererHelpers, context: RenderContext) => string
+}
 
 const hidden = (defaultValue: unknown = null) => ({ default: defaultValue, renderHTML: () => ({}) })
-const attrsOf = (value: JSONContent | JSONContent[]): FormAttrs | undefined => (Array.isArray(value) ? undefined : value.attrs)
 
 function withAttrs(value: unknown, attrs: FormAttrs): unknown {
   if (!value || Array.isArray(value) || typeof value !== 'object') return value
@@ -29,7 +34,7 @@ function delimiter(token: Token): string | null {
 
 function titleQuote(raw: string | undefined): string | null {
   if (!raw) return null
-  const match = /\s(["'(])(?=[\s\S]*["')\)]\)$)/g
+  const match = /\s(["'(])(?=[\s\S]*(?:"|'|\))\)$)/g
   let quote: string | null = null
   for (const hit of raw.matchAll(match)) quote = hit[1] ?? null
   return quote
@@ -125,7 +130,10 @@ function changedRow(source: string, normalized: string, signature: string, row: 
 function tableLines(raw: string): { rows: string[]; delimiter: string; columns: number } {
   const lines = raw.replace(/\n$/, '').split('\n')
   const delimiter = lines[1] ?? ''
-  const columns = delimiter.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').length
+  const columns = delimiter
+    .replace(/^\s*\|/, '')
+    .replace(/\|\s*$/, '')
+    .split('|').length
   return { rows: [lines[0] ?? '', ...lines.slice(2)], delimiter, columns }
 }
 
@@ -133,11 +141,11 @@ function extendInlineForm(extension: AnyExtension): AnyExtension {
   if (extension.name !== 'italic' && extension.name !== 'bold') return extension
   const attrName = extension.name === 'italic' ? 'sourceEmphasisDelimiter' : 'sourceStrongDelimiter'
   return extension.extend({
-    addAttributes() {
+    addAttributes(this: AttributeContext) {
       return { ...this.parent?.(), ...sourceFormAttrs([attrName]) }
     },
-    parseMarkdown(token: Token, helpers: MarkdownParseHelpers) {
-      const parsed = this.parent?.(token, helpers)
+    parseMarkdown(this: ParseContext, token: Token, helpers: MarkdownParseHelpers): JSONContent {
+      const parsed: unknown = this.parent?.(token, helpers)
       return withAttrs(parsed, { [attrName]: delimiter(token) }) as JSONContent
     },
     renderMarkdown(node: JSONContent, helpers: MarkdownRendererHelpers) {
@@ -152,11 +160,11 @@ function extendInlineForm(extension: AnyExtension): AnyExtension {
 function extendHeading(extension: AnyExtension): AnyExtension {
   if (extension.name !== 'heading') return extension
   return extension.extend({
-    addAttributes() {
+    addAttributes(this: AttributeContext) {
       return { ...this.parent?.(), ...sourceFormAttrs(['sourceHeadingStyle', 'sourceSetextUnderline']) }
     },
-    parseMarkdown(token: Token, helpers: MarkdownParseHelpers) {
-      const parsed = this.parent?.(token, helpers)
+    parseMarkdown(this: ParseContext, token: Token, helpers: MarkdownParseHelpers): JSONContent {
+      const parsed: unknown = this.parent?.(token, helpers)
       const lines = token.raw?.replace(/\n$/, '').split('\n') ?? []
       const underline = lines.length > 1 && /^ {0,3}(?:=+|-+)[ \t]*$/.test(lines.at(-1) ?? '') ? lines.at(-1) : null
       return withAttrs(parsed, { sourceHeadingStyle: underline ? 'setext' : 'atx', sourceSetextUnderline: underline }) as JSONContent
@@ -175,7 +183,7 @@ function extendHeading(extension: AnyExtension): AnyExtension {
 function extendHardBreak(extension: AnyExtension): AnyExtension {
   if (extension.name !== 'hardBreak') return extension
   return extension.extend({
-    addAttributes() {
+    addAttributes(this: AttributeContext) {
       return { ...this.parent?.(), ...sourceFormAttrs(['sourceHardBreak']) }
     },
     parseMarkdown(token: Token) {
@@ -191,13 +199,13 @@ function extendHardBreak(extension: AnyExtension): AnyExtension {
 function extendCodeBlock(extension: AnyExtension): AnyExtension {
   if (extension.name !== 'codeBlock') return extension
   return extension.extend({
-    addAttributes() {
+    addAttributes(this: AttributeContext) {
       return {
         ...this.parent?.(),
         ...sourceFormAttrs(['sourceFence', 'sourceClosingFence', 'sourceInfoBefore', 'sourceInfoAfter']),
       }
     },
-    parseMarkdown(token: Token, helpers: MarkdownParseHelpers) {
+    parseMarkdown(this: ParseContext, token: Token, helpers: MarkdownParseHelpers): JSONContent {
       return withAttrs(this.parent?.(token, helpers), fenceAttrs(token)) as JSONContent
     },
     renderMarkdown(node: JSONContent, helpers: MarkdownRendererHelpers) {
@@ -216,10 +224,10 @@ function extendCodeBlock(extension: AnyExtension): AnyExtension {
 function extendLink(extension: AnyExtension): AnyExtension {
   if (extension.name !== 'link') return extension
   return extension.extend({
-    addAttributes() {
+    addAttributes(this: AttributeContext) {
       return { ...this.parent?.(), ...sourceFormAttrs(['sourceTitleQuote']) }
     },
-    parseMarkdown(token: Token, helpers: MarkdownParseHelpers) {
+    parseMarkdown(this: ParseContext, token: Token, helpers: MarkdownParseHelpers): JSONContent {
       return withAttrs(this.parent?.(token, helpers), { sourceTitleQuote: titleQuote(token.raw) }) as JSONContent
     },
     renderMarkdown(node: JSONContent, helpers: MarkdownRendererHelpers) {
@@ -245,14 +253,14 @@ function orderedMarker(attrs: FormAttrs | undefined, index: number): string {
 function extendListItem(extension: AnyExtension): AnyExtension {
   if (extension.name !== 'listItem') return extension
   return extension.extend({
-    addAttributes() {
+    addAttributes(this: AttributeContext) {
       return { ...this.parent?.(), ...sourceFormAttrs(['sourceNumber']) }
     },
-    parseMarkdown(token: Token, helpers: MarkdownParseHelpers) {
-      const parsed = this.parent?.(token, helpers)
+    parseMarkdown(this: ParseContext, token: Token, helpers: MarkdownParseHelpers): JSONContent {
+      const parsed: unknown = this.parent?.(token, helpers)
       return withAttrs(parsed, { sourceNumber: /^\s*(\d+)[.)]/.exec(token.raw ?? '')?.[1] ?? null }) as JSONContent
     },
-    renderMarkdown(node: JSONContent, helpers: MarkdownRendererHelpers, context) {
+    renderMarkdown(node: JSONContent, helpers: MarkdownRendererHelpers, context: RenderContext) {
       return renderNestedMarkdownContent(
         node,
         helpers,
@@ -281,9 +289,7 @@ export function sourceFormStarterExtensions(extensions: AnyExtension[]): AnyExte
 
 export function sourceListAttrs(raw: string, ordered = false): FormAttrs {
   const marker = /^\s*([-+*]|\d+([.)]))/.exec(raw)
-  return ordered
-    ? { sourceOrderedDelimiter: marker?.[2] ?? null }
-    : { sourceBulletMarker: marker?.[1] && /^[-+*]$/.test(marker[1]) ? marker[1] : null }
+  return ordered ? { sourceOrderedDelimiter: marker?.[2] ?? null } : { sourceBulletMarker: marker?.[1] && /^[-+*]$/.test(marker[1]) ? marker[1] : null }
 }
 
 export const listSourceAttributes = {
@@ -304,10 +310,10 @@ export function taskItemSourceExtension(extension: AnyExtension): AnyExtension {
 export function tableSourceExtension(extension: AnyExtension): AnyExtension {
   if (extension.name !== 'table') return extension
   return extension.extend({
-    addAttributes() {
+    addAttributes(this: AttributeContext) {
       return { ...this.parent?.(), ...sourceFormAttrs(['sourceDelimiter', 'sourceColumns']) }
     },
-    parseMarkdown(token: Token, helpers: MarkdownParseHelpers) {
+    parseMarkdown(this: ParseContext, token: Token, helpers: MarkdownParseHelpers): JSONContent {
       const parsed = this.parent?.(token, helpers) as JSONContent
       const source = tableLines(token.raw ?? '')
       const content = parsed.content?.map((row, index) => ({
@@ -316,7 +322,7 @@ export function tableSourceExtension(extension: AnyExtension): AnyExtension {
       }))
       return { ...parsed, attrs: { ...parsed.attrs, sourceDelimiter: source.delimiter, sourceColumns: source.columns }, content }
     },
-    renderMarkdown(node: JSONContent, helpers: MarkdownRendererHelpers, context) {
+    renderMarkdown(this: MarkdownRenderContext, node: JSONContent, helpers: MarkdownRendererHelpers, context: RenderContext) {
       const normalized = this.parent?.(node, helpers, context) ?? ''
       const lines = normalized.trim().split('\n')
       const rows = node.content ?? []

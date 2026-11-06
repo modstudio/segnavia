@@ -170,7 +170,7 @@ function semantic(value: unknown): unknown {
     return merged
   }
   if (!isRecord(value)) return value
-  if (value.type === RAW_INLINE_NAME && isRecord(value.attrs) && /^\\[\[\]]$/.test(String(value.attrs.source))) {
+  if (value.type === RAW_INLINE_NAME && isRecord(value.attrs) && /^\\(?:\[|\])$/.test(String(value.attrs.source))) {
     return { type: 'text', text: value.attrs.display }
   }
   const out: Record<string, unknown> = {}
@@ -189,14 +189,14 @@ function sameDocument(markdown: string, nodes: Json[], manager: MarkdownManager)
 }
 
 function restoreUnlinkedBrackets(markdown: string, nodes: Json[], manager: MarkdownManager, restoreProtected: (value: string) => string): string {
-  if (!/\\[\[\]]/.test(markdown)) return markdown
+  if (!/\\(?:\[|\])/.test(markdown)) return markdown
   const readsSame = (value: string) => sameDocument(restoreProtected(value), nodes, manager)
-  const all = markdown.replace(/\\([\[\]])/g, '$1')
+  const all = markdown.replace(/\\(\[|\])/g, '$1')
   if (readsSame(all)) return all
   let kept = markdown
   let at = 0
   while (at < kept.length) {
-    const match = /\\[\[\]]/.exec(kept.slice(at))
+    const match = /\\(?:\[|\])/.exec(kept.slice(at))
     if (!match || match.index === undefined) break
     const index = at + match.index
     const candidate = `${kept.slice(0, index)}${kept.slice(index + 1)}`
@@ -204,6 +204,27 @@ function restoreUnlinkedBrackets(markdown: string, nodes: Json[], manager: Markd
     else at = index + match[0].length
   }
   return kept
+}
+
+function withoutSourceAttrs(value: Json, onlyPath?: readonly number[], path: number[] = []): Json {
+  const targeted = onlyPath === undefined || (onlyPath.length === path.length && onlyPath.every((part, index) => part === path[index]))
+  const attrs =
+    value.type !== RAW_INLINE_NAME && targeted && value.attrs
+      ? Object.fromEntries(Object.entries(value.attrs).filter(([key]) => !key.startsWith('source')))
+      : value.attrs
+  return {
+    ...value,
+    attrs,
+    marks: value.marks?.map((mark, index) => withoutSourceAttrs(mark as Json, onlyPath, [...path, -1, index])),
+    content: value.content?.map((child, index) => withoutSourceAttrs(child, onlyPath, [...path, index])),
+  }
+}
+
+function sourceAttrPaths(value: Json, path: number[] = [], out: number[][] = []): number[][] {
+  if (value.type !== RAW_INLINE_NAME && Object.keys(value.attrs ?? {}).some((key) => key.startsWith('source'))) out.push(path)
+  value.marks?.forEach((mark, index) => sourceAttrPaths(mark as Json, [...path, -1, index], out))
+  value.content?.forEach((child, index) => sourceAttrPaths(child, [...path, index], out))
+  return out
 }
 
 function serializeNodes(nodes: readonly RichDocumentNode[], definitionLabels: ReadonlySet<string>): string {
@@ -226,7 +247,14 @@ function serializeNodes(nodes: readonly RichDocumentNode[], definitionLabels: Re
     content: node.content?.map(protect),
   })
   const manager = scopedRichMarkdownManager(definitionLabels)
-  const serialized = restoreAmpersands(manager.serialize({ type: 'doc', content: json.map(protect) }).replace(/^\n+|\n+$/g, ''))
+  const render = (content: Json[]) => restoreAmpersands(manager.serialize({ type: 'doc', content: content.map(protect) }).replace(/^\n+|\n+$/g, ''))
+  let serialized = render(json)
+  if (!sameDocument(restoreProtected(serialized), json, manager)) {
+    const singleFallback = sourceAttrPaths({ type: 'doc', content: json })
+      .map((path) => render(json.map((node, index) => withoutSourceAttrs(node, path, [index]))))
+      .find((candidate) => sameDocument(restoreProtected(candidate), json, manager))
+    serialized = singleFallback ?? render(json.map((node) => withoutSourceAttrs(node)))
+  }
   return restoreProtected(restoreUnlinkedBrackets(serialized, json, manager, restoreProtected)).replaceAll(marker, '&')
 }
 

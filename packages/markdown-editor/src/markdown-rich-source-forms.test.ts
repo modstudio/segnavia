@@ -15,51 +15,52 @@ function replaceText(nodes: JSONContent[], before: string, after: string) {
   if (!nodes.some(visit)) throw new Error(`missing editable word ${before}`)
 }
 
-function expectOnlyWordChanged(source: string, before: string, after: string) {
+function onlyWordChanged(source: string, before: string, after: string): boolean {
   const nodes = structuredClone(parseRichDocument(source))
   replaceText(nodes, before, after)
-  expect(saveRichDocument(source, nodes)).toBe(source.replace(before, after))
+  return saveRichDocument(source, nodes) === source.replace(before, after)
 }
 
 test('underscore emphasis and strong delimiters survive a paragraph edit', () => {
-  expectOnlyWordChanged('עברית ישנה עם _דגש_ כאן.\n', 'ישנה', 'חדשה')
-  expectOnlyWordChanged('עברית ישנה עם __חזק__ כאן.\n', 'ישנה', 'חדשה')
+  expect(onlyWordChanged('עברית ישנה עם _דגש_ כאן.\n', 'ישנה', 'חדשה')).toBe(true)
+  expect(onlyWordChanged('עברית ישנה עם __חזק__ כאן.\n', 'ישנה', 'חדשה')).toBe(true)
 })
 
 test('plus and asterisk bullet markers survive Hebrew list-item edits', () => {
-  expectOnlyWordChanged('+ פריט ישן\n+ פריט שני\n', 'ישן', 'חדש')
-  expectOnlyWordChanged('* פריט ישן\n* פריט שני\n', 'ישן', 'חדש')
+  expect(onlyWordChanged('+ פריט ישן\n+ פריט שני\n', 'ישן', 'חדש')).toBe(true)
+  expect(onlyWordChanged('* פריט ישן\n* פריט שני\n', 'ישן', 'חדש')).toBe(true)
+  expect(onlyWordChanged('+ [x] פריט ישן\n+ [ ] פריט שני\n', 'ישן', 'חדש')).toBe(true)
 })
 
 test('a setext underline survives a Hebrew heading edit', () => {
-  expectOnlyWordChanged('כותרת ישנה\n============  \n', 'ישנה', 'חדשה')
+  expect(onlyWordChanged('כותרת ישנה\n============  \n', 'ישנה', 'חדשה')).toBe(true)
 })
 
 test('a backslash hard break survives a Hebrew paragraph edit', () => {
-  expectOnlyWordChanged('שורה ישנה\\\nשורה שנייה\n', 'ישנה', 'חדשה')
+  expect(onlyWordChanged('שורה ישנה\\\nשורה שנייה\n', 'ישנה', 'חדשה')).toBe(true)
 })
 
 test('tilde and long backtick fences and info spacing survive code edits', () => {
-  expectOnlyWordChanged('~~~~  ts extra  \nconst old = 1\n~~~~\n', 'old', 'fresh')
-  expectOnlyWordChanged('`````\nold value\n`````\n', 'old', 'fresh')
+  expect(onlyWordChanged('~~~~  ts extra  \nconst old = 1\n~~~~\n', 'old', 'fresh')).toBe(true)
+  expect(onlyWordChanged('`````\nold value\n`````\n', 'old', 'fresh')).toBe(true)
 })
 
 test('ordered delimiters and every written item number survive Hebrew item edits', () => {
-  expectOnlyWordChanged('3) פריט ישן\n8) פריט שני\n', 'ישן', 'חדש')
+  expect(onlyWordChanged('3) פריט ישן\n8) פריט שני\n', 'ישן', 'חדש')).toBe(true)
 })
 
 test('single and parenthesized mixed-direction link titles survive paragraph edits', () => {
-  expectOnlyWordChanged("עברית ישנה [link](/target 'כותרת English עברית').\n", 'ישנה', 'חדשה')
-  expectOnlyWordChanged('עברית ישנה [link](/target (כותרת English עברית)).\n', 'ישנה', 'חדשה')
+  expect(onlyWordChanged("עברית ישנה [link](/target 'כותרת English עברית').\n", 'ישנה', 'חדשה')).toBe(true)
+  expect(onlyWordChanged('עברית ישנה [link](/target (כותרת English עברית)).\n', 'ישנה', 'חדשה')).toBe(true)
 })
 
 test('unchanged table rows and the delimiter row retain their source text', () => {
   const source = '| שם   | מחיר |\n|:------| ----:|\n| ישן | 10 |\n| untouched     | 20    |\n'
-  expectOnlyWordChanged(source, 'ישן', 'חדש')
+  expect(onlyWordChanged(source, 'ישן', 'חדש')).toBe(true)
 })
 
 test('unlinked brackets stay unescaped when the same reader sees the same paragraph', () => {
-  expectOnlyWordChanged('עברית ישנה [sic] כאן.\n', 'ישנה', 'חדשה')
+  expect(onlyWordChanged('עברית ישנה [sic] כאן.\n', 'ישנה', 'חדשה')).toBe(true)
 })
 
 test('brackets are escaped when plain output would read back as a link', () => {
@@ -70,7 +71,7 @@ test('brackets are escaped when plain output would read back as a link', () => {
   const reparsed = parseRichDocument(saved)[0]?.content ?? []
   expect(reparsed.some((node) => node.marks?.some((mark) => mark.type === 'link'))).toBe(false)
   expect(reparsed.map((node) => node.text ?? node.attrs?.display ?? '').join('')).toBe('[link](/target)')
-  expect(saved.match(/\\[\[\]]/g)).toHaveLength(1)
+  expect(saved.match(/\\(?:\[|\])/g)).toHaveLength(1)
 })
 
 test('command-created nodes use the current default source forms', () => {
@@ -96,7 +97,14 @@ test('command-created nodes use the current default source forms', () => {
     },
     { type: 'codeBlock', attrs: { language: 'ts' }, content: [{ type: 'text', text: 'code' }] },
   ]
-  expect(saveRichDocument('', nodes)).toBe(
-    '## Heading\n\n*em* **strong**  \n[link](/target "title")\n\n- Bullet\n\n1. Ordered\n\n```ts\ncode\n```\n',
-  )
+  expect(saveRichDocument('', nodes)).toBe('## Heading\n\n*em* **strong**  \n[link](/target "title")\n\n- Bullet\n\n1. Ordered\n\n```ts\ncode\n```\n')
+})
+
+test('a recorded form that changes meaning in its new context falls back to the default', () => {
+  const source = 'A _word_ here.\n'
+  const nodes = structuredClone(parseRichDocument(source))
+  const leading = nodes[0]?.content?.[0]
+  if (!leading || leading.text !== 'A ') throw new Error('missing leading text')
+  leading.text = 'A'
+  expect(saveRichDocument(source, nodes)).toBe('A*word* here.\n')
 })

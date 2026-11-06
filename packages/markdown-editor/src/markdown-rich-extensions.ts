@@ -1,8 +1,8 @@
 import {
   type AnyExtension,
   Extension,
-  getSchema,
   getExtensionField,
+  getSchema,
   type JSONContent,
   type MarkdownLexerConfiguration,
   type MarkdownParseHelpers,
@@ -186,19 +186,17 @@ const directionalBlocks = Extension.create({
 
 export function richExtensions(definitionLabels: ReadonlySet<string> = new Set()): AnyExtension[] {
   const starter = StarterKit.configure({ trailingNode: false, link: { openOnClick: false }, bulletList: false, orderedList: false })
-  const starterChildren =
-    getExtensionField(starter, 'addExtensions', { name: starter.name, options: starter.options, storage: starter.storage })?.() ?? []
+  const starterChildren = getExtensionField(starter, 'addExtensions', { name: starter.name, options: starter.options, storage: starter.storage })?.() ?? []
   const tables = TableKit.configure()
-  const tableChildren =
-    getExtensionField(tables, 'addExtensions', { name: tables.name, options: tables.options, storage: tables.storage })?.() ?? []
+  const tableChildren = getExtensionField(tables, 'addExtensions', { name: tables.name, options: tables.options, storage: tables.storage })?.() ?? []
   return [
     ...sourceFormStarterExtensions(starterChildren),
     LooseBulletList,
     LooseOrderedList,
-    ...tableChildren.map((extension) => {
+    ...tableChildren.map((extension: AnyExtension) => {
       if (extension.name === 'tableRow') {
         return extension.extend({
-          addAttributes() {
+          addAttributes(this: { parent?: () => Record<string, unknown> }) {
             return { ...this.parent?.(), ...tableRowSourceAttributes }
           },
         })
