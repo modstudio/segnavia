@@ -25,8 +25,7 @@ test('board Document input, change detail and editing bridge stay in the host sh
         return this.documentWithBoard(board)
       }
       optimistic(board: Board) {
-        this.holdBoardEdit(board)
-        this.value = board
+        this.value = this.holdBoardEdit(board)
       }
     }
     const element = new BoardElementStub()
