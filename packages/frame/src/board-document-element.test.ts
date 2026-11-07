@@ -24,6 +24,10 @@ test('board Document input, change detail and editing bridge stay in the host sh
       document(board: Board) {
         return this.documentWithBoard(board)
       }
+      optimistic(board: Board) {
+        this.holdBoardEdit(board)
+        this.value = board
+      }
     }
     const element = new BoardElementStub()
     let changed: unknown
@@ -39,6 +43,8 @@ test('board Document input, change detail and editing bridge stay in the host sh
     const edited = Board.parse({ ...(element.value as Board), items: [{ ...(element.value as Board).items[0], x: 20 }] })
     const callback = (board: Board) => element.document(board)
     expect(boardFromDocument(callback(edited))).toEqual(edited)
+    element.optimistic(edited)
+    expect(boardFromDocument(element.board as NonNullable<typeof element.board>)).toEqual(edited)
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

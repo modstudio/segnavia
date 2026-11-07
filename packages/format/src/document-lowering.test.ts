@@ -186,5 +186,8 @@ describe('Document lowering', () => {
     expect(boardFromDocument(document)).toEqual(expected)
     expect(documentFromBoard(boardFromDocument(document), document)).toEqual(document)
     expect(boardFromDocument(documentFromBoard(expected, document))).toEqual(expected)
+
+    const edited = Board.parse({ ...expected, title: 'Edited board', direction: 'rtl' })
+    expect(boardFromDocument(documentFromBoard(edited, document))).toEqual(edited)
   })
 })

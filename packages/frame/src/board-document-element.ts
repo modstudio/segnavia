@@ -19,5 +19,9 @@ export abstract class BoardDocumentElement extends BoardSelectionElement {
     return documentFromBoard(board, this.documentValue)
   }
 
+  protected holdBoardEdit(board: Board): void {
+    this.documentValue = this.documentWithBoard(board)
+  }
+
   protected abstract acceptBoardInput(board: Board | null): void
 }

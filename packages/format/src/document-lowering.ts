@@ -258,5 +258,5 @@ export function documentFromBoard(board: BoardValue, source: DocumentValue): Doc
     ...board.labels.map(({ id, ...label }) => ({ type: 'label' as const, id, ...label })),
     ...board.sections.map(({ id, ...section }) => ({ type: 'boardSection' as const, id, ...section })),
   ]
-  return Document.parse({ ...source, children })
+  return Document.parse({ ...source, title: board.title, settings: { ...source.settings, dir: board.direction }, children })
 }
