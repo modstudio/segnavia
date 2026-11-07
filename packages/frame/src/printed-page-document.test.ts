@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { computeFolios, type DocumentInput, Page, type Page as PageValue } from '@segnavia/format'
-import { fragmentationCss, markdownHtml, printedPageAt, resolvePageHtml } from '@segnavia/html'
+import { fragmentationCss, markdownHtml, resolvePageHtml } from '@segnavia/html'
+import { layoutScript, planPrintedPages } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
@@ -80,7 +81,8 @@ describe('printedPageDocument', () => {
     expect(html).toContain('"numbering":"hebrew"')
     expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
     expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
-    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(layoutScript())
+    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(planPrintedPages.toString())
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(computeFolios.toString())
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(decideLayoutSettle.toString())
     expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(`performance.now()-startedAt,${LAYOUT_SETTLE_MS}`)
