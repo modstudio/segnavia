@@ -54,6 +54,12 @@ async function verifyPagePrintBackgrounds(h: Harness) {
       `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="${color}"/></svg>`)}`
     const pageHtml = (root: string, element: string, backgroundImage: string, img: string) =>
       `<!doctype html><html style="background:${root}"><body style="margin:0"><div style="position:fixed;inset:0 0 50% 50%;background:${element}"></div><div style="position:fixed;inset:50% 50% 0 0;background:url(${image(backgroundImage)}) center/cover no-repeat"></div><img alt="print sample" src="${image(img)}" style="position:fixed;inset:50% 0 0 50%;width:50%;height:50%"></body></html>`
+    const pageDocument = (html: string, scripts?: 'sandboxed') => ({
+      type: 'document',
+      kind: 'page',
+      settings: scripts ? { scripts } : undefined,
+      children: [{ type: 'page', body: { html } }],
+    })
     const boundedResources = Array.from(
       { length: 64 },
       (_, index) => `<i style="position:fixed;left:${index}px;top:0;width:1px;height:1px;background:url(${image(`hsl(${index} 50% 50%)`)})"></i>`,
@@ -69,9 +75,9 @@ async function verifyPagePrintBackgrounds(h: Harness) {
     let html = ''
     await lib.printPages(
       [
-        { html: pageHtml('rgb(190,30,45)', 'rgb(240,160,20)', '#1455cc', '#22aa77') },
-        { html: pageHtml('rgb(20,150,75)', 'rgb(110,40,190)', '#8822aa', '#dd6633') },
-        { html: advanced, scripts: 'sandboxed' },
+        pageDocument(pageHtml('rgb(190,30,45)', 'rgb(240,160,20)', '#1455cc', '#22aa77')),
+        pageDocument(pageHtml('rgb(20,150,75)', 'rgb(110,40,190)', '#8822aa', '#dd6633')),
+        pageDocument(advanced, 'sandboxed'),
       ],
       { paper: 'a4', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 210, height: 297 }, unit: 'mm' },
       { print: (win: Window) => (html = win.document.documentElement.outerHTML) },
@@ -316,11 +322,17 @@ export async function verifyPapers(h: Harness) {
         load: (pages: unknown[], imposition: unknown) => void
       }
       document.body.append(paper)
-      paper.load([{ html, lang, scripts: 'sandboxed' }], imposition)
+      paper.load(
+        [{ type: 'document', kind: 'page', settings: { lang, scripts: 'sandboxed' }, children: [{ type: 'page', body: { html } }] }],
+        imposition,
+      )
       await new Promise((resolve) => setTimeout(resolve, 100))
       let dirRefused = false
       try {
-        paper.load([{ html: '<p>refused</p>', dir: lang }], imposition)
+        paper.load(
+          [{ type: 'document', kind: 'page', settings: { dir: lang }, children: [{ type: 'page', body: { html: '<p>refused</p>' } }] }],
+          imposition,
+        )
       } catch {
         dirRefused = true
       }
@@ -372,7 +384,10 @@ export async function verifyPapers(h: Harness) {
       const bundle = '/segnavia.js'
       const lib = (await import(bundle)) as { printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void> }
       let result = { frames: 0, sandbox: null as string | null, hostNodes: 0, hostMarker: false }
-      await lib.printPages([{ html, lang, scripts: 'sandboxed' }], imposition, {
+      await lib.printPages(
+        [{ type: 'document', kind: 'page', settings: { lang, scripts: 'sandboxed' }, children: [{ type: 'page', body: { html } }] }],
+        imposition,
+        {
         print: (win: Window) => {
           const host = win as Window & { __segnaviaHostile?: boolean }
           const frames = [...win.document.querySelectorAll('iframe')]
@@ -383,7 +398,8 @@ export async function verifyPapers(h: Harness) {
             hostMarker: host.__segnaviaHostile === true,
           }
         },
-      })
+        },
+      )
       return result
     },
     { html: hostileHtml, lang: hostileLang, imposition: labelsImposition },
