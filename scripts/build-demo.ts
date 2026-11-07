@@ -349,7 +349,7 @@ writeFileSync(path.join(SITE, 'deck-print.json'), JSON.stringify(printable))
 buildSandboxDemo(SITE, shell)
 await buildAuthoringDemo(ROOT, SITE, shell)
 writeFileSync(path.join(SITE, 'prefetch.html'), shell('<segnavia-player id="d" src="deck.json" prefetch></segnavia-player>'))
-buildDeckHost(SITE)
+await buildDeckHost(ROOT, SITE)
 const renderer = await openRenderer({ executablePath: CHROMIUM, jsHeapMb: 128 })
 const inline = (src: string) => `data:image/webp;base64,${readFileSync(path.join(SITE, src)).toString('base64')}`
 try {

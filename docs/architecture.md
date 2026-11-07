@@ -170,7 +170,10 @@ stored HTML form, sanitizes every content fragment, and preserves or mints
 `data-segnavia-id` on paragraphs, headings, list items, figures, and table
 rows. One `newId` function supplies both node and block ids. Duplicate block
 ids are refused across the whole document. Hosts that need reproducible output
-pass a deterministic counter; stored ids make later parses idempotent.
+pass a deterministic counter; stored ids make later parses idempotent. A host
+keeps ids by storing the Document that `parseDocument` returns (or reading back
+an element's Document getter where one exists); content reloaded without ids
+gets new ids.
 
 ### Migration from legacy deck and page input
 

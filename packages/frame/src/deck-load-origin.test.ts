@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test'
+import { parseDocument } from '@segnavia/html'
+import { comparableContent } from './content-value.ts'
 import { DeckController } from './controller.ts'
-import { contentForComparison, deckPreservesNotes, isInternalDeck, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
+import { deckPreservesNotes, isInternalDeck, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
 
 const input = () => ({ title: 'T', slides: [{ id: 'a', content: { kind: 'html' as const, html: '' } }] })
 const documentInput = () => ({
@@ -57,17 +59,21 @@ test('a host deck load refuses another document kind and names the accepted kind
   )
 })
 
-test('frame comparison uses authored HTML while loaded frames keep minted block ids', () => {
+test('loading the same parsed Document keeps comparable content equal for every slide', () => {
   const host = documentInput()
   const firstChild = host.children[0]
   if (!firstChild) throw new Error('the fixture needs a slide')
   firstChild.content.html = '<h1>Same</h1>'
-  const first = parseDeckLoad(host).slides[0]?.content
-  const second = parseDeckLoad(host).slides[0]?.content
-  if (!first || !second || !('kind' in first) || first.kind !== 'html' || !('kind' in second) || second.kind !== 'html')
-    throw new Error('the fixture needs HTML slides')
+  host.children.push({ type: 'slide', id: 'b', content: { kind: 'html', html: '<p>Second</p>' } })
+  const parsed = parseDocument(host)
+  const first = parseDeckLoad(parsed)
+  const second = parseDeckLoad(parsed)
+  const values = (deck: typeof first) =>
+    deck.slides.map((slide) => {
+      if (!('kind' in slide.content) || slide.content.kind !== 'html') throw new Error('the fixture needs HTML slides')
+      return comparableContent(slide.content, (path) => path, deck.scripts, '', '')
+    })
 
-  expect(first.html).toContain('data-segnavia-id')
-  expect(first.html).not.toBe(second.html)
-  expect(contentForComparison(first)).toEqual({ kind: 'html', html: '<h1>Same</h1>' })
+  expect(first.slides.every((slide) => 'kind' in slide.content && slide.content.kind === 'html' && slide.content.html.includes('data-segnavia-id'))).toBe(true)
+  expect(values(first)).toEqual(values(second))
 })
