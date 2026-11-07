@@ -124,7 +124,10 @@ export function generatedCandidateDocuments(seed: number): DocumentValue[] {
 
 export function generatedDocument(seed: number): DocumentValue {
   const candidates = generatedCandidateDocuments(seed)
-  return candidates[random(seed).int(candidates.length)] as DocumentValue
+  const kinds: DocumentKind[] = ['book', 'deck', 'page', 'printed', 'board']
+  const kind = kinds[seed % kinds.length]
+  const matching = candidates.filter((candidate) => candidate.kind === kind)
+  return matching[random(seed).int(matching.length)] as DocumentValue
 }
 
 export function generatedDocumentOfKind(kind: DocumentKind, seed: number): DocumentValue {
