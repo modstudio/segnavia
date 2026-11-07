@@ -8,6 +8,7 @@ import { PDFDocument } from 'pdf-lib'
 import { labelPages, labelsImposition, twoSidedCardImposition } from '../demo-page-fixtures.ts'
 import type { Harness } from './harness.ts'
 import { readPpm } from './pdf-raster.ts'
+
 function screenshotPixel(png: Uint8Array): [number, number, number] {
   let offset = 8
   const compressed: Uint8Array[] = []
