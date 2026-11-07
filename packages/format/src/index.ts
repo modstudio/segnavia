@@ -154,12 +154,15 @@ export {
   printedFromDocument,
 } from './document-lowering.ts'
 export * from './document-metadata.ts'
+export { DocumentNodeInput } from './document-node-input.ts'
 export { DocumentBatch, DocumentCollection, DocumentLocation, DocumentOp } from './document-op.ts'
 export {
   DOCUMENT_NODE_MODEL,
+  type DocumentEntry,
   type DocumentNodeType,
   documentEntries,
   type OperationDocument,
+  type OperationNode,
 } from './document-op-model.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'

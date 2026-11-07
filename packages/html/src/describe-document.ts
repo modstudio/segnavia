@@ -1,10 +1,18 @@
-import { DOCUMENT_NODE_MODEL, type Document, type DocumentLocation, type OperationDocument, resolveLimits } from '@segnavia/format'
+import {
+  DOCUMENT_NODE_MODEL,
+  type Document,
+  DocumentCollection,
+  type DocumentLocation,
+  type Limits,
+  type OperationDocument,
+  type OperationNode,
+  resolveLimits,
+} from '@segnavia/format'
 import { type BlockViewEntry, blockView } from './block-view.ts'
-
-type OperationNode = Record<string, unknown> & { id: string; type: string; children?: OperationNode[] }
 
 export interface DescribeDocumentOptions {
   detail?: 'concise' | 'full'
+  limits?: Limits
 }
 
 export interface DocumentDescriptionNode {
@@ -52,27 +60,30 @@ function conciseBlock(block: BlockViewEntry, limit: number): BlockViewEntry {
   const points = [...block.text]
   if (points.length <= limit) return block
   if (limit === 0) return { ...block, text: '' }
-  return { ...block, text: `${points.slice(0, limit - 1).join('')}…` }
+  const available = limit - 1
+  let text = ''
+  for (const { segment } of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(block.text)) {
+    if ([...text, ...segment].length > available) break
+    text += segment
+  }
+  return { ...block, text: `${text}…` }
 }
 
 /**
  * Describes only style state held by the current model: document style keys.
  * Nodes have no style state or inheritance; per-node styles arrive with the StyleSheet.
+ * Concise detail bounds each block's text to descriptionTextChars code points,
+ * preserving graphemes and replacing the elided tail with an ellipsis; full detail leaves text intact.
  */
 export function describeDocument(document: Document, options: DescribeDocumentOptions = {}): DocumentDescription {
   const held = document as unknown as OperationDocument
   const structure = held.children.map((node, index) => describeNode(node, { kind: 'node', id: held.id }, index))
   const definitions: Record<string, DocumentDescriptionNode[]> = {}
-  for (const [name, nodes] of [
-    ['parentPages', held.parentPages],
-    ['templates', held.templates],
-    ['noteSeries', held.noteSeries],
-    ['variables', held.variables],
-    ['conditions', held.conditions],
-  ] as const) {
-    definitions[name] = (nodes as OperationNode[]).map((node, index) => describeNode(node, { kind: 'collection', name }, index))
+  for (const name of DocumentCollection.options) {
+    const nodes = held[name] as OperationNode[]
+    definitions[name] = nodes.map((node, index) => describeNode(node, { kind: 'collection', name }, index))
   }
-  const limit = resolveLimits(document.limits, undefined).descriptionTextChars
+  const limit = resolveLimits(document.limits, options.limits).descriptionTextChars
   const blocks = blockView(document).map((block) => (options.detail === 'full' ? block : conciseBlock(block, limit)))
   return {
     structure,

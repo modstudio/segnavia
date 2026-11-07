@@ -1,5 +1,5 @@
 import type { DocumentOp } from '@segnavia/format'
-import type { ContentAddress } from './block-fragments.ts'
+import { type ContentAddress, contentFieldShape, type FragmentShape, writeFragment } from './block-fragments.ts'
 import { type BlockPosition, insertBlock, moveBlock, removeBlock, type SetBlockChange, setBlock } from './block-ops.ts'
 import { DocumentCommandRefusal, resolveNode } from './document-addresses.ts'
 import {
@@ -10,6 +10,7 @@ import {
   type DocumentCommandContext,
   type DocumentCommandHandler,
   htmlWithIds,
+  identifiedContentValue,
   identifyAddedNode,
 } from './document-command-core.ts'
 import type { CommandContentAddress, DocumentCommand } from './document-commands.ts'
@@ -46,6 +47,17 @@ const move: Handler<'move'> = (context, command) => {
   const found = resolveNode(context.document, command.node)
   if (found.node.id === context.document.id) throw new DocumentCommandRefusal('the document root cannot be moved', 'move one of its child nodes instead')
   const location = commandLocation(context, command.to, found)
+  const descendants = new Set<string>([found.node.id])
+  const visit = (node: typeof found.node): void => {
+    for (const child of node.children ?? []) {
+      descendants.add(child.id)
+      visit(child)
+    }
+  }
+  visit(found.node)
+  if (location.parent.kind === 'node' && descendants.has(location.parent.id)) {
+    throw new DocumentCommandRefusal(`node "${found.node.id}" cannot move into its own subtree`, 'choose a location outside that node')
+  }
   return applyCommandOps(context, [{ type: 'move', id: found.node.id, ...location, priorParent: found.parent, priorIndex: found.index }])
 }
 
@@ -56,31 +68,53 @@ const set: Handler<'set'> = (context, command) => {
   return applyCommandOps(context, [{ type: 'setFields', id: found.node.id, ...setChange(found.node, command.fields) }])
 }
 
-function htmlValue(context: DocumentCommandContext, address: ReturnType<typeof contentAddress>, source: string): { value: unknown; added: string[] } {
+function addressedShape(address: ReturnType<typeof contentAddress>): FragmentShape {
+  const shape = contentFieldShape(address.node.type as Parameters<typeof contentFieldShape>[0], address.field)
+  if (shape === 'record' && address.key === undefined) {
+    throw new DocumentCommandRefusal(`record content field "${address.field}" requires a key`, 'supply the record key')
+  }
+  if (shape !== 'record' && address.key !== undefined) {
+    throw new DocumentCommandRefusal(`content field "${address.field}" takes no key`, 'remove the key')
+  }
+  return shape
+}
+
+function htmlValue(
+  context: DocumentCommandContext,
+  address: ReturnType<typeof contentAddress>,
+  source: string,
+  shape: FragmentShape,
+): { value: unknown; added: string[] } {
+  if (shape === 'text') throw new DocumentCommandRefusal(`content field "${address.field}" holds text, not HTML`, 'use value instead of html')
+  const prior = address.node[address.field]
+  if (shape === 'slideContent' && (typeof prior !== 'object' || prior === null || (prior as { kind?: unknown }).kind !== 'html')) {
+    throw new DocumentCommandRefusal(`content field "${address.field}" does not currently hold HTML`, 'use value to replace its schema-native content')
+  }
   const identified = htmlWithIds(context, source, {
     node: address.node.id,
     field: address.field,
     ...(address.key === undefined ? {} : { key: address.key }),
   })
-  const prior = address.node[address.field]
-  const shape =
-    address.node.type === 'page' && address.field === 'body'
-      ? 'pageBody'
-      : address.node.type === 'slide' && address.field === 'content'
-        ? 'slide'
-        : address.key
-          ? 'record'
-          : 'html'
-  if (shape === 'pageBody') return { value: { ...(prior as object), html: identified.html }, added: identified.added }
-  if (shape === 'slide') return { value: { ...(prior as object), kind: 'html', html: identified.html }, added: identified.added }
-  if (shape === 'record') return { value: { ...(prior as object), [address.key as string]: identified.html }, added: identified.added }
-  return { value: identified.html, added: identified.added }
+  return { value: writeFragment(shape, prior, identified.html, address.key), added: identified.added }
+}
+
+function nativeValue(
+  context: DocumentCommandContext,
+  address: ReturnType<typeof contentAddress>,
+  value: unknown,
+  shape: FragmentShape,
+): { value: unknown; added: string[] } {
+  if (shape !== 'record') return identifiedContentValue(context, address, value)
+  const identified = identifiedContentValue(context, address, { [address.key as string]: value })
+  const html = (identified.value as Record<string, unknown>)[address.key as string]
+  return { value: { ...(address.node[address.field] as object), [address.key as string]: html }, added: identified.added }
 }
 
 const setContent: Handler<'setContent'> = (context, command) => {
   const address = contentAddress(context, command.content)
+  const shape = addressedShape(address)
   const prior = address.node[address.field]
-  const next = command.html === undefined ? { value: command.value, added: [] } : htmlValue(context, address, command.html)
+  const next = command.html === undefined ? nativeValue(context, address, command.value, shape) : htmlValue(context, address, command.html, shape)
   const op: DocumentOp = {
     type: 'setContent',
     id: address.node.id,

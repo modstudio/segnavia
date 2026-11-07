@@ -1,4 +1,4 @@
-import { DocumentCollection } from '@segnavia/format'
+import { DocumentCollection, DocumentNodeInput } from '@segnavia/format'
 import { z } from 'zod'
 import { BLOCK_ELEMENTS } from './block-context.ts'
 
@@ -41,7 +41,7 @@ const SetContentCommand = z
   .refine((command) => (command.html === undefined) !== (command.value === undefined), 'setContent requires exactly one of html or value')
 
 export const DocumentCommand = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('add'), node: z.record(z.string(), z.unknown()), at: DocumentCommandLocation }),
+  z.object({ type: z.literal('add'), node: DocumentNodeInput, at: DocumentCommandLocation }),
   z.object({ type: z.literal('remove'), node: DocumentAddress }),
   z.object({ type: z.literal('move'), node: DocumentAddress, to: DocumentCommandLocation }),
   z.object({ type: z.literal('set'), node: DocumentAddress, fields: z.record(z.string(), z.unknown()) }),
@@ -58,5 +58,3 @@ export type DocumentCommand = z.infer<typeof DocumentCommand>
 export function documentCommandJsonSchema(): Record<string, unknown> {
   return z.toJSONSchema(DocumentCommand, { io: 'input' }) as Record<string, unknown>
 }
-
-export const DOCUMENT_COMMAND_BLOCK_KINDS = BLOCK_ELEMENTS

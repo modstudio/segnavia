@@ -63,9 +63,7 @@ export type { EditDocumentOptions } from './document-command-core.ts'
 export {
   type CommandContentAddress,
   DocumentAddress,
-  type DocumentAddress as DocumentAddressValue,
   DocumentCommand,
-  type DocumentCommand as DocumentCommandValue,
   DocumentCommandLocation,
   documentCommandJsonSchema,
 } from './document-commands.ts'

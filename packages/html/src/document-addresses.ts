@@ -1,7 +1,13 @@
-import { DOCUMENT_NODE_MODEL, type Document, type DocumentLocation, documentEntries, type OperationDocument } from '@segnavia/format'
+import {
+  DOCUMENT_NODE_MODEL,
+  type Document,
+  type DocumentEntry,
+  type DocumentLocation,
+  documentEntries,
+  type OperationDocument,
+  type OperationNode,
+} from '@segnavia/format'
 import type { DocumentAddress, DocumentCommandLocation } from './document-commands.ts'
-
-type OperationNode = Record<string, unknown> & { id: string; type: string; children?: OperationNode[] }
 
 export class DocumentCommandRefusal extends Error {
   constructor(
@@ -12,15 +18,9 @@ export class DocumentCommandRefusal extends Error {
   }
 }
 
-export interface ResolvedNode {
-  node: OperationNode
-  parent: DocumentLocation
-  index: number
-}
-
-export function resolveNode(document: Document, address: DocumentAddress): ResolvedNode {
+export function resolveNode(document: Document, address: DocumentAddress): DocumentEntry {
   if ('id' in address && address.id === document.id) {
-    return { node: document as unknown as OperationNode, parent: { kind: 'node', id: document.id }, index: 0 }
+    return { node: document as unknown as OperationNode, parent: { kind: 'node', id: document.id }, index: 0, depth: -1 }
   }
   const entries = documentEntries(document as unknown as OperationDocument)
   if ('id' in address) {
@@ -38,7 +38,7 @@ export function resolveNode(document: Document, address: DocumentAddress): Resol
       'address the node by id',
     )
   }
-  return matches[0] as ResolvedNode
+  return matches[0] as DocumentEntry
 }
 
 export function resolveLocation(document: Document, location: DocumentCommandLocation): { parent: DocumentLocation; index: number } {

@@ -31,7 +31,7 @@ test('refuses insert html that is not exactly one block element', () => {
 test('refuses a supplied block id already used in the document and names both places', () => {
   const document = page('<p data-segnavia-id="used">Known</p>')
   expect(() => insertBlock(document, { html: '<figure data-segnavia-id="used">New</figure>', position: { after: 'used' } })).toThrow(
-    /supplied data-segnavia-id "used" is already used by <p> in node .* and <figure> in the supplied html; change or remove one/,
+    /block id "used" is shared by <p> in node .* and <figure> in the supplied html; change or remove one/,
   )
 })
 

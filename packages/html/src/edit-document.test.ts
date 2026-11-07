@@ -1,8 +1,9 @@
 /** Regenerate the JSON golden with `bun --conditions=@segnavia/source scripts/update-edit-document-golden.ts --update-golden`. */
 import { describe, expect, test } from 'bun:test'
-import { applyOps, inverseBatch } from '@segnavia/format'
+import { applyOps, type Document, inverseBatch } from '@segnavia/format'
 import { describeDocument } from './describe-document.ts'
 import { parseDocument } from './document.ts'
+import { DOCUMENT_COMMAND_HANDLERS } from './document-command-handlers.ts'
 import { documentCommandJsonSchema } from './document-commands.ts'
 import { editDocumentBookFixture } from './edit-document.fixture.ts'
 import golden from './edit-document.golden.json' with { type: 'json' }
@@ -16,6 +17,13 @@ const page = () =>
     children: [{ type: 'page', id: 'page', body: { html: '<p data-segnavia-id="p">Body</p>' } }],
   })
 
+function expectComposes(input: Document, result: ReturnType<typeof editDocument>): asserts result is Extract<typeof result, { ok: true }> {
+  expect(result.ok).toBe(true)
+  if (!result.ok) throw new Error(result.refusal)
+  expect(applyOps(input, result.batch)).toEqual(result.document)
+  expect(applyOps(result.document, inverseBatch(result.batch, result.document))).toEqual(input)
+}
+
 describe('editDocument fixture', () => {
   test('matches the full agent-facing JSON golden and composes and inverts its batch', () => {
     const fixture = editDocumentBookFixture()
@@ -25,20 +33,137 @@ describe('editDocument fixture', () => {
   })
 
   test('publishes the command JSON Schema from html', () => {
-    expect(documentCommandJsonSchema()).toHaveProperty('oneOf')
+    const schema = documentCommandJsonSchema() as { oneOf: Array<{ properties: { type: { const: string } } }> }
+    expect(schema.oneOf.map((command) => command.properties.type.const).sort()).toEqual(Object.keys(DOCUMENT_COMMAND_HANDLERS).sort())
   })
 
-  test('bounds concise block text in Unicode code points and leaves full text intact', () => {
+  test('bounds concise block text without splitting a Hebrew grapheme and leaves full text intact', () => {
     const document = parseDocument({
       type: 'document',
       id: 'bounded',
       kind: 'page',
-      limits: { descriptionTextChars: 4 },
+      limits: { descriptionTextChars: 5 },
       children: [{ type: 'page', id: 'page', body: { html: '<p>בְּרֵאשִׁית</p>' } }],
     })
-    expect([...(describeDocument(document).blocks[0]?.text ?? '')]).toHaveLength(4)
-    expect(describeDocument(document).blocks[0]?.text.endsWith('…')).toBe(true)
+    expect(describeDocument(document).blocks[0]?.text).toBe('בְּ…')
     expect(describeDocument(document, { detail: 'full' }).blocks[0]?.text).toBe('בְּרֵאשִׁית')
+  })
+
+  test('applies the host concise-description ceiling', () => {
+    const document = parseDocument({
+      type: 'document',
+      id: 'bounded-host',
+      kind: 'page',
+      children: [{ type: 'page', id: 'page', body: { html: '<p>abcdef</p>' } }],
+    })
+    expect(describeDocument(document, { limits: { descriptionTextChars: 4 } }).blocks[0]?.text).toBe('abc…')
+  })
+})
+
+describe('editDocument command handlers', () => {
+  test('uses parseDocument alert labels when adding a markdown page body', () => {
+    const input = parseDocument({
+      type: 'document',
+      id: 'book',
+      kind: 'book',
+      metadata: { title: 'Book' },
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
+      children: [],
+    })
+    const result = editDocument(
+      input,
+      [
+        {
+          type: 'add',
+          node: {
+            type: 'section',
+            id: 'section',
+            children: [{ type: 'page', id: 'page', body: { markdown: '> [!NOTE]\n> Read.' } }],
+          },
+          at: { parent: { id: 'book' }, index: 0 },
+        },
+      ],
+      { alertLabels: { note: 'Custom note' }, newId: () => 'alert-block' },
+    )
+    expect(result.ok).toBe(true)
+    if (result.ok) expect(result.document.children[0]).toMatchObject({ children: [{ body: { html: expect.stringContaining('<bdi>Custom note</bdi>') } }] })
+  })
+
+  test('sets HTML content, mints its ids and composes and inverts', () => {
+    const input = page()
+    const result = editDocument(input, [{ type: 'setContent', content: { node: { id: 'page' }, field: 'body' }, html: '<p>New</p>' }], {
+      newId: () => 'new-html',
+    })
+    expectComposes(input, result)
+    expect(result.document.children[0]).toMatchObject({ body: { html: '<p data-segnavia-id="new-html">New</p>' } })
+    expect(result.added).toEqual({ 0: ['new-html'] })
+  })
+
+  test('sets a schema-native content value, mints its ids and composes and inverts', () => {
+    const input = page()
+    const result = editDocument(input, [{ type: 'setContent', content: { node: { id: 'page' }, field: 'body' }, value: { html: '<p>Native</p>' } }], {
+      newId: () => 'new-value',
+    })
+    expectComposes(input, result)
+    expect(result.document.children[0]).toMatchObject({ body: { html: '<p data-segnavia-id="new-value">Native</p>' } })
+    expect(result.added).toEqual({ 0: ['new-value'] })
+  })
+
+  test('moves a node and composes and inverts', () => {
+    const input = parseDocument({
+      type: 'document',
+      id: 'book',
+      kind: 'book',
+      metadata: { title: 'Book' },
+      mode: 'continuous',
+      children: [
+        {
+          type: 'part',
+          id: 'one',
+          name: 'One',
+          children: [{ type: 'section', id: 'section', title: 'Section', children: [{ type: 'flow', id: 'flow', html: '' }] }],
+        },
+        { type: 'part', id: 'two', name: 'Two', children: [] },
+      ],
+    })
+    const result = editDocument(input, [{ type: 'move', node: { id: 'section' }, to: { parent: { id: 'two' }, index: 0 } }])
+    expectComposes(input, result)
+    expect(result.document.children).toMatchObject([
+      { id: 'one', children: [] },
+      { id: 'two', children: [{ id: 'section' }] },
+    ])
+    expect(result.added).toEqual({ 0: [] })
+  })
+
+  test('removes a node and composes and inverts', () => {
+    const input = parseDocument({
+      type: 'document',
+      id: 'book',
+      kind: 'book',
+      metadata: { title: 'Book' },
+      mode: 'continuous',
+      children: [
+        {
+          type: 'part',
+          id: 'part',
+          name: 'Part',
+          children: [{ type: 'section', id: 'section', title: 'Section', children: [{ type: 'flow', id: 'flow', html: '' }] }],
+        },
+      ],
+    })
+    const result = editDocument(input, [{ type: 'remove', node: { id: 'section' } }])
+    expectComposes(input, result)
+    expect(result.document.children[0]).toMatchObject({ children: [] })
+    expect(result.added).toEqual({ 0: [] })
+  })
+
+  test('sets a block and composes and inverts', () => {
+    const input = page()
+    const result = editDocument(input, [{ type: 'setBlock', block: 'p', change: { text: 'Changed' } }])
+    expectComposes(input, result)
+    expect(result.document.children[0]).toMatchObject({ body: { html: '<p data-segnavia-id="p">Changed</p>' } })
+    expect(result.added).toEqual({ 0: [] })
   })
 })
 
@@ -92,6 +217,62 @@ describe('editDocument refusals', () => {
     if (!result.ok) expect(result.refusal).toContain('document command 0 (add) refused: document batch refused: the result is not a valid document')
   })
 
+  test('names a missing field on a malformed added node', () => {
+    const result = editDocument(page(), [{ type: 'add', node: { type: 'section', id: 'section' }, at: { parent: { id: 'page-doc' }, index: 1 } } as never])
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.refusal).toContain('node.children:')
+  })
+
+  test('refuses moving a node into its own subtree before building an op', () => {
+    const book = parseDocument({
+      type: 'document',
+      id: 'book',
+      kind: 'book',
+      metadata: { title: 'Book' },
+      mode: 'continuous',
+      children: [
+        {
+          type: 'part',
+          id: 'part',
+          name: 'Part',
+          children: [{ type: 'section', id: 'section', title: 'Section', children: [{ type: 'flow', id: 'flow', html: '' }] }],
+        },
+      ],
+    })
+    expect(editDocument(book, [{ type: 'move', node: { id: 'part' }, to: { parent: { id: 'section' }, index: 0 } }])).toEqual({
+      ok: false,
+      refusal: 'document command 0 (move) refused: node "part" cannot move into its own subtree; choose a location outside that node. Nothing was changed.',
+    })
+  })
+
+  test('refuses HTML for a text content field', () => {
+    const deck = parseDocument({
+      type: 'document',
+      id: 'deck',
+      kind: 'deck',
+      title: 'Deck',
+      children: [{ type: 'slide', id: 'slide', content: { kind: 'html', html: '<p>Body</p>' }, notes: 'plain' }],
+    })
+    expect(editDocument(deck, [{ type: 'setContent', content: { node: { id: 'slide' }, field: 'notes' }, html: '<p>Not text</p>' }])).toEqual({
+      ok: false,
+      refusal: 'document command 0 (setContent) refused: content field "notes" holds text, not HTML; use value instead of html. Nothing was changed.',
+    })
+  })
+
+  test('requires a key for a record content field', () => {
+    expect(editDocument(page(), [{ type: 'setContent', content: { node: { id: 'page' }, field: 'regions' }, html: '<p>Region</p>' }])).toEqual({
+      ok: false,
+      refusal: 'document command 0 (setContent) refused: record content field "regions" requires a key; supply the record key. Nothing was changed.',
+    })
+  })
+
+  test('refuses a key on a non-record content field', () => {
+    expect(editDocument(page(), [{ type: 'setContent', content: { node: { id: 'page' }, field: 'body', key: 'main' }, html: '<p>Body</p>' }])).toEqual({
+      ok: false,
+      refusal: 'document command 0 (setContent) refused: content field "body" takes no key; remove the key. Nothing was changed.',
+    })
+  })
+
   test('carries through a block refusal with its command index', () => {
     expect(editDocument(page(), [{ type: 'removeBlock', block: 'missing' }])).toEqual({
       ok: false,
@@ -139,7 +320,7 @@ test('seeded command sequences apply and invert across small books and decks', (
         random() < 0.25
           ? ([{ type: 'remove', node: { id: 'unknown' } }] as const)
           : deck
-            ? ([{ type: 'set', node: { id: 'slide' }, fields: { duration: Math.floor(random() * 20) } }] as const)
+            ? ([{ type: 'set', node: { id: 'slide' }, fields: { holdMs: Math.floor(random() * 20) } }] as const)
             : ([{ type: 'set', node: { id: 'section-one' }, fields: { title: `Title ${index}` } }] as const)
       const result = editDocument(input, commands)
       if (!result.ok) {
