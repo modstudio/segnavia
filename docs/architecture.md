@@ -711,7 +711,7 @@ The authoring reorder handler receives slide identity and old and new indexes. O
 
 Board sections default to auto layout. Their optional `cells` place each member on explicit zero-based row and column tracks; auto tracks take their largest member, empty tracks collapse, and board direction chooses the physical start side for columns. A manual section preserves its members' free positions. Attaching board editing settles every section and measures every unsized label once, as one `settle` edit when either geometry or a stored label size changes. Auto-section edge and gap drops update cell placement, removal closes the member's row gap, resize relays on release, keyboard nudges are ignored, and a `drop-marker` previews placement without live reflow.
 
-`BoardOp` is the board's pure row-level change model. Entity adds and removes carry their preceding array id, property sets carry only changed `from` and `to` fields, `board-set` changes the board's own title and direction, section membership is one anchored `member-set` per item, and cells are replaced as one list because layout rewrites the grid. `applyBoardOps` refuses stale prior values and invalid results, `diffBoards` deterministically preserves meaningful array order, and `invertOps` validates then reverses a change. The values are plain JSON so a host can store, merge, and undo them without changing the shape of `Board` or giving persistence to the library.
+`BoardOp` is the board's pure row-level change model. Entity adds and removes carry their preceding array id, property sets carry only changed `from` and `to` fields, `board-set` changes the board's own title and direction, section membership is one anchored `member-set` per item, and cells are replaced as one list because layout rewrites the grid. `applyBoardOps` refuses stale prior values and invalid results, `diffBoards` deterministically preserves meaningful array order, and `invertBoardOps` validates then reverses a change. The values are plain JSON so a host can store, merge, and undo them without changing the shape of `Board` or giving persistence to the library.
 
 `BoardCommand` is a discriminated union of per-verb objects that further board verbs extend. Item placement targets a section with optional ordering anchors, a position beside an entity, free space, or a point; logical sides and resize anchors resolve through the board's direction. `item-add` finds its shape first in `options.facts[address]`, then from an existing item at the same address. Section, label and board verbs (`section-add`, `section-remove`, `section-set`, `label-add`, `label-remove`, `label-set`, `board-set`) place a section or label with a `PlacementTarget` (beside an entity, free space, or a point); with no target, a new section anchors at its members' top-start corner and a new label or empty section goes to the first free spot past the content. A label's size comes from the host's `options.measureLabel` when given, else from an estimate. `editBoard` applies a command batch atomically and names the command index, what could not be established, and what clears the refusal when no result can be produced. A successful result reports `changed` entities whose boxes differ, `adjustments` for decisions the caller did not state, and `ops` as the pure diff from the original board to the result.
 
@@ -1662,12 +1662,27 @@ a stale plan refuses and names the first page that no longer matches. `Report`
 records bounded overflow, fit, font, count and progress facts. Strict mode
 turns report entries into refusals.
 
-`DocumentOp` generalizes the board operation model. Each operation carries the
-prior value that it replaces, and an atomic batch carries its base document
-fingerprint. Applying a stale batch refuses and names what changed. Operations
-insert, remove and move nodes, set structural fields, replace content or one
-block, and set style keys. `invertOps` supplies undo, while `diffDocuments`
-produces operations between two documents. `editDocument` compiles
+`DocumentOp` generalizes the board operation model. Nodes are addressed by id;
+definition nodes use a discriminated collection location rather than special
+cases for parent pages, templates, note series, variables, or conditions.
+Set operations carry their prior values and explicit lists for absent keys, so
+every operation survives a JSON round trip. A `DocumentBatch` holds the
+operations and a base from `fingerprintDocument`, an `fnv1a64:` fingerprint of
+the parsed document's canonical, key-sorted JSON. The hash detects staleness;
+it is not a security control.
+
+`applyOps` applies a batch to a copy, validates the final value through
+`Document.parse`, and returns it only when parsing neither mints an id nor
+changes a field. Any refusal names the operation index and leaves the input
+untouched. A stale base lists prior-value mismatches by node and field; when all
+priors still match, it reports that the document changed outside the batch's
+targets and gives both fingerprints. In either case the caller clears the
+refusal by rebuilding the batch against the current document. Operations
+insert, remove and move nodes, set structural fields, replace a schema-native
+content field as an opaque value, and set style keys. `invertOps` supplies undo,
+`inverseBatch` binds that inverse to the after-document fingerprint, and
+`diffDocuments` produces operations between two parsed documents.
+`editDocument` compiles
 agent-facing commands addressed by id or name. `describeDocument` exposes the
 structure, effective styles, plan and report as plain values without requiring
 a browser. Boards use the same operations, including section and label edits

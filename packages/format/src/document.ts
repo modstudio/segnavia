@@ -21,7 +21,7 @@ const DocumentSettings = z.object({ scripts: Scripts.optional(), dir: DeckShape.
 const DocumentStyle = z.object({ css: z.string().optional(), fonts: z.array(FontReference).optional(), motifs: z.array(Motif).optional() })
 const DocumentData = z.object({ slots: Slots.optional() })
 
-const DocumentShape = z.object({
+export const DocumentShape = z.object({
   type: z.literal('document'),
   id: z.string().optional(),
   kind: z.enum(['deck', 'page', 'printed', 'book', 'board']),
@@ -59,7 +59,7 @@ const DocumentShape = z.object({
   conditions: z.array(ConditionNode).default([]),
 })
 
-const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const
+export const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const
 const structuralFields = new Set(['type', 'id', 'kind', 'children', ...definitionCollections])
 
 function refineSettings(document: z.infer<typeof DocumentShape>, profile: (typeof DOCUMENT_PROFILES)[DocumentKind], ctx: z.RefinementCtx): void {
