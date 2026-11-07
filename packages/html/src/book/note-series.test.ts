@@ -176,12 +176,7 @@ describe('note series document', () => {
         }),
       ),
     )
-    expect(result.sections.map(({ id }) => id)).toEqual([
-      'section-1',
-      'segnavia-endnotes-section-1',
-      'section-2',
-      'segnavia-endnotes-section-2',
-    ])
+    expect(result.sections.map(({ id }) => id)).toEqual(['section-1', 'segnavia-endnotes-section-1', 'section-2', 'segnavia-endnotes-section-2'])
   })
 
   test('places front-matter chapter endnotes at book end', () => {

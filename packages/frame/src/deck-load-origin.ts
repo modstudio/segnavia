@@ -33,19 +33,32 @@ export function preserveNotesForLoad(load: Promise<void>, slideId: string) {
   origins.preservedByLoad.set(load, slides)
 }
 
+function authoredHtmlBySlide(input: unknown): Map<string, string> {
+  const raw = new Map<string, string>()
+  if (typeof input !== 'object' || input === null || !('children' in input) || !Array.isArray(input.children)) return raw
+  for (const node of input.children) {
+    if (typeof node !== 'object' || node === null || !('id' in node) || typeof node.id !== 'string' || !('content' in node)) continue
+    const content = node.content
+    if (
+      typeof content === 'object' &&
+      content !== null &&
+      'kind' in content &&
+      content.kind === 'html' &&
+      'html' in content &&
+      typeof content.html === 'string'
+    ) {
+      raw.set(node.id, content.html)
+    }
+  }
+  return raw
+}
+
 export function parseDeckLoad(input: unknown, load?: Promise<void>, internal = false): Deck {
   const deck = internal ? Deck.parse(input) : deckFromDocument(parseDocument(input))
   const origins = registry()
   if (internal) origins.internalDecks.add(deck)
-  if (!internal && typeof input === 'object' && input !== null && 'children' in input && Array.isArray(input.children)) {
-    const raw = new Map<string, string>()
-    for (const node of input.children) {
-      if (typeof node !== 'object' || node === null || !('id' in node) || typeof node.id !== 'string' || !('content' in node)) continue
-      const content = node.content
-      if (typeof content === 'object' && content !== null && 'kind' in content && content.kind === 'html' && 'html' in content && typeof content.html === 'string') {
-        raw.set(node.id, content.html)
-      }
-    }
+  if (!internal) {
+    const raw = authoredHtmlBySlide(input)
     for (const slide of deck.slides) {
       const html = raw.get(slide.id)
       if (html !== undefined && 'kind' in slide.content && slide.content.kind === 'html') origins.authoredHtml.set(slide.content, html)

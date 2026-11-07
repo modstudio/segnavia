@@ -6,7 +6,10 @@ describe('bookSections', () => {
     const book = Book.parse({
       title: 'Book',
       mode: 'continuous',
-      frontMatter: [{ id: 'preface', title: 'Preface', html: '<p>Front</p>' }, { id: 'contents', kind: 'contents' }],
+      frontMatter: [
+        { id: 'preface', title: 'Preface', html: '<p>Front</p>' },
+        { id: 'contents', kind: 'contents' },
+      ],
       chapters: [{ id: 'one', title: 'One', html: '<p>Body</p>' }],
     })
 

@@ -1,4 +1,4 @@
-import { Book, type BookItem, type BookSectionParents, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
+import { Book, BookItem, type BookSectionParents, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
 import { findActiveContent } from '@segnavia/html'
 import { anchoredFrameStyle } from './anchored-frames.ts'
 import { chapterOpenings } from './chapter-openings.ts'
@@ -58,23 +58,25 @@ interface ImportedChapter {
 
 function partBody(chapters: ImportedChapter[], conversion: IdmlConversion): BookItem[] {
   const marker = conversion.answers.parts
-  if ('none' in marker) return chapters.map(plainChapter)
+  if ('none' in marker) return chapters.map((chapter) => BookItem.parse(plainChapter(chapter)))
   const byStory = new Map(chapters.map((chapter) => [chapter.story, chapter]))
-  const body: BookItem[] = conversion.parts.leadingStories.flatMap((story) => byStory.get(story) ?? []).map(plainChapter)
+  const body: BookItem[] = conversion.parts.leadingStories.flatMap((story) => byStory.get(story) ?? []).map((chapter) => BookItem.parse(plainChapter(chapter)))
   for (const [index, part] of conversion.parts.parts.entries()) {
     const runChapters = part.stories.flatMap((story) => byStory.get(story) ?? [])
     const openerStories = new Set(part.openerStories)
     const chapterStories = new Set(part.chapterStories)
     const opener = runChapters.filter((chapter) => openerStories.has(chapter.story))
-    const children = runChapters.filter((chapter) => chapterStories.has(chapter.story)).map(plainChapter)
-    body.push({
-      name: `part-${index + 1}`,
-      contents: true,
-      ...(part.title ? { title: part.title } : {}),
-      ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
-      ...(opener[0]?.parents ? { parents: opener[0].parents } : {}),
-      children,
-    })
+    const children = runChapters.filter((chapter) => chapterStories.has(chapter.story)).map((chapter) => BookItem.parse(plainChapter(chapter)))
+    body.push(
+      BookItem.parse({
+        name: `part-${index + 1}`,
+        contents: true,
+        ...(part.title ? { title: part.title } : {}),
+        ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
+        ...(opener[0]?.parents ? { parents: opener[0].parents } : {}),
+        children,
+      }),
+    )
   }
   return body
 }
@@ -149,7 +151,7 @@ export function modelToBook(
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()
-  const body = conversion ? partBody(chapters, conversion) : chapters.map(plainChapter)
+  const body = conversion ? partBody(chapters, conversion) : chapters.map((chapter) => BookItem.parse(plainChapter(chapter)))
   return Book.parse({
     title: model.id,
     mode: 'paginated',

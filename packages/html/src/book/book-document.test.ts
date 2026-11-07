@@ -107,7 +107,9 @@ describe('book document', () => {
     expect(result.issues).toEqual(['footnote and endnote markers are both arabic; the two must differ when both kinds are used'])
   })
   test('reports duplicate listed heading ids and collisions with generated ids by section', () => {
-    const repeated = bookDocument(parseBookFixture(input({ chapters: [chapter('One', '<h2 id="topic">First</h2>'), chapter('Two', '<h2 id="topic">Second</h2>')] })))
+    const repeated = bookDocument(
+      parseBookFixture(input({ chapters: [chapter('One', '<h2 id="topic">First</h2>'), chapter('Two', '<h2 id="topic">Second</h2>')] })),
+    )
     expect(repeated.issues).toEqual([
       'destination id topic is used in both One (section-1) and Two (section-2); listed heading and generated destination ids must be unique',
     ])

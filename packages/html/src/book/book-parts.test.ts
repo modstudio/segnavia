@@ -45,7 +45,9 @@ test('every heading in a designed section inside a part carries the part depth',
     title: 'Parts',
     mode: 'paginated',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-    body: [{ name: 'part', title: 'Part', children: [{ kind: 'designed', title: 'Plate', pages: [{ html: '<h2 data-segnavia-id="detail-heading">Detail</h2>' }] }] }],
+    body: [
+      { name: 'part', title: 'Part', children: [{ kind: 'designed', title: 'Plate', pages: [{ html: '<h2 data-segnavia-id="detail-heading">Detail</h2>' }] }] },
+    ],
   })
   expect(bookDocument(book).headings).toEqual([
     { id: 'section-2', level: 1, depth: 0, text: 'Part', sectionId: 'section-2' },

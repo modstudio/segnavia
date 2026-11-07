@@ -26,7 +26,6 @@ import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.
 import { inspectPaginatedMargins } from './paginated-margins.ts'
 import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
-
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book.html'))
@@ -43,7 +42,6 @@ export async function verifyBooks(h: Harness) {
     continuousBookStyle.color === 'rgb(91, 42, 123)' && continuousBookStyle.size === '23px',
     JSON.stringify(continuousBookStyle),
   )
-
   const geometry = await page.evaluate(() => ({
     heights: ['book-en', 'book-he'].map((id) => document.getElementById(id)?.getBoundingClientRect().height),
     hostScroll: scrollY,
@@ -55,7 +53,6 @@ export async function verifyBooks(h: Harness) {
     geometry.heights.every((height) => height === 400) && geometry.hostScroll === 0 && geometry.hostHeight === geometry.viewport,
     JSON.stringify(geometry),
   )
-
   for (const id of ['book-en', 'book-he'] as const) {
     const frame = `#${id}`
     await verifyContinuousBookMotif(h, id)
@@ -78,7 +75,6 @@ export async function verifyBooks(h: Harness) {
     check(`${id} continuous page reference has no number`, (await pageRef.textContent()) === '')
     await pageRef.evaluate((element: HTMLAnchorElement) => element.click())
     check(`${id} continuous page reference remains a working link`, await inBookView(h, frame, '#far-shore'))
-
     await clickBookAnchor(h, frame, '#segnavia-fnref-1-1')
     check(`${id} footnote marker brings its note into view`, await inBookView(h, frame, '#segnavia-fn-1-1'))
     await clickBookAnchor(h, frame, '#segnavia-fn-1-1 a')
@@ -310,7 +306,6 @@ async function checkOversizeBooks(h: Harness) {
   }
   await page.goto(h.url('book-paginated.html'))
 }
-
 async function verifyWorkbooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-workbook.html'))
@@ -367,7 +362,6 @@ async function verifyWorkbooks(h: Harness) {
     const expectedSchool = id === 'book-workbook-he' ? 'בית ספר הירדן' : 'Jordan School'
     check(`${id} host school name shows on the copyright page`, report.school.includes(expectedSchool), expectedSchool)
     check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
-
     const fit = await frame.evaluate(() => {
       const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
       if (!el) return { size: 0, overflow: 'missing', elements: -1 }
@@ -384,7 +378,6 @@ async function verifyWorkbooks(h: Harness) {
       fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow,
       JSON.stringify(fit),
     )
-
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {
       const target = document.getElementById('lesson-1')

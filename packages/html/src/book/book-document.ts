@@ -56,7 +56,14 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
   const runningHead = chapter.runningHead ?? chapter.title
   return {
     info: { id, kind: 'chapter', division, title: chapter.title, runningHead },
-    node: sectionNode('chapter', id, document.children, build, runningHead, flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index) })),
+    node: sectionNode(
+      'chapter',
+      id,
+      document.children,
+      build,
+      runningHead,
+      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index) }),
+    ),
   }
 }
 

@@ -101,7 +101,7 @@ describe('book', () => {
     const [contents] = Book.parse(input({ frontMatter: [{ id: 'contents-section', kind: 'contents', title: 'On this page' }] })).frontMatter
     expect(contents).toEqual({ id: 'contents-section', kind: 'contents', title: 'On this page' })
     expect(contents && isBookContents(contents)).toBe(true)
-    expect(isBookContents({ html: '<p>Preface</p>', contents: true })).toBe(false)
+    expect(isBookContents({ id: 'preface', html: '<p>Preface</p>', contents: true })).toBe(false)
     const result = Book.safeParse(input({ frontMatter: [{ kind: 'contents' }, { html: '<p>Foreword</p>' }, { kind: 'contents' }] }))
     expect(result.error?.issues[0]).toMatchObject({ path: ['frontMatter'] })
     expect(result.error?.issues[0]?.message).toContain('frontMatter.0 and frontMatter.2')

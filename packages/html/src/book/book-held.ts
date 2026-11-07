@@ -79,12 +79,7 @@ function flowPage(page: number, kind: 'designed' | 'templated', children: ChildN
   ])
 }
 
-export function collectHeadings(
-  children: ChildNode[],
-  sectionId: string,
-  depth: number,
-  firstLevel: number,
-): BookHeading[] {
+export function collectHeadings(children: ChildNode[], sectionId: string, depth: number, firstLevel: number): BookHeading[] {
   return elements(children).flatMap((heading): BookHeading[] => {
     const match = /^h([1-6])$/.exec(heading.name)
     if (!match || heading.attribs['data-contents'] === 'exclude') return []

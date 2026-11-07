@@ -33,7 +33,11 @@ describe('book flow', () => {
       templates: [{ name: 'lesson', html: '<header data-region="heading"></header><main data-region="reading"></main>' }],
       chapters: [
         { kind: 'designed', opens: 'verso', pages: [{ html: '<h1>Artwork</h1>' }, { html: '<p>Back</p>' }] },
-        { kind: 'templated', template: 'lesson', pages: [{ regions: { heading: '<h1 data-segnavia-id="lesson-heading">Lesson</h1>', reading: '<p>Words</p>' } }] },
+        {
+          kind: 'templated',
+          template: 'lesson',
+          pages: [{ regions: { heading: '<h1 data-segnavia-id="lesson-heading">Lesson</h1>', reading: '<p>Words</p>' } }],
+        },
         { title: 'One', html: '<style>.opening{font-weight:bold}</style><p data-columns="2">A<span data-note="footnote">note</span></p><p>After</p>' },
       ],
     })

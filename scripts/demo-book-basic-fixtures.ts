@@ -23,7 +23,12 @@ export const basicBookFixture = (hebrew: boolean): DocumentInput => ({
       type: 'division',
       name: 'front',
       children: [
-        section('segnavia-front-1', hebrew ? 'שער' : 'Title page', `<h1>${hebrew ? 'ספר ההפלגה' : 'The Book of Tides'}</h1><p data-motif="${BOOK_MOTIF_KEY}"></p>`, false),
+        section(
+          'segnavia-front-1',
+          hebrew ? 'שער' : 'Title page',
+          `<h1>${hebrew ? 'ספר ההפלגה' : 'The Book of Tides'}</h1><p data-motif="${BOOK_MOTIF_KEY}"></p>`,
+          false,
+        ),
         { type: 'contents', id: 'segnavia-contents', title: hebrew ? 'תוכן' : 'Contents' },
       ],
     },
@@ -60,6 +65,10 @@ export const composeFailureFixture = (): DocumentInput => ({
   page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
   rectoOpenings: true,
   children: [
-    { type: 'division', name: 'body', children: Array.from({ length: 251 }, (_, index) => section(`compose-${index + 1}`, `Chapter ${index + 1}`, `<p>Chapter ${index + 1}</p>`)) },
+    {
+      type: 'division',
+      name: 'body',
+      children: Array.from({ length: 251 }, (_, index) => section(`compose-${index + 1}`, `Chapter ${index + 1}`, `<p>Chapter ${index + 1}</p>`)),
+    },
   ],
 })

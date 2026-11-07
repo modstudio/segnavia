@@ -59,10 +59,13 @@ test('a host deck load refuses another document kind and names the accepted kind
 
 test('frame comparison uses authored HTML while loaded frames keep minted block ids', () => {
   const host = documentInput()
-  host.children[0].content.html = '<h1>Same</h1>'
+  const firstChild = host.children[0]
+  if (!firstChild) throw new Error('the fixture needs a slide')
+  firstChild.content.html = '<h1>Same</h1>'
   const first = parseDeckLoad(host).slides[0]?.content
   const second = parseDeckLoad(host).slides[0]?.content
-  if (!first || !second || !('kind' in first) || first.kind !== 'html' || !('kind' in second) || second.kind !== 'html') throw new Error('the fixture needs HTML slides')
+  if (!first || !second || !('kind' in first) || first.kind !== 'html' || !('kind' in second) || second.kind !== 'html')
+    throw new Error('the fixture needs HTML slides')
 
   expect(first.html).toContain('data-segnavia-id')
   expect(first.html).not.toBe(second.html)

@@ -10,10 +10,13 @@ function identify(entry: unknown, newId: () => string): unknown {
   return { ...value, id, ...(children === undefined ? {} : { children }) }
 }
 
-export function parseBookFixture(input: unknown, newId: () => string = (() => {
-  let id = 0
-  return () => `section-${++id}`
-})()): BookValue {
+export function parseBookFixture(
+  input: unknown,
+  newId: () => string = (() => {
+    let id = 0
+    return () => `section-${++id}`
+  })(),
+): BookValue {
   const value = input as Input
   const identified = { ...value }
   for (const key of ['frontMatter', 'body', 'chapters', 'endMatter']) {

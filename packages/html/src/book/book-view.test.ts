@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES } from '@segnavia/format'
-import { bookView } from './book-view.ts'
 import { parseBookFixture } from './book-test-fixture.ts'
+import { bookView } from './book-view.ts'
 
 const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
 const input = (overrides: Record<string, unknown> = {}) => ({

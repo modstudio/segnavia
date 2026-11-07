@@ -11,7 +11,9 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
     const labels = partBookLabels(hebrew)
     let minted = 0
     const parsed = Document.parse(partsFixture(hebrew), { newId: () => `fixture-${++minted}` })
-    const nodes = parsed.children.flatMap((node) => ('children' in node ? [node, ...node.children.flatMap((child) => ('children' in child ? [child, ...child.children] : [child]))] : [node]))
+    const nodes = parsed.children.flatMap((node) =>
+      'children' in node ? [node, ...node.children.flatMap((child) => ('children' in child ? [child, ...child.children] : [child]))] : [node],
+    )
     const idFor = (title: string) => nodes.find((node) => 'title' in node && node.title === title)?.id
     const openingPartId = idFor(labels.openingPart)
     const chapterIds = [labels.chapterOne, labels.chapterTwo, labels.chapterThree].map(idFor)

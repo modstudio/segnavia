@@ -17,7 +17,6 @@ import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
-
 export const fixtureIds = () => {
   let id = 0
   return () => `fixture-${++id}`
@@ -29,7 +28,6 @@ const flowSection = (title: string, html: string, fields: Record<string, unknown
   ...fields,
   children: [{ type: 'flow' as const, html }],
 })
-
 const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
   const words = hebrew
     ? 'בראשית ברא אלהים את השמים ואת הארץ והארץ היתה תהו ובהו '
@@ -138,7 +136,10 @@ const paginatedFixture = (hebrew: boolean): DocumentInput => ({
       name: 'body',
       children: [
         { ...designedSpread(hebrew), id: 'segnavia-designed-1' },
-        flowSection(hebrew ? 'פרק ראשון' : 'Chapter One', chapterOneHtml(hebrew, undefined, true, 'segnavia-chapter-3'), { id: 'segnavia-chapter-1', parents: { ...markParents, opener: 'deep-opener' } }),
+        flowSection(hebrew ? 'פרק ראשון' : 'Chapter One', chapterOneHtml(hebrew, undefined, true, 'segnavia-chapter-3'), {
+          id: 'segnavia-chapter-1',
+          parents: { ...markParents, opener: 'deep-opener' },
+        }),
         { ...designedLeaf(hebrew), id: 'segnavia-designed-2' },
         flowSection(hebrew ? 'פרק שני' : 'Chapter Two', chapterTwoHtml(hebrew), {
           id: 'segnavia-chapter-2',
