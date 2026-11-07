@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { definitionCollections } from './document.ts'
 import { DocumentNode } from './document-nodes.ts'
+import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 
 export const DocumentCollection = z.enum(definitionCollections)
 export type DocumentCollection = z.infer<typeof DocumentCollection>
@@ -19,10 +20,11 @@ const SetChange = {
   priorAbsent: z.array(z.string()),
 }
 const ContentTarget = { type: z.literal('setContent'), id: z.string().min(1), field: z.string().min(1) }
+const OperableNode = z.union([DocumentNode, ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, ConditionNode])
 
 export const DocumentOp = z.union([
-  z.object({ type: z.literal('insert'), parent: DocumentLocation, index: z.number().int().nonnegative(), node: DocumentNode }),
-  z.object({ type: z.literal('remove'), id: z.string().min(1), prior: DocumentNode, parent: DocumentLocation, index: z.number().int().nonnegative() }),
+  z.object({ type: z.literal('insert'), parent: DocumentLocation, index: z.number().int().nonnegative(), node: OperableNode }),
+  z.object({ type: z.literal('remove'), id: z.string().min(1), prior: OperableNode, parent: DocumentLocation, index: z.number().int().nonnegative() }),
   z.object({
     type: z.literal('move'),
     id: z.string().min(1),

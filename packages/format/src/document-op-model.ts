@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import { DocumentShape, definitionCollections } from './document.ts'
-import type { DocumentNode } from './document-nodes.ts'
+import { DivisionNodeFields, type DocumentNode, PartNodeFields, SectionNodeFields } from './document-nodes.ts'
 import { ConditionNode, ContentsNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, RecordNode, SlideNode } from './document-nodes-common.ts'
 
@@ -25,18 +25,15 @@ const model = (
   return { fields, content: new Set(content), children: options.children ?? false, collection: options.collection }
 }
 
-// Recursive node schemas cannot expose keyof through z.lazy. Their field names
-// are checked by Document.parse after every atomic batch; this table is the one
-// model used by apply and diff rather than branches in either algorithm.
 export const DOCUMENT_NODE_MODEL: Readonly<Record<NodeType, NodeModel>> = {
-  division: { fields: new Set(['type', 'id', 'name', 'settings', 'children']), content: new Set(), children: true },
+  division: { fields: new Set(Object.keys(DivisionNodeFields)), content: new Set(), children: true },
   part: {
-    fields: new Set(['type', 'id', 'name', 'title', 'html', 'contents', 'opens', 'parents', 'runningHead', 'children']),
+    fields: new Set(Object.keys(PartNodeFields)),
     content: new Set(['html']),
     children: true,
   },
   section: {
-    fields: new Set(['type', 'id', 'title', 'contents', 'opens', 'numbering', 'parents', 'headTemplate', 'pageGeometry', 'template', 'children']),
+    fields: new Set(Object.keys(SectionNodeFields)),
     content: new Set(),
     children: true,
   },

@@ -74,10 +74,17 @@ function checkedChange(op: Extract<DocumentOp, { type: 'setFields' | 'setStyle' 
   return next
 }
 
-function checkPrior(target: Held, op: Extract<DocumentOp, { type: 'setFields' | 'setStyle' }>, fields: readonly string[], index: number): void {
+function checkPrior(
+  target: Held,
+  targetId: string,
+  op: Extract<DocumentOp, { type: 'setFields' | 'setStyle' }>,
+  fields: readonly string[],
+  index: number,
+): void {
   for (const field of fields) {
     const expected = op.priorAbsent.includes(field) ? undefined : op.prior[field]
-    if (!sameValue(target[field], expected)) refuse(index, op, `field "${field}" expected ${shown(expected)} but found ${shown(target[field])}`)
+    if (!sameValue(target[field], expected))
+      refuse(index, op, `node "${targetId}" field "${field}" expected ${shown(expected)} but found ${shown(target[field])}`)
   }
 }
 
@@ -101,7 +108,7 @@ function applyInsert(document: HeldDocument, op: Extract<DocumentOp, { type: 'in
 function applyStyle(document: HeldDocument, op: Extract<DocumentOp, { type: 'setStyle' }>, index: number): void {
   const target = document.style ?? {}
   const fields = checkedChange(op, DOCUMENT_STYLE_FIELDS, index)
-  checkPrior(target, op, fields, index)
+  checkPrior(target, document.id, op, fields, index)
   applyChange(target, op, fields)
   if (Object.keys(target).length === 0) delete document.style
   else document.style = target
@@ -110,7 +117,7 @@ function applyStyle(document: HeldDocument, op: Extract<DocumentOp, { type: 'set
 function applyRoot(document: HeldDocument, op: Exclude<DocumentOp, { type: 'insert' | 'setStyle' }>, index: number): void {
   if (op.type !== 'setFields' || op.id !== document.id) refuse(index, op, `node "${op.id}" is missing`)
   const fields = checkedChange(op, DOCUMENT_ROOT_FIELDS, index)
-  checkPrior(document, op, fields, index)
+  checkPrior(document, document.id, op, fields, index)
   applyChange(document, op, fields)
 }
 
@@ -143,7 +150,7 @@ function applyNodeSet(op: Extract<DocumentOp, { type: 'setFields' | 'setContent'
   }
   const allowed = new Set([...model.fields].filter((field) => !['type', 'id', 'children'].includes(field) && !model.content.has(field)))
   const fields = checkedChange(op, allowed, index)
-  checkPrior(found.node, op, fields, index)
+  checkPrior(found.node, found.node.id, op, fields, index)
   applyChange(found.node, op, fields)
 }
 
@@ -194,7 +201,15 @@ export function applyOps(document: DocumentValue, input: DocumentBatch): Documen
   batch.ops.forEach((op, index) => {
     applyOne(working, op, index)
   })
-  const parsed = Document.parse(working)
-  if (!sameValue(parsed, working)) throw new Error(`document op list refused: parsing the result would mint ids or change fields; ${clearance}`)
+  const last = Math.max(0, batch.ops.length - 1)
+  let parsed: DocumentValue
+  try {
+    parsed = Document.parse(working)
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new Error(`document op ${last} (${batch.ops[last]?.type ?? 'batch'}) refused: the result is not a valid document (${reason}); ${clearance}`)
+  }
+  if (!sameValue(parsed, working))
+    throw new Error(`document op ${last} (${batch.ops[last]?.type ?? 'batch'}) refused: parsing the result would mint ids or change fields; ${clearance}`)
   return parsed
 }
