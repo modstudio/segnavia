@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Deck, Document, type Media, Page } from '@segnavia/format'
+import { Deck, Document, type DocumentInput, type Media } from '@segnavia/format'
 import { placementPlaceholderSource } from '@segnavia/html'
 import { boardItemFrom } from './board-resolutions.ts'
 import { DeckController } from './controller.ts'
@@ -41,10 +41,9 @@ test('boardItemFrom maps fixed pages, refuses fluid pages, and passes through ot
     settings: { scripts: 'refuse' },
     children: [{ type: 'page', body: { html: '<p>Fixed</p>' } }],
   })
-  const fixed = Page.parse({ html: '<p>Fixed</p>', size: { width: 320, height: 200 } })
-  const fluid = Page.parse({ html: '<p>Fluid</p>' })
+  const fluid = { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '<p>Fluid</p>' } }] } satisfies DocumentInput
   const boardPage = { id: 'page', kind: 'page' as const, address: 'page', x: 0, y: 0, width: 120 }
-  await expect(boardItemFrom(async () => ({ kind: 'page', page: fixed }))(boardPage)).resolves.toEqual({
+  await expect(boardItemFrom(async () => ({ kind: 'page', page: fixedDocument }))(boardPage)).resolves.toEqual({
     kind: 'page',
     page: fixedDocument,
     size: { width: 320, height: 200 },
@@ -88,7 +87,13 @@ test('deck media content resolves through placements as existing image content',
 test('deck media reports each unusable resolver answer and keeps the placeholder', async () => {
   const cases = [
     { reason: 'missing', resolve: async () => undefined },
-    { reason: 'invalid', resolve: async () => ({ kind: 'page' as const, page: Page.parse({ html: '<p>Page</p>' }) }) },
+    {
+      reason: 'invalid',
+      resolve: async () => ({
+        kind: 'page' as const,
+        page: { type: 'document' as const, kind: 'page' as const, children: [{ type: 'page' as const, body: { html: '<p>Page</p>' } }] },
+      }),
+    },
     { reason: 'refused-src', resolve: async () => ({ kind: 'media' as const, media, src: 'https://example.com/image.png' }) },
     {
       reason: 'failed',

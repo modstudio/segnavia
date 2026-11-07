@@ -147,6 +147,11 @@ document once, refuses a kind it does not accept, and lowers the parsed value to
 the pipeline's internal value. `jsonSchemas().document` is the host schema;
 the former book, page, deck and board schemas are no longer published.
 
+Element properties that take a `Document` return the parsed `Document` that the
+host set. Lowered values stay private. Frame's symbol-named load methods are the
+in-library path for passing lowered values between elements; they are not a
+host contract.
+
 The common root fields are `type: 'document'`, `kind`, optional `id`, `metadata`,
 `title`, `limits`, `settings`, `style`, `data`, `children`, and the named
 definition collections. A node has a `type` and optional `id`. The profile for
@@ -253,7 +258,12 @@ putting those values directly in the options.
 | resolved deck item's `deck` payload | a deck `Document` |
 | resolved page item's `page` payload | a page `Document` |
 | resolved paper item's `pages[]` payload | page or printed `Document` values |
+| placement resolver `{ kind: 'page', page }` payload | `{ kind: 'page', page: Document }`; the nested document has kind `page`, or `printed` when printed pages are intended |
 | board element `change`, `share`, and editing callback output | a board `Document`, not the lowered board value |
+
+Board child order across node kinds has no meaning. Parsing canonicalizes
+`children` to items, then labels, then board sections, while preserving order
+within each kind.
 
 ### Declared but not yet supported
 

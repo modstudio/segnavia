@@ -41,6 +41,15 @@ function sectionFields(section: SectionNode) {
   })
 }
 
+function divisionNumbering(document: DocumentValue) {
+  const numbering = typeof document.numbering === 'object' ? { ...document.numbering } : {}
+  for (const node of document.children) {
+    if (node.type !== 'division' || node.settings?.numbering === undefined || node.name === 'end') continue
+    numbering[node.name === 'front' ? 'frontMatter' : 'body'] = node.settings.numbering
+  }
+  return numbering
+}
+
 function pageHtml(node: Extract<DocumentNode, { type: 'page' }>): string {
   if (node.body && 'html' in node.body) return node.body.html
   throw new Error('a book page needs an HTML body; provide body.html to clear this refusal')
@@ -152,7 +161,7 @@ export function bookFromDocument(document: DocumentValue): BookValue {
       parentPages: document.parentPages.map(parentPage),
       templates: document.templates.map(template),
       notes: document.noteSeries.map(noteSeries),
-      numbering: typeof document.numbering === 'object' ? document.numbering : undefined,
+      numbering: divisionNumbering(document),
       footnotes: document.footnotes,
       endnotes: document.endnotes,
       rectoOpenings: document.rectoOpenings,
@@ -199,6 +208,19 @@ export function printedFromDocument(document: DocumentValue): PageValue {
 export function pageFromDocument(document: DocumentValue): PageValue {
   requireKind(document, 'page')
   return pageValue(document, false)
+}
+
+export const PAGE_OR_PRINTED_KINDS = ['page', 'printed'] as const
+export type PageOrPrintedInput = import('./document.ts').DocumentInput
+
+export function pageOrPrintedFromDocument(document: DocumentValue): PageValue {
+  if (document.kind === 'page') return pageFromDocument(document)
+  if (document.kind === 'printed') return printedFromDocument(document)
+  throw new Error(`document kind ${document.kind} is not accepted here; use kind ${PAGE_OR_PRINTED_KINDS.join(' or ')} to clear this refusal`)
+}
+
+export function pageOrPrintedFromInput(input: PageOrPrintedInput): PageValue {
+  return pageOrPrintedFromDocument(Document.parse(input))
 }
 
 export function deckFromDocument(document: DocumentValue): DeckValue {

@@ -30,6 +30,7 @@ export class SegnaviaPage extends PageElementAttributes {
   static observedAttributes = ['src', 'bounded', 'label']
   private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageValue: Page | null = null
+  private documentValue: Document | null = null
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
@@ -107,8 +108,8 @@ export class SegnaviaPage extends PageElementAttributes {
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
-  get page(): Page | null {
-    return this.pageValue
+  get page(): Document | null {
+    return this.documentValue
   }
 
   set page(value: DocumentInput | null | undefined) {
@@ -119,6 +120,7 @@ export class SegnaviaPage extends PageElementAttributes {
       this.resolvedSlots = undefined
       this.slotFrame = undefined
       this.pageValue = null
+      this.documentValue = null
       this.hostServed = false
       this.contentHeight = 0
       this.replaceChildren()
@@ -161,11 +163,14 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   load(input: DocumentInput | unknown) {
-    const page = pageFromDocument(Document.parse(input))
+    const document = Document.parse(input)
+    const page = pageFromDocument(document)
+    this.documentValue = document
     this.loadValue(page)
   }
 
   [internalPageLoad](page: Page) {
+    this.documentValue = null
     this.loadValue(page)
   }
 

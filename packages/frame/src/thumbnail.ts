@@ -29,7 +29,9 @@ import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-
 export class SegnaviaThumbnail extends HTMLElement {
   private margin = 400
   private value: Deck | null = null
+  private deckDocument: Document | null = null
   private pageValue: Page | null = null
+  private pageDocument: Document | null = null
   private printValue: Print | null = null
   private slideIndex = 0
   private slideResolver: ControllerOptions['resolveSlide']
@@ -68,40 +70,48 @@ export class SegnaviaThumbnail extends HTMLElement {
     if (this.isConnected) this.observe()
   }
 
-  get deck(): Deck | null {
-    return this.value
+  get deck(): Document | null {
+    return this.deckDocument
   }
 
   set deck(input: DocumentInput | null) {
-    this.value = input === null ? null : deckFromDocument(Document.parse(input))
+    this.deckDocument = input === null ? null : Document.parse(input)
+    this.value = this.deckDocument === null ? null : deckFromDocument(this.deckDocument)
     if (this.value) this.pageValue = null
+    if (this.value) this.pageDocument = null
     if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
     else this.style.removeProperty('--segnavia-aspect')
     this.changed()
   }
 
   [internalThumbnailDeckLoad](deck: Deck | null) {
+    this.deckDocument = null
     this.value = deck
     if (this.value) this.pageValue = null
+    if (this.value) this.pageDocument = null
     if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
     else this.style.removeProperty('--segnavia-aspect')
     this.changed()
   }
 
-  get page(): Page | null {
-    return this.pageValue
+  get page(): Document | null {
+    return this.pageDocument
   }
 
   set page(input: DocumentInput | null | undefined) {
-    this.pageValue = input == null ? null : pageFromDocument(Document.parse(input))
+    this.pageDocument = input == null ? null : Document.parse(input)
+    this.pageValue = this.pageDocument === null ? null : pageFromDocument(this.pageDocument)
     if (this.pageValue) this.value = null
+    if (this.pageValue) this.deckDocument = null
     this.updatePageAspect()
     this.changed()
   }
 
   [internalThumbnailPageLoad](page: Page | null) {
+    this.pageDocument = null
     this.pageValue = page
     if (this.pageValue) this.value = null
+    if (this.pageValue) this.deckDocument = null
     this.updatePageAspect()
     this.changed()
   }

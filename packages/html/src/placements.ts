@@ -1,11 +1,11 @@
-import { type Media, mediaTextDirection, type Page, Placement, type Placement as PlacementValue } from '@segnavia/format'
+import { type DocumentInput, type Media, mediaTextDirection, Placement, type Placement as PlacementValue } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
 
 export const PLACEMENT_ATTRIBUTES = ['data-segnavia-media', 'data-segnavia-page', 'data-segnavia-box', 'data-segnavia-crop'] as const
 const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEMENT_ATTRIBUTES
 
-export type ResolvedPlacement = { kind: 'media'; media: Media; src: string } | { kind: 'page'; page: Page }
+export type ResolvedPlacement = { kind: 'media'; media: Media; src: string } | { kind: 'page'; page: DocumentInput }
 export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
   context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal },

@@ -57,6 +57,7 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
     data,
     children: slides.map((slide) => ({ type: 'slide' as const, ...slide })),
   })
+  // Refuse a constructed Document that the current deck pipeline cannot play.
   deckFromDocument(document)
   return document
 }

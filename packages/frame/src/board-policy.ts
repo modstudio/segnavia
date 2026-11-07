@@ -10,11 +10,11 @@ import {
   type ImpositionInput,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,
+  PAGE_OR_PRINTED_KINDS,
   type Page,
   type PixelSize,
   type Point,
-  pageFromDocument,
-  printedFromDocument,
+  pageOrPrintedFromDocument,
   zoomAt,
 } from '@segnavia/format'
 import type { PlacementReport, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
@@ -66,11 +66,11 @@ export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): Che
   else if (resolved.kind !== 'deck') checkSize(resolved.kind, resolved.size)
   const designedCover = resolved.designedCover && parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
   if (resolved.kind === 'deck') return { ...resolved, deck: deckFromDocument(resolvedDocument(item, resolved.deck, ['deck'])), designedCover }
-  if (resolved.kind === 'page') return { ...resolved, page: pageFromDocument(resolvedDocument(item, resolved.page, ['page'])), designedCover }
+  if (resolved.kind === 'page') return { ...resolved, page: pageOrPrintedFromDocument(resolvedDocument(item, resolved.page, PAGE_OR_PRINTED_KINDS)), designedCover }
   if (resolved.kind === 'paper') {
     const pages = resolved.pages.map((page) => {
-      const document = resolvedDocument(item, page, ['page', 'printed'])
-      return document.kind === 'page' ? pageFromDocument(document) : printedFromDocument(document)
+      const document = resolvedDocument(item, page, PAGE_OR_PRINTED_KINDS)
+      return pageOrPrintedFromDocument(document)
     })
     return { ...resolved, pages, designedCover }
   }

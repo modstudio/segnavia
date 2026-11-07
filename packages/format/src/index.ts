@@ -137,7 +137,18 @@ export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './dec
 export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
 export { Direction, firstStrongDirection, htmlTextSample, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
 export { Document, type DocumentInput, type DocumentKind } from './document.ts'
-export { boardFromDocument, bookFromDocument, deckFromDocument, documentFromBoard, pageFromDocument, printedFromDocument } from './document-lowering.ts'
+export {
+  boardFromDocument,
+  bookFromDocument,
+  deckFromDocument,
+  documentFromBoard,
+  PAGE_OR_PRINTED_KINDS,
+  pageFromDocument,
+  pageOrPrintedFromDocument,
+  pageOrPrintedFromInput,
+  printedFromDocument,
+  type PageOrPrintedInput,
+} from './document-lowering.ts'
 export * from './document-metadata.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'

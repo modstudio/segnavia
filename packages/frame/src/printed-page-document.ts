@@ -1,5 +1,4 @@
 import {
-  Document,
   type DocumentInput,
   DocumentMetadata,
   type DocumentMetadata as DocumentMetadataValue,
@@ -10,12 +9,12 @@ import {
   type Limits,
   limitRefusalTemplate,
   type Page,
+  type PageOrPrintedInput,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_ROLES,
   PRINTED_PAGE_TOTAL_PATH,
   PX_PER_MM,
-  pageFromDocument,
-  printedFromDocument,
+  pageOrPrintedFromInput,
   type ResolvedParentPage,
   resolveDirection,
   resolveLimits,
@@ -31,14 +30,7 @@ import { fragmentColumns, fragmentSpan, paperCount } from './printed-page-column
 export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
 
-export type PageOrPrintedInput = DocumentInput
-
-export function pageOrPrintedFromInput(input: PageOrPrintedInput): Page {
-  const document = Document.parse(input)
-  if (document.kind === 'page') return pageFromDocument(document)
-  if (document.kind === 'printed') return printedFromDocument(document)
-  throw new Error(`document kind ${document.kind} is not accepted here; use kind page or printed to clear this refusal`)
-}
+export { type PageOrPrintedInput, pageOrPrintedFromInput } from '@segnavia/format'
 
 export class PrintedPagesRefusedError extends Error {
   constructor(message: string) {

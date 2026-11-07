@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import type { Media } from '@segnavia/format'
+import type { DocumentInput, Media } from '@segnavia/format'
 import { placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
 
 const signal = new AbortController().signal
 const media = (alt?: Media['alt']): Media => ({ format: 'png', size: { width: 20, height: 10 }, ...(alt ? { alt } : {}) })
 const png = 'data:image/png;base64,AA=='
 const svg = 'data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22/%3E'
+const page = { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '<p>Page</p>' } }] } satisfies DocumentInput
 
 describe('placementPlan', () => {
   test('parses address, page selectors, box, crop, and author attributes', () => {
@@ -34,7 +35,7 @@ describe('resolvePlacements', () => {
   test('reports a non-media answer as invalid and draws the placeholder', async () => {
     const reports: unknown[] = []
     const output = await resolvePlacements('<img data-segnavia-media="a">', {
-      resolvePlacement: async () => ({ kind: 'page' as const, page: { html: '<p>Page</p>', size: 'fluid' as const, scripts: 'refuse' as const } }),
+      resolvePlacement: async () => ({ kind: 'page' as const, page }),
       purpose: 'screen',
       width: 100,
       signal,

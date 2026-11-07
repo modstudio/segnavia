@@ -37,7 +37,15 @@ test('placed page entries become designed sections before the book is built', as
     chapters: [{ kind: 'placed', title: 'Placed page', contents: false, opens: 'recto', placement: { kind: 'page', address: 'page/one' } }],
   })
   const expanded = await expandFrameBook(book, undefined, signal, {
-    resolve: async () => ({ kind: 'page', page: Page.parse({ html: '<p>Resolved page</p>', size: { width: 320, height: 200 } }) }),
+    resolve: async () => ({
+      kind: 'page',
+      page: {
+        type: 'document',
+        kind: 'page',
+        size: { width: 320, height: 200 },
+        children: [{ type: 'page', body: { html: '<p>Resolved page</p>' } }],
+      },
+    }),
   })
   expect(bookDocument(expanded.book).html).toContain('<p>Resolved page</p>')
   expect(expanded.book.body[0]).toMatchObject({
