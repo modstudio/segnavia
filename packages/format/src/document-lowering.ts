@@ -258,5 +258,8 @@ export function documentFromBoard(board: BoardValue, source: DocumentValue): Doc
     ...board.labels.map(({ id, ...label }) => ({ type: 'label' as const, id, ...label })),
     ...board.sections.map(({ id, ...section }) => ({ type: 'boardSection' as const, id, ...section })),
   ]
-  return Document.parse({ ...source, title: board.title, settings: { ...source.settings, dir: board.direction }, children })
+  const titledSource = source.metadata?.title === undefined
+    ? { ...source, title: board.title }
+    : { ...source, metadata: { ...source.metadata, title: board.title } }
+  return Document.parse({ ...titledSource, settings: { ...source.settings, dir: board.direction }, children })
 }

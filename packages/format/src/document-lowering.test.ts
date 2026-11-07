@@ -164,7 +164,7 @@ describe('Document lowering', () => {
     expect(bookFromDocument(document)).toEqual({ ...expected, limits: { pages: 120 } })
   })
 
-  test('lowers the board demo shape to its current parsed value', () => {
+  test('round-trips board edits through a Document with a root title', () => {
     const expected = Board.parse({
       title: 'Board demo',
       direction: 'ltr',
@@ -188,6 +188,25 @@ describe('Document lowering', () => {
     expect(boardFromDocument(documentFromBoard(expected, document))).toEqual(expected)
 
     const edited = Board.parse({ ...expected, title: 'Edited board', direction: 'rtl' })
-    expect(boardFromDocument(documentFromBoard(edited, document))).toEqual(edited)
+    const changed = documentFromBoard(edited, document)
+    expect(changed.title).toBe('Edited board')
+    expect(changed.settings?.dir).toBe('rtl')
+    expect(boardFromDocument(changed)).toEqual(edited)
+  })
+
+  test('round-trips board edits through a Document with a metadata title', () => {
+    const document = Document.parse({
+      type: 'document',
+      kind: 'board',
+      metadata: { title: 'Board demo' },
+      settings: { dir: 'ltr' },
+      children: [{ type: 'item', id: 'page', kind: 'page', address: 'page', x: 0, y: 0, width: 220 }],
+    })
+    const edited = Board.parse({ ...boardFromDocument(document), title: 'Edited board', direction: 'rtl' })
+    const changed = documentFromBoard(edited, document)
+    expect(changed.title).toBeUndefined()
+    expect(changed.metadata).toEqual({ title: 'Edited board' })
+    expect(changed.settings?.dir).toBe('rtl')
+    expect(boardFromDocument(changed)).toEqual(edited)
   })
 })
