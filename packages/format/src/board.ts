@@ -160,4 +160,3 @@ export const Board = BoardShape.superRefine((board, ctx) => {
   })
 })
 export type Board = z.infer<typeof Board>
-export type BoardInput = z.input<typeof Board>

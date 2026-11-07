@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput } from './index.ts'
+import { Book } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
-const input = (overrides: Partial<BookInput> = {}): BookInput => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
+const input = (overrides: Record<string, unknown> = {}) => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book note series', () => {
   test('resolves declared series and refuses invalid declarations', () => {

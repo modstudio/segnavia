@@ -2,7 +2,7 @@
 // each is a Zod schema and the JSON Schema is generated from it (`jsonSchemas`)
 // for hosts that do not run TypeScript.
 
-export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
+export { Board, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'
 export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
 export {
@@ -115,7 +115,6 @@ export {
   Cue,
   DECK_SIZE,
   Deck,
-  type DeckInput,
   exceedsLimits,
   ImageFit,
   Manifest,
@@ -226,7 +225,6 @@ export {
   PAGE_WIDTHS,
   Page,
   PageBody,
-  type PageInput,
   PageSize,
   PageWidths,
   type ResolvedPageWidth,

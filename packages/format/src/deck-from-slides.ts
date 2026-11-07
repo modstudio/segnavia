@@ -1,21 +1,23 @@
-import type { DeckInput } from './deck.ts'
+import type { Slide } from './deck.ts'
+import type { DocumentInput } from './document.ts'
 import { Document } from './document.ts'
 import { deckFromDocument } from './document-lowering.ts'
 
-type SlideInput = DeckInput['slides'][number]
-type SlideFields = Omit<SlideInput, 'content'>
-type ShotContent = Extract<SlideInput['content'], { kind: 'shot' }>
+type SlideFields = Omit<Slide, 'content'>
+type ShotContent = Extract<Slide['content'], { kind: 'shot' }>
 
 export type SlideRow = SlideFields & ({ kind: 'html'; html: string } | ShotContent)
 
-export type DeckFromSlidesOptions = Omit<DeckInput, 'slides'> & {
+export type DeckFromSlidesOptions = Pick<DocumentInput, 'title' | 'size' | 'layout' | 'fit' | 'frame' | 'transition' | 'playback' | 'captions'> & {
+  settings?: DocumentInput['settings']
+  data?: DocumentInput['data']
   omitNotes?: boolean
 }
 
 const optionalPrintAt = (printAtMs: number | undefined) => (printAtMs === undefined ? {} : { printAtMs })
 
 export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions) {
-  const { omitNotes = false, title, size, layout, fit, frame, transition, playback, captions, scripts, dir, lang, slots } = options
+  const { omitNotes = false, title, size, layout, fit, frame, transition, playback, captions, settings, data } = options
   const slides = rows.map(({ kind, ...row }) => {
     const { id, notes, narration, beforeMs, afterMs, holdMs, printAtMs } = row
     const common = {
@@ -51,8 +53,8 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
     transition,
     playback,
     captions,
-    settings: { scripts, dir, lang },
-    data: { slots },
+    settings,
+    data,
     children: slides.map((slide) => ({ type: 'slide' as const, ...slide })),
   })
   deckFromDocument(document)

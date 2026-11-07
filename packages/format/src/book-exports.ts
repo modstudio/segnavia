@@ -5,7 +5,6 @@ export {
   type BookDivision,
   type BookDivisions,
   BookFrontMatterEntry,
-  type BookInput,
   BookItem,
   BookMode,
   BookOpens,

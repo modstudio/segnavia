@@ -184,7 +184,6 @@ export const Deck = DeckShape.superRefine((deck, ctx) => {
   })
 })
 export type Deck = z.infer<typeof Deck>
-export type DeckInput = z.input<typeof Deck>
 
 export const Manifest = z.object({
   shots: z.record(z.string(), Shot),

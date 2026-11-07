@@ -15,7 +15,7 @@ import {
 import type { SegnaviaBoard } from './board.ts'
 import type { BoardEdit } from './board-editing.ts'
 import { marqueeItems, placeMarquee, renderDropMarker, resizedAtPointer } from './board-editing-overlay.ts'
-import type { BoardEditingBridge, BoardInputDelegate } from './board-editing-seam.ts'
+import type { BoardEditingBridge, BoardPointerDelegate } from './board-editing-seam.ts'
 import { selectBoardItem } from './board-selection.ts'
 
 type Gesture =
@@ -46,7 +46,7 @@ interface Callbacks {
   redo(): void
 }
 
-export class BoardEditingInput implements BoardInputDelegate {
+export class BoardEditingInput implements BoardPointerDelegate {
   private gesture: Gesture | null = null
   private spaceHeld = false
 

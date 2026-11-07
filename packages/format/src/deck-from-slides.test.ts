@@ -36,11 +36,9 @@ describe('deckFromSlides', () => {
         title: 'Talk',
         size: { width: 1920, height: 1080 },
         layout: 'responsive',
-        scripts: 'sandboxed',
+        settings: { scripts: 'sandboxed', dir: 'rtl', lang: 'he' },
         playback: 'continuous',
         captions: 'viewer',
-        dir: 'rtl',
-        lang: 'he',
       },
     )
 

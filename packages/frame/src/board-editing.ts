@@ -28,7 +28,7 @@ import {
 } from './board-edit-policy.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderResizeHandles } from './board-editing-overlay.ts'
-import { type BoardEditingBridge, type BoardEditingHost, type BoardInputDelegate, boardEditing } from './board-editing-seam.ts'
+import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
 import { boardValue } from './board-value.ts'
 
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
@@ -64,7 +64,7 @@ export interface BoardEditing {
   readonly canRedo: boolean
 }
 
-class BoardEditingController implements BoardEditing, BoardInputDelegate {
+class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>
   private bridge: BoardEditingBridge
   private state: BoardEditQueueState | null

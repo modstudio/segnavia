@@ -1,12 +1,10 @@
 import {
-  Book,
-  type BookInput,
+  type Book,
   type FontFace,
   type FontReference,
   type FontSource,
   htmlTextSample,
   type Page,
-  type PageInput,
   resolveDirection,
   resolveLimits,
   resolvePageWidth,
@@ -80,7 +78,7 @@ export async function prepareRenderedPageValue(
 }
 
 export async function prepareRenderedPages(
-  expanded: ReadonlyArray<{ page: Pick<PageInput, 'fonts'>; fonts: FontReference[] }>,
+  expanded: ReadonlyArray<{ page: Pick<Page, 'fonts'>; fonts: FontReference[] }>,
   options: RenderOptions,
   signal: AbortSignal,
 ): Promise<RenderOptions> {
@@ -92,12 +90,11 @@ export async function prepareRenderedPages(
 }
 
 export async function renderOptionsWithBookFonts(
-  input: Book | BookInput,
+  book: Book,
   options: RenderOptions,
   signal: AbortSignal,
   motifFonts: FontReference[] = [],
 ): Promise<{ options: RenderOptions; fontCss: string }> {
-  const book = 'body' in input ? input : Book.parse(input)
   const place = `book ${JSON.stringify(book.title)}`
   const references = uniqueFontReferences([...(book.fonts ?? []), ...motifFonts])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)

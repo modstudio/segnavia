@@ -1,4 +1,4 @@
-import { Book, type BookInput, bookParentPages, type Folio, physicalMargins, resolveDirection, sequenceFolios, sheetMm } from '@segnavia/format'
+import { type Book, bookParentPages, type Folio, physicalMargins, resolveDirection, sequenceFolios, sheetMm } from '@segnavia/format'
 import {
   type BookDocument,
   type BookHeading,
@@ -352,9 +352,8 @@ async function renderPaginatedBookPdf(book: Book, options: RenderOptions, adapte
   return output
 }
 
-export async function renderBookPdf(input: Book | BookInput, options: RenderOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
-  const parsed: Book = Array.isArray(input.body) ? (input as Book) : Book.parse(input)
-  const book = await filledBook(parsed, options.slots)
+export async function renderBookPdf(input: Book, options: RenderOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
+  const book = await filledBook(input, options.slots)
   if (book.mode === 'paginated') return renderPaginatedBookPdf(book, options, adapter)
   if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
   const printedBody = await printBody(book, options, adapter)

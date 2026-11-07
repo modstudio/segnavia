@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { AppFont, FontFace, FontSource } from '@segnavia/format'
-import { Page } from '@segnavia/format'
+import { Book, Page } from '@segnavia/format'
 import { FontRefusedError } from '@segnavia/frame/fonts'
 import { expandFramePage } from '@segnavia/frame/motifs'
 import { resolvePageHtml } from '@segnavia/html'
@@ -24,12 +24,12 @@ const letterhead = {
   versions: [{ lang: 'en', html: '<header style="font-family: var(--segnavia-font-heading)">Head</header>' }],
   fonts: [{ app: 'heading' as const }],
 }
-const book = {
+const book = Book.parse({
   title: 'Book',
   mode: 'continuous' as const,
   chapters: [{ title: 'Chapter', html: '<p>Text</p>' }],
   fonts: [{ app: 'serif' as const }],
-}
+})
 
 describe('prepareRenderedPageValue', () => {
   test('folds fontSource faces and properties into the render options css', async () => {

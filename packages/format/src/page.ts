@@ -85,4 +85,3 @@ export const Page = PageShape.transform(({ html, markdown, ...page }) => ({
   body: bodyChoices({ ...page, html, markdown })[0]?.body as PageBody,
 }))
 export type Page = z.infer<typeof Page>
-export type PageInput = z.input<typeof Page>

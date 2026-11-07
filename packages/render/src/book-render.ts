@@ -1,4 +1,4 @@
-import { Book, type BookInput, type Limits, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
+import { type Book, type Limits, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
   BOOK_FAILURE_ATTRIBUTE,
@@ -127,13 +127,7 @@ async function printBook(
   )
 }
 
-export function renderBrowserBookPdf(
-  input: Book | BookInput,
-  options: RenderOptions,
-  fontCss: string,
-  dependencies: BrowserBookDependencies,
-): Promise<Uint8Array> {
-  const book: Book = Array.isArray(input.body) ? (input as Book) : Book.parse(input)
+export function renderBrowserBookPdf(book: Book, options: RenderOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   let script: Promise<string | undefined> | undefined
   return renderBookPdf(book, options, {
     print: async (html, book, renderOptions, part, layerCss = '') => {

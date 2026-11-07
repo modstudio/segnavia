@@ -1,6 +1,6 @@
 import type { Board, BoardShapes, BoardView, Document, Point } from '@segnavia/format'
 
-export interface BoardInputDelegate {
+export interface BoardPointerDelegate {
   pointerDown(event: PointerEvent): boolean
   pointerMove(event: PointerEvent): boolean
   pointerUp(event: PointerEvent): boolean
@@ -24,7 +24,7 @@ export interface BoardEditingBridge {
 export const boardEditing = Symbol.for('@segnavia/frame/board-editing')
 
 export interface BoardEditingHost {
-  [boardEditing](delegate: BoardInputDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge
+  [boardEditing](delegate: BoardPointerDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge
 }
 
 interface BridgeParts {

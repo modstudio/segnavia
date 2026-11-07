@@ -17,10 +17,10 @@ import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
 import { BoardDocumentElement } from './board-document-element.ts'
-import { type BoardEditingBridge, type BoardInputDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
+import { type BoardEditingBridge, type BoardPointerDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
 import { BoardViewEventDispatcher, boardEvent } from './board-events.ts'
 import { BoardGestures } from './board-gestures.ts'
-import { BoardInput } from './board-input.ts'
+import { BoardPointerInput } from './board-input.ts'
 import { BoardMounts } from './board-mounts.ts'
 import { type BoardItemNames, BoardNames } from './board-names.ts'
 import { BoardPainter } from './board-painter.ts'
@@ -87,7 +87,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
     () => this.currentView,
     (view) => this.setView(view),
   )
-  private readonly input = new BoardInput(this, this.gestures, {
+  private readonly input = new BoardPointerInput(this, this.gestures, {
     item: (id) => (id ? this.items.get(id) : undefined),
     itemAt: (event) => (this.value ? itemAt(this.value, this.shapes, screenToBoard(this.currentView, this.gestures.local(event))) : undefined),
     select: (id, toggle) => {
@@ -227,7 +227,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
   measuredLabelSizes(): Record<string, { width: number; height: number }> {
     return this.decorations.measureMissingLabels(this.value?.labels ?? [], this.currentView.zoom)
   }
-  [boardEditing](delegate: BoardInputDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge {
+  [boardEditing](delegate: BoardPointerDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge {
     if (this.input.delegate || this.editingHostValue)
       throw new Error('board editing is already attached or settling; wait for it before attaching another editor')
     this.input.delegate = delegate

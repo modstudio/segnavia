@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput } from '@segnavia/format'
+import { Book } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 
 const page = { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }
 const chapter = (title: string, html: string) => ({ title, html })
-const input = (overrides: Partial<BookInput> = {}): BookInput => ({
+const input = (overrides: Record<string, unknown> = {}) => ({
   title: 'Book',
   mode: 'paginated',
   page,
