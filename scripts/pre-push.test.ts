@@ -111,6 +111,18 @@ describe('pre-push review gate', () => {
     expect(push(repository, base).status).toBe(0)
   })
 
+  it('diffs a rebased push from the trunk merge-base', () => {
+    const { repository, base } = makeRepository()
+    commit(repository, 'ordinary.txt', 'reviewed\n', 'reviewed work')
+    git(repository, 'switch', '-q', 'main')
+    const remote = commit(repository, 'packages/frame/src/bridge-extra.ts', 'remote\n', 'remote work')
+    git(repository, 'switch', '-q', 'feature/SEGNA-130')
+    recordReview(repository, 1)
+
+    expect(push(repository, remote).status).toBe(0)
+    expect(git(repository, 'merge-base', remote, 'HEAD')).toBe(base)
+  })
+
   it('fails closed when the remote SHA cannot be resolved', () => {
     const { repository } = makeRepository()
     commit(repository, 'packages/frame/src/bridge-extra.ts', 'risky\n', 'bridge change')
