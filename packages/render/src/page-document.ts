@@ -5,6 +5,8 @@ import {
   type FontSource,
   htmlTextSample,
   type Page,
+  type PageOrPrintedInput,
+  pageOrPrintedFromInput,
   resolveDirection,
   resolveLimits,
   resolvePageWidth,
@@ -14,7 +16,6 @@ import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, type HtmlPage, resolvePageHtml } from '@segnavia/html'
-import { type PageOrPrintedInput, pageOrPrintedFromInput } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'

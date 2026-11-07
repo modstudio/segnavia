@@ -22,11 +22,7 @@ export function loadThumbnailDeckValue(target: { [internalThumbnailDeckLoad]: (d
   internal.call(target, deck)
 }
 
-export function loadDocumentPagesValue(
-  target: { [internalDocumentPagesLoad]: (pages: Page[], print?: Print) => void },
-  pages: Page[],
-  print?: Print,
-): void {
+export function loadDocumentPagesValue(target: { [internalDocumentPagesLoad]: (pages: Page[], print?: Print) => void }, pages: Page[], print?: Print): void {
   const internal = target[internalDocumentPagesLoad]
   internal.call(target, pages, print)
 }

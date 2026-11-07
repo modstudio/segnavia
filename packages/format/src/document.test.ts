@@ -77,7 +77,14 @@ describe('Document', () => {
       { type: 'document', kind: 'board', settings: { dir: 'ltr' }, children: [] },
       { type: 'document', kind: 'board', title: 'Board', children: [] },
       { type: 'document', kind: 'page', children: [{ type: 'page' }] },
-      { type: 'document', kind: 'printed', children: [{ type: 'page', body: { html: '' } }, { type: 'flow', html: '' }] },
+      {
+        type: 'document',
+        kind: 'printed',
+        children: [
+          { type: 'page', body: { html: '' } },
+          { type: 'flow', html: '' },
+        ],
+      },
     ]
     for (const value of values) expect(() => Document.parse(value)).toThrow('clear this refusal')
   })
@@ -85,7 +92,13 @@ describe('Document', () => {
   test('refuses book structures and fields that its lowering cannot carry', () => {
     const root = { type: 'document' as const, kind: 'book' as const, title: 'Book', mode: 'continuous' as const }
     const values = [
-      { ...root, children: [{ type: 'division', name: 'body', children: [] }, { type: 'flow', title: 'Loose', html: '' }] },
+      {
+        ...root,
+        children: [
+          { type: 'division', name: 'body', children: [] },
+          { type: 'flow', title: 'Loose', html: '' },
+        ],
+      },
       {
         ...root,
         children: [
@@ -97,12 +110,22 @@ describe('Document', () => {
           },
         ],
       },
-      { ...root, children: [{ type: 'section', title: 'One', children: [{ type: 'flow', html: '' }, { type: 'placed', kind: 'page', address: 'x' }] }] },
       {
         ...root,
         children: [
-          { type: 'division', name: 'end', settings: { numbering: { system: 'arabic', start: 1, restart: false, counted: true } }, children: [] },
+          {
+            type: 'section',
+            title: 'One',
+            children: [
+              { type: 'flow', html: '' },
+              { type: 'placed', kind: 'page', address: 'x' },
+            ],
+          },
         ],
+      },
+      {
+        ...root,
+        children: [{ type: 'division', name: 'end', settings: { numbering: { system: 'arabic', start: 1, restart: false, counted: true } }, children: [] }],
       },
       { ...root, children: [{ type: 'section', title: 'One', template: 'body', children: [{ type: 'flow', html: '' }] }] },
       { ...root, children: [{ type: 'section', title: 'One', contents: false, children: [{ type: 'flow', html: '' }] }] },
@@ -120,9 +143,9 @@ describe('Document', () => {
         children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '' } }],
       }),
     ).toThrow('metadata field authors is not allowed in a deck document')
-    expect(() =>
-      Document.parse({ type: 'document', kind: 'page', style: { css: 'html{}' }, children: [{ type: 'page', body: { html: '' } }] }),
-    ).toThrow('style field css is not allowed in a page document')
+    expect(() => Document.parse({ type: 'document', kind: 'page', style: { css: 'html{}' }, children: [{ type: 'page', body: { html: '' } }] })).toThrow(
+      'style field css is not allowed in a page document',
+    )
     expect(() =>
       Document.parse({
         type: 'document',

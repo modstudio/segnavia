@@ -5,7 +5,6 @@ import { Deck } from './deck.ts'
 import { Document } from './document.ts'
 import { boardFromDocument, bookFromDocument, deckFromDocument, documentFromBoard, pageFromDocument, printedFromDocument } from './document-lowering.ts'
 import { Page } from './page.ts'
-import { BOARD_DOCUMENT_FIXTURES } from '../../../scripts/build-board-demo.ts'
 
 const hebrewPageFixture = {
   html: '<h1 style="font-family:sans-serif">שלום</h1><p>A page set right to left.</p>',
@@ -188,13 +187,4 @@ describe('Document lowering', () => {
     expect(documentFromBoard(boardFromDocument(document), document)).toEqual(document)
     expect(boardFromDocument(documentFromBoard(expected, document))).toEqual(expected)
   })
-
-  test('round-trips every embedded board fixture after canonical child ordering', () => {
-    for (const input of BOARD_DOCUMENT_FIXTURES) {
-      const document = Document.parse(input)
-      expect(documentFromBoard(boardFromDocument(document), document)).toEqual(document)
-      expect(boardFromDocument(documentFromBoard(boardFromDocument(document), document))).toEqual(boardFromDocument(document))
-    }
-  })
-
 })

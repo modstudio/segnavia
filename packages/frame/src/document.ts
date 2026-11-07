@@ -2,7 +2,7 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { Document, Page, type PageWidths, Print, type PrintInput, type SlotsOptions, pageOrPrintedFromDocument } from '@segnavia/format'
+import { Document, Page, type PageWidths, Print, type PrintInput, pageOrPrintedFromDocument, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'

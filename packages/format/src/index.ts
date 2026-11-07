@@ -143,11 +143,11 @@ export {
   deckFromDocument,
   documentFromBoard,
   PAGE_OR_PRINTED_KINDS,
+  type PageOrPrintedInput,
   pageFromDocument,
   pageOrPrintedFromDocument,
   pageOrPrintedFromInput,
   printedFromDocument,
-  type PageOrPrintedInput,
 } from './document-lowering.ts'
 export * from './document-metadata.ts'
 export { editBoard } from './edit-board.ts'
