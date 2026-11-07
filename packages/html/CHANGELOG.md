@@ -1,5 +1,55 @@
 # @segnavia/html
 
+## 0.49.0
+
+### Migrating from 0.48
+
+See the `@segnavia/format` 0.49.0 changelog for what to change in stored documents and host calls.
+
+### Minor Changes
+
+- ed3c7cd: Replace package-local paper, margin, size, and direction types with the shared format values.
+
+  Book and parent-page content margins now require all four logical edges and refuse legacy physical or inner/outer names.
+
+  Print margins are binding-relative, so right-to-left single-page printing mirrors the inline edges.
+
+  Raster media intrinsic sizes now require whole pixels, while vector and document media sizes remain point-valued and may be fractional.
+
+  The IDML package no longer exports `IdmlMargin`; IDML page margins use the shared `PhysicalMargin` type, in points.
+
+- 53afd24: Add atomic agent-facing document commands, plain JSON document descriptions, and a configurable concise-description text bound. Description plan and report sections arrive with the saved `Plan` and the layout `Report`.
+- 7c5952b: Add the shared `Numbering` value, `computeFolios`, and `sequenceFolios`, including restarts and uncounted pages.
+
+  Compute book, printed-page, deck, and rendered PDF folios through the shared function without changing their rendered numbering.
+
+- e126784: Mint required node and content-block ids through a host-supplied `newId` seam, preserve existing ids, and refuse duplicates across one document.
+- ea9421b: Placement resolvers now return a page or printed `Document` in a page answer. See “Document input and migration” in `docs/architecture.md` for the payload mapping.
+- f36066e: Add the document block view and block operations. `blockView` lists every block in document order with its id, kind, text, class, attributes, content address and enclosing block. `insertBlock`, `setBlock`, `moveBlock` and `removeBlock` compile an edit to `setContent` operations with priors, so `applyOps` checks staleness and `inverseBatch` undoes it. They take `BlockOpOptions` with the host's `newId`. A block may stand only where its kind and its parent allow, and every fragment an operation writes must re-parse to itself. Block operations do not sanitize; speaker notes are plain text and hold no blocks.
+
+  `@segnavia/format` now exports `DOCUMENT_NODE_MODEL`, `documentEntries` and `requireParsedDocument`, so other packages read the document model rather than copying it.
+
+- 860d9d3: Replace the separate page, deck, render, image and local-font ceilings with one format-owned `Limits` value.
+
+  Resolve document page declarations against host ceilings and use one refusal text at every enforcement site.
+
+  Render hosts rename `maxSheets` to `sheets` and `maxBytes` to `bytes`; deck hosts rename `maxSlides` to `slides`, `maxSlideBytes` to `slideBytes` and `maxNotesBytes` to `notesBytes`. Local-font count and byte ceilings move from `localFonts.limits` to `limits.localFonts`. Capture keeps its own `output.maxBytes` option and maps it to `limits.bytes`.
+
+### Patch Changes
+
+- Updated dependencies [ea9421b]
+- Updated dependencies [ed3c7cd]
+- Updated dependencies [53afd24]
+- Updated dependencies [7c5952b]
+- Updated dependencies [e126784]
+- Updated dependencies [ea9421b]
+- Updated dependencies [ea9421b]
+- Updated dependencies [b3f94ac]
+- Updated dependencies [f36066e]
+- Updated dependencies [860d9d3]
+- Updated dependencies [ea9421b]
+  - @segnavia/format@0.49.0
+
 ## 0.48.0
 
 ### Patch Changes

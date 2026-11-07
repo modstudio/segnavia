@@ -1,5 +1,29 @@
 # @segnavia/react
 
+## 0.49.0
+
+### Migrating from 0.48
+
+See the `@segnavia/format` 0.49.0 changelog for what to change in stored documents and host calls.
+
+### Minor Changes
+
+- ea9421b: Pass `{ type: 'document', kind: 'deck', ... }` for decks and `{ type: 'document', kind: 'page', ... }` for screen pages. Deck and page entry points no longer accept the old `Deck` and `Page` input shapes, and `deckFromSlides` now returns a deck `Document`.
+
+### Patch Changes
+
+- ea9421b: Type Vue and React element properties by the values their setters accept.
+- Updated dependencies [ea9421b]
+- Updated dependencies [ed3c7cd]
+- Updated dependencies [7c5952b]
+- Updated dependencies [ea9421b]
+- Updated dependencies [e126784]
+- Updated dependencies [ea9421b]
+- Updated dependencies [860d9d3]
+- Updated dependencies [ea9421b]
+- Updated dependencies [ea9421b]
+  - @segnavia/frame@0.49.0
+
 ## 0.48.0
 
 ### Patch Changes
