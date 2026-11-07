@@ -23,4 +23,4 @@ export const DocumentNodeInput = z.discriminatedUnion('type', [
   VariableNode,
   ConditionNode,
 ])
-export type DocumentNodeInput = z.infer<typeof DocumentNodeInput>
+export type DocumentNodeInput = z.input<typeof DocumentNodeInput>

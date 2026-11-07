@@ -1,4 +1,4 @@
-import { DocumentCollection, DocumentNodeInput } from '@segnavia/format'
+import { DocumentCollection, type DocumentNodeInput, DocumentNodeInput as DocumentNodeInputSchema } from '@segnavia/format'
 import { z } from 'zod'
 import { BLOCK_ELEMENTS } from './block-context.ts'
 
@@ -40,8 +40,20 @@ const SetContentCommand = z
   .object({ type: z.literal('setContent'), content: CommandContentAddress, html: z.string().optional(), value: z.unknown().optional() })
   .refine((command) => (command.html === undefined) !== (command.value === undefined), 'setContent requires exactly one of html or value')
 
-export const DocumentCommand = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('add'), node: DocumentNodeInput, at: DocumentCommandLocation }),
+export type DocumentCommand =
+  | { type: 'add'; node: DocumentNodeInput; at: DocumentCommandLocation }
+  | { type: 'remove'; node: DocumentAddress }
+  | { type: 'move'; node: DocumentAddress; to: DocumentCommandLocation }
+  | { type: 'set'; node: DocumentAddress; fields: Record<string, unknown> }
+  | { type: 'setContent'; content: CommandContentAddress; html?: string; value?: unknown }
+  | { type: 'setStyle'; fields: Record<string, unknown> }
+  | { type: 'insertBlock'; html: string; position: z.infer<typeof CommandBlockPosition> }
+  | { type: 'setBlock'; block: string; change: z.infer<typeof CommandSetBlockChange> }
+  | { type: 'moveBlock'; block: string; position: z.infer<typeof CommandBlockPosition> }
+  | { type: 'removeBlock'; block: string }
+
+export const DocumentCommand: z.ZodType<DocumentCommand> = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('add'), node: DocumentNodeInputSchema, at: DocumentCommandLocation }),
   z.object({ type: z.literal('remove'), node: DocumentAddress }),
   z.object({ type: z.literal('move'), node: DocumentAddress, to: DocumentCommandLocation }),
   z.object({ type: z.literal('set'), node: DocumentAddress, fields: z.record(z.string(), z.unknown()) }),
@@ -52,7 +64,6 @@ export const DocumentCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('moveBlock'), block: z.string().min(1), position: CommandBlockPosition }),
   z.object({ type: z.literal('removeBlock'), block: z.string().min(1) }),
 ])
-export type DocumentCommand = z.infer<typeof DocumentCommand>
 
 /** JSON Schema for commands accepted by editDocument. */
 export function documentCommandJsonSchema(): Record<string, unknown> {
