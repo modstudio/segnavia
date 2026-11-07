@@ -91,7 +91,12 @@ property('setBlock changes only the target block substring and its containing su
       : seed % 3 === 1 || ORDINARY[seed % ORDINARY.length] === 'figure'
         ? { html: `<span>Changed ${seed}</span>` }
         : { class: `changed-${seed}` }
-  const after = apply(before, setBlock(before, id, change))
+  let ops: ReturnType<typeof setBlock> | undefined
+  expect(() => {
+    ops = setBlock(before, id, change)
+  }, 'generated context survives parser round-trip validation').not.toThrow()
+  if (!ops) throw new Error('setBlock did not return operations')
+  const after = apply(before, ops)
   unchanged(before, after, related(before, id))
 })
 

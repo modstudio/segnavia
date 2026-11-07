@@ -64,6 +64,21 @@ test('refuses block children in phrasing-only block parents', () => {
   }
 })
 
+test.each(['a<ul><li>nested</li></ul>', '<div>x</div>', 'a<table><tr><td>c</td></tr></table>'])(
+  'refuses %s inside a paragraph when the parser would restructure it',
+  (html) => {
+    const document = page('<p data-segnavia-id="known">Known</p>')
+    expect(() => setBlock(document, 'known', { html }, { newId: () => 'nested' })).toThrow(
+      /block id "known" would make the parser restructure content in node "mint-2" field "body"; use content the parent can hold, for example phrasing content inside p and headings/,
+    )
+  },
+)
+
+test('accepts phrasing content inside a paragraph when it re-parses unchanged', () => {
+  const document = page('<p data-segnavia-id="known">Known</p>')
+  expect(() => setBlock(document, 'known', { html: '<em>ok</em>' })).not.toThrow()
+})
+
 test('refuses class in attributes because class has its own change field', () => {
   expect(() => setBlock(page('<p data-segnavia-id="known">Known</p>'), 'known', { class: 'a', attributes: { class: 'b' } })).toThrow(
     /attributes cannot contain "class"; use the class field to clear this refusal/,

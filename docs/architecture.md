@@ -1670,7 +1670,9 @@ of `applyOps`. The two-sided block context table records both where each block
 kind may stand and which block children a block kind accepts. It permits list
 items directly in lists, table rows directly in table containers, and other
 block kinds outside those special containers while keeping block children out
-of phrasing-only parents.
+of phrasing-only parents. Every fragment a block op writes must serialize
+unchanged after parsing again; the parser's content model is the backstop for
+contexts the block table does not describe.
 Block ops do not sanitize: active-content policy remains at realize, where the
 sandbox policy sanitizes or refuses it. Styles are referenced by class and
 variables by declared name.

@@ -69,6 +69,15 @@ function validateContexts(root: Element): void {
   }
 }
 
+function requireStableFragment(fragment: ContentFragment, html: string, blockId: string): string {
+  if (serialize(parse(html)) === html) return html
+  const address = fragment.address
+  const key = address.key === undefined ? '' : ` key "${address.key}"`
+  throw new Error(
+    `block id "${blockId}" would make the parser restructure content in node "${address.node}" field "${address.field}"${key}; use content the parent can hold, for example phrasing content inside p and headings, to clear this refusal`,
+  )
+}
+
 function usedIds(fragments: ParsedFragment[], omitted: ReadonlySet<Element> = new Set()): Map<string, FoundBlock> {
   const result = new Map<string, FoundBlock>()
   for (const fragment of fragments) {
@@ -178,7 +187,8 @@ export function insertBlock(
   element.parent = point.parent
   validateContexts(element)
   attach(point.parent, point.index, element)
-  return { ops: [fragmentOp(point.fragment, serialize(point.fragment.tree))], id }
+  const html = requireStableFragment(point.fragment, serialize(point.fragment.tree), id)
+  return { ops: [fragmentOp(point.fragment, html)], id }
 }
 
 export function setBlock(document: Document, id: string, change: SetBlockChange, options: BlockOpOptions = {}): DocumentOp[] {
@@ -210,7 +220,8 @@ export function setBlock(document: Document, id: string, change: SetBlockChange,
     else element.attribs[name] = value
   }
   validateContexts(element)
-  return [fragmentOp(found.fragment, serialize(found.fragment.tree))]
+  const html = requireStableFragment(found.fragment, serialize(found.fragment.tree), id)
+  return [fragmentOp(found.fragment, html)]
 }
 
 export function moveBlock(document: Document, id: string, position: BlockPosition, _options: BlockOpOptions = {}): DocumentOp[] {
@@ -229,11 +240,16 @@ export function moveBlock(document: Document, id: string, position: BlockPositio
   found.element.parent = point.parent
   validateContexts(found.element)
   attach(point.parent, index, found.element)
-  if (found.fragment === point.fragment) return [fragmentOp(found.fragment, serialize(found.fragment.tree))]
+  if (found.fragment === point.fragment) {
+    const html = requireStableFragment(found.fragment, serialize(found.fragment.tree), id)
+    return [fragmentOp(found.fragment, html)]
+  }
   const source = { ...found.fragment, html: sourceHtml }
+  const sourceResult = requireStableFragment(found.fragment, serialize(found.fragment.tree), id)
+  const targetResult = requireStableFragment(point.fragment, serialize(point.fragment.tree), id)
   return fragmentOps([
-    { fragment: source, html: serialize(found.fragment.tree) },
-    { fragment: point.fragment, html: serialize(point.fragment.tree) },
+    { fragment: source, html: sourceResult },
+    { fragment: point.fragment, html: targetResult },
   ])
 }
 
@@ -241,5 +257,6 @@ export function removeBlock(document: Document, id: string, _options: BlockOpOpt
   const fragments = parsedFragments(document)
   const found = requireBlock(fragments, id)
   detach(found.element)
-  return [fragmentOp(found.fragment, serialize(found.fragment.tree))]
+  const html = requireStableFragment(found.fragment, serialize(found.fragment.tree), id)
+  return [fragmentOp(found.fragment, html)]
 }
