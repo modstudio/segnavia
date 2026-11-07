@@ -4,6 +4,47 @@
 import { hasBindings } from './bindings.ts'
 import { elements, parse } from './sanitize.ts'
 
+export type {
+  PaginateBlock,
+  PaginateBookInput,
+  PaginateBookPage,
+  PaginateBookRefusal,
+  PaginateBookResult,
+  PaginateFlow,
+  PaginateFlowParents,
+  PaginateLine,
+  PaginateMark,
+  PaginateNote,
+  PaginateNoteRef,
+  PaginateNoteSeriesGeometry,
+  PaginateOpens,
+  PaginatePageMarks,
+  PaginatePageNote,
+  PaginatePageRole,
+  PaginateSequence,
+  PaginateTarget,
+  PaginateTargetPage,
+  PaginateWindow,
+} from '@segnavia/layout'
+export {
+  type BookPageFacts,
+  type BookPrintedPagePlan,
+  type BookPrintedPageRole,
+  type BookSectionParents,
+  heldPageNumber,
+  openerPageIndex,
+  PAGINATE_FUNCTIONS,
+  type PrintedPagePlan,
+  type PrintedPageSide,
+  pageIndexForTarget,
+  paginateBook,
+  paginateScript,
+  planBookPages,
+  planPrintedPages,
+  printedPageAt,
+  selectBookParent,
+  windowPageIndex,
+} from '@segnavia/layout'
 export { base64ToBytes, bytesToBase64 } from './base64.ts'
 export { BINDINGS, bindingNames, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { BLOCK_CONTEXT, type BlockKind, blockContextAllowed } from './block-context.ts'
@@ -30,29 +71,6 @@ export { PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_SELECTOR, PAGE_REFERENCE_VALUE
 export { parseBookFixture } from './book/book-test-fixture.ts'
 export { bookView, bookViewFromHtml } from './book/book-view.ts'
 export { type BookFurnitureValues, embedFunction, fillBookFurniture, furnitureScript } from './book/furniture.ts'
-export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './book/paginate-book.ts'
-export type { PaginateTarget, PaginateTargetPage } from './book/paginate-target.ts'
-export { heldPageNumber, openerPageIndex, pageIndexForTarget, windowPageIndex } from './book/paginate-target.ts'
-export type {
-  PaginateBlock,
-  PaginateBookInput,
-  PaginateBookPage,
-  PaginateBookRefusal,
-  PaginateBookResult,
-  PaginateFlow,
-  PaginateFlowParents,
-  PaginateLine,
-  PaginateMark,
-  PaginateNote,
-  PaginateNoteRef,
-  PaginateNoteSeriesGeometry,
-  PaginateOpens,
-  PaginatePageMarks,
-  PaginatePageNote,
-  PaginatePageRole,
-  PaginateSequence,
-  PaginateWindow,
-} from './book/paginate-types.ts'
 export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength } from './book/region-fit.ts'
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
@@ -117,7 +135,6 @@ export {
   type ResolvePlacement,
   resolvePlacements,
 } from './placements.ts'
-export * from './printed-pages.ts'
 export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, safeMarkdownUrl, sanitize, type UrlPolicy } from './sanitize.ts'
 export {
   assertSingleSlotCopy,

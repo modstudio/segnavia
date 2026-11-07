@@ -1,4 +1,3 @@
-import { type BookPrintedPagePlan, selectBookParent } from '../printed-pages.ts'
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateMarks } from './paginate-marks.ts'
 import type {
@@ -14,6 +13,7 @@ import type {
   PaginateSequence,
   PaginateUnit,
 } from './paginate-types.ts'
+import { type BookPrintedPagePlan, selectBookParent } from './printed-pages.ts'
 
 export function paginateSequence(
   input: PaginateBookInput,

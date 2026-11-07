@@ -8,7 +8,7 @@ export const SOURCE_CONDITION = '@segnavia/source'
 
 export const REACT_PACKAGE_ALLOWLIST = new Set(['@segnavia/react'])
 // The verify-render Bun leg proves Bun support for these packages.
-export const BUN_SUPPORTED_PACKAGES = ['render', 'format', 'html', 'capture'] as const
+export const BUN_SUPPORTED_PACKAGES = ['render', 'format', 'layout', 'html', 'capture'] as const
 export const VUE_TYPE_ENTRIES = {
   frame: { exportName: './vue', source: 'src/vue.ts' },
   'markdown-editor': { exportName: './vue', source: 'src/vue.ts' },
@@ -45,10 +45,12 @@ export interface PackageRule {
 export const PACKAGES: Record<string, PackageRule> = {
   // Board placement geometry stays universal because callers supply every measured shape.
   format: { runtime: 'universal', imports: ['zod'] },
+  layout: { runtime: 'universal', imports: ['@segnavia/format'] },
   html: {
     runtime: 'universal',
     imports: [
       '@segnavia/format',
+      '@segnavia/layout',
       'zod',
       'htmlparser2',
       'domhandler',
@@ -99,7 +101,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   },
   frame: {
     runtime: 'browser',
-    imports: ['@segnavia/format', '@segnavia/html'],
+    imports: ['@segnavia/format', '@segnavia/html', '@segnavia/layout'],
     // Optional browser entries (package.json): authoring, deck, document-authoring, board-editing, item-settings and local-fonts.
     serverSafe: [
       'src/svg.ts',
@@ -118,7 +120,6 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/printed-page-columns.ts',
       'src/layout-settle.ts',
       'src/book-composer.ts',
-      'src/book-plan-folios.ts',
       'src/book-presentation.ts',
       'src/book-document.ts',
       'src/book-view-document.ts',

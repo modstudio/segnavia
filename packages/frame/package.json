@@ -186,6 +186,7 @@
   },
   "dependencies": {
     "@segnavia/format": "workspace:*",
-    "@segnavia/html": "workspace:*"
+    "@segnavia/html": "workspace:*",
+    "@segnavia/layout": "workspace:*"
   }
 }

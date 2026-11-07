@@ -22,7 +22,7 @@ import {
   parseCssLength,
   windowPageIndex,
 } from '@segnavia/html'
-import { bookPlanFolios } from './book-plan-folios.ts'
+import { bookPlanFolios } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageScale, spreadSlots } from './book-presentation.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
