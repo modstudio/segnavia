@@ -1,4 +1,5 @@
-import { partBookLabels } from '../demo-book-parts-fixtures.ts'
+import { Document } from '@segnavia/format'
+import { partBookLabels, partsFixture } from '../demo-book-parts-fixtures.ts'
 import { composedFrame } from './composed-frame.ts'
 import type { Harness } from './harness.ts'
 
@@ -8,55 +9,63 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
     const id = `book-parts-${hebrew ? 'he' : 'en'}`
     const frame = await composedFrame(h, `#${id}`, `The parts book frame ${id}`)
     const labels = partBookLabels(hebrew)
-    const report = await frame.evaluate((expected) => {
-      const papers = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-book-page]'))
-      const entries = Array.from(document.querySelectorAll<HTMLElement>('.segnavia-contents-entry'))
-      const entry = (title: string) => entries.find((item) => item.querySelector('a')?.textContent?.trim() === title)
-      const facts = (title: string) => {
-        const item = entry(title)
-        return {
-          level: item?.getAttribute('data-level') ?? '',
-          depth: item?.getAttribute('data-depth') ?? '',
-          page: item?.querySelector('.segnavia-contents-page')?.textContent?.trim() ?? '',
+    let minted = 0
+    const parsed = Document.parse(partsFixture(hebrew), { newId: () => `fixture-${++minted}` })
+    const body = parsed.children.find((node) => node.type === 'division' && node.name === 'body')
+    const openingPartId = body && 'children' in body ? body.children.find((node) => node.type === 'part' && node.title === labels.openingPart)?.id : undefined
+    if (!openingPartId) throw new Error('The parts fixture has no opening part id.')
+    const report = await frame.evaluate(
+      ({ expected, openingPartId }) => {
+        const papers = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-book-page]'))
+        const entries = Array.from(document.querySelectorAll<HTMLElement>('.segnavia-contents-entry'))
+        const entry = (title: string) => entries.find((item) => item.querySelector('a')?.textContent?.trim() === title)
+        const facts = (title: string) => {
+          const item = entry(title)
+          return {
+            level: item?.getAttribute('data-level') ?? '',
+            depth: item?.getAttribute('data-depth') ?? '',
+            page: item?.querySelector('.segnavia-contents-page')?.textContent?.trim() ?? '',
+          }
         }
-      }
-      const openingPaper = document.querySelector<HTMLElement>('[data-segnavia-book-page][data-segnavia-flow="segnavia-part-1"]')
-      const expectedHead = new Map([
-        ['segnavia-part-1', expected.openingPart],
-        ['segnavia-chapter-1', expected.openingPart],
-        ['segnavia-chapter-2', expected.titleOnlyPart],
-        ['segnavia-chapter-3', expected.titleOnlyPart],
-        ['segnavia-chapter-4', expected.appendixPart],
-      ])
-      const rectoHeads = papers.flatMap((paper) => {
-        const page = Number(paper.getAttribute('data-segnavia-book-page'))
-        const flow = paper.getAttribute('data-segnavia-flow') ?? ''
-        if (page % 2 === 0 || !expectedHead.has(flow)) return []
-        const head = paper.querySelector('.segnavia-running-head')?.textContent?.trim() ?? ''
-        return head === '' ? [] : [{ flow, head, expected: expectedHead.get(flow) }]
-      })
-      const outsideRectos = papers.filter((paper) => {
-        const page = Number(paper.getAttribute('data-segnavia-book-page'))
-        const flow = paper.getAttribute('data-segnavia-flow') ?? ''
-        return page % 2 === 1 && (flow.startsWith('segnavia-front-') || flow === 'segnavia-contents')
-      })
-      const firstEndIndex = papers.findIndex((paper) => paper.getAttribute('data-segnavia-flow') === 'segnavia-chapter-4')
-      const firstEnd = papers[firstEndIndex]
-      const previous = papers[firstEndIndex - 1]
-      return {
-        openingPage: Number(openingPaper?.getAttribute('data-segnavia-book-page')),
-        levels: [facts(expected.openingPart), facts(expected.chapterOne), facts(`${expected.topic} 1`)],
-        titleOnly: facts(expected.titleOnlyPart),
-        firstChapter: facts(expected.chapterTwo),
-        rectoHeads,
-        outsideRectos: outsideRectos.length,
-        outsideHaveNoPartHead: outsideRectos.every((paper) => !paper.querySelector('.segnavia-running-head')?.textContent?.trim()),
-        endContinues:
-          firstEnd?.getAttribute('data-segnavia-sequence') === 'body' &&
-          previous?.getAttribute('data-segnavia-sequence') === 'body' &&
-          Number(firstEnd.getAttribute('data-segnavia-number')) === Number(previous.getAttribute('data-segnavia-number')) + 1,
-      }
-    }, labels)
+        const openingPaper = document.querySelector<HTMLElement>(`[data-segnavia-book-page][data-segnavia-flow="${openingPartId}"]`)
+        const expectedHead = new Map([
+          [openingPartId, expected.openingPart],
+          ['segnavia-chapter-1', expected.openingPart],
+          ['segnavia-chapter-2', expected.titleOnlyPart],
+          ['segnavia-chapter-3', expected.titleOnlyPart],
+          ['segnavia-chapter-4', expected.appendixPart],
+        ])
+        const rectoHeads = papers.flatMap((paper) => {
+          const page = Number(paper.getAttribute('data-segnavia-book-page'))
+          const flow = paper.getAttribute('data-segnavia-flow') ?? ''
+          if (page % 2 === 0 || !expectedHead.has(flow)) return []
+          const head = paper.querySelector('.segnavia-running-head')?.textContent?.trim() ?? ''
+          return head === '' ? [] : [{ flow, head, expected: expectedHead.get(flow) }]
+        })
+        const outsideRectos = papers.filter((paper) => {
+          const page = Number(paper.getAttribute('data-segnavia-book-page'))
+          const flow = paper.getAttribute('data-segnavia-flow') ?? ''
+          return page % 2 === 1 && (flow.startsWith('segnavia-front-') || flow === 'segnavia-contents')
+        })
+        const firstEndIndex = papers.findIndex((paper) => paper.getAttribute('data-segnavia-flow') === 'segnavia-chapter-4')
+        const firstEnd = papers[firstEndIndex]
+        const previous = papers[firstEndIndex - 1]
+        return {
+          openingPage: Number(openingPaper?.getAttribute('data-segnavia-book-page')),
+          levels: [facts(expected.openingPart), facts(expected.chapterOne), facts(`${expected.topic} 1`)],
+          titleOnly: facts(expected.titleOnlyPart),
+          firstChapter: facts(expected.chapterTwo),
+          rectoHeads,
+          outsideRectos: outsideRectos.length,
+          outsideHaveNoPartHead: outsideRectos.every((paper) => !paper.querySelector('.segnavia-running-head')?.textContent?.trim()),
+          endContinues:
+            firstEnd?.getAttribute('data-segnavia-sequence') === 'body' &&
+            previous?.getAttribute('data-segnavia-sequence') === 'body' &&
+            Number(firstEnd.getAttribute('data-segnavia-number')) === Number(previous.getAttribute('data-segnavia-number')) + 1,
+        }
+      },
+      { expected: labels, openingPartId },
+    )
     h.check(`${id} part opening page is a recto`, report.openingPage > 0 && report.openingPage % 2 === 1, String(report.openingPage))
     h.check(
       `${id} contents nests part, chapter and h2 by level and depth`,

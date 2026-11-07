@@ -113,10 +113,9 @@ test('markdownOutline lowercases headings independently of the host locale', () 
   expect(markdownOutline('# Istanbul')).toEqual([{ id: 'istanbul', level: 1, title: 'Istanbul' }])
 })
 
-test('a resolved page can be parsed and resolved again without stale HTML', () => {
-  const first = resolvePageHtml(Page.parse({ markdown: '# Heading' }))
-  const second = resolvePageHtml(Page.parse(first))
-  expect(second.html).toBe(first.html)
+test('resolvePageHtml reads stored HTML and refuses markdown that skipped the content edge', () => {
+  expect(() => resolvePageHtml(Page.parse({ markdown: '# Heading' }))).toThrow('pass its Document input through @segnavia/html parseDocument')
+  expect(resolvePageHtml(Page.parse({ html: '<h1>Heading</h1>' })).html).toBe('<h1>Heading</h1>')
 })
 
 test('markdownOutline preserves Hebrew and suffixes duplicate headings at every level', () => {

@@ -28,7 +28,8 @@ test('mints stable ids for every node and definition while preserving supplied i
   const parsed = Document.parse(input, { newId })
   expect(parsed.id).toBe('document-id')
   expect(parsed.children[0]?.id).toBe('id-1')
-  expect(parsed.children[0] && 'children' in parsed.children[0] ? parsed.children[0].children[0]?.id : undefined).toBe('id-2')
+  const division = parsed.children[0]
+  expect(division && 'children' in division ? division.children[0]?.id : undefined).toBe('id-2')
   expect(parsed.parentPages[0]?.id).toBe('id-4')
   expect(parsed.templates[0]?.id).toBe('id-5')
   expect(parsed.noteSeries[0]?.id).toBe('id-6')

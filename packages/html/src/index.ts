@@ -44,7 +44,7 @@ export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength } 
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
 export { bookStylesheet, sanitizeBookCss } from './book-css.ts'
-export { BLOCK_ELEMENTS, type ParseDocumentOptions, parseDocument } from './document.ts'
+export { BLOCK_ELEMENTS, type HtmlDocument, type HtmlDocumentNode, type ParseDocumentOptions, parseDocument } from './document.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
@@ -61,6 +61,7 @@ export {
   isDiagramFence,
   isGithubAlertBlock,
   type MarkdownHeading,
+  markdownHtml,
   markdownOutline,
   resolvePageHtml,
 } from './markdown.ts'

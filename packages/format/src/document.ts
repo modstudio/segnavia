@@ -294,6 +294,11 @@ export type { DocumentParseOptions }
 const schemaParse = DocumentSchema.parse.bind(DocumentSchema)
 const schemaSafeParse = DocumentSchema.safeParse.bind(DocumentSchema)
 
+type DocumentSchemaWithIds = Omit<typeof DocumentSchema, 'parse' | 'safeParse'> & {
+  parse(input: unknown, options?: DocumentParseOptions): Document
+  safeParse(input: unknown, options?: DocumentParseOptions): { success: true; data: Document } | { success: false; error: unknown }
+}
+
 export const Document = Object.assign(DocumentSchema, {
   parse(input: unknown, options?: DocumentParseOptions): Document {
     return identifyDocument(schemaParse(input), options)
@@ -307,5 +312,5 @@ export const Document = Object.assign(DocumentSchema, {
       return { success: false as const, error }
     }
   },
-})
+}) as DocumentSchemaWithIds
 export type { DocumentKind }

@@ -9,10 +9,12 @@ import {
   type Limits,
   limitRefusalTemplate,
   type Page,
+  type PageOrPrintedInput,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_ROLES,
   PRINTED_PAGE_TOTAL_PATH,
   PX_PER_MM,
+  pageOrPrintedFromDocument,
   printedFromDocument,
   type ResolvedParentPage,
   resolveDirection,
@@ -29,7 +31,11 @@ import { fragmentColumns, fragmentSpan, paperCount } from './printed-page-column
 export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
 
-export { type PageOrPrintedInput, pageOrPrintedFromInput } from '@segnavia/format'
+export type { PageOrPrintedInput } from '@segnavia/format'
+
+export function pageOrPrintedFromInput(input: PageOrPrintedInput): Page {
+  return pageOrPrintedFromDocument(parseDocument(input))
+}
 
 export class PrintedPagesRefusedError extends Error {
   constructor(message: string) {
@@ -155,8 +161,8 @@ var furniture=function(region,html){if(!html)return;var held=document.createElem
 })();`
 }
 
-export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1]): string {
-  return printedPageValueDocument(resolvePageHtml(printedFromDocument(parseDocument(input))), options)
+export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1] & { newId?: () => string }): string {
+  return printedPageValueDocument(resolvePageHtml(printedFromDocument(parseDocument(input, { newId: options.newId }))), options)
 }
 
 export function printedPageValueDocument(

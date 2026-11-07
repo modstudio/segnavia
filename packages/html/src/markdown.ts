@@ -280,6 +280,11 @@ export function bodyHtml(body: PageBody, options: BodyHtmlOptions = {}): string 
   return 'html' in body ? body.html : markdownResult(body, options).html
 }
 
+export function markdownHtml(markdown: string | Extract<PageBody, { markdown: string }>, options: BodyHtmlOptions = {}): string {
+  const body = typeof markdown === 'string' ? { markdown } : markdown
+  return markdownResult(body, options).html
+}
+
 export function markdownOutline(markdown: string | Extract<PageBody, { markdown: string }>): MarkdownHeading[] {
   const body = typeof markdown === 'string' ? { markdown } : markdown
   return outlinedMarkdownResult(body).outline
@@ -289,7 +294,10 @@ export type HtmlPage = Omit<Page, 'body'> & { html: string }
 
 export function resolvePageHtml(page: Page, options: Pick<BodyHtmlOptions, 'alertLabels'>): HtmlPage
 export function resolvePageHtml(page: Page): HtmlPage
-export function resolvePageHtml(page: Page, options: Pick<BodyHtmlOptions, 'alertLabels'> = {}): HtmlPage {
+export function resolvePageHtml(page: Page, _options: Pick<BodyHtmlOptions, 'alertLabels'> = {}): HtmlPage {
   const { body, ...fields } = page
-  return { ...fields, html: bodyHtml(body, { dir: page.dir, lang: page.lang, alertLabels: options.alertLabels }) }
+  if (!('html' in body)) {
+    throw new Error('a parsed page needs stored HTML; pass its Document input through @segnavia/html parseDocument to clear this refusal')
+  }
+  return { ...fields, html: body.html }
 }

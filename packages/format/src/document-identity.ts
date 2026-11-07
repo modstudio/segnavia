@@ -1,10 +1,28 @@
-import type { DocumentNode } from './document-nodes.ts'
+import type { DivisionNode, DocumentNode, PartNode, SectionNode } from './document-nodes.ts'
 
 export interface DocumentParseOptions {
   newId?: () => string
 }
 
-export type IdentifiedNode = DocumentNode & { id: string; children?: IdentifiedNode[] }
+type IdentifiedLeaf =
+  Exclude<DocumentNode, DivisionNode | PartNode | SectionNode> extends infer N ? (N extends DocumentNode ? Omit<N, 'id'> & { id: string } : never) : never
+
+interface IdentifiedDivisionNode extends Omit<DivisionNode, 'id' | 'children'> {
+  id: string
+  children: IdentifiedNode[]
+}
+
+interface IdentifiedPartNode extends Omit<PartNode, 'id' | 'children'> {
+  id: string
+  children: IdentifiedNode[]
+}
+
+interface IdentifiedSectionNode extends Omit<SectionNode, 'id' | 'children'> {
+  id: string
+  children: IdentifiedNode[]
+}
+
+export type IdentifiedNode = IdentifiedLeaf | IdentifiedDivisionNode | IdentifiedPartNode | IdentifiedSectionNode
 
 type DefinitionNode = { type: string; id?: string; name?: string }
 

@@ -198,7 +198,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async bookPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const document = parseDocument(input)
+        const document = parseDocument(input, { newId: opts.newId })
         const expanded = await expandFrameBookValue(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
@@ -260,7 +260,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFramePages(
-          inputs.map((input) => resolvePageHtml(pageOrPrintedFromDocument(parseDocument(input)))),
+          inputs.map((input) => resolvePageHtml(pageOrPrintedFromDocument(parseDocument(input, { newId: opts.newId })))),
           opts.motifs,
           deadline.signal,
           opts.placements,
@@ -289,7 +289,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async deckPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
-      const deck = deckFromDocument(parseDocument(input))
+      const deck = deckFromDocument(parseDocument(input, { newId: opts.newId }))
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
@@ -318,7 +318,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async slideImage(input, index, opts = {}) {
       opts = parseRenderOptions(opts)
-      const deck = deckFromDocument(parseDocument(input))
+      const deck = deckFromDocument(parseDocument(input, { newId: opts.newId }))
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const filled = await filledDeck(deck, opts.slots, deadline.signal)

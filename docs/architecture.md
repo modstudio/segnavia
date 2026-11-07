@@ -158,6 +158,20 @@ definition collections. A node has a `type` and optional `id`. The profile for
 the document kind determines which other root fields, node types and definition
 collections are accepted.
 
+`Document.parse(input, { newId })` is the structural edge. It preserves every
+supplied node id and uses the host's `newId` function for every missing root,
+child, and definition id; without that option it uses
+`globalThis.crypto.randomUUID()`. Its parsed `Document` type therefore requires
+an id on every node. Duplicate node ids are refused with both node locations.
+
+`parseDocument` from `@segnavia/html` is the content edge used by viewers and
+renderers. It runs the structural edge, converts markdown input once to the
+stored HTML form, sanitizes every content fragment, and preserves or mints
+`data-segnavia-id` on paragraphs, headings, list items, figures, and table
+rows. One `newId` function supplies both node and block ids. Duplicate block
+ids are refused across the whole document. Hosts that need reproducible output
+pass a deterministic counter; stored ids make later parses idempotent.
+
 ### Migration from legacy deck and page input
 
 | Legacy shape and field | Document form |

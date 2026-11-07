@@ -1,6 +1,6 @@
 import { Document, type DocumentInput, type DocumentParseOptions, type Document as ParsedDocument } from '@segnavia/format'
 import { isTag } from 'domhandler'
-import { bodyHtml } from './markdown.ts'
+import { markdownHtml } from './markdown.ts'
 import { parse, sanitize, serialize } from './sanitize.ts'
 
 export const BLOCK_ELEMENTS = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'figure', 'tr'] as const
@@ -11,6 +11,8 @@ export interface ParseDocumentOptions extends DocumentParseOptions {}
 
 type BlockLocation = { node: string; block: string }
 type ContentHtml = (value: string, node: { type: string; id: string }) => string
+export type HtmlDocumentNode = ParsedDocument['children'][number]
+export type HtmlDocument = ParsedDocument
 
 function contentNodeLabel(node: { type: string; id: string }): string {
   return `${node.type} node "${node.id}"`
@@ -41,7 +43,7 @@ function contentHtml(html: string, node: { type: string; id: string }, newId: ()
   return serialize(document)
 }
 
-export function parseDocument(input: DocumentInput | unknown, options: ParseDocumentOptions = {}): ParsedDocument {
+export function parseDocument(input: DocumentInput | unknown, options: ParseDocumentOptions = {}): HtmlDocument {
   const newId = options.newId ?? (() => globalThis.crypto.randomUUID())
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockLocation>()
@@ -49,7 +51,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const html: ContentHtml = (value, node) => contentHtml(value, node, newId, seen, keepScripts)
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
-    const value = 'html' in node.body ? node.body.html : bodyHtml(node.body, { dir: document.settings?.dir, lang: document.settings?.lang })
+    const value = 'html' in node.body ? node.body.html : markdownHtml(node.body, { dir: document.settings?.dir, lang: document.settings?.lang })
     return { ...node, body: { html: html(value, node) } }
   }
   const nodeContent = (node: ParsedDocument['children'][number]): ParsedDocument['children'][number] => {

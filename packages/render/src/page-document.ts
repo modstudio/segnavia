@@ -58,7 +58,7 @@ export async function prepareRenderedPage(
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  return prepareRenderedPageValue(pageOrPrintedFromDocument(parseDocument(input)), options, motifs, signal, purpose)
+  return prepareRenderedPageValue(pageOrPrintedFromDocument(parseDocument(input, { newId: options.newId })), options, motifs, signal, purpose)
 }
 
 export async function prepareRenderedPageValue(
@@ -134,7 +134,7 @@ export function renderPageDocument(
   fontCss = '',
   diagramScript?: string,
 ): string {
-  return renderPageValueDocument(pageOrPrintedFromDocument(parseDocument(input)), options, printing, nonce, fontCss, diagramScript)
+  return renderPageValueDocument(pageOrPrintedFromDocument(parseDocument(input, { newId: options.newId })), options, printing, nonce, fontCss, diagramScript)
 }
 
 export function renderPageValueDocument(

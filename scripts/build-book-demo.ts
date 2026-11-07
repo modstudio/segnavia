@@ -1,9 +1,9 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { bookFromDocument, Document, type DocumentInput } from '@segnavia/format'
+import { bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
-import { bookView } from '@segnavia/html'
+import { bookView, parseDocument } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
@@ -18,7 +18,11 @@ import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
 
-const bookFixtureValue = (input: DocumentInput) => bookFromDocument(Document.parse(input))
+export const fixtureIds = () => {
+  let id = 0
+  return () => `fixture-${++id}`
+}
+const bookFixtureValue = (input: DocumentInput) => bookFromDocument(parseDocument(input, { newId: fixtureIds() }))
 const flowSection = (title: string, html: string, fields: Record<string, unknown> = {}) => ({
   type: 'section' as const,
   title,

@@ -47,13 +47,13 @@ test('placed page entries become designed sections before the book is built', as
       },
     }),
   })
-  expect(bookDocument(expanded.book).html).toContain('<p>Resolved page</p>')
+  expect(bookDocument(expanded.book).html).toMatch(/<p data-segnavia-id="[^"]+">Resolved page<\/p>/)
   expect(expanded.book.body[0]).toMatchObject({
     kind: 'designed',
     title: 'Placed page',
     contents: false,
     opens: 'recto',
-    pages: [{ html: '<p>Resolved page</p>' }],
+    pages: [{ html: expect.stringMatching(/<p data-segnavia-id="[^"]+">Resolved page<\/p>/) }],
   })
 })
 
