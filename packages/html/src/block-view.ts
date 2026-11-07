@@ -1,6 +1,6 @@
 import type { Document } from '@segnavia/format'
 import { type ChildNode, type Element, isTag, isText } from 'domhandler'
-import { BLOCK_CONTEXT, type BlockKind } from './block-context.ts'
+import { BLOCK_KINDS, type BlockKind } from './block-context.ts'
 import { type ContentAddress, contentFragments } from './block-fragments.ts'
 import { parse } from './sanitize.ts'
 
@@ -13,8 +13,6 @@ export interface BlockViewEntry {
   address: ContentAddress
   parent?: string
 }
-
-const BLOCK_KINDS: ReadonlySet<string> = new Set(Object.keys(BLOCK_CONTEXT))
 
 function textContent(node: ChildNode): string {
   if (isText(node)) return node.data
@@ -45,7 +43,8 @@ function parentBlock(element: Element): string | undefined {
 export function blockView(document: Document): BlockViewEntry[] {
   return contentFragments(document).flatMap(({ address, html }) =>
     blockElements(parse(html).children).map((element) => {
-      const { 'data-segnavia-id': id = '', class: className, ...attributes } = element.attribs
+      const { 'data-segnavia-id': id, class: className, ...attributes } = element.attribs
+      if (!id) throw new Error('blockView found a block without an id; parse the document again to mint a non-empty id')
       return {
         id,
         kind: element.name.toLowerCase() as BlockKind,

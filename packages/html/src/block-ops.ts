@@ -1,13 +1,13 @@
 import { type Document, type DocumentOp, defaultNewId } from '@segnavia/format'
 import { type ChildNode, type Element, type Document as HtmlDocument, isTag, Text } from 'domhandler'
-import { BLOCK_CONTEXT, type BlockKind, requireBlockContext } from './block-context.ts'
-import { type ContentAddress, type ContentFragment, contentFragment, contentFragments, fragmentOp } from './block-fragments.ts'
+import { BLOCK_KINDS, type BlockKind, requireBlockContext } from './block-context.ts'
+import { type ContentAddress, type ContentFragment, contentFragments, findFragment, fragmentOp, fragmentOps } from './block-fragments.ts'
 import { blockElements } from './block-view.ts'
 import { parse, serialize } from './sanitize.ts'
 
 export type BlockPosition = { before: string } | { after: string } | { in: ContentAddress; at: 'start' | 'end' }
 
-export interface InsertBlockOptions {
+export interface BlockOpOptions {
   newId?: () => string
 }
 
@@ -34,8 +34,6 @@ interface InsertionPoint {
   index: number
 }
 
-const BLOCK_KINDS: ReadonlySet<string> = new Set(Object.keys(BLOCK_CONTEXT))
-
 function parsedFragments(document: Document): ParsedFragment[] {
   return contentFragments(document).map((fragment) => ({ ...fragment, tree: parse(fragment.html) }))
 }
@@ -47,6 +45,7 @@ function blockLabel(found: FoundBlock): string {
 }
 
 function findBlock(fragments: ParsedFragment[], id: string): FoundBlock | undefined {
+  if (!id) return undefined
   for (const fragment of fragments) {
     const element = blockElements(fragment.tree.children).find((candidate) => candidate.attribs['data-segnavia-id'] === id)
     if (element) return { fragment, element }
@@ -85,10 +84,10 @@ function usedIds(fragments: ParsedFragment[], omitted: ReadonlySet<Element> = ne
 function identifyBlocks(roots: Element[], fragments: ParsedFragment[], newId: () => string, omitted: ReadonlySet<Element> = new Set()): string {
   const seen = usedIds(fragments, omitted)
   const incoming = new Map<string, Element>()
-  const elements = roots.flatMap((root) => [root, ...blockElements(root.children)])
+  const elements = [...new Set(roots.flatMap((root) => [root, ...blockElements(root.children)]))]
   for (const element of elements) {
     let id = element.attribs['data-segnavia-id']
-    if (id === undefined) {
+    if (!id) {
       id = newId()
       if (!id) throw new Error('inserted block could not mint a block id; return a non-empty id from newId to clear this refusal')
       element.attribs['data-segnavia-id'] = id
@@ -120,15 +119,9 @@ function children(parent: HtmlDocument | Element): ChildNode[] {
   return parent.children
 }
 
-function pointForPosition(document: Document, fragments: ParsedFragment[], position: BlockPosition): InsertionPoint {
+function pointForPosition(fragments: ParsedFragment[], position: BlockPosition): InsertionPoint {
   if ('in' in position) {
-    const requested = contentFragment(document, position.in)
-    const fragment = fragments.find(
-      (candidate) =>
-        candidate.address.node === requested.address.node &&
-        candidate.address.field === requested.address.field &&
-        candidate.address.key === requested.address.key,
-    ) as ParsedFragment
+    const fragment = findFragment(fragments, position.in)
     return { fragment, parent: fragment.tree, index: position.at === 'start' ? 0 : fragment.tree.children.length }
   }
   const id = 'before' in position ? position.before : position.after
@@ -164,25 +157,32 @@ function setChildren(element: Element, next: ChildNode[]): void {
   for (const child of next) child.parent = element
 }
 
+function requireSetBlockChange(change: SetBlockChange): void {
+  if (change.html !== undefined && change.text !== undefined) {
+    throw new Error('setBlock cannot establish content because html and text were supplied together; remove one to clear this refusal')
+  }
+  if (Object.keys(change.attributes ?? {}).some((name) => name.toLowerCase() === 'class')) {
+    throw new Error('setBlock attributes cannot contain "class"; use the class field to clear this refusal')
+  }
+}
+
 export function insertBlock(
   document: Document,
   input: { html: string; position: BlockPosition },
-  options: InsertBlockOptions = {},
+  options: BlockOpOptions = {},
 ): { ops: DocumentOp[]; id: string } {
   const fragments = parsedFragments(document)
   const element = singleBlock(input.html)
   const id = identifyBlocks([element], fragments, options.newId ?? defaultNewId)
-  const point = pointForPosition(document, fragments, input.position)
+  const point = pointForPosition(fragments, input.position)
   element.parent = point.parent
   validateContexts(element)
   attach(point.parent, point.index, element)
   return { ops: [fragmentOp(point.fragment, serialize(point.fragment.tree))], id }
 }
 
-export function setBlock(document: Document, id: string, change: SetBlockChange): DocumentOp[] {
-  if (change.html !== undefined && change.text !== undefined) {
-    throw new Error('setBlock cannot establish content because html and text were supplied together; remove one to clear this refusal')
-  }
+export function setBlock(document: Document, id: string, change: SetBlockChange, options: BlockOpOptions = {}): DocumentOp[] {
+  requireSetBlockChange(change)
   const fragments = parsedFragments(document)
   const found = requireBlock(fragments, id)
   const element = found.element
@@ -194,9 +194,8 @@ export function setBlock(document: Document, id: string, change: SetBlockChange)
     const removed = new Set(blockElements(element.children))
     const inner = parse(change.html)
     const incoming = blockElements(inner.children)
-    const topLevelBlocks = incoming.filter((candidate) => candidate.parent === null || !isTag(candidate.parent) || !incoming.includes(candidate.parent))
     const omitted = new Set([...removed, ...incoming])
-    identifyBlocks(topLevelBlocks, fragments, defaultNewId, omitted)
+    identifyBlocks(incoming, fragments, options.newId ?? defaultNewId, omitted)
     setChildren(element, inner.children)
   } else if (change.text !== undefined) {
     setChildren(element, [new Text(change.text)])
@@ -214,10 +213,10 @@ export function setBlock(document: Document, id: string, change: SetBlockChange)
   return [fragmentOp(found.fragment, serialize(found.fragment.tree))]
 }
 
-export function moveBlock(document: Document, id: string, position: BlockPosition): DocumentOp[] {
+export function moveBlock(document: Document, id: string, position: BlockPosition, _options: BlockOpOptions = {}): DocumentOp[] {
   const fragments = parsedFragments(document)
   const found = requireBlock(fragments, id)
-  const point = pointForPosition(document, fragments, position)
+  const point = pointForPosition(fragments, position)
   if (isDescendant(point.parent, found.element)) {
     throw new Error(`block id "${id}" cannot move into its own descendant; choose a position outside that block to clear this refusal`)
   }
@@ -232,10 +231,13 @@ export function moveBlock(document: Document, id: string, position: BlockPositio
   attach(point.parent, index, found.element)
   if (found.fragment === point.fragment) return [fragmentOp(found.fragment, serialize(found.fragment.tree))]
   const source = { ...found.fragment, html: sourceHtml }
-  return [fragmentOp(source, serialize(found.fragment.tree)), fragmentOp(point.fragment, serialize(point.fragment.tree))]
+  return fragmentOps([
+    { fragment: source, html: serialize(found.fragment.tree) },
+    { fragment: point.fragment, html: serialize(point.fragment.tree) },
+  ])
 }
 
-export function removeBlock(document: Document, id: string): DocumentOp[] {
+export function removeBlock(document: Document, id: string, _options: BlockOpOptions = {}): DocumentOp[] {
   const fragments = parsedFragments(document)
   const found = requireBlock(fragments, id)
   detach(found.element)

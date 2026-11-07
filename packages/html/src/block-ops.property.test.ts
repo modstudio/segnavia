@@ -85,7 +85,13 @@ function target(seed: number): { id: string; peer: string } {
 property('setBlock changes only the target block substring and its containing substrings', (seed) => {
   const before = page(seed)
   const { id } = target(seed)
-  const after = apply(before, setBlock(before, id, { class: `changed-${seed}` }))
+  const change =
+    seed % 3 === 0 && ORDINARY[seed % ORDINARY.length] !== 'figure'
+      ? { kind: 'h1' as const }
+      : seed % 3 === 1 || ORDINARY[seed % ORDINARY.length] === 'figure'
+        ? { html: `<span>Changed ${seed}</span>` }
+        : { class: `changed-${seed}` }
+  const after = apply(before, setBlock(before, id, change))
   unchanged(before, after, related(before, id))
 })
 

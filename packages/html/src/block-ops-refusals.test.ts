@@ -54,3 +54,18 @@ test('refuses moving a block into its own descendant', () => {
     /block id "outer" cannot move into its own descendant; choose a position outside that block/,
   )
 })
+
+test('refuses block children in phrasing-only block parents', () => {
+  const document = page('<p data-segnavia-id="known">Known</p>')
+  for (const kind of ['p', 'h2']) {
+    expect(() => setBlock(document, 'known', { html: `<${kind} data-segnavia-id="inner">Inner</${kind}>` })).toThrow(
+      new RegExp(`block kind "${kind}" cannot stand in parent "p"; parent "p" accepts no block children`),
+    )
+  }
+})
+
+test('refuses class in attributes because class has its own change field', () => {
+  expect(() => setBlock(page('<p data-segnavia-id="known">Known</p>'), 'known', { class: 'a', attributes: { class: 'b' } })).toThrow(
+    /attributes cannot contain "class"; use the class field to clear this refusal/,
+  )
+})

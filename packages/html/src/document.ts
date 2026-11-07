@@ -8,12 +8,11 @@ import {
   pageOrPrintedFromDocument,
 } from '@segnavia/format'
 import { isTag } from 'domhandler'
+import { BLOCK_KINDS } from './block-context.ts'
 import { type AlertLabels, markdownHtml } from './markdown.ts'
 import { parse, serialize } from './sanitize.ts'
 
-export const BLOCK_ELEMENTS = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'figure', 'tr'] as const
-
-const BLOCK_ELEMENT_SET: ReadonlySet<string> = new Set(BLOCK_ELEMENTS)
+export { BLOCK_ELEMENTS } from './block-context.ts'
 
 export interface ParseDocumentOptions extends DocumentParseOptions {
   alertLabels?: Partial<AlertLabels>
@@ -31,8 +30,8 @@ function contentHtml(html: string, node: { type: string; id: string }, newId: ()
   const visit = (children: typeof document.children): void => {
     for (const child of children) {
       if (!isTag(child)) continue
-      if (BLOCK_ELEMENT_SET.has(child.name.toLowerCase())) {
-        const id = child.attribs['data-segnavia-id'] ?? newId()
+      if (BLOCK_KINDS.has(child.name.toLowerCase())) {
+        const id = child.attribs['data-segnavia-id'] || newId()
         if (!id) throw new Error(`${contentNodeLabel(node)} could not mint a block id; return a non-empty id from newId to clear this refusal`)
         const location = { node: contentNodeLabel(node), block: `<${child.name}>` }
         const first = seen.get(id)

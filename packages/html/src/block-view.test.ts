@@ -87,6 +87,6 @@ test('a cross-fragment move compiles to removal then insertion and remains inver
 
 test('blockView refuses a structurally valid but unparsed document like fingerprintDocument', () => {
   expect(() => blockView({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '<p>Missing ids</p>' } }] } as Document)).toThrow(
-    /fingerprintDocument refused: document is not a parsed Document; parse it first/,
+    /blockView and block ops refused: document is not a parsed Document; parse it first/,
   )
 })
