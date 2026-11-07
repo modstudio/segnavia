@@ -38,22 +38,32 @@ export async function verifyDocuments(h: Harness) {
     second.dispatchEvent(new DragEvent('dragover', { bubbles: true, composed: true, dataTransfer: transfer, clientY: box.bottom - 1 }))
     second.dispatchEvent(new DragEvent('drop', { bubbles: true, composed: true, dataTransfer: transfer, clientY: box.bottom - 1 }))
   })
-  await page.waitForFunction(() => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages[0]?.id === 'inside')
+  await page.waitForFunction(
+    () => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages[0]?.children[0]?.id === 'inside',
+  )
   check(
     'document rail drag reorders pages',
-    await page.evaluate(() => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages[0]?.id === 'inside'),
+    await page.evaluate(
+      () => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages[0]?.children[0]?.id === 'inside',
+    ),
   )
   await rail.locator('button[data-index="0"]').press('Alt+ArrowDown')
-  await page.waitForFunction(() => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages[0]?.id === 'cover')
+  await page.waitForFunction(
+    () => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages[0]?.children[0]?.id === 'cover',
+  )
   check(
     'document rail keyboard reorders pages',
-    await page.evaluate(() => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages[0]?.id === 'cover'),
+    await page.evaluate(
+      () => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages[0]?.children[0]?.id === 'cover',
+    ),
   )
   await page.evaluate(() => ((window as unknown as { documentAuthoringFacts: { rejectMove: boolean } }).documentAuthoringFacts.rejectMove = true))
   await rail.locator('button[data-index="0"]').press('Alt+ArrowDown')
   await page.waitForFunction(() => (window as unknown as { documentAuthoringFacts: { errors: unknown[] } }).documentAuthoringFacts.errors.length > 0)
   const failed = await page.evaluate(() => ({
-    ids: (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ id?: string }> }).pages.map((page) => page.id).join(','),
+    ids: (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages
+      .map((page) => page.children[0]?.id)
+      .join(','),
     errors: (window as unknown as { documentAuthoringFacts: { errors: unknown[] } }).documentAuthoringFacts.errors.length,
   }))
   check('a rejected document reorder rolls back and reports an authoring error', failed.ids === 'cover,inside' && failed.errors === 1, JSON.stringify(failed))
@@ -118,7 +128,7 @@ export async function verifyDocuments(h: Harness) {
     return cases.map(({ print, sheet }) => {
       const viewer = document.createElement('segnavia-document') as HTMLElement & { load: (pages: unknown[], print: unknown) => void }
       host.append(viewer)
-      viewer.load([{ html: '<p>Paper</p>' }], print)
+      viewer.load([{ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '<p>Paper</p>' } }] }], print)
       const shown = viewer.querySelector<HTMLElement>('.segnavia-document__sheet')?.getBoundingClientRect()
       return { shown: shown ? { width: shown.width, height: shown.height } : null, sheet }
     })
