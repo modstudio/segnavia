@@ -1,6 +1,3 @@
-// Papers: placement geometry, scaling, direction, sandboxing, unstyled use
-// and the browser print path for imposed pages.
-
 import { execFileSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -11,7 +8,6 @@ import { PDFDocument } from 'pdf-lib'
 import { labelPages, labelsImposition, twoSidedCardImposition } from '../demo-page-fixtures.ts'
 import type { Harness } from './harness.ts'
 import { readPpm } from './pdf-raster.ts'
-
 function screenshotPixel(png: Uint8Array): [number, number, number] {
   let offset = 8
   const compressed: Uint8Array[] = []
@@ -24,7 +20,6 @@ function screenshotPixel(png: Uint8Array): [number, number, number] {
   const row = inflateSync(Buffer.concat(compressed))
   return [row[1] ?? 0, row[2] ?? 0, row[3] ?? 0]
 }
-
 async function waitForScreenshotPixel(
   screenshot: () => Promise<Uint8Array>,
   expected: readonly [number, number, number],
@@ -39,7 +34,6 @@ async function waitForScreenshotPixel(
   } while (performance.now() < deadline)
   return pixel
 }
-
 async function verifyPagePrintBackgrounds(h: Harness) {
   const { page, check } = h
   const printed = await page.evaluate(async () => {
@@ -91,8 +85,6 @@ async function verifyPagePrintBackgrounds(h: Harness) {
   try {
     const render = async (printBackground: boolean) => {
       await page.setContent(`<!doctype html>${printHtml}`)
-      // Frame load and image decode can finish after setContent; this check
-      // deliberately crosses a real readiness interval before invoking print.
       await page.waitForTimeout(2500)
       const pdf = await page.pdf({ preferCSSPageSize: true, printBackground })
       const parsed = await PDFDocument.load(pdf)
@@ -142,7 +134,6 @@ async function verifyPagePrintBackgrounds(h: Harness) {
     rmSync(work, { recursive: true, force: true })
   }
 }
-
 export async function verifyPapers(h: Harness) {
   const { page, check } = h
   const imposition = Imposition.parse(labelsImposition)
@@ -322,17 +313,11 @@ export async function verifyPapers(h: Harness) {
         load: (pages: unknown[], imposition: unknown) => void
       }
       document.body.append(paper)
-      paper.load(
-        [{ type: 'document', kind: 'page', settings: { lang, scripts: 'sandboxed' }, children: [{ type: 'page', body: { html } }] }],
-        imposition,
-      )
+      paper.load([{ type: 'document', kind: 'page', settings: { lang, scripts: 'sandboxed' }, children: [{ type: 'page', body: { html } }] }], imposition)
       await new Promise((resolve) => setTimeout(resolve, 100))
       let dirRefused = false
       try {
-        paper.load(
-          [{ type: 'document', kind: 'page', settings: { dir: lang }, children: [{ type: 'page', body: { html: '<p>refused</p>' } }] }],
-          imposition,
-        )
+        paper.load([{ type: 'document', kind: 'page', settings: { dir: lang }, children: [{ type: 'page', body: { html: '<p>refused</p>' } }] }], imposition)
       } catch {
         dirRefused = true
       }
@@ -388,16 +373,16 @@ export async function verifyPapers(h: Harness) {
         [{ type: 'document', kind: 'page', settings: { lang, scripts: 'sandboxed' }, children: [{ type: 'page', body: { html } }] }],
         imposition,
         {
-        print: (win: Window) => {
-          const host = win as Window & { __segnaviaHostile?: boolean }
-          const frames = [...win.document.querySelectorAll('iframe')]
-          result = {
-            frames: frames.length,
-            sandbox: frames[0]?.getAttribute('sandbox') ?? null,
-            hostNodes: win.document.querySelectorAll('#segnavia-hostile-html,#segnavia-hostile-script,#segnavia-hostile-lang').length,
-            hostMarker: host.__segnaviaHostile === true,
-          }
-        },
+          print: (win: Window) => {
+            const host = win as Window & { __segnaviaHostile?: boolean }
+            const frames = [...win.document.querySelectorAll('iframe')]
+            result = {
+              frames: frames.length,
+              sandbox: frames[0]?.getAttribute('sandbox') ?? null,
+              hostNodes: win.document.querySelectorAll('#segnavia-hostile-html,#segnavia-hostile-script,#segnavia-hostile-lang').length,
+              hostMarker: host.__segnaviaHostile === true,
+            }
+          },
         },
       )
       return result

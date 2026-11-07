@@ -9,10 +9,10 @@ import {
 } from './document-value-load.ts'
 
 test('internal document value methods keep their identity across browser bundles', () => {
-  expect(internalPageLoad).toBe(Symbol.for('@segnavia/frame/internal-page-load'))
-  expect(internalThumbnailDeckLoad).toBe(Symbol.for('@segnavia/frame/internal-thumbnail-deck-load'))
-  expect(internalThumbnailPageLoad).toBe(Symbol.for('@segnavia/frame/internal-thumbnail-page-load'))
-  expect(internalDocumentPagesLoad).toBe(Symbol.for('@segnavia/frame/internal-document-pages-load'))
-  expect(internalDocumentPagesRead).toBe(Symbol.for('@segnavia/frame/internal-document-pages-read'))
-  expect(internalPaperPagesLoad).toBe(Symbol.for('@segnavia/frame/internal-paper-pages-load'))
+  expect(Symbol.keyFor(internalPageLoad)).toBe('@segnavia/frame/internal-page-load')
+  expect(Symbol.keyFor(internalThumbnailDeckLoad)).toBe('@segnavia/frame/internal-thumbnail-deck-load')
+  expect(Symbol.keyFor(internalThumbnailPageLoad)).toBe('@segnavia/frame/internal-thumbnail-page-load')
+  expect(Symbol.keyFor(internalDocumentPagesLoad)).toBe('@segnavia/frame/internal-document-pages-load')
+  expect(Symbol.keyFor(internalDocumentPagesRead)).toBe('@segnavia/frame/internal-document-pages-read')
+  expect(Symbol.keyFor(internalPaperPagesLoad)).toBe('@segnavia/frame/internal-paper-pages-load')
 })
