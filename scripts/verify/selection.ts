@@ -48,10 +48,12 @@ export async function verifySelection(h: Harness) {
       kind: 'page',
       settings: { scripts: 'refuse' },
       children: [{ type: 'page', body: { html: '<p data-slot-value="text">Unfilled document text</p><img data-slot-src="image">' } }],
-      slots: [
-        { key: 'text', label: 'Text', type: 'text' },
-        { key: 'image', label: 'Image', type: 'image' },
-      ],
+      data: {
+        slots: [
+          { key: 'text', label: 'Text', type: 'text' },
+          { key: 'image', label: 'Image', type: 'image' },
+        ],
+      },
     }
     Object.assign(window as typeof window & Record<string, unknown>, {
       releaseSelectionAsset: () => releaseAsset('data:image/gif;base64,R0lGODlhAQABAAAAACw='),

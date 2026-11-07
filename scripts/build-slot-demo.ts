@@ -79,14 +79,18 @@ export async function buildSlotDemo(site: string): Promise<void> {
       const resolveAsset = async ref => ref === 'mark' ? ${JSON.stringify(slotLogo)} : Promise.reject(new Error('missing asset'))
       const reports = []
       const overflowPage = mode => ({
+        type: 'document',
+        kind: 'page',
         size: { width: 336, height: 192 },
-        slots: [{ key: 'name', label: 'Name', type: 'text', overflow: mode }],
-        html: '<div style="${base}"><strong data-slot-value="name" style="display:block;inline-size:100px;block-size:96px;font-size:80px;white-space:nowrap">Design Name</strong></div>',
+        data: { slots: [{ key: 'name', label: 'Name', type: 'text', overflow: mode }] },
+        children: [{ type: 'page', body: { html: '<div style="${base}"><strong data-slot-value="name" style="display:block;inline-size:100px;block-size:96px;font-size:80px;white-space:nowrap">Design Name</strong></div>' } }],
       })
       const inlineRefusePage = {
+        type: 'document',
+        kind: 'page',
         size: { width: 336, height: 192 },
-        slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
-        html: '<p><strong data-slot-value="name">Design Name</strong></p>',
+        data: { slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }] },
+        children: [{ type: 'page', body: { html: '<p><strong data-slot-value="name">Design Name</strong></p>' } }],
       }
       const shrink = document.getElementById('shrink-card')
       shrink.slots = { fill: { id: 'long', values: { name: 'Alexandria Montgomery' } }, report: report => reports.push(report) }
@@ -106,10 +110,12 @@ export async function buildSlotDemo(site: string): Promise<void> {
       const deckThumbnail = document.getElementById('filled-deck-thumbnail')
       deckThumbnail.slots = { fill: ${JSON.stringify(firstCardFill)} }
       deckThumbnail.deck = {
+        type: 'document',
+        kind: 'deck',
         title: 'Filled slot deck',
         size: { width: 336, height: 192 },
-        slots: [{ key: 'name', label: 'Name', type: 'text' }],
-        slides: [{ id: 'card', content: { kind: 'html', html: '<p data-slot-value="name">Design Name</p>' } }],
+        data: { slots: [{ key: 'name', label: 'Name', type: 'text' }] },
+        children: [{ type: 'slide', id: 'card', content: { kind: 'html', html: '<p data-slot-value="name">Design Name</p>' } }],
       }
       let failedAsset
       const failing = { fill: { id: 'broken', values: { logo: { asset: 'missing' } } }, resolveAsset, report: report => { failedAsset = report } }

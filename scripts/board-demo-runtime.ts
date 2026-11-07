@@ -1,2 +1,2 @@
 export { boardFromDocument, documentFromBoard } from '@segnavia/format'
-export { attachBoardEditing } from '@segnavia/frame/board-editing'
+export { attachBoardEditing, boardValue } from '@segnavia/frame/board-editing'
