@@ -10,9 +10,8 @@ describe('planBook', () => {
     { name: 'right-to-left Hebrew', direction: 'rtl' as const, frontMatter: 'hebrew' as const, body: 'hebrew' as const },
   ])('combines the existing pagination and folio plans for $name books', ({ direction, frontMatter, body }) => {
     const measurements = input({
-      direction,
       flows: [flow('front', 'front', [], 'Front'), flow('body', 'chapter', [], 'Body')],
-      settings,
+      settings: { ...settings, direction },
     })
     const paginated = paginateBook(measurements)
     const folios = bookPlanFolios(paginated.pages, { frontMatter, body })
