@@ -7,10 +7,8 @@ import {
   type Document as ParsedDocument,
   pageOrPrintedFromDocument,
 } from '@segnavia/format'
-import { isTag } from 'domhandler'
-import { BLOCK_KINDS } from './block-context.ts'
+import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
 import { type AlertLabels, markdownHtml } from './markdown.ts'
-import { parse, serialize } from './sanitize.ts'
 
 export { BLOCK_ELEMENTS } from './block-context.ts'
 
@@ -18,53 +16,34 @@ export interface ParseDocumentOptions extends DocumentParseOptions {
   alertLabels?: Partial<AlertLabels>
 }
 
-type BlockLocation = { node: string; block: string }
 type ContentHtml = (value: string, node: { type: string; id: string }) => string
 
 function contentNodeLabel(node: { type: string; id: string }): string {
   return `${node.type} node "${node.id}"`
 }
 
-function contentHtml(html: string, node: { type: string; id: string }, newId: () => string, seen: Map<string, BlockLocation>): string {
-  const document = parse(html)
-  const visit = (children: typeof document.children): void => {
-    for (const child of children) {
-      if (!isTag(child)) continue
-      if (BLOCK_KINDS.has(child.name.toLowerCase())) {
-        const id = child.attribs['data-segnavia-id'] || newId()
-        if (!id) throw new Error(`${contentNodeLabel(node)} could not mint a block id; return a non-empty id from newId to clear this refusal`)
-        const location = { node: contentNodeLabel(node), block: `<${child.name}>` }
-        const first = seen.get(id)
-        if (first) {
-          throw new Error(
-            `block id "${id}" is shared by ${first.block} in ${first.node} and ${location.block} in ${location.node}; change or remove one data-segnavia-id to clear this refusal`,
-          )
-        }
-        child.attribs['data-segnavia-id'] = id
-        seen.set(id, location)
-      }
-      visit(child.children)
-    }
-  }
-  visit(document.children)
-  return serialize(document)
+export function pageBodyHtml(
+  body: { html: string } | { markdown: string },
+  document: Pick<ParsedDocument, 'settings'>,
+  alertLabels?: Partial<AlertLabels>,
+): string {
+  return 'html' in body
+    ? body.html
+    : markdownHtml(body, {
+        dir: document.settings?.dir,
+        lang: document.settings?.lang,
+        alertLabels,
+      })
 }
 
 export function parseDocument(input: DocumentInput | unknown, options: ParseDocumentOptions = {}): ParsedDocument {
   const newId = options.newId ?? defaultNewId
   const document = Document.parse(input, { newId })
-  const seen = new Map<string, BlockLocation>()
-  const html: ContentHtml = (value, node) => contentHtml(value, node, newId, seen)
+  const seen = new Map<string, BlockIdLocation>()
+  const html: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen).html
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
-    const value =
-      'html' in node.body
-        ? node.body.html
-        : markdownHtml(node.body, {
-            dir: document.settings?.dir,
-            lang: document.settings?.lang,
-            alertLabels: options.alertLabels,
-          })
+    const value = pageBodyHtml(node.body, document, options.alertLabels)
     return { ...node, body: { html: html(value, node) } }
   }
   const nodeContent = (node: ParsedDocument['children'][number]): ParsedDocument['children'][number] => {

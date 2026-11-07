@@ -49,6 +49,7 @@ export const PACKAGES: Record<string, PackageRule> = {
     runtime: 'universal',
     imports: [
       '@segnavia/format',
+      'zod',
       'htmlparser2',
       'domhandler',
       'dom-serializer',

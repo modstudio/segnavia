@@ -98,7 +98,7 @@ export function findFragment<T extends ContentFragment>(fragments: readonly T[],
   return fragments.find((fragment) => sameAddress(fragment.address, address)) ?? refuseAddress(address)
 }
 
-function fieldShape(type: DocumentNodeType, field: string): FragmentShape {
+export function contentFieldShape(type: DocumentNodeType, field: string): FragmentShape {
   const shape = CONTENT_FIELD_SHAPES[type][field]
   if (!shape) throw new Error(`content field ${type}.${field} has no fragment shape; classify it as HTML or text to clear this refusal`)
   return shape
@@ -119,7 +119,7 @@ export function contentFragments(document: Document): ContentFragment[] {
   for (const { node } of documentEntries(document as unknown as OperationDocument)) {
     const type = node.type as DocumentNodeType
     for (const field of DOCUMENT_NODE_MODEL[type].content) {
-      const shape = fieldShape(type, field)
+      const shape = contentFieldShape(type, field)
       if (shape === 'text') continue
       result.push(...fieldFragments(node, field, shape))
     }
@@ -132,7 +132,11 @@ export function contentFragment(document: Document, address: ContentAddress): Co
 }
 
 export function fragmentContent(fragment: ContentFragment, html: string, held: unknown = fragment.content): unknown {
-  return FRAGMENT_ACCESSORS[fragment.shape].write(held, html, fragment.address.key)
+  return writeFragment(fragment.shape, held, html, fragment.address.key)
+}
+
+export function writeFragment(shape: Exclude<FragmentShape, 'text'>, held: unknown, html: string, key?: string): unknown {
+  return FRAGMENT_ACCESSORS[shape].write(held, html, key)
 }
 
 export function fragmentOps(changes: readonly { fragment: ContentFragment; html: string }[]): DocumentOp[] {

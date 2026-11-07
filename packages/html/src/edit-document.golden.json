@@ -1,0 +1,209 @@
+{
+  "document": {
+    "type": "document",
+    "id": "hebrew-book",
+    "kind": "book",
+    "metadata": {
+      "title": "ספר לדוגמה"
+    },
+    "settings": {
+      "scripts": "refuse",
+      "dir": "rtl",
+      "lang": "he"
+    },
+    "style": {
+      "css": ":root { direction: rtl; }"
+    },
+    "mode": "continuous",
+    "children": [
+      {
+        "type": "part",
+        "id": "fixture-1",
+        "name": "תוכן",
+        "title": "תוכן",
+        "contents": true,
+        "children": [
+          {
+            "type": "section",
+            "id": "section-one",
+            "title": "בְּרֵאשִׁית",
+            "contents": true,
+            "children": [
+              {
+                "id": "flow-one",
+                "type": "flow",
+                "html": "<h1 dir=\"rtl\" lang=\"he\" data-segnavia-id=\"fixture-2\">בְּרֵאשִׁית</h1><p dir=\"rtl\" lang=\"he\" data-segnavia-id=\"fixture-3\">בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים</p>"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "id": "section-two",
+            "title": "וַיֹּאמֶר",
+            "contents": true,
+            "children": [
+              {
+                "id": "flow-two",
+                "type": "flow",
+                "html": "<p dir=\"rtl\" lang=\"he\" data-segnavia-id=\"fixture-6\">וַיְהִי־אֽוֹר</p><h1 dir=\"rtl\" lang=\"he\" data-segnavia-id=\"fixture-4\">וַיֹּאמֶר</h1><p dir=\"rtl\" lang=\"he\" data-segnavia-id=\"fixture-5\">וַיֹּ֥אמֶר אֱלֹהִ֖ים יְהִ֣י א֑וֹר</p>"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "parentPages": [],
+    "templates": [],
+    "noteSeries": [],
+    "variables": [],
+    "conditions": []
+  },
+  "description": {
+    "structure": [
+      {
+        "id": "fixture-1",
+        "type": "part",
+        "name": "תוכן",
+        "fields": {
+          "title": "תוכן",
+          "contents": true
+        },
+        "location": {
+          "parent": "hebrew-book",
+          "index": 0
+        },
+        "children": [
+          {
+            "id": "section-one",
+            "type": "section",
+            "fields": {
+              "title": "בְּרֵאשִׁית",
+              "contents": true
+            },
+            "location": {
+              "parent": "fixture-1",
+              "index": 0
+            },
+            "children": [
+              {
+                "id": "flow-one",
+                "type": "flow",
+                "fields": {},
+                "location": {
+                  "parent": "section-one",
+                  "index": 0
+                },
+                "children": []
+              }
+            ]
+          },
+          {
+            "id": "section-two",
+            "type": "section",
+            "fields": {
+              "title": "וַיֹּאמֶר",
+              "contents": true
+            },
+            "location": {
+              "parent": "fixture-1",
+              "index": 1
+            },
+            "children": [
+              {
+                "id": "flow-two",
+                "type": "flow",
+                "fields": {},
+                "location": {
+                  "parent": "section-two",
+                  "index": 0
+                },
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "definitions": {
+      "parentPages": [],
+      "templates": [],
+      "noteSeries": [],
+      "variables": [],
+      "conditions": []
+    },
+    "blocks": [
+      {
+        "id": "fixture-2",
+        "kind": "h1",
+        "text": "בְּרֵאשִׁית",
+        "attributes": {
+          "dir": "rtl",
+          "lang": "he"
+        },
+        "address": {
+          "node": "flow-one",
+          "field": "html"
+        }
+      },
+      {
+        "id": "fixture-3",
+        "kind": "p",
+        "text": "בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים",
+        "attributes": {
+          "dir": "rtl",
+          "lang": "he"
+        },
+        "address": {
+          "node": "flow-one",
+          "field": "html"
+        }
+      },
+      {
+        "id": "fixture-6",
+        "kind": "p",
+        "text": "וַיְהִי־אֽוֹר",
+        "attributes": {
+          "dir": "rtl",
+          "lang": "he"
+        },
+        "address": {
+          "node": "flow-two",
+          "field": "html"
+        }
+      },
+      {
+        "id": "fixture-4",
+        "kind": "h1",
+        "text": "וַיֹּאמֶר",
+        "attributes": {
+          "dir": "rtl",
+          "lang": "he"
+        },
+        "address": {
+          "node": "flow-two",
+          "field": "html"
+        }
+      },
+      {
+        "id": "fixture-5",
+        "kind": "p",
+        "text": "וַיֹּ֥אמֶר אֱלֹהִ֖ים יְהִ֣י א֑וֹר",
+        "attributes": {
+          "dir": "rtl",
+          "lang": "he"
+        },
+        "address": {
+          "node": "flow-two",
+          "field": "html"
+        }
+      }
+    ],
+    "styles": {
+      "document": {
+        "css": ":root { direction: rtl; }"
+      },
+      "nodes": [],
+      "inheritance": "none"
+    }
+  }
+}

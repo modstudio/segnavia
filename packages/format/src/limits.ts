@@ -7,6 +7,7 @@ const TOP_LEVEL_LIMITS = [
   { measure: 'slides', subject: 'deck', unit: 'slides' },
   { measure: 'slideBytes', subject: 'slide', unit: 'UTF-8 bytes' },
   { measure: 'notesBytes', subject: 'slide notes', unit: 'UTF-8 bytes' },
+  { measure: 'descriptionTextChars', subject: 'concise document description block text', unit: 'Unicode code points' },
 ] as const
 
 const LOCAL_FONT_LIMITS = [
@@ -21,13 +22,14 @@ export type Limits = Partial<Record<TopLevelMeasure, number>> & {
   localFonts?: Partial<Record<LocalFontMeasure, number>>
 }
 
-export type DocumentLimits = Pick<Limits, 'pages'>
+export type DocumentLimits = Pick<Limits, 'pages' | 'descriptionTextChars'>
 export type LimitMeasure = TopLevelMeasure | `localFonts.${LocalFontMeasure}`
 export type PageLimitSource = 'document' | 'default' | 'host'
 
 export interface ResolvedLimits extends Limits {
   pages: number
   pagesSource: PageLimitSource
+  descriptionTextChars: number
   localFonts: Record<LocalFontMeasure, number>
 }
 
@@ -35,8 +37,9 @@ export const DEFAULT_PAGE_LIMIT = 500
 
 export const DEFAULT_LIMITS = {
   pages: DEFAULT_PAGE_LIMIT,
+  descriptionTextChars: 240,
   localFonts: { count: 64, bytes: 32 * 1024 * 1024 },
-} as const satisfies Pick<ResolvedLimits, 'pages' | 'localFonts'>
+} as const satisfies Pick<ResolvedLimits, 'pages' | 'descriptionTextChars' | 'localFonts'>
 
 const REMOVED_LIMIT_NAMES: Record<string, string> = {
   maxSheets: 'limits.sheets',
@@ -68,7 +71,7 @@ function documentLimits(value: unknown, ctx: z.RefinementCtx): unknown {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return value
   const source = value as Record<string, unknown>
   for (const key of Object.keys(source)) {
-    if (key === 'pages') continue
+    if (key === 'pages' || key === 'descriptionTextChars') continue
     const field = `limits.${key}`
     const hostLimit = key === 'localFonts' || TOP_LEVEL_MEASURES.includes(key as TopLevelMeasure)
     ctx.addIssue({
@@ -82,10 +85,16 @@ function documentLimits(value: unknown, ctx: z.RefinementCtx): unknown {
   if (source.pages !== undefined && invalidInteger(source.pages)) {
     ctx.addIssue({ code: 'custom', path: ['pages'], message: integerMessage('document', 'limits.pages') })
   }
-  return { ...(source.pages === undefined ? {} : { pages: source.pages }) }
+  if (source.descriptionTextChars !== undefined && invalidInteger(source.descriptionTextChars)) {
+    ctx.addIssue({ code: 'custom', path: ['descriptionTextChars'], message: integerMessage('document', 'limits.descriptionTextChars') })
+  }
+  return {
+    ...(source.pages === undefined ? {} : { pages: source.pages }),
+    ...(source.descriptionTextChars === undefined ? {} : { descriptionTextChars: source.descriptionTextChars }),
+  }
 }
 
-export const DocumentLimitsValue = z.preprocess(documentLimits, z.object({ pages: z.number().optional() }))
+export const DocumentLimitsValue = z.preprocess(documentLimits, z.object({ pages: z.number().optional(), descriptionTextChars: z.number().optional() }))
 
 export function resolveLimits(document: DocumentLimits | undefined, host: Limits | undefined): ResolvedLimits {
   const documentPages = document?.pages ?? DEFAULT_LIMITS.pages
@@ -94,6 +103,10 @@ export function resolveLimits(document: DocumentLimits | undefined, host: Limits
     ...host,
     pages: hostBinds ? (host.pages as number) : documentPages,
     pagesSource: hostBinds ? 'host' : document?.pages === undefined ? 'default' : 'document',
+    descriptionTextChars: Math.min(
+      document?.descriptionTextChars ?? DEFAULT_LIMITS.descriptionTextChars,
+      host?.descriptionTextChars ?? Number.POSITIVE_INFINITY,
+    ),
     localFonts: {
       count: host?.localFonts?.count ?? DEFAULT_LIMITS.localFonts.count,
       bytes: host?.localFonts?.bytes ?? DEFAULT_LIMITS.localFonts.bytes,

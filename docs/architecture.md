@@ -678,7 +678,7 @@ retains the final override in every render view.
 | `localFonts` | frame `packLocalFaces`; render `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | JSON-safe local faces sent with one render: family, format, optional weight, style and PostScript name, and base64 bytes. Their host-set count and decoded-byte ceilings are `limits.localFonts`; `DEFAULT_LIMITS` supplies 64 faces and 32 MiB when either is absent. Frame and render enforce the resolved values, and render also validates each signature. Render embeds only families named by the page, its motifs or the book, and releases the decoded faces when that call ends. A `FontSource` is still required to establish each local reference's app-font fallback. The report callback lists each named local family that used its fallback; a missing local face never refuses the render. Neither the render library nor a host may persist, cache or log the transport, its bytes or its installed-font metadata. |
 | `fontReferenceRefusals` | `@segnavia/html`; host save path | The host calls it at save with the page HTML, its fonts references and the known app names, and shows the refusal strings as-is. |
 | `readLocalFonts`, `packLocalFaces` | `@segnavia/frame/local-fonts` | Named local fonts from the Local Font Access API, where the browser offers it (Chromium desktop with permission). The host calls `readLocalFonts` from a user gesture and passes returned `faces` as `fonts.local` for browser output alongside the `FontSource` that establishes every app-font fallback. The API's PostScript name selects a face when its blob contains a collection; the extracted bytes, rather than the collection size, count toward the transport limit. Unavailable entries (`unsupported`, `denied`, `not-installed`, `unreadable`) carry the declared fallback so the host can tell the author before printing; the library never prints the notice. `packLocalFaces(faces, references, limits?)` selects only faces named by the page and motifs and produces the JSON-safe transport for one server render; it refuses past the bound, naming the face and the limit. Callers without the API, permission or a named face get the fallback. |
-| `Limits`, `limits` | page and book documents; browser print, render options, `packLocalFaces`, `exceedsLimits` | One value models the measured ceiling (`pages`, `sheets`, `bytes`, `slides`, `slideBytes`, `notesBytes`, and local-font count and bytes) separately from its source. A document may declare only `pages`; a host may pass the full value. `resolveLimits` takes the smaller document/default page ceiling and host page ceiling, records which source binds pages, supplies local-font defaults, and leaves other absent host measures unbounded. `parseLimits` validates each source at its entry edge. `bytes` applies to files the renderer produces; browser printing has no file bytes to measure. Every enforcement path obtains its text or in-frame template from the format-owned limit refusal formatter, which names the measure, value, binding setting and clearing action. |
+| `Limits`, `limits` | page and book documents; browser print, render options, `packLocalFaces`, `exceedsLimits`, document descriptions | One value models the measured ceiling (`pages`, `sheets`, `bytes`, `slides`, `slideBytes`, `notesBytes`, concise-description block-text Unicode code points, and local-font count and bytes) separately from its source. A document may declare `pages` and `descriptionTextChars`; a host may pass the full value. `resolveLimits` takes the smaller document/default and host ceiling for both, records which source binds pages, supplies local-font and description-text defaults, and leaves other absent host measures unbounded. `parseLimits` validates each source at its entry edge. `bytes` applies to files the renderer produces; browser printing has no file bytes to measure. Every enforcement path obtains its text or in-frame template from the format-owned limit refusal formatter, which names the measure, value, binding setting and clearing action. Concise document descriptions are the exception: they bound a view and refuse nothing. |
 | `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card. Optional crop marks stay outside every cell bleed, shorten or report omission when paper margins are narrow, and may add corner marks in usable gaps. A `fold` makes the cells panels of a single two-sided piece. `markColor` is black by default or registration color so the marks print on every plate. Imposed marks are drawn by PDF rendering, as single-page marks are; browser printing does not draw either. |
 | `PAPER_METADATA`, `PAPER_GROUPS`, `PrintSetting`, `PrintSettingInput` | `format`, paper picker and hosts | Display names, sold-unit sizes and stable picker groups for every named paper; a tolerant stored-setting reader and a strict writer. Custom paper sides are normalized to millimeters and limited to 10–2000 mm by `Paper` itself. Picker labels can replace every displayed string. |
 | `<segnavia-paper-picker>` | `frame/controls` and React | A grouped named-paper select, bounded custom width, height and unit fields, and a portrait/landscape toggle. The host supplies and persists its `{ paper, orientation }` value; `change.detail` carries the next value. |
@@ -1711,10 +1711,19 @@ content field as an opaque value, and set style keys. `invertOps` supplies undo,
 `diffDocuments` produces operations between two parsed documents.
 `jsonSchemas()` publishes `documentOp` and `documentBatch`, so a host that does
 not run TypeScript can validate the batches it exchanges.
-`editDocument` compiles
-agent-facing commands addressed by id or name. `describeDocument` exposes the
-structure, effective styles, plan and report as plain values without requiring
-a browser. Boards use the same operations, including section and label edits
+`editDocument` in universal `html` compiles agent-facing commands addressed by
+id or name into one atomic `DocumentBatch`, using the same HTML parse edge for
+new content and block ids. `describeDocument`, also in `html`, exposes the node
+tree, definitions, block view and current document style keys as plain values
+without requiring a browser. The current model has no per-node styles or style
+inheritance; those arrive with the StyleSheet, so the description does not
+invent a cascade. Concise detail bounds each block's text to the resolved
+`descriptionTextChars` code points without splitting a grapheme and replaces an
+elided tail with an ellipsis; full detail returns the text intact. Plan and
+report sections arrive with the saved `Plan` and the
+layout `Report`, and there are no placeholder fields before those values exist.
+`documentCommandJsonSchema()` publishes the command input schema from `html`.
+Boards use the same operations, including section and label edits
 and rebasing local history over host operations.
 
 ### Target composition pipeline
@@ -1768,7 +1777,7 @@ flowchart LR
   subgraph Universal[Universal packages]
     FORMAT[format<br/>Document, values, ops<br/>Measurements, Plan, Report]
     LAYOUT[layout<br/>pure planning, slicing<br/>variables, parents, folios]
-    HTML[html<br/>sanitize, ids, realize<br/>CSS layer compiler]
+    HTML[html<br/>edit and describe<br/>sanitize, ids, realize]
     IDML[idml<br/>map imported structures<br/>onto Document]
   end
 
@@ -1798,12 +1807,14 @@ flowchart LR
 ```
 
 `format` owns the document schemas, shared value types, style schema,
-operations, agent-facing edit and description functions, and all derived-value
-schemas. The board becomes a document profile. The new universal
+operations and all derived-value schemas. The board becomes a document profile.
+The new universal
 `@segnavia/layout` package owns pure planning, slicing, variable resolution,
 parent-page selection and folio computation; the planner can also be embedded
-as script text in a frame. `html` owns sanitizing, block-id minting, realization
-and CSS compilation. `frame` owns measurement, dressing, the bridge, viewers
+as script text in a frame. `html` owns the agent-facing edit and description
+functions because they combine the format model with HTML block parsing and
+ops; it also owns sanitizing, block-id minting, realization and CSS compilation.
+`frame` owns measurement, dressing, the bridge, viewers
 and screen elements. `render` owns printing and finishing, including one
 metadata writer and one outline writer. `idml` maps named styles, regions,
 sections and conditions onto `Document`.

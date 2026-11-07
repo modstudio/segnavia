@@ -2,6 +2,7 @@ import { type Document, type DocumentOp, defaultNewId } from '@segnavia/format'
 import { type ChildNode, type Element, type Document as HtmlDocument, isTag, Text } from 'domhandler'
 import { BLOCK_KINDS, type BlockKind, requireBlockContext } from './block-context.ts'
 import { type ContentAddress, type ContentFragment, contentFragments, findFragment, fragmentOp, fragmentOps } from './block-fragments.ts'
+import { type BlockIdLocation, blockElementsIncludingRoot, identifyBlockElements } from './block-identify.ts'
 import { blockElements } from './block-view.ts'
 import { parse, serialize } from './sanitize.ts'
 
@@ -38,10 +39,10 @@ function parsedFragments(document: Document): ParsedFragment[] {
   return contentFragments(document).map((fragment) => ({ ...fragment, tree: parse(fragment.html) }))
 }
 
-function blockLabel(found: FoundBlock): string {
+function blockLocation(found: FoundBlock): BlockIdLocation {
   const address = found.fragment.address
   const key = address.key === undefined ? '' : ` key "${address.key}"`
-  return `<${found.element.name}> in node "${address.node}" field "${address.field}"${key}`
+  return { block: `<${found.element.name}>`, node: `node "${address.node}" field "${address.field}"${key}` }
 }
 
 function findBlock(fragments: ParsedFragment[], id: string): FoundBlock | undefined {
@@ -78,13 +79,13 @@ function requireStableFragment(fragment: ContentFragment, html: string, blockId:
   )
 }
 
-function usedIds(fragments: ParsedFragment[], omitted: ReadonlySet<Element> = new Set()): Map<string, FoundBlock> {
-  const result = new Map<string, FoundBlock>()
+function usedIds(fragments: ParsedFragment[], omitted: ReadonlySet<Element> = new Set()): Map<string, BlockIdLocation> {
+  const result = new Map<string, BlockIdLocation>()
   for (const fragment of fragments) {
     for (const element of blockElements(fragment.tree.children)) {
       if (omitted.has(element)) continue
       const id = element.attribs['data-segnavia-id']
-      if (id) result.set(id, { fragment, element })
+      if (id) result.set(id, blockLocation({ fragment, element }))
     }
   }
   return result
@@ -92,25 +93,8 @@ function usedIds(fragments: ParsedFragment[], omitted: ReadonlySet<Element> = ne
 
 function identifyBlocks(roots: Element[], fragments: ParsedFragment[], newId: () => string, omitted: ReadonlySet<Element> = new Set()): string {
   const seen = usedIds(fragments, omitted)
-  const incoming = new Map<string, Element>()
-  const elements = [...new Set(roots.flatMap((root) => [root, ...blockElements(root.children)]))]
-  for (const element of elements) {
-    let id = element.attribs['data-segnavia-id']
-    if (!id) {
-      id = newId()
-      if (!id) throw new Error('inserted block could not mint a block id; return a non-empty id from newId to clear this refusal')
-      element.attribs['data-segnavia-id'] = id
-    }
-    const existing = seen.get(id)
-    const firstIncoming = incoming.get(id)
-    if (existing || firstIncoming) {
-      const first = existing ? blockLabel(existing) : `<${firstIncoming?.name}> in the supplied html`
-      throw new Error(
-        `supplied data-segnavia-id "${id}" is already used by ${first} and <${element.name}> in the supplied html; change or remove one data-segnavia-id to clear this refusal`,
-      )
-    }
-    incoming.set(id, element)
-  }
+  const elements = [...new Set(roots.flatMap(blockElementsIncludingRoot))]
+  identifyBlockElements(elements, 'the supplied html', newId, seen)
   return roots[0]?.attribs['data-segnavia-id'] as string
 }
 
