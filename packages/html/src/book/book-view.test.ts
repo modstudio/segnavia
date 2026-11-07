@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, Book } from '@segnavia/format'
+import { BOOK_PARENT_NAMES } from '@segnavia/format'
 import { bookView } from './book-view.ts'
+import { parseBookFixture } from './book-test-fixture.ts'
 
 const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
 const input = (overrides: Record<string, unknown> = {}) => ({
@@ -12,8 +13,8 @@ const input = (overrides: Record<string, unknown> = {}) => ({
 
 describe('bookView', () => {
   test('builds a continuous view from the book document', () => {
-    const view = bookView(Book.parse(input({ lang: 'en', css: '.lead{color:purple}' })))
-    expect(view.html).toContain('id="segnavia-chapter-1"')
+    const view = bookView(parseBookFixture(input({ lang: 'en', css: '.lead{color:purple}' })))
+    expect(view.html).toContain('id="section-1"')
     expect(view.title).toBe('Book')
     expect(view.lang).toBe('en')
     expect(view.scripts).toBe('refuse')
@@ -24,7 +25,7 @@ describe('bookView', () => {
 
   test('adds resolved pagination values for a paginated book', () => {
     const view = bookView(
-      Book.parse(
+      parseBookFixture(
         input({
           mode: 'paginated',
           lang: 'he',
@@ -34,9 +35,9 @@ describe('bookView', () => {
         }),
       ),
     )
-    expect(view.html).toContain('data-segnavia-flow="segnavia-chapter-1"')
+    expect(view.html).toContain('data-segnavia-flow="section-1"')
     expect(view.html).toContain('data-segnavia-galleys')
-    expect(view.flow).toContain('data-segnavia-flow="segnavia-chapter-1"')
+    expect(view.flow).toContain('data-segnavia-flow="section-1"')
     expect(view.flow).not.toContain('data-segnavia-galleys')
     expect(view.pagination).toMatchObject({
       paper: { width: 148, height: 210 },
@@ -61,7 +62,7 @@ describe('bookView', () => {
   test('refuses a book whose document has issues', () => {
     expect(() =>
       bookView(
-        Book.parse(
+        parseBookFixture(
           input({
             chapters: [{ title: 'One', html: '<p><span data-note="footnote">f</span><span data-note="endnote">e</span></p>' }],
             footnotes: { marker: 'arabic' },

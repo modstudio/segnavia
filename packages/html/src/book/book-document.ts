@@ -265,8 +265,6 @@ function collectedSectionId(notes: CollectedNotes): string {
   const prefix = notes.series.sectionIdPrefix
   if (notes.targetId === 'book') return prefix
   if (notes.series.placement === 'part') return `${prefix}-${notes.placementKey.replace(/^segnavia-/, '')}`
-  if (notes.series.placement === 'chapter' && notes.targetId.startsWith('segnavia-chapter-'))
-    return `${prefix}-${notes.targetId.slice('segnavia-chapter-'.length)}`
   return `${prefix}-${notes.targetId.replace(/^segnavia-/, '')}`
 }
 

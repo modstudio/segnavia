@@ -11,11 +11,16 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
     const labels = partBookLabels(hebrew)
     let minted = 0
     const parsed = Document.parse(partsFixture(hebrew), { newId: () => `fixture-${++minted}` })
-    const body = parsed.children.find((node) => node.type === 'division' && node.name === 'body')
-    const openingPartId = body && 'children' in body ? body.children.find((node) => node.type === 'part' && node.title === labels.openingPart)?.id : undefined
-    if (!openingPartId) throw new Error('The parts fixture has no opening part id.')
+    const nodes = parsed.children.flatMap((node) => ('children' in node ? [node, ...node.children.flatMap((child) => ('children' in child ? [child, ...child.children] : [child]))] : [node]))
+    const idFor = (title: string) => nodes.find((node) => 'title' in node && node.title === title)?.id
+    const openingPartId = idFor(labels.openingPart)
+    const chapterIds = [labels.chapterOne, labels.chapterTwo, labels.chapterThree].map(idFor)
+    const appendixId = idFor(labels.appendix)
+    const front = parsed.children.find((node) => node.type === 'division' && node.name === 'front')
+    const frontIds = front && 'children' in front ? front.children.map(({ id }) => id) : []
+    if (!openingPartId || chapterIds.some((chapterId) => !chapterId) || !appendixId) throw new Error('The parts fixture has an unidentified section.')
     const report = await frame.evaluate(
-      ({ expected, openingPartId }) => {
+      ({ expected, openingPartId, chapterIds, appendixId, frontIds }) => {
         const papers = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-book-page]'))
         const entries = Array.from(document.querySelectorAll<HTMLElement>('.segnavia-contents-entry'))
         const entry = (title: string) => entries.find((item) => item.querySelector('a')?.textContent?.trim() === title)
@@ -30,10 +35,10 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
         const openingPaper = document.querySelector<HTMLElement>(`[data-segnavia-book-page][data-segnavia-flow="${openingPartId}"]`)
         const expectedHead = new Map([
           [openingPartId, expected.openingPart],
-          ['segnavia-chapter-1', expected.openingPart],
-          ['segnavia-chapter-2', expected.titleOnlyPart],
-          ['segnavia-chapter-3', expected.titleOnlyPart],
-          ['segnavia-chapter-4', expected.appendixPart],
+          [chapterIds[0], expected.openingPart],
+          [chapterIds[1], expected.titleOnlyPart],
+          [chapterIds[2], expected.titleOnlyPart],
+          [appendixId, expected.appendixPart],
         ])
         const rectoHeads = papers.flatMap((paper) => {
           const page = Number(paper.getAttribute('data-segnavia-book-page'))
@@ -45,9 +50,9 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
         const outsideRectos = papers.filter((paper) => {
           const page = Number(paper.getAttribute('data-segnavia-book-page'))
           const flow = paper.getAttribute('data-segnavia-flow') ?? ''
-          return page % 2 === 1 && (flow.startsWith('segnavia-front-') || flow === 'segnavia-contents')
+          return page % 2 === 1 && frontIds.includes(flow)
         })
-        const firstEndIndex = papers.findIndex((paper) => paper.getAttribute('data-segnavia-flow') === 'segnavia-chapter-4')
+        const firstEndIndex = papers.findIndex((paper) => paper.getAttribute('data-segnavia-flow') === appendixId)
         const firstEnd = papers[firstEndIndex]
         const previous = papers[firstEndIndex - 1]
         return {
@@ -64,7 +69,7 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
             Number(firstEnd.getAttribute('data-segnavia-number')) === Number(previous.getAttribute('data-segnavia-number')) + 1,
         }
       },
-      { expected: labels, openingPartId },
+      { expected: labels, openingPartId, chapterIds, appendixId, frontIds },
     )
     h.check(`${id} part opening page is a recto`, report.openingPage > 0 && report.openingPage % 2 === 1, String(report.openingPage))
     h.check(

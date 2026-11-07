@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, PX_PER_MM } from '@segnavia/format'
+import { PX_PER_MM } from '@segnavia/format'
 import { fragmentationCss } from '../fragmentation.ts'
 import { bookDocument } from './book-document.ts'
 import { BOOK_FLOW_COLUMN_MIN_PX, bookBlockPosition, parseBookPositionKey } from './book-flow.ts'
+import { parseBookFixture } from './book-test-fixture.ts'
 
 describe('book flow', () => {
   test('adds safe fragmentation to every book build and omits it when disabled', () => {
@@ -13,8 +14,8 @@ describe('book flow', () => {
       chapters: [{ title: 'One', html: '<h1>Heading</h1><table><tr><td>Row</td></tr></table>' }],
     }
     for (const build of ['galley', 'flow', 'print'] as const) {
-      expect(bookDocument(Book.parse(input), { build }).html).toContain(fragmentationCss('safe'))
-      expect(bookDocument(Book.parse({ ...input, fragmentation: 'none' }), { build }).html).not.toContain(fragmentationCss('safe'))
+      expect(bookDocument(parseBookFixture(input), { build }).html).toContain(fragmentationCss('safe'))
+      expect(bookDocument(parseBookFixture({ ...input, fragmentation: 'none' }), { build }).html).not.toContain(fragmentationCss('safe'))
     }
   })
 
@@ -24,7 +25,7 @@ describe('book flow', () => {
     expect(parseBookPositionKey('missing-index')).toBeUndefined()
   })
   test('shows held pages, responsive columns and continuous notes with the galley positions', () => {
-    const book = Book.parse({
+    const book = parseBookFixture({
       title: 'Book',
       mode: 'paginated',
       page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 12, inlineStart: 14, inlineEnd: 8 }, columnGap: 6 },
@@ -32,7 +33,7 @@ describe('book flow', () => {
       templates: [{ name: 'lesson', html: '<header data-region="heading"></header><main data-region="reading"></main>' }],
       chapters: [
         { kind: 'designed', opens: 'verso', pages: [{ html: '<h1>Artwork</h1>' }, { html: '<p>Back</p>' }] },
-        { kind: 'templated', template: 'lesson', pages: [{ regions: { heading: '<h1>Lesson</h1>', reading: '<p>Words</p>' } }] },
+        { kind: 'templated', template: 'lesson', pages: [{ regions: { heading: '<h1 data-segnavia-id="lesson-heading">Lesson</h1>', reading: '<p>Words</p>' } }] },
         { title: 'One', html: '<style>.opening{font-weight:bold}</style><p data-columns="2">A<span data-note="footnote">note</span></p><p>After</p>' },
       ],
     })
@@ -43,8 +44,8 @@ describe('book flow', () => {
     expect(flow).toMatch(/<figure[^>]*data-segnavia-designed-page="1"[^>]*data-segnavia-flow-page[^>]*>/)
     expect(flow).toMatch(/<figure[^>]*data-segnavia-templated-page="1"[^>]*data-segnavia-flow-page[^>]*>/)
     expect(flow.match(/<figure[^>]*>/g)?.every((tag) => !tag.includes('hidden'))).toBe(true)
-    expect(flow).toContain('<header data-region="heading"><h1 id="segnavia-h-templated-1-1">Lesson</h1></header>')
-    expect(flow).toContain('href="#segnavia-h-templated-1-1"')
+    expect(flow).toContain('<header data-region="heading"><h1 data-segnavia-id="lesson-heading" id="lesson-heading">Lesson</h1></header>')
+    expect(flow).toContain('href="#lesson-heading"')
     expect(flow).toContain('<main data-region="reading"><p>Words</p></main>')
     for (const count of [2, 3, 4]) {
       expect(flow).toContain(`:where([data-columns="${count}"]){column-count:${count}}`)
@@ -60,14 +61,14 @@ describe('book flow', () => {
     expect(flow).not.toContain('data-segnavia-head')
     expect(flow).not.toContain('data-segnavia-foot')
     expect([...flow.matchAll(/<section[^>]+data-segnavia-flow="([^"]+)"/g)].flatMap((match) => (match[1] ? [match[1]] : []))).toEqual([
-      'segnavia-contents',
-      'segnavia-designed-1',
-      'segnavia-templated-1',
-      'segnavia-chapter-1',
+      'section-1',
+      'section-2',
+      'section-3',
+      'section-4',
     ])
-    expect(flow).toContain('data-segnavia-position="segnavia-chapter-1:1"')
-    expect(flow).toContain('data-segnavia-position="segnavia-chapter-1:1:footnotes"')
-    expect(flow).toContain('data-segnavia-position="segnavia-chapter-1:2"')
+    expect(flow).toContain('data-segnavia-position="section-4:1"')
+    expect(flow).toContain('data-segnavia-position="section-4:1:footnotes"')
+    expect(flow).toContain('data-segnavia-position="section-4:2"')
     expect(flow).not.toMatch(/<style[^>]*data-segnavia-position/)
     expect(positions(flow).filter((position) => !position.endsWith(':footnotes'))).toEqual(positions(galley))
 
@@ -79,7 +80,7 @@ describe('book flow', () => {
   })
 
   test('refuses flow-only builds for a continuous book by build name', () => {
-    const book = Book.parse({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }] })
+    const book = parseBookFixture({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }] })
     expect(bookDocument(book, { build: 'galley' }).issues).toContain(
       'a continuous book cannot use the galley build; request the print build, or make the book paginated with a page to clear this',
     )

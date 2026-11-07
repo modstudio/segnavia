@@ -39,10 +39,10 @@ describe('book outline policy', () => {
       title: 'Book',
       mode: 'continuous',
       contents: { depth: 2 },
-      chapters: [{ title: 'One', html: '<h2 id="kept">Kept</h2><h2 id="excluded" data-contents="exclude">No</h2><h3 id="deep">Deep</h3>' }],
+      chapters: [{ id: 'body-section', title: 'One', html: '<h2 id="kept">Kept</h2><h2 id="excluded" data-contents="exclude">No</h2><h3 id="deep">Deep</h3>' }],
     })
     const built = bookDocument(book)
-    expect(built.headings.map((heading) => heading.id)).toEqual(['segnavia-chapter-1', 'kept'])
+    expect(built.headings.map((heading) => heading.id)).toEqual(['body-section', 'kept'])
     const destinations = new Map(built.headings.map((heading, index) => [heading.id, at(index + 1)]))
     expect(bookOutline(built.headings, destinations)[0]?.children.map((item) => item.id)).toEqual(['kept'])
   })
