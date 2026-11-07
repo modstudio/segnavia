@@ -5,6 +5,7 @@ import { Cover } from './cover.ts'
 import { Manifest, PublishedShot } from './deck.ts'
 import { Document } from './document.ts'
 import { DocumentMetadata } from './document-metadata.ts'
+import { DocumentBatch, DocumentOp } from './document-op.ts'
 import { FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
 import { Imposition } from './imposition-schema.ts'
 import { Lexicon } from './lexicon.ts'
@@ -17,6 +18,8 @@ import { SlotDeclaration, SlotDeclarationInput } from './slots.ts'
 export const EXPORTED_SCHEMAS = {
   bookView: BookView,
   document: Document,
+  documentOp: DocumentOp,
+  documentBatch: DocumentBatch,
   documentMetadata: DocumentMetadata,
   lexicon: Lexicon,
   imposition: Imposition,

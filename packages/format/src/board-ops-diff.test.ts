@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { Board, BoardItem, BoardLabel, BoardProperties, BoardSection } from './board.ts'
 import { addItem, moveItems, moveSection, removeItems, resizeItem } from './board-edit.ts'
 import { arrange, type BoardShapes } from './board-geometry.ts'
-import { applyBoardOps, invertOps } from './board-ops.ts'
+import { applyBoardOps, invertBoardOps } from './board-ops.ts'
 import { diffBoards } from './board-ops-diff.ts'
 import { makeRoom, settleBoard } from './board-sections.ts'
 
@@ -16,7 +16,7 @@ const board = (members: string[] = ['a', 'b', 'c']): Board => ({
   sections: [{ id: 's', title: 'S', rectangle, items: members, layout: 'manual' }],
 })
 
-describe('diffBoards and invertOps', () => {
+describe('diffBoards and invertBoardOps', () => {
   test('an unchanged board diffs to nothing', () => expect(diffBoards(board(), board())).toEqual([]))
 
   test('a reorder emits only moved members and reproduces exact order', () => {
@@ -113,7 +113,7 @@ describe('diffBoards and invertOps', () => {
     }
     const ops = diffBoards(before, after)
     expect(applyBoardOps(before, ops)).toEqual(after)
-    expect(applyBoardOps(after, invertOps(ops, before))).toEqual(before)
+    expect(applyBoardOps(after, invertBoardOps(ops, before))).toEqual(before)
   })
 
   test('broken anchor order is detected', () => {
@@ -161,7 +161,7 @@ describe('diffBoards and invertOps', () => {
       const after = settleBoard(before, edited, shapes, ['a', 'b', 'c', 'd', 's'])
       const ops = diffBoards(before, after)
       expect(applyBoardOps(before, ops)).toEqual(after)
-      expect(applyBoardOps(after, invertOps(ops, before))).toEqual(before)
+      expect(applyBoardOps(after, invertBoardOps(ops, before))).toEqual(before)
     }
   })
 })

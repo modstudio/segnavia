@@ -64,7 +64,7 @@ export {
   zoomToFit,
 } from './board-geometry.ts'
 export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
-export { applyBoardOps, BoardOp, invertOps, SectionFields } from './board-ops.ts'
+export { applyBoardOps, BoardOp, invertBoardOps, SectionFields } from './board-ops.ts'
 export { diffBoards } from './board-ops-diff.ts'
 export {
   deriveSectionCells,
@@ -137,7 +137,11 @@ export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './dec
 export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
 export { Direction, firstStrongDirection, htmlTextSample, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
 export { Document, type DocumentInput, type DocumentKind, type DocumentParseOptions } from './document.ts'
+export { applyOps } from './document-apply.ts'
+export { diffDocuments } from './document-diff.ts'
+export { fingerprintDocument } from './document-fingerprint.ts'
 export { defaultNewId } from './document-identity.ts'
+export { inverseBatch, invertOps } from './document-invert.ts'
 export {
   boardFromDocument,
   bookFromDocument,
@@ -150,6 +154,7 @@ export {
   printedFromDocument,
 } from './document-lowering.ts'
 export * from './document-metadata.ts'
+export { DocumentBatch, DocumentCollection, DocumentLocation, DocumentOp } from './document-op.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'

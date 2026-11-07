@@ -269,7 +269,7 @@ function invertOp(op: BoardOp): BoardOp {
   }
 }
 
-export function invertOps(ops: readonly BoardOp[], before: BoardValue): BoardOp[] {
+export function invertBoardOps(ops: readonly BoardOp[], before: BoardValue): BoardOp[] {
   applyBoardOps(before, ops)
   return [...ops].reverse().map(invertOp)
 }

@@ -63,34 +63,43 @@ export type DocumentNode =
   | z.infer<typeof LabelNode>
   | z.infer<typeof BoardSectionNode>
 
+export const DivisionNodeFields = {
+  type: z.literal('division'),
+  id: z.string().optional(),
+  name: DivisionName,
+  settings: DivisionSettings.optional(),
+  children: z.lazy(() => z.array(DocumentNode)),
+}
+export const DivisionNode = z.object(DivisionNodeFields) as z.ZodType<DivisionNode>
+
+export const PartNodeFields = {
+  type: z.literal('part'),
+  id: z.string().optional(),
+  name: z.string().min(1),
+  title: z.string().optional(),
+  html: z.string().optional(),
+  contents: z.boolean().default(true),
+  opens: z.enum(['recto', 'verso', 'any']).optional(),
+  parents: BookSectionParents.optional(),
+  runningHead: z.string().optional(),
+  children: z.lazy(() => z.array(DocumentNode)),
+}
+export const PartNode = z.object(PartNodeFields) as z.ZodType<PartNode>
+
+export const SectionNodeFields = {
+  type: z.literal('section'),
+  id: z.string().optional(),
+  ...SectionFields,
+  template: z.string().min(1).optional(),
+  children: z.lazy(() => z.array(DocumentNode)),
+}
+export const SectionNode = z.object(SectionNodeFields) as z.ZodType<SectionNode>
+
 export const DocumentNode: z.ZodType<DocumentNode> = z.lazy(() =>
   z.union([
-    z.object({
-      type: z.literal('division'),
-      id: z.string().optional(),
-      name: DivisionName,
-      settings: DivisionSettings.optional(),
-      children: z.array(DocumentNode),
-    }),
-    z.object({
-      type: z.literal('part'),
-      id: z.string().optional(),
-      name: z.string().min(1),
-      title: z.string().optional(),
-      html: z.string().optional(),
-      contents: z.boolean().default(true),
-      opens: z.enum(['recto', 'verso', 'any']).optional(),
-      parents: BookSectionParents.optional(),
-      runningHead: z.string().optional(),
-      children: z.array(DocumentNode),
-    }),
-    z.object({
-      type: z.literal('section'),
-      id: z.string().optional(),
-      ...SectionFields,
-      template: z.string().min(1).optional(),
-      children: z.array(DocumentNode),
-    }),
+    DivisionNode,
+    PartNode,
+    SectionNode,
     FlowNode,
     PageNode,
     SlideNode,
