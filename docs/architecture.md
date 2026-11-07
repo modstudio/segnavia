@@ -1648,12 +1648,34 @@ export. The compiler produces one sheet in cascade-layer order:
 `segnavia.author`. Tokens become `--segnavia-*` custom properties and named
 styles become classes.
 
-Content has one stored form: sanitized HTML. Every block that lacks a
+Content has one stored form: HTML. Every block that lacks a
 `data-segnavia-id` receives a minted id at the parse edge, and an existing id
 survives the round trip. Callers can replace a whole HTML fragment or use a
-JSON block view of id, kind, text, style class and attributes. `insertBlock`,
-`setBlock`, `moveBlock` and `removeBlock` update that stored HTML through the
-same sanitizer. Styles are referenced by class and variables by declared name.
+JSON block view of id, element-name kind, text, style class, attributes,
+content address and nearest enclosing block. A content address names a node,
+one of its content fields and, for a record-valued field such as `regions`, a
+key. Block-view `text` is the element's DOM text content: nested block text is
+included and block boundaries add no spaces. This deliberately differs from
+the visible-text rule for headings, contents and running heads. The fragment
+accessor models HTML strings, page bodies, HTML slide content and records of
+strings in one table. Speaker notes are plain text and hold no blocks.
+
+`insertBlock`, `setBlock`, `moveBlock` and `removeBlock` parse and serialize
+the affected fragment and compile the result to prior-valued `setContent`
+`DocumentOp`s. Changed fragments are grouped by node and field, so moving
+between two keys of one record field produces one field-level op; a move across
+fields or nodes produces one removal op and one insertion op. The caller
+batches and applies those ops, so staleness, atomicity and undo stay properties
+of `applyOps`. The two-sided block context table records both where each block
+kind may stand and which block children a block kind accepts. It permits list
+items directly in lists, table rows directly in table containers, and other
+block kinds outside those special containers while keeping block children out
+of phrasing-only parents. Every fragment a block op writes must serialize
+unchanged after parsing again; the parser's content model is the backstop for
+contexts the block table does not describe.
+Block ops do not sanitize: active-content policy remains at realize, where the
+sandbox policy sanitizes or refuses it. Styles are referenced by class and
+variables by declared name.
 
 `Measurements` records block and line boxes plus fit results. `Plan` records
 pages, first and last block ids, breaks, folios, resolved variables, parent-page
@@ -1699,7 +1721,7 @@ and rebasing local history over host operations.
 
 ```mermaid
 flowchart TD
-  INPUT[(Stored Document)] --> PARSE[1. Parse<br/>format · universal<br/>validate, sanitize, mint ids]
+  INPUT[(Stored Document)] --> PARSE[1. Parse<br/>format · universal<br/>validate, mint ids]
   PARSE --> RESOLVE[2. Resolve<br/>host seams<br/>brand, fonts, assets, data, providers]
   RESOLVE --> REALIZE[3. Realize<br/>html · universal<br/>frame documents, CSS, galley, config]
   REALIZE --> MEASURE[4. Measure<br/>frame · browser<br/>fonts, fit, block and line boxes]
@@ -1714,7 +1736,7 @@ flowchart TD
 
 | Stage | Input | Output | Owner and runtime |
 |---|---|---|---|
-| Parse | Stored input | Validated `Document` with sanitized content and ids | `format`, universal |
+| Parse | Stored input | Validated `Document` with ids | `format`, universal |
 | Resolve | Parsed document and host addresses | Resolved brand, fonts, assets, motifs, placements, data and providers | Host seams at the library edge |
 | Realize | Document plus resolved values | Frame documents, layered CSS, galley and composition configuration | `html`, universal |
 | Measure | Realized documents and loaded fonts | `Measurements` | `frame`, browser |
