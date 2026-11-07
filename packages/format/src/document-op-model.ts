@@ -17,7 +17,7 @@ export interface DocumentEntry {
   depth: number
 }
 
-export interface NodeModel {
+interface NodeModel {
   fields: ReadonlySet<string>
   content: ReadonlySet<string>
   settable: ReadonlySet<string>

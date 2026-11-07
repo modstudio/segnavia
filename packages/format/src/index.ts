@@ -157,12 +157,9 @@ export * from './document-metadata.ts'
 export { DocumentBatch, DocumentCollection, DocumentLocation, DocumentOp } from './document-op.ts'
 export {
   DOCUMENT_NODE_MODEL,
-  type DocumentEntry,
   type DocumentNodeType,
   documentEntries,
-  type NodeModel,
   type OperationDocument,
-  type OperationNode,
 } from './document-op-model.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
