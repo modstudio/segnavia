@@ -10,11 +10,11 @@ import {
 import type { DocumentAddress, DocumentCommandLocation } from './document-commands.ts'
 
 export class DocumentCommandRefusal extends Error {
-  constructor(
-    message: string,
-    readonly clearing: string,
-  ) {
+  readonly clearing: string
+
+  constructor(message: string, clearing: string) {
     super(message)
+    this.clearing = clearing
   }
 }
 
