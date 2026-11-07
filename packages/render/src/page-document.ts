@@ -1,12 +1,12 @@
 import {
-  Book,
-  type BookInput,
+  type Book,
   type FontFace,
   type FontReference,
   type FontSource,
   htmlTextSample,
-  Page,
-  type PageInput,
+  type Page,
+  type PageOrPrintedInput,
+  pageOrPrintedFromInput,
   resolveDirection,
   resolveLimits,
   resolvePageWidth,
@@ -52,13 +52,23 @@ async function resolveRenderFontReferences(
 }
 
 export async function prepareRenderedPage(
-  input: PageInput,
+  input: PageOrPrintedInput,
   options: RenderOptions,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  const page = resolvePageHtml(Page.parse(input))
+  return prepareRenderedPageValue(pageOrPrintedFromInput(input), options, motifs, signal, purpose)
+}
+
+export async function prepareRenderedPageValue(
+  input: Page,
+  options: RenderOptions,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  purpose: 'screen' | 'print' = 'print',
+) {
+  const page = resolvePageHtml(input)
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
   const references = uniqueFontReferences([...(expanded.page.fonts ?? []), ...expanded.fonts])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
@@ -69,7 +79,7 @@ export async function prepareRenderedPage(
 }
 
 export async function prepareRenderedPages(
-  expanded: ReadonlyArray<{ page: Pick<PageInput, 'fonts'>; fonts: FontReference[] }>,
+  expanded: ReadonlyArray<{ page: Pick<Page, 'fonts'>; fonts: FontReference[] }>,
   options: RenderOptions,
   signal: AbortSignal,
 ): Promise<RenderOptions> {
@@ -81,12 +91,11 @@ export async function prepareRenderedPages(
 }
 
 export async function renderOptionsWithBookFonts(
-  input: BookInput,
+  book: Book,
   options: RenderOptions,
   signal: AbortSignal,
   motifFonts: FontReference[] = [],
 ): Promise<{ options: RenderOptions; fontCss: string }> {
-  const book = Book.parse(input)
   const place = `book ${JSON.stringify(book.title)}`
   const references = uniqueFontReferences([...(book.fonts ?? []), ...motifFonts])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
@@ -117,8 +126,26 @@ export function resolvedPageDocument(page: HtmlPage, css: string, options: Resol
   })
 }
 
-export function renderPageDocument(input: PageInput, options: RenderOptions, printing = false, nonce?: string, fontCss = '', diagramScript?: string): string {
-  const page = resolvePageHtml(Page.parse(input))
+export function renderPageDocument(
+  input: PageOrPrintedInput,
+  options: RenderOptions,
+  printing = false,
+  nonce?: string,
+  fontCss = '',
+  diagramScript?: string,
+): string {
+  return renderPageValueDocument(pageOrPrintedFromInput(input), options, printing, nonce, fontCss, diagramScript)
+}
+
+export function renderPageValueDocument(
+  input: Page | HtmlPage,
+  options: RenderOptions,
+  printing = false,
+  nonce?: string,
+  fontCss = '',
+  diagramScript?: string,
+): string {
+  const page = 'html' in input ? input : resolvePageHtml(input)
   const namedMeasure =
     page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')
       ? resolvePageWidth(page.size, options.pageWidths).measure

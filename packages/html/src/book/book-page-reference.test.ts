@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
-import { Book, type BookInput } from '@segnavia/format'
+import { Book } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 
-const input = (chapters: BookInput['chapters']): BookInput => ({ title: 'Book', mode: 'continuous', chapters })
+const input = (chapters: unknown[]) => ({ title: 'Book', mode: 'continuous', chapters })
 
 test('fills page references while keeping an empty link before pagination', () => {
   const book = Book.parse(input([{ title: 'One', html: '<p><a href="#topic" data-ref="page"></a></p><h2 id="topic">Topic</h2>' }]))

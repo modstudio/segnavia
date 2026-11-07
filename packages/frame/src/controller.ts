@@ -112,6 +112,9 @@ export class DeckController extends EventTarget {
   async load(input: unknown, base?: string): Promise<void> {
     await this.loadDeck(input, base, false)
   }
+  async loadDeckValue(input: unknown, base?: string): Promise<void> {
+    await this.loadDeck(input, base, true)
+  }
   async [internalDeckLoad](input: Deck): Promise<void> {
     await this.loadDeck(input, undefined, true)
   }

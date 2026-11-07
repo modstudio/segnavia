@@ -14,7 +14,7 @@ describe('controller content refresh', () => {
     const controller = new DeckController({ hash: null, persist: false })
     let resolutions = 0
     controller.resolveSlide = () => ({ kind: 'url', src: `minted-${++resolutions}.html` })
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     let changes = 0
     let slides = 0
     controller.addEventListener('change', () => changes++)
@@ -35,7 +35,7 @@ describe('controller content refresh', () => {
       if (slide.id === 'a' && ++firstSlideResolutions === 2) return pending.promise
       return { kind: 'url', src: `${slide.id}.html` }
     }
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     const refreshing = controller.refreshContent()
     await controller.go(1)
     pending.resolve({ kind: 'url', src: 'stale.html' })
@@ -66,7 +66,7 @@ describe('controller content refresh', () => {
       }),
       schedule: () => () => {},
     })
-    await controller.load({
+    await controller.loadDeckValue({
       title: 'Deck',
       slides: [
         {
@@ -98,7 +98,7 @@ describe('controller content refresh', () => {
         return { kind: 'url', src: `${slide.id}.html` }
       },
     })
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     let errors = 0
     controller.addEventListener('error', () => errors++)
     const refreshing = controller.refreshContent()
@@ -125,7 +125,7 @@ describe('controller content refresh', () => {
         return { kind: 'url', src: 'shown.html' }
       },
     })
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     const earlier = controller.refreshContent()
     const later = controller.refreshContent()
     second.resolve({ kind: 'url', src: 'latest.html' })
@@ -137,7 +137,7 @@ describe('controller content refresh', () => {
 
   test('does nothing without a resolver', async () => {
     const controller = new DeckController({ hash: null, persist: false })
-    await controller.load(deck)
+    await controller.loadDeckValue(deck)
     const content = controller.state.content
     let changes = 0
     controller.addEventListener('change', () => changes++)

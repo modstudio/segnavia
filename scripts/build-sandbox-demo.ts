@@ -1,21 +1,24 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Deck } from '@segnavia/format'
+import { Document } from '@segnavia/format'
 import { bridgeForHost } from '@segnavia/frame/bridge'
 
 export function buildSandboxDemo(site: string, shell: (body: string) => string): void {
-  const scripted = Deck.parse({
+  const scripted = Document.parse({
+    type: 'document',
+    kind: 'deck',
     title: 'Scripts allowed',
-    scripts: 'sandboxed',
-    slides: [
+    settings: { scripts: 'sandboxed' },
+    children: [
       {
+        type: 'slide',
         id: 'runs',
         content: {
           kind: 'html',
           html: '<h1 id="t">waiting</h1><script>document.getElementById("t").textContent = "ran"; document.body.style.background = "rgb(0, 128, 0)"</script>',
         },
       },
-      { id: 'next', content: { kind: 'html', html: '<h1>second</h1>' } },
+      { type: 'slide', id: 'next', content: { kind: 'html', html: '<h1>second</h1>' } },
     ],
   })
   writeFileSync(path.join(site, 'deck-scripted.json'), JSON.stringify(scripted))

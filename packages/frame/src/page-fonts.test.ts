@@ -13,7 +13,7 @@ import {
   resolveNotesFontCss,
   resolvePageFonts,
 } from './page-fonts.ts'
-import { printablePagesDocument } from './print-document.ts'
+import { printablePageValuesDocument } from './print-document.ts'
 
 const data = new Uint8Array([0])
 const serifFace: FontFace = { family: 'Body Serif', data, format: 'truetype' }
@@ -96,8 +96,8 @@ describe('frame and print documents', () => {
     const expanded = await expandFramePage(resolvePageHtml(page), { source: { motif: async () => letterhead } }, signal)
     const css = await resolvePageFonts(expanded.page, expanded.fonts, { source: source({ serif, heading }) }, signal)
     const srcdoc = shownPageDocument(expanded.page, undefined, { nonce: 'testnonce', css })
-    const printed = printablePagesDocument(
-      [expanded.page],
+    const printed = printablePageValuesDocument(
+      [PageSchema.parse(expanded.page)],
       Imposition.parse({
         paper: { width: 105, height: 148, unit: 'mm' },
         columns: 1,

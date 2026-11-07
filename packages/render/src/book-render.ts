@@ -1,9 +1,9 @@
-import { type Book, type BookInput, type Limits, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
+import { type Book, type Limits, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
   BOOK_FAILURE_ATTRIBUTE,
   PaginatedBookRefusedError,
-  bookDocument as paginatedBookDocument,
+  bookValueDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
 import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
@@ -127,9 +127,9 @@ async function printBook(
   )
 }
 
-export function renderBrowserBookPdf(input: BookInput, options: RenderOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export function renderBrowserBookPdf(book: Book, options: RenderOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   let script: Promise<string | undefined> | undefined
-  return renderBookPdf(input, options, {
+  return renderBookPdf(book, options, {
     print: async (html, book, renderOptions, part, layerCss = '') => {
       script ??= resolveDiagramScript(bookDocument(book).html)
       return printBook(html, book, renderOptions, part, layerCss, fontCss, await script, dependencies)

@@ -6,11 +6,12 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
-import { MM_PER_PT, Page, printBoxes } from '@segnavia/format'
+import { Document, MM_PER_PT, pageFromDocument, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { chromiumPath } from './chromium-path.ts'
 import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
 import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
+import { screenDeck, screenPage } from './screen-document.ts'
 import { verifyBackdropRaster } from './verify/backdrop-raster.ts'
 import { verifyBookOffline } from './verify/book-offline.ts'
 import { verifyBookRender } from './verify/book-render.ts'
@@ -74,16 +75,19 @@ try {
   await verifyDependencyRender(renderer, work, refusal, check)
   await verifyDiagramRender(renderer, work, check)
   const ready = await refusal(
-    renderer.pagePdf({
-      html: '<p id="p">waiting</p><script>setTimeout(() => { p.textContent = "ready"; pageReady() }, 300)</script>',
-      scripts: 'sandboxed',
-      size: { width: 400, height: 200 },
-    }),
+    renderer.pagePdf(
+      screenPage(
+        { html: '<p id="p">waiting</p><script>setTimeout(() => { p.textContent = "ready"; pageReady() }, 300)</script>' },
+        { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } },
+      ),
+    ),
   )
   check('a page running code prints once it calls pageReady', ready === 'rendered', ready)
-  const silent = await refusal(renderer.pagePdf({ html: '<p>never ready</p><script>1</script>', scripts: 'sandboxed', size: { width: 400, height: 200 } }))
+  const silent = await refusal(
+    renderer.pagePdf(screenPage({ html: '<p>never ready</p><script>1</script>' }, { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } })),
+  )
   check('a page running code that never calls pageReady is refused', silent.startsWith('refused: The page did not call window.pageReady()'), silent)
-  const big = await refusal(renderer.pagePdf({ html: `<p>${'words '.repeat(4000)}</p>` }, { limits: { bytes: 2000 } }))
+  const big = await refusal(renderer.pagePdf(screenPage({ html: `<p>${'words '.repeat(4000)}</p>` }), { limits: { bytes: 2000 } }))
   check('a PDF over the byte ceiling is refused, naming both sizes', big.includes('bytes limit of 2000'), big)
   await verifyClippedBleed(renderer, work, CHROMIUM, check)
   await verifyPageOverflow(renderer, work, check, CHROMIUM)
@@ -91,19 +95,18 @@ try {
   await verifyBackdropRaster(renderer, work, check)
   hits = 0
   const html = `<img src="${origin}/a.png"><link rel="stylesheet" href="${origin}/b.css"><iframe src="${origin}/c"></iframe><script>fetch("${origin}/d"); new Image().src = "${origin}/e"</script>`
-  await renderer.pagePdf({ html, scripts: 'sandboxed' }, { waitForPageReady: false })
-  await renderer.pageImage({ html })
-  await renderer.pagesPdf([{ html }], { imposition: labelsImposition })
+  await renderer.pagePdf(screenPage({ html }, { settings: { scripts: 'sandboxed' } }), { waitForPageReady: false })
+  await renderer.pageImage(screenPage({ html }))
+  await renderer.pagesPdf([screenPage({ html })], { imposition: labelsImposition })
   await verifyBookOffline(renderer, origin)
-  const deck = {
+  const deck = screenDeck([{ type: 'slide', id: 'offline', content: { kind: 'html' as const, html } }], {
     title: 'Offline deck',
     layout: 'fixed' as const,
     fit: 'contain' as const,
     frame: false,
-    scripts: 'sandboxed' as const,
+    settings: { scripts: 'sandboxed' as const },
     size: { width: 400, height: 200 },
-    slides: [{ id: 'offline', content: { kind: 'html' as const, html } }],
-  }
+  })
   const oversizedImposition = {
     paper: { width: 10.001, height: 1, unit: 'mm' as const },
     columns: 10_001,
@@ -115,7 +118,7 @@ try {
       () => 'rendered',
       (error: unknown) => (error instanceof Error ? error.message : String(error)),
     )
-  const oversizedPages = await rejectedMessage(renderer.pagesPdf([{ html: '<p>page</p>' }], { imposition: oversizedImposition }))
+  const oversizedPages = await rejectedMessage(renderer.pagesPdf([screenPage({ html: '<p>page</p>' })], { imposition: oversizedImposition }))
   check(
     'pagesPdf refuses an imposition of 10001 cells at the edge',
     oversizedPages.includes('10001 cells') && oversizedPages.includes('ceiling is 10000'),
@@ -138,10 +141,10 @@ try {
     `requests=${hits}`,
   )
   if (existsSync(FACE)) {
-    const pdf = await renderer.pagePdf(
-      { html: '<p style="font-family:SegnaviaFace">Embedded</p>', size: { width: 400, height: 200 } },
-      { fonts: [{ family: 'SegnaviaFace', data: readFileSync(FACE), format: 'truetype', weight: 700 }], css: 'p{color:rgb(10, 20, 30);font-size:40px}' },
-    )
+    const pdf = await renderer.pagePdf(screenPage({ html: '<p style="font-family:SegnaviaFace">Embedded</p>' }, { size: { width: 400, height: 200 } }), {
+      fonts: [{ family: 'SegnaviaFace', data: readFileSync(FACE), format: 'truetype', weight: 700 }],
+      css: 'p{color:rgb(10, 20, 30);font-size:40px}',
+    })
     const file = path.join(work, 'face.pdf')
     writeFileSync(file, pdf)
     const fonts = execFileSync('pdffonts', [file], { encoding: 'utf8' })
@@ -152,19 +155,16 @@ try {
   await verifyScriptFaces(renderer, work, check)
   await verifyHebrewNotice(renderer, work, check)
   let background = ''
-  await renderer.pageImage(
-    { html: '<h1>House</h1>', size: { width: 200, height: 100 } },
-    {
-      css: 'body{margin:0;background:rgb(0, 128, 0)}',
-      beforeOutput: async (tab) => {
-        background = await tab.evaluate(() => getComputedStyle(document.body).backgroundColor)
-      },
+  await renderer.pageImage(screenPage({ html: '<h1>House</h1>' }, { size: { width: 200, height: 100 } }), {
+    css: 'body{margin:0;background:rgb(0, 128, 0)}',
+    beforeOutput: async (tab) => {
+      background = await tab.evaluate(() => getComputedStyle(document.body).backgroundColor)
     },
-  )
+  })
   check("the host's house style reaches the render", background === 'rgb(0, 128, 0)', background)
   let fullPageWebp: Uint8Array<ArrayBufferLike> = new Uint8Array()
   await renderer.pageImage(
-    { html: '<style>html,body{margin:0}</style><div style="height:300px;background:green"></div>', size: { width: 200, height: 100 } },
+    screenPage({ html: '<style>html,body{margin:0}</style><div style="height:300px;background:green"></div>' }, { size: { width: 200, height: 100 } }),
     {
       scale: 2,
       beforeOutput: async (tab) => {
@@ -177,16 +177,14 @@ try {
   // A right to left deck's notes: the scaled slide must stay inside its box.
   let overflow = Number.NaN
   await renderer.deckPdf(
-    {
+    screenDeck([{ type: 'slide', id: 'a', content: { kind: 'html', html: '<h1>שלום</h1>' }, notes: 'הערה' }], {
       title: 'כותרת',
       layout: 'fixed',
       fit: 'contain',
       frame: false,
-      lang: 'he',
+      settings: { lang: 'he', scripts: 'refuse' },
       size: { width: 1280, height: 720 },
-      scripts: 'refuse',
-      slides: [{ id: 'a', content: { kind: 'html', html: '<h1>שלום</h1>' }, notes: 'הערה' }],
-    },
+    }),
     {
       layout: 'notes',
       beforeOutput: async (tab) => {
@@ -203,7 +201,7 @@ try {
   // Concurrency: four renders at once on a renderer that allows two.
   let running = 0
   let peak = 0
-  const slow = { html: '<p>slow</p>', size: { width: 200, height: 100 } } as const
+  const slow = screenPage({ html: '<p>slow</p>' }, { size: { width: 200, height: 100 } })
   await Promise.all(
     [1, 2, 3, 4].map(() =>
       renderer.pagePdf(slow, {
@@ -219,7 +217,7 @@ try {
   check('renders beyond the concurrency limit wait their turn', peak === 2, `peak=${peak}`)
 
   const own = await renderer.pagePdf(
-    { html: '<style>@page{size:100mm 100mm;margin:0}</style><p>own size</p>', print: { paper: 'letter', orientation: 'portrait' } },
+    screenPage({ html: '<style>@page{size:100mm 100mm;margin:0}</style><p>own size</p>' }, { print: { paper: 'letter', orientation: 'portrait' } }),
     { preferCssPageSize: true },
   )
   const ownFile = path.join(work, 'own.pdf')
@@ -233,7 +231,7 @@ try {
 
   const postcardFile = path.join(output, 'page-postcard.pdf')
   const postcardInfo = execFileSync('pdfinfo', ['-box', postcardFile], { encoding: 'utf8' })
-  const postcard = Page.parse(postcardPage)
+  const postcard = pageFromDocument(Document.parse(postcardPage))
   if (!postcard.print) throw new Error('The postcard fixture has no print setting.')
   const boxes = printBoxes(postcard.print)
   const expectedBox = (box: { x: number; y: number; width: number; height: number }) =>
@@ -298,10 +296,14 @@ try {
   check('a page image exposes its print bleed and safe area', imageProperties === '3mm 5mm', imageProperties)
 
   const tooTall = await refusal(
-    renderer.pagePdf({
-      html: '<div style="height:400mm">Too tall for one printed piece.</div>',
-      print: { paper: { width: 148, height: 105, unit: 'mm' }, orientation: 'landscape', bleed: 3 },
-    }),
+    renderer.pagePdf(
+      screenPage(
+        { html: '<div style="height:400mm">Too tall for one printed piece.</div>' },
+        {
+          print: { paper: { width: 148, height: 105, unit: 'mm' }, orientation: 'landscape', bleed: 3 },
+        },
+      ),
+    ),
   )
   check(
     'a page with bleed whose content needs another paper is refused',
@@ -309,15 +311,14 @@ try {
     tooTall,
   )
   const slide = await renderer.slideImage(
-    {
+    screenDeck([{ type: 'slide', id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }], {
       title: 'T',
       layout: 'fixed',
       fit: 'contain',
       frame: false,
       size: { width: 1280, height: 720 },
-      scripts: 'refuse',
-      slides: [{ id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }],
-    },
+      settings: { scripts: 'refuse' },
+    }),
     0,
     { scale: 1 },
   )
@@ -349,15 +350,14 @@ try {
   check('the sheets ceiling refuses the deck and names both counts', limits.includes('4 sheets') && limits.includes('sheets limit of 2'), limits)
   let notesDirection = ''
   await renderer.deckPdf(
-    {
+    screenDeck([{ type: 'slide', id: 'a', content: { kind: 'html', html: '<p>English slide</p>' }, notes: 'הערה בעברית' }], {
       title: 'English deck',
       layout: 'fixed',
       fit: 'contain',
       frame: false,
       size: { width: 400, height: 200 },
-      scripts: 'refuse',
-      slides: [{ id: 'a', content: { kind: 'html', html: '<p>English slide</p>' }, notes: 'הערה בעברית' }],
-    },
+      settings: { scripts: 'refuse' },
+    }),
     {
       layout: 'notes',
       beforeOutput: async (tab) => {

@@ -32,12 +32,12 @@ export async function verifyDeckPrintBrowser(h: Harness) {
       },
     })
     const ms = Math.round(performance.now() - started)
-    const slides = Array.from({ length: 7 }, (_, index) => ({ ...deck.slides[index % deck.slides.length], id: `handout-${index}` }))
+    const children = Array.from({ length: 7 }, (_, index) => ({ ...deck.children[index % deck.children.length], id: `handout-${index}` }))
     let papers = 0
     let placements = 0
     const handoutStarted = performance.now()
     await lib.printDeck(
-      { ...deck, slides },
+      { ...deck, children },
       {
         imposition: {
           paper: 'letter',
@@ -73,7 +73,7 @@ export async function verifyDeckPrintBrowser(h: Harness) {
       horizontallyUnclipped: false,
     }
     await lib.printDeck(
-      { ...deck, slides: [{ ...deck.slides[0], id: 'long-notes', notes: longNotes }] },
+      { ...deck, children: [{ ...deck.children[0], id: 'long-notes', notes: longNotes }] },
       {
         layout: 'notes',
         print: (win: Window) => {
@@ -106,7 +106,11 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     )
     let rtlFacts = { continuations: 0, isolated: false }
     await lib.printDeck(
-      { ...deck, dir: 'rtl', slides: [{ ...deck.slides[0], notes: Array.from({ length: 60 }, (_, index) => `שורה ${index + 1}`).join('\n') }] },
+      {
+        ...deck,
+        settings: { ...deck.settings, dir: 'rtl' },
+        children: [{ ...deck.children[0], notes: Array.from({ length: 60 }, (_, index) => `שורה ${index + 1}`).join('\n') }],
+      },
       {
         layout: 'notes',
         print: (win: Window) => {
@@ -121,7 +125,7 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     const portraitNotes = 'Portrait notes stay entirely visible.'
     let portraitFacts = { exact: false, visible: false, inside: false }
     await lib.printDeck(
-      { ...deck, size: { width: 720, height: 1280 }, slides: [{ ...deck.slides[0], notes: portraitNotes }] },
+      { ...deck, size: { width: 720, height: 1280 }, children: [{ ...deck.children[0], notes: portraitNotes }] },
       {
         layout: 'notes',
         print: (win: Window) => {
@@ -140,7 +144,7 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     const emojiNotes = '👨‍👩‍👧‍👦'.repeat(1_000)
     let emojiFacts = { exact: false, intact: false, visible: false }
     await lib.printDeck(
-      { ...deck, slides: [{ ...deck.slides[0], notes: emojiNotes }] },
+      { ...deck, children: [{ ...deck.children[0], notes: emojiNotes }] },
       {
         layout: 'notes',
         print: (win: Window) => {
@@ -164,9 +168,10 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     await lib.printDeck(
       {
         ...deck,
-        scripts: 'sandboxed',
-        slides: [
+        settings: { ...deck.settings, scripts: 'sandboxed' },
+        children: [
           {
+            type: 'slide',
             id: 'stalled',
             content: {
               kind: 'html',
@@ -255,11 +260,14 @@ export async function verifyDeckPrintBrowser(h: Harness) {
     const started = performance.now()
     await printDeck(
       {
+        type: 'document',
+        kind: 'deck',
         title: 'Scripted print',
-        scripts: 'sandboxed',
+        settings: { scripts: 'sandboxed' },
         size: { width: 400, height: 200 },
-        slides: [
+        children: [
           {
+            type: 'slide',
             id: 'scripted',
             content: {
               kind: 'html',
@@ -291,7 +299,7 @@ window.addEventListener('segnavia:print',function(event){
 import { printDeck } from '/segnavia.js';
 const notes=Array.from({length:60},(_,index)=>'Line '+(index+1)+': CSP notes continue.').join('\\n');
 const image='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="800"><rect width="400" height="800" fill="purple"/></svg>');
-window.cspPrint=printDeck({title:'CSP print',size:{width:1280,height:720},slides:[{id:'notes',content:{kind:'html',html:'<p>Notes thumbnail</p>'},notes},{id:'image',content:{kind:'image',src:image,alt:'CSP image'}}]}, {layout:'notes',print(win){
+window.cspPrint=printDeck({type:'document',kind:'deck',title:'CSP print',size:{width:1280,height:720},children:[{type:'slide',id:'notes',content:{kind:'html',html:'<p>Notes thumbnail</p>'},notes},{type:'slide',id:'image',content:{kind:'image',src:image,alt:'CSP image'}}]}, {layout:'notes',print(win){
   const sheets=[...win.document.querySelectorAll('.sheet')];
   const last=sheets.filter(sheet=>sheet.dataset.slideIndex==='0').at(-1);
   const lastNotes=last?.querySelector('.notes');
@@ -325,9 +333,11 @@ window.cspPrint=printDeck({title:'CSP print',size:{width:1280,height:720},slides
     let facts = { placed: false, width: '', height: '', transform: '' }
     await printDeck(
       {
+        type: 'document',
+        kind: 'deck',
         title: 'Late image print',
         size: { width: 1280, height: 720 },
-        slides: [{ id: 'late-image', content: { kind: 'image', src: '/late-print-image.svg', alt: 'Late image', fit: 'contain' } }],
+        children: [{ type: 'slide', id: 'late-image', content: { kind: 'image', src: '/late-print-image.svg', alt: 'Late image', fit: 'contain' } }],
       },
       {
         deadlineMs: 20,

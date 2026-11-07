@@ -18,7 +18,7 @@ import {
   notesLayoutGeometry,
   type PrintOptions,
   paginateNotes,
-  printableDeck,
+  printableDeckValue,
   resolveDeckMedia,
   SLIDES_READY_DEADLINE_MS,
 } from '@segnavia/frame/print-document'
@@ -128,7 +128,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
       {
         viewport: notesGeometry ? { width: Math.round(notesGeometry.sheet.width), height: Math.round(notesGeometry.sheet.height) } : deck.size,
         scripts: true,
-        html: printableDeck(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true, diagramScript }),
+        html: printableDeckValue(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true, diagramScript }),
         boundMs: opts.boundMs,
         ...dependencySetup(opts),
         beforeOutput: async (tab) => {
@@ -215,7 +215,7 @@ async function imposedDeckPdf(
                 dependencyOrigins: opts.dependencyOrigins,
                 diagramScript,
               })
-            : printableDeck(single, { ...opts, layout: 'slides', imposition: undefined, css, diagramScript })
+            : printableDeckValue(single, { ...opts, layout: 'slides', imposition: undefined, css, diagramScript })
         const bytes = await services.renderPdf(
           {
             viewport: deck.size,

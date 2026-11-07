@@ -1,9 +1,9 @@
 import { expect, test } from 'bun:test'
-import { Deck, type Media, Page } from '@segnavia/format'
+import { Deck, Document, type DocumentInput, type Media } from '@segnavia/format'
 import { placementPlaceholderSource } from '@segnavia/html'
 import { boardItemFrom } from './board-resolutions.ts'
 import { DeckController } from './controller.ts'
-import { preparedDeckPrint } from './print.ts'
+import { preparedDeckValuePrint } from './print.ts'
 import { slotAssetFrom } from './slot-render.ts'
 
 const media: Media = { format: 'png', size: { width: 40, height: 20 } }
@@ -34,12 +34,18 @@ test('slotAssetFrom passes caller context and otherwise omits an unknown width',
 })
 
 test('boardItemFrom maps fixed pages, refuses fluid pages, and passes through other assets', async () => {
-  const fixed = Page.parse({ html: '<p>Fixed</p>', size: { width: 320, height: 200 } })
-  const fluid = Page.parse({ html: '<p>Fluid</p>' })
-  const boardPage = { id: 'page', kind: 'page' as const, address: 'page', x: 0, y: 0, width: 120 }
-  await expect(boardItemFrom(async () => ({ kind: 'page', page: fixed }))(boardPage)).resolves.toEqual({
+  const fixedDocument = Document.parse({
+    type: 'document',
     kind: 'page',
-    page: fixed,
+    size: { width: 320, height: 200 },
+    settings: { scripts: 'refuse' },
+    children: [{ type: 'page', body: { html: '<p>Fixed</p>' } }],
+  })
+  const fluid = { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '<p>Fluid</p>' } }] } satisfies DocumentInput
+  const boardPage = { id: 'page', kind: 'page' as const, address: 'page', x: 0, y: 0, width: 120 }
+  await expect(boardItemFrom(async () => ({ kind: 'page', page: fixedDocument }))(boardPage)).resolves.toEqual({
+    kind: 'page',
+    page: fixedDocument,
     size: { width: 320, height: 200 },
   })
   await expect(boardItemFrom(async () => ({ kind: 'page', page: fluid }))(boardPage)).rejects.toThrow('has no fixed size')
@@ -69,7 +75,11 @@ test('boardItemFrom maps media answers to the unchanged board image answer', asy
 
 test('deck media content resolves through placements as existing image content', async () => {
   const controller = new DeckController({ placements: { resolve: async () => ({ kind: 'media', media, src }) }, hash: null, persist: false })
-  await controller.load({ title: 'Placed', size: { width: 640, height: 360 }, slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }] })
+  await controller.loadDeckValue({
+    title: 'Placed',
+    size: { width: 640, height: 360 },
+    slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }],
+  })
   expect(controller.state.content).toEqual({ kind: 'image', src, alt: '', fit: undefined })
   controller.destroy()
 })
@@ -77,7 +87,13 @@ test('deck media content resolves through placements as existing image content',
 test('deck media reports each unusable resolver answer and keeps the placeholder', async () => {
   const cases = [
     { reason: 'missing', resolve: async () => undefined },
-    { reason: 'invalid', resolve: async () => ({ kind: 'page' as const, page: Page.parse({ html: '<p>Page</p>' }) }) },
+    {
+      reason: 'invalid',
+      resolve: async () => ({
+        kind: 'page' as const,
+        page: { type: 'document' as const, kind: 'page' as const, children: [{ type: 'page' as const, body: { html: '<p>Page</p>' } }] },
+      }),
+    },
     { reason: 'refused-src', resolve: async () => ({ kind: 'media' as const, media, src: 'https://example.com/image.png' }) },
     {
       reason: 'failed',
@@ -89,7 +105,11 @@ test('deck media reports each unusable resolver answer and keeps the placeholder
   for (const entry of cases) {
     const reports: Array<{ reason: string }> = []
     const controller = new DeckController({ placements: { resolve: entry.resolve, report: (report) => reports.push(report) }, hash: null, persist: false })
-    await controller.load({ title: 'Placed', size: { width: 640, height: 360 }, slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }] })
+    await controller.loadDeckValue({
+      title: 'Placed',
+      size: { width: 640, height: 360 },
+      slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }],
+    })
     expect(controller.state.content).toMatchObject({ kind: 'image', src: placementPlaceholderSource() })
     expect(reports).toEqual([expect.objectContaining({ reason: entry.reason })])
     controller.destroy()
@@ -100,7 +120,11 @@ test('changing controller placements re-resolves the shown media slide', async (
   const first = 'data:image/png;base64,AA=='
   const second = 'data:image/png;base64,AQ=='
   const controller = new DeckController({ placements: { resolve: async () => ({ kind: 'media', media, src: first }) }, hash: null, persist: false })
-  await controller.load({ title: 'Placed', size: { width: 640, height: 360 }, slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }] })
+  await controller.loadDeckValue({
+    title: 'Placed',
+    size: { width: 640, height: 360 },
+    slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }],
+  })
   const shown = new Promise<void>((resolve) => controller.addEventListener('slide', () => resolve(), { once: true }))
   controller.placements = { resolve: async () => ({ kind: 'media', media, src: second }) }
   await shown
@@ -114,8 +138,8 @@ test('deck print preparation resolves media and uses the placeholder when no res
     size: { width: 640, height: 360 },
     slides: [{ id: 'a', content: { media: { kind: 'media' as const, address: 'logo' } } }],
   })
-  const resolved = await preparedDeckPrint(deck, { placements: { resolve: async () => ({ kind: 'media', media, src }) } })
+  const resolved = await preparedDeckValuePrint(deck, { placements: { resolve: async () => ({ kind: 'media', media, src }) } })
   expect(resolved.html).toContain(src)
-  const missing = await preparedDeckPrint(deck, {})
+  const missing = await preparedDeckValuePrint(deck, {})
   expect(missing.html).toContain(placementPlaceholderSource())
 })

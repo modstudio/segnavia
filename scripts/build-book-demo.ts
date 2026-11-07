@@ -1,12 +1,13 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Book, type BookInput } from '@segnavia/format'
-import { bookDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
+import { bookFromDocument, Document, type DocumentInput } from '@segnavia/format'
+import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
-import { alefCss, BOOK_CSS, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
+import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
+import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
@@ -17,36 +18,14 @@ import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
 
-const fixture = (hebrew: boolean): BookInput => ({
-  title: hebrew ? 'ספר ההפלגה' : 'The Book of Tides',
-  mode: 'continuous',
-  lang: hebrew ? 'he' : 'en',
-  css: BOOK_CSS,
-  frontMatter: [
-    {
-      title: hebrew ? 'שער' : 'Title page',
-      contents: false,
-      html: `<h1>${hebrew ? 'ספר ההפלגה' : 'The Book of Tides'}</h1><p data-motif="${BOOK_MOTIF_KEY}"></p>`,
-    },
-    { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
-  ],
-  chapters: [
-    {
-      title: hebrew ? 'התחלה' : 'Beginning',
-      html: `<h1>${hebrew ? 'התחלה' : 'Beginning'}</h1><p class="note-paragraph book-css-check">${
-        hebrew ? 'הספינה יצאה אל הים' : 'The ship went out with the morning tide'
-      }<span data-note="footnote">${hebrew ? 'הערת שוליים על ההפלגה.' : 'A footnote about the voyage.'}</span>.</p>${keepProbe(hebrew)}<p>${
-        hebrew ? 'ראו עמ׳ ' : 'See page '
-      }<a href="#far-shore" data-ref="page"></a>.</p>`,
-    },
-    {
-      title: hebrew ? 'החוף הרחוק' : 'The Far Shore',
-      html: `<h1 id="far-shore">${hebrew ? 'החוף הרחוק' : 'The Far Shore'}</h1><p class="note-paragraph">${
-        hebrew ? 'בקצה המסע נמצא חוף חדש' : 'At the end of the crossing was another shore'
-      }<span data-note="endnote">${hebrew ? 'מקור להערת הסיום.' : 'The source for the endnote.'}</span>.</p>`,
-    },
-  ],
+const bookFixtureValue = (input: DocumentInput) => bookFromDocument(Document.parse(input))
+const flowSection = (title: string, html: string, fields: Record<string, unknown> = {}) => ({
+  type: 'section' as const,
+  title,
+  ...fields,
+  children: [{ type: 'flow' as const, html }],
 })
+
 const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
   const words = hebrew
     ? 'בראשית ברא אלהים את השמים ואת הארץ והארץ היתה תהו ובהו '
@@ -82,7 +61,6 @@ function columnFitChapter(hebrew: boolean) {
     html: `<h1>${title}</h1><p dir="ltr" data-columns="2" data-column-fit-check style="margin-inline-start:6pt;margin-inline-end:4pt;padding-inline-start:20pt;padding-inline-end:5pt">${padded}</p>`,
   }
 }
-
 function chapterThreeHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שלישי' : 'Chapter Three'
   const lead = hebrew ? 'עמוד בלי סימן נושא את הסימן הקודם.' : 'This chapter carries the last mark because it has none of its own.'
@@ -90,7 +68,6 @@ function chapterThreeHtml(hebrew: boolean): string {
   const body = hebrew ? 'עוֹד פִּסְקָה מְנֻקֶּדֶת לְבֹחַן הַחַלּוֹן. '.repeat(10) : 'Further paragraphs keep the body moving across a second page. '.repeat(14)
   return `<h1>${title}</h1><p>${lead}<span data-note="footnote">${note}</span></p><p>${body}</p>`
 }
-
 function chapterFourHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק רביעי' : 'Chapter Four'
   const svg = encodeURIComponent(
@@ -104,105 +81,111 @@ function chapterFourHtml(hebrew: boolean): string {
   const end = hebrew ? 'מקור לפרק הרביעי.' : 'The source for the fourth chapter.'
   return `<h1>${title}</h1>${image}${table}<p>${hebrew ? 'הערת סיום.' : 'An endnote.'}<span data-note="endnote">${end}</span></p>`
 }
-
 function designedSpread(hebrew: boolean) {
   const title = hebrew ? 'שער' : 'Frontispiece'
   const verso = hebrew ? 'גב השער' : 'Verso of the spread'
   const recto = hebrew ? 'פנים השער' : 'Recto of the spread'
   return {
-    kind: 'designed' as const,
+    type: 'section' as const,
     title,
     opens: 'verso' as const,
-    pages: [
-      { html: `<div class="designed-spread designed-verso"><h1 id="spread-open">${title}</h1><p>${verso}</p></div>` },
-      { html: `<div class="designed-spread designed-recto"><h2 id="spread-recto">${recto}</h2></div>` },
+    children: [
+      { type: 'page' as const, body: { html: `<div class="designed-spread designed-verso"><h1 id="spread-open">${title}</h1><p>${verso}</p></div>` } },
+      { type: 'page' as const, body: { html: `<div class="designed-spread designed-recto"><h2 id="spread-recto">${recto}</h2></div>` } },
     ],
   }
 }
-
 function designedLeaf(hebrew: boolean) {
   const title = hebrew ? 'לוח' : 'Plate'
   return {
-    kind: 'designed' as const,
+    type: 'section' as const,
     title,
     parents: { fixed: 'ornament-foot' },
-    pages: [{ html: `<div class="designed-leaf"><h1 id="plate" class="book-css-check">${title}</h1></div>` }],
+    children: [{ type: 'page' as const, body: { html: `<div class="designed-leaf"><h1 id="plate" class="book-css-check">${title}</h1></div>` } }],
   }
 }
-
-const paginatedFixture = (hebrew: boolean): BookInput => ({
-  title: hebrew ? 'הגדת הדף' : 'The Paged Book',
+const paginatedFixture = (hebrew: boolean): DocumentInput => ({
+  type: 'document',
+  kind: 'book',
+  metadata: { title: hebrew ? 'הגדת הדף' : 'The Paged Book' },
   mode: 'paginated',
-  lang: hebrew ? 'he' : 'en',
-  css: BOOK_STYLE_CHECK_CSS,
+  settings: { lang: hebrew ? 'he' : 'en' },
+  style: { css: BOOK_STYLE_CHECK_CSS },
   page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, columnGap: 5 },
   rectoOpenings: true,
   endnotes: { placement: 'chapter' },
   runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'first' } },
-  parentPages: paginatedParents(BOOK_FOLIO_MOTIF_KEY),
-  frontMatter: [
+  parentPages: paginatedParents(BOOK_FOLIO_MOTIF_KEY).map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
+  children: [
     {
-      title: hebrew ? 'פתיחה' : 'Preface',
-      html: `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p><span data-motif="${BOOK_MOTIF_KEY}"></span> ${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>`,
+      type: 'division',
+      name: 'front',
+      children: [
+        flowSection(
+          hebrew ? 'פתיחה' : 'Preface',
+          `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p><span data-motif="${BOOK_MOTIF_KEY}"></span> ${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>`,
+        ),
+        { type: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+      ],
     },
-    { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
-  ],
-  chapters: [
-    designedSpread(hebrew),
-    { title: hebrew ? 'פרק ראשון' : 'Chapter One', html: chapterOneHtml(hebrew, undefined, true), parents: { ...markParents, opener: 'deep-opener' } },
-    designedLeaf(hebrew),
     {
-      title: hebrew ? 'פרק שני' : 'Chapter Two',
-      html: chapterTwoHtml(hebrew),
-      parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
+      type: 'division',
+      name: 'body',
+      children: [
+        designedSpread(hebrew),
+        flowSection(hebrew ? 'פרק ראשון' : 'Chapter One', chapterOneHtml(hebrew, undefined, true), { parents: { ...markParents, opener: 'deep-opener' } }),
+        designedLeaf(hebrew),
+        flowSection(hebrew ? 'פרק שני' : 'Chapter Two', chapterTwoHtml(hebrew), {
+          parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
+        }),
+        flowSection(hebrew ? 'פרק שלישי' : 'Chapter Three', chapterThreeHtml(hebrew)),
+        flowSection(hebrew ? 'פרק רביעי' : 'Chapter Four', chapterFourHtml(hebrew)),
+        flowSection(columnFitChapter(hebrew).title, columnFitChapter(hebrew).html),
+      ],
     },
-    { title: hebrew ? 'פרק שלישי' : 'Chapter Three', html: chapterThreeHtml(hebrew) },
-    { title: hebrew ? 'פרק רביעי' : 'Chapter Four', html: chapterFourHtml(hebrew) },
-    columnFitChapter(hebrew),
   ],
 })
-
-const composeFailureFixture = (): BookInput => ({
-  title: 'The Book Beyond the Page Limit',
-  mode: 'paginated',
-  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-  rectoOpenings: true,
-  chapters: Array.from({ length: 251 }, (_, index) => ({ title: `Chapter ${index + 1}`, html: `<p>Chapter ${index + 1}</p>` })),
-})
-
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
     path.join(site, hebrew ? 'book-paginated-notes-he.html' : 'book-paginated-notes-en.html'),
-    paginatedBookDocument(Book.parse(noteCasesFixture(hebrew)), { nonce: newNonce(), css }),
+    paginatedBookDocument(bookFixtureValue(noteCasesFixture(hebrew)), { nonce: newNonce(), css }),
   )
 }
 
 function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
-  const oversize = Book.parse({
-    title: hebrew ? 'ספר גדול' : 'The Oversize Book',
+  const oversize: DocumentInput = {
+    type: 'document',
+    kind: 'book',
+    metadata: { title: hebrew ? 'ספר גדול' : 'The Oversize Book' },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-    chapters: [{ title: hebrew ? 'פרק' : 'Chapter', html: `<pre style="font-size:900px;line-height:1;margin:0">${hebrew ? 'א' : 'X'}</pre>` }],
-  })
+    children: [
+      {
+        type: 'division',
+        name: 'body',
+        children: [flowSection(hebrew ? 'פרק' : 'Chapter', `<pre style="font-size:900px;line-height:1;margin:0">${hebrew ? 'א' : 'X'}</pre>`)],
+      },
+    ],
+  }
   writeFileSync(
     path.join(site, hebrew ? 'book-paginated-oversize-he.html' : 'book-paginated-oversize-en.html'),
-    paginatedBookDocument(oversize, { nonce: newNonce(), css }),
+    paginatedBookDocument(bookFixtureValue(oversize), { nonce: newNonce(), css }),
   )
 }
 
 function writePartsBook(site: string, hebrew: boolean, hebrewFace: string): void {
   writeFileSync(
     path.join(site, hebrew ? 'book-parts-he.html' : 'book-parts-en.html'),
-    paginatedBookDocument(Book.parse(partsFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
+    paginatedBookDocument(bookFixtureValue(partsFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
   )
 }
 
 function writeNoteSeriesBook(site: string, hebrew: boolean, hebrewFace: string): void {
   writeFileSync(
     path.join(site, hebrew ? 'book-note-series-he.html' : 'book-note-series-en.html'),
-    paginatedBookDocument(Book.parse(noteSeriesFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
+    paginatedBookDocument(bookFixtureValue(noteSeriesFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
   )
 }
 
@@ -213,50 +196,57 @@ function writeTwoPageSeriesBook(site: string, hebrew: boolean, hebrewFace: strin
     : `:where(html){font:16px/1.5 Georgia,serif}${placedNoteRelayout}`
   writeFileSync(
     path.join(site, hebrew ? 'book-two-page-series-he.html' : 'book-two-page-series-en.html'),
-    paginatedBookDocument(Book.parse(twoPageSeriesFixture(hebrew)), { nonce: newNonce(), css }),
+    paginatedBookDocument(bookFixtureValue(twoPageSeriesFixture(hebrew)), { nonce: newNonce(), css }),
   )
 }
 
-export function largePaginatedFixture(hebrew: boolean): BookInput {
+export function largePaginatedFixture(hebrew: boolean): DocumentInput {
   // Regular paginated fixtures exercise continued notes. The short footnote lets this stress fixture
   // check page-note geometry and whole-text output without introducing a continuation.
   const footnote = hebrew ? 'הערה קצרה לספר הגדול.' : 'A short footnote for the large book.'
-  const chapters = Array.from({ length: hebrew ? 40 : 54 }, (_, cycle) => {
+  const sections = Array.from({ length: hebrew ? 40 : 54 }, (_, cycle) => {
     const number = cycle * 3
     return [
-      { title: `${hebrew ? 'פרק ראשון' : 'Chapter One'} ${number + 1}`, html: chapterOneHtml(hebrew, footnote) },
-      { title: `${hebrew ? 'פרק שני' : 'Chapter Two'} ${number + 2}`, html: chapterTwoHtml(hebrew) },
-      { title: `${hebrew ? 'פרק שלישי' : 'Chapter Three'} ${number + 3}`, html: chapterThreeHtml(hebrew) },
+      flowSection(`${hebrew ? 'פרק ראשון' : 'Chapter One'} ${number + 1}`, chapterOneHtml(hebrew, footnote)),
+      flowSection(`${hebrew ? 'פרק שני' : 'Chapter Two'} ${number + 2}`, chapterTwoHtml(hebrew)),
+      flowSection(`${hebrew ? 'פרק שלישי' : 'Chapter Three'} ${number + 3}`, chapterThreeHtml(hebrew)),
     ]
   }).flat()
   return {
-    title: hebrew ? 'ספר בן שלוש מאות עמודים' : 'The Three Hundred Page Book',
+    type: 'document',
+    kind: 'book',
+    metadata: { title: hebrew ? 'ספר בן שלוש מאות עמודים' : 'The Three Hundred Page Book' },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     rectoOpenings: true,
     endnotes: { placement: 'chapter' },
     // Regular paginated fixtures cover numbered contents. This stress fixture leaves page numbers
     // off so its 300-page composition bound measures pagination without page-reference resolution.
-    contents: { pageNumbers: false, depth: 2 },
-    frontMatter: [
+    children: [
       {
-        title: hebrew ? 'פתיחה' : 'Preface',
-        html: `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
+        type: 'division',
+        name: 'front',
+        children: [
+          flowSection(
+            hebrew ? 'פתיחה' : 'Preface',
+            `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
+          ),
+          { type: 'contents', title: hebrew ? 'תוכן' : 'Contents', pageNumbers: false, depth: 2 },
+        ],
       },
-      { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+      { type: 'division', name: 'body', children: sections },
     ],
-    chapters,
   }
 }
 
-export async function buildLargeBookPdfs(site: string, render: (book: BookInput) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
+export async function buildLargeBookPdfs(site: string, render: (book: DocumentInput) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
   for (const hebrew of [false, true]) {
     writeFileSync(path.join(site, `book-paginated-large-${hebrew ? 'he' : 'en'}.pdf`), await render(largePaginatedFixture(hebrew)))
   }
 }
 
-export async function buildNoteCasePdfs(site: string, render: (book: BookInput, css: string) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
+export async function buildNoteCasePdfs(site: string, render: (book: DocumentInput, css: string) => Promise<Uint8Array<ArrayBufferLike>>): Promise<void> {
   const hebrewFace = `${alefCss()}${notoCss()}`
   for (const hebrew of [false, true]) {
     const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
@@ -266,7 +256,7 @@ export async function buildNoteCasePdfs(site: string, render: (book: BookInput, 
 
 export async function buildBookPdfs(
   site: string,
-  bookPdf: (book: BookInput, options?: { css?: string; motifs?: MotifsOptions }) => Promise<Uint8Array<ArrayBufferLike>>,
+  bookPdf: (book: DocumentInput, options?: { css?: string; motifs?: MotifsOptions }) => Promise<Uint8Array<ArrayBufferLike>>,
 ): Promise<void> {
   for (const hebrew of [false, true]) {
     const css = hebrew
@@ -275,7 +265,7 @@ export async function buildBookPdfs(
     writeFileSync(
       path.join(site, `book-${hebrew ? 'he' : 'en'}.pdf`),
       await bookPdf(
-        { ...fixture(hebrew), page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } } },
+        { ...basicBookFixture(hebrew), page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } } },
         { motifs: bookMotifs },
       ),
     )
@@ -291,9 +281,9 @@ export async function buildBookPdfs(
 export async function buildBookDemo(site: string): Promise<void> {
   await buildIdmlTableDemo(site)
   await writePlacedMediaBook(site)
-  writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(Book.parse(fixture(false)))))
-  writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(Book.parse(fixture(true)))))
-  writeFileSync(path.join(site, 'book-compose-failure.json'), JSON.stringify(bookView(Book.parse(composeFailureFixture()))))
+  writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(bookFixtureValue(basicBookFixture(false)))))
+  writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(bookFixtureValue(basicBookFixture(true)))))
+  writeFileSync(path.join(site, 'book-compose-failure.json'), JSON.stringify(bookView(bookFixtureValue(composeFailureFixture()))))
   writeFileSync(
     path.join(site, 'book-compose-failure.html'),
     `<!doctype html><html><head><meta charset="utf-8"><style>segnavia-book{display:block;block-size:70vh}</style></head><body><segnavia-book id="book-compose-failure" layout="flow" src="book-compose-failure.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
@@ -307,24 +297,27 @@ export async function buildBookDemo(site: string): Promise<void> {
 
   const hebrewFace = `${alefCss()}${notoCss()}`
   for (const hebrew of [false, true]) {
-    const book = Book.parse(paginatedFixture(hebrew))
+    const book = bookFixtureValue(paginatedFixture(hebrew))
     const css = hebrew
       ? `${hebrewFace}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, hebrew ? 'book-paginated-he.html' : 'book-paginated-en.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
     writeFileSync(
       path.join(site, hebrew ? 'book-keeps-he.html' : 'book-keeps-en.html'),
-      paginatedBookDocument(Book.parse(keepBookFixture(hebrew, 'paginated')), { nonce: newNonce() }),
+      paginatedBookDocument(bookFixtureValue(keepBookFixture(hebrew, 'paginated')), { nonce: newNonce() }),
     )
     writePartsBook(site, hebrew, hebrewFace)
-    writeFileSync(path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'), JSON.stringify(bookView(Book.parse(paginatedFixture(hebrew)))))
+    writeFileSync(
+      path.join(site, hebrew ? 'book-paginated-he.json' : 'book-paginated-en.json'),
+      JSON.stringify(bookView(bookFixtureValue(paginatedFixture(hebrew)))),
+    )
     writeFileSync(
       path.join(site, hebrew ? 'book-paginated-large-he.json' : 'book-paginated-large-en.json'),
-      JSON.stringify(bookView(Book.parse(largePaginatedFixture(hebrew)))),
+      JSON.stringify(bookView(bookFixtureValue(largePaginatedFixture(hebrew)))),
     )
     writeFileSync(
       path.join(site, hebrew ? 'book-paginated-large-he.html' : 'book-paginated-large-en.html'),
-      paginatedBookDocument(Book.parse(largePaginatedFixture(hebrew)), { nonce: newNonce() }),
+      paginatedBookDocument(bookFixtureValue(largePaginatedFixture(hebrew)), { nonce: newNonce() }),
     )
     writeOversizeBook(site, hebrew, css)
     writeNoteCaseBook(site, hebrew, hebrewFace)
@@ -332,7 +325,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     writeTwoPageSeriesBook(site, hebrew, hebrewFace)
 
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
-    const workbook = await filledBook(Book.parse(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
+    const workbook = await filledBook(bookFixtureValue(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
     const workbookCssFull = hebrew
       ? `${hebrewFace}${workbookCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${workbookCss}:where(html){font:16px/1.5 Georgia,serif}`

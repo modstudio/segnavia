@@ -19,7 +19,7 @@ test('removing a controller host pauses its clock and leaves it reusable', async
     stop: () => {},
   }
   const controller = new DeckController({ hash: null, clock: () => clock, schedule: () => () => {} })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'Disconnect',
     slides: [{ id: 'one', content: { kind: 'html', html: '' }, holdMs: 100 }],
   })

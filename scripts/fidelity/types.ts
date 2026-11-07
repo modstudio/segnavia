@@ -1,4 +1,4 @@
-import type { BookInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 import type { Box, Difference } from '../verify/pixel-difference.ts'
 
 export type { Box, Difference } from '../verify/pixel-difference.ts'
@@ -155,7 +155,7 @@ export interface BookFixture {
   id: string
   title: string
   kind: FixtureKind
-  book: BookInput
+  book: DocumentInput
 }
 
 export type FixtureKind = 'control' | 'effects' | 'book'

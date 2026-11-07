@@ -1,9 +1,21 @@
-import { Deck, Page, type PageInput, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
+import {
+  type Deck,
+  Document,
+  type DocumentInput,
+  deckFromDocument,
+  type Page,
+  type PageWidths,
+  Print,
+  type PrintInput,
+  pageFromDocument,
+  type SlotsOptions,
+} from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
+import { internalThumbnailDeckLoad, internalThumbnailPageLoad, loadPageValue } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page.ts'
@@ -17,7 +29,9 @@ import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-
 export class SegnaviaThumbnail extends HTMLElement {
   private margin = 400
   private value: Deck | null = null
+  private deckDocument: Document | null = null
   private pageValue: Page | null = null
+  private pageDocument: Document | null = null
   private printValue: Print | null = null
   private slideIndex = 0
   private slideResolver: ControllerOptions['resolveSlide']
@@ -56,25 +70,48 @@ export class SegnaviaThumbnail extends HTMLElement {
     if (this.isConnected) this.observe()
   }
 
-  get deck(): Deck | null {
-    return this.value
+  get deck(): Document | null {
+    return this.deckDocument
   }
 
-  set deck(input: Deck | null) {
-    this.value = input === null ? null : Deck.parse(input)
+  set deck(input: DocumentInput | null) {
+    this.deckDocument = input === null ? null : Document.parse(input)
+    this.value = this.deckDocument === null ? null : deckFromDocument(this.deckDocument)
     if (this.value) this.pageValue = null
+    if (this.value) this.pageDocument = null
     if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
     else this.style.removeProperty('--segnavia-aspect')
     this.changed()
   }
 
-  get page(): Page | null {
-    return this.pageValue
+  [internalThumbnailDeckLoad](deck: Deck | null) {
+    this.deckDocument = null
+    this.value = deck
+    if (this.value) this.pageValue = null
+    if (this.value) this.pageDocument = null
+    if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
+    else this.style.removeProperty('--segnavia-aspect')
+    this.changed()
   }
 
-  set page(input: PageInput | Page | null | undefined) {
-    this.pageValue = input == null ? null : Page.parse(input)
+  get page(): Document | null {
+    return this.pageDocument
+  }
+
+  set page(input: DocumentInput | null | undefined) {
+    this.pageDocument = input == null ? null : Document.parse(input)
+    this.pageValue = this.pageDocument === null ? null : pageFromDocument(this.pageDocument)
     if (this.pageValue) this.value = null
+    if (this.pageValue) this.deckDocument = null
+    this.updatePageAspect()
+    this.changed()
+  }
+
+  [internalThumbnailPageLoad](page: Page | null) {
+    this.pageDocument = null
+    this.pageValue = page
+    if (this.pageValue) this.value = null
+    if (this.pageValue) this.deckDocument = null
     this.updatePageAspect()
     this.changed()
   }
@@ -264,7 +301,7 @@ export class SegnaviaThumbnail extends HTMLElement {
     })
     this.controller = controller
     try {
-      await controller.load(deck, this.baseUrl)
+      await controller.loadDeckValue(deck, this.baseUrl)
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
       const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet)
@@ -328,6 +365,6 @@ export class SegnaviaThumbnail extends HTMLElement {
     page.part.add('canvas')
     page.style.inlineSize = '100%'
     this.viewport.append(page)
-    page.load(projection.page)
+    loadPageValue(page, projection.page)
   }
 }

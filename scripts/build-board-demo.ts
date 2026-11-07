@@ -1,9 +1,70 @@
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { Document, type DocumentInput } from '@segnavia/format'
+
+const BOARD_ITEMS = [
+  { id: 'deck-small', kind: 'deck', address: 'deck', x: 0, y: 0, width: 220 },
+  { id: 'deck-designed', kind: 'deck', address: 'designed', x: 300, y: 0, width: 220 },
+  { id: 'deck-designed-picture', kind: 'deck', address: 'designed-picture', x: 300, y: 220, width: 220 },
+  { id: 'deck-hebrew', kind: 'deck', address: 'hebrew', x: 600, y: 0, width: 320 },
+  { id: 'page', kind: 'page', address: 'page', x: 700, y: 0, width: 180 },
+  { id: 'paper', kind: 'paper', address: 'paper', x: 930, y: 0, width: 180 },
+  { id: 'image', kind: 'media', address: 'image', x: 0, y: 300, width: 260 },
+  { id: 'shot', kind: 'shot', address: 'shot', x: 340, y: 300, width: 260 },
+  { id: 'deck-far', kind: 'deck', address: 'responsive', x: 5000, y: 100, width: 320 },
+] as const
+const BOARD_LABELS = [
+  { type: 'label', id: 'label', text: 'Local assets', x: -160, y: -105 },
+  { type: 'label', id: 'label-he', text: 'אוסף מקומי', x: 700, y: -70 },
+] as const
+const BOARD_SECTIONS = [
+  { type: 'boardSection', id: 'section', title: 'Two decks', rectangle: { x: -24, y: -56, width: 668, height: 236 }, items: ['deck-small', 'deck-hebrew'] },
+] as const
+
+const boardDocument = (entries: readonly (typeof BOARD_ITEMS)[number][], interleaved = false): DocumentInput => ({
+  type: 'document',
+  kind: 'board',
+  title: 'Board demo',
+  settings: { dir: 'ltr' },
+  children: interleaved
+    ? [{ type: 'item', ...entries[0] }, ...BOARD_LABELS, ...entries.slice(1).map((item) => ({ type: 'item' as const, ...item })), ...BOARD_SECTIONS]
+    : [...entries.map((item) => ({ type: 'item' as const, ...item })), ...BOARD_LABELS, ...BOARD_SECTIONS],
+})
+
+export const BOARD_DOCUMENT_FIXTURES = [boardDocument(BOARD_ITEMS.slice(0, -1)), boardDocument(BOARD_ITEMS), boardDocument(BOARD_ITEMS, true)]
 
 export async function buildBoardDemo(site: string, image: string, shot: string) {
+  const page = {
+    type: 'document',
+    kind: 'page',
+    size: { width: 640, height: 900 },
+    settings: { scripts: 'refuse' },
+    children: [{ type: 'page', body: { html: '<main style="font:32px system-ui;padding:36px"><h1>Board page</h1><p>A local fixed page.</p></main>' } }],
+  } satisfies DocumentInput
+  const paperPages = [
+    {
+      type: 'document',
+      kind: 'page',
+      size: { width: 600, height: 800 },
+      settings: { scripts: 'refuse' },
+      children: [{ type: 'page', body: { html: '<main style="font:32px system-ui;padding:36px"><h1>Paper</h1></main>' } }],
+    } satisfies DocumentInput,
+  ]
+  const urlDeck = {
+    type: 'document',
+    kind: 'deck',
+    title: 'URL deck',
+    size: { width: 1280, height: 720 },
+    layout: 'fixed',
+    fit: 'contain',
+    frame: false,
+    settings: { scripts: 'refuse' },
+    children: [{ type: 'slide', id: 'url', content: { kind: 'url', src: 'board-script.html' } }],
+  } satisfies DocumentInput
+  for (const input of [page, ...paperPages, urlDeck, ...BOARD_DOCUMENT_FIXTURES]) Document.parse(input)
+  for (const name of ['deck.json', 'deck-he.json', 'responsive-deck.json']) Document.parse(JSON.parse(readFileSync(path.join(site, name), 'utf8')))
   const editingBundle = await Bun.build({
-    entrypoints: [path.join(import.meta.dir, '../packages/frame/src/board-editing.ts')],
+    entrypoints: [path.join(import.meta.dir, 'board-demo-runtime.ts')],
     target: 'browser',
     format: 'esm',
     minify: true,
@@ -16,9 +77,11 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <style>html,body{margin:0;height:100%;font-family:system-ui}body{display:grid;grid-template-columns:auto minmax(0,1fr)}main{grid-column:2;position:relative;min-inline-size:0}.editing{position:absolute;inset-block-end:16px;inset-inline-end:16px;z-index:6;display:flex;gap:6px;align-items:center}segnavia-board-list{grid-column:1;box-sizing:border-box;inline-size:280px;padding:16px;overflow:auto}segnavia-board-list::part(search){padding:8px;margin-block-end:12px}segnavia-board-list::part(group-title),segnavia-board-list::part(item){padding:7px;border:0;gap:6px}segnavia-board{display:block;inline-size:100%;block-size:100%;--segnavia-board-background:#ebebef;--segnavia-board-placeholder:#dcdce1;--segnavia-board-section:#c9c9d1;--segnavia-board-section-fill:#e1e1e7;--segnavia-board-item-title:#86868f;--segnavia-board-section-title:#1d1d22;--segnavia-board-selection-color:#6d28d9;--segnavia-board-drop-target-color:#e11d48}segnavia-board::part(item){box-shadow:0 1px 3px #0002;background:white}segnavia-board::part(item-title){font-size:13px;padding-block-end:6px;gap:5px}segnavia-board::part(item-actions){gap:3px}segnavia-board::part(item-action){border:0;border-radius:4px;padding:2px 5px}segnavia-board::part(section){border-radius:12px}segnavia-board::part(section-title){font-size:14px;font-weight:500;padding:5px 12px;margin-block-end:8px;border:1px solid #9d9da6;border-radius:7px;background:#e1e1e7}segnavia-board::part(label){font-weight:600}segnavia-board-toolbar{position:absolute;inset-block-start:16px;inset-inline-end:16px;z-index:3}segnavia-board-toolbar::part(toolbar){gap:4px;padding:4px;border:1px solid #c9c9d1;border-radius:8px;box-shadow:0 2px 8px #0002}segnavia-board-toolbar::part(list),segnavia-board-toolbar::part(zoom-out),segnavia-board-toolbar::part(zoom-level),segnavia-board-toolbar::part(zoom-in),segnavia-board-toolbar::part(fit),segnavia-board-toolbar::part(share){min-block-size:32px;border:0;border-radius:5px;padding-inline:9px}</style></head>
     <body><segnavia-board-list id="list" for="board"></segnavia-board-list><main><segnavia-board id="board"></segnavia-board><segnavia-board-toolbar for="board" list-for="list" shareable><span slot="icon-list">☰</span><span slot="icon-zoom-out">−</span><span slot="icon-zoom-in">+</span><span slot="icon-fit">⤢</span><span slot="icon-share">Share</span></segnavia-board-toolbar><div class="editing"><label><input id="reject-change" type="checkbox">Reject the next change</label><button id="add-deck">Add a deck</button><button id="undo" disabled>Undo</button><button id="redo" disabled>Redo</button></div></main><script type="module" src="segnavia.js"></script><script type="module">
-      import {attachBoardEditing} from './segnavia-board-editing.js'
+      import {attachBoardEditing,boardFromDocument,documentFromBoard} from './segnavia-board-editing.js'
       await customElements.whenDefined('segnavia-board')
       const board = document.getElementById('board')
+      window.boardValue = target => boardFromDocument(target.board)
+      window.setBoardValue = (target,value) => { target.board = documentFromBoard(value,target.board) }
       const toolbar = document.querySelector('segnavia-board-toolbar')
       toolbar.addEventListener('segnavia-board-share', event => console.log('segnavia-board-share', event.detail))
       window.boardActions = []
@@ -32,26 +95,18 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
         {id:'download',label:'Download',kinds:['deck','page'],icon:()=>document.createTextNode('↓')},
       ]
       const [deck, hebrew, responsive] = await Promise.all(['deck.json','deck-he.json','responsive-deck.json'].map(src => fetch(src).then(response => response.json())))
-      const page = {html:'<main style="font:32px system-ui;padding:36px"><h1>Board page</h1><p>A local fixed page.</p></main>',size:{width:640,height:900},scripts:'refuse'}
-      const paperPages = [{html:'<main style="font:32px system-ui;padding:36px"><h1>Paper</h1></main>',size:{width:600,height:800},scripts:'refuse'}]
+      const page = ${JSON.stringify(page)}
+      const paperPages = ${JSON.stringify(paperPages)}
       const imposition = {paper:'letter',orientation:'portrait',columns:1,rows:1,cell:{width:215.9,height:279.4}}
-      const urlDeck = {title:'URL deck',size:{width:1280,height:720},layout:'fixed',fit:'contain',frame:false,scripts:'refuse',slides:[{id:'url',content:{kind:'url',src:'board-script.html'}}]}
+      const urlDeck = ${JSON.stringify(urlDeck)}
       const reviewItems = [
         {id:'deck-url',kind:'deck',address:'url',x:1400,y:0,width:320},
         {id:'paper-empty',kind:'paper',address:'empty',x:3000,y:0,width:320},
       ]
-      const items = [
-        {id:'deck-small',kind:'deck',address:'deck',x:0,y:0,width:220},
-        {id:'deck-designed',kind:'deck',address:'designed',x:300,y:0,width:220},
-        {id:'deck-designed-picture',kind:'deck',address:'designed-picture',x:300,y:220,width:220},
-        {id:'deck-hebrew',kind:'deck',address:'hebrew',x:600,y:0,width:320},
-        {id:'page',kind:'page',address:'page',x:700,y:0,width:180},
-        {id:'paper',kind:'paper',address:'paper',x:930,y:0,width:180},
-        {id:'image',kind:'image',address:'image',x:0,y:300,width:260},
-        {id:'shot',kind:'shot',address:'shot',x:340,y:300,width:260},
-        {id:'deck-far',kind:'deck',address:'responsive',x:5000,y:100,width:320},
-      ]
-      const common = {title:'Board demo',direction:'ltr',labels:[{id:'label',text:'Local assets',x:-160,y:-105},{id:'label-he',text:'אוסף מקומי',x:700,y:-70}],sections:[{id:'section',title:'Two decks',rectangle:{x:-24,y:-56,width:668,height:236},items:['deck-small','deck-hebrew']}]}
+      const items = ${JSON.stringify(BOARD_ITEMS)}
+      const labels = ${JSON.stringify(BOARD_LABELS)}
+      const sections = ${JSON.stringify(BOARD_SECTIONS)}
+      const boardDocument = entries => ({type:'document',kind:'board',title:'Board demo',settings:{dir:'ltr'},children:[...entries.map(item=>({type:'item',...item})),...labels,...sections]})
       const values = {
         deck:{kind:'deck',deck,title:'Creating a class',cover:${JSON.stringify(image)}}, designed:{kind:'deck',deck,title:'Designed cover',designedCover:{cover:{page:{html:'<main data-designed-cover style="font:24px system-ui;padding:20px">Designed cover</main>',print:{paper:{width:100,height:150,unit:'mm'}}}}}}, 'designed-picture':{kind:'deck',deck,title:'Designed cover picture',designedCover:{cover:{page:{html:'<main>Designed picture</main>',print:{paper:{width:100,height:150,unit:'mm'}}}},picture:${JSON.stringify(image)}}}, hebrew:{kind:'deck',deck:hebrew,title:'מצגת'}, responsive:{kind:'deck',deck:responsive,title:'Responsive deck'}, url:{kind:'deck',deck:urlDeck,title:'URL deck'},
         page:{kind:'page',page,size:{width:640,height:900},title:'Page'}, paper:{kind:'paper',pages:paperPages,imposition,size:{width:816,height:1056},title:'Paper'},
@@ -69,10 +124,10 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
       const names = {'deck-small':'Creating a class','deck-designed':'Designed cover','deck-designed-picture':'Designed cover picture','deck-hebrew':'מַצֶּגֶת','page':'A page with a deliberately long title that truncates','paper':'Paper','image':'Image','shot':'Shot','deck-far':'Far away deck','deck-url':'URL deck','paper-empty':'Empty paper'}
       window.itemNamesCalls = 0
       board.itemNames = async items => { window.itemNamesCalls += 1; return Object.fromEntries(items.map(item => [item.id,names[item.id]])) }
-      board.board = {...common,items:items.slice(0,-1)}
+      board.board = boardDocument(items.slice(0,-1))
       await new Promise(requestAnimationFrame)
       window.initialItemNamesCalls = window.itemNamesCalls
-      board.board = {...common,items}
+      board.board = boardDocument(items)
       window.boardChanges = []
       window.boardEditErrors = []
       window.hostBoard = board.board
@@ -86,7 +141,7 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
       const list = document.querySelector('segnavia-board-list')
       list.searchItems = (query,signal) => new Promise((resolve,reject) => { const timer=setTimeout(() => resolve(query.toLowerCase().includes('content') ? ['deck-far'] : []),80); signal.addEventListener('abort',()=>{clearTimeout(timer);reject(new DOMException('Aborted','AbortError'))},{once:true}) })
       board.addEventListener('segnavia-board-open', event => { window.openedItem = event.detail.item })
-      window.addBoardReviewItems = () => { board.board = {...board.board,items:[...board.board.items,...reviewItems]} }
+      window.addBoardReviewItems = () => { board.board = {...board.board,children:[...board.board.children,...reviewItems.map(item=>({type:'item',...item}))]} }
       window.demoBoard = board
     </script></body></html>`,
   )

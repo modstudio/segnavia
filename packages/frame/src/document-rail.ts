@@ -1,4 +1,5 @@
 import type { Page, Print, SlotsOptions } from '@segnavia/format'
+import { loadThumbnailPageValue } from './document-value-load.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { railSelection } from './rail-navigation.ts'
 import { RAIL_REORDER_CSS, RailReorder, type RailReorderIntent } from './rail-reorder.ts'
@@ -95,7 +96,7 @@ export class SegnaviaDocumentRail extends HTMLElement {
       const preview = document.createElement('span')
       preview.className = 'preview'
       const thumbnail = document.createElement('segnavia-thumbnail') as SegnaviaThumbnail
-      thumbnail.page = page
+      loadThumbnailPageValue(thumbnail, page)
       thumbnail.print = print
       thumbnail.css = css
       thumbnail.slots = this.slotOptions

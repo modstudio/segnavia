@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Book, isPart, Page } from '@segnavia/format'
 import { bookDocument, resolvePageHtml } from '@segnavia/html'
-import { bookMotifRefusal, expandFrameBook, framePageMotifRefusal } from './motif-expansion.ts'
+import { bookMotifRefusal, expandFrameBookValue as expandFrameBook, framePageMotifRefusal } from './motif-expansion.ts'
 
 const signal = new AbortController().signal
 const source = {

@@ -346,7 +346,6 @@ const DepthCheckedBook = z.preprocess((value, ctx) => {
 
 export const Book = DepthCheckedBook.transform(({ bodyKey: _bodyKey, ...book }) => book)
 export type Book = z.infer<typeof Book>
-export type BookInput = z.input<typeof BookShape>
 
 export function resolveBookPagination(book: Book): BookViewPagination | undefined {
   if (book.mode !== 'paginated' || !book.page) return undefined

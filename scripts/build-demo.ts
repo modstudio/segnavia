@@ -3,7 +3,7 @@ import './source-guard.ts'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
-import { Deck, jsonSchemas, type Narration, type PublishedShot, type Shot } from '@segnavia/format'
+import { Document, jsonSchemas, type Narration, type PublishedShot, type Shot } from '@segnavia/format'
 import { wordIndex } from '@segnavia/frame/timeline'
 import { fill } from '@segnavia/html'
 import { openRenderer, RenderRefusedError } from '@segnavia/render'
@@ -118,11 +118,14 @@ const summary = fill(
 )
 if (summary.unavailable.length > 0) throw new Error(`The summary slide is missing ${summary.unavailable.join(', ')}.`)
 
-const deck = Deck.parse({
+const deck = Document.parse({
+  type: 'document',
+  kind: 'deck',
   title: 'Creating a class',
-  slides: [
-    { id: 'intro', content: { kind: 'html', html: card('Creating a class', 'A two-minute walkthrough') }, notes: 'Static title slide.' },
+  children: [
+    { type: 'slide', id: 'intro', content: { kind: 'html', html: card('Creating a class', 'A two-minute walkthrough') }, notes: 'Static title slide.' },
     {
+      type: 'slide',
       id: 'list',
       content: { kind: 'shot', src: `shots/${listShot.file}`, shot: listShot },
       notes: 'The class list is where every class starts.',
@@ -131,6 +134,7 @@ const deck = Deck.parse({
       ]),
     },
     {
+      type: 'slide',
       id: 'form',
       content: { kind: 'shot-ref', href: 'shots/classes.create.form.json' },
       notes: 'Complete the class form.',
@@ -140,7 +144,7 @@ const deck = Deck.parse({
         { word: wordIndex(n, 'Create'), annotation: 2 },
       ]),
     },
-    { id: 'done', content: { kind: 'html', html: summary.html }, notes: 'Review the finished class list.' },
+    { type: 'slide', id: 'done', content: { kind: 'html', html: summary.html }, notes: 'Review the finished class list.' },
   ],
 })
 
@@ -151,18 +155,22 @@ const heSummary = fill(
   `<!doctype html><html><body style="margin:0;height:100vh;display:grid;place-content:center;font-family:system-ui,sans-serif;background:#0f766e;color:#fff"><h1 style="font-size:56px;margin:0 0 24px">נוצרה הכיתה <span data-demo-value="name"></span>.</h1><p style="font-size:28px;margin:0">היא מופיעה בראש הרשימה.</p></body></html>`,
   { prefix: 'demo', data: { name: 'Afternoon art' } },
 )
-const hebrew = Deck.parse({
+const hebrew = Document.parse({
+  type: 'document',
+  kind: 'deck',
   title: 'יצירת כיתה',
-  lang: 'he',
-  slides: [
-    { id: 'intro', content: { kind: 'html', html: card('יצירת כיתה', 'הדרכה של שתי דקות') }, notes: 'שקופית פתיחה, בלי קריינות.' },
+  settings: { lang: 'he' },
+  children: [
+    { type: 'slide', id: 'intro', content: { kind: 'html', html: card('יצירת כיתה', 'הדרכה של שתי דקות') }, notes: 'שקופית פתיחה, בלי קריינות.' },
     {
+      type: 'slide',
       id: 'list',
       content: { kind: 'shot', src: `shots/${heList.file}`, shot: heList },
       notes: 'כל כיתה מתחילה ברשימת הכיתות.',
       narration: await narration('הכול מתחיל ברשימת הכיתות. כדי להוסיף כיתה, בחרו כיתה חדשה.', (n) => [{ word: wordIndex(n, 'חדשה'), annotation: 0 }], 'he'),
     },
     {
+      type: 'slide',
       id: 'form',
       content: { kind: 'shot', src: `shots/${heForm.file}`, shot: heForm },
       narration: await narration(
@@ -175,7 +183,7 @@ const hebrew = Deck.parse({
         'he',
       ),
     },
-    { id: 'done', content: { kind: 'html', html: heSummary.html } },
+    { type: 'slide', id: 'done', content: { kind: 'html', html: heSummary.html } },
   ],
 })
 writeFileSync(path.join(SITE, 'deck-he.json'), JSON.stringify(hebrew, null, 2))
@@ -188,15 +196,19 @@ const recorded = await narration('Recorded narration drives this slide, then it 
 writeFileSync(
   path.join(SITE, 'deck-media.json'),
   JSON.stringify(
-    Deck.parse({
+    Document.parse({
+      type: 'document',
+      kind: 'deck',
       title: 'Media',
-      slides: [
+      children: [
         {
+          type: 'slide',
           id: 'audio',
           content: { kind: 'shot', src: `shots/${listShot.file}`, shot: listShot },
           narration: { ...recorded, audio: 'audio/tone.wav', durationMs: 2400 },
         },
         {
+          type: 'slide',
           id: 'live',
           content: { kind: 'shot', src: `shots/${listShot.file}`, shot: listShot },
           narration: {
@@ -209,8 +221,8 @@ writeFileSync(
             cues: [{ word: 6, annotation: 0 }],
           },
         },
-        { id: 'url', content: { kind: 'url', src: 'slide-url.html' } },
-        { id: 'image', content: { kind: 'image', src: `shots/${formShot.file}`, alt: 'The new class form' } },
+        { type: 'slide', id: 'url', content: { kind: 'url', src: 'slide-url.html' } },
+        { type: 'slide', id: 'image', content: { kind: 'image', src: `shots/${formShot.file}`, alt: 'The new class form' } },
       ],
     }),
   ),
@@ -327,10 +339,10 @@ mkdirSync(schemas, { recursive: true })
 for (const [name, schema] of Object.entries(jsonSchemas())) writeFileSync(path.join(schemas, `${name}.schema.json`), JSON.stringify(schema, null, 2))
 const printable = {
   ...deck,
-  slides: deck.slides.map((slide) =>
-    'kind' in slide.content && slide.content.kind === 'shot-ref'
-      ? { ...slide, content: { kind: 'shot' as const, src: `shots/${formShot.file}`, shot: formShot } }
-      : slide,
+  children: deck.children.map((node) =>
+    node.type === 'slide' && 'kind' in node.content && node.content.kind === 'shot-ref'
+      ? { ...node, content: { kind: 'shot' as const, src: `shots/${formShot.file}`, shot: formShot } }
+      : node,
   ),
 }
 writeFileSync(path.join(SITE, 'deck-print.json'), JSON.stringify(printable))
@@ -377,4 +389,4 @@ try {
 } finally {
   await renderer.close()
 }
-console.log(`deck: ${deck.slides.length} slides; site, PDFs, images and schemas in out/`)
+console.log(`deck: ${deck.children.length} slides; site, PDFs, images and schemas in out/`)

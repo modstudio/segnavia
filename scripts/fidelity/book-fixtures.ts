@@ -1,5 +1,5 @@
 import path from 'node:path'
-import { Book, type BookInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 import type { BookFixture } from './types.ts'
 
 const ROOT = path.resolve(import.meta.dir, '../..')
@@ -17,14 +17,22 @@ const page = {
   margin: { blockStart: 16, blockEnd: 18, inlineStart: 16, inlineEnd: 12 },
 }
 
-function controlBook(id: 'en' | 'he', html: string): BookInput {
+function controlBook(id: 'en' | 'he', html: string): DocumentInput {
   const hebrew = id === 'he'
   return {
-    title: hebrew ? 'ספר הַנָּמֵל' : 'The Harbor Book',
+    type: 'document',
+    kind: 'book',
+    metadata: { title: hebrew ? 'ספר הַנָּמֵל' : 'The Harbor Book' },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page,
-    chapters: [{ title: hebrew ? 'הַנָּמֵל' : 'The Harbor', html }],
+    children: [
+      {
+        type: 'division',
+        name: 'body',
+        children: [{ type: 'section', title: hebrew ? 'הַנָּמֵל' : 'The Harbor', children: [{ type: 'flow', html }] }],
+      },
+    ],
   }
 }
 
@@ -32,7 +40,7 @@ export async function bookFixtures(): Promise<BookFixture[]> {
   const english = await Bun.file(path.join(ROOT, 'fixtures/fidelity/control-book-en.html')).text()
   const hebrew = await Bun.file(path.join(ROOT, 'fixtures/fidelity/control-book-he.html')).text()
   return [
-    { id: ENGLISH_BOOK_ID, title: 'English control book', kind: 'book', book: Book.parse(controlBook('en', english)) },
-    { id: HEBREW_BOOK_ID, title: 'Hebrew control book', kind: 'book', book: Book.parse(controlBook('he', hebrew)) },
+    { id: ENGLISH_BOOK_ID, title: 'English control book', kind: 'book', book: controlBook('en', english) },
+    { id: HEBREW_BOOK_ID, title: 'Hebrew control book', kind: 'book', book: controlBook('he', hebrew) },
   ]
 }

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
+import { screenPage } from '../screen-document.ts'
 import { pointMultiset, unpointed } from './hebrew-text.ts'
 import { readPpm } from './pdf-raster.ts'
 import { differencePixels, EFFECT_REGION_THRESHOLD, READER_RASTER_DPI, SCALE } from './pixel-difference.ts'
@@ -47,7 +48,7 @@ function fontRows(output: string): string[] {
 export async function verifyHebrewNotice(renderer: Renderer, work: string, check: Check): Promise<void> {
   const fixture = path.resolve(import.meta.dirname, '../../fixtures/hebrew-notice')
   const html = readFileSync(path.join(fixture, 'index.html'), 'utf8')
-  const page = { html, size: PAGE, lang: 'he', dir: 'rtl' as const }
+  const page = screenPage({ html }, { size: PAGE, settings: { lang: 'he', dir: 'rtl' } })
   const options = {
     fonts: [{ family: 'Notice Hebrew', data: readFileSync(path.join(fixture, 'Alef-Regular.ttf')), format: 'truetype' as const }],
   }

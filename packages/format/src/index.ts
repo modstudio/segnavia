@@ -2,7 +2,7 @@
 // each is a Zod schema and the JSON Schema is generated from it (`jsonSchemas`)
 // for hosts that do not run TypeScript.
 
-export { Board, type BoardInput, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
+export { Board, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'
 export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
 export {
@@ -115,7 +115,6 @@ export {
   Cue,
   DECK_SIZE,
   Deck,
-  type DeckInput,
   exceedsLimits,
   ImageFit,
   Manifest,
@@ -137,8 +136,22 @@ export {
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
 export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
 export { Direction, firstStrongDirection, htmlTextSample, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
+export { Document, type DocumentInput, type DocumentKind } from './document.ts'
+export {
+  boardFromDocument,
+  bookFromDocument,
+  deckFromDocument,
+  documentFromBoard,
+  PAGE_OR_PRINTED_KINDS,
+  type PageOrPrintedInput,
+  pageFromDocument,
+  pageOrPrintedFromDocument,
+  pageOrPrintedFromInput,
+  printedFromDocument,
+} from './document-lowering.ts'
 export * from './document-metadata.ts'
 export { editBoard } from './edit-board.ts'
+export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export { computeFolios, type Folio, folioScript, type NumberedPage, Numbering, sequenceFolios } from './folio.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
@@ -223,7 +236,6 @@ export {
   PAGE_WIDTHS,
   Page,
   PageBody,
-  type PageInput,
   PageSize,
   PageWidths,
   type ResolvedPageWidth,

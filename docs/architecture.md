@@ -139,10 +139,148 @@ server uses its geometry while composing top-level renders.
 Frame imports the universal HTML package for the one binding transform shared
 by live, thumbnail and print documents.
 
+## Document input and migration
+
+A host writes one `Document` and sets `kind` to `deck`, `page`, `printed`,
+`book` or `board`. Every public viewing, printing and rendering edge parses that
+document once, refuses a kind it does not accept, and lowers the parsed value to
+the pipeline's internal value. `jsonSchemas().document` is the host schema;
+the former book, page, deck and board schemas are no longer published.
+
+Element properties that take a `Document` return the parsed `Document` that the
+host set. Lowered values stay private. Frame's symbol-named load methods are the
+in-library path for passing lowered values between elements; they are not a
+host contract.
+
+The common root fields are `type: 'document'`, `kind`, optional `id`, `metadata`,
+`title`, `limits`, `settings`, `style`, `data`, `children`, and the named
+definition collections. A node has a `type` and optional `id`. The profile for
+the document kind determines which other root fields, node types and definition
+collections are accepted.
+
+### Migration from legacy deck and page input
+
+| Legacy shape and field | Document form |
+|---|---|
+| deck root | `{ type: 'document', kind: 'deck', ... }` |
+| deck `title` | root `title` |
+| deck `size` | root `size` |
+| deck `layout` | root `layout` |
+| deck `fit` | root `fit` |
+| deck `frame` | root `frame` |
+| deck `transition` | root `transition` |
+| deck `playback` | root `playback` |
+| deck `captions` | root `captions` |
+| deck `scripts` | `settings.scripts` |
+| deck `dir` | `settings.dir` |
+| deck `lang` | `settings.lang` |
+| deck `slots` | `data.slots` |
+| deck `slides` | root `children`, with `type: 'slide'` on every slide |
+| slide fields | unchanged beside the added node `type`; `id`, `content`, `notes`, `narration`, and timing fields stay on the slide node |
+| page root | `{ type: 'document', kind: 'page', children: [{ type: 'page', ... }] }` |
+| page `id` | `children[0].id` |
+| page `body` | `children[0].body` |
+| page `html` | `children[0].body.html` |
+| page `markdown` | `children[0].body.markdown` |
+| page `size` | root `size` |
+| page `scripts` | `settings.scripts` |
+| page `dir` | `settings.dir` |
+| page `lang` | `settings.lang` |
+| page `print` | root `print` |
+| page `limits` | root `limits` |
+| page `slots` | `data.slots` |
+| page `fonts` | `style.fonts` |
+| page `printedPages` | use `kind: 'printed'`; split its fields as listed below |
+| `printedPages.parents` | root `parentPages`, with `type: 'parentPage'` on every definition |
+| `printedPages.rules` | root `rules` |
+| `printedPages.numbering` | root `numbering` |
+| `printedPages.fragmentation` | root `fragmentation` |
+
+`deckFromSlides` still builds a deck document. Its options now use document
+nesting: pass `{ settings: { scripts, dir, lang }, data: { slots } }` instead of
+putting those values directly in the options.
+
+### Migration from legacy book input
+
+| Legacy field | Book Document form |
+|---|---|
+| book root | `{ type: 'document', kind: 'book', ... }` |
+| `title` | root `title` |
+| `authors` | `metadata.authors` |
+| `subject` | `metadata.subject` |
+| `mode` | root `mode` |
+| `limits` | root `limits` |
+| `page` | root `page` |
+| `scripts` | `settings.scripts` |
+| `dir` | `settings.dir` |
+| `lang` | `settings.lang` |
+| `frontMatter` | a `division` node with `name: 'front'`; its entries become that node's `children` |
+| `body` | a `division` node with `name: 'body'`; its entries become that node's `children` |
+| `chapters` | the same `division` with `name: 'body'`; each chapter becomes a `section` containing a `flow` child |
+| `endMatter` | a `division` node with `name: 'end'`; its entries become that node's `children` |
+| `parentPages` | root `parentPages`, with `type: 'parentPage'` on every definition |
+| `templates` | root `templates`, with `type: 'template'` on every definition |
+| `slots` | `data.slots` |
+| `fonts` | `style.fonts` |
+| `css` | `style.css` |
+| `numbering` | root `numbering` |
+| `footnotes` | root `footnotes` |
+| `endnotes` | root `endnotes` |
+| `notes` | root `noteSeries`, with `type: 'noteSeries'` on every definition |
+| `rectoOpenings` | root `rectoOpenings` |
+| `orphans` | root `orphans` |
+| `widows` | root `widows` |
+| `fragmentation` | root `fragmentation` |
+| `runningHead` | root `runningHead` |
+| `contents.pageNumbers` | a `contents` node's `pageNumbers` |
+| `contents.depth` | a `contents` node's `depth` |
+| part `name`, `title`, `html`, `contents`, `opens`, `parents`, `runningHead`, `children` | a `part` node with the same fields and `type: 'part'` |
+| chapter `title`, `html`, `runningHead` | a `section` node holding a `flow` child; the flow holds `html` and `runningHead` |
+| section `title`, `contents`, `opens`, `parents` | the same fields on a `section` node |
+| designed section `pages[].html` | `section.children[]` page nodes with `body: { html }` |
+| templated section `template` | `section.template` |
+| templated section `pages[].template` and `pages[].regions` | page-node `template` and `regions` fields under `section.children` |
+| placed section `placement` | one `placed` node under `section.children` |
+| contents entry `title`, `opens`, `parents` | a `contents` node with the same fields |
+
+### Migration from legacy board input and nested resolver values
+
+| Legacy field or payload | Board Document form |
+|---|---|
+| board root | `{ type: 'document', kind: 'board', ... }` |
+| board `title` | root `title` |
+| board `direction` | `settings.dir` |
+| board `items` | root `children`, with `type: 'item'` on every item |
+| board `labels` | root `children`, with `type: 'label'` on every label |
+| board `sections` | root `children`, with `type: 'boardSection'` on every section |
+| item, label and section fields | unchanged beside the node `type` |
+| board item `kind: 'image'` | board item `kind: 'media'` |
+| resolved deck item's `deck` payload | a deck `Document` |
+| resolved page item's `page` payload | a page `Document` |
+| resolved paper item's `pages[]` payload | page or printed `Document` values |
+| placement resolver `{ kind: 'page', page }` payload | `{ kind: 'page', page: Document }`; the nested document has kind `page`, or `printed` when printed pages are intended |
+| board element `change`, `share`, and editing callback output | a board `Document`, not the lowered board value |
+
+Board child order across node kinds has no meaning. Parsing canonicalizes
+`children` to items, then labels, then board sections, while preserving order
+within each kind.
+
+### Declared but not yet supported
+
+Parsing refuses `brand`, a non-empty `variables` collection, every `condition`
+or `record` node, section `opens: 'continue'`, section `numbering`, section
+`headTemplate`, section `pageGeometry`, division `settings.numbering`, and
+parent-page `regions`. Division numbering uses the richer shared `Numbering`
+value, while the current Book carries only a number system, so accepting it
+would drop its start, restart and counted fields. It also refuses `limits` on
+deck and board documents. Remove the named field or node to clear the refusal.
+Node `id` is accepted and preserved; deck slides and board children require one
+until the id-minting slice lands, while a lowering may omit it where the current
+internal value has no id.
+
 ### Markdown page bodies
 
-`Page` stores one `body`, either HTML or markdown; the legacy top-level `html`
-and the top-level `markdown` shorthand normalize to that body at `Page.parse`.
+A page document stores one page node whose `body` is either HTML or markdown.
 `bodyHtml` and the page-body resolver in the universal HTML package pass HTML through and convert
 markdown with remark before applying the library sanitizer. Frame page,
 document and browser-print loads, and render page and pages loads, resolve the
@@ -536,7 +674,7 @@ retains the final override in every render view.
 | `placements` (`resolve`, `report`) | Page, paper, document, book, deck player and thumbnail elements; live board items; `printPages`; page and book render options | The host resolves placed assets to offline values and may receive reports for placeholders. `ResolvedPlacement` is the media/page subset HTML can consume; frame's `ResolvedAsset` adds the existing resolved deck, paper, book and shot board values. |
 | `pageWidths` (`standard`, `wide`) | Page, paper, document, book, thumbnail and board elements; `printPages`; page and book render options; React properties and descriptors | Optional CSS-pixel measures for the named flowing widths. Missing values use `PAGE_WIDTHS`: standard 1024 and wide 1440. A named page caps its inline size at its measure, centers with logical margins and reflows below the cap. A numeric flowing width remains exact. A full page has no measure and follows its host, while render and placement resolution use the standard width as its viewport. `resolvePageWidth` is the one policy used by screen, print, render and placement resolution, so an override changes all of them together. |
 | `<segnavia-item-settings>`, `attachItemSettings` | `frame/item-settings` and React | An opt-in browser entry defines a headless panel the host places anywhere. Properties are the merged `declarations`, `fills`, selected fill id, optional source fill, optional live `SlotReport`, and `ItemSettingsLabels` (partial sets fall back to English). It emits `segnavia-fill-select` with the selected id. `addSection({ id, label, render(container, context) })` appends a named section; `render` receives a snapshot `{ declarations, fills, fill, source, report, labels, dir }` and is called again, after the container is emptied, when any of those inputs change. The disposer removes the section and empties its container. Fields appears when declarations are present. `attachItemSettings(element, { createFill, saveFill, deleteFill, pickAsset? })` owns optimistic writes: `createFill({ label })` returns the host `Fill` (the element shows a provisional local id it never sends to the host), `saveFill` is debounced 600 ms with one save in flight per fill, `deleteFill(id)` removes a host fill, and `pickAsset(slot)` returns a `SlotValue` or `undefined` if cancelled. Rejection rolls back and emits `authoring-error` with the operation. When the host sets `fills` while a fill has an unsaved or in-flight edit, the panel keeps that draft and adopts the host's latest value for it once the save settles with no newer edit; a fill the host omits is dropped along with its pending save, and a detached controller writes nothing back to the element. `flush()` waits for pending creates and saves. The host owns every write; the element makes no network call. `useItemSettings` attaches the same controller. |
-| `deckFromSlides` | `format` | A host can turn generic HTML and shot rows into a parsed `Deck`, carrying deck options and optional timing, narration and notes. `omitNotes` produces a public projection without notes; `Deck.parse` remains the validation edge. |
+| `deckFromSlides` | `format` | A host can turn generic HTML and shot rows into a parsed deck `Document`, carrying deck options and optional timing, narration and notes. `omitNotes` produces a public projection without notes; `Document.parse` is the validation edge. |
 | `rail`, `<segnavia-rail>` | player and `frame/controls` | A host can compose the styled listbox alone or enable it on the player. It lazily mounts script-refusing 16:9 previews near the viewport, clears a preview that leaves the observed margin, invalidates a pending mount for that thumbnail, never clears the current slide, follows current-slide identity, and navigates through the controller. A render moves only the items whose position changed, so a rerender or reorder never reloads a mounted thumbnail frame. The player places it at inline start; at compact below-controls it sits below the transport row and above host actions, and it hides during presentation. In the desk layout the rail's grid track takes its size from the body row, so the list is a scroll box and only nearby thumbnails stay mounted, whatever the deck length. `--segnavia-rail-size` sets thumbnail width. |
 | `designedCover` | `<segnavia-board>.resolveItem`, `<segnavia-thumbnail>` and React | The host supplies `{ cover: CoverInput; picture?: string }`. A board accepts it on every resolved board-item kind; a thumbnail accepts it as a property. Both prefer the kept picture and otherwise draw the parsed cover live. Placement answers do not carry this seam. |
 | `<segnavia-thumbnail>` | `frame` and React | The headless seam for a host's deck covers in cards, strips and search results. It draws one HTML, image, URL or shot slide through a private `DeckController`, sharing the rail's script-refusing canvas policy. A thumbnail document carries the nonce-authorized bridge and allows scripts only when its HTML contains a `shrink`, `truncate` or `refuse` slot marker that the library must fit, as the stage would; otherwise its sandbox is empty and its CSP refuses every script. Rail thumbnails always carry the bridge, with author scripts refused, because the authoring print moment asks each one whether its slide animates. It follows its own inline size at the deck aspect ratio, mounts only near the viewport, and removes the canvas when far away. `deck`, `index`, `resolveSlide` and `base` select and resolve content; `designedCover: { cover: CoverInput; picture?: string }` lets the host replace that fallback with a designed cover; `thumbnail` and `canvas` parts let a host add rings, rounding or shadows. Resolution failures leave it empty and emit `segnavia-thumbnail-error`. It takes the host stylesheet through `css`, as the stage does, so a cover matches the slide in the player. |
@@ -579,7 +717,7 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
 
 ## How a deck plays
 
-1. The deck is parsed with `Deck.parse`, which refuses a cue naming a word or
+1. The deck `Document` is parsed and lowered, which refuses a cue naming a word or
    annotation that does not exist and a slide id used twice. Its `layout` is
    `fixed` by default or may opt into `responsive`. A fixed deck lays every
    screen canvas out at `deck.size` and scales it to the stage. A responsive
@@ -723,7 +861,7 @@ Page and book HTML place media through an `img` with `data-segnavia-media`, plus
 
 A book entry `{ kind: 'placed', placement }` accepts media or a page. Frame resolves it before building the book: a page becomes the same designed section used by an authored designed page, while media becomes a designed section containing the ordinary resolved image; either result keeps the entry's title, contents setting, opening side and parent pages. Live preparation without `placements` builds that section with the placement placeholder so pagination remains stable. Server print preparation instead refuses the first unresolved entry by path and asks the caller to pass `placements`. A deck slide may carry `{ media: placement }`; its player, thumbnail, browser print, PDF and slide-image paths resolve that placement and draw the result through the existing image-slide path. Print paths request print purpose. Without `placements`, a media slide draws the placeholder. Missing, failed, unsafe or wrong-kind answers use the same classifier, placeholder and report reasons as placed HTML images.
 
-A board stores the shared asset kind `media`; `Board.parse` accepts the former stored kind `image` and returns `media`. One address names one asset of one kind, so `Board.parse` refuses an address used by items of different kinds. Its existing `resolveItem` seam is unchanged and still answers media items with its `{ kind: 'image', src, width, height }` drawing value. `AssetResolver` is the host-facing `ResolvePlacement<ResolvedAsset>` type accepted by the frame placement option and every adapter. `boardItemFrom(resolve, signal?)` adapts it to the board seam and uses the optional board-batch signal. `slotAssetFrom(resolve, context?)` adapts it to slot `resolveAsset`; context can supply purpose and width, purpose defaults to screen, and width is omitted today unless the adapter caller supplies one because the slot seam exposes no placed box. `idmlAssetFrom(resolve, uris, context)` resolves a supplied URI set ahead of import and returns today's synchronous URI-only `IdmlAssetMap` of sanitized image markup; the importer continues to make no network call.
+A board item stores the shared asset kind `media`; the former stored kind `image` is no longer accepted. One address names one asset of one kind, so the board document edge refuses an address used by items of different kinds. Its existing `resolveItem` seam is unchanged and still answers media items with its `{ kind: 'image', src, width, height }` drawing value. `AssetResolver` is the host-facing `ResolvePlacement<ResolvedAsset>` type accepted by the frame placement option and every adapter. `boardItemFrom(resolve, signal?)` adapts it to the board seam and uses the optional board-batch signal. `slotAssetFrom(resolve, context?)` adapts it to slot `resolveAsset`; context can supply purpose and width, purpose defaults to screen, and width is omitted today unless the adapter caller supplies one because the slot seam exposes no placed box. `idmlAssetFrom(resolve, uris, context)` resolves a supplied URI set ahead of import and returns today's synchronous URI-only `IdmlAssetMap` of sanitized image markup; the importer continues to make no network call.
 
 Motifs expand first, then placements resolve. Normal book sanitizing follows resolution. Page HTML is shown in its sandboxed frame without library sanitizing, so the resolver itself applies the same PNG, JPEG, GIF, WebP and SVG `data:` image rule that the sanitizer applies to an image source. When the author omitted `alt`, the media alt is used; when the image has neither `lang` nor `dir`, its declared language and resolved direction are written with that adopted text. Crop becomes `object-view-box: inset(...)` after any authored declarations.
 

@@ -13,7 +13,6 @@ interface MountedBox {
   width: number
   height: number
 }
-
 const shapes: Record<string, PixelSize> = {
   'deck-small': { width: 1280, height: 720 },
   'deck-designed': { width: 1280, height: 720 },
@@ -30,15 +29,16 @@ const shapes: Record<string, PixelSize> = {
 
 async function showItem(h: Harness, id: string) {
   await h.page.locator('segnavia-board').evaluate((element, itemId) => {
-    const board = element as HTMLElement & { board: { items: BoardItem[] }; view: BoardView }
-    const item = board.board.items.find((entry) => entry.id === itemId)
+    const board = element as HTMLElement & { view: BoardView }
+    const item = (window as typeof window & { boardValue(target: Element): { items: BoardItem[] } })
+      .boardValue(board)
+      .items.find((entry) => entry.id === itemId)
     if (!item) throw new Error(`The board has no ${itemId} item.`)
     try {
       board.view = { zoom: 1, pan: { x: 48 - item.x, y: 100 - item.y }, viewport: board.view.viewport }
     } catch {}
   }, id)
 }
-
 async function checkUrlDeckRefusesScripts(h: Harness) {
   await showItem(h, 'deck-url')
   await h.page.waitForFunction(
@@ -63,7 +63,6 @@ async function checkUrlDeckRefusesScripts(h: Harness) {
   })
   h.check('a live board URL deck refuses scripts with an empty sandbox', result.ran === false && result.sandbox === '', JSON.stringify(result))
 }
-
 async function checkFailedLiveMount(h: Harness) {
   await showItem(h, 'paper-empty')
   await h.page.waitForTimeout(250)
@@ -91,7 +90,6 @@ async function checkFailedLiveMount(h: Harness) {
     JSON.stringify(result),
   )
 }
-
 async function checkReconnect(h: Harness) {
   await showItem(h, 'deck-url')
   await h.page.waitForFunction(
@@ -132,7 +130,10 @@ async function checkReconnect(h: Harness) {
 
 async function placementFacts(h: Harness) {
   return h.page.locator('segnavia-board').evaluate((element) => {
-    const board = element as HTMLElement & { board: { items: BoardItem[]; labels: Array<{ text: string; x: number; y: number }> }; view: unknown }
+    const board = element as HTMLElement & { view: unknown }
+    const value = (
+      window as typeof window & { boardValue(target: Element): { items: BoardItem[]; labels: Array<{ text: string; x: number; y: number }> } }
+    ).boardValue(board)
     const host = board.getBoundingClientRect()
     const boxes: MountedBox[] = [...(board.shadowRoot?.querySelectorAll<HTMLElement>('[data-board-item]') ?? [])].map((item) => {
       const box = item.getBoundingClientRect()
@@ -142,7 +143,7 @@ async function placementFacts(h: Harness) {
       const box = label.getBoundingClientRect()
       return { text: label.textContent ?? '', x: box.x - host.x, y: box.y - host.y }
     })
-    return { board: board.board, view: board.view, boxes, labels }
+    return { board: value, view: board.view, boxes, labels }
   })
 }
 
@@ -354,8 +355,11 @@ export async function verifyBoard(h: Harness) {
   await checkPanKeepsFrames(h)
 
   await board.evaluate((element) => {
-    const value = element as HTMLElement & { board: { direction: 'ltr' | 'rtl' } }
-    value.board = { ...value.board, direction: 'rtl' }
+    const state = window as typeof window & {
+      boardValue(target: Element): { direction: 'ltr' | 'rtl' }
+      setBoardValue(target: Element, value: { direction: 'ltr' | 'rtl' }): void
+    }
+    state.setBoardValue(element, { ...state.boardValue(element), direction: 'rtl' })
   })
   await checkPlacement(h, 'with a right-to-left board')
 

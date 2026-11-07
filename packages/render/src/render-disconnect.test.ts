@@ -64,7 +64,7 @@ test('a browser disconnect settles pending work promptly and the next render rel
   const first = instance
   const started = performance.now()
   const rendered = renderer.pagePdf(
-    { html: '<p>x</p>', size: { width: 200, height: 100 } },
+    { type: 'document', kind: 'page', size: { width: 200, height: 100 }, children: [{ type: 'page', body: { html: '<p>x</p>' } }] },
     {
       boundMs: 2000,
       effects: false,
@@ -83,7 +83,10 @@ test('a browser disconnect settles pending work promptly and the next render rel
   expect(elapsedMs).toBeLessThan(500)
   expect(first.listenerCount('disconnected')).toBe(1)
 
-  const next = await renderer.pagePdf({ html: '<p>again</p>', size: { width: 200, height: 100 } }, { effects: false })
+  const next = await renderer.pagePdf(
+    { type: 'document', kind: 'page', size: { width: 200, height: 100 }, children: [{ type: 'page', body: { html: '<p>again</p>' } }] },
+    { effects: false },
+  )
   expect((await PDFDocument.load(next)).getPageCount()).toBe(1)
   expect(launches).toBe(2)
   await renderer.close()

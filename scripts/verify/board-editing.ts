@@ -21,12 +21,16 @@ interface DemoBoard {
   items: DemoItem[]
   sections: DemoSection[]
 }
+interface DemoDocument {
+  type: 'document'
+  kind: 'board'
+}
 interface DemoChange {
-  board: DemoBoard
+  board: DemoDocument
   edit: { kind: string; ids?: string[] }
 }
 type BoardElement = HTMLElement & {
-  board: DemoBoard
+  board: DemoDocument | null
   selection: readonly string[]
   selected: string | null
   view: { zoom: number; pan: { x: number; y: number }; viewport: { width: number; height: number } }
@@ -34,17 +38,18 @@ type BoardElement = HTMLElement & {
 type DemoWindow = typeof window & {
   boardChanges: DemoChange[]
   boardEditErrors: unknown[]
-  hostBoard: DemoBoard
+  hostBoard: DemoDocument
+  boardValue(target: { board: DemoDocument | null }): DemoBoard
+  setBoardValue(target: { board: DemoDocument | null }, value: DemoBoard): void
   boardEditing: {
     canUndo: boolean
     add(input: { kind: string; address: string }): string | undefined
     detach(): void
   }
 }
-
 export async function checkBoardEditing(h: Harness) {
   const board = h.page.locator('segnavia-board')
-  const original = await board.evaluate((element) => structuredClone((element as BoardElement).board))
+  const original = await board.evaluate((element) => structuredClone((window as unknown as DemoWindow).boardValue(element as BoardElement)))
   await checkBoardEditingLabelSizes(h, board)
   const reset = async (direction: 'ltr' | 'rtl' = 'ltr') => {
     await board.evaluate(
@@ -56,13 +61,13 @@ export async function checkBoardEditing(h: Harness) {
           if (item.id === 'page') return { ...item, x: 700, y: 0, width: 180 }
           return item
         })
-        value.board = next
+        const state = window as unknown as DemoWindow
+        state.setBoardValue(value, next)
         value.selection = []
         value.view = { ...value.view, zoom: 1, pan: { x: 100, y: 150 } }
-        const state = window as unknown as DemoWindow
         state.boardChanges = []
         state.boardEditErrors = []
-        state.hostBoard = next
+        state.hostBoard = value.board as DemoDocument
       },
       { original, direction },
     )
@@ -106,28 +111,36 @@ export async function checkBoardEditing(h: Harness) {
 
   await first.focus()
   await h.page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
-  const all = await board.evaluate((element) => ({ selected: (element as BoardElement).selection.length, items: (element as BoardElement).board.items.length }))
+  const all = await board.evaluate((element) => ({
+    selected: (element as BoardElement).selection.length,
+    items: (window as unknown as DemoWindow).boardValue(element as BoardElement).items.length,
+  }))
   h.check('Cmd or Ctrl+A selects every board item', all.selected === all.items, JSON.stringify(all))
 
   await reset()
   await board.evaluate((element) => ((element as BoardElement).selection = ['page', 'paper']))
   const moveBefore = await board.evaluate((element) =>
     Object.fromEntries(
-      (element as BoardElement).board.items.filter((item) => ['page', 'paper'].includes(item.id)).map((item) => [item.id, { x: item.x, y: item.y }]),
+      (window as unknown as DemoWindow)
+        .boardValue(element as BoardElement)
+        .items.filter((item) => ['page', 'paper'].includes(item.id))
+        .map((item) => [item.id, { x: item.x, y: item.y }]),
     ),
   )
   await drag(h.page, await center(pageItem), 40, 25)
   await waitChanges(h.page, 1)
   const moved = await board.evaluate((element, before: Record<string, { x: number; y: number }>) => {
     const value = element as BoardElement
+    const board = (window as unknown as DemoWindow).boardValue(value)
     const ids = ['page', 'paper']
     const deltas = ids.map((id) => {
-      const item = value.board.items.find((entry) => entry.id === id) as DemoItem
+      const item = board.items.find((entry) => entry.id === id) as DemoItem
       return { x: item.x - (before[id]?.x ?? 0), y: item.y - (before[id]?.y ?? 0) }
     })
     const matches = ids.every((id) => {
-      const item = value.board.items.find((entry) => entry.id === id) as DemoItem
-      const stored = (window as unknown as DemoWindow).hostBoard.items.find((entry) => entry.id === id) as DemoItem
+      const item = board.items.find((entry) => entry.id === id) as DemoItem
+      const state = window as unknown as DemoWindow
+      const stored = state.boardValue({ board: state.hostBoard }).items.find((entry) => entry.id === id) as DemoItem
       const box = element.shadowRoot?.querySelector<HTMLElement>(`[data-board-item="${id}"]`)?.getBoundingClientRect()
       return stored.x === item.x && stored.y === item.y && Math.abs((box?.x ?? 0) - element.getBoundingClientRect().x - item.x - value.view.pan.x) < 1
     })
@@ -146,7 +159,7 @@ export async function checkBoardEditing(h: Harness) {
   await reset()
   const title = board.locator('[data-board-section-title="section"]')
   const sectionBefore = await board.evaluate((element) => {
-    const value = (element as BoardElement).board
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
     return {
       rectangle: (value.sections.find((entry) => entry.id === 'section') as DemoSection).rectangle,
       members: (value.sections.find((entry) => entry.id === 'section') as DemoSection).items,
@@ -156,7 +169,7 @@ export async function checkBoardEditing(h: Harness) {
   await drag(h.page, await center(title), 35, 20)
   await waitChanges(h.page, 1)
   const sectionAfter = await board.evaluate((element) => {
-    const value = (element as BoardElement).board
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
     return {
       rectangle: (value.sections.find((entry) => entry.id === 'section') as DemoSection).rectangle,
       members: (value.sections.find((entry) => entry.id === 'section') as DemoSection).items,
@@ -190,14 +203,14 @@ export async function checkBoardEditing(h: Harness) {
   await reset()
   await first.click()
   const resizeBefore = await board.evaluate((element) => ({
-    item: (element as BoardElement).board.items.find((item) => item.id === 'deck-small') as DemoItem,
+    item: (window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'deck-small') as DemoItem,
     box: element.shadowRoot?.querySelector<HTMLElement>('[data-board-item="deck-small"]')?.getBoundingClientRect().toJSON(),
   }))
   const handle = board.locator('[part~="resize-handle"][data-corner="bottom-right"]')
   await drag(h.page, await center(handle), 60, 0)
   await waitChanges(h.page, 1)
   const resizeAfter = await board.evaluate((element) => ({
-    item: (element as BoardElement).board.items.find((item) => item.id === 'deck-small') as DemoItem,
+    item: (window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'deck-small') as DemoItem,
     box: element.shadowRoot?.querySelector<HTMLElement>('[data-board-item="deck-small"]')?.getBoundingClientRect().toJSON(),
     changes: (window as unknown as DemoWindow).boardChanges,
   }))
@@ -269,14 +282,14 @@ export async function checkBoardEditing(h: Harness) {
   await reset()
   await pageItem.click()
   const rollbackBefore = await board.evaluate((element) => ({
-    x: ((element as BoardElement).board.items.find((item) => item.id === 'page') as DemoItem).x,
+    x: ((window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'page') as DemoItem).x,
     canUndo: (window as unknown as DemoWindow).boardEditing.canUndo,
   }))
   await h.page.locator('#reject-change').check()
   await drag(h.page, await center(pageItem), 45, 0)
   await h.page.waitForFunction(() => (window as unknown as DemoWindow).boardEditErrors?.length === 1, undefined, { timeout: BOUNDED_WAIT_MS })
   const rollbackAfter = await board.evaluate((element) => ({
-    x: ((element as BoardElement).board.items.find((item) => item.id === 'page') as DemoItem).x,
+    x: ((window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'page') as DemoItem).x,
     canUndo: (window as unknown as DemoWindow).boardEditing.canUndo,
     errors: (window as unknown as DemoWindow).boardEditErrors.length,
   }))
@@ -288,16 +301,20 @@ export async function checkBoardEditing(h: Harness) {
 
   await reset()
   await pageItem.click()
-  const historyStart = await board.evaluate((element) => ((element as BoardElement).board.items.find((item) => item.id === 'page') as DemoItem).x)
+  const historyStart = await board.evaluate(
+    (element) => ((window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'page') as DemoItem).x,
+  )
   await drag(h.page, await center(pageItem), 30, 0)
   await waitChanges(h.page, 1)
   await h.page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z')
   await waitChanges(h.page, 2)
-  const undone = await board.evaluate((element) => ((element as BoardElement).board.items.find((item) => item.id === 'page') as DemoItem).x)
+  const undone = await board.evaluate(
+    (element) => ((window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'page') as DemoItem).x,
+  )
   await h.page.keyboard.press(process.platform === 'darwin' ? 'Shift+Meta+Z' : 'Shift+Control+Z')
   await waitChanges(h.page, 3)
   const history = await board.evaluate((element) => ({
-    redone: ((element as BoardElement).board.items.find((item) => item.id === 'page') as DemoItem).x,
+    redone: ((window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'page') as DemoItem).x,
     kinds: (window as unknown as DemoWindow).boardChanges.map((change) => change.edit.kind),
   }))
   h.check(
@@ -308,12 +325,16 @@ export async function checkBoardEditing(h: Harness) {
 
   await reset()
   await pageItem.click()
-  const keyBefore = await board.evaluate((element) => ((element as BoardElement).board.items.find((item) => item.id === 'page') as DemoItem).x)
+  const keyBefore = await board.evaluate(
+    (element) => ((window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'page') as DemoItem).x,
+  )
   await h.page.keyboard.press('ArrowRight')
   await waitChanges(h.page, 1)
   await h.page.keyboard.press('Shift+ArrowRight')
   await waitChanges(h.page, 2)
-  const keyAfter = await board.evaluate((element) => ((element as BoardElement).board.items.find((item) => item.id === 'page') as DemoItem).x)
+  const keyAfter = await board.evaluate(
+    (element) => ((window as unknown as DemoWindow).boardValue(element as BoardElement).items.find((item) => item.id === 'page') as DemoItem).x,
+  )
   h.check('arrow keys move a selected item by one or ten board units', keyAfter === keyBefore + 11, JSON.stringify({ keyBefore, keyAfter }))
 
   await reset()
@@ -351,7 +372,7 @@ export async function checkBoardEditing(h: Harness) {
   await board.evaluate((element) => {
     const value = element as BoardElement
     const current = structuredClone(value.board)
-    value.board = null as unknown as DemoBoard
+    value.board = null
     value.board = current
   })
   await first.click()

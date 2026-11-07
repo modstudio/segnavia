@@ -1,21 +1,24 @@
-import type { BookInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 
 export function twoPageSeriesRelayoutCss(): string {
   // This activates only once pages exist, so the note relays out after placement as the check exercises.
   return ':where(html:has([data-segnavia-pages])) [data-segnavia-note="segnavia-fn-1-1"]{line-height:25px}'
 }
 
-export function noteSeriesFixture(hebrew: boolean): BookInput {
+export function noteSeriesFixture(hebrew: boolean): DocumentInput {
   const first = hebrew ? 'מקור ראשון' : 'First source'
   const second = hebrew ? 'מקור שני' : 'Second source'
   const comment = hebrew ? 'הערה שנאספה בסוף הספר' : 'A comment collected at the end of the book'
   return {
-    title: hebrew ? 'שתי סדרות הערות' : 'Two note series',
+    type: 'document',
+    kind: 'book',
+    metadata: { title: hebrew ? 'שתי סדרות הערות' : 'Two note series' },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-    notes: [
+    noteSeries: [
       {
+        type: 'noteSeries',
         name: 'footnote',
         placement: 'page',
         numbering: 'book',
@@ -23,6 +26,7 @@ export function noteSeriesFixture(hebrew: boolean): BookInput {
         title: hebrew ? 'מקורות' : 'Sources',
       },
       {
+        type: 'noteSeries',
         name: 'endnote',
         placement: 'book',
         numbering: 'book',
@@ -30,43 +34,75 @@ export function noteSeriesFixture(hebrew: boolean): BookInput {
         title: hebrew ? 'הערות' : 'Comments',
       },
     ],
-    body: [
+    children: [
       {
-        title: hebrew ? 'פרק ראשון' : 'Chapter One',
-        html: `<h1>${hebrew ? 'פרק ראשון' : 'Chapter One'}</h1><p>${hebrew ? 'הטקסט קורא למקור' : 'The text calls a source'}<span id="first-source" data-note="footnote">${first}</span> ${
-          hebrew ? 'ולהערה' : 'and a comment'
-        }<span data-note="endnote">${comment}</span>.</p>`,
-      },
-      {
-        title: hebrew ? 'פרק שני' : 'Chapter Two',
-        html: `<h1>${hebrew ? 'פרק שני' : 'Chapter Two'}</h1><p>${hebrew ? 'מקור נוסף' : 'Another source'}<span data-note="footnote">${second}</span> ${
-          hebrew ? 'וקריאה חוזרת' : 'and the first source again'
-        }<a data-note-ref="first-source">${hebrew ? 'שם' : 'there'}</a>.</p>`,
+        type: 'division',
+        name: 'body',
+        children: [
+          {
+            type: 'section',
+            title: hebrew ? 'פרק ראשון' : 'Chapter One',
+            children: [
+              {
+                type: 'flow',
+                html: `<h1>${hebrew ? 'פרק ראשון' : 'Chapter One'}</h1><p>${hebrew ? 'הטקסט קורא למקור' : 'The text calls a source'}<span id="first-source" data-note="footnote">${first}</span> ${
+                  hebrew ? 'ולהערה' : 'and a comment'
+                }<span data-note="endnote">${comment}</span>.</p>`,
+              },
+            ],
+          },
+          {
+            type: 'section',
+            title: hebrew ? 'פרק שני' : 'Chapter Two',
+            children: [
+              {
+                type: 'flow',
+                html: `<h1>${hebrew ? 'פרק שני' : 'Chapter Two'}</h1><p>${hebrew ? 'מקור נוסף' : 'Another source'}<span data-note="footnote">${second}</span> ${
+                  hebrew ? 'וקריאה חוזרת' : 'and the first source again'
+                }<a data-note-ref="first-source">${hebrew ? 'שם' : 'there'}</a>.</p>`,
+              },
+            ],
+          },
+        ],
       },
     ],
   }
 }
 
-export function twoPageSeriesFixture(hebrew: boolean): BookInput {
+export function twoPageSeriesFixture(hebrew: boolean): DocumentInput {
   const commentary = hebrew
     ? 'בְּרֵאשִׁית בָּרָא אֱלֹהִים הערה ארוכה השייכת לסדרת הפירוש ונמשכת בעמוד הבא. '.repeat(34)
     : 'A long commentary note belongs to its own series and continues on the next page without joining the source notes. '.repeat(28)
   return {
-    title: hebrew ? 'שתי סדרות בתחתית העמוד' : 'Two series at the page foot',
+    type: 'document',
+    kind: 'book',
+    metadata: { title: hebrew ? 'שתי סדרות בתחתית העמוד' : 'Two series at the page foot' },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-    notes: [{ name: 'commentary', placement: 'page', numbering: 'book', marker: 'arabic', title: hebrew ? 'פירוש' : 'Commentary' }],
-    body: [
+    noteSeries: [{ type: 'noteSeries', name: 'commentary', placement: 'page', numbering: 'book', marker: 'arabic', title: hebrew ? 'פירוש' : 'Commentary' }],
+    children: [
       {
-        title: hebrew ? 'פרק ראשון' : 'Chapter One',
-        html: `<h1>${hebrew ? 'פרק ראשון' : 'Chapter One'}</h1><p>${
-          hebrew ? 'הטקסט קורא למקור קצר' : 'The text calls a short source'
-        }<span data-note="footnote">${hebrew ? 'מקור קצר לסדרה הראשונה.' : 'A short source in the first series.'}</span> ${
-          hebrew ? 'ולפירוש ארוך' : 'and a long commentary'
-        }<span data-note="commentary">${commentary}</span>.</p><p>${
-          hebrew ? 'עוד טקסט בעמוד מראה שההערות נשארות בתחתיתו.' : 'More page text shows that both note groups remain at the page foot.'
-        }</p>`,
+        type: 'division',
+        name: 'body',
+        children: [
+          {
+            type: 'section',
+            title: hebrew ? 'פרק ראשון' : 'Chapter One',
+            children: [
+              {
+                type: 'flow',
+                html: `<h1>${hebrew ? 'פרק ראשון' : 'Chapter One'}</h1><p>${
+                  hebrew ? 'הטקסט קורא למקור קצר' : 'The text calls a short source'
+                }<span data-note="footnote">${hebrew ? 'מקור קצר לסדרה הראשונה.' : 'A short source in the first series.'}</span> ${
+                  hebrew ? 'ולפירוש ארוך' : 'and a long commentary'
+                }<span data-note="commentary">${commentary}</span>.</p><p>${
+                  hebrew ? 'עוד טקסט בעמוד מראה שההערות נשארות בתחתיתו.' : 'More page text shows that both note groups remain at the page foot.'
+                }</p>`,
+              },
+            ],
+          },
+        ],
       },
     ],
   }

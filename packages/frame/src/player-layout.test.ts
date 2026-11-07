@@ -103,7 +103,7 @@ test('playback ticks do not invalidate player measurement', async () => {
   controller.addEventListener('change', (event) => {
     if (changes.update((event as CustomEvent).detail)) measures++
   })
-  await controller.load({ title: 'T', size: { width: 1280, height: 720 }, slides: [{ id: 'a', content: { kind: 'html', html: '' }, holdMs: 1000 }] })
+  await controller.loadDeckValue({ title: 'T', size: { width: 1280, height: 720 }, slides: [{ id: 'a', content: { kind: 'html', html: '' }, holdMs: 1000 }] })
   await controller.play()
   const initialMeasures = measures
   for (let index = 0; index < 50; index++) {

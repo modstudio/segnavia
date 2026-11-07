@@ -4,7 +4,18 @@
 // has reported itself painted, or once the deadline passes so a slide that
 // never reports cannot hold the dialog closed for ever.
 
-import { type Deck, exceedsLimits, Imposition, type ImpositionInput, type Limits, limitRefusal, Page, type PageInput, parseLimits } from '@segnavia/format'
+import {
+  type Deck,
+  type DocumentInput,
+  Document as DocumentSchema,
+  deckFromDocument,
+  exceedsLimits,
+  Imposition,
+  type ImpositionInput,
+  type Limits,
+  limitRefusal,
+  parseLimits,
+} from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { loadDiagramScript } from './diagram-document.ts'
@@ -17,9 +28,9 @@ import {
   type PrintOptions,
   paginateNotes,
   placePrintImages,
-  printableDeck,
-  printableDeckDocument,
-  printablePagesDocument,
+  printableDeckValue,
+  printableDeckValueDocument,
+  printableHtmlPagesDocument,
   resolveDeckMedia,
   SLIDES_READY_DEADLINE_MS,
 } from './print-document.ts'
@@ -27,6 +38,7 @@ import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { pagesSheetsRefusal } from './print-limits.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
+import { type PageOrPrintedInput, pageOrPrintedFromInput } from './printed-page-document.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
 import {
   collectSlotPrintCopies,
@@ -139,6 +151,14 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
 }
 
 export async function preparedDeckPrint(
+  input: DocumentInput,
+  options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
+  signal: AbortSignal = AbortSignal.any([]),
+): Promise<PrintFrameOptions> {
+  return preparedDeckValuePrint(deckFromDocument(DocumentSchema.parse(input)), options, signal)
+}
+
+export async function preparedDeckValuePrint(
   deck: Deck,
   options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
   signal: AbortSignal = AbortSignal.any([]),
@@ -162,10 +182,10 @@ export async function preparedDeckPrint(
     ),
   }
   if (options.imposition) {
-    const printable = printableDeckDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
+    const printable = printableDeckValueDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
     return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
-  return { ...resolvedDeck.size, html: printableDeck(preparedDeck, printOptions), ...options, slots: resolvedSlots }
+  return { ...resolvedDeck.size, html: printableDeckValue(preparedDeck, printOptions), ...options, slots: resolvedSlots }
 }
 
 async function preparedPagesPrint(
@@ -197,7 +217,7 @@ async function preparedPagesPrint(
     })
     return { ...paperBoxSize(printable.paper), html: printable.html, ...options, slots: resolvedSlots, sheets: printable.sheets, strictFrameReadiness: true }
   }
-  const printable = printablePagesDocument(filled, imposition, options)
+  const printable = printableHtmlPagesDocument(filled, imposition, options)
   return {
     ...paperBoxSize(printable.imposed.paper),
     html: printable.html,
@@ -230,16 +250,17 @@ function refusePagesSheets(options: PrintFrameOptions): void {
   if (refusal) throw new RangeError(refusal)
 }
 
-export async function printDeck(deck: Deck, options: BrowserPrintOptions = {}): Promise<void> {
+export async function printDeck(input: DocumentInput, options: BrowserPrintOptions = {}): Promise<void> {
+  const deck = deckFromDocument(DocumentSchema.parse(input))
   options = { ...options, limits: parseLimits(options.limits, 'host') }
   const reasons = exceedsLimits(deck, options.limits ?? {})
   if (reasons.length > 0) throw new RangeError(reasons.join('; '))
   const signal = new AbortController().signal
   const notesSheetFont = options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined
   const preparedOptions = { ...options, notesSheetFont }
-  if (!options.slots?.fills) return printFrame(await preparedDeckPrint(deck, preparedOptions, signal))
+  if (!options.slots?.fills) return printFrame(await preparedDeckValuePrint(deck, preparedOptions, signal))
   const copies = await collectSlotPrintCopies(options.slots, async (copySlots) => {
-    const prepared = await preparedDeckPrint(deck, { ...preparedOptions, slots: copySlots }, signal)
+    const prepared = await preparedDeckValuePrint(deck, { ...preparedOptions, slots: copySlots }, signal)
     await printFrame({ ...prepared, output: 'measure' })
     return prepared
   })
@@ -253,12 +274,12 @@ export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 's
   placements?: PlacementsOptions
 }
 
-export async function printPages(pagesInput: PageInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
+export async function printPages(pagesInput: PageOrPrintedInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
   options = { ...options, limits: parseLimits(options.limits, 'host'), pageWidths: parsePageWidths(options.pageWidths) }
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
   const expanded = await expandFramePages(
-    pagesInput.map((page) => resolvePageHtml(Page.parse(page))),
+    pagesInput.map((page) => resolvePageHtml(pageOrPrintedFromInput(page))),
     options.motifs,
     signal,
     options.placements,

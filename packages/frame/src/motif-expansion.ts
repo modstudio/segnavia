@@ -2,6 +2,9 @@ import {
   type Book,
   type BookItem,
   type BookView,
+  bookFromDocument,
+  Document,
+  type DocumentInput,
   type FontReference,
   isDesignedSection,
   isPart,
@@ -36,20 +39,16 @@ export interface MotifsOptions {
   linkOrigins?: Iterable<string>
   placed?(result: Pick<ExpandedMotifs, 'placed' | 'fonts' | 'unavailable'>): void
 }
-
 export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export type PlacementsOptions = AssetPlacementsOptions
-
 export interface ExpandedFramePage {
   page: HtmlPage
   fonts: FontReference[]
 }
-
 export interface ExpandedBook<T extends Book | BookView> {
   book: T
   fonts: FontReference[]
 }
-
 interface BookHtmlField {
   html: string
   furniture: boolean
@@ -254,6 +253,17 @@ async function resolveBookShape<T extends Book | BookView>(
 }
 
 export async function expandFrameBook(
+  input: DocumentInput,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  placements?: PlacementsOptions,
+  purpose: 'screen' | 'print' = 'screen',
+  pageWidths?: PageWidths,
+): Promise<ExpandedBook<Book>> {
+  return expandFrameBookValue(bookFromDocument(Document.parse(input)), motifs, signal, placements, purpose, pageWidths)
+}
+
+export async function expandFrameBookValue(
   book: Book,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,

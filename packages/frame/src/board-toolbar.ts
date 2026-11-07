@@ -136,7 +136,7 @@ export class SegnaviaBoardToolbar extends HTMLElement {
     const zoom = target?.view.zoom ?? 1
     const focused = this.root.activeElement instanceof HTMLButtonElement ? this.root.activeElement : null
     const previousTabStop = this.controls.find((button) => button.tabIndex === 0)
-    this.dir = board?.direction ?? ''
+    this.dir = board?.settings?.dir ?? ''
     this.toolbar.setAttribute('aria-label', labels.toolbar)
     this.updateButton(this.listButton, labels.list, false)
     this.listButton.hidden = !this.listBinding.current

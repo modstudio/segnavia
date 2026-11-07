@@ -1,29 +1,19 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { type BookInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/format'
+import { bookFromDocument, Document, type DocumentInput, formatNumber, MM_PER_PT, PAPER_MM } from '@segnavia/format'
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { verifyBookCssRender } from './book-css-render.ts'
 import { verifyContinuousPageReference } from './book-page-reference.ts'
 import { verifyPartsOutlines } from './book-parts-render.ts'
 import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.ts'
+import { type BookRenderFixture, bookRenderFixture } from './book-render-fixtures.ts'
 import { expectedBookLinkPages } from './book-render-links.ts'
 import { compact, decodeXml, pagesText, pageWith } from './book-text.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
-interface Fixture {
-  key: 'english' | 'hebrew'
-  book: BookInput
-  css: string
-  contentsTitle: string
-  frontTitle: string
-  frontMarker: string
-  chapterMarkers: string[]
-  runningHeads: string[]
-  endnotesTitle: string
-}
 
 interface BboxWord {
   text: string
@@ -36,56 +26,6 @@ interface BboxPage {
   width: number
   height: number
   words: BboxWord[]
-}
-
-const topics = (key: string, chapter: number) =>
-  `<div class="topics">${Array.from({ length: 6 }, (_, index) => `<h2>${key}-${chapter}-H2-${index}</h2><h3>${key}-${chapter}-H3-${index}</h3>`).join('')}<h2 data-contents="exclude">EXCLUDED-${key}-${chapter}</h2></div>`
-
-function fixture(key: 'english' | 'hebrew'): Fixture {
-  const hebrew = key === 'hebrew'
-  const tag = hebrew ? 'HE' : 'EN'
-  const chapterMarkers = [`OPEN${tag}1`, `OPEN${tag}2`, `OPEN${tag}3`]
-  const runningHeads = hebrew ? ['ראשון', 'שני', 'שלישי'] : ['RUNEN1', 'RUNEN2', 'RUNEN3']
-  const chapters = [
-    {
-      title: hebrew ? 'פרק ראשון' : 'Chapter One',
-      runningHead: runningHeads[0],
-      html: `<p>${chapterMarkers[0]}<span data-note="footnote">FOOT-${tag}</span></p><p>B2F-${tag}[<a href="#pdf-front-ref-target" data-ref="page"></a>]</p><p>REF-${tag}[<a href="#pdf-page-ref-target" data-ref="page"></a>]</p><p class="margin-probe"><span>MARGIN-L-${tag}-1</span><span>MARGIN-R-${tag}-1</span></p>${topics(tag, 1)}<div class="second-page">SECOND${tag}1<p class="margin-probe"><span>MARGIN-L-${tag}-2</span><span>MARGIN-R-${tag}-2</span></p></div>`,
-    },
-    { title: hebrew ? 'פרק שני' : 'Chapter Two', runningHead: runningHeads[1], html: `<p>${chapterMarkers[1]}</p>${topics(tag, 2)}` },
-    {
-      title: hebrew ? 'פרק שלישי' : 'Chapter Three',
-      runningHead: runningHeads[2],
-      html: `<p id="pdf-page-ref-target">${chapterMarkers[2]}<span data-note="endnote">END-${tag}</span></p>${topics(tag, 3)}`,
-    },
-  ]
-  return {
-    key,
-    book: {
-      title: hebrew ? 'ספר בדיקה' : 'Test Book',
-      authors: hebrew ? ['לאה כהן', 'David Levi'] : ['Ada Lovelace', 'Charles Babbage'],
-      subject: hebrew ? 'בדיקת מבנה & מידע' : 'Structure & metadata verification',
-      mode: 'continuous',
-      lang: hebrew ? 'he' : 'en',
-      page: { paper: 'a5', orientation: 'portrait', margin: { blockStart: 15, blockEnd: 15, inlineStart: 20, inlineEnd: 12 } },
-      rectoOpenings: true,
-      frontMatter: [
-        {
-          title: hebrew ? 'פתיחה' : 'Front',
-          html: `<p id="pdf-front-ref-target">FRONT${tag}</p><p>F2B-${tag}[<a href="#pdf-page-ref-target" data-ref="page"></a>]</p>`,
-        },
-        { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
-      ],
-      chapters,
-    },
-    css: ':where(body){font:12px serif}:where(.topics h2,.topics h3){font-size:1px;line-height:1px;margin:0}:where(.second-page){break-before:page}:where(.margin-probe){display:flex;justify-content:space-between;direction:ltr}:where(.segnavia-contents-entry){line-height:8mm}',
-    contentsTitle: hebrew ? 'תוכן' : 'Contents',
-    frontTitle: hebrew ? 'פתיחה' : 'Front',
-    frontMarker: `FRONT${tag}`,
-    chapterMarkers,
-    runningHeads,
-    endnotesTitle: hebrew ? 'הערות' : 'Notes',
-  }
 }
 
 function bboxPages(file: string): BboxPage[] {
@@ -102,14 +42,14 @@ function bboxPages(file: string): BboxPage[] {
   }))
 }
 
-function frontPageCount(fixture: Fixture, pages: string[]): number {
+function frontPageCount(fixture: BookRenderFixture, pages: string[]): number {
   const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
   const lastContentsPage = pageWith(pages, `${tag}-3-H2-5`)
   return lastContentsPage % 2 === 1 ? lastContentsPage + 1 : lastContentsPage
 }
 
 function contentsNumbers(
-  fixture: Fixture,
+  fixture: BookRenderFixture,
   text: string,
   chapterPages: number[],
   frontPages: number,
@@ -120,7 +60,7 @@ function contentsNumbers(
   const entries = [
     { text: fixture.frontTitle, number: formatNumber(1, frontSystem) },
     ...chapterPages.flatMap((page, index) => [
-      { text: fixture.book.chapters?.[index]?.title ?? '', number: formatNumber(page - frontPages, bodySystem) },
+      { text: fixture.chapterTitles[index] ?? '', number: formatNumber(page - frontPages, bodySystem) },
       ...Array.from({ length: 6 }, (_, topic) => ({
         text: `${fixture.key === 'hebrew' ? 'HE' : 'EN'}-${index + 1}-H2-${topic}`,
         number: formatNumber(page - frontPages, bodySystem),
@@ -133,7 +73,7 @@ function contentsNumbers(
   })
 }
 
-function pageMap(fixture: Fixture, pages: string[], bboxes: BboxPage[], frontPages: number) {
+function pageMap(fixture: BookRenderFixture, pages: string[], bboxes: BboxPage[], frontPages: number) {
   const openings = fixture.chapterMarkers.map((marker) => pageWith(pages, marker))
   const endnotes = pageWith(pages, fixture.endnotesTitle)
   return pages.map((text, index) => {
@@ -160,7 +100,7 @@ function pageMap(fixture: Fixture, pages: string[], bboxes: BboxPage[], frontPag
   })
 }
 
-function bodyTextMargins(fixture: Fixture, bboxes: BboxPage[], frontPages: number) {
+function bodyTextMargins(fixture: BookRenderFixture, bboxes: BboxPage[], frontPages: number) {
   const tag = fixture.key === 'hebrew' ? 'HE' : 'EN'
   return [1, 2].map((bodyPage) => {
     const page = bboxes[frontPages + bodyPage - 1]
@@ -174,8 +114,8 @@ function bodyTextMargins(fixture: Fixture, bboxes: BboxPage[], frontPages: numbe
   })
 }
 
-async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture, check: Check): Promise<void> {
-  const bytes = await renderer.bookPdf(fixture.book, { css: fixture.css, effects: false })
+async function verifyFixture(renderer: Renderer, work: string, fixture: BookRenderFixture, check: Check): Promise<void> {
+  const bytes = await renderer.bookPdf(fixture.document, { css: fixture.css, effects: false })
   const file = path.join(work, `book-${fixture.key}.pdf`)
   writeFileSync(file, bytes)
   const document = await PDFDocument.load(bytes)
@@ -233,14 +173,14 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: Fixture,
   const expectedOutline = [
     { title: fixture.frontTitle, page: pageWith(pages, fixture.frontMarker) },
     ...fixture.chapterMarkers.flatMap((marker, chapter) => [
-      { title: fixture.book.chapters?.[chapter]?.title ?? '', page: pageWith(pages, marker) },
+      { title: fixture.chapterTitles[chapter] ?? '', page: pageWith(pages, marker) },
       ...Array.from({ length: 6 }, (_, topic) => {
         const title = `${tag}-${chapter + 1}-H2-${topic}`
         return { title: fixture.key === 'hebrew' ? `\u200f${title}` : title, page: frontPages + pageWith(pages.slice(frontPages), title) }
       }),
     ]),
   ]
-  verifyPdfStructure(document, fixture.book, expectedOutline, `${fixture.key} continuous`, check)
+  verifyPdfStructure(document, bookFromDocument(Document.parse(fixture.document)), expectedOutline, `${fixture.key} continuous`, check)
   const actualLinks = annotationDestinations(document).sort((left, right) => left - right)
   const expectedLinks = expectedBookLinkPages(
     fixture.chapterMarkers.map((marker) => pageWith(pages, marker)),
@@ -288,20 +228,30 @@ async function verifyPaginatedContentsBook(renderer: Renderer, work: string, che
   const two = hebrew ? 'פרק ב' : 'Chapter Two'
   const openOne = hebrew ? 'OPEN_HE1' : 'OPEN_EN1'
   const openTwo = hebrew ? 'OPEN_HE2' : 'OPEN_EN2'
-  const book: BookInput = {
-    title: hebrew ? 'ספר' : 'Book',
-    authors: hebrew ? ['רחל לוי', 'A. Writer'] : ['A. Writer', 'B. Writer'],
-    subject: hebrew ? 'נושא & תיאור' : 'Subject & description',
+  const documentInput: DocumentInput = {
+    type: 'document',
+    kind: 'book',
+    metadata: {
+      title: hebrew ? 'ספר' : 'Book',
+      authors: hebrew ? ['רחל לוי', 'A. Writer'] : ['A. Writer', 'B. Writer'],
+      subject: hebrew ? 'נושא & תיאור' : 'Subject & description',
+    },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-    frontMatter: [{ kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
-    chapters: [
-      { title: one, html: `<p>${openOne}</p><p>${'text '.repeat(40)}</p>` },
-      { title: two, html: `<p>${openTwo}</p><p>${'text '.repeat(40)}</p>` },
+    children: [
+      { type: 'division', name: 'front', children: [{ type: 'contents', title: hebrew ? 'תוכן' : 'Contents' }] },
+      {
+        type: 'division',
+        name: 'body',
+        children: [
+          { type: 'section', title: one, children: [{ type: 'flow', html: `<p>${openOne}</p><p>${'text '.repeat(40)}</p>` }] },
+          { type: 'section', title: two, children: [{ type: 'flow', html: `<p>${openTwo}</p><p>${'text '.repeat(40)}</p>` }] },
+        ],
+      },
     ],
   }
-  const bytes = await renderer.bookPdf(book, { effects: false, css: 'body{font:16px serif}' })
+  const bytes = await renderer.bookPdf(documentInput, { effects: false, css: 'body{font:16px serif}' })
   const file = path.join(work, `book-paginated-${key}.pdf`)
   writeFileSync(file, bytes)
   const chapterPages = [pageWith(pagesText(file), openOne), pageWith(pagesText(file), openTwo)]
@@ -315,7 +265,7 @@ async function verifyPaginatedContentsBook(renderer: Renderer, work: string, che
   )
   verifyPdfStructure(
     document,
-    book,
+    bookFromDocument(Document.parse(documentInput)),
     [
       { title: one, page: chapterPages[0] ?? 0 },
       { title: two, page: chapterPages[1] ?? 0 },
@@ -331,24 +281,41 @@ async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, ch
 
 export async function verifyBookRender(renderer: Renderer, work: string, check: Check): Promise<void> {
   await verifyBookCssRender(renderer, work, check)
-  await verifyFixture(renderer, work, fixture('english'), check)
-  await verifyFixture(renderer, work, fixture('hebrew'), check)
+  await verifyFixture(renderer, work, bookRenderFixture('english'), check)
+  await verifyFixture(renderer, work, bookRenderFixture('hebrew'), check)
   await verifyPaginatedContentsLinks(renderer, work, check)
   await verifyPartsOutlines(renderer, check)
   await verifyPaginatedBookWithoutContents(renderer, work, check)
 
   const chapterHtml = `<p>BOOK_FLOW_MARKER ${'book text '.repeat(1200)}</p>`
   const page = { paper: 'a5' as const, orientation: 'portrait' as const, margin: { blockStart: 15, blockEnd: 15, inlineStart: 20, inlineEnd: 12 } }
-  const book = {
-    title: 'Overflowing book',
+  const documentInput: DocumentInput = {
+    type: 'document',
+    kind: 'book',
+    metadata: { title: 'Overflowing book' },
     mode: 'continuous' as const,
     page,
-    chapters: [{ title: 'Wide chapter', html: chapterHtml }],
+    children: [{ type: 'division', name: 'body', children: [{ type: 'section', title: 'Wide chapter', children: [{ type: 'flow', html: chapterHtml }] }] }],
   }
-  const baseline = await renderer.bookPdf(book, { effects: false, css: 'body{margin:0;font:16px/24px serif}' })
+  const baseline = await renderer.bookPdf(documentInput, { effects: false, css: 'body{margin:0;font:16px/24px serif}' })
   let report: OverflowReport | undefined
   const overflow = await renderer.bookPdf(
-    { ...book, chapters: [{ title: 'Wide chapter', html: `<table style="position:absolute;width:1677px"><tr><td></td></tr></table>${chapterHtml}` }] },
+    {
+      ...documentInput,
+      children: [
+        {
+          type: 'division',
+          name: 'body',
+          children: [
+            {
+              type: 'section',
+              title: 'Wide chapter',
+              children: [{ type: 'flow', html: `<table style="position:absolute;width:1677px"><tr><td></td></tr></table>${chapterHtml}` }],
+            },
+          ],
+        },
+      ],
+    },
     { effects: false, css: 'body{margin:0;font:16px/24px serif}', overflow: { report: (value) => (report = value) } },
   )
   const baselineFile = path.join(work, 'book-overflow-baseline.pdf')

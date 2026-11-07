@@ -90,7 +90,13 @@ test('drops a cached entry when an address changes kind', async () => {
   let calls = 0
   resolutions.resolver = async (requested) => {
     calls += 1
-    return requested.kind === 'media' ? image : { kind: 'page', page: { html: '' }, size: { width: 8, height: 11 } }
+    return requested.kind === 'media'
+      ? image
+      : {
+          kind: 'page',
+          page: { type: 'document', kind: 'page', size: { width: 8, height: 11 }, children: [{ type: 'page', body: { html: '' } }] },
+          size: { width: 8, height: 11 },
+        }
   }
   const media = item('asset', 'shared', 'media')
   resolutions.request(

@@ -35,8 +35,10 @@ export async function verifyDeckHost(h: Harness) {
     const controller = new host.controller.constructor()
     controller.connectWindow()
     const deck = {
+      type: 'document',
+      kind: 'deck',
       title: 'Embedded deck',
-      slides: ['one', 'two', 'three'].map((id) => ({ id, content: { kind: 'html' as const, html: '' } })),
+      children: ['one', 'two', 'three'].map((id) => ({ type: 'slide', id, content: { kind: 'html' as const, html: '' } })),
     }
     await controller.load(deck)
     const loaded = { index: controller.state.index, hash: location.hash }

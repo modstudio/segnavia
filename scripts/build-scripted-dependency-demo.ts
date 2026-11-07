@@ -1,16 +1,22 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Page } from '@segnavia/format'
+import { Document } from '@segnavia/format'
 
 export const SCRIPTED_CHART_URL = 'https://cdn.jsdelivr.net/npm/segnavia-chart-stub@1.0.0/chart.min.js'
 export const SCRIPTED_FONT_CSS_URL = 'https://fonts.googleapis.com/css2?family=Scripted+Demo+Fixture'
 export const SCRIPTED_FONT_URL = 'https://fonts.gstatic.com/s/scripteddemofixture/v1/demo.ttf'
 
 export function buildScriptedDependencyDemo(site: string, shell: (body: string) => string): void {
-  const page = Page.parse({
-    scripts: 'sandboxed',
+  const page = Document.parse({
+    type: 'document',
+    kind: 'page',
+    settings: { scripts: 'sandboxed' },
     size: { width: 640, height: 430 },
-    html: `<link rel="stylesheet" href="${SCRIPTED_FONT_CSS_URL}"><style>
+    children: [
+      {
+        type: 'page',
+        body: {
+          html: `<link rel="stylesheet" href="${SCRIPTED_FONT_CSS_URL}"><style>
       body{box-sizing:border-box;margin:0;padding:24px;font:16px "Scripted Demo Fixture",sans-serif;color:#172033}
       form{display:flex;gap:8px;margin-block:8px}#chart-rendered{display:flex;align-items:end;gap:5px;height:38px;margin-block:18px}
       #chart-rendered i{display:block;width:18px;background:#2563eb}output,p{display:block;margin-block:12px}
@@ -51,6 +57,9 @@ export function buildScriptedDependencyDemo(site: string, shell: (body: string) 
         sessionStorage.setItem('demo-session', 'session-ok')
         document.getElementById('storage').textContent = localStorage.getItem('demo-local') + ' / ' + sessionStorage.getItem('demo-session')
       </script>`,
+        },
+      },
+    ],
   })
   writeFileSync(path.join(site, 'scripted-dependencies-page.json'), JSON.stringify(page))
   writeFileSync(

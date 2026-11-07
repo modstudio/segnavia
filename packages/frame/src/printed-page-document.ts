@@ -1,4 +1,6 @@
 import {
+  Document,
+  type DocumentInput,
   DocumentMetadata,
   type DocumentMetadata as DocumentMetadataValue,
   defaultPageNumbering,
@@ -7,12 +9,12 @@ import {
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
-  Page,
-  type PageInput,
+  type Page,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_ROLES,
   PRINTED_PAGE_TOTAL_PATH,
   PX_PER_MM,
+  printedFromDocument,
   type ResolvedParentPage,
   resolveDirection,
   resolveLimits,
@@ -27,6 +29,8 @@ import { fragmentColumns, fragmentSpan, paperCount } from './printed-page-column
 
 export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
+
+export { type PageOrPrintedInput, pageOrPrintedFromInput } from '@segnavia/format'
 
 export class PrintedPagesRefusedError extends Error {
   constructor(message: string) {
@@ -152,8 +156,12 @@ var furniture=function(region,html){if(!html)return;var held=document.createElem
 })();`
 }
 
-export function printedPageDocument(
-  input: PageInput,
+export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1]): string {
+  return printedPageValueDocument(resolvePageHtml(printedFromDocument(Document.parse(input))), options)
+}
+
+export function printedPageValueDocument(
+  page: HtmlPage,
   options: {
     nonce: string
     css?: string
@@ -167,7 +175,6 @@ export function printedPageDocument(
     limits?: Limits
   },
 ): string {
-  const page = resolvePageHtml(Page.parse(input))
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)

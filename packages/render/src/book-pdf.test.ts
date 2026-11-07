@@ -13,13 +13,14 @@ const destinations = (page: number): Map<string, BookDestination> =>
     ['topic', { page, x: 10, y: 20 }],
   ])
 
-const continuousBook = (body: string, front?: string) => ({
-  title: 'Book',
-  mode: 'continuous' as const,
-  page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-  ...(front === undefined ? {} : { frontMatter: [{ title: 'Preface', html: front }] }),
-  chapters: [{ title: 'One', html: body }],
-})
+const continuousBook = (body: string, front?: string) =>
+  Book.parse({
+    title: 'Book',
+    mode: 'continuous',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    ...(front === undefined ? {} : { frontMatter: [{ title: 'Preface', html: front }] }),
+    chapters: [{ title: 'One', html: body }],
+  })
 
 test('maps asymmetric book margins to physical right and left pages independent of text direction', () => {
   const expected =
@@ -78,13 +79,13 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
 test('places FontSource CSS before book CSS in the printed document', async () => {
   let srcdoc = ''
   await renderBrowserBookPdf(
-    {
+    Book.parse({
       title: 'Book',
       mode: 'paginated',
       css: '.book-rule{color:purple}',
       page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p class="book-rule">Text</p>' }],
-    },
+    }),
     {},
     '.font-source-marker{font-family:Held}',
     {
@@ -190,12 +191,12 @@ test('prints a paginated book once then finishes', async () => {
   let prints = 0
   let finishes = 0
   const output = await renderBookPdf(
-    {
+    Book.parse({
       title: 'Book',
       mode: 'paginated',
       page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p>Text</p>' }],
-    },
+    }),
     {},
     {
       print: async () => {
@@ -225,12 +226,12 @@ test('corrects every joined book page to the exact trim before finishing', async
   }
   let finished: Uint8Array | undefined
   const output = await renderBookPdf(
-    {
+    Book.parse({
       title: 'Book',
       mode: 'continuous',
       page: { paper: 'letter', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ title: 'One', html: '<p>Text</p>' }],
-    },
+    }),
     {},
     {
       print: async () => ({

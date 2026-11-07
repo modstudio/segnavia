@@ -1,4 +1,5 @@
 import type { Renderer } from '@segnavia/render'
+import { screenPage } from '../screen-document.ts'
 
 export type BrowserPixels = { width: number; height: number; rgba: number[] }
 
@@ -10,13 +11,17 @@ export async function pngPixels(renderer: Renderer, image: Uint8Array): Promise<
   const captured = new Error('proof verification pixels captured')
   try {
     await renderer.pageImage(
-      {
-        size: { width: 1, height: 1 },
-        scripts: 'sandboxed',
-        html: `<canvas id="canvas"></canvas><img id="source" src="data:image/png;base64,${source}"><script>
+      screenPage(
+        {
+          html: `<canvas id="canvas"></canvas><img id="source" src="data:image/png;base64,${source}"><script>
 source.onload=()=>{canvas.width=source.naturalWidth;canvas.height=source.naturalHeight;canvas.getContext('2d').drawImage(source,0,0);pageReady()}
 </script>`,
-      },
+        },
+        {
+          size: { width: 1, height: 1 },
+          settings: { scripts: 'sandboxed' },
+        },
+      ),
       {
         beforeOutput: async (tab) => {
           decoded = await tab.evaluate(() => {

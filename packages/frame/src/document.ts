@@ -2,10 +2,11 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { Page, type PageInput, type PageWidths, Print, type PrintInput, type SlotsOptions } from '@segnavia/format'
+import { Document, Page, type PageWidths, Print, type PrintInput, pageOrPrintedFromDocument, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -13,6 +14,7 @@ import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
+import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 
@@ -26,6 +28,7 @@ export class SegnaviaDocument extends HTMLElement {
   private extraCsp = ''
   declare dependencyOrigins: Iterable<string>
   private sourceValues: Page[] = []
+  private sourceDocuments: Document[] = []
   private pageValues: HtmlPage[] = []
   private printValue: Print | null = null
   private observer: IntersectionObserver | null = null
@@ -115,16 +118,17 @@ export class SegnaviaDocument extends HTMLElement {
     this.paint()
   }
 
-  get pages(): Page[] {
-    return this.sourceValues
+  get pages(): Document[] {
+    return this.sourceDocuments
   }
 
   get currentPageIndex(): number {
     return this.currentPage
   }
 
-  set pages(value: PageInput[] | undefined) {
-    this.sourceValues = (value ?? []).map((page) => Page.parse(page))
+  set pages(value: PageOrPrintedInput[] | undefined) {
+    this.sourceDocuments = (value ?? []).map((input) => Document.parse(input))
+    this.sourceValues = this.sourceDocuments.map(pageOrPrintedFromDocument)
     this.pageValues = this.sourceValues.map(resolvePageHtml)
     this.paint()
     this.changed()
@@ -154,16 +158,32 @@ export class SegnaviaDocument extends HTMLElement {
     this.observer = null
   }
 
-  load(pageInputs: PageInput[], printInput: PrintInput): void {
-    const sources = pageInputs.map((page) => Page.parse(page))
+  load(pageInputs: PageOrPrintedInput[], printInput: PrintInput): void {
+    const documents = pageInputs.map((input) => Document.parse(input))
+    const sources = documents.map(pageOrPrintedFromDocument)
     const pages = sources.map(resolvePageHtml)
     const print = Print.parse(printInput)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     this.sourceValues = sources
+    this.sourceDocuments = documents
     this.pageValues = pages
     this.printValue = print
     this.paint()
     this.changed()
+  }
+
+  [internalDocumentPagesLoad](sources: Page[], print?: Print): void {
+    if (sources.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
+    this.sourceValues = sources
+    this.sourceDocuments = []
+    this.pageValues = sources.map(resolvePageHtml)
+    if (print) this.printValue = print
+    this.paint()
+    this.changed()
+  }
+
+  [internalDocumentPagesRead](): Page[] {
+    return this.sourceValues
   }
 
   /** Installs the optional authoring rail without making it part of the viewer entry. */
@@ -290,7 +310,9 @@ export class SegnaviaDocument extends HTMLElement {
     page.dependencyOrigins = this.dependencyOrigins
     page.part.add('page')
     sheet.append(page)
-    page.load({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? source.html })
+    page[internalPageLoad](
+      Page.parse({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? source.html }),
+    )
   }
 
   private onMessage = (event: MessageEvent) => {

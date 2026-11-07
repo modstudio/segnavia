@@ -14,9 +14,18 @@ export async function verifySlots(h: Harness) {
     const probe = document.createElement('segnavia-page') as HTMLElement & { page: unknown }
     probe.id = 'authored-overflow-marker'
     probe.page = {
+      type: 'document',
+      kind: 'page',
       size: { width: 100, height: 100 },
-      scripts: 'refuse',
-      html: '<div data-slot-overflow="x:shrink:-1e308" style="width:1px;height:1px;overflow:hidden"><span style="display:block;width:100px;height:100px"></span></div>',
+      settings: { scripts: 'refuse' },
+      children: [
+        {
+          type: 'page',
+          body: {
+            html: '<div data-slot-overflow="x:shrink:-1e308" style="width:1px;height:1px;overflow:hidden"><span style="display:block;width:100px;height:100px"></span></div>',
+          },
+        },
+      ],
     }
     window.addEventListener('message', (event) => {
       const frame = probe.querySelector('iframe')

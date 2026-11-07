@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput } from '@segnavia/format'
+import { Book } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 
 const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })
 const sectionOpen = (html: string, id: string) => html.match(new RegExp(`<section[^>]*id="${id}"(?:\\s[^>]*)?>`))?.[0] ?? ''
-const input = (overrides: Partial<BookInput> = {}): BookInput => ({
+const input = (overrides: Record<string, unknown> = {}) => ({
   title: 'Book',
   mode: 'continuous',
   chapters: [chapter('One'), chapter('Two')],

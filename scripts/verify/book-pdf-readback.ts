@@ -1,4 +1,4 @@
-import type { BookInput } from '@segnavia/format'
+import type { Book } from '@segnavia/format'
 import { PDFArray, PDFDict, type PDFDocument, PDFHexString, PDFName, PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -67,7 +67,7 @@ export function pdfOutlineItems(document: PDFDocument): OutlineItem[] {
   return output
 }
 
-export function verifyPdfStructure(document: PDFDocument, book: BookInput, expected: ExpectedOutlineItem[], label: string, check: Check): void {
+export function verifyPdfStructure(document: PDFDocument, book: Book, expected: ExpectedOutlineItem[], label: string, check: Check): void {
   const lang = textValue(resolve(document, document.catalog.get(PDFName.of('Lang'))))
   const metadata = resolve(document, document.catalog.get(PDFName.of('Metadata')))
   const xmp = metadata instanceof PDFRawStream ? new TextDecoder().decode(metadata.getContents()) : ''

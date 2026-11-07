@@ -64,13 +64,16 @@ export async function checkPanKeepsFrames(h: Harness) {
 
 export async function checkBoardUpdateKeepsFrames(h: Harness) {
   const result = await h.page.locator('segnavia-board').evaluate((element) => {
-    const board = element as HTMLElement & {
-      board: { direction: 'ltr' | 'rtl'; items: BoardItem[]; labels: unknown[]; sections: unknown[] }
+    const board = element as HTMLElement
+    const state = window as typeof window & {
+      boardValue(target: Element): { direction: 'ltr' | 'rtl'; items: BoardItem[]; labels: unknown[]; sections: unknown[] }
+      setBoardValue(target: Element, value: unknown): void
     }
     const frames = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
       thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
     )
-    board.board = { ...board.board, items: board.board.items.map((item) => ({ ...item, x: item.x + 12 })) }
+    const value = state.boardValue(board)
+    state.setBoardValue(board, { ...value, items: value.items.map((item) => ({ ...item, x: item.x + 12 })) })
     const current = [...(board.shadowRoot?.querySelectorAll('segnavia-thumbnail') ?? [])].flatMap((thumbnail) =>
       thumbnail.shadowRoot?.querySelector('iframe') ? [thumbnail.shadowRoot.querySelector('iframe') as HTMLIFrameElement] : [],
     )

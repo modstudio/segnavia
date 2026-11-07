@@ -1,4 +1,4 @@
-import { Deck } from '@segnavia/format'
+import { Deck, Document, deckFromDocument } from '@segnavia/format'
 
 const registryKey = Symbol.for('@segnavia/frame/deck-load-origin-registry')
 export const internalDeckLoad = Symbol.for('@segnavia/frame/internal-deck-load-method')
@@ -30,7 +30,7 @@ export function preserveNotesForLoad(load: Promise<void>, slideId: string) {
 }
 
 export function parseDeckLoad(input: unknown, load?: Promise<void>, internal = false): Deck {
-  const deck = Deck.parse(input)
+  const deck = internal ? Deck.parse(input) : deckFromDocument(Document.parse(input))
   const origins = registry()
   if (internal) origins.internalDecks.add(deck)
   const preserved = load && origins.preservedByLoad.get(load)

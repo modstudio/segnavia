@@ -19,8 +19,8 @@ describe('slide id navigation', () => {
   test('navigates with the same events as go', async () => {
     const byId = new DeckController({ hash: null, persist: false })
     const byIndex = new DeckController({ hash: null, persist: false })
-    await byId.load(deck(['a', 'b', 'c']))
-    await byIndex.load(deck(['a', 'b', 'c']))
+    await byId.loadDeckValue(deck(['a', 'b', 'c']))
+    await byIndex.loadDeckValue(deck(['a', 'b', 'c']))
     const idEvents: string[] = []
     const indexEvents: string[] = []
     for (const type of ['change', 'slide']) {
@@ -37,7 +37,7 @@ describe('slide id navigation', () => {
 
   test('does nothing for an unknown id', async () => {
     const controller = new DeckController({ hash: null, persist: false })
-    await controller.load(deck(['a', 'b']))
+    await controller.loadDeckValue(deck(['a', 'b']))
     const events: string[] = []
     for (const type of ['change', 'slide']) controller.addEventListener(type, () => events.push(type))
 
@@ -64,7 +64,7 @@ describe('slide id navigation', () => {
         return pending.promise
       },
     })
-    await controller.load(deck(['a', 'b', 'c']))
+    await controller.loadDeckValue(deck(['a', 'b', 'c']))
 
     const target = controller.goToSlide('b')
     await resolving.promise
@@ -77,11 +77,11 @@ describe('slide id navigation', () => {
 
   test('uses the id position from a newly loaded deck', async () => {
     const controller = new DeckController({ hash: null, persist: false })
-    await controller.load(deck(['a', 'b', 'c']))
+    await controller.loadDeckValue(deck(['a', 'b', 'c']))
     expect(await controller.goToSlide('b')).toBe(true)
     expect(controller.state.index).toBe(1)
 
-    await controller.load(deck(['c', 'a', 'b']))
+    await controller.loadDeckValue(deck(['c', 'a', 'b']))
     expect(await controller.goToSlide('b')).toBe(true)
 
     expect(controller.state.index).toBe(2)
@@ -89,11 +89,11 @@ describe('slide id navigation', () => {
 
   test('drops navigation when the deck changes while its guard is pending', async () => {
     const controller = new DeckController({ hash: null, persist: false })
-    await controller.load(deck(['a', 'b', 'c']))
+    await controller.loadDeckValue(deck(['a', 'b', 'c']))
     const pending = Promise.withResolvers<void>()
     controller.addNavigationGuard(() => pending.promise)
 
-    const loading = controller.load(deck(['x', 'y', 'z']))
+    const loading = controller.loadDeckValue(deck(['x', 'y', 'z']))
     const navigating = controller.goToSlide('c')
     pending.resolve()
     await Promise.all([loading, navigating])
@@ -105,7 +105,7 @@ describe('slide id navigation', () => {
 
 test('a refused hash change restores the current slide without navigating', async () => {
   const controller = new DeckController({ hash: null, persist: false })
-  await controller.load(deck(['a', 'b']))
+  await controller.loadDeckValue(deck(['a', 'b']))
   let restores = 0
   syncControllerHash(controller, 1, false, () => restores++)
   expect(controller.state.index).toBe(0)
@@ -115,34 +115,34 @@ test('a refused hash change restores the current slide without navigating', asyn
 describe('controller reloads', () => {
   test('keeps the selected slide by id when it moves', async () => {
     const controller = new DeckController({ hash: null })
-    await controller.load(deck(['a', 'b', 'c']))
+    await controller.loadDeckValue(deck(['a', 'b', 'c']))
     await controller.go(2)
-    await controller.load(deck(['c', 'a', 'b']))
+    await controller.loadDeckValue(deck(['c', 'a', 'b']))
     expect(controller.state.index).toBe(0)
     expect(controller.state.slide?.id).toBe('c')
   })
 
   test('keeps the old position, clamped to the new last slide, when the selected id is removed', async () => {
     const controller = new DeckController({ hash: null })
-    await controller.load(deck(['a', 'b', 'c']))
+    await controller.loadDeckValue(deck(['a', 'b', 'c']))
     await controller.go(2)
-    await controller.load(deck(['a', 'b']))
+    await controller.loadDeckValue(deck(['a', 'b']))
     expect(controller.state.index).toBe(1)
     expect(controller.state.slide?.id).toBe('b')
   })
 
   test("lands on the slide that takes a removed middle slide's position", async () => {
     const controller = new DeckController({ hash: null })
-    await controller.load(deck(['a', 'b', 'c', 'd']))
+    await controller.loadDeckValue(deck(['a', 'b', 'c', 'd']))
     await controller.go(1)
-    await controller.load(deck(['a', 'c', 'd']))
+    await controller.loadDeckValue(deck(['a', 'c', 'd']))
     expect(controller.state.index).toBe(1)
     expect(controller.state.slide?.id).toBe('c')
   })
 
   test('contentFor resolves a neighbor without navigating', async () => {
     const controller = new DeckController({ hash: null })
-    await controller.load(deck(['a', 'b']))
+    await controller.loadDeckValue(deck(['a', 'b']))
     expect(await controller.contentFor(1)).toEqual({ kind: 'html', html: '<p>b</p>' })
     expect(controller.state.index).toBe(0)
   })
@@ -151,7 +151,7 @@ describe('controller reloads', () => {
 describe('page keys', () => {
   test('space is not a deck key and ends stay bounded', async () => {
     const controller = new DeckController({ hash: null, keys: 'page' })
-    await controller.load(deck(['a', 'b']))
+    await controller.loadDeckValue(deck(['a', 'b']))
     expect(controller.key(' ')).toBeNull()
     await controller.previous()
     expect(controller.state.index).toBe(0)

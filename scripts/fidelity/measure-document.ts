@@ -1,6 +1,6 @@
 import { unlink } from 'node:fs/promises'
 import path from 'node:path'
-import type { PageInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import type { Page as Tab } from 'playwright-core'
 import type { Profile, ProofTable } from '../../packages/render/src/color/index.ts'
@@ -81,7 +81,7 @@ export interface FinishDocumentInput {
   expectedMarker: number
   size: SizeMeasurement
   session: FidelitySession
-  page?: PageInput
+  page?: DocumentInput
   pressCss?: string
   pressFiles?: {
     pressPdf?: string
@@ -194,7 +194,7 @@ async function rasterizeGrayPress(
 }
 
 async function pressFromPage(
-  page: PageInput,
+  page: DocumentInput,
   directory: string,
   id: string,
   css: string,

@@ -5,6 +5,7 @@ import { createKindIcon } from './board-chrome.ts'
 import { type BoardListLabels, boardListLabels } from './board-list-labels.ts'
 import { BoardSearchPolicy } from './board-search.ts'
 import { BoardTargetBinding } from './board-target.ts'
+import { boardValue } from './board-value.ts'
 import { upgradeProperties } from './element-properties.ts'
 
 export type BoardItemSearch = (query: string, signal: AbortSignal) => Promise<string[]>
@@ -129,7 +130,7 @@ export class SegnaviaBoardList extends HTMLElement {
     try {
       const ids = await search(query, request.signal)
       if (!this.searchPolicy.accepts(request.version)) return
-      const known = new Set(this.targetBinding.current?.board?.items.map((item) => item.id) ?? [])
+      const known = new Set((this.targetBinding.current ? boardValue(this.targetBinding.current) : null)?.items.map((item) => item.id) ?? [])
       this.contentMatches = new Set(ids.filter((id) => known.has(id)))
       this.render()
     } catch (error) {
@@ -146,7 +147,7 @@ export class SegnaviaBoardList extends HTMLElement {
     this.input.setAttribute('aria-label', labels.search)
     this.input.placeholder = labels.searchPlaceholder
     const target = this.targetBinding.current
-    const board = target?.board
+    const board = target ? boardValue(target) : null
     this.dir = board?.direction ?? ''
     const focused = this.root.activeElement instanceof HTMLElement ? this.root.activeElement.dataset.boardItem : undefined
     if (!board || !target) {
@@ -211,8 +212,9 @@ export class SegnaviaBoardList extends HTMLElement {
     const button = event.composedPath().find((node): node is HTMLButtonElement => node instanceof HTMLButtonElement)
     const target = this.targetBinding.current
     if (!button || !target) return
-    const item = target.board?.items.find((entry) => entry.id === button.dataset.boardItem)
-    const section = target.board?.sections.find((entry) => entry.id === button.dataset.boardSection)
+    const board = boardValue(target)
+    const item = board?.items.find((entry) => entry.id === button.dataset.boardItem)
+    const section = board?.sections.find((entry) => entry.id === button.dataset.boardSection)
     if (item) {
       target.reveal(item.id)
       target.selection = [item.id]

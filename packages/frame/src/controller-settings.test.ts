@@ -17,26 +17,26 @@ const deck = (captions?: 'on' | 'off' | 'viewer') => ({
 describe('viewer settings', () => {
   test('caption policy forces on and off, while viewer mode is settable', async () => {
     const controller = new DeckController({ hash: null, persist: false })
-    await controller.load(deck('off'))
+    await controller.loadDeckValue(deck('off'))
     controller.setCaptionsVisible(true)
     expect(controller.state.captionsVisible).toBe(false)
-    await controller.load(deck('on'))
+    await controller.loadDeckValue(deck('on'))
     controller.setCaptionsVisible(false)
     expect(controller.state.captionsVisible).toBe(true)
-    await controller.load(deck('viewer'))
+    await controller.loadDeckValue(deck('viewer'))
     controller.setCaptionsVisible(false)
     expect(controller.state.captionsVisible).toBe(false)
   })
 
   test('the controller captions option overrides the deck policy', async () => {
     const forced = new DeckController({ hash: null, persist: false, captions: 'viewer' })
-    await forced.load(deck('off'))
+    await forced.loadDeckValue(deck('off'))
     expect(forced.state.captionsVisible).toBe(true)
     forced.setCaptionsVisible(false)
     expect(forced.state.captionsVisible).toBe(false)
 
     const locked = new DeckController({ hash: null, persist: false, captions: 'on' })
-    await locked.load(deck('viewer'))
+    await locked.loadDeckValue(deck('viewer'))
     locked.setCaptionsVisible(false)
     expect(locked.state.captionsVisible).toBe(true)
   })
@@ -44,7 +44,7 @@ describe('viewer settings', () => {
   test('player options apply before and after a deck loads', async () => {
     const controller = new DeckController({ hash: null, persist: false })
     controller.setPlayerOptions({ playback: 'continuous', captions: 'off', seek: 'furthest' })
-    await controller.load({ ...deck('viewer'), playback: 'segmented' })
+    await controller.loadDeckValue({ ...deck('viewer'), playback: 'segmented' })
     expect(controller.state.playback).toBe('continuous')
     expect(controller.state.captionsVisible).toBe(false)
     expect(controller.state.seek).toBe('furthest')
@@ -67,11 +67,11 @@ describe('viewer settings', () => {
       },
     })
     const first = new DeckController({ hash: null })
-    await first.load(deck('viewer'))
+    await first.loadDeckValue(deck('viewer'))
     first.setMuted(true)
     first.setCaptionsVisible(false)
     const second = new DeckController({ hash: null })
-    await second.load(deck('viewer'))
+    await second.loadDeckValue(deck('viewer'))
     expect(second.state.muted).toBe(true)
     expect(second.state.captionsVisible).toBe(false)
   })
@@ -89,7 +89,7 @@ describe('viewer settings', () => {
       },
     })
     const controller = new DeckController({ hash: null })
-    await controller.load(deck('viewer'))
+    await controller.loadDeckValue(deck('viewer'))
     expect(controller.state.muted).toBe(false)
     expect(controller.state.captionsVisible).toBe(true)
     expect(() => controller.setMuted(true)).not.toThrow()

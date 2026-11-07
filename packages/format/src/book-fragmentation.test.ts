@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput } from './index.ts'
+import { Book } from './index.ts'
 
-const input = (overrides: Partial<BookInput> = {}): BookInput => ({
+const input = (overrides: Record<string, unknown> = {}) => ({
   title: 'Book',
   mode: 'continuous',
   chapters: [{ title: 'Chapter', html: '<p>Text</p>' }],

@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { bookDocument } from '@segnavia/frame/book-document'
+import { bookValueDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { importIdml } from '@segnavia/idml'
 
@@ -95,5 +95,5 @@ export async function buildIdmlTableDemo(site: string): Promise<void> {
     { name: 'Stories/Story.xml', content: story },
   ])
   const { book } = await importIdml(bytes)
-  writeFileSync(path.join(site, 'book-idml-table.html'), bookDocument(book, { nonce: newNonce(), css: ':where(table){font:12px/1.2 sans-serif}' }))
+  writeFileSync(path.join(site, 'book-idml-table.html'), bookValueDocument(book, { nonce: newNonce(), css: ':where(table){font:12px/1.2 sans-serif}' }))
 }

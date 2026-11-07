@@ -1,24 +1,51 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { PageInput, PrintInput } from '@segnavia/format'
+import type { DocumentInput, PrintInput } from '@segnavia/format'
 
 export const brochurePrint: PrintInput = { paper: 'a4', orientation: 'portrait' }
 export const businessCardPrint: PrintInput = { paper: 'business-card-us', orientation: 'landscape' }
 
-export const brochurePages: PageInput[] = [
+export const brochurePages: DocumentInput[] = [
   {
-    id: 'cover',
-    html: '<!doctype html><html style="background:#17324d"><body style="margin:0;height:100vh;display:grid;place-items:center;color:#fff;font:32px Georgia,serif;text-align:center"><main><p style="letter-spacing:.2em;text-transform:uppercase">Segnavia</p><h1 style="font-size:72px;margin:.2em">Designed pages</h1><p>A two-page A4 brochure</p></main></body></html>',
+    type: 'document',
+    kind: 'page',
+    children: [
+      {
+        type: 'page',
+        id: 'cover',
+        body: {
+          html: '<!doctype html><html style="background:#17324d"><body style="margin:0;height:100vh;display:grid;place-items:center;color:#fff;font:32px Georgia,serif;text-align:center"><main><p style="letter-spacing:.2em;text-transform:uppercase">Segnavia</p><h1 style="font-size:72px;margin:.2em">Designed pages</h1><p>A two-page A4 brochure</p></main></body></html>',
+        },
+      },
+    ],
   },
   {
-    id: 'inside',
-    html: '<!doctype html><html style="background:#f5e9d5"><body style="margin:0;height:100vh;display:grid;grid-template-columns:1fr 1fr;color:#17324d;font:28px Georgia,serif"><section style="padding:72px"><h2>One paper size</h2><p>Every page keeps its own design while the document keeps its order.</p></section><section style="padding:72px;background:#d27550;color:#fff"><h2>Ready to print</h2><p>The same pages can go through the browser print path.</p></section></body></html>',
+    type: 'document',
+    kind: 'page',
+    children: [
+      {
+        type: 'page',
+        id: 'inside',
+        body: {
+          html: '<!doctype html><html style="background:#f5e9d5"><body style="margin:0;height:100vh;display:grid;grid-template-columns:1fr 1fr;color:#17324d;font:28px Georgia,serif"><section style="padding:72px"><h2>One paper size</h2><p>Every page keeps its own design while the document keeps its order.</p></section><section style="padding:72px;background:#d27550;color:#fff"><h2>Ready to print</h2><p>The same pages can go through the browser print path.</p></section></body></html>',
+        },
+      },
+    ],
   },
 ]
 
-export const businessCardPages: PageInput[] = [
+export const businessCardPages: DocumentInput[] = [
   {
-    html: '<!doctype html><html style="background:#fff"><body style="box-sizing:border-box;margin:0;height:100vh;padding:18px;border:8px solid #17324d;display:flex;justify-content:space-between;align-items:end;color:#17324d;font:14px system-ui"><strong style="font-size:22px">Segnavia</strong><span>Designed pages</span></body></html>',
+    type: 'document',
+    kind: 'page',
+    children: [
+      {
+        type: 'page',
+        body: {
+          html: '<!doctype html><html style="background:#fff"><body style="box-sizing:border-box;margin:0;height:100vh;padding:18px;border:8px solid #17324d;display:flex;justify-content:space-between;align-items:end;color:#17324d;font:14px system-ui"><strong style="font-size:22px">Segnavia</strong><span>Designed pages</span></body></html>',
+        },
+      },
+    ],
   },
 ]
 

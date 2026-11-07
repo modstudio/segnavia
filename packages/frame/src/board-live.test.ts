@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { Deck, Page } from '@segnavia/format'
 
 test('passes board motif and placement sources to a live book before its view', async () => {
   const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
@@ -58,6 +59,25 @@ test('passes board motif and placement sources to a live book before its view', 
     const expanded = await expandFrameBookView(book.view, book.motifs, new AbortController().signal, book.placements)
     expect(expanded.book.pagination?.parents[0]?.foot).toContain('data-board-book-motif')
     expect(expanded.book.pagination?.parents[0]?.foot).toContain(`src="${src}"`)
+  } finally {
+    if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
+    else Reflect.deleteProperty(globalThis, 'HTMLElement')
+  }
+})
+
+test('routes deck, page and paper values through their internal load seams', async () => {
+  const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class extends EventTarget {} })
+  try {
+    const { loadLiveDeck, loadLivePage, loadLivePaper } = await import('./board-live.ts')
+    const { internalPageLoad, internalPaperPagesLoad, internalThumbnailDeckLoad } = await import('./document-value-load.ts')
+    const deck = Deck.parse({ title: 'Deck', slides: [{ id: 'one', content: { kind: 'html', html: '' } }] })
+    const page = Page.parse({ html: '<p>Page</p>', size: { width: 320, height: 200 } })
+    const received: unknown[] = []
+    loadLiveDeck({ [internalThumbnailDeckLoad]: (value: unknown) => received.push(value) } as never, deck)
+    loadLivePage({ [internalPageLoad]: (value: unknown) => received.push(value) } as never, page)
+    loadLivePaper({ [internalPaperPagesLoad]: (values: unknown) => received.push(values) } as never, [page], {} as never)
+    expect(received).toEqual([deck, Page.parse({ ...page, scripts: 'refuse' }), [Page.parse({ ...page, scripts: 'refuse' })]])
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

@@ -31,7 +31,7 @@ test('pause cancels the pending playback tick', async () => {
       }
     },
   })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       {
@@ -69,7 +69,7 @@ test('pause from a change listener ends the playback tick', async () => {
       }
     },
   })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       {
@@ -114,7 +114,7 @@ test('an invalidated ended tick does not advance the deck', async () => {
       }
     },
   })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: ['a', 'b'].map((id) => ({
       id,
@@ -158,7 +158,7 @@ test('a tick invoked after pause emits no change and does not reschedule', async
       }
     },
   })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       {
@@ -211,7 +211,7 @@ test('play restarts an ended deck in either playback mode', async () => {
     })
     let ends = 0
     controller.addEventListener('end', () => ends++)
-    await controller.load({
+    await controller.loadDeckValue({
       title: 'T',
       slides: [
         {
@@ -266,7 +266,7 @@ test('play restarts from an untimed last slide without ending again', async () =
   })
   let ends = 0
   controller.addEventListener('end', () => ends++)
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       {
@@ -304,7 +304,7 @@ test('seeking a paused controller into recorded narration stays silent', async (
   }
   Object.defineProperty(globalThis, 'Audio', { configurable: true, value: FakeAudio })
   const controller = new DeckController({ hash: null, base: 'https://example.com/deck.json' })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       { id: 'a', content: { kind: 'html', html: '' }, holdMs: 100 },
@@ -351,7 +351,7 @@ test('a playing hold shot keeps all annotations shown', async () => {
     capturedAt: 'now',
     annotations: [{ ring: null, badge: null, arrow: null }],
   })
-  await controller.load({ title: 'T', slides: [{ id: 'a', content: { kind: 'shot', src: 'shot.png', shot }, holdMs: 1000 }] })
+  await controller.loadDeckValue({ title: 'T', slides: [{ id: 'a', content: { kind: 'shot', src: 'shot.png', shot }, holdMs: 1000 }] })
   await controller.play()
   const tick = pending as (() => void) | null
   pending = null

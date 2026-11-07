@@ -1,4 +1,5 @@
 import { type Renderer, RendererUnavailableError, RenderRefusedError } from '@segnavia/render'
+import { screenPage } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -20,11 +21,14 @@ export async function verifyRenderContainment(renderer: Renderer, check: Check, 
   const [heapResult, ordinaryPdf] = await Promise.all([
     refusal(
       renderer.pagePdf(
-        { html: '<script>const chunks = []; for (;;) chunks.push(new Array(1e5).fill(0))</script>', scripts: 'sandboxed', size: { width: 400, height: 200 } },
+        screenPage(
+          { html: '<script>const chunks = []; for (;;) chunks.push(new Array(1e5).fill(0))</script>' },
+          { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } },
+        ),
         { waitForPageReady: false },
       ),
     ),
-    renderer.pagePdf({ html: '<p>ordinary</p>', size: { width: 400, height: 200 } }),
+    renderer.pagePdf(screenPage({ html: '<p>ordinary</p>' }, { size: { width: 400, height: 200 } })),
   ])
   check(
     'a page that exhausts the heap is refused while a concurrent page prints',
@@ -33,14 +37,11 @@ export async function verifyRenderContainment(renderer: Renderer, check: Check, 
   )
   const crashStarted = performance.now()
   const crashed = await unavailable(
-    renderer.pagePdf(
-      { html: '<p>crash</p>', size: { width: 400, height: 200 } },
-      {
-        beforeOutput: async (tab) => {
-          await (await tab.context().newCDPSession(tab)).send('Browser.crash')
-        },
+    renderer.pagePdf(screenPage({ html: '<p>crash</p>' }, { size: { width: 400, height: 200 } }), {
+      beforeOutput: async (tab) => {
+        await (await tab.context().newCDPSession(tab)).send('Browser.crash')
       },
-    ),
+    }),
   )
   const crashElapsedMs = Math.round(performance.now() - crashStarted)
   check(
@@ -48,9 +49,9 @@ export async function verifyRenderContainment(renderer: Renderer, check: Check, 
     crashed.startsWith('unavailable:') && crashElapsedMs <= 5000,
     `${crashed}; elapsed=${crashElapsedMs}ms`,
   )
-  const afterCrash = await renderer.pagePdf({ html: '<p>after crash</p>', size: { width: 400, height: 200 } })
+  const afterCrash = await renderer.pagePdf(screenPage({ html: '<p>after crash</p>' }, { size: { width: 400, height: 200 } }))
   check('the next render after a browser exit returns a PDF', pdfMagic(afterCrash), `bytes=${afterCrash.length}`)
   await renderer.close()
-  const afterClose = await unavailable(renderer.pagePdf({ html: '<p>closed</p>', size: { width: 400, height: 200 } }))
+  const afterClose = await unavailable(renderer.pagePdf(screenPage({ html: '<p>closed</p>' }, { size: { width: 400, height: 200 } })))
   check('a render after close is refused as unavailable', afterClose.startsWith('unavailable:'), afterClose)
 }

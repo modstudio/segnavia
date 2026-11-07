@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, PX_PER_PT } from '@segnavia/format'
+import { Book, PX_PER_PT } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 import { templateRegionElements } from './book-held.ts'
 import { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength, templateRegionFitIssues } from './region-fit.ts'
 
 const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })
-const input = (overrides: Partial<BookInput> = {}): BookInput => ({
+const input = (overrides: Record<string, unknown> = {}) => ({
   title: 'Book',
   mode: 'paginated',
   page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },

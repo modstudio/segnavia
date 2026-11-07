@@ -1,3 +1,4 @@
+import type { DocumentInput } from '@segnavia/format'
 import type { SegnaviaPaper } from '@segnavia/frame'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import { Page, Document as PageDocument, Paper, PaperPicker, Player, Thumbnail, useAuthoring, useDeckController } from '@segnavia/react'
@@ -31,8 +32,11 @@ function Authoring({ player, configured }: { player: SegnaviaPlayer | null; conf
   return null
 }
 
-const wrapperPage = {
-  html: '<html style="background:#def"><body><p>React page</p></body></html>',
+const wrapperHtml = '<html style="background:#def"><body><p>React page</p></body></html>'
+const wrapperPage: DocumentInput = {
+  type: 'document',
+  kind: 'page',
+  children: [{ type: 'page', body: { html: wrapperHtml } }],
 }
 const wrapperPrint = {
   paper: 'business-card-square-us' as const,
@@ -60,11 +64,15 @@ function PageWrappers() {
     objects === 1
       ? undefined
       : {
-          ...wrapperPage,
-          html: `${wrapperPage.html}<!-- ${objects} -->`,
+          type: 'document' as const,
+          kind: 'page' as const,
           size: { width: 240, height: 240 } as const,
+          children: [{ type: 'page' as const, body: { html: `${wrapperHtml}<!-- ${objects} -->` } }],
         }
-  const pages = objects === 1 ? undefined : [{ ...wrapperPage, html: `${wrapperPage.html}<!-- ${objects} -->` }]
+  const pages =
+    objects === 1
+      ? undefined
+      : [{ type: 'document' as const, kind: 'page' as const, children: [{ type: 'page' as const, body: { html: `${wrapperHtml}<!-- ${objects} -->` } }] }]
   const print = objects === 1 ? undefined : { ...wrapperPrint }
   return createElement(
     Fragment,

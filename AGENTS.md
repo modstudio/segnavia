@@ -66,8 +66,8 @@ another tool's API.
 - Policy is a pure function over plain values. An adapter gathers facts and
   applies the decision. The timeline, geometry, bindings, sanitizer, limits
   and paper maths are pure, and their tests sit beside them.
-- Validate once, at the edge: `Deck.parse` and `Page.parse` where input
-  arrives, typed values inside.
+- Validate once, at the edge: `Document.parse` where input arrives, typed
+  values inside.
 - A refusal names what it could not establish and what clears it.
 - Biome owns formatting and lint (`biome.json`). Configure a rule there;
   never suppress it inline. Cognitive complexity is capped there too.

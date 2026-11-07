@@ -1,13 +1,29 @@
-import type { PageWidths } from '@segnavia/format'
+import { Imposition, Page, type PageWidths } from '@segnavia/format'
 import type { CheckedResolvedBoardItem, AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
 import { coverImage } from './cover-element.ts'
+import { internalPageLoad, internalPaperPagesLoad, internalThumbnailDeckLoad } from './document-value-load.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { MountedElement } from './mounted-element.ts'
 import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
+
+export function loadLiveDeck(thumbnail: SegnaviaThumbnail, deck: Parameters<SegnaviaThumbnail[typeof internalThumbnailDeckLoad]>[0]): void {
+  thumbnail[internalThumbnailDeckLoad](deck)
+}
+
+export function loadLivePage(page: ReturnType<typeof createPageElement>, value: Page): void {
+  page[internalPageLoad](Page.parse({ ...value, scripts: 'refuse' }))
+}
+
+export function loadLivePaper(paper: SegnaviaPaper, pages: Page[], imposition: Parameters<SegnaviaPaper[typeof internalPaperPagesLoad]>[1]): void {
+  paper[internalPaperPagesLoad](
+    pages.map((page) => Page.parse({ ...page, scripts: 'refuse' })),
+    imposition,
+  )
+}
 
 export function boardImage(src: string): HTMLImageElement {
   return coverImage(src).element as HTMLImageElement
@@ -55,7 +71,7 @@ export function liveBoardItem(
     thumbnail.pageWidths = pageWidths
     thumbnail.base = resolved.base
     thumbnail.index = 0
-    thumbnail.deck = resolved.deck
+    loadLiveDeck(thumbnail, resolved.deck)
     return { element: thumbnail, dispose: () => thumbnail.removeEventListener('segnavia-thumbnail-error', onError) }
   }
   if (resolved.kind === 'page') {
@@ -65,7 +81,7 @@ export function liveBoardItem(
     page.fonts = fonts
     page.placements = placements
     page.pageWidths = pageWidths
-    page.load({ ...resolved.page, scripts: 'refuse' })
+    loadLivePage(page, resolved.page)
     return { element: page, dispose }
   }
   if (resolved.kind === 'paper') {
@@ -75,10 +91,7 @@ export function liveBoardItem(
     paper.fonts = fonts
     paper.placements = placements
     paper.pageWidths = pageWidths
-    paper.load(
-      resolved.pages.map((page) => ({ ...page, scripts: 'refuse' })),
-      resolved.imposition,
-    )
+    loadLivePaper(paper, resolved.pages, Imposition.parse(resolved.imposition))
     return { element: paper, dispose }
   }
   const book = new SegnaviaBook()

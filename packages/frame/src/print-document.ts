@@ -4,14 +4,16 @@
 
 import {
   type Deck,
+  type DocumentInput,
+  Document as DocumentSchema,
+  deckFromDocument,
   fitPage,
   type Imposed,
   Imposition,
   type ImpositionInput,
   impose,
   type Limits,
-  Page,
-  type PageInput,
+  type Page,
   PageWidths,
   type PrintInput,
   pagePlacementLayout,
@@ -27,6 +29,7 @@ import { withDiagramScript } from './diagram-document.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
+import { type PageOrPrintedInput, pageOrPrintedFromInput } from './printed-page-document.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
@@ -196,10 +199,14 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   }
 }
 
-export function printableDeck(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
+export function printableDeck(input: DocumentInput, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
+  return printableDeckValue(deckFromDocument(DocumentSchema.parse(input)), options)
+}
+
+export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
   const { width, height } = deck.size
   if (options.imposition) {
-    return printableDeckDocument(deck, { ...options, imposition: options.imposition }).html
+    return printableDeckValueDocument(deck, { ...options, imposition: options.imposition }).html
   }
   if ((options.layout ?? 'slides') === 'slides') {
     const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
@@ -272,7 +279,11 @@ export interface PrintableDeckDocument {
   imposed: Imposed
 }
 
-export function printableDeckDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
+export function printableDeckDocument(input: DocumentInput, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
+  return printableDeckValueDocument(deckFromDocument(DocumentSchema.parse(input)), options)
+}
+
+export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
   if (options.layout === 'notes') {
     throw new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
@@ -346,8 +357,20 @@ export function printablePaper(
 // This frame-based document is for a browser to show and print. The frame
 // bridge carries propagated root backgrounds onto a printable element; the
 // server renderer still uses top-level page renders for PDF composition.
-export function printablePagesDocument(inputs: PageInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
-  const pages = inputs.map((page) => resolvePageHtml(Page.parse(page)))
+export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+  const pages = inputs.map((page) => resolvePageHtml(pageOrPrintedFromInput(page)))
+  return printableHtmlPagesDocument(pages, imposition, options)
+}
+
+export function printablePageValuesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+  return printableHtmlPagesDocument(
+    pages.map((page) => resolvePageHtml(page)),
+    imposition,
+    options,
+  )
+}
+
+export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
   const imposed = impose(imposition, pages.length)
@@ -358,6 +381,10 @@ export function printablePagesDocument(inputs: PageInput[], imposition: Impositi
   return { html, imposed }
 }
 
-export function printablePages(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
-  return printablePagesDocument(pages, imposition, options).html
+export function printablePages(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
+  return printablePagesDocument(inputs, imposition, options).html
+}
+
+export function printablePageValues(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
+  return printablePageValuesDocument(pages, imposition, options).html
 }

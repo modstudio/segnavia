@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Deck, Imposition, Page } from '@segnavia/format'
-import { printableDeck, printablePages } from './print-document.ts'
+import { printableDeckValue, printablePageValues } from './print-document.ts'
 
 const grid = Imposition.parse({
   paper: { width: 26, height: 26, unit: 'mm' },
@@ -15,8 +15,8 @@ const grid = Imposition.parse({
 
 describe('print frame sandbox', () => {
   test('applies each page script mode and its complete policy', () => {
-    const refused = printablePages([Page.parse({ html: '<p>page</p>' })], grid, { nonce: 'known' })
-    const sandboxed = printablePages([Page.parse({ html: '<script>1</script>', scripts: 'sandboxed' })], grid, {
+    const refused = printablePageValues([Page.parse({ html: '<p>page</p>' })], grid, { nonce: 'known' })
+    const sandboxed = printablePageValues([Page.parse({ html: '<script>1</script>', scripts: 'sandboxed' })], grid, {
       nonce: 'known',
       dependencyOrigins: ['https://cdn.jsdelivr.net'],
     })
@@ -37,7 +37,7 @@ describe('print frame sandbox', () => {
       scripts: 'sandboxed',
       slides: [{ id: 'hosted', content: { kind: 'url', src: 'https://example.test/slide' } }],
     })
-    expect(printableDeck(deck)).toContain('sandbox="allow-scripts"')
-    expect(printableDeck(deck)).not.toContain('allow-forms')
+    expect(printableDeckValue(deck)).toContain('sandbox="allow-scripts"')
+    expect(printableDeckValue(deck)).not.toContain('allow-forms')
   })
 })

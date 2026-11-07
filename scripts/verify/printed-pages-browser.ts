@@ -28,6 +28,33 @@ const furnitureWord = (word: string) => ['LETTERHEAD', 'Page', 'of', 'כותרת
 const closeWord = (left: PdfWord, right: PdfWord) => left.text === right.text && Math.abs(left.x - right.x) <= 0.5 && Math.abs(left.y - right.y) <= 0.5
 const LETTER_IMPOSITION = { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } }
 
+interface LegacyPrintedPage {
+  [key: string]: unknown
+  html: string
+  lang?: string
+  dir?: string
+  scripts?: string
+  printedPages?: {
+    parents?: Array<{ name: string; margin: unknown }>
+    rules?: unknown
+    fragmentation?: unknown
+  }
+}
+
+function printedDocument(page: LegacyPrintedPage) {
+  const { html, lang, dir, scripts, printedPages, ...fields } = page
+  return {
+    type: 'document',
+    kind: 'printed',
+    ...fields,
+    settings: { lang, dir, scripts },
+    parentPages: (printedPages?.parents ?? []).map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
+    rules: printedPages?.rules,
+    fragmentation: printedPages?.fragmentation,
+    children: [{ type: 'page', body: { html } }],
+  }
+}
+
 async function printPagesInBrowser(input: {
   imposition: unknown
   motifs?: Array<{ key: string }>
@@ -53,14 +80,18 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
   const work = mkdtempSync(path.join(tmpdir(), 'segnavia-browser-pages-'))
   try {
     await page.goto(url)
-    const countPrintedPapers = (printedPage: unknown) =>
-      page.evaluate(printPagesInBrowser, { imposition: LETTER_IMPOSITION, output: 'count' as const, printedPage }) as Promise<number>
-    const fragmentationLinePages = async (printedPage: unknown): Promise<number[][]> => {
+    const countPrintedPapers = (printedPage: LegacyPrintedPage) =>
+      page.evaluate(printPagesInBrowser, {
+        imposition: LETTER_IMPOSITION,
+        output: 'count' as const,
+        printedPage: printedDocument(printedPage),
+      }) as Promise<number>
+    const fragmentationLinePages = async (printedPage: LegacyPrintedPage): Promise<number[][]> => {
       await page.goto(url)
       const html = await page.evaluate(printPagesInBrowser, {
         imposition: LETTER_IMPOSITION,
         output: 'html' as const,
-        printedPage,
+        printedPage: printedDocument(printedPage),
       })
       await page.setContent(html as string, { waitUntil: 'load' })
       const frames = page.frames().slice(1)
@@ -82,12 +113,12 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       }
       return linePages
     }
-    const fragmentationMarkerPages = async (printedPage: unknown): Promise<Record<string, number[]>> => {
+    const fragmentationMarkerPages = async (printedPage: LegacyPrintedPage): Promise<Record<string, number[]>> => {
       await page.goto(url)
       const html = await page.evaluate(printPagesInBrowser, {
         imposition: LETTER_IMPOSITION,
         output: 'html' as const,
-        printedPage,
+        printedPage: printedDocument(printedPage),
       })
       await page.setContent(html as string, { waitUntil: 'load' })
       const frames = page.frames().slice(1)
@@ -118,10 +149,13 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       rules: { every: 'body' },
     }
     const viewportFixture = {
-      html: '<div style="block-size:249.4mm"></div><div style="block-size:249.4mm"></div>',
-      lang: 'en',
+      type: 'document' as const,
+      kind: 'printed' as const,
+      settings: { lang: 'en' },
       print: { paper: 'letter' as const },
-      printedPages: parentPages,
+      parentPages: parentPages.parents.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
+      rules: parentPages.rules,
+      children: [{ type: 'page' as const, body: { html: '<div style="block-size:249.4mm"></div><div style="block-size:249.4mm"></div>' } }],
     }
     const viewportSource = printedPageDocument(viewportFixture, { nonce: 'viewport-independent-composition' })
     const composeAt = async (viewport: { width: number; height: number }) => {
@@ -235,13 +269,19 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
         printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void>
       }
       const printedPage = {
-        html: Array.from({ length: 501 }, () => '<div style="block-size:249.4mm"></div>').join(''),
-        lang: 'en',
+        type: 'document',
+        kind: 'printed',
+        settings: { lang: 'en' },
         print: { paper: 'letter' },
-        printedPages: {
-          parents: [{ name: 'body', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } }],
-          rules: { every: 'body' },
-        },
+        parentPages: [
+          {
+            type: 'parentPage',
+            name: 'body',
+            geometry: { margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } },
+          },
+        ],
+        rules: { every: 'body' },
+        children: [{ type: 'page', body: { html: Array.from({ length: 501 }, () => '<div style="block-size:249.4mm"></div>').join('') } }],
       }
       return new Promise<string | null>((resolve) => {
         const timer = window.setTimeout(() => finish(null), 10_000)

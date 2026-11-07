@@ -139,9 +139,11 @@ export async function verifyPlayerLayout(h: Harness) {
   await page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { load(deck: unknown): Promise<void> } }) => {
     player.setAttribute('rail', '')
     await player.controller.load({
+      type: 'document',
+      kind: 'deck',
       title: 'Portrait rail layout',
       size: { width: 480, height: 640 },
-      slides: [{ id: 'portrait', content: { kind: 'html', html: '<p>Portrait</p>' } }],
+      children: [{ type: 'slide', id: 'portrait', content: { kind: 'html', html: '<p>Portrait</p>' } }],
     })
   })
   await page.waitForTimeout(200)

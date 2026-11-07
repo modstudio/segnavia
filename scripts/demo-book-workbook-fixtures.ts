@@ -1,4 +1,4 @@
-import type { BookInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 
 export const workbookCss =
   ':where(.lesson){box-sizing:border-box;inline-size:100%;block-size:100%;padding-block:12px;padding-inline:12px;display:flex;flex-direction:column;gap:8px}:where(.lesson-heading){font-weight:700}:where(.lesson-reading){flex:none;block-size:3em;max-block-size:3em;overflow:visible}:where(.lesson-table table){inline-size:100%;border-collapse:collapse}:where(.lesson-table th,.lesson-table td){border:1px solid;padding:4px}:where(.copyright-page){box-sizing:border-box;inline-size:100%;block-size:100%;padding:24px}:where(.lesson-alt .lesson-table){order:-1}:where(.lesson-fit){flex:none;overflow:visible}:where(.lesson-fit p){margin:0;line-height:inherit}'
@@ -26,43 +26,61 @@ function lessonPage(hebrew: boolean, n: number, reading: string, template?: stri
   }
 }
 
-export function workbookFixture(hebrew: boolean): BookInput {
+export function workbookFixture(hebrew: boolean): DocumentInput {
   const lesson = hebrew ? 'שיעור' : 'Lesson'
   const reading = hebrew ? 'הטקסט לקריאה בשיעור.' : 'The reading text for this lesson.'
   const longReading = `${reading} `.repeat(8)
   const fitted = hebrew ? 'שָׁלוֹם' : 'Peace'
   return {
-    title: hebrew ? 'חוברת הקריאה' : 'The Reading Workbook',
+    type: 'document',
+    kind: 'book',
+    metadata: { title: hebrew ? 'חוברת הקריאה' : 'The Reading Workbook' },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     rectoOpenings: true,
-    slots: [{ key: 'school', label: hebrew ? 'בית ספר' : 'School', type: 'text', required: true }],
+    data: { slots: [{ key: 'school', label: hebrew ? 'בית ספר' : 'School', type: 'text', required: true }] },
     templates: [
-      { name: 'lesson', html: lessonHtml(false) },
-      { name: 'lesson-alt', html: lessonHtml(true) },
-      { name: 'lesson-fit', html: fitHtml },
+      { type: 'template', name: 'lesson', html: lessonHtml(false) },
+      { type: 'template', name: 'lesson-alt', html: lessonHtml(true) },
+      { type: 'template', name: 'lesson-fit', html: fitHtml },
     ],
-    frontMatter: [
+    children: [
       {
-        kind: 'designed',
-        title: hebrew ? 'זכויות יוצרים' : 'Copyright',
-        pages: [{ html: `<div class="copyright-page"><p>© <span data-slot-value="school">${hebrew ? 'בית ספר' : 'School'}</span></p></div>` }],
-      },
-      { kind: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
-    ],
-    chapters: [
-      {
-        kind: 'templated',
-        title: hebrew ? 'שיעורים' : 'Lessons',
-        template: 'lesson',
-        pages: [
-          lessonPage(hebrew, 1, reading),
-          lessonPage(hebrew, 2, longReading),
-          lessonPage(hebrew, 3, reading, 'lesson-alt'),
+        type: 'division',
+        name: 'front',
+        children: [
           {
-            template: 'lesson-fit',
-            regions: { heading: `<h1 id="lesson-4">${lesson} 4</h1>`, 'lesson-text': fitted },
+            type: 'section',
+            title: hebrew ? 'זכויות יוצרים' : 'Copyright',
+            children: [
+              {
+                type: 'page',
+                body: { html: `<div class="copyright-page"><p>© <span data-slot-value="school">${hebrew ? 'בית ספר' : 'School'}</span></p></div>` },
+              },
+            ],
+          },
+          { type: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+        ],
+      },
+      {
+        type: 'division',
+        name: 'body',
+        children: [
+          {
+            type: 'section',
+            title: hebrew ? 'שיעורים' : 'Lessons',
+            template: 'lesson',
+            children: [
+              { type: 'page', ...lessonPage(hebrew, 1, reading) },
+              { type: 'page', ...lessonPage(hebrew, 2, longReading) },
+              { type: 'page', ...lessonPage(hebrew, 3, reading, 'lesson-alt') },
+              {
+                type: 'page',
+                template: 'lesson-fit',
+                regions: { heading: `<h1 id="lesson-4">${lesson} 4</h1>`, 'lesson-text': fitted },
+              },
+            ],
           },
         ],
       },

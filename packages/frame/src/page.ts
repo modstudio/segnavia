@@ -4,10 +4,11 @@
 // own `bridgeForHost` reports height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
-import { FULL_PAGE_SIZE, Page, type PageInput, type PageWidths, printProperties, type SlotsOptions } from '@segnavia/format'
+import { Document, type DocumentInput, FULL_PAGE_SIZE, Page, type PageWidths, pageFromDocument, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
@@ -29,6 +30,7 @@ export class SegnaviaPage extends PageElementAttributes {
   static observedAttributes = ['src', 'bounded', 'label']
   private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageValue: Page | null = null
+  private documentValue: Document | null = null
   private contentHeight = 0
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
@@ -57,7 +59,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set alertLabels(value: Partial<AlertLabels> | undefined) {
     this.alertLabelOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -65,7 +67,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set slots(value: SlotsOptions | undefined) {
     this.slotOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get motifs(): MotifsOptions | undefined {
@@ -74,7 +76,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get placements(): PlacementsOptions | undefined {
@@ -83,7 +85,7 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get pageWidths(): PageWidths | undefined {
@@ -94,7 +96,7 @@ export class SegnaviaPage extends PageElementAttributes {
     const parsed = parsePageWidths(value)
     if (samePageWidths(this.widthOptions, parsed)) return
     this.widthOptions = parsed
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   get fonts(): FontsOptions | undefined {
@@ -103,14 +105,14 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set fonts(value: FontsOptions | undefined) {
     this.fontOptions = value
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
-  get page(): Page | null {
-    return this.pageValue
+  get page(): Document | null {
+    return this.documentValue
   }
 
-  set page(value: PageInput | Page | null | undefined) {
+  set page(value: DocumentInput | null | undefined) {
     if (value == null) {
       this.cancelSelectionRequests()
       this.cancelSlotPreparation()
@@ -118,6 +120,7 @@ export class SegnaviaPage extends PageElementAttributes {
       this.resolvedSlots = undefined
       this.slotFrame = undefined
       this.pageValue = null
+      this.documentValue = null
       this.hostServed = false
       this.contentHeight = 0
       this.replaceChildren()
@@ -133,7 +136,7 @@ export class SegnaviaPage extends PageElementAttributes {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     window.addEventListener('message', this.onMessage)
     this.resize.observe(this)
-    if (this.pageValue) this.load(this.pageValue)
+    if (this.pageValue) this.loadValue(this.pageValue)
   }
 
   disconnectedCallback() {
@@ -159,8 +162,19 @@ export class SegnaviaPage extends PageElementAttributes {
     this.load(await response.json())
   }
 
-  load(input: PageInput | unknown) {
-    const page = Page.parse(input)
+  load(input: DocumentInput | unknown) {
+    const document = Document.parse(input)
+    const page = pageFromDocument(document)
+    this.documentValue = document
+    this.loadValue(page)
+  }
+
+  [internalPageLoad](page: Page) {
+    this.documentValue = null
+    this.loadValue(page)
+  }
+
+  private loadValue(page: Page) {
     const resolvedPage = resolvePageHtml(page, { alertLabels: this.alertLabels })
     this.cancelSelectionRequests()
     this.hostServed = false
@@ -244,7 +258,7 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   readSelection(): Promise<PageSelection> {
-    return readPageSelection(this.page, this.querySelector('iframe'), this.hostServed, this.frameReady, this.pageRequests)
+    return readPageSelection(this.pageValue, this.querySelector('iframe'), this.hostServed, this.frameReady, this.pageRequests)
   }
 
   /** Scrolls to an id returned by `markdownOutline(page.body)`, resolving false when no heading has that id. */
@@ -252,7 +266,7 @@ export class SegnaviaPage extends PageElementAttributes {
     return scrollPageToHeading(
       id,
       options,
-      this.page,
+      this.pageValue,
       this.querySelector('iframe'),
       this.querySelector('.segnavia-page__sheet'),
       this.hostServed,
@@ -315,7 +329,7 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   private fit() {
-    const page = this.page
+    const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
     if (!page || !sheet) return
     const fluidBounded = page.size.height === 'auto' && page.size.width === 'full' && this.bounded
@@ -343,7 +357,7 @@ export class SegnaviaPage extends PageElementAttributes {
       this.frameReady = true
       releaseReadyPageRequests(this.pageRequests)
     }
-    const page = this.page
+    const page = this.pageValue
     if (message?.type === MESSAGE.slotFit && message.slots && frame === this.slotFrame?.frame && this.slotFrame.generation === this.loadGeneration)
       this.resolvedSlots?.mergeFit(message.slots)
     if (!page || message?.type !== MESSAGE.height || message.height === undefined) return

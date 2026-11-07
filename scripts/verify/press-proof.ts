@@ -1,6 +1,7 @@
 import type { Renderer } from '@segnavia/render'
 import { proof } from '../../packages/render/src/color/engine.ts'
 import { readProfile } from '../../packages/render/src/color/profile.ts'
+import { screenPage } from '../screen-document.ts'
 import { pngPixels as pixels } from './browser-pixels.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -14,12 +15,13 @@ function at(image: { width: number; height: number; rgba: number[] }, x: number,
 const distance = (left: Pixel, right: Pixel) => Math.max(...left.map((value, channel) => Math.abs(value - (right[channel] ?? 0))))
 
 export async function verifyPressProof(renderer: Renderer, profileBytes: Uint8Array, check: Check): Promise<void> {
-  const page = {
-    size: { width: 320, height: 160 },
-    scripts: 'sandboxed' as const,
-    html: `<style>html,body{margin:0;width:100%;height:100%}body{background:linear-gradient(90deg,#f00,#0f0,#00f)}img{width:80px;height:80px;margin:40px}</style>
+  const page = screenPage(
+    {
+      html: `<style>html,body{margin:0;width:100%;height:100%}body{background:linear-gradient(90deg,#f00,#0f0,#00f)}img{width:80px;height:80px;margin:40px}</style>
 <img id="raster"><script>const c=document.createElement('canvas');c.width=80;c.height=80;const x=c.getContext('2d');x.fillStyle='#ff00ff';x.fillRect(0,0,80,80);raster.src=c.toDataURL('image/png');raster.onload=()=>pageReady()</script>`,
-  }
+    },
+    { size: { width: 320, height: 160 }, settings: { scripts: 'sandboxed' } },
+  )
   const originalBytes = await renderer.pageImage(page)
   const proofedBytes = await renderer.pageImage(page, { proof: { profile: profileBytes } })
   const suppliedBytes = await renderer.proofImage(originalBytes, { profile: profileBytes })

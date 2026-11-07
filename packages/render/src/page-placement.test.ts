@@ -1,10 +1,11 @@
 import { expect, test } from 'bun:test'
-import { prepareRenderedPage } from './page-document.ts'
+import { Page } from '@segnavia/format'
+import { prepareRenderedPageValue } from './page-document.ts'
 
 test('render page preparation resolves placed media with the requested purpose', async () => {
   const purposes: string[] = []
-  const prepared = await prepareRenderedPage(
-    { html: '<img data-segnavia-media="cover">', size: { width: 320, height: 200 } },
+  const prepared = await prepareRenderedPageValue(
+    Page.parse({ html: '<img data-segnavia-media="cover">', size: { width: 320, height: 200 } }),
     {
       placements: {
         resolve: async (_placement, context) => {

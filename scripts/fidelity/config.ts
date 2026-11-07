@@ -1,5 +1,5 @@
 import path from 'node:path'
-import type { PageInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 import { EFFECT_REGION_THRESHOLD, SCALE } from '../verify/pixel-difference.ts'
 import { formatRegistration, registrationPasses, worstRegistration } from './registration.ts'
 import type { BarId, BarThreshold, Difference, FixtureKind, ReaderResult, RegistrationMeasurement, SizeMeasurement, Threshold } from './types.ts'
@@ -226,14 +226,21 @@ export interface Fixture {
   id: string
   title: string
   kind: FixtureKind
-  page: PageInput
+  page: DocumentInput
 }
 
-const fixed = (id: string, title: string, width: number, height: number, kind: FixtureKind, extra: Partial<PageInput> = {}): Fixture => ({
+const fixed = (
+  id: string,
+  title: string,
+  width: number,
+  height: number,
+  kind: FixtureKind,
+  extra: Pick<DocumentInput, 'print' | 'settings'> = {},
+): Fixture => ({
   id,
   title,
   kind,
-  page: { html: '', size: { width, height }, ...extra },
+  page: { type: 'document', kind: 'page', size: { width, height }, ...extra, children: [{ type: 'page', body: { html: '' } }] },
 })
 
 export async function fixtures(): Promise<Fixture[]> {
@@ -247,12 +254,15 @@ export async function fixtures(): Promise<Fixture[]> {
     fixed('print-piece', 'A5 postcard', 559, 794, 'effects', {
       print: { paper: 'a5', orientation: 'portrait', bleed: 3, safe: 8, marks: false },
     }),
-    fixed('hebrew', 'Hebrew editorial page', 900, 1100, 'effects', { lang: 'he' }),
+    fixed('hebrew', 'Hebrew editorial page', 900, 1100, 'effects', { settings: { lang: 'he' } }),
     fixed('control-flat', 'Flat color control', 1000, 800, 'control'),
     fixed('control-text', 'Text control', 900, 1100, 'control'),
     fixed('control-photo', 'Photo control', 1000, 800, 'control'),
   ]
-  for (const entry of entries) entry.page.html = await Bun.file(path.join(ROOT, 'fixtures/fidelity', `${entry.id}.html`)).text()
+  for (const entry of entries) {
+    const page = entry.page.children[0] as { type: 'page'; body: { html: string } }
+    page.body.html = await Bun.file(path.join(ROOT, 'fixtures/fidelity', `${entry.id}.html`)).text()
+  }
   return entries
 }
 

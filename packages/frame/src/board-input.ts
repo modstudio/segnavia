@@ -1,8 +1,8 @@
 import type { BoardItem } from '@segnavia/format'
-import type { BoardInputDelegate } from './board-editing-seam.ts'
+import type { BoardPointerDelegate } from './board-editing-seam.ts'
 import type { BoardGestures } from './board-gestures.ts'
 
-interface BoardInputCallbacks {
+interface BoardPointerCallbacks {
   item: (id: string | undefined) => BoardItem | undefined
   itemAt: (event: MouseEvent | PointerEvent) => BoardItem | undefined
   select: (id: string | null, toggle: boolean) => void
@@ -13,16 +13,16 @@ interface BoardInputCallbacks {
   focus: (id?: string) => void
 }
 
-export class BoardInput {
+export class BoardPointerInput {
   private readonly pointerTitles = new Map<number, string>()
   private readonly actionPointers = new Set<number>()
   private readonly delegatedPointers = new Set<number>()
-  delegate: BoardInputDelegate | null = null
+  delegate: BoardPointerDelegate | null = null
 
   constructor(
     private readonly host: HTMLElement,
     private readonly gestures: BoardGestures,
-    private readonly callbacks: BoardInputCallbacks,
+    private readonly callbacks: BoardPointerCallbacks,
   ) {}
 
   connect() {

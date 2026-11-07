@@ -3,8 +3,19 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { AppFont, FontSource } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
+import { screenDeck } from '../screen-document.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
+
+const notesDeck = (title: string, id: string, html: string, notes: string, size = { width: 1280, height: 720 }) =>
+  screenDeck([{ type: 'slide', id, content: { kind: 'html', html }, notes }], {
+    title,
+    layout: 'fixed',
+    fit: 'contain',
+    frame: false,
+    settings: { scripts: 'refuse' },
+    size,
+  })
 
 export async function verifyLongDeckNotes(renderer: Renderer, work: string, check: Check): Promise<void> {
   const longToken = `https://example.invalid/${'unbroken'.repeat(30)}`
@@ -13,27 +24,16 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   let notesFit = false
   writeFileSync(
     file,
-    await renderer.deckPdf(
-      {
-        title: 'Long notes',
-        layout: 'fixed',
-        fit: 'contain',
-        frame: false,
-        size: { width: 1280, height: 720 },
-        scripts: 'refuse',
-        slides: [{ id: 'long', content: { kind: 'html', html: '<p>Thumbnail only once</p>' }, notes }],
+    await renderer.deckPdf(notesDeck('Long notes', 'long', '<p>Thumbnail only once</p>', notes), {
+      layout: 'notes',
+      beforeOutput: async (tab) => {
+        notesFit = await tab
+          .locator('.notes')
+          .evaluateAll((elements) =>
+            elements.every((element) => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1),
+          )
       },
-      {
-        layout: 'notes',
-        beforeOutput: async (tab) => {
-          notesFit = await tab
-            .locator('.notes')
-            .evaluateAll((elements) =>
-              elements.every((element) => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1),
-            )
-        },
-      },
-    ),
+    }),
   )
   const info = execFileSync('pdfinfo', [file], { encoding: 'utf8' })
   const text = execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' })
@@ -47,83 +47,50 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
 
   const portraitNotes = 'Portrait notes stay entirely visible.'
   let portraitFacts = { exact: false, visible: false }
-  await renderer.deckPdf(
-    {
-      title: 'Portrait notes',
-      layout: 'fixed',
-      fit: 'contain',
-      frame: false,
-      scripts: 'refuse',
-      size: { width: 720, height: 1280 },
-      slides: [{ id: 'portrait', content: { kind: 'html', html: '<p>Portrait</p>' }, notes: portraitNotes }],
+  await renderer.deckPdf(notesDeck('Portrait notes', 'portrait', '<p>Portrait</p>', portraitNotes, { width: 720, height: 1280 }), {
+    layout: 'notes',
+    beforeOutput: async (tab) => {
+      portraitFacts = await tab.locator('.notes').evaluateAll(
+        (elements, source) => ({
+          exact: elements.map((element) => element.textContent).join('') === source,
+          visible: elements.every((element) => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1),
+        }),
+        portraitNotes,
+      )
     },
-    {
-      layout: 'notes',
-      beforeOutput: async (tab) => {
-        portraitFacts = await tab.locator('.notes').evaluateAll(
-          (elements, source) => ({
-            exact: elements.map((element) => element.textContent).join('') === source,
-            visible: elements.every((element) => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1),
-          }),
-          portraitNotes,
-        )
-      },
-    },
-  )
+  })
   check('deckPdf keeps portrait notes complete and visible', Object.values(portraitFacts).every(Boolean), JSON.stringify(portraitFacts))
 
   const emojiNotes = '👨‍👩‍👧‍👦'.repeat(1_000)
   let emojiFacts = { exact: false, intact: false, visible: false }
-  await renderer.deckPdf(
-    {
-      title: 'Emoji notes',
-      layout: 'fixed',
-      fit: 'contain',
-      frame: false,
-      scripts: 'refuse',
-      size: { width: 1280, height: 720 },
-      slides: [{ id: 'emoji', content: { kind: 'html', html: '<p>Emoji</p>' }, notes: emojiNotes }],
+  await renderer.deckPdf(notesDeck('Emoji notes', 'emoji', '<p>Emoji</p>', emojiNotes), {
+    layout: 'notes',
+    beforeOutput: async (tab) => {
+      emojiFacts = await tab.locator('.notes').evaluateAll((elements, source) => {
+        return {
+          exact: elements.map((element) => element.textContent).join('') === source,
+          intact: elements.every((element) => {
+            const text = element.textContent ?? ''
+            const first = text.charCodeAt(0)
+            const last = text.charCodeAt(text.length - 1)
+            return !(first >= 0xdc00 && first <= 0xdfff) && !(last >= 0xd800 && last <= 0xdbff)
+          }),
+          visible: elements.every((element) => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1),
+        }
+      }, emojiNotes)
     },
-    {
-      layout: 'notes',
-      beforeOutput: async (tab) => {
-        emojiFacts = await tab.locator('.notes').evaluateAll((elements, source) => {
-          return {
-            exact: elements.map((element) => element.textContent).join('') === source,
-            intact: elements.every((element) => {
-              const text = element.textContent ?? ''
-              const first = text.charCodeAt(0)
-              const last = text.charCodeAt(text.length - 1)
-              return !(first >= 0xdc00 && first <= 0xdfff) && !(last >= 0xd800 && last <= 0xdbff)
-            }),
-            visible: elements.every((element) => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1),
-          }
-        }, emojiNotes)
-      },
-    },
-  )
+  })
   check('deckPdf splits emoji notes without lone surrogate halves', Object.values(emojiFacts).every(Boolean), JSON.stringify(emojiFacts))
 
   let reachedOutput = false
   const limited = await renderer
-    .deckPdf(
-      {
-        title: 'Limited notes',
-        layout: 'fixed',
-        fit: 'contain',
-        frame: false,
-        scripts: 'refuse',
-        size: { width: 1280, height: 720 },
-        slides: [{ id: 'limited', content: { kind: 'html', html: '<p>Limited</p>' }, notes: 'A line of notes.\n'.repeat(500) }],
+    .deckPdf(notesDeck('Limited notes', 'limited', '<p>Limited</p>', 'A line of notes.\n'.repeat(500)), {
+      layout: 'notes',
+      limits: { sheets: 2 },
+      beforeOutput: async () => {
+        reachedOutput = true
       },
-      {
-        layout: 'notes',
-        limits: { sheets: 2 },
-        beforeOutput: async () => {
-          reachedOutput = true
-        },
-      },
-    )
+    })
     .then(
       () => 'rendered',
       (error: unknown) => `${error instanceof Error ? error.name : 'unknown'}: ${error instanceof Error ? error.message : String(error)}`,
@@ -146,18 +113,11 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
   const namedFile = path.join(work, 'deck-notes-font.pdf')
   writeFileSync(
     namedFile,
-    await renderer.deckPdf(
-      {
-        title: 'Named notes font',
-        layout: 'fixed',
-        fit: 'contain',
-        frame: false,
-        size: { width: 1280, height: 720 },
-        scripts: 'refuse',
-        slides: [{ id: 'named', content: { kind: 'html', html: '<p>Named</p>' }, notes: 'Speaker notes in the named face.' }],
-      },
-      { layout: 'notes', notesFont: 'serif', fontSource },
-    ),
+    await renderer.deckPdf(notesDeck('Named notes font', 'named', '<p>Named</p>', 'Speaker notes in the named face.'), {
+      layout: 'notes',
+      notesFont: 'serif',
+      fontSource,
+    }),
   )
   const fontRows = execFileSync('pdffonts', [namedFile], { encoding: 'utf8' })
     .split('\n')

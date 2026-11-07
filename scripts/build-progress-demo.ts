@@ -1,9 +1,10 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Deck } from '@segnavia/format'
+import { Document } from '@segnavia/format'
 import { sineWav } from './sine-wav.ts'
 
 const slide = (id: string) => ({
+  type: 'slide' as const,
   id,
   content: {
     kind: 'html' as const,
@@ -20,16 +21,21 @@ const slide = (id: string) => ({
 })
 
 export function buildProgressDemo(site: string, shell: (body: string) => string) {
-  const deck = Deck.parse({
+  const deck = Document.parse({
+    type: 'document',
+    kind: 'deck',
     title: 'Progress checks',
-    scripts: 'refuse',
-    slides: [slide('progress-one'), slide('progress-two'), slide('progress-three')],
+    settings: { scripts: 'refuse' },
+    children: [slide('progress-one'), slide('progress-two'), slide('progress-three')],
   })
   writeFileSync(path.join(site, 'audio/progress.wav'), sineWav(0.4))
   writeFileSync(path.join(site, 'deck-progress.json'), JSON.stringify(deck))
   writeFileSync(
     path.join(site, 'deck-progress-strict.json'),
-    JSON.stringify({ ...deck, slides: deck.slides.map((item) => ({ ...item, narration: { ...item.narration, audio: 'audio/progress.wav?strict' } })) }),
+    JSON.stringify({
+      ...deck,
+      children: deck.children.map((item) => (item.type === 'slide' ? { ...item, narration: { ...item.narration, audio: 'audio/progress.wav?strict' } } : item)),
+    }),
   )
   writeFileSync(
     path.join(site, 'progress.html'),

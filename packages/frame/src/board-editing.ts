@@ -4,6 +4,7 @@ import {
   arrange,
   type Board,
   type BoardItem,
+  type Document,
   type Point,
   provisionalShape,
   removeFromGrid,
@@ -27,7 +28,8 @@ import {
 } from './board-edit-policy.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderResizeHandles } from './board-editing-overlay.ts'
-import { type BoardEditingBridge, type BoardEditingHost, type BoardInputDelegate, boardEditing } from './board-editing-seam.ts'
+import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
+import { boardValue } from './board-value.ts'
 
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
 export { BOARD_HISTORY_LIMIT }
@@ -37,7 +39,7 @@ type DirectBoardEdit = { [Kind in EditKind]: { kind: Kind; ids: string[] } }[Edi
 type HistoryBoardEdit = { [Kind in 'undo' | 'redo']: { kind: Kind; edit: BoardEdit } }['undo' | 'redo']
 export type BoardEdit = DirectBoardEdit | HistoryBoardEdit
 export interface BoardChange {
-  board: Board
+  board: Document
   edit: BoardEdit
   signal: AbortSignal
 }
@@ -62,7 +64,7 @@ export interface BoardEditing {
   readonly canRedo: boolean
 }
 
-class BoardEditingController implements BoardEditing, BoardInputDelegate {
+class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>
   private bridge: BoardEditingBridge
   private state: BoardEditQueueState | null
@@ -87,7 +89,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
       undo: () => this.undo(),
       redo: () => this.redo(),
     })
-    const initial = board.board
+    const initial = boardValue(board)
     this.state = initial ? boardEditQueue(initial) : null
     this.bridge = (board as SegnaviaBoard & BoardEditingHost)[boardEditing](this, this.hostValue)
     board.addEventListener('segnavia-board-selection', this.renderHandles)
@@ -239,7 +241,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
     this.runningId = id
     try {
       // One whole-document write keeps host persistence and undo on the same ordered seam.
-      await this.options.change({ board: job.after, edit: job.edit, signal: controller.signal })
+      await this.options.change({ board: this.bridge.document(job.after), edit: job.edit, signal: controller.signal })
       if (this.state) this.applyTransition(resolveBoardEdit(this.state, id))
     } catch (error) {
       const transition = this.state ? rejectBoardEdit(this.state, id, error) : null
@@ -298,7 +300,7 @@ class BoardEditingController implements BoardEditing, BoardInputDelegate {
       renderResizeHandles(this.bridge.overlay, undefined, this.bridge.view(), undefined)
       return
     }
-    const item = this.board.board?.items.find((entry) => entry.id === this.board.selection[0])
+    const item = this.bridge.value()?.items.find((entry) => entry.id === this.board.selection[0])
     const shape = item ? this.bridge.shapes().items[item.id] : undefined
     renderResizeHandles(this.bridge.overlay, item, this.bridge.view(), shape)
   }

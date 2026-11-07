@@ -15,7 +15,7 @@ import {
 import type { SegnaviaBoard } from './board.ts'
 import type { BoardEdit } from './board-editing.ts'
 import { marqueeItems, placeMarquee, renderDropMarker, resizedAtPointer } from './board-editing-overlay.ts'
-import type { BoardEditingBridge, BoardInputDelegate } from './board-editing-seam.ts'
+import type { BoardEditingBridge, BoardPointerDelegate } from './board-editing-seam.ts'
 import { selectBoardItem } from './board-selection.ts'
 
 type Gesture =
@@ -46,7 +46,7 @@ interface Callbacks {
   redo(): void
 }
 
-export class BoardEditingInput implements BoardInputDelegate {
+export class BoardEditingInput implements BoardPointerDelegate {
   private gesture: Gesture | null = null
   private spaceHeld = false
 
@@ -163,7 +163,7 @@ export class BoardEditingInput implements BoardInputDelegate {
   }
 
   private finishEdit(gesture: Exclude<Gesture, { kind: 'marquee' }>, event: PointerEvent) {
-    const next = this.board.board
+    const next = this.callbacks.bridge().value()
     if (!next) return
     const bridge = this.callbacks.bridge()
     if (gesture.kind === 'move' && this.enabled.move) {

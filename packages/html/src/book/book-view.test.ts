@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, Book, type BookInput } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, Book } from '@segnavia/format'
 import { bookView } from './book-view.ts'
 
 const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
-const input = (overrides: Partial<BookInput> = {}): BookInput => ({
+const input = (overrides: Record<string, unknown> = {}) => ({
   title: 'Book',
   mode: 'continuous',
   chapters: [{ title: 'One', html: '<p>Text</p>' }],

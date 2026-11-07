@@ -4,13 +4,17 @@ import {
   type BoardView,
   type BookViewInput,
   type Deck,
+  Document,
+  type DocumentInput,
+  deckFromDocument,
   type ImpositionInput,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,
-  type PageInput,
+  PAGE_OR_PRINTED_KINDS,
+  type Page,
   type PixelSize,
   type Point,
-  resolvedShape,
+  pageOrPrintedFromDocument,
   zoomAt,
 } from '@segnavia/format'
 import type { PlacementReport, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
@@ -24,9 +28,9 @@ interface ResolvedBase {
 }
 
 export type ResolvedBoardItem =
-  | (ResolvedBase & { kind: 'deck'; deck: Deck; resolveSlide?: ControllerOptions['resolveSlide']; base?: string })
-  | (ResolvedBase & { kind: 'page'; page: PageInput; size: PixelSize })
-  | (ResolvedBase & { kind: 'paper'; pages: PageInput[]; imposition: ImpositionInput; size: PixelSize })
+  | (ResolvedBase & { kind: 'deck'; deck: DocumentInput; resolveSlide?: ControllerOptions['resolveSlide']; base?: string })
+  | (ResolvedBase & { kind: 'page'; page: DocumentInput; size: PixelSize })
+  | (ResolvedBase & { kind: 'paper'; pages: DocumentInput[]; imposition: ImpositionInput; size: PixelSize })
   | (ResolvedBase & { kind: 'book'; view: BookViewInput; size: PixelSize })
   | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number })
   | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
@@ -36,8 +40,13 @@ export type ResolvedAsset = ResolvedPlacement | WithoutDesignedCover<Exclude<Res
 export type AssetResolver = ResolvePlacement<ResolvedAsset>
 export type AssetPlacementsOptions = { resolve: AssetResolver; report?: PlacementReport }
 
-type Checked<T> = T extends ResolvedBoardItem ? Omit<T, 'designedCover'> & { designedCover?: ParsedDesignedCover } : never
-export type CheckedResolvedBoardItem = Checked<ResolvedBoardItem>
+export type CheckedResolvedBoardItem =
+  | (ResolvedBase & { kind: 'deck'; deck: Deck; resolveSlide?: ControllerOptions['resolveSlide']; base?: string; designedCover?: ParsedDesignedCover })
+  | (ResolvedBase & { kind: 'page'; page: Page; size: PixelSize; designedCover?: ParsedDesignedCover })
+  | (ResolvedBase & { kind: 'paper'; pages: Page[]; imposition: ImpositionInput; size: PixelSize; designedCover?: ParsedDesignedCover })
+  | (ResolvedBase & { kind: 'book'; view: BookViewInput; size: PixelSize; designedCover?: ParsedDesignedCover })
+  | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number; designedCover?: ParsedDesignedCover })
+  | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number; designedCover?: ParsedDesignedCover })
 
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }
@@ -53,12 +62,33 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: PixelSize) {
 export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): CheckedResolvedBoardItem {
   const expected = item.kind === 'media' ? 'image' : item.kind
   if (resolved.kind !== expected) throw new Error(`The resolved item kind is ${resolved.kind}, not ${expected}; return a resolved ${expected}.`)
-  if (resolved.kind !== 'deck') checkSize(resolved.kind, resolvedShape(boardItemFact(resolved)))
+  if (resolved.kind === 'image' || resolved.kind === 'shot') checkSize(resolved.kind, { width: resolved.width, height: resolved.height })
+  else if (resolved.kind !== 'deck') checkSize(resolved.kind, resolved.size)
   const designedCover = resolved.designedCover && parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
+  if (resolved.kind === 'deck') return { ...resolved, deck: deckFromDocument(resolvedDocument(item, resolved.deck, ['deck'])), designedCover }
+  if (resolved.kind === 'page')
+    return { ...resolved, page: pageOrPrintedFromDocument(resolvedDocument(item, resolved.page, PAGE_OR_PRINTED_KINDS)), designedCover }
+  if (resolved.kind === 'paper') {
+    const pages = resolved.pages.map((page) => {
+      const document = resolvedDocument(item, page, PAGE_OR_PRINTED_KINDS)
+      return pageOrPrintedFromDocument(document)
+    })
+    return { ...resolved, pages, designedCover }
+  }
   return { ...resolved, designedCover } as CheckedResolvedBoardItem
 }
 
-export function boardItemFact(resolved: CheckedResolvedBoardItem | ResolvedBoardItem): BoardItemFact {
+function resolvedDocument(item: BoardItem, input: DocumentInput, accepted: readonly Document['kind'][]): Document {
+  const document = Document.parse(input)
+  if (!accepted.includes(document.kind)) {
+    throw new Error(
+      `The resolved board item "${item.id}" has document kind ${document.kind}, not ${accepted.join(' or ')}; return kind ${accepted.join(' or ')} to clear this refusal.`,
+    )
+  }
+  return document
+}
+
+export function boardItemFact(resolved: CheckedResolvedBoardItem): BoardItemFact {
   if (resolved.kind === 'image') return { kind: 'media', size: { width: resolved.width, height: resolved.height } }
   if (resolved.kind === 'deck') return { kind: 'deck', deck: resolved.deck }
   if (resolved.kind === 'shot') return { kind: 'shot', size: { width: resolved.width, height: resolved.height } }

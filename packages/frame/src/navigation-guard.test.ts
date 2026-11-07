@@ -14,7 +14,7 @@ const deck = {
 
 test('concurrent navigations wait for the same running guard', async () => {
   const controller = new DeckController({ hash: null, persist: false })
-  await controller.load(deck)
+  await controller.loadDeckValue(deck)
   let release = () => {}
   const pending = new Promise<void>((resolve) => {
     release = resolve
@@ -56,8 +56,8 @@ test('concurrent loads have distinct provenance while awaiting one guard', async
   expect(first).not.toBe(second)
   release()
   await Promise.all([first, second])
-  expect(deckPreservesNotes(parseDeckLoad(deck, first), 'one')).toBe(true)
-  expect(deckPreservesNotes(parseDeckLoad(deck, second), 'one')).toBe(false)
+  expect(deckPreservesNotes(parseDeckLoad(deck, first, true), 'one')).toBe(true)
+  expect(deckPreservesNotes(parseDeckLoad(deck, second, true), 'one')).toBe(false)
 })
 
 test('guards run in order and a removed guard stops running', async () => {
@@ -79,7 +79,7 @@ test('guards run in order and a removed guard stops running', async () => {
 
 test('the first rejecting guard takes the controller error path and stops the list', async () => {
   const controller = new DeckController({ hash: null, persist: false })
-  await controller.load(deck)
+  await controller.loadDeckValue(deck)
   const calls: string[] = []
   const errors: string[] = []
   controller.addNavigationGuard(() => {
@@ -98,7 +98,7 @@ test('the first rejecting guard takes the controller error path and stops the li
 
 test('cross-slide seek awaits the navigation guard but same-slide seek does not', async () => {
   const controller = new DeckController({ hash: null, persist: false })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       { id: 'a', content: { kind: 'html', html: '' }, holdMs: 500 },
@@ -128,14 +128,14 @@ test('cross-slide seek awaits the navigation guard but same-slide seek does not'
 
 test('identifies host reloads separately from slide navigation', async () => {
   const controller = new DeckController({ hash: null, persist: false })
-  await controller.load(deck)
+  await controller.loadDeckValue(deck)
   const reasons: string[] = []
   addNavigationGuard(controller, async (reason) => {
     reasons.push(reason)
   })
 
   await controller.next()
-  await controller.load(deck)
+  await controller.loadDeckValue(deck)
 
   expect(reasons).toEqual(['navigate', 'load'])
 })

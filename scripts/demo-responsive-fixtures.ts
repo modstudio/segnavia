@@ -1,21 +1,24 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Deck } from '@segnavia/format'
+import { Document } from '@segnavia/format'
 
 export function writeResponsiveDemo(site: string) {
-  const deck = Deck.parse({
+  const deck = Document.parse({
+    type: 'document',
+    kind: 'deck',
     title: 'Responsive deck',
     layout: 'responsive',
-    scripts: 'sandboxed',
-    slides: [
+    settings: { scripts: 'sandboxed' },
+    children: [
       {
+        type: 'slide',
         id: 'responsive-html',
         content: {
           kind: 'html',
           html: `<!doctype html><style>html,body{margin:0;height:100%;background:rgb(30,100,180)}@media(max-width:499px){body{background:rgb(220,80,60)}}body{display:grid;place-items:center;color:white;font:32px system-ui}</style><output id="size"></output><script>const report=()=>size.textContent=innerWidth+'x'+innerHeight;addEventListener('resize',report);new ResizeObserver(report).observe(document.documentElement);report()</script>`,
         },
       },
-      { id: 'responsive-image', content: { kind: 'image', src: 'responsive-wide.svg', alt: 'Wide responsive fixture', fit: 'contain' } },
+      { type: 'slide', id: 'responsive-image', content: { kind: 'image', src: 'responsive-wide.svg', alt: 'Wide responsive fixture', fit: 'contain' } },
     ],
   })
   writeFileSync(path.join(site, 'responsive-deck.json'), JSON.stringify(deck, null, 2))

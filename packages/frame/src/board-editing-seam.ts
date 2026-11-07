@@ -1,6 +1,6 @@
-import type { Board, BoardShapes, BoardView, Point } from '@segnavia/format'
+import type { Board, BoardShapes, BoardView, Document, Point } from '@segnavia/format'
 
-export interface BoardInputDelegate {
+export interface BoardPointerDelegate {
   pointerDown(event: PointerEvent): boolean
   pointerMove(event: PointerEvent): boolean
   pointerUp(event: PointerEvent): boolean
@@ -13,6 +13,7 @@ export interface BoardEditingBridge {
   value(): Board | null
   view(): BoardView
   shapes(): BoardShapes
+  document(board: Board): Document
   local(event: { clientX: number; clientY: number }): Point
   setDropTarget(id?: string): void
   setOptimistic(board: Board): void
@@ -23,7 +24,7 @@ export interface BoardEditingBridge {
 export const boardEditing = Symbol.for('@segnavia/frame/board-editing')
 
 export interface BoardEditingHost {
-  [boardEditing](delegate: BoardInputDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge
+  [boardEditing](delegate: BoardPointerDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge
 }
 
 interface BridgeParts {
@@ -32,6 +33,7 @@ interface BridgeParts {
   value(): Board | null
   view(): BoardView
   shapes(): BoardShapes
+  document(board: Board): Document
   local(event: { clientX: number; clientY: number }): Point
   setDropTarget(id?: string): void
   optimistic(board: Board): void
@@ -49,6 +51,7 @@ export function createBoardEditingBridge(parts: BridgeParts): BoardEditingBridge
     value: parts.value,
     view: parts.view,
     shapes: parts.shapes,
+    document: parts.document,
     local: parts.local,
     setDropTarget: parts.setDropTarget,
     setOptimistic: parts.optimistic,

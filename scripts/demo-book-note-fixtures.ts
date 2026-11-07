@@ -1,4 +1,4 @@
-import type { BookInput } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 
 export const FIRST_CHILD_NOTE_COLOR = 'rgb(176, 32, 48)'
 
@@ -30,20 +30,34 @@ function firstChildNote(hebrew: boolean): string {
   return `<span class="first-child-note">${body} ${body}</span>`
 }
 
-export function noteCasesFixture(hebrew: boolean): BookInput {
+export function noteCasesFixture(hebrew: boolean): DocumentInput {
   const title = hebrew ? 'הערות בדיקה' : 'Note cases'
   const one = hebrew ? 'פסקה ראשונה' : 'First paragraph'
   const two = hebrew ? 'פסקה שנייה' : 'Second paragraph'
   const three = hebrew ? 'פסקה שלישית' : 'Third paragraph'
   return {
-    title,
+    type: 'document',
+    kind: 'book',
+    metadata: { title },
     mode: 'paginated',
-    lang: hebrew ? 'he' : 'en',
+    settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-    chapters: [
+    children: [
       {
-        title,
-        html: `<h1>${title}</h1><p>${one}<span data-note="footnote">${paddedNote(hebrew)}</span></p><p>${two}<span data-note="footnote">${mixedNote(hebrew)}</span></p><p>${three}<span data-note="footnote">${firstChildNote(hebrew)}</span></p>`,
+        type: 'division',
+        name: 'body',
+        children: [
+          {
+            type: 'section',
+            title,
+            children: [
+              {
+                type: 'flow',
+                html: `<h1>${title}</h1><p>${one}<span data-note="footnote">${paddedNote(hebrew)}</span></p><p>${two}<span data-note="footnote">${mixedNote(hebrew)}</span></p><p>${three}<span data-note="footnote">${firstChildNote(hebrew)}</span></p>`,
+              },
+            ],
+          },
+        ],
       },
     ],
   }

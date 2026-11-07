@@ -2,14 +2,14 @@ import { describe, expect, test } from 'bun:test'
 import { AuthoringController } from './authoring.ts'
 import { DeckController } from './controller.ts'
 import { NotesSaveQueue } from './notes-save.ts'
-import { printableDeck } from './print-document.ts'
+import { printableDeckValue } from './print-document.ts'
 
 async function authoringWithNotes(
   save: (input: { slideId: string; notes: string }) => Promise<void> = async () => {},
   handlers: ConstructorParameters<typeof AuthoringController>[1] = {},
 ) {
   const deckController = new DeckController({ hash: null })
-  await deckController.load({
+  await deckController.loadDeckValue({
     title: 'Deck',
     slides: [
       { id: 'a', content: { kind: 'html', html: 'A' }, notes: 'old' },
@@ -123,5 +123,5 @@ test('draftDeck returns on-screen notes without waiting for a never-settling sav
   expect(Date.now() - started).toBeLessThan(20)
   expect(drafted?.title).toBe('Deck')
   expect(drafted?.slides[0]?.notes).toBe('on screen')
-  if (drafted) expect(printableDeck(drafted, { layout: 'notes' })).toContain('on screen')
+  if (drafted) expect(printableDeckValue(drafted, { layout: 'notes' })).toContain('on screen')
 })

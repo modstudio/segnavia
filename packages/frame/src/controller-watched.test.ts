@@ -50,7 +50,7 @@ function harness(options: { completeAt?: number; seek?: SeekPolicy } = {}) {
 
 test('played time accumulates while jumps add no watched time', async () => {
   const { controller, clocks, tick } = harness()
-  await controller.load(timedDeck())
+  await controller.loadDeckValue(timedDeck())
   await controller.play()
   const first = clocks[0]
   if (!first) throw new Error('clock was not created')
@@ -67,7 +67,7 @@ test('played time accumulates while jumps add no watched time', async () => {
 
 test('seeking back and replaying an already watched span does not grow watched time', async () => {
   const { controller, clocks, tick } = harness()
-  await controller.load(timedDeck())
+  await controller.loadDeckValue(timedDeck())
   await controller.play()
   const first = clocks[0]
   if (!first) throw new Error('clock was not created')
@@ -85,7 +85,7 @@ test('seeking back and replaying an already watched span does not grow watched t
 
 test('furthest clamps seeks and refuses slide navigation before consulting guards', async () => {
   const { controller, clocks, tick } = harness({ seek: 'furthest' })
-  await controller.load(timedDeck(2))
+  await controller.loadDeckValue(timedDeck(2))
   await controller.play()
   const clock = clocks[0]
   if (!clock) throw new Error('clock was not created')
@@ -107,7 +107,7 @@ test('furthest clamps seeks and refuses slide navigation before consulting guard
 
 test('furthest refuses next from a partly watched slide without consulting guards', async () => {
   const { controller, clocks, tick } = harness({ seek: 'furthest' })
-  await controller.load(timedDeck(2))
+  await controller.loadDeckValue(timedDeck(2))
   await controller.play()
   const clock = clocks[0]
   if (!clock) throw new Error('clock was not created')
@@ -132,7 +132,7 @@ test('furthest refuses next from a partly watched last slide without ending or c
   let completes = 0
   controller.addEventListener('end', () => ends++)
   controller.addEventListener('complete', () => completes++)
-  await controller.load(timedDeck(2))
+  await controller.loadDeckValue(timedDeck(2))
   await controller.play()
   const first = clocks[0]
   if (!first) throw new Error('clock was not created')
@@ -150,7 +150,7 @@ test('furthest refuses next from a partly watched last slide without ending or c
 
 test('the next key observes the furthest limit on a partly watched slide', async () => {
   const { controller, clocks, tick } = harness({ seek: 'furthest' })
-  await controller.load(timedDeck(2))
+  await controller.loadDeckValue(timedDeck(2))
   await controller.play()
   const clock = clocks[0]
   if (!clock) throw new Error('clock was not created')
@@ -166,7 +166,7 @@ test('complete fires once at the threshold after the carrying change', async () 
   const events: string[] = []
   controller.addEventListener('change', () => events.push(`change:${controller.state.watched.share}`))
   controller.addEventListener('complete', (event) => events.push(`complete:${(event as CustomEvent).detail.share}`))
-  await controller.load(timedDeck())
+  await controller.loadDeckValue(timedDeck())
   await controller.play()
   const clock = clocks[0]
   if (!clock) throw new Error('clock was not created')
@@ -182,7 +182,7 @@ test('complete fires once for each loaded deck', async () => {
   const { controller, clocks, tick } = harness({ completeAt: 0.5 })
   let completes = 0
   controller.addEventListener('complete', () => completes++)
-  await controller.load(timedDeck())
+  await controller.loadDeckValue(timedDeck())
   await controller.play()
   const clock = clocks[0]
   if (!clock) throw new Error('clock was not created')
@@ -190,7 +190,7 @@ test('complete fires once for each loaded deck', async () => {
   await tick()
   expect(completes).toBe(1)
 
-  await controller.load({ title: 'Untimed', slides: [{ id: 'still', content: { kind: 'html', html: '' } }] })
+  await controller.loadDeckValue({ title: 'Untimed', slides: [{ id: 'still', content: { kind: 'html', html: '' } }] })
   expect(completes).toBe(2)
 })
 
@@ -198,7 +198,7 @@ test('autoplay observes the final tick before furthest navigation ends', async (
   const { controller, clocks, tick } = harness({ seek: 'furthest' })
   let ends = 0
   controller.addEventListener('end', () => ends++)
-  await controller.load(timedDeck())
+  await controller.loadDeckValue(timedDeck())
   await controller.play()
   const clock = clocks[0]
   if (!clock) throw new Error('clock was not created')
@@ -215,12 +215,12 @@ test('a free skip ends without completing and an untimed slide completes once sh
   let completes = 0
   controller.addEventListener('end', () => ends++)
   controller.addEventListener('complete', () => completes++)
-  await controller.load(timedDeck(2))
+  await controller.loadDeckValue(timedDeck(2))
   await controller.go(1)
   await controller.next()
   expect({ ends, completes }).toEqual({ ends: 1, completes: 0 })
 
-  await controller.load({ title: 'Untimed', slides: [{ id: 'still', content: { kind: 'html', html: '' } }] })
+  await controller.loadDeckValue({ title: 'Untimed', slides: [{ id: 'still', content: { kind: 'html', html: '' } }] })
   expect(controller.state.watched).toMatchObject({ share: 1, complete: true })
   expect(completes).toBe(1)
 })

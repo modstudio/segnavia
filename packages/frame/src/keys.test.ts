@@ -18,7 +18,7 @@ describe('keys', () => {
 
   test('viewer shortcuts toggle mute and captions while present is returned to the host', async () => {
     const controller = new DeckController({ hash: null, persist: false })
-    await controller.load({ ...deck, captions: 'viewer' })
+    await controller.loadDeckValue({ ...deck, captions: 'viewer' })
     expect(controller.key('m')).toBe('mute')
     expect(controller.state.muted).toBe(true)
     expect(controller.key('c')).toBe('captions')
@@ -29,7 +29,7 @@ describe('keys', () => {
 
   test('controller arrows and inferred language follow reading direction', async () => {
     const controller = new DeckController({ hash: null, persist: false })
-    await controller.load({ ...deck, lang: 'he' })
+    await controller.loadDeckValue({ ...deck, lang: 'he' })
     expect(controller.state.direction).toBe('rtl')
     expect(controller.key('ArrowLeft')).toBe('next')
     await Bun.sleep(0)

@@ -14,16 +14,22 @@ interface DemoBoard {
   labels: DemoLabel[]
   sections: Array<{ id: string; rectangle: { x: number; y: number; width: number; height: number }; items: string[] }>
 }
-type BoardElement = HTMLElement & { board: DemoBoard }
+interface DemoDocument {
+  type: 'document'
+  kind: 'board'
+}
+type BoardElement = HTMLElement & { board: DemoDocument }
 type DemoWindow = typeof window & {
-  hostBoard: DemoBoard
+  hostBoard: DemoDocument
+  boardValue(target: { board: DemoDocument }): DemoBoard
+  setBoardValue(target: { board: DemoDocument }, value: DemoBoard): void
   attachBoardEditingForCheck(target: BoardElement): { editing: { detach(): void }; changes(): number }
 }
 
 export async function checkBoardEditingLabelSizes(h: Harness, board: Locator) {
   const attachChanges = await board.evaluate(async () => {
     const state = window as unknown as DemoWindow
-    const changesFor = async (value: DemoBoard) => {
+    const changesFor = async (value: DemoDocument) => {
       const target = document.createElement('segnavia-board') as BoardElement
       target.style.cssText = 'position:fixed;inline-size:800px;block-size:600px;inset-inline-start:-2000px'
       document.body.append(target)
@@ -34,12 +40,15 @@ export async function checkBoardEditingLabelSizes(h: Harness, board: Locator) {
       target.remove()
       return check.changes()
     }
-    const settled = structuredClone(state.hostBoard)
+    const settledDocument = structuredClone(state.hostBoard)
+    const settled = state.boardValue({ board: settledDocument })
     const stored = settled.labels.length > 0 && settled.labels.every((label) => label.size)
-    const settledChanges = await changesFor(structuredClone(settled))
+    const settledChanges = await changesFor(structuredClone(settledDocument))
     const unsized = structuredClone(settled)
     if (unsized.labels[0]) delete unsized.labels[0].size
-    const unsizedChanges = await changesFor(unsized)
+    const unsizedHolder = { board: structuredClone(settledDocument) }
+    state.setBoardValue(unsizedHolder, unsized)
+    const unsizedChanges = await changesFor(unsizedHolder.board)
     return { stored, settledChanges, unsizedChanges }
   })
   h.check(

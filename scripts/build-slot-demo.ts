@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Fill, ImpositionInput, PageInput, SlotDeclarationInput } from '@segnavia/format'
+import type { DocumentInput, Fill, ImpositionInput, SlotDeclarationInput } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 
 export const cardSlots: SlotDeclarationInput[] = [
@@ -12,18 +12,36 @@ export const cardSlots: SlotDeclarationInput[] = [
 ]
 
 const base = 'box-sizing:border-box;margin:0;width:336px;height:192px;padding:24px;background:#fff;color:#17324d;font:16px system-ui'
-export const slotCardPages: PageInput[] = [
+export const slotCardPages: DocumentInput[] = [
   {
-    id: 'front',
+    type: 'document',
+    kind: 'page',
     size: { width: 336, height: 192 },
-    slots: cardSlots,
-    html: `<!doctype html><html><body style="${base};display:grid;grid-template-columns:1fr 72px;gap:16px;align-items:center"><main><strong data-slot-value="name" style="font-size:26px">Design Name</strong><p data-slot-value="role">Design Role</p></main><img data-slot-src="logo" alt="Logo" style="max-width:72px;max-height:72px"></body></html>`,
+    data: { slots: cardSlots },
+    children: [
+      {
+        type: 'page',
+        id: 'front',
+        body: {
+          html: `<!doctype html><html><body style="${base};display:grid;grid-template-columns:1fr 72px;gap:16px;align-items:center"><main><strong data-slot-value="name" style="font-size:26px">Design Name</strong><p data-slot-value="role">Design Role</p></main><img data-slot-src="logo" alt="Logo" style="max-width:72px;max-height:72px"></body></html>`,
+        },
+      },
+    ],
   },
   {
-    id: 'back',
+    type: 'document',
+    kind: 'page',
     size: { width: 336, height: 192 },
-    slots: cardSlots,
-    html: `<!doctype html><html><body style="${base};display:grid;place-content:center;gap:8px"><span data-slot-value="phone">Design Phone</span><span data-slot-value="email">design@example.com</span></body></html>`,
+    data: { slots: cardSlots },
+    children: [
+      {
+        type: 'page',
+        id: 'back',
+        body: {
+          html: `<!doctype html><html><body style="${base};display:grid;place-content:center;gap:8px"><span data-slot-value="phone">Design Phone</span><span data-slot-value="email">design@example.com</span></body></html>`,
+        },
+      },
+    ],
   },
 ]
 
@@ -61,14 +79,18 @@ export async function buildSlotDemo(site: string): Promise<void> {
       const resolveAsset = async ref => ref === 'mark' ? ${JSON.stringify(slotLogo)} : Promise.reject(new Error('missing asset'))
       const reports = []
       const overflowPage = mode => ({
+        type: 'document',
+        kind: 'page',
         size: { width: 336, height: 192 },
-        slots: [{ key: 'name', label: 'Name', type: 'text', overflow: mode }],
-        html: '<div style="${base}"><strong data-slot-value="name" style="display:block;inline-size:100px;block-size:96px;font-size:80px;white-space:nowrap">Design Name</strong></div>',
+        data: { slots: [{ key: 'name', label: 'Name', type: 'text', overflow: mode }] },
+        children: [{ type: 'page', body: { html: '<div style="${base}"><strong data-slot-value="name" style="display:block;inline-size:100px;block-size:96px;font-size:80px;white-space:nowrap">Design Name</strong></div>' } }],
       })
       const inlineRefusePage = {
+        type: 'document',
+        kind: 'page',
         size: { width: 336, height: 192 },
-        slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
-        html: '<p><strong data-slot-value="name">Design Name</strong></p>',
+        data: { slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }] },
+        children: [{ type: 'page', body: { html: '<p><strong data-slot-value="name">Design Name</strong></p>' } }],
       }
       const shrink = document.getElementById('shrink-card')
       shrink.slots = { fill: { id: 'long', values: { name: 'Alexandria Montgomery' } }, report: report => reports.push(report) }
@@ -88,10 +110,12 @@ export async function buildSlotDemo(site: string): Promise<void> {
       const deckThumbnail = document.getElementById('filled-deck-thumbnail')
       deckThumbnail.slots = { fill: ${JSON.stringify(firstCardFill)} }
       deckThumbnail.deck = {
+        type: 'document',
+        kind: 'deck',
         title: 'Filled slot deck',
         size: { width: 336, height: 192 },
-        slots: [{ key: 'name', label: 'Name', type: 'text' }],
-        slides: [{ id: 'card', content: { kind: 'html', html: '<p data-slot-value="name">Design Name</p>' } }],
+        data: { slots: [{ key: 'name', label: 'Name', type: 'text' }] },
+        children: [{ type: 'slide', id: 'card', content: { kind: 'html', html: '<p data-slot-value="name">Design Name</p>' } }],
       }
       let failedAsset
       const failing = { fill: { id: 'broken', values: { logo: { asset: 'missing' } } }, resolveAsset, report: report => { failedAsset = report } }

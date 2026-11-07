@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, type BookInput, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
+import { Book, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
-const input = (overrides: Partial<BookInput> = {}): BookInput => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
+const input = (overrides: Record<string, unknown> = {}) => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
   test('accepts book placements from the table and refuses other asset kinds', () => {
@@ -170,10 +170,8 @@ describe('book', () => {
     expect(noteMarkerIssues(different.notes, new Set(['footnote', 'endnote']))).toEqual([])
   })
 
-  test('the generated book schema describes unresolved input', () => {
-    const schema = jsonSchemas().book as { properties?: Record<string, unknown>; required?: string[] }
-    expect(schema.properties).toHaveProperty('numbering')
-    expect(schema.required).not.toContain('page')
+  test('the generated schemas omit the legacy book input', () => {
+    expect(jsonSchemas()).not.toHaveProperty('book')
   })
 
   test('resolveBookPagination is absent for continuous books and complete for paginated ones', () => {
@@ -368,7 +366,7 @@ describe('book', () => {
     expect(result.success).toBe(false)
     expect(result.error?.issues[0]?.message).toContain('body.0.children.0.children.0')
     expect(result.error?.issues[0]?.message).toContain('maximum part depth of 6')
-    expect(jsonSchemas().book).toMatchObject({ type: 'object' })
+    expect(jsonSchemas()).not.toHaveProperty('book')
   })
 
   test('an untitled nested section uses its full path in a parent refusal', () => {

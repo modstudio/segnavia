@@ -1,5 +1,7 @@
 import './source-guard.ts'
-import type { ImpositionInput, Motif, MotifSource, PageInput } from '@segnavia/format'
+import type { DocumentInput, ImpositionInput, Motif, MotifSource, PrintedPageRules } from '@segnavia/format'
+
+export * from './demo-screen-page-fixtures.ts'
 
 export const printedPageMotifs: Motif[] = [
   {
@@ -30,91 +32,24 @@ export const printedPageMotifSource: MotifSource = {
   motif: async (key: string) => printedPageMotifs.find((motif) => motif.key === key),
 }
 
-export const fluidPage: PageInput = {
-  html:
-    '<!doctype html><html><body style="margin:0;font-family:system-ui,sans-serif"><header style="padding:48px;background:#0f766e;color:#fff"><h1 style="margin:0">A page for the web</h1></header><main style="padding:48px;max-width:720px">' +
-    "<p>Pages have no paper. This one is fluid: it renders at the viewer's width and as tall as its content.</p>".repeat(12) +
-    '</main><script>document.body.style.background = "red"</script></body></html>',
-  size: 'fluid',
-}
-
-export const hebrewPage: PageInput = {
-  html: '<h1 style="font-family:sans-serif">שלום</h1><p>A page set right to left.</p>',
-  size: { width: 600, height: 'auto' },
-  dir: 'rtl',
-  lang: 'he',
-}
-
-export const markdownPage: PageInput = {
-  markdown: `---
-title: דוגמת Markdown
-published: true
----
-
-# עברית and English
-
-English opens this mixed line שלום.
-
-עברית פותחת את השורה mixed English.
-
-> [!NOTE]
-> This alert follows the page language.
-
-- [x] משימה שהושלמה
-- [ ] Task still open
-
-\`\`\`mermaid
-flowchart LR
-  start[התחלה] --> finish[Finished]
-\`\`\`
-
-| Column | A very wide English and Hebrew value |
-| --- | --- |
-| One | This table is deliberately wider than the page שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום שלום |`,
-  size: { width: 420, height: 'auto' },
-  lang: 'he',
-}
-
-export const ownDirectionPage: PageInput = {
-  html: '<p dir="ltr">שלום This sentence stays left to right.</p>',
-  size: { width: 600, height: 'auto' },
-  dir: 'rtl',
-  lang: 'he',
-}
-
-export const emptyDirectionPage: PageInput = {
-  html: '<p dir="">שלום This sentence follows its first letter.</p>',
-  size: { width: 600, height: 'auto' },
-  dir: 'rtl',
-  lang: 'he',
-}
-
-export const rightToLeftDivPage: PageInput = {
-  html: [
-    '<div>English text directly in a div.</div>',
-    '<section>English text directly in a section.</section>',
-    '<article>English text directly in an article.</article>',
-    '<aside>English text directly in an aside.</aside>',
-    '<address>English text directly in an address.</address>',
-  ].join(''),
-  size: { width: 600, height: 'auto' },
-  dir: 'rtl',
-  lang: 'he',
-}
-
-export const fixedPage: PageInput = {
-  html: '<div style="font:24px sans-serif">Fixed page</div>',
+export const fixedPage: DocumentInput = {
+  type: 'document',
+  kind: 'page',
   size: { width: 420, height: 240 },
+  children: [{ type: 'page', body: { html: '<div style="font:24px sans-serif">Fixed page</div>' } }],
 }
 
-export const marginPage: PageInput = {
-  html: '<span style="font:12px sans-serif">MARGIN_MARKER</span>',
+export const marginPage: DocumentInput = {
+  type: 'document',
+  kind: 'page',
   size: 'fluid',
   print: { paper: 'letter', orientation: 'portrait', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } },
+  children: [{ type: 'page', body: { html: '<span style="font:12px sans-serif">MARGIN_MARKER</span>' } }],
 }
 
-export const postcardPage: PageInput = {
-  html: '<!doctype html><html style="margin:0;background:#b9e6df"><body style="margin:0;padding:var(--segnavia-safe);font:18px system-ui,sans-serif">Greetings from Segnavia.</body></html>',
+export const postcardPage: DocumentInput = {
+  type: 'document',
+  kind: 'page',
   size: 'fluid',
   print: {
     paper: { width: 148, height: 105, unit: 'mm' },
@@ -123,17 +58,39 @@ export const postcardPage: PageInput = {
     safe: 5,
     marks: true,
   },
+  children: [
+    {
+      type: 'page',
+      body: {
+        html: '<!doctype html><html style="margin:0;background:#b9e6df"><body style="margin:0;padding:var(--segnavia-safe);font:18px system-ui,sans-serif">Greetings from Segnavia.</body></html>',
+      },
+    },
+  ],
 }
 
-export const postcardBackPage: PageInput = {
+export const postcardBackPage: DocumentInput = {
   ...postcardPage,
-  html: '<!doctype html><html style="margin:0;background:#f7c8a8"><body style="margin:0;padding:var(--segnavia-safe);font:18px system-ui,sans-serif">The other side of the postcard.</body></html>',
+  children: [
+    {
+      type: 'page',
+      body: {
+        html: '<!doctype html><html style="margin:0;background:#f7c8a8"><body style="margin:0;padding:var(--segnavia-safe);font:18px system-ui,sans-serif">The other side of the postcard.</body></html>',
+      },
+    },
+  ],
 }
 
 const labelColors = ['#fef3c7', '#dbeafe', '#dcfce7', '#fce7f3', '#ede9fe', '#ffedd5']
-export const labelPages: PageInput[] = Array.from({ length: 31 }, (_, index) => ({
-  html: `<html style="background:${labelColors[index % labelColors.length]};font:10px sans-serif"><body><p>Label ${index + 1}</p></body></html>`,
+export const labelPages: DocumentInput[] = Array.from({ length: 31 }, (_, index) => ({
+  type: 'document',
+  kind: 'page',
   size: 'fluid',
+  children: [
+    {
+      type: 'page',
+      body: { html: `<html style="background:${labelColors[index % labelColors.length]};font:10px sans-serif"><body><p>Label ${index + 1}</p></body></html>` },
+    },
+  ],
 }))
 
 export const labelsImposition: ImpositionInput = {
@@ -158,13 +115,22 @@ export const twoSidedCardImposition: ImpositionInput = {
   flip: 'long',
 }
 
-export const twoSidedCardPages: PageInput[] = Array.from({ length: 8 }, (_, index) => {
+export const twoSidedCardPages: DocumentInput[] = Array.from({ length: 8 }, (_, index) => {
   const face = index % 2 === 0 ? 'Front' : 'Back'
   const piece = Math.floor(index / 2) + 1
   const shade = face === 'Front' ? 220 : 170
   return {
-    html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0;font:14px sans-serif"><p>${face} ${piece}</p></body></html>`,
+    type: 'document',
+    kind: 'page',
     size: 'fluid',
+    children: [
+      {
+        type: 'page',
+        body: {
+          html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0;font:14px sans-serif"><p>${face} ${piece}</p></body></html>`,
+        },
+      },
+    ],
   }
 })
 
@@ -174,9 +140,11 @@ export const twoSidedSequenceImposition: ImpositionInput = {
   margin: { top: 15, right: 25, bottom: 95, left: 10 },
 }
 
-export const fixedImposedPage: PageInput = {
-  html: '<!doctype html><html style="margin:0;background:rgb(80,80,80)"><body style="margin:0"></body></html>',
+export const fixedImposedPage: DocumentInput = {
+  type: 'document',
+  kind: 'page',
   size: { width: 600, height: 400 },
+  children: [{ type: 'page', body: { html: '<!doctype html><html style="margin:0;background:rgb(80,80,80)"><body style="margin:0"></body></html>' } }],
 }
 
 const fixedImposition: ImpositionInput = {
@@ -193,9 +161,13 @@ export const coveringImposition: ImpositionInput = { ...fixedImposition, fit: 'c
 export const containedImposition: ImpositionInput = { ...fixedImposition, fit: 'contain' }
 
 export const bleedGridShades = [60, 100, 140, 180]
-export const bleedGridPages: PageInput[] = bleedGridShades.map((shade) => ({
-  html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0"></body></html>`,
+export const bleedGridPages: DocumentInput[] = bleedGridShades.map((shade) => ({
+  type: 'document',
+  kind: 'page',
   size: 'fluid',
+  children: [
+    { type: 'page', body: { html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0"></body></html>` } },
+  ],
 }))
 
 const bleedGrid: ImpositionInput = {
@@ -215,14 +187,27 @@ export const clippedBleedGridImposition: ImpositionInput = {
   gap: { column: 2, row: 2 },
 }
 
-export const growingFixedPages: PageInput[] = [70, 170].map((shade) => ({
-  html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0"></body></html>`,
+export const growingFixedPages: DocumentInput[] = [70, 170].map((shade) => ({
+  type: 'document',
+  kind: 'page',
   size: { width: 200, height: 'auto' },
+  children: [
+    { type: 'page', body: { html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0"></body></html>` } },
+  ],
 }))
 
-export const letterFoldPages: PageInput[] = Array.from({ length: 6 }, (_, index) => ({
-  html: `<!doctype html><html style="margin:0;background:#f4f4f5"><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100%;font:48px sans-serif">${index + 1}</body></html>`,
+export const letterFoldPages: DocumentInput[] = Array.from({ length: 6 }, (_, index) => ({
+  type: 'document',
+  kind: 'page',
   size: 'fluid',
+  children: [
+    {
+      type: 'page',
+      body: {
+        html: `<!doctype html><html style="margin:0;background:#f4f4f5"><body style="margin:0;display:flex;align-items:center;justify-content:center;height:100%;font:48px sans-serif">${index + 1}</body></html>`,
+      },
+    },
+  ],
 }))
 
 export const letterFoldImposition: ImpositionInput = {
@@ -261,34 +246,53 @@ const parentPages = {
   rules: { every: 'body', first: 'first' },
 }
 
+function printedDocument(input: {
+  html: string
+  lang: string
+  dir?: 'ltr' | 'rtl'
+  parents?: Array<{
+    name: string
+    basedOn?: string
+    margin: { blockStart: number; blockEnd: number; inlineStart: number; inlineEnd: number }
+    head?: string
+    foot?: string
+  }>
+  rules?: PrintedPageRules
+}): DocumentInput {
+  const parents = input.parents ?? parentPages.parents
+  return {
+    type: 'document',
+    kind: 'printed',
+    settings: { lang: input.lang, dir: input.dir },
+    print: { paper: 'letter' },
+    parentPages: parents.map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
+    rules: input.rules ?? parentPages.rules,
+    children: [{ type: 'page', body: { html: input.html } }],
+  }
+}
+
 const flowingLines = (prefix: string, count: number, breaks: number[]) =>
   Array.from({ length: count }, (_, index) => `<p${breaks.includes(index) ? ' class="forced"' : ''}>${prefix}-${index + 1} flowing body</p>`).join('')
 
 const flowingCss =
   '<style>body{font:14px sans-serif}p{margin:0 0 7px}.forced{break-before:page}.keep{break-inside:avoid}.widow{widows:2;orphans:2;line-height:20px}.widow-space{block-size:360px}</style>'
 
-export const parentPageEnglish: PageInput = {
+export const parentPageEnglish: DocumentInput = printedDocument({
   html: `${flowingCss}${flowingLines('English', 20, [])}<div class="widow-space"></div><p class="widow">WIDOW-1<br>WIDOW-2<br>WIDOW-3<br>WIDOW-4</p>${Array.from({ length: 35 }, (_, index) => `<p${index === 20 ? ' class="forced"' : ''}>English-${index + 21} flowing body</p>`).join('')}<div class="keep">KEEP-A<br>KEEP-B<br>KEEP-C</div>`,
   lang: 'en',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
-export const parentPageHebrew: PageInput = {
+export const parentPageHebrew: DocumentInput = printedDocument({
   html: `${flowingCss}${flowingLines('עברית', 34, [18])}`,
   lang: 'he',
   dir: 'rtl',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
-export const parentPageMixed: PageInput = {
+export const parentPageMixed: DocumentInput = printedDocument({
   html: `${flowingCss}<p>English opening בתוך מסמך mixed.</p>${flowingLines('Mixed', 32, [17])}`,
   lang: 'he',
   dir: 'rtl',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
 export const printedParentPageCases = [
   { name: 'english', page: parentPageEnglish },
@@ -299,32 +303,25 @@ export const printedParentPageCases = [
 const imageWords = Array.from({ length: 220 }, (_, index) => `<span>ImageWord-${index + 1} </span>`)
 const unsizedImage = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="420"><rect width="240" height="420" fill="#ddd"/></svg>')
 
-export const parentPageUnsizedImage: PageInput = {
+export const parentPageUnsizedImage: DocumentInput = printedDocument({
   html: `${flowingCss}<p>${imageWords.slice(0, 110).join('')}</p><img src="data:image/svg+xml,${unsizedImage}"><p>${imageWords.slice(110).join('')}</p>`,
   lang: 'en',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
-export const parentPageNarrowBreak: PageInput = {
+export const parentPageNarrowBreak: DocumentInput = printedDocument({
   html: `${flowingCss}<p>Wide opening</p><div style="break-before:page;break-after:page;inline-size:40%">${Array.from({ length: 30 }, (_, index) => `<div>Narrow-${index + 1}</div>`).join('')}</div><p>Wide ending</p>`,
   lang: 'en',
-  print: { paper: 'letter' },
-  printedPages: parentPages,
-}
+})
 
-export const parentPageFurnitureOverflow: PageInput = {
+export const parentPageFurnitureOverflow: DocumentInput = printedDocument({
   html: `${flowingCss}<p>Furniture overflow body</p>`,
   lang: 'en',
-  print: { paper: 'letter' },
-  printedPages: {
-    parents: [
-      {
-        name: 'body',
-        margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
-        head: '<div style="block-size:200px">Too-tall furniture</div>',
-      },
-    ],
-    rules: { every: 'body' },
-  },
-}
+  parents: [
+    {
+      name: 'body',
+      margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
+      head: '<div style="block-size:200px">Too-tall furniture</div>',
+    },
+  ],
+  rules: { every: 'body' },
+})

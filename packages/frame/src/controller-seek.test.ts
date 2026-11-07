@@ -31,7 +31,7 @@ test('a superseded seek cannot overwrite the newer seek position', async () => {
       }
     },
   })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       { id: 'a', content: { kind: 'html', html: 'a' }, holdMs: 1000 },
@@ -60,7 +60,7 @@ test('a superseded failed seek cannot pause or report over a newer seek', async 
       return slide.content
     },
   })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       { id: 'a', content: { kind: 'html', html: 'a' }, holdMs: 1000 },
@@ -91,7 +91,7 @@ test('a failed seek pauses playback and reports the target slide once', async ()
       return slide.content
     },
   })
-  await controller.load({
+  await controller.loadDeckValue({
     title: 'T',
     slides: [
       { id: 'a', content: { kind: 'html', html: 'a' }, holdMs: 1000 },
