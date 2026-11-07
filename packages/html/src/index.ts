@@ -57,7 +57,19 @@ export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength } 
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
 export { bookStylesheet, sanitizeBookCss } from './book-css.ts'
+export { type DescribeDocumentOptions, type DocumentDescription, type DocumentDescriptionNode, describeDocument } from './describe-document.ts'
 export { BLOCK_ELEMENTS, type ParseDocumentOptions, pageOrPrintedFromInput, parseDocument } from './document.ts'
+export type { EditDocumentOptions } from './document-command-core.ts'
+export {
+  type CommandContentAddress,
+  DocumentAddress,
+  type DocumentAddress as DocumentAddressValue,
+  DocumentCommand,
+  type DocumentCommand as DocumentCommandValue,
+  DocumentCommandLocation,
+  documentCommandJsonSchema,
+} from './document-commands.ts'
+export { type EditDocumentFailure, type EditDocumentResult, type EditDocumentSuccess, editDocument } from './edit-document.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
