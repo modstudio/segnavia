@@ -73,6 +73,8 @@ describe('Document', () => {
   })
 
   test('generates the document JSON Schema from the exported manifest', () => {
-    expect(jsonSchemas()).toHaveProperty('document')
+    const schemas = jsonSchemas()
+    expect(schemas).toHaveProperty('document')
+    for (const legacy of ['deck', 'page', 'book', 'board']) expect(schemas).not.toHaveProperty(legacy)
   })
 })
