@@ -1,5 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
+import type { DocumentInput } from '@segnavia/format'
 
 const html = (authorPrevents: boolean) => `<!doctype html><html><body style="margin:0;font:20px sans-serif">
 <a id="jump" href="#far">Jump to target</a>
@@ -22,16 +23,23 @@ ${
 export function buildInPageLinkDemo(site: string): string {
   for (const scripts of ['refuse', 'sandboxed'] as const) {
     const content = html(scripts === 'sandboxed')
-    writeFileSync(path.join(site, `link-page-${scripts}.json`), JSON.stringify({ html: content, scripts, size: { width: 420, height: 240 } }))
-    writeFileSync(
-      path.join(site, `link-slide-${scripts}.json`),
-      JSON.stringify({
-        title: 'In-page link',
-        scripts,
-        size: { width: 640, height: 360 },
-        slides: [{ id: 'link', content: { kind: 'html', html: content } }],
-      }),
-    )
+    const page = {
+      type: 'document',
+      kind: 'page',
+      size: { width: 420, height: 240 },
+      settings: { scripts },
+      children: [{ type: 'page', body: { html: content } }],
+    } satisfies DocumentInput
+    const deck = {
+      type: 'document',
+      kind: 'deck',
+      title: 'In-page link',
+      size: { width: 640, height: 360 },
+      settings: { scripts },
+      children: [{ type: 'slide', id: 'link', content: { kind: 'html', html: content } }],
+    } satisfies DocumentInput
+    writeFileSync(path.join(site, `link-page-${scripts}.json`), JSON.stringify(page))
+    writeFileSync(path.join(site, `link-slide-${scripts}.json`), JSON.stringify(deck))
   }
   return '<segnavia-page id="link-page-refuse" src="link-page-refuse.json"></segnavia-page><segnavia-page id="link-page-sandboxed" src="link-page-sandboxed.json"></segnavia-page><segnavia-stage id="link-slide-refuse" src="link-slide-refuse.json" hash="off" style="width:640px;height:360px"></segnavia-stage><segnavia-stage id="link-slide-sandboxed" src="link-slide-sandboxed.json" hash="off" style="width:640px;height:360px"></segnavia-stage>'
 }
