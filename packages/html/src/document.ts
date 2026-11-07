@@ -18,8 +18,31 @@ function contentNodeLabel(node: { type: string; id: string }): string {
   return `${node.type} node "${node.id}"`
 }
 
+function dependencyOrigins(html: string): Set<string> {
+  const origins = new Set<string>()
+  const add = (value: string): void => {
+    try {
+      const url = new URL(value)
+      if (url.protocol === 'https:') origins.add(url.origin)
+    } catch {}
+  }
+  const document = parse(html)
+  for (const element of document.children.flatMap(function visit(node): typeof document.children {
+    if (!isTag(node)) return []
+    return [node, ...node.children.flatMap(visit)]
+  })) {
+    if (!isTag(element)) continue
+    const name = element.name.toLowerCase()
+    if (name === 'script' && element.attribs.src) add(element.attribs.src)
+    if (name === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && element.attribs.href) add(element.attribs.href)
+    const css = name === 'style' ? element.children.map((child) => ('data' in child ? child.data : '')).join('') : element.attribs.style
+    for (const match of css?.matchAll(/https:\/\/[^\s"')]+/gi) ?? []) add(match[0])
+  }
+  return origins
+}
+
 function contentHtml(html: string, node: { type: string; id: string }, newId: () => string, seen: Map<string, BlockLocation>, keepScripts: boolean): string {
-  const document = parse(sanitize(html, { keepScripts }))
+  const document = parse(sanitize(html, { keepScripts, dependencyOrigins: keepScripts ? dependencyOrigins(html) : undefined }))
   const visit = (children: typeof document.children): void => {
     for (const child of children) {
       if (!isTag(child)) continue

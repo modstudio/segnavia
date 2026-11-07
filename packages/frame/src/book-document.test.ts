@@ -19,7 +19,7 @@ const book = Book.parse({
   mode: 'paginated',
   lang: 'he',
   page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
-  chapters: [{ title: 'א', html: '<p>טקסט<span data-note="footnote">הערה</span></p>' }],
+  chapters: [{ id: 'chapter-a', title: 'א', html: '<p>טקסט<span data-note="footnote">הערה</span></p>' }],
 })
 
 describe('bookDocument', () => {
@@ -82,7 +82,7 @@ describe('bookDocument', () => {
     const html = bookDocument(book, { nonce: 'held' })
     expect(html.match(/<script nonce="held">/g)?.length).toBeGreaterThanOrEqual(1)
     expect(html).toContain('data-segnavia-galleys')
-    expect(html).toContain('data-segnavia-flow="segnavia-chapter-1"')
+    expect(html).toContain('data-segnavia-flow="chapter-a"')
     expect(html).toContain('data-segnavia-notes-galley')
     expect(html).toContain('"direction":"rtl"')
     expect(BOOK_COMPOSER_SCRIPT).toContain(paginateScript())

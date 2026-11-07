@@ -84,23 +84,21 @@ export function collectHeadings(
   sectionId: string,
   depth: number,
   firstLevel: number,
-  idFor: (n: number) => string,
-  generated: { n: number },
 ): BookHeading[] {
   return elements(children).flatMap((heading): BookHeading[] => {
     const match = /^h([1-6])$/.exec(heading.name)
     if (!match || heading.attribs['data-contents'] === 'exclude') return []
     const level = Number(match[1])
     if (level < firstLevel || level > depth) return []
-    generated.n += 1
-    const id = heading.attribs.id ?? idFor(generated.n)
+    const id = heading.attribs.id ?? heading.attribs['data-segnavia-id'] ?? globalThis.crypto.randomUUID()
+    heading.attribs['data-segnavia-id'] ??= id
     heading.attribs.id = id
     return [{ id, level, text: headingText(heading).replace(/\s+/g, ' ').trim(), sectionId }]
   })
 }
 
-function heldHeadings(children: ChildNode[], sectionId: string, depth: number, generated: { n: number }): BookHeading[] {
-  return collectHeadings(children, sectionId, depth, 1, (n) => `segnavia-h-${sectionId.replace(/^segnavia-/, '')}-${n}`, generated)
+function heldHeadings(children: ChildNode[], sectionId: string, depth: number): BookHeading[] {
+  return collectHeadings(children, sectionId, depth, 1)
 }
 
 export function designedSection(
@@ -117,11 +115,10 @@ export function designedSection(
     ...(kind === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   const headings: BookHeading[] = []
-  const generated = { n: 0 }
   const firstRecto = entry.opens !== 'verso'
   const holders = entry.pages.map((page, offset) => {
     const document = parse(page.html)
-    headings.push(...heldHeadings(document.children, id, depth, generated))
+    headings.push(...heldHeadings(document.children, id, depth))
     return build === 'flow' && geometry
       ? flowPage(offset + 1, 'designed', document.children, geometry, offset % 2 === 0 ? firstRecto : !firstRecto)
       : element('div', { 'data-segnavia-designed-page': String(offset + 1), hidden: '' }, document.children)
@@ -242,14 +239,13 @@ export function templatedSection(
     ...(kind === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   const headings: BookHeading[] = []
-  const generated = { n: 0 }
   const firstRecto = entry.opens !== 'verso'
   const holders = entry.pages.map((page, offset) => {
     const name = page.template ?? entry.template
     const regionChildren = new Map<string, ChildNode[]>()
     const regions = Object.entries(page.regions).map(([region, html]) => {
       const document = parse(html)
-      headings.push(...heldHeadings(document.children, id, depth, generated))
+      headings.push(...heldHeadings(document.children, id, depth))
       regionChildren.set(region, document.children)
       return element('div', { 'data-region': region, hidden: '' }, document.children)
     })

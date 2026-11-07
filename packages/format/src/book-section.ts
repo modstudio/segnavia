@@ -38,6 +38,7 @@ const templatedPagesRefusal = 'a templated section needs at least one page; add 
 const regionNameClear = 'use a letter followed by letters, digits, hyphens or underscores to clear this refusal'
 
 const sectionFields = {
+  id: z.string().default(() => globalThis.crypto.randomUUID()),
   title: z.string().optional(),
   contents: z.boolean().default(true),
   opens: BookOpens.optional(),
@@ -45,7 +46,7 @@ const sectionFields = {
 }
 
 const partFields = {
-  id: z.string().optional(),
+  id: z.string().default(() => globalThis.crypto.randomUUID()),
   name: z.string().regex(REGION_NAME, 'a part name must be an HTML name token'),
   title: z.string().optional(),
   html: z.string().optional(),
@@ -77,6 +78,7 @@ export const BookSection = z.object({
 export type BookSection = z.infer<typeof BookSection>
 
 export const BookContents = z.object({
+  id: z.string().default(() => globalThis.crypto.randomUUID()),
   kind: z.literal('contents'),
   title: z.string().optional(),
   opens: BookOpens.optional(),
@@ -93,6 +95,7 @@ export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSectio
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
 export const Chapter = z.object({
+  id: z.string().default(() => globalThis.crypto.randomUUID()),
   title: z.string(),
   html: z.string(),
   runningHead: z.string().optional(),
@@ -123,7 +126,7 @@ interface BookSectionLocation {
   path: (string | number)[]
 }
 
-export type BookSectionEntry = BookSectionLocation & { entry: BookItem; division: BookDivision; id?: string }
+export type BookSectionEntry = BookSectionLocation & { entry: BookItem; division: BookDivision; id: string }
 
 export function isPart(entry: BookItem): entry is Part {
   return 'name' in entry
@@ -136,8 +139,6 @@ export interface BookDivisions {
   endMatter: BookItem[]
 }
 
-const mintedPartIds = new WeakMap<Part, string>()
-
 /** The canonical reading order for every feature that consumes a book. */
 export function bookSections(book: BookDivisions): BookSectionEntry[] {
   const sections: BookSectionEntry[] = []
@@ -145,14 +146,10 @@ export function bookSections(book: BookDivisions): BookSectionEntry[] {
     items.forEach((entry, index) => {
       const path = [...parentPath, index]
       if (!isPart(entry)) {
-        sections.push({ entry, division, ancestry, depth: ancestry.length, path })
+        sections.push({ entry, division, ancestry, depth: ancestry.length, path, id: entry.id })
         return
       }
-      let id = entry.id ?? mintedPartIds.get(entry)
-      if (!id) {
-        id = globalThis.crypto.randomUUID()
-        mintedPartIds.set(entry, id)
-      }
+      const id = entry.id
       if (entry.html !== undefined || entry.title !== undefined) sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
       walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, runningHead: entry.runningHead, id }])
     })

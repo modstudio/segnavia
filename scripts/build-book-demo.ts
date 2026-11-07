@@ -40,7 +40,7 @@ const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
 const longNote = (hebrew: boolean) =>
   hebrew ? 'הערה ארוכה שנמשכת אל העמוד הבא. '.repeat(40) : 'A footnote long enough to continue onto the next page, naming the source of the voyage. '.repeat(24)
 const pointedRun = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃ וְהָאָ֗רֶץ הָיְתָ֥ה תֹ֙הוּ֙ וָבֹ֔הוּ וְחֹ֖שֶׁךְ עַל־פְּנֵ֣י תְה֑וֹם וְר֣וּחַ אֱלֹהִ֔ים מְרַחֶ֖פֶת עַל־פְּנֵ֥י הַמָּֽיִם׃ '
-function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = false): string {
+function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = false, pageReferenceTarget = 'chapter-three'): string {
   const title = hebrew ? 'פרק ראשון' : 'Chapter One'
   const mark = hebrew ? 'סימן א' : 'Mark A'
   const kavana = hebrew ? 'כוונה א' : 'Intention A'
@@ -48,7 +48,7 @@ function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = f
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</span></p>${probes ? keepProbe(hebrew) : ''}<p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#${pageReferenceTarget}" data-ref="page"></a>.</span></p>${probes ? keepProbe(hebrew) : ''}<p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#${pageReferenceTarget}" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 function chapterTwoHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שני' : 'Chapter Two'
@@ -142,7 +142,7 @@ const paginatedFixture = (hebrew: boolean): DocumentInput => ({
         flowSection(hebrew ? 'פרק שני' : 'Chapter Two', chapterTwoHtml(hebrew), {
           parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
         }),
-        flowSection(hebrew ? 'פרק שלישי' : 'Chapter Three', chapterThreeHtml(hebrew)),
+        flowSection(hebrew ? 'פרק שלישי' : 'Chapter Three', chapterThreeHtml(hebrew), { id: 'chapter-three' }),
         flowSection(hebrew ? 'פרק רביעי' : 'Chapter Four', chapterFourHtml(hebrew)),
         flowSection(columnFitChapter(hebrew).title, columnFitChapter(hebrew).html),
       ],
@@ -211,9 +211,9 @@ export function largePaginatedFixture(hebrew: boolean): DocumentInput {
   const sections = Array.from({ length: hebrew ? 40 : 54 }, (_, cycle) => {
     const number = cycle * 3
     return [
-      flowSection(`${hebrew ? 'פרק ראשון' : 'Chapter One'} ${number + 1}`, chapterOneHtml(hebrew, footnote)),
+      flowSection(`${hebrew ? 'פרק ראשון' : 'Chapter One'} ${number + 1}`, chapterOneHtml(hebrew, footnote, false, `chapter-three-${number + 3}`)),
       flowSection(`${hebrew ? 'פרק שני' : 'Chapter Two'} ${number + 2}`, chapterTwoHtml(hebrew)),
-      flowSection(`${hebrew ? 'פרק שלישי' : 'Chapter Three'} ${number + 3}`, chapterThreeHtml(hebrew)),
+      flowSection(`${hebrew ? 'פרק שלישי' : 'Chapter Three'} ${number + 3}`, chapterThreeHtml(hebrew), { id: `chapter-three-${number + 3}` }),
     ]
   }).flat()
   return {

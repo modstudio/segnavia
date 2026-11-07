@@ -39,3 +39,18 @@ test('refuses duplicate block ids with both blocks and the clearance', () => {
     /block id "same".*<p>.*<figure>.*change or remove one data-segnavia-id to clear this refusal/,
   )
 })
+
+test('keeps pinned scripted dependencies for the host policy and keeps forms sandboxed', () => {
+  const source =
+    '<link rel="stylesheet" href="https://fonts.example/css?family=Fixture"><style>@font-face{font-family:x;src:url(https://fonts.example/x/v1/font.woff2)}</style><form><button>Send</button></form><script src="https://cdn.example/library@1.0.0/index.js"></script>'
+  const parsed = parseDocument(
+    { type: 'document', kind: 'page', settings: { scripts: 'sandboxed' }, children: [{ type: 'page', body: { html: source } }] },
+    { newId: counter() },
+  )
+  const body = parsed.children[0]?.type === 'page' ? parsed.children[0].body : undefined
+  const html = body && 'html' in body ? body.html : ''
+  expect(html).toContain('href="https://fonts.example/css?family=Fixture"')
+  expect(html).toContain('https://fonts.example/x/v1/font.woff2')
+  expect(html).toContain('<form><button>Send</button></form>')
+  expect(html).toContain('src="https://cdn.example/library@1.0.0/index.js"')
+})

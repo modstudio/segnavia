@@ -163,8 +163,8 @@ describe('Document lowering', () => {
           type: 'division',
           name: 'front',
           children: [
-            { type: 'section', title: frontFlow.title, contents: false, children: [{ type: 'flow', html: frontFlow.html }] },
-            { type: 'contents', title: front[1]?.title, pageNumbers: expected.contents.pageNumbers, depth: expected.contents.depth },
+            { type: 'section', id: frontFlow.id, title: frontFlow.title, contents: false, children: [{ type: 'flow', html: frontFlow.html }] },
+            { type: 'contents', id: front[1]?.id, title: front[1]?.title, pageNumbers: expected.contents.pageNumbers, depth: expected.contents.depth },
           ],
         },
         {
@@ -172,7 +172,7 @@ describe('Document lowering', () => {
           name: 'body',
           children: chapters.map((chapter) => {
             if (!('html' in chapter)) throw new Error('the Hebrew sefer fixture needs flowing chapters')
-            return { type: 'section' as const, title: chapter.title, children: [{ type: 'flow' as const, html: chapter.html }] }
+            return { type: 'section' as const, id: chapter.id, title: chapter.title, children: [{ type: 'flow' as const, html: chapter.html }] }
           }),
         },
       ],
