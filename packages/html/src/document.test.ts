@@ -40,7 +40,7 @@ test('refuses duplicate block ids with both blocks and the clearance', () => {
   )
 })
 
-test('keeps pinned scripted dependencies for the host policy and keeps forms sandboxed', () => {
+test('keeps active content for the later realize policy', () => {
   const source =
     '<link rel="stylesheet" href="https://fonts.example/css?family=Fixture"><style>@font-face{font-family:x;src:url(https://fonts.example/x/v1/font.woff2)}</style><form><button>Send</button></form><script src="https://cdn.example/library@1.0.0/index.js"></script>'
   const parsed = parseDocument(

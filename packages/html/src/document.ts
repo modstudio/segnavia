@@ -1,7 +1,7 @@
 import { Document, type DocumentInput, type DocumentParseOptions, type Document as ParsedDocument } from '@segnavia/format'
 import { isTag } from 'domhandler'
 import { markdownHtml } from './markdown.ts'
-import { parse, sanitize, serialize } from './sanitize.ts'
+import { parse, serialize } from './sanitize.ts'
 
 export const BLOCK_ELEMENTS = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'figure', 'tr'] as const
 
@@ -18,31 +18,8 @@ function contentNodeLabel(node: { type: string; id: string }): string {
   return `${node.type} node "${node.id}"`
 }
 
-function dependencyOrigins(html: string): Set<string> {
-  const origins = new Set<string>()
-  const add = (value: string): void => {
-    try {
-      const url = new URL(value)
-      if (url.protocol === 'https:') origins.add(url.origin)
-    } catch {}
-  }
+function contentHtml(html: string, node: { type: string; id: string }, newId: () => string, seen: Map<string, BlockLocation>): string {
   const document = parse(html)
-  for (const element of document.children.flatMap(function visit(node): typeof document.children {
-    if (!isTag(node)) return []
-    return [node, ...node.children.flatMap(visit)]
-  })) {
-    if (!isTag(element)) continue
-    const name = element.name.toLowerCase()
-    if (name === 'script' && element.attribs.src) add(element.attribs.src)
-    if (name === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && element.attribs.href) add(element.attribs.href)
-    const css = name === 'style' ? element.children.map((child) => ('data' in child ? child.data : '')).join('') : element.attribs.style
-    for (const match of css?.matchAll(/https:\/\/[^\s"')]+/gi) ?? []) add(match[0])
-  }
-  return origins
-}
-
-function contentHtml(html: string, node: { type: string; id: string }, newId: () => string, seen: Map<string, BlockLocation>, keepScripts: boolean): string {
-  const document = parse(sanitize(html, { keepScripts, dependencyOrigins: keepScripts ? dependencyOrigins(html) : undefined }))
   const visit = (children: typeof document.children): void => {
     for (const child of children) {
       if (!isTag(child)) continue
@@ -70,8 +47,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const newId = options.newId ?? (() => globalThis.crypto.randomUUID())
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockLocation>()
-  const keepScripts = document.settings?.scripts === 'sandboxed'
-  const html: ContentHtml = (value, node) => contentHtml(value, node, newId, seen, keepScripts)
+  const html: ContentHtml = (value, node) => contentHtml(value, node, newId, seen)
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
     const value = 'html' in node.body ? node.body.html : markdownHtml(node.body, { dir: document.settings?.dir, lang: document.settings?.lang })
