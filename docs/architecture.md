@@ -1673,8 +1673,13 @@ it is not a security control.
 
 `applyOps` applies a batch to a copy, validates the final value through
 `Document.parse`, and returns it only when parsing neither mints an id nor
-changes a field. Any refusal names the operation index and leaves the input
-untouched. A stale base lists prior-value mismatches by node and field; when all
+changes a field. Every refusal leaves the input untouched. A refusal that one
+operation causes names that operation's index. A final value that fails
+validation is refused as the batch's result. `fingerprintDocument`, `applyOps`
+and `diffDocuments` take only a parsed Document and refuse anything else with
+"parse it first". A document's id and kind are its identity. No operation sets
+them, and `diffDocuments` refuses two documents whose root ids or kinds differ.
+A stale base lists prior-value mismatches by node and field; when all
 priors still match, it reports that the document changed outside the batch's
 targets and gives both fingerprints. In either case the caller clears the
 refusal by rebuilding the batch against the current document. Operations
@@ -1682,6 +1687,8 @@ insert, remove and move nodes, set structural fields, replace a schema-native
 content field as an opaque value, and set style keys. `invertOps` supplies undo,
 `inverseBatch` binds that inverse to the after-document fingerprint, and
 `diffDocuments` produces operations between two parsed documents.
+`jsonSchemas()` publishes `documentOp` and `documentBatch`, so a host that does
+not run TypeScript can validate the batches it exchanges.
 `editDocument` compiles
 agent-facing commands addressed by id or name. `describeDocument` exposes the
 structure, effective styles, plan and report as plain values without requiring
