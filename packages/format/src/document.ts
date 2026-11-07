@@ -139,6 +139,10 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
   if (document.kind === 'page' && (document.children.length !== 1 || document.children[0]?.type !== 'page')) {
     ctx.addIssue({ code: 'custom', path: ['children'], message: 'a page document needs exactly one page node; provide one page node to clear this refusal' })
   }
+}).transform((document) => {
+  const profile = DOCUMENT_PROFILES[document.kind]
+  if (document.settings === undefined || !(profile.settings as readonly string[]).includes('scripts')) return document
+  return { ...document, settings: { scripts: 'refuse' as const, ...document.settings } }
 })
 
 export type Document = z.infer<typeof Document>

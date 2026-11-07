@@ -12,9 +12,9 @@ export async function checkBoardChrome(h: Harness) {
     state.setBoardValue(value, { ...state.boardValue(value), direction: 'ltr' })
     value.selection = []
     value.fitAll()
-    const state = window as typeof window & { boardSelections: unknown[]; boardActions: unknown[] }
-    state.boardSelections = []
-    state.boardActions = []
+    const events = window as typeof window & { boardSelections: unknown[]; boardActions: unknown[] }
+    events.boardSelections = []
+    events.boardActions = []
   })
 
   const icons = await h.page.evaluate(() => {
@@ -134,9 +134,9 @@ export async function checkBoardChrome(h: Harness) {
 
   await board.evaluate((element) => {
     const value = element as HTMLElement & { view: BoardView }
-    const page = (window as typeof window & { boardValue(target: Element): { items: Array<{ id: string; x: number; y: number }> } }).boardValue(value).items.find(
-      (entry) => entry.id === 'page',
-    )
+    const page = (window as typeof window & { boardValue(target: Element): { items: Array<{ id: string; x: number; y: number }> } })
+      .boardValue(value)
+      .items.find((entry) => entry.id === 'page')
     if (!page) throw new Error('The board has no page item.')
     value.view = { zoom: 1, pan: { x: 48 - page.x, y: 100 - page.y }, viewport: value.view.viewport }
   })

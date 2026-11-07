@@ -48,6 +48,11 @@ describe('Document', () => {
     )
   })
 
+  test('keeps the scripts default only for profiles that admit scripts', () => {
+    expect(Document.parse({ type: 'document', kind: 'deck', settings: { lang: 'he' }, children: [] }).settings).toEqual({ scripts: 'refuse', lang: 'he' })
+    expect(Document.parse({ type: 'document', kind: 'board', settings: { dir: 'rtl' }, children: [] }).settings).toEqual({ dir: 'rtl' })
+  })
+
   test('keeps direction policy in profiles and refuses limits where the current pipeline cannot carry them', () => {
     expect(Document.parse({ type: 'document', kind: 'book', settings: { dir: 'auto' }, limits: { pages: 12 }, children: [] }).limits).toEqual({ pages: 12 })
     expect(() => Document.parse({ type: 'document', kind: 'board', limits: { pages: 12 }, children: [] })).toThrow(

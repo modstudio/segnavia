@@ -44,7 +44,10 @@ export async function checkFarBoardPan(h: Harness) {
     .waitForFunction(
       () => {
         const board = document.querySelector('segnavia-board')
-        return Boolean(board && (window as typeof window & { boardValue(target: Element): { items: BoardItem[] } }).boardValue(board).items.some((item) => item.id === 'deck-far'))
+        return Boolean(
+          board &&
+            (window as typeof window & { boardValue(target: Element): { items: BoardItem[] } }).boardValue(board).items.some((item) => item.id === 'deck-far'),
+        )
       },
       undefined,
       { timeout: BOUNDED_WAIT_MS },

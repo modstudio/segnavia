@@ -47,7 +47,6 @@ type DemoWindow = typeof window & {
     detach(): void
   }
 }
-
 export async function checkBoardEditing(h: Harness) {
   const board = h.page.locator('segnavia-board')
   const original = await board.evaluate((element) => structuredClone((window as unknown as DemoWindow).boardValue(element as BoardElement)))
