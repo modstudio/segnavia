@@ -27,11 +27,10 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     if (!next) return true
     if (next.flow === chapter) return false
     if (next.role === 'blank' || next.role === 'opener' || next.role === 'fixed') return true
-    return next.role === 'body' && !/^segnavia-chapter-\d+$/.test(next.flow)
+    return next.role === 'body'
   }
 
-  function noteFlowOk(held: ReturnType<typeof pages>, flow: string) {
-    const chapter = flow.replace('segnavia-endnotes-', 'segnavia-chapter-')
+  function noteFlowOk(held: ReturnType<typeof pages>, flow: string, chapter: string) {
     const notePages = held.filter((page) => page.flow === flow)
     const chapterPages = held.filter((page) => page.flow === chapter && page.role !== 'blank')
     const lastChapter = Math.max(0, ...chapterPages.map((page) => page.number))
@@ -39,18 +38,22 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     const lastNote = Math.max(...notePages.map((page) => page.number))
     const afterChapter = held.find((page) => page.number === lastChapter + 1)
     const next = held.find((page) => page.number === lastNote + 1)
-    const otherChapter = held.some(
-      (page) => page.number >= firstNote && page.number <= lastNote && page.flow !== flow && /^segnavia-chapter-\d+$/.test(page.flow),
-    )
+    const otherChapter = held.some((page) => page.number >= firstNote && page.number <= lastNote && page.flow !== flow && page.role !== 'blank')
     const ok = afterChapter?.flow === flow && !otherChapter && nextAfterNotesOk(next, chapter) && notePages.every((page) => page.role !== 'blank')
     return { ok, detail: `${flow}:${lastChapter}->${firstNote}-${lastNote}:${next ? `${next.role}:${next.flow}` : 'end'}` }
   }
 
   function endnotes() {
     const held = pages()
-    const flows = [...new Set(held.filter((page) => /^segnavia-endnotes-\d+$/.test(page.flow)).map((page) => page.flow))]
+    const sources = Array.from(document.querySelectorAll('[data-segnavia-galley-source] [data-segnavia-flow]')).map(
+      (node) => node.getAttribute('data-segnavia-flow') ?? '',
+    )
+    const flows = [...new Set(held.filter((page) => page.flow.startsWith('segnavia-endnotes-')).map((page) => page.flow))]
     if (flows.length === 0) return { ok: false, detail: 'no chapter endnotes' }
-    const reports = flows.map((flow) => noteFlowOk(held, flow))
+    const reports = flows.map((flow) => {
+      const index = sources.indexOf(flow)
+      return noteFlowOk(held, flow, sources[index - 1] ?? '')
+    })
     return { ok: reports.every((report) => report.ok), detail: reports.map((report) => report.detail).join('|') }
   }
 

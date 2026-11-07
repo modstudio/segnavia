@@ -98,8 +98,8 @@ describe('book', () => {
   })
 
   test('front matter accepts a contents entry and refuses a second one by path', () => {
-    const [contents] = Book.parse(input({ frontMatter: [{ kind: 'contents', title: 'On this page' }] })).frontMatter
-    expect(contents).toEqual({ kind: 'contents', title: 'On this page' })
+    const [contents] = Book.parse(input({ frontMatter: [{ id: 'contents-section', kind: 'contents', title: 'On this page' }] })).frontMatter
+    expect(contents).toEqual({ id: 'contents-section', kind: 'contents', title: 'On this page' })
     expect(contents && isBookContents(contents)).toBe(true)
     expect(isBookContents({ html: '<p>Preface</p>', contents: true })).toBe(false)
     const result = Book.safeParse(input({ frontMatter: [{ kind: 'contents' }, { html: '<p>Foreword</p>' }, { kind: 'contents' }] }))

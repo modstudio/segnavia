@@ -1,5 +1,6 @@
 import { comparableContent } from './content-value.ts'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
+import { contentForComparison } from './deck-load-origin.ts'
 import { frameWindow } from './deck-window.ts'
 import type { FrameEntry } from './frame-entry.ts'
 import { addFrame, canReuseFrame, type FrameEvents, removeFrame, syncFrames } from './frame-pool-entry.ts'
@@ -102,7 +103,7 @@ export class FramePool {
     if (!deck || !slide || !state.content) return false
     if (this.pending?.id === slide.id) {
       const pending = this.entries.get(slide.id)
-      const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp, options.dependencyOrigins)
+      const value = comparableContent(contentForComparison(state.content), (path) => controller.url(path), deck.scripts, options.css, options.csp, options.dependencyOrigins)
       if (pending && canReuseFrame({ readiness: pending.ready, sameResolution: pending.content === state.content }, pending.value, value)) return true
     }
     this.cancelPending()
@@ -120,7 +121,7 @@ export class FramePool {
       hostOverride: options.transition,
       reducedMotion: options.reducedMotion,
     })
-    const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp, options.dependencyOrigins)
+    const value = comparableContent(contentForComparison(state.content), (path) => controller.url(path), deck.scripts, options.css, options.csp, options.dependencyOrigins)
     const existing = this.entries.get(slide.id)
     const reused =
       deck.scripts === 'refuse' &&
@@ -143,7 +144,7 @@ export class FramePool {
     const active = this.host.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     const activeId = active?.dataset.slideId
     if (activeId && activeId !== slide.id) {
-      const value = comparableContent(state.content, (path) => controller.url(path), deck.scripts, options.css, options.csp, options.dependencyOrigins)
+      const value = comparableContent(contentForComparison(state.content), (path) => controller.url(path), deck.scripts, options.css, options.csp, options.dependencyOrigins)
       const pending = this.entries.get(slide.id)
       if (
         this.pending?.id === slide.id &&

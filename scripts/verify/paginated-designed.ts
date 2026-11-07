@@ -112,9 +112,9 @@ export async function compareDesignedPages(h: Harness, id: string): Promise<Desi
   return matches
 }
 
-export async function compareTemplatedPages(h: Harness, id: string): Promise<DesignedPageMatch[]> {
+export async function compareTemplatedPages(h: Harness, id: string, flowId: string): Promise<DesignedPageMatch[]> {
   const file = id === 'book-workbook-he' ? 'book-workbook-he.html' : 'book-workbook-en.html'
-  const matches = await compareSelectedPages(h, id, file, '[data-segnavia-book-page][data-segnavia-flow^="segnavia-templated-"]', 'templated')
+  const matches = await compareSelectedPages(h, id, file, `[data-segnavia-book-page][data-segnavia-flow="${flowId}"]`, 'templated')
   await h.page.goto(h.url('book-workbook.html'))
   return matches
 }

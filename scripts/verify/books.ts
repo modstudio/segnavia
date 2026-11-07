@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
-import { PX_PER_PT } from '@segnavia/format'
+import { Document, PX_PER_PT } from '@segnavia/format'
+import { workbookFixture } from '../demo-book-workbook-fixtures.ts'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
 import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
@@ -314,9 +315,14 @@ async function verifyWorkbooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-workbook.html'))
   for (const id of ['book-workbook-en', 'book-workbook-he'] as const) {
+    let minted = 0
+    const parsed = Document.parse(workbookFixture(id === 'book-workbook-he'), { newId: () => `fixture-${++minted}` })
+    const body = parsed.children.find((node) => node.type === 'division' && node.name === 'body')
+    const flowId = body && 'children' in body ? body.children.find((node) => node.type === 'section' && node.template === 'lesson')?.id : undefined
+    if (!flowId) throw new Error(`${id} has no templated section id.`)
     const frame = await paginatedFrame(h, id)
-    const report = await frame.evaluate(() => {
-      const pages = Array.from(document.querySelectorAll('[data-segnavia-book-page][data-segnavia-flow^="segnavia-templated-"]'))
+    const report = await frame.evaluate((flowId) => {
+      const pages = Array.from(document.querySelectorAll(`[data-segnavia-book-page][data-segnavia-flow="${flowId}"]`))
       const templates = pages.map((paper) => paper.querySelector('[data-template]')?.getAttribute('data-template') ?? '')
       const overflow = Array.from(document.querySelectorAll('[data-segnavia-region-overflow]')).map((node) =>
         node.getAttribute('data-segnavia-region-overflow'),
@@ -339,7 +345,7 @@ async function verifyWorkbooks(h: Harness) {
         bodyFolio: pages.every((paper) => Boolean(paper.querySelector('.segnavia-folio')?.textContent?.trim())),
         dir: document.documentElement.getAttribute('dir'),
       }
-    })
+    }, flowId)
     check(`${id} composed without a planner refusal`, !report.failure && report.pages === 4, report.failure ?? `${report.pages} pages`)
     check(
       `${id} one lesson page names its own template`,
@@ -352,7 +358,7 @@ async function verifyWorkbooks(h: Harness) {
       JSON.stringify(report.overflow),
     )
     check(`${id} templated pages carry folios`, report.bodyFolio)
-    const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === 'segnavia-templated-1')
+    const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === flowId)
     check(
       `${id} contents lists every lesson with its page number`,
       lessons.length >= 5 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
@@ -387,7 +393,7 @@ async function verifyWorkbooks(h: Harness) {
       return box.bottom > 0 && box.top < innerHeight
     })
     check(`${id} contents links land on the lesson pages`, landed)
-    const pixels = await compareTemplatedPages(h, id)
+    const pixels = await compareTemplatedPages(h, id, flowId)
     check(
       `${id} each templated page equals its PDF page (mean <= ${TEMPLATED_PAGE_MEAN}, p99 <= ${TEMPLATED_PAGE_P99})`,
       pixels.length > 0 && pixels.every((item) => item.ok),

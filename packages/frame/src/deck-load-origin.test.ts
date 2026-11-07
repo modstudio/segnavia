@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { DeckController } from './controller.ts'
-import { deckPreservesNotes, isInternalDeck, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
+import { contentForComparison, deckPreservesNotes, isInternalDeck, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
 
 const input = () => ({ title: 'T', slides: [{ id: 'a', content: { kind: 'html' as const, html: '' } }] })
 const documentInput = () => ({
@@ -55,4 +55,16 @@ test('a host deck load refuses another document kind and names the accepted kind
   expect(() => parseDeckLoad({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: [] })).toThrow(
     'document kind book is not accepted here; use kind deck to clear this refusal',
   )
+})
+
+test('frame comparison uses authored HTML while loaded frames keep minted block ids', () => {
+  const host = documentInput()
+  host.children[0].content.html = '<h1>Same</h1>'
+  const first = parseDeckLoad(host).slides[0]?.content
+  const second = parseDeckLoad(host).slides[0]?.content
+  if (!first || !second || !('kind' in first) || first.kind !== 'html' || !('kind' in second) || second.kind !== 'html') throw new Error('the fixture needs HTML slides')
+
+  expect(first.html).toContain('data-segnavia-id')
+  expect(first.html).not.toBe(second.html)
+  expect(contentForComparison(first)).toEqual({ kind: 'html', html: '<h1>Same</h1>' })
 })
