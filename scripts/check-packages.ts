@@ -237,9 +237,14 @@ try {
     `<script setup lang="ts">
 import '@segnavia/frame/vue'
 import '@segnavia/markdown-editor/vue'
-import type { Deck } from '@segnavia/format'
+import type { DocumentInput } from '@segnavia/format'
 
-const deck = { title: 'Typed', slides: [{ id: 'one', content: { kind: 'html', html: '<h1>Typed</h1>' } }] } as Deck
+const deck = {
+  type: 'document',
+  kind: 'deck',
+  metadata: { title: 'Typed' },
+  children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '<h1>Typed</h1>' } }],
+} satisfies DocumentInput
 const onMarkdown = (event: CustomEvent<{ markdown: string }>) => event.detail.markdown.toUpperCase()
 </script>
 <template>

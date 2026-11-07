@@ -90,7 +90,7 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
 }
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
-  deck?: SegnaviaThumbnail['deck']
+  deck?: DocumentInput | null
   page?: DocumentInput | null
   print?: PrintInput | null
   index?: number

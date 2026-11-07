@@ -40,7 +40,7 @@ import type {
 import type { SegnaviaItemSettings } from './item-settings.ts'
 import type { SegnaviaPlayer } from './player-entry.ts'
 import type { StageFrameDetail } from './stage-frame-events.ts'
-import type { Assert, EventProps } from './vue-types.ts'
+import type { Assert, ElementPropertyWrites, EventProps } from './vue-types.ts'
 
 type ElementClasses = {
   stage: SegnaviaStage
@@ -98,11 +98,21 @@ type _EveryPropertyExists = Assert<
     [K in keyof typeof ELEMENT_PROPERTIES]: (typeof ELEMENT_PROPERTIES)[K]['properties'][number] extends keyof ElementClasses[K] ? true : false
   }[keyof typeof ELEMENT_PROPERTIES]
 >
+type _EveryWritePropertyExists = Assert<
+  {
+    [K in keyof ElementPropertyWrites]: keyof ElementPropertyWrites[K] extends (typeof ELEMENT_PROPERTIES)[K]['properties'][number] ? true : false
+  }[keyof ElementPropertyWrites]
+>
 type _EveryEventHasDetail = Assert<EventName extends keyof FrameVueEventDetails ? true : false>
 type _EveryDetailIsAnEvent = Assert<keyof FrameVueEventDetails extends EventName ? true : false>
-type ComponentFor<K extends keyof typeof ELEMENT_PROPERTIES> = Partial<
-  Pick<ElementClasses[K], Extract<(typeof ELEMENT_PROPERTIES)[K]['properties'][number], keyof ElementClasses[K]>>
-> &
+type ComponentProperty<K extends keyof typeof ELEMENT_PROPERTIES, P extends keyof ElementClasses[K]> = K extends keyof ElementPropertyWrites
+  ? P extends keyof ElementPropertyWrites[K]
+    ? ElementPropertyWrites[K][P]
+    : ElementClasses[K][P]
+  : ElementClasses[K][P]
+type ComponentFor<K extends keyof typeof ELEMENT_PROPERTIES> = Partial<{
+  [P in Extract<(typeof ELEMENT_PROPERTIES)[K]['properties'][number], keyof ElementClasses[K]>]: ComponentProperty<K, P>
+}> &
   EventProps<(typeof ELEMENT_PROPERTIES)[K]['events'], FrameVueEventDetails>
 type FrameGlobalComponents = {
   [K in keyof typeof ELEMENT_PROPERTIES as (typeof ELEMENT_PROPERTIES)[K]['tag']]: DefineComponent<ComponentFor<K>>
