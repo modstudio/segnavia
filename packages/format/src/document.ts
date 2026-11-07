@@ -106,7 +106,6 @@ function refineBookNodes(document: z.infer<typeof DocumentShape>, ctx: z.Refinem
       message: 'a book document cannot mix division nodes with other top-level nodes; move every top-level entry into a division or remove the divisions to clear this refusal',
     })
   }
-  const numbered = new Set<string>()
   let contentsOptions = 0
   const entries = (nodes: DocumentNodeValue[], division: 'front' | 'body' | 'end', path: (string | number)[]): void => {
     nodes.forEach((node, index) => {
@@ -148,6 +147,7 @@ function refineBookNodes(document: z.infer<typeof DocumentShape>, ctx: z.Refinem
         }
         const pages = node.children.filter((child) => child.type === 'page')
         const templated = pages.some((page) => page.regions !== undefined)
+        if (node.template !== undefined && !templated) unsupported([...nodePath, 'template'], 'non-templated section field template', ctx)
         if (templated && pages.some((page) => page.regions === undefined)) {
           ctx.addIssue({
             code: 'custom',
@@ -169,6 +169,17 @@ function refineBookNodes(document: z.infer<typeof DocumentShape>, ctx: z.Refinem
             })
           }
         })
+        const flow = node.children[0]?.type === 'flow' ? node.children[0] : undefined
+        if (flow && node.title !== undefined && flow.title !== undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [...nodePath, 'children', 0, 'title'],
+            message: 'section.title and flow.title were both given; keep section.title and remove flow.title to clear this refusal',
+          })
+        }
+        if (flow && division === 'body' && node.contents === false) {
+          unsupported([...nodePath, 'contents'], 'body flow section field contents', ctx)
+        }
         return
       }
       if (!['contents', 'flow', 'placed'].includes(node.type)) {
@@ -196,25 +207,7 @@ function refineBookNodes(document: z.infer<typeof DocumentShape>, ctx: z.Refinem
   if (divisions.length > 0) {
     divisions.forEach((division, index) => {
       if (division.settings?.numbering !== undefined) {
-        if (division.name === 'end') unsupported(['children', index, 'settings', 'numbering'], 'end division field settings.numbering', ctx)
-        else if (numbered.has(division.name)) {
-          ctx.addIssue({
-            code: 'custom',
-            path: ['children', index, 'settings', 'numbering'],
-            message: `division ${division.name} has more than one numbering setting; keep one ${division.name} division numbering setting to clear this refusal`,
-          })
-        } else {
-          const rootField = division.name === 'front' ? document.numbering && typeof document.numbering === 'object' && document.numbering.frontMatter :
-            document.numbering && typeof document.numbering === 'object' && document.numbering.body
-          if (rootField !== undefined) {
-            ctx.addIssue({
-              code: 'custom',
-              path: ['children', index, 'settings', 'numbering'],
-              message: `division ${division.name} numbering conflicts with root numbering; keep one value to clear this refusal`,
-            })
-          }
-          numbered.add(division.name)
-        }
+        unsupported(['children', index, 'settings', 'numbering'], 'division field settings.numbering', ctx)
       }
       entries(division.children, division.name, ['children', index, 'children'])
     })
@@ -243,6 +236,13 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
     }
     if (node.type === 'record') {
       ctx.addIssue({ code: 'custom', path, message: `record ${node.name} is not yet supported; remove it to clear this refusal` })
+    }
+    if (node.type === 'page') {
+      for (const field of ['body', 'template', 'regions'] as const) {
+        if (node[field] !== undefined && !(profile.pageFields as readonly string[]).includes(field)) {
+          ctx.addIssue({ code: 'custom', path: [...path, field], message: profileRefusal(field, document.kind, profile.pageFields, 'page field') })
+        }
+      }
     }
     if (node.type === 'section') {
       if (node.opens === 'continue') {
@@ -300,7 +300,11 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
           ? document.mode !== undefined
           : requirement === 'page.body'
             ? document.children[0]?.type === 'page' && document.children[0].body !== undefined
-            : document.settings?.dir !== undefined
+            : requirement === 'parentPages'
+              ? document.parentPages.length > 0
+              : requirement === 'rules'
+                ? document.rules !== undefined
+                : document.settings?.dir !== undefined
     if (!present) {
       const path = requirement.split('.')
       ctx.addIssue({
@@ -309,6 +313,10 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
         message: profileRefusal(requirement, document.kind, [requirement], 'required field'),
       })
     }
+  }
+  if (profile.requiredWhen && document[profile.requiredWhen.when[0]] === profile.requiredWhen.when[1] && document[profile.requiredWhen.field] === undefined) {
+    const requirement = profile.requiredWhen.field
+    ctx.addIssue({ code: 'custom', path: [requirement], message: profileRefusal(requirement, document.kind, [requirement], 'required field') })
   }
   if (profile.childCount && 'exact' in profile.childCount && (document.children.length !== profile.childCount.exact || document.children[0]?.type !== profile.childCount.node)) {
     ctx.addIssue({
@@ -324,7 +332,7 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
       message: `a ${document.kind} document needs at least ${profile.childCount.min} ${profile.childCount.node}; add one to clear this refusal`,
     })
   }
-  if (profile.required.includes('page.body') && document.children[0]?.type === 'page' && document.children[0].body === undefined) {
+  if ((profile.required as readonly string[]).includes('page.body') && document.children[0]?.type === 'page' && document.children[0].body === undefined) {
     ctx.addIssue({ code: 'custom', path: ['children', 0, 'body'], message: `a ${document.kind} document needs a page body; provide body to clear this refusal` })
   }
   if (profile.numbering === 'book' && typeof document.numbering === 'string') {

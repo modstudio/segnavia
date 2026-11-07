@@ -1,7 +1,7 @@
 import type { SegnaviaDocument } from './document.ts'
 import { type MovePageHandler, movePageOptimistically, pageIdentityError } from './document-authoring-move.ts'
 import { SegnaviaDocumentRail } from './document-rail.ts'
-import { loadDocumentPagesValue } from './document-value-load.ts'
+import { documentPageValues, loadDocumentPagesValue } from './document-value-load.ts'
 import { itemSettingsOpenEvent } from './item-settings-open.ts'
 import { ENGLISH_LABELS } from './labels.ts'
 
@@ -71,7 +71,7 @@ export class DocumentAuthoringController extends EventTarget {
   }
 
   private refresh() {
-    const pages = this.document.pages
+    const pages = documentPageValues(this.document)
     this.identityError = pageIdentityError(pages)
     this.rail.slots = this.document.slots
     this.rail.fonts = this.document.fonts
@@ -94,7 +94,7 @@ export class DocumentAuthoringController extends EventTarget {
   }
 
   private openItemSettings = () => {
-    const pageId = this.document.pages[this.currentPage]?.id
+    const pageId = documentPageValues(this.document)[this.currentPage]?.id
     if (pageId) this.document.dispatchEvent(itemSettingsOpenEvent({ pageId }))
   }
 
@@ -106,7 +106,7 @@ export class DocumentAuthoringController extends EventTarget {
   }
 
   private async move(fromIndex: number, toIndex: number) {
-    const pages = [...this.document.pages]
+    const pages = [...documentPageValues(this.document)]
     const pageId = pages[fromIndex]?.id ?? null
     if (this.pending || this.identityError || fromIndex === toIndex) return
     this.pending = true
@@ -123,7 +123,7 @@ export class DocumentAuthoringController extends EventTarget {
           this.document.setAuthoringRail(this.rail)
           this.rail.configure(next, this.document.print, this.document.css, (index) => this.document.scrollToPage(index))
         },
-        () => this.document.pages,
+        () => documentPageValues(this.document),
         this.handlers.movePage,
       )
     } catch (error) {

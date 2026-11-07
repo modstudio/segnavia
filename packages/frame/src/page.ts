@@ -258,7 +258,7 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   readSelection(): Promise<PageSelection> {
-    return readPageSelection(this.page, this.querySelector('iframe'), this.hostServed, this.frameReady, this.pageRequests)
+    return readPageSelection(this.pageValue, this.querySelector('iframe'), this.hostServed, this.frameReady, this.pageRequests)
   }
 
   /** Scrolls to an id returned by `markdownOutline(page.body)`, resolving false when no heading has that id. */
@@ -266,7 +266,7 @@ export class SegnaviaPage extends PageElementAttributes {
     return scrollPageToHeading(
       id,
       options,
-      this.page,
+      this.pageValue,
       this.querySelector('iframe'),
       this.querySelector('.segnavia-page__sheet'),
       this.hostServed,
@@ -329,7 +329,7 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   private fit() {
-    const page = this.page
+    const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
     if (!page || !sheet) return
     const fluidBounded = page.size.height === 'auto' && page.size.width === 'full' && this.bounded
@@ -357,7 +357,7 @@ export class SegnaviaPage extends PageElementAttributes {
       this.frameReady = true
       releaseReadyPageRequests(this.pageRequests)
     }
-    const page = this.page
+    const page = this.pageValue
     if (message?.type === MESSAGE.slotFit && message.slots && frame === this.slotFrame?.frame && this.slotFrame.generation === this.loadGeneration)
       this.resolvedSlots?.mergeFit(message.slots)
     if (!page || message?.type !== MESSAGE.height || message.height === undefined) return

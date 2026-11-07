@@ -49,15 +49,89 @@ describe('Document', () => {
   })
 
   test('keeps the scripts default only for profiles that admit scripts', () => {
-    expect(Document.parse({ type: 'document', kind: 'deck', settings: { lang: 'he' }, children: [] }).settings).toEqual({ scripts: 'refuse', lang: 'he' })
-    expect(Document.parse({ type: 'document', kind: 'board', settings: { dir: 'rtl' }, children: [] }).settings).toEqual({ dir: 'rtl' })
+    expect(
+      Document.parse({
+        type: 'document',
+        kind: 'deck',
+        title: 'Deck',
+        settings: { lang: 'he' },
+        children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '' } }],
+      }).settings,
+    ).toEqual({ scripts: 'refuse', lang: 'he' })
+    expect(Document.parse({ type: 'document', kind: 'board', title: 'Board', settings: { dir: 'rtl' }, children: [] }).settings).toEqual({ dir: 'rtl' })
   })
 
   test('keeps direction policy in profiles and refuses limits where the current pipeline cannot carry them', () => {
-    expect(Document.parse({ type: 'document', kind: 'book', settings: { dir: 'auto' }, limits: { pages: 12 }, children: [] }).limits).toEqual({ pages: 12 })
+    expect(
+      Document.parse({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', settings: { dir: 'auto' }, limits: { pages: 12 }, children: [] })
+        .limits,
+    ).toEqual({ pages: 12 })
     expect(() => Document.parse({ type: 'document', kind: 'board', limits: { pages: 12 }, children: [] })).toThrow(
       'document field limits is not yet supported; remove it to clear this refusal',
     )
+  })
+
+  test('refuses profile requirements before an internal parser can fail', () => {
+    const values = [
+      { type: 'document', kind: 'deck', title: 'Empty', children: [] },
+      { type: 'document', kind: 'board', settings: { dir: 'ltr' }, children: [] },
+      { type: 'document', kind: 'board', title: 'Board', children: [] },
+      { type: 'document', kind: 'page', children: [{ type: 'page' }] },
+      { type: 'document', kind: 'printed', children: [{ type: 'page', body: { html: '' } }, { type: 'flow', html: '' }] },
+    ]
+    for (const value of values) expect(() => Document.parse(value)).toThrow('clear this refusal')
+  })
+
+  test('refuses book structures and fields that its lowering cannot carry', () => {
+    const root = { type: 'document' as const, kind: 'book' as const, title: 'Book', mode: 'continuous' as const }
+    const values = [
+      { ...root, children: [{ type: 'division', name: 'body', children: [] }, { type: 'flow', title: 'Loose', html: '' }] },
+      {
+        ...root,
+        children: [
+          {
+            type: 'section',
+            title: 'One',
+            numbering: { system: 'arabic', start: 2, restart: false, counted: true },
+            children: [{ type: 'flow', html: '' }],
+          },
+        ],
+      },
+      { ...root, children: [{ type: 'section', title: 'One', children: [{ type: 'flow', html: '' }, { type: 'placed', kind: 'page', address: 'x' }] }] },
+      {
+        ...root,
+        children: [
+          { type: 'division', name: 'end', settings: { numbering: { system: 'arabic', start: 1, restart: false, counted: true } }, children: [] },
+        ],
+      },
+      { ...root, children: [{ type: 'section', title: 'One', template: 'body', children: [{ type: 'flow', html: '' }] }] },
+      { ...root, children: [{ type: 'section', title: 'One', contents: false, children: [{ type: 'flow', html: '' }] }] },
+      { ...root, children: [{ type: 'section', title: 'One', children: [{ type: 'flow', title: 'Two', html: '' }] }] },
+    ]
+    for (const value of values) expect(() => Document.parse(value)).toThrow('clear this refusal')
+  })
+
+  test('refuses nested root fields that each profile does not lower', () => {
+    expect(() =>
+      Document.parse({
+        type: 'document',
+        kind: 'deck',
+        metadata: { title: 'Deck', authors: ['Dropped'] },
+        children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '' } }],
+      }),
+    ).toThrow('metadata field authors is not allowed in a deck document')
+    expect(() =>
+      Document.parse({ type: 'document', kind: 'page', style: { css: 'html{}' }, children: [{ type: 'page', body: { html: '' } }] }),
+    ).toThrow('style field css is not allowed in a page document')
+    expect(() =>
+      Document.parse({
+        type: 'document',
+        kind: 'printed',
+        rules: { every: 'body' },
+        parentPages: [{ type: 'parentPage', name: 'body' }],
+        children: [{ type: 'page', body: { html: '' }, regions: {} }],
+      }),
+    ).toThrow('page field regions is not allowed in a printed document')
   })
 
   test('refuses declared fields that lowering does not yet support', () => {

@@ -2,11 +2,11 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { Document, type Page, type PageWidths, Print, type PrintInput, type SlotsOptions, pageOrPrintedFromDocument } from '@segnavia/format'
+import { Document, Page, type PageWidths, Print, type PrintInput, type SlotsOptions, pageOrPrintedFromDocument } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
-import { internalDocumentPagesLoad, internalPageLoad } from './document-value-load.ts'
+import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -180,6 +180,10 @@ export class SegnaviaDocument extends HTMLElement {
     if (print) this.printValue = print
     this.paint()
     this.changed()
+  }
+
+  [internalDocumentPagesRead](): Page[] {
+    return this.sourceValues
   }
 
   /** Installs the optional authoring rail without making it part of the viewer entry. */

@@ -1,5 +1,6 @@
 import { afterAll, expect, test } from 'bun:test'
 import { Cover, Page, Print } from '@segnavia/format'
+import { internalPageLoad } from './document-value-load.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 
 const definitions = new Map<string, CustomElementConstructor>()
@@ -76,6 +77,7 @@ function installGlobals() {
           className: '',
           dir: '',
           load() {},
+          [internalPageLoad]() {},
           srcdoc: '',
           tagName: tag,
           title: '',

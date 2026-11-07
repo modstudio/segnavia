@@ -1,4 +1,5 @@
 import {
+  Document,
   type DocumentInput,
   DocumentMetadata,
   type DocumentMetadata as DocumentMetadataValue,
@@ -15,6 +16,7 @@ import {
   PRINTED_PAGE_TOTAL_PATH,
   PX_PER_MM,
   pageOrPrintedFromInput,
+  printedFromDocument,
   type ResolvedParentPage,
   resolveDirection,
   resolveLimits,

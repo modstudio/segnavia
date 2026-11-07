@@ -268,10 +268,14 @@ within each kind.
 ### Declared but not yet supported
 
 Parsing refuses `brand`, a non-empty `variables` collection, every `condition`
-or `record` node, section `opens: 'continue'`, section `headTemplate`, section
-`pageGeometry`, and parent-page `regions`. It also refuses `limits` on deck and
-board documents. Remove the named field or node to clear the refusal. Node `id`
-is accepted and preserved; a lowering may omit it only where the current
+or `record` node, section `opens: 'continue'`, section `numbering`, section
+`headTemplate`, section `pageGeometry`, division `settings.numbering`, and
+parent-page `regions`. Division numbering uses the richer shared `Numbering`
+value, while the current Book carries only a number system, so accepting it
+would drop its start, restart and counted fields. It also refuses `limits` on
+deck and board documents. Remove the named field or node to clear the refusal.
+Node `id` is accepted and preserved; deck slides and board children require one
+until the id-minting slice lands, while a lowering may omit it where the current
 internal value has no id.
 
 ### Markdown page bodies

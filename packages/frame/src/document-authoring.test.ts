@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page, type SlotsOptions } from '@segnavia/format'
+import { internalDocumentPagesLoad, internalDocumentPagesRead, internalThumbnailPageLoad } from './document-value-load.ts'
 
 class TestElement extends EventTarget {
   className = ''
@@ -15,6 +16,7 @@ class TestElement extends EventTarget {
   part = { add() {} }
   slotValue: SlotsOptions | undefined
   slotWrites = 0
+  loadedPage: Page | null = null
 
   get slots(): SlotsOptions | undefined {
     return this.slotValue
@@ -71,6 +73,12 @@ class TestElement extends EventTarget {
   scrollIntoView() {}
 }
 
+Object.defineProperty(TestElement.prototype, internalThumbnailPageLoad, {
+  value(this: TestElement, page: Page | null) {
+    this.loadedPage = page
+  },
+})
+
 function matches(node: TestElement, selector: string) {
   if (selector === 'button[data-index]') return node.tagName === 'button' && node.dataset.index !== undefined
   return node.tagName === selector
@@ -122,6 +130,9 @@ test('attachment reads the visible page before opening item settings', () => {
     css: '',
     setAuthoringRail() {},
     scrollToPage() {},
+    [internalDocumentPagesRead]() {
+      return this.pages
+    },
   })
   documentElement.addEventListener('segnavia-item-settings-open', (event) => opened.push((event as CustomEvent<{ pageId: string }>).detail))
   const controller = new DocumentAuthoringController(documentElement as never, { movePage: async () => {} }, {})
@@ -142,6 +153,12 @@ function heldController(outcome: 'resolve' | 'reject') {
     css: '',
     setAuthoringRail: (rail: unknown) => railCalls.push(rail),
     scrollToPage() {},
+    [internalDocumentPagesRead]() {
+      return this.pages
+    },
+    [internalDocumentPagesLoad](next: Page[]) {
+      this.pages = next
+    },
   })
   const rail = {
     setReorderEnabled() {},
@@ -207,6 +224,12 @@ function slottedDocument(slots: SlotsOptions) {
     slots,
     setAuthoringRail() {},
     scrollToPage() {},
+    [internalDocumentPagesRead]() {
+      return this.pages
+    },
+    [internalDocumentPagesLoad](next: Page[]) {
+      this.pages = next
+    },
   })
   Object.defineProperty(documentElement, 'slots', {
     configurable: true,

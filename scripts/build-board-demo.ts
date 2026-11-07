@@ -2,6 +2,37 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { Document, type DocumentInput } from '@segnavia/format'
 
+const BOARD_ITEMS = [
+  { id: 'deck-small', kind: 'deck', address: 'deck', x: 0, y: 0, width: 220 },
+  { id: 'deck-designed', kind: 'deck', address: 'designed', x: 300, y: 0, width: 220 },
+  { id: 'deck-designed-picture', kind: 'deck', address: 'designed-picture', x: 300, y: 220, width: 220 },
+  { id: 'deck-hebrew', kind: 'deck', address: 'hebrew', x: 600, y: 0, width: 320 },
+  { id: 'page', kind: 'page', address: 'page', x: 700, y: 0, width: 180 },
+  { id: 'paper', kind: 'paper', address: 'paper', x: 930, y: 0, width: 180 },
+  { id: 'image', kind: 'media', address: 'image', x: 0, y: 300, width: 260 },
+  { id: 'shot', kind: 'shot', address: 'shot', x: 340, y: 300, width: 260 },
+  { id: 'deck-far', kind: 'deck', address: 'responsive', x: 5000, y: 100, width: 320 },
+] as const
+const BOARD_LABELS = [
+  { type: 'label', id: 'label', text: 'Local assets', x: -160, y: -105 },
+  { type: 'label', id: 'label-he', text: 'אוסף מקומי', x: 700, y: -70 },
+] as const
+const BOARD_SECTIONS = [
+  { type: 'boardSection', id: 'section', title: 'Two decks', rectangle: { x: -24, y: -56, width: 668, height: 236 }, items: ['deck-small', 'deck-hebrew'] },
+] as const
+
+const boardDocument = (entries: readonly (typeof BOARD_ITEMS)[number][], interleaved = false): DocumentInput => ({
+  type: 'document',
+  kind: 'board',
+  title: 'Board demo',
+  settings: { dir: 'ltr' },
+  children: interleaved
+    ? [{ type: 'item', ...entries[0] }, ...BOARD_LABELS, ...entries.slice(1).map((item) => ({ type: 'item' as const, ...item })), ...BOARD_SECTIONS]
+    : [...entries.map((item) => ({ type: 'item' as const, ...item })), ...BOARD_LABELS, ...BOARD_SECTIONS],
+})
+
+export const BOARD_DOCUMENT_FIXTURES = [boardDocument(BOARD_ITEMS.slice(0, -1)), boardDocument(BOARD_ITEMS), boardDocument(BOARD_ITEMS, true)]
+
 export async function buildBoardDemo(site: string, image: string, shot: string) {
   const page = {
     type: 'document',
@@ -30,32 +61,7 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
     settings: { scripts: 'refuse' },
     children: [{ type: 'slide', id: 'url', content: { kind: 'url', src: 'board-script.html' } }],
   } satisfies DocumentInput
-  const items = [
-    { id: 'deck-small', kind: 'deck', address: 'deck', x: 0, y: 0, width: 220 },
-    { id: 'deck-designed', kind: 'deck', address: 'designed', x: 300, y: 0, width: 220 },
-    { id: 'deck-designed-picture', kind: 'deck', address: 'designed-picture', x: 300, y: 220, width: 220 },
-    { id: 'deck-hebrew', kind: 'deck', address: 'hebrew', x: 600, y: 0, width: 320 },
-    { id: 'page', kind: 'page', address: 'page', x: 700, y: 0, width: 180 },
-    { id: 'paper', kind: 'paper', address: 'paper', x: 930, y: 0, width: 180 },
-    { id: 'image', kind: 'media', address: 'image', x: 0, y: 300, width: 260 },
-    { id: 'shot', kind: 'shot', address: 'shot', x: 340, y: 300, width: 260 },
-    { id: 'deck-far', kind: 'deck', address: 'responsive', x: 5000, y: 100, width: 320 },
-  ] as const
-  const labels = [
-    { type: 'label', id: 'label', text: 'Local assets', x: -160, y: -105 },
-    { type: 'label', id: 'label-he', text: 'אוסף מקומי', x: 700, y: -70 },
-  ] as const
-  const sections = [
-    { type: 'boardSection', id: 'section', title: 'Two decks', rectangle: { x: -24, y: -56, width: 668, height: 236 }, items: ['deck-small', 'deck-hebrew'] },
-  ] as const
-  const boardDocument = (entries: readonly (typeof items)[number][]): DocumentInput => ({
-    type: 'document',
-    kind: 'board',
-    title: 'Board demo',
-    settings: { dir: 'ltr' },
-    children: [...entries.map((item) => ({ type: 'item' as const, ...item })), ...labels, ...sections],
-  })
-  for (const input of [page, ...paperPages, urlDeck, boardDocument(items.slice(0, -1)), boardDocument(items)]) Document.parse(input)
+  for (const input of [page, ...paperPages, urlDeck, ...BOARD_DOCUMENT_FIXTURES]) Document.parse(input)
   for (const name of ['deck.json', 'deck-he.json', 'responsive-deck.json']) Document.parse(JSON.parse(readFileSync(path.join(site, name), 'utf8')))
   const editingBundle = await Bun.build({
     entrypoints: [path.join(import.meta.dir, 'board-demo-runtime.ts')],
@@ -97,9 +103,9 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
         {id:'deck-url',kind:'deck',address:'url',x:1400,y:0,width:320},
         {id:'paper-empty',kind:'paper',address:'empty',x:3000,y:0,width:320},
       ]
-      const items = ${JSON.stringify(items)}
-      const labels = ${JSON.stringify(labels)}
-      const sections = ${JSON.stringify(sections)}
+      const items = ${JSON.stringify(BOARD_ITEMS)}
+      const labels = ${JSON.stringify(BOARD_LABELS)}
+      const sections = ${JSON.stringify(BOARD_SECTIONS)}
       const boardDocument = entries => ({type:'document',kind:'board',title:'Board demo',settings:{dir:'ltr'},children:[...entries.map(item=>({type:'item',...item})),...labels,...sections]})
       const values = {
         deck:{kind:'deck',deck,title:'Creating a class',cover:${JSON.stringify(image)}}, designed:{kind:'deck',deck,title:'Designed cover',designedCover:{cover:{page:{html:'<main data-designed-cover style="font:24px system-ui;padding:20px">Designed cover</main>',print:{paper:{width:100,height:150,unit:'mm'}}}}}}, 'designed-picture':{kind:'deck',deck,title:'Designed cover picture',designedCover:{cover:{page:{html:'<main>Designed picture</main>',print:{paper:{width:100,height:150,unit:'mm'}}}},picture:${JSON.stringify(image)}}}, hebrew:{kind:'deck',deck:hebrew,title:'מצגת'}, responsive:{kind:'deck',deck:responsive,title:'Responsive deck'}, url:{kind:'deck',deck:urlDeck,title:'URL deck'},

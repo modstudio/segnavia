@@ -41,15 +41,6 @@ function sectionFields(section: SectionNode) {
   })
 }
 
-function divisionNumbering(document: DocumentValue) {
-  const numbering = typeof document.numbering === 'object' ? { ...document.numbering } : {}
-  for (const node of document.children) {
-    if (node.type !== 'division' || node.settings?.numbering === undefined || node.name === 'end') continue
-    numbering[node.name === 'front' ? 'frontMatter' : 'body'] = node.settings.numbering
-  }
-  return numbering
-}
-
 function pageHtml(node: Extract<DocumentNode, { type: 'page' }>): string {
   if (node.body && 'html' in node.body) return node.body.html
   throw new Error('a book page needs an HTML body; provide body.html to clear this refusal')
@@ -161,7 +152,7 @@ export function bookFromDocument(document: DocumentValue): BookValue {
       parentPages: document.parentPages.map(parentPage),
       templates: document.templates.map(template),
       notes: document.noteSeries.map(noteSeries),
-      numbering: divisionNumbering(document),
+      numbering: typeof document.numbering === 'object' ? document.numbering : undefined,
       footnotes: document.footnotes,
       endnotes: document.endnotes,
       rectoOpenings: document.rectoOpenings,

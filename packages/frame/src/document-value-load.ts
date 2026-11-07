@@ -4,6 +4,7 @@ export const internalPageLoad = Symbol('internalPageLoad')
 export const internalThumbnailDeckLoad = Symbol('internalThumbnailDeckLoad')
 export const internalThumbnailPageLoad = Symbol('internalThumbnailPageLoad')
 export const internalDocumentPagesLoad = Symbol('internalDocumentPagesLoad')
+export const internalDocumentPagesRead = Symbol('internalDocumentPagesRead')
 export const internalPaperPagesLoad = Symbol('internalPaperPagesLoad')
 
 export function loadPageValue(target: { [internalPageLoad]: (page: Page) => void }, page: Page): void {
@@ -28,4 +29,8 @@ export function loadDocumentPagesValue(
 ): void {
   const internal = target[internalDocumentPagesLoad]
   internal.call(target, pages, print)
+}
+
+export function documentPageValues(target: { [internalDocumentPagesRead]: () => Page[] }): Page[] {
+  return target[internalDocumentPagesRead]()
 }
