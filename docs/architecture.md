@@ -249,6 +249,7 @@ putting those values directly in the options.
 | board `labels` | root `children`, with `type: 'label'` on every label |
 | board `sections` | root `children`, with `type: 'boardSection'` on every section |
 | item, label and section fields | unchanged beside the node `type` |
+| board item `kind: 'image'` | board item `kind: 'media'` |
 | resolved deck item's `deck` payload | a deck `Document` |
 | resolved page item's `page` payload | a page `Document` |
 | resolved paper item's `pages[]` payload | page or printed `Document` values |

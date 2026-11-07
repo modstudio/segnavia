@@ -26,12 +26,6 @@ describe('Board', () => {
     expect(Board.parse({ ...valid, labels }).labels).toEqual(labels)
   })
 
-  test('reads a stored image item as media and serializes the new kind', () => {
-    const parsed = Board.parse({ ...valid, items: [{ ...valid.items[0], kind: 'image' }] })
-    expect(parsed.items[0]?.kind).toBe('media')
-    expect(JSON.parse(JSON.stringify(parsed)).items[0].kind).toBe('media')
-  })
-
   test('keeps the first occurrence of a repeated stored section member', () => {
     const parsed = Board.parse({ ...valid, sections: [{ ...valid.sections[0], items: ['deck', 'deck', 'deck'] }] })
     expect(parsed.sections[0]?.items).toEqual(['deck'])

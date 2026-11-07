@@ -49,13 +49,9 @@ export const BoardProperties = z.object({
 const BoardShape = z.preprocess(
   (value) => {
     if (typeof value !== 'object' || value === null) return value
-    const board = value as { items?: unknown; sections?: unknown }
-    if (!Array.isArray(board.items)) return value
+    const board = value as { sections?: unknown }
     return {
       ...board,
-      items: board.items.map((item) =>
-        typeof item === 'object' && item !== null && (item as { kind?: unknown }).kind === 'image' ? { ...item, kind: 'media' } : item,
-      ),
       sections: Array.isArray(board.sections)
         ? board.sections.map((section) => {
             if (typeof section !== 'object' || section === null || !Array.isArray((section as { items?: unknown }).items)) return section
