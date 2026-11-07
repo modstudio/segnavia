@@ -1,5 +1,63 @@
 # @segnavia/format
 
+## 0.49.0
+
+### Migrating from 0.48
+
+0.49.0 is a clean break. Stored documents and host calls are not upgraded at parse time, so update them before moving to 0.49.0:
+
+- **Document input:** every viewing, printing and rendering entry point takes one `Document`, `{ type: 'document', kind, ... }`, with `kind` set to `deck`, `page`, `printed`, `book` or `board`. The `Deck`, `Page`, `Book`, `printedPages` and board input shapes, their type exports and their JSON Schemas are removed, and `jsonSchemas().document` is the host schema. "Document input and migration" in the repository's `docs/architecture.md` maps every legacy field to its place in a `Document`.
+- **Resolvers, events and builders:** placement resolvers return a page or printed `Document` in a page answer. Board item resolvers return deck and page `Document` payloads, and paper item resolvers return page or printed `Document` payloads. `<segnavia-board>`'s `board` property, its change and share events and its editing callback carry the board `Document`. `deckFromSlides` returns a deck `Document` and takes `{ settings: { scripts, dir, lang }, data: { slots } }`. A board item's legacy `kind: 'image'` is no longer read as `media`; write `kind: 'media'`.
+- **Ids:** `Document.parse` and `parseDocument` keep every supplied node and block id and mint missing ones through the `newId` option (by default `crypto.randomUUID()`). Pass a deterministic `newId` for reproducible output, and store the returned `Document` to keep its ids. Duplicate ids are refused.
+- **Board inversion:** `invertOps` now inverts document operations; board operations are inverted by `invertBoardOps`.
+- **Book and parent-page margins:** replace `{ top, bottom, inner, outer }` with `{ blockStart, blockEnd, inlineStart, inlineEnd }`. All four are required. `inlineStart` is the binding edge and `inlineEnd` the outer edge. Physical or inner/outer names are refused.
+- **Print margins:** replace the physical `{ top, right, bottom, left }` (`Margin`) with the same binding-relative `LogicalMargin`. On a right-to-left single page, the inline edges now mirror.
+- **Sizes:** `Size` is now `PixelSize` (an authored canvas in whole pixels) or `MeasuredSize` (a measured box, which may be fractional). Paper sizes state their unit (`mm`, `in` or `pt`), and vector media use `PointSize`.
+- **IDML:** `IdmlMargin` is removed; use `PhysicalMargin`, in points.
+- **Limits:** pass one `limits` value to every render and print call:
+  - `maxSheets` becomes `limits.sheets` and `maxBytes` becomes `limits.bytes`.
+  - On decks, `maxSlides`, `maxSlideBytes` and `maxNotesBytes` become `limits.slides`, `limits.slideBytes` and `limits.notesBytes`.
+  - `localFonts.limits` becomes `limits.localFonts`.
+  - A removed key is refused with its replacement named, and an unknown key is refused with an instruction to remove it.
+  - `RenderLimits`, `DeckLimits`, `LocalFontLimits`, `LOCAL_FONT_LIMITS` and `PRINTED_PAGE_LIMIT` are no longer exported; use `Limits`, `DEFAULT_LIMITS` and `resolveLimits`.
+- **Page limit:** a document with printed pages, or a paginated book, may declare `limits.pages`. It defaults to 500, and a host's `limits.pages` is a ceiling over it. Refusals for every limit now share one text.
+
+### Minor Changes
+
+- ea9421b: Pass `{ type: 'document', kind: 'deck', ... }` for decks and `{ type: 'document', kind: 'page', ... }` for screen pages. Deck and page entry points no longer accept the old `Deck` and `Page` input shapes, and `deckFromSlides` now returns a deck `Document`.
+- ed3c7cd: Replace package-local paper, margin, size, and direction types with the shared format values.
+
+  Book and parent-page content margins now require all four logical edges and refuse legacy physical or inner/outer names.
+
+  Print margins are binding-relative, so right-to-left single-page printing mirrors the inline edges.
+
+  Raster media intrinsic sizes now require whole pixels, while vector and document media sizes remain point-valued and may be fractional.
+
+  The IDML package no longer exports `IdmlMargin`; IDML page margins use the shared `PhysicalMargin` type, in points.
+
+- 53afd24: Add atomic agent-facing document commands, plain JSON document descriptions, and a configurable concise-description text bound. Description plan and report sections arrive with the saved `Plan` and the layout `Report`.
+- 7c5952b: Add the shared `Numbering` value, `computeFolios`, and `sequenceFolios`, including restarts and uncounted pages.
+
+  Compute book, printed-page, deck, and rendered PDF folios through the shared function without changing their rendered numbering.
+
+- e126784: Mint required node and content-block ids through a host-supplied `newId` seam, preserve existing ids, and refuse duplicates across one document.
+- ea9421b: Remove the legacy deck, page, book, and board input type exports and their generated JSON Schemas. Pass a `Document` instead; see “Document input and migration” in `docs/architecture.md` for every field mapping.
+- ea9421b: Add the unified `Document` structure schema, kind profiles, generated exported-schema manifest, and pure lowerings to the existing per-kind parsed values.
+- b3f94ac: Add atomic, fingerprinted `DocumentOp` batches with apply, inversion, and document diff helpers. `jsonSchemas()` publishes `documentOp` and `documentBatch`. Board inversion is now exported as `invertBoardOps` so `invertOps` names document inversion.
+- f36066e: Add the document block view and block operations. `blockView` lists every block in document order with its id, kind, text, class, attributes, content address and enclosing block. `insertBlock`, `setBlock`, `moveBlock` and `removeBlock` compile an edit to `setContent` operations with priors, so `applyOps` checks staleness and `inverseBatch` undoes it. They take `BlockOpOptions` with the host's `newId`. A block may stand only where its kind and its parent allow, and every fragment an operation writes must re-parse to itself. Block operations do not sanitize; speaker notes are plain text and hold no blocks.
+
+  `@segnavia/format` now exports `DOCUMENT_NODE_MODEL`, `documentEntries` and `requireParsedDocument`, so other packages read the document model rather than copying it.
+
+- 860d9d3: Replace the separate page, deck, render, image and local-font ceilings with one format-owned `Limits` value.
+
+  Resolve document page declarations against host ceilings and use one refusal text at every enforcement site.
+
+  Render hosts rename `maxSheets` to `sheets` and `maxBytes` to `bytes`; deck hosts rename `maxSlides` to `slides`, `maxSlideBytes` to `slideBytes` and `maxNotesBytes` to `notesBytes`. Local-font count and byte ceilings move from `localFonts.limits` to `limits.localFonts`. Capture keeps its own `output.maxBytes` option and maps it to `limits.bytes`.
+
+- ea9421b: Pass `{ type: 'document', kind: 'board', ... }` to `<segnavia-board>`. Its `board` property, change and share events, and editing callback now carry the board `Document`; `documentFromBoard` raises internal board edits without dropping the source document's root fields.
+
+  Board item resolvers now return deck and page `Document` payloads, and paper item resolvers return page or printed `Document` payloads.
+
 ## 0.48.0
 
 ### Minor Changes

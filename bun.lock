@@ -39,7 +39,7 @@
     },
     "packages/capture": {
       "name": "@segnavia/capture",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -49,7 +49,7 @@
     },
     "packages/diagrams": {
       "name": "@segnavia/diagrams",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -60,14 +60,14 @@
     },
     "packages/format": {
       "name": "@segnavia/format",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "zod": "^4.1.0",
       },
     },
     "packages/frame": {
       "name": "@segnavia/frame",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/html": "workspace:*",
@@ -75,7 +75,7 @@
     },
     "packages/html": {
       "name": "@segnavia/html",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "dom-serializer": "^2.0.0",
@@ -95,7 +95,7 @@
     },
     "packages/idml": {
       "name": "@segnavia/idml",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/html": "workspace:*",
@@ -106,7 +106,7 @@
     },
     "packages/markdown-editor": {
       "name": "@segnavia/markdown-editor",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -153,7 +153,7 @@
     },
     "packages/react": {
       "name": "@segnavia/react",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/frame": "workspace:*",
       },
@@ -168,7 +168,7 @@
     },
     "packages/render": {
       "name": "@segnavia/render",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/frame": "workspace:*",
@@ -189,7 +189,7 @@
     },
     "packages/voice": {
       "name": "@segnavia/voice",
-      "version": "0.48.0",
+      "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
       },

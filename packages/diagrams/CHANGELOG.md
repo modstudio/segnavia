@@ -1,5 +1,40 @@
 # @segnavia/diagrams
 
+## 0.49.0
+
+### Migrating from 0.48
+
+See the `@segnavia/format` 0.49.0 changelog for what to change in stored documents and host calls.
+
+### Patch Changes
+
+- ed3c7cd: Replace package-local paper, margin, size, and direction types with the shared format values.
+
+  Book and parent-page content margins now require all four logical edges and refuse legacy physical or inner/outer names.
+
+  Print margins are binding-relative, so right-to-left single-page printing mirrors the inline edges.
+
+  Raster media intrinsic sizes now require whole pixels, while vector and document media sizes remain point-valued and may be fractional.
+
+  The IDML package no longer exports `IdmlMargin`; IDML page margins use the shared `PhysicalMargin` type, in points.
+
+- Updated dependencies [ea9421b]
+- Updated dependencies [ed3c7cd]
+- Updated dependencies [53afd24]
+- Updated dependencies [7c5952b]
+- Updated dependencies [ea9421b]
+- Updated dependencies [e126784]
+- Updated dependencies [ea9421b]
+- Updated dependencies [ea9421b]
+- Updated dependencies [b3f94ac]
+- Updated dependencies [ea9421b]
+- Updated dependencies [f36066e]
+- Updated dependencies [860d9d3]
+- Updated dependencies [ea9421b]
+- Updated dependencies [ea9421b]
+  - @segnavia/format@0.49.0
+  - @segnavia/frame@0.49.0
+
 ## 0.48.0
 
 ### Patch Changes
