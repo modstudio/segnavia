@@ -1,5 +1,5 @@
-import { type Book, type BookView, bookFromDocument, Document, type DocumentInput } from '@segnavia/format'
-import { bookViewFromHtml, bookDocument as htmlBookDocument } from '@segnavia/html'
+import { type Book, type BookView, bookFromDocument, type DocumentInput } from '@segnavia/format'
+import { bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
 import { composerScript } from './book-composer.ts'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
 
@@ -23,7 +23,7 @@ export function bookDocument(
   input: DocumentInput,
   options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'printBackground' | 'diagramScript' | 'limits'>,
 ): string {
-  return bookValueDocument(bookFromDocument(Document.parse(input)), options)
+  return bookValueDocument(bookFromDocument(parseDocument(input)), options)
 }
 
 export function bookValueDocument(

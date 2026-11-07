@@ -4,8 +4,17 @@
 // own `bridgeForHost` reports height. data-measured is set once the
 // content has reported its height, and data-height holds it.
 
-import { Document, type DocumentInput, FULL_PAGE_SIZE, Page, type PageWidths, pageFromDocument, printProperties, type SlotsOptions } from '@segnavia/format'
-import { type AlertLabels, type HtmlPage, resolvePageHtml } from '@segnavia/html'
+import {
+  type Document,
+  type DocumentInput,
+  FULL_PAGE_SIZE,
+  Page,
+  type PageWidths,
+  pageFromDocument,
+  printProperties,
+  type SlotsOptions,
+} from '@segnavia/format'
+import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageLoad } from './document-value-load.ts'
@@ -163,7 +172,7 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   load(input: DocumentInput | unknown) {
-    const document = Document.parse(input)
+    const document = parseDocument(input)
     const page = pageFromDocument(document)
     this.documentValue = document
     this.loadValue(page)

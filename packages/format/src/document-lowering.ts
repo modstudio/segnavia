@@ -77,6 +77,7 @@ function sectionItem(section: SectionNode, division: 'front' | 'body' | 'end'): 
 
 function partItem(part: PartNode, division: 'front' | 'body' | 'end'): BookItem {
   return defined({
+    id: part.id,
     name: part.name,
     title: part.title,
     html: part.html,

@@ -3,7 +3,6 @@ import {
   type BookItem,
   type BookView,
   bookFromDocument,
-  Document,
   type DocumentInput,
   type FontReference,
   isDesignedSection,
@@ -24,6 +23,7 @@ import {
   hasMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
+  parseDocument,
   resolvePlacements,
 } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
@@ -260,7 +260,7 @@ export async function expandFrameBook(
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
 ): Promise<ExpandedBook<Book>> {
-  return expandFrameBookValue(bookFromDocument(Document.parse(input)), motifs, signal, placements, purpose, pageWidths)
+  return expandFrameBookValue(bookFromDocument(parseDocument(input)), motifs, signal, placements, purpose, pageWidths)
 }
 
 export async function expandFrameBookValue(

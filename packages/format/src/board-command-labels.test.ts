@@ -96,7 +96,7 @@ describe('board label commands', () => {
     const cases: Array<[unknown, RegExp, Parameters<typeof editBoard>[2], Parameters<typeof editBoard>[3]?]> = [
       [{ type: 'label-set', label: { id: 'missing' }, text: 'x' }, /label id "missing" does not exist.*pass the id of an existing label/, shapes(before)],
       [{ type: 'label-add', id: 'a', text: 'x' }, /id "a" already exists.*supply a unique id/, shapes(before)],
-      [{ type: 'label-add', text: 'x' }, /new label has no id.*supply an id or a newId option/, shapes(before)],
+      [{ type: 'label-add', text: 'x' }, /new label has no id.*return a non-empty id from newId/, shapes(before), { newId: () => '' }],
       [{ type: 'label-remove', labels: [{ id: 'old' }, { id: 'old' }] }, /label "old" is named more than once.*name every label at most once/, shapes(before)],
       [
         { type: 'label-add', id: 'new', text: 'x' },

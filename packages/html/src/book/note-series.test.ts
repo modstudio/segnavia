@@ -80,11 +80,13 @@ describe('note series document', () => {
           notes: [{ name: 'sources', placement: 'part', numbering: 'part', marker: 'roman-lower', title: 'Sources' }],
           body: [
             {
+              id: 'first-part',
               name: 'first',
               title: 'First Part',
               children: [chapter('One', '<p>A<span data-note="sources">first</span></p>'), chapter('Two', '<p>B</p>')],
             },
             {
+              id: 'second-part',
               name: 'second',
               title: 'Second Part',
               children: [chapter('Three', '<p>C<span data-note="sources">second</span></p>')],
@@ -96,9 +98,9 @@ describe('note series document', () => {
     expect(result.sections.map(({ id }) => id)).toEqual([
       'segnavia-chapter-1',
       'segnavia-chapter-2',
-      'segnavia-notes-sources-part-1',
+      'segnavia-notes-sources-first-part',
       'segnavia-chapter-3',
-      'segnavia-notes-sources-part-2',
+      'segnavia-notes-sources-second-part',
     ])
     expect(result.html.match(/<bdi>i<\/bdi>/g)).toHaveLength(4)
     expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="ltr"[^>]*>First Part<\/p>/)

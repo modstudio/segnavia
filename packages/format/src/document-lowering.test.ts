@@ -89,32 +89,48 @@ describe('Document lowering', () => {
 
   test('lowers the Hebrew demo page to its current parsed value', () => {
     const expected = Page.parse(hebrewPageFixture)
-    const document = Document.parse({
-      type: 'document',
-      kind: 'page',
-      settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
-      size: expected.size,
-      children: [{ type: 'page', body: expected.body }],
-    })
-    expect(pageFromDocument(document)).toEqual(expected)
+    const document = Document.parse(
+      {
+        type: 'document',
+        kind: 'page',
+        settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
+        size: expected.size,
+        children: [{ type: 'page', body: expected.body }],
+      },
+      {
+        newId: (() => {
+          let id = 0
+          return () => `page-${++id}`
+        })(),
+      },
+    )
+    expect(pageFromDocument(document)).toEqual({ ...expected, id: 'page-2' })
   })
 
   test('lowers the printed-parent demo page to its current parsed value', () => {
     const expected = Page.parse(printedPagesFixture)
     if (!expected.printedPages) throw new Error('the printed page fixture needs printedPages')
-    const document = Document.parse({
-      type: 'document',
-      kind: 'printed',
-      settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
-      size: expected.size,
-      print: expected.print,
-      rules: expected.printedPages.rules,
-      numbering: expected.printedPages.numbering,
-      fragmentation: expected.printedPages.fragmentation,
-      parentPages: expected.printedPages.parents.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
-      children: [{ type: 'page', body: expected.body }],
-    })
-    expect(printedFromDocument(document)).toEqual(expected)
+    const document = Document.parse(
+      {
+        type: 'document',
+        kind: 'printed',
+        settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
+        size: expected.size,
+        print: expected.print,
+        rules: expected.printedPages.rules,
+        numbering: expected.printedPages.numbering,
+        fragmentation: expected.printedPages.fragmentation,
+        parentPages: expected.printedPages.parents.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
+        children: [{ type: 'page', body: expected.body }],
+      },
+      {
+        newId: (() => {
+          let id = 0
+          return () => `printed-${++id}`
+        })(),
+      },
+    )
+    expect(printedFromDocument(document)).toEqual({ ...expected, id: 'printed-2', printedPages: { ...expected.printedPages, numbering: undefined } })
   })
 
   test('lowers the Hebrew sefer demo shape to its current parsed value', () => {

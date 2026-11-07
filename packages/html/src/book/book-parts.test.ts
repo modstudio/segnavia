@@ -9,6 +9,7 @@ test('book parts build openings, title-only levels, ancestry and end matter in r
     frontMatter: [{ kind: 'contents' }],
     body: [
       {
+        id: 'outer-part',
         name: 'part',
         title: 'Outer',
         html: '<h1>Opening</h1>',
@@ -21,12 +22,12 @@ test('book parts build openings, title-only levels, ancestry and end matter in r
 
   expect(result.sections.map(({ id, kind, division }) => ({ id, kind, division }))).toEqual([
     { id: 'segnavia-contents', kind: 'contents', division: 'front' },
-    { id: 'segnavia-part-1', kind: 'part', division: 'body' },
+    { id: 'outer-part', kind: 'part', division: 'body' },
     { id: 'segnavia-chapter-1', kind: 'chapter', division: 'body' },
     { id: 'segnavia-chapter-2', kind: 'chapter', division: 'end' },
   ])
   expect(result.headings.map(({ id, text, level, depth }) => ({ id, text, level, depth }))).toEqual([
-    { id: 'segnavia-part-1', text: 'Outer', level: 1, depth: 0 },
+    { id: 'outer-part', text: 'Outer', level: 1, depth: 0 },
     { id: 'segnavia-chapter-1', text: 'Inner', level: 1, depth: 1 },
     { id: 'segnavia-chapter-1', text: 'One', level: 1, depth: 2 },
     { id: 'segnavia-h-1-1', text: 'Topic', level: 2, depth: 2 },
@@ -34,7 +35,7 @@ test('book parts build openings, title-only levels, ancestry and end matter in r
     { id: 'segnavia-chapter-2', text: 'After', level: 1, depth: 1 },
   ])
   expect(result.html).toContain('data-segnavia-parts="{&quot;part&quot;:&quot;Outer&quot;,&quot;gate&quot;:&quot;Inner&quot;}"')
-  expect(result.html).not.toMatch(/id="segnavia-part-[23]"/)
+  expect(result.html).not.toMatch(/id="inner-part"/)
   expect(result.html).toContain(':where(.segnavia-part,.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}')
   expect(result.html).toContain('data-level="12"]){padding-inline-start:11em}')
 })

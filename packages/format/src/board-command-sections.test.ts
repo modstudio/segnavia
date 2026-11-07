@@ -163,7 +163,6 @@ describe('board section commands', () => {
       ],
       [fixture(), { type: 'section-add', id: 'new', title: 'Old' }, /already belongs to section "old".*pick a title no other section has/],
       [fixture(), { type: 'section-add', id: 'a', title: 'New' }, /id "a" already exists.*supply a unique id/],
-      [fixture(), { type: 'section-add', title: 'New' }, /new section has no id.*supply an id or a newId option/],
       [
         fixture(),
         { type: 'section-set', section: { id: 'old' }, items: [{ id: 'a' }, { id: 'c' }] },

@@ -1,5 +1,55 @@
 import { describe, expect, test } from 'bun:test'
 import { Document } from './document.ts'
+
+function ids(prefix = 'id') {
+  let value = 0
+  return () => `${prefix}-${++value}`
+}
+
+test('mints stable ids for every node and definition while preserving supplied ids', () => {
+  const newId = ids()
+  const input = {
+    type: 'document' as const,
+    kind: 'book' as const,
+    id: 'document-id',
+    title: 'Book',
+    mode: 'continuous' as const,
+    children: [
+      {
+        type: 'division' as const,
+        name: 'body' as const,
+        children: [{ type: 'section' as const, title: 'Section', children: [{ type: 'flow' as const, html: '<p>Body</p>' }] }],
+      },
+    ],
+    parentPages: [{ type: 'parentPage' as const, name: 'normal', geometry: {} }],
+    templates: [{ type: 'template' as const, name: 'chapter', html: '<p>Template</p>' }],
+    noteSeries: [{ type: 'noteSeries' as const, name: 'notes' }],
+  }
+  const parsed = Document.parse(input, { newId })
+  expect(parsed.id).toBe('document-id')
+  expect(parsed.children[0]?.id).toBe('id-1')
+  expect(parsed.children[0] && 'children' in parsed.children[0] ? parsed.children[0].children[0]?.id : undefined).toBe('id-2')
+  expect(parsed.parentPages[0]?.id).toBe('id-4')
+  expect(parsed.templates[0]?.id).toBe('id-5')
+  expect(parsed.noteSeries[0]?.id).toBe('id-6')
+  expect(Document.parse(parsed, { newId })).toEqual(parsed)
+})
+
+test('refuses duplicate node ids with both nodes and the clearance', () => {
+  expect(() =>
+    Document.parse(
+      {
+        type: 'document',
+        kind: 'book',
+        title: 'Book',
+        mode: 'continuous',
+        children: [{ type: 'section', id: 'same', title: 'Section', children: [{ type: 'flow', id: 'same', html: '<p>Body</p>' }] }],
+      },
+      { newId: ids() },
+    ),
+  ).toThrow(/id "same".*section.*flow.*change or remove one id to clear this refusal/)
+})
+
 import { jsonSchemas } from './json-schemas.ts'
 
 describe('Document', () => {

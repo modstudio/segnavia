@@ -45,6 +45,7 @@ const sectionFields = {
 }
 
 const partFields = {
+  id: z.string().optional(),
   name: z.string().regex(REGION_NAME, 'a part name must be an HTML name token'),
   title: z.string().optional(),
   html: z.string().optional(),
@@ -135,10 +136,11 @@ export interface BookDivisions {
   endMatter: BookItem[]
 }
 
+const mintedPartIds = new WeakMap<Part, string>()
+
 /** The canonical reading order for every feature that consumes a book. */
 export function bookSections(book: BookDivisions): BookSectionEntry[] {
   const sections: BookSectionEntry[] = []
-  let partNumber = 0
   const walk = (items: BookItem[], division: BookDivision, parentPath: (string | number)[], ancestry: BookSectionEntry['ancestry']): void => {
     items.forEach((entry, index) => {
       const path = [...parentPath, index]
@@ -146,8 +148,11 @@ export function bookSections(book: BookDivisions): BookSectionEntry[] {
         sections.push({ entry, division, ancestry, depth: ancestry.length, path })
         return
       }
-      partNumber += 1
-      const id = `segnavia-part-${partNumber}`
+      let id = entry.id ?? mintedPartIds.get(entry)
+      if (!id) {
+        id = globalThis.crypto.randomUUID()
+        mintedPartIds.set(entry, id)
+      }
       if (entry.html !== undefined || entry.title !== undefined) sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
       walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, runningHead: entry.runningHead, id }])
     })
