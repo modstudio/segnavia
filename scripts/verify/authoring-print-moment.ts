@@ -176,8 +176,21 @@ export async function verifyAuthoredPrintMoment(h: Harness) {
   await page.evaluate(async () => {
     const bundle = '/segnavia.js'
     const { printDeck } = (await import(bundle)) as { printDeck(deck: unknown, options: unknown): Promise<void> }
-    const holder = window as unknown as { authoring: { draftDeck(): unknown }; authoredPrint?: Promise<void>; releaseAuthoredPrint?: () => void }
-    holder.authoredPrint = printDeck(holder.authoring.draftDeck(), { print: () => new Promise<void>((resolve) => (holder.releaseAuthoredPrint = resolve)) })
+    const holder = window as unknown as {
+      authoring: { draftDeck(): { title?: string; size?: unknown; scripts?: string; slides: Array<Record<string, unknown>> } }
+      authoredPrint?: Promise<void>
+      releaseAuthoredPrint?: () => void
+    }
+    const deck = holder.authoring.draftDeck()
+    const document = {
+      type: 'document',
+      kind: 'deck',
+      title: deck.title,
+      size: deck.size,
+      settings: { scripts: deck.scripts },
+      children: deck.slides.map((slide) => ({ type: 'slide', ...slide })),
+    }
+    holder.authoredPrint = printDeck(document, { print: () => new Promise<void>((resolve) => (holder.releaseAuthoredPrint = resolve)) })
   })
   await page.waitForFunction(() => typeof (window as unknown as { releaseAuthoredPrint?: unknown }).releaseAuthoredPrint === 'function')
   const printed = await page
