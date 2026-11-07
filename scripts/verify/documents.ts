@@ -38,31 +38,23 @@ export async function verifyDocuments(h: Harness) {
     second.dispatchEvent(new DragEvent('dragover', { bubbles: true, composed: true, dataTransfer: transfer, clientY: box.bottom - 1 }))
     second.dispatchEvent(new DragEvent('drop', { bubbles: true, composed: true, dataTransfer: transfer, clientY: box.bottom - 1 }))
   })
-  await page.waitForFunction(
-    () => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages[0]?.children[0]?.id === 'inside',
-  )
+  await page.waitForFunction(() => document.querySelector('#brochure segnavia-document-rail')?.shadowRoot?.querySelector('li')?.dataset.pageId === 'inside')
   check(
     'document rail drag reorders pages',
-    await page.evaluate(
-      () => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages[0]?.children[0]?.id === 'inside',
-    ),
+    await page.evaluate(() => document.querySelector('#brochure segnavia-document-rail')?.shadowRoot?.querySelector('li')?.dataset.pageId === 'inside'),
   )
   await rail.locator('button[data-index="0"]').press('Alt+ArrowDown')
-  await page.waitForFunction(
-    () => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages[0]?.children[0]?.id === 'cover',
-  )
+  await page.waitForFunction(() => document.querySelector('#brochure segnavia-document-rail')?.shadowRoot?.querySelector('li')?.dataset.pageId === 'cover')
   check(
     'document rail keyboard reorders pages',
-    await page.evaluate(
-      () => (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages[0]?.children[0]?.id === 'cover',
-    ),
+    await page.evaluate(() => document.querySelector('#brochure segnavia-document-rail')?.shadowRoot?.querySelector('li')?.dataset.pageId === 'cover'),
   )
   await page.evaluate(() => ((window as unknown as { documentAuthoringFacts: { rejectMove: boolean } }).documentAuthoringFacts.rejectMove = true))
   await rail.locator('button[data-index="0"]').press('Alt+ArrowDown')
   await page.waitForFunction(() => (window as unknown as { documentAuthoringFacts: { errors: unknown[] } }).documentAuthoringFacts.errors.length > 0)
   const failed = await page.evaluate(() => ({
-    ids: (document.querySelector('#brochure') as HTMLElement & { pages: Array<{ children: Array<{ id?: string }> }> }).pages
-      .map((page) => page.children[0]?.id)
+    ids: [...(document.querySelector('#brochure segnavia-document-rail')?.shadowRoot?.querySelectorAll<HTMLElement>('li[data-page-id]') ?? [])]
+      .map((item) => item.dataset.pageId)
       .join(','),
     errors: (window as unknown as { documentAuthoringFacts: { errors: unknown[] } }).documentAuthoringFacts.errors.length,
   }))
