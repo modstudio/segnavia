@@ -241,7 +241,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
       document: (board) => this.documentWithBoard(board),
       setDropTarget: (id) => this.decorations.setDropTarget(id),
       local: (event) => this.gestures.local(event),
-      optimistic: (board) => this.setBoardValue(board, false),
+      optimistic: (board) => this.setBoardValue(this.holdBoardEdit(board), false),
       detachInput: () => {
         if (this.input.delegate === delegate) this.input.delegate = null
       },

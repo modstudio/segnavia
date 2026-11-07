@@ -31,8 +31,6 @@ import { renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
 import { boardValue } from './board-value.ts'
 
-export { boardValue } from './board-value.ts'
-
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
 export { BOARD_HISTORY_LIMIT }
 
