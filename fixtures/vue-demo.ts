@@ -4,8 +4,10 @@ import { DeckController } from '../packages/frame/src/controller.ts'
 import { MARKDOWN_EDITOR_PROPERTIES } from '../packages/markdown-editor/src/element-properties.ts'
 
 const deck = {
+  type: 'document' as const,
+  kind: 'deck' as const,
   title: 'Vue deck',
-  slides: [{ id: 'vue-slide', content: { kind: 'html' as const, html: '<h1>Vue rendered slide</h1>' } }],
+  children: [{ type: 'slide' as const, id: 'vue-slide', content: { kind: 'html' as const, html: '<h1>Vue rendered slide</h1>' } }],
 }
 const controller = new DeckController({ persist: false })
 await controller.load(deck)
