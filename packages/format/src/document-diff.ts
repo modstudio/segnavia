@@ -1,54 +1,24 @@
 import { sameValue } from './board-op-equal.ts'
-import { Document, type Document as DocumentValue } from './document.ts'
+import type { Document as DocumentValue } from './document.ts'
+import { requireParsedDocument } from './document-fingerprint.ts'
 import type { DocumentLocation, DocumentOp } from './document-op.ts'
-import { DOCUMENT_ROOT_FIELDS, DOCUMENT_STYLE_FIELDS, nodeModel } from './document-op-model.ts'
+import {
+  DOCUMENT_ROOT_FIELDS,
+  DOCUMENT_STYLE_FIELDS,
+  type OperationDocument as Doc,
+  documentContainer,
+  documentEntries,
+  findDocumentNode,
+  type OperationNode as Node,
+  nodeModel,
+} from './document-op-model.ts'
 
-type Node = Record<string, unknown> & { id: string; type: string; children?: Node[] }
-type Doc = Record<string, unknown> & { id: string; kind: string; children: Node[]; style?: Record<string, unknown> }
-interface Entry {
-  node: Node
-  parent: DocumentLocation
-  index: number
-  depth: number
-}
-
-const COLLECTIONS = ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const
-
-function entries(document: Doc): Entry[] {
-  const result: Entry[] = []
-  const visit = (nodes: Node[], parent: DocumentLocation, depth: number): void => {
-    nodes.forEach((node, index) => {
-      result.push({ node, parent, index, depth })
-      if (node.children) visit(node.children, { kind: 'node', id: node.id }, depth + 1)
-    })
-  }
-  visit(document.children, { kind: 'node', id: document.id }, 0)
-  for (const name of COLLECTIONS) {
-    const nodes = document[name] as Node[]
-    nodes.forEach((node, index) => {
-      result.push({ node, parent: { kind: 'collection', name }, index, depth: 0 })
-    })
-  }
-  return result
-}
-
-function locate(document: Doc, id: string): Entry | undefined {
-  return entries(document).find((entry) => entry.node.id === id)
-}
-
-function container(document: Doc, location: DocumentLocation): Node[] {
-  if (location.kind === 'collection') return document[location.name] as Node[]
-  if (location.id === document.id) return document.children
-  const parent = locate(document, location.id)?.node
-  if (!parent?.children) throw new Error(`diffDocuments refused: parent node "${location.id}" cannot hold children`)
-  return parent.children
-}
-
-function parsed(document: DocumentValue, side: string): Doc {
-  const value = Document.parse(document)
-  if (!sameValue(value, document)) throw new Error(`diffDocuments refused: ${side} is not a parsed Document; parse it first to clear this refusal`)
-  return structuredClone(document) as unknown as Doc
-}
+const entries = documentEntries
+const locate = findDocumentNode
+const container = (document: Doc, location: DocumentLocation): Node[] =>
+  documentContainer(document, location, (reason) => {
+    throw new Error(`diffDocuments refused: ${reason}; compare documents with valid operation parents to clear this refusal`)
+  })
 
 function stripped(node: Node): Node {
   return node.children ? { ...structuredClone(node), children: [] } : structuredClone(node)
@@ -60,7 +30,7 @@ function insertMissing(working: Doc, target: Doc, known: ReadonlySet<string>, op
     const node = stripped(entry.node)
     const held = container(working, entry.parent)
     const index = held.length
-    ops.push({ type: 'insert', parent: entry.parent, index, node: node as never })
+    ops.push({ type: 'insert', parent: entry.parent, index, node: structuredClone(node) as never })
     held.push(node)
   }
 }
@@ -135,17 +105,18 @@ function setChanges(before: Doc, after: Doc, common: ReadonlySet<string>, ops: D
     const model = nodeModel(node.type)
     if (!model || old.type !== node.type) throw new Error(`diffDocuments refused: node "${node.id}" changed type; use a new id to clear this refusal`)
     appendContentChanges(old, node, model.content, ops)
-    const structural = [...model.fields].filter((field) => !['type', 'id', 'children'].includes(field) && !model.content.has(field))
-    const held = change(old, node, structural)
+    const held = change(old, node, model.settable)
     if (hasChange(held)) ops.push({ type: 'setFields', id: node.id, ...held })
   }
 }
 
 export function diffDocuments(left: DocumentValue, right: DocumentValue): DocumentOp[] {
-  const before = parsed(left, 'first document')
-  const after = parsed(right, 'second document')
+  const before = structuredClone(requireParsedDocument(left, 'diffDocuments first document')) as unknown as Doc
+  const after = structuredClone(requireParsedDocument(right, 'diffDocuments second document')) as unknown as Doc
   if (before.kind !== after.kind)
     throw new Error(`diffDocuments refused: document kinds ${before.kind} and ${after.kind} differ; compare documents of one kind to clear this refusal`)
+  if (before.id !== after.id)
+    throw new Error(`diffDocuments refused: root ids "${before.id}" and "${after.id}" differ; compare documents that share a root id to clear this refusal`)
   const beforeIds = new Set(entries(before).map(({ node }) => node.id))
   const afterIds = new Set(entries(after).map(({ node }) => node.id))
   const common = new Set([...beforeIds].filter((id) => afterIds.has(id)))

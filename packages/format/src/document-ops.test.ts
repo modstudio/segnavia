@@ -1,10 +1,13 @@
 import { describe, expect, test } from 'bun:test'
+import { Document } from './document.ts'
 import { applyOps } from './document-apply.ts'
 import { diffDocuments } from './document-diff.ts'
 import { fingerprintDocument } from './document-fingerprint.ts'
 import { inverseBatch } from './document-invert.ts'
-import type { DocumentBatch, DocumentOp } from './document-op.ts'
-import { generatedDocument, generatedDocumentOfKind, randomEdit } from './document-op-test-helper.ts'
+import { DocumentBatch, type DocumentOp } from './document-op.ts'
+import { DOCUMENT_NODE_MODEL } from './document-op-model.ts'
+import { generatedCandidateDocuments, generatedDocument, generatedDocumentOfKind, randomEdit, sampledNodeTypes } from './document-op-test-helper.ts'
+import { jsonSchemas } from './json-schemas.ts'
 
 const CASES = 200
 
@@ -74,7 +77,34 @@ describe('document operation properties', () => {
   })
 })
 
+test('inverts absent content, structural fields, and style through JSON', () => {
+  const before = generatedDocumentOfKind('book', 9)
+  const part = firstNode(before)
+  const forward = batch(before, [
+    { type: 'setContent', id: part.id, field: 'html', unset: true, prior: HEBREW },
+    { type: 'setFields', id: part.id, fields: {}, unset: ['title'], prior: { title: 'Part' }, priorAbsent: [] },
+    { type: 'setStyle', fields: {}, unset: ['css'], prior: { css: 'body{}' }, priorAbsent: [] },
+  ])
+  const after = applyOps(before, forward)
+  const inverse = JSON.parse(JSON.stringify(inverseBatch(forward, after))) as DocumentBatch
+  expect(applyOps(after, inverse)).toEqual(before)
+})
+
 describe('document operation refusals', () => {
+  test('refuses setContent with both content and unset', () => {
+    const before = generatedDocumentOfKind('deck', 1)
+    const op = { type: 'setContent', id: firstNode(before).id, field: 'notes', content: 'next', unset: true, prior: 'old' }
+    expect(() => applyOps(before, { base: fingerprintDocument(before), ops: [op] } as never)).toThrow(/keys "content" and "unset" cannot both be present/)
+    expect(DocumentBatch.safeParse({ base: 'base', ops: [op] }).success).toBe(false)
+  })
+
+  test('refuses setContent with both prior and priorAbsent', () => {
+    const before = generatedDocumentOfKind('deck', 1)
+    const op = { type: 'setContent', id: firstNode(before).id, field: 'notes', content: 'next', prior: 'old', priorAbsent: true }
+    expect(() => applyOps(before, { base: fingerprintDocument(before), ops: [op] } as never)).toThrow(/keys "prior" and "priorAbsent" cannot both be present/)
+    expect(DocumentBatch.safeParse({ base: 'base', ops: [op] }).success).toBe(false)
+  })
+
   test('refuses a stale base outside the targets with both fingerprints', () => {
     const before = generatedDocumentOfKind('deck', 1)
     const current = randomEdit(before, 1)
@@ -113,7 +143,7 @@ describe('document operation refusals', () => {
     const before = generatedDocumentOfKind('deck', 2)
     const slide = firstNode(before)
     const op: DocumentOp = { type: 'insert', parent: { kind: 'node', id: before.id }, index: 9, node: { ...slide, id: 'inserted' } as never }
-    expect(() => applyOps(before, batch(before, [op]))).toThrow(/index 9 is outside 0\.\.1.*rebuild the batch/)
+    expect(() => applyOps(before, batch(before, [op]))).toThrow(/index 9 is outside 0\.\.2.*rebuild the batch/)
   })
 
   test('is atomic when a later prior does not match', () => {
@@ -134,6 +164,26 @@ describe('document operation refusals', () => {
     )
   })
 
+  test('refuses documents with different root ids', () => {
+    const before = generatedDocumentOfKind('deck', 1)
+    const after = Document.parse({ ...before, id: 'other-root' })
+    expect(() => diffDocuments(before, after)).toThrow(/root ids "deck-1" and "other-root" differ.*share a root id/)
+  })
+
+  test('refuses setting a document kind', () => {
+    const before = generatedDocumentOfKind('book', 1)
+    const op = { type: 'setFields', id: before.id, fields: { kind: 'page' }, unset: [], prior: { kind: 'book' }, priorAbsent: [] }
+    expect(() => applyOps(before, batch(before, [op as never]))).toThrow(/field "kind" is not settable by this operation/)
+  })
+
+  test('fingerprint, apply, and diff refuse an unparsed document', () => {
+    const parsed = generatedDocumentOfKind('deck', 1)
+    const unparsed = { type: 'document', kind: 'deck', title: 'Deck', children: [{ type: 'slide', content: { kind: 'html', html: HEBREW } }] } as never
+    expect(() => fingerprintDocument(unparsed)).toThrow(/fingerprintDocument refused:.*parse it first/)
+    expect(() => applyOps(unparsed, { base: fingerprintDocument(parsed), ops: [] })).toThrow(/applyOps refused:.*parse it first/)
+    expect(() => diffDocuments(unparsed, parsed)).toThrow(/diffDocuments first document refused:.*parse it first/)
+  })
+
   test('refuses a final result that Document.parse would change', () => {
     const before = generatedDocumentOfKind('deck', 1)
     const op: DocumentOp = {
@@ -144,8 +194,58 @@ describe('document operation refusals', () => {
       prior: { title: 'Deck' },
       priorAbsent: [],
     }
-    expect(() => applyOps(before, batch(before, [op]))).toThrow(/result|clear this refusal/)
+    expect(() => applyOps(before, batch(before, [op]))).toThrow(/document batch refused: the result is not a valid document \(\[/)
   })
+})
+
+describe('document diff insertion ordering', () => {
+  const book = (id: string, children: unknown[]) => Document.parse({ type: 'document', id, kind: 'book', title: 'Book', mode: 'continuous', children })
+  const flow = { type: 'flow', id: 'n1', html: HEBREW }
+  const section = { type: 'section', id: 'sb', title: 'Section', children: [flow] }
+
+  test('inserts a new part and its descendants without aliasing the emitted nodes', () => {
+    const before = book('book', [])
+    const after = book('book', [{ type: 'part', id: 'pb', name: 'part', children: [section] }])
+    expect(applyOps(before, batch(before, diffDocuments(before, after)))).toEqual(after)
+  })
+
+  test('moves an existing subtree under a newly inserted parent', () => {
+    const before = book('book', [{ type: 'part', id: 'pa', name: 'old', children: [section] }])
+    const after = book('book', [{ type: 'part', id: 'pb', name: 'new', children: [section] }])
+    expect(applyOps(before, batch(before, diffDocuments(before, after)))).toEqual(after)
+  })
+})
+
+test('the schema-derived candidate generator covers every currently parseable modeled type', () => {
+  const candidates = generatedCandidateDocuments(73)
+  const covered = new Set(candidates.flatMap((document) => [...sampledNodeTypes(document)]))
+  for (const type of Object.keys(DOCUMENT_NODE_MODEL)) {
+    const sampleParses = candidates.some((document) => sampledNodeTypes(document).has(type))
+    expect(covered.has(type), `${type} parseable=${sampleParses}`).toBe(sampleParses)
+  }
+  expect(covered).toEqual(
+    new Set([
+      'division',
+      'part',
+      'section',
+      'flow',
+      'page',
+      'slide',
+      'placed',
+      'contents',
+      'item',
+      'label',
+      'boardSection',
+      'parentPage',
+      'template',
+      'noteSeries',
+    ]),
+  )
+})
+
+test('publishes document operation JSON Schemas', () => {
+  expect(jsonSchemas().documentOp).toHaveProperty('anyOf')
+  expect(jsonSchemas().documentBatch).toMatchObject({ type: 'object', required: ['base', 'ops'] })
 })
 
 test('fingerprints canonical parsed JSON independently of object key order', () => {
@@ -154,3 +254,5 @@ test('fingerprints canonical parsed JSON independently of object key order', () 
   expect(fingerprintDocument(reordered)).toBe(fingerprintDocument(document))
   expect(fingerprintDocument(document)).toMatch(/^fnv1a64:[0-9a-f]{16}$/)
 })
+
+const HEBREW = 'בְּרֵאשִׁ֖ית בָּרָ֣א'

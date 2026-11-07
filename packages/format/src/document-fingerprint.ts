@@ -1,4 +1,17 @@
+import { sameValue } from './board-op-equal.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
+
+export function requireParsedDocument(document: DocumentValue, subject: string): DocumentValue {
+  let parsed: DocumentValue
+  try {
+    parsed = Document.parse(document)
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new Error(`${subject} refused: document is not a parsed Document; parse it first to clear this refusal (${reason})`)
+  }
+  if (!sameValue(parsed, document)) throw new Error(`${subject} refused: document is not a parsed Document; parse it first to clear this refusal`)
+  return document
+}
 
 function canonical(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
@@ -10,7 +23,7 @@ function canonical(value: unknown): string {
 }
 
 export function fingerprintDocument(document: DocumentValue): string {
-  const parsed = Document.parse(document)
+  const parsed = requireParsedDocument(document, 'fingerprintDocument')
   let hash = 0xcbf29ce484222325n
   for (const byte of new TextEncoder().encode(canonical(parsed))) {
     hash ^= BigInt(byte)

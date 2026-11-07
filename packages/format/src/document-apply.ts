@@ -1,18 +1,22 @@
 import { sameValue } from './board-op-equal.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
-import { fingerprintDocument } from './document-fingerprint.ts'
+import { fingerprintDocument, requireParsedDocument } from './document-fingerprint.ts'
 import { DocumentBatch, type DocumentLocation, type DocumentOp } from './document-op.ts'
-import { DOCUMENT_ROOT_FIELDS, DOCUMENT_STYLE_FIELDS, nodeModel } from './document-op-model.ts'
+import {
+  DOCUMENT_ROOT_FIELDS,
+  DOCUMENT_STYLE_FIELDS,
+  type DocumentEntry,
+  documentContainer,
+  findDocumentNode,
+  nodeModel,
+  type OperationDocument,
+  type OperationNode,
+} from './document-op-model.ts'
 
 type Held = Record<string, unknown>
-type HeldNode = Held & { id: string; type: string }
-type HeldDocument = HeldNode & { children: HeldNode[]; style?: Held; [key: string]: unknown }
-
-interface Found {
-  node: HeldNode
-  parent: DocumentLocation
-  index: number
-}
+type HeldNode = OperationNode
+type HeldDocument = OperationDocument
+type Found = DocumentEntry
 
 const clearance = 'rebuild the batch against the current document'
 const shown = (value: unknown): string => (value === undefined ? 'absent' : JSON.stringify(value))
@@ -21,39 +25,12 @@ function refuse(index: number, op: DocumentOp, reason: string): never {
   throw new Error(`document op ${index} (${op.type}) refused: ${reason}; ${clearance}`)
 }
 
-function walk(document: HeldDocument): Found[] {
-  const found: Found[] = []
-  const visit = (nodes: HeldNode[], parent: DocumentLocation): void => {
-    nodes.forEach((node, index) => {
-      found.push({ node, parent, index })
-      if (Array.isArray(node.children)) visit(node.children as HeldNode[], { kind: 'node', id: node.id })
-    })
-  }
-  visit(document.children, { kind: 'node', id: document.id })
-  for (const name of ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const) {
-    const nodes = document[name] as HeldNode[]
-    nodes.forEach((node, index) => {
-      found.push({ node, parent: { kind: 'collection', name }, index })
-    })
-  }
-  return found
-}
-
-function find(document: HeldDocument, id: string): Found | undefined {
-  return walk(document).find(({ node }) => node.id === id)
-}
-
 function sameLocation(left: DocumentLocation, right: DocumentLocation): boolean {
   return sameValue(left, right)
 }
 
 function entries(document: HeldDocument, location: DocumentLocation, index: number, op: DocumentOp): HeldNode[] {
-  if (location.kind === 'collection') return document[location.name] as HeldNode[]
-  if (location.id === document.id) return document.children
-  const parent = find(document, location.id)?.node
-  if (!parent) refuse(index, op, `parent node "${location.id}" is missing`)
-  if (!nodeModel(parent.type)?.children || !Array.isArray(parent.children)) refuse(index, op, `parent node "${location.id}" cannot hold child nodes`)
-  return parent.children as HeldNode[]
+  return documentContainer(document, location, (reason) => refuse(index, op, reason))
 }
 
 function checkNodeLocation(node: HeldNode, location: DocumentLocation, index: number, op: DocumentOp): void {
@@ -98,7 +75,7 @@ function applyChange(target: Held, op: Extract<DocumentOp, { type: 'setFields' |
 function applyInsert(document: HeldDocument, op: Extract<DocumentOp, { type: 'insert' }>, index: number): void {
   const node = op.node as HeldNode
   if (!node.id) refuse(index, op, 'inserted node has no id')
-  if (find(document, node.id)) refuse(index, op, `node "${node.id}" already exists`)
+  if (findDocumentNode(document, node.id)) refuse(index, op, `node "${node.id}" already exists`)
   checkNodeLocation(node, op.parent, index, op)
   const target = entries(document, op.parent, index, op)
   if (op.index > target.length) refuse(index, op, `index ${op.index} is outside 0..${target.length}`)
@@ -148,8 +125,7 @@ function applyNodeSet(op: Extract<DocumentOp, { type: 'setFields' | 'setContent'
     else found.node[op.field] = structuredClone(op.content)
     return
   }
-  const allowed = new Set([...model.fields].filter((field) => !['type', 'id', 'children'].includes(field) && !model.content.has(field)))
-  const fields = checkedChange(op, allowed, index)
+  const fields = checkedChange(op, model.settable, index)
   checkPrior(found.node, found.node.id, op, fields, index)
   applyChange(found.node, op, fields)
 }
@@ -163,7 +139,7 @@ function applyOne(document: HeldDocument, op: DocumentOp, index: number): void {
     applyStyle(document, op, index)
     return
   }
-  const found = find(document, op.id)
+  const found = findDocumentNode(document, op.id)
   if (!found) {
     applyRoot(document, op, index)
     return
@@ -174,6 +150,14 @@ function applyOne(document: HeldDocument, op: DocumentOp, index: number): void {
 }
 
 function parseBatch(batch: DocumentBatch): DocumentBatch {
+  for (const [index, candidate] of ((batch as unknown as { ops?: unknown[] }).ops ?? []).entries()) {
+    if (typeof candidate !== 'object' || candidate === null || (candidate as { type?: unknown }).type !== 'setContent') continue
+    const op = candidate as Record<string, unknown>
+    if ('content' in op && 'unset' in op)
+      throw new Error(`document op ${index} (setContent) refused: keys "content" and "unset" cannot both be present; remove one and rebuild the batch`)
+    if ('prior' in op && 'priorAbsent' in op)
+      throw new Error(`document op ${index} (setContent) refused: keys "prior" and "priorAbsent" cannot both be present; remove one and rebuild the batch`)
+  }
   const result = DocumentBatch.safeParse(batch)
   if (result.success) return result.data
   throw new Error(`document batch refused: ${result.error.issues.map((issue) => `${issue.path.join('.')} ${issue.message}`).join('; ')}; ${clearance}`)
@@ -194,6 +178,7 @@ function stale(document: HeldDocument, batch: DocumentBatch, actual: string): ne
 }
 
 export function applyOps(document: DocumentValue, input: DocumentBatch): DocumentValue {
+  requireParsedDocument(document, 'applyOps')
   const batch = parseBatch(input)
   const actual = fingerprintDocument(document)
   const working = structuredClone(document) as unknown as HeldDocument
@@ -201,15 +186,13 @@ export function applyOps(document: DocumentValue, input: DocumentBatch): Documen
   batch.ops.forEach((op, index) => {
     applyOne(working, op, index)
   })
-  const last = Math.max(0, batch.ops.length - 1)
   let parsed: DocumentValue
   try {
     parsed = Document.parse(working)
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    throw new Error(`document op ${last} (${batch.ops[last]?.type ?? 'batch'}) refused: the result is not a valid document (${reason}); ${clearance}`)
+    throw new Error(`document batch refused: the result is not a valid document (${reason}); ${clearance}`)
   }
-  if (!sameValue(parsed, working))
-    throw new Error(`document op ${last} (${batch.ops[last]?.type ?? 'batch'}) refused: parsing the result would mint ids or change fields; ${clearance}`)
+  if (!sameValue(parsed, working)) throw new Error(`document batch refused: parsing the result would mint ids or change fields; ${clearance}`)
   return parsed
 }

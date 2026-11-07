@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { definitionCollections } from './document.ts'
 import { DocumentNode } from './document-nodes.ts'
-import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { DocumentDefinitionNode } from './document-nodes-book.ts'
 
 export const DocumentCollection = z.enum(definitionCollections)
 export type DocumentCollection = z.infer<typeof DocumentCollection>
@@ -20,7 +20,7 @@ const SetChange = {
   priorAbsent: z.array(z.string()),
 }
 const ContentTarget = { type: z.literal('setContent'), id: z.string().min(1), field: z.string().min(1) }
-const OperableNode = z.union([DocumentNode, ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, ConditionNode])
+const OperableNode = z.union([DocumentNode, DocumentDefinitionNode])
 
 export const DocumentOp = z.union([
   z.object({ type: z.literal('insert'), parent: DocumentLocation, index: z.number().int().nonnegative(), node: OperableNode }),
@@ -35,10 +35,10 @@ export const DocumentOp = z.union([
   }),
   z.object({ type: z.literal('setFields'), id: z.string().min(1), ...SetChange }),
   z.union([
-    z.object({ ...ContentTarget, content: z.unknown().nonoptional(), prior: z.unknown().nonoptional() }),
-    z.object({ ...ContentTarget, unset: z.literal(true), prior: z.unknown().nonoptional() }),
-    z.object({ ...ContentTarget, content: z.unknown().nonoptional(), priorAbsent: z.literal(true) }),
-    z.object({ ...ContentTarget, unset: z.literal(true), priorAbsent: z.literal(true) }),
+    z.strictObject({ ...ContentTarget, content: z.unknown().nonoptional(), prior: z.unknown().nonoptional() }),
+    z.strictObject({ ...ContentTarget, unset: z.literal(true), prior: z.unknown().nonoptional() }),
+    z.strictObject({ ...ContentTarget, content: z.unknown().nonoptional(), priorAbsent: z.literal(true) }),
+    z.strictObject({ ...ContentTarget, unset: z.literal(true), priorAbsent: z.literal(true) }),
   ]),
   z.object({ type: z.literal('setStyle'), ...SetChange }),
 ])

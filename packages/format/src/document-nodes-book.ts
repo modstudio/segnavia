@@ -46,9 +46,12 @@ export const VariableNode = NodeId.extend({
 
 export const ConditionNode = NodeId.extend({ type: z.literal('condition'), name: z.string() })
 
+export const DocumentDefinitionNode = z.union([ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, ConditionNode])
+
 export type ContentsNode = z.infer<typeof ContentsNode>
 export type ParentPageNode = z.infer<typeof ParentPageNode>
 export type TemplateNode = z.infer<typeof TemplateNode>
 export type NoteSeriesNode = z.infer<typeof NoteSeriesNode>
 export type VariableNode = z.infer<typeof VariableNode>
 export type ConditionNode = z.infer<typeof ConditionNode>
+export type DocumentDefinitionNode = z.infer<typeof DocumentDefinitionNode>
