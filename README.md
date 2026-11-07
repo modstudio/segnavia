@@ -21,6 +21,7 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 | Need | Package |
 |---|---|
 | The shared shapes: page, book, slide, deck, narration, cue, shot, manifest, a helper turning a host's slide rows into a deck, plus JSON Schema for hosts that do not run TypeScript | `@segnavia/format` |
+| Pure page planning for books and printed pages: pagination with keeps and notes, folios, `planBook` and a capped `convergeLayout`, testable in process and embeddable in a frame as `layoutScript()` | `@segnavia/layout` |
 | The active-content rule for authored HTML, and attribute bindings that fill a page from data with no script | `@segnavia/html` |
 | An IDML package read into a validated Book: document setup, master parent pages with marks and folios, opener title blocks with outlined SVG art and claimed headers, story styles and columns, and host-mapped fonts and SVG assets; unmapped features and linked resources are reported, and linked files are never fetched | `@segnavia/idml` |
 | Optional offline Mermaid drawing for page and book diagram placeholders | `@segnavia/diagrams` |
