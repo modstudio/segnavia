@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Book } from './book.ts'
+import { identifiedBookInput } from './book-test-helper.ts'
 import { DEFAULT_LIMITS, fillLimitRefusal, limitRefusal, limitRefusalTemplate, localFontLimitRefusal, parseLimits, resolveLimits } from './limits.ts'
 import { Page } from './page.ts'
 
@@ -47,9 +48,10 @@ describe('parseLimits', () => {
   test('document schemas report invalid and host-only limits without throwing from safeParse', () => {
     expect(Page.safeParse({ html: '<p>Page</p>', limits: { pages: -1 } }).success).toBe(false)
     expect(Page.safeParse({ html: '<p>Page</p>', limits: { sheets: 1 } }).success).toBe(false)
-    expect(Book.safeParse({ title: 'Book', mode: 'continuous', chapters: [{ title: 'Chapter', html: '<p>Text</p>' }], limits: { bytes: 1 } }).success).toBe(
-      false,
-    )
+    expect(
+      Book.safeParse(identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'Chapter', html: '<p>Text</p>' }], limits: { bytes: 1 } }))
+        .success,
+    ).toBe(false)
   })
 })
 

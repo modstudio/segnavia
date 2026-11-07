@@ -1,9 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import type { AppFont, FontFace, FontSource } from '@segnavia/format'
-import { Book, Page } from '@segnavia/format'
+import { Page } from '@segnavia/format'
 import { FontRefusedError } from '@segnavia/frame/fonts'
 import { expandFramePage } from '@segnavia/frame/motifs'
-import { resolvePageHtml } from '@segnavia/html'
+import { parseBookFixture, resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
 
@@ -24,7 +24,7 @@ const letterhead = {
   versions: [{ lang: 'en', html: '<header style="font-family: var(--segnavia-font-heading)">Head</header>' }],
   fonts: [{ app: 'heading' as const }],
 }
-const book = Book.parse({
+const book = parseBookFixture({
   title: 'Book',
   mode: 'continuous' as const,
   chapters: [{ title: 'Chapter', html: '<p>Text</p>' }],

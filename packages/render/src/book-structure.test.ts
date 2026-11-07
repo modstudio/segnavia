@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book } from '@segnavia/format'
-import { bookDocument } from '@segnavia/html'
+import { bookDocument, parseBookFixture } from '@segnavia/html'
 import { type PDFDict, PDFDocument, type PDFHexString, PDFName, type PDFNumber, PDFRef } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
 import { bookOutline, outlineTitle, writeBookStructure } from './book-structure.ts'
@@ -35,7 +34,7 @@ describe('book outline policy', () => {
   })
 
   test('uses contents depth and excludes opted-out headings', () => {
-    const book = Book.parse({
+    const book = parseBookFixture({
       title: 'Book',
       mode: 'continuous',
       contents: { depth: 2 },
@@ -64,7 +63,7 @@ test('direction marks appear only when natural and resolved directions differ', 
 })
 
 test('the PDF adapter writes collapsed UTF-16 outlines and document metadata', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'ספר',
     authors: ['אחת', 'Two'],
     subject: 'נושא',

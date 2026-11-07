@@ -213,7 +213,6 @@ export function pageOrPrintedFromDocument(document: DocumentValue): PageValue {
   throw new Error(`document kind ${document.kind} is not accepted here; use kind ${PAGE_OR_PRINTED_KINDS.join(' or ')} to clear this refusal`)
 }
 
-
 export function deckFromDocument(document: DocumentValue): DeckValue {
   requireKind(document, 'deck')
   const slides = document.children

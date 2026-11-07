@@ -1,4 +1,4 @@
-import { bookFromDocument, Cover, type Deck, DocumentMetadata, deckFromDocument, pageOrPrintedFromDocument } from '@segnavia/format'
+import { bookFromDocument, Cover, type Deck, DocumentMetadata, deckFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'

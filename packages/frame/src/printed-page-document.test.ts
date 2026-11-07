@@ -126,7 +126,10 @@ describe('printedPageDocument', () => {
 
   test('a markdown page and its HTML equivalent have the same print geometry', () => {
     const markdown = Page.parse({ ...page, body: { markdown: '# שלום\n\nEnglish text.' } })
-    const equivalent = Page.parse({ ...page, body: { html: markdownHtml(markdown.body, { dir: markdown.dir, lang: markdown.lang }) } })
+    const equivalent = Page.parse({
+      ...page,
+      body: { html: markdownHtml({ markdown: '# שלום\n\nEnglish text.' }, { dir: markdown.dir, lang: markdown.lang }) },
+    })
     expect(printedPageDocument(markdown, { nonce: 'held' })).toBe(printedPageDocument(equivalent, { nonce: 'held' }))
   })
 

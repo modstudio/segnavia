@@ -4,9 +4,9 @@ import type { BoardTargetPlacement } from './board-command-targets.ts'
 import type { BoardCommand } from './board-commands.ts'
 import type { BoardEditAdjustment } from './board-edit-result.ts'
 import type { BoardShapes } from './board-geometry.ts'
-import { defaultNewId } from './document-identity.ts'
 import { settleBoard } from './board-sections.ts'
 import type { BoardItemFact, BoardShapesOptions } from './board-shapes.ts'
+import { defaultNewId } from './document-identity.ts'
 
 export interface BoardCommandOptions {
   newId?: () => string

@@ -151,10 +151,7 @@ export function modelToBook(
   const chapters = emitted.map(({ story, mapped: value }) => {
     const parents = chapterParents(story.id, model, storyPages, masters, report)
     const source = openers.html.get(story.id) ?? value.html
-    const document = parseDocument(
-      { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: source } }] },
-      { newId },
-    )
+    const document = parseDocument({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: source } }] }, { newId })
     const page = document.children[0]
     const html = page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : source
     return { story: story.id, title: story.id, html, ...(parents ? { parents } : {}) }
@@ -164,9 +161,7 @@ export function modelToBook(
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()
-  const body = conversion
-    ? partBody(chapters, conversion, newId)
-    : chapters.map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
+  const body = conversion ? partBody(chapters, conversion, newId) : chapters.map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
   return Book.parse({
     title: model.id,
     mode: 'paginated',

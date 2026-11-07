@@ -148,10 +148,10 @@ describe('book document', () => {
     ])
     const first = sectionOpen(result.html, 'segnavia-endnotes-section-1')
     const second = sectionOpen(result.html, 'segnavia-endnotes-section-2')
-    expect(first).toContain('data-opens="any"')
-    expect(first).toContain('data-running-head="I" data-segnavia-chapter="1"')
-    expect(second).toContain('data-opens="any"')
-    expect(second).toContain('data-running-head="Two" data-segnavia-chapter="2"')
+    expect([first, second]).toEqual([
+      expect.stringMatching(/data-opens="any".*data-segnavia-chapter="1".*data-running-head="I"/),
+      expect.stringMatching(/data-opens="any".*data-segnavia-chapter="2".*data-running-head="Two"/),
+    ])
     expect(result.html).toContain('id="segnavia-en-1"')
     expect(result.html).toContain('id="segnavia-en-2"')
     expect(sectionOpen(result.html, 'segnavia-endnotes')).toBe('')

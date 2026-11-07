@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, Book, computeFolios, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
-import { heldPageNumber, openerPageIndex, pageIndexForTarget, paginateScript, printedPageAt, selectBookParent, windowPageIndex } from '@segnavia/html'
+import { BOOK_PARENT_NAMES, computeFolios, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
+import {
+  heldPageNumber,
+  openerPageIndex,
+  pageIndexForTarget,
+  paginateScript,
+  parseBookFixture,
+  printedPageAt,
+  selectBookParent,
+  windowPageIndex,
+} from '@segnavia/html'
 import {
   BOOK_FAILURE_ATTRIBUTE,
   BOOK_MEASUREMENT_WAIT_MS,
@@ -14,7 +23,7 @@ import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
 import { MESSAGE } from './bridge.ts'
 
-const book = Book.parse({
+const book = parseBookFixture({
   title: 'Book',
   mode: 'paginated',
   lang: 'he',
@@ -24,8 +33,8 @@ const book = Book.parse({
 
 describe('bookDocument', () => {
   test('builds the book composer config from document and host page ceilings', () => {
-    expect(bookDocument(Book.parse({ ...book, limits: { pages: 600 } }), { nonce: 'held' })).toContain('"limit":600')
-    const capped = bookDocument(Book.parse({ ...book, limits: { pages: 600 } }), { nonce: 'held', limits: { pages: 300 } })
+    expect(bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held' })).toContain('"limit":600')
+    const capped = bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held', limits: { pages: 300 } })
     expect(capped).toContain('"limit":300')
     expect(capped).toContain("raise the host's limits.pages")
   })
@@ -135,10 +144,10 @@ describe('bookDocument', () => {
   })
 
   test('refuses a continuous book and a document with issues', () => {
-    const continuous = Book.parse({ title: 'Book', mode: 'continuous', page: book.page, chapters: book.body })
+    const continuous = parseBookFixture({ title: 'Book', mode: 'continuous', page: book.page, chapters: book.body })
     expect(() => bookDocument(continuous, { nonce: 'held' })).toThrow(PaginatedBookRefusedError)
     expect(() => bookDocument(continuous, { nonce: 'held' })).toThrow('mode paginated and page')
-    const issues = Book.parse({
+    const issues = parseBookFixture({
       title: 'Book',
       mode: 'paginated',
       page: book.page,

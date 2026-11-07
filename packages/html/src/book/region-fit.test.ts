@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { Book, PX_PER_PT } from '@segnavia/format'
+import { PX_PER_PT } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 import { templateRegionElements } from './book-held.ts'
+import { parseBookFixture } from './book-test-fixture.ts'
 import { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength, templateRegionFitIssues } from './region-fit.ts'
 
 const chapter = (title: string, html = '<p>Text</p>') => ({ title, html })
@@ -100,7 +101,7 @@ describe('templateRegionFitIssues', () => {
   })
 
   test('bookDocument reports fit issues on the same path as other data-region checks', () => {
-    const book = Book.parse(
+    const book = parseBookFixture(
       input({
         templates: [{ name: 'lesson', html: '<div data-region="heading" data-fit-min="bogus" data-fit-step="-1pt"></div>' }],
       }),
@@ -112,7 +113,7 @@ describe('templateRegionFitIssues', () => {
   })
 
   test('bookDocument refuses an invalid nested fit value, naming the section, page, region, value and unit', () => {
-    const book = Book.parse(
+    const book = parseBookFixture(
       input({
         templates: [{ name: 'lesson', html: '<div data-region="heading"></div>' }],
         chapters: [

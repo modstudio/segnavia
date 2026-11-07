@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Board } from './board.ts'
 import { Book } from './book.ts'
+import { identifiedBookInput } from './book-test-helper.ts'
 import { Deck } from './deck.ts'
 import { Document } from './document.ts'
 import { boardFromDocument, bookFromDocument, deckFromDocument, documentFromBoard, pageFromDocument, printedFromDocument } from './document-lowering.ts'
@@ -134,7 +135,7 @@ describe('Document lowering', () => {
   })
 
   test('lowers the Hebrew sefer demo shape to its current parsed value', () => {
-    const expected = Book.parse(hebrewBookFixture)
+    const expected = Book.parse(identifiedBookInput(hebrewBookFixture))
     const front = expected.frontMatter
     const chapters = expected.body
     const frontFlow = front[0]

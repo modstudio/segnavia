@@ -22,7 +22,15 @@ import {
   type Slide,
   type SlotsOptions,
 } from '@segnavia/format'
-import { classifyMediaAnswer, type HtmlPage, pageOrPrintedFromInput, parseDocument, type PlacementsOptions, placementPlaceholderSource, resolvePageHtml } from '@segnavia/html'
+import {
+  classifyMediaAnswer,
+  type HtmlPage,
+  type PlacementsOptions,
+  pageOrPrintedFromInput,
+  parseDocument,
+  placementPlaceholderSource,
+  resolvePageHtml,
+} from '@segnavia/html'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'

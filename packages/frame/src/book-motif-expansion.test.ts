@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { Book, isPart, Page } from '@segnavia/format'
-import { bookDocument, resolvePageHtml } from '@segnavia/html'
+import { isPart, Page } from '@segnavia/format'
+import { bookDocument, parseBookFixture, resolvePageHtml } from '@segnavia/html'
 import { bookMotifRefusal, expandFrameBookValue as expandFrameBook, framePageMotifRefusal } from './motif-expansion.ts'
 
 const signal = new AbortController().signal
@@ -16,7 +16,7 @@ const source = {
 }
 
 test('expands motifs in a chapter, designed page and templated region before building the book', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Motifs',
     mode: 'paginated',
     page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
@@ -38,7 +38,7 @@ test('expands motifs in a chapter, designed page and templated region before bui
 })
 
 test('expands and refuses motifs throughout a part subtree', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Parts',
     mode: 'continuous',
     body: [
@@ -57,7 +57,7 @@ test('expands and refuses motifs throughout a part subtree', async () => {
   expect(part && isPart(part) ? part.html : undefined).toContain('class="expanded-opening"')
   expect(child && 'html' in child ? child.html : undefined).toContain('class="expanded-nested"')
 
-  const reserved = Book.parse({
+  const reserved = parseBookFixture({
     ...book,
     body: [{ name: 'part', children: [{ title: 'Chapter', html: '<span data-motif="segnavia:folio"></span>' }] }],
   })
@@ -67,7 +67,7 @@ test('expands and refuses motifs throughout a part subtree', async () => {
 })
 
 test('matches page missing-source behavior for body and parent-page placements', async () => {
-  const bodyBook = Book.parse({
+  const bodyBook = parseBookFixture({
     title: 'Body',
     mode: 'continuous',
     chapters: [{ title: 'One', html: '<p data-motif="held"></p>' }],
@@ -75,10 +75,10 @@ test('matches page missing-source behavior for body and parent-page placements',
   const bodyPage = Page.parse({ html: '<p data-motif="held"></p>' })
   expect(bookMotifRefusal(bodyBook)).toBeUndefined()
   expect(framePageMotifRefusal(resolvePageHtml(bodyPage))).toBeUndefined()
-  expect((await expandFrameBook(bodyBook, undefined, signal)).book.body[0]).toMatchObject({ html: '<p data-motif="held"></p>' })
+  expect((await expandFrameBook(bodyBook, undefined, signal)).book.body[0]).toMatchObject({ html: expect.stringContaining('<p data-motif="held"') })
 
   const parent = { name: 'held', head: '<header data-motif="running"></header>', margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } }
-  const parentBook = Book.parse({ title: 'Parent', mode: 'continuous', parentPages: [parent], chapters: [{ title: 'One', html: '<p></p>' }] })
+  const parentBook = parseBookFixture({ title: 'Parent', mode: 'continuous', parentPages: [parent], chapters: [{ title: 'One', html: '<p></p>' }] })
   const parentPage = Page.parse({ html: '<p></p>', print: { paper: 'a4' }, printedPages: { parents: [parent], rules: { every: 'held' } } })
   expect(bookMotifRefusal(parentBook)?.message).toBe(framePageMotifRefusal(resolvePageHtml(parentPage))?.message)
   expect(bookMotifRefusal(parentBook)?.message).toBe(
@@ -87,7 +87,7 @@ test('matches page missing-source behavior for body and parent-page placements',
 })
 
 test('preserves library furniture motifs while expanding host motifs around them', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Furniture',
     mode: 'continuous',
     parentPages: [
@@ -103,7 +103,7 @@ test('preserves library furniture motifs while expanding host motifs around them
   expect(expanded.book.parentPages[0]?.head).toContain('data-motif="segnavia:folio"')
   expect(expanded.book.parentPages[0]?.head).toContain('class="expanded-ornament"')
 
-  const libraryOnly = Book.parse({
+  const libraryOnly = parseBookFixture({
     ...book,
     parentPages: [{ ...book.parentPages[0], head: '<span data-motif="segnavia:folio"></span>' }],
   })
@@ -116,7 +116,7 @@ test('refuses library motifs in chapter and designed-page bodies without a sourc
     { kind: 'designed' as const, pages: [{ html: '<span data-motif="segnavia:folio"></span>' }] },
   ]) {
     const html = '<span data-motif="segnavia:folio"></span>'
-    const book = Book.parse({
+    const book = parseBookFixture({
       title: 'Reserved',
       mode: chapter.kind === 'designed' ? 'paginated' : 'continuous',
       ...(chapter.kind === 'designed' ? { page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } } } : {}),
@@ -129,7 +129,7 @@ test('refuses library motifs in chapter and designed-page bodies without a sourc
 })
 
 test('returns motif font references from a book expansion', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Motif font',
     mode: 'continuous',
     chapters: [{ title: 'Chapter', html: '<span data-motif="letter"></span>' }],

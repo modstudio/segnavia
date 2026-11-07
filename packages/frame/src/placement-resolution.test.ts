@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { Book, BookView, isChapter, PAGE_WIDTHS, Page, paperPixels, sheetMm } from '@segnavia/format'
-import { bookDocument, resolvePageHtml } from '@segnavia/html'
+import { BookView, isChapter, PAGE_WIDTHS, Page, paperPixels, sheetMm } from '@segnavia/format'
+import { bookDocument, parseBookFixture, resolvePageHtml } from '@segnavia/html'
 import { expandFrameBookValue as expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
 
 const signal = new AbortController().signal
@@ -20,7 +20,7 @@ test('frame book preparation resolves placed media into the document HTML', asyn
 })
 
 test('Book preparation resolves placed media through the book PDF field path', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Placed',
     mode: 'paginated',
     page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
@@ -31,7 +31,7 @@ test('Book preparation resolves placed media through the book PDF field path', a
 })
 
 test('placed page entries become designed sections before the book is built', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Placed',
     mode: 'continuous',
     chapters: [{ kind: 'placed', title: 'Placed page', contents: false, opens: 'recto', placement: { kind: 'page', address: 'page/one' } }],
@@ -58,25 +58,25 @@ test('placed page entries become designed sections before the book is built', as
 })
 
 test('a live placed entry without placements holds its page with a placeholder', async () => {
-  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
+  const book = parseBookFixture({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
   const expanded = await expandFrameBook(book, undefined, signal)
   expect(bookDocument(expanded.book).html).toContain('data-segnavia-placement="missing"')
 })
 
 test('print refuses the first placed entry when placements are absent', async () => {
-  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
+  const book = parseBookFixture({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
   await expect(expandFrameBook(book, undefined, signal, undefined, 'print')).rejects.toThrow(
     'body.0 is a placed entry; pass placements to resolve placed entries',
   )
 })
 
 test('a placed section is not a chapter', () => {
-  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
+  const book = parseBookFixture({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
   expect(isChapter(book.body[0] as never)).toBe(false)
 })
 
 test('placed media entries use image resolution and missing reporting', async () => {
-  const book = Book.parse({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
+  const book = parseBookFixture({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/missing' } }] })
   const reports: unknown[] = []
   const expanded = await expandFrameBook(book, undefined, signal, { resolve: async () => undefined, report: (entry) => reports.push(entry) })
   expect(bookDocument(expanded.book).html).toContain('data-segnavia-placement="missing"')
@@ -101,7 +101,7 @@ test('chooses placement widths from print, flowing, fixed, and paginated book vi
   await expandFramePage(resolvePageHtml(Page.parse({ html: image, size: { width: 'wide', height: 'auto' } })), undefined, signal, capture)
   await expandFramePage(resolvePageHtml(Page.parse({ html: image, size: { width: 600, height: 'auto' } })), undefined, signal, capture)
   await expandFramePage(resolvePageHtml(Page.parse({ html: image, size: { width: 420, height: 240 } })), undefined, signal, capture)
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Widths',
     mode: 'paginated',
     page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },

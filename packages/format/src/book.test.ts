@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
+import { identifiedBookInput } from './book-test-helper.ts'
 import { Book, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
-const input = (overrides: Record<string, unknown> = {}) => ({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
+const input = (overrides: Record<string, unknown> = {}) => identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
   test('accepts book placements from the table and refuses other asset kinds', () => {
@@ -226,9 +227,11 @@ describe('book', () => {
   })
 
   test('kind designed without pages is refused even when flowing fields are present', () => {
-    const withHtml = Book.safeParse({ title: 'Book', mode: 'paginated', page, chapters: [{ kind: 'designed', title: 'Plate', html: '<p>Art</p>' }, chapter] })
+    const withHtml = Book.safeParse(
+      identifiedBookInput({ title: 'Book', mode: 'paginated', page, chapters: [{ kind: 'designed', title: 'Plate', html: '<p>Art</p>' }, chapter] }),
+    )
     expect(JSON.stringify(withHtml.error?.issues)).toContain('a designed section needs at least one page')
-    const titleOnly = Book.safeParse({ title: 'Book', mode: 'paginated', page, chapters: [{ kind: 'designed', title: 'Plate' }, chapter] })
+    const titleOnly = Book.safeParse(identifiedBookInput({ title: 'Book', mode: 'paginated', page, chapters: [{ kind: 'designed', title: 'Plate' }, chapter] }))
     expect(JSON.stringify(titleOnly.error?.issues)).toContain('a designed section needs at least one page')
   })
 
@@ -362,7 +365,7 @@ describe('book', () => {
       parent.children = [child]
       parent = child
     }
-    const result = Book.safeParse(input({ chapters: undefined, body: [root as never] }))
+    const result = Book.safeParse({ title: 'Book', mode: 'continuous', body: [root as never] })
     expect(result.success).toBe(false)
     expect(result.error?.issues[0]?.message).toContain('body.0.children.0.children.0')
     expect(result.error?.issues[0]?.message).toContain('maximum part depth of 6')

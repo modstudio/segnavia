@@ -18,20 +18,12 @@ function identifyContent(entry: unknown, newId: () => string): unknown {
   return Object.fromEntries(
     Object.entries(value).map(([key, field]) => {
       if (key === 'html' && typeof field === 'string') {
-        const document = parseDocument(
-          { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: field } }] },
-          { newId },
-        )
+        const document = parseDocument({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: field } }] }, { newId })
         const page = document.children[0]
         return [key, page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : field]
       }
       if (key === 'regions' && typeof field === 'object' && field !== null && !Array.isArray(field)) {
-        return [
-          key,
-          Object.fromEntries(
-            Object.entries(field as Input).map(([name, html]) => [name, (identifyContent({ html }, newId) as Input).html]),
-          ),
-        ]
+        return [key, Object.fromEntries(Object.entries(field as Input).map(([name, html]) => [name, (identifyContent({ html }, newId) as Input).html]))]
       }
       return [key, identifyContent(field, newId)]
     }),

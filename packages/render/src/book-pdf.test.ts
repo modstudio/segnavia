@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book } from '@segnavia/format'
-import type { BookSectionInfo } from '@segnavia/html'
+import { type BookSectionInfo, parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
 import { type BookPdfAdapter, bookPageCss, bookPartsPrintStatus, frontPrintStatus, pageReferencePrintStatus, renderBookPdf } from './book-pdf.ts'
@@ -14,7 +13,7 @@ const destinations = (page: number): Map<string, BookDestination> =>
   ])
 
 const continuousBook = (body: string, front?: string) =>
-  Book.parse({
+  parseBookFixture({
     title: 'Book',
     mode: 'continuous',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
@@ -31,8 +30,8 @@ test('maps asymmetric book margins to physical right and left pages independent 
     page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 11, inlineStart: 30, inlineEnd: 5 } },
     chapters: [{ title: 'One', html: '<p>Text</p>' }],
   }
-  expect(bookPageCss(Book.parse({ ...input, dir: 'ltr' }))).toBe(expected)
-  expect(bookPageCss(Book.parse({ ...input, title: 'ספר', dir: 'rtl' }))).toBe(expected)
+  expect(bookPageCss(parseBookFixture({ ...input, dir: 'ltr' }))).toBe(expected)
+  expect(bookPageCss(parseBookFixture({ ...input, title: 'ספר', dir: 'rtl' }))).toBe(expected)
 })
 
 async function printedPart(html: string, overrides: Record<string, number>, pages: number) {
@@ -79,7 +78,7 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
 test('places FontSource CSS before book CSS in the printed document', async () => {
   let srcdoc = ''
   await renderBrowserBookPdf(
-    Book.parse({
+    parseBookFixture({
       title: 'Book',
       mode: 'paginated',
       css: '.book-rule{color:purple}',
@@ -191,7 +190,7 @@ test('prints a paginated book once then finishes', async () => {
   let prints = 0
   let finishes = 0
   const output = await renderBookPdf(
-    Book.parse({
+    parseBookFixture({
       title: 'Book',
       mode: 'paginated',
       page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
@@ -226,7 +225,7 @@ test('corrects every joined book page to the exact trim before finishing', async
   }
   let finished: Uint8Array | undefined
   const output = await renderBookPdf(
-    Book.parse({
+    parseBookFixture({
       title: 'Book',
       mode: 'continuous',
       page: { paper: 'letter', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },

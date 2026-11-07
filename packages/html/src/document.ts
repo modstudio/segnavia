@@ -1,11 +1,11 @@
 import {
-  defaultNewId,
   Document,
   type DocumentInput,
   type DocumentParseOptions,
-  pageOrPrintedFromDocument,
+  defaultNewId,
   type PageOrPrintedInput,
   type Document as ParsedDocument,
+  pageOrPrintedFromDocument,
 } from '@segnavia/format'
 import { isTag } from 'domhandler'
 import { type AlertLabels, markdownHtml } from './markdown.ts'
