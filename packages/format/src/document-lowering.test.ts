@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Board } from './board.ts'
 import { Book } from './book.ts'
+import { identifiedBookInput } from './book-test-helper.ts'
 import { Deck } from './deck.ts'
 import { Document } from './document.ts'
 import { boardFromDocument, bookFromDocument, deckFromDocument, documentFromBoard, pageFromDocument, printedFromDocument } from './document-lowering.ts'
@@ -89,36 +90,52 @@ describe('Document lowering', () => {
 
   test('lowers the Hebrew demo page to its current parsed value', () => {
     const expected = Page.parse(hebrewPageFixture)
-    const document = Document.parse({
-      type: 'document',
-      kind: 'page',
-      settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
-      size: expected.size,
-      children: [{ type: 'page', body: expected.body }],
-    })
-    expect(pageFromDocument(document)).toEqual(expected)
+    const document = Document.parse(
+      {
+        type: 'document',
+        kind: 'page',
+        settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
+        size: expected.size,
+        children: [{ type: 'page', body: expected.body }],
+      },
+      {
+        newId: (() => {
+          let id = 0
+          return () => `page-${++id}`
+        })(),
+      },
+    )
+    expect(pageFromDocument(document)).toEqual({ ...expected, id: 'page-2' })
   })
 
   test('lowers the printed-parent demo page to its current parsed value', () => {
     const expected = Page.parse(printedPagesFixture)
     if (!expected.printedPages) throw new Error('the printed page fixture needs printedPages')
-    const document = Document.parse({
-      type: 'document',
-      kind: 'printed',
-      settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
-      size: expected.size,
-      print: expected.print,
-      rules: expected.printedPages.rules,
-      numbering: expected.printedPages.numbering,
-      fragmentation: expected.printedPages.fragmentation,
-      parentPages: expected.printedPages.parents.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
-      children: [{ type: 'page', body: expected.body }],
-    })
-    expect(printedFromDocument(document)).toEqual(expected)
+    const document = Document.parse(
+      {
+        type: 'document',
+        kind: 'printed',
+        settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
+        size: expected.size,
+        print: expected.print,
+        rules: expected.printedPages.rules,
+        numbering: expected.printedPages.numbering,
+        fragmentation: expected.printedPages.fragmentation,
+        parentPages: expected.printedPages.parents.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
+        children: [{ type: 'page', body: expected.body }],
+      },
+      {
+        newId: (() => {
+          let id = 0
+          return () => `printed-${++id}`
+        })(),
+      },
+    )
+    expect(printedFromDocument(document)).toEqual({ ...expected, id: 'printed-2', printedPages: { ...expected.printedPages, numbering: undefined } })
   })
 
   test('lowers the Hebrew sefer demo shape to its current parsed value', () => {
-    const expected = Book.parse(hebrewBookFixture)
+    const expected = Book.parse(identifiedBookInput(hebrewBookFixture))
     const front = expected.frontMatter
     const chapters = expected.body
     const frontFlow = front[0]
@@ -147,8 +164,8 @@ describe('Document lowering', () => {
           type: 'division',
           name: 'front',
           children: [
-            { type: 'section', title: frontFlow.title, contents: false, children: [{ type: 'flow', html: frontFlow.html }] },
-            { type: 'contents', title: front[1]?.title, pageNumbers: expected.contents.pageNumbers, depth: expected.contents.depth },
+            { type: 'section', id: frontFlow.id, title: frontFlow.title, contents: false, children: [{ type: 'flow', html: frontFlow.html }] },
+            { type: 'contents', id: front[1]?.id, title: front[1]?.title, pageNumbers: expected.contents.pageNumbers, depth: expected.contents.depth },
           ],
         },
         {
@@ -156,7 +173,7 @@ describe('Document lowering', () => {
           name: 'body',
           children: chapters.map((chapter) => {
             if (!('html' in chapter)) throw new Error('the Hebrew sefer fixture needs flowing chapters')
-            return { type: 'section' as const, title: chapter.title, children: [{ type: 'flow' as const, html: chapter.html }] }
+            return { type: 'section' as const, id: chapter.id, title: chapter.title, children: [{ type: 'flow' as const, html: chapter.html }] }
           }),
         },
       ],

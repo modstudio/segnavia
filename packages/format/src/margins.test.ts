@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Book } from './book.ts'
+import { identifiedBookInput } from './book-test-helper.ts'
 import { physicalMargins } from './margins.ts'
 
 const margin = { blockStart: 1, blockEnd: 2, inlineStart: 3, inlineEnd: 4 }
@@ -16,7 +17,7 @@ describe('physicalMargins', () => {
 })
 
 test('content margins require every logical edge and refuse legacy margin names', () => {
-  const book = { title: 'Book', mode: 'continuous', chapters: [{ title: 'Chapter', html: '<p>Text</p>' }] }
+  const book = identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'Chapter', html: '<p>Text</p>' }] }) as Record<string, unknown>
   expect(() => Book.parse({ ...book, page: { paper: 'a5', margin: { inlineStart: 15 } } })).toThrow('blockStart')
   expect(() => Book.parse({ ...book, page: { paper: 'a5', margin: { top: 12, bottom: 12, inner: 15, outer: 10 } } })).toThrow(
     'use blockStart, blockEnd, inlineStart and inlineEnd to clear this refusal',

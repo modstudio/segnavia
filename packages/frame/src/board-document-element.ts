@@ -1,4 +1,5 @@
-import { type Board, boardFromDocument, Document, type DocumentInput, documentFromBoard } from '@segnavia/format'
+import { type Board, boardFromDocument, type Document, type DocumentInput, documentFromBoard } from '@segnavia/format'
+import { parseDocument } from '@segnavia/html'
 import { BoardSelectionElement } from './board-selection-element.ts'
 
 export abstract class BoardDocumentElement extends BoardSelectionElement {
@@ -9,7 +10,7 @@ export abstract class BoardDocumentElement extends BoardSelectionElement {
   }
 
   set board(input: DocumentInput | null) {
-    const document = input === null ? null : Document.parse(input)
+    const document = input === null ? null : parseDocument(input)
     this.documentValue = document
     this.acceptBoardInput(document === null ? null : boardFromDocument(document))
   }

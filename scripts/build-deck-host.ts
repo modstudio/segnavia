@@ -1,7 +1,15 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-export function buildDeckHost(site: string) {
+export async function buildDeckHost(root: string, site: string) {
+  const htmlBundle = await Bun.build({
+    entrypoints: [path.join(root, 'packages/html/src/index.ts')],
+    target: 'browser',
+    format: 'esm',
+    minify: true,
+  })
+  if (!htmlBundle.success || !htmlBundle.outputs[0]) throw new Error('The deck host HTML bundle could not be built.')
+  writeFileSync(path.join(site, 'segnavia-html.js'), await htmlBundle.outputs[0].text())
   writeFileSync(
     path.join(site, 'deck-host.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -18,6 +26,7 @@ html,body{margin:0;max-inline-size:100%;overflow-x:hidden;font:16px system-ui,sa
 <script type="module">
 await customElements.whenDefined('segnavia-stage')
 const lib = await import('./segnavia.js')
+const {parseDocument} = await import('./segnavia-html.js')
 const stage = document.getElementById('deck')
 const root = document.getElementById('deck-root')
 const makeSlide = (id, suffix='') => ({type:'slide',id,content:{kind:'html',html:'<!doctype html><html><head><style>html{background:rgb(15,118,110)}h1{color:rgb(0, 128, 0)}</style></head><body style="margin:0;height:100vh;display:grid;place-items:center"><h1>'+id+suffix+'</h1><script>document.querySelector("h1").textContent+="-script-ran"<\\/script></body></html>'}})
@@ -25,6 +34,7 @@ const deckDocument = (children, scripts='refuse', transition={kind:'none'}, dir)
 const makeDeck = (ids, edits={}, scripts='refuse', transition={kind:'none'}, dir) => deckDocument(ids.map(id=>makeSlide(id,edits[id]||'')),scripts,transition,dir)
 let ids = Array.from({length:Number(new URLSearchParams(location.search).get('slides')||40)},(_,index)=>'slide-'+(index+1))
 let scripts = 'refuse'
+let storedDocument
 const controller = new lib.DeckController({keys:'page',hash:'slide-'})
 stage.controller = controller
 stage.css = 'h1{color:rgb(200, 0, 0)}'
@@ -36,10 +46,12 @@ document.getElementById('next').onclick=()=>controller.next()
 document.getElementById('present').onclick=()=>controller.state.presenting?controller.stopPresenting():controller.present(root)
 controller.addEventListener('change',({detail})=>{document.getElementById('counter').textContent=(detail.index+1)+' / '+detail.deck.slides.length;stage.reserve=detail.presenting?{blockStart:140}:{blockStart:140,blockEnd:172}})
 const waitForActive=id=>new Promise(resolve=>{const poll=()=>stage.querySelector('[data-active]')?.dataset.slideId===id?resolve():requestAnimationFrame(poll);poll()})
+const loadHostDocument=async input=>{storedDocument=parseDocument(input);ids=storedDocument.children.map(node=>node.id);scripts=storedDocument.settings?.scripts||'refuse';await controller.load(storedDocument)}
+const reloadStored=async(next,edits={})=>{const slides=new Map(storedDocument.children.map(slide=>[slide.id,slide]));const children=next.map(id=>{const slide=slides.get(id);if(!slide)throw new Error('Unknown stored slide '+id);const suffix=edits[id];if(!suffix||!('kind' in slide.content)||slide.content.kind!=='html')return slide;return {...slide,content:{...slide.content,html:slide.content.html.replace('</h1>',suffix+'</h1>')}}});await loadHostDocument({...storedDocument,children})}
 const bleedActive={type:'slide',id:'bleed-active',content:{kind:'html',html:'<!doctype html><html><body style="margin:0;height:100vh"><span style="display:block;inline-size:12px;block-size:12px;background:#000"></span></body></html>'}}
-const api={controller,stage,get ids(){return ids},async reload(next,edits={}){ids=next;await controller.load(makeDeck(ids,edits,scripts))},async loadScripts(nextScripts){scripts=nextScripts;await controller.load(makeDeck(ids,{},scripts))},async loadSandboxed(){ids=['sandboxed-1','sandboxed-2','sandboxed-3'];scripts='sandboxed';await controller.load(makeDeck(ids,{},scripts));await controller.go(0)},async loadBleed(dir){ids=['bleed-active'];scripts='sandboxed';stage.style.background='rgb(20,40,60)';await controller.load(deckDocument([bleedActive],scripts,{kind:'none'},dir));await controller.go(0);await waitForActive('bleed-active')},async startBleed(dir){ids=['bleed-active','bleed-loading'];await controller.load(deckDocument([bleedActive,{type:'slide',id:'bleed-loading',content:{kind:'url',src:'held-frame.html?red'}}],scripts,{kind:'none'},dir));void controller.go(1)},async loadTransition(kind,nextScripts,dir='ltr'){ids=['transition-1','transition-2','transition-3'];scripts=nextScripts;stage.setAttribute('transition','none');stage.removeAttribute('transition-duration');await controller.load(makeDeck(ids,{},scripts,{kind,duration:300},dir));await controller.go(0);await waitForActive('transition-1');stage.removeAttribute('transition')},async setTransitionOverride(kind,duration){stage.setAttribute('transition',kind);stage.setAttribute('transition-duration',String(duration));await controller.load(makeDeck(ids,{},scripts,{kind:'slide',duration:300}))},async loadHeld(){const shown=controller.state.slide.id;ids=[shown,'held'];scripts='sandboxed';await controller.load(deckDocument([makeSlide(ids[0]),{type:'slide',id:ids[1],content:{kind:'url',src:'held-frame.html'}}],scripts))},async loadHeldNeighbor(){ids=['held-start','held'];scripts='refuse';stage.setAttribute('transition','fade');stage.setAttribute('transition-duration','300');await controller.load(deckDocument([makeSlide(ids[0]),{type:'slide',id:ids[1],content:{kind:'url',src:'held-frame.html'}}],scripts));await controller.go(0);await waitForActive(ids[0]);await new Promise(resolve=>{const poll=()=>stage.querySelector('[data-slide-id="held"] iframe')?resolve():requestAnimationFrame(poll);poll()})},async setCss(css){stage.css=css;await controller.load(makeDeck(ids,{},scripts))},deck:()=>makeDeck(ids,{},scripts)}
+const api={controller,stage,get ids(){return ids},reload:reloadStored,async loadScripts(nextScripts){scripts=nextScripts;await controller.load(makeDeck(ids,{},scripts))},async loadSandboxed(){ids=['sandboxed-1','sandboxed-2','sandboxed-3'];scripts='sandboxed';await controller.load(makeDeck(ids,{},scripts));await controller.go(0)},async loadBleed(dir){ids=['bleed-active'];scripts='sandboxed';stage.style.background='rgb(20,40,60)';await controller.load(deckDocument([bleedActive],scripts,{kind:'none'},dir));await controller.go(0);await waitForActive('bleed-active')},async startBleed(dir){ids=['bleed-active','bleed-loading'];await controller.load(deckDocument([bleedActive,{type:'slide',id:'bleed-loading',content:{kind:'url',src:'held-frame.html?red'}}],scripts,{kind:'none'},dir));void controller.go(1)},async loadTransition(kind,nextScripts,dir='ltr'){ids=['transition-1','transition-2','transition-3'];scripts=nextScripts;stage.setAttribute('transition','none');stage.removeAttribute('transition-duration');await controller.load(makeDeck(ids,{},scripts,{kind,duration:300},dir));await controller.go(0);await waitForActive('transition-1');stage.removeAttribute('transition')},async setTransitionOverride(kind,duration){stage.setAttribute('transition',kind);stage.setAttribute('transition-duration',String(duration));await controller.load(makeDeck(ids,{},scripts,{kind:'slide',duration:300}))},async loadHeld(){const shown=controller.state.slide.id;ids=[shown,'held'];scripts='sandboxed';await controller.load(deckDocument([makeSlide(ids[0]),{type:'slide',id:ids[1],content:{kind:'url',src:'held-frame.html'}}],scripts))},async loadHeldNeighbor(){ids=['held-start','held'];scripts='refuse';stage.setAttribute('transition','fade');stage.setAttribute('transition-duration','300');await controller.load(deckDocument([makeSlide(ids[0]),{type:'slide',id:ids[1],content:{kind:'url',src:'held-frame.html'}}],scripts));await controller.go(0);await waitForActive(ids[0]);await new Promise(resolve=>{const poll=()=>stage.querySelector('[data-slide-id="held"] iframe')?resolve():requestAnimationFrame(poll);poll()})},async setCss(css){stage.css=css;await controller.load(makeDeck(ids,{},scripts))},deck:()=>makeDeck(ids,{},scripts)}
 Object.defineProperty(window,'__deckHost',{value:api})
-await controller.load(makeDeck(ids))
+await loadHostDocument(makeDeck(ids))
 </script></body></html>`,
   )
 }

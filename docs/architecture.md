@@ -158,6 +158,24 @@ definition collections. A node has a `type` and optional `id`. The profile for
 the document kind determines which other root fields, node types and definition
 collections are accepted.
 
+`Document.parse(input, { newId })` is the structural edge. It preserves every
+supplied node id and uses the host's `newId` function for every missing root,
+child, and definition id; without that option it uses
+`globalThis.crypto.randomUUID()`. Its parsed `Document` type therefore requires
+an id on every node. Duplicate node ids are refused with both node locations.
+
+`parseDocument` from `@segnavia/html` is the content edge used by viewers and
+renderers. It runs the structural edge, converts markdown input once to the
+stored HTML form, parses each content fragment structurally, and preserves or mints
+`data-segnavia-id` on paragraphs, headings, list items, figures, and table
+rows. One `newId` function supplies both node and block ids. Duplicate block
+ids are refused across the whole document. Hosts that need reproducible output
+pass a deterministic counter; stored ids make later parses idempotent. A host
+keeps ids by storing the Document that `parseDocument` returns (or reading back
+an element's Document getter where one exists); content reloaded without ids
+gets new ids. Active HTML remains present at this edge; the sandboxed realize
+policy sanitizes or refuses it when the content is shown.
+
 ### Migration from legacy deck and page input
 
 | Legacy shape and field | Document form |
@@ -814,6 +832,10 @@ direction:
   cue words match without niqqud.
 
 ## Long documents
+
+`Book` in this section is the lowered value produced by `bookFromDocument`,
+not a host-authored input. Hosts author and parse a book `Document`; frame and
+render consume the lowered `Book`, whose section ids are already required.
 
 A `Book` is either continuous, where the screen is one scrolling flow, or paginated, where a page size and complete logical `blockStart`, `blockEnd`, `inlineStart` and `inlineEnd` margins are required. `inlineStart` is the binding edge and `inlineEnd` the outer edge, independent of CSS text direction; `physicalMargins` maps them once from direction and recto/verso, with a single-sided page treated as recto. Its reading tree has `frontMatter`, `body` and `endMatter` divisions; legacy flat `chapters` input becomes the body. Each division may contain existing section entries directly or recursive named parts, up to six nested parts. A part has an HTML-name-token `name`, optional authored `title` and `html` opening, and children. Its opening receives a stable `segnavia-part-n` id, follows the normal recto rule, and carries the part itself for running heads. A title-only part creates no page; its contents and outline destination is the first section inside its subtree. A part without an opening or a section inside its subtree is refused. One canonical flattening carries every entry's division, tree path, structural depth and enclosing part names, titles and ids to validation and rendering; slot filling recursively maps the same tree. Chapter ids continue across all three divisions, end matter continues body folios, and book endnotes remain between body and end matter. A front-matter entry may be an authored section, a designed section, a templated section, or the single generated contents entry, whose position in the tree places it in the book. Chapters carry HTML and may replace their title in running heads; a body item may instead be a designed or templated section. An entry without `kind`, or with `kind: 'front'` or `kind: 'chapter'`, is a flowing section. Designed sections carry inline pages of HTML laid at the full paper size (inset 0). Templated sections name a template from `book.templates` (`name`, HTML with `data-region` marks, optional `parents`) and fill those regions per page; a page may name its own template. Designed and templated sections print only in paginated mode. In that book's `flow` build, each of their pages is a visible figure at paper proportions, scaled to the text column with CSS container units; a viewer may set the unitless `--segnavia-flow-scale` when its browser cannot use typed container-unit arithmetic in `zoom`. Templated figures fill the template regions inside the paper's mirrored text area. The flow build omits parent-page furniture, uses continuous footnote blocks and gives every section and top-level block the same flow and position keys as the pagination galley. A footnote block's `:footnotes` position key exists only in the flow build and belongs to the block immediately before it. Chapters keep their numbering, ids and footnote markers, counting chapters only; designed sections get `segnavia-designed-n` ids and templated sections get `segnavia-templated-n`. Front-matter sections can opt out of the contents, while chapters are always included; a designed or templated section's title enters the contents when `contents` is true, and headings h1–h6 in designed page HTML and templated region HTML enter it as chapter headings do, with the `data-contents="exclude"` opt-out. A heading's contents and outline text is its visible text: a line break or block boundary inside it reads as a space, and note calls, comments and script, style and template content are left out. Chapter headings are included through contents depth 2 by default, configurable from 1 through 6, and contents page numbers can be omitted. The Book may declare `slots` (the same `SlotDeclaration` as a Page). Any book HTML — parts, chapters, designed pages, templates and regions — may carry slot bindings or motif placements. `<segnavia-book>` and `bookPdf` expand those placements through their optional `motifs` before building either book layout, so expanded HTML receives the normal book sanitizing and motif font references join the book's font resolution. Without `motifs`, books apply the page rule: reserved library placements are refused in section HTML, parent-page head and foot host placements require a source, and body placements remain unexpanded. Reserved library placements in book parent furniture stay for `fillBookFurniture`, whether or not a host source is supplied; host placements around them expand through that source. In a paginated book's parent furniture, the composer fills the reserved printed-page context on each page: `printedPage.number` is the page's folio, the value `segnavia:folio` shows, and `printedPage.total` is the planned page count in the body's numbering.
 

@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test'
+import { parseDocument } from '@segnavia/html'
+import { comparableContent } from './content-value.ts'
 import { DeckController } from './controller.ts'
 import { deckPreservesNotes, isInternalDeck, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
 
@@ -55,4 +57,23 @@ test('a host deck load refuses another document kind and names the accepted kind
   expect(() => parseDeckLoad({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: [] })).toThrow(
     'document kind book is not accepted here; use kind deck to clear this refusal',
   )
+})
+
+test('loading the same parsed Document keeps comparable content equal for every slide', () => {
+  const host = documentInput()
+  const firstChild = host.children[0]
+  if (!firstChild) throw new Error('the fixture needs a slide')
+  firstChild.content.html = '<h1>Same</h1>'
+  host.children.push({ type: 'slide', id: 'b', content: { kind: 'html', html: '<p>Second</p>' } })
+  const parsed = parseDocument(host)
+  const first = parseDeckLoad(parsed)
+  const second = parseDeckLoad(parsed)
+  const values = (deck: typeof first) =>
+    deck.slides.map((slide) => {
+      if (!('kind' in slide.content) || slide.content.kind !== 'html') throw new Error('the fixture needs HTML slides')
+      return comparableContent(slide.content, (path) => path, deck.scripts, '', '')
+    })
+
+  expect(first.slides.every((slide) => 'kind' in slide.content && slide.content.kind === 'html' && slide.content.html.includes('data-segnavia-id'))).toBe(true)
+  expect(values(first)).toEqual(values(second))
 })

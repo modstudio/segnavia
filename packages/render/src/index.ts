@@ -1,8 +1,8 @@
-import { bookFromDocument, Cover, type Deck, Document, DocumentMetadata, deckFromDocument, pageOrPrintedFromInput } from '@segnavia/format'
+import { bookFromDocument, Cover, type Deck, DocumentMetadata, deckFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
-import { type PreparedSlots, resolvePageHtml } from '@segnavia/html'
+import { type PreparedSlots, pageOrPrintedFromInput, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
@@ -198,7 +198,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async bookPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const document = Document.parse(input)
+        const document = parseDocument(input, { newId: opts.newId })
         const expanded = await expandFrameBookValue(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
@@ -260,7 +260,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFramePages(
-          inputs.map((input) => resolvePageHtml(pageOrPrintedFromInput(input))),
+          inputs.map((input) => resolvePageHtml(pageOrPrintedFromInput(input, { newId: opts.newId }))),
           opts.motifs,
           deadline.signal,
           opts.placements,
@@ -289,7 +289,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async deckPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
-      const deck = deckFromDocument(Document.parse(input))
+      const deck = deckFromDocument(parseDocument(input, { newId: opts.newId }))
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
@@ -318,7 +318,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async slideImage(input, index, opts = {}) {
       opts = parseRenderOptions(opts)
-      const deck = deckFromDocument(Document.parse(input))
+      const deck = deckFromDocument(parseDocument(input, { newId: opts.newId }))
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const filled = await filledDeck(deck, opts.slots, deadline.signal)

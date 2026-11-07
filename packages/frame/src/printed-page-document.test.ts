@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { computeFolios, type DocumentInput, Page, type Page as PageValue } from '@segnavia/format'
-import { bodyHtml, fragmentationCss, printedPageAt, resolvePageHtml } from '@segnavia/html'
+import { fragmentationCss, markdownHtml, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
@@ -57,7 +57,10 @@ function printedDocument(page: PageValue): DocumentInput {
   }
 }
 
-const printedPageDocument = (page: PageValue, options: Parameters<typeof documentHtml>[1]) => documentHtml(printedDocument(page), options)
+const printedPageDocument = (page: PageValue, options: Parameters<typeof documentHtml>[1]) => {
+  let id = 0
+  return documentHtml(printedDocument(page), { ...options, newId: () => `test-${++id}` })
+}
 
 describe('printedPageDocument', () => {
   test('adds safe fragmentation before host CSS and omits it when disabled', () => {
@@ -117,13 +120,16 @@ describe('printedPageDocument', () => {
       body: { html: '<!doctype html><html><head><meta name="x"><style>.x{color:red}</style></head><body><p>Whole</p></body></html>' },
     })
     const html = printedPageDocument(full, { nonce: 'held' })
-    expect(html).toContain('<meta name="x"><style>.x{color:red}</style><div data-segnavia-flow><p>Whole</p></div>')
+    expect(html).toContain('<meta name="x"><style>.x{color:red}</style><div data-segnavia-flow><p data-segnavia-id="test-5">Whole</p></div>')
     expect(html).not.toContain('<div data-segnavia-flow><!doctype html>')
   })
 
   test('a markdown page and its HTML equivalent have the same print geometry', () => {
     const markdown = Page.parse({ ...page, body: { markdown: '# שלום\n\nEnglish text.' } })
-    const equivalent = Page.parse({ ...page, body: { html: bodyHtml(markdown.body, { dir: markdown.dir, lang: markdown.lang }) } })
+    const equivalent = Page.parse({
+      ...page,
+      body: { html: markdownHtml({ markdown: '# שלום\n\nEnglish text.' }, { dir: markdown.dir, lang: markdown.lang }) },
+    })
     expect(printedPageDocument(markdown, { nonce: 'held' })).toBe(printedPageDocument(equivalent, { nonce: 'held' }))
   })
 

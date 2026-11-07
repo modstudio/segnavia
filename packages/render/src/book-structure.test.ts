@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Book } from '@segnavia/format'
-import { bookDocument } from '@segnavia/html'
+import { bookDocument, parseBookFixture } from '@segnavia/html'
 import { type PDFDict, PDFDocument, type PDFHexString, PDFName, type PDFNumber, PDFRef } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
 import { bookOutline, outlineTitle, writeBookStructure } from './book-structure.ts'
@@ -35,14 +34,14 @@ describe('book outline policy', () => {
   })
 
   test('uses contents depth and excludes opted-out headings', () => {
-    const book = Book.parse({
+    const book = parseBookFixture({
       title: 'Book',
       mode: 'continuous',
       contents: { depth: 2 },
-      chapters: [{ title: 'One', html: '<h2 id="kept">Kept</h2><h2 id="excluded" data-contents="exclude">No</h2><h3 id="deep">Deep</h3>' }],
+      chapters: [{ id: 'body-section', title: 'One', html: '<h2 id="kept">Kept</h2><h2 id="excluded" data-contents="exclude">No</h2><h3 id="deep">Deep</h3>' }],
     })
     const built = bookDocument(book)
-    expect(built.headings.map((heading) => heading.id)).toEqual(['segnavia-chapter-1', 'kept'])
+    expect(built.headings.map((heading) => heading.id)).toEqual(['body-section', 'kept'])
     const destinations = new Map(built.headings.map((heading, index) => [heading.id, at(index + 1)]))
     expect(bookOutline(built.headings, destinations)[0]?.children.map((item) => item.id)).toEqual(['kept'])
   })
@@ -64,7 +63,7 @@ test('direction marks appear only when natural and resolved directions differ', 
 })
 
 test('the PDF adapter writes collapsed UTF-16 outlines and document metadata', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'ספר',
     authors: ['אחת', 'Two'],
     subject: 'נושא',

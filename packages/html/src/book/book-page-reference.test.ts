@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test'
-import { Book } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
+import { parseBookFixture } from './book-test-fixture.ts'
 
 const input = (chapters: unknown[]) => ({ title: 'Book', mode: 'continuous', chapters })
 
 test('fills page references while keeping an empty link before pagination', () => {
-  const book = Book.parse(input([{ title: 'One', html: '<p><a href="#topic" data-ref="page"></a></p><h2 id="topic">Topic</h2>' }]))
+  const book = parseBookFixture(input([{ title: 'One', html: '<p><a href="#topic" data-ref="page"></a></p><h2 id="topic">Topic</h2>' }]))
   expect(bookDocument(book).html).toContain('<a href="#topic" data-ref="page" dir="ltr"></a>')
   expect(bookDocument(book, { pageNumbers: { topic: 'יב' } }).html).toContain('<a href="#topic" data-ref="page" dir="rtl">יב</a>')
   expect(bookDocument(book, { pageNumbers: { topic: '12' }, crossLinks: true }).html).toContain(
@@ -14,11 +14,11 @@ test('fills page references while keeping an empty link before pagination', () =
 })
 
 test('reports missing and ambiguous page reference targets', () => {
-  const missing = bookDocument(Book.parse(input([{ title: 'One', html: '<p><a href="#lost" data-ref="page"></a></p>' }])))
-  expect(missing.issues).toContain('page reference to lost in One (segnavia-chapter-1) has no target; add the id or remove the reference')
+  const missing = bookDocument(parseBookFixture(input([{ title: 'One', html: '<p><a href="#lost" data-ref="page"></a></p>' }])))
+  expect(missing.issues).toContain('page reference to lost in One (section-1) has no target; add the id or remove the reference')
 
   const repeated = bookDocument(
-    Book.parse(
+    parseBookFixture(
       input([
         { title: 'One', html: '<p><a href="#topic" data-ref="page"></a><span id="topic">First</span></p>' },
         { title: 'Two', html: '<span id="topic">Second</span>' },
@@ -26,6 +26,6 @@ test('reports missing and ambiguous page reference targets', () => {
     ),
   )
   expect(repeated.issues).toContain(
-    'page reference target topic is used in 2 sections: One (segnavia-chapter-1), Two (segnavia-chapter-2); make the target id unique to clear this refusal',
+    'page reference target topic is used in 2 sections: One (section-1), Two (section-2); make the target id unique to clear this refusal',
   )
 })

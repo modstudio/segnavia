@@ -1,25 +1,24 @@
 import { describe, expect, test } from 'bun:test'
-import { Book } from '@segnavia/format'
-import type { BookSectionInfo } from '@segnavia/html'
+import { type BookSectionInfo, parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
 import { type BookPdfAdapter, bookPageCss, bookPartsPrintStatus, frontPrintStatus, pageReferencePrintStatus, renderBookPdf } from './book-pdf.ts'
 import { renderBrowserBookPdf } from './book-render.ts'
 
-const sections: BookSectionInfo[] = [{ id: 'segnavia-front-1', kind: 'front', division: 'front', title: 'Preface' }]
+const sections: BookSectionInfo[] = [{ id: 'front-section', kind: 'front', division: 'front', title: 'Preface' }]
 const destinations = (page: number): Map<string, BookDestination> =>
   new Map([
-    ['segnavia-front-1', { page: 1, x: 0, y: 0 }],
+    ['front-section', { page: 1, x: 0, y: 0 }],
     ['topic', { page, x: 10, y: 20 }],
   ])
 
 const continuousBook = (body: string, front?: string) =>
-  Book.parse({
+  parseBookFixture({
     title: 'Book',
     mode: 'continuous',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
     ...(front === undefined ? {} : { frontMatter: [{ title: 'Preface', html: front }] }),
-    chapters: [{ title: 'One', html: body }],
+    chapters: [{ id: 'body-section', title: 'One', html: body }],
   })
 
 test('maps asymmetric book margins to physical right and left pages independent of text direction', () => {
@@ -31,8 +30,8 @@ test('maps asymmetric book margins to physical right and left pages independent 
     page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 11, inlineStart: 30, inlineEnd: 5 } },
     chapters: [{ title: 'One', html: '<p>Text</p>' }],
   }
-  expect(bookPageCss(Book.parse({ ...input, dir: 'ltr' }))).toBe(expected)
-  expect(bookPageCss(Book.parse({ ...input, title: 'ספר', dir: 'rtl' }))).toBe(expected)
+  expect(bookPageCss(parseBookFixture({ ...input, dir: 'ltr' }))).toBe(expected)
+  expect(bookPageCss(parseBookFixture({ ...input, title: 'ספר', dir: 'rtl' }))).toBe(expected)
 })
 
 async function printedPart(html: string, overrides: Record<string, number>, pages: number) {
@@ -79,12 +78,12 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
 test('places FontSource CSS before book CSS in the printed document', async () => {
   let srcdoc = ''
   await renderBrowserBookPdf(
-    Book.parse({
+    parseBookFixture({
       title: 'Book',
       mode: 'paginated',
       css: '.book-rule{color:purple}',
       page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-      chapters: [{ title: 'One', html: '<p class="book-rule">Text</p>' }],
+      chapters: [{ id: 'body-section', title: 'One', html: '<p class="book-rule">Text</p>' }],
     }),
     {},
     '.font-source-marker{font-family:Held}',
@@ -93,7 +92,7 @@ test('places FontSource CSS before book CSS in the printed document', async () =
         srcdoc = setup.html
         const document = await PDFDocument.create()
         const page = document.addPage([419.53, 595.28])
-        document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'segnavia-chapter-1': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
+        document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'body-section': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
         return {
           bytes: await document.save(),
           overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
@@ -108,18 +107,18 @@ test('places FontSource CSS before book CSS in the printed document', async () =
 
 describe('front print convergence', () => {
   test('is stable on the second print when destination pages match', () => {
-    expect(frontPrintStatus([destinations(1), destinations(1)], ['segnavia-front-1', 'topic'], sections)).toEqual({ status: 'stable' })
+    expect(frontPrintStatus([destinations(1), destinations(1)], ['front-section', 'topic'], sections)).toEqual({ status: 'stable' })
   })
 
   test('continues after the second print and is stable on the third', () => {
-    expect(frontPrintStatus([destinations(1), destinations(2)], ['segnavia-front-1', 'topic'], sections)).toEqual({ status: 'more' })
-    expect(frontPrintStatus([destinations(1), destinations(2), destinations(2)], ['segnavia-front-1', 'topic'], sections)).toEqual({ status: 'stable' })
+    expect(frontPrintStatus([destinations(1), destinations(2)], ['front-section', 'topic'], sections)).toEqual({ status: 'more' })
+    expect(frontPrintStatus([destinations(1), destinations(2), destinations(2)], ['front-section', 'topic'], sections)).toEqual({ status: 'stable' })
   })
 
   test('refuses a destination that still moves after the third print', () => {
-    expect(frontPrintStatus([destinations(1), destinations(2), destinations(3)], ['segnavia-front-1', 'topic'], sections)).toEqual({
+    expect(frontPrintStatus([destinations(1), destinations(2), destinations(3)], ['front-section', 'topic'], sections)).toEqual({
       status: 'refused',
-      message: 'Front destination topic in Preface (segnavia-front-1) moved from page 2 to page 3 after three prints.',
+      message: 'Front destination topic in Preface (front-section) moved from page 2 to page 3 after three prints.',
     })
   })
 })
@@ -185,17 +184,17 @@ test('prints a paginated book once then finishes', async () => {
     const document = await PDFDocument.create()
     const page = document.addPage([419.53, 595.28])
     page.drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
-    document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'segnavia-chapter-1': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
+    document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'body-section': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
     return document.save()
   }
   let prints = 0
   let finishes = 0
   const output = await renderBookPdf(
-    Book.parse({
+    parseBookFixture({
       title: 'Book',
       mode: 'paginated',
       page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-      chapters: [{ title: 'One', html: '<p>Text</p>' }],
+      chapters: [{ id: 'body-section', title: 'One', html: '<p>Text</p>' }],
     }),
     {},
     {
@@ -221,16 +220,16 @@ test('corrects every joined book page to the exact trim before finishing', async
     first.drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
     const second = document.addPage([612.96, 792.96])
     second.drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
-    document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'segnavia-chapter-1': [first.ref, PDFName.of('XYZ'), 0, 792.96, null] }))
+    document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'body-section': [first.ref, PDFName.of('XYZ'), 0, 792.96, null] }))
     return document.save()
   }
   let finished: Uint8Array | undefined
   const output = await renderBookPdf(
-    Book.parse({
+    parseBookFixture({
       title: 'Book',
       mode: 'continuous',
       page: { paper: 'letter', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-      chapters: [{ title: 'One', html: '<p>Text</p>' }],
+      chapters: [{ id: 'body-section', title: 'One', html: '<p>Text</p>' }],
     }),
     {},
     {

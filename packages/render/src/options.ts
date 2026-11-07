@@ -56,6 +56,7 @@ export interface MarksReport {
 }
 
 export interface RenderOptions {
+  newId?: () => string
   dependencyOrigins?: Iterable<string>
   dependencies?: DependencyCache
   css?: string

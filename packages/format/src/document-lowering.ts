@@ -3,8 +3,9 @@ import { Book, type Book as BookValue } from './book.ts'
 import type { BookItem } from './book-section.ts'
 import { Deck, type Deck as DeckValue } from './deck.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
-import type { DocumentNode, PartNode, SectionNode } from './document-nodes.ts'
 import { Page, type Page as PageValue } from './page.ts'
+
+type ParsedNode = DocumentValue['children'][number]
 
 function requireKind(document: DocumentValue, kind: DocumentValue['kind']): void {
   if (document.kind !== kind) {
@@ -32,8 +33,9 @@ function defined<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as T
 }
 
-function sectionFields(section: SectionNode) {
+function sectionFields(section: Extract<ParsedNode, { type: 'section' }>) {
   return defined({
+    id: section.id,
     title: section.title,
     contents: section.contents,
     opens: section.opens === 'continue' ? undefined : section.opens,
@@ -41,19 +43,19 @@ function sectionFields(section: SectionNode) {
   })
 }
 
-function pageHtml(node: Extract<DocumentNode, { type: 'page' }>): string {
+function pageHtml(node: Extract<ParsedNode, { type: 'page' }>): string {
   if (node.body && 'html' in node.body) return node.body.html
   throw new Error('a book page needs an HTML body; provide body.html to clear this refusal')
 }
 
-function placement(node: Extract<DocumentNode, { type: 'placed' }>) {
+function placement(node: Extract<ParsedNode, { type: 'placed' }>) {
   const { type: _type, id: _id, ...value } = node
   return value
 }
 
-function sectionItem(section: SectionNode, division: 'front' | 'body' | 'end'): BookItem {
+function sectionItem(section: Extract<ParsedNode, { type: 'section' }>, division: 'front' | 'body' | 'end'): BookItem {
   const fields = sectionFields(section)
-  const pages = section.children.filter((node): node is Extract<DocumentNode, { type: 'page' }> => node.type === 'page')
+  const pages = section.children.filter((node): node is Extract<ParsedNode, { type: 'page' }> => node.type === 'page')
   if (pages.length > 0 && pages.every((page) => page.regions !== undefined)) {
     const template = section.template
     if (!template) throw new Error('a templated section needs template; name a template to clear this refusal')
@@ -65,9 +67,9 @@ function sectionItem(section: SectionNode, division: 'front' | 'body' | 'end'): 
     }
   }
   if (pages.length > 0) return { kind: 'designed', ...fields, pages: pages.map((page) => ({ html: pageHtml(page) })) }
-  const placed = section.children.find((node): node is Extract<DocumentNode, { type: 'placed' }> => node.type === 'placed')
+  const placed = section.children.find((node): node is Extract<ParsedNode, { type: 'placed' }> => node.type === 'placed')
   if (placed) return { kind: 'placed', ...fields, placement: placement(placed) }
-  const flow = section.children.find((node): node is Extract<DocumentNode, { type: 'flow' }> => node.type === 'flow')
+  const flow = section.children.find((node): node is Extract<ParsedNode, { type: 'flow' }> => node.type === 'flow')
   if (flow) {
     const flowFields = division === 'body' ? { ...fields, contents: undefined } : fields
     return defined({ ...flowFields, title: section.title ?? flow.title, html: flow.html, runningHead: flow.runningHead }) as BookItem
@@ -75,8 +77,9 @@ function sectionItem(section: SectionNode, division: 'front' | 'body' | 'end'): 
   throw new Error('a section needs a flow, page or placed child; add one to clear this refusal')
 }
 
-function partItem(part: PartNode, division: 'front' | 'body' | 'end'): BookItem {
+function partItem(part: Extract<ParsedNode, { type: 'part' }>, division: 'front' | 'body' | 'end'): BookItem {
   return defined({
+    id: part.id,
     name: part.name,
     title: part.title,
     html: part.html,
@@ -88,17 +91,17 @@ function partItem(part: PartNode, division: 'front' | 'body' | 'end'): BookItem 
   }) as BookItem
 }
 
-function bookItem(node: DocumentNode, division: 'front' | 'body' | 'end'): BookItem {
+function bookItem(node: ParsedNode, division: 'front' | 'body' | 'end'): BookItem {
   if (node.type === 'part') return partItem(node, division)
   if (node.type === 'section') return sectionItem(node, division)
-  if (node.type === 'contents') return defined({ kind: 'contents', title: node.title, opens: node.opens, parents: node.parents }) as BookItem
-  if (node.type === 'flow') return defined({ title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem
-  if (node.type === 'placed') return { kind: 'placed', contents: true, placement: placement(node) }
+  if (node.type === 'contents') return defined({ id: node.id, kind: 'contents', title: node.title, opens: node.opens, parents: node.parents }) as BookItem
+  if (node.type === 'flow') return defined({ id: node.id, title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem
+  if (node.type === 'placed') return { id: node.id, kind: 'placed', contents: true, placement: placement(node) }
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)
 }
 
 function bookDivisions(document: DocumentValue) {
-  const divisions = document.children.filter((node): node is Extract<DocumentNode, { type: 'division' }> => node.type === 'division')
+  const divisions = document.children.filter((node): node is Extract<ParsedNode, { type: 'division' }> => node.type === 'division')
   if (divisions.length === 0) return { frontMatter: [], chapters: document.children.map((node) => bookItem(node, 'body')), endMatter: [] }
   const entries = (name: 'front' | 'body' | 'end') =>
     divisions.filter((division) => division.name === name).flatMap((division) => division.children.map((node) => bookItem(node, name)))
@@ -123,8 +126,8 @@ function noteSeries(node: DocumentValue['noteSeries'][number]) {
 }
 
 function contentsOptions(document: DocumentValue) {
-  let contents: Extract<DocumentNode, { type: 'contents' }> | undefined
-  const find = (nodes: DocumentNode[]): void => {
+  let contents: Extract<ParsedNode, { type: 'contents' }> | undefined
+  const find = (nodes: ParsedNode[]): void => {
     for (const node of nodes) {
       if (node.type === 'contents' && !contents) contents = node
       if ('children' in node) find(node.children)
@@ -166,7 +169,7 @@ export function bookFromDocument(document: DocumentValue): BookValue {
 }
 
 function pageValue(document: DocumentValue, printed: boolean): PageValue {
-  const child = document.children.find((node): node is Extract<DocumentNode, { type: 'page' }> => node.type === 'page')
+  const child = document.children.find((node): node is Extract<ParsedNode, { type: 'page' }> => node.type === 'page')
   if (!child?.body) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')
   const printedPages = printed
     ? {
@@ -210,14 +213,10 @@ export function pageOrPrintedFromDocument(document: DocumentValue): PageValue {
   throw new Error(`document kind ${document.kind} is not accepted here; use kind ${PAGE_OR_PRINTED_KINDS.join(' or ')} to clear this refusal`)
 }
 
-export function pageOrPrintedFromInput(input: PageOrPrintedInput): PageValue {
-  return pageOrPrintedFromDocument(Document.parse(input))
-}
-
 export function deckFromDocument(document: DocumentValue): DeckValue {
   requireKind(document, 'deck')
   const slides = document.children
-    .filter((node): node is Extract<DocumentNode, { type: 'slide' }> => node.type === 'slide')
+    .filter((node): node is Extract<ParsedNode, { type: 'slide' }> => node.type === 'slide')
     .map(({ type: _type, ...slide }) => slide)
   return Deck.parse(
     defined({
@@ -239,14 +238,12 @@ export function deckFromDocument(document: DocumentValue): DeckValue {
 
 export function boardFromDocument(document: DocumentValue): BoardValue {
   requireKind(document, 'board')
-  const items = document.children
-    .filter((node): node is Extract<DocumentNode, { type: 'item' }> => node.type === 'item')
-    .map(({ type: _type, ...item }) => item)
+  const items = document.children.filter((node): node is Extract<ParsedNode, { type: 'item' }> => node.type === 'item').map(({ type: _type, ...item }) => item)
   const labels = document.children
-    .filter((node): node is Extract<DocumentNode, { type: 'label' }> => node.type === 'label')
+    .filter((node): node is Extract<ParsedNode, { type: 'label' }> => node.type === 'label')
     .map(({ type: _type, ...label }) => label)
   const sections = document.children
-    .filter((node): node is Extract<DocumentNode, { type: 'boardSection' }> => node.type === 'boardSection')
+    .filter((node): node is Extract<ParsedNode, { type: 'boardSection' }> => node.type === 'boardSection')
     .map(({ type: _type, ...section }) => section)
   return Board.parse({ title: title(document), direction: document.settings?.dir, items, labels, sections })
 }

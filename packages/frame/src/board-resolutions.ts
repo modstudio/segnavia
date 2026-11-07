@@ -1,5 +1,5 @@
-import { type BoardItem, Document, pageOrPrintedFromDocument } from '@segnavia/format'
-import { classifyMediaAnswer, type ResolvePlacement } from '@segnavia/html'
+import { type BoardItem, pageOrPrintedFromDocument } from '@segnavia/format'
+import { classifyMediaAnswer, parseDocument, type ResolvePlacement } from '@segnavia/html'
 import { type CheckedResolvedBoardItem, checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
@@ -17,7 +17,7 @@ export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?:
       return { kind: 'image', src: classified.value.src, width: classified.value.media.size.width, height: classified.value.media.size.height }
     }
     if (answer.kind === 'page') {
-      const document = Document.parse(answer.page)
+      const document = parseDocument(answer.page)
       const size = pageOrPrintedFromDocument(document).size
       if (size.height === 'auto') throw new Error(`The page at ${item.address} has no fixed size for its board shape.`)
       return { kind: 'page', page: document, size }

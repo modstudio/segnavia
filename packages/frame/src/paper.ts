@@ -2,7 +2,7 @@
 // width. It brings no appearance, only geometry, which a host can override.
 
 import { Imposition, type ImpositionInput, impose, type Page, type PageWidths, type SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
+import { type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { internalPaperPagesLoad } from './document-value-load.ts'
@@ -13,7 +13,7 @@ import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper } from './print-document.ts'
-import { type PageOrPrintedInput, pageOrPrintedFromInput } from './printed-page-document.ts'
+import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
 

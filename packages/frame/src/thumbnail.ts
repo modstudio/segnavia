@@ -1,6 +1,6 @@
 import {
   type Deck,
-  Document,
+  type Document,
   type DocumentInput,
   deckFromDocument,
   type Page,
@@ -10,6 +10,7 @@ import {
   pageFromDocument,
   type SlotsOptions,
 } from '@segnavia/format'
+import { parseDocument } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
@@ -75,8 +76,9 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   set deck(input: DocumentInput | null) {
-    this.deckDocument = input === null ? null : Document.parse(input)
-    this.value = this.deckDocument === null ? null : deckFromDocument(this.deckDocument)
+    const parsed = input === null ? null : parseDocument(input)
+    this.deckDocument = parsed
+    this.value = parsed === null ? null : deckFromDocument(parsed)
     if (this.value) this.pageValue = null
     if (this.value) this.pageDocument = null
     if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
@@ -99,8 +101,9 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   set page(input: DocumentInput | null | undefined) {
-    this.pageDocument = input == null ? null : Document.parse(input)
-    this.pageValue = this.pageDocument === null ? null : pageFromDocument(this.pageDocument)
+    const parsed = input == null ? null : parseDocument(input)
+    this.pageDocument = parsed
+    this.pageValue = parsed === null ? null : pageFromDocument(parsed)
     if (this.pageValue) this.value = null
     if (this.pageValue) this.deckDocument = null
     this.updatePageAspect()

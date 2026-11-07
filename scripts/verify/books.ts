@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
-import { PX_PER_PT } from '@segnavia/format'
+import { Document, PX_PER_PT } from '@segnavia/format'
+import { workbookFixture } from '../demo-book-workbook-fixtures.ts'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
 import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
@@ -25,7 +26,6 @@ import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.
 import { inspectPaginatedMargins } from './paginated-margins.ts'
 import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
-
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book.html'))
@@ -42,7 +42,6 @@ export async function verifyBooks(h: Harness) {
     continuousBookStyle.color === 'rgb(91, 42, 123)' && continuousBookStyle.size === '23px',
     JSON.stringify(continuousBookStyle),
   )
-
   const geometry = await page.evaluate(() => ({
     heights: ['book-en', 'book-he'].map((id) => document.getElementById(id)?.getBoundingClientRect().height),
     hostScroll: scrollY,
@@ -54,7 +53,6 @@ export async function verifyBooks(h: Harness) {
     geometry.heights.every((height) => height === 400) && geometry.hostScroll === 0 && geometry.hostHeight === geometry.viewport,
     JSON.stringify(geometry),
   )
-
   for (const id of ['book-en', 'book-he'] as const) {
     const frame = `#${id}`
     await verifyContinuousBookMotif(h, id)
@@ -77,7 +75,6 @@ export async function verifyBooks(h: Harness) {
     check(`${id} continuous page reference has no number`, (await pageRef.textContent()) === '')
     await pageRef.evaluate((element: HTMLAnchorElement) => element.click())
     check(`${id} continuous page reference remains a working link`, await inBookView(h, frame, '#far-shore'))
-
     await clickBookAnchor(h, frame, '#segnavia-fnref-1-1')
     check(`${id} footnote marker brings its note into view`, await inBookView(h, frame, '#segnavia-fn-1-1'))
     await clickBookAnchor(h, frame, '#segnavia-fn-1-1 a')
@@ -309,14 +306,18 @@ async function checkOversizeBooks(h: Harness) {
   }
   await page.goto(h.url('book-paginated.html'))
 }
-
 async function verifyWorkbooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-workbook.html'))
   for (const id of ['book-workbook-en', 'book-workbook-he'] as const) {
+    let minted = 0
+    const parsed = Document.parse(workbookFixture(id === 'book-workbook-he'), { newId: () => `fixture-${++minted}` })
+    const body = parsed.children.find((node) => node.type === 'division' && node.name === 'body')
+    const flowId = body && 'children' in body ? body.children.find((node) => node.type === 'section' && node.template === 'lesson')?.id : undefined
+    if (!flowId) throw new Error(`${id} has no templated section id.`)
     const frame = await paginatedFrame(h, id)
-    const report = await frame.evaluate(() => {
-      const pages = Array.from(document.querySelectorAll('[data-segnavia-book-page][data-segnavia-flow^="segnavia-templated-"]'))
+    const report = await frame.evaluate((flowId) => {
+      const pages = Array.from(document.querySelectorAll(`[data-segnavia-book-page][data-segnavia-flow="${flowId}"]`))
       const templates = pages.map((paper) => paper.querySelector('[data-template]')?.getAttribute('data-template') ?? '')
       const overflow = Array.from(document.querySelectorAll('[data-segnavia-region-overflow]')).map((node) =>
         node.getAttribute('data-segnavia-region-overflow'),
@@ -339,7 +340,7 @@ async function verifyWorkbooks(h: Harness) {
         bodyFolio: pages.every((paper) => Boolean(paper.querySelector('.segnavia-folio')?.textContent?.trim())),
         dir: document.documentElement.getAttribute('dir'),
       }
-    })
+    }, flowId)
     check(`${id} composed without a planner refusal`, !report.failure && report.pages === 4, report.failure ?? `${report.pages} pages`)
     check(
       `${id} one lesson page names its own template`,
@@ -352,7 +353,7 @@ async function verifyWorkbooks(h: Harness) {
       JSON.stringify(report.overflow),
     )
     check(`${id} templated pages carry folios`, report.bodyFolio)
-    const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === 'segnavia-templated-1')
+    const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === flowId)
     check(
       `${id} contents lists every lesson with its page number`,
       lessons.length >= 5 && lessons.every((entry) => entry.text !== '' && entry.text === entry.folio),
@@ -361,7 +362,6 @@ async function verifyWorkbooks(h: Harness) {
     const expectedSchool = id === 'book-workbook-he' ? 'בית ספר הירדן' : 'Jordan School'
     check(`${id} host school name shows on the copyright page`, report.school.includes(expectedSchool), expectedSchool)
     check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
-
     const fit = await frame.evaluate(() => {
       const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
       if (!el) return { size: 0, overflow: 'missing', elements: -1 }
@@ -378,7 +378,6 @@ async function verifyWorkbooks(h: Harness) {
       fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow,
       JSON.stringify(fit),
     )
-
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
     const landed = await frame.evaluate(() => {
       const target = document.getElementById('lesson-1')
@@ -387,7 +386,7 @@ async function verifyWorkbooks(h: Harness) {
       return box.bottom > 0 && box.top < innerHeight
     })
     check(`${id} contents links land on the lesson pages`, landed)
-    const pixels = await compareTemplatedPages(h, id)
+    const pixels = await compareTemplatedPages(h, id, flowId)
     check(
       `${id} each templated page equals its PDF page (mean <= ${TEMPLATED_PAGE_MEAN}, p99 <= ${TEMPLATED_PAGE_P99})`,
       pixels.length > 0 && pixels.every((item) => item.ok),

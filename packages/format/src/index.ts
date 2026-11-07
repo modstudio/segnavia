@@ -136,7 +136,8 @@ export {
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
 export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
 export { Direction, firstStrongDirection, htmlTextSample, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
-export { Document, type DocumentInput, type DocumentKind } from './document.ts'
+export { Document, type DocumentInput, type DocumentKind, type DocumentParseOptions } from './document.ts'
+export { defaultNewId } from './document-identity.ts'
 export {
   boardFromDocument,
   bookFromDocument,
@@ -146,7 +147,6 @@ export {
   type PageOrPrintedInput,
   pageFromDocument,
   pageOrPrintedFromDocument,
-  pageOrPrintedFromInput,
   printedFromDocument,
 } from './document-lowering.ts'
 export * from './document-metadata.ts'

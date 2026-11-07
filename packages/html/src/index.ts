@@ -15,6 +15,7 @@ export {
   parseBookPositionKey,
 } from './book/book-flow.ts'
 export { PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_SELECTOR, PAGE_REFERENCE_VALUE, pageReferenceTarget } from './book/book-page-reference.ts'
+export { parseBookFixture } from './book/book-test-fixture.ts'
 export { bookView, bookViewFromHtml } from './book/book-view.ts'
 export { type BookFurnitureValues, embedFunction, fillBookFurniture, furnitureScript } from './book/furniture.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './book/paginate-book.ts'
@@ -44,6 +45,7 @@ export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength } 
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
 export { bookStylesheet, sanitizeBookCss } from './book-css.ts'
+export { BLOCK_ELEMENTS, type ParseDocumentOptions, pageOrPrintedFromInput, parseDocument } from './document.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
@@ -55,11 +57,11 @@ export {
   type AlertLabels,
   alertLabels,
   type BodyHtmlOptions,
-  bodyHtml,
   type HtmlPage,
   isDiagramFence,
   isGithubAlertBlock,
   type MarkdownHeading,
+  markdownHtml,
   markdownOutline,
   resolvePageHtml,
 } from './markdown.ts'

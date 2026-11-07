@@ -1,10 +1,10 @@
 import { expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, Book, bookParentPages } from '@segnavia/format'
-import type { BookPrintedPagePlan } from '@segnavia/html'
+import { BOOK_PARENT_NAMES, bookParentPages } from '@segnavia/format'
+import { type BookPrintedPagePlan, parseBookFixture } from '@segnavia/html'
 import { marginCss, marginDocument } from './book-margins.ts'
 
 test('fills catalogued furniture by its parsed motif key and uses its resolved parent margin', () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'A Book',
     mode: 'continuous',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 11, inlineStart: 12, inlineEnd: 13 } },
@@ -30,7 +30,7 @@ test('fills catalogued furniture by its parsed motif key and uses its resolved p
 })
 
 test('places asymmetric binding margins on the physical spine edges of an RTL book', () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'ספר',
     mode: 'continuous',
     dir: 'rtl',

@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { BookMode, BookPage, BookShape } from './book.ts'
 import { DeckShape } from './deck.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
+import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
@@ -153,13 +154,6 @@ function refineNodes(document: DocumentShapeValue, profile: DocumentProfile, ctx
     }
     if (node.type === 'page') refinePageNode(node, path, document, profile, ctx)
     if (node.type === 'section') refineSectionNode(node, path, ctx)
-    if (profile.childIds && node.id === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [...path, 'id'],
-        message: `${node.type} field id is required in a ${document.kind} document; provide id to clear this refusal`,
-      })
-    }
   })
 }
 
@@ -275,7 +269,7 @@ function refineProfileShape(document: DocumentShapeValue, profile: DocumentProfi
   if (profile.topology === 'book') refineBookNodes(document, ctx)
 }
 
-export const Document = DocumentShape.superRefine((document, ctx) => {
+const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   refineRootFields(document, profile, ctx)
   refineNodes(document, profile, ctx)
@@ -293,6 +287,30 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
   return { ...withScripts, children }
 })
 
-export type Document = z.infer<typeof Document>
-export type DocumentInput = z.input<typeof Document>
+export type DocumentInput = z.input<typeof DocumentSchema>
+export type Document = IdentifiedDocument<z.infer<typeof DocumentSchema>>
+export type { DocumentParseOptions }
+
+const schemaParse = DocumentSchema.parse.bind(DocumentSchema)
+const schemaSafeParse = DocumentSchema.safeParse.bind(DocumentSchema)
+
+type DocumentSchemaWithIds = Omit<typeof DocumentSchema, 'parse' | 'safeParse'> & {
+  parse(input: unknown, options?: DocumentParseOptions): Document
+  safeParse(input: unknown, options?: DocumentParseOptions): { success: true; data: Document } | { success: false; error: unknown }
+}
+
+export const Document = Object.assign(DocumentSchema, {
+  parse(input: unknown, options?: DocumentParseOptions): Document {
+    return identifyDocument(schemaParse(input), options)
+  },
+  safeParse(input: unknown, options?: DocumentParseOptions) {
+    const result = schemaSafeParse(input)
+    if (!result.success) return result
+    try {
+      return { success: true as const, data: identifyDocument(result.data, options) }
+    } catch (error) {
+      return { success: false as const, error }
+    }
+  },
+}) as DocumentSchemaWithIds
 export type { DocumentKind }

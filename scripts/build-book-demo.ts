@@ -1,9 +1,9 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { bookFromDocument, Document, type DocumentInput } from '@segnavia/format'
+import { bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
-import { bookView } from '@segnavia/html'
+import { bookView, parseDocument } from '@segnavia/html'
 import { filledBook, type MotifsOptions } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
@@ -17,15 +17,17 @@ import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
-
-const bookFixtureValue = (input: DocumentInput) => bookFromDocument(Document.parse(input))
+export const fixtureIds = () => {
+  let id = 0
+  return () => `fixture-${++id}`
+}
+const bookFixtureValue = (input: DocumentInput) => bookFromDocument(parseDocument(input, { newId: fixtureIds() }))
 const flowSection = (title: string, html: string, fields: Record<string, unknown> = {}) => ({
   type: 'section' as const,
   title,
   ...fields,
   children: [{ type: 'flow' as const, html }],
 })
-
 const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
   const words = hebrew
     ? 'בראשית ברא אלהים את השמים ואת הארץ והארץ היתה תהו ובהו '
@@ -36,7 +38,7 @@ const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
 const longNote = (hebrew: boolean) =>
   hebrew ? 'הערה ארוכה שנמשכת אל העמוד הבא. '.repeat(40) : 'A footnote long enough to continue onto the next page, naming the source of the voyage. '.repeat(24)
 const pointedRun = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃ וְהָאָ֗רֶץ הָיְתָ֥ה תֹ֙הוּ֙ וָבֹ֔הוּ וְחֹ֖שֶׁךְ עַל־פְּנֵ֣י תְה֑וֹם וְר֣וּחַ אֱלֹהִ֔ים מְרַחֶ֖פֶת עַל־פְּנֵ֥י הַמָּֽיִם׃ '
-function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = false): string {
+function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = false, pageReferenceTarget = 'chapter-three'): string {
   const title = hebrew ? 'פרק ראשון' : 'Chapter One'
   const mark = hebrew ? 'סימן א' : 'Mark A'
   const kavana = hebrew ? 'כוונה א' : 'Intention A'
@@ -44,7 +46,7 @@ function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = f
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</span></p>${probes ? keepProbe(hebrew) : ''}<p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#segnavia-chapter-3" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#${pageReferenceTarget}" data-ref="page"></a>.</span></p>${probes ? keepProbe(hebrew) : ''}<p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#${pageReferenceTarget}" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 function chapterTwoHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שני' : 'Chapter Two'
@@ -124,23 +126,28 @@ const paginatedFixture = (hebrew: boolean): DocumentInput => ({
         flowSection(
           hebrew ? 'פתיחה' : 'Preface',
           `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p><span data-motif="${BOOK_MOTIF_KEY}"></span> ${hebrew ? 'דברים שלפני הספר.' : 'Words before the book begins.'}</p>`,
+          { id: 'segnavia-front-1' },
         ),
-        { type: 'contents', title: hebrew ? 'תוכן' : 'Contents' },
+        { type: 'contents', id: 'segnavia-contents', title: hebrew ? 'תוכן' : 'Contents' },
       ],
     },
     {
       type: 'division',
       name: 'body',
       children: [
-        designedSpread(hebrew),
-        flowSection(hebrew ? 'פרק ראשון' : 'Chapter One', chapterOneHtml(hebrew, undefined, true), { parents: { ...markParents, opener: 'deep-opener' } }),
-        designedLeaf(hebrew),
+        { ...designedSpread(hebrew), id: 'segnavia-designed-1' },
+        flowSection(hebrew ? 'פרק ראשון' : 'Chapter One', chapterOneHtml(hebrew, undefined, true, 'segnavia-chapter-3'), {
+          id: 'segnavia-chapter-1',
+          parents: { ...markParents, opener: 'deep-opener' },
+        }),
+        { ...designedLeaf(hebrew), id: 'segnavia-designed-2' },
         flowSection(hebrew ? 'פרק שני' : 'Chapter Two', chapterTwoHtml(hebrew), {
+          id: 'segnavia-chapter-2',
           parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
         }),
-        flowSection(hebrew ? 'פרק שלישי' : 'Chapter Three', chapterThreeHtml(hebrew)),
-        flowSection(hebrew ? 'פרק רביעי' : 'Chapter Four', chapterFourHtml(hebrew)),
-        flowSection(columnFitChapter(hebrew).title, columnFitChapter(hebrew).html),
+        flowSection(hebrew ? 'פרק שלישי' : 'Chapter Three', chapterThreeHtml(hebrew), { id: 'segnavia-chapter-3' }),
+        flowSection(hebrew ? 'פרק רביעי' : 'Chapter Four', chapterFourHtml(hebrew), { id: 'segnavia-chapter-4' }),
+        flowSection(columnFitChapter(hebrew).title, columnFitChapter(hebrew).html, { id: 'segnavia-chapter-5' }),
       ],
     },
   ],
@@ -207,9 +214,9 @@ export function largePaginatedFixture(hebrew: boolean): DocumentInput {
   const sections = Array.from({ length: hebrew ? 40 : 54 }, (_, cycle) => {
     const number = cycle * 3
     return [
-      flowSection(`${hebrew ? 'פרק ראשון' : 'Chapter One'} ${number + 1}`, chapterOneHtml(hebrew, footnote)),
+      flowSection(`${hebrew ? 'פרק ראשון' : 'Chapter One'} ${number + 1}`, chapterOneHtml(hebrew, footnote, false, `chapter-three-${number + 3}`)),
       flowSection(`${hebrew ? 'פרק שני' : 'Chapter Two'} ${number + 2}`, chapterTwoHtml(hebrew)),
-      flowSection(`${hebrew ? 'פרק שלישי' : 'Chapter Three'} ${number + 3}`, chapterThreeHtml(hebrew)),
+      flowSection(`${hebrew ? 'פרק שלישי' : 'Chapter Three'} ${number + 3}`, chapterThreeHtml(hebrew), { id: `chapter-three-${number + 3}` }),
     ]
   }).flat()
   return {

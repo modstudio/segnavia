@@ -57,7 +57,7 @@ test('maps document setup and orders placeholder chapters by first page', () => 
   expect(report.data().unsupportedElements['differing body frame gutters']).toBe(2)
   expect(report.data().locations['element:differing body frame gutters']).toEqual(['frame-10-a', 'frame-14'])
   expect(book.body.map((chapter) => chapter.title)).toEqual(['later', 'earlier'])
-  expect(book.body[0]).toMatchObject({ html: '<p><br></p>' })
+  expect(book.body[0]).toMatchObject({ html: expect.stringMatching(/^<p data-segnavia-id="[^"]+"><br><\/p>$/) })
 })
 
 test('maps left binding, asymmetric margins, and non-facing pages', () => {

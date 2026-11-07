@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { Book, Deck, isDesignedSection, isTemplatedSection, Page } from '@segnavia/format'
-import { prepareSlots, RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
+import { Deck, isDesignedSection, isTemplatedSection, Page } from '@segnavia/format'
+import { parseBookFixture, prepareSlots, RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
 import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
 
 const slots = {
@@ -9,7 +9,7 @@ const slots = {
 }
 
 test('filledBook applies host values to chapters, designed pages, templates and regions', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Workbook',
     mode: 'paginated',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
@@ -36,7 +36,7 @@ test('filledBook applies host values to chapters, designed pages, templates and 
 })
 
 test('filledBook applies host values to a part opening and its nested chapter', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Workbook',
     mode: 'continuous',
     slots: [{ key: 'school', label: 'School', type: 'text', required: true }],
@@ -56,7 +56,7 @@ test('filledBook applies host values to a part opening and its nested chapter', 
 })
 
 test('filledBook refuses a missing required slot by name', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Workbook',
     mode: 'paginated',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
@@ -69,7 +69,7 @@ test('filledBook refuses a missing required slot by name', async () => {
 })
 
 test('a refuse-overflow key bound in two chapters is marked once per book document', async () => {
-  const book = Book.parse({
+  const book = parseBookFixture({
     title: 'Workbook',
     mode: 'paginated',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },

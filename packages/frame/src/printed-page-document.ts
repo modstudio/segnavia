@@ -1,5 +1,4 @@
 import {
-  Document,
   type DocumentInput,
   DocumentMetadata,
   type DocumentMetadata as DocumentMetadataValue,
@@ -21,7 +20,7 @@ import {
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
-import { embedFunction, fragmentationCss, type HtmlPage, printedPageAt, resolvePageHtml } from '@segnavia/html'
+import { embedFunction, fragmentationCss, type HtmlPage, parseDocument, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
 import { DIAGRAM_READY_EXPR, withDiagramScript } from './diagram-document.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
@@ -30,7 +29,7 @@ import { fragmentColumns, fragmentSpan, paperCount } from './printed-page-column
 export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
 
-export { type PageOrPrintedInput, pageOrPrintedFromInput } from '@segnavia/format'
+export type { PageOrPrintedInput } from '@segnavia/format'
 
 export class PrintedPagesRefusedError extends Error {
   constructor(message: string) {
@@ -156,8 +155,8 @@ var furniture=function(region,html){if(!html)return;var held=document.createElem
 })();`
 }
 
-export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1]): string {
-  return printedPageValueDocument(resolvePageHtml(printedFromDocument(Document.parse(input))), options)
+export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1] & { newId?: () => string }): string {
+  return printedPageValueDocument(resolvePageHtml(printedFromDocument(parseDocument(input, { newId: options.newId }))), options)
 }
 
 export function printedPageValueDocument(

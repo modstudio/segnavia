@@ -40,8 +40,8 @@ import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
 
-function contentsSection(entry: { title?: string; opens?: string; parents?: BookSectionParents }, build: BookBuild): BuiltSection {
-  const id = 'segnavia-contents'
+function contentsSection(entry: { id: string; title?: string; opens?: string; parents?: BookSectionParents }, build: BookBuild): BuiltSection {
+  const { id } = entry
   const title = entry.title
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
   return {
@@ -51,12 +51,19 @@ function contentsSection(entry: { title?: string; opens?: string; parents?: Book
 }
 
 function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, index: number, division: BookDivision, build: BookBuild): BuiltSection {
-  const id = `segnavia-chapter-${index}`
+  const { id } = chapter
   const document = parse(chapter.html)
   const runningHead = chapter.runningHead ?? chapter.title
   return {
     info: { id, kind: 'chapter', division, title: chapter.title, runningHead },
-    node: sectionNode('chapter', id, document.children, build, runningHead, flowAttribs(chapter.opens, chapter.parents)),
+    node: sectionNode(
+      'chapter',
+      id,
+      document.children,
+      build,
+      runningHead,
+      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index) }),
+    ),
   }
 }
 
@@ -101,8 +108,8 @@ function withSectionDepth(headings: BookHeading[], depth: number): BookHeading[]
   return depth > 0 ? headings.map((heading) => ({ ...heading, depth })) : headings
 }
 
-function chapterHeadings(section: BuiltSection, chapter: number, depth: number): BookHeading[] {
-  return collectHeadings(section.node.children, section.info.id, depth, 2, (n) => `segnavia-h-${chapter}-${n}`, { n: 0 })
+function chapterHeadings(section: BuiltSection, depth: number): BookHeading[] {
+  return collectHeadings(section.node.children, section.info.id, depth, 2)
 }
 
 function columnsValueOk(value: string): boolean {
@@ -144,6 +151,7 @@ function notesSection(
     node: sectionNode('endnotes', id, [notesHeading(book, notes), ...scope, ...notes.paragraphs], build, runningHead, {
       ...(opens ? flowAttribs(opens) : {}),
       ...(parts ? { 'data-segnavia-parts': JSON.stringify(parts) } : {}),
+      ...(notes.series.placement === 'chapter' && notes.chapter > 0 ? { 'data-segnavia-chapter': String(notes.chapter) } : {}),
     }),
   }
 }
@@ -186,7 +194,6 @@ function noteContext(sectionEntry: BookSectionEntry, targetId: string, chapter: 
 
 function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefined {
   let contents: BuiltSection | undefined
-  let frontNumber = 0
   for (const sectionEntry of bookSections(book)) {
     if (sectionEntry.division !== 'front') continue
     const { entry } = sectionEntry
@@ -202,17 +209,16 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     }
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
-      appendDesigned(entry, `segnavia-designed-${build.designedNumber}`, 'front', book, build, sectionEntry)
+      appendDesigned(entry, sectionEntry.id, 'front', book, build, sectionEntry)
       continue
     }
     if (isTemplatedSection(entry)) {
       build.templatedNumber += 1
-      appendTemplated(entry, `segnavia-templated-${build.templatedNumber}`, 'front', book, build, sectionEntry)
+      appendTemplated(entry, sectionEntry.id, 'front', book, build, sectionEntry)
       continue
     }
     if (!('html' in entry)) continue
-    frontNumber += 1
-    const section = authoredSection(entry, `segnavia-front-${frontNumber}`, build.build)
+    const section = authoredSection(entry, sectionEntry.id, build.build)
     build.sections.push(section)
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
@@ -235,12 +241,12 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     if (isBookContents(entry)) continue
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
-      appendDesigned(entry, `segnavia-designed-${build.designedNumber}`, 'designed', book, build, sectionEntry)
+      appendDesigned(entry, sectionEntry.id, 'designed', book, build, sectionEntry)
       continue
     }
     if (isTemplatedSection(entry)) {
       build.templatedNumber += 1
-      appendTemplated(entry, `segnavia-templated-${build.templatedNumber}`, 'templated', book, build, sectionEntry)
+      appendTemplated(entry, sectionEntry.id, 'templated', book, build, sectionEntry)
       continue
     }
     if (!('html' in entry)) continue
@@ -252,7 +258,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     if (entry.title !== undefined) {
       build.headings.push(...withSectionDepth([{ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id }], sectionEntry.depth))
     }
-    build.headings.push(...withSectionDepth(chapterHeadings(section, build.chapterNumber, book.contents.depth), sectionEntry.depth))
+    build.headings.push(...withSectionDepth(chapterHeadings(section, book.contents.depth), sectionEntry.depth))
     transformNotes(
       section.node,
       book,
@@ -267,8 +273,6 @@ function collectedSectionId(notes: CollectedNotes): string {
   const prefix = notes.series.sectionIdPrefix
   if (notes.targetId === 'book') return prefix
   if (notes.series.placement === 'part') return `${prefix}-${notes.placementKey.replace(/^segnavia-/, '')}`
-  if (notes.series.placement === 'chapter' && notes.targetId.startsWith('segnavia-chapter-'))
-    return `${prefix}-${notes.targetId.slice('segnavia-chapter-'.length)}`
   return `${prefix}-${notes.targetId.replace(/^segnavia-/, '')}`
 }
 

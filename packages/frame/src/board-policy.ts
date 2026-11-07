@@ -4,7 +4,7 @@ import {
   type BoardView,
   type BookViewInput,
   type Deck,
-  Document,
+  type Document,
   type DocumentInput,
   deckFromDocument,
   type ImpositionInput,
@@ -17,7 +17,7 @@ import {
   pageOrPrintedFromDocument,
   zoomAt,
 } from '@segnavia/format'
-import type { PlacementReport, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
+import { type PlacementReport, parseDocument, type ResolvedPlacement, type ResolvePlacement } from '@segnavia/html'
 import type { ControllerOptions } from './controller.ts'
 import { type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 
@@ -79,7 +79,7 @@ export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): Che
 }
 
 function resolvedDocument(item: BoardItem, input: DocumentInput, accepted: readonly Document['kind'][]): Document {
-  const document = Document.parse(input)
+  const document = parseDocument(input)
   if (!accepted.includes(document.kind)) {
     throw new Error(
       `The resolved board item "${item.id}" has document kind ${document.kind}, not ${accepted.join(' or ')}; return kind ${accepted.join(' or ')} to clear this refusal.`,

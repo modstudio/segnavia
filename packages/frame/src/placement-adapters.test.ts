@@ -36,10 +36,11 @@ test('slotAssetFrom passes caller context and otherwise omits an unknown width',
 test('boardItemFrom maps fixed pages, refuses fluid pages, and passes through other assets', async () => {
   const fixedDocument = Document.parse({
     type: 'document',
+    id: 'fixed-document',
     kind: 'page',
     size: { width: 320, height: 200 },
     settings: { scripts: 'refuse' },
-    children: [{ type: 'page', body: { html: '<p>Fixed</p>' } }],
+    children: [{ type: 'page', id: 'fixed-page', body: { html: '<p data-segnavia-id="fixed-block">Fixed</p>' } }],
   })
   const fluid = { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '<p>Fluid</p>' } }] } satisfies DocumentInput
   const boardPage = { id: 'page', kind: 'page' as const, address: 'page', x: 0, y: 0, width: 120 }

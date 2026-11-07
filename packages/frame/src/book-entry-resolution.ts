@@ -1,5 +1,5 @@
-import { type Book, type BookItem, isPart, isPlacedSection, type PlacedSection, pageOrPrintedFromInput } from '@segnavia/format'
-import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, placementCropEdges, resolvePageHtml, resolvePlacements } from '@segnavia/html'
+import { type Book, type BookItem, isPart, isPlacedSection, type PlacedSection, pageOrPrintedFromDocument } from '@segnavia/format'
+import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, parseDocument, placementCropEdges, resolvePageHtml, resolvePlacements } from '@segnavia/html'
 import type { ResolvedAsset } from './board-policy.ts'
 import { bookPlacementWidth } from './placement-resolution.ts'
 import { escapeHtml } from './svg.ts'
@@ -20,8 +20,8 @@ function placedImage(placement: PlacedSection['placement']): string {
 }
 
 function designed(entry: PlacedSection, html: string): BookItem {
-  const { title, contents, opens, parents } = entry
-  return { kind: 'designed', title, contents, opens, parents, pages: [{ html }] }
+  const { id, title, contents, opens, parents } = entry
+  return { id, kind: 'designed', title, contents, opens, parents, pages: [{ html }] }
 }
 
 async function resolvePlaced(
@@ -49,7 +49,7 @@ async function resolvePlaced(
       }),
     )
   }
-  if (answer?.kind === 'page') return designed(entry, resolvePageHtml(pageOrPrintedFromInput(answer.page)).html)
+  if (answer?.kind === 'page') return designed(entry, resolvePageHtml(pageOrPrintedFromDocument(parseDocument(answer.page))).html)
   const html = await resolvePlacements(placedImage(placement), {
     resolvePlacement: async () => answer,
     report: options.report,

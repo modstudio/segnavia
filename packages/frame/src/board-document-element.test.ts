@@ -3,6 +3,7 @@ import { Board, boardFromDocument, Document, type DocumentInput } from '@segnavi
 
 const input = {
   type: 'document',
+  id: 'board-document',
   kind: 'board',
   title: 'Board',
   settings: { dir: 'ltr' },

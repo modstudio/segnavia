@@ -2,8 +2,8 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { Document, Page, type PageWidths, Print, type PrintInput, pageOrPrintedFromDocument, type SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
+import { type Document, Page, type PageWidths, Print, type PrintInput, pageOrPrintedFromDocument, type SlotsOptions } from '@segnavia/format'
+import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageLoad } from './document-value-load.ts'
@@ -127,7 +127,7 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   set pages(value: PageOrPrintedInput[] | undefined) {
-    this.sourceDocuments = (value ?? []).map((input) => Document.parse(input))
+    this.sourceDocuments = (value ?? []).map((input) => parseDocument(input))
     this.sourceValues = this.sourceDocuments.map(pageOrPrintedFromDocument)
     this.pageValues = this.sourceValues.map(resolvePageHtml)
     this.paint()
@@ -159,7 +159,7 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   load(pageInputs: PageOrPrintedInput[], printInput: PrintInput): void {
-    const documents = pageInputs.map((input) => Document.parse(input))
+    const documents = pageInputs.map((input) => parseDocument(input))
     const sources = documents.map(pageOrPrintedFromDocument)
     const pages = sources.map(resolvePageHtml)
     const print = Print.parse(printInput)

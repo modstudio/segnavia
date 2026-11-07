@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { bodyHtml } from '@segnavia/html'
+import { markdownHtml } from '@segnavia/html'
 import { renderPageValueDocument } from './page-document.ts'
 
 test('a non-imposed printed named page lays out at its overridden measure and centers on the sheet', () => {
@@ -14,15 +14,21 @@ test('a full printed page has no measure rule', () => {
   expect(renderPageValueDocument(page, {}, true, 'test')).not.toContain('max-inline-size:')
 })
 
-test('a markdown page and its HTML equivalent build the same frame document', () => {
+test('the value renderer refuses markdown that skipped the Document content edge', () => {
   const markdown = Page.parse({ markdown: '# שלום\n\nEnglish text.', size: { width: 600, height: 400 } })
-  const equivalent = Page.parse({ html: bodyHtml(markdown.body, { dir: markdown.dir, lang: markdown.lang }), size: markdown.size })
-  expect(renderPageValueDocument(markdown, {}, false, 'test')).toBe(renderPageValueDocument(equivalent, {}, false, 'test'))
+  expect(() => renderPageValueDocument(markdown, {}, false, 'test')).toThrow('pass its Document input through @segnavia/html parseDocument')
 })
 
 test('inlines the offline diagram renderer only for a diagram body', () => {
-  const plain = renderPageValueDocument(Page.parse({ markdown: '# Plain' }), {}, false, 'test', '', 'DRAW')
-  const diagram = renderPageValueDocument(Page.parse({ markdown: '```mermaid\nflowchart TD\n  A --> B\n```' }), {}, false, 'test', '', 'DRAW')
+  const plain = renderPageValueDocument(Page.parse({ html: markdownHtml({ markdown: '# Plain' }) }), {}, false, 'test', '', 'DRAW')
+  const diagram = renderPageValueDocument(
+    Page.parse({ html: markdownHtml({ markdown: '```mermaid\nflowchart TD\n  A --> B\n```' }) }),
+    {},
+    false,
+    'test',
+    '',
+    'DRAW',
+  )
   expect(plain).not.toContain('DRAW')
   expect(diagram).toContain('DRAW')
   expect(diagram).toContain('<script nonce="test">')
