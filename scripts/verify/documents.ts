@@ -153,7 +153,11 @@ export async function verifyDocuments(h: Harness) {
     viewer.style.inlineSize = '220px'
     document.body.append(viewer)
     viewer.load(
-      Array.from({ length: 50 }, (_, index) => ({ html: `<p>Page ${index + 1}</p>` })),
+      Array.from({ length: 50 }, (_, index) => ({
+        type: 'document',
+        kind: 'page',
+        children: [{ type: 'page', body: { html: `<p>Page ${index + 1}</p>` } }],
+      })),
       { paper: 'business-card-square-us', orientation: 'portrait' },
     )
     viewer.scrollIntoView()
