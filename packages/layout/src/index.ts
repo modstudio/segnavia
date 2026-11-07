@@ -1,4 +1,6 @@
 export { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanPage, bookPlanFolios } from './book-plan-folios.ts'
+export { type ConvergedLayout, convergeLayout, type LayoutStep, type LayoutWarning } from './converge-layout.ts'
+export { layoutScript } from './layout-script.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './paginate-book.ts'
 export type { PaginateTarget, PaginateTargetPage } from './paginate-target.ts'
 export { heldPageNumber, openerPageIndex, pageIndexForTarget, windowPageIndex } from './paginate-target.ts'
@@ -22,4 +24,5 @@ export type {
   PaginateSequence,
   PaginateWindow,
 } from './paginate-types.ts'
+export { type Measurements, type Plan, type PlanBookNumbering, planBook } from './plan-book.ts'
 export * from './printed-pages.ts'
