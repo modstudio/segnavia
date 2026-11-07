@@ -20,6 +20,22 @@ export const DocumentCommandLocation = z.union([
 ])
 export type DocumentCommandLocation = z.infer<typeof DocumentCommandLocation>
 
+const CommandBlockPosition = z.union([
+  z.object({ before: z.string().min(1) }),
+  z.object({ after: z.string().min(1) }),
+  z.object({ in: CommandContentAddress, at: z.enum(['start', 'end']) }),
+])
+
+const CommandSetBlockChange = z
+  .object({
+    kind: z.enum(BLOCK_ELEMENTS).optional(),
+    html: z.string().optional(),
+    text: z.string().optional(),
+    class: z.string().nullable().optional(),
+    attributes: z.record(z.string(), z.string().nullable()).optional(),
+  })
+  .refine((change) => change.html === undefined || change.text === undefined, 'setBlock cannot contain both html and text')
+
 const SetContentCommand = z
   .object({ type: z.literal('setContent'), content: CommandContentAddress, html: z.string().optional(), value: z.unknown().optional() })
   .refine((command) => (command.html === undefined) !== (command.value === undefined), 'setContent requires exactly one of html or value')
@@ -31,9 +47,9 @@ export const DocumentCommand = z.discriminatedUnion('type', [
   z.object({ type: z.literal('set'), node: DocumentAddress, fields: z.record(z.string(), z.unknown()) }),
   SetContentCommand,
   z.strictObject({ type: z.literal('setStyle'), fields: z.record(z.string(), z.unknown()) }),
-  z.object({ type: z.literal('insertBlock'), html: z.string(), position: z.unknown() }),
-  z.object({ type: z.literal('setBlock'), block: z.string().min(1), change: z.record(z.string(), z.unknown()) }),
-  z.object({ type: z.literal('moveBlock'), block: z.string().min(1), position: z.unknown() }),
+  z.object({ type: z.literal('insertBlock'), html: z.string(), position: CommandBlockPosition }),
+  z.object({ type: z.literal('setBlock'), block: z.string().min(1), change: CommandSetBlockChange }),
+  z.object({ type: z.literal('moveBlock'), block: z.string().min(1), position: CommandBlockPosition }),
   z.object({ type: z.literal('removeBlock'), block: z.string().min(1) }),
 ])
 export type DocumentCommand = z.infer<typeof DocumentCommand>

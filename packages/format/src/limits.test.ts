@@ -22,6 +22,12 @@ describe('resolveLimits', () => {
     expect(resolveLimits(undefined, { localFonts: { count: 2 } }).localFonts).toEqual({ count: 2, bytes: 32 * 1024 * 1024 })
     expect(resolveLimits(undefined, { localFonts: { bytes: 3 } }).localFonts).toEqual({ count: 64, bytes: 3 })
   })
+
+  test('resolves the concise description text ceiling from document, host, and default values', () => {
+    expect(resolveLimits(undefined, undefined).descriptionTextChars).toBe(DEFAULT_LIMITS.descriptionTextChars)
+    expect(resolveLimits({ descriptionTextChars: 20 }, { descriptionTextChars: 10 }).descriptionTextChars).toBe(10)
+    expect(resolveLimits({ descriptionTextChars: 5 }, { descriptionTextChars: 10 }).descriptionTextChars).toBe(5)
+  })
 })
 
 describe('parseLimits', () => {

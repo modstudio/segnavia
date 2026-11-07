@@ -26,6 +26,10 @@ function refusal(index: number, type: string, problem: string, clearing: string)
   return { ok: false, refusal: `document command ${index} (${type}) refused: ${problem}; ${clearing}. Nothing was changed.` }
 }
 
+function targetsNodeStyle(input: unknown): boolean {
+  return typeof input === 'object' && input !== null && (input as { type?: unknown }).type === 'setStyle' && 'node' in input
+}
+
 export function editDocument(document: Document, commands: readonly DocumentCommandValue[], options: EditDocumentOptions = {}): EditDocumentResult {
   let base: string
   try {
@@ -38,6 +42,14 @@ export function editDocument(document: Document, commands: readonly DocumentComm
   const added: Record<number, string[]> = {}
   for (let index = 0; index < commands.length; index += 1) {
     const input: unknown = commands[index]
+    if (targetsNodeStyle(input)) {
+      return refusal(
+        index,
+        'setStyle',
+        'node styles are not present in the current document model',
+        'remove the node address; node styles arrive with the StyleSheet',
+      )
+    }
     const parsed = DocumentCommand.safeParse(input)
     if (!parsed.success) {
       return refusal(index, commandType(input), parsed.error.issues[0]?.message ?? 'the command is invalid', 'pass a command matching DocumentCommand')

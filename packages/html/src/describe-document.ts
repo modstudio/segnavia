@@ -51,7 +51,8 @@ function describeNode(node: OperationNode, parent: DocumentLocation, index: numb
 function conciseBlock(block: BlockViewEntry, limit: number): BlockViewEntry {
   const points = [...block.text]
   if (points.length <= limit) return block
-  return { ...block, text: `${points.slice(0, limit).join('')}…` }
+  if (limit === 0) return { ...block, text: '' }
+  return { ...block, text: `${points.slice(0, limit - 1).join('')}…` }
 }
 
 /**

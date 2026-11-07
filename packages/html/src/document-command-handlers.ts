@@ -32,16 +32,19 @@ function setChange(target: Record<string, unknown>, fields: Record<string, unkno
 const add: Handler<'add'> = (context, command) => {
   const { node, added } = identifyAddedNode(context, command.node)
   const location = commandLocation(context, command.at)
-  return applyCommandOps(context, [{ type: 'insert', ...location, node: node as never }], added)
+  const result = applyCommandOps(context, [{ type: 'insert', ...location, node: node as never }], added)
+  return { ...result, added: [...new Set([...result.added, ...addedBlocks(context.document, result.document)])] }
 }
 
 const remove: Handler<'remove'> = (context, command) => {
   const found = resolveNode(context.document, command.node)
+  if (found.node.id === context.document.id) throw new DocumentCommandRefusal('the document root cannot be removed', 'remove one of its child nodes instead')
   return applyCommandOps(context, [{ type: 'remove', id: found.node.id, prior: found.node as never, parent: found.parent, index: found.index }])
 }
 
 const move: Handler<'move'> = (context, command) => {
   const found = resolveNode(context.document, command.node)
+  if (found.node.id === context.document.id) throw new DocumentCommandRefusal('the document root cannot be moved', 'move one of its child nodes instead')
   const location = commandLocation(context, command.to, found)
   return applyCommandOps(context, [{ type: 'move', id: found.node.id, ...location, priorParent: found.parent, priorIndex: found.index }])
 }
@@ -54,7 +57,11 @@ const set: Handler<'set'> = (context, command) => {
 }
 
 function htmlValue(context: DocumentCommandContext, address: ReturnType<typeof contentAddress>, source: string): { value: unknown; added: string[] } {
-  const identified = htmlWithIds(context, source)
+  const identified = htmlWithIds(context, source, {
+    node: address.node.id,
+    field: address.field,
+    ...(address.key === undefined ? {} : { key: address.key }),
+  })
   const prior = address.node[address.field]
   const shape =
     address.node.type === 'page' && address.field === 'body'
@@ -81,7 +88,8 @@ const setContent: Handler<'setContent'> = (context, command) => {
     content: next.value,
     ...(prior === undefined ? { priorAbsent: true } : { prior }),
   }
-  return applyCommandOps(context, [op], next.added)
+  const result = applyCommandOps(context, [op], next.added)
+  return { ...result, added: [...new Set([...result.added, ...addedBlocks(context.document, result.document)])] }
 }
 
 const setStyle: Handler<'setStyle'> = (context, command) =>
@@ -105,7 +113,8 @@ function blockPosition(context: DocumentCommandContext, input: unknown): BlockPo
 
 const insertBlockHandler: Handler<'insertBlock'> = (context, command) => {
   const result = insertBlock(context.document, { html: command.html, position: blockPosition(context, command.position) }, context.options)
-  return applyCommandOps(context, result.ops, [result.id])
+  const applied = applyCommandOps(context, result.ops, [result.id])
+  return { ...applied, added: [...new Set([...applied.added, ...addedBlocks(context.document, applied.document)])] }
 }
 
 const setBlockHandler: Handler<'setBlock'> = (context, command) => {

@@ -19,6 +19,9 @@ export interface ResolvedNode {
 }
 
 export function resolveNode(document: Document, address: DocumentAddress): ResolvedNode {
+  if ('id' in address && address.id === document.id) {
+    return { node: document as unknown as OperationNode, parent: { kind: 'node', id: document.id }, index: 0 }
+  }
   const entries = documentEntries(document as unknown as OperationDocument)
   if ('id' in address) {
     const entry = entries.find(({ node }) => node.id === address.id)

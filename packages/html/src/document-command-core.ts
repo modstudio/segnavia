@@ -13,6 +13,7 @@ import { CONTENT_FIELD_SHAPES } from './block-fragments.ts'
 import { blockElements, blockView } from './block-view.ts'
 import { DocumentCommandRefusal, resolveLocation, resolveNode } from './document-addresses.ts'
 import type { CommandContentAddress, DocumentCommand, DocumentCommandLocation } from './document-commands.ts'
+import { markdownHtml } from './markdown.ts'
 import { parse, serialize } from './sanitize.ts'
 
 type OperationNode = Record<string, unknown> & { id: string; type: string; children?: OperationNode[] }
@@ -53,22 +54,31 @@ function identifyHtml(html: string, context: DocumentCommandContext, usedBlocks:
   return serialize(tree)
 }
 
+function pageBodySource(value: object, context: DocumentCommandContext): string | undefined {
+  const body = value as { html?: unknown; markdown?: unknown }
+  if (typeof body.html === 'string') return body.html
+  if (typeof body.markdown !== 'string') return undefined
+  return markdownHtml(body as never, { dir: context.document.settings?.dir, lang: context.document.settings?.lang })
+}
+
+function identifiedField(value: unknown, shape: string, context: DocumentCommandContext, usedBlocks: Set<string>, added: string[]): unknown {
+  if (shape === 'htmlString' && typeof value === 'string') return identifyHtml(value, context, usedBlocks, added)
+  if (!value || typeof value !== 'object') return value
+  if (shape === 'pageBody') {
+    const source = pageBodySource(value, context)
+    return source === undefined ? value : { html: identifyHtml(source, context, usedBlocks, added) }
+  }
+  if (shape === 'slideContent') {
+    const held = value as { kind?: unknown; html?: unknown }
+    return held.kind === 'html' && typeof held.html === 'string' ? { ...value, html: identifyHtml(held.html, context, usedBlocks, added) } : value
+  }
+  if (shape !== 'record') return value
+  return Object.fromEntries(Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identifyHtml(html, context, usedBlocks, added) : html]))
+}
+
 function identifyContent(node: Record<string, unknown>, context: DocumentCommandContext, usedBlocks: Set<string>, added: string[]): void {
   const shapes = CONTENT_FIELD_SHAPES[node.type as keyof typeof CONTENT_FIELD_SHAPES] ?? {}
-  for (const [field, shape] of Object.entries(shapes)) {
-    const value = node[field]
-    if (shape === 'htmlString' && typeof value === 'string') node[field] = identifyHtml(value, context, usedBlocks, added)
-    else if (shape === 'pageBody' && value && typeof value === 'object' && typeof (value as { html?: unknown }).html === 'string') {
-      node[field] = { ...(value as object), html: identifyHtml((value as { html: string }).html, context, usedBlocks, added) }
-    } else if (shape === 'slideContent' && value && typeof value === 'object' && (value as { kind?: unknown }).kind === 'html') {
-      const held = value as { html?: unknown }
-      if (typeof held.html === 'string') node[field] = { ...(value as object), html: identifyHtml(held.html, context, usedBlocks, added) }
-    } else if (shape === 'record' && value && typeof value === 'object') {
-      node[field] = Object.fromEntries(
-        Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identifyHtml(html, context, usedBlocks, added) : html]),
-      )
-    }
-  }
+  for (const [field, shape] of Object.entries(shapes)) node[field] = identifiedField(node[field], shape, context, usedBlocks, added)
 }
 
 export function identifyAddedNode(context: DocumentCommandContext, input: Record<string, unknown>): { node: OperationNode; added: string[] } {
@@ -115,8 +125,16 @@ export function addedBlocks(before: Document, after: Document): string[] {
     .filter((id) => !existing.has(id))
 }
 
-export function htmlWithIds(context: DocumentCommandContext, html: string): { html: string; added: string[] } {
-  const used = new Set(blockView(context.document).map(({ id }) => id))
+export function htmlWithIds(
+  context: DocumentCommandContext,
+  html: string,
+  replacing?: { node: string; field: string; key?: string },
+): { html: string; added: string[] } {
+  const used = new Set(
+    blockView(context.document)
+      .filter(({ address }) => !replacing || address.node !== replacing.node || address.field !== replacing.field || address.key !== replacing.key)
+      .map(({ id }) => id),
+  )
   const added: string[] = []
   return { html: identifyHtml(html, context, used, added), added }
 }
