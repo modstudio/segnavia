@@ -6,6 +6,18 @@ import { elements, parse } from './sanitize.ts'
 
 export { base64ToBytes, bytesToBase64 } from './base64.ts'
 export { BINDINGS, bindingNames, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
+export { BLOCK_CONTEXT, type BlockKind, blockContextAllowed } from './block-context.ts'
+export { CONTENT_FRAGMENT_SHAPES, type ContentAddress } from './block-fragments.ts'
+export {
+  type BlockPosition,
+  type InsertBlockOptions,
+  insertBlock,
+  moveBlock,
+  removeBlock,
+  type SetBlockChange,
+  setBlock,
+} from './block-ops.ts'
+export { type BlockViewEntry, blockView } from './block-view.ts'
 export { bookDocument } from './book/book-document.ts'
 export {
   BOOK_COLUMN_MAX,

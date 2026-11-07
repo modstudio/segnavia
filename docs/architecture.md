@@ -1648,12 +1648,25 @@ export. The compiler produces one sheet in cascade-layer order:
 `segnavia.author`. Tokens become `--segnavia-*` custom properties and named
 styles become classes.
 
-Content has one stored form: sanitized HTML. Every block that lacks a
+Content has one stored form: HTML. Every block that lacks a
 `data-segnavia-id` receives a minted id at the parse edge, and an existing id
 survives the round trip. Callers can replace a whole HTML fragment or use a
-JSON block view of id, kind, text, style class and attributes. `insertBlock`,
-`setBlock`, `moveBlock` and `removeBlock` update that stored HTML through the
-same sanitizer. Styles are referenced by class and variables by declared name.
+JSON block view of id, element-name kind, text, style class, attributes,
+content address and nearest enclosing block. A content address names a node,
+one of its content fields and, for a record-valued field such as `regions`, a
+key. The fragment accessor models plain strings, page bodies, HTML slide
+content and records of strings in one table.
+
+`insertBlock`, `setBlock`, `moveBlock` and `removeBlock` parse and serialize
+the affected fragment and compile the result to prior-valued `setContent`
+`DocumentOp`s. A cross-fragment move produces one removal op and one insertion
+op; all other block edits produce one op. The caller batches and applies those
+ops, so staleness, atomicity and undo stay properties of `applyOps`. The block
+context table permits list items directly in lists, table rows directly in
+table containers, and other block kinds outside those special containers.
+Block ops do not sanitize: active-content policy remains at realize, where the
+sandbox policy sanitizes or refuses it. Styles are referenced by class and
+variables by declared name.
 
 `Measurements` records block and line boxes plus fit results. `Plan` records
 pages, first and last block ids, breaks, folios, resolved variables, parent-page
