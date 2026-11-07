@@ -4,6 +4,7 @@ import type { BoardTargetPlacement } from './board-command-targets.ts'
 import type { BoardCommand } from './board-commands.ts'
 import type { BoardEditAdjustment } from './board-edit-result.ts'
 import type { BoardShapes } from './board-geometry.ts'
+import { defaultNewId } from './document-identity.ts'
 import { settleBoard } from './board-sections.ts'
 import type { BoardItemFact, BoardShapesOptions } from './board-shapes.ts'
 
@@ -32,7 +33,7 @@ export interface CommandResult {
 export type BoardCommandHandler = (context: CommandContext, command: BoardCommand) => CommandResult
 
 export function newEntityId(context: CommandContext, supplied: string | undefined, description: string): { id: string; adjustment?: BoardEditAdjustment } {
-  const id = supplied ?? (context.options.newId ?? (() => globalThis.crypto.randomUUID()))()
+  const id = supplied ?? (context.options.newId ?? defaultNewId)()
   if (!id) throw new BoardCommandRefusal(`the new ${description} has no id`, 'supply an id or return a non-empty id from newId')
   if ([...context.board.items, ...context.board.labels, ...context.board.sections].some((entry) => entry.id === id))
     throw new BoardCommandRefusal(`id "${id}" already exists`, 'supply a unique id')

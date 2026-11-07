@@ -150,7 +150,7 @@ describe('board section commands', () => {
     const first = repeated.sections[0]
     if (!first) throw new Error('test board has no section')
     repeated.sections.push({ ...first, id: 'other' })
-    const cases: Array<[Board, unknown, RegExp]> = [
+    const cases: Array<[Board, unknown, RegExp, Parameters<typeof editBoard>[3]?]> = [
       [
         fixture(),
         { type: 'section-remove', section: { id: 'missing' }, members: 'release' },
@@ -163,6 +163,7 @@ describe('board section commands', () => {
       ],
       [fixture(), { type: 'section-add', id: 'new', title: 'Old' }, /already belongs to section "old".*pick a title no other section has/],
       [fixture(), { type: 'section-add', id: 'a', title: 'New' }, /id "a" already exists.*supply a unique id/],
+      [fixture(), { type: 'section-add', title: 'New' }, /new section has no id.*return a non-empty id from newId/, { newId: () => '' }],
       [
         fixture(),
         { type: 'section-set', section: { id: 'old' }, items: [{ id: 'a' }, { id: 'c' }] },
@@ -179,8 +180,8 @@ describe('board section commands', () => {
     delete incomplete.shapes.items.a
     const missingShape = editBoard(fixture(), [{ type: 'section-add', id: 'new', title: 'New', items: [{ id: 'a' }] }], incomplete)
     expect(missingShape.ok ? '' : missingShape.refusal).toMatch(/item "a" has no resolved shape.*pass the resolved shape/)
-    for (const [board, command, expected] of cases) {
-      const result = editBoard(board, [command] as BoardCommand[], shapes)
+    for (const [board, command, expected, options] of cases) {
+      const result = editBoard(board, [command] as BoardCommand[], shapes, options)
       expect(result.ok ? '' : result.refusal).toMatch(expected)
       expect(result.ok ? '' : result.refusal).toMatch(/^board command 0 .*Nothing was changed\.$/)
     }

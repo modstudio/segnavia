@@ -6,7 +6,6 @@ import {
   htmlTextSample,
   type Page,
   type PageOrPrintedInput,
-  pageOrPrintedFromDocument,
   resolveDirection,
   resolveLimits,
   resolvePageWidth,
@@ -15,7 +14,7 @@ import { frameDocument, newNonce } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { FontCssRefusedError, type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
@@ -58,7 +57,7 @@ export async function prepareRenderedPage(
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  return prepareRenderedPageValue(pageOrPrintedFromDocument(parseDocument(input, { newId: options.newId })), options, motifs, signal, purpose)
+  return prepareRenderedPageValue(pageOrPrintedFromInput(input, { newId: options.newId }), options, motifs, signal, purpose)
 }
 
 export async function prepareRenderedPageValue(
@@ -134,7 +133,7 @@ export function renderPageDocument(
   fontCss = '',
   diagramScript?: string,
 ): string {
-  return renderPageValueDocument(pageOrPrintedFromDocument(parseDocument(input, { newId: options.newId })), options, printing, nonce, fontCss, diagramScript)
+  return renderPageValueDocument(pageOrPrintedFromInput(input, { newId: options.newId }), options, printing, nonce, fontCss, diagramScript)
 }
 
 export function renderPageValueDocument(

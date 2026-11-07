@@ -14,7 +14,6 @@ import {
   PRINTED_PAGE_ROLES,
   PRINTED_PAGE_TOTAL_PATH,
   PX_PER_MM,
-  pageOrPrintedFromDocument,
   printedFromDocument,
   type ResolvedParentPage,
   resolveDirection,
@@ -32,10 +31,6 @@ export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
-
-export function pageOrPrintedFromInput(input: PageOrPrintedInput): Page {
-  return pageOrPrintedFromDocument(parseDocument(input))
-}
 
 export class PrintedPagesRefusedError extends Error {
   constructor(message: string) {

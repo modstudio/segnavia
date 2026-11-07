@@ -1,18 +1,26 @@
-import { Document, type DocumentInput, type DocumentParseOptions, type Document as ParsedDocument } from '@segnavia/format'
+import {
+  defaultNewId,
+  Document,
+  type DocumentInput,
+  type DocumentParseOptions,
+  pageOrPrintedFromDocument,
+  type PageOrPrintedInput,
+  type Document as ParsedDocument,
+} from '@segnavia/format'
 import { isTag } from 'domhandler'
-import { markdownHtml } from './markdown.ts'
+import { type AlertLabels, markdownHtml } from './markdown.ts'
 import { parse, serialize } from './sanitize.ts'
 
 export const BLOCK_ELEMENTS = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'figure', 'tr'] as const
 
 const BLOCK_ELEMENT_SET: ReadonlySet<string> = new Set(BLOCK_ELEMENTS)
 
-export interface ParseDocumentOptions extends DocumentParseOptions {}
+export interface ParseDocumentOptions extends DocumentParseOptions {
+  alertLabels?: Partial<AlertLabels>
+}
 
 type BlockLocation = { node: string; block: string }
 type ContentHtml = (value: string, node: { type: string; id: string }) => string
-export type HtmlDocumentNode = ParsedDocument['children'][number]
-export type HtmlDocument = ParsedDocument
 
 function contentNodeLabel(node: { type: string; id: string }): string {
   return `${node.type} node "${node.id}"`
@@ -43,14 +51,21 @@ function contentHtml(html: string, node: { type: string; id: string }, newId: ()
   return serialize(document)
 }
 
-export function parseDocument(input: DocumentInput | unknown, options: ParseDocumentOptions = {}): HtmlDocument {
-  const newId = options.newId ?? (() => globalThis.crypto.randomUUID())
+export function parseDocument(input: DocumentInput | unknown, options: ParseDocumentOptions = {}): ParsedDocument {
+  const newId = options.newId ?? defaultNewId
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockLocation>()
   const html: ContentHtml = (value, node) => contentHtml(value, node, newId, seen)
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
-    const value = 'html' in node.body ? node.body.html : markdownHtml(node.body, { dir: document.settings?.dir, lang: document.settings?.lang })
+    const value =
+      'html' in node.body
+        ? node.body.html
+        : markdownHtml(node.body, {
+            dir: document.settings?.dir,
+            lang: document.settings?.lang,
+            alertLabels: options.alertLabels,
+          })
     return { ...node, body: { html: html(value, node) } }
   }
   const nodeContent = (node: ParsedDocument['children'][number]): ParsedDocument['children'][number] => {
@@ -80,4 +95,8 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   }))
   const templates = document.templates.map((node) => ({ ...node, html: html(node.html, node) }))
   return { ...document, children: nodes(document.children), parentPages, templates }
+}
+
+export function pageOrPrintedFromInput(input: PageOrPrintedInput, options: ParseDocumentOptions = {}) {
+  return pageOrPrintedFromDocument(parseDocument(input, options))
 }

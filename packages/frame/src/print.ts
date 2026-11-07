@@ -7,7 +7,6 @@
 import {
   type Deck,
   type DocumentInput,
-  Document as DocumentSchema,
   deckFromDocument,
   exceedsLimits,
   Imposition,
@@ -16,7 +15,7 @@ import {
   limitRefusal,
   parseLimits,
 } from '@segnavia/format'
-import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
+import { type HtmlPage, pageOrPrintedFromInput, parseDocument, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { loadDiagramScript } from './diagram-document.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
@@ -38,7 +37,7 @@ import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
 import { pagesSheetsRefusal } from './print-limits.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
-import { type PageOrPrintedInput, pageOrPrintedFromInput } from './printed-page-document.ts'
+import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
 import {
   collectSlotPrintCopies,
@@ -155,7 +154,7 @@ export async function preparedDeckPrint(
   options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
   signal: AbortSignal = AbortSignal.any([]),
 ): Promise<PrintFrameOptions> {
-  return preparedDeckValuePrint(deckFromDocument(DocumentSchema.parse(input)), options, signal)
+  return preparedDeckValuePrint(deckFromDocument(parseDocument(input, { newId: options.newId })), options, signal)
 }
 
 export async function preparedDeckValuePrint(
@@ -251,7 +250,7 @@ function refusePagesSheets(options: PrintFrameOptions): void {
 }
 
 export async function printDeck(input: DocumentInput, options: BrowserPrintOptions = {}): Promise<void> {
-  const deck = deckFromDocument(DocumentSchema.parse(input))
+  const deck = deckFromDocument(parseDocument(input, { newId: options.newId }))
   options = { ...options, limits: parseLimits(options.limits, 'host') }
   const reasons = exceedsLimits(deck, options.limits ?? {})
   if (reasons.length > 0) throw new RangeError(reasons.join('; '))

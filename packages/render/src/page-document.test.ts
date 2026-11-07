@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { bodyHtml } from '@segnavia/html'
+import { markdownHtml } from '@segnavia/html'
 import { renderPageValueDocument } from './page-document.ts'
 
 test('a non-imposed printed named page lays out at its overridden measure and centers on the sheet', () => {
@@ -20,9 +20,9 @@ test('the value renderer refuses markdown that skipped the Document content edge
 })
 
 test('inlines the offline diagram renderer only for a diagram body', () => {
-  const plain = renderPageValueDocument(Page.parse({ html: bodyHtml({ markdown: '# Plain' }) }), {}, false, 'test', '', 'DRAW')
+  const plain = renderPageValueDocument(Page.parse({ html: markdownHtml({ markdown: '# Plain' }) }), {}, false, 'test', '', 'DRAW')
   const diagram = renderPageValueDocument(
-    Page.parse({ html: bodyHtml({ markdown: '```mermaid\nflowchart TD\n  A --> B\n```' }) }),
+    Page.parse({ html: markdownHtml({ markdown: '```mermaid\nflowchart TD\n  A --> B\n```' }) }),
     {},
     false,
     'test',

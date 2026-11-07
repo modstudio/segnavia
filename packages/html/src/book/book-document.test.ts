@@ -71,7 +71,7 @@ describe('book document', () => {
     expect(result).toMatch(
       /<p[^>]*>A<sup[\s\S]*?<\/p><div class="segnavia-footnotes"[^>]*><p class="segnavia-footnote"[^>]*>[\s\S]*?first<\/p><p class="segnavia-footnote"[^>]*>[\s\S]*?<i>second<\/i><\/p><\/div>/,
     )
-    expect(result).toMatch(/<li>C<sup[\s\S]*?<div class="segnavia-footnotes">[\s\S]*?third[\s\S]*?<\/div><\/li>/)
+    expect(result).toMatch(/<li[^>]*>C<sup[\s\S]*?<div class="segnavia-footnotes">[\s\S]*?third[\s\S]*?<\/div><\/li>/)
     expect(result.match(/class="segnavia-footnotes"/g)).toHaveLength(2)
   })
 
@@ -149,9 +149,9 @@ describe('book document', () => {
     const first = sectionOpen(result.html, 'segnavia-endnotes-section-1')
     const second = sectionOpen(result.html, 'segnavia-endnotes-section-2')
     expect(first).toContain('data-opens="any"')
-    expect(first).toContain('data-running-head="I"')
+    expect(first).toContain('data-running-head="I" data-segnavia-chapter="1"')
     expect(second).toContain('data-opens="any"')
-    expect(second).toContain('data-running-head="Two"')
+    expect(second).toContain('data-running-head="Two" data-segnavia-chapter="2"')
     expect(result.html).toContain('id="segnavia-en-1"')
     expect(result.html).toContain('id="segnavia-en-2"')
     expect(sectionOpen(result.html, 'segnavia-endnotes')).toBe('')

@@ -50,7 +50,7 @@ describe('book flow', () => {
     expect(flow.match(/<figure[^>]*>/g)?.every((tag) => !tag.includes('hidden'))).toBe(true)
     expect(flow).toContain('<header data-region="heading"><h1 data-segnavia-id="lesson-heading" id="lesson-heading">Lesson</h1></header>')
     expect(flow).toContain('href="#lesson-heading"')
-    expect(flow).toContain('<main data-region="reading"><p>Words</p></main>')
+    expect(flow).toMatch(/<main data-region="reading"><p data-segnavia-id="[^"]+">Words<\/p><\/main>/)
     for (const count of [2, 3, 4]) {
       expect(flow).toContain(`:where([data-columns="${count}"]){column-count:${count}}`)
       expect(flow).toContain(`@container (max-width:${count * BOOK_FLOW_COLUMN_MIN_PX + (count - 1) * 6 * (96 / 25.4)}px)`)

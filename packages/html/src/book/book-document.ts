@@ -151,6 +151,7 @@ function notesSection(
     node: sectionNode('endnotes', id, [notesHeading(book, notes), ...scope, ...notes.paragraphs], build, runningHead, {
       ...(opens ? flowAttribs(opens) : {}),
       ...(parts ? { 'data-segnavia-parts': JSON.stringify(parts) } : {}),
+      ...(notes.series.placement === 'chapter' && notes.chapter > 0 ? { 'data-segnavia-chapter': String(notes.chapter) } : {}),
     }),
   }
 }

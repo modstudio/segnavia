@@ -166,14 +166,15 @@ an id on every node. Duplicate node ids are refused with both node locations.
 
 `parseDocument` from `@segnavia/html` is the content edge used by viewers and
 renderers. It runs the structural edge, converts markdown input once to the
-stored HTML form, sanitizes every content fragment, and preserves or mints
+stored HTML form, parses each content fragment structurally, and preserves or mints
 `data-segnavia-id` on paragraphs, headings, list items, figures, and table
 rows. One `newId` function supplies both node and block ids. Duplicate block
 ids are refused across the whole document. Hosts that need reproducible output
 pass a deterministic counter; stored ids make later parses idempotent. A host
 keeps ids by storing the Document that `parseDocument` returns (or reading back
 an element's Document getter where one exists); content reloaded without ids
-gets new ids.
+gets new ids. Active HTML remains present at this edge; the sandboxed realize
+policy sanitizes or refuses it when the content is shown.
 
 ### Migration from legacy deck and page input
 

@@ -38,7 +38,7 @@ const templatedPagesRefusal = 'a templated section needs at least one page; add 
 const regionNameClear = 'use a letter followed by letters, digits, hyphens or underscores to clear this refusal'
 
 const sectionFields = {
-  id: z.string().default(() => globalThis.crypto.randomUUID()),
+  id: z.string(),
   title: z.string().optional(),
   contents: z.boolean().default(true),
   opens: BookOpens.optional(),
@@ -46,7 +46,7 @@ const sectionFields = {
 }
 
 const partFields = {
-  id: z.string().default(() => globalThis.crypto.randomUUID()),
+  id: z.string(),
   name: z.string().regex(REGION_NAME, 'a part name must be an HTML name token'),
   title: z.string().optional(),
   html: z.string().optional(),
@@ -78,7 +78,7 @@ export const BookSection = z.object({
 export type BookSection = z.infer<typeof BookSection>
 
 export const BookContents = z.object({
-  id: z.string().default(() => globalThis.crypto.randomUUID()),
+  id: z.string(),
   kind: z.literal('contents'),
   title: z.string().optional(),
   opens: BookOpens.optional(),
@@ -95,7 +95,7 @@ export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSectio
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
 export const Chapter = z.object({
-  id: z.string().default(() => globalThis.crypto.randomUUID()),
+  id: z.string(),
   title: z.string(),
   html: z.string(),
   runningHead: z.string().optional(),

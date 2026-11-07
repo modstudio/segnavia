@@ -5,7 +5,6 @@
 import {
   type Deck,
   type DocumentInput,
-  Document as DocumentSchema,
   deckFromDocument,
   fitPage,
   type Imposed,
@@ -23,13 +22,13 @@ import {
   type Slide,
   type SlotsOptions,
 } from '@segnavia/format'
-import { classifyMediaAnswer, type HtmlPage, type PlacementsOptions, placementPlaceholderSource, resolvePageHtml } from '@segnavia/html'
+import { classifyMediaAnswer, type HtmlPage, pageOrPrintedFromInput, parseDocument, type PlacementsOptions, placementPlaceholderSource, resolvePageHtml } from '@segnavia/html'
 import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
-import { type PageOrPrintedInput, pageOrPrintedFromInput } from './printed-page-document.ts'
+import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
@@ -88,6 +87,7 @@ export async function resolveDeckMedia<R extends { kind: string }>(
 }
 
 export interface PrintOptions {
+  newId?: () => string
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
@@ -200,7 +200,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 }
 
 export function printableDeck(input: DocumentInput, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
-  return printableDeckValue(deckFromDocument(DocumentSchema.parse(input)), options)
+  return printableDeckValue(deckFromDocument(parseDocument(input, { newId: options.newId })), options)
 }
 
 export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
@@ -280,7 +280,7 @@ export interface PrintableDeckDocument {
 }
 
 export function printableDeckDocument(input: DocumentInput, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
-  return printableDeckValueDocument(deckFromDocument(DocumentSchema.parse(input)), options)
+  return printableDeckValueDocument(deckFromDocument(parseDocument(input, { newId: options.newId })), options)
 }
 
 export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {

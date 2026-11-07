@@ -1,5 +1,5 @@
-import { Book, BookItem, type BookSectionParents, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
-import { findActiveContent } from '@segnavia/html'
+import { Book, BookItem, type BookSectionParents, defaultNewId, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
+import { findActiveContent, parseDocument } from '@segnavia/html'
 import { anchoredFrameStyle } from './anchored-frames.ts'
 import { chapterOpenings } from './chapter-openings.ts'
 import { orderedStories, plainChapter } from './chapter-stories.ts'
@@ -56,19 +56,24 @@ interface ImportedChapter {
   parents?: BookSectionParents
 }
 
-function partBody(chapters: ImportedChapter[], conversion: IdmlConversion): BookItem[] {
+function partBody(chapters: ImportedChapter[], conversion: IdmlConversion, newId: () => string): BookItem[] {
   const marker = conversion.answers.parts
-  if ('none' in marker) return chapters.map((chapter) => BookItem.parse(plainChapter(chapter)))
+  if ('none' in marker) return chapters.map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
   const byStory = new Map(chapters.map((chapter) => [chapter.story, chapter]))
-  const body: BookItem[] = conversion.parts.leadingStories.flatMap((story) => byStory.get(story) ?? []).map((chapter) => BookItem.parse(plainChapter(chapter)))
+  const body: BookItem[] = conversion.parts.leadingStories
+    .flatMap((story) => byStory.get(story) ?? [])
+    .map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
   for (const [index, part] of conversion.parts.parts.entries()) {
     const runChapters = part.stories.flatMap((story) => byStory.get(story) ?? [])
     const openerStories = new Set(part.openerStories)
     const chapterStories = new Set(part.chapterStories)
     const opener = runChapters.filter((chapter) => openerStories.has(chapter.story))
-    const children = runChapters.filter((chapter) => chapterStories.has(chapter.story)).map((chapter) => BookItem.parse(plainChapter(chapter)))
+    const children = runChapters
+      .filter((chapter) => chapterStories.has(chapter.story))
+      .map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
     body.push(
       BookItem.parse({
+        id: newId(),
         name: `part-${index + 1}`,
         contents: true,
         ...(part.title ? { title: part.title } : {}),
@@ -87,6 +92,7 @@ export function modelToBook(
   options: IdmlImportOptions = {},
   conversion?: IdmlConversion,
 ): SegnaviaBook {
+  const newId = options.newId ?? defaultNewId
   const preferences = model.preferences
   const rightBinding = preferences.binding === 'right-to-left'
   const bookDirection = rightBinding ? 'rtl' : 'ltr'
@@ -144,14 +150,23 @@ export function modelToBook(
   for (const opening of openingPolicy.verso) report.versoOpening(opening.story, opening.page)
   const chapters = emitted.map(({ story, mapped: value }) => {
     const parents = chapterParents(story.id, model, storyPages, masters, report)
-    return { story: story.id, title: story.id, html: openers.html.get(story.id) ?? value.html, ...(parents ? { parents } : {}) }
+    const source = openers.html.get(story.id) ?? value.html
+    const document = parseDocument(
+      { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: source } }] },
+      { newId },
+    )
+    const page = document.children[0]
+    const html = page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : source
+    return { story: story.id, title: story.id, html, ...(parents ? { parents } : {}) }
   })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)
   const columnGap = bodyColumnGap(model, stories, report)
   const css = `${tableStyles.css()}${styles.css()}${masters.css}`
   const bookFonts = fonts.bookFonts()
-  const body = conversion ? partBody(chapters, conversion) : chapters.map((chapter) => BookItem.parse(plainChapter(chapter)))
+  const body = conversion
+    ? partBody(chapters, conversion, newId)
+    : chapters.map((chapter) => BookItem.parse({ ...plainChapter(chapter), id: newId() }))
   return Book.parse({
     title: model.id,
     mode: 'paginated',

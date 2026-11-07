@@ -2,7 +2,7 @@ import { bookFromDocument, Cover, type Deck, DocumentMetadata, deckFromDocument,
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
-import { type PreparedSlots, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { type PreparedSlots, pageOrPrintedFromInput, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { renderBrowserBookPdf } from './book-render.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
@@ -260,7 +260,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const expanded = await expandFramePages(
-          inputs.map((input) => resolvePageHtml(pageOrPrintedFromDocument(parseDocument(input, { newId: opts.newId })))),
+          inputs.map((input) => resolvePageHtml(pageOrPrintedFromInput(input, { newId: opts.newId }))),
           opts.motifs,
           deadline.signal,
           opts.placements,

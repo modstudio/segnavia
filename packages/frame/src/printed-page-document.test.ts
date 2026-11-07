@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { computeFolios, type DocumentInput, Page, type Page as PageValue } from '@segnavia/format'
-import { bodyHtml, fragmentationCss, printedPageAt, resolvePageHtml } from '@segnavia/html'
+import { fragmentationCss, markdownHtml, printedPageAt, resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
@@ -126,7 +126,7 @@ describe('printedPageDocument', () => {
 
   test('a markdown page and its HTML equivalent have the same print geometry', () => {
     const markdown = Page.parse({ ...page, body: { markdown: '# שלום\n\nEnglish text.' } })
-    const equivalent = Page.parse({ ...page, body: { html: bodyHtml(markdown.body, { dir: markdown.dir, lang: markdown.lang }) } })
+    const equivalent = Page.parse({ ...page, body: { html: markdownHtml(markdown.body, { dir: markdown.dir, lang: markdown.lang }) } })
     expect(printedPageDocument(markdown, { nonce: 'held' })).toBe(printedPageDocument(equivalent, { nonce: 'held' }))
   })
 

@@ -4,6 +4,8 @@ export interface DocumentParseOptions {
   newId?: () => string
 }
 
+export const defaultNewId = (): string => globalThis.crypto.randomUUID()
+
 type IdentifiedLeaf =
   Exclude<DocumentNode, DivisionNode | PartNode | SectionNode> extends infer N ? (N extends DocumentNode ? Omit<N, 'id'> & { id: string } : never) : never
 
@@ -62,7 +64,7 @@ export function identifyDocument<
     conditions: DefinitionNode[]
   },
 >(document: T, options: DocumentParseOptions = {}): IdentifiedDocument<T> {
-  const newId = options.newId ?? (() => globalThis.crypto.randomUUID())
+  const newId = options.newId ?? defaultNewId
   const seen = new Map<string, string>()
   const claim = <N extends { type: string; id?: string; name?: string }>(node: N, path: string): N & { id: string } => {
     const id = node.id ?? newId()

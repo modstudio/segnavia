@@ -38,6 +38,7 @@ export { SELECTION_REPLY_MS } from './selection-request.ts'
 export class SegnaviaPage extends PageElementAttributes {
   static observedAttributes = ['src', 'bounded', 'label']
   private alertLabelOptions: Partial<AlertLabels> | undefined
+  private pageInput: DocumentInput | unknown
   private pageValue: Page | null = null
   private documentValue: Document | null = null
   private contentHeight = 0
@@ -68,7 +69,8 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set alertLabels(value: Partial<AlertLabels> | undefined) {
     this.alertLabelOptions = value
-    if (this.pageValue) this.loadValue(this.pageValue)
+    if (this.pageInput !== undefined) this.load(this.pageInput)
+    else if (this.pageValue) this.loadValue(this.pageValue)
   }
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -130,6 +132,7 @@ export class SegnaviaPage extends PageElementAttributes {
       this.slotFrame = undefined
       this.pageValue = null
       this.documentValue = null
+      this.pageInput = undefined
       this.hostServed = false
       this.contentHeight = 0
       this.replaceChildren()
@@ -172,19 +175,21 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   load(input: DocumentInput | unknown) {
-    const document = parseDocument(input)
+    this.pageInput = input
+    const document = parseDocument(input, { alertLabels: this.alertLabels })
     const page = pageFromDocument(document)
     this.documentValue = document
     this.loadValue(page)
   }
 
   [internalPageLoad](page: Page) {
+    this.pageInput = undefined
     this.documentValue = null
     this.loadValue(page)
   }
 
   private loadValue(page: Page) {
-    const resolvedPage = resolvePageHtml(page, { alertLabels: this.alertLabels })
+    const resolvedPage = resolvePageHtml(page)
     this.cancelSelectionRequests()
     this.hostServed = false
     this.cancelSlotPreparation()

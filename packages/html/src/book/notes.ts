@@ -21,6 +21,7 @@ export interface CollectedNotes {
   targetId: string
   scopeTitle?: string
   division: BookDivision
+  chapter: number
   paragraphs: Element[]
 }
 
@@ -132,6 +133,7 @@ function collectedNotes(series: ResolvedNoteSeries, context: NoteSectionContext,
     targetId: bookTarget ? 'book' : series.placement === 'part' ? (context.part?.id ?? context.targetId) : context.targetId,
     scopeTitle,
     division: context.division,
+    chapter: context.chapter,
     paragraphs: [],
   }
   state.collected.set(mapKey, collected)

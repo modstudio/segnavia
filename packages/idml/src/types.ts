@@ -44,6 +44,7 @@ export interface IdmlImportOptions {
   font?: IdmlFontMap
   asset?: IdmlAssetMap
   answers?: IdmlAnswers
+  newId?: () => string
 }
 
 export type IdmlPoint = [number, number]

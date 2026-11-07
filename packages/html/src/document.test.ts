@@ -34,6 +34,15 @@ test('keeps existing block ids, converts markdown once, and parsing twice is the
   expect(existingBody && 'html' in existingBody ? existingBody.html : '').toContain('data-segnavia-id="kept"')
 })
 
+test('uses host alert labels while converting markdown at the content edge', () => {
+  const parsed = parseDocument(page({ markdown: '> [!NOTE]\n> Read this.' }), {
+    newId: counter(),
+    alertLabels: { note: 'Memo' },
+  })
+  const body = parsed.children[0]?.type === 'page' ? parsed.children[0].body : undefined
+  expect(body && 'html' in body ? body.html : '').toContain('<bdi>Memo</bdi>')
+})
+
 test('refuses duplicate block ids with both blocks and the clearance', () => {
   expect(() => parseDocument(page({ html: '<p data-segnavia-id="same">One</p><figure data-segnavia-id="same">Two</figure>' }), { newId: counter() })).toThrow(
     /block id "same".*<p>.*<figure>.*change or remove one data-segnavia-id to clear this refusal/,

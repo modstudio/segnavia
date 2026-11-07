@@ -1,14 +1,15 @@
 import { ELEMENT_PROPERTIES, ELEMENT_PROPERTY_DESCRIPTORS } from '@segnavia/frame/element-properties'
+import { parseDocument } from '@segnavia/html'
 import { createApp, h } from 'vue'
 import { DeckController } from '../packages/frame/src/controller.ts'
 import { MARKDOWN_EDITOR_PROPERTIES } from '../packages/markdown-editor/src/element-properties.ts'
 
-const deck = {
+const deck = parseDocument({
   type: 'document' as const,
   kind: 'deck' as const,
   title: 'Vue deck',
   children: [{ type: 'slide' as const, id: 'vue-slide', content: { kind: 'html' as const, html: '<h1>Vue rendered slide</h1>' } }],
-}
+})
 const controller = new DeckController({ persist: false })
 await controller.load(deck)
 

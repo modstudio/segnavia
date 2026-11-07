@@ -85,7 +85,12 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
     if (!match || heading.attribs['data-contents'] === 'exclude') return []
     const level = Number(match[1])
     if (level < firstLevel || level > depth) return []
-    const id = heading.attribs.id ?? heading.attribs['data-segnavia-id'] ?? globalThis.crypto.randomUUID()
+    const id = heading.attribs.id ?? heading.attribs['data-segnavia-id']
+    if (!id) {
+      throw new Error(
+        `heading <${heading.name}> in section "${sectionId}" has no id; pass its Document input through parseDocument from @segnavia/html to clear this refusal`,
+      )
+    }
     heading.attribs['data-segnavia-id'] ??= id
     heading.attribs.id = id
     return [{ id, level, text: headingText(heading).replace(/\s+/g, ' ').trim(), sectionId }]
