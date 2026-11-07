@@ -141,7 +141,6 @@ export async function verifyPapers(h: Harness) {
   const imposed = impose(imposition, 30)
   await page.goto(h.url('paper.html'))
   await page.waitForFunction(() => document.querySelectorAll('#first iframe').length === 30)
-
   const geometry = await page.locator('#first').evaluate((paper) => {
     const box = paper.querySelector('.segnavia-paper__paper') as HTMLElement
     const origin = box.getBoundingClientRect()
