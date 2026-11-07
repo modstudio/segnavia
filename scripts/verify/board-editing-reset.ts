@@ -3,12 +3,18 @@ import { center, drag } from './board-editing-actions.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface ResetBoardElement extends HTMLElement {
-  board: { items: Array<{ id: string }> } | null
+  board: ResetDocument | null
+}
+
+interface ResetDocument {
+  type: 'document'
+  kind: 'board'
 }
 
 interface ResetWindow {
   boardChanges: Array<{ edit: { kind: string; ids?: string[] } }>
-  hostBoard: { items: Array<{ id: string }> }
+  hostBoard: ResetDocument
+  boardValue(target: { board: ResetDocument | null }): { items: Array<{ id: string }> }
   boardEditing: { add(input: { kind: string; address: string }): string | undefined }
 }
 
@@ -42,8 +48,8 @@ export async function checkBoardEditingReset(h: Harness, page: Page, board: Loca
     const host = (window as unknown as ResetWindow).hostBoard
     return {
       sent: (window as unknown as ResetWindow).boardChanges.map((change) => change.edit.kind),
-      onScreen: Boolean(value.board?.items.some((item) => item.id === id)),
-      stored: host.items.some((item) => item.id === id),
+      onScreen: Boolean(value.board && (window as unknown as ResetWindow).boardValue(value).items.some((item) => item.id === id)),
+      stored: (window as unknown as ResetWindow).boardValue({ board: host }).items.some((item) => item.id === id),
     }
   }, added)
   h.check('an edit after a board reset during a write is still sent to the host', sent && state.onScreen && state.stored, JSON.stringify({ added, ...state }))

@@ -3,11 +3,7 @@ import {
   type BoardItem,
   type BoardShapes,
   type BoardView,
-  Document,
-  type DocumentInput,
-  boardFromDocument,
   boardBounds,
-  documentFromBoard,
   itemAt,
   itemHeight,
   resolvedShape,
@@ -20,6 +16,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
+import { BoardDocumentElement } from './board-document-element.ts'
 import { type BoardEditingBridge, type BoardInputDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
 import { BoardViewEventDispatcher, boardEvent } from './board-events.ts'
 import { BoardGestures } from './board-gestures.ts'
@@ -33,7 +30,6 @@ import * as boardPolicy from './board-policy.ts'
 import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
 import { focusAfterReveal, revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardItem } from './board-selection.ts'
-import { BoardSelectionElement } from './board-selection-element.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import { internalBoardValue } from './board-value.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -41,9 +37,8 @@ import type { BoardLabels } from './labels.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
-export class SegnaviaBoard extends BoardSelectionElement {
+export class SegnaviaBoard extends BoardDocumentElement {
   private value: Board | null = null
-  private documentValue: Document | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
   private viewWasSet = false
   private initialFitDone = false
@@ -121,9 +116,6 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.surface.dir = 'ltr'
     this.root.append(this.surface)
   }
-  get board(): Document | null {
-    return this.documentValue
-  }
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
     this.render()
@@ -139,10 +131,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.painter.fonts = value
     this.render()
   }
-  set board(input: DocumentInput | null) {
-    const document = input === null ? null : Document.parse(input)
-    const board = document === null ? null : boardFromDocument(document)
-    this.documentValue = document
+  protected acceptBoardInput(board: Board | null) {
     this.setBoardValue(board, true)
     this.editingHostValue?.(board)
   }
@@ -159,9 +148,8 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.mounts.reconcile(previous, this.value)
     this.render()
     this.fitInitial()
-    if (dispatch) this.dispatchEvent(boardEvent('segnavia-board-change', { board: this.documentValue }))
+    if (dispatch) this.dispatchEvent(boardEvent('segnavia-board-change', { board: this.board }))
   }
-
   [internalBoardValue](): Board | null {
     return this.value
   }
@@ -176,11 +164,9 @@ export class SegnaviaBoard extends BoardSelectionElement {
     this.chrome.refresh()
     this.dispatchEvent(boardEvent('segnavia-board-icons'))
   }
-
   get selection(): readonly string[] {
     return this.selectionState.selection
   }
-
   set selection(value: readonly string[]) {
     this.selectionState.selection = value
   }
@@ -252,10 +238,7 @@ export class SegnaviaBoard extends BoardSelectionElement {
       value: () => this.value,
       view: () => this.currentView,
       shapes: () => this.shapes,
-      document: (board) => {
-        if (!this.documentValue) throw new Error('a board Document is required before editing; set board to a board Document to clear this refusal')
-        return documentFromBoard(board, this.documentValue)
-      },
+      document: (board) => this.documentWithBoard(board),
       setDropTarget: (id) => this.decorations.setDropTarget(id),
       local: (event) => this.gestures.local(event),
       optimistic: (board) => this.setBoardValue(board, false),

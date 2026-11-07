@@ -1,8 +1,21 @@
-import type { BoardItem } from '@segnavia/format'
+import { type BoardItem, Document, type Page } from '@segnavia/format'
 import { classifyMediaAnswer, type ResolvePlacement } from '@segnavia/html'
 import { type CheckedResolvedBoardItem, checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
+
+function documentFromPage(page: Page): Document {
+  return Document.parse({
+    type: 'document',
+    kind: 'page',
+    size: page.size,
+    ...(page.print === undefined ? {} : { print: page.print }),
+    settings: { scripts: page.scripts, ...(page.dir === undefined ? {} : { dir: page.dir }), ...(page.lang === undefined ? {} : { lang: page.lang }) },
+    ...(page.fonts === undefined ? {} : { style: { fonts: page.fonts } }),
+    ...(page.slots === undefined ? {} : { data: { slots: page.slots } }),
+    children: [{ type: 'page', ...(page.id === undefined ? {} : { id: page.id }), body: page.body }],
+  })
+}
 
 export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?: AbortSignal): ResolveBoardItem {
   return async (item) => {
@@ -19,7 +32,7 @@ export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?:
     if (answer.kind === 'page') {
       const size = answer.page.size
       if (size.height === 'auto') throw new Error(`The page at ${item.address} has no fixed size for its board shape.`)
-      return { kind: 'page', page: answer.page, size }
+      return { kind: 'page', page: documentFromPage(answer.page), size }
     }
     return answer
   }

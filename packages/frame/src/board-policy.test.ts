@@ -95,6 +95,16 @@ describe('board policy', () => {
     })
   })
 
+  test('refuses a resolved board item document of the wrong kind', () => {
+    const deckItem: BoardItem = { id: 'deck', kind: 'deck', address: 'deck', x: 0, y: 0, width: 100 }
+    expect(() =>
+      checkResolved(deckItem, {
+        kind: 'deck',
+        deck: { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '' } }] },
+      }),
+    ).toThrow('resolved board item "deck" has document kind page, not deck; return kind deck to clear this refusal')
+  })
+
   test('returns a parsed cover without changing the host value', () => {
     const designedCover = { cover: { page: { html: 'cover' } } }
     const resolved = { kind: 'paper' as const, pages: [], imposition, size: { width: 10, height: 20 }, designedCover }

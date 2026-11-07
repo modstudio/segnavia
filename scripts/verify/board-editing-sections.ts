@@ -26,14 +26,24 @@ interface DemoBoard {
   sections: DemoSection[]
 }
 interface DemoChange {
-  board: DemoBoard
+  board: DemoDocument
   edit: { kind: string }
 }
-type BoardElement = HTMLElement & { board: DemoBoard; selection: readonly string[] }
-type DemoWindow = typeof window & { boardChanges: DemoChange[]; boardEditErrors: unknown[]; hostBoard: DemoBoard }
+interface DemoDocument {
+  type: 'document'
+  kind: 'board'
+}
+type BoardElement = HTMLElement & { board: DemoDocument; selection: readonly string[] }
+type DemoWindow = typeof window & {
+  boardChanges: DemoChange[]
+  boardEditErrors: unknown[]
+  hostBoard: DemoDocument
+  boardValue(target: { board: DemoDocument }): DemoBoard
+  setBoardValue(target: { board: DemoDocument }, value: DemoBoard): void
+}
 type ResetBoard = (direction?: 'ltr' | 'rtl') => Promise<void>
 function sectionState(element: Element) {
-  const board = (element as BoardElement).board
+  const board = (window as unknown as DemoWindow).boardValue(element as BoardElement)
   const section = board.sections.find((entry) => entry.id === 'section') as DemoSection
   const hebrew = board.items.find((item) => item.id === 'deck-hebrew') as DemoItem
   const small = board.items.find((item) => item.id === 'deck-small') as DemoItem
@@ -43,15 +53,15 @@ function sectionState(element: Element) {
 async function checkRtlRightEdge(h: Harness, board: Locator, first: Locator, pageItem: Locator) {
   await board.evaluate((element) => {
     const value = element as BoardElement
-    const next = structuredClone(value.board)
+    const state = window as unknown as DemoWindow
+    const next = structuredClone(state.boardValue(value))
     const small = next.items.find((entry) => entry.id === 'deck-small')
     const hebrew = next.items.find((entry) => entry.id === 'deck-hebrew')
     if (small) small.x = 336
     if (hebrew) hebrew.x = 0
-    value.board = next
-    const state = window as unknown as DemoWindow
+    state.setBoardValue(value, next)
     state.boardChanges = []
-    state.hostBoard = next
+    state.hostBoard = value.board
   })
   const itemBox = await first.boundingBox()
   const from = await center(pageItem)
@@ -59,7 +69,7 @@ async function checkRtlRightEdge(h: Harness, board: Locator, first: Locator, pag
   await drag(h.page, from, itemBox.x + itemBox.width - 1 - from.x, itemBox.y + itemBox.height / 2 - from.y)
   await waitChanges(h.page, 1)
   const cells = await board.evaluate((element) => {
-    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+    const section = (window as unknown as DemoWindow).boardValue(element as BoardElement).sections.find((entry) => entry.id === 'section') as DemoSection & {
       cells: Array<{ id: string; row: number; column: number }>
     }
     return structuredClone(section.cells)
@@ -75,7 +85,7 @@ async function checkRtlRightEdge(h: Harness, board: Locator, first: Locator, pag
 
 async function checkSameSectionColumnDrop(h: Harness, board: Locator, first: Locator, second: Locator) {
   const before = await board.evaluate((element) => {
-    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection
+    const section = (window as unknown as DemoWindow).boardValue(element as BoardElement).sections.find((entry) => entry.id === 'section') as DemoSection
     return structuredClone(section)
   })
   const secondBox = await second.boundingBox()
@@ -84,7 +94,7 @@ async function checkSameSectionColumnDrop(h: Harness, board: Locator, first: Loc
   await drag(h.page, firstFrom, secondBox.x + secondBox.width / 2 - firstFrom.x, secondBox.y + secondBox.height - 1 - firstFrom.y)
   await waitChanges(h.page, 1)
   const reordered = await board.evaluate((element) => {
-    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+    const section = (window as unknown as DemoWindow).boardValue(element as BoardElement).sections.find((entry) => entry.id === 'section') as DemoSection & {
       cells: Array<{ id: string; row: number; column: number }>
     }
     return structuredClone(section)
@@ -105,14 +115,14 @@ async function checkGrowingSectionMakesRoom(h: Harness, board: Locator, second: 
   await reset()
   await second.click()
   const pageBefore = await board.evaluate((element) => {
-    const value = (element as BoardElement).board
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
     return structuredClone(value.items.find((item) => item.id === 'page') as DemoItem)
   })
   const handle = board.locator('[part~="resize-handle"][data-corner="bottom-right"]')
   await drag(h.page, await center(handle), 160, 0)
   await waitChanges(h.page, 1)
   const room = await board.evaluate((element) => {
-    const value = (element as BoardElement).board
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
     const section = value.sections.find((entry) => entry.id === 'section') as DemoSection
     const page = value.items.find((item) => item.id === 'page') as DemoItem
     const pageHeight = (page.width * 900) / 640
@@ -132,16 +142,21 @@ async function checkGrowingSectionMakesRoom(h: Harness, board: Locator, second: 
   await reset()
   await board.evaluate((element) => {
     const value = element as BoardElement
-    const next = structuredClone(value.board)
+    const state = window as unknown as DemoWindow
+    const next = structuredClone(state.boardValue(value))
     next.labels = next.labels.map((label) => (label.id === 'label' ? { ...label, x: 620, y: 80 } : label))
-    value.board = next
+    state.setBoardValue(value, next)
     ;(window as unknown as DemoWindow).boardChanges = []
   })
-  const labelBefore = await board.evaluate((element) => structuredClone((element as BoardElement).board.labels.find((label) => label.id === 'label')))
+  const labelBefore = await board.evaluate((element) =>
+    structuredClone((window as unknown as DemoWindow).boardValue(element as BoardElement).labels.find((label) => label.id === 'label')),
+  )
   await second.click()
   await drag(h.page, await center(board.locator('[part~="resize-handle"][data-corner="bottom-right"]')), 160, 0)
   await waitChanges(h.page, 1)
-  const labelAfter = await board.evaluate((element) => structuredClone((element as BoardElement).board.labels.find((label) => label.id === 'label')))
+  const labelAfter = await board.evaluate((element) =>
+    structuredClone((window as unknown as DemoWindow).boardValue(element as BoardElement).labels.find((label) => label.id === 'label')),
+  )
   const grownSectionBox = await board.locator('[part~="section"]').boundingBox()
   const movedLabelBox = await board.locator('[part~="label"]').first().boundingBox()
   const labelOverlap =
@@ -162,17 +177,17 @@ async function checkEmptyLabelSettlement(h: Harness, board: Locator, first: Loca
   await reset()
   await board.evaluate((element) => {
     const value = element as BoardElement
-    const next = structuredClone(value.board)
+    const state = window as unknown as DemoWindow
+    const next = structuredClone(state.boardValue(value))
     next.labels = [...next.labels, { id: 'empty-label', text: '', x: 2000, y: 2000 }]
-    value.board = next
+    state.setBoardValue(value, next)
     const emptyLabel = value.shadowRoot?.querySelectorAll<HTMLElement>('[part~="label"]').item(next.labels.length - 1)
     if (!emptyLabel) throw new Error('The empty label has no decoration.')
     emptyLabel.style.display = 'none'
-    value.board = next
-    const state = window as unknown as DemoWindow
+    state.setBoardValue(value, next)
     state.boardChanges = []
     state.boardEditErrors = []
-    state.hostBoard = next
+    state.hostBoard = value.board
   })
   await first.click()
   await h.page.keyboard.press('ArrowRight')
@@ -201,7 +216,7 @@ async function checkEmptyLabelSettlement(h: Harness, board: Locator, first: Loca
 export async function checkBoardEditingSections(h: Harness, board: Locator, first: Locator, second: Locator, reset: ResetBoard) {
   const pageItem = board.locator('[data-board-item="page"]')
   const attached = await board.evaluate((element) => {
-    const value = (element as BoardElement).board
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
     const section = value.sections.find((entry) => entry.id === 'section') as DemoSection & { cells?: unknown[] }
     return { changes: (window as unknown as DemoWindow).boardChanges.map((change) => change.edit.kind), section }
   })
@@ -212,7 +227,7 @@ export async function checkBoardEditingSections(h: Harness, board: Locator, firs
   )
   await reset()
   const reassigned = await board.evaluate((element) => {
-    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+    const section = (window as unknown as DemoWindow).boardValue(element as BoardElement).sections.find((entry) => entry.id === 'section') as DemoSection & {
       cells: Array<{ id: string; row: number; column: number }>
     }
     return { cells: structuredClone(section.cells), changes: (window as unknown as DemoWindow).boardChanges.map((change) => change.edit.kind) }
@@ -275,7 +290,7 @@ export async function checkBoardEditingSections(h: Harness, board: Locator, firs
   await drag(h.page, pageFrom, firstBox.x + firstBox.width - 1 - pageFrom.x, firstBox.y + firstBox.height / 2 - pageFrom.y)
   await waitChanges(h.page, 1)
   const rightEdge = await board.evaluate((element) => {
-    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+    const section = (window as unknown as DemoWindow).boardValue(element as BoardElement).sections.find((entry) => entry.id === 'section') as DemoSection & {
       cells: Array<{ id: string; row: number; column: number }>
     }
     return structuredClone(section)
@@ -295,7 +310,7 @@ export async function checkBoardEditingSections(h: Harness, board: Locator, firs
   await drag(h.page, bottomFrom, bottomBox.x + bottomBox.width / 2 - bottomFrom.x, bottomBox.y + bottomBox.height - 1 - bottomFrom.y)
   await waitChanges(h.page, 1)
   const bottomEdge = await board.evaluate((element) => {
-    const section = (element as BoardElement).board.sections.find((entry) => entry.id === 'section') as DemoSection & {
+    const section = (window as unknown as DemoWindow).boardValue(element as BoardElement).sections.find((entry) => entry.id === 'section') as DemoSection & {
       cells: Array<{ id: string; row: number; column: number }>
     }
     return structuredClone(section)

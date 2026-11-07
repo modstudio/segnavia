@@ -60,6 +60,21 @@ const DocumentShape = z.object({
 const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const
 const structuralFields = new Set(['type', 'id', 'kind', 'children', ...definitionCollections])
 
+function refineSettings(document: z.infer<typeof DocumentShape>, profile: (typeof DOCUMENT_PROFILES)[DocumentKind], ctx: z.RefinementCtx): void {
+  if (document.settings?.dir !== undefined && !(profile.settingsDir as readonly string[]).includes(document.settings.dir)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['settings', 'dir'],
+      message: profileRefusal(document.settings.dir, document.kind, profile.settingsDir, 'settings.dir value'),
+    })
+  }
+  for (const [field, value] of Object.entries(document.settings ?? {})) {
+    if (value !== undefined && !(profile.settings as readonly string[]).includes(field)) {
+      ctx.addIssue({ code: 'custom', path: ['settings', field], message: profileRefusal(field, document.kind, profile.settings, 'settings field') })
+    }
+  }
+}
+
 function walk(nodes: DocumentNodeValue[], visit: (node: DocumentNodeValue, path: (string | number)[]) => void, path: (string | number)[] = ['children']): void {
   nodes.forEach((node, index) => {
     const nodePath = [...path, index]
@@ -117,22 +132,7 @@ export const Document = DocumentShape.superRefine((document, ctx) => {
   if (document.variables.length > 0) {
     ctx.addIssue({ code: 'custom', path: ['variables'], message: 'document field variables is not yet supported; remove it to clear this refusal' })
   }
-  if (document.settings?.dir !== undefined && !(profile.settingsDir as readonly string[]).includes(document.settings.dir)) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['settings', 'dir'],
-      message: profileRefusal(document.settings.dir, document.kind, profile.settingsDir, 'settings.dir value'),
-    })
-  }
-  for (const [field, value] of Object.entries(document.settings ?? {})) {
-    if (value !== undefined && !(profile.settings as readonly string[]).includes(field)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['settings', field],
-        message: profileRefusal(field, document.kind, profile.settings, 'settings field'),
-      })
-    }
-  }
+  refineSettings(document, profile, ctx)
   if (document.limits !== undefined && (document.kind === 'deck' || document.kind === 'board')) {
     ctx.addIssue({ code: 'custom', path: ['limits'], message: 'document field limits is not yet supported; remove it to clear this refusal' })
   }

@@ -8,7 +8,7 @@ interface FarPanFacts {
   width: number
 }
 
-type FarPanBoard = HTMLElement & { board: { items: BoardItem[] }; view: BoardView }
+type FarPanBoard = HTMLElement & { view: BoardView }
 
 // A wheel event only proves the board pans in the wheel's direction: Chromium may scale a synthetic wheel's delta, so its
 // size says nothing about the board. The far item is then brought to the center through the view, and must mount.
@@ -17,8 +17,9 @@ export async function checkFarBoardPan(h: Harness) {
   const readFacts = () =>
     board.evaluate((element) => {
       const value = element as FarPanBoard
+      const board = (window as typeof window & { boardValue(target: Element): { items: BoardItem[] } }).boardValue(value)
       return {
-        item: value.board.items.find((item) => item.id === 'deck-far'),
+        item: board.items.find((item) => item.id === 'deck-far'),
         mounted: Boolean(value.shadowRoot?.querySelector('[data-board-item="deck-far"]')),
         view: value.view,
         width: value.clientWidth,
@@ -41,7 +42,10 @@ export async function checkFarBoardPan(h: Harness) {
 
   const present = await h.page
     .waitForFunction(
-      () => Boolean((document.querySelector('segnavia-board') as FarPanBoard | null)?.board?.items.some((item) => item.id === 'deck-far')),
+      () => {
+        const board = document.querySelector('segnavia-board')
+        return Boolean(board && (window as typeof window & { boardValue(target: Element): { items: BoardItem[] } }).boardValue(board).items.some((item) => item.id === 'deck-far'))
+      },
       undefined,
       { timeout: BOUNDED_WAIT_MS },
     )
@@ -69,14 +73,24 @@ export async function checkFarBoardPan(h: Harness) {
 // What the board and its host went through, reported when the far item is missing so a recurrence names its cause.
 function boardHistory(h: Harness) {
   return h.page.evaluate(() => {
-    type Change = { board: { items: Array<{ id: string }> }; edit: { kind: string; ids?: string[] } }
-    const page = window as typeof window & { boardChanges?: Change[]; boardEditErrors?: unknown[]; hostBoard?: Change['board'] }
+    type DocumentValue = { type: 'document'; kind: 'board' }
+    type Change = { board: DocumentValue; edit: { kind: string; ids?: string[] } }
+    const page = window as typeof window & {
+      boardChanges?: Change[]
+      boardEditErrors?: unknown[]
+      hostBoard?: DocumentValue
+      boardValue(target: Element | { board: DocumentValue }): { items: Array<{ id: string }> }
+    }
     const board = document.querySelector('segnavia-board') as FarPanBoard | null
     return {
-      items: board?.board.items.map((item) => item.id),
-      changes: page.boardChanges?.map((change) => ({ kind: change.edit.kind, ids: change.edit.ids, items: change.board.items.map((item) => item.id) })),
+      items: board ? page.boardValue(board).items.map((item) => item.id) : undefined,
+      changes: page.boardChanges?.map((change) => ({
+        kind: change.edit.kind,
+        ids: change.edit.ids,
+        items: page.boardValue({ board: change.board } as unknown as Element).items.map((item) => item.id),
+      })),
       editErrors: page.boardEditErrors?.map(String),
-      hostItems: page.hostBoard?.items.map((item) => item.id),
+      hostItems: page.hostBoard ? page.boardValue({ board: page.hostBoard } as unknown as Element).items.map((item) => item.id) : undefined,
     }
   })
 }

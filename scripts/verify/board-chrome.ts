@@ -7,8 +7,9 @@ export async function checkBoardChrome(h: Harness) {
   await list.locator('input[type="search"]').fill('')
   await list.locator('[data-board-item="deck-small"]').waitFor({ state: 'visible', timeout: BOUNDED_WAIT_MS })
   await board.evaluate((element) => {
-    const value = element as HTMLElement & { board: { direction: 'ltr' | 'rtl' }; fitAll(): void; selection: readonly string[] }
-    value.board = { ...value.board, direction: 'ltr' }
+    const value = element as HTMLElement & { fitAll(): void; selection: readonly string[] }
+    const state = window as typeof window & { boardValue(target: Element): { direction: 'ltr' | 'rtl' }; setBoardValue(target: Element, value: unknown): void }
+    state.setBoardValue(value, { ...state.boardValue(value), direction: 'ltr' })
     value.selection = []
     value.fitAll()
     const state = window as typeof window & { boardSelections: unknown[]; boardActions: unknown[] }
@@ -132,8 +133,10 @@ export async function checkBoardChrome(h: Harness) {
   )
 
   await board.evaluate((element) => {
-    const value = element as HTMLElement & { board: { items: Array<{ id: string; x: number; y: number }> }; view: BoardView }
-    const page = value.board.items.find((entry) => entry.id === 'page')
+    const value = element as HTMLElement & { view: BoardView }
+    const page = (window as typeof window & { boardValue(target: Element): { items: Array<{ id: string; x: number; y: number }> } }).boardValue(value).items.find(
+      (entry) => entry.id === 'page',
+    )
     if (!page) throw new Error('The board has no page item.')
     value.view = { zoom: 1, pan: { x: 48 - page.x, y: 100 - page.y }, viewport: value.view.viewport }
   })
@@ -178,8 +181,9 @@ export async function checkBoardChrome(h: Harness) {
   h.check('choosing a list item selects it', listSelected.join() === 'deck-hebrew', String(listSelected))
 
   await board.evaluate((element) => {
-    const value = element as HTMLElement & { board: { direction: 'ltr' | 'rtl' }; fitAll(): void }
-    value.board = { ...value.board, direction: 'rtl' }
+    const value = element as HTMLElement & { fitAll(): void }
+    const state = window as typeof window & { boardValue(target: Element): { direction: 'ltr' | 'rtl' }; setBoardValue(target: Element, value: unknown): void }
+    state.setBoardValue(value, { ...state.boardValue(value), direction: 'rtl' })
     value.fitAll()
   })
   const rtl = await board.evaluate((element) => {

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Deck, type Media, Page } from '@segnavia/format'
+import { Deck, Document, type Media, Page } from '@segnavia/format'
 import { placementPlaceholderSource } from '@segnavia/html'
 import { boardItemFrom } from './board-resolutions.ts'
 import { DeckController } from './controller.ts'
@@ -34,12 +34,19 @@ test('slotAssetFrom passes caller context and otherwise omits an unknown width',
 })
 
 test('boardItemFrom maps fixed pages, refuses fluid pages, and passes through other assets', async () => {
+  const fixedDocument = Document.parse({
+    type: 'document',
+    kind: 'page',
+    size: { width: 320, height: 200 },
+    settings: { scripts: 'refuse' },
+    children: [{ type: 'page', body: { html: '<p>Fixed</p>' } }],
+  })
   const fixed = Page.parse({ html: '<p>Fixed</p>', size: { width: 320, height: 200 } })
   const fluid = Page.parse({ html: '<p>Fluid</p>' })
   const boardPage = { id: 'page', kind: 'page' as const, address: 'page', x: 0, y: 0, width: 120 }
   await expect(boardItemFrom(async () => ({ kind: 'page', page: fixed }))(boardPage)).resolves.toEqual({
     kind: 'page',
-    page: fixed,
+    page: fixedDocument,
     size: { width: 320, height: 200 },
   })
   await expect(boardItemFrom(async () => ({ kind: 'page', page: fluid }))(boardPage)).rejects.toThrow('has no fixed size')
