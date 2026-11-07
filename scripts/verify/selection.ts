@@ -22,16 +22,17 @@ export async function verifySelection(h: Harness) {
       return element
     }
     const immediate = mount('selection-immediate')
-    immediate.page = { html: '<p>Immediate page text</p>', scripts: 'refuse' }
+    const pageDocument = (html: string, settings: Record<string, unknown> = {}) => ({
+      type: 'document',
+      kind: 'page',
+      settings: { scripts: 'refuse', ...settings },
+      children: [{ type: 'page', body: { html } }],
+    })
+    immediate.page = pageDocument('<p>Immediate page text</p>')
     ;(window as typeof window & { immediateSelection: Promise<{ text: string; pageText: string }> }).immediateSelection = immediate.readSelection()
-    mount('selection-empty').page = { html: '<p>Plain page text</p>', scripts: 'refuse' }
-    mount('selection-rtl').page = {
-      html: '<p id="hebrew">בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם וְאֵת הָאָרֶץ׃</p>',
-      scripts: 'refuse',
-      dir: 'rtl',
-      lang: 'he',
-    }
-    mount('selection-sandboxed').page = { html: '<p>Script-enabled</p>', scripts: 'sandboxed' }
+    mount('selection-empty').page = pageDocument('<p>Plain page text</p>')
+    mount('selection-rtl').page = pageDocument('<p id="hebrew">בְּרֵאשִׁית בָּרָא אֱלֹהִים אֵת הַשָּׁמַיִם וְאֵת הָאָרֶץ׃</p>', { dir: 'rtl', lang: 'he' })
+    mount('selection-sandboxed').page = pageDocument('<p>Script-enabled</p>', { scripts: 'sandboxed' })
     mount('selection-url').showUrl('ticket-page.html')
     const replacement = mount('selection-replacement')
     let releaseAsset!: (value: string) => void
@@ -43,8 +44,10 @@ export async function verifySelection(h: Harness) {
         }),
     }
     replacement.page = {
-      html: '<p data-slot-value="text">Unfilled document text</p><img data-slot-src="image">',
-      scripts: 'refuse',
+      type: 'document',
+      kind: 'page',
+      settings: { scripts: 'refuse' },
+      children: [{ type: 'page', body: { html: '<p data-slot-value="text">Unfilled document text</p><img data-slot-src="image">' } }],
       slots: [
         { key: 'text', label: 'Text', type: 'text' },
         { key: 'image', label: 'Image', type: 'image' },
@@ -125,9 +128,11 @@ export async function verifySelection(h: Harness) {
   const stageSelection = await page.evaluate(async () => {
     const stage = document.createElement('segnavia-stage') as SelectionStage
     const deck = {
+      type: 'document',
+      kind: 'deck',
       title: 'Selection',
-      scripts: 'refuse',
-      slides: [{ id: 'selection', content: { kind: 'html', html: '<p>Shown slide text</p>' } }],
+      settings: { scripts: 'refuse' },
+      children: [{ type: 'slide', id: 'selection', content: { kind: 'html', html: '<p>Shown slide text</p>' } }],
     }
     stage.setAttribute('hash', 'off')
     stage.setAttribute('src', URL.createObjectURL(new Blob([JSON.stringify(deck)], { type: 'application/json' })))

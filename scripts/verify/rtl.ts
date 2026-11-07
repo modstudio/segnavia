@@ -5,7 +5,7 @@
 import '../source-guard.ts'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Deck } from '@segnavia/format'
+import { Document, deckFromDocument } from '@segnavia/format'
 import { wordIndex } from '@segnavia/frame/timeline'
 import { type Harness, SITE } from './harness.ts'
 
@@ -13,7 +13,7 @@ const PLAYER = 'segnavia-player'
 
 export async function verifyRtl(h: Harness) {
   const { page, check } = h
-  const deck = JSON.parse(readFileSync(path.join(SITE, 'deck-he.json'), 'utf8')) as Deck
+  const deck = deckFromDocument(Document.parse(JSON.parse(readFileSync(path.join(SITE, 'deck-he.json'), 'utf8'))))
   const list = deck.slides[1]?.content
   const form = deck.slides[2]
   if (!list || !('kind' in list) || list.kind !== 'shot' || !form || !('kind' in form.content) || form.content.kind !== 'shot' || !form.narration)

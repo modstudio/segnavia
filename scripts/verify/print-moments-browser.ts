@@ -7,11 +7,14 @@ export async function verifyLatePrintMoment(h: Harness) {
     const { printDeck } = (await import(bundle)) as { printDeck: (deck: unknown, options: unknown) => Promise<void> }
     await printDeck(
       {
+        type: 'document',
+        kind: 'deck',
         title: 'Late print moment',
-        scripts: 'sandboxed',
+        settings: { scripts: 'sandboxed' },
         size: { width: 400, height: 200 },
-        slides: [
+        children: [
           {
+            type: 'slide',
             id: 'late',
             printAtMs: 500,
             content: {

@@ -46,7 +46,8 @@ async function verifyReloadedNotes(h: Harness) {
     const holder = window as unknown as { authoring: { dirty: boolean }; authoringFacts: { dirty: boolean[] } }
     const before = holder.authoringFacts.dirty.length
     const deck = player.controller.state.deck
-    await player.controller.load({ ...deck, slides: deck.slides.map((slide) => ({ ...slide, notes: 'Host clean' })) })
+    const children = deck.slides.map((slide) => ({ type: 'slide', ...slide, notes: 'Host clean' }))
+    await player.controller.load({ type: 'document', kind: 'deck', children })
     return { dirty: holder.authoring.dirty, events: holder.authoringFacts.dirty.length - before }
   })
   check('a clean reload adopts host notes without becoming dirty', (await notes.inputValue()) === 'Host clean' && !clean.dirty && clean.events === 0)
@@ -71,9 +72,11 @@ async function verifyReloadedNotes(h: Harness) {
       controller: { load(input: unknown): Promise<void>; state: { deck: { slides: Array<Record<string, unknown>> } } }
     }
     const deck = player.controller.state.deck
+    const children = deck.slides.map((slide) => ({ type: 'slide', ...slide, notes: 'Host during edit' }))
     ;(window as unknown as { notesReload: Promise<void> }).notesReload = player.controller.load({
-      ...deck,
-      slides: deck.slides.map((slide) => ({ ...slide, notes: 'Host during edit' })),
+      type: 'document',
+      kind: 'deck',
+      children,
     })
   })
   await page.waitForFunction(() =>
@@ -87,7 +90,8 @@ async function verifyReloadedNotes(h: Harness) {
       controller: { load(input: unknown): Promise<void>; state: { deck: { slides: Array<Record<string, unknown>> } } }
     }
     const deck = player.controller.state.deck
-    await player.controller.load({ ...deck, slides: deck.slides.map((slide) => ({ ...slide, notes: 'Host after settle' })) })
+    const children = deck.slides.map((slide) => ({ type: 'slide', ...slide, notes: 'Host after settle' }))
+    await player.controller.load({ type: 'document', kind: 'deck', children })
   })
   check(
     'a reload preserves local work once, then adopts host notes after it settles',
@@ -102,7 +106,8 @@ async function verifyReloadedNotes(h: Harness) {
     }
     await player.controller.load({}).catch(() => {})
     const deck = player.controller.state.deck
-    await player.controller.load({ ...deck, slides: deck.slides.map((slide) => ({ ...slide, notes: 'Host after refused reload' })) })
+    const children = deck.slides.map((slide) => ({ type: 'slide', ...slide, notes: 'Host after refused reload' }))
+    await player.controller.load({ type: 'document', kind: 'deck', children })
     return (player.shadowRoot?.querySelector('textarea') as HTMLTextAreaElement | null)?.value ?? ''
   })
   check('a refused reload does not preserve local notes into the next host reload', afterRefusal === 'Host after refused reload', afterRefusal)
@@ -120,9 +125,11 @@ async function verifyReloadedNotes(h: Harness) {
       controller: { load(input: unknown): Promise<void>; state: { deck: { slides: Array<Record<string, unknown>> } } }
     }
     const deck = player.controller.state.deck
+    const children = deck.slides.map((slide) => ({ type: 'slide', ...slide, notes: 'Concurrent host notes' }))
     ;(window as unknown as { concurrentHostLoad: Promise<void> }).concurrentHostLoad = player.controller.load({
-      ...deck,
-      slides: deck.slides.map((slide) => ({ ...slide, notes: 'Concurrent host notes' })),
+      type: 'document',
+      kind: 'deck',
+      children,
     })
   })
   await page.evaluate(() => (window as unknown as { authoringFacts: { releaseNotes(): void } }).authoringFacts.releaseNotes())
@@ -202,7 +209,6 @@ export async function verifyRailAuthoring(h: Harness) {
     JSON.stringify(withActions),
   )
   await h.evidence('rail-360.png')
-
   const second = page.locator(`${PLAYER} segnavia-rail button[data-index="1"]`)
   await second.click()
   await h.waitFor(PLAYER, (data) => data.slide === '2')
@@ -212,7 +218,6 @@ export async function verifyRailAuthoring(h: Harness) {
   await page.keyboard.press('Enter')
   await h.waitFor(PLAYER, (data) => data.slide === '3')
   check('thumbnail arrows and Enter navigate', (await h.state(PLAYER)).slide === '3')
-
   await page.setViewportSize({ width: 1000, height: 816 })
   await page.goto(h.url('authoring.html'))
   await page.waitForFunction(() => 'authoring' in window)
@@ -256,7 +261,6 @@ export async function verifyRailAuthoring(h: Harness) {
     ids.join(',') === 'second,probe' && rolledBackOrder.rail.join(',') === rolledBackOrder.deck.join(','),
     JSON.stringify({ ids, order: rolledBackOrder }),
   )
-
   await page.setViewportSize({ width: 408, height: 816 })
   await page.goto(h.url('authoring-rtl.html'))
   await page.waitForFunction(() => 'authoring' in window)
@@ -276,13 +280,10 @@ export async function verifyRailAuthoring(h: Harness) {
     return { marker, ids: slides.map((slide) => slide.id).join(',') }
   })
   check('RTL pointer drag uses the logical after side', rtlDrag.marker === 'after' && rtlDrag.ids === 'second,probe', JSON.stringify(rtlDrag))
-
   await page.setViewportSize({ width: 1000, height: 816 })
   await page.goto(h.url('authoring.html'))
   await page.waitForFunction(() => 'authoring' in window)
-
   await verifyAuthoredPrintMoment(h)
-
   const notes = page.locator(`${PLAYER} textarea[part="notes-editor"]`)
   await notes.fill('Draft one')
   await page.waitForTimeout(700)
@@ -391,7 +392,6 @@ export async function verifyRailAuthoring(h: Harness) {
   await verifyReloadedNotes(h)
   await verifyDeskRailUnmount(h)
   await verifyReactAuthoring(h)
-
   const playerBundle = readFileSync(path.join(SITE, 'segnavia-player.js'), 'utf8')
   const controlsBundle = readFileSync(path.join(SITE, 'segnavia-controls.js'), 'utf8')
   check('viewer bundles contain no authoring layer', !playerBundle.includes('attachAuthoring') && !controlsBundle.includes('attachAuthoring'))

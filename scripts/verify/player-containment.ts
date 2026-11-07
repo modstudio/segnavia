@@ -49,10 +49,12 @@ async function mountThirty(h: Harness, layout: 'fixed' | 'responsive') {
       below.style.background = '#ccc'
       host.append(below)
       await host.controller.load({
+        type: 'document',
+        kind: 'deck',
         title: 'Thirty',
         layout: input.layout,
         size: { width: 1280, height: 720 },
-        slides: input.slides,
+        children: input.slides.map((slide) => ({ type: 'slide', ...slide })),
       })
     },
     { layout, belowHeight: BELOW_HEIGHT, slides: thirtySlides() },

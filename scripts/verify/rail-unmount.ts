@@ -5,8 +5,11 @@ const SLIDE_COUNT = 40
 
 function longDeck() {
   return {
+    type: 'document',
+    kind: 'deck',
     title: 'Rail unmount',
-    slides: Array.from({ length: SLIDE_COUNT }, (_, index) => ({
+    children: Array.from({ length: SLIDE_COUNT }, (_, index) => ({
+      type: 'slide',
       id: `rail-${index}`,
       content: { kind: 'html' as const, html: `<h1>${index + 1}</h1>` },
     })),

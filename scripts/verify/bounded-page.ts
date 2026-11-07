@@ -19,11 +19,20 @@ export async function verifyBoundedPage(h: Harness) {
       element.id = id
       element.bounded = true
       element.page = {
-        scripts,
+        type: 'document',
+        kind: 'page',
+        settings: { scripts },
         size: 'fluid',
-        html: `<style>body{margin:0}.sticky{position:sticky;top:0;height:32px;background:white}.space{height:700px}</style>
-          <header class="sticky">Sticky</header><a id="jump" href="#target">Jump</a><p>Selectable text</p>
-          <div class="space"></div><p id="target">Target</p><div class="space"></div>`,
+        children: [
+          {
+            type: 'page',
+            body: {
+              html: `<style>body{margin:0}.sticky{position:sticky;top:0;height:32px;background:white}.space{height:700px}</style>
+            <header class="sticky">Sticky</header><a id="jump" href="#target">Jump</a><p>Selectable text</p>
+            <div class="space"></div><p id="target">Target</p><div class="space"></div>`,
+            },
+          },
+        ],
       }
       const host = document.createElement('div')
       host.className = 'bounded-host'

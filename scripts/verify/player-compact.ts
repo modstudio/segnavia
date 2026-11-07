@@ -53,18 +53,21 @@ async function mountRailAndActions(h: Harness, count: number, extras?: { dir?: '
         host.append(action)
       }
       await host.controller.load({
+        type: 'document',
+        kind: 'deck',
         title: 'Compact actions',
-        dir: input.dir,
+        settings: { dir: input.dir },
         size: { width: 1280, height: 720 },
-        slides: [
+        children: [
           {
+            type: 'slide',
             id: 'a',
             content: { kind: 'html', html: '<p>A</p>' },
             notes: input.notes ? 'Notes' : undefined,
             narration: input.narration ? input.narrationSource : undefined,
           },
-          { id: 'b', content: { kind: 'html', html: '<p>B</p>' } },
-          { id: 'c', content: { kind: 'html', html: '<p>C</p>' } },
+          { type: 'slide', id: 'b', content: { kind: 'html', html: '<p>B</p>' } },
+          { type: 'slide', id: 'c', content: { kind: 'html', html: '<p>C</p>' } },
         ],
       })
     },

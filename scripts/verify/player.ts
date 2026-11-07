@@ -4,7 +4,7 @@
 import '../source-guard.ts'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Deck } from '@segnavia/format'
+import { Document, deckFromDocument } from '@segnavia/format'
 import { wordIndex } from '@segnavia/frame/timeline'
 import { verifyDeckPrintBrowser } from './deck-print-browser.ts'
 import { BOUNDED_WAIT_MS, type Harness, SITE } from './harness.ts'
@@ -14,7 +14,7 @@ const PLAYER = 'segnavia-player'
 
 export async function verifyPlayer(h: Harness) {
   const { page, check } = h
-  const deck = JSON.parse(readFileSync(path.join(SITE, 'deck.json'), 'utf8')) as Deck
+  const deck = deckFromDocument(Document.parse(JSON.parse(readFileSync(path.join(SITE, 'deck.json'), 'utf8'))))
   const list = deck.slides[1]?.narration
   const form = deck.slides[2]?.narration
   if (!list || !form) throw new Error('The deck lost its narration.')
