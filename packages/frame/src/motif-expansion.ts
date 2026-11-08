@@ -374,10 +374,12 @@ export async function prepareExpandedPage(
   signal: AbortSignal,
   placements?: PlacementsOptions,
   pageWidths?: PageWidths,
+  beforeFonts?: (expanded: ExpandedFramePage) => void,
 ): Promise<{ page: HtmlPage; css: string; failures: FontFailure[] }> {
-  const expanded = await expandFramePage(page, motifs, signal, placements, 'screen', pageWidths)
-  const { css, failures } = await pageFontCss(expanded.page, expanded.fonts, fonts, signal)
-  return { page: expanded.page, css, failures }
+  const resolved = await expandFramePage(page, motifs, signal, placements, 'screen', pageWidths)
+  beforeFonts?.(resolved)
+  const { css, failures } = await pageFontCss(resolved.page, resolved.fonts, fonts, signal)
+  return { page: resolved.page, css, failures }
 }
 
 export async function prepareShownPage(
@@ -389,9 +391,10 @@ export async function prepareShownPage(
   placements?: PlacementsOptions,
   pageWidths?: PageWidths,
 ): Promise<{ page: HtmlPage; resolved?: PreparedSlots; css: string; failures: FontFailure[] }> {
-  const expanded = await prepareExpandedPage(page, motifs, fonts, signal, placements, pageWidths)
-  const refusal = slotFillRefusal(expanded.page.scripts, expanded.page.slots, slots)
-  if (refusal) throw refusal
+  const expanded = await prepareExpandedPage(page, motifs, fonts, signal, placements, pageWidths, (expansion) => {
+    const refusal = slotFillRefusal(expansion.page.scripts, expansion.page.slots, slots)
+    if (refusal) throw refusal
+  })
   const resolved = hasSlotWork(expanded.page.slots, slots) ? await prepareSlots(expanded.page.slots, slots, signal) : undefined
   return { ...expanded, resolved }
 }
