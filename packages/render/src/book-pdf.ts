@@ -70,7 +70,6 @@ function planBlanks(sections: BookSectionInfo[], destinations: Map<string, BookD
   }
   return { ids, predicted }
 }
-
 function verifyStarts(label: string, sections: BookSectionInfo[], expected: Map<string, number>, actual: Map<string, BookDestination>): void {
   for (const section of sections) {
     const predicted = expected.get(section.id)
