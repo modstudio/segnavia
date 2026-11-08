@@ -15,6 +15,17 @@ test('a full printed page has no measure rule', () => {
   expect(renderPageValueDocument(page, {}, true, 'test')).not.toContain('max-inline-size:')
 })
 
+test('resolves the rendered page root direction while preserving an authored direction', () => {
+  const hebrew = Page.parse({ html: '<p>Hello</p>', lang: 'he' })
+  const firstStrong = Page.parse({ html: '<p>שלום</p>' })
+  const authored = Page.parse({ html: '<html dir="ltr"><body>שלום</body></html>' })
+  expect(renderPageValueDocument(hebrew, {}, false, 'test')).toContain('<html dir="rtl" lang="he">')
+  expect(renderPageValueDocument(firstStrong, {}, false, 'test')).toContain('<html dir="rtl">')
+  const authoredHtml = renderPageValueDocument(authored, {}, false, 'test')
+  expect(authoredHtml).toContain('<html dir="ltr">')
+  expect(authoredHtml.match(/<html[^>]*\sdir\s*=/gi)).toHaveLength(1)
+})
+
 test('the value renderer refuses markdown that skipped the Document content edge', () => {
   const markdown = Page.parse({ markdown: '# שלום\n\nEnglish text.', size: { width: 600, height: 400 } })
   expect(() => renderPageValueDocument(markdown, {}, false, 'test')).toThrow('pass its Document input through @segnavia/html parseDocument')

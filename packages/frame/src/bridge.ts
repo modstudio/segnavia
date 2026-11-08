@@ -295,12 +295,17 @@ export function frameDocument(html: string, options: FrameOptions): string {
     ...(options.sheets ?? frameStyleSheets(undefined)).map((sheet) => `<style>${sheet}</style>`),
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')
-  const attributes = [options.dir ? ` dir="${options.dir}"` : '', options.lang ? ` lang="${escapeAttribute(options.lang)}"` : ''].join('')
   // dir and lang go on a wrapper only when the author's document has no root
   // of its own to carry them; otherwise they are set on the root it declares.
   const withRoot = /<html[\s>]/i.test(body)
-    ? body.replace(/<html(\s[^>]*)?>/i, (tag) => (attributes ? tag.replace(/>$/, `${attributes}>`) : tag))
-    : `<html${attributes}><body>${body}</body></html>`
+    ? body.replace(/<html(\s[^>]*)?>/i, (tag) => {
+        const attributes = [
+          options.dir && !/\sdir\s*=/i.test(tag) ? ` dir="${options.dir}"` : '',
+          options.lang ? ` lang="${escapeAttribute(options.lang)}"` : '',
+        ].join('')
+        return attributes ? tag.replace(/>$/, `${attributes}>`) : tag
+      })
+    : `<html${options.dir ? ` dir="${options.dir}"` : ''}${options.lang ? ` lang="${escapeAttribute(options.lang)}"` : ''}><body>${body}</body></html>`
   return `<!doctype html>${head}${withRoot}`
 }
 

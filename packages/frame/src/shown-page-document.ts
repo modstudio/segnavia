@@ -1,4 +1,4 @@
-import { printProperties } from '@segnavia/format'
+import { pageDirection, printProperties } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import type { PreparedSlots } from './slot-render.ts'
@@ -12,7 +12,7 @@ export function shownPageDocument(
   return frameDocument(slotHtml(page.html, resolved), {
     scripts: page.scripts,
     nonce: options.nonce,
-    dir: page.dir,
+    dir: pageDirection(page),
     lang: page.lang,
     sheets: frameStyleSheets(page.style, `${page.print ? printProperties(page.print) : ''}${options.baseCss ?? ''}`),
     css: options.css,

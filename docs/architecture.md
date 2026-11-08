@@ -931,6 +931,11 @@ one-cell identity imposition; `pagesPdf` applies the same rule. Plain pages in
 a mixed call retain their ordinary placements and paper order. The print-only
 frame bridge carries a propagated root or body background onto a full-page
 element, so root colors reach paper without changing the on-screen page.
+Every ordinary page frame, including browser print and render output, resolves
+its root direction from the page's declared `dir`, then its `lang`, then the
+first strong letter in its visible HTML text, with left to right as the
+fallback. A `dir` on the author's own `<html>` root takes precedence and is not
+duplicated. Composed printed-page documents have their own direction model.
 Two-sided imposition, crop marks and folds are built.
 
 After the browser prints a plain page (one without bleed or marks and without
