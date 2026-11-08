@@ -783,6 +783,8 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    known package CDNs, and the render route applies that rule to runtime
    requests. A viewer CSP is origin-granular and cannot pin a runtime import's
    version, so hosts treat an approved origin as trusted for mutable URLs too.
+   An author's root `dir` and `lang` win over values supplied to
+   `frameDocument`, and neither attribute is duplicated, for every caller.
    Connections and remote images remain refused. Rendering stays offline: `dependencies(url)`
    answers approved requests from the host's cache through route fulfillment;
    an absent answer refuses the render by URL, and Chromium never reaches the
@@ -931,6 +933,12 @@ one-cell identity imposition; `pagesPdf` applies the same rule. Plain pages in
 a mixed call retain their ordinary placements and paper order. The print-only
 frame bridge carries a propagated root or body background onto a full-page
 element, so root colors reach paper without changing the on-screen page.
+Every ordinary page frame, including browser print and render output, resolves
+its root direction from the page's declared `dir`, then its `lang`, then the
+first strong letter in its visible HTML text, with left to right as the
+fallback. A `dir` on the author's own `<html>` root takes precedence and is not
+duplicated. Composed printed pages resolve direction by the same rule in their
+own builder.
 Two-sided imposition, crop marks and folds are built.
 
 After the browser prints a plain page (one without bleed or marks and without

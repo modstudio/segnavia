@@ -3,10 +3,9 @@ import {
   type FontFace,
   type FontReference,
   type FontSource,
-  htmlTextSample,
   type Page,
   type PageOrPrintedInput,
-  resolveDirection,
+  pageDirection,
   resolveLimits,
   resolvePageWidth,
 } from '@segnavia/format'
@@ -118,7 +117,7 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
   return frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
     scripts: page.scripts,
     nonce,
-    dir: page.dir,
+    dir: pageDirection(page),
     lang: page.lang,
     sheets,
     css: options.css,
@@ -154,7 +153,7 @@ export function renderPageValueDocument(
       ? resolvePageWidth(page.size, options.pageWidths).measure
       : undefined
   const measureCss = namedMeasure === undefined ? '' : `:where(body){max-inline-size:${namedMeasure}px;margin-inline:auto}`
-  const baseCss = `${page.print ? printCss(page.print, resolveDirection(page.dir, page.lang, htmlTextSample(page.html))) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}`
+  const baseCss = `${page.print ? printCss(page.print, pageDirection(page)) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}`
   const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
   const css = printing && !page.print && fixedSize ? containFixedPageOverflow(baseCss) : baseCss
   return resolvedPageDocument(page, css, {

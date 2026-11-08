@@ -10,6 +10,7 @@ import {
   FULL_PAGE_SIZE,
   Page,
   type PageWidths,
+  pageDirection,
   pageFromDocument,
   printProperties,
   type SlotsOptions,
@@ -238,7 +239,7 @@ export class SegnaviaPage extends PageElementAttributes {
         resolvedPage,
         {
           scripts: page.scripts,
-          dir: page.dir,
+          dir: pageDirection(resolvedPage),
           lang: page.lang,
           sheets,
           css: this.css,

@@ -99,6 +99,12 @@ test('a label names the mounted page frame', () => {
   expect(page.querySelector<HTMLIFrameElement>('iframe')?.title).toBe('Notice')
 })
 
+test('the mounted page frame resolves its root direction from the page language', () => {
+  const page = pageHarness()
+  page.load({ ...content, settings: { lang: 'he' } })
+  expect(page.querySelector<HTMLIFrameElement>('iframe')?.srcdoc).toContain('<html dir="rtl" lang="he">')
+})
+
 test('changing the label retitles the mounted frame in place', () => {
   const page = pageHarness()
   page.load(content)
