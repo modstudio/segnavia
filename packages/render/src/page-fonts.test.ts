@@ -106,6 +106,31 @@ describe('prepareRenderedPageValue', () => {
 })
 
 describe('prepareRenderedPages', () => {
+  test('retains distinct motif locals and a page declaration colliding with a motif app reference', async () => {
+    const prepared = await prepareRenderedPages(
+      [
+        {
+          page: Page.parse({ html: '', style: { fonts: { heading: { faces: [{ weight: 700 }], generic: 'serif' } } } }),
+          fonts: [{ app: 'heading' }, { local: 'First Local', fallback: 'heading' }],
+        },
+        { page: Page.parse({ html: '' }), fonts: [{ local: 'Second Local', fallback: 'heading' }] },
+      ],
+      {
+        fontSource: source,
+        localFonts: {
+          faces: [
+            { family: 'First Local', format: 'truetype', data: 'AAEAAA==' },
+            { family: 'Second Local', format: 'truetype', data: 'AAEAAA==' },
+          ],
+        },
+      },
+      signal,
+    )
+    expect(prepared.fontCss).toContain('@font-face{font-family:"First Local"')
+    expect(prepared.fontCss).toContain('@font-face{font-family:"Second Local"')
+    expect(prepared.fontCss).toContain('--segnavia-font-heading:"Heading Sans",serif')
+  })
+
   test('embeds and reports local families named only on a later page', async () => {
     const reports: unknown[] = []
     const options = await prepareRenderedPages(

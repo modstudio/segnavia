@@ -8,12 +8,13 @@ import {
   type Page,
   type PageOrPrintedInput,
   pageDirection,
+  persistedFontManifestWithReferences,
   resolveLimits,
   resolvePageWidth,
 } from '@segnavia/format'
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
-import { FontRefusedError, fontManifestReferences, fontManifestWithReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
+import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
@@ -66,7 +67,7 @@ export async function prepareRenderedPageValue(
 ) {
   const page = resolvePageHtml(input)
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
-  const declarations = fontManifestWithReferences(expanded.page.style?.fonts, expanded.fonts)
+  const declarations = persistedFontManifestWithReferences(expanded.page.style?.fonts, expanded.fonts)
   const references = fontManifestReferences(declarations)
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'
@@ -80,8 +81,8 @@ export async function prepareRenderedPages(
   options: RenderOptions,
   signal: AbortSignal,
 ): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
-  const declarations: FontManifest = {}
-  for (const item of expanded) Object.assign(declarations, item.page.style?.fonts, fontManifestWithReferences(undefined, item.fonts))
+  let declarations: FontManifest = {}
+  for (const item of expanded) declarations = persistedFontManifestWithReferences({ ...declarations, ...item.page.style?.fonts }, item.fonts)
   const references = fontManifestReferences(declarations)
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, options.fontSource, local.faces, signal, 'page'))
@@ -96,7 +97,7 @@ export async function renderOptionsWithBookFonts(
   motifFonts: FontReference[] = [],
 ): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
   const place = `book ${JSON.stringify(book.title)}`
-  const declarations = fontManifestWithReferences(book.style?.fonts, motifFonts)
+  const declarations = persistedFontManifestWithReferences(book.style?.fonts, motifFonts)
   const references = fontManifestReferences(declarations)
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, options.fontSource, local.faces, signal, place))

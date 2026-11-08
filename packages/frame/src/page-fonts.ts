@@ -134,8 +134,8 @@ export async function expandedPagesFontCss(
   signal: AbortSignal,
   place = 'page',
 ): Promise<ResolvedFonts> {
-  const declarations: FontManifest = {}
-  for (const item of expanded) Object.assign(declarations, item.page.style?.fonts, persistedFontManifestWithReferences(undefined, item.fonts))
+  let declarations: FontManifest = {}
+  for (const item of expanded) declarations = persistedFontManifestWithReferences({ ...declarations, ...item.page.style?.fonts }, item.fonts)
   if (!fonts) {
     refuseMissingFontSource(declarations, place)
     return { css: '', failures: [] }
