@@ -23,4 +23,14 @@ describe('paginateBook forced breaks', () => {
     expect(pages).toHaveLength(2)
     expect(pages.map((page) => page.windows[0]?.start)).toEqual([0, 50])
   })
+
+  test('breakAfter starts a new page after its block', () => {
+    const blocks = [
+      block('text', 'p', 1, 1, 2, 0),
+      block('text', 'div', 1, 2, 2, 20, { breakAfter: true }),
+      block('text', 'p', 1, 3, 2, 40),
+    ]
+    const pages = paginateBook(input({ flows: [flow('c1', 'chapter', blocks)] })).pages
+    expect(pages.map((page) => page.windows[0]?.start)).toEqual([0, 40])
+  })
 })

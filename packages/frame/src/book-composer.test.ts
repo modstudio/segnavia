@@ -97,6 +97,12 @@ describe('block keeps', () => {
     expect(script).toContain("style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous'")
   })
 
+  test('composer measures forced breaks on both block edges', () => {
+    const script = composerScript('{}')
+    expect(script).toContain('if(forcedPageBreak(style.breakBefore))block.breakBefore=true')
+    expect(script).toContain('if(forcedPageBreak(style.breakAfter))block.breakAfter=true')
+  })
+
   test('a row with break-inside avoid produces its line run while empty CSS produces none', () => {
     const lines = [
       { top: 0, bottom: 10 },

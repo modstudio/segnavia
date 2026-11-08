@@ -19,6 +19,7 @@ export const PaginateBlock = z.object({
   lines: z.array(PaginateLine),
   id: z.string().optional(),
   breakBefore: z.boolean().optional(),
+  breakAfter: z.boolean().optional(),
   columns: z.number().optional(),
   orphans: z.number().optional(),
   widows: z.number().optional(),
