@@ -176,12 +176,16 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   apply(ops: readonly DocumentOp[], label: string) {
     if (!this.state) return
-    this.applyTransition(applyBoardEdit(this.state, ops, { kind: 'apply', label, ids: [] }))
+    const transition = applyBoardEdit(this.state, ops, { kind: 'apply', label, ids: [] })
+    this.refuseConflicts(transition.conflicts)
+    this.applyTransition(transition)
   }
 
   applyRemote(batch: DocumentBatch) {
     if (!this.state) return
-    this.applyTransition(applyRemoteBoardEdit(this.state, batch))
+    const transition = applyRemoteBoardEdit(this.state, batch)
+    this.refuseConflicts(transition.conflicts)
+    this.applyTransition(transition)
   }
 
   undo() {
@@ -348,6 +352,20 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   private dispatchError(edit: BoardEdit, error: unknown) {
     this.board.dispatchEvent(new CustomEvent('segnavia-board-edit-error', { detail: { edit, error }, bubbles: true, composed: true }))
+  }
+
+  private refuseConflicts(conflicts: readonly DocumentOp[] | undefined) {
+    if (!conflicts?.length) return
+    const names = conflicts.map((op) => {
+      if (op.type === 'setMember') return `${op.type} section ${op.section} item ${op.item}`
+      if (op.type === 'setCells') return `${op.type} section ${op.section} field cells`
+      if (op.type === 'setStyle') return `${op.type} document field ${[...Object.keys(op.fields), ...op.unset].join(',')}`
+      if (op.type === 'insert') return `${op.type} node ${op.node.id}`
+      if (op.type === 'setFields') return `${op.type} node ${op.id} field ${[...Object.keys(op.fields), ...op.unset].join(',')}`
+      if (op.type === 'setContent') return `${op.type} node ${op.id} field ${op.field}`
+      return `${op.type} node ${op.id}`
+    })
+    throw new Error(`Board edit refused conflicting operations: ${names.join('; ')}. Rebuild the batch against the current board.`)
   }
 }
 

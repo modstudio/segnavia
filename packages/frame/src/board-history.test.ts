@@ -62,4 +62,14 @@ describe('board history', () => {
     const history = { undo: [first, second], redo: [] }
     expect(rebaseBoardHistory(board(8, 'Remote title'), history).undo).toEqual([first, second])
   })
+
+  test('keeps an unrelated redo entry and drops a conflicting one', () => {
+    const before = board()
+    const after = board(4)
+    const undone = undoBoardHistory(after, appendBoardHistory(emptyBoardHistory<string>(), entry(before, after, 'move')))
+    const kept = rebaseBoardHistory(board(0, 'Remote title'), undone.history)
+    expect(kept.redo).toHaveLength(1)
+    expect(redoBoardHistory(board(0, 'Remote title'), kept).document).toEqual(board(4, 'Remote title'))
+    expect(rebaseBoardHistory(board(8), undone.history).redo).toEqual([])
+  })
 })

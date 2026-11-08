@@ -1,7 +1,7 @@
-import { sameValue } from './board-op-equal.ts'
 import type { Document as DocumentValue } from './document.ts'
 import { requireParsedDocument } from './document-fingerprint.ts'
 import type { DocumentLocation, DocumentOp } from './document-op.ts'
+import { sameValue } from './document-op-equal.ts'
 import {
   DOCUMENT_ROOT_FIELDS,
   DOCUMENT_STYLE_FIELDS,

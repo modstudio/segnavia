@@ -1,5 +1,5 @@
-import { sameValue } from './board-op-equal.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
+import { sameValue } from './document-op-equal.ts'
 
 export function requireParsedDocument(document: DocumentValue, subject: string): DocumentValue {
   let parsed: DocumentValue

@@ -1,8 +1,8 @@
-import { insertAfter, predecessor } from './board-op-anchor.ts'
-import { sameValue } from './board-op-equal.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
 import { fingerprintDocument, requireParsedDocument } from './document-fingerprint.ts'
 import { DocumentBatch, type DocumentLocation, type DocumentOp } from './document-op.ts'
+import { insertAfter, predecessor } from './document-op-anchor.ts'
+import { sameValue } from './document-op-equal.ts'
 import {
   DOCUMENT_ROOT_FIELDS,
   DOCUMENT_STYLE_FIELDS,

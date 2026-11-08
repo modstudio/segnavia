@@ -56,4 +56,42 @@ describe('board edit queue policy', () => {
     expect(adopted.state.undo).toHaveLength(1)
     expect(adopted.state.value).toEqual(value(1, 'Host'))
   })
+
+  test('mid-queue host adoption lands exactly and aborts the conflicting job', () => {
+    const pending = apply(boardEditQueue(value(0)), value(1)).state
+    const adopted = adoptHostBoard(pending, value(5))
+    expect(adopted.state.value).toEqual(value(5))
+    expect(adopted.state.jobs).toEqual([])
+    expect(adopted.effects.abort).toEqual([1])
+  })
+
+  test('a non-conflicting queued job is kept and rebased around a host adoption', () => {
+    const pending = apply(boardEditQueue(value(0)), value(1)).state
+    const adopted = adoptHostBoard(pending, value(0, 'Host'))
+    expect(adopted.state.value).toEqual(value(1, 'Host'))
+    expect(adopted.state.jobs).toHaveLength(1)
+    expect(adopted.state.jobs[0]?.before).toEqual(value(0, 'Host'))
+    expect(adopted.state.jobs[0]?.after).toEqual(value(1, 'Host'))
+    expect(adopted.effects.abort).toEqual([])
+    expect(adopted.effects.run?.id).toBe(1)
+  })
+
+  test('a host document with a different identity starts a fresh session', () => {
+    const pending = apply(boardEditQueue(value(0)), value(1)).state
+    const differentId = DocumentSchema.parse({ ...value(8), id: 'replacement' })
+    const adopted = adoptHostBoard(pending, differentId)
+    expect(adopted.state).toMatchObject({ value: differentId, jobs: [], undo: [], redo: [], nextId: 2 })
+    expect(adopted.effects).toMatchObject({ show: differentId, abort: [1] })
+  })
+
+  test('host apply and applyRemote expose conflicts without applying part of a batch', () => {
+    const current = boardEditQueue(value(1))
+    const staleOps = diffDocuments(value(0), value(2))
+    const applied = applyBoardEdit(current, staleOps, { kind: 'apply', label: 'host', ids: [] })
+    const remote = applyRemoteBoardEdit(current, { base: fingerprintDocument(value(0)), ops: staleOps })
+    expect(applied.conflicts).toEqual(staleOps)
+    expect(remote.conflicts).toEqual(staleOps)
+    expect(applied.state).toBe(current)
+    expect(remote.state).toBe(current)
+  })
 })

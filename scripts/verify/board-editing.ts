@@ -1,27 +1,12 @@
 import { center, drag, waitChanges } from './board-editing-actions.ts'
 import { checkBoardSelectionCompatibility } from './board-editing-compatibility.ts'
+import { checkBoardEditingHostOps } from './board-editing-host-ops.ts'
 import { checkBoardEditingLabelSizes } from './board-editing-label-sizes.ts'
 import { checkBoardEditingReset } from './board-editing-reset.ts'
 import { checkBoardEditingSections } from './board-editing-sections.ts'
-import type { DemoChange, DemoDocument } from './board-editing-types.ts'
+import type { DemoBoard, DemoChange, DemoDocument, DemoItem, DemoSection } from './board-editing-types.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
-interface DemoItem {
-  id: string
-  x: number
-  y: number
-  width: number
-}
-interface DemoSection {
-  id: string
-  rectangle: { x: number; y: number; width: number; height: number }
-  items: string[]
-}
-interface DemoBoard {
-  direction: 'ltr' | 'rtl'
-  items: DemoItem[]
-  sections: DemoSection[]
-}
 type BoardElement = HTMLElement & {
   board: DemoDocument | null
   selection: readonly string[]
@@ -36,9 +21,14 @@ type DemoWindow = typeof window & {
   setBoardValue(target: { board: DemoDocument | null }, value: DemoBoard): void
   boardEditing: {
     canUndo: boolean
+    canRedo: boolean
     add(input: { kind: string; address: string }): string | undefined
+    apply(ops: unknown[], label: string): void
+    applyRemote(batch: { base: string; ops: unknown[] }): void
     detach(): void
+    undo(): void
   }
+  fingerprintBoardDocument(document: DemoDocument): string
 }
 export async function checkBoardEditing(h: Harness) {
   const board = h.page.locator('segnavia-board')
@@ -271,6 +261,8 @@ export async function checkBoardEditing(h: Harness) {
     addedId,
   )
   h.check('redoing an add restores and selects the added item', redoAdd.item && redoAdd.selected.join() === addedId, JSON.stringify(redoAdd))
+
+  await checkBoardEditingHostOps(h, board, reset)
 
   await reset()
   await pageItem.click()

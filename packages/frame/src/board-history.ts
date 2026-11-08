@@ -17,7 +17,6 @@ export interface BoardHistoryResult<Edit> {
   document: Document
   history: BoardHistory<Edit>
   entry?: BoardHistoryEntry<Edit>
-  conflicts: readonly DocumentOp[]
 }
 
 export function emptyBoardHistory<Edit>(): BoardHistory<Edit> {
@@ -30,24 +29,23 @@ export function appendBoardHistory<Edit>(history: BoardHistory<Edit>, entry: Boa
 
 export function undoBoardHistory<Edit>(document: Document, history: BoardHistory<Edit>): BoardHistoryResult<Edit> {
   const entry = history.undo.at(-1)
-  if (!entry) return { document, history, conflicts: [] }
+  if (!entry) return { document, history }
   const result = rebaseOps(document, entry.inverse)
   const undo = history.undo.slice(0, -1)
-  if (result.conflicts.length > 0) return { document, history: { ...history, undo }, conflicts: result.conflicts }
-  return { document: result.document, history: { undo, redo: [...history.redo, entry] }, entry, conflicts: [] }
+  if (result.conflicts.length > 0) return { document, history: { ...history, undo } }
+  return { document: result.document, history: { undo, redo: [...history.redo, entry] }, entry }
 }
 
 export function redoBoardHistory<Edit>(document: Document, history: BoardHistory<Edit>): BoardHistoryResult<Edit> {
   const entry = history.redo.at(-1)
-  if (!entry) return { document, history, conflicts: [] }
+  if (!entry) return { document, history }
   const result = rebaseOps(document, entry.ops)
   const redo = history.redo.slice(0, -1)
-  if (result.conflicts.length > 0) return { document, history: { ...history, redo }, conflicts: result.conflicts }
+  if (result.conflicts.length > 0) return { document, history: { ...history, redo } }
   return {
     document: result.document,
     history: { undo: [...history.undo, entry].slice(-BOARD_HISTORY_LIMIT), redo },
     entry,
-    conflicts: [],
   }
 }
 

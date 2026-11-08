@@ -1,4 +1,5 @@
 import { type BoardItem, type BoardView, boardToScreen } from '@segnavia/format'
+import type { DemoChange, DemoDocument } from './board-editing-types.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface FarPanFacts {
@@ -76,13 +77,11 @@ export async function checkFarBoardPan(h: Harness) {
 // What the board and its host went through, reported when the far item is missing so a recurrence names its cause.
 function boardHistory(h: Harness) {
   return h.page.evaluate(() => {
-    type DocumentValue = { type: 'document'; kind: 'board' }
-    type Change = { board: DocumentValue; before: DocumentValue; batch: { base: string; ops: unknown[] }; edit: { kind: string; ids?: string[] } }
     const page = window as typeof window & {
-      boardChanges?: Change[]
+      boardChanges?: DemoChange[]
       boardEditErrors?: unknown[]
-      hostBoard?: DocumentValue
-      boardValue(target: Element | { board: DocumentValue }): { items: Array<{ id: string }> }
+      hostBoard?: DemoDocument
+      boardValue(target: Element | { board: DemoDocument }): { items: Array<{ id: string }> }
     }
     const board = document.querySelector('segnavia-board') as FarPanBoard | null
     return {
@@ -90,10 +89,10 @@ function boardHistory(h: Harness) {
       changes: page.boardChanges?.map((change) => ({
         kind: change.edit.kind,
         ids: change.edit.ids,
-        items: page.boardValue({ board: change.board } as unknown as Element).items.map((item) => item.id),
+        items: page.boardValue({ board: change.board }).items.map((item) => item.id),
       })),
       editErrors: page.boardEditErrors?.map(String),
-      hostItems: page.hostBoard ? page.boardValue({ board: page.hostBoard } as unknown as Element).items.map((item) => item.id) : undefined,
+      hostItems: page.hostBoard ? page.boardValue({ board: page.hostBoard }).items.map((item) => item.id) : undefined,
     }
   })
 }

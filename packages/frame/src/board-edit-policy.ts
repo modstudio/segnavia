@@ -34,6 +34,7 @@ export interface BoardEditEffects {
 export interface BoardEditTransition {
   state: BoardEditQueueState
   effects: BoardEditEffects
+  conflicts?: readonly DocumentOp[]
 }
 
 const availability = (state: BoardHistory<BoardEdit>): string => `${state.undo.length > 0}:${state.redo.length > 0}`
@@ -60,7 +61,7 @@ function enqueue(
 
 export function applyBoardEdit(state: BoardEditQueueState, ops: readonly DocumentOp[], edit: BoardEdit): BoardEditTransition {
   const result = rebaseOps(state.value, ops)
-  if (result.conflicts.length > 0) return unchanged(state)
+  if (result.conflicts.length > 0) return { ...unchanged(state), conflicts: result.conflicts }
   const entry: BoardHistoryEntry<BoardEdit> = { ops: result.applied, inverse: invertOps(result.applied), edit }
   return enqueue(state, result.document, result.applied, edit, appendBoardHistory(state, entry))
 }
@@ -81,10 +82,12 @@ export function redoBoardEdit(state: BoardEditQueueState): BoardEditTransition {
 
 export function applyRemoteBoardEdit(state: BoardEditQueueState, batch: DocumentBatch): BoardEditTransition {
   const base = state.jobs[0]?.before ?? state.value
-  const remote = batch.base === fingerprintDocument(base) ? { document: applyOps(base, batch) } : rebaseOps(base, batch.ops)
+  const rebasedRemote = rebaseOps(base, batch.ops)
+  if (rebasedRemote.conflicts.length > 0) return { ...unchanged(state), conflicts: rebasedRemote.conflicts }
+  const remote = batch.base === fingerprintDocument(base) ? applyOps(base, batch) : rebasedRemote.document
   const kept: PendingBoardEdit[] = []
   const abort: number[] = []
-  let working = remote.document
+  let working = remote
   for (const job of state.jobs) {
     const rebased = rebaseOps(working, job.ops)
     if (rebased.conflicts.length > 0) abort.push(job.id)
@@ -99,7 +102,19 @@ export function applyRemoteBoardEdit(state: BoardEditQueueState, batch: Document
 }
 
 export function adoptHostBoard(state: BoardEditQueueState, value: Document): BoardEditTransition {
-  return applyRemoteBoardEdit(state, { base: fingerprintDocument(state.value), ops: diffDocuments(state.value, value) })
+  if (state.value.id !== value.id || state.value.kind !== value.kind) {
+    const next = boardEditQueue(value, state.nextId, state.invalidated)
+    return {
+      state: next,
+      effects: {
+        show: value,
+        abort: state.jobs.map((job) => job.id),
+        historyChanged: availability(state) !== availability(next),
+      },
+    }
+  }
+  const base = state.jobs[0]?.before ?? state.value
+  return applyRemoteBoardEdit(state, { base: fingerprintDocument(base), ops: diffDocuments(base, value) })
 }
 
 export function resolveBoardEdit(state: BoardEditQueueState, id: number): BoardEditTransition {
