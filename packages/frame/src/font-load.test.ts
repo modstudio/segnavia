@@ -64,4 +64,30 @@ describe('font load', () => {
     expect(loads).toBe(65)
     expect(failures).toHaveLength(64)
   })
+
+  test('loads the matching face when weight and style are shared across ranges', async () => {
+    const loaded: string[] = []
+    const face = (unicodeRange: string) => ({
+      family: 'Body',
+      weight: 'normal',
+      style: 'normal',
+      unicodeRange,
+      status: 'loaded',
+      load: async (sample?: string) => loaded.push(`${unicodeRange}:${sample}`),
+    })
+    const failures = await loadDeclaredFonts(
+      [
+        { font: 'body', unicodeRange: 'U+0590-05FF', sample: 'א' },
+        { font: 'body', unicodeRange: 'U+0000-007F', sample: 'A' },
+      ],
+      [face('U+0000-007F'), face('U+0590-05FF')],
+      { setAttribute: () => {} },
+      () => 'Body',
+      FONT_FAILURE_ATTRIBUTE,
+      FONT_FAILURE_LIMIT,
+      FONT_FAILURE_FIELD_LIMIT,
+    )
+    expect(loaded).toEqual(['U+0590-05FF:א', 'U+0000-007F:A'])
+    expect(failures).toEqual([])
+  })
 })

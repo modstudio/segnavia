@@ -29,6 +29,7 @@ type LoadableFace = {
   family: string
   weight: string
   style: string
+  unicodeRange?: string
   status: string
   load(sample?: string): Promise<unknown>
 }
@@ -56,7 +57,9 @@ export async function loadDeclaredFonts(
       (candidate) =>
         candidate.family.replace(/^['"]|['"]$/g, '') === family &&
         normalizedWeight(candidate.weight) === normalizedWeight(declaration.weight) &&
-        (candidate.style || 'normal') === (declaration.style ?? 'normal'),
+        (candidate.style || 'normal') === (declaration.style ?? 'normal') &&
+        (candidate.unicodeRange === undefined ||
+          candidate.unicodeRange.replace(/\s/g, '').toUpperCase() === declaration.unicodeRange?.replace(/\s/g, '').toUpperCase()),
     )
     if (face) await face.load(declaration.sample).catch(() => undefined)
     if (face && face.status !== 'error') continue
