@@ -1,12 +1,12 @@
-import { Cover, type Deck } from '@segnavia/format'
+import { Cover, type Deck, pageOrPrintedFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
-import { type PreparedSlots, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
+import { parseDocument, type PreparedSlots, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { parseBookPdfOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
-import { resolveRenderBook, resolveRenderDeck } from './brand.ts'
+import { resolveRenderBook, resolveRenderBrand, resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
@@ -273,8 +273,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagesPdf(inputs, opts = {}) {
       opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const pages = await Promise.all(
+          inputs.map(async (input) => {
+            const document = parseDocument(input, { newId: opts.newId })
+            const brand = await resolveRenderBrand(document, opts.brandSource, deadline.signal)
+            return resolvePageHtml(pageOrPrintedFromDocument(document, brand))
+          }),
+        )
         const expanded = await expandFramePages(
-          inputs.map((input) => resolvePageHtml(pageOrPrintedFromInput(input, { newId: opts.newId }))),
+          pages,
           opts.motifs,
           deadline.signal,
           opts.placements,
