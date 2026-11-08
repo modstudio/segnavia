@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { BookRunningHeadSource } from './book.ts'
-import { BookOpens, BookSectionParents, BookTemplate } from './book-section.ts'
+import { BookOpens, BookSectionParents, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
 import { NodeId } from './document-nodes-common.ts'
 import { Numbering } from './folio.ts'
 import { RequiredLogicalMargin } from './margins.ts'
@@ -8,8 +8,8 @@ import { NoteSeries } from './note-series.ts'
 
 export const SectionFields = {
   title: z.string().optional(),
-  contentsLabel: z.string().min(1, 'contentsLabel cannot be empty; omit contentsLabel or give it text to clear this refusal').optional(),
-  subtitle: z.string().min(1, 'subtitle cannot be empty; omit subtitle or give it text to clear this refusal').optional(),
+  contentsLabel: ContentsLabel.optional(),
+  subtitle: Subtitle.optional(),
   contents: z.boolean().default(true),
   opens: z.union([BookOpens, z.literal('continue')]).optional(),
   numbering: Numbering.optional(),
