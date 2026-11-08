@@ -361,6 +361,43 @@ test('paper re-resolves its document brands when the source changes', async () =
   expect(paper.pages[0]?.brand).toEqual({ css: '.house{color:blue}' })
 })
 
+test('paper reports a brand refusal without painting its unbranded pages', async () => {
+  const brandDocument = Document.parse({
+    type: 'document',
+    kind: 'page',
+    brand: 'house',
+    children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+  })
+  const imposition = Imposition.parse({ paper: 'a4', columns: 1, rows: 1, cell: { width: 100, height: 100 } })
+  const errors: unknown[] = []
+  let paints = 0
+  const paper = {
+    isConnected: true,
+    pages: [resolvePageHtml(pageFromDocument(brandDocument))],
+    brandDocuments: [brandDocument],
+    brandGeneration: 0,
+    resolvedBrandGeneration: -1,
+    brandOptions: undefined,
+    imposition,
+    imposed: impose(imposition, 1),
+    slotGeneration: 0,
+    motifOptions: undefined,
+    fontOptions: undefined,
+    placementOptions: undefined,
+    cancelSlotPreparation: (SegnaviaPaper.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    paintResolved: () => paints++,
+    dispatchEvent: (event: ErrorEvent) => (errors.push(event.error), true),
+    paint: (SegnaviaPaper.prototype as unknown as { paint(): void }).paint,
+  }
+
+  paper.paint()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(errors).toHaveLength(1)
+  expect(String(errors[0])).toContain('without a BrandSource')
+  expect(paints).toBe(0)
+})
+
 test('disconnecting paper aborts a pending fill without reporting or repainting', async () => {
   const asset = deferred<string>()
   const reports: unknown[] = []

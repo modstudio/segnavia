@@ -269,7 +269,7 @@ export class SegnaviaPaper extends HTMLElement {
           this.pages = pages.map((page, index) => ({ ...page, brand: brands[index] }))
           this.paint()
         })
-        .catch(report)
+        .catch((error) => report(error, false))
       return
     }
     const continuePaint = (shown: HtmlPage[]) => {
