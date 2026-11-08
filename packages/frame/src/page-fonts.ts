@@ -6,9 +6,9 @@ import {
   type FontFace,
   type FontFailure,
   type FontManifest,
-  fontManifestWithReferences,
   type FontReference,
   type FontSource,
+  fontManifestWithReferences,
   matchFaces,
   type Page,
 } from '@segnavia/format'

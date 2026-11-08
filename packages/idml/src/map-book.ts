@@ -5,8 +5,8 @@ import {
   defaultNewId,
   type FontReference,
   MM_PER_PT,
-  persistedFontManifestWithReferences,
   type ParentPage,
+  persistedFontManifestWithReferences,
   type Book as SegnaviaBook,
 } from '@segnavia/format'
 import { findActiveContent, parseDocument } from '@segnavia/html'

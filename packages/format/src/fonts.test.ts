@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test'
 import { identifiedBookInput } from './book-test-helper.ts'
 import {
   FontManifest,
-  fontManifestWithReferences,
   FontReference,
   FontReferenceInput,
+  fontManifestWithReferences,
   HEBREW_UNICODE_RANGE,
   LocalFaceTransport,
   matchFaces,
@@ -85,7 +85,7 @@ describe('FontManifest', () => {
   test('matches a ranged Hebrew declaration to a supplied face with no range', () => {
     const supplied = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const }
     const declaration = FontManifest.parse({ body: { faces: [{ script: 'hebrew' }] } }).body
-    if (!('faces' in declaration)) throw new Error('expected app font declaration')
+    if (!declaration || !('faces' in declaration)) throw new Error('expected app font declaration')
     expect(matchFaces(declaration.faces, [supplied])).toEqual({ faces: [supplied], unsupplied: [] })
   })
 
@@ -116,7 +116,12 @@ describe('LocalFaceTransport', () => {
   test('publishes the font declaration and manifest JSON Schemas', () => {
     expect(jsonSchemas().fontDeclaration).toMatchObject({
       type: 'object',
-      properties: { weight: { minimum: 1, maximum: 1000 }, style: { enum: ['normal', 'italic'] }, unicodeRange: { type: 'string' }, script: { enum: ['hebrew'] } },
+      properties: {
+        weight: { minimum: 1, maximum: 1000 },
+        style: { enum: ['normal', 'italic'] },
+        unicodeRange: { type: 'string' },
+        script: { enum: ['hebrew'] },
+      },
       additionalProperties: false,
     })
     expect(jsonSchemas().fontManifest).toMatchObject({

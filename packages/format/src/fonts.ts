@@ -18,9 +18,10 @@ function unicodeRangeParts(value: string): UnicodeRangePart[] | null {
   const parsed: UnicodeRangePart[] = []
   for (const part of value.split(',')) {
     const match = /^U\+([\dA-F?]{1,6})(?:-([\dA-F]{1,6}))?$/i.exec(part.trim())
-    if (!match || (match[1]?.includes('?') && match[2] !== undefined)) return null
-    const start = Number.parseInt(match[1]!.replace(/\?/g, '0'), 16)
-    const end = Number.parseInt(match[2] ?? match[1]!.replace(/\?/g, 'F'), 16)
+    const source = match?.[1]
+    if (!source || (source.includes('?') && match?.[2] !== undefined)) return null
+    const start = Number.parseInt(source.replace(/\?/g, '0'), 16)
+    const end = Number.parseInt(match?.[2] ?? source.replace(/\?/g, 'F'), 16)
     if (start > end || end > 0x10ffff) return null
     parsed.push({ start, end })
   }

@@ -24,18 +24,22 @@ import {
   SLIDES_READY_DEADLINE_MS,
 } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
+import { fontLoadSetup } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { type DependencyCache, dependencySetup } from './options.ts'
-import { fontLoadSetup } from './browser-tab.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { fontCssForRender } from './page-document.ts'
+import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
+
+export function resolveDeckFonts(deck: Deck, opts: RenderOptions, signal: AbortSignal) {
+  return renderOptionsWithFontManifest(deck.style?.fonts, [], `deck ${JSON.stringify(deck.title)}`, opts, signal)
+}
 
 interface DeckPdfServices {
   renderPdf(
@@ -78,6 +82,10 @@ function nameSlideError(error: unknown, id: string): never {
 
 export function firstNotesPages(pageOwners: readonly number[], slideCount: number): number[] {
   return Array.from({ length: slideCount }, (_, slide) => pageOwners.indexOf(slide))
+}
+
+function deckFontFailures(initial: readonly FontFailure[], notes: { failures: FontFailure[] } | undefined): FontFailure[] {
+  return [...initial, ...(notes?.failures ?? [])]
 }
 
 async function placeRenderedImages(tab: Tab): Promise<void> {
@@ -129,7 +137,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         resolveNotesFontCss(opts.notesFont, opts.fontSource ? { source: opts.fontSource } : undefined, services.signal ?? new AbortController().signal),
       )
     : undefined
-  const fontFailures = [...(services.fontFailures ?? []), ...(notesSheetFont?.failures ?? [])]
+  const fontFailures = deckFontFailures(services.fontFailures ?? [], notesSheetFont)
   let pageOwners: number[] = []
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
@@ -284,10 +292,18 @@ async function imposedDeckPdf(
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
-  const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', services.signal ?? AbortSignal.any([]))
-  if (!opts.imposition) return regularDeckPdf(resolvedDeck, opts, services, diagramScript)
+  const signal = services.signal ?? AbortSignal.any([])
+  const resolvedFonts = await resolveDeckFonts(deck, opts, signal)
+  const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', signal)
+  const resolvedServices = {
+    ...services,
+    fontFailures: resolvedFonts.fontFailures,
+    fontFaces: (options: RenderOptions) => `${resolvedFonts.fontCss}${services.fontFaces(options)}`,
+  }
+  opts = { ...opts, ...resolvedFonts.options }
+  if (!opts.imposition) return regularDeckPdf(resolvedDeck, opts, resolvedServices, diagramScript)
   if (opts.layout === 'notes') {
     throw new RenderRefusedError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
-  return imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, services, diagramScript)
+  return imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, resolvedServices, diagramScript)
 }

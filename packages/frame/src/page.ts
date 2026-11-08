@@ -326,7 +326,6 @@ export class SegnaviaPage extends PageElementAttributes {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
   }
-
   private cancelSelectionRequests() {
     cancelPageRequests(this.pageRequests)
   }

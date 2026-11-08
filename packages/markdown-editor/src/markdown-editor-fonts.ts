@@ -1,4 +1,4 @@
-import { type AppFont, type FontFace as FontFaceData, fontManifestWithReferences, type FontReference } from '@segnavia/format'
+import { type AppFont, type FontFace as FontFaceData, type FontReference, fontManifestWithReferences } from '@segnavia/format'
 import { appNames, FontRefusedError, type FontsOptions, refuseMissingFontSource, requireAppFontName, uniqueFontReferences } from '@segnavia/frame/fonts'
 
 function nativeFace(face: FontFaceData): FontFace {

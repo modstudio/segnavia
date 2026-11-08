@@ -63,14 +63,15 @@ export async function loadDeclaredFonts(
     )
     if (face) await face.load(declaration.sample).catch(() => undefined)
     if (face && face.status !== 'error') continue
-    if (failures.length < failureLimit) failures.push({
-      font: declaration.font.slice(0, fieldLimit),
-      family,
-      ...(declaration.weight === undefined ? {} : { weight: declaration.weight }),
-      ...(declaration.style === undefined ? {} : { style: declaration.style }),
-      ...(declaration.unicodeRange === undefined ? {} : { unicodeRange: declaration.unicodeRange.slice(0, fieldLimit) }),
-      reason: 'unloaded',
-    })
+    if (failures.length < failureLimit)
+      failures.push({
+        font: declaration.font.slice(0, fieldLimit),
+        family,
+        ...(declaration.weight === undefined ? {} : { weight: declaration.weight }),
+        ...(declaration.style === undefined ? {} : { style: declaration.style }),
+        ...(declaration.unicodeRange === undefined ? {} : { unicodeRange: declaration.unicodeRange.slice(0, fieldLimit) }),
+        reason: 'unloaded',
+      })
   }
   root.setAttribute(failureAttribute, JSON.stringify(failures))
   return failures

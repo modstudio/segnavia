@@ -1,4 +1,14 @@
-import { type Book, type FontFailure, KEEP_WITH_CUSTOM_PROPERTY, type Limits, Plan, PX_PER_MM, resolveDirection, type Plan as SavedPlan, sheetMm } from '@segnavia/format'
+import {
+  type Book,
+  type FontFailure,
+  KEEP_WITH_CUSTOM_PROPERTY,
+  type Limits,
+  Plan,
+  PX_PER_MM,
+  resolveDirection,
+  type Plan as SavedPlan,
+  sheetMm,
+} from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
   BOOK_FAILURE_ATTRIBUTE,
@@ -48,6 +58,7 @@ export interface BrowserBookDependencies {
   render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0], pageWidth: number, part: BookOverflowPart): Promise<PrintResult<true>>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
+  fontFailures?: FontFailure[]
 }
 
 // A chapter can author its own plan carrier, so the composer's published one is the last.
@@ -201,13 +212,7 @@ async function printBook(
   )
 }
 
-export function renderBrowserBookPdf(
-  book: Book,
-  options: BookPdfOptions,
-  fontCss: string,
-  dependencies: BrowserBookDependencies,
-  fontFailures: FontFailure[] = [],
-): Promise<Uint8Array> {
+export function renderBrowserBookPdf(book: Book, options: BookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
@@ -215,7 +220,7 @@ export function renderBrowserBookPdf(
   return renderBookPdf(book, options, {
     print: async (html, book, slots, renderOptions, part, layerCss = '') => {
       script ??= resolveDiagramScript(bookDocument(book).html)
-      return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, fontFailures, dependencies)
+      return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies.fontFailures ?? [], dependencies)
     },
     finish: dependencies.finish,
   })
@@ -223,10 +228,9 @@ export function renderBrowserBookPdf(
 
 export async function renderBrowserBookPlan(
   input: Book,
-  options: BookPlanOptions,
+  options: BookPlanOptions & { fontFailures?: FontFailure[] },
   fontCss: string,
   withTab: (setup: TabSetup, body: (tab: Tab) => Promise<SavedPlan>) => Promise<SavedPlan>,
-  fontFailures: FontFailure[] = [],
 ): Promise<SavedPlan> {
   if (input.mode !== 'paginated') {
     throw new RenderRefusedError('bookPlan needs a paginated book; set mode to paginated to clear this refusal')
@@ -245,7 +249,7 @@ export async function renderBrowserBookPlan(
   return withTab(
     {
       ...paginatedBookTabSetup(book, srcdoc, slotsForDocument(slots, [bookSlotFrames(book).all]), options),
-      ...fontLoadSetup(fontFailures, options.fontLoad?.report),
+      ...fontLoadSetup(options.fontFailures ?? [], options.fontLoad?.report),
     },
     async (tab) => {
       await awaitBookComposition(tab)
