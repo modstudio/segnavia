@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import { Deck, isDesignedSection, isTemplatedSection, Page } from '@segnavia/format'
 import { parseBookFixture, prepareSlots, RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
-import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
+import { renderPagePdf } from './page-render.ts'
+import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
 const slots = {
   declarations: [{ key: 'host.name', label: 'Host name', type: 'text' as const, required: true }],
@@ -25,7 +26,7 @@ test('filledBook applies host values to chapters, designed pages, templates and 
       { title: 'One', html: '<p data-slot-value="school">School</p>' },
     ],
   })
-  const filled = await filledBook(book, { fill: { id: 'host', values: { school: 'Lincoln School' } } })
+  const { value: filled } = await filledBook(book, { fill: { id: 'host', values: { school: 'Lincoln School' } } })
   expect(filled.templates[0]?.html).toContain('Lincoln School')
   const designed = filled.body[0]
   const templated = filled.body[1]
@@ -48,7 +49,7 @@ test('filledBook applies host values to a part opening and its nested chapter', 
       },
     ],
   })
-  const filled = await filledBook(book, { fill: { id: 'host', values: { school: 'Lincoln School' } } })
+  const { value: filled } = await filledBook(book, { fill: { id: 'host', values: { school: 'Lincoln School' } } })
   const part = filled.body[0]
   const nested = part !== undefined && 'name' in part ? part.children[0] : undefined
   expect(part !== undefined && 'name' in part && part.html).toContain('Lincoln School')
@@ -84,17 +85,37 @@ test('a refuse-overflow key bound in two chapters is marked once per book docume
   const chapters = book.body.flatMap((entry) => ('html' in entry ? [entry.html] : []))
   const once = await prepareSlots(book.slots, fill)
   once.apply(chapters.join(''))
-  expect([...(preparedSlotsFor(filled)?.marked ?? [])]).toEqual([...once.marked])
-  expect(preparedSlotsFor(filled)?.marked.get('school')).toBe(1)
+  expect([...filled.slots.marked]).toEqual([...once.marked])
+  expect(filled.slots.marked.get('school')).toBe(1)
+})
+
+test('a structurally cloned filled value renders with its explicit slots', async () => {
+  const page = Page.parse({
+    html: '<p data-slot-value="name">Name</p>',
+    slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
+  })
+  const result = await filledPage(page, { fill: { id: 'host', values: { name: 'Ada' } } })
+  const cloned = structuredClone(result.value)
+  let renderedSlots: unknown
+  const rendered = renderPagePdf(cloned, result.slots, {}, {
+    withTab: async (setup) => {
+      renderedSlots = setup.slots
+      throw new Error('stop after setup')
+    },
+  })
+  await expect(rendered).rejects.toThrow('stop after setup')
+  expect(cloned.html).toContain('Ada')
+  expect(result.slots.marked.get('name')).toBe(1)
+  expect(renderedSlots).toBe(result.slots)
 })
 
 test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor host declarations', async () => {
   const page = Page.parse({ html: '<p data-slot-value="host.name">Design text</p>' })
-  const filledPageResult = await filledPage(page, slots)
+  const { value: filledPageResult } = await filledPage(page, slots)
   expect(filledPageResult.html).toContain('Filled by host')
 
   const pages = [Page.parse({ html: '<p data-slot-value="host.name">Front</p>' }), Page.parse({ html: '<p data-slot-value="host.name">Back</p>' })]
-  const filledCollection = await filledPages(pages, slots)
+  const { value: filledCollection } = await filledPages(pages, slots)
   expect(filledCollection.map((item) => item.html)).toEqual(['<p dir="auto">Filled by host</p>', '<p dir="auto">Filled by host</p>'])
 
   const deck = Deck.parse({
@@ -102,7 +123,7 @@ test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor hos
     size: { width: 400, height: 200 },
     slides: [{ id: 'one', content: { kind: 'html', html: '<p data-slot-value="host.name">Design text</p>' } }],
   })
-  const filledDeckResult = await filledDeck(deck, slots)
+  const { value: filledDeckResult } = await filledDeck(deck, slots)
   expect(filledDeckResult.slides[0]?.content).toEqual({ kind: 'html', html: '<p dir="auto">Filled by host</p>' })
 })
 
@@ -154,7 +175,7 @@ test('server preparation still fills items whose scripts are refused', async () 
     scripts: 'refuse',
     slots: [{ key: 'host.name', label: 'Name', type: 'text', required: false }],
   })
-  expect((await filledPage(page, { fill: { id: 'host', values: { 'host.name': 'Private value' } } })).html).toContain('Private value')
+  expect((await filledPage(page, { fill: { id: 'host', values: { 'host.name': 'Private value' } } })).value.html).toContain('Private value')
 })
 
 test('server preparation reports placeholders for scripted items without a fill', async () => {
@@ -165,7 +186,7 @@ test('server preparation reports placeholders for scripted items without a fill'
     slots: [{ key: 'name', label: 'Name', type: 'text', required: false, placeholder: 'Placeholder' }],
   })
   const result = await filledPage(page, { report: (report) => reports.push(report) })
-  expect(result.html).toContain('Placeholder')
+  expect(result.value.html).toContain('Placeholder')
   expect(reports).toEqual([{ fill: null, slots: { name: 'placeholder' }, origins: {} }])
 })
 

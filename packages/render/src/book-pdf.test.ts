@@ -53,7 +53,7 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
   let bodyPages = 0
   return {
     html,
-    print: async (source, _book, _options, part) => {
+    print: async (source, _book, _slots, _options, part) => {
       if (part === 'margin') {
         return {
           bytes: await printedPart('', {}, frontPages + bodyPages),

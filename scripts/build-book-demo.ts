@@ -332,7 +332,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     writeTwoPageSeriesBook(site, hebrew, hebrewFace)
 
     const school = hebrew ? 'בית ספר הירדן' : 'Jordan School'
-    const workbook = await filledBook(bookFixtureValue(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
+    const { value: workbook } = await filledBook(bookFixtureValue(workbookFixture(hebrew)), { fill: { id: 'host', values: { school } } })
     const workbookCssFull = hebrew
       ? `${hebrewFace}${workbookCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
       : `${workbookCss}:where(html){font:16px/1.5 Georgia,serif}`

@@ -41,11 +41,11 @@ import { renderQueue } from './render-queue.ts'
 import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 import { DEFAULT_JS_HEAP_MB, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
-import { filledBook, filledDeck, filledPage, filledPages, preparedSlotsFor } from './slot-fill.ts'
+import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
 export { FontRefusedError } from '@segnavia/frame/fonts'
 export type { MotifsOptions } from '@segnavia/frame/motifs'
-export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
+export type { PreparedSlots, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export { captureImage } from './capture-image.ts'
 export { COVER_IMAGE_OMITTED, type CoverImageOptions, type CoverImagePlan, coverImagePlan } from './cover-image.ts'
 export type { EffectsReport } from './effects/types.ts'
@@ -115,7 +115,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     let crashed = false
     let settled = false
     let stopWatchingBrowser: (() => void) | undefined
-    const measureSlots = setup.slots && setup.html.includes('data-slot-overflow') ? setup.slots : undefined
+    const measureSlots = setup.slots && setup.slots.marked.size > 0 && setup.html.includes('data-slot-overflow') ? setup.slots : undefined
     try {
       return await withinBound(
         setup.deadline?.remaining() ?? setup.boundMs ?? RENDER_BOUND_MS,
@@ -171,14 +171,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     opts: ImageOptions,
     deadline: RenderDeadline,
   ): Promise<Uint8Array> {
-    const page = await filledPage(prepared.page, opts.slots, deadline.signal)
+    const { value: page, slots } = await filledPage(prepared.page, opts.slots, deadline.signal)
     const diagramScript = await resolveDiagramScript(page.html)
     const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
     return withTab(
       {
         viewport,
         scripts: true,
-        slots: preparedSlotsFor(page),
+        slots,
         scale: opts.scale,
         html: renderedPageDocument(page, prepared.options, false, diagramScript, prepared.fontCss),
         readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
@@ -219,10 +219,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'print')
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
-          const page = await filledPage(prepared.page, copySlots, deadline.signal)
+          const { value: page, slots } = await filledPage(prepared.page, copySlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(page.html)
           const printed = await renderPagePdf(
             page,
+            slots,
             { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined, overflow: undefined },
             { withTab },
             undefined,
@@ -271,14 +272,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const prepared = await prepareRenderedPages(expanded, opts, deadline.signal)
         const parsed = expanded.map((item) => item.page)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
-          const pages = await filledPages(parsed, copySlots, deadline.signal)
+          const { value: pages, slots } = await filledPages(parsed, copySlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(pages.map((page) => page.html).join(''))
           return renderPagesPdf(
             pages,
+            slots,
             { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined },
             {
-              pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss),
-              piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, { withTab }, deadline, diagramScript),
+              pagePdf: (page, slots, options, inputIndex) => renderPagePdf(page, slots, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss),
+              piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
             },
@@ -294,7 +296,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
-          const prepared = await filledDeck(deck, copySlots, deadline.signal)
+          const { value: prepared, slots } = await filledDeck(deck, copySlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(
             prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join(''),
           )
@@ -303,7 +305,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             { ...opts, limits: copyLimits(opts.limits, opts.slots), press: undefined },
             {
               renderPdf: (setup, pdf) =>
-                withTab({ ...setup, slots: preparedSlotsFor(prepared), readiness: renderReadiness('refuse', false, false), deadline }, (tab) =>
+                withTab({ ...setup, slots, readiness: renderReadiness('refuse', false, false), deadline }, (tab) =>
                   pdfWithBackdropRasters(tab, pdf, opts.effects),
                 ),
               fontFaces: (options) => fontFaces(options.fonts),
@@ -322,7 +324,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const deck = deckFromDocument(parseDocument(input, { newId: opts.newId }))
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const filled = await filledDeck(deck, opts.slots, deadline.signal)
+        const { value: filled, slots } = await filledDeck(deck, opts.slots, deadline.signal)
         const preparedDeck = await resolveDeckMedia(filled, opts.placements, 'print', deadline.signal)
         const slide = preparedDeck.slides[index]
         if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
@@ -338,7 +340,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             scripts: true,
             scale: opts.scale,
             html,
-            slots: preparedSlotsFor(preparedDeck),
+            slots,
             readiness: renderReadiness('refuse', false, false),
             boundMs: opts.boundMs,
             deadline,
