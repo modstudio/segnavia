@@ -12,6 +12,7 @@ import {
   type Page,
 } from '@segnavia/format'
 import { fontCss } from '@segnavia/html'
+import { FONT_FAILURE_LIMIT } from './font-load.ts'
 
 export interface FontsOptions {
   source: FontSource
@@ -107,7 +108,7 @@ export async function resolveFontReferences(declarations: FontManifest, fonts: F
     failures.push(...unsupplied(name, font.family, matched.unsupplied))
     app.set(name, { ...font, faces: matched.faces, generic: declaration.generic ?? font.generic })
   }
-  return { css: fontCss({ app, local: fonts.local ?? [] }), failures }
+  return { css: fontCss({ app, local: fonts.local ?? [] }), failures: failures.slice(0, FONT_FAILURE_LIMIT) }
 }
 
 export async function resolvePageFonts(

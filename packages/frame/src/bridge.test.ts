@@ -359,6 +359,10 @@ describe('frame document', () => {
     expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: [valid, { ...valid, reason: 'other' }] } } as MessageEvent, frame)).toBeNull()
     expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: Array.from({ length: 65 }, () => valid) } } as MessageEvent, frame)).toBeNull()
     expect(messageFrom({ source: {} as Window, data: { type: MESSAGE.fontFailures, failures: [valid] } } as MessageEvent, frame)).toBeNull()
+
+    const merged = [...Array.from({ length: 40 }, () => ({ ...valid, reason: 'unsupplied' as const })), ...Array.from({ length: 40 }, () => valid)].slice(0, 64)
+    expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: merged } } as MessageEvent, frame)?.failures).toHaveLength(64)
+    expect(bridgeForHost({ fontFailures: merged.slice(0, 40) })).toContain('initialFontFailures.concat(failures).slice(0,64)')
   })
 
   test('messages with non-object data are ignored without throwing', () => {

@@ -72,6 +72,11 @@ describe('resolvePageFonts', () => {
       failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }],
     })
   })
+
+  test('bounds an unsupplied report where it is built', async () => {
+    const declarations = Object.fromEntries(Array.from({ length: 65 }, (_, index) => [`font-${index}`, { faces: [{}] }]))
+    expect((await resolveFontReferences(declarations, { source: source({}) }, signal, 'page')).failures).toHaveLength(64)
+  })
 })
 
 describe('expandFramePage fonts', () => {
