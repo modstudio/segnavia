@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from 'bun:test'
 import type { HtmlPage, PreparedSlots } from '@segnavia/html'
 import { registerDiagramProvider } from './diagram-document.ts'
-import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
+import { loadPageDocument, loadPrintedPageDocument, loadShownPageDocument } from './page-document-loading.ts'
 
 const DIAGRAM_PROVIDER_KEY = Symbol.for('segnavia.diagrams')
 const registry = globalThis as typeof globalThis & { [DIAGRAM_PROVIDER_KEY]?: () => Promise<string> }
@@ -31,6 +31,29 @@ test('a failed diagram entry reports the error and writes the source fallback', 
   expect(result.errors).toEqual([refusal])
   expect(result.document).toContain('<code>flowchart TD</code>')
   expect(result.document).not.toContain('data-segnavia-diagrams-drawn')
+})
+
+test('a failed printed-page diagram entry reports the error and writes the composed fallback', async () => {
+  const refusal = new Error('printed diagram entry unavailable')
+  const printed = {
+    ...page,
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+  } as HtmlPage
+  const result = await new Promise<{ document: string; errors: unknown[] }>((resolve) => {
+    const errors: unknown[] = []
+    loadPrintedPageDocument(
+      printed,
+      { screen: { spread: false } },
+      (document) => resolve({ document, errors }),
+      (error) => errors.push(error),
+      () => Promise.reject(refusal),
+    )
+  })
+  expect(result.errors).toEqual([refusal])
+  expect(result.document).toContain('"presentation":{"spread":false}')
+  expect(result.document).toContain('<code>flowchart TD</code>')
+  expect(result.document).not.toContain('DRAW')
 })
 
 test('an absent provider follows the existing page load failure path', async () => {

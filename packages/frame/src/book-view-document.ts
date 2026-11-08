@@ -13,7 +13,7 @@ import {
 } from '@segnavia/format'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
-import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS } from './composer.ts'
+import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
 
 export interface PaginatedDocumentOptions {
@@ -21,7 +21,7 @@ export interface PaginatedDocumentOptions {
   fontCss?: string
   css?: string
   printBackground?: boolean
-  screen?: { spread: boolean }
+  screen?: Omit<ScreenPresentation, 'reportPlace'>
   diagramScript?: string
   limits?: Limits
   plan?: Plan
@@ -73,7 +73,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     expectedCount: null,
     measure: false,
     savedPlans: true,
-    ...(options.screen ? { presentation: options.screen } : {}),
+    ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
   }

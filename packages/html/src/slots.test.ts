@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import type { SlotDeclaration, SlotReport } from '@segnavia/format'
 import qrcode from 'qrcode-generator'
 import {
+  fillsSlotValues,
   hasSlotWork,
   MAX_SLOT_DECLARATIONS,
   mergeSlotFitResults,
@@ -33,6 +34,9 @@ test('slot fill policy refuses only fills with declarations for an item that run
   expect(slotFillRefusal('sandboxed', undefined, options)).toBeUndefined()
   expect(slotFillRefusal('sandboxed', undefined, { ...options, declarations })).toBeInstanceOf(SlotFillRefusedError)
   expect(slotFillRefusal('sandboxed', declarations, { source: { id: 'source', values: {} } })).toBeInstanceOf(SlotFillRefusedError)
+  expect(fillsSlotValues(declarations, options)).toBe(true)
+  expect(fillsSlotValues(declarations, { report() {} })).toBe(false)
+  expect(fillsSlotValues(declarations, { resolveAsset: async () => 'data:image/png;base64,AAAA' })).toBe(false)
 })
 
 test('slot work includes every reason preparation must run', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { Page, type SlotsOptions } from '@segnavia/format'
-import { internalDocumentPagesLoad, internalDocumentPagesRead, internalThumbnailPageLoad } from './document-value-load.ts'
+import { Page, Print, type SlotsOptions } from '@segnavia/format'
+import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageLoad, internalThumbnailPageLoad } from './document-value-load.ts'
 
 class TestElement extends EventTarget {
   className = ''
@@ -17,6 +17,7 @@ class TestElement extends EventTarget {
   slotValue: SlotsOptions | undefined
   slotWrites = 0
   loadedPage: Page | null = null
+  private attributes = new Map<string, string>()
 
   get slots(): SlotsOptions | undefined {
     return this.slotValue
@@ -65,16 +66,28 @@ class TestElement extends EventTarget {
     return found
   }
 
-  setAttribute() {}
-  getAttribute() {
-    return null
+  setAttribute(name: string, value: string) {
+    this.attributes.set(name, value)
   }
-  removeAttribute() {}
+  getAttribute(name: string) {
+    return this.attributes.get(name) ?? null
+  }
+  hasAttribute(name: string) {
+    return this.attributes.has(name)
+  }
+  removeAttribute(name: string) {
+    this.attributes.delete(name)
+  }
   scrollIntoView() {}
 }
 
 Object.defineProperty(TestElement.prototype, internalThumbnailPageLoad, {
   value(this: TestElement, page: Page | null) {
+    this.loadedPage = page
+  },
+})
+Object.defineProperty(TestElement.prototype, internalPageLoad, {
+  value(this: TestElement, page: Page) {
     this.loadedPage = page
   },
 })
@@ -141,6 +154,28 @@ test('attachment reads the visible page before opening item settings', () => {
   ;(controller as unknown as { openItemSettings(): void }).openItemSettings()
 
   expect(opened).toEqual([{ pageId: 'third' }])
+})
+
+test('a printed source mounts as one projected page per document sheet', () => {
+  installCreateElement()
+  const source = Page.parse({
+    html: '<p>One designed page</p>',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+  })
+  const viewer = new SegnaviaDocument() as unknown as {
+    pageValues: Page[]
+    printValue: Print
+    mount(sheet: TestElement): void
+  }
+  Object.assign(viewer, { pageValues: [source], printValue: Print.parse({ paper: 'letter' }) })
+  const sheet = new TestElement()
+  sheet.dataset.page = '0'
+
+  viewer.mount(sheet)
+
+  const innerPage = sheet.children[0]
+  expect(innerPage?.loadedPage?.printedPages).toBeUndefined()
 })
 
 function heldController(outcome: 'resolve' | 'reject') {

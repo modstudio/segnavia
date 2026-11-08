@@ -2,6 +2,7 @@ import type { SlotDeclaration, SlotsOptions } from '@segnavia/format'
 import {
   classifyMediaAnswer,
   collectSlotPrintCopies,
+  fillsSlotValues,
   hasSlotWork,
   type PreparedSlots,
   prepareSlotCollection as prepareHtmlSlotCollection,
@@ -36,6 +37,7 @@ export function slotAssetFrom<R extends { kind: string }>(
 }
 export {
   collectSlotPrintCopies,
+  fillsSlotValues,
   hasSlotWork,
   RequiredSlotsRefusedError,
   requiredSlotRefusal,

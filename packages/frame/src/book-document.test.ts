@@ -226,7 +226,7 @@ describe('bookDocument', () => {
     const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
     const flow = flowViewDocument(view, { nonce: 'held' })
     const print = bookViewDocument(view, { nonce: 'held' })
-    expect(screen).toContain('"presentation":{"spread":true}')
+    expect(screen).toContain('"presentation":{"spread":true,"reportPlace":true}')
     expect(screen).toContain('<style>.first-build-style{color:red}</style>')
     expect(screen).toContain('<style>.second-build-style{color:blue}</style>')
     expect(screen).not.toContain('<template data-segnavia-flow-build>')

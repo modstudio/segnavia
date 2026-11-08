@@ -86,6 +86,15 @@ describe('printedPageDocument', () => {
     expect(html).toContain('@media print{:where([data-segnavia-galley-source]){display:none!important}}')
   })
 
+  test('adds a one-column screen presentation without a book place reporter', () => {
+    const html = printedPageDocument(page, { nonce: 'held', screen: { spread: false } })
+
+    expect(html).toContain('"presentation":{"spread":false}')
+    expect(html).toContain("grid-template-columns:repeat('+columns+")
+    expect(html).not.toContain(`type:'${MESSAGE.bookPlace}'`)
+    expect(html).not.toContain(`data.type!=='${MESSAGE.bookLayout}'`)
+  })
+
   test('builds the composer config from document and host page ceilings', () => {
     const limit = (pages: number | undefined, host?: number) =>
       printedPageDocument({ ...page, limits: pages === undefined ? undefined : { pages } }, { nonce: 'held', limits: { pages: host } })

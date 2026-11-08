@@ -36,6 +36,11 @@ export const GALLEY_PRINT_CSS = '@media print{:where([data-segnavia-galley-sourc
 export const BOOK_MEASUREMENT_WAIT_MS = 1_000
 export const WINDOW_EDGE_INSET_PX = 0.25
 
+export interface ScreenPresentation {
+  spread: boolean
+  reportPlace?: boolean
+}
+
 export interface FlowMeasurementFacts {
   id: string
   sourceBlocks: number
@@ -227,7 +232,9 @@ ${embeddedBookPresentationFunctions()}`
 }
 
 export function composerScript(configJson: string): string {
-  const presentation = (JSON.parse(configJson) as { presentation?: unknown }).presentation !== undefined
+  const presentationConfig = (JSON.parse(configJson) as { presentation?: ScreenPresentation }).presentation
+  const presentation = presentationConfig !== undefined
+  const placeReporter = presentationConfig?.reportPlace ? bookPresentationScript('pages', 'scalePages();', 'config.pageMarker') : ''
   const script = `(function(){
 var composeStarted=performance.now();
 var fail=function(reason){var text=String(reason);document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}',text||'book composition failed without a reported reason');};
@@ -296,7 +303,7 @@ var alignHeldNotes=function(){var views=document.querySelectorAll('[data-segnavi
 var settleHeldNoteViews=function(){var areas=document.querySelectorAll('[data-segnavia-pages] [data-segnavia-text]');for(var a=0;a<areas.length;a++){var views=areas[a].querySelectorAll(':scope > [data-segnavia-page-note]');var pieces=[];for(var i=0;i<views.length;i++){var view=views[i];var clone=view.firstElementChild;var id=view.getAttribute('data-segnavia-page-note')||'';if(!clone){fail('the placed page note '+id+' has no held clone; keep its held clone in the note view to clear this refusal');return 'failed';}var lines=blockLines(clone,originTop(clone));var plannedCount=Number(view.getAttribute('data-segnavia-note-total-lines'));if(lines.length!==plannedCount){fail('the page note '+id+' planned '+plannedCount+' lines but its held clone has '+lines.length+' lines; the note lines changed after pagination, so keep its contents, width, and line metrics stable to clear this refusal');return 'failed';}var extent=noteFragmentExtent(lines,Number(view.getAttribute('data-segnavia-note-start')),Number(view.getAttribute('data-segnavia-note-end')));if(!extent){fail('the page note '+id+' could not re-derive its planned fragment from '+plannedCount+' held line boxes; keep its planned line range in the held clone to clear this refusal');return 'failed';}pieces.push({view:view,clone:clone,start:extent.start,height:extent.end-extent.start,gap:Number(view.getAttribute('data-segnavia-note-gap'))});}if(!pieces.length)continue;var tops=noteStackTops(parseFloat(areas[a].style.blockSize),pieces);var plannedStackTop=Number(areas[a].getAttribute('data-segnavia-note-planned-top'));var settledStackTop=tops[0];var windows=areas[a].querySelectorAll(':scope > [data-segnavia-window]');var bodyEnd=0;for(var w=0;w<windows.length;w++){var bottom=parseFloat(windows[w].style.insetBlockStart)+windows[w].getBoundingClientRect().height;if(bottom>bodyEnd)bodyEnd=bottom;}if(noteSettlementOverlapsBody(plannedStackTop,settledStackTop,bodyEnd))return 'overlap';positionHeldNotePieces(pieces,tops);}return 'settled';};
 ${
   presentation
-    ? `var presentScreen=function(pages,count){if(!config.presentation)return;var spread=config.presentation.spread;var columns=spread?2:1;var slots=spread?spreadSlots(count):count;if(spread&&slots>0){var blank=document.createElement('div');blank.setAttribute('data-segnavia-spread-blank','');pages.insertBefore(blank,pages.firstChild);}pages.style.cssText='position:absolute;display:grid;grid-template-columns:repeat('+columns+','+config.geometry.paperWidth+'px);inline-size:'+(columns*config.geometry.paperWidth)+'px;block-size:'+Math.ceil(slots/columns)*config.geometry.paperHeight+'px;direction:'+config.direction+';transform-origin:top '+(config.direction==='rtl'?'right':'left')+';';document.documentElement.style.cssText+=';overflow:auto;block-size:100%';document.body.style.cssText='position:relative;overflow-x:hidden;min-block-size:0;';var scalePages=function(){var height=Math.ceil(slots/columns)*config.geometry.paperHeight;var scale=pageScale(document.documentElement.getBoundingClientRect().width,config.geometry.paperWidth,columns);pages.style.transform='scale('+scale+')';pages.style.left=config.direction==='rtl'?'auto':'0';pages.style.right=config.direction==='rtl'?'0':'auto';document.body.style.blockSize=height*scale+'px';};scalePages();${bookPresentationScript('pages', 'scalePages();', 'config.pageMarker')}if(typeof ResizeObserver==='function')new ResizeObserver(scalePages).observe(document.documentElement);else window.addEventListener('resize',scalePages);};
+    ? `var presentScreen=function(pages,count){if(!config.presentation)return;var spread=config.presentation.spread;var columns=spread?2:1;var slots=spread?spreadSlots(count):count;if(spread&&slots>0){var blank=document.createElement('div');blank.setAttribute('data-segnavia-spread-blank','');pages.insertBefore(blank,pages.firstChild);}pages.style.cssText='position:absolute;display:grid;grid-template-columns:repeat('+columns+','+config.geometry.paperWidth+'px);inline-size:'+(columns*config.geometry.paperWidth)+'px;block-size:'+Math.ceil(slots/columns)*config.geometry.paperHeight+'px;direction:'+config.direction+';transform-origin:top '+(config.direction==='rtl'?'right':'left')+';';document.documentElement.style.cssText+=';overflow:auto;block-size:100%';document.body.style.cssText='position:relative;overflow-x:hidden;min-block-size:0;';var scalePages=function(){var height=Math.ceil(slots/columns)*config.geometry.paperHeight;var scale=pageScale(document.documentElement.getBoundingClientRect().width,config.geometry.paperWidth,columns);pages.style.transform='scale('+scale+')';pages.style.left=config.direction==='rtl'?'auto':'0';pages.style.right=config.direction==='rtl'?'0':'auto';document.body.style.blockSize=height*scale+'px';};scalePages();${placeReporter}if(typeof ResizeObserver==='function')new ResizeObserver(scalePages).observe(document.documentElement);else window.addEventListener('resize',scalePages);};
 `
     : 'var presentScreen=function(){};'
 }

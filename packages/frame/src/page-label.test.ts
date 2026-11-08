@@ -1,6 +1,11 @@
 import { expect, test } from 'bun:test'
+import { toggleTestAttribute } from './page-element.test-helper.ts'
 
-class TestElement extends EventTarget {}
+class TestElement extends EventTarget {
+  toggleAttribute(name: string, force?: boolean) {
+    return toggleTestAttribute(this as never, name, force)
+  }
+}
 
 Object.assign(globalThis, {
   HTMLElement: TestElement,
@@ -48,6 +53,9 @@ function pageHarness() {
       const oldValue = attributes.get(name) ?? null
       attributes.delete(name)
       if (oldValue !== null) void page.attributeChangedCallback(name, oldValue, null)
+    },
+    toggleAttribute(name: string, force?: boolean) {
+      return toggleTestAttribute(this, name, force)
     },
     replaceChildren(next?: typeof sheet) {
       sheet = next

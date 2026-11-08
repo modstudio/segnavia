@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
 import { MESSAGE } from './bridge.ts'
+import { toggleTestAttribute } from './page-element.test-helper.ts'
 
 function style() {
   return {
@@ -37,11 +38,11 @@ function pageHarness(size: Page['size'], bounded = false) {
   const attributes = new Set<string>()
   Object.assign(page, {
     hasAttribute: (name: string) => attributes.has(name),
+    setAttribute: (name: string) => attributes.add(name),
+    removeAttribute: (name: string) => attributes.delete(name),
     toggleAttribute(name: string, force?: boolean) {
       const oldValue = attributes.has(name) ? '' : null
-      const present = force ?? !attributes.has(name)
-      if (present) attributes.add(name)
-      else attributes.delete(name)
+      const present = toggleTestAttribute(this, name, force)
       if ((present ? '' : null) !== oldValue) void page.attributeChangedCallback(name, oldValue, present ? '' : null)
       return present
     },
@@ -49,7 +50,10 @@ function pageHarness(size: Page['size'], bounded = false) {
   const sheet = { style: style() }
   const frame = { contentWindow: {} }
   ;(page as unknown as { pageValue: Page }).pageValue = Page.parse({ html: '<p>Page</p>', size })
-  ;(page as unknown as { contentHeight: number }).contentHeight = typeof size === 'object' && size.height !== 'auto' ? size.height : 0
+  ;(page as unknown as { frameHeight: { contentHeight: number; ownsElementHeight: boolean } }).frameHeight = {
+    contentHeight: typeof size === 'object' && size.height !== 'auto' ? size.height : 0,
+    ownsElementHeight: false,
+  }
   ;(page as unknown as { querySelector(selector: string): unknown }).querySelector = (selector) =>
     selector === '.segnavia-page__sheet' ? sheet : selector === 'iframe' ? frame : null
   if (bounded) page.bounded = true

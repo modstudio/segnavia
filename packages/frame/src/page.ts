@@ -1,5 +1,5 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit.
-// Host-served HTML reports its height through the bridge.
+// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; composed papers
+// fill the host-sized element and scroll inside it. Host-served HTML reports its height through the bridge.
 
 import {
   type Document,
@@ -14,7 +14,7 @@ import {
 } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
-import { dispatchFontFailures, frameSandbox, frameStyleSheets, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { dispatchFontFailures, frameStyleSheets, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -22,23 +22,25 @@ import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prep
 import { loadBrandedPage } from './page-brand.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
 import { PageElementAttributes } from './page-element-attributes.ts'
+import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
+import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
 import { scrollPageToHeading } from './page-heading.ts'
-import { pageFitLayout, pageSheetLayout } from './page-layout.ts'
+import { loadPrintedPageFrame, printedPageComposeFailure, printedPageRequestRefusal } from './page-printed.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
-
 export class SegnaviaPage extends PageElementAttributes {
   static observedAttributes = ['src', 'bounded', 'label']
   private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageInput: DocumentInput | unknown
   private pageValue: Page | null = null
   private documentValue: Document | null = null
-  private contentHeight = 0
+  private frameHeight: PageFrameHeightState = { contentHeight: 0, ownsElementHeight: false }
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
@@ -49,13 +51,13 @@ export class SegnaviaPage extends PageElementAttributes {
   private brandResolution: AbortController | undefined
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
-  private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
+  private slotFrame: PageFrameIdentity | undefined
+  private composedFrame: PageFrameIdentity | undefined
   private hostServed = false
   private documentWrites = 0
   private loadedDocument: number | undefined
   private frameReady = false
   private pageRequests = createPageRequestState()
-
   constructor() {
     super()
     upgradeProperties(this)
@@ -120,22 +122,15 @@ export class SegnaviaPage extends PageElementAttributes {
 
   set page(value: DocumentInput | null | undefined) {
     if (value == null) {
-      this.cancelSelectionRequests()
-      this.cancelSlotPreparation()
+      this.releaseFrame()
       this.brandResolution?.abort()
       this.brandResolution = undefined
-      this.loadGeneration++
-      this.resolvedSlots = undefined
-      this.slotFrame = undefined
       this.pageValue = null
       this.documentValue = null
       this.pageInput = undefined
       this.hostServed = false
-      this.contentHeight = 0
-      this.replaceChildren()
-      this.style.removeProperty('height')
-      delete this.dataset.height
-      delete this.dataset.measured
+      this.frameHeight.contentHeight = 0
+      clearPageFrame(this, this.frameHeight)
       return
     }
     this.load(value)
@@ -199,23 +194,20 @@ export class SegnaviaPage extends PageElementAttributes {
 
   private loadValue(page: Page) {
     const resolvedPage = resolvePageHtml(page)
-    this.cancelSelectionRequests()
     this.hostServed = false
-    this.cancelSlotPreparation()
-    this.resolvedSlots = undefined
-    this.slotFrame = undefined
+    const generation = this.releaseFrame()
     const controller = new AbortController()
     this.slotPreparation = controller
-    const generation = ++this.loadGeneration
     const iframe = this.mount(page)
+    const isCurrent = () => this.isConnected && !controller.signal.aborted && generation === this.loadGeneration && iframe === this.querySelector('iframe')
     const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '', fontFailures: FontFailure[] = []) => {
-      if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
+      if (!isCurrent()) return
       loadShownPageDocument(
         shownPage,
         resolved,
         { baseCss: fontCss, css: this.css, csp: this.cspExtra || undefined, dependencyOrigins: this.dependencyOrigins, fontFailures },
         (document) => {
-          if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
+          if (!isCurrent()) return
           this.resolvedSlots = resolved
           this.slotFrame = resolved ? { frame: iframe, generation } : undefined
           this.cancelPostedSelectionRequests()
@@ -224,9 +216,26 @@ export class SegnaviaPage extends PageElementAttributes {
         report,
       )
     }
-    const report = (error: unknown) => {
-      if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
-        this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+    const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
+    const write = (document: string) => {
+      if (isCurrent()) this.writeDocument(iframe, document)
+    }
+    if (resolvedPage.printedPages) {
+      this.composedFrame = { frame: iframe, generation }
+      loadPrintedPageFrame(resolvedPage, {
+        motifs: this.motifOptions,
+        placements: this.placementOptions,
+        widths: this.widthOptions,
+        fonts: this.fontOptions,
+        slots: this.slotOptions,
+        css: this.css,
+        csp: this.cspExtra || undefined,
+        signal: controller.signal,
+        loaded: write,
+        failed: report,
+      })
+      this.fit()
+      return
     }
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions && Object.keys(page.style?.fonts ?? {}).length === 0) {
       const motifRefusal = framePageMotifRefusal(resolvedPage)
@@ -255,10 +264,7 @@ export class SegnaviaPage extends PageElementAttributes {
           dependencyOrigins: this.dependencyOrigins,
           relayKeys: false,
         },
-        (document) => {
-          if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
-          this.writeDocument(iframe, document)
-        },
+        write,
         report,
       )
       const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, this.slotOptions)
@@ -277,24 +283,22 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   showUrl(url: string, size: Page['size'] = FULL_PAGE_SIZE) {
-    this.cancelSelectionRequests()
     this.hostServed = true
-    this.cancelSlotPreparation()
-    this.loadGeneration++
-    this.resolvedSlots = undefined
-    this.slotFrame = undefined
+    this.releaseFrame()
     const iframe = this.mount(Page.parse({ html: '', size }))
     // Host-served documents do not track readiness because readSelection refuses them.
     iframe.src = new URL(url, location.href).href
     this.fit()
   }
-
   readSelection(): Promise<PageSelection> {
+    const refusal = printedPageRequestRefusal(this.pageValue, 'selection')
+    if (refusal) return Promise.reject(refusal)
     return readPageSelection(this.pageValue, this.querySelector('iframe'), this.hostServed, this.frameReady, this.pageRequests)
   }
-
   /** Scrolls to an id returned by `markdownOutline(page.body)`, resolving false when no heading has that id. */
   scrollToHeading(id: string, options?: { behavior?: ScrollBehavior }): Promise<boolean> {
+    const refusal = printedPageRequestRefusal(this.pageValue, 'heading')
+    if (refusal) return Promise.reject(refusal)
     return scrollPageToHeading(
       id,
       options,
@@ -310,23 +314,19 @@ export class SegnaviaPage extends PageElementAttributes {
   private mount(page: Page): HTMLIFrameElement {
     this.resetDocumentReadiness()
     this.pageValue = page
-    this.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
+    this.frameHeight.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     delete this.dataset.measured
-    const sheet = document.createElement('div')
-    sheet.className = 'segnavia-page__sheet'
-    // Laid out left to right whatever the host's direction: it is scaled from
-    // its top-left corner, and the page inside keeps its own direction.
-    sheet.dir = 'ltr'
-    const width = pageSheetLayout(page.size, this.widthOptions)
-    sheet.style.inlineSize = width.inlineSize
-    if (width.maxInlineSize !== undefined) sheet.style.maxInlineSize = `${width.maxInlineSize}px`
-    if (width.marginInline !== undefined) sheet.style.marginInline = width.marginInline
-    const iframe = document.createElement('iframe')
-    iframe.setAttribute('sandbox', frameSandbox(page.scripts))
-    iframe.title = this.label || 'Page'
-    sheet.append(iframe)
-    this.replaceChildren(sheet)
-    return iframe
+    return mountPageFrame(this, page, this.widthOptions, this.label)
+  }
+
+  /** Drops what belongs to the current frame and returns the generation of the next one. */
+  private releaseFrame(): number {
+    this.cancelSelectionRequests()
+    this.cancelSlotPreparation()
+    this.resolvedSlots = undefined
+    this.slotFrame = undefined
+    this.composedFrame = undefined
+    return ++this.loadGeneration
   }
 
   private cancelSlotPreparation() {
@@ -363,29 +363,30 @@ export class SegnaviaPage extends PageElementAttributes {
     const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
     if (!page || !sheet) return
-    const fit = pageFitLayout(page.size, this.bounded, this.clientWidth, this.contentHeight)
-    sheet.style.height = fit.sheetHeight
-    sheet.style.transform = fit.transform
-    this.style.height = fit.hostHeight
-    if (fit.measuredHeight === undefined) delete this.dataset.height
-    else this.dataset.height = String(fit.measuredHeight)
+    fitPageFrame(this, page, sheet, this.frameHeight, this.bounded)
   }
 
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const message = messageFrom(event, frame)
+    const currentFrame = { frame, generation: this.loadGeneration }
     dispatchFontFailures(this, message)
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
       this.frameReady = true
       releaseReadyPageRequests(this.pageRequests)
     }
     const page = this.pageValue
-    if (message?.type === MESSAGE.slotFit && message.slots && frame === this.slotFrame?.frame && this.slotFrame.generation === this.loadGeneration)
-      this.resolvedSlots?.mergeFit(message.slots)
+    const composeFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, currentFrame, this.composedFrame)
+    if (composeFailure) {
+      dispatchPageFailure(this, composeFailure, true)
+      return
+    }
+    if (message?.type === MESSAGE.slotFit && message.slots && samePageFrame(currentFrame, this.slotFrame)) this.resolvedSlots?.mergeFit(message.slots)
     if (!page || message?.type !== MESSAGE.height || message.height === undefined) return
+    if (page.printedPages) return
     // A fixed sheet keeps its own height whatever its content reports.
     if (typeof page.size === 'object' && page.size.height !== 'auto') return
-    this.contentHeight = message.height
+    this.frameHeight.contentHeight = message.height
     this.dataset.measured = ''
     this.fit()
   }

@@ -47,14 +47,18 @@ export function hasSlotWork(declarations: readonly SlotDeclaration[] | undefined
   return Boolean(declarations?.length || options?.declarations?.length || options?.fill || options?.source || options?.resolveAsset || options?.report)
 }
 
+/** Whether slot preparation would fill declared values. */
+export function fillsSlotValues(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
+  return Boolean((options?.fill || options?.source) && (declarations?.length || options.declarations?.length))
+}
+
 /** Refuses exposing filled values to an item's own scripts. */
 export function slotFillRefusal(
   scripts: Scripts,
   declarations: readonly SlotDeclaration[] | undefined,
   options: SlotsOptions | undefined,
 ): SlotFillRefusedError | undefined {
-  const fillsValues = (options?.fill || options?.source) && (declarations?.length || options.declarations?.length)
-  return scripts !== 'refuse' && fillsValues ? new SlotFillRefusedError(scripts) : undefined
+  return scripts !== 'refuse' && fillsSlotValues(declarations, options) ? new SlotFillRefusedError(scripts) : undefined
 }
 
 interface ResolvedSlots {
