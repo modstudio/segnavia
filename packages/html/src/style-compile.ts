@@ -13,6 +13,7 @@ import {
   type TextStyleTokenGroup,
 } from '@segnavia/format'
 import { sanitizeBookCss } from './book-css.ts'
+import { cssTokens } from './css-tokens.ts'
 
 const LAYER_ORDER = '@layer segnavia.base, segnavia.brand, segnavia.document, segnavia.author;'
 const DEFAULT_BASE_CSS = ''
@@ -43,8 +44,10 @@ function quoteFamily(family: string): string {
   if (/^[-_a-z][-_a-z0-9]*$/i.test(family)) return family
   let quoted = '"'
   for (const character of family) {
+    const code = character.charCodeAt(0)
     if (character === '\\' || character === '"') quoted += `\\${character}`
     else if (character === '<') quoted += '\\3c '
+    else if (code <= 0x1f || code === 0x7f) quoted += `\\${code.toString(16)} `
     else quoted += character
   }
   return `${quoted}"`
@@ -116,13 +119,32 @@ function layer(name: string, css: string): string {
   return `@layer segnavia.${name}{${css}}`
 }
 
+function balanceBlocks(css: string): string {
+  let depth = 0
+  let copiedUntil = 0
+  let balanced = ''
+  for (const token of cssTokens(css)) {
+    const character = css[token.start]
+    if (token.kind === 'open' && character === '{') depth++
+    if (token.kind !== 'close' || character !== '}') continue
+    if (depth > 0) {
+      depth--
+      continue
+    }
+    // Unmatched closing braces are omitted so wrapped text cannot end its containing layer.
+    balanced += css.slice(copiedUntil, token.start)
+    copiedUntil = token.end
+  }
+  return `${balanced}${css.slice(copiedUntil)}${'}'.repeat(depth)}`
+}
+
 export function compileStyleSheet(options: CompileStyleSheetOptions): CompileStyleSheetResult {
   const merged = mergeStyleSheets(options.brand, options.document)
   if (!merged.ok) return merged
   const { sheet } = merged
-  const brandCss = `${tokensCss(sheet, 'brand')}${textStylesCss(sheet, 'brand')}${sanitizeBookCss(sheet.css.brand).css}`
+  const brandCss = `${tokensCss(sheet, 'brand')}${textStylesCss(sheet, 'brand')}${balanceBlocks(sanitizeBookCss(sheet.css.brand).css)}`
   const documentCss = `${tokensCss(sheet, 'document')}${textStylesCss(sheet, 'document')}`
-  const authorCss = sanitizeBookCss(sheet.css.document).css
+  const authorCss = balanceBlocks(sanitizeBookCss(sheet.css.document).css)
   const css = `${LAYER_ORDER}${layer('base', options.baseCss ?? DEFAULT_BASE_CSS)}${layer('brand', brandCss)}${layer('document', documentCss)}${layer('author', authorCss)}`
   return {
     ok: true,

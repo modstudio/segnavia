@@ -59,6 +59,40 @@ describe('compileStyleSheet', () => {
     expect(css).not.toContain('</style>')
   })
 
+  test('keeps unmatched closing braces in document and brand css inside their layers', () => {
+    const freeCss = 'a{color:blue} } body{color:red}'
+    const documentCss = compiled({}, { css: freeCss })
+    const brandCss = compiled({ css: freeCss }, {})
+
+    expect(documentCss).toBe(
+      '@layer segnavia.base, segnavia.brand, segnavia.document, segnavia.author;@layer segnavia.base{}@layer segnavia.brand{}@layer segnavia.document{}@layer segnavia.author{a{color:blue}  body{color:red}}',
+    )
+    expect(brandCss).toBe(
+      '@layer segnavia.base, segnavia.brand, segnavia.document, segnavia.author;@layer segnavia.base{}@layer segnavia.brand{a{color:blue}  body{color:red}}@layer segnavia.document{}@layer segnavia.author{}',
+    )
+    expect(documentCss.match(/@layer segnavia\.(?:base|brand|document|author)\{/g)).toHaveLength(4)
+    expect(brandCss.match(/@layer segnavia\.(?:base|brand|document|author)\{/g)).toHaveLength(4)
+  })
+
+  test('closes an unfinished free css block inside its layer', () => {
+    const css = compiled({}, { css: 'a{color:blue' })
+
+    expect(css).toContain('@layer segnavia.author{a{color:blue}}')
+  })
+
+  test('keeps a closing brace inside a free css string while dropping an unmatched brace', () => {
+    const css = compiled({}, { css: 'a::after{content:"}"} } body{color:red}' })
+
+    expect(css).toContain('@layer segnavia.author{a::after{content:"}"}  body{color:red}}')
+  })
+
+  test('escapes newlines in quoted font family names', () => {
+    const css = compiled({}, { tokens: { fontFamilies: { x: ['A B\n}} body{color:red}'] } } })
+
+    expect(css).toContain('--segnavia-family-x:"A B\\a }} body{color:red}"')
+    expect(css).not.toContain('\n')
+  })
+
   test('returns merged geometries, motifs and font references', () => {
     const motif = { key: 'folio', revision: '1', label: 'Folio', fields: [], versions: [{ lang: 'en', html: '1' }] }
     const result = compileStyleSheet({
