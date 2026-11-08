@@ -33,7 +33,7 @@ export const fontLoadSetup = (
   fontLoadReport: report,
 })
 
-export type AssetRouteDecision = { action: 'continue' } | { action: 'abort' } | { action: 'missing'; url: string } | ({ action: 'fulfill' } & AssetAnswer)
+export type AssetRouteDecision = { action: 'continue' } | { action: 'abort'; reason: string } | { action: 'missing'; url: string } | ({ action: 'fulfill' } & AssetAnswer)
 
 export function mergedFontFailures(initial: readonly FontFailure[], attribute: string | null): FontFailure[] {
   return [...initial, ...fontFailuresAttribute(attribute)]
@@ -41,13 +41,15 @@ export function mergedFontFailures(initial: readonly FontFailure[], attribute: s
 
 export async function assetRouteDecision(
   url: string,
-  kind: FetchKind,
+  kind: FetchKind | undefined,
   origins: Iterable<OriginApproval> | undefined,
   lookup: Assets | undefined,
   signal: AbortSignal,
 ): Promise<AssetRouteDecision> {
-  if (url.startsWith('data:')) return { action: 'continue' }
-  if (!originDecision(url, kind, origins).allowed) return { action: 'abort' }
+  if (url.startsWith('data:') || url === 'about:blank') return { action: 'continue' }
+  if (!kind) return { action: 'abort', reason: `${url} uses unsupported fetching; no asset kind can approve it` }
+  const policy = originDecision(url, kind, origins)
+  if (!policy.allowed) return { action: 'abort', reason: policy.reason }
   const answer = await lookup?.(url, { kind, signal })
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
 }
@@ -97,19 +99,13 @@ export async function renderInBrowserTab<T>(
   const assetBudget = setup.assetBudget ?? { bytes: 0 }
   await context.route('**/*', async (route) => {
     const url = route.request().url()
-    if (url.startsWith('data:') || url === 'about:blank') return route.continue()
     const kind = fetchKind(route.request().resourceType())
-    if (!kind) {
-      refused.add(`${url} uses unsupported ${route.request().resourceType()} fetching; no asset kind can approve it`)
-      return route.abort('blockedbyclient')
-    }
-    const policy = originDecision(url, kind, setup.origins)
-    if (!policy.allowed) {
-      refused.add(policy.reason)
-      return route.abort('blockedbyclient')
-    }
     const decision = await assetRouteDecision(url, kind, setup.origins, setup.assets, controller.signal)
     if (decision.action === 'continue') await route.continue()
+    else if (decision.action === 'abort') {
+      refused.add(decision.reason)
+      await route.abort('blockedbyclient')
+    }
     else if (decision.action === 'fulfill') {
       const bytes = decision.body.byteLength
       const limitRefusal = assetLimitRefusal(url, bytes, assetBudget.bytes, assetLimits)
@@ -121,7 +117,7 @@ export async function renderInBrowserTab<T>(
         await route.fulfill({ body: Buffer.from(decision.body), contentType: decision.contentType })
       }
     } else {
-      if (decision.action === 'missing') missing.add(decision.url)
+      missing.add(decision.url)
       await route.abort('blockedbyclient')
     }
   })

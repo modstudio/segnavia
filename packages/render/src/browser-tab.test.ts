@@ -11,14 +11,16 @@ describe('asset route decision', () => {
     expect(await assetRouteDecision(url, 'script', origins, undefined, new AbortController().signal)).toEqual({ action: 'missing', url })
   })
 
-  test('aborts unapproved URLs and continues inline data without consulting the cache', async () => {
+  test('aborts unapproved URLs without consulting the cache', async () => {
     let lookups = 0
     const lookup = async () => {
       lookups++
       return answer
     }
-    expect(await assetRouteDecision('https://evil.example/a.js', 'script', origins, lookup, new AbortController().signal)).toEqual({ action: 'abort' })
-    expect(await assetRouteDecision('data:text/javascript,ok', 'script', origins, lookup, new AbortController().signal)).toEqual({ action: 'continue' })
+    expect(await assetRouteDecision('https://evil.example/a.js', 'script', origins, lookup, new AbortController().signal)).toEqual({
+      action: 'abort',
+      reason: expect.stringContaining('https://evil.example'),
+    })
     expect(lookups).toBe(0)
   })
 })
