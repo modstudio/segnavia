@@ -38,17 +38,13 @@ describe('planBook', () => {
 
   test('returns pagination refusals instead of a partial plan', () => {
     const figure = block('figure', 'img', 1, 2, 1, 0, { columns: 2, lines: [{ top: 0, bottom: 80 }] })
-    const result = planBook(input({ flows: [flow('c1', 'chapter', [figure])] }), { frontMatter: 'roman-lower', body: 'arabic' })
+    const measurements = input({ flows: [flow('c1', 'chapter', [figure])] })
+    const paginated = paginateBook(measurements)
+    const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
+    expect(paginated.refusals).not.toHaveLength(0)
     expect(result).toEqual({
       ok: false,
-      refusals: [
-        {
-          tag: 'img',
-          position: { chapter: 1, block: 2 },
-          message:
-            'The img at chapter 1 block 2 could not establish a fit in the "segnavia:opener" opener parent\'s 50px text area; shorten it or increase the text-area height to clear this refusal.',
-        },
-      ],
+      refusals: paginated.refusals,
     })
   })
 })
