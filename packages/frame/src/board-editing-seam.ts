@@ -22,9 +22,10 @@ export interface BoardEditingBridge {
 }
 
 export const boardEditing = Symbol.for('@segnavia/frame/board-editing')
+export type BoardEditingHostValue = (board: Document | null) => void
 
 export interface BoardEditingHost {
-  [boardEditing](delegate: BoardPointerDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge
+  [boardEditing](delegate: BoardPointerDelegate, hostValue: BoardEditingHostValue): BoardEditingBridge
 }
 
 interface BridgeParts {

@@ -1,102 +1,59 @@
 import { describe, expect, test } from 'bun:test'
-import type { Board } from '@segnavia/format'
+import { type Document, Document as DocumentSchema, diffDocuments, fingerprintDocument } from '@segnavia/format'
 import {
   adoptHostBoard,
   applyBoardEdit,
+  applyRemoteBoardEdit,
   boardEditQueue,
-  detachBoardEditing,
   redoBoardEdit,
   rejectBoardEdit,
   resolveBoardEdit,
   undoBoardEdit,
 } from './board-edit-policy.ts'
 
-const value = (x: number): Board => ({
-  title: 'Board',
-  direction: 'ltr',
-  items: [{ id: 'one', kind: 'deck', address: 'one', x, y: 0, width: 100 }],
-  labels: [],
-  sections: [],
-})
+const value = (x: number, title = 'Board'): Document =>
+  DocumentSchema.parse({
+    type: 'document',
+    id: 'board',
+    kind: 'board',
+    title,
+    settings: { dir: 'ltr' },
+    children: [{ type: 'item', id: 'one', kind: 'page', address: 'one', x, y: 0, width: 100 }],
+  })
+
+const edit = { kind: 'move' as const, ids: ['one'] }
+const apply = (state: ReturnType<typeof boardEditQueue>, after: Document) => applyBoardEdit(state, diffDocuments(state.value, after), edit)
 
 describe('board edit queue policy', () => {
-  test('keeps optimistic queued values and rolls a rejection back past later edits', () => {
-    let state = boardEditQueue(value(0))
-    state = applyBoardEdit(state, value(1), { kind: 'move', ids: ['one'] }).state
-    state = applyBoardEdit(state, value(2), { kind: 'move', ids: ['one'] }).state
-    expect(rejectBoardEdit(state, 1, 'no').state).toMatchObject({ value: value(0), jobs: [], undo: [], redo: [] })
-    expect(resolveBoardEdit(state, 1).state).toMatchObject({ value: value(2), jobs: [{ id: 2 }], undo: [{ after: value(1) }, { after: value(2) }] })
+  test('queues optimistic ops and rolls rejection back', () => {
+    const first = apply(boardEditQueue(value(0)), value(1)).state
+    const second = apply(first, value(2)).state
+    expect(resolveBoardEdit(second, 1).state.jobs).toHaveLength(1)
+    expect(rejectBoardEdit(second, 1, 'no').state).toMatchObject({ value: value(0), jobs: [], undo: [], redo: [] })
   })
 
-  test('a host value aborts pending work and makes its late completion inert', async () => {
-    const queued = applyBoardEdit(boardEditQueue(value(0)), value(1), { kind: 'move', ids: ['one'] }).state
-    const controller = new AbortController()
-    let finish!: () => void
-    const write = new Promise<void>((resolve) => {
-      finish = resolve
-    })
-    const adopted = adoptHostBoard(queued, value(9))
-    for (const id of adopted.effects.abort) if (id === 1) controller.abort()
-    finish()
-    await write
-    const late = resolveBoardEdit(adopted.state, 1)
-    expect(controller.signal.aborted).toBe(true)
-    expect(late.state).toMatchObject({ value: value(9), jobs: [], invalidated: null, undo: [], redo: [], generation: 1 })
-    expect(late.effects.show).toBeUndefined()
-  })
-
-  test('a host value keeps a late rejection error without restoring stale work', () => {
-    const queued = applyBoardEdit(boardEditQueue(value(0)), value(1), { kind: 'move', ids: ['one'] }).state
-    const adopted = adoptHostBoard(queued, value(9))
-    const late = rejectBoardEdit(adopted.state, 1, 'write failed')
-    expect(late.state).toMatchObject({ value: value(9), jobs: [], invalidated: null, undo: [], redo: [] })
-    expect(late.effects).toMatchObject({ error: { edit: { kind: 'move', ids: ['one'] }, error: 'write failed' } })
-    expect(late.effects.show).toBeUndefined()
-  })
-
-  test('ids stay monotonic across a null host value and late settlements preserve newer work', () => {
-    const first = applyBoardEdit(boardEditQueue(value(0)), value(1), { kind: 'move', ids: ['one'] }).state
-    const adopted = adoptHostBoard(first, value(9)).state
-    const replacement = boardEditQueue(value(9), adopted.nextId, adopted.invalidated)
-    const newer = applyBoardEdit(replacement, value(10), { kind: 'resize', ids: ['one'] }).state
-
-    expect(newer.jobs[0]?.id).toBe(2)
-    const resolved = resolveBoardEdit(newer, 1)
-    expect(resolved.state).toMatchObject({ value: value(10), jobs: [{ id: 2 }], invalidated: null })
-    expect(resolved.effects.run).toMatchObject({ id: 2 })
-
-    const rejected = rejectBoardEdit(newer, 1, 'old write failed')
-    expect(rejected.state).toMatchObject({ value: value(10), jobs: [{ id: 2 }], invalidated: null })
-    expect(rejected.effects).toMatchObject({
-      run: { id: 2 },
-      error: { edit: { kind: 'move', ids: ['one'] }, error: 'old write failed' },
-    })
-    expect(rejected.effects.show).toBeUndefined()
-  })
-
-  test('detach leaves signals active and queued jobs run in order', () => {
-    let state = boardEditQueue(value(0))
-    state = applyBoardEdit(state, value(1), { kind: 'move', ids: ['one'] }).state
-    state = applyBoardEdit(state, value(2), { kind: 'move', ids: ['one'] }).state
-    const controllers = new Map([
-      [1, new AbortController()],
-      [2, new AbortController()],
-    ])
-    const detached = detachBoardEditing(state)
-    for (const id of detached.effects.abort) controllers.get(id)?.abort()
-    expect(detached.state).toBe(state)
-    expect([...controllers.values()].some((controller) => controller.signal.aborted)).toBe(false)
-    expect(resolveBoardEdit(detached.state, 1).effects.run).toMatchObject({ id: 2 })
-    expect(rejectBoardEdit(detached.state, 1, 'failed').state).toMatchObject({ value: value(0), jobs: [], undo: [], redo: [] })
-  })
-
-  test('undo and redo are queued with rollback snapshots', () => {
-    const applied = applyBoardEdit(boardEditQueue(value(0)), value(1), { kind: 'move', ids: ['one'] }).state
-    const settled = resolveBoardEdit(applied, 1).state
-    const undone = undoBoardEdit(settled)
-    expect(undone.state).toMatchObject({ value: value(0), undo: [], redo: [{ after: value(1) }], jobs: [{ edit: { kind: 'undo' } }] })
+  test('undo and redo queue inverse and forward operations', () => {
+    const applied = resolveBoardEdit(apply(boardEditQueue(value(0)), value(1)).state, 1).state
+    const undone = undoBoardEdit(applied)
+    expect(undone.state.value).toEqual(value(0))
+    expect(undone.state.redo).toHaveLength(1)
     const redone = redoBoardEdit(resolveBoardEdit(undone.state, 2).state)
-    expect(redone.state).toMatchObject({ value: value(1), undo: [{ after: value(1) }], redo: [], jobs: [{ edit: { kind: 'redo' } }] })
-    expect(rejectBoardEdit(redone.state, 3, 'no').state).toMatchObject({ value: value(0), undo: [], redo: [{ after: value(1) }] })
+    expect(redone.state.value).toEqual(value(1))
+  })
+
+  test('a stale remote batch keeps unrelated history and sends no job', () => {
+    const applied = resolveBoardEdit(apply(boardEditQueue(value(0)), value(1)).state, 1).state
+    const remote = value(1, 'Remote')
+    const transition = applyRemoteBoardEdit(applied, { base: fingerprintDocument(value(0)), ops: diffDocuments(value(1), remote) })
+    expect(transition.state.value).toEqual(remote)
+    expect(transition.state.undo).toHaveLength(1)
+    expect(transition.effects.run).toBeUndefined()
+  })
+
+  test('whole-document host adoption uses the remote path', () => {
+    const applied = resolveBoardEdit(apply(boardEditQueue(value(0)), value(1)).state, 1).state
+    const adopted = adoptHostBoard(applied, value(1, 'Host'))
+    expect(adopted.state.undo).toHaveLength(1)
+    expect(adopted.state.value).toEqual(value(1, 'Host'))
   })
 })

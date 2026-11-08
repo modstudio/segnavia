@@ -1,157 +1,135 @@
-import type { Board } from '@segnavia/format'
+import { applyOps, type Document, type DocumentBatch, type DocumentOp, diffDocuments, fingerprintDocument, invertOps, rebaseOps } from '@segnavia/format'
 import type { BoardEdit } from './board-editing.ts'
-
-export const BOARD_HISTORY_LIMIT = 100
-
-export interface BoardHistoryEntry {
-  before: Board
-  after: Board
-  edit: BoardEdit
-}
+import {
+  appendBoardHistory,
+  type BoardHistory,
+  type BoardHistoryEntry,
+  emptyBoardHistory,
+  rebaseBoardHistory,
+  redoBoardHistory,
+  undoBoardHistory,
+} from './board-history.ts'
 
 export interface PendingBoardEdit {
   id: number
-  generation: number
-  before: Board
-  after: Board
+  before: Document
+  after: Document
+  ops: readonly DocumentOp[]
   edit: BoardEdit
-  undoBefore: readonly BoardHistoryEntry[]
-  redoBefore: readonly BoardHistoryEntry[]
+  historyBefore: BoardHistory<BoardEdit>
 }
-
-export interface BoardEditQueueState {
-  value: Board
+export interface BoardEditQueueState extends BoardHistory<BoardEdit> {
+  value: Document
   jobs: readonly PendingBoardEdit[]
   invalidated: Pick<PendingBoardEdit, 'id' | 'edit'> | null
-  undo: readonly BoardHistoryEntry[]
-  redo: readonly BoardHistoryEntry[]
-  generation: number
   nextId: number
 }
-
 export interface BoardEditEffects {
-  show?: Board
+  show?: Document
   run?: PendingBoardEdit
   abort: readonly number[]
   error?: { edit: BoardEdit; error: unknown }
   historyChanged: boolean
 }
-
 export interface BoardEditTransition {
   state: BoardEditQueueState
   effects: BoardEditEffects
 }
 
-export function boardEditQueue(value: Board, nextId = 1, invalidated: BoardEditQueueState['invalidated'] = null): BoardEditQueueState {
-  return { value, jobs: [], invalidated, undo: [], redo: [], generation: 0, nextId }
+const availability = (state: BoardHistory<BoardEdit>): string => `${state.undo.length > 0}:${state.redo.length > 0}`
+const unchanged = (state: BoardEditQueueState): BoardEditTransition => ({ state, effects: { abort: [], historyChanged: false } })
+
+export function boardEditQueue(value: Document, nextId = 1, invalidated: BoardEditQueueState['invalidated'] = null): BoardEditQueueState {
+  return { value, jobs: [], invalidated, ...emptyBoardHistory(), nextId }
 }
 
-export function applyBoardEdit(state: BoardEditQueueState, after: Board, edit: BoardEdit): BoardEditTransition {
-  const undo = [...state.undo, { before: state.value, after, edit }].slice(-BOARD_HISTORY_LIMIT)
-  return enqueue(state, after, edit, state.undo, state.redo, undo, [])
+function enqueue(
+  state: BoardEditQueueState,
+  after: Document,
+  ops: readonly DocumentOp[],
+  edit: BoardEdit,
+  history: BoardHistory<BoardEdit>,
+): BoardEditTransition {
+  const job = { id: state.nextId, before: state.value, after, ops, edit, historyBefore: { undo: state.undo, redo: state.redo } }
+  const next = { ...state, value: after, jobs: [...state.jobs, job], ...history, nextId: state.nextId + 1 }
+  return {
+    state: next,
+    effects: { show: after, run: state.jobs.length === 0 ? job : undefined, abort: [], historyChanged: availability(state) !== availability(next) },
+  }
+}
+
+export function applyBoardEdit(state: BoardEditQueueState, ops: readonly DocumentOp[], edit: BoardEdit): BoardEditTransition {
+  const result = rebaseOps(state.value, ops)
+  if (result.conflicts.length > 0) return unchanged(state)
+  const entry: BoardHistoryEntry<BoardEdit> = { ops: result.applied, inverse: invertOps(result.applied), edit }
+  return enqueue(state, result.document, result.applied, edit, appendBoardHistory(state, entry))
 }
 
 export function undoBoardEdit(state: BoardEditQueueState): BoardEditTransition {
-  const entry = state.undo.at(-1)
-  if (!entry) return unchanged(state)
-  return enqueue(state, entry.before, { kind: 'undo', edit: entry.edit }, state.undo, state.redo, state.undo.slice(0, -1), [...state.redo, entry])
+  const result = undoBoardHistory(state.value, state)
+  if (!result.entry)
+    return { state: { ...state, ...result.history }, effects: { abort: [], historyChanged: availability(state) !== availability(result.history) } }
+  return enqueue(state, result.document, result.entry.inverse, { kind: 'undo', edit: result.entry.edit }, result.history)
 }
 
 export function redoBoardEdit(state: BoardEditQueueState): BoardEditTransition {
-  const entry = state.redo.at(-1)
-  if (!entry) return unchanged(state)
-  return enqueue(
-    state,
-    entry.after,
-    { kind: 'redo', edit: entry.edit },
-    state.undo,
-    state.redo,
-    [...state.undo, entry].slice(-BOARD_HISTORY_LIMIT),
-    state.redo.slice(0, -1),
-  )
+  const result = redoBoardHistory(state.value, state)
+  if (!result.entry)
+    return { state: { ...state, ...result.history }, effects: { abort: [], historyChanged: availability(state) !== availability(result.history) } }
+  return enqueue(state, result.document, result.entry.ops, { kind: 'redo', edit: result.entry.edit }, result.history)
+}
+
+export function applyRemoteBoardEdit(state: BoardEditQueueState, batch: DocumentBatch): BoardEditTransition {
+  const base = state.jobs[0]?.before ?? state.value
+  const remote = batch.base === fingerprintDocument(base) ? { document: applyOps(base, batch) } : rebaseOps(base, batch.ops)
+  const kept: PendingBoardEdit[] = []
+  const abort: number[] = []
+  let working = remote.document
+  for (const job of state.jobs) {
+    const rebased = rebaseOps(working, job.ops)
+    if (rebased.conflicts.length > 0) abort.push(job.id)
+    else {
+      kept.push({ ...job, before: working, after: rebased.document })
+      working = rebased.document
+    }
+  }
+  const history = rebaseBoardHistory(working, state)
+  const next = { ...state, value: working, jobs: kept, ...history }
+  return { state: next, effects: { show: working, abort, run: kept[0], historyChanged: availability(state) !== availability(next) } }
+}
+
+export function adoptHostBoard(state: BoardEditQueueState, value: Document): BoardEditTransition {
+  return applyRemoteBoardEdit(state, { base: fingerprintDocument(state.value), ops: diffDocuments(state.value, value) })
 }
 
 export function resolveBoardEdit(state: BoardEditQueueState, id: number): BoardEditTransition {
   if (state.invalidated?.id === id) return { state: { ...state, invalidated: null }, effects: { abort: [], run: state.jobs[0], historyChanged: false } }
   const job = state.jobs[0]
-  if (!job || job.id !== id || job.generation !== state.generation) return unchanged(state)
+  if (!job || job.id !== id) return unchanged(state)
   const jobs = state.jobs.slice(1)
   return { state: { ...state, jobs }, effects: { abort: [], run: jobs[0], historyChanged: false } }
 }
 
 export function rejectBoardEdit(state: BoardEditQueueState, id: number, error: unknown): BoardEditTransition {
-  if (state.invalidated?.id === id) {
-    const edit = state.invalidated.edit
+  if (state.invalidated?.id === id)
     return {
       state: { ...state, invalidated: null },
-      effects: { abort: [], run: state.jobs[0], error: { edit, error }, historyChanged: false },
+      effects: { abort: [], run: state.jobs[0], error: { edit: state.invalidated.edit, error }, historyChanged: false },
     }
-  }
   const job = state.jobs[0]
-  if (!job || job.id !== id || job.generation !== state.generation) return unchanged(state)
-  const next = { ...state, value: job.before, jobs: [], undo: job.undoBefore, redo: job.redoBefore }
+  if (!job || job.id !== id) return unchanged(state)
+  const next = { ...state, value: job.before, jobs: [], ...job.historyBefore }
   return {
     state: next,
     effects: {
       show: next.value,
       abort: state.jobs.slice(1).map((entry) => entry.id),
       error: { edit: job.edit, error },
-      historyChanged: historyAvailability(state) !== historyAvailability(next),
-    },
-  }
-}
-
-export function adoptHostBoard(state: BoardEditQueueState, value: Board): BoardEditTransition {
-  const invalidated = state.invalidated ?? (state.jobs[0] ? { id: state.jobs[0].id, edit: state.jobs[0].edit } : null)
-  const next = { ...state, value, jobs: [], invalidated, undo: [], redo: [], generation: state.generation + 1 }
-  return {
-    state: next,
-    effects: {
-      show: value,
-      abort: state.jobs.map((job) => job.id),
-      historyChanged: historyAvailability(state) !== historyAvailability(next),
+      historyChanged: availability(state) !== availability(next),
     },
   }
 }
 
 export function detachBoardEditing(state: BoardEditQueueState): BoardEditTransition {
-  return { state, effects: { abort: [], historyChanged: false } }
-}
-
-function enqueue(
-  state: BoardEditQueueState,
-  after: Board,
-  edit: BoardEdit,
-  undoBefore: readonly BoardHistoryEntry[],
-  redoBefore: readonly BoardHistoryEntry[],
-  undo: readonly BoardHistoryEntry[],
-  redo: readonly BoardHistoryEntry[],
-): BoardEditTransition {
-  const job: PendingBoardEdit = {
-    id: state.nextId,
-    generation: state.generation,
-    before: state.value,
-    after,
-    edit,
-    undoBefore,
-    redoBefore,
-  }
-  const next = { ...state, value: after, jobs: [...state.jobs, job], undo, redo, nextId: state.nextId + 1 }
-  return {
-    state: next,
-    effects: {
-      show: after,
-      run: state.jobs.length === 0 ? job : undefined,
-      abort: [],
-      historyChanged: historyAvailability(state) !== historyAvailability(next),
-    },
-  }
-}
-
-function unchanged(state: BoardEditQueueState): BoardEditTransition {
-  return { state, effects: { abort: [], historyChanged: false } }
-}
-
-function historyAvailability(state: BoardEditQueueState): string {
-  return `${state.undo.length > 0}:${state.redo.length > 0}`
+  return unchanged(state)
 }
