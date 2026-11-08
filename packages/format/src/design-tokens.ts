@@ -4,6 +4,7 @@ export type DesignTokens = NonNullable<StyleSheet['tokens']>
 type JsonObject = Record<string, unknown>
 
 const unitPx = { mm: 96 / 25.4, cm: 96 / 2.54, in: 96, pt: 96 / 72 } as const
+const SEGNAVIA_EXTENSION = 'org.segnavia'
 
 function colorValue(hex: string): JsonObject {
   const raw = hex.slice(1)
@@ -24,26 +25,43 @@ function dimensionEntry(name: string, dimension: NonNullable<DesignTokens['dimen
   const factor = unitPx[dimension.unit]
   return {
     $value: { value: dimension.value * factor, unit: 'px' },
-    $extensions: { 'org.segnavia': { value: dimension.value, unit: dimension.unit } },
+    $extensions: { [SEGNAVIA_EXTENSION]: { value: dimension.value, unit: dimension.unit } },
   }
 }
 
-function group<T>(type: string, values: Record<string, T> | undefined, convert: (name: string, value: T) => unknown): JsonObject {
-  return {
-    $type: type,
-    ...Object.fromEntries(Object.entries(values ?? {}).map(([name, value]) => [name, { $value: convert(name, value) }])),
-  }
+interface TokenGroup {
+  $type: string
+  values: (tokens: DesignTokens) => Record<string, unknown> | undefined
+  encode: (name: string, value: unknown) => JsonObject
 }
+
+const GROUPS = {
+  color: {
+    $type: 'color',
+    values: (tokens) => tokens.colors,
+    encode: (_name, value) => ({ $value: colorValue(value as string) }),
+  },
+  dimension: {
+    $type: 'dimension',
+    values: (tokens) => tokens.dimensions,
+    encode: (name, value) => dimensionEntry(name, value as NonNullable<DesignTokens['dimensions']>[string]),
+  },
+  fontFamily: {
+    $type: 'fontFamily',
+    values: (tokens) => tokens.fontFamilies,
+    encode: (_name, value) => ({ $value: value }),
+  },
+} satisfies Record<string, TokenGroup>
+
+const GROUP_TYPES = new Set(Object.values(GROUPS).map((group) => group.$type))
 
 export function exportDesignTokens(tokens: DesignTokens): JsonObject {
-  return {
-    color: group('color', tokens.colors, (_name, color) => colorValue(color)),
-    dimension: {
-      $type: 'dimension',
-      ...Object.fromEntries(Object.entries(tokens.dimensions ?? {}).map(([name, value]) => [name, dimensionEntry(name, value)])),
-    },
-    fontFamily: group('fontFamily', tokens.fontFamilies, (_name, family) => family),
-  }
+  return Object.fromEntries(
+    Object.entries(GROUPS).map(([name, group]) => [
+      name,
+      { $type: group.$type, ...Object.fromEntries(Object.entries(group.values(tokens) ?? {}).map(([key, value]) => [key, group.encode(key, value)])) },
+    ]),
+  )
 }
 
 interface HeldToken {
@@ -62,13 +80,13 @@ function objectAt(value: unknown, path: string): JsonObject {
 function collect(value: JsonObject, path: string[] = [], inheritedType?: string, held: HeldToken[] = [], namePath = path): HeldToken[] {
   if ('$ref' in value) throw new Error(`Token ${path.join('.')} uses unsupported $ref; use a {group.token} alias to clear this refusal`)
   const type = typeof value.$type === 'string' ? value.$type : inheritedType
-  if (type !== undefined && !['color', 'dimension', 'fontFamily'].includes(type)) {
+  if (type !== undefined && !GROUP_TYPES.has(type)) {
     throw new Error(`Token ${path.join('.')} has unknown $type ${JSON.stringify(type)}; use color, dimension or fontFamily to clear this refusal`)
   }
   for (const [key, child] of Object.entries(value)) {
     if (key.startsWith('$')) continue
     const childPath = [...path, key]
-    const childNamePath = path.length === 0 && ['color', 'dimension', 'fontFamily'].includes(key) ? [] : [...namePath, key]
+    const childNamePath = path.length === 0 && key in GROUPS ? [] : [...namePath, key]
     const object = objectAt(child, childPath.join('.'))
     if ('$value' in object) {
       if (!type) throw new Error(`Token ${childPath.join('.')} has no $type; declare its supported type to clear this refusal`)
@@ -118,7 +136,7 @@ function importColor(token: HeldToken): string {
 
 function importDimension(token: HeldToken): NonNullable<DesignTokens['dimensions']>[string] {
   const value = objectAt(token.value, token.path)
-  const extension = typeof token.extensions === 'object' && token.extensions !== null ? objectAt(token.extensions, token.path)['org.segnavia'] : undefined
+  const extension = typeof token.extensions === 'object' && token.extensions !== null ? objectAt(token.extensions, token.path)[SEGNAVIA_EXTENSION] : undefined
   const preferred = extension === undefined ? value : objectAt(extension, token.path)
   if (typeof preferred.value !== 'number' || !['pt', 'px', 'mm', 'cm', 'in', 'em', 'rem'].includes(String(preferred.unit))) {
     throw new Error(`Token ${token.path} has an invalid dimension`)
