@@ -358,7 +358,12 @@ export class SegnaviaBook extends BookSourcesElement {
     const message = messageFrom(event, frame)
     if (!message) return
     const layout = frame.dataset.segnaviaBookLayout as BookLayout | undefined
-    if (message.type === MESSAGE.composeFailure && frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)) return
+    if (
+      (message.type === MESSAGE.composeFailure || message.type === MESSAGE.fontFailures) &&
+      frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)
+    )
+      return
+    dispatchFontFailures(this, message)
     const failureState: bookElement.BookComposeFailureState = {
       failed: this.failedLayouts,
       ready: this.readyLayouts,
