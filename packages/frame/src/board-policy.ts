@@ -93,21 +93,24 @@ export async function checkResolvedWithBrand(
   const checked = checkResolved(item, resolved)
   const fallback = async (document: Document) => (await resolveBrand(document, source, signal)) ?? (await boardBrand)
   if (resolved.kind === 'deck') {
+    const deck = checked as Extract<CheckedResolvedBoardItem, { kind: 'deck' }>
     const document = resolvedDocument(item, resolved.deck, ['deck'])
-    return { ...checked, kind: 'deck', deck: deckFromDocument(document, await fallback(document)) }
+    return { ...deck, deck: deckFromDocument(document, await fallback(document)) }
   }
   if (resolved.kind === 'page') {
+    const page = checked as Extract<CheckedResolvedBoardItem, { kind: 'page' }>
     const document = resolvedDocument(item, resolved.page, PAGE_OR_PRINTED_KINDS)
-    return { ...checked, kind: 'page', page: pageOrPrintedFromDocument(document, await fallback(document)) }
+    return { ...page, page: pageOrPrintedFromDocument(document, await fallback(document)) }
   }
   if (resolved.kind === 'paper') {
+    const paper = checked as Extract<CheckedResolvedBoardItem, { kind: 'paper' }>
     const pages = await Promise.all(
       resolved.pages.map(async (page) => {
         const document = resolvedDocument(item, page, PAGE_OR_PRINTED_KINDS)
         return pageOrPrintedFromDocument(document, await fallback(document))
       }),
     )
-    return { ...checked, kind: 'paper', pages }
+    return { ...paper, pages }
   }
   if (checked.kind === 'book' && checked.view.brand === undefined) return { ...checked, view: { ...checked.view, brand: await boardBrand } }
   return checked

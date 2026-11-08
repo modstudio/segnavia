@@ -27,7 +27,7 @@ import { BoardPainter } from './board-painter.ts'
 import { placeBoardItem } from './board-placement.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import * as boardPolicy from './board-policy.ts'
-import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
+import type { ResolveBoardItem } from './board-resolutions.ts'
 import { focusAfterReveal, revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardItemTitles } from './board-titles.ts'
@@ -46,7 +46,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private nameProvider: BoardItemNames | undefined
   private shapes: BoardShapes = { items: {}, labels: {} }
   private items = new Map<string, BoardItem>()
-  private readonly resolutions = new BoardResolutions()
   private readonly painter = new BoardPainter()
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined

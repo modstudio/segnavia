@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import type { Brand, BrandSource } from '@segnavia/format'
 import { parseDocument } from '@segnavia/html'
 import { comparableContent } from './content-value.ts'
 import { DeckController } from './controller.ts'
@@ -79,9 +80,12 @@ test('loading the same parsed Document keeps comparable content equal for every 
 })
 
 test('controller resolves a named brand before the first slide', async () => {
+  const source: BrandSource = {
+    brand: async (name): Promise<Brand | undefined> => (name === 'house' ? { tokens: { colors: { ink: '#123456' } } } : undefined),
+  }
   const controller = new DeckController({
     hash: null,
-    brands: { source: { brand: async (name) => (name === 'house' ? { tokens: { colors: { ink: '#123456' } } } : undefined) } },
+    brands: { source },
   })
   await controller.load({ ...documentInput(), brand: 'house' })
   expect(controller.state.deck?.brand).toEqual({ tokens: { colors: { ink: '#123456' } } })
@@ -89,8 +93,8 @@ test('controller resolves a named brand before the first slide', async () => {
 
 test.each([
   [undefined, /without a BrandSource/],
-  [{ source: { brand: async () => undefined } }, /unknown to the BrandSource/],
-  [{ source: { brand: async () => ({ stray: true }) as never } }, /invalid style sheet.*stray/],
+  [{ source: { brand: async (): Promise<Brand | undefined> => undefined } }, /unknown to the BrandSource/],
+  [{ source: { brand: async (): Promise<Brand | undefined> => ({ stray: true }) as never } }, /invalid style sheet.*stray/],
 ] as const)('controller reports brand refusal %#', async (brands, message) => {
   const controller = new DeckController({ hash: null, brands })
   await expect(controller.load({ ...documentInput(), brand: 'house' })).rejects.toThrow(message)
