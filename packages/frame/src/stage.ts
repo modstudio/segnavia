@@ -13,7 +13,6 @@
 
 import type { SlotsOptions, TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import type { BrandsOptions } from './brands.ts'
 import { animationMessage, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
@@ -44,7 +43,6 @@ export class SegnaviaStage extends HTMLElement {
   declare dependencyOrigins: Iterable<string>
   declare bridgeReadyTimeoutMs: number
   declare frameTitle: FrameTitle
-  declare brands: BrandsOptions | undefined
   private owned: DeckController | null = null
   private attached: DeckController | null = null
   private room: StageReserve = {}
