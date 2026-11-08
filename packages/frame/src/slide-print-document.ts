@@ -5,7 +5,7 @@ import { withDiagramScript } from './diagram-document.ts'
 export const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-print-color-adjust:exact}'
 
 export function htmlSlideDocument(
-  deck: Pick<Deck, 'scripts' | 'dir' | 'lang' | 'style' | 'title'>,
+  deck: Pick<Deck, 'scripts' | 'dir' | 'lang' | 'style' | 'brand' | 'title'>,
   html: string,
   options: { baseCss?: string; css?: string; nonce: string; printAtMs?: number; dependencyOrigins?: Iterable<string>; diagramScript?: string },
 ): string {

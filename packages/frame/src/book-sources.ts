@@ -1,5 +1,6 @@
 import type { PageWidths } from '@segnavia/format'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -13,6 +14,7 @@ export abstract class BookSourcesElement extends HTMLElementBase {
   }
   declare dependencyOrigins: Iterable<string>
   protected fontOptions: FontsOptions | undefined
+  protected brandOptions: BrandsOptions | undefined
   protected motifOptions: MotifsOptions | undefined
   protected placementOptions: PlacementsOptions | undefined
   protected widthOptions: PageWidths | undefined
@@ -31,6 +33,13 @@ export abstract class BookSourcesElement extends HTMLElementBase {
 
   set fonts(value: FontsOptions | undefined) {
     this.fontOptions = value
+    this.sourcesChanged()
+  }
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
     this.sourcesChanged()
   }
 

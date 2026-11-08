@@ -7,7 +7,6 @@ import {
   type PageOrPrintedInput,
   pageDirection,
   pageOrPrintedFromDocument,
-  resolveBrand,
   resolveLimits,
   resolvePageWidth,
 } from '@segnavia/format'
@@ -16,6 +15,7 @@ import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, type HtmlPage, pageOrPrintedFromInput, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
@@ -55,12 +55,8 @@ export async function prepareRenderedPage(
   purpose: 'screen' | 'print' = 'print',
 ) {
   const document = parseDocument(input, { newId: options.newId })
-  try {
-    const brand = await resolveBrand(document, options.brandSource, signal)
-    return prepareRenderedPageValue(pageOrPrintedFromDocument(document, brand), options, motifs, signal, purpose)
-  } catch (error) {
-    throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-  }
+  const brand = await resolveRenderBrand(document, options.brandSource, signal)
+  return prepareRenderedPageValue(pageOrPrintedFromDocument(document, brand), options, motifs, signal, purpose)
 }
 
 export async function prepareRenderedPageValue(

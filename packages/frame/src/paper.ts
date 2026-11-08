@@ -5,6 +5,7 @@ import { Imposition, type ImpositionInput, impose, type Page, type PageWidths, t
 import { type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 import { internalPaperPagesLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
@@ -36,6 +37,7 @@ export class SegnaviaPaper extends HTMLElement {
   private placementOptions: PlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
+  private brandOptions: BrandsOptions | undefined
   private resolvedFontCss = ''
   private resolvedSlots: PreparedSlots | undefined
   private slotGeneration = 0
@@ -96,6 +98,13 @@ export class SegnaviaPaper extends HTMLElement {
   set fonts(value: FontsOptions | undefined) {
     this.slotGeneration++
     this.fontOptions = value
+    if (this.imposed) this.paint()
+  }
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
     if (this.imposed) this.paint()
   }
 

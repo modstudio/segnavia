@@ -6,6 +6,7 @@ import { type Document, Page, type PageWidths, Print, type PrintInput, pageOrPri
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
@@ -40,6 +41,7 @@ export class SegnaviaDocument extends HTMLElement {
   private placementOptions: PlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
+  private brandOptions: BrandsOptions | undefined
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
   private filledHtml: string[] | undefined
@@ -98,6 +100,13 @@ export class SegnaviaDocument extends HTMLElement {
     this.fontOptions = value
     this.paint()
   }
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
+    this.paint()
+  }
 
   get css(): string {
     return this.stylesheet
@@ -128,7 +137,7 @@ export class SegnaviaDocument extends HTMLElement {
 
   set pages(value: PageOrPrintedInput[] | undefined) {
     this.sourceDocuments = (value ?? []).map((input) => parseDocument(input))
-    this.sourceValues = this.sourceDocuments.map(pageOrPrintedFromDocument)
+    this.sourceValues = this.sourceDocuments.map((document) => pageOrPrintedFromDocument(document))
     this.pageValues = this.sourceValues.map(resolvePageHtml)
     this.paint()
     this.changed()
@@ -160,7 +169,7 @@ export class SegnaviaDocument extends HTMLElement {
 
   load(pageInputs: PageOrPrintedInput[], printInput: PrintInput): void {
     const documents = pageInputs.map((input) => parseDocument(input))
-    const sources = documents.map(pageOrPrintedFromDocument)
+    const sources = documents.map((document) => pageOrPrintedFromDocument(document))
     const pages = sources.map(resolvePageHtml)
     const print = Print.parse(printInput)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')

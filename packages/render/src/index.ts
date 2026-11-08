@@ -1,4 +1,4 @@
-import { bookFromDocument, Cover, type Deck, DocumentMetadata, deckFromDocument, resolveBrand } from '@segnavia/format'
+import { bookFromDocument, Cover, type Deck, DocumentMetadata, deckFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
@@ -6,6 +6,7 @@ import { type PreparedSlots, pageOrPrintedFromInput, parseDocument, resolvePageH
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { parseBookPdfOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
+import { resolveRenderBrand } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
@@ -16,7 +17,7 @@ import { renderDeckPdf } from './deck-pdf.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { launchUnavailable, relaunchUnavailable, RenderRefusedError } from './errors.ts'
+import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import {
   copyLimits,
@@ -203,9 +204,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseBookPdfOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const document = parseDocument(input, { newId: opts.newId })
-        const brand = await resolveBrand(document, opts.brandSource, deadline.signal).catch((error) => {
-          throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-        })
+        const brand = await resolveRenderBrand(document, opts.brandSource, deadline.signal)
         const expanded = await expandFrameBookValue(bookFromDocument(document, brand), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
@@ -224,9 +223,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const document = parseDocument(input, { newId: opts.newId })
-        const brand = await resolveBrand(document, opts.brandSource, deadline.signal).catch((error) => {
-          throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-        })
+        const brand = await resolveRenderBrand(document, opts.brandSource, deadline.signal)
         const expanded = await expandFrameBookValue(bookFromDocument(document, brand), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPlan(expanded.book, options, `${resolvedFontCss}${fontFaces(options.fonts)}`, (setup, body) =>
@@ -316,9 +313,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const document = parseDocument(input, { newId: opts.newId })
-        const brand = await resolveBrand(document, opts.brandSource, deadline.signal).catch((error) => {
-          throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-        })
+        const brand = await resolveRenderBrand(document, opts.brandSource, deadline.signal)
         const deck = deckFromDocument(document, brand)
         enforceDeckLimits(deck, opts.limits)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
@@ -358,9 +353,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const document = parseDocument(input, { newId: opts.newId })
-        const brand = await resolveBrand(document, opts.brandSource, deadline.signal).catch((error) => {
-          throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-        })
+        const brand = await resolveRenderBrand(document, opts.brandSource, deadline.signal)
         const deck = deckFromDocument(document, brand)
         enforceDeckLimits(deck, opts.limits)
         const { value: filled, slots } = await filledDeck(deck, opts.slots, deadline.signal)
