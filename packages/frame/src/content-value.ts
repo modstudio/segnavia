@@ -1,4 +1,4 @@
-import { approvedOrigins, FETCH_KINDS, type Scripts } from '@segnavia/format'
+import { approvedOrigins, FETCH_KINDS, type OriginApproval, type Scripts } from '@segnavia/format'
 import type { ResolvedContent, ResolvedUrlContent } from './controller-types.ts'
 
 export interface ContentValue {
@@ -52,5 +52,3 @@ function sameValue(left: unknown, right: unknown): boolean {
   const rightKeys = Object.keys(rightRecord)
   return leftKeys.length === rightKeys.length && leftKeys.every((key) => key in rightRecord && sameValue(leftRecord[key], rightRecord[key]))
 }
-
-import type { OriginApproval } from '@segnavia/format'

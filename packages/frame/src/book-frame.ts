@@ -1,4 +1,4 @@
-import { type BookView, resolveDirection, type Scripts } from '@segnavia/format'
+import { type BookView, type OriginApproval, resolveDirection, type Scripts } from '@segnavia/format'
 import type { BookLayout } from './book-presentation.ts'
 import { flowViewDocument, paginatedViewDocument } from './book-view-document.ts'
 import { frameDocument, frameStyleSheets, newNonce } from './bridge.ts'
@@ -38,5 +38,3 @@ export function bookFrame(
     }),
   }
 }
-
-import type { OriginApproval } from '@segnavia/format'

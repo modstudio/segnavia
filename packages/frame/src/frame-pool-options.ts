@@ -1,3 +1,4 @@
+import type { OriginApproval } from '@segnavia/format'
 import type { FrameReadinessOptions } from './frame-entry.ts'
 import type { FrameTitle } from './frame-title.ts'
 import type { PreparedSlots } from './slot-render.ts'
@@ -13,5 +14,3 @@ export interface PoolOptions extends FrameReadinessOptions {
   reducedMotion: boolean
   slots?: PreparedSlots
 }
-
-import type { OriginApproval } from '@segnavia/format'

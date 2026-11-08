@@ -6,6 +6,7 @@ import {
   Imposition,
   type ImpositionInput,
   impose,
+  type OriginApproval,
   type Page,
   type PageWidths,
   pageOrPrintedFromDocument,
@@ -373,5 +374,3 @@ export class SegnaviaPaper extends HTMLElement {
     mergeOwnedSlotFit(event, this.querySelectorAll('iframe'), this.resolvedSlots)
   }
 }
-
-import type { OriginApproval } from '@segnavia/format'

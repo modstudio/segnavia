@@ -1,4 +1,4 @@
-import { type FontFailure, pageDirection, printProperties } from '@segnavia/format'
+import { type FontFailure, type OriginApproval, pageDirection, printProperties } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import type { PreparedSlots } from './slot-render.ts'
@@ -24,5 +24,3 @@ export function shownPageDocument(
     relayKeys: false,
   })
 }
-
-import type { OriginApproval } from '@segnavia/format'

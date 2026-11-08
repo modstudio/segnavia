@@ -5,10 +5,12 @@ import {
   type FontFace,
   type FontFailure,
   type FontSource,
+  type FetchKind,
   type Limits,
   type OmittedImpositionMark,
   PageWidths,
   parseLimits,
+  type OriginApproval,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
@@ -25,7 +27,7 @@ export interface AssetAnswer {
   contentType: string
 }
 
-export type Assets = (url: string, options: { kind: import('@segnavia/format').FetchKind; signal: AbortSignal }) => Promise<AssetAnswer | undefined>
+export type Assets = (url: string, options: { kind: FetchKind; signal: AbortSignal }) => Promise<AssetAnswer | undefined>
 
 export interface AssetBudget {
   bytes: number
@@ -162,5 +164,3 @@ export interface ProofImageOptions {
   profile: Uint8Array
   format?: 'png' | 'jpeg' | 'webp'
 }
-
-import type { OriginApproval } from '@segnavia/format'

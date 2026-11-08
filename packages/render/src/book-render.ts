@@ -3,6 +3,7 @@ import {
   type FontFailure,
   KEEP_WITH_CUSTOM_PROPERTY,
   type Limits,
+  type OriginApproval,
   Plan,
   PX_PER_MM,
   resolveDirection,
@@ -275,5 +276,3 @@ export async function renderBrowserBookPlan(
     },
   )
 }
-
-import type { OriginApproval } from '@segnavia/format'

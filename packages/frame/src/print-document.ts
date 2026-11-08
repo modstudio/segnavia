@@ -12,6 +12,7 @@ import {
   type ImpositionInput,
   impose,
   type Limits,
+  type OriginApproval,
   type Page,
   PageWidths,
   type PrintInput,
@@ -394,5 +395,3 @@ export function printablePages(inputs: PageOrPrintedInput[], imposition: Imposit
 export function printablePageValues(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
   return printablePageValuesDocument(pages, imposition, options).html
 }
-
-import type { OriginApproval } from '@segnavia/format'

@@ -1,4 +1,4 @@
-import { type Deck, type Folio, firstStrongDirection, type PixelSize, type Slide } from '@segnavia/format'
+import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type PixelSize, type Slide } from '@segnavia/format'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -129,5 +129,3 @@ export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide
   layoutStageCanvas(canvas, deck.size)
   return canvas
 }
-
-import type { OriginApproval } from '@segnavia/format'

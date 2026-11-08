@@ -2,7 +2,17 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { type Document, Page, type PageWidths, Print, type PrintInput, pageOrPrintedFromDocument, resolveBrand, type SlotsOptions } from '@segnavia/format'
+import {
+  type Document,
+  type OriginApproval,
+  Page,
+  type PageWidths,
+  Print,
+  type PrintInput,
+  pageOrPrintedFromDocument,
+  resolveBrand,
+  type SlotsOptions,
+} from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
@@ -368,5 +378,3 @@ export class SegnaviaDocument extends HTMLElement {
     this.dispatchEvent(new CustomEvent('segnavia-document-change'))
   }
 }
-
-import type { OriginApproval } from '@segnavia/format'

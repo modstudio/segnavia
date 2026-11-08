@@ -1,3 +1,5 @@
+import type { OriginApproval } from '@segnavia/format'
+
 export function defineElementPropertyAccessors<T extends object>(prototype: object, defaults: () => T): void {
   const values = new WeakMap<object, T>()
   const valueFor = (element: object) => {
@@ -36,5 +38,3 @@ export function defineStylesheetPropertyAccessors(
     return Object.fromEntries(properties.map((name) => [name, defaults[name]])) as Partial<StylesheetPropertyValues>
   })
 }
-
-import type { OriginApproval } from '@segnavia/format'

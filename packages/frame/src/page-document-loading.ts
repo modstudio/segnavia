@@ -1,4 +1,4 @@
-import type { FontFailure } from '@segnavia/format'
+import type { FontFailure, OriginApproval } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { type FrameOptions, frameDocument, newNonce } from './bridge.ts'
 import { hasDiagram, loadDiagramScript, withDiagramScript } from './diagram-document.ts'
@@ -70,5 +70,3 @@ export function loadShownPageDocument(
     load,
   )
 }
-
-import type { OriginApproval } from '@segnavia/format'

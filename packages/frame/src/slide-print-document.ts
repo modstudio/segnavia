@@ -1,4 +1,4 @@
-import type { Deck } from '@segnavia/format'
+import type { Deck, OriginApproval } from '@segnavia/format'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
 
@@ -24,5 +24,3 @@ export function htmlSlideDocument(
     origins: options.origins,
   })
 }
-
-import type { OriginApproval } from '@segnavia/format'

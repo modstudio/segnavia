@@ -1,4 +1,4 @@
-import type { PageWidths } from '@segnavia/format'
+import type { OriginApproval, PageWidths } from '@segnavia/format'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -65,5 +65,3 @@ export abstract class BookSourcesElement extends HTMLElementBase {
 
   protected abstract sourcesChanged(): void
 }
-
-import type { OriginApproval } from '@segnavia/format'

@@ -8,6 +8,7 @@ import {
   impositionMarks,
   limitRefusal,
   type Limits,
+  type OriginApproval,
   type Imposition as ParsedImposition,
   pagePlacementLayout,
 } from '@segnavia/format'
@@ -309,5 +310,3 @@ export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: 
   }
   return imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, resolvedServices, diagramScript)
 }
-
-import type { OriginApproval } from '@segnavia/format'

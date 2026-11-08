@@ -7,7 +7,7 @@
 // caption, bar, controls, track segments and caption words. Data attributes mirror the state for styling: data-slide,
 // data-playing, data-word, data-shown, data-direction and data-actions.
 
-import type { SlotsOptions, TransitionInput } from '@segnavia/format'
+import type { OriginApproval, SlotsOptions, TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
 import { DeckController, type DeckState } from './controller.ts'
@@ -389,5 +389,3 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   private focusOverlay = () => this.overlay.focus(true)
   private blurOverlay = () => queueMicrotask(() => this.overlay.focus(this.root.activeElement !== null))
 }
-
-import type { OriginApproval } from '@segnavia/format'

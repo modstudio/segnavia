@@ -1,3 +1,4 @@
+import type { OriginApproval } from '@segnavia/format'
 import type { BrandsOptions } from './brands.ts'
 import { defineElementPropertyAccessors, defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
@@ -20,5 +21,3 @@ export function defineStagePropertyAccessors(prototype: object): void {
     brands: undefined,
   }))
 }
-
-import type { OriginApproval } from '@segnavia/format'
