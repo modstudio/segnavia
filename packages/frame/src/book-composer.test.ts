@@ -122,6 +122,16 @@ describe('block keeps', () => {
     expect(script).toContain("clone.style.inlineSize=inlineSize+'px'")
     expect(script).toContain('holdNote(root,fragments[i].start!==0,textArea.width)')
   })
+
+  test('waits for faces requested by established layout before measuring', () => {
+    const script = composerScript('{}')
+    const layout = script.indexOf('if(!hasLayout)return nextLayoutFrame().then(composeWhenMeasurable)')
+    const fonts = script.indexOf('if(!layoutFontsReady)return (document.fonts?document.fonts.ready:Promise.resolve())', layout)
+    const measurement = script.indexOf('var input=measureInput()', fonts)
+    expect(layout).toBeGreaterThan(-1)
+    expect(fonts).toBeGreaterThan(layout)
+    expect(measurement).toBeGreaterThan(fonts)
+  })
 })
 
 test('counts inline paper tiles from the measured extent', () => {
