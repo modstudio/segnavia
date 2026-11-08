@@ -2,18 +2,11 @@ import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, computeFolios, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectBookParent, windowPageIndex } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
-import {
-  BOOK_FAILURE_ATTRIBUTE,
-  BOOK_MEASUREMENT_WAIT_MS,
-  decideBookMeasurement,
-  flowTextArea,
-  pixelPhaseOffset,
-  type unmeasuredFlows,
-} from './book-composer.ts'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
 import { MESSAGE } from './bridge.ts'
+import { COMPOSE_FAILURE_ATTRIBUTE as BOOK_FAILURE_ATTRIBUTE, decideBookMeasurement, flowTextArea, pixelPhaseOffset, type unmeasuredFlows } from './composer.ts'
 import type { forcedPageBreak } from './composer-measure.ts'
 
 const book = parseBookFixture({
@@ -26,7 +19,9 @@ const book = parseBookFixture({
 
 describe('bookDocument', () => {
   test('builds the book composer config from document and host page ceilings', () => {
-    expect(bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held' })).toContain('"limit":600')
+    const html = bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held' })
+    expect(html).toContain('"limit":600')
+    expect(html).toContain('"refusalSubject":"The book"')
     const capped = bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held', limits: { pages: 300 } })
     expect(capped).toContain('"limit":300')
     expect(capped).toContain("raise the host's limits.pages")
@@ -45,7 +40,7 @@ describe('bookDocument', () => {
           setup(builder) {
             builder.onResolve({ filter: /^virtual:composer-functions$/ }, () => ({ path: 'composer-functions', namespace: 'virtual' }))
             builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
-              contents: `import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/book-composer.ts`)}; export const script = embeddedComposerFunctions();`,
+              contents: `import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/composer.ts`)}; export const script = embeddedComposerFunctions();`,
               loader: 'ts',
             }))
           },
@@ -96,7 +91,6 @@ describe('bookDocument', () => {
     expect(COMPOSER_SCRIPT).toContain(openerPageIndex.toString())
     expect(COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
     expect(COMPOSER_SCRIPT).toContain(decideBookMeasurement.toString())
-    expect(COMPOSER_SCRIPT).toContain(`visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS})`)
     expect(COMPOSER_SCRIPT).toContain('paginateBook')
     expect(COMPOSER_SCRIPT).toContain(computeFolios.toString())
     expect(COMPOSER_SCRIPT).toContain('fillBookFurniture')

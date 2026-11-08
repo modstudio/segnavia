@@ -81,6 +81,9 @@ describe('printedPageDocument', () => {
     expect(COMPOSER_SCRIPT).toContain('planBook')
     expect(html).toContain(`var failureName="${PRINTED_PAGE_FAILURE_ATTRIBUTE}"`)
     expect(html).toContain(`type:'${MESSAGE.composeFailure}'`)
+    expect(html).toContain('"refusalSubject":"The printed page"')
+    expect(html).toContain('"pageAttributes":["data-segnavia-page-view"]')
+    expect(html).toContain('@media print{:where([data-segnavia-galley-source]){display:none!important}}')
   })
 
   test('builds the composer config from document and host page ceilings', () => {
@@ -150,8 +153,6 @@ describe('printedPageDocument', () => {
   test('plans line boxes after loaded layout is stable and refuses a changed measured count', () => {
     const html = printedPageDocument(page, { nonce: 'held', only: 2, expectedCount: 3 })
     expect(html).toContain("window.addEventListener('load',resolve,{once:true})")
-    expect(html).toContain('measureInput')
-    expect(html).toContain('planBook')
     expect(html).toContain('"expectedCount":3')
     expect(html).toContain('the composed page count changed from ')
   })

@@ -18,13 +18,11 @@ import {
 } from '@segnavia/format'
 import { fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
-import { COMPOSER_SCRIPT, composerScript } from './composer.ts'
+import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
 
-export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
-export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
-
 export type { PageOrPrintedInput } from '@segnavia/format'
+export { COMPOSE_FAILURE_ATTRIBUTE as PRINTED_PAGE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE as PRINTED_PAGE_COMPOSED_ATTRIBUTE } from './composer.ts'
 
 export class PrintedPagesRefusedError extends Error {
   constructor(message: string) {
@@ -181,6 +179,7 @@ export function printedPageValueDocument(
     runningHead: {},
     parentNames,
     pageMarker: 'data-segnavia-printed-page',
+    pageAttributes: ['data-segnavia-page-view'],
     refusalSubject: 'The printed page',
     limit: limits.pages,
     limitRefusal: {
@@ -195,7 +194,7 @@ export function printedPageValueDocument(
     rules,
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]),html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${fragmentationCss(page.printedPages.fragmentation)}${options.css ?? ''}`
+  const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.css ?? ''}`
   const parts = pageParts(page.html)
   const flow = `<div data-segnavia-galleys><div data-segnavia-flow="printed-page" data-parent-opener="${parentNames.opener}" data-parent-recto="${parentNames.recto}" data-parent-verso="${parentNames.verso}">${parts.body}</div></div>`
   const drawn = withDiagramScript(`${parts.head}${flow}`, options.nonce, options.diagramScript)
@@ -209,8 +208,8 @@ export function printedPageValueDocument(
     css,
     relayKeys: false,
     reportHeight: options.measure === true,
-    readyAfterAttribute: PRINTED_PAGE_COMPOSED_ATTRIBUTE,
-    failureAttribute: PRINTED_PAGE_FAILURE_ATTRIBUTE,
+    readyAfterAttribute: COMPOSED_ATTRIBUTE,
+    failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
     printBackground: options.printBackground,
     readyCallback: options.readyCallback,
   })

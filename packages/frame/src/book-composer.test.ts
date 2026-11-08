@@ -8,7 +8,7 @@ import {
   noteStackTops,
   pageReferenceFolio,
   unmeasuredFlows,
-} from './book-composer.ts'
+} from './composer.ts'
 
 const facts = {
   hasLayout: true,
@@ -18,9 +18,9 @@ const facts = {
 }
 
 describe('decideBookMeasurement', () => {
-  test('retries a galley without layout within the bound and refuses it at the bound', () => {
+  test('retries a galley without layout without charging visible time', () => {
     expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 999 }, 1_000)).toBe('retry')
-    expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 1_000 }, 1_000)).toBe('refuse')
+    expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 1_000 }, 1_000)).toBe('retry')
   })
 
   test('retries deferred line measurement and page planning within the bound', () => {
@@ -92,6 +92,11 @@ describe('block keeps', () => {
     const script = composerScript('{}')
     expect(script).toContain("style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next'")
     expect(script).toContain("style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous'")
+  })
+
+  test('takes the page marker from config', () => {
+    const script = composerScript('{"pageMarker":"data-segnavia-printed-page"}')
+    expect(script).not.toContain('data-segnavia-book-page')
   })
 })
 

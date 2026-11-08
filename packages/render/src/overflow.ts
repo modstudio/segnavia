@@ -142,7 +142,7 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
       return { left, right }
     }
     const elements = [...document.querySelectorAll('*')]
-      .filter((element) => !element.closest('[data-segnavia-flow-clone]'))
+      .filter((element) => !element.closest('[data-segnavia-galley-source]'))
       .map((element) => {
         const box = element.getBoundingClientRect()
         const clips: HorizontalBox[] = []

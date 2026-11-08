@@ -5,6 +5,29 @@ export interface FurnitureValues {
   total?: string
 }
 
+export interface RegionExcess {
+  block: number
+  inline: number
+}
+
+export function markFurnitureOverflow(region: HTMLElement, page: Element): void {
+  const excess = region.scrollHeight - region.clientHeight
+  if (excess <= 0.5) return
+  const kind = region.hasAttribute('data-segnavia-head') ? 'head' : 'foot'
+  page.setAttribute('data-segnavia-furniture-overflow', `${region.getAttribute('data-segnavia-parent') ?? ''}:${kind}:${excess}`)
+}
+
+export function markRegionOverflow(root: Element, folio: string, excessOf: (element: Element) => RegionExcess): void {
+  const regions = root.querySelectorAll('[data-region]')
+  for (const region of regions) {
+    const name = region.getAttribute('data-region')
+    if (!name) continue
+    const excess = excessOf(region)
+    if (excess.block <= 0.5 && excess.inline <= 0.5) continue
+    region.setAttribute('data-segnavia-region-overflow', `${folio}:${name}:${Math.max(excess.block, excess.inline)}`)
+  }
+}
+
 export function dressPlanPages<T>(
   plan: { pages: T[] },
   only: number | null | undefined,

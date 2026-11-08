@@ -25,5 +25,13 @@ describe('decideLayoutSettle', () => {
   test('settles matching repeated geometry', () => {
     const sample = { inlineSize: 700, scrollWidth: 1400 }
     expect(decideLayoutSettle(sample, sample, configured, 1, LAYOUT_SETTLE_MS)).toBe('settled')
+    expect(decideLayoutSettle(sample, sample, configured, LAYOUT_SETTLE_MS, LAYOUT_SETTLE_MS)).toBe('settled')
+  })
+
+  test('settles after a changed width starts a new streak past the old bound', () => {
+    const old = { inlineSize: 700, scrollWidth: 1400 }
+    const changed = { inlineSize: 700, scrollWidth: 2100 }
+    expect(decideLayoutSettle(changed, old, configured, 0, LAYOUT_SETTLE_MS)).toBe('sample-again')
+    expect(decideLayoutSettle(changed, changed, configured, LAYOUT_SETTLE_MS, LAYOUT_SETTLE_MS)).toBe('settled')
   })
 })
