@@ -1,9 +1,11 @@
 import { type Board, boardFromDocument, type Document, type DocumentInput, documentFromBoard } from '@segnavia/format'
 import { parseDocument } from '@segnavia/html'
 import { BoardSelectionElement } from './board-selection-element.ts'
+import type { BrandsOptions } from './brands.ts'
 
 export abstract class BoardDocumentElement extends BoardSelectionElement {
   private documentValue: Document | null = null
+  set brands(_value: BrandsOptions | undefined) {}
 
   get board(): Document | null {
     return this.documentValue

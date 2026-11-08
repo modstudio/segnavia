@@ -3,8 +3,7 @@ import { resolveBrand } from './brand.ts'
 import { Document } from './document.ts'
 
 const signal = new AbortController().signal
-const page = (brand?: string) =>
-  Document.parse({ type: 'document', kind: 'page', brand, children: [{ type: 'page', body: { html: '<p>Body</p>' } }] })
+const page = (brand?: string) => Document.parse({ type: 'document', kind: 'page', brand, children: [{ type: 'page', body: { html: '<p>Body</p>' } }] })
 
 describe('resolveBrand', () => {
   test('returns undefined when the document names no brand', async () => {

@@ -32,7 +32,6 @@ import { focusAfterReveal, revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import { internalBoardValue } from './board-value.ts'
-import type { BrandsOptions } from './brands.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { BoardLabels } from './labels.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -130,9 +129,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
   }
   set fonts(value: FontsOptions | undefined) {
     this.painter.fonts = value
-    this.render()
-  }
-  set brands(_value: BrandsOptions | undefined) {
     this.render()
   }
   protected acceptBoardInput(board: Board | null) {

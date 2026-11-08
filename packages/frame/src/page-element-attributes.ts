@@ -1,3 +1,4 @@
+import type { BrandsOptions } from './brands.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 
 export class PageElementAttributes extends HTMLElement {
@@ -7,6 +8,18 @@ export class PageElementAttributes extends HTMLElement {
   declare css: string
   declare cspExtra: string
   declare dependencyOrigins: Iterable<string>
+  private brandOptions: BrandsOptions | undefined
+
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
+    this.brandsChanged()
+  }
+
+  protected brandsChanged(): void {}
 
   get bounded(): boolean {
     return this.hasAttribute('bounded')

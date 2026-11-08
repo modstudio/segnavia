@@ -11,19 +11,17 @@ import {
   Page,
   type PageWidths,
   pageDirection,
-  pageFromDocument,
   printProperties,
-  resolveBrand,
   type SlotsOptions,
 } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
-import type { BrandsOptions } from './brands.ts'
 import { frameSandbox, frameStyleSheets, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
+import { loadBrandedPage } from './page-brand.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
 import { PageElementAttributes } from './page-element-attributes.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -51,7 +49,6 @@ export class SegnaviaPage extends PageElementAttributes {
   private placementOptions: PlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
-  private brandOptions: BrandsOptions | undefined
   private loadGeneration = 0
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
@@ -123,15 +120,6 @@ export class SegnaviaPage extends PageElementAttributes {
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
-  get brands(): BrandsOptions | undefined {
-    return this.brandOptions
-  }
-
-  set brands(value: BrandsOptions | undefined) {
-    this.brandOptions = value
-    if (this.pageInput !== undefined) this.load(this.pageInput)
-  }
-
   get page(): Document | null {
     return this.documentValue
   }
@@ -191,14 +179,7 @@ export class SegnaviaPage extends PageElementAttributes {
     this.pageInput = input
     const document = parseDocument(input, { alertLabels: this.alertLabels })
     this.documentValue = document
-    if (document.brand === undefined) {
-      this.loadValue(pageFromDocument(document))
-      return
-    }
-    const controller = new AbortController()
-    void resolveBrand(document, this.brandOptions?.source, controller.signal)
-      .then((brand) => this.loadValue(pageFromDocument(document, brand)))
-      .catch((error) => this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) })))
+    loadBrandedPage(document, this.brands, (page) => this.loadValue(page), this)
   }
 
   [internalPageLoad](page: Page) {

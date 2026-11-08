@@ -76,6 +76,7 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   transition?: HostTransition
   reserve?: StageReserve
   slots?: SegnaviaStage['slots']
+  brands?: SegnaviaStage['brands']
   src?: string
   hash?: string
   prefetch?: boolean
@@ -131,6 +132,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   slots?: SegnaviaPage['slots']
   motifs?: SegnaviaPage['motifs']
   fonts?: SegnaviaPage['fonts']
+  brands?: SegnaviaPage['brands']
   alertLabels?: SegnaviaPage['alertLabels']
   placements?: SegnaviaPage['placements']
   pageWidths?: SegnaviaPage['pageWidths']
@@ -143,6 +145,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
 export interface BookProps extends ElementProps<SegnaviaBook> {
   view?: SegnaviaBook['view']
   fonts?: SegnaviaBook['fonts']
+  brands?: SegnaviaBook['brands']
   motifs?: SegnaviaBook['motifs']
   placements?: SegnaviaBook['placements']
   pageWidths?: SegnaviaBook['pageWidths']
@@ -162,6 +165,7 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
   slots?: SegnaviaPaper['slots']
   motifs?: SegnaviaPaper['motifs']
   fonts?: SegnaviaPaper['fonts']
+  brands?: SegnaviaPaper['brands']
   placements?: SegnaviaPaper['placements']
   pageWidths?: SegnaviaPaper['pageWidths']
   unstyled?: boolean
@@ -176,6 +180,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']
   fonts?: SegnaviaDocument['fonts']
+  brands?: SegnaviaDocument['brands']
   placements?: SegnaviaDocument['placements']
   pageWidths?: SegnaviaDocument['pageWidths']
   unstyled?: boolean
