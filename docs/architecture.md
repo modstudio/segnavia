@@ -778,7 +778,12 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    player gives its stage and rail slide canvases a white background by default;
    a host can set `--segnavia-shot-backdrop`, while the headless stage remains
    transparent.
-3. HTML goes into a frame through `frameDocument`. The CSP and the bridge
+3. HTML goes into a frame through `frameDocument`. Every author frame's CSP
+   starts from `default-src 'none'`; `style-src`, `font-src` and `img-src` list
+   the approved origins for their respective kinds. Refused-script frames also
+   write `worker-src 'none'`. A host `csp` is emitted as a second
+   `<meta http-equiv="Content-Security-Policy">`, enforced independently, so it
+   can only narrow the frame's policy. The CSP and the bridge
    come first, before anything the author wrote. Under `scripts: 'refuse'`
    the policy admits only the bridge's nonce. The bridge handles in-page link
    clicks inside the frame and relays nothing for them: with `base-uri 'none'`,
