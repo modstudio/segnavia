@@ -49,6 +49,8 @@ export class SegnaviaPaper extends HTMLElement {
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
   private brandOptions: BrandsOptions | undefined
+  private brandGeneration = 0
+  private resolvedBrandGeneration = -1
   private resolvedFontCss = ''
   private resolvedSlots: PreparedSlots | undefined
   private slotGeneration = 0
@@ -115,6 +117,7 @@ export class SegnaviaPaper extends HTMLElement {
     return this.brandOptions
   }
   set brands(value: BrandsOptions | undefined) {
+    this.brandGeneration++
     this.brandOptions = value
     if (this.imposed) this.paint()
   }
@@ -180,6 +183,7 @@ export class SegnaviaPaper extends HTMLElement {
     const previousSide = this.shownSide
     this.pages = pages
     this.brandDocuments = brandDocuments
+    this.brandGeneration++
     this.imposition = imposition
     this.imposed = imposed
     this.paperIndex = clampPaper(this.paperIndex, imposed.papers)
@@ -255,12 +259,13 @@ export class SegnaviaPaper extends HTMLElement {
       if (showOriginal && !this.motifOptions && !this.fontOptions) this.paintResolved(imposition, imposed)
       this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
-    if (this.brandDocuments?.some((document) => document.brand !== undefined)) {
+    if (this.resolvedBrandGeneration !== this.brandGeneration && this.brandDocuments.some((document) => document.brand !== undefined)) {
       const documents = this.brandDocuments
+      const brandGeneration = this.brandGeneration
       void Promise.all(documents.map((document) => resolveBrand(document, this.brandOptions?.source, controller.signal)))
         .then((brands) => {
-          if (!current()) return
-          this.brandDocuments = []
+          if (!current() || brandGeneration !== this.brandGeneration || documents !== this.brandDocuments) return
+          this.resolvedBrandGeneration = brandGeneration
           this.pages = pages.map((page, index) => ({ ...page, brand: brands[index] }))
           this.paint()
         })

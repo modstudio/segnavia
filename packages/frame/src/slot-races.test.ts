@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { Deck, type SlotsOptions } from '@segnavia/format'
-import { prepareSlots } from '@segnavia/html'
+import { Deck, Document, Imposition, impose, pageFromDocument, type SlotsOptions } from '@segnavia/format'
+import { prepareSlots, resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { pageDocument } from './page-document.test-helper.ts'
 
@@ -317,6 +317,48 @@ test('paper invalidates a pending fill when slot options are removed', async () 
   await asset.promise
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(paints).toBe(2)
+})
+
+test('paper re-resolves its document brands when the source changes', async () => {
+  const document = Document.parse({
+    type: 'document',
+    kind: 'page',
+    brand: 'house',
+    children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+  })
+  const imposition = Imposition.parse({ paper: 'a4', columns: 1, rows: 1, cell: { width: 100, height: 100 } })
+  const imposed = impose(imposition, 1)
+  const resolved: string[] = []
+  const paper = {
+    isConnected: true,
+    pages: [resolvePageHtml(pageFromDocument(document))],
+    brandDocuments: [document],
+    brandGeneration: 0,
+    resolvedBrandGeneration: -1,
+    brandOptions: undefined,
+    imposition,
+    imposed,
+    slotGeneration: 0,
+    motifOptions: undefined,
+    fontOptions: undefined,
+    placementOptions: undefined,
+    cancelSlotPreparation: (SegnaviaPaper.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    paintResolved: () => {},
+    dispatchEvent: () => true,
+    paint: (SegnaviaPaper.prototype as unknown as { paint(): void }).paint,
+  }
+  Object.setPrototypeOf(paper, SegnaviaPaper.prototype)
+
+  const setBrands = Object.getOwnPropertyDescriptor(SegnaviaPaper.prototype, 'brands')?.set
+  setBrands?.call(paper, { source: { brand: async (name: string) => (resolved.push(name), { css: '.house{color:red}' }) } })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(paper.resolvedBrandGeneration).toBe(paper.brandGeneration)
+  expect(paper.pages[0]?.brand).toEqual({ css: '.house{color:red}' })
+  setBrands?.call(paper, { source: { brand: async (name: string) => (resolved.push(name), { css: '.house{color:blue}' }) } })
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(resolved).toEqual(['house', 'house'])
+  expect(paper.pages[0]?.brand).toEqual({ css: '.house{color:blue}' })
 })
 
 test('disconnecting paper aborts a pending fill without reporting or repainting', async () => {
