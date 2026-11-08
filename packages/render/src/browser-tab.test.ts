@@ -1,15 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { dependencyOriginSet } from '@segnavia/format'
-import { dependencyRouteDecision, mergedFontFailures } from './browser-tab.ts'
+import { assetRouteDecision, mergedFontFailures } from './browser-tab.ts'
 
-describe('dependency route decision', () => {
-  const origin = dependencyOriginSet(['https://cdn.jsdelivr.net'])
+describe('asset route decision', () => {
+  const origins = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] as const }]
   const url = 'https://cdn.jsdelivr.net/npm/example@1.2.3/index.js'
   const answer = { body: new Uint8Array([1, 2]), contentType: 'text/javascript' }
 
   test('fulfills approved answers and names approved misses', async () => {
-    expect(await dependencyRouteDecision(url, origin, async () => answer)).toEqual({ action: 'fulfill', ...answer })
-    expect(await dependencyRouteDecision(url, origin, undefined)).toEqual({ action: 'missing', url })
+    expect(await assetRouteDecision(url, 'script', origins, async () => answer, new AbortController().signal)).toEqual({ action: 'fulfill', ...answer })
+    expect(await assetRouteDecision(url, 'script', origins, undefined, new AbortController().signal)).toEqual({ action: 'missing', url })
   })
 
   test('aborts unapproved URLs and continues inline data without consulting the cache', async () => {
@@ -18,8 +17,8 @@ describe('dependency route decision', () => {
       lookups++
       return answer
     }
-    expect(await dependencyRouteDecision('https://evil.example/a.js', origin, lookup)).toEqual({ action: 'abort' })
-    expect(await dependencyRouteDecision('data:text/javascript,ok', origin, lookup)).toEqual({ action: 'continue' })
+    expect(await assetRouteDecision('https://evil.example/a.js', 'script', origins, lookup, new AbortController().signal)).toEqual({ action: 'abort' })
+    expect(await assetRouteDecision('data:text/javascript,ok', 'script', origins, lookup, new AbortController().signal)).toEqual({ action: 'continue' })
     expect(lookups).toBe(0)
   })
 })

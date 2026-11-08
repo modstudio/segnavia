@@ -24,12 +24,12 @@ test.each([
 test('defaults to WebP and passes no dependencies', () => {
   const plan = coverImagePlan(cover, {
     width: 320,
-    dependencies: async () => ({ body: new Uint8Array(), contentType: 'text/plain' }),
-    dependencyOrigins: ['https://example.com'],
+    assets: async () => ({ body: new Uint8Array(), contentType: 'text/plain' }),
+    origins: ['https://example.com'],
   } as never)
   expect(plan.options.format).toBe('webp')
-  expect(plan.options).not.toHaveProperty('dependencies')
-  expect(plan.options).not.toHaveProperty('dependencyOrigins')
+  expect(plan.options).not.toHaveProperty('assets')
+  expect(plan.options).not.toHaveProperty('origins')
 })
 
 test('uses a non-default cover sheet aspect', () => {

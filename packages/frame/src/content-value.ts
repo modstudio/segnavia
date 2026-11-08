@@ -1,4 +1,4 @@
-import { dependencyOriginSet, type Scripts } from '@segnavia/format'
+import { approvedOrigins, type FetchKind, type Scripts } from '@segnavia/format'
 import type { ResolvedContent, ResolvedUrlContent } from './controller-types.ts'
 
 export interface ContentValue {
@@ -6,7 +6,7 @@ export interface ContentValue {
   scripts: Scripts
   css: string
   cspExtra: string
-  dependencyOrigins: string
+  origins: string
 }
 
 export function comparableContent(
@@ -15,10 +15,12 @@ export function comparableContent(
   scripts: Scripts,
   css: string,
   cspExtra: string,
-  dependencyOrigins: Iterable<string> | undefined = undefined,
+  origins: Iterable<OriginApproval> | undefined = undefined,
 ): ContentValue {
   const resolved = content.kind === 'url' || content.kind === 'image' || content.kind === 'shot' ? { ...content, src: resolveUrl(content.src) } : content
-  return { content: resolved, scripts, css, cspExtra, dependencyOrigins: [...dependencyOriginSet(dependencyOrigins)].sort().join(' ') }
+  const kinds: FetchKind[] = ['script', 'style', 'font', 'image']
+  const policy = kinds.map((kind) => `${kind}:${[...approvedOrigins(origins, kind)].sort().join(',')}`).join(';')
+  return { content: resolved, scripts, css, cspExtra, origins: policy }
 }
 
 export function sameContent(left: ContentValue, right: ContentValue): boolean {
@@ -51,3 +53,5 @@ function sameValue(left: unknown, right: unknown): boolean {
   const rightKeys = Object.keys(rightRecord)
   return leftKeys.length === rightKeys.length && leftKeys.every((key) => key in rightRecord && sameValue(leftRecord[key], rightRecord[key]))
 }
+
+import type { OriginApproval } from '@segnavia/format'

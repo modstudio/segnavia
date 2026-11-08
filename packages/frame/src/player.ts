@@ -122,8 +122,8 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     this.stage.cspExtra = csp
   }
 
-  set dependencyOrigins(origins: Iterable<string>) {
-    this.stage.dependencyOrigins = origins
+  set origins(origins: Iterable<OriginApproval>) {
+    this.stage.origins = origins
   }
 
   set slots(value: SlotsOptions | undefined) {
@@ -389,3 +389,5 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   private focusOverlay = () => this.overlay.focus(true)
   private blurOverlay = () => queueMicrotask(() => this.overlay.focus(this.root.activeElement !== null))
 }
+
+import type { OriginApproval } from '@segnavia/format'

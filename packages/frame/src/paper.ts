@@ -36,7 +36,7 @@ export class SegnaviaPaper extends HTMLElement {
   }
   declare css: string
   declare cspExtra: string
-  declare dependencyOrigins: Iterable<string>
+  declare origins: Iterable<OriginApproval>
   private pages: HtmlPage[] = []
   private brandDocuments: Document[] = []
   private imposition: Imposition | null = null
@@ -348,7 +348,7 @@ export class SegnaviaPaper extends HTMLElement {
       {
         css: `${this.resolvedFontCss}${this.css}`,
         cspExtra: this.cspExtra,
-        dependencyOrigins: this.dependencyOrigins,
+        origins: this.origins,
         pageWidths: this.widthOptions,
       },
       this.shownSide,
@@ -373,3 +373,5 @@ export class SegnaviaPaper extends HTMLElement {
     mergeOwnedSlotFit(event, this.querySelectorAll('iframe'), this.resolvedSlots)
   }
 }
+
+import type { OriginApproval } from '@segnavia/format'

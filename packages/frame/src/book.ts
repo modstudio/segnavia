@@ -249,7 +249,7 @@ export class SegnaviaBook extends BookSourcesElement {
         css: this.resolvedFontCss,
         spread: this.spread,
         layout,
-        dependencyOrigins: this.dependencyOrigins,
+        origins: this.origins,
         diagramScript: this.diagramDrawing.script,
       }),
       layout,
@@ -265,20 +265,18 @@ export class SegnaviaBook extends BookSourcesElement {
     this.resolvedFontCss = css
     if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
-      this.replaceChildren(
-        this.mountFrame(bookFrame(view, { css, layout: 'pages', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawing.script })),
-      )
+      this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script })))
       return
     }
     const pages = this.mountFrame(
-      bookFrame(view, { css, spread: this.spread, layout: 'pages', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawing.script }),
+      bookFrame(view, { css, spread: this.spread, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script }),
       'pages',
     )
     const frames = [pages]
     if (layout === 'flow' && view.flow)
       frames.push(
         this.mountFrame(
-          bookFrame(view, { css, spread: this.spread, layout: 'flow', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawing.script }),
+          bookFrame(view, { css, spread: this.spread, layout: 'flow', origins: this.origins, diagramScript: this.diagramDrawing.script }),
           'flow',
         ),
       )

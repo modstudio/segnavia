@@ -126,7 +126,7 @@ export interface PrintOptions {
   // Keeps every HTML slide's layout box but leaves its frame out.
   omitHtmlSlideFrames?: boolean
   slots?: SlotsOptions
-  dependencyOrigins?: Iterable<string>
+  origins?: Iterable<OriginApproval>
   diagramScript?: string
   limits?: Limits
 }
@@ -170,7 +170,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   if ('media' in content)
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
   const frame = (html: string) =>
-    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins, diagramScript: options.diagramScript }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, diagramScript: options.diagramScript }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)
@@ -226,7 +226,7 @@ export interface PrintablePagesOptions {
   nonce?: string
   cspExtra?: string
   slots?: SlotsOptions
-  dependencyOrigins?: Iterable<string>
+  origins?: Iterable<OriginApproval>
   pageWidths?: PageWidths
   diagramScript?: string
   limits?: Limits
@@ -326,7 +326,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     reportHeight: false,
     relayKeys: false,
     printBackground: true,
-    dependencyOrigins: options.dependencyOrigins,
+    origins: options.origins,
   })
   return placementBox(
     (dimensions) =>
@@ -394,3 +394,5 @@ export function printablePages(inputs: PageOrPrintedInput[], imposition: Imposit
 export function printablePageValues(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
   return printablePageValuesDocument(pages, imposition, options).html
 }
+
+import type { OriginApproval } from '@segnavia/format'

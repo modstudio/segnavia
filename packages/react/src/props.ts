@@ -46,7 +46,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   labels?: Partial<PlayerLabels>
   css?: string
   cspExtra?: string
-  dependencyOrigins?: SegnaviaPlayer['dependencyOrigins']
+  origins?: SegnaviaPlayer['origins']
   resolveSlide?: ControllerOptions['resolveSlide']
   placements?: SegnaviaPlayer['placements']
   transition?: HostTransition
@@ -70,7 +70,7 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   controller?: DeckController | null
   css?: string
   cspExtra?: string
-  dependencyOrigins?: SegnaviaStage['dependencyOrigins']
+  origins?: SegnaviaStage['origins']
   bridgeReadyTimeoutMs?: SegnaviaStage['bridgeReadyTimeoutMs']
   frameTitle?: SegnaviaStage['frameTitle']
   transition?: HostTransition
@@ -129,7 +129,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   page?: DocumentInput | null
   css?: string
   cspExtra?: string
-  dependencyOrigins?: SegnaviaPage['dependencyOrigins']
+  origins?: SegnaviaPage['origins']
   slots?: SegnaviaPage['slots']
   motifs?: SegnaviaPage['motifs']
   fonts?: SegnaviaPage['fonts']
@@ -149,7 +149,7 @@ export interface BookProps extends ElementProps<SegnaviaBook> {
   motifs?: SegnaviaBook['motifs']
   placements?: SegnaviaBook['placements']
   pageWidths?: SegnaviaBook['pageWidths']
-  dependencyOrigins?: SegnaviaBook['dependencyOrigins']
+  origins?: SegnaviaBook['origins']
   src?: string
   spread?: boolean
   layout?: SegnaviaBook['layout']
@@ -161,7 +161,7 @@ export interface PaperProps extends ElementProps<SegnaviaPaper> {
   side?: SegnaviaPaper['side']
   css?: string
   cspExtra?: string
-  dependencyOrigins?: SegnaviaPaper['dependencyOrigins']
+  origins?: SegnaviaPaper['origins']
   slots?: SegnaviaPaper['slots']
   motifs?: SegnaviaPaper['motifs']
   fonts?: SegnaviaPaper['fonts']
@@ -176,7 +176,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   print?: PrintInput | null
   css?: string
   cspExtra?: string
-  dependencyOrigins?: SegnaviaDocument['dependencyOrigins']
+  origins?: SegnaviaDocument['origins']
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']
   fonts?: SegnaviaDocument['fonts']

@@ -182,7 +182,7 @@
   - **Window edges:** cloned window edges keep the galley's pixel phase, so pointed Hebrew marks are not clipped.
 
 - c3c0505: Add book authors and subjects, and preserve PDF metadata and outline destinations across continuous and paginated book rendering.
-- 4824f85: Store artifact-style HTML unchanged as a scripted page. Hosts can set `dependencyOrigins` for scripts, styles and fonts and supply the render-time `dependencies` cache seam. Static markup and render requests to known package CDNs require exact versions; the viewer CSP is origin-granular, so runtime imports at an approved origin are not version-pinned. Scripted frames add `allow-forms` under `form-action 'none'` so submit handlers run without allowing a real submission, and never add `allow-same-origin`. Scripted viewers now refuse remote images and connections through a tighter CSP.
+- 4824f85: Store artifact-style HTML unchanged as a scripted page. Hosts can set `origins` for scripts, styles and fonts and supply the render-time `dependencies` cache seam. Static markup and render requests to known package CDNs require exact versions; the viewer CSP is origin-granular, so runtime imports at an approved origin are not version-pinned. Scripted frames add `allow-forms` under `form-action 'none'` so submit handlers run without allowing a real submission, and never add `allow-same-origin`. Scripted viewers now refuse remote images and connections through a tighter CSP.
 - e44df2c: Share one 64-face, 32 MiB local-font transport bound between browser packing and server rendering.
 
 ## 0.37.0

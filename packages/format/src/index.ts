@@ -133,7 +133,6 @@ export {
   Word,
 } from './deck.ts'
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
-export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
 export { type DesignTokens, exportDesignTokens, importDesignTokens } from './design-tokens.ts'
 export {
   Direction,
@@ -282,6 +281,7 @@ export {
 } from './media.ts'
 export * from './motif.ts'
 export * from './numbering.ts'
+export { approvedOrigins, DEFAULT_ORIGINS, type FetchKind, type OriginApproval, type OriginDecision, originDecision, originSet } from './origin-policy.ts'
 export {
   FlowingWidth,
   FULL_PAGE_SIZE,

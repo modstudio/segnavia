@@ -206,7 +206,7 @@ export class SegnaviaPage extends PageElementAttributes {
       loadShownPageDocument(
         shownPage,
         resolved,
-        { baseCss: fontCss, css: this.css, csp: this.cspExtra || undefined, dependencyOrigins: this.dependencyOrigins, fontFailures },
+        { baseCss: fontCss, css: this.css, csp: this.cspExtra || undefined, origins: this.origins, fontFailures },
         (document) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved
@@ -262,7 +262,7 @@ export class SegnaviaPage extends PageElementAttributes {
           sheets,
           css: this.css,
           csp: this.cspExtra || undefined,
-          dependencyOrigins: this.dependencyOrigins,
+          origins: this.origins,
           relayKeys: false,
         },
         write,

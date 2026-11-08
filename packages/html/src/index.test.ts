@@ -142,22 +142,22 @@ describe('sanitize', () => {
   test('scripted pages keep only approved pinned dependencies and both sanitizer paths agree', () => {
     const pinned = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.js'
     const ranged = 'https://cdn.jsdelivr.net/npm/chart.js@^4/dist/chart.js'
-    const options = { keepScripts: true, dependencyOrigins: ['https://cdn.jsdelivr.net'] }
+    const options = { keepScripts: true, origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] as const }] }
     const html = `<script src="${pinned}" integrity="sha384-ok"></script><script src="${ranged}"></script><script src="https://evil.example/a@1.2.3.js"></script>`
     const findings = findActiveContent(html, options)
     expect(findings).toHaveLength(2)
     expect(findings[0]).toContain('exact x.y.z package version')
-    expect(findings[1]).toContain('dependencyOrigins')
+    expect(findings[1]).toContain('origins')
     const cleaned = sanitize(html, options)
     expect(cleaned).toContain(`src="${pinned}" integrity="sha384-ok"`)
     expect(cleaned).not.toContain(ranged)
     expect(cleaned).not.toContain('evil.example')
     expect(findActiveContent(cleaned, options)).toEqual([])
-    expect(sanitize(`<script src="${pinned}"></script>`, { keepScripts: true })).toBe('<script></script>')
+    expect(sanitize(`<script src="${pinned}"></script>`, { keepScripts: true })).toContain(`src="${pinned}"`)
   })
 
   test('scripted dependency policy keeps stylesheets, imports, and font files but drops preconnect', () => {
-    const options = { keepScripts: true, dependencyOrigins: ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'] }
+    const options = { keepScripts: true }
     const html =
       '<link rel="preconnect" href="https://fonts.gstatic.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter"><style>@import url(https://fonts.googleapis.com/css2?family=Inter);@font-face{font-family:Inter;src:url(https://fonts.gstatic.com/s/inter/v1/font.woff2)}</style>'
     const cleaned = sanitize(html, options)
@@ -170,7 +170,7 @@ describe('sanitize', () => {
 
   test('keeps an approved import condition', () => {
     const css = '@import url(https://fonts.googleapis.com/css2?family=Inter) print;'
-    const cleaned = sanitize(`<style>${css}</style>`, { keepScripts: true, dependencyOrigins: ['https://fonts.googleapis.com'] })
+    const cleaned = sanitize(`<style>${css}</style>`)
     expect(cleaned).toContain(css)
   })
 

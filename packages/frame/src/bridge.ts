@@ -7,7 +7,7 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import { type Direction, dependencyOriginSet, type FontFailure, type FontManifest, type Scripts } from '@segnavia/format'
+import { approvedOrigins, type Direction, type FontFailure, type FontManifest, type OriginApproval, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
@@ -89,7 +89,7 @@ export interface FrameOptions {
   fontFailures?: FontFailure[]
   // Extra CSP directives, appended to the frame's own.
   csp?: string
-  dependencyOrigins?: Iterable<string>
+  origins?: Iterable<OriginApproval>
   relayKeys?: boolean
   reportHeight?: boolean
   // Holds the existing ready message until a document composer marks its root.
@@ -266,13 +266,10 @@ function escapeAttribute(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 }
 
-const SCRIPT_DIRECTIVES: Record<Scripts, (withOrigins: (directive: string) => string) => string[]> = {
+const SCRIPT_DIRECTIVES: Record<Scripts, (scriptOrigins: string) => string[]> = {
   refuse: () => [],
-  sandboxed: (withOrigins) => [
-    withOrigins("script-src 'self' 'unsafe-inline' 'unsafe-eval'"),
-    withOrigins("style-src 'unsafe-inline'"),
-    withOrigins('font-src data:'),
-    'img-src data: blob:',
+  sandboxed: (scriptOrigins) => [
+    `script-src 'self' 'unsafe-inline' 'unsafe-eval'${scriptOrigins}`,
     'media-src data: blob:',
     "connect-src 'none'",
     "frame-src 'none'",
@@ -307,11 +304,21 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const scripts: Scripts = options.scripts === 'sandboxed' ? 'sandboxed' : 'refuse'
   const bridge = options.bridge !== false
   const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
-  const origins = [...dependencyOriginSet(options.dependencyOrigins)].sort().join(' ')
-  const withOrigins = (directive: string) => (origins ? `${directive} ${origins}` : directive)
-  const scriptDirectives = scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[scripts](withOrigins)
+  const sources = (kind: 'script' | 'style' | 'font' | 'image') => {
+    const values = [...approvedOrigins(options.origins, kind)].sort()
+    return values.length ? ` ${values.join(' ')}` : ''
+  }
+  const scriptDirectives = scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[scripts](sources('script'))
+  const fetchDirectives = [
+    `style-src 'unsafe-inline'${sources('style')}`,
+    `font-src data:${sources('font')}`,
+    `img-src data: blob:${sources('image')}`,
+    ...(scripts === 'refuse' ? ['media-src * data: blob:', 'connect-src *', 'frame-src *', 'worker-src * blob:'] : scriptDirectives.slice(1)),
+  ]
   const directives = [
-    ...(bridge ? scriptDirectives : ["script-src 'none'", ...scriptDirectives.filter((directive) => !directive.startsWith('script-src '))]),
+    "default-src 'none'",
+    ...(bridge ? scriptDirectives.slice(0, 1) : ["script-src 'none'"]),
+    ...fetchDirectives,
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",

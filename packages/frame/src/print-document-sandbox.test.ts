@@ -18,15 +18,13 @@ describe('print frame sandbox', () => {
     const refused = printablePageValues([Page.parse({ html: '<p>page</p>' })], grid, { nonce: 'known' })
     const sandboxed = printablePageValues([Page.parse({ html: '<script>1</script>', scripts: 'sandboxed' })], grid, {
       nonce: 'known',
-      dependencyOrigins: ['https://cdn.jsdelivr.net'],
+      origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] }],
     })
     expect(refused).toContain('sandbox="allow-scripts"')
     expect(sandboxed).toContain('sandbox="allow-scripts allow-forms"')
     expect([refused, sandboxed].every((document) => !document.includes('allow-same-origin'))).toBe(true)
     expect(refused).toContain("script-src 'nonce-known'")
-    expect(sandboxed).toContain(
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'unsafe-inline' https://cdn.jsdelivr.net; font-src data: https://cdn.jsdelivr.net; img-src data: blob:; media-src data: blob:; connect-src 'none'; frame-src 'none'; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'",
-    )
+    expect(sandboxed).toContain("default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net")
     expect(refused).not.toContain('var printAt=')
     expect(refused).not.toContain('dispatchPrint()')
   })

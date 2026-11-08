@@ -6,7 +6,7 @@ export interface StagePropertyValues {
   // Styles applied inside every slide, such as a host's house style.
   css: string
   cspExtra: string
-  dependencyOrigins: Iterable<string>
+  origins: Iterable<OriginApproval>
   bridgeReadyTimeoutMs: number
   frameTitle: FrameTitle
   brands: BrandsOptions | undefined
@@ -20,3 +20,5 @@ export function defineStagePropertyAccessors(prototype: object): void {
     brands: undefined,
   }))
 }
+
+import type { OriginApproval } from '@segnavia/format'

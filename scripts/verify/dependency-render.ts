@@ -16,8 +16,8 @@ export async function verifyDependencyRender(
     { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } },
   )
   const pdf = await renderer.pagePdf(page, {
-    dependencyOrigins: ['https://cdn.jsdelivr.net'],
-    dependencies: async (request) =>
+    origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] }],
+    assets: async (request) =>
       request === url
         ? { body: new TextEncoder().encode("document.getElementById('result').textContent='cache seam worked';pageReady()"), contentType: 'text/javascript' }
         : undefined,
@@ -28,7 +28,7 @@ export async function verifyDependencyRender(
     'an offline render fulfills an approved scripted dependency from the host cache',
     execFileSync('pdftotext', [file, '-'], { encoding: 'utf8' }).includes('cache seam worked'),
   )
-  const missing = await refusal(renderer.pagePdf(page, { dependencyOrigins: ['https://cdn.jsdelivr.net'], waitForPageReady: false }))
+  const missing = await refusal(renderer.pagePdf(page, { origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] }], waitForPageReady: false }))
   check('an approved dependency without a cache answer is refused by URL', missing.includes(url), missing)
   const lateUrl = 'https://cdn.jsdelivr.net/npm/segnavia-render-stub@1.2.3/late.js'
   const late = await refusal(
@@ -40,7 +40,7 @@ export async function verifyDependencyRender(
           size: { width: 400, height: 200 },
         },
       ),
-      { dependencyOrigins: ['https://cdn.jsdelivr.net'] },
+      { origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] }] },
     ),
   )
   check('an approved dependency requested after load without a cache answer is refused by URL', late.includes(lateUrl), late)

@@ -9,9 +9,9 @@ const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElemen
 
 export abstract class BookSourcesElement extends HTMLElementBase {
   static {
-    defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['dependencyOrigins'])
+    defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['origins'])
   }
-  declare dependencyOrigins: Iterable<string>
+  declare origins: Iterable<OriginApproval>
   protected fontOptions: FontsOptions | undefined
   protected motifOptions: MotifsOptions | undefined
   protected placementOptions: PlacementsOptions | undefined
@@ -65,3 +65,5 @@ export abstract class BookSourcesElement extends HTMLElementBase {
 
   protected abstract sourcesChanged(): void
 }
+
+import type { OriginApproval } from '@segnavia/format'

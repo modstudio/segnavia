@@ -24,15 +24,17 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
 interface StylesheetPropertyValues {
   css: string
   cspExtra: string
-  dependencyOrigins: Iterable<string>
+  origins: Iterable<OriginApproval>
 }
 
 export function defineStylesheetPropertyAccessors(
   prototype: object,
-  properties: readonly (keyof StylesheetPropertyValues)[] = ['css', 'cspExtra', 'dependencyOrigins'],
+  properties: readonly (keyof StylesheetPropertyValues)[] = ['css', 'cspExtra', 'origins'],
 ): void {
   defineElementPropertyAccessors(prototype, () => {
-    const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', dependencyOrigins: [] }
+    const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', origins: [] }
     return Object.fromEntries(properties.map((name) => [name, defaults[name]])) as Partial<StylesheetPropertyValues>
   })
 }
+
+import type { OriginApproval } from '@segnavia/format'

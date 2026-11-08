@@ -7,7 +7,7 @@ export const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-w
 export function htmlSlideDocument(
   deck: Pick<Deck, 'scripts' | 'dir' | 'lang' | 'style' | 'brand' | 'title'>,
   html: string,
-  options: { baseCss?: string; css?: string; nonce: string; printAtMs?: number; dependencyOrigins?: Iterable<string>; diagramScript?: string },
+  options: { baseCss?: string; css?: string; nonce: string; printAtMs?: number; origins?: Iterable<OriginApproval>; diagramScript?: string },
 ): string {
   return frameDocument(withDiagramScript(html, options.nonce, options.diagramScript), {
     scripts: deck.scripts,
@@ -21,6 +21,8 @@ export function htmlSlideDocument(
     relayKeys: false,
     printAtMs: options.printAtMs ?? 0,
     printBackground: true,
-    dependencyOrigins: options.dependencyOrigins,
+    origins: options.origins,
   })
 }
+
+import type { OriginApproval } from '@segnavia/format'

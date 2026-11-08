@@ -27,7 +27,7 @@ import type { Page as Tab } from 'playwright-core'
 import { fontLoadSetup } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
-import { type DependencyCache, dependencySetup } from './options.ts'
+import { type Assets, assetSetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
@@ -49,8 +49,8 @@ interface DeckPdfServices {
       html: string
       boundMs?: number
       beforeOutput?: (tab: Tab) => Promise<void>
-      dependencyOrigins?: Iterable<string>
-      dependencies?: DependencyCache
+      origins?: Iterable<OriginApproval>
+      assets?: Assets
       fontFailures?: FontFailure[]
       fontLoadReport?: (report: { failures: FontFailure[] }) => void
     },
@@ -146,7 +146,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         scripts: true,
         html: printableDeckValue(deck, { ...opts, baseCss, notesSheetFont, omitHtmlSlideFrames: true, diagramScript }),
         boundMs: opts.boundMs,
-        ...dependencySetup(opts),
+        ...assetSetup(opts),
         ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)
@@ -178,11 +178,11 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
                 baseCss: slideBaseCss,
                 css: opts.css,
                 printAtMs,
-                dependencyOrigins: opts.dependencyOrigins,
+                origins: opts.origins,
                 diagramScript,
               }),
               boundMs: opts.boundMs,
-              ...dependencySetup(opts),
+              ...assetSetup(opts),
               ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
               beforeOutput: (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
             },
@@ -241,7 +241,7 @@ async function imposedDeckPdf(
                 baseCss,
                 css: opts.css,
                 printAtMs: slide.printAtMs ?? 0,
-                dependencyOrigins: opts.dependencyOrigins,
+                origins: opts.origins,
                 diagramScript,
               })
             : printableDeckValue(single, { ...opts, layout: 'slides', imposition: undefined, baseCss, diagramScript })
@@ -251,7 +251,7 @@ async function imposedDeckPdf(
             scripts: true,
             html,
             boundMs: opts.boundMs,
-            ...dependencySetup(opts),
+            ...assetSetup(opts),
             ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
             beforeOutput:
               'kind' in slide.content && slide.content.kind === 'html'
@@ -307,3 +307,5 @@ export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: 
   }
   return imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, resolvedServices, diagramScript)
 }
+
+import type { OriginApproval } from '@segnavia/format'

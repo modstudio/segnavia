@@ -165,10 +165,10 @@ test('every declared property is an accessor on its element prototype', async ()
     expect({
       css: freshStage.css,
       cspExtra: freshStage.cspExtra,
-      dependencyOrigins: [...freshStage.dependencyOrigins],
+      origins: [...freshStage.origins],
       bridgeReadyTimeoutMs: freshStage.bridgeReadyTimeoutMs,
       frameTitle: freshStage.frameTitle('Deck', 2),
-    }).toEqual({ css: '', cspExtra: '', dependencyOrigins: [], bridgeReadyTimeoutMs: 10_000, frameTitle: 'Deck — slide 2' })
+    }).toEqual({ css: '', cspExtra: '', origins: [], bridgeReadyTimeoutMs: 10_000, frameTitle: 'Deck — slide 2' })
   } finally {
     if (previous) Object.defineProperty(globalThis, 'HTMLElement', previous)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

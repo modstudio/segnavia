@@ -57,7 +57,7 @@ export function loadPageDocument(
 export function loadShownPageDocument(
   page: HtmlPage,
   resolved: PreparedSlots | undefined,
-  options: { baseCss?: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string>; fontFailures?: FontFailure[] },
+  options: { baseCss?: string; css?: string; csp?: string; origins?: Iterable<OriginApproval>; fontFailures?: FontFailure[] },
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
@@ -70,3 +70,5 @@ export function loadShownPageDocument(
     load,
   )
 }
+
+import type { OriginApproval } from '@segnavia/format'

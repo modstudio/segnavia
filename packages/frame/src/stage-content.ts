@@ -11,7 +11,7 @@ const canvasLayouts = new WeakMap<HTMLElement, (size: PixelSize) => void>()
 interface StageCanvasOptions {
   css: string
   csp: string
-  dependencyOrigins?: Iterable<string>
+  origins?: Iterable<OriginApproval>
   frameTitle: FrameTitle
   loaded: () => void
   slots?: PreparedSlots
@@ -31,7 +31,7 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       sheets: frameStyleSheets(deck.style, deck.brand),
       css: options.css,
       csp: options.csp || undefined,
-      dependencyOrigins: options.dependencyOrigins,
+      origins: options.origins,
       reportHeight: false,
       bridge: options.bridge,
     })
@@ -129,3 +129,5 @@ export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide
   layoutStageCanvas(canvas, deck.size)
   return canvas
 }
+
+import type { OriginApproval } from '@segnavia/format'

@@ -20,12 +20,12 @@ import type { PressReport } from './press/types.ts'
 
 export type Font = FontFace
 
-export interface DependencyAnswer {
+export interface AssetAnswer {
   body: Uint8Array
   contentType: string
 }
 
-export type DependencyCache = (url: string) => Promise<DependencyAnswer | undefined>
+export type Assets = (url: string, options: { kind: import('@segnavia/format').FetchKind; signal: AbortSignal }) => Promise<AssetAnswer | undefined>
 
 export type OverflowPart = 'page' | 'front' | 'body' | 'margin'
 
@@ -68,8 +68,8 @@ export interface MarksReport {
 
 export interface RenderOptions {
   newId?: () => string
-  dependencyOrigins?: Iterable<string>
-  dependencies?: DependencyCache
+  origins?: Iterable<OriginApproval>
+  assets?: Assets
   css?: string
   fonts?: Font[]
   fontSource?: FontSource
@@ -134,9 +134,10 @@ export function enforceDeckLimits(deck: Deck, limits: Limits | undefined): void 
   if (reasons.length > 0) throw new RenderRefusedError(reasons.join('; '))
 }
 
-export const dependencySetup = (options: RenderOptions): Pick<RenderOptions, 'dependencyOrigins' | 'dependencies'> => ({
-  dependencyOrigins: options.dependencyOrigins,
-  dependencies: options.dependencies,
+export const assetSetup = (options: RenderOptions): Pick<RenderOptions, 'origins' | 'assets' | 'limits'> => ({
+  origins: options.origins,
+  assets: options.assets,
+  limits: options.limits,
 })
 
 export interface ImageOptions extends RenderOptions {
@@ -152,3 +153,5 @@ export interface ProofImageOptions {
   profile: Uint8Array
   format?: 'png' | 'jpeg' | 'webp'
 }
+
+import type { OriginApproval } from '@segnavia/format'

@@ -39,7 +39,7 @@ export class SegnaviaStage extends HTMLElement {
   }
   declare css: string
   declare cspExtra: string
-  declare dependencyOrigins: Iterable<string>
+  declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number
   declare frameTitle: FrameTitle
   private owned: DeckController | null = null
@@ -270,7 +270,7 @@ export class SegnaviaStage extends HTMLElement {
       neighbors: this.neighbors,
       css: this.css,
       csp: this.cspExtra,
-      dependencyOrigins: this.dependencyOrigins,
+      origins: this.origins,
       frameTitle: this.frameTitle,
       transition: this.transition,
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -397,3 +397,5 @@ export class SegnaviaStage extends HTMLElement {
     this.pool.activeFrame()?.contentWindow?.postMessage({ type: MESSAGE.inspect }, '*')
   }
 }
+
+import type { OriginApproval } from '@segnavia/format'

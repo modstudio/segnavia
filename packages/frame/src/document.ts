@@ -23,11 +23,11 @@ const MOUNT_MARGIN = 600
 
 export class SegnaviaDocument extends HTMLElement {
   static {
-    defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['dependencyOrigins'])
+    defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['origins'])
   }
   private stylesheet = ''
   private extraCsp = ''
-  declare dependencyOrigins: Iterable<string>
+  declare origins: Iterable<OriginApproval>
   private sourceValues: Page[] = []
   private sourceDocuments: Document[] = []
   private pageValues: HtmlPage[] = []
@@ -316,7 +316,7 @@ export class SegnaviaDocument extends HTMLElement {
     if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
-    page.dependencyOrigins = this.dependencyOrigins
+    page.origins = this.origins
     page.part.add('page')
     sheet.append(page)
     page[internalPageLoad](
@@ -368,3 +368,5 @@ export class SegnaviaDocument extends HTMLElement {
     this.dispatchEvent(new CustomEvent('segnavia-document-change'))
   }
 }
+
+import type { OriginApproval } from '@segnavia/format'

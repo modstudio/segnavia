@@ -24,7 +24,7 @@ const controlProperties = ['controller', 'labels'] as const
 export const ELEMENT_PROPERTIES = {
   stage: descriptor(
     HEADLESS_ELEMENTS.stage,
-    ['controller', 'css', 'cspExtra', 'dependencyOrigins', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots', 'brands'],
+    ['controller', 'css', 'cspExtra', 'origins', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots', 'brands'],
     ['segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release'],
   ),
   thumbnail: descriptor(
@@ -82,23 +82,23 @@ export const ELEMENT_PROPERTIES = {
   boardToolbar: descriptor(HEADLESS_ELEMENTS.boardToolbar, ['target', 'list', 'shareable', 'labels'], ['segnavia-board-list-toggle', 'segnavia-board-share']),
   page: descriptor(
     HEADLESS_ELEMENTS.page,
-    ['page', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'brands', 'alertLabels', 'placements', 'pageWidths'],
+    ['page', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'alertLabels', 'placements', 'pageWidths'],
     [],
   ),
   paper: descriptor(
     HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'css', 'cspExtra', 'dependencyOrigins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths'],
+    ['paper', 'side', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths'],
     [],
   ),
   document: descriptor(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths'],
+    ['css', 'cspExtra', 'origins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths'],
     [],
   ),
-  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'dependencyOrigins'], []),
+  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'origins'], []),
   player: descriptor(
     STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'dependencyOrigins', 'resolveSlide', 'placements', 'transition', 'slots'],
+    ['labels', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots'],
     ['segnavia-labels'],
   ),
   play: descriptor(STYLED_ELEMENTS.play, controlProperties, []),

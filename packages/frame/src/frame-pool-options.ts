@@ -7,9 +7,11 @@ export interface PoolOptions extends FrameReadinessOptions {
   neighbors: boolean
   css: string
   csp: string
-  dependencyOrigins?: Iterable<string>
+  origins?: Iterable<OriginApproval>
   frameTitle: FrameTitle
   transition?: HostTransition
   reducedMotion: boolean
   slots?: PreparedSlots
 }
+
+import type { OriginApproval } from '@segnavia/format'
