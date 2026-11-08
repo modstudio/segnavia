@@ -130,6 +130,9 @@ export class SegnaviaBoard extends BoardDocumentElement {
     this.painter.fonts = value
     this.render()
   }
+  protected brandsChanged() {
+    this.render()
+  }
   protected acceptBoardInput(board: Board | null) {
     this.resolutions.configure(this.boardDocument, this.brands)
     this.setBoardValue(board, true)

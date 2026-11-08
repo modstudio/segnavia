@@ -18,6 +18,7 @@ test('board Document input, change detail and editing bridge stay in the host sh
     class BoardElementStub extends BoardDocumentElement {
       selection: readonly string[] = []
       value: Board | null = null
+      repaints = 0
       protected acceptBoardInput(board: Board | null): void {
         this.value = board
         this.dispatchEvent(new CustomEvent('segnavia-board-change', { detail: { board: this.board } }))
@@ -27,6 +28,9 @@ test('board Document input, change detail and editing bridge stay in the host sh
       }
       optimistic(board: Board) {
         this.value = this.holdBoardEdit(board)
+      }
+      protected brandsChanged() {
+        this.repaints++
       }
     }
     const element = new BoardElementStub()
@@ -39,6 +43,11 @@ test('board Document input, change detail and editing bridge stay in the host sh
     expect(element.board).toEqual(parsed)
     expect(changed).toEqual(parsed)
     expect(element.value).toEqual(boardFromDocument(element.board as NonNullable<typeof element.board>))
+
+    changed = undefined
+    element.brands = { source: { brand: async () => undefined } }
+    expect(changed).toBeUndefined()
+    expect(element.repaints).toBe(1)
 
     const edited = Board.parse({ ...(element.value as Board), items: [{ ...(element.value as Board).items[0], x: 20 }] })
     const callback = (board: Board) => element.document(board)

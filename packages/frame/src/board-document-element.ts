@@ -17,8 +17,11 @@ export abstract class BoardDocumentElement extends BoardSelectionElement {
   }
   set brands(value: BrandsOptions | undefined) {
     this.brandOptions = value
-    if (this.documentValue) this.acceptBoardInput(boardFromDocument(this.documentValue))
+    this.resolutions.configure(this.documentValue, value)
+    this.brandsChanged()
   }
+
+  protected brandsChanged(): void {}
 
   get board(): Document | null {
     return this.documentValue
