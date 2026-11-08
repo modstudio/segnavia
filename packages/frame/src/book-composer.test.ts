@@ -101,6 +101,8 @@ describe('block keeps', () => {
     const script = composerScript('{}')
     expect(script).toContain('if(forcedPageBreak(style.breakBefore))block.breakBefore=true')
     expect(script).toContain('if(forcedPageBreak(style.breakAfter))block.breakAfter=true')
+    expect(script).toContain("if(forcedPageBreak(childStyle.breakBefore))held.style.breakBefore='auto'")
+    expect(script).toContain("if(forcedPageBreak(childStyle.breakAfter))held.style.breakAfter='auto'")
   })
 
   test('a row with break-inside avoid produces its line run while empty CSS produces none', () => {
