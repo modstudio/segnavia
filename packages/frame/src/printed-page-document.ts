@@ -3,15 +3,14 @@ import {
   DocumentMetadata,
   type DocumentMetadata as DocumentMetadataValue,
   defaultPageNumbering,
-  htmlTextSample,
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
   type Page,
   PX_PER_MM,
+  pageDirection,
   printedFromDocument,
   type ResolvedParentPage,
-  resolveDirection,
   resolveLimits,
   resolveParentPages,
   sheetMm,
@@ -146,7 +145,7 @@ export function printedPageValueDocument(
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)
   const measured = geometry(page, resolved, paper.width, paper.height)
-  const direction = resolveDirection(page.dir, page.lang, htmlTextSample(page.html))
+  const direction = pageDirection(page)
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
   const parents = resolved.map((parent) => {
