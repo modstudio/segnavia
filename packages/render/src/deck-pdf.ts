@@ -35,7 +35,7 @@ import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { type DependencyCache, dependencySetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { regularSlideDrawBox } from './deck-paper.ts'
+import { DECK_PRESS_SIZE_REMEDY, regularSlideDrawBox } from './deck-paper.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
 import { addPressBoxes } from './page-paper.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
@@ -208,7 +208,10 @@ async function renderHtmlSlides(
           },
           [index],
         )
-        return { index, bytes: press.slides && press.boxes ? await setPdfPageSize(bytes, press.boxes.bleedBox) : bytes }
+        return {
+          index,
+          bytes: press.slides && press.boxes ? await setPdfPageSize(bytes, press.boxes.bleedBox, DECK_PRESS_SIZE_REMEDY) : bytes,
+        }
       } catch (error) {
         nameSlideError(error, id)
       }
@@ -295,7 +298,7 @@ async function regularDeckPdf(
   await composeRegularSlides(output, deck, rendered, notesGeometry, pageOwners, press)
   let bytes = await output.save()
   if (press.active && press.boxes && press.print) {
-    bytes = await setPdfPageSize(bytes, press.boxes.bleedBox)
+    bytes = await setPdfPageSize(bytes, press.boxes.bleedBox, DECK_PRESS_SIZE_REMEDY)
     bytes = await addPressBoxes(bytes, press.boxes, press.print.markColor)
   }
   return services.finish(bytes, opts)
