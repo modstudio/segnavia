@@ -12,10 +12,8 @@ import {
   type ImpositionInput,
   impose,
   type Limits,
-  type MarkColor,
   type Page,
   PageWidths,
-  Print,
   type PrintInput,
   PX_PER_MM,
   pageDirection,
@@ -37,6 +35,7 @@ import {
   resolvePageHtml,
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
+import { type DeckSheetPrint, deckNotesPrint, deckSheetPrint } from './deck-press.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
@@ -46,11 +45,11 @@ import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { htmlSlideDocument, PRINT_COLOR_CSS } from './slide-print-document.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
+export { deckNotesPrint, deckSheetPrint } from './deck-press.ts'
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 export { htmlSlideDocument } from './slide-print-document.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
-
 type MediaSlide = Extract<Slide['content'], { media: unknown }>
 type ImageSlide = Extract<Slide['content'], { kind: 'image' }>
 
@@ -87,7 +86,6 @@ export async function resolveMediaContent<R extends { kind: string }>(
   }
   return missingMedia(content)
 }
-
 export async function resolveDeckMedia<R extends { kind: string }>(
   deck: Deck,
   placements: PlacementsOptions<R> | undefined,
@@ -101,14 +99,13 @@ export async function resolveDeckMedia<R extends { kind: string }>(
   )
   return { ...deck, slides }
 }
-
 export interface PrintOptions {
   newId?: () => string
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
   notesPaper?: PrintInput
-  sheet?: { bleed?: number; safe?: number; marks?: boolean; markColor?: MarkColor }
+  sheet?: DeckSheetPrint
   imposition?: ImpositionInput
   // Document title for the print dialog and saved PDF. Defaults to the deck
   // title; an empty value omits the tag.
@@ -135,24 +132,6 @@ export interface PrintOptions {
   diagramScript?: string
   limits?: Limits
 }
-
-export function deckSheetPrint(size: Deck['size'], sheet: PrintOptions['sheet'], setting = 'sheet'): Print | undefined {
-  if (!sheet) return undefined
-  const width = size.width / PX_PER_MM
-  const height = size.height / PX_PER_MM
-  const result = Print.safeParse({
-    paper: { width: Math.min(width, height), height: Math.max(width, height), unit: 'mm' },
-    orientation: width > height ? 'landscape' : 'portrait',
-    ...sheet,
-  })
-  if (result.success) return result.data
-  const issue = result.error.issues[0]
-  const field = issue?.path.at(-1) ?? setting
-  throw new RangeError(
-    `The ${setting} setting is invalid: ${String(field)} ${issue?.message ?? 'is invalid'}. Correct ${setting}.${String(field)}, or remove ${setting}, to clear this refusal.`,
-  )
-}
-
 function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
   const title = options.title ?? deck.title
   return title ? `<title>${escapeHtml(title)}</title>` : ''
@@ -248,7 +227,7 @@ export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSh
     )
   }
   return notesDocument(deck, {
-    notesPaper: options.notesPaper,
+    notesPaper: deckNotesPrint(options.notesPaper),
     slideBody: (slide) => slideBody(deck, slide, options),
     title: options.title ?? deck.title,
     labels: options.labels,

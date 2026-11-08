@@ -8,7 +8,7 @@ import {
   impositionMarks,
   limitRefusal,
   type Imposition as ParsedImposition,
-  Print,
+  type Print,
   type PrintBoxes,
   PX_PER_MM,
   pagePlacementLayout,
@@ -21,6 +21,7 @@ import { hasDiagram } from '@segnavia/frame/diagrams'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import {
+  deckNotesPrint,
   deckSheetPrint,
   htmlSlideDocument,
   notesLayoutGeometry,
@@ -45,11 +46,9 @@ import { setPdfPageSize } from './pdf-page-size.ts'
 import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
-
 export function resolveDeckFonts(deck: Deck, opts: RenderOptions, signal: AbortSignal) {
   return renderOptionsWithFontManifest(deck.style?.fonts, [], `deck ${JSON.stringify(deck.title)}`, opts, signal)
 }
-
 interface DeckPdfServices {
   renderPdf(
     setup: {
@@ -71,7 +70,6 @@ interface DeckPdfServices {
   signal?: AbortSignal
   fontFailures?: FontFailure[]
 }
-
 async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<void> {
   await tab
     .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
@@ -79,7 +77,6 @@ async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<
     .catch(() => {})
   await waitForDiagramReadiness(tab, readiness)
 }
-
 function nameSlideError(error: unknown, id: string): never {
   if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(`Slide "${id}" could not be rendered: ${error.message}`)
   if (error instanceof Error) {
@@ -88,7 +85,6 @@ function nameSlideError(error: unknown, id: string): never {
   }
   throw new Error(`Slide "${id}" could not be rendered: ${String(error)}`)
 }
-
 export function firstNotesPages(pageOwners: readonly number[], slideCount: number): number[] {
   return Array.from({ length: slideCount }, (_, slide) => pageOwners.indexOf(slide))
 }
@@ -142,7 +138,7 @@ interface DeckPressContext {
 }
 
 function deckPressContext(deck: Deck, opts: DeckPdfOptions): DeckPressContext {
-  const print = opts.layout === 'notes' ? Print.parse(opts.notesPaper ?? { paper: 'letter' }) : deckSheetPrint(deck.size, opts.sheet)
+  const print = opts.layout === 'notes' ? deckNotesPrint(opts.notesPaper) : deckSheetPrint(deck.size, opts.sheet)
   if (!print) return { active: false, slides: false }
   assertPrintOptions(print, opts.preferCssPageSize)
   const boxes = opts.layout === 'notes' ? printBoxes(print) : pressBoxes({ width: deck.size.width / PX_PER_MM, height: deck.size.height / PX_PER_MM }, print)

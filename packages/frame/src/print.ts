@@ -26,6 +26,7 @@ import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './
 import { parsePageWidths } from './page-widths.ts'
 import { paperBoxSize } from './paper-geometry.ts'
 import {
+  deckNotesPrint,
   type PrintablePagesOptions,
   type PrintOptions,
   paginateNotes,
@@ -177,6 +178,7 @@ export async function preparedDeckValuePrint(
   const notesSheetFont =
     options.notesSheetFont ?? (options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined)
   const printOptions = { ...options, notesSheetFont }
+  if (options.layout === 'notes') deckNotesPrint(options.notesPaper)
   const preparedDeck = {
     ...resolvedDeck,
     slides: resolvedDeck.slides.map((slide) =>
