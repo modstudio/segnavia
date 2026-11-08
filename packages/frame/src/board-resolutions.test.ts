@@ -146,3 +146,29 @@ test('settles and reports a refused board brand once when items carry their own 
   expect(String(failures[0])).toContain('unknown to the BrandSource')
   expect(resolved).toHaveLength(1)
 })
+
+test('routes an item brand refusal through request failure', async () => {
+  const resolutions = new BoardResolutions()
+  resolutions.configure(null, { source: { brand: async () => undefined } })
+  const deck = item('deck-refused', 'deck-refused', 'deck')
+  resolutions.resolver = async () => ({
+    kind: 'deck',
+    deck: {
+      type: 'document',
+      kind: 'deck',
+      title: 'Deck',
+      brand: 'missing',
+      children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '<p>One</p>' } }],
+    },
+  })
+  const failures: unknown[] = []
+  resolutions.request(
+    deck,
+    () => {},
+    (_item, error) => failures.push(error),
+  )
+  await settle()
+
+  expect(failures).toHaveLength(1)
+  expect(String(failures[0])).toContain('unknown to the BrandSource')
+})

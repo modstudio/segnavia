@@ -103,18 +103,52 @@ describe('board policy', () => {
   })
 
   test('uses the board brand as a whole-item default and lets an item brand win whole', async () => {
-    const deckItem: BoardItem = { id: 'deck', kind: 'deck', address: 'deck', x: 0, y: 0, width: 100 }
     const source = {
       brand: async (name: string) => ({ tokens: { colors: { ink: name === 'item' ? '#222222' : '#111111' } } }),
     }
     const signal = new AbortController().signal
-    const resolved = (brand?: string) => ({ ...documentInputForBoard(), brand })
     const boardBrand = await source.brand('board')
+    const itemBrand = await source.brand('item')
     const resolveItemBrand = async (document?: Document) => (document ? ((await resolveBrand(document, source, signal)) ?? boardBrand) : boardBrand)
-    const inherited = await checkResolved(deckItem, { kind: 'deck', deck: resolved() }, resolveItemBrand)
-    const overridden = await checkResolved(deckItem, { kind: 'deck', deck: resolved('item') }, resolveItemBrand)
-    expect(inherited.kind === 'deck' ? inherited.deck.brand : undefined).toEqual(await source.brand('board'))
-    expect(overridden.kind === 'deck' ? overridden.deck.brand : undefined).toEqual(await source.brand('item'))
+    const item = (kind: BoardItem['kind']): BoardItem => ({ id: kind, kind, address: kind, x: 0, y: 0, width: 100 })
+    const page = (brand?: string) => ({
+      type: 'document' as const,
+      kind: 'page' as const,
+      brand,
+      children: [{ type: 'page' as const, body: { html: '<p>Page</p>' } }],
+    })
+
+    const inheritedDeck = await checkResolved(item('deck'), { kind: 'deck', deck: documentInputForBoard() }, resolveItemBrand)
+    const overriddenDeck = await checkResolved(item('deck'), { kind: 'deck', deck: { ...documentInputForBoard(), brand: 'item' } }, resolveItemBrand)
+    expect(inheritedDeck.kind === 'deck' ? inheritedDeck.deck.brand : undefined).toEqual(boardBrand)
+    expect(overriddenDeck.kind === 'deck' ? overriddenDeck.deck.brand : undefined).toEqual(itemBrand)
+
+    const inheritedPage = await checkResolved(item('page'), { kind: 'page', page: page(), size: { width: 10, height: 20 } }, resolveItemBrand)
+    const overriddenPage = await checkResolved(item('page'), { kind: 'page', page: page('item'), size: { width: 10, height: 20 } }, resolveItemBrand)
+    expect(inheritedPage.kind === 'page' ? inheritedPage.page.brand : undefined).toEqual(boardBrand)
+    expect(overriddenPage.kind === 'page' ? overriddenPage.page.brand : undefined).toEqual(itemBrand)
+
+    const inheritedPaper = await checkResolved(
+      item('paper'),
+      { kind: 'paper', pages: [page(), page()], imposition, size: { width: 10, height: 20 } },
+      resolveItemBrand,
+    )
+    const overriddenPaper = await checkResolved(
+      item('paper'),
+      { kind: 'paper', pages: [page('item')], imposition, size: { width: 10, height: 20 } },
+      resolveItemBrand,
+    )
+    expect(inheritedPaper.kind === 'paper' ? inheritedPaper.pages.map((value) => value.brand) : []).toEqual([boardBrand, boardBrand])
+    expect(overriddenPaper.kind === 'paper' ? overriddenPaper.pages[0]?.brand : undefined).toEqual(itemBrand)
+
+    const inheritedBook = await checkResolved(item('book'), { kind: 'book', view: { html: '' }, size: { width: 10, height: 20 } }, resolveItemBrand)
+    const overriddenBook = await checkResolved(
+      item('book'),
+      { kind: 'book', view: { html: '', brand: itemBrand }, size: { width: 10, height: 20 } },
+      resolveItemBrand,
+    )
+    expect(inheritedBook.kind === 'book' ? inheritedBook.view.brand : undefined).toEqual(boardBrand)
+    expect(overriddenBook.kind === 'book' ? overriddenBook.view.brand : undefined).toEqual(itemBrand)
   })
 
   test('refuses a resolved board item document of the wrong kind', () => {
