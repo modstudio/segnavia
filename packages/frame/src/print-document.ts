@@ -48,6 +48,7 @@ export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 export { htmlSlideDocument } from './slide-print-document.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
+
 type MediaSlide = Extract<Slide['content'], { media: unknown }>
 type ImageSlide = Extract<Slide['content'], { kind: 'image' }>
 
@@ -84,6 +85,7 @@ export async function resolveMediaContent<R extends { kind: string }>(
   }
   return missingMedia(content)
 }
+
 export async function resolveDeckMedia<R extends { kind: string }>(
   deck: Deck,
   placements: PlacementsOptions<R> | undefined,
@@ -97,6 +99,7 @@ export async function resolveDeckMedia<R extends { kind: string }>(
   )
   return { ...deck, slides }
 }
+
 export interface PrintOptions {
   newId?: () => string
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
@@ -130,6 +133,7 @@ export interface PrintOptions {
   diagramScript?: string
   limits?: Limits
 }
+
 function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
   const title = options.title ?? deck.title
   return title ? `<title>${escapeHtml(title)}</title>` : ''

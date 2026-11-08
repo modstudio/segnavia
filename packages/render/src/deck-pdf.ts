@@ -8,12 +8,8 @@ import {
   impositionMarks,
   limitRefusal,
   type Imposition as ParsedImposition,
-  type Print,
-  type PrintBoxes,
   PX_PER_MM,
   pagePlacementLayout,
-  printBoxes,
-  usesPressLayout,
 } from '@segnavia/format'
 import { newNonce, PRINT_READY_ATTRIBUTE, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram } from '@segnavia/frame/diagrams'
@@ -35,7 +31,14 @@ import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { type DependencyCache, dependencySetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { DECK_PRESS_SIZE_REMEDY, regularSlideDrawBox } from './deck-paper.ts'
+import {
+  type DeckPressContext,
+  DECK_PRESS_SIZE_REMEDY,
+  deckPressContext,
+  deckPrintablePdfOptions,
+  deckPrintableViewport,
+  regularSlideDrawBox,
+} from './deck-paper.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
 import { addPressBoxes } from './page-paper.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
@@ -44,9 +47,11 @@ import { setPdfPageSize } from './pdf-page-size.ts'
 import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = RenderOptions & PrintOptions
+
 export function resolveDeckFonts(deck: Deck, opts: RenderOptions, signal: AbortSignal) {
   return renderOptionsWithFontManifest(deck.style?.fonts, [], `deck ${JSON.stringify(deck.title)}`, opts, signal)
 }
+
 interface DeckPdfServices {
   renderPdf(
     setup: {
@@ -68,6 +73,7 @@ interface DeckPdfServices {
   signal?: AbortSignal
   fontFailures?: FontFailure[]
 }
+
 async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<void> {
   await tab
     .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
@@ -75,6 +81,7 @@ async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<
     .catch(() => {})
   await waitForDiagramReadiness(tab, readiness)
 }
+
 function nameSlideError(error: unknown, id: string): never {
   if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(`Slide "${id}" could not be rendered: ${error.message}`)
   if (error instanceof Error) {
@@ -83,6 +90,7 @@ function nameSlideError(error: unknown, id: string): never {
   }
   throw new Error(`Slide "${id}" could not be rendered: ${String(error)}`)
 }
+
 export function firstNotesPages(pageOwners: readonly number[], slideCount: number): number[] {
   return Array.from({ length: slideCount }, (_, slide) => pageOwners.indexOf(slide))
 }
@@ -126,40 +134,6 @@ async function placeRenderedImages(tab: Tab): Promise<void> {
 async function paginateRenderedNotes(tab: Tab, sheets?: number): Promise<{ sheets: number; exceeded: boolean }> {
   if (sheets === undefined) return tab.evaluate(paginateNotes, null)
   return tab.evaluate(`(${paginateNotes.toString()})(null,${JSON.stringify(sheets)})`)
-}
-
-interface DeckPressContext {
-  print?: Print
-  boxes?: PrintBoxes
-  active: boolean
-  slides: boolean
-}
-
-function deckPressContext(opts: DeckPdfOptions, settings: ReturnType<typeof deckPressSettings>): DeckPressContext {
-  const print = opts.layout === 'notes' ? settings.notes : settings.sheet?.print
-  if (!print) return { active: false, slides: false }
-  const boxes = opts.layout === 'notes' ? printBoxes(print) : settings.sheet?.boxes
-  const active = opts.layout === 'notes' ? usesPressLayout(print) : (settings.sheet?.active ?? false)
-  return { print, boxes, active, slides: active && opts.layout !== 'notes' }
-}
-
-function deckPrintableViewport(deck: Deck, notesGeometry: ReturnType<typeof notesLayoutGeometry> | undefined, press: DeckPressContext) {
-  if (notesGeometry) return { width: Math.round(notesGeometry.sheet.width), height: Math.round(notesGeometry.sheet.height) }
-  if (press.active && press.boxes) {
-    return { width: Math.round(press.boxes.bleedBox.width * PX_PER_MM), height: Math.round(press.boxes.bleedBox.height * PX_PER_MM) }
-  }
-  return deck.size
-}
-
-function deckPrintablePdfOptions(press: DeckPressContext): Parameters<Tab['pdf']>[0] {
-  if (!press.active || !press.boxes) return { preferCSSPageSize: true, printBackground: true }
-  return {
-    width: `${press.boxes.bleedBox.width}mm`,
-    height: `${press.boxes.bleedBox.height}mm`,
-    preferCSSPageSize: false,
-    printBackground: true,
-    margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-  }
 }
 
 async function renderHtmlSlides(
@@ -250,7 +224,7 @@ async function regularDeckPdf(
   pressSettings: ReturnType<typeof deckPressSettings>,
   diagramScript?: string,
 ): Promise<Uint8Array> {
-  const press = deckPressContext(opts, pressSettings)
+  const press = deckPressContext(opts.layout, pressSettings)
   const baseCss = services.fontFaces(opts)
   const slideBaseCss = containFixedPageOverflow(
     `${baseCss}${
@@ -270,7 +244,7 @@ async function regularDeckPdf(
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
       {
-        viewport: deckPrintableViewport(deck, notesGeometry, press),
+        viewport: deckPrintableViewport(deck.size, notesGeometry, press),
         scripts: true,
         html: printableDeckValue(deck, { ...opts, baseCss, notesSheetFont, omitHtmlSlideFrames: true, diagramScript }),
         boundMs: opts.boundMs,
