@@ -7,10 +7,11 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import { type Direction, dependencyOriginSet, type Scripts } from '@segnavia/format'
+import { type Direction, dependencyOriginSet, type FontFailure, type FontManifest, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
+import { declaredFontLoads, fontFailuresData, loadDeclaredFonts } from './font-load.ts'
 import { keepPassScript } from './keep-pass.ts'
 import { escapeHtml } from './svg.ts'
 
@@ -32,6 +33,7 @@ export const MESSAGE = {
   bookLayout: 'segnavia:book-layout',
   bookPlace: 'segnavia:book-place',
   composeFailure: 'segnavia:compose-failure',
+  fontFailures: 'segnavia:font-failures',
 } as const
 
 export const SELECTION_TEXT_LIMIT = 1_000_000
@@ -71,6 +73,9 @@ export interface FrameOptions {
   css?: string
   // Compiled library and document sheets, kept separate for CSS parse recovery.
   sheets?: readonly string[]
+  // Declared faces are loaded in this frame before it reports readiness.
+  fonts?: FontManifest
+  fontFailures?: FontFailure[]
   // Extra CSP directives, appended to the frame's own.
   csp?: string
   dependencyOrigins?: Iterable<string>
@@ -173,6 +178,8 @@ var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.p
       ? `var storage=function(){var values=new Map();return {get length(){return values.size;},key:function(index){var keys=Array.from(values.keys());return index>=0&&index<keys.length?keys[index]:null;},getItem:function(key){key=String(key);return values.has(key)?values.get(key):null;},setItem:function(key,value){values.set(String(key),String(value));},removeItem:function(key){values.delete(String(key));},clear:function(){values.clear();}};};
 Object.defineProperty(window,'localStorage',{configurable:true,value:storage()});Object.defineProperty(window,'sessionStorage',{configurable:true,value:storage()});`
       : ''
+  const fontDeclarations = JSON.stringify(declaredFontLoads(options.fonts))
+  const initialFontFailures = JSON.stringify(options.fontFailures ?? [])
   return `(function(){
 ${storage}
 ${keepPassScript()}
@@ -232,8 +239,9 @@ document.addEventListener('DOMContentLoaded',report);window.addEventListener('lo
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
+var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};var familyValue=function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');};var fontLoads=(!document.fonts||!declarations.length?Promise.resolve([]):(${loadDeclaredFonts.toString()})(declarations,document.fonts,document.documentElement,familyValue)).then(function(failures){var merged=initialFontFailures.concat(failures);if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return failures;});
 var composed=${compositionWait(options)};var diagrams=${DIAGRAM_READY_EXPR};
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }
@@ -331,7 +339,16 @@ export function bridgeForHost(options: Omit<FrameOptions, 'scripts' | 'nonce'> =
 export function messageFrom(
   event: MessageEvent,
   frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
-): { type: string; key?: string; text?: string; height?: number; animated?: boolean; lengthMs?: number | null; slots?: Record<string, SlotFitState> } | null {
+): {
+  type: string
+  key?: string
+  text?: string
+  height?: number
+  animated?: boolean
+  lengthMs?: number | null
+  slots?: Record<string, SlotFitState>
+  failures?: FontFailure[]
+} | null {
   const frames = frame && Symbol.iterator in Object(frame) ? [...(frame as Iterable<HTMLIFrameElement>)] : frame ? [frame as HTMLIFrameElement] : []
   if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
   const data = event.data as { type?: unknown; key?: unknown; text?: unknown; height?: unknown; animated?: unknown; lengthMs?: unknown; slots?: unknown }
@@ -342,6 +359,10 @@ export function messageFrom(
     return { type: MESSAGE.composeFailure, text: data.text }
   if (data?.type === MESSAGE.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: MESSAGE.height, height: data.height }
   if (data?.type === MESSAGE.ready) return { type: MESSAGE.ready }
+  if (data?.type === MESSAGE.fontFailures) {
+    const failures = fontFailuresData((data as { failures?: unknown }).failures)
+    if (failures) return { type: MESSAGE.fontFailures, failures }
+  }
   const fit = slotFitMessageData(data)
   if (fit) return fit
   if (

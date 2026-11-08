@@ -14,6 +14,7 @@ export function htmlSlideDocument(
     nonce: options.nonce,
     dir: deck.dir,
     lang: deck.lang,
+    fonts: deck.style?.fonts,
     sheets: frameStyleSheets(deck.style, `${PRINT_COLOR_CSS}${options.baseCss ?? ''}`),
     css: options.css,
     reportHeight: false,

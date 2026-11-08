@@ -4,6 +4,7 @@
 import { Imposition, type ImpositionInput, impose, type Page, type PageWidths, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
+import { MESSAGE, messageFrom } from './bridge.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { internalPaperPagesLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -327,6 +328,9 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   private onMessage = (event: MessageEvent) => {
+    const message = messageFrom(event, this.querySelectorAll('iframe'))
+    if (message?.type === MESSAGE.fontFailures && message.failures)
+      this.dispatchEvent(new CustomEvent('fontfailure', { detail: { failures: message.failures }, bubbles: true, composed: true }))
     if (!this.resolvedSlots || this.resolvedGeneration !== this.slotGeneration) return
     mergeOwnedSlotFit(event, this.querySelectorAll('iframe'), this.resolvedSlots)
   }

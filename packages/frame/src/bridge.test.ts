@@ -199,6 +199,7 @@ describe('frame document', () => {
       MESSAGE.slotFit,
       MESSAGE.key,
       MESSAGE.height,
+      MESSAGE.fontFailures,
       MESSAGE.ready,
     ])
     expect(html).toContain("script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'")
@@ -345,6 +346,24 @@ describe('frame document', () => {
       type: MESSAGE.slotFit,
       slots: { name: 'fit' },
     })
+  })
+
+  test('font failure messages trust their frame and reject malformed reports whole', () => {
+    const source = {} as Window
+    const frame = { contentWindow: source } as HTMLIFrameElement
+    const valid = { font: 'body', family: 'Body', weight: 400, style: 'normal', unicodeRange: 'U+0-7F', reason: 'unloaded' }
+    expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: [valid] } } as MessageEvent, frame)).toEqual({
+      type: MESSAGE.fontFailures,
+      failures: [valid],
+    })
+    expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: [valid, { ...valid, reason: 'other' }] } } as MessageEvent, frame)).toBeNull()
+    expect(
+      messageFrom(
+        { source, data: { type: MESSAGE.fontFailures, failures: Array.from({ length: 65 }, () => valid) } } as MessageEvent,
+        frame,
+      ),
+    ).toBeNull()
+    expect(messageFrom({ source: {} as Window, data: { type: MESSAGE.fontFailures, failures: [valid] } } as MessageEvent, frame)).toBeNull()
   })
 
   test('selection messages match their frame and request and bound both strings', () => {

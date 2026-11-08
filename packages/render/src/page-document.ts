@@ -125,6 +125,7 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     nonce,
     dir: pageDirection(page),
     lang: page.lang,
+    fonts: page.style?.fonts,
     sheets,
     css: options.css,
     relayKeys: options.relayKeys ?? false,

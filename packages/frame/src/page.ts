@@ -7,6 +7,7 @@
 import {
   type Document,
   type DocumentInput,
+  type FontFailure,
   FULL_PAGE_SIZE,
   Page,
   type PageWidths,
@@ -200,12 +201,12 @@ export class SegnaviaPage extends PageElementAttributes {
     this.slotPreparation = controller
     const generation = ++this.loadGeneration
     const iframe = this.mount(page)
-    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '') => {
+    const show = (shownPage: HtmlPage, resolved?: PreparedSlots, fontCss = '', fontFailures: FontFailure[] = []) => {
       if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
       loadShownPageDocument(
         shownPage,
         resolved,
-        { baseCss: fontCss, css: this.css, csp: this.cspExtra || undefined, dependencyOrigins: this.dependencyOrigins },
+        { baseCss: fontCss, css: this.css, csp: this.cspExtra || undefined, dependencyOrigins: this.dependencyOrigins, fontFailures },
         (document) => {
           if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
           this.resolvedSlots = resolved
@@ -263,7 +264,7 @@ export class SegnaviaPage extends PageElementAttributes {
       return
     }
     void prepareShownPage(resolvedPage, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
-      .then(({ page: shownPage, resolved, css }) => show(shownPage, resolved, css))
+      .then(({ page: shownPage, resolved, css, failures }) => show(shownPage, resolved, css, failures))
       .catch(report)
     this.fit()
   }
@@ -377,6 +378,8 @@ export class SegnaviaPage extends PageElementAttributes {
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const message = messageFrom(event, frame)
+    if (message?.type === MESSAGE.fontFailures && message.failures)
+      this.dispatchEvent(new CustomEvent('fontfailure', { detail: { failures: message.failures }, bubbles: true, composed: true }))
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
       this.frameReady = true
       releaseReadyPageRequests(this.pageRequests)

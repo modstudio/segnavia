@@ -1,0 +1,98 @@
+import { type FontFailure, type FontManifest, rangeSample } from '@segnavia/format'
+
+export const FONT_FAILURE_ATTRIBUTE = 'data-segnavia-font-failures'
+export const FONT_FAILURE_LIMIT = 64
+export const FONT_FAILURE_FIELD_LIMIT = 256
+
+export interface DeclaredFontLoad {
+  font: string
+  weight?: number
+  style?: 'normal' | 'italic'
+  unicodeRange?: string
+  sample: string
+}
+
+export function declaredFontLoads(fonts: FontManifest | undefined): DeclaredFontLoad[] {
+  return Object.entries(fonts ?? {}).flatMap(([font, entry]) =>
+    'faces' in entry ? entry.faces.map(({ script: _script, ...face }) => ({ font, ...face, sample: rangeSample(face.unicodeRange) })) : [],
+  )
+}
+
+type LoadableFace = {
+  family: string
+  weight: string
+  style: string
+  status: string
+  load(sample?: string): Promise<unknown>
+}
+
+/** Runs inside a sandboxed author frame; keep this function self-contained so the bridge can embed it. */
+export async function loadDeclaredFonts(
+  declarations: DeclaredFontLoad[],
+  faces: Iterable<LoadableFace>,
+  root: { setAttribute(name: string, value: string): void },
+  familyValue: (font: string) => string,
+): Promise<FontFailure[]> {
+  const available = Array.from(faces)
+  const failures: FontFailure[] = []
+  const normalizedWeight = (value: string | number | undefined) => {
+    if (value === undefined || value === 'normal') return '400'
+    if (value === 'bold') return '700'
+    return String(value)
+  }
+  for (const declaration of declarations.slice(0, 64)) {
+    const family = familyValue(declaration.font).slice(0, 256)
+    const face = available.find(
+      (candidate) =>
+        candidate.family.replace(/^['"]|['"]$/g, '') === family &&
+        normalizedWeight(candidate.weight) === normalizedWeight(declaration.weight) &&
+        (candidate.style || 'normal') === (declaration.style ?? 'normal'),
+    )
+    if (face) await face.load(declaration.sample).catch(() => undefined)
+    if (face && face.status !== 'error') continue
+    failures.push({
+      font: declaration.font.slice(0, 256),
+      family,
+      ...(declaration.weight === undefined ? {} : { weight: declaration.weight }),
+      ...(declaration.style === undefined ? {} : { style: declaration.style }),
+      ...(declaration.unicodeRange === undefined ? {} : { unicodeRange: declaration.unicodeRange.slice(0, 256) }),
+      reason: 'unloaded',
+    })
+  }
+  root.setAttribute('data-segnavia-font-failures', JSON.stringify(failures))
+  return failures
+}
+
+function boundedField(value: unknown, optional = false): boolean {
+  if (optional && value === undefined) return true
+  return (typeof value === 'string' || typeof value === 'number') && String(value).length <= FONT_FAILURE_FIELD_LIMIT
+}
+
+/** Validates the whole report before accepting any entry. */
+export function fontFailuresData(value: unknown): FontFailure[] | null {
+  if (!Array.isArray(value) || value.length > FONT_FAILURE_LIMIT) return null
+  if (
+    value.some(
+      (failure) =>
+        !failure ||
+        typeof failure !== 'object' ||
+        !boundedField((failure as FontFailure).font) ||
+        !boundedField((failure as FontFailure).family) ||
+        !boundedField((failure as FontFailure).weight, true) ||
+        !boundedField((failure as FontFailure).style, true) ||
+        !boundedField((failure as FontFailure).unicodeRange, true) ||
+        !['unsupplied', 'unloaded'].includes((failure as FontFailure).reason),
+    )
+  )
+    return null
+  return value as FontFailure[]
+}
+
+export function fontFailuresAttribute(value: string | null): FontFailure[] {
+  if (!value) return []
+  try {
+    return fontFailuresData(JSON.parse(value)) ?? []
+  } catch {
+    return []
+  }
+}

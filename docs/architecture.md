@@ -1267,7 +1267,7 @@ script: host-context code paginates notes and places natural images after
 readiness, so a strict host content security policy cannot disable either.
 
 The frame bridge sends a relayed key, height, readiness, animation timing,
-slot fit and, from a paginated book frame, the reader's bounded place to its host. The page and stage send selection requests only to
+slot fit, a `segnavia:font-failures` report bounded to 64 entries and 256 characters per field, and, from a paginated book frame, the reader's bounded place to its host. A font failure reason is exactly `unsupplied` or `unloaded`; a malformed report is rejected whole. The page and stage send selection requests only to
 documents whose author scripts are refused, and check replies against a size bound. A page sends a bounded heading request only to the same refused-script documents; the reply contains its request id and a finite top or null.
 On `DOMContentLoaded`, its keep pass gives each element whose computed `--segnavia-keep-with` is `next` or `previous` its inline gap or block break, without adding a message.
 From a paginated book frame or a printed-page frame, a bounded `segnavia:compose-failure` report: the composer's refusal
