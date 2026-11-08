@@ -4,15 +4,18 @@ import type { BrandsOptions } from './brands.ts'
 export function loadBrandedPage(
   document: Document,
   brands: BrandsOptions | undefined,
+  signal: AbortSignal,
   loaded: (page: ReturnType<typeof pageFromDocument>) => void,
   host: EventTarget,
 ) {
+  const current = (work: () => void) => {
+    if (!signal.aborted) work()
+  }
   if (document.brand === undefined) {
-    loaded(pageFromDocument(document))
+    current(() => loaded(pageFromDocument(document)))
     return
   }
-  const signal = new AbortController().signal
   void resolveBrand(document, brands?.source, signal)
-    .then((brand) => loaded(pageFromDocument(document, brand)))
-    .catch((error) => host.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) })))
+    .then((brand) => current(() => loaded(pageFromDocument(document, brand))))
+    .catch((error) => current(() => host.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))))
 }

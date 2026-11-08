@@ -41,6 +41,7 @@ export class SegnaviaPage extends PageElementAttributes {
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
   private loadGeneration = 0
+  private brandResolution: AbortController | undefined
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
   private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
@@ -119,6 +120,8 @@ export class SegnaviaPage extends PageElementAttributes {
     if (value == null) {
       this.cancelSelectionRequests()
       this.cancelSlotPreparation()
+      this.brandResolution?.abort()
+      this.brandResolution = undefined
       this.loadGeneration++
       this.resolvedSlots = undefined
       this.slotFrame = undefined
@@ -167,13 +170,26 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   load(input: DocumentInput | unknown) {
-    this.pageInput = input
     const document = parseDocument(input, { alertLabels: this.alertLabels })
+    this.brandResolution?.abort()
+    const controller = new AbortController()
+    this.brandResolution = controller
+    this.pageInput = input
     this.documentValue = document
-    loadBrandedPage(document, this.brands, (page) => this.loadValue(page), this)
+    loadBrandedPage(
+      document,
+      this.brands,
+      controller.signal,
+      (page) => {
+        if (this.documentValue === document) this.loadValue(page)
+      },
+      this,
+    )
   }
 
   [internalPageLoad](page: Page) {
+    this.brandResolution?.abort()
+    this.brandResolution = undefined
     this.pageInput = undefined
     this.documentValue = null
     this.loadValue(page)
