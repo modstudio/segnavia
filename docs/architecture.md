@@ -286,7 +286,7 @@ within each kind.
 
 ### Declared but not yet supported
 
-Parsing refuses `brand`, a non-empty `variables` collection, every `condition`
+Parsing refuses a non-empty `variables` collection, every `condition`
 or `record` node, section `opens: 'continue'`, section `numbering`, section
 `headTemplate`, section `pageGeometry`, division `settings.numbering`, and
 parent-page `regions`. Division numbering uses the richer shared `Numbering`
@@ -1670,8 +1670,19 @@ The target style layer combines a host-resolved `Brand` with the document's
 partial `StyleSheet`. A style sheet contains typed tokens, a font-face manifest
 with first-class Hebrew faces, named paragraph and character styles with
 `basedOn`, named page geometries, furniture motifs and free CSS. Its token
-schema is compatible with a W3C design-tokens subset and supports import and
-export. The compiler produces one sheet in cascade-layer order:
+schema is compatible with a W3C design-tokens subset.
+`exportDesignTokens` writes the `color`, `dimension` and `fontFamily` groups,
+each with its `$type`. Colors are sRGB components with a six-digit `hex`
+fallback. Dimensions in px and rem stay as they are; mm, pt, cm and in export
+as px at 96 px per inch, with the authored value and unit under
+`$extensions["org.segnavia"]`, which import prefers. An em token is refused,
+naming the token. `importDesignTokens` flattens group paths with `-`, resolves
+`{group.token}` aliases, and refuses a cycle, an unresolved alias, `$ref`, an
+unknown `$type` or a non-sRGB color space, naming the token path. Other
+`$extensions` are not kept on import. Text styles, page geometries, motifs,
+fonts and free CSS are not exchanged. `brandSpecimen(brand, { lang })` returns
+a continuous book that shows a brand's colors, font families and text styles in
+Latin and Hebrew samples. The compiler produces one sheet in cascade-layer order:
 `segnavia.base`, `segnavia.brand`, `segnavia.document`, then
 `segnavia.author`. Tokens become `--segnavia-*` custom properties and named
 styles become classes.

@@ -45,7 +45,14 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 accept every section; pages omit `pageGeometries`; decks accept `tokens`,
 `textStyles`, `fonts` and `css`; boards accept none. Book free CSS is stored at
 `style.css`, and the font manifest, keyed by font name, is stored at `style.fonts` for
-books, pages and decks.
+books, pages and decks. A style sheet refuses an unknown key at every level,
+naming its path.
+
+A document of any kind may name a `brand`. The brand itself is never stored in
+the document: the host keeps it and supplies it through `BrandSource` (`brands`
+on the elements, `brandSource` on render). The resolved brand sits under the
+document's own style, so a document overrides only the styles it sets. A host
+that lowers a document by itself calls `resolveBrand` first.
 
 Authoring print and export should call `authoring.draftDeck()`, which returns the deck as shown, including unsaved notes, without waiting for the host save. `flush()` still waits until every save settles, so a paused save would hang export. `useAuthoring` returns the same controller, including `draftDeck()` and `adoptNotes()`.
 
