@@ -5,10 +5,10 @@ import {
   type FontManifest,
   type FontReference,
   type FontSource,
+  fontManifestWithReferences,
   type Page,
   type PageOrPrintedInput,
   pageDirection,
-  persistedFontManifestWithReferences,
   resolveLimits,
   resolvePageWidth,
 } from '@segnavia/format'
@@ -36,16 +36,17 @@ export async function fontCssForRender<T>(work: Promise<T>): Promise<T> {
 
 async function resolveRenderFontReferences(
   declarations: FontManifest,
+  undeclared: readonly string[],
   source: FontSource | undefined,
   local: FontFace[],
   signal: AbortSignal,
   place: string,
 ): Promise<{ css: string; failures: FontFailure[] }> {
   if (!source) {
-    refuseMissingFontSource(declarations, place)
+    refuseMissingFontSource(declarations, undeclared, place)
     return { css: '', failures: [] }
   }
-  return resolveFontReferences(declarations, { source, local }, signal, place)
+  return resolveFontReferences(declarations, undeclared, { source, local }, signal, place)
 }
 
 export async function prepareRenderedPage(
@@ -67,11 +68,11 @@ export async function prepareRenderedPageValue(
 ) {
   const page = resolvePageHtml(input)
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
-  const declarations = persistedFontManifestWithReferences(expanded.page.style?.fonts, expanded.fonts)
-  const references = fontManifestReferences(declarations)
+  const { manifest, undeclared } = fontManifestWithReferences(expanded.page.style?.fonts, expanded.fonts)
+  const references = fontManifestReferences(manifest, undeclared)
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'
-  const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, options.fontSource, local.faces, signal, place))
+  const resolved = await fontCssForRender(resolveRenderFontReferences(manifest, undeclared, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
   return { page: expanded.page, options, fontCss: resolved.css, fontFailures: resolved.failures }
 }
@@ -82,10 +83,16 @@ export async function prepareRenderedPages(
   signal: AbortSignal,
 ): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
   let declarations: FontManifest = {}
-  for (const item of expanded) declarations = persistedFontManifestWithReferences({ ...declarations, ...item.page.style?.fonts }, item.fonts)
-  const references = fontManifestReferences(declarations)
+  const undeclared = new Set<string>()
+  for (const item of expanded) {
+    const merged = fontManifestWithReferences({ ...declarations, ...item.page.style?.fonts }, item.fonts)
+    declarations = merged.manifest
+    for (const name of merged.undeclared) undeclared.add(name)
+  }
+  for (const name of Object.keys(declarations)) undeclared.delete(name)
+  const references = fontManifestReferences(declarations, [...undeclared])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
-  const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, options.fontSource, local.faces, signal, 'page'))
+  const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, [...undeclared], options.fontSource, local.faces, signal, 'page'))
   options.localFonts?.report?.(local.report)
   return { options, fontCss: resolved.css, fontFailures: resolved.failures }
 }
@@ -97,10 +104,10 @@ export async function renderOptionsWithBookFonts(
   motifFonts: FontReference[] = [],
 ): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
   const place = `book ${JSON.stringify(book.title)}`
-  const declarations = persistedFontManifestWithReferences(book.style?.fonts, motifFonts)
-  const references = fontManifestReferences(declarations)
+  const { manifest, undeclared } = fontManifestWithReferences(book.style?.fonts, motifFonts)
+  const references = fontManifestReferences(manifest, undeclared)
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
-  const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, options.fontSource, local.faces, signal, place))
+  const resolved = await fontCssForRender(resolveRenderFontReferences(manifest, undeclared, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
   return { options, fontCss: resolved.css, fontFailures: resolved.failures }
 }

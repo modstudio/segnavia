@@ -75,7 +75,7 @@ describe('resolvePageFonts', () => {
 
   test('bounds an unsupplied report where it is built', async () => {
     const declarations = Object.fromEntries(Array.from({ length: 65 }, (_, index) => [`font-${index}`, { faces: [{}] }]))
-    expect((await resolveFontReferences(declarations, { source: source({}) }, signal, 'page')).failures).toHaveLength(64)
+    expect((await resolveFontReferences(declarations, [], { source: source({}) }, signal, 'page')).failures).toHaveLength(64)
   })
 })
 
@@ -170,9 +170,19 @@ describe('expandedPagesFontCss', () => {
 })
 
 describe('resolveFontReferences', () => {
+  test('embeds supplied undeclared names and reports only a missing name', async () => {
+    expect(await resolveFontReferences({}, ['heading'], { source: source({ heading }) }, signal, 'page')).toEqual({
+      css: fontCss({ app: new Map([['heading', heading]]) }),
+      failures: [],
+    })
+    expect((await resolveFontReferences({}, ['missing'], { source: source({}) }, signal, 'page')).failures).toEqual([
+      { font: 'missing', family: 'missing', reason: 'unsupplied' },
+    ])
+  })
+
   test('refuses an app name that is not an APP_FONT_NAME', async () => {
-    await expect(resolveFontReferences({ 'x}body{': { faces: [] } }, { source: source({}) }, signal, 'page')).rejects.toThrow(FontRefusedError)
-    await expect(resolveFontReferences({ 'x}body{': { faces: [] } }, { source: source({}) }, signal, 'page')).rejects.toThrow(
+    await expect(resolveFontReferences({ 'x}body{': { faces: [{}] } }, [], { source: source({}) }, signal, 'page')).rejects.toThrow(FontRefusedError)
+    await expect(resolveFontReferences({ 'x}body{': { faces: [{}] } }, [], { source: source({}) }, signal, 'page')).rejects.toThrow(
       'page could not establish an app font name matching /^[a-z0-9-]+$/ ("x}body{"); use a lowercase name of letters, digits and hyphens to clear this refusal.',
     )
   })
