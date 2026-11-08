@@ -110,10 +110,10 @@ test('pagePdf embeds only named transported local faces and retains no decoded b
         type: 'document',
         kind: 'page',
         style: {
-          fonts: [
-            { local: 'Local Family', fallback: 'serif' },
-            { local: 'Missing Family', fallback: 'heading' },
-          ],
+          fonts: {
+            local: { local: 'Local Family', fallback: 'serif' },
+            missing: { local: 'Missing Family', fallback: 'heading' },
+          },
         },
         size: { width: 200, height: 100 },
         children: [{ type: 'page', body: { html: '<p style="font-family:Local Family">Local</p>' } }],

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { identifiedBookInput } from './book-test-helper.ts'
-import { FontReference, FontReferenceInput, LocalFaceTransport } from './fonts.ts'
+import { FontManifest, FontReference, FontReferenceInput, HEBREW_UNICODE_RANGE, LocalFaceTransport, matchFaces, rangeSample } from './fonts.ts'
 import { Book, jsonSchemas, Page } from './index.ts'
 
 describe('FontReference', () => {
@@ -18,14 +18,46 @@ describe('FontReference', () => {
 })
 
 describe('Page and Book fonts', () => {
-  test('carry optional font references', () => {
+  test('carry optional font manifests', () => {
     expect(Page.parse({ html: '' }).style?.fonts).toBeUndefined()
-    expect(Page.parse({ html: '', style: { fonts: [{ app: 'serif' }] } }).style?.fonts).toEqual([{ app: 'serif' }])
+    expect(Page.parse({ html: '', style: { fonts: { serif: { faces: [{}] } } } }).style?.fonts).toEqual({ serif: { faces: [{}] } })
     expect(
       Book.parse(
-        identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], style: { fonts: [{ app: 'serif' }] } }),
+        identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], style: { fonts: { serif: { faces: [{}] } } } }),
       ).style?.fonts,
-    ).toEqual([{ app: 'serif' }])
+    ).toEqual({ serif: { faces: [{}] } })
+  })
+})
+
+describe('FontManifest', () => {
+  test('defaults Hebrew faces to both Hebrew blocks', () => {
+    expect(FontManifest.parse({ body: { faces: [{ script: 'hebrew' }] } })).toEqual({
+      body: { faces: [{ script: 'hebrew', unicodeRange: HEBREW_UNICODE_RANGE }] },
+    })
+  })
+
+  test('refuses unknown face fields, malformed ranges, invalid weights and duplicate faces', () => {
+    for (const face of [{ future: true }, { unicodeRange: 'Hebrew' }, { weight: 1001 }]) {
+      const result = FontManifest.safeParse({ body: { faces: [face] } })
+      expect(result.success).toBe(false)
+      if (!result.success) expect(result.error.toString()).toContain('body')
+    }
+    const duplicate = FontManifest.safeParse({ body: { faces: [{ weight: 400 }, { weight: 400, style: 'normal' }] } })
+    expect(duplicate.success).toBe(false)
+    if (!duplicate.success) expect(duplicate.error.toString()).toContain('duplicates face 0')
+  })
+
+  test('matches declared faces while retaining undeclared supplied faces', () => {
+    const regular = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const }
+    const bold = { ...regular, weight: 700 }
+    expect(matchFaces([{ weight: 400 }, { weight: 300 }], [regular, bold])).toEqual({ faces: [regular, bold], unsupplied: [{ weight: 300 }] })
+  })
+
+  test('samples Hebrew ranges with letters, nikud and taamim', () => {
+    const sample = rangeSample(HEBREW_UNICODE_RANGE)
+    expect(sample).toMatch(/[\u05d0-\u05ea]/)
+    expect(sample).toMatch(/[\u05b0-\u05bc]/)
+    expect(sample).toMatch(/[\u0591-\u05af]/)
   })
 })
 
@@ -38,5 +70,10 @@ describe('LocalFaceTransport', () => {
   test('publishes item and array JSON Schemas', () => {
     expect(jsonSchemas().localFaceTransport).toMatchObject({ type: 'object', required: ['family', 'format', 'data'] })
     expect(jsonSchemas().localFacesTransport).toMatchObject({ type: 'array', items: { type: 'object' } })
+  })
+
+  test('publishes the font declaration and manifest JSON Schemas', () => {
+    expect(jsonSchemas().fontDeclaration).toMatchObject({ type: 'object' })
+    expect(jsonSchemas().fontManifest).toMatchObject({ type: 'object' })
   })
 })

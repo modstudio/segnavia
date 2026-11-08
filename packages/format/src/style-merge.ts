@@ -1,4 +1,4 @@
-import { type FontReference, localFontReferences } from './fonts.ts'
+import type { FontManifest } from './fonts.ts'
 import type { Motif } from './motif.ts'
 import {
   type Dimension,
@@ -25,7 +25,7 @@ export interface MergedStyleSheet {
   textStyles: Record<string, OriginEntry<TextStyle>>
   pageGeometries: Record<string, OriginEntry<PageGeometry>>
   motifs: Array<OriginEntry<Motif>>
-  fonts: FontReference[]
+  fonts: FontManifest
   css: { brand?: string; document?: string }
 }
 
@@ -40,24 +40,6 @@ function mergeRecord<T>(brand: Record<string, T> = {}, document: Record<string, 
 
 function motifRecord(motifs: readonly Motif[] | undefined): Record<string, Motif> {
   return Object.fromEntries((motifs ?? []).map((motif) => [motif.key, motif]))
-}
-
-function mergedFonts(brand: readonly FontReference[] = [], document: readonly FontReference[] = []): FontReference[] {
-  const references = [...brand, ...document]
-  const locals = localFontReferences(references)
-  const localKeys = new Set(locals.map((reference) => JSON.stringify(reference)))
-  const seenApps = new Set<string>()
-  return references.filter((reference) => {
-    if ('local' in reference) {
-      const key = JSON.stringify(reference)
-      if (!localKeys.has(key)) return false
-      localKeys.delete(key)
-      return true
-    }
-    if (seenApps.has(reference.app)) return false
-    seenApps.add(reference.app)
-    return true
-  })
 }
 
 function refusal(path: string, problem: string, remedy: string): MergeStyleSheetsResult {
@@ -125,7 +107,7 @@ export function mergeStyleSheets(brand: StyleSheet | undefined, document: StyleS
     textStyles: mergeRecord(brand?.textStyles, document.textStyles),
     pageGeometries: mergeRecord(brand?.pageGeometries, document.pageGeometries),
     motifs: Object.values(mergeRecord(motifRecord(brand?.motifs), motifRecord(document.motifs))),
-    fonts: mergedFonts(brand?.fonts, document.fonts),
+    fonts: { ...brand?.fonts, ...document.fonts },
     css: { brand: brand?.css, document: document.css },
   }
   return validateBasedOn(sheet.textStyles) ?? validateTokens(sheet) ?? { ok: true, sheet }

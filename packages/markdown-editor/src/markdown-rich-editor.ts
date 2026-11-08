@@ -40,11 +40,14 @@ function lockedView(options: () => LockedViewOptions) {
           page.css = current.css()
           page.fonts = current.fonts
           page.alertLabels = current.alertLabels
+          const fontManifest = Object.fromEntries(
+            current.fontReferences.map((reference, index) => ('app' in reference ? [reference.app, { faces: [{}] }] : [`local-${index}`, reference])),
+          )
           page.page = {
             type: 'document',
             kind: 'page',
             settings: { scripts: 'refuse' },
-            style: { fonts: current.fontReferences },
+            style: { fonts: fontManifest },
             children: [{ type: 'page', body: { markdown: String(node.attrs.source ?? '') } }],
           }
           dom.append(page)

@@ -1,9 +1,26 @@
-import { APP_FONT_NAME, type AppFont, type BookView, type FontFace, type FontReference, type FontSource, type Page } from '@segnavia/format'
+import {
+  APP_FONT_NAME,
+  type AppFont,
+  type BookView,
+  type FontDeclaration,
+  type FontFace,
+  type FontFailure,
+  type FontManifest,
+  type FontReference,
+  type FontSource,
+  matchFaces,
+  type Page,
+} from '@segnavia/format'
 import { fontCss } from '@segnavia/html'
 
 export interface FontsOptions {
   source: FontSource
   local?: FontFace[]
+}
+
+export interface ResolvedFonts {
+  css: string
+  failures: FontFailure[]
 }
 
 export class FontRefusedError extends Error {
@@ -37,7 +54,23 @@ export function appNames(references: FontReference[]): string[] {
   return names
 }
 
-export function refuseMissingFontSource(references: FontReference[], place: string): void {
+export function fontManifestReferences(fonts: FontManifest | undefined): FontReference[] {
+  return Object.entries(fonts ?? {}).map(([name, declaration]) => ('local' in declaration ? declaration : { app: name }))
+}
+
+export function fontManifestWithReferences(fonts: FontManifest | undefined, references: readonly FontReference[]): FontManifest {
+  const merged: FontManifest = { ...fonts }
+  for (const reference of references) {
+    if ('app' in reference) merged[reference.app] ??= { faces: [] }
+    else if (!Object.values(merged).some((entry) => 'local' in entry && entry.local === reference.local && entry.fallback === reference.fallback)) {
+      merged[`local-${Object.keys(merged).length}`] = reference
+    }
+  }
+  return merged
+}
+
+export function refuseMissingFontSource(fonts: FontManifest | FontReference[], place: string): void {
+  const references = Array.isArray(fonts) ? fonts : fontManifestReferences(fonts)
   const name = appNames(references)[0]
   if (!name) return
   throw new FontRefusedError(`${place} could not establish app font ${JSON.stringify(name)}; supply a FontSource to clear this refusal.`)
@@ -50,20 +83,31 @@ export function requireAppFontName(name: string, place: string): void {
   )
 }
 
-export async function resolveFontReferences(references: FontReference[], fonts: FontsOptions, signal: AbortSignal, place: string): Promise<string> {
+function unsupplied(font: string, family: string, faces: readonly FontDeclaration[]): FontFailure[] {
+  return (faces.length > 0 ? faces : [{}]).map(({ script: _script, ...face }) => ({ font, family, ...face, reason: 'unsupplied' as const }))
+}
+
+export async function resolveFontReferences(declarations: FontManifest, fonts: FontsOptions, signal: AbortSignal, place: string): Promise<ResolvedFonts> {
   const app = new Map<string, AppFont>()
-  for (const name of appNames(references)) {
+  const failures: FontFailure[] = []
+  const appDeclarations = new Map<string, { faces: FontDeclaration[]; generic?: AppFont['generic'] }>()
+  for (const [name, declaration] of Object.entries(declarations)) {
+    if ('faces' in declaration) appDeclarations.set(name, declaration)
+    else if (!appDeclarations.has(declaration.fallback)) appDeclarations.set(declaration.fallback, { faces: [] })
+  }
+  for (const [name, declaration] of appDeclarations) {
     requireAppFontName(name, place)
     const font = await fonts.source.font(name, { signal })
     signal.throwIfAborted()
     if (!font) {
-      throw new FontRefusedError(
-        `${place} could not establish app font ${JSON.stringify(name)}; make that font available from the source to clear this refusal.`,
-      )
+      failures.push(...unsupplied(name, name, declaration.faces))
+      continue
     }
-    app.set(name, font)
+    const matched = matchFaces(declaration.faces, font.faces)
+    failures.push(...unsupplied(name, font.family, matched.unsupplied))
+    app.set(name, { ...font, faces: matched.faces, generic: declaration.generic ?? font.generic })
   }
-  return fontCss({ app, local: fonts.local ?? [] })
+  return { css: fontCss({ app, local: fonts.local ?? [] }), failures }
 }
 
 export async function resolvePageFonts(
@@ -71,9 +115,9 @@ export async function resolvePageFonts(
   motifFonts: FontReference[],
   fonts: FontsOptions,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<ResolvedFonts> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
-  return resolveFontReferences(uniqueFontReferences([...(page.style?.fonts ?? []), ...motifFonts]), fonts, signal, place)
+  return resolveFontReferences(fontManifestWithReferences(page.style?.fonts, motifFonts), fonts, signal, place)
 }
 
 export async function pageFontCss(
@@ -81,14 +125,14 @@ export async function pageFontCss(
   motifFonts: FontReference[],
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<ResolvedFonts> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
-  const references = uniqueFontReferences([...(page.style?.fonts ?? []), ...motifFonts])
+  const declarations = fontManifestWithReferences(page.style?.fonts, motifFonts)
   if (!fonts) {
-    refuseMissingFontSource(references, place)
-    return ''
+    refuseMissingFontSource(declarations, place)
+    return { css: '', failures: [] }
   }
-  return resolveFontReferences(references, fonts, signal, place)
+  return resolveFontReferences(declarations, fonts, signal, place)
 }
 
 export async function expandedPagesFontCss(
@@ -96,27 +140,27 @@ export async function expandedPagesFontCss(
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
   place = 'page',
-): Promise<string> {
-  const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.style?.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
+): Promise<ResolvedFonts> {
+  const declarations = expanded.reduce<FontManifest>((result, item) => fontManifestWithReferences({ ...result, ...item.page.style?.fonts }, item.fonts), {})
   if (!fonts) {
-    refuseMissingFontSource(references, place)
-    return ''
+    refuseMissingFontSource(declarations, place)
+    return { css: '', failures: [] }
   }
-  return resolveFontReferences(references, fonts, signal, place)
+  return resolveFontReferences(declarations, fonts, signal, place)
 }
 
 export async function expandedBookFontCss(
   expanded: { book: BookView; fonts: FontReference[] },
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
-): Promise<string> {
+): Promise<ResolvedFonts> {
   const place = expanded.book.title ? `book ${JSON.stringify(expanded.book.title)}` : 'book'
-  const references = uniqueFontReferences([...(expanded.book.style?.fonts ?? []), ...expanded.fonts])
+  const declarations = fontManifestWithReferences(expanded.book.style?.fonts, expanded.fonts)
   if (!fonts) {
-    refuseMissingFontSource(references, place)
-    return ''
+    refuseMissingFontSource(declarations, place)
+    return { css: '', failures: [] }
   }
-  return resolveFontReferences(references, fonts, signal, place)
+  return resolveFontReferences(declarations, fonts, signal, place)
 }
 
 export const DEFAULT_NOTES_FONT_FAMILY = 'sans-serif'
@@ -132,13 +176,13 @@ export async function resolveNotesFontCss(
   name: string | undefined,
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
-): Promise<{ family: string; css: string }> {
-  if (name === undefined) return { family: DEFAULT_NOTES_FONT_FAMILY, css: '' }
+): Promise<{ family: string; css: string; failures: FontFailure[] }> {
+  if (name === undefined) return { family: DEFAULT_NOTES_FONT_FAMILY, css: '', failures: [] }
   requireAppFontName(name, NOTES_FONT_PLACE)
-  const references: FontReference[] = [{ app: name }]
+  const declarations: FontManifest = { [name]: { faces: [] } }
   if (!fonts) {
-    refuseMissingFontSource(references, NOTES_FONT_PLACE)
-    return { family: notesSheetFontFamily(name), css: '' }
+    refuseMissingFontSource(declarations, NOTES_FONT_PLACE)
+    return { family: notesSheetFontFamily(name), css: '', failures: [] }
   }
-  return { family: notesSheetFontFamily(name), css: await resolveFontReferences(references, fonts, signal, NOTES_FONT_PLACE) }
+  return { family: notesSheetFontFamily(name), ...(await resolveFontReferences(declarations, fonts, signal, NOTES_FONT_PLACE)) }
 }

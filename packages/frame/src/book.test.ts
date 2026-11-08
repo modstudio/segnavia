@@ -193,7 +193,7 @@ describe('book fonts', () => {
     book.view = {
       html: '<main data-segnavia-galleys></main>',
       title: 'Latest',
-      style: { fonts: [{ app: 'serif' }] },
+      style: { fonts: { serif: { faces: [{}] } } },
       pagination: {
         paper: { width: 148, height: 210 },
         margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
@@ -277,7 +277,7 @@ describe('book fonts', () => {
         font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }),
       },
     }
-    book.view = { html: '<main>Book</main>', style: { fonts: [{ app: 'serif' }] } }
+    book.view = { html: '<main>Book</main>', style: { fonts: { serif: { faces: [{}] } } } }
     await Promise.resolve()
     expect(frames).toHaveLength(0)
     connected = true
@@ -317,7 +317,7 @@ describe('book fonts', () => {
             : undefined,
       },
     }
-    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: [{ app: 'serif' }] } }
+    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { serif: { faces: [{}] } } } }
     for (let i = 0; i < 8; i += 1) await Promise.resolve()
     globalThis.document = previous
     expect(frames.at(-1)?.srcdoc).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
@@ -334,7 +334,7 @@ describe('book fonts', () => {
       return true
     }
     book.fonts = { source: { font: async () => undefined } }
-    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: [{ app: 'missing' }] } }
+    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { missing: { faces: [{}] } } } }
     for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "missing"; make that font available from the source to clear this refusal.',
@@ -348,7 +348,7 @@ describe('book fonts', () => {
       detail = (event as CustomEvent).detail
       return true
     }) as typeof book.dispatchEvent
-    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: [{ app: 'serif' }] } }
+    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { serif: { faces: [{}] } } } }
     for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
@@ -362,7 +362,7 @@ describe('book fonts', () => {
       detail = (event as CustomEvent).detail
       return true
     }) as typeof book.dispatchEvent
-    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: [{ local: 'Local Face', fallback: 'serif' }] } }
+    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { local: { local: 'Local Face', fallback: 'serif' } } } }
     for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',

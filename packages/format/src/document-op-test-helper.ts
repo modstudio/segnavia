@@ -75,12 +75,12 @@ function base(kind: DocumentKind, seed: number): Record<string, unknown> {
       noteSeries: [{ type: 'noteSeries', id: `base-notes-${seed}`, name: 'notes' }],
     }
   if (kind === 'deck') return { ...common, title: 'Deck', children: [DOCUMENT_NODE_SAMPLES.slide(seed), DOCUMENT_NODE_SAMPLES.slide(seed + 10_000)] }
-  if (kind === 'page') return { ...common, style: { fonts: [] }, children: [DOCUMENT_NODE_SAMPLES.page(seed)] }
+  if (kind === 'page') return { ...common, style: { fonts: {} }, children: [DOCUMENT_NODE_SAMPLES.page(seed)] }
   if (kind === 'printed')
     return {
       ...common,
       rules: { every: 'body' },
-      style: { fonts: [] },
+      style: { fonts: {} },
       parentPages: [{ type: 'parentPage', id: `printed-parent-${seed}`, name: 'body', geometry: {}, foot: HEBREW }],
       children: [DOCUMENT_NODE_SAMPLES.page(seed)],
     }
@@ -204,7 +204,7 @@ function styleEdit(edited: DocumentValue, remove: boolean): boolean {
   }
   if (edited.kind === 'page' || edited.kind === 'printed') {
     if (edited.style) edited.style = undefined
-    else edited.style = { fonts: [] }
+    else edited.style = { fonts: {} }
     return true
   }
   return false

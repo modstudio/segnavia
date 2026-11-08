@@ -375,6 +375,6 @@ export async function prepareShownPage(
   const refusal = slotFillRefusal(expanded.page.scripts, expanded.page.slots, slots)
   if (refusal) throw refusal
   const resolved = hasSlotWork(expanded.page.slots, slots) ? await prepareSlots(expanded.page.slots, slots, signal) : undefined
-  const css = await pageFontCss(expanded.page, expanded.fonts, fonts, signal)
+  const { css } = await pageFontCss(expanded.page, expanded.fonts, fonts, signal)
   return { page: expanded.page, resolved, css }
 }

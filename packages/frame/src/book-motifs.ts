@@ -6,7 +6,7 @@ export function prepareBookViewWithoutSources(view: BookView): { view: BookView;
   const refusal = bookViewMotifRefusal(view)
   if (refusal) throw refusal
   const place = view.title ? `book ${JSON.stringify(view.title)}` : 'book'
-  refuseMissingFontSource(view.style?.fonts ?? [], place)
+  refuseMissingFontSource(view.style?.fonts ?? {}, place)
   return { view, css: '' }
 }
 
@@ -24,5 +24,6 @@ export async function prepareBookView(
     if (refusal) throw refusal
   }
   const expanded = motifs || placements ? await expandFrameBookView(view, motifs, signal, placements, pageWidths) : { book: view, fonts: [] }
-  return { view: expanded.book, css: await expandedBookFontCss(expanded, fonts, signal) }
+  const { css } = await expandedBookFontCss(expanded, fonts, signal)
+  return { view: expanded.book, css }
 }

@@ -16,13 +16,13 @@ describe('mergeStyleSheets', () => {
       sheet({
         tokens: { colors: { ink: '#111111', paper: '#ffffff' } },
         textStyles: { body: { kind: 'paragraph', color: '#111111', fontStyle: 'italic' } },
-        fonts: [{ app: 'serif' }, { local: 'Held', fallback: 'serif' }],
+        fonts: { serif: { faces: [{}] }, held: { local: 'Held', fallback: 'serif' } },
         css: '.brand{color:red}',
       }),
       sheet({
         tokens: { colors: { ink: '#222222' } },
         textStyles: { body: { kind: 'paragraph', fontWeight: 700 } },
-        fonts: [{ local: 'Held', fallback: 'serif' }, { app: 'sans' }],
+        fonts: { held: { local: 'Held', fallback: 'serif' }, sans: { faces: [{ weight: 700 }] } },
         css: '.author{color:blue}',
       }),
     )
@@ -31,7 +31,7 @@ describe('mergeStyleSheets', () => {
       sheet: {
         tokens: { colors: { ink: { origin: 'document', value: '#222222' }, paper: { origin: 'brand', value: '#ffffff' } } },
         textStyles: { body: { origin: 'document', value: { fontWeight: 700 } } },
-        fonts: [{ app: 'serif' }, { local: 'Held', fallback: 'serif' }, { app: 'sans' }],
+        fonts: { serif: { faces: [{}] }, held: { local: 'Held', fallback: 'serif' }, sans: { faces: [{ weight: 700 }] } },
         css: { brand: '.brand{color:red}', document: '.author{color:blue}' },
       },
     })

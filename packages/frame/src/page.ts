@@ -220,7 +220,7 @@ export class SegnaviaPage extends PageElementAttributes {
       if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
-    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !(page.style?.fonts ?? []).some((ref) => 'app' in ref)) {
+    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && Object.keys(page.style?.fonts ?? {}).length === 0) {
       const motifRefusal = framePageMotifRefusal(resolvedPage)
       if (motifRefusal) {
         report(motifRefusal)

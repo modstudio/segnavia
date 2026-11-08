@@ -187,9 +187,9 @@ describe('readLocalFonts', () => {
     const result = await readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
     const page = Page.parse({
       html: '<p style="font-family: \'Local Face\', var(--segnavia-font-serif)"></p>',
-      style: { fonts: [{ local: 'Local Face', fallback: 'serif' }] },
+      style: { fonts: { local: { local: 'Local Face', fallback: 'serif' } } },
     })
-    const css = await resolvePageFonts(page, [], { source, local: result.faces }, signal)
+    const { css } = await resolvePageFonts(page, [], { source, local: result.faces }, signal)
     expect(css).toContain('@font-face{font-family:"Local Face";src:url(data:font/ttf;base64,')
     expect(css).toContain('format("truetype");font-weight:400;font-style:normal;font-display:block}')
     expect(css).toContain('--segnavia-font-serif:"Body Serif",serif')

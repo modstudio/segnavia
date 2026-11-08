@@ -245,7 +245,7 @@ export class SegnaviaPaper extends HTMLElement {
         .then((resolved) => commit(shown, resolved))
         .catch(report)
     }
-    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !pages.some((page) => (page.style?.fonts ?? []).some((ref) => 'app' in ref))) {
+    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !pages.some((page) => Object.keys(page.style?.fonts ?? {}).length > 0)) {
       const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
       if (motifRefusal) {
         this.paintPlaceholder(imposed)
@@ -263,7 +263,7 @@ export class SegnaviaPaper extends HTMLElement {
     this.paintPlaceholder(imposed)
     void expandFramePages(pages, this.motifOptions, controller.signal, this.placementOptions, 'screen', this.widthOptions)
       .then(async (expanded) => {
-        const css = await expandedPagesFontCss(expanded, this.fontOptions, controller.signal)
+        const { css } = await expandedPagesFontCss(expanded, this.fontOptions, controller.signal)
         if (!current()) return
         this.resolvedFontCss = css
         continuePaint(expanded.map((item) => item.page))
