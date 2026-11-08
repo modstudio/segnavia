@@ -1,9 +1,10 @@
 import type { PageWidths, SlotsOptions } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
-import { type MotifsOptions, type PlacementsOptions, prepareExpandedPage } from './motif-expansion.ts'
+import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
+import { prepareExpandedPage } from './page-preparation.ts'
 import { fillsSlotValues } from './slot-render.ts'
 
 export const PRINTED_SLOT_REFUSAL =
