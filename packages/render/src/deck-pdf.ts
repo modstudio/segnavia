@@ -9,7 +9,7 @@ import {
   type Imposition as ParsedImposition,
   pagePlacementLayout,
 } from '@segnavia/format'
-import { newNonce, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
+import { newNonce, PRINT_READY_ATTRIBUTE, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
@@ -62,6 +62,7 @@ async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<
 }
 
 function nameSlideError(error: unknown, id: string): never {
+  if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(`Slide "${id}" could not be rendered: ${error.message}`)
   if (error instanceof Error) {
     error.message = `Slide "${id}" could not be rendered: ${error.message}`
     throw error
@@ -114,8 +115,8 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
   const htmlSlides = deck.slides.flatMap((slide, index) =>
     'kind' in slide.content && slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html, printAtMs: slide.printAtMs ?? 0 }] : [],
   )
-  const css = `${services.fontFaces(opts)}${opts.css ?? ''}`
-  const slideCss = containFixedPageOverflow(css)
+  const baseCss = services.fontFaces(opts)
+  const slideBaseCss = containFixedPageOverflow(baseCss)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
   const notesSheetFont = notesGeometry
     ? await fontCssForRender(
@@ -128,7 +129,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
       {
         viewport: notesGeometry ? { width: Math.round(notesGeometry.sheet.width), height: Math.round(notesGeometry.sheet.height) } : deck.size,
         scripts: true,
-        html: printableDeckValue(deck, { ...opts, css, notesSheetFont, omitHtmlSlideFrames: true, diagramScript }),
+        html: printableDeckValue(deck, { ...opts, baseCss, notesSheetFont, omitHtmlSlideFrames: true, diagramScript }),
         boundMs: opts.boundMs,
         ...dependencySetup(opts),
         beforeOutput: async (tab) => {
@@ -155,7 +156,14 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
               // The nonce policy, rather than disabling JavaScript in Chromium,
               // refuses author code while leaving the print bridge running.
               scripts: true,
-              html: htmlSlideDocument(deck, html, { nonce: newNonce(), css: slideCss, printAtMs, dependencyOrigins: opts.dependencyOrigins, diagramScript }),
+              html: htmlSlideDocument(deck, html, {
+                nonce: newNonce(),
+                baseCss: slideBaseCss,
+                css: opts.css,
+                printAtMs,
+                dependencyOrigins: opts.dependencyOrigins,
+                diagramScript,
+              }),
               boundMs: opts.boundMs,
               ...dependencySetup(opts),
               beforeOutput: (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
@@ -197,7 +205,7 @@ async function imposedDeckPdf(
   services: DeckPdfServices,
   diagramScript?: string,
 ): Promise<Uint8Array> {
-  const css = containFixedPageOverflow(`${services.fontFaces(opts)}${opts.css ?? ''}`)
+  const baseCss = containFixedPageOverflow(services.fontFaces(opts))
   const imposed = impose(imposition, deck.slides.length)
   const marks = impositionMarks(imposition)
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
@@ -210,12 +218,13 @@ async function imposedDeckPdf(
           'kind' in slide.content && slide.content.kind === 'html'
             ? htmlSlideDocument(deck, slide.content.html, {
                 nonce: newNonce(),
-                css,
+                baseCss,
+                css: opts.css,
                 printAtMs: slide.printAtMs ?? 0,
                 dependencyOrigins: opts.dependencyOrigins,
                 diagramScript,
               })
-            : printableDeckValue(single, { ...opts, layout: 'slides', imposition: undefined, css, diagramScript })
+            : printableDeckValue(single, { ...opts, layout: 'slides', imposition: undefined, baseCss, diagramScript })
         const bytes = await services.renderPdf(
           {
             viewport: deck.size,

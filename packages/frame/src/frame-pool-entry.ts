@@ -39,6 +39,7 @@ export function addFrame({ entries, events, host, index, content, state, control
     dependencyOrigins: pool.dependencyOrigins,
     frameTitle: pool.frameTitle,
     loaded: () => entry.markLoaded(pool),
+    failed: (error) => pool.reportSlideError(slide.id, error.message),
     slots: pool.slots,
     folio,
   })

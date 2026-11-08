@@ -194,9 +194,25 @@ describe('Document', () => {
         children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '' } }],
       }),
     ).toThrow('metadata field authors is not allowed in a deck document')
-    expect(() => Document.parse({ type: 'document', kind: 'page', style: { css: 'html{}' }, children: [{ type: 'page', body: { html: '' } }] })).toThrow(
-      'style field css is not allowed in a page document',
-    )
+    expect(() =>
+      Document.parse({
+        type: 'document',
+        kind: 'deck',
+        title: 'Deck',
+        style: { pageGeometries: {} },
+        children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '' } }],
+      }),
+    ).toThrow('style field pageGeometries is not allowed in a deck document')
+    expect(() =>
+      Document.parse({
+        type: 'document',
+        kind: 'board',
+        title: 'Board',
+        settings: { dir: 'ltr' },
+        style: { tokens: {} },
+        children: [],
+      }),
+    ).toThrow('style field tokens is not allowed in a board document')
     expect(() =>
       Document.parse({
         type: 'document',

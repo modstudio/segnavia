@@ -326,6 +326,7 @@ export class SegnaviaBook extends BookSourcesElement {
         const prepared = prepareBookViewWithoutSources(view)
         this.mountFrames(prepared.view, prepared.css)
       } catch (reason) {
+        this.preparedView = null
         bookElement.reportBookError(this, reason)
       }
       return
@@ -341,6 +342,7 @@ export class SegnaviaBook extends BookSourcesElement {
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return
+        this.preparedView = null
         bookElement.reportBookError(this, reason)
       })
       .finally(() => {

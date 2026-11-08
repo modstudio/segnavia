@@ -171,13 +171,13 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
   expect(book.parentPages[0]?.head).toContain('data-motif="segnavia:mark" data-motif-name="Siman" data-motif-which="last"')
   expect(book.parentPages[0]?.head).toContain('class="idml-master-frame-1"')
   expect(book.parentPages[0]?.head).toContain('class="idml-c-mark idml-o-2"')
-  expect(book.css).toContain(
+  expect(book.style?.css).toContain(
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:13.052778mm;inline-size:7.055556mm;inset-block-start:0.705556mm;block-size:1.763889mm}',
   )
-  expect(book.css).toContain(
+  expect(book.style?.css).toContain(
     ':where(.idml-master-frame-2){position:absolute;inset-inline-start:7.761111mm;inline-size:3.527778mm;inset-block-start:0.352778mm;block-size:2.116667mm}',
   )
-  expect(book.css).toContain(
+  expect(book.style?.css).toContain(
     ':where(.idml-master-frame-3){position:absolute;inset-inline-start:9.525mm;inline-size:7.055556mm;inset-block-start:1.058333mm;block-size:1.763889mm}',
   )
   const firstHtml = book.body[0] && 'html' in book.body[0] ? book.body[0].html : ''
@@ -249,7 +249,7 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
   expect(book.parentPages).toHaveLength(1)
   expect(book.parentPages[0]?.foot).toContain('data-motif="segnavia:folio"')
   expect(book.parentPages[0]?.foot).toContain('class="idml-master-frame-1"')
-  expect(book.css).toContain(
+  expect(book.style?.css).toContain(
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:8.819444mm;inline-size:3.527778mm;inset-block-start:0.705556mm;block-size:1.763889mm}',
   )
   expect(book.page?.margin).toEqual({

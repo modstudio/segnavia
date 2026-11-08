@@ -10,10 +10,9 @@ import {
   resolveParentPages,
   textArea,
 } from '@segnavia/format'
-import { bookStylesheet } from '@segnavia/html'
 import { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE, composerScript } from './book-composer.ts'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
-import { frameDocument } from './bridge.ts'
+import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
 
 export interface PaginatedDocumentOptions {
@@ -68,8 +67,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     ...(options.screen ? { screen: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const bookCss = bookStylesheet(options.fontCss, view.css, options.css)
-  const css =
+  const baseCss =
     `@page{size:${pagination.paper.width}mm ${pagination.paper.height}mm;margin:0}` +
     `:where(html,body){margin:0!important;padding:0!important}` +
     `:where(html:not([${BOOK_COMPOSED_ATTRIBUTE}]),html:not([${BOOK_COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}` +
@@ -77,7 +75,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-pages]){inline-size:${pagination.paper.width}mm}` +
     `:where([data-segnavia-book-page]:last-child){break-after:auto}` +
     `@media print{:where([data-segnavia-galley-source]){display:none!important}}` +
-    bookCss
+    (options.fontCss ?? '')
   const drawn = withDiagramScript(view.html, options.nonce, options.diagramScript)
   const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json, options.screen !== undefined)}</script>`
   return frameDocument(body, {
@@ -85,7 +83,8 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     nonce: options.nonce,
     dir: pagination.direction,
     lang: view.lang,
-    css,
+    sheets: frameStyleSheets(view.style, baseCss),
+    css: options.css,
     relayKeys: false,
     reportHeight: false,
     readyAfterAttribute: BOOK_COMPOSED_ATTRIBUTE,
@@ -102,7 +101,8 @@ export function flowViewDocument(view: BookView, options: Pick<PaginatedDocument
     nonce: options.nonce,
     dir: view.pagination.direction,
     lang: view.lang,
-    css: bookStylesheet(options.fontCss, view.css, options.css),
+    sheets: frameStyleSheets(view.style, options.fontCss),
+    css: options.css,
     relayKeys: false,
     reportHeight: false,
   })

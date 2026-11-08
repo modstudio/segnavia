@@ -27,6 +27,7 @@ export async function renderPagePdf(
   inputIndex?: number,
   deadline?: RenderDeadline,
   diagramScript?: string,
+  fontCss = '',
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
   const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
@@ -35,7 +36,7 @@ export async function renderPagePdf(
       viewport,
       scripts: true,
       slots: preparedSlotsFor(page),
-      html: renderedPageDocument(page, opts, true, diagramScript),
+      html: renderedPageDocument(page, opts, true, diagramScript, fontCss),
       readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
       boundMs: opts.boundMs,
       deadline,

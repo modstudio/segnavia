@@ -26,8 +26,8 @@ describe('book', () => {
   })
 
   test('accepts an optional stylesheet and otherwise leaves it absent', () => {
-    expect(Book.parse(input()).css).toBeUndefined()
-    expect(Book.parse(input({ css: '.lead{color:purple}' })).css).toBe('.lead{color:purple}')
+    expect(Book.parse(input()).style?.css).toBeUndefined()
+    expect(Book.parse(input({ style: { css: '.lead{color:purple}' } })).style?.css).toBe('.lead{color:purple}')
   })
 
   test('language resolves page numbering and note marker defaults', () => {

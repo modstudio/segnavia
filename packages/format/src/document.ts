@@ -7,18 +7,16 @@ import { DocumentMetadata } from './document-metadata.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
-import { FontReference } from './fonts.ts'
 import { DocumentLimitsValue } from './limits.ts'
-import { Motif } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Print } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
+import { StyleSheet } from './style-sheet.ts'
 
 const DocumentSettings = z.object({ scripts: Scripts.optional(), dir: DeckShape.shape.dir, lang: z.string().optional() })
-const DocumentStyle = z.object({ css: z.string().optional(), fonts: z.array(FontReference).optional(), motifs: z.array(Motif).optional() })
 const DocumentData = z.object({ slots: Slots.optional() })
 
 export const DocumentShape = z.object({
@@ -30,7 +28,7 @@ export const DocumentShape = z.object({
   brand: z.string().optional(),
   limits: DocumentLimitsValue.optional(),
   settings: DocumentSettings.optional(),
-  style: DocumentStyle.optional(),
+  style: StyleSheet.optional(),
   data: DocumentData.optional(),
   size: PageSize.optional(),
   print: Print.optional(),

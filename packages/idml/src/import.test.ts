@@ -84,10 +84,10 @@ describe('importIdml', () => {
     expect(result.book).toMatchObject({ dir: 'ltr', lang: 'he', page: { columnGap: 12 * (25.4 / 72) } })
     expect(chapter.html).toContain('class="idml-p-body" dir="rtl" data-columns="2"')
     expect(chapter.html).toContain('&lt;script&gt;שלום')
-    expect(result.book.css).toContain('font-size:12pt')
-    expect(result.book.css).not.toContain('font-family')
-    expect(result.book.css).toContain('font-weight:400')
-    expect(result.book.css).not.toContain('font-style')
+    expect(result.book.style?.css).toContain('font-size:12pt')
+    expect(result.book.style?.css).not.toContain('font-family')
+    expect(result.book.style?.css).toContain('font-weight:400')
+    expect(result.book.style?.css).not.toContain('font-style')
     expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
     expect(result.report.unmappedFonts).toMatchObject([{ appliedFont: 'Hebrew Face', fontStyle: 'Regular' }])
     expect(result.report.unsupportedElements).toMatchObject({ Note: 1 })
@@ -129,10 +129,10 @@ describe('importIdml', () => {
       { family: 'Book Face', style: 'Semi Bold', postscriptName: 'BookFace-SemiBold' },
       { family: 'Display Face', style: 'Bold Italic', postscriptName: 'Display-BoldItalic' },
     ])
-    expect(result.book.fonts).toEqual([{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }])
-    expect(result.book.css).toContain('font-family:var(--segnavia-font-body);font-weight:600')
-    expect(result.book.css).toContain('font-family:"Installed Display", var(--segnavia-font-body);font-weight:700;font-style:italic')
-    expect(fontReferenceRefusals(`<style>${result.book.css}</style>`, result.book.fonts ?? [], new Set(['body']))).toEqual([])
+    expect(result.book.style?.fonts).toEqual([{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }])
+    expect(result.book.style?.css).toContain('font-family:var(--segnavia-font-body);font-weight:600')
+    expect(result.book.style?.css).toContain('font-family:"Installed Display", var(--segnavia-font-body);font-weight:700;font-style:italic')
+    expect(fontReferenceRefusals(`<style>${result.book.style?.css}</style>`, result.book.style?.fonts ?? [], new Set(['body']))).toEqual([])
   })
 
   test('refuses an invalid host font answer by font name', async () => {
@@ -184,7 +184,7 @@ describe('importIdml', () => {
     const chapter = result.book.body[0]
     if (!chapter || !('html' in chapter)) throw new Error('Expected an imported chapter.')
     expect(chapter.html).toContain('dir="ltr"')
-    expect(result.book.css).toContain('.idml-p-body{line-height:18pt}')
+    expect(result.book.style?.css).toContain('.idml-p-body{line-height:18pt}')
     expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face' }])
   })
 

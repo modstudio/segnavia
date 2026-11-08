@@ -1639,15 +1639,31 @@ margins, size, direction, numbering, metadata and limits. Logical margins have
 one physical mapping for imposition. Direction uses the shared `Direction` and
 `TextDirection` values rather than inline enums.
 
-The target style layer combines a host-resolved `Brand` with the document's
-partial `StyleSheet`. A style sheet contains typed tokens, a font-face manifest
-with first-class Hebrew faces, named paragraph and character styles with
-`basedOn`, named page geometries, furniture motifs and free CSS. Its token
-schema is compatible with a W3C design-tokens subset and supports import and
-export. The compiler produces one sheet in cascade-layer order:
-`segnavia.base`, `segnavia.brand`, `segnavia.document`, then
-`segnavia.author`. Tokens become `--segnavia-*` custom properties and named
-styles become classes.
+The style compiler takes a brand sheet as an argument and combines it with the
+document's `StyleSheet`. `Document.brand` remains refused; the host brand seam
+comes later. A style sheet contains typed tokens, a font manifest, named
+paragraph and character styles with `basedOn`, named page geometries,
+furniture motifs and free CSS. A document entry replaces a same-named brand
+entry whole; properties do not merge across origins. Tokens become
+`--segnavia-*` custom properties and named styles become classes.
+
+Frame CSS uses the cascade order `segnavia.base`, `segnavia.brand`,
+`segnavia.document`, then `segnavia.author`. Library defaults, generated print
+rules and generated font CSS belong to the base layer. Typed brand and
+document values use their matching layers, while document free CSS uses the
+author layer. Each compiled piece is a separate stylesheet so parse recovery
+in unfinished free CSS cannot consume the next piece. Host CSS follows those
+sheets unlayered and therefore wins over their normal declarations. CSS
+`!important` declarations reverse layer precedence, as the cascade defines.
+A frame built without compiled sheets still receives the base layer, so its
+blocks keep their first-letter direction.
+
+The merge checks cross-references (`basedOn` and token references) against
+the merged sheet, because a document style may rest on a brand entry. A sheet
+that cannot merge is refused with `StyleSheetRefusedError`, naming the key
+path and what clears it, through each path's existing refusal: the page
+element's error event, the stage's slide error, the book element's error, and
+`RenderRefusedError` when rendering.
 
 Content has one stored form: HTML. Every block that lacks a
 `data-segnavia-id` receives a minted id at the parse edge, and an existing id

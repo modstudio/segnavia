@@ -309,5 +309,25 @@ export * from './printed-pages.ts'
 export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
 export * from './slots.ts'
+export {
+  type MergedStyleSheet,
+  type MergeStyleSheetsResult,
+  mergeStyleSheets,
+  type OriginEntry,
+  type StyleOrigin,
+} from './style-merge.ts'
+export {
+  Dimension,
+  HexColor,
+  KEEP_WITH_CUSTOM_PROPERTY,
+  PageGeometry,
+  STYLE_NAME,
+  StyleSheet,
+  TEXT_STYLE_PROPERTIES,
+  TextStyle,
+  type TextStyleKind,
+  type TextStyleTokenGroup,
+  TokenReference,
+} from './style-sheet.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'

@@ -1,7 +1,7 @@
 import type { HtmlPage } from '@segnavia/html'
 import { type FrameOptions, frameDocument, newNonce } from './bridge.ts'
 import { hasDiagram, loadDiagramScript, withDiagramScript } from './diagram-document.ts'
-import { shownPageDocument } from './motif-expansion.ts'
+import { shownPageDocument } from './shown-page-document.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 type DiagramScriptLoader = (html: string) => Promise<string | undefined>
@@ -34,14 +34,18 @@ export function loadPageDocument(
 export function loadShownPageDocument(
   page: HtmlPage,
   resolved: PreparedSlots | undefined,
-  options: { css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
+  options: { baseCss?: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
 ): void {
   const nonce = newNonce()
   if (!hasDiagram(page.html)) {
-    loaded(shownPageDocument(page, resolved, { ...options, nonce }))
+    try {
+      loaded(shownPageDocument(page, resolved, { ...options, nonce }))
+    } catch (error) {
+      failed(error)
+    }
     return
   }
   const write = (script: string | undefined) => {

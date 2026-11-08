@@ -149,7 +149,7 @@ describe('Document lowering', () => {
       page: expected.page,
       numbering: expected.numbering,
       settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
-      style: { css: expected.css, fonts: expected.fonts },
+      style: expected.style,
       parentPages: expected.parentPages.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
       noteSeries: expected.notes.map(({ name, placement, numbering, marker, title }) => ({
         type: 'noteSeries' as const,

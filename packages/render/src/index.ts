@@ -180,7 +180,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         scripts: true,
         slots: preparedSlotsFor(page),
         scale: opts.scale,
-        html: renderedPageDocument(page, prepared.options, false, diagramScript),
+        html: renderedPageDocument(page, prepared.options, false, diagramScript, prepared.fontCss),
         readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
         boundMs: opts.boundMs,
         deadline,
@@ -228,6 +228,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             undefined,
             deadline,
             diagramScript,
+            prepared.fontCss,
           )
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
@@ -267,18 +268,18 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           'print',
           opts.pageWidths,
         )
-        const withFonts = await prepareRenderedPages(expanded, opts, deadline.signal)
+        const prepared = await prepareRenderedPages(expanded, opts, deadline.signal)
         const parsed = expanded.map((item) => item.page)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const pages = await filledPages(parsed, copySlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(pages.map((page) => page.html).join(''))
           return renderPagesPdf(
             pages,
-            { ...withFonts, limits: innerLimits(withFonts.limits), press: undefined },
+            { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined },
             {
-              pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, { withTab }, inputIndex, deadline, diagramScript),
+              pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss),
               piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, { withTab }, deadline, diagramScript),
-              fontFaces: (options) => fontFaces(options.fonts),
+              fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
             },
           )

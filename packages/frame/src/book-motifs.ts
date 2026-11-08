@@ -6,7 +6,7 @@ export function prepareBookViewWithoutSources(view: BookView): { view: BookView;
   const refusal = bookViewMotifRefusal(view)
   if (refusal) throw refusal
   const place = view.title ? `book ${JSON.stringify(view.title)}` : 'book'
-  refuseMissingFontSource(view.fonts ?? [], place)
+  refuseMissingFontSource(view.style?.fonts ?? [], place)
   return { view, css: '' }
 }
 

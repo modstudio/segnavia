@@ -8,8 +8,7 @@ export function bookViewFromHtml(book: Book, html: string): BookView {
     scripts: book.scripts,
     ...(book.dir === undefined ? {} : { dir: book.dir }),
     ...(book.lang === undefined ? {} : { lang: book.lang }),
-    ...(book.fonts === undefined ? {} : { fonts: book.fonts }),
-    ...(book.css === undefined ? {} : { css: book.css }),
+    ...(book.style === undefined ? {} : { style: book.style }),
     ...(book.limits === undefined ? {} : { limits: book.limits }),
   }
   const pagination = resolveBookPagination(book)

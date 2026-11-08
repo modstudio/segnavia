@@ -212,7 +212,7 @@ describe('bookDocument', () => {
   test('places sanitized book CSS between generated fonts and host CSS', () => {
     const view = {
       html: '<main data-segnavia-galleys><p class="lead">Held</p></main>',
-      css: '.lead{color:purple;background:url(https://example.test/ink.png)}',
+      style: { css: '.lead{color:purple;background:url(https://example.test/ink.png)}' },
       scripts: 'refuse' as const,
       pagination: {
         paper: { width: 148, height: 210 },

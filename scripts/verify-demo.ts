@@ -29,6 +29,7 @@ import { verifyRtl } from './verify/rtl.ts'
 import { verifyScriptedDependencies } from './verify/scripted-dependencies.ts'
 import { verifySelection } from './verify/selection.ts'
 import { verifySlots } from './verify/slots.ts'
+import { verifyStyleLayers } from './verify/style-layers.ts'
 import { verifyThumbnail } from './verify/thumbnail.ts'
 import { verifyVue } from './verify/vue.ts'
 import { parseVerifyShard, sectionsForShard, unlistedSections, VERIFY_DEMO_SECTIONS_BY_DURATION } from './verify-demo-shards.ts'
@@ -55,6 +56,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyHeadless', run: () => verifyHeadless(h) },
   { name: 'verifyThumbnail', run: () => verifyThumbnail(h) },
   { name: 'verifySlots', run: () => verifySlots(h) },
+  { name: 'verifyStyleLayers', run: () => verifyStyleLayers(h) },
   { name: 'verifyImageFit', run: () => verifyImageFit(h) },
   { name: 'verifyComponents', run: () => verifyComponents(h) },
   { name: 'verifyCssSanitizer', run: () => verifyCssSanitizer(h) },

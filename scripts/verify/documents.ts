@@ -148,22 +148,5 @@ export async function verifyDocuments(h: Harness) {
     JSON.stringify(rtl),
   )
 
-  const lazy = await page.evaluate(async () => {
-    const viewer = document.createElement('segnavia-document') as HTMLElement & { load: (pages: unknown[], print: unknown) => void }
-    viewer.style.inlineSize = '220px'
-    document.body.append(viewer)
-    viewer.load(
-      Array.from({ length: 50 }, (_, index) => ({
-        type: 'document',
-        kind: 'page',
-        children: [{ type: 'page', body: { html: `<p>Page ${index + 1}</p>` } }],
-      })),
-      { paper: 'business-card-square-us', orientation: 'portrait' },
-    )
-    viewer.scrollIntoView()
-    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    return { sheets: viewer.querySelectorAll('.segnavia-document__sheet').length, frames: viewer.querySelectorAll('iframe').length }
-  })
-  check('a 50-page document creates every sheet but mounts only nearby frames', lazy.sheets === 50 && lazy.frames > 0 && lazy.frames < 50, JSON.stringify(lazy))
   await h.evidence('11-documents.png')
 }

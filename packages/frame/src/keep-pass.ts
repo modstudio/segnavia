@@ -1,3 +1,4 @@
+import { KEEP_WITH_CUSTOM_PROPERTY } from '@segnavia/format'
 import { embedFunction, KEEP_WITH_VALUES } from '@segnavia/html'
 import { keepGap } from './keep-gap.ts'
 
@@ -7,11 +8,11 @@ type GapPiece = { node: Text; start: number; end: number }
 type GapRun = { pieces: GapPiece[]; inlineBoundary?: Element }
 type TextGap = { piece?: GapPiece; stop: boolean }
 
-export function outermostKeeps(elements: Element[], styleOf: StyleReader, acceptedValues: readonly string[]): Element[] {
+export function outermostKeeps(elements: Element[], styleOf: StyleReader, acceptedValues: readonly string[], property: string): Element[] {
   return elements.filter((element) => {
-    const value = styleOf(element).getPropertyValue('--segnavia-keep-with').trim()
+    const value = styleOf(element).getPropertyValue(property).trim()
     if (!acceptedValues.includes(value)) return false
-    return !element.parentElement || styleOf(element.parentElement).getPropertyValue('--segnavia-keep-with').trim() !== value
+    return !element.parentElement || styleOf(element.parentElement).getPropertyValue(property).trim() !== value
   })
 }
 
@@ -123,13 +124,19 @@ function rewriteGap(document: Document, element: Element, direction: Direction, 
   insertJoiner(document, element, direction, gapReplacement('', whiteSpace))
 }
 
-export function applyKeepWith(document: Document, styleOf: StyleReader, gapReplacement: typeof keepGap, acceptedValues: readonly string[]): void {
+export function applyKeepWith(
+  document: Document,
+  styleOf: StyleReader,
+  gapReplacement: typeof keepGap,
+  acceptedValues: readonly string[],
+  property: string,
+): void {
   const inlineStyles = Array.from(document.querySelectorAll<HTMLElement>('[style]'))
   const selectors: string[] = []
-  let found = inlineStyles.some((element) => element.getAttribute('style')?.includes('--segnavia-keep-with'))
+  let found = inlineStyles.some((element) => element.getAttribute('style')?.includes(property))
   const scan = (rules: CSSRuleList) => {
     for (const rule of Array.from(rules)) {
-      if (!rule.cssText.includes('--segnavia-keep-with')) continue
+      if (!rule.cssText.includes(property)) continue
       found = true
       if ('selectorText' in rule && typeof rule.selectorText === 'string') selectors.push(rule.selectorText)
       if ('cssRules' in rule) scan(rule.cssRules as CSSRuleList)
@@ -144,7 +151,7 @@ export function applyKeepWith(document: Document, styleOf: StyleReader, gapRepla
   }
   if (!found) return
 
-  const candidates = new Set<Element>(inlineStyles.filter((element) => element.getAttribute('style')?.includes('--segnavia-keep-with')))
+  const candidates = new Set<Element>(inlineStyles.filter((element) => element.getAttribute('style')?.includes(property)))
   for (const selector of selectors) {
     try {
       for (const element of Array.from(document.querySelectorAll(selector))) candidates.add(element)
@@ -153,9 +160,9 @@ export function applyKeepWith(document: Document, styleOf: StyleReader, gapRepla
     }
   }
 
-  const keeps = outermostKeeps(Array.from(candidates), styleOf, acceptedValues)
+  const keeps = outermostKeeps(Array.from(candidates), styleOf, acceptedValues, property)
   for (const element of keeps) {
-    const direction = styleOf(element).getPropertyValue('--segnavia-keep-with').trim() as Direction
+    const direction = styleOf(element).getPropertyValue(property).trim() as Direction
     if (inlineLevel(element, styleOf)) rewriteGap(document, element, direction, styleOf, gapReplacement)
     else if (direction === 'next') (element as HTMLElement).style.breakAfter = 'avoid'
     else (element as HTMLElement).style.breakBefore = 'avoid'
@@ -181,5 +188,5 @@ export function keepPassScript(): string {
     ['applyKeepWith', applyKeepWith],
   ]
   const source = functions.map(([name, fn]) => embedFunction(name, fn)).join('\n')
-  return `var KEEP_WITH_VALUES=${JSON.stringify(KEEP_WITH_VALUES)};\n${source}\ndocument.addEventListener('DOMContentLoaded',function(){applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap,KEEP_WITH_VALUES);});`
+  return `var KEEP_WITH_VALUES=${JSON.stringify(KEEP_WITH_VALUES)};var KEEP_WITH_CUSTOM_PROPERTY=${JSON.stringify(KEEP_WITH_CUSTOM_PROPERTY)};\n${source}\ndocument.addEventListener('DOMContentLoaded',function(){applyKeepWith(document,function(element){return getComputedStyle(element);},keepGap,KEEP_WITH_VALUES,KEEP_WITH_CUSTOM_PROPERTY);});`
 }

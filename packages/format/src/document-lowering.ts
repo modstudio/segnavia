@@ -17,10 +17,6 @@ function settings(document: DocumentValue) {
   return document.settings ?? {}
 }
 
-function style(document: DocumentValue) {
-  return document.style ?? {}
-}
-
 function data(document: DocumentValue) {
   return document.data ?? {}
 }
@@ -149,7 +145,7 @@ export function bookFromDocument(document: DocumentValue): BookValue {
       mode: document.mode,
       page: document.page,
       ...settings(document),
-      ...style(document),
+      style: document.style,
       ...data(document),
       ...bookDivisions(document),
       parentPages: document.parentPages.map(parentPage),
@@ -187,7 +183,7 @@ function pageValue(document: DocumentValue, printed: boolean): PageValue {
       print: document.print,
       limits: document.limits,
       ...settings(document),
-      ...style(document),
+      style: document.style,
       ...data(document),
       printedPages,
     }),
@@ -229,7 +225,7 @@ export function deckFromDocument(document: DocumentValue): DeckValue {
       playback: document.playback,
       captions: document.captions,
       ...settings(document),
-      ...style(document),
+      style: document.style,
       ...data(document),
       slides,
     }),

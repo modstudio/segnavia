@@ -5,7 +5,3 @@ export function sanitizeBookCss(css: string | undefined): CssSanitizeResult {
   const sanitized = sanitizeCss(css ?? '', false, false)
   return { css: sanitized.css.replaceAll('<', '\\3c '), removed: sanitized.removed }
 }
-
-export function bookStylesheet(fontCss: string | undefined, bookCss: string | undefined, hostCss: string | undefined): string {
-  return `${fontCss ?? ''}${sanitizeBookCss(bookCss).css}${hostCss ?? ''}`
-}

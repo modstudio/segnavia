@@ -31,15 +31,17 @@ import {
   placementPlaceholderSource,
   resolvePageHtml,
 } from '@segnavia/html'
-import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
+import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
+import { htmlSlideDocument, PRINT_COLOR_CSS } from './slide-print-document.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
+export { htmlSlideDocument } from './slide-print-document.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
 
@@ -116,6 +118,7 @@ export interface PrintOptions {
   // Turns an image a slide names by path into something the printing context
   // can load. A server rendering offline passes a data URL.
   inline?: (src: string) => string
+  baseCss?: string
   css?: string
   nonce?: string
   // Keeps every HTML slide's layout box but leaves its frame out.
@@ -129,27 +132,6 @@ export interface PrintOptions {
 function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
   const title = options.title ?? deck.title
   return title ? `<title>${escapeHtml(title)}</title>` : ''
-}
-
-const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-print-color-adjust:exact}'
-
-export function htmlSlideDocument(
-  deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>,
-  html: string,
-  options: { css?: string; nonce: string; printAtMs?: number; dependencyOrigins?: Iterable<string>; diagramScript?: string },
-): string {
-  return frameDocument(withDiagramScript(html, options.nonce, options.diagramScript), {
-    scripts: deck.scripts,
-    nonce: options.nonce,
-    dir: deck.dir,
-    lang: deck.lang,
-    css: `${PRINT_COLOR_CSS}${options.css ?? ''}`,
-    reportHeight: false,
-    relayKeys: false,
-    printAtMs: options.printAtMs ?? 0,
-    printBackground: true,
-    dependencyOrigins: options.dependencyOrigins,
-  })
 }
 
 function transformedMedia(width: number, height: number, src: string, alt: string, image: Deck['size'], placement: ImagePlacement, annotations = ''): string {
@@ -186,7 +168,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   if ('media' in content)
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
   const frame = (html: string) =>
-    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins, diagramScript: options.diagramScript }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, dependencyOrigins: options.dependencyOrigins, diagramScript: options.diagramScript }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)
@@ -235,6 +217,7 @@ export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSh
 }
 
 export interface PrintablePagesOptions {
+  baseCss?: string
   css?: string
   nonce?: string
   cspExtra?: string
@@ -330,7 +313,8 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     nonce,
     dir: page.dir,
     lang: page.lang,
-    css: `${PRINT_COLOR_CSS}${properties}${padding}${options.css ?? ''}`,
+    sheets: frameStyleSheets(page.style, `${PRINT_COLOR_CSS}${properties}${padding}${options.baseCss ?? ''}`),
+    css: options.css,
     csp: options.cspExtra || undefined,
     reportHeight: false,
     relayKeys: false,

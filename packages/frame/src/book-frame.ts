@@ -1,8 +1,7 @@
 import { type BookView, resolveDirection, type Scripts } from '@segnavia/format'
-import { bookStylesheet } from '@segnavia/html'
 import type { BookLayout } from './book-presentation.ts'
 import { flowViewDocument, paginatedViewDocument } from './book-view-document.ts'
-import { frameDocument, newNonce } from './bridge.ts'
+import { frameDocument, frameStyleSheets, newNonce } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { bookLabel } from './labels.ts'
 
@@ -31,7 +30,7 @@ export function bookFrame(
       nonce,
       dir: resolveDirection(view.dir, view.lang, view.title ?? ''),
       lang: view.lang,
-      css: bookStylesheet(css, view.css, undefined),
+      sheets: frameStyleSheets(view.style, css),
       relayKeys: false,
       reportHeight: false,
       dependencyOrigins,
