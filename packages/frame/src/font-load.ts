@@ -51,6 +51,35 @@ export async function loadDeclaredFonts(
     if (value === 'bold') return '700'
     return String(value)
   }
+  const parsedRange = (value: string | undefined): [number, number][] | null => {
+    if (value === undefined) return []
+    const parts: [number, number][] = []
+    for (const raw of value.split(',')) {
+      const match = /^\s*U\+([\dA-F?]{1,6})(?:-([\dA-F]{1,6}))?\s*$/i.exec(raw)
+      if (!match) return null
+      const rangeStart = match[1]
+      if (rangeStart === undefined) return null
+      const start = Number.parseInt(rangeStart.replace(/\?/g, '0'), 16)
+      const end = Number.parseInt(match[2] ?? rangeStart.replace(/\?/g, 'F'), 16)
+      parts.push([start, end])
+    }
+    return parts.sort(([leftStart, leftEnd], [rightStart, rightEnd]) => leftStart - rightStart || leftEnd - rightEnd)
+  }
+  const rangesMatch = (candidate: string | undefined, declaration: string | undefined) => {
+    const candidateParts = parsedRange(candidate)
+    if (candidateParts === null) return false
+    const firstCandidate = candidateParts[0]
+    if (firstCandidate === undefined || (candidateParts.length === 1 && firstCandidate[0] === 0 && firstCandidate[1] === 0x10ffff)) return true
+    const declarationParts = parsedRange(declaration)
+    return (
+      declarationParts !== null &&
+      candidateParts.length === declarationParts.length &&
+      candidateParts.every(([start, end], index) => {
+        const declared = declarationParts[index]
+        return declared !== undefined && start === declared[0] && end === declared[1]
+      })
+    )
+  }
   for (const declaration of declarations) {
     const family = familyValue(declaration.font).slice(0, fieldLimit)
     const face = available.find(
@@ -58,8 +87,7 @@ export async function loadDeclaredFonts(
         candidate.family.replace(/^['"]|['"]$/g, '') === family &&
         normalizedWeight(candidate.weight) === normalizedWeight(declaration.weight) &&
         (candidate.style || 'normal') === (declaration.style ?? 'normal') &&
-        (candidate.unicodeRange === undefined ||
-          candidate.unicodeRange.replace(/\s/g, '').toUpperCase() === declaration.unicodeRange?.replace(/\s/g, '').toUpperCase()),
+        rangesMatch(candidate.unicodeRange, declaration.unicodeRange),
     )
     if (face) await face.load(declaration.sample).catch(() => undefined)
     if (face && face.status !== 'error') continue

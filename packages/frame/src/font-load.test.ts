@@ -12,7 +12,14 @@ import {
 describe('font load', () => {
   test('loads each matching face with its range sample and reports missing and errored faces', async () => {
     const samples: string[] = []
-    const regular = { family: 'Alef', weight: 'normal', style: 'normal', status: 'loaded', load: async (sample?: string) => samples.push(sample ?? '') }
+    const regular = {
+      family: 'Alef',
+      weight: 'normal',
+      style: 'normal',
+      unicodeRange: 'U+0-10FFFF',
+      status: 'loaded',
+      load: async (sample?: string) => samples.push(sample ?? ''),
+    }
     const errored = { family: 'Alef', weight: '700', style: 'normal', status: 'error', load: async () => undefined }
     const attributes = new Map<string, string>()
     const failures = await loadDeclaredFonts(
@@ -89,5 +96,59 @@ describe('font load', () => {
     )
     expect(loaded).toEqual(['U+0590-05FF:א', 'U+0000-007F:A'])
     expect(failures).toEqual([])
+  })
+
+  test('treats Chromium full-range faces as unbounded', async () => {
+    let loads = 0
+    const failures = await loadDeclaredFonts(
+      declaredFontLoads({ hebrew: { faces: [{ script: 'hebrew' }] } }),
+      [{ family: 'Hebrew', weight: '400', style: 'normal', unicodeRange: 'U+0-10FFFF', status: 'loaded', load: async () => loads++ }],
+      { setAttribute: () => {} },
+      () => 'Hebrew',
+      FONT_FAILURE_ATTRIBUTE,
+      FONT_FAILURE_LIMIT,
+      FONT_FAILURE_FIELD_LIMIT,
+    )
+    expect(loads).toBe(1)
+    expect(failures).toEqual([])
+  })
+
+  test('matches Chromium-normalized ranges by value', async () => {
+    let loads = 0
+    const failures = await loadDeclaredFonts(
+      declaredFontLoads({ hebrew: { faces: [{ script: 'hebrew' }] } }),
+      [
+        {
+          family: 'Hebrew',
+          weight: '400',
+          style: 'normal',
+          unicodeRange: 'U+590-5FF, U+FB1D-FB4F',
+          status: 'loaded',
+          load: async () => loads++,
+        },
+      ],
+      { setAttribute: () => {} },
+      () => 'Hebrew',
+      FONT_FAILURE_ATTRIBUTE,
+      FONT_FAILURE_LIMIT,
+      FONT_FAILURE_FIELD_LIMIT,
+    )
+    expect(loads).toBe(1)
+    expect(failures).toEqual([])
+  })
+
+  test('does not match a different Chromium-reported range', async () => {
+    let loads = 0
+    const failures = await loadDeclaredFonts(
+      declaredFontLoads({ hebrew: { faces: [{ script: 'hebrew' }] } }),
+      [{ family: 'Hebrew', weight: '400', style: 'normal', unicodeRange: 'U+0-7F', status: 'loaded', load: async () => loads++ }],
+      { setAttribute: () => {} },
+      () => 'Hebrew',
+      FONT_FAILURE_ATTRIBUTE,
+      FONT_FAILURE_LIMIT,
+      FONT_FAILURE_FIELD_LIMIT,
+    )
+    expect(loads).toBe(0)
+    expect(failures).toEqual([{ font: 'hebrew', family: 'Hebrew', unicodeRange: 'U+0590-05FF,U+FB1D-FB4F', reason: 'unloaded' }])
   })
 })
