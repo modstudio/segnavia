@@ -6,6 +6,7 @@ describe('changed test selection', () => {
   test('a format change selects format and all of its dependents', () => {
     expect(selectChangedTests(['packages/format/src/index.ts'], PACKAGES).packages).toEqual([
       'format',
+      'layout',
       'html',
       'idml',
       'diagrams',

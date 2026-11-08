@@ -71,6 +71,7 @@
       "dependencies": {
         "@segnavia/format": "workspace:*",
         "@segnavia/html": "workspace:*",
+        "@segnavia/layout": "workspace:*",
       },
     },
     "packages/html": {
@@ -78,6 +79,7 @@
       "version": "0.49.0",
       "dependencies": {
         "@segnavia/format": "workspace:*",
+        "@segnavia/layout": "workspace:*",
         "dom-serializer": "^2.0.0",
         "domhandler": "^5.0.3",
         "htmlparser2": "^10.0.0",
@@ -102,6 +104,13 @@
         "dom-serializer": "^2.0.0",
         "domhandler": "^5.0.3",
         "htmlparser2": "^10.0.0",
+      },
+    },
+    "packages/layout": {
+      "name": "@segnavia/layout",
+      "version": "0.49.0",
+      "dependencies": {
+        "@segnavia/format": "workspace:*",
       },
     },
     "packages/markdown-editor": {
@@ -453,6 +462,8 @@
     "@segnavia/html": ["@segnavia/html@workspace:packages/html"],
 
     "@segnavia/idml": ["@segnavia/idml@workspace:packages/idml"],
+
+    "@segnavia/layout": ["@segnavia/layout@workspace:packages/layout"],
 
     "@segnavia/markdown-editor": ["@segnavia/markdown-editor@workspace:packages/markdown-editor"],
 

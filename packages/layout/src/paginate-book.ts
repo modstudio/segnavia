@@ -1,10 +1,10 @@
-import { printedPageAt, selectBookParent } from '../printed-pages.ts'
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { paginateMarks } from './paginate-marks.ts'
 import { paginateNotes } from './paginate-notes.ts'
 import { paginateSequence } from './paginate-sequence.ts'
 import type { PaginateBlock, PaginateBookInput, PaginateBookRefusal, PaginateBookResult, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
+import { printedPageAt, selectBookParent } from './printed-pages.ts'
 
 export { paginateColumns } from './paginate-columns.ts'
 export { paginateKeeps } from './paginate-keeps.ts'

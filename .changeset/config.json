@@ -11,6 +11,7 @@
       "@segnavia/frame",
       "@segnavia/html",
       "@segnavia/idml",
+      "@segnavia/layout",
       "@segnavia/react",
       "@segnavia/render",
       "@segnavia/voice"

@@ -1,15 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, computeFolios, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
-import {
-  heldPageNumber,
-  openerPageIndex,
-  pageIndexForTarget,
-  paginateScript,
-  parseBookFixture,
-  printedPageAt,
-  selectBookParent,
-  windowPageIndex,
-} from '@segnavia/html'
+import { heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectBookParent, windowPageIndex } from '@segnavia/html'
+import { layoutScript } from '@segnavia/layout'
 import {
   BOOK_FAILURE_ATTRIBUTE,
   BOOK_MEASUREMENT_WAIT_MS,
@@ -94,8 +86,7 @@ describe('bookDocument', () => {
     expect(html).toContain('data-segnavia-flow="chapter-a"')
     expect(html).toContain('data-segnavia-notes-galley')
     expect(html).toContain('"direction":"rtl"')
-    expect(BOOK_COMPOSER_SCRIPT).toContain(paginateScript())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(printedPageAt.toString())
+    expect(BOOK_COMPOSER_SCRIPT).toContain(layoutScript())
     expect(BOOK_COMPOSER_SCRIPT).toContain(selectBookParent.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(heldPageNumber.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(windowPageIndex.toString())
@@ -116,6 +107,9 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain('for(var w=0;w<page.windows.length;w++)')
     expect(BOOK_COMPOSER_SCRIPT).toContain('flowInlineStart')
     expect(BOOK_COMPOSER_SCRIPT).toContain(resolveDirection.toString())
+    expect(BOOK_COMPOSER_SCRIPT).toContain(
+      "fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal')",
+    )
   })
 
   test('moves a placed window onto its galley source pixel phase', () => {

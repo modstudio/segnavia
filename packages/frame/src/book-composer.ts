@@ -2,7 +2,6 @@ import {
   type FlowingParentNames,
   type Folio,
   flowingParentNames,
-  folioScript,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_TOTAL_PATH,
   resolveDirection,
@@ -18,11 +17,10 @@ import {
   openerPageIndex,
   PAGE_REFERENCE_SELECTOR,
   pageIndexForTarget,
-  paginateScript,
   parseCssLength,
   windowPageIndex,
 } from '@segnavia/html'
-import { bookPlanFolios } from './book-plan-folios.ts'
+import { layoutScript } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageScale, spreadSlots } from './book-presentation.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
@@ -159,8 +157,7 @@ var composeStarted=performance.now();
 var fail=function(reason){var text=String(reason);document.documentElement.setAttribute('${BOOK_FAILURE_ATTRIBUTE}',text||'book composition failed without a reported reason');};
 var config=${configJson};
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};
-${paginateScript()}
-${folioScript()}
+${layoutScript()}
 ${furnitureScript()}
 ${embeddedComposerFunctions()}
 ${embedFunction('heldPageNumber', heldPageNumber)}
@@ -172,7 +169,6 @@ ${embedFunction('lengthPx', lengthPx)}
 ${embedFunction('fitRegionSize', fitRegionSize)}
 ${embedFunction('resolveDirection', resolveDirection)}
 ${embedFunction('pageReferenceFolio', pageReferenceFolio)}
-${embedFunction('bookPlanFolios', bookPlanFolios)}
 var ABSOLUTE_PX=${JSON.stringify(ABSOLUTE_PX)};
 var elementWithAttr=function(root,attr,value){var nodes=root.querySelectorAll('['+attr+']');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute(attr)===value)return nodes[i];}return null;};
 var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
@@ -246,24 +242,16 @@ var widthDecision=decideBookMeasurement({frameWidth:document.documentElement.cli
 if(widthDecision==='wait-for-width'){if(visibleStartedAt!==null){visibleElapsed+=performance.now()-visibleStartedAt;visibleStartedAt=null;}return nextAnimationFrame().then(composeWhenMeasurable);}
 if(visibleStartedAt===null)visibleStartedAt=performance.now();
 sizeGalleys();
-var paginateOrFail=function(input){var held=paginateBook(input);if(held.refusals.length){fail(held.refusals[0].message);return null;}return held;};
+var planBookOrFail=function(input){var held=planBook(input,config.numbering);if(!held.ok){fail(held.refusals[0].message);return null;}return held.plan;};
 var input=measureInput();
-var plan=paginateOrFail(input);
+var plan=planBookOrFail(input);
 if(!plan)return;
-planFolios=bookPlanFolios(plan.pages,config.numbering);
-fillPageReferences(plan.pages);
-var settled=false;
-for(var extra=0;extra<3;extra++){
-input=measureInput();
-plan=paginateOrFail(input);
-if(!plan)return;
-planFolios=bookPlanFolios(plan.pages,config.numbering);
-var moved=unsettledPageReferences(plan.pages);
-if(!moved.length){settled=true;break;}
-if(extra===2){fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal');return;}
-fillPageReferences(plan.pages);
-}
-if(!settled)return;
+planFolios=plan;
+var moved=[];
+var convergence=convergeLayout(plan,function(previous){fillPageReferences(previous.pages);input=measureInput();var next=planBookOrFail(input);if(!next)return null;planFolios=next;moved=unsettledPageReferences(next.pages);return {plan:next,settled:moved.length===0};},3);
+if(!convergence)return;
+plan=convergence.plan;
+if(!convergence.converged){fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal');return;}
 var flowMeasurements=measurementFlows(input);
 var decision=decideBookMeasurement({frameWidth:document.documentElement.clientWidth,flows:flowMeasurements,plannedPages:plan.pages.length,visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS});
 if(decision==='wait-for-width'){visibleElapsed+=performance.now()-visibleStartedAt;visibleStartedAt=null;return nextAnimationFrame().then(composeWhenMeasurable);}

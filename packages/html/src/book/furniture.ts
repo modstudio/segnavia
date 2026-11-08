@@ -1,5 +1,5 @@
 import { resolveDirection, textDirection } from '@segnavia/format'
-import type { PaginatePageMarks } from './paginate-types.ts'
+import type { PaginatePageMarks } from '@segnavia/layout'
 
 export interface BookFurnitureValues {
   folio?: string
