@@ -1,8 +1,5 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages follow the
-// element and grow; fixed pages scale to fit; named widths cap the centered
-// sheet, with only overridable geometry. `showUrl` shows host-served HTML whose
-// own `bridgeForHost` reports height. data-measured is set once the
-// content has reported its height, and data-height holds it.
+// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit.
+// Host-served HTML reports its height through the bridge.
 
 import { type Document, type DocumentInput, FULL_PAGE_SIZE, Page, type PageWidths, pageDirection, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
@@ -55,11 +52,9 @@ export class SegnaviaPage extends PageElementAttributes {
     super()
     upgradeProperties(this)
   }
-
   get alertLabels(): Partial<AlertLabels> | undefined {
     return this.alertLabelOptions
   }
-
   set alertLabels(value: Partial<AlertLabels> | undefined) {
     this.alertLabelOptions = value
     if (this.pageInput !== undefined) this.load(this.pageInput)
@@ -68,21 +63,17 @@ export class SegnaviaPage extends PageElementAttributes {
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
-
   set slots(value: SlotsOptions | undefined) {
     this.slotOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
-
   get motifs(): MotifsOptions | undefined {
     return this.motifOptions
   }
-
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
-
   get placements(): PlacementsOptions | undefined {
     return this.placementOptions
   }

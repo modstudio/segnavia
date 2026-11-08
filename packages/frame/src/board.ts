@@ -36,7 +36,6 @@ import { upgradeProperties } from './element-properties.ts'
 import type { BoardLabels } from './labels.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
-
 export class SegnaviaBoard extends BoardDocumentElement {
   private value: Board | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
@@ -173,7 +172,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
   set selection(value: readonly string[]) {
     this.selectionState.selection = value
   }
-
   get itemActions(): readonly BoardItemAction[] {
     return this.chrome.itemActions
   }
