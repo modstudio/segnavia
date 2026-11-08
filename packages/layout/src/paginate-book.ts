@@ -13,9 +13,6 @@ export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
 
 export function paginateBook(input: PaginateBookInput): PaginateBookResult {
-  const orphans = input.settings.orphans ?? 2
-  const widows = input.settings.widows ?? 2
-
   function used(textHeight: number, placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
     return paginateColumns(placed).height + paginateNotes({ op: 'space', notes: input.notes, geometry: { ...input.geometry, textHeight }, fragments })
   }
@@ -101,7 +98,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
     if (stuck) return { placed: [], fragments: [], index, pending: held.leftover, refusal: noteRefusal(stuck.id) }
     if (held.leftover.length > 0) return { placed: [], fragments: held.fragments, index, pending: held.leftover }
     const filled = greedyFill([], held.fragments, units, index, textHeight)
-    const placed = paginateKeeps(filled.placed, units[filled.index], textHeight, orphans, widows, held.fragments.length > 0)
+    const placed = paginateKeeps(filled.placed, units[filled.index], textHeight, held.fragments.length > 0)
     const nextIndex = filled.index - (filled.placed.length - placed.length)
     const fragments = paginateNotes(withNotes(textHeight, { op: 'recompute' as const, placed, seed: held.fragments }))
     if (placed.length > 0 || fragments.length > 0) {

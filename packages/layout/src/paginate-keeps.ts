@@ -1,14 +1,7 @@
 import { paginateColumns } from './paginate-columns.ts'
 import type { PaginateBlock, PaginateUnit } from './paginate-types.ts'
 
-export function paginateKeeps(
-  placed: PaginateUnit[],
-  next: PaginateUnit | undefined,
-  textHeight: number,
-  _orphans: number,
-  _widows: number,
-  allowEmpty?: boolean,
-): PaginateUnit[] {
+export function paginateKeeps(placed: PaginateUnit[], next: PaginateUnit | undefined, textHeight: number, allowEmpty?: boolean): PaginateUnit[] {
   function sameBlock(left: PaginateBlock, right: PaginateBlock): boolean {
     return left.position.chapter === right.position.chapter && left.position.block === right.position.block
   }
