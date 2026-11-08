@@ -40,6 +40,7 @@ test('printableDeckValue names the host notes face in the notes head and leaves 
   expect(unset).toContain('font:15px/1.5 sans-serif;')
   expect(unset).not.toContain('var(--segnavia-font-')
   expect(unset).not.toContain('system-ui')
+  expect(unset).not.toContain('--segnavia-bleed')
 })
 
 test('printableDeckValue refuses a named notesFont without a resolved notes sheet font', () => {

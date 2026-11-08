@@ -202,7 +202,7 @@ function printableSlideSheets(deck: Deck, options: PrintOptions, geometry: DeckS
   const sheetHeight = geometry?.sheet.height ?? height
   const padding = geometry?.padding ?? 0
   const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
-  return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${sheetWidth}px ${sheetHeight}px;margin:0}html,body{margin:0}${geometry ? printProperties(geometry.print) : ''}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
+  return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${sheetWidth}px ${sheetHeight}px;margin:0}html,body{margin:0}${geometry?.active ? printProperties(geometry.print) : ''}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
 }
 
 export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
