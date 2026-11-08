@@ -165,7 +165,7 @@ function applyCells(document: HeldDocument, op: Extract<DocumentOp, { type: 'set
   else section.cells = structuredClone(op.to)
 }
 
-function applyOne(document: HeldDocument, op: DocumentOp, index: number): void {
+export function applyDocumentOp(document: OperationDocument, op: DocumentOp, index: number): void {
   if (op.type === 'setMember') {
     applyMember(document, op, index)
     return
@@ -192,6 +192,18 @@ function applyOne(document: HeldDocument, op: DocumentOp, index: number): void {
   else applyNodeSet(op, found, index)
 }
 
+export function finishDocumentOps(working: OperationDocument): DocumentValue {
+  let parsed: DocumentValue
+  try {
+    parsed = Document.parse(working)
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new Error(`document batch refused: the result is not a valid document (${reason}); ${clearance}`)
+  }
+  if (!sameValue(parsed, working)) throw new Error(`document batch refused: parsing the result would mint ids or change fields; ${clearance}`)
+  return parsed
+}
+
 export function parseDocumentBatch(batch: DocumentBatch): DocumentBatch {
   for (const [index, candidate] of ((batch as unknown as { ops?: unknown[] }).ops ?? []).entries()) {
     if (typeof candidate !== 'object' || candidate === null || (candidate as { type?: unknown }).type !== 'setContent') continue
@@ -211,7 +223,7 @@ function stale(document: HeldDocument, batch: DocumentBatch, actual: string): ne
   const probe = structuredClone(document)
   batch.ops.forEach((op, index) => {
     try {
-      applyOne(probe, op, index)
+      applyDocumentOp(probe, op, index)
     } catch (error) {
       mismatches.push(error instanceof Error ? error.message : String(error))
     }
@@ -227,15 +239,7 @@ export function applyOps(document: DocumentValue, input: DocumentBatch): Documen
   const working = structuredClone(document) as unknown as HeldDocument
   if (actual !== batch.base) stale(working, batch, actual)
   batch.ops.forEach((op, index) => {
-    applyOne(working, op, index)
+    applyDocumentOp(working, op, index)
   })
-  let parsed: DocumentValue
-  try {
-    parsed = Document.parse(working)
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    throw new Error(`document batch refused: the result is not a valid document (${reason}); ${clearance}`)
-  }
-  if (!sameValue(parsed, working)) throw new Error(`document batch refused: parsing the result would mint ids or change fields; ${clearance}`)
-  return parsed
+  return finishDocumentOps(working)
 }
