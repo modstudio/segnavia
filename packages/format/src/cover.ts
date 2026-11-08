@@ -16,7 +16,7 @@ const COVER_PRINT = {
   orientation: 'landscape' as const,
 }
 
-const CoverPage = DocumentField.transform(pageFromDocument).superRefine((page, ctx) => {
+const CoverPage = DocumentField.transform((document) => pageFromDocument(document)).superRefine((page, ctx) => {
   if (!('html' in page.body)) {
     ctx.addIssue({
       code: 'custom',
