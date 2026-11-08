@@ -38,9 +38,11 @@ import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, ima
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
+import { htmlSlideDocument, PRINT_COLOR_CSS } from './slide-print-document.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
+export { htmlSlideDocument } from './slide-print-document.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
 
@@ -133,28 +135,6 @@ function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): 
   return title ? `<title>${escapeHtml(title)}</title>` : ''
 }
 
-const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-print-color-adjust:exact}'
-
-export function htmlSlideDocument(
-  deck: Pick<Deck, 'scripts' | 'dir' | 'lang'>,
-  html: string,
-  options: { baseCss?: string; css?: string; nonce: string; printAtMs?: number; dependencyOrigins?: Iterable<string>; diagramScript?: string },
-): string {
-  return frameDocument(withDiagramScript(html, options.nonce, options.diagramScript), {
-    scripts: deck.scripts,
-    nonce: options.nonce,
-    dir: deck.dir,
-    lang: deck.lang,
-    sheets: frameStyleSheets(deck.style, resolveDirection(deck.dir, deck.lang, deck.title), `${PRINT_COLOR_CSS}${options.baseCss ?? ''}`),
-    css: options.css,
-    reportHeight: false,
-    relayKeys: false,
-    printAtMs: options.printAtMs ?? 0,
-    printBackground: true,
-    dependencyOrigins: options.dependencyOrigins,
-  })
-}
-
 function transformedMedia(width: number, height: number, src: string, alt: string, image: Deck['size'], placement: ImagePlacement, annotations = ''): string {
   const transform = `translate(${placement.x}px,${placement.y}px) scale(${placement.scale})`
   const frame = imageFrameStyle(placement, { width, height })
@@ -238,6 +218,7 @@ export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSh
 }
 
 export interface PrintablePagesOptions {
+  baseCss?: string
   css?: string
   nonce?: string
   cspExtra?: string
@@ -336,7 +317,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     sheets: frameStyleSheets(
       page.style,
       resolveDirection(page.dir, page.lang, htmlTextSample(page.html)),
-      `${PRINT_COLOR_CSS}${properties}${padding}`,
+      `${PRINT_COLOR_CSS}${properties}${padding}${options.baseCss ?? ''}`,
     ),
     css: options.css,
     csp: options.cspExtra || undefined,

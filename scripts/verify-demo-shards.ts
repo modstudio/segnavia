@@ -35,6 +35,7 @@ export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyImageFit',
   'verifyCapture',
   'verifySlots',
+  'verifyStyleLayers',
   'verifyVue',
 ] as const
 

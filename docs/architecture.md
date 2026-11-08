@@ -1639,15 +1639,21 @@ margins, size, direction, numbering, metadata and limits. Logical margins have
 one physical mapping for imposition. Direction uses the shared `Direction` and
 `TextDirection` values rather than inline enums.
 
-The target style layer combines a host-resolved `Brand` with the document's
-partial `StyleSheet`. A style sheet contains typed tokens, a font-face manifest
-with first-class Hebrew faces, named paragraph and character styles with
-`basedOn`, named page geometries, furniture motifs and free CSS. Its token
-schema is compatible with a W3C design-tokens subset and supports import and
-export. The compiler produces one sheet in cascade-layer order:
-`segnavia.base`, `segnavia.brand`, `segnavia.document`, then
-`segnavia.author`. Tokens become `--segnavia-*` custom properties and named
-styles become classes.
+The style layer combines a host-resolved brand sheet with the document's
+`StyleSheet`. A style sheet contains typed tokens, a font manifest, named
+paragraph and character styles with `basedOn`, named page geometries,
+furniture motifs and free CSS. A document entry replaces a same-named brand
+entry whole; properties do not merge across origins. Tokens become
+`--segnavia-*` custom properties and named styles become classes.
+
+Frame CSS uses the cascade order `segnavia.base`, `segnavia.brand`,
+`segnavia.document`, then `segnavia.author`. Library defaults, generated print
+rules and generated font CSS belong to the base layer. Typed brand and
+document values use their matching layers, while document free CSS uses the
+author layer. Each compiled piece is a separate stylesheet so parse recovery
+in unfinished free CSS cannot consume the next piece. Host CSS follows those
+sheets unlayered and therefore wins over their normal declarations. CSS
+`!important` declarations reverse layer precedence, as the cascade defines.
 
 Content has one stored form: HTML. Every block that lacks a
 `data-segnavia-id` receives a minted id at the parse edge, and an existing id

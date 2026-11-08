@@ -6,6 +6,7 @@ import {
   documentNeedsSlotFit,
   type FrameOptions,
   frameDocument,
+  frameStyleSheets,
   frameSandbox,
   MESSAGE,
   messageFrom,
@@ -82,6 +83,7 @@ describe('frame document', () => {
       css: 'p{color:red}',
       csp: "img-src 'none'",
       printAtMs: 0,
+      sheets: frameStyleSheets(undefined, 'rtl'),
     })
     expect(html).not.toContain('<script')
     expect(html).toContain("script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src 'none'")
@@ -214,9 +216,16 @@ describe('frame document', () => {
     expect(frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n', dir: 'rtl', lang: 'he' })).toContain('<html dir="rtl" lang="he"><body><p>x</p>')
   })
 
-  test('block direction comes before the host style, so the host can override it', () => {
-    const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n', css: 'p{unicode-bidi:normal}' })
+  test('block direction stays in the base layer before the unlayered host style', () => {
+    const html = frameDocument('<p>x</p>', {
+      scripts: 'refuse',
+      nonce: 'n',
+      sheets: frameStyleSheets(undefined, 'ltr'),
+      css: 'p{unicode-bidi:normal}',
+    })
     expect(html.indexOf('unicode-bidi:plaintext')).toBeLessThan(html.indexOf('p{unicode-bidi:normal}'))
+    expect(html).toContain(`@layer segnavia.base{${BLOCK_DIRECTION_CSS}}`)
+    expect(html).not.toContain(`<style>${BLOCK_DIRECTION_CSS}</style>`)
   })
 
   test('block direction leaves a valid own dir alone and keeps zero specificity', () => {

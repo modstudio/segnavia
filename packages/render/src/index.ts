@@ -279,7 +279,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             {
               pagePdf: (page, options, inputIndex) => renderPagePdf(page, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss),
               piecePdf: (page, geometry, css, options) => renderPiecePdf(page, geometry, css, options, { withTab }, deadline, diagramScript),
-              baseCss: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
+              fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
             },
           )

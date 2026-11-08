@@ -22,8 +22,9 @@ describe('Page and Book fonts', () => {
     expect(Page.parse({ html: '' }).style?.fonts).toBeUndefined()
     expect(Page.parse({ html: '', style: { fonts: [{ app: 'serif' }] } }).style?.fonts).toEqual([{ app: 'serif' }])
     expect(
-      Book.parse(identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], style: { fonts: [{ app: 'serif' }] } }))
-        .style?.fonts,
+      Book.parse(
+        identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], style: { fonts: [{ app: 'serif' }] } }),
+      ).style?.fonts,
     ).toEqual([{ app: 'serif' }])
   })
 })

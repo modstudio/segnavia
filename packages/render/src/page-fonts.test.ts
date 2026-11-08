@@ -87,7 +87,12 @@ describe('prepareRenderedPageValue', () => {
     const prepared = await prepareRenderedPageValue(
       Page.parse({
         html: '<p style="font-family: Local Family">Local</p>',
-        style: { fonts: [{ local: 'Local Family', fallback: 'serif' }, { local: 'Missing Family', fallback: 'heading' }] },
+        style: {
+          fonts: [
+            { local: 'Local Family', fallback: 'serif' },
+            { local: 'Missing Family', fallback: 'heading' },
+          ],
+        },
       }),
       {
         fontSource: source,
@@ -112,7 +117,12 @@ describe('prepareRenderedPages', () => {
         {
           page: Page.parse({
             html: '<p style="font-family:\'Later Local\',var(--segnavia-font-serif)">Later</p>',
-            style: { fonts: [{ local: 'Later Local', fallback: 'serif' }, { local: 'Missing Later', fallback: 'heading' }] },
+            style: {
+              fonts: [
+                { local: 'Later Local', fallback: 'serif' },
+                { local: 'Missing Later', fallback: 'heading' },
+              ],
+            },
           }),
           fonts: [],
         },
@@ -155,7 +165,13 @@ describe('renderOptionsWithBookFonts', () => {
     const prepared = await renderOptionsWithBookFonts(
       {
         ...book,
-        style: { ...book.style, fonts: [{ local: 'Book Local', fallback: 'serif' }, { local: 'Missing Book', fallback: 'heading' }] },
+        style: {
+          ...book.style,
+          fonts: [
+            { local: 'Book Local', fallback: 'serif' },
+            { local: 'Missing Book', fallback: 'heading' },
+          ],
+        },
       },
       {
         fontSource: source,

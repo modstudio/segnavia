@@ -81,7 +81,7 @@ test('places FontSource CSS before book CSS in the printed document', async () =
     parseBookFixture({
       title: 'Book',
       mode: 'paginated',
-      css: '.book-rule{color:purple}',
+      style: { css: '.book-rule{color:purple}' },
       page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       chapters: [{ id: 'body-section', title: 'One', html: '<p class="book-rule">Text</p>' }],
     }),

@@ -104,7 +104,8 @@ async function printBook(
   return dependencies.render(
     {
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html, book.style?.css, baseCss, renderOptions.css),
+      scripts:
+        paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html, book.style?.css, baseCss, renderOptions.css),
       html: srcdoc,
       slots: preparedSlotsFor(book),
       readiness: paginated

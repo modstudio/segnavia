@@ -14,7 +14,7 @@ export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 interface PagesPdfServices {
   pagePdf(page: HtmlPage, options: RenderOptions, inputIndex: number): Promise<PrintResult>
   piecePdf(page: HtmlPage, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
-  baseCss(options: RenderOptions): string
+  fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
 }
 
@@ -32,7 +32,7 @@ async function composedPdf(pages: HtmlPage[], imposition: Imposition, opts: Page
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
   const properties = printProperties(imposition, imposition.unit)
-  const baseCss = services.baseCss(opts)
+  const baseCss = services.fontFaces(opts)
   const rendered = await Promise.all(
     groups.map(async (group) => {
       const page = pages[group.page]

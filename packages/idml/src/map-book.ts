@@ -43,6 +43,11 @@ function anchoredFrameIssue(frame: IdmlAnchoredFrame, storyPages: { has(story: s
   return undefined
 }
 
+function importedStyle(css: string, fonts: NonNullable<SegnaviaBook['style']>['fonts']): SegnaviaBook['style'] {
+  if (!css && fonts?.length === 0) return undefined
+  return { ...(css ? { css } : {}), ...(fonts && fonts.length > 0 ? { fonts } : {}) }
+}
+
 export function refuseActiveBookHtml(chapters: { html: string }[], parents: ParentPage[]): void {
   const html = [...chapters.map((chapter) => chapter.html), ...parents.flatMap((parent) => [parent.head ?? '', parent.foot ?? ''])].join('')
   const active = findActiveContent(html)
@@ -172,7 +177,7 @@ export function modelToBook(
     },
     dir: bookDirection,
     ...(bookLanguage ? { lang: bookLanguage } : {}),
-    ...(css || bookFonts.length > 0 ? { style: { ...(css ? { css } : {}), ...(bookFonts.length > 0 ? { fonts: bookFonts } : {}) } } : {}),
+    style: importedStyle(css, bookFonts),
     rectoOpenings: openingPolicy.rectoOpenings,
     parentPages: masters.parents,
     body,

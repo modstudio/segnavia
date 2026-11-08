@@ -34,7 +34,7 @@ export function loadPageDocument(
 export function loadShownPageDocument(
   page: HtmlPage,
   resolved: PreparedSlots | undefined,
-  options: { css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
+  options: { baseCss?: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
