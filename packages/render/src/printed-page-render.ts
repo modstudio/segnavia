@@ -26,6 +26,7 @@ export function renderedPageDocument(
       diagramScript,
       readyCallback: RENDER_READY_BINDING,
       limits: options.limits,
+      fontFailures,
     })
   } catch (error) {
     if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)

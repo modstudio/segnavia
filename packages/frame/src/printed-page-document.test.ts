@@ -42,6 +42,7 @@ function printedDocument(page: PageValue): DocumentInput {
     type: 'document',
     kind: 'printed',
     settings: { scripts: page.scripts, dir: page.dir, lang: page.lang },
+    style: page.style,
     print: page.print,
     limits: page.limits,
     rules: printed.rules,
@@ -58,6 +59,24 @@ const printedPageDocument = (page: PageValue, options: Parameters<typeof documen
 }
 
 describe('printedPageDocument', () => {
+  test('declares app faces to the composer and bridge', () => {
+    const styled = Page.parse({
+      ...page,
+      style: { fonts: { body: { faces: [{ script: 'hebrew' }] } } },
+    })
+    const html = printedPageDocument(styled, { nonce: 'held' })
+    expect(html).toContain('"font":"body","unicodeRange":"U+0590-05FF,U+FB1D-FB4F"')
+    expect(html.match(/"font":"body"/g)).toHaveLength(2)
+  })
+
+  test('gives supplied failures to the bridge report', () => {
+    const html = printedPageDocument(page, {
+      nonce: 'held',
+      fontFailures: [{ font: 'body', family: 'body', reason: 'unsupplied' }],
+    })
+    expect(html).toContain('initialFontFailures=[{"font":"body","family":"body","reason":"unsupplied"}]')
+  })
+
   test('adds safe fragmentation before host CSS and omits it when disabled', () => {
     const hostCss = ':where(tr){break-inside:auto}'
     const safe = printedPageDocument(page, { nonce: 'held', css: hostCss })
