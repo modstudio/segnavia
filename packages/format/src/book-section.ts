@@ -3,7 +3,7 @@ import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 
-export const BookOpens = z.enum(['recto', 'verso', 'any'])
+export const BookOpens = z.enum(['recto', 'verso', 'any', 'continue'])
 export type BookOpens = z.infer<typeof BookOpens>
 
 export const BookSectionParents = z.object({

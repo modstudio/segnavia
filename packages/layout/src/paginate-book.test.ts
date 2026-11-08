@@ -172,6 +172,23 @@ function fixtures(): PaginateBookInput[] {
 }
 
 describe('paginateBook', () => {
+  test('carries section-title marks across pages and takes the first new title on a shared page', () => {
+    const title = 'segnavia:section-title'
+    const pages = paginateBook(
+      input({
+        flows: [
+          flow('shared', 'chapter', [
+            block('text', 'div', 1, 1, 1, 0, { marks: [{ name: title, value: 'One', line: 0 }] }),
+            block('text', 'p', 1, 2, 7, 10),
+            block('text', 'div', 2, 3, 1, 80, { marks: [{ name: title, value: 'Two', line: 0 }] }),
+            block('text', 'p', 2, 4, 7, 90),
+          ]),
+        ],
+      }),
+    ).pages
+    expect(pages.map((page) => page.marks[title]?.first)).toEqual(['One', 'Two', 'Two', 'Two'])
+  })
+
   test('fills greedily line by line', () => {
     const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 12, 0)], 'One')] })).pages
     expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 50, 0)], [win('c1', 50, 100, 0)], [win('c1', 100, 120, 0)]])

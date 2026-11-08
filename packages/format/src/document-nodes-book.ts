@@ -11,7 +11,7 @@ export const SectionFields = {
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
   contents: z.boolean().default(true),
-  opens: z.union([BookOpens, z.literal('continue')]).optional(),
+  opens: BookOpens.optional(),
   numbering: SectionNumbering.optional(),
   parents: BookSectionParents.optional(),
   headTemplate: z.string().optional(),

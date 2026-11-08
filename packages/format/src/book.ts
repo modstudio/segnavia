@@ -23,6 +23,7 @@ import { Placement } from './placement.ts'
 import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { sectionNumberingIssues } from './section-numbering-policy.ts'
+import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
 
@@ -242,6 +243,20 @@ function structuralBookIssues(book: z.infer<typeof ResolvedBook>): BookIssue[] {
 const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   const sections = bookSections(book)
+  for (const issue of sectionOpensIssues(
+    sections.map(({ entry, id, path }) => ({
+      id,
+      title: entry.title,
+      path,
+      sequence: path.slice(0, -1).join('.'),
+      flowing: isPart(entry) || (!isBookContents(entry) && !isDesignedSection(entry) && !isTemplatedSection(entry) && !isPlacedSection(entry)),
+      opens: entry.opens,
+      ...('numbering' in entry ? { numbering: entry.numbering } : {}),
+      parents: entry.parents,
+    })),
+  )) {
+    ctx.addIssue({ code: 'custom', ...issue })
+  }
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
     'numbering' in entry && entry.numbering !== undefined ? [{ id, title: entry.title, division, path, numbering: entry.numbering }] : [],
   )

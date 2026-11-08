@@ -65,6 +65,20 @@ const hebrewBookFixture = {
 }
 
 describe('Document lowering', () => {
+  test('keeps continue when lowering a flowing book section', () => {
+    const document = Document.parse({
+      type: 'document',
+      kind: 'book',
+      title: 'Book',
+      mode: 'continuous',
+      children: [
+        { type: 'section', id: 'one', title: 'One', children: [{ type: 'flow', html: '<p>One</p>' }] },
+        { type: 'section', id: 'two', title: 'Two', opens: 'continue', children: [{ type: 'flow', html: '<p>Two</p>' }] },
+      ],
+    })
+    expect(bookFromDocument(document).body[1]).toMatchObject({ id: 'two', opens: 'continue' })
+  })
+
   test('carries section contents text into a book entry', () => {
     const document = Document.parse({
       type: 'document',

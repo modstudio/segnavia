@@ -12,6 +12,24 @@ const input = (overrides: Record<string, unknown> = {}) => ({
 })
 
 describe('book document', () => {
+  test('joins a continuing section to its predecessor flow with a titled boundary', () => {
+    const book = parseBookFixture(
+      input({
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+        chapters: [chapter('One', '<p>First</p>'), { ...chapter('Two', '<p>Second</p>'), opens: 'continue' }],
+      }),
+    )
+    const result = bookDocument(book)
+    expect(result.sections.map((section) => section.id)).toEqual(['section-1', 'section-2'])
+    expect(result.html.match(/data-segnavia-flow=/g)).toHaveLength(1)
+    expect(result.html).toContain(
+      '<div class="segnavia-section-boundary" data-mark="segnavia:section-title" data-segnavia-chapter="2" id="section-2">Two</div>',
+    )
+    expect(result.html).toContain('First</p><div class="segnavia-section-boundary"')
+    expect(result.html).toContain('id="section-2">Two</div><p')
+  })
+
   test('orders front matter, contents, chapters and endnotes with stable ids', () => {
     const book = parseBookFixture(
       input({

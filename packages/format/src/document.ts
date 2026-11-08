@@ -14,6 +14,7 @@ import { Print } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
+import { type SectionOpensFact, sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
@@ -132,6 +133,35 @@ function refineSectionNumberingPolicy(document: DocumentShapeValue, ctx: z.Refin
   }
 }
 
+function documentSectionOpensFacts(document: DocumentShapeValue): SectionOpensFact[] {
+  const facts: SectionOpensFact[] = []
+  const collect = (nodes: DocumentNodeValue[], path: (string | number)[]): void => {
+    nodes.forEach((node, index) => {
+      const nodePath = [...path, index]
+      if (node.type === 'section' || node.type === 'contents') {
+        facts.push({
+          id: node.id ?? node.title ?? nodePath.join('.'),
+          title: node.title,
+          path: nodePath,
+          sequence: path.join('.'),
+          flowing: node.type === 'section' && node.children.length === 1 && node.children[0]?.type === 'flow',
+          opens: node.opens,
+          numbering: node.numbering,
+          parents: node.parents,
+        })
+      }
+      if ('children' in node) collect(node.children, [...nodePath, 'children'])
+    })
+  }
+  collect(document.children, ['children'])
+  return facts
+}
+
+function refineSectionOpensPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
+  if (document.kind !== 'book') return
+  for (const issue of sectionOpensIssues(documentSectionOpensFacts(document))) ctx.addIssue({ code: 'custom', ...issue })
+}
+
 type DocumentShapeValue = z.infer<typeof DocumentShape>
 type DocumentProfile = (typeof DOCUMENT_PROFILES)[DocumentKind]
 
@@ -158,9 +188,6 @@ function refinePageNode(
 }
 
 function refineSectionNode(node: Extract<DocumentNodeValue, { type: 'section' }>, path: (string | number)[], ctx: z.RefinementCtx): void {
-  if (node.opens === 'continue') {
-    ctx.addIssue({ code: 'custom', path: [...path, 'opens'], message: 'section field opens is not yet supported; remove it to clear this refusal' })
-  }
   for (const field of ['headTemplate', 'pageGeometry'] as const) {
     if (node[field] !== undefined) {
       ctx.addIssue({ code: 'custom', path: [...path, field], message: `section field ${field} is not yet supported; remove it to clear this refusal` })
@@ -293,6 +320,7 @@ function refineProfileShape(document: DocumentShapeValue, profile: DocumentProfi
 const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   refineSectionNumberingPolicy(document, ctx)
+  refineSectionOpensPolicy(document, ctx)
   refineRootFields(document, profile, ctx)
   refineNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)
