@@ -65,6 +65,8 @@ something else.
 | **Motif** | Reusable designed HTML and CSS that a host supplies by key and a page places in its own markup. It may declare fields, fonts and language versions. |
 | **App font** | A face the host ships, named by the host (`serif`). Page and motif CSS write `var(--segnavia-font-<name>)` and never spell the family. The library defines that property from the host's `FontSource`. |
 | **Local font** | A face installed on the author's machine, named by its family with an app-font fallback. The page's named faces may be sent with one server render as JSON-safe base64; they are never kept, cached, logged or served. A viewer without the face sees the fallback and is told, never blocked. The notice is the host's chrome and is never printed into the page or the PDF. |
+| **Font manifest** | The fonts a document declares, at `style.fonts`, keyed by font name: an app font with the faces it is set in (weight, style, range, and `script: 'hebrew'` for a Hebrew face), or a local font with its app-font fallback. |
+| **Font failure** | A declared face that the host did not supply (`unsupplied`) or that Chromium did not load (`unloaded`). It is reported and composition continues at the fallback. |
 | **Motif placement** | An element with `data-motif` and optional motif field attributes. Expansion keeps the element and replaces its children with the chosen motif version. |
 | **Placement** | One asset placed in another, naming the placed asset and the settings belonging to this use. |
 | **Placeholder** | The plain bordered image drawn when a placed asset is invalid, missing, refused or fails to resolve. |
