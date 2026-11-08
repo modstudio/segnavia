@@ -22,12 +22,6 @@ export function sizeFlowGalley(flow: HTMLElement, width: number, height: number,
 
 export function measureLineBoxes(element: Element, origin: number): Array<{ top: number; bottom: number }> {
   const tag = element.tagName.toLowerCase()
-  if (tag === 'table') {
-    return Array.from(element.querySelectorAll('tr'), (row) => {
-      const box = row.getBoundingClientRect()
-      return { top: box.top - origin, bottom: box.bottom - origin }
-    })
-  }
   if (tag === 'img' || tag === 'figure') {
     const box = element.getBoundingClientRect()
     return [{ top: box.top - origin, bottom: box.bottom - origin }]

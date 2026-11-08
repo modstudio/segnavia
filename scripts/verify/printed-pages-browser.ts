@@ -95,7 +95,9 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       })
       await page.setContent(html as string, { waitUntil: 'load' })
       const frames = page.frames().slice(1)
-      await Promise.all(frames.map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))))
+      await Promise.all(
+        frames.map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'), undefined, { polling: 100 })),
+      )
       const linePages = [[], [], []] as number[][]
       for (const [pageIndex, frame] of frames.entries()) {
         const visibleLines = await frame.evaluate(() => {
@@ -121,7 +123,9 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       })
       await page.setContent(html as string, { waitUntil: 'load' })
       const frames = page.frames().slice(1)
-      await Promise.all(frames.map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))))
+      await Promise.all(
+        frames.map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'), undefined, { polling: 100 })),
+      )
       const markerPages: Record<string, number[]> = {}
       for (const [pageIndex, frame] of frames.entries()) {
         const visibleMarkers = await frame.evaluate(() => {
@@ -337,7 +341,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
         page
           .frames()
           .slice(1)
-          .map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))),
+          .map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'), undefined, { polling: 100 })),
       )
       const browserFile = path.join(work, `${fixture.name}.pdf`)
       writeFileSync(browserFile, await page.pdf({ printBackground: true, preferCSSPageSize: true }))

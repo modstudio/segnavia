@@ -284,7 +284,8 @@ overrides them, and `fragmentation: 'none'` removes them. Printed pages go
 through the same composer as a paginated book: the flow is poured into a galley
 at the text-area width, its line boxes are measured, and the pure planner in
 `@segnavia/layout` chooses every break. Each block's computed `break-inside`,
-`break-before`, `break-after`, orphans and widows become keeps and forced breaks
+`break-before`, `break-after`, orphans and widows become keeps and forced breaks;
+tables record avoided row groups as line runs so they break between rows
 in that plan, because Chromium print does not honor them. Each planned page
 then holds windowed clones of the galley on an exact paper, with the parent page
 selected for its role. Head and foot motifs are expanded by the host first, and the nonce-bound

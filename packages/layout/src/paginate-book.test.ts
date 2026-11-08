@@ -251,7 +251,7 @@ describe('paginateBook', () => {
     ])
   })
   test('a heading keeps with the next block', () => {
-    const heading = block('heading', 'h2', 1, 1, 1, 0)
+    const heading = block('heading', 'h2', 1, 1, 1, 0, { keepWithNext: true })
     const paragraph = block('text', 'p', 1, 2, 5, 10)
     const previous = block('text', 'p', 1, 0, 4, -40)
     const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [previous, heading, paragraph])] })).pages
@@ -266,8 +266,8 @@ describe('paginateBook', () => {
         flows: [
           flow('c1', 'chapter', [
             block('text', 'p', 1, 1, 2, 0, { footnoteRefs: [{ note: 'n1', line: 1 }] }),
-            block('heading', 'h2', 1, 2, 1, 20),
-            block('text', 'p', 1, 3, 4, 30),
+            block('heading', 'h2', 1, 2, 1, 20, { keepWithNext: true }),
+            block('text', 'p', 1, 3, 4, 30, { orphans: 2, widows: 2 }),
           ]),
         ],
         notes: [note('n1', 4)],
@@ -280,24 +280,24 @@ describe('paginateBook', () => {
     expect(pages[2]?.windows[0]?.start).toBe(20)
   })
 
-  test('a figure or table that fits stays whole', () => {
+  test('a figure or table with keep-together that fits stays whole', () => {
     const prefix = block('text', 'p', 1, 1, 4, 0)
-    const figure = block('figure', 'figure', 1, 2, 4, 40)
-    const table = block('table', 'table', 1, 3, 4, 80)
+    const figure = block('figure', 'figure', 1, 2, 4, 40, { keepTogether: true })
+    const table = block('table', 'table', 1, 3, 4, 80, { keepTogether: true })
     const pages = paginateBook(input({ geometry: { textHeight: 50, notesGap: 10 }, flows: [flow('c1', 'chapter', [prefix, figure, table])] })).pages
     expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 40, 0)], [win('c1', 40, 80, 0)], [win('c1', 80, 120, 0)]])
   })
 
-  test('orphans and widows use the default of two', () => {
-    const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 11, 0)])] })).pages
+  test('orphans and widows use the block computed values', () => {
+    const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 11, 0, { orphans: 2, widows: 2 })])] })).pages
     expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 50, 0)], [win('c1', 50, 90, 0)], [win('c1', 90, 110, 0)]])
   })
 
-  test('orphans and widows honor a custom value', () => {
+  test('orphans and widows do not come from the book settings', () => {
     const pages = paginateBook(
       input({
         settings: { ...settings, rectoOpenings: false, orphans: 3, widows: 3 },
-        flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 11, 0)])],
+        flows: [flow('c1', 'chapter', [block('text', 'p', 1, 1, 11, 0, { orphans: 3, widows: 3 })])],
       }),
     ).pages
     expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 50, 0)], [win('c1', 50, 80, 0)], [win('c1', 80, 110, 0)]])

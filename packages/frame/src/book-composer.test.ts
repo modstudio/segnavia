@@ -3,6 +3,8 @@ import {
   appendMeasuredBlock,
   composerScript,
   decideBookMeasurement,
+  measuredBlockConstraints,
+  measuredKeepRuns,
   noteFragmentExtent,
   noteSettlementOverlapsBody,
   noteStackTops,
@@ -92,6 +94,21 @@ describe('block keeps', () => {
     const script = composerScript('{}')
     expect(script).toContain("style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next'")
     expect(script).toContain("style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous'")
+  })
+
+  test('a row with break-inside avoid produces its line run while empty CSS produces none', () => {
+    const lines = [
+      { top: 0, bottom: 10 },
+      { top: 10, bottom: 20 },
+      { top: 20, bottom: 30 },
+    ]
+    expect(measuredKeepRuns(lines, [{ avoid: true, top: 0, bottom: 20 }])).toEqual([{ start: 0, end: 2 }])
+    expect(measuredKeepRuns(lines, [{ avoid: false, top: 0, bottom: 20 }])).toEqual([])
+  })
+
+  test('a display table element carries no orphan or widow constraint', () => {
+    expect(measuredBlockConstraints('table', 2, 2)).toEqual({})
+    expect(measuredBlockConstraints('block', 2, 3)).toEqual({ orphans: 2, widows: 3 })
   })
 
   test('takes the page marker from config', () => {
