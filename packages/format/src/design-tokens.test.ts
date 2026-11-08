@@ -36,6 +36,14 @@ describe('W3C design-token exchange', () => {
     })
   })
 
+  test('keeps prototype-key group names in flattened paths', () => {
+    const red = { colorSpace: 'srgb', components: [1, 0, 0], hex: '#ff0000' }
+    expect(importDesignTokens({ constructor: { $type: 'color', primary: { $value: red } } }).colors).toEqual({ 'constructor-primary': '#ff0000' })
+    expect(() => importDesignTokens({ toString: { $type: 'color', secondary: { $value: red } } })).toThrow(
+      /toString\.secondary.*"toString-secondary"/,
+    )
+  })
+
   test.each([
     [{ bad: { $ref: '#/color/ink' } }, /bad.*\$ref/],
     [{ bad: { $type: 'shadow', token: { $value: 1 } } }, /bad.*unknown \$type/],

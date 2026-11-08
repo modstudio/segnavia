@@ -86,7 +86,7 @@ function collect(value: JsonObject, path: string[] = [], inheritedType?: string,
   for (const [key, child] of Object.entries(value)) {
     if (key.startsWith('$')) continue
     const childPath = [...path, key]
-    const childNamePath = path.length === 0 && key in GROUPS ? [] : [...namePath, key]
+    const childNamePath = path.length === 0 && Object.hasOwn(GROUPS, key) ? [] : [...namePath, key]
     const object = objectAt(child, childPath.join('.'))
     if ('$value' in object) {
       if (!type) throw new Error(`Token ${childPath.join('.')} has no $type; declare its supported type to clear this refusal`)
