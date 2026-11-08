@@ -118,7 +118,9 @@ describe('block keeps', () => {
   })
 
   test('holds note clones at the measured text width', () => {
-    expect(composerScript('{}')).toContain("clone.style.inlineSize='100%'")
+    const script = composerScript('{}')
+    expect(script).toContain("clone.style.inlineSize=inlineSize+'px'")
+    expect(script).toContain('holdNote(root,fragments[i].start!==0,textArea.width)')
   })
 })
 
