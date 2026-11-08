@@ -9,10 +9,26 @@ export type FontGeneric = (typeof FONT_GENERICS)[number]
 
 export const HEBREW_UNICODE_RANGE = 'U+0590-05FF,U+FB1D-FB4F'
 
-const UNICODE_RANGE_PART = /^U\+[\dA-F?]{1,6}(?:-[\dA-F]{1,6})?$/i
+interface UnicodeRangePart {
+  start: number
+  end: number
+}
+
+function unicodeRangeParts(value: string): UnicodeRangePart[] | null {
+  const parsed: UnicodeRangePart[] = []
+  for (const part of value.split(',')) {
+    const match = /^U\+([\dA-F?]{1,6})(?:-([\dA-F]{1,6}))?$/i.exec(part.trim())
+    if (!match || (match[1]?.includes('?') && match[2] !== undefined)) return null
+    const start = Number.parseInt(match[1]!.replace(/\?/g, '0'), 16)
+    const end = Number.parseInt(match[2] ?? match[1]!.replace(/\?/g, 'F'), 16)
+    if (start > end || end > 0x10ffff) return null
+    parsed.push({ start, end })
+  }
+  return parsed.length > 0 ? parsed : null
+}
 
 function validUnicodeRange(value: string): boolean {
-  return value.split(',').every((part) => UNICODE_RANGE_PART.test(part.trim()))
+  return unicodeRangeParts(value) !== null
 }
 
 const FontDeclarationShape = {
@@ -155,11 +171,7 @@ export function matchFaces(declared: readonly FontDeclaration[], supplied: reado
 const HEBREW_SAMPLE = '\u05d0\u05b0\u0591\u05ea\u05b8\u05bd'
 
 function rangeIncludes(range: string, codePoint: number): boolean {
-  for (const part of range.split(',')) {
-    const match = /^\s*U\+([\dA-F]{1,6})(?:-([\dA-F]{1,6}))?\s*$/i.exec(part)
-    if (!match) continue
-    const start = Number.parseInt(match[1] ?? '', 16)
-    const end = Number.parseInt(match[2] ?? match[1] ?? '', 16)
+  for (const { start, end } of unicodeRangeParts(range) ?? []) {
     if (codePoint >= start && codePoint <= end) return true
   }
   return false
@@ -168,8 +180,6 @@ function rangeIncludes(range: string, codePoint: number): boolean {
 export function rangeSample(range?: string): string {
   if (range && [0x0591, 0x05b0, 0x05d0].some((codePoint) => rangeIncludes(range, codePoint))) return HEBREW_SAMPLE
   if (!range) return 'Aa'
-  const first = /^\s*U\+([\dA-F]{1,6})/i.exec(range)?.[1]
-  if (!first) return 'Aa'
-  const codePoint = Number.parseInt(first, 16)
-  return codePoint <= 0x10ffff ? String.fromCodePoint(codePoint) : 'Aa'
+  const first = unicodeRangeParts(range)?.[0]
+  return first ? String.fromCodePoint(first.start) : 'Aa'
 }

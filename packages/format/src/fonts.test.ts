@@ -71,6 +71,11 @@ describe('FontManifest', () => {
     expect(sample).toMatch(/[\u05b0-\u05bc]/)
     expect(sample).toMatch(/[\u0591-\u05af]/)
   })
+
+  test('expands wildcard ranges before sampling them', () => {
+    expect(FontManifest.safeParse({ body: { faces: [{ unicodeRange: 'U+05??' }] } }).success).toBe(true)
+    expect(rangeSample('U+05??')).toMatch(/[\u0590-\u05ff]/)
+  })
 })
 
 describe('LocalFaceTransport', () => {
