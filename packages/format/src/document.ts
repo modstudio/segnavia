@@ -8,7 +8,7 @@ import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { DocumentLimitsValue } from './limits.ts'
-import { isHebrew, NumberSystem } from './numbering.ts'
+import { divisionNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Print } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
@@ -121,12 +121,7 @@ function documentNumberedSections(document: DocumentShapeValue): SectionNumberin
 
 function refineSectionNumberingPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
   if (document.kind !== 'book' || document.mode === undefined) return
-  const hebrew = isHebrew(document.settings?.lang)
-  const configured = typeof document.numbering === 'object' ? document.numbering : undefined
-  const systems = {
-    frontMatter: configured?.frontMatter ?? (hebrew ? ('arabic' as const) : ('roman-lower' as const)),
-    body: configured?.body ?? (hebrew ? ('hebrew' as const) : ('arabic' as const)),
-  }
+  const systems = divisionNumbering(document.settings?.lang, typeof document.numbering === 'object' ? document.numbering : undefined)
   for (const issue of sectionNumberingIssues({
     mode: document.mode,
     systems,

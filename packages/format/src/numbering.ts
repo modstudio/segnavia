@@ -12,6 +12,15 @@ export function defaultPageNumbering(lang: string | undefined): NumberSystem {
   return isHebrew(lang) ? 'hebrew' : 'arabic'
 }
 
+/** A book's division number systems: each configured system, or the language's default for that division. */
+export function divisionNumbering(
+  lang: string | undefined,
+  configured: { frontMatter?: NumberSystem; body?: NumberSystem } = {},
+): { frontMatter: NumberSystem; body: NumberSystem } {
+  const hebrew = isHebrew(lang)
+  return { frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'), body: configured.body ?? defaultPageNumbering(lang) }
+}
+
 export const NoteMarker = z.union([NumberSystem, z.literal('symbols')])
 export type NoteMarker = z.infer<typeof NoteMarker>
 

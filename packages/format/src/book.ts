@@ -17,7 +17,7 @@ import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
-import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
+import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Placement } from './placement.ts'
 import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
@@ -179,7 +179,6 @@ const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
 })
 
 const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
-  const hebrew = isHebrew(book.lang)
   const { chapters, ...fields } = book
   if (book.body !== undefined && chapters !== undefined) {
     ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
@@ -193,10 +192,7 @@ const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
     ...fields,
     body: book.body ?? chapters ?? [],
     bodyKey: book.body === undefined && chapters !== undefined ? ('chapters' as const) : ('body' as const),
-    numbering: {
-      frontMatter: book.numbering.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
-      body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),
-    },
+    numbering: divisionNumbering(book.lang, book.numbering),
     footnotes: { ...book.footnotes, marker: footnote.marker },
     endnotes: { ...book.endnotes, marker: endnote.marker, title: endnote.title },
     notes,
