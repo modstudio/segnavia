@@ -9,7 +9,11 @@ export function layoutScript(): string {
   return `${paginateScript()}
 ${folioScript()}
 ${planPrintedPages.toString()}
+var planPrintedPages=${planPrintedPages.name};
 ${bookPlanFolios.toString()}
+var bookPlanFolios=${bookPlanFolios.name};
 ${planBook.toString()}
-${convergeLayout.toString()}`
+var planBook=${planBook.name};
+${convergeLayout.toString()}
+var convergeLayout=${convergeLayout.name};`
 }
