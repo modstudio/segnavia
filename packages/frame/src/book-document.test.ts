@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, computeFolios, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
-import { heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectBookParent, windowPageIndex } from '@segnavia/html'
+import { BOOK_PARENT_NAMES, bookFromDocument, computeFolios, Document, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection, StyleSheet } from '@segnavia/format'
+import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectBookParent, windowPageIndex } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
@@ -18,6 +18,23 @@ const book = parseBookFixture({
 })
 
 describe('bookDocument', () => {
+  test('carries a lowered brand into flow and paginated view sheets', () => {
+    const document = Document.parse({
+      type: 'document',
+      kind: 'book',
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 15 } },
+      brand: 'house',
+      children: [{ type: 'section', title: 'Chapter', children: [{ type: 'flow', html: '<p>Body</p>' }] }],
+    })
+    const brand = StyleSheet.parse({ css: '.brand-mark{color:rgb(1,2,3)}' })
+    const view = bookView(bookFromDocument(document, brand))
+    expect(view.brand).toEqual(brand)
+    expect(bookViewDocument(view, { nonce: 'held' })).toContain('@layer segnavia.brand{.brand-mark{color:rgb(1,2,3)}}')
+    expect(flowViewDocument(view, { nonce: 'held' })).toContain('@layer segnavia.brand{.brand-mark{color:rgb(1,2,3)}}')
+  })
+
   test('builds the book composer config from document and host page ceilings', () => {
     const html = bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held' })
     expect(html).toContain('"limit":600')
