@@ -151,6 +151,8 @@ describe('block keeps', () => {
     expect(remeasure).toBeGreaterThan(overlap)
     expect(remove).toBeGreaterThan(remeasure)
     expect(compose).toBeGreaterThan(remove)
+    expect(script).toContain("document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-flow]')")
+    expect(script).toContain("document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-note]')")
   })
 })
 
