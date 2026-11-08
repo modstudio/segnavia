@@ -1,8 +1,8 @@
 import type { PageWidths, SlotsOptions } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
-import { expandFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
+import { type MotifsOptions, type PlacementsOptions, prepareExpandedPage } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
-import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
 import { fillsSlotValues } from './slot-render.ts'
 
@@ -24,16 +24,17 @@ export interface PrintedPageFrameOptions {
   failed(error: unknown): void
 }
 
-async function preparePrintedPageScreen(page: HtmlPage, options: PrintedPageFrameOptions): Promise<{ page: HtmlPage; css: string }> {
-  const expanded = await expandFramePage(page, options.motifs, options.signal, options.placements, 'screen', options.widths)
-  const { css: fontCss } = await expandedPagesFontCss([expanded], options.fonts, options.signal)
-  return { page: expanded.page, css: `${fontCss}${options.css ?? ''}` }
-}
-
 export function loadPrintedPageFrame(page: HtmlPage, options: PrintedPageFrameOptions): void {
   if (fillsSlotValues(page.slots, options.slots)) options.failed(new Error(PRINTED_SLOT_REFUSAL))
-  void preparePrintedPageScreen(page, options)
-    .then((shown) => loadPrintedPageDocument(shown.page, { css: shown.css, csp: options.csp, screen: { spread: false } }, options.loaded, options.failed))
+  void prepareExpandedPage(page, options.motifs, options.fonts, options.signal, options.placements, options.widths)
+    .then((shown) =>
+      loadPrintedPageDocument(
+        shown.page,
+        { baseCss: shown.css, css: options.css, csp: options.csp, screen: { spread: false }, fontFailures: shown.failures },
+        options.loaded,
+        options.failed,
+      ),
+    )
     .catch(options.failed)
 }
 
