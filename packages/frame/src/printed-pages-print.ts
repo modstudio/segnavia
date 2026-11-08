@@ -18,6 +18,7 @@ function composedFrame(page: HtmlPage, index: number, expectedCount: number, opt
     printBackground: true,
     diagramScript: options.diagramScript,
     limits: options.limits,
+    origins: options.origins,
   })
   return `<iframe sandbox="${frameSandbox('refuse')}" srcdoc="${escapeHtml(srcdoc)}" style="width:${viewport.width}px;height:${viewport.height}px;border:0;display:block"></iframe>`
 }
@@ -34,6 +35,7 @@ function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, dead
     measure: true,
     diagramScript: options.diagramScript,
     limits: options.limits,
+    origins: options.origins,
   })
   return new Promise((resolve, reject) => {
     let timer = 0

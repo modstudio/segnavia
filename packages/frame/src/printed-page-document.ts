@@ -7,6 +7,7 @@ import {
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
+  type OriginApproval,
   type Page,
   PX_PER_MM,
   pageDirection,
@@ -146,6 +147,7 @@ export function printedPageValueDocument(
     metadata?: DocumentMetadataValue
     limits?: Limits
     fontFailures?: FontFailure[]
+    origins?: Iterable<OriginApproval>
   },
 ): string {
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
@@ -226,6 +228,7 @@ export function printedPageValueDocument(
     printBackground: options.printBackground,
     readyCallback: options.readyCallback,
     fontFailures: options.fontFailures,
+    origins: options.origins,
   })
 }
 
