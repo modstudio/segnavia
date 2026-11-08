@@ -2,7 +2,13 @@ import { expect, test } from 'bun:test'
 import { Cover } from '@segnavia/format'
 import { coverImagePlan } from './cover-image.ts'
 
-const cover = Cover.parse({ page: { html: '<h1>Cover</h1>' } })
+const coverDocument = (html: string, print?: { paper: { width: number; height: number; unit: 'mm' } }) => ({
+  type: 'document' as const,
+  kind: 'page' as const,
+  print,
+  children: [{ type: 'page' as const, body: { html } }],
+})
+const cover = Cover.parse({ page: coverDocument('<h1>Cover</h1>') })
 
 test.each([
   [160, 100],
@@ -27,7 +33,7 @@ test('defaults to WebP and passes no dependencies', () => {
 })
 
 test('uses a non-default cover sheet aspect', () => {
-  const portrait = Cover.parse({ page: { html: '', print: { paper: { width: 100, height: 150, unit: 'mm' } } } })
+  const portrait = Cover.parse({ page: coverDocument('', { paper: { width: 100, height: 150, unit: 'mm' } }) })
   expect(coverImagePlan(portrait, { width: 200 }).height).toBe(300)
 })
 

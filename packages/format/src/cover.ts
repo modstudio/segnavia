@@ -1,6 +1,8 @@
 import { z } from 'zod'
+import { DocumentField } from './document.ts'
+import { pageFromDocument } from './document-lowering.ts'
 import type { Motif } from './motif.ts'
-import { Page, type Page as PageValue } from './page.ts'
+import type { Page as PageValue } from './page.ts'
 import { sheetMm } from './paper.ts'
 import { Print } from './print.ts'
 
@@ -14,8 +16,19 @@ const COVER_PRINT = {
   orientation: 'landscape' as const,
 }
 
+const CoverPage = DocumentField.transform(pageFromDocument).superRefine((page, ctx) => {
+  if (!('html' in page.body)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['body'],
+      message:
+        'a cover page body must be stored HTML in body.html; pass the Document through @segnavia/html parseDocument first, or give the page an html body, to clear this refusal',
+    })
+  }
+})
+
 const CoverShape = z.object({
-  page: Page,
+  page: CoverPage,
   id: z.string().optional(),
   name: z.string().optional(),
 })

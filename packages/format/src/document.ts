@@ -289,6 +289,8 @@ export type DocumentInput = z.input<typeof DocumentSchema>
 export type Document = IdentifiedDocument<z.infer<typeof DocumentSchema>>
 export type { DocumentParseOptions }
 
+export const DocumentField = DocumentSchema.transform((document) => identifyDocument(document))
+
 const schemaParse = DocumentSchema.parse.bind(DocumentSchema)
 const schemaSafeParse = DocumentSchema.safeParse.bind(DocumentSchema)
 

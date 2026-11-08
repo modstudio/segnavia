@@ -40,13 +40,15 @@ export type ResolvedAsset = ResolvedPlacement | WithoutDesignedCover<Exclude<Res
 export type AssetResolver = ResolvePlacement<ResolvedAsset>
 export type AssetPlacementsOptions = { resolve: AssetResolver; report?: PlacementReport }
 
+type CheckedResolvedBase = Omit<ResolvedBase, 'designedCover'> & { designedCover?: ParsedDesignedCover }
+
 export type CheckedResolvedBoardItem =
-  | (ResolvedBase & { kind: 'deck'; deck: Deck; resolveSlide?: ControllerOptions['resolveSlide']; base?: string; designedCover?: ParsedDesignedCover })
-  | (ResolvedBase & { kind: 'page'; page: Page; size: PixelSize; designedCover?: ParsedDesignedCover })
-  | (ResolvedBase & { kind: 'paper'; pages: Page[]; imposition: ImpositionInput; size: PixelSize; designedCover?: ParsedDesignedCover })
-  | (ResolvedBase & { kind: 'book'; view: BookViewInput; size: PixelSize; designedCover?: ParsedDesignedCover })
-  | (ResolvedBase & { kind: 'image'; src: string; width: number; height: number; designedCover?: ParsedDesignedCover })
-  | (ResolvedBase & { kind: 'shot'; src: string; width: number; height: number; designedCover?: ParsedDesignedCover })
+  | (CheckedResolvedBase & { kind: 'deck'; deck: Deck; resolveSlide?: ControllerOptions['resolveSlide']; base?: string })
+  | (CheckedResolvedBase & { kind: 'page'; page: Page; size: PixelSize })
+  | (CheckedResolvedBase & { kind: 'paper'; pages: Page[]; imposition: ImpositionInput; size: PixelSize })
+  | (CheckedResolvedBase & { kind: 'book'; view: BookViewInput; size: PixelSize })
+  | (CheckedResolvedBase & { kind: 'image'; src: string; width: number; height: number })
+  | (CheckedResolvedBase & { kind: 'shot'; src: string; width: number; height: number })
 
 export type BoardTier = 'cover' | 'live'
 export type BoardKeyAction = { kind: 'view'; view: BoardView } | { kind: 'fit' }

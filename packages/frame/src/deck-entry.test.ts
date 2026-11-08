@@ -2,6 +2,7 @@ import { afterAll, expect, test } from 'bun:test'
 import { Cover, Page, Print } from '@segnavia/format'
 import { internalPageLoad } from './document-value-load.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
+import { pageDocument } from './page-document.test-helper.ts'
 
 const definitions = new Map<string, CustomElementConstructor>()
 const previousGlobals = new Map(
@@ -117,7 +118,9 @@ test('the deck entry defines only deck elements and thumbnails define pages on d
   definitions.clear()
   const coverViewport = new TestElement()
   const coverThumbnail = {
-    designedCoverValue: { cover: Cover.parse({ page: { html: '<p>Cover</p>' } }) },
+    designedCoverValue: {
+      cover: Cover.parse({ page: pageDocument('<p>Cover</p>') }),
+    },
     designedCoverDisposal: undefined,
     viewport: coverViewport,
     motifOptions: undefined,

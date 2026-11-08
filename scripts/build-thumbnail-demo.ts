@@ -22,7 +22,7 @@ export function buildThumbnailDemo(site: string, shell: (body: string, script?: 
           thumbnail.deck = deck
         }
         document.getElementById('shot').index = 1
-        const cover = {page:{html:'<main data-designed-cover style="font:24px system-ui;padding:20px">Designed cover</main>',print:{paper:{width:100,height:150,unit:'mm'}}}}
+        const cover = {page:{type:'document',kind:'page',print:{paper:{width:100,height:150,unit:'mm'}},children:[{type:'page',body:{html:'<main data-designed-cover style="font:24px system-ui;padding:20px">Designed cover</main>'}}]}}
         document.getElementById('designed-live').designedCover = {cover}
         document.getElementById('designed-picture').designedCover = {cover,picture:${JSON.stringify(picture)}}
       </script>`,

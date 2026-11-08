@@ -1538,13 +1538,18 @@ absent. Wherever an asset is shown small, one ordered preference list chooses
 the host's kept designed-cover picture, then the designed cover drawn live in a
 script-refusing frame, then the asset's existing cover or thumbnail unchanged.
 
-`Cover.parse` fills the default cover sheet when the page has no print setting
-and accepts the sheet described by an explicit print setting. It refuses bleed,
-a safe area, marks and page scripts: a cover is a picture for the screen and is
-drawn live in a script-refusing frame, so it must look the same there as in its
-image. Board cover tiers and standalone thumbnails contain any cover aspect
-whole and centered without cropping or stretching; a live cover is scaled from
-its own sheet rather than laid out at the tile size.
+`Cover.parse` takes a page Document whose page body contains stored HTML, lowers
+it to the page used by cover consumers, fills the default cover sheet when the
+Document root has no print setting and accepts the sheet described by an
+explicit print setting on that root. A print setting on the page node is not
+read. A host with a markdown body passes the Document through
+`@segnavia/html`'s `parseDocument` first. The legacy Page input is not accepted.
+It refuses bleed, a safe area, marks and page scripts: a
+cover is a picture for the screen and is drawn live in a script-refusing frame,
+so it must look the same there as in its image. Board cover tiers and standalone
+thumbnails contain any cover aspect whole and centered without cropping or
+stretching; a live cover is scaled from its own sheet rather than laid out at
+the tile size.
 
 A designed cover is honored on a board item and on `<segnavia-thumbnail>`.
 The host attaches it through the board's `resolveItem` result or the thumbnail's
