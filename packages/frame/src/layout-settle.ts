@@ -9,7 +9,17 @@ export interface LayoutGeometry {
 
 export type LayoutSettleDecision = 'settled' | 'wait-for-layout' | 'sample-again' | 'refuse'
 
-// Each unchanged, unsettled width streak gets this interval to become stable.
+export interface VisibleTimeFacts {
+  visibleElapsedMs: number
+  frameElapsedMs: number
+  hasLayout: boolean
+}
+
+export function advanceVisibleTime(facts: VisibleTimeFacts): number {
+  return facts.hasLayout ? facts.visibleElapsedMs + facts.frameElapsedMs : facts.visibleElapsedMs
+}
+
+// Galley layout gets this much visible time to reach any stable configured width.
 export const LAYOUT_SETTLE_MS = 2000
 
 export function decideLayoutSettle(

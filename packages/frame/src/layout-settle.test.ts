@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
+import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 
 const configured = { textWidth: 700 }
 
@@ -28,10 +28,29 @@ describe('decideLayoutSettle', () => {
     expect(decideLayoutSettle(sample, sample, configured, LAYOUT_SETTLE_MS, LAYOUT_SETTLE_MS)).toBe('settled')
   })
 
-  test('settles after a changed width starts a new streak past the old bound', () => {
-    const old = { inlineSize: 700, scrollWidth: 1400 }
-    const changed = { inlineSize: 700, scrollWidth: 2100 }
-    expect(decideLayoutSettle(changed, old, configured, 0, LAYOUT_SETTLE_MS)).toBe('sample-again')
-    expect(decideLayoutSettle(changed, changed, configured, LAYOUT_SETTLE_MS, LAYOUT_SETTLE_MS)).toBe('settled')
+  test('refuses geometry that changes on every sample past the bound', () => {
+    let elapsedMs = 0
+    let previous = { inlineSize: 700, scrollWidth: 700 }
+    for (let frame = 1; frame <= 3; frame++) {
+      elapsedMs = advanceVisibleTime({ visibleElapsedMs: elapsedMs, frameElapsedMs: 800, hasLayout: true })
+      const sample = { inlineSize: 700, scrollWidth: 700 + frame }
+      expect(decideLayoutSettle(sample, previous, configured, elapsedMs, LAYOUT_SETTLE_MS)).toBe(frame === 3 ? 'refuse' : 'sample-again')
+      previous = sample
+    }
+  })
+
+  test('settles changed geometry that holds at the configured width before the bound', () => {
+    const changed = { inlineSize: 700, scrollWidth: 1401 }
+    const elapsedMs = advanceVisibleTime({ visibleElapsedMs: 800, frameElapsedMs: 800, hasLayout: true })
+    expect(decideLayoutSettle(changed, changed, configured, elapsedMs, LAYOUT_SETTLE_MS)).toBe('settled')
+  })
+
+  test('does not count time without layout toward the settle bound', () => {
+    const paused = advanceVisibleTime({ visibleElapsedMs: 1_500, frameElapsedMs: 1_000, hasLayout: false })
+    const resumed = advanceVisibleTime({ visibleElapsedMs: paused, frameElapsedMs: 400, hasLayout: true })
+    const previous = { inlineSize: 700, scrollWidth: 1400 }
+    const changed = { inlineSize: 700, scrollWidth: 1401 }
+    expect(paused).toBe(1_500)
+    expect(decideLayoutSettle(changed, previous, configured, resumed, LAYOUT_SETTLE_MS)).toBe('sample-again')
   })
 })

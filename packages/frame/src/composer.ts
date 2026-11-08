@@ -25,7 +25,7 @@ import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions
 import { dressPlanPages, fillFurniture, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
 import { composerLayoutReady, forcedPageBreak, measureLineBoxes, measurementRefusal, sizeFlowGalley } from './composer-measure.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
-import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
+import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 
 export const COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const COMPOSED_MS_ATTRIBUTE = 'data-segnavia-composed-ms'
@@ -65,8 +65,8 @@ export interface VisibleMeasurementDecision {
 }
 
 export function decideVisibleMeasurement(facts: VisibleMeasurementFacts, boundMs: number): VisibleMeasurementDecision {
-  if (!facts.hasLayout) return { decision: 'retry', visibleElapsedMs: facts.visibleElapsedMs }
-  const visibleElapsedMs = facts.visibleElapsedMs + facts.frameElapsedMs
+  const visibleElapsedMs = advanceVisibleTime(facts)
+  if (!facts.hasLayout) return { decision: 'retry', visibleElapsedMs }
   if (facts.measured) return { decision: 'compose', visibleElapsedMs }
   return { decision: visibleElapsedMs >= boundMs ? 'refuse' : 'retry', visibleElapsedMs }
 }
@@ -167,6 +167,7 @@ ${embedFunction('pageScale', pageScale)}
 ${embedFunction('pixelPhaseOffset', pixelPhaseOffset)}
 ${embedFunction('unmeasuredFlows', unmeasuredFlows)}
 ${embedFunction('decideBookMeasurement', decideBookMeasurement)}
+${embedFunction('advanceVisibleTime', advanceVisibleTime)}
 ${embedFunction('decideVisibleMeasurement', decideVisibleMeasurement)}
 ${embedFunction('appendMeasuredBlock', appendMeasuredBlock)}
 ${embedFunction('noteFragmentExtent', noteFragmentExtent)}
@@ -266,12 +267,13 @@ var loaded=document.readyState==='complete'?Promise.resolve():new Promise(functi
 Promise.all([loaded,${DIAGRAM_READY_EXPR},document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){
 var visibleElapsed=0;
 var visibleStartedAt=performance.now();
-var settleStartedAt=[];
+var settleVisibleElapsed=0;
+var settleStartedAt;
 var settlePrevious=[];
 var composeWhenMeasurable=function(){
 try{
 sizeGalleys();
-var settleFlows=document.querySelectorAll('[data-segnavia-flow]:not([data-segnavia-kind="fixed"]):not([data-segnavia-kind="templated"])');var hasLayout=settleFlows.length===0||composerLayoutReady(settleFlows[0]);var visibleNow=performance.now();var visibility=decideVisibleMeasurement({visibleElapsedMs:visibleElapsed,frameElapsedMs:visibleNow-visibleStartedAt,hasLayout:hasLayout,measured:true},${BOOK_MEASUREMENT_WAIT_MS});visibleElapsed=visibility.visibleElapsedMs;visibleStartedAt=visibleNow;if(!hasLayout)return nextLayoutFrame().then(composeWhenMeasurable);var settled=true;for(var settleIndex=0;settleIndex<settleFlows.length;settleIndex++){var settleFlow=settleFlows[settleIndex];var settleSample={inlineSize:settleFlow.getBoundingClientRect().width,scrollWidth:settleFlow.scrollWidth};var previousSettleSample=settlePrevious[settleIndex];var settleNow=performance.now();if(!previousSettleSample||settleSample.inlineSize!==previousSettleSample.inlineSize||settleSample.scrollWidth!==previousSettleSample.scrollWidth)settleStartedAt[settleIndex]=settleNow;var settleDecision=decideLayoutSettle(settleSample,previousSettleSample,{textWidth:parseFloat(settleFlow.style.inlineSize)},settleNow-settleStartedAt[settleIndex],${LAYOUT_SETTLE_MS});settlePrevious[settleIndex]=settleSample;if(settleDecision==='refuse'){fail('the measure box did not hold the configured text width with a stable scroll width within ${LAYOUT_SETTLE_MS} ms; remove author CSS that changes the composer measure box size, such as padding, border, transform or inline-size on every element, or let content whose layout keeps changing settle, to clear this refusal');return;}if(settleDecision!=='settled')settled=false;}if(!settled)return nextLayoutFrame().then(composeWhenMeasurable);
+var settleFlows=document.querySelectorAll('[data-segnavia-flow]:not([data-segnavia-kind="fixed"]):not([data-segnavia-kind="templated"])');var hasLayout=settleFlows.length===0||composerLayoutReady(settleFlows[0]);var visibleNow=performance.now();var visibility=decideVisibleMeasurement({visibleElapsedMs:visibleElapsed,frameElapsedMs:visibleNow-visibleStartedAt,hasLayout:hasLayout,measured:true},${BOOK_MEASUREMENT_WAIT_MS});visibleElapsed=visibility.visibleElapsedMs;visibleStartedAt=visibleNow;if(settleStartedAt===undefined){if(hasLayout)settleStartedAt=visibleNow;}else{settleVisibleElapsed=advanceVisibleTime({visibleElapsedMs:settleVisibleElapsed,frameElapsedMs:visibleNow-settleStartedAt,hasLayout:hasLayout});settleStartedAt=visibleNow;}if(!hasLayout)return nextLayoutFrame().then(composeWhenMeasurable);var settled=true;for(var settleIndex=0;settleIndex<settleFlows.length;settleIndex++){var settleFlow=settleFlows[settleIndex];var settleSample={inlineSize:settleFlow.getBoundingClientRect().width,scrollWidth:settleFlow.scrollWidth};var previousSettleSample=settlePrevious[settleIndex];var settleDecision=decideLayoutSettle(settleSample,previousSettleSample,{textWidth:parseFloat(settleFlow.style.inlineSize)},settleVisibleElapsed,${LAYOUT_SETTLE_MS});settlePrevious[settleIndex]=settleSample;if(settleDecision==='refuse'){fail('the measure box did not hold the configured text width with a stable scroll width within ${LAYOUT_SETTLE_MS} ms; remove author CSS that changes the composer measure box size, such as padding, border, transform or inline-size on every element, or let content whose layout keeps changing settle, to clear this refusal');return;}if(settleDecision!=='settled')settled=false;}if(!settled)return nextLayoutFrame().then(composeWhenMeasurable);
 var planBookOrFail=function(input){var held=planBook(input,config.numbering);if(!held.ok){fail(held.refusals[0].message);return null;}var plan=held.plan;if(config.rules){var rows=planPrintedPages(config.rules,plan.pages.length,config.direction,config.numbering);for(var i=0;i<plan.pages.length;i++){plan.pages[i].parent=rows[i].parent;plan.pages[i].face=rows[i].face;plan.pages[i].side=rows[i].side;plan.pages[i].role=rows[i].role;}plan.folios=rows.map(function(row){return row.number;});plan.total=rows[rows.length-1].total;}return plan;};
 var input=measureInput();
 var plan=planBookOrFail(input);
