@@ -984,15 +984,14 @@ refused. Without them, a page prints as before. A postcard face is one such
 page. `pagesPdf` can join several pieces in one PDF without putting them on the
 same paper; putting several pages on one paper belongs to imposition.
 
-A deck's `sheet` press setting uses the slide as its trim at CSS's 96 px/in
-ratio. Each slide PDF lays out at the bleed box with the trim inset by the
-bleed, so the slide root background fills the bleed band. Speaker-notes sheets
-instead take bleed, safe area and marks from `notesPaper`. Both write trim and
-bleed boxes and render-only crop marks by the same press geometry as printed
-pages. Browser printing keeps slide-size sheets and draws neither the bleed nor
-the marks. A deck without either press setting keeps its single exact paper box.
-An imposition, including a handout, has its own placement geometry and gains no
-deck press boxes.
+Every printable Document carries its press geometry in `print`. Its `bleed`,
+`safe`, `marks` and `markColor` fields apply to every printable kind. A page or
+printed page takes its trim and optional paper fields from `print`; a book keeps
+its trim in `page.paper`; a deck slide uses its slide size at CSS's 96 px/in;
+and a deck notes sheet uses `notesPaper`. Paper, orientation and margin are
+therefore refused in a deck or book `print`. Each PDF piece writes trim and
+bleed boxes and render-only crop marks. Browser printing keeps trim-size papers
+and draws neither bleed nor marks.
 
 **Imposition marks.** `marks` on an `Imposition` defaults off. When enabled,
 `impositionMarks` returns crop-mark segments for each physical side and lists
@@ -1216,9 +1215,11 @@ A slide is a fixed page at the deck's size, so a deck prints through an
 imposition too. `printableDeck` builds the frame-based papers for browser
 printing, and `deckPdf` renders every slide at top level before composing the
 same placements, preserving backgrounds. A grid of two columns and three rows
-is a handout of six slides to a paper. Such imposed decks do not accept the
-single-slide `sheet` press setting and do not receive press boxes. The notes
-layout takes its press geometry from `notesPaper`; it and an imposition do not
+is a handout of six slides to a paper. On an imposed render, the Document's
+`print.marks` and `print.markColor` are not drawn per piece; the paper uses the
+imposition's marks. Piece bleed and safe area still come from the Document's
+`print`. The notes layout takes paper fields from `notesPaper` and press fields
+from the deck's `print`; it and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
 

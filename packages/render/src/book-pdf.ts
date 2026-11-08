@@ -1,4 +1,4 @@
-import { type Book, bookParentPages, physicalMargins, resolveDirection, sequenceFolios, sheetMm } from '@segnavia/format'
+import { type Book, bookParentPages, physicalMargins, pressBoxes, resolveDirection, sequenceFolios, sheetMm, usesPressLayout } from '@segnavia/format'
 import type { PreparedSlots } from '@segnavia/html'
 import {
   type BookDocument,
@@ -22,6 +22,7 @@ import type { OverflowEntry } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
+import { addPressBoxes } from './page-paper.ts'
 import type { BookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
@@ -274,7 +275,9 @@ async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options:
   const built = bookDocument(book)
   if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
   writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations })
-  const output = await adapter.finish(await setPdfPageSize(await document.save(), sheetMm(book.page)), options)
+  let bytes = await setPdfPageSize(await document.save(), sheetMm(book.page))
+  if (book.print && usesPressLayout(book.print)) bytes = await addPressBoxes(bytes, pressBoxes(sheetMm(book.page), book.print), book.print.markColor, 'trim')
+  const output = await adapter.finish(bytes, options)
   options.overflow?.report?.({ entries: printed.overflow ? [printed.overflow] : [] })
   return output
 }
@@ -307,10 +310,9 @@ export async function renderBookPdf(input: Book, options: BookPdfOptions, adapte
   const plan = planBookPages(marginFacts, direction)
   const parents = bookParentPages(book.page.margin)
   const margin = await adapter.print(marginDocument(book, plan, parents), book, slotsForDocument(slots, []), options, 'margin', marginCss(book, plan, parents))
-  const output = await adapter.finish(
-    await setPdfPageSize(await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes), sheetMm(book.page)),
-    options,
-  )
+  let bytes = await setPdfPageSize(await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes), sheetMm(book.page))
+  if (book.print && usesPressLayout(book.print)) bytes = await addPressBoxes(bytes, pressBoxes(sheetMm(book.page), book.print), book.print.markColor, 'trim')
+  const output = await adapter.finish(bytes, options)
   options.overflow?.report?.({
     entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),
   })

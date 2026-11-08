@@ -144,6 +144,7 @@ export const fixedImposedPage: DocumentInput = {
   type: 'document',
   kind: 'page',
   size: { width: 600, height: 400 },
+  print: { paper: { width: 100, height: 70, unit: 'mm' }, orientation: 'landscape', bleed: 3 },
   children: [{ type: 'page', body: { html: '<!doctype html><html style="margin:0;background:rgb(80,80,80)"><body style="margin:0"></body></html>' } }],
 }
 
@@ -154,7 +155,6 @@ const fixedImposition: ImpositionInput = {
   rows: 1,
   cell: { width: 100, height: 70 },
   margin: { top: 10, right: 10, bottom: 10, left: 10 },
-  bleed: 3,
 }
 
 export const coveringImposition: ImpositionInput = { ...fixedImposition, fit: 'cover' }
@@ -165,6 +165,7 @@ export const bleedGridPages: DocumentInput[] = bleedGridShades.map((shade) => ({
   type: 'document',
   kind: 'page',
   size: 'fluid',
+  print: { paper: { width: 20, height: 20, unit: 'mm' }, bleed: 2 },
   children: [
     { type: 'page', body: { html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0"></body></html>` } },
   ],
@@ -177,7 +178,6 @@ const bleedGrid: ImpositionInput = {
   cell: { width: 20, height: 20 },
   margin: { top: 5, right: 5, bottom: 5, left: 5 },
   gap: { column: 6, row: 6 },
-  bleed: 2,
 }
 
 export const bleedGridImposition = bleedGrid
@@ -191,6 +191,7 @@ export const growingFixedPages: DocumentInput[] = [70, 170].map((shade) => ({
   type: 'document',
   kind: 'page',
   size: { width: 200, height: 'auto' },
+  print: { paper: { width: 20, height: 20, unit: 'mm' }, bleed: 2 },
   children: [
     { type: 'page', body: { html: `<!doctype html><html style="margin:0;background:rgb(${shade},${shade},${shade})"><body style="margin:0"></body></html>` } },
   ],
@@ -226,7 +227,6 @@ export const growingFixedImposition: ImpositionInput = {
   cell: { width: 20, height: 20 },
   margin: { top: 2, right: 2, bottom: 2, left: 2 },
   gap: { column: 0, row: 0 },
-  bleed: 2,
 }
 
 const parentPages = {

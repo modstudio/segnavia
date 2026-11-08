@@ -57,10 +57,10 @@ describe('imposition', () => {
         cell: { width: 20, height: 100 },
         margin: { left: 7, right: 11 },
         gap: { column: 5 },
-        bleed: 20,
         dir: 'rtl',
       }),
       3,
+      { bleed: 20 },
     ).placements
     expect(placements[0]).toMatchObject({ column: 0, trim: { x: 69 }, bleed: { right: 11, left: 2.5 } })
     expect(placements[2]).toMatchObject({ column: 2, trim: { x: 19 }, bleed: { right: 2.5, left: 19 } })
@@ -76,9 +76,9 @@ describe('imposition', () => {
         cell: { width: 10, height: 10 },
         margin: { left: 1, right: 3 },
         gap: { column: 4, row: 0 },
-        bleed: 3,
       }),
       4,
+      { bleed: 3 },
     ).placements
     expect(placements[0]).toMatchObject({
       bleed: { top: 0, right: 2, bottom: 0, left: 1 },
@@ -192,7 +192,7 @@ describe('imposition', () => {
   test.each([
     [{ paper: { width: 100, height: 200, unit: 'mm' }, columns: 2, rows: 1, cell: { width: 51, height: 10 } }, ['102mm wide', '100mm wide', '2mm']],
     [{ paper: { width: 100, height: 100, unit: 'mm' }, columns: 1, rows: 2, cell: { width: 10, height: 51 } }, ['102mm high', '100mm high', '2mm']],
-    [{ paper: 'a4', columns: 1, rows: 1, cell: { width: 20, height: 30 }, safe: 10 }, ['10mm', '20mm wide']],
+    [{ paper: 'a4', columns: 1, rows: 1, cell: { width: 20, height: 30 }, safe: 10 }, ["Document's print.safe"]],
     [{ paper: 'a4', columns: 2, rows: 2, cell: { width: 20, height: 30 }, skip: 4 }, ['skip is 4', '4 cells', 'less than 4']],
   ])('refuses invalid grid geometry with the offending numbers', (input, messages) => {
     const result = Imposition.safeParse(input)

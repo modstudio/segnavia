@@ -272,7 +272,7 @@ async function imposedDeckPdf(
   diagramScript?: string,
 ): Promise<Uint8Array> {
   const baseCss = containFixedPageOverflow(services.fontFaces(opts))
-  const imposed = impose(imposition, deck.slides.length)
+  const imposed = impose(imposition, deck.slides.length, deck.print)
   const marks = impositionMarks(imposition)
   const fontFailures = services.fontFailures ?? []
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
@@ -291,7 +291,7 @@ async function imposedDeckPdf(
                 dependencyOrigins: opts.dependencyOrigins,
                 diagramScript,
               })
-            : printableDeckValue(single, { ...opts, layout: 'slides', imposition: undefined, baseCss, diagramScript })
+            : printableDeckValue({ ...single, print: undefined }, { ...opts, layout: 'slides', imposition: undefined, baseCss, diagramScript })
         const bytes = await services.renderPdf(
           {
             viewport: deck.size,
@@ -341,7 +341,7 @@ async function imposedDeckPdf(
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
   let pressSettings: ReturnType<typeof deckPressSettings>
   try {
-    pressSettings = deckPressSettings(deck.size, opts)
+    pressSettings = deckPressSettings(deck, opts)
   } catch (error) {
     if (error instanceof RangeError) throw new RenderRefusedError(error.message)
     throw error

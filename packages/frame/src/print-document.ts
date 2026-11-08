@@ -33,7 +33,7 @@ import {
   resolvePageHtml,
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
-import { type DeckSheetGeometry, type DeckSheetPrint, deckPressSettings } from './deck-press.ts'
+import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
@@ -106,7 +106,6 @@ export interface PrintOptions {
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
   notesPaper?: PrintInput
-  sheet?: DeckSheetPrint
   imposition?: ImpositionInput
   // Document title for the print dialog and saved PDF. Defaults to the deck
   // title; an empty value omits the tag.
@@ -210,7 +209,7 @@ function printableSlideSheets(deck: Deck, options: PrintOptions, geometry: DeckS
 }
 
 export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
-  const press = deckPressSettings(deck.size, options)
+  const press = deckPressSettings(deck, options)
   if (options.imposition) {
     return printableDeckValueDocument(deck, { ...options, imposition: options.imposition }).html
   }
@@ -290,12 +289,12 @@ export function printableDeckDocument(input: DocumentInput, options: PrintOption
 }
 
 export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
-  deckPressSettings(deck.size, options)
+  deckPressSettings(deck, options)
   if (options.layout === 'notes') {
     throw new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
   const imposition = Imposition.parse(options.imposition)
-  const imposed = impose(imposition, deck.slides.length)
+  const imposed = impose(imposition, deck.slides.length, deck.print)
   const placementBody = (paper: number, side: 'front' | 'back') =>
     imposed.placements
       .filter((placement) => placement.paper === paper && placement.side === side)
@@ -321,7 +320,7 @@ export function printableDeckValueDocument(deck: Deck, options: PrintOptions & {
 function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
   const fit = fitPage(page, placement, imposition.fit, options.pageWidths)
   const layout = pagePlacementLayout(page.size, placement, fit)
-  const properties = printProperties(imposition, imposition.unit)
+  const properties = page.print ? printProperties(page.print) : ''
   const padding = layout.inset ? printPadding(placement.bleed) : ''
   const nonce = options.nonce ?? newNonce()
   const srcdoc = frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
@@ -389,7 +388,7 @@ export function printablePageValuesDocument(pages: Page[], imposition: Impositio
 export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
-  const imposed = impose(imposition, pages.length)
+  const imposed = impose(imposition, pages.length, pages[0]?.print)
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.
   const bodies = imposedPaperBodies(imposed, (paper, side) => printablePaper(pages, imposition, imposed, paper, options, side))

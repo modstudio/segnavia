@@ -48,7 +48,12 @@ export function assertPrintOptions(print: Print, preferCssPageSize: boolean | un
   }
 }
 
-export async function addPressBoxes(pdf: Uint8Array, boxes: PrintBoxes, markColor: MarkColor = 'black'): Promise<Uint8Array> {
+export async function addPressBoxes(
+  pdf: Uint8Array,
+  boxes: PrintBoxes,
+  markColor: MarkColor = 'black',
+  sourceBox: 'bleed' | 'trim' = 'bleed',
+): Promise<Uint8Array> {
   const document = await loadPdf(pdf)
   const bleedBox = pdfBox(boxes.bleedBox, boxes.media.height)
   const trimBox = pdfBox(boxes.trim, boxes.media.height)
@@ -56,7 +61,8 @@ export async function addPressBoxes(pdf: Uint8Array, boxes: PrintBoxes, markColo
   for (const source of sources) {
     const content = await document.embedPage(source)
     const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
-    page.drawPage(content, pressContentPlacement({ width: source.getWidth(), height: source.getHeight() }, bleedBox))
+    const target = sourceBox === 'trim' ? trimBox : bleedBox
+    page.drawPage(content, pressContentPlacement({ width: source.getWidth(), height: source.getHeight() }, target))
     page.node.delete(PDFName.of('CropBox'))
     page.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
     page.setTrimBox(trimBox.x, trimBox.y, trimBox.width, trimBox.height)

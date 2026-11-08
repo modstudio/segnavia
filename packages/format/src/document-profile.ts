@@ -1,5 +1,8 @@
 export const DOCUMENT_PROFILES = {
   book: {
+    printShape: 'press',
+    printTrim: "a book's trim is page.paper",
+    printTrimSource: 'bookPage',
     children: ['division', 'part', 'section', 'flow', 'page', 'placed', 'contents', 'record'],
     definitions: ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'],
     settingsDir: ['ltr', 'rtl', 'auto'],
@@ -32,9 +35,13 @@ export const DOCUMENT_PROFILES = {
       'fragmentation',
       'runningHead',
       'limits',
+      'print',
     ],
   },
   printed: {
+    printShape: 'paper',
+    printTrim: "a printed page's trim is its paper",
+    printTrimSource: 'print',
     children: ['page'],
     definitions: ['parentPages', 'variables', 'conditions'],
     settingsDir: ['ltr', 'rtl', 'auto'],
@@ -52,6 +59,9 @@ export const DOCUMENT_PROFILES = {
     fields: ['brand', 'settings', 'style', 'data', 'size', 'print', 'numbering', 'fragmentation', 'rules', 'limits'],
   },
   deck: {
+    printShape: 'press',
+    printTrim: "a deck's trim is its slide size",
+    printTrimSource: 'deckSize',
     children: ['slide'],
     definitions: ['conditions'],
     settingsDir: ['ltr', 'rtl', 'auto'],
@@ -66,9 +76,12 @@ export const DOCUMENT_PROFILES = {
     pageFields: [],
     numbering: null,
     canonicalChildren: null,
-    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'data', 'size', 'layout', 'fit', 'frame', 'transition', 'playback', 'captions', 'limits'],
+    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'data', 'size', 'print', 'layout', 'fit', 'frame', 'transition', 'playback', 'captions', 'limits'],
   },
   page: {
+    printShape: 'paper',
+    printTrim: "a page's trim is its paper",
+    printTrimSource: 'print',
     children: ['page'],
     definitions: ['conditions'],
     settingsDir: ['ltr', 'rtl', 'auto'],
@@ -86,6 +99,9 @@ export const DOCUMENT_PROFILES = {
     fields: ['brand', 'settings', 'style', 'data', 'size', 'print', 'limits'],
   },
   board: {
+    printShape: 'none',
+    printTrim: 'a board has no printed piece to trim',
+    printTrimSource: null,
     children: ['item', 'label', 'boardSection'],
     definitions: ['conditions'],
     settingsDir: ['ltr', 'rtl'],
@@ -100,7 +116,7 @@ export const DOCUMENT_PROFILES = {
     pageFields: [],
     numbering: null,
     canonicalChildren: ['item', 'label', 'boardSection'],
-    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'limits'],
+    fields: ['metadata', 'title', 'brand', 'settings', 'style', 'print', 'limits'],
   },
 } as const
 

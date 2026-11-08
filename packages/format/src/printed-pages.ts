@@ -205,11 +205,5 @@ export function pagePrintedPagesIssues(page: {
   }
   if (page.print?.margin)
     issues.push({ path: ['print', 'margin'], message: 'printedPages and print.margin both own the margins; remove print.margin to clear this refusal' })
-  if (page.print && (page.print.bleed > 0 || page.print.marks)) {
-    issues.push({
-      path: ['print'],
-      message: 'printedPages could not establish one composed paper with bleed or marks; remove bleed and marks to clear this refusal',
-    })
-  }
   return issues
 }

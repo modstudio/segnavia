@@ -345,7 +345,7 @@ export {
 export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
 export { PlacementRefusedError } from './placement-refusal.ts'
 export { PaginatePageMarks, PaginatePageNote, PaginateWindow, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
-export { MarkColor, Print, type PrintInput } from './print.ts'
+export { MarkColor, PressGeometry, type PressGeometryInput, pressSafeAreaIssues, Print, type PrintInput } from './print.ts'
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'
 export { Scripts } from './scripts.ts'

@@ -263,6 +263,18 @@ const renderer = await openRenderer({ executablePath: '/usr/bin/chromium', concu
 const pdf = await renderer.deckPdf(deck, { layout: 'notes', limits: { sheets: 600 } })
 ```
 
+A Document sent to a printer carries its bleed and marks in `print`: each page, slide or composed page is the trim, and its PDF writes trim and bleed boxes and crop marks.
+
+```ts
+const deck = {
+  type: 'document',
+  kind: 'deck',
+  title: 'Quarterly review',
+  print: { bleed: 3, marks: true },
+  children: [{ type: 'slide', id: 'opening', content: { kind: 'html', html: '<h1>Quarterly review</h1>' } }],
+}
+```
+
 An HTML slide may set `printAtMs` to choose the millisecond at which its CSS
 and Web Animations are frozen for `printDeck` and `deckPdf`; printing defaults
 to the slide's start at 0 ms. Scripted slides can listen for

@@ -14,16 +14,8 @@ const deck = Deck.parse({
     { id: 'image-slide', content: { kind: 'image', src: 'image.png', alt: 'Image' } },
   ],
 })
-
-const imposition = {
-  paper: { width: 120, height: 80, unit: 'mm' as const },
-  orientation: 'landscape' as const,
-  columns: 2,
-  rows: 1,
-  cell: { width: 40, height: 60 },
-  margin: { top: 10, right: 15, bottom: 10, left: 15 },
-  gap: { column: 10, row: 0 },
-}
+const pressedDeck = Deck.parse({ ...deck, print: { bleed: 3, marks: true } })
+const bleedDeck = Deck.parse({ ...deck, print: { bleed: 3 } })
 
 async function requestedPdf(html: string, pdf: Parameters<Tab['pdf']>[0]): Promise<Uint8Array> {
   const millimeters = (value: string | number | undefined, fallback: number) =>
@@ -43,7 +35,7 @@ const services = {
 }
 
 test('deck sheet bleed writes press boxes on every slide at the 96 dpi trim', async () => {
-  const pages = (await PDFDocument.load(await renderDeckPdf(deck, { sheet: { bleed: 3 } }, services))).getPages()
+  const pages = (await PDFDocument.load(await renderDeckPdf(bleedDeck, {}, services))).getPages()
   expect(pages).toHaveLength(2)
   for (const page of pages) {
     expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
@@ -58,7 +50,7 @@ test('deck sheet bleed writes press boxes on every slide at the 96 dpi trim', as
 })
 
 test('deck crop marks are drawn on every slide sheet', async () => {
-  const bytes = await renderDeckPdf(deck, { sheet: { bleed: 3, marks: true } }, services)
+  const bytes = await renderDeckPdf(pressedDeck, {}, services)
   const pages = (await PDFDocument.load(bytes)).getPages()
   expect(pages).toHaveLength(2)
   for (let index = 0; index < pages.length; index++) {
@@ -74,8 +66,8 @@ test('plain deck sheets have no press boxes', async () => {
   }
 })
 
-test('notesPaper bleed writes press boxes on every notes sheet', async () => {
-  const pages = (await PDFDocument.load(await renderDeckPdf(deck, { layout: 'notes', notesPaper: { paper: 'letter', bleed: 3 } }, services))).getPages()
+test('deck print writes press boxes on every notes sheet', async () => {
+  const pages = (await PDFDocument.load(await renderDeckPdf(pressedDeck, { layout: 'notes', notesPaper: { paper: 'letter' } }, services))).getPages()
   expect(pages).toHaveLength(2)
   for (const page of pages) {
     expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
@@ -83,16 +75,13 @@ test('notesPaper bleed writes press boxes on every notes sheet', async () => {
   }
 })
 
-test('deck press settings refuse incompatible options before rendering', async () => {
-  await expect(renderDeckPdf(deck, { sheet: { bleed: 3 }, imposition }, services)).rejects.toThrow('Remove sheet, or remove imposition')
-  await expect(renderDeckPdf(deck, { sheet: { bleed: 3 }, layout: 'notes' }, services)).rejects.toThrow('use notesPaper')
-  await expect(renderDeckPdf(deck, { sheet: { bleed: 3 }, preferCssPageSize: true }, services)).rejects.toThrow('Remove preferCssPageSize')
+test('deck press settings refuse removed and incompatible options before rendering', async () => {
+  await expect(renderDeckPdf(deck, { sheet: { bleed: 3 } } as never, services)).rejects.toThrow("deck Document's print")
+  await expect(renderDeckPdf(pressedDeck, { preferCssPageSize: true }, services)).rejects.toThrow('Remove preferCssPageSize')
 })
 
-test('invalid deck press values name the setting and remedy', async () => {
-  await expect(renderDeckPdf(deck, { sheet: { bleed: -1 } }, services)).rejects.toThrow('Correct sheet.bleed, or remove sheet')
-  await expect(renderDeckPdf(deck, { sheet: { markColor: 'registration' } }, services)).rejects.toThrow('Correct sheet.markColor, or remove sheet')
+test('notesPaper refuses press fields in favor of the deck Document', async () => {
   await expect(renderDeckPdf(deck, { layout: 'notes', notesPaper: { paper: 'letter', bleed: -1 } }, services)).rejects.toThrow(
-    'Correct notesPaper.bleed, or remove notesPaper',
+    "deck Document's print",
   )
 })

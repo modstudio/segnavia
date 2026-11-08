@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TextDirection } from './direction.ts'
 import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
-import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
+import { refuseOverflow } from './imposition-fit.ts'
 import { PhysicalMargin } from './margins.ts'
 import { Orientation, Paper, PaperUnit, sheetMm, toMillimeters } from './paper.ts'
 import { MarkColor } from './print.ts'
@@ -23,8 +23,8 @@ export const Imposition = z
     rows: z.number().int().positive().optional(),
     cell: z.object({ width: z.number().positive().optional(), height: z.number().positive() }),
     gap: ImpositionGap.default({ column: 0, row: 0 }),
-    bleed: z.number().nonnegative().default(0),
-    safe: z.number().nonnegative().default(0),
+    bleed: z.never({ message: "imposition.bleed was removed; set the Document's print.bleed to clear this refusal" }).optional(),
+    safe: z.never({ message: "imposition.safe was removed; set the Document's print.safe to clear this refusal" }).optional(),
     fit: z.enum(['contain', 'cover']).default('contain'),
     fill: z.enum(['sequence', 'repeat']).default('sequence'),
     sides: z.enum(['one', 'two']).optional(),
@@ -88,7 +88,6 @@ export const Imposition = z
       imposition.margin.top + imposition.rows * imposition.cell.height + (imposition.rows - 1) * imposition.gap.row + imposition.margin.bottom,
     )
     refuseOverflow(ctx, paper, { width: gridWidth, height: gridHeight })
-    refuseSafe(ctx, mm(imposition.safe), { width: mm(imposition.cell.width), height: mm(imposition.cell.height) })
     const cells = imposition.columns * imposition.rows
     if (imposition.skip >= cells) {
       ctx.addIssue({ code: 'custom', path: ['skip'], message: `skip is ${imposition.skip}, but the grid has ${cells} cells; skip must be less than ${cells}` })

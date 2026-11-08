@@ -4,6 +4,7 @@ import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
 import { type Limits, limitRefusal } from './limits.ts'
 import { Placement, PlacementShape } from './placement.ts'
+import { PressGeometry } from './print.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
@@ -136,6 +137,7 @@ export const DeckShape = z.object({
   captions: z.enum(['on', 'off', 'viewer']).optional(),
   slots: Slots.optional(),
   style: StyleSheet.optional(),
+  print: PressGeometry.optional(),
   slides: z.array(Slide).min(1),
 })
 

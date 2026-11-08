@@ -168,7 +168,7 @@ export async function preparedDeckValuePrint(
   options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
   signal: AbortSignal = AbortSignal.any([]),
 ): Promise<PrintFrameOptions> {
-  deckPressSettings(deck.size, options)
+  deckPressSettings(deck, options)
   const resolvedDeck = await resolveDeckMedia(deck, options.placements, 'print', signal)
   const refusal = slotFillRefusal(resolvedDeck.scripts, resolvedDeck.slots, options.slots)
   if (refusal) throw refusal
@@ -193,7 +193,6 @@ export async function preparedDeckValuePrint(
   }
   const browserOptions = {
     ...printOptions,
-    sheet: undefined,
     notesPaper: printOptions.notesPaper ? { ...printOptions.notesPaper, bleed: undefined, safe: undefined, marks: undefined, markColor: undefined } : undefined,
   }
   return { ...resolvedDeck.size, html: printableDeckValue(preparedDeck, browserOptions), ...options, slots: resolvedSlots }
@@ -265,7 +264,7 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
   const signal = new AbortController().signal
   const document = parseDocument(input, { newId: options.newId })
   const deck = deckFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
-  deckPressSettings(deck.size, options)
+  deckPressSettings(deck, options)
   options = { ...options, limits: parseLimits(options.limits, 'host') }
   const reasons = exceedsLimits(deck, options.limits ?? {})
   if (reasons.length > 0) throw new RangeError(reasons.join('; '))

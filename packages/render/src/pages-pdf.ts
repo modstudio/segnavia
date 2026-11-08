@@ -35,11 +35,10 @@ async function composedPdf(
   services: PagesPdfServices,
   frameIndexes: readonly number[] = pages.map((_, index) => index),
 ): Promise<Uint8Array> {
-  const imposed = impose(imposition, pages.length)
+  const imposed = impose(imposition, pages.length, pages[0]?.print)
   const marks = impositionMarks(imposition)
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
-  const properties = printProperties(imposition, imposition.unit)
   const baseCss = services.fontFaces(opts)
   const rendered = await Promise.all(
     groups.map(async (group) => {
@@ -48,7 +47,7 @@ async function composedPdf(
       const frameIndex = frameIndexes[group.page]
       if (!page || !first || frameIndex === undefined) throw new Error(`The piece for page ${group.page} has no placement.`)
       const geometry = pieceGeometry(first)
-      const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
+      const css = `${page.print ? printProperties(page.print) : ''}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
       try {
         return {
           group,
