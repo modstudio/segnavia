@@ -1,11 +1,11 @@
-import { BookView, type BookViewInput, type Scripts } from '@segnavia/format'
+import { BookView, type BookViewInput, type FontFailure, type Scripts } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import * as bookElement from './book-element-support.ts'
 import { bookFrame } from './book-frame.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { BookSourcesElement } from './book-sources.ts'
-import { frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
+import { dispatchFontFailures, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 import { upgradeProperties } from './element-properties.ts'
 
@@ -258,11 +258,12 @@ export class SegnaviaBook extends BookSourcesElement {
     return frame
   }
 
-  private mountFrames(view: BookView, css: string | undefined) {
+  private mountFrames(view: BookView, css: string | undefined, fontFailures: FontFailure[] = []) {
     const layout = this.currentLayout
     this.dropFrame()
     this.preparedView = view
     this.resolvedFontCss = css
+    if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
       this.replaceChildren(
         this.mountFrame(bookFrame(view, { css, layout: 'pages', dependencyOrigins: this.dependencyOrigins, diagramScript: this.diagramDrawing.script })),
@@ -324,7 +325,7 @@ export class SegnaviaBook extends BookSourcesElement {
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions) {
       try {
         const prepared = prepareBookViewWithoutSources(view)
-        this.mountFrames(prepared.view, prepared.css)
+        this.mountFrames(prepared.view, prepared.css, prepared.failures)
       } catch (reason) {
         this.preparedView = null
         bookElement.reportBookError(this, reason)
@@ -338,7 +339,7 @@ export class SegnaviaBook extends BookSourcesElement {
     void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
       .then((result) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.mountFrames(result.view, result.css)
+        this.mountFrames(result.view, result.css, result.failures)
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return

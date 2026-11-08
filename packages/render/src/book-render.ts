@@ -1,4 +1,4 @@
-import { type Book, KEEP_WITH_CUSTOM_PROPERTY, type Limits, Plan, PX_PER_MM, resolveDirection, type Plan as SavedPlan, sheetMm } from '@segnavia/format'
+import { type Book, type FontFailure, KEEP_WITH_CUSTOM_PROPERTY, type Limits, Plan, PX_PER_MM, resolveDirection, type Plan as SavedPlan, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
   BOOK_FAILURE_ATTRIBUTE,
@@ -10,6 +10,7 @@ import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
+import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type DependencyCache, dependencySetup, type RenderOptions } from './options.ts'
@@ -39,6 +40,8 @@ interface TabSetup {
   slots?: PreparedSlots
   dependencyOrigins?: Iterable<string>
   dependencies?: DependencyCache
+  fontFailures?: FontFailure[]
+  fontLoadReport?: (report: { failures: FontFailure[] }) => void
 }
 
 export interface BrowserBookDependencies {
@@ -146,6 +149,7 @@ async function printBook(
   layerCss: string,
   resolvedFontCss: string,
   diagramScript: string | undefined,
+  fontFailures: FontFailure[],
   dependencies: BrowserBookDependencies,
 ): Promise<PrintResult<true>> {
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
@@ -167,6 +171,7 @@ async function printBook(
   const setup: TabSetup = paginated
     ? {
         ...paginatedBookTabSetup(book, srcdoc, slots, renderOptions),
+        ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
         beforeOutput: async (tab) => {
           await awaitBookComposition(tab)
           await renderOptions.beforeOutput?.(tab)
@@ -181,6 +186,7 @@ async function printBook(
         boundMs: renderOptions.boundMs,
         beforeOutput: renderOptions.beforeOutput,
         ...dependencySetup(renderOptions),
+        ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
       }
   return dependencies.render(
     setup,
@@ -195,7 +201,13 @@ async function printBook(
   )
 }
 
-export function renderBrowserBookPdf(book: Book, options: BookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export function renderBrowserBookPdf(
+  book: Book,
+  options: BookPdfOptions,
+  fontCss: string,
+  dependencies: BrowserBookDependencies,
+  fontFailures: FontFailure[] = [],
+): Promise<Uint8Array> {
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
@@ -203,7 +215,7 @@ export function renderBrowserBookPdf(book: Book, options: BookPdfOptions, fontCs
   return renderBookPdf(book, options, {
     print: async (html, book, slots, renderOptions, part, layerCss = '') => {
       script ??= resolveDiagramScript(bookDocument(book).html)
-      return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies)
+      return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, fontFailures, dependencies)
     },
     finish: dependencies.finish,
   })
@@ -214,6 +226,7 @@ export async function renderBrowserBookPlan(
   options: BookPlanOptions,
   fontCss: string,
   withTab: (setup: TabSetup, body: (tab: Tab) => Promise<SavedPlan>) => Promise<SavedPlan>,
+  fontFailures: FontFailure[] = [],
 ): Promise<SavedPlan> {
   if (input.mode !== 'paginated') {
     throw new RenderRefusedError('bookPlan needs a paginated book; set mode to paginated to clear this refusal')
@@ -229,13 +242,19 @@ export async function renderBrowserBookPlan(
       breaks: options.breaks,
     }),
   )
-  return withTab(paginatedBookTabSetup(book, srcdoc, slotsForDocument(slots, [bookSlotFrames(book).all]), options), async (tab) => {
-    await awaitBookComposition(tab)
-    const text = await tab.evaluate(lastBookPlanText)
-    try {
-      return Plan.parse(JSON.parse(text ?? 'null'), { limits: options.limits })
-    } catch (error) {
-      throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-    }
-  })
+  return withTab(
+    {
+      ...paginatedBookTabSetup(book, srcdoc, slotsForDocument(slots, [bookSlotFrames(book).all]), options),
+      ...fontLoadSetup(fontFailures, options.fontLoad?.report),
+    },
+    async (tab) => {
+      await awaitBookComposition(tab)
+      const text = await tab.evaluate(lastBookPlanText)
+      try {
+        return Plan.parse(JSON.parse(text ?? 'null'), { limits: options.limits })
+      } catch (error) {
+        throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
+      }
+    },
+  )
 }

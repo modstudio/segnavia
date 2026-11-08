@@ -2,7 +2,7 @@ import { type FontFailure, pageDirection } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { HtmlPage, PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
-import type { BrowserTabSetup } from './browser-tab.ts'
+import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { dependencySetup, type RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
@@ -43,8 +43,7 @@ export async function renderPagePdf(
       deadline,
       beforeOutput: opts.beforeOutput,
       ...dependencySetup(opts),
-      fontFailures,
-      fontLoadReport: opts.fontLoad?.report,
+      ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
     },
     async (tab) => {
       await awaitPrintedPageComposition(tab, page)

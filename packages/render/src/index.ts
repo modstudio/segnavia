@@ -29,7 +29,7 @@ import {
   type RenderOptions,
 } from './options.ts'
 import { printWithOverflow } from './overflow.ts'
-import { prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
+import { prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts, renderOptionsWithFontManifest } from './page-document.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
@@ -205,7 +205,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const document = parseDocument(input, { newId: opts.newId })
         const expanded = await expandFrameBookValue(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
-        const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
+        const { options, fontCss: resolvedFontCss, fontFailures } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
           render: (setup, pdf, pageWidth, part) =>
             withTab({ ...setup, deadline }, async (tab) => {
@@ -215,7 +215,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             }),
           fontFaces: (options) => fontFaces(options.fonts),
           finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
-        })
+        }, fontFailures)
       })
     },
     async bookPlan(input, opts = {}) {
@@ -223,9 +223,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const document = parseDocument(input, { newId: opts.newId })
         const expanded = await expandFrameBookValue(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
-        const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
+        const { options, fontCss: resolvedFontCss, fontFailures } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPlan(expanded.book, options, `${resolvedFontCss}${fontFaces(options.fonts)}`, (setup, body) =>
           withTab({ ...setup, deadline }, body),
+          fontFailures,
         )
       })
     },
@@ -312,6 +313,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const deck = deckFromDocument(parseDocument(input, { newId: opts.newId }))
       enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const resolvedFonts = await renderOptionsWithFontManifest(deck.style?.fonts, [], `deck ${JSON.stringify(deck.title)}`, opts, deadline.signal)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const { value: prepared, slots } = await filledDeck(deck, copySlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(
@@ -319,7 +321,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           )
           return renderDeckPdf(
             prepared,
-            { ...opts, limits: copyLimits(opts.limits, opts.slots), press: undefined },
+            { ...resolvedFonts.options, limits: copyLimits(opts.limits, opts.slots), press: undefined },
             {
               renderPdf: (setup, pdf, frames) =>
                 withTab(
@@ -334,9 +336,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   },
                   (tab) => pdfWithBackdropRasters(tab, pdf, opts.effects),
                 ),
-              fontFaces: (options) => fontFaces(options.fonts),
+              fontFaces: (options) => `${resolvedFonts.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
               signal: deadline.signal,
+              fontFailures: resolvedFonts.fontFailures,
             },
             diagramScript,
           )
@@ -355,10 +358,17 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const slide = preparedDeck.slides[index]
         if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
         const single: Deck = { ...preparedDeck, slides: [slide] }
+        const resolvedFonts = await renderOptionsWithFontManifest(
+          preparedDeck.style?.fonts,
+          [],
+          `deck ${JSON.stringify(preparedDeck.title)}`,
+          opts,
+          deadline.signal,
+        )
         const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
         const diagramScript = await resolveDiagramScript(slideHtml)
         const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false)
-        const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
+        const css = `${resolvedFonts.fontCss}${fontFaces(opts.fonts)}${opts.css ?? ''}`
         const html = printableDeckValue(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins, diagramScript })
         return withTab(
           {
@@ -372,6 +382,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             deadline,
             beforeOutput: opts.beforeOutput,
             ...dependencySetup(opts),
+            ...fontLoadSetup(resolvedFonts.fontFailures, opts.fontLoad?.report),
           },
           async (tab) => {
             await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)

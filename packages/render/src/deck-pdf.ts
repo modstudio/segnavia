@@ -1,5 +1,6 @@
 import {
   type Deck,
+  type FontFailure,
   fitPage,
   type ImageFit,
   Imposition,
@@ -26,6 +27,7 @@ import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { type DependencyCache, dependencySetup } from './options.ts'
+import { fontLoadSetup } from './browser-tab.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { fontCssForRender } from './page-document.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
@@ -45,6 +47,8 @@ interface DeckPdfServices {
       beforeOutput?: (tab: Tab) => Promise<void>
       dependencyOrigins?: Iterable<string>
       dependencies?: DependencyCache
+      fontFailures?: FontFailure[]
+      fontLoadReport?: (report: { failures: FontFailure[] }) => void
     },
     pdf: Parameters<Tab['pdf']>[0],
     frames: readonly number[],
@@ -52,6 +56,7 @@ interface DeckPdfServices {
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
   signal?: AbortSignal
+  fontFailures?: FontFailure[]
 }
 
 async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<void> {
@@ -124,6 +129,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         resolveNotesFontCss(opts.notesFont, opts.fontSource ? { source: opts.fontSource } : undefined, services.signal ?? new AbortController().signal),
       )
     : undefined
+  const fontFailures = [...(services.fontFailures ?? []), ...(notesSheetFont?.failures ?? [])]
   let pageOwners: number[] = []
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
@@ -133,6 +139,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         html: printableDeckValue(deck, { ...opts, baseCss, notesSheetFont, omitHtmlSlideFrames: true, diagramScript }),
         boundMs: opts.boundMs,
         ...dependencySetup(opts),
+        ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)
           if (notesGeometry) {
@@ -168,6 +175,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
               }),
               boundMs: opts.boundMs,
               ...dependencySetup(opts),
+              ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
               beforeOutput: (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
             },
             {
@@ -211,6 +219,7 @@ async function imposedDeckPdf(
   const baseCss = containFixedPageOverflow(services.fontFaces(opts))
   const imposed = impose(imposition, deck.slides.length)
   const marks = impositionMarks(imposition)
+  const fontFailures = services.fontFailures ?? []
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const rendered = await Promise.all(
     deck.slides.map(async (slide, index) => {
@@ -235,6 +244,7 @@ async function imposedDeckPdf(
             html,
             boundMs: opts.boundMs,
             ...dependencySetup(opts),
+            ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
             beforeOutput:
               'kind' in slide.content && slide.content.kind === 'html'
                 ? (tab) => waitForPrintReady(tab, renderReadiness('refuse', diagrams, opts.waitForPageReady !== false))
