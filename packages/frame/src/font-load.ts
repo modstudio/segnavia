@@ -92,7 +92,17 @@ export function fontFailuresData(value: unknown): FontFailure[] | null {
     )
   )
     return null
-  return value as FontFailure[]
+  return value.map((raw) => {
+    const failure = raw as FontFailure
+    return {
+      font: failure.font,
+      family: failure.family,
+      ...(failure.weight === undefined ? {} : { weight: failure.weight }),
+      ...(failure.style === undefined ? {} : { style: failure.style }),
+      ...(failure.unicodeRange === undefined ? {} : { unicodeRange: failure.unicodeRange }),
+      reason: failure.reason,
+    }
+  })
 }
 
 export function fontFailuresAttribute(value: string | null): FontFailure[] {

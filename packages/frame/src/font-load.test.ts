@@ -27,6 +27,7 @@ describe('font load', () => {
     expect(fontFailuresData([valid, { ...valid, reason: 'other' }])).toBeNull()
     expect(fontFailuresData([{ ...valid, family: 'x'.repeat(257) }])).toBeNull()
     expect(fontFailuresData(Array.from({ length: 65 }, () => valid))).toBeNull()
+    expect(fontFailuresData([{ ...valid, extra: 'removed' }])).toEqual([valid])
   })
 
   test('attempts every declaration while bounding the report', async () => {
