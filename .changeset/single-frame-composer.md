@@ -3,4 +3,4 @@
 '@segnavia/frame': minor
 ---
 
-Compose books and printed pages with one measure, plan, and dress runtime. Replace the book and printed-page composer-script exports with `COMPOSER_SCRIPT`, and add optional block identity and forced-page-break measurements to `PaginateBlock`.
+Compose books and printed pages with one measure, plan, and dress runtime. Replace `BOOK_COMPOSER_SCRIPT` and `PRINTED_PAGE_COMPOSER_SCRIPT` with `COMPOSER_SCRIPT` and `composerScript`, and add optional `PaginateBlock.id` and `PaginateBlock.breakBefore` measurements.

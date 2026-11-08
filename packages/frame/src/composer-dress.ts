@@ -5,6 +5,17 @@ export interface FurnitureValues {
   total?: string
 }
 
+export function dressPlanPages<T>(plan: { pages: T[] }, only: number | null | undefined, place: (pages: HTMLElement, page: T, index: number) => void): HTMLElement {
+  const pages = document.createElement('div')
+  pages.setAttribute('data-segnavia-pages', '')
+  for (let index = 0; index < plan.pages.length; index += 1) {
+    if (only !== null && only !== undefined && only !== index + 1) continue
+    const page = plan.pages[index]
+    if (page) place(pages, page, index)
+  }
+  return pages
+}
+
 export function fillFurniture(
   root: Element,
   html: string,

@@ -93,6 +93,11 @@
       "types": "./dist/book-document.d.ts",
       "default": "./dist/book-document.js"
     },
+    "./composer": {
+      "@segnavia/source": "./src/composer.ts",
+      "types": "./dist/composer.d.ts",
+      "default": "./dist/composer.js"
+    },
     "./motifs": {
       "@segnavia/source": "./src/motif-expansion.ts",
       "types": "./dist/motif-expansion.d.ts",

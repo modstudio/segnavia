@@ -99,10 +99,9 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       const linePages = [[], [], []] as number[][]
       for (const [pageIndex, frame] of frames.entries()) {
         const visibleLines = await frame.evaluate(() => {
-          const view = document.querySelector<HTMLElement>('[data-segnavia-page-view]')
-          if (!view) return []
-          const clip = view.getBoundingClientRect()
-          return [...view.querySelectorAll<HTMLElement>('[data-fragmentation-line]')].flatMap((line) => {
+          return [...document.querySelectorAll<HTMLElement>('[data-segnavia-window] [data-fragmentation-line]')].flatMap((line) => {
+            const clip = line.closest<HTMLElement>('[data-segnavia-window]')?.getBoundingClientRect()
+            if (!clip) return []
             const rect = line.getBoundingClientRect()
             const visibleBlock = Math.min(rect.bottom, clip.bottom) - Math.max(rect.top, clip.top)
             const visibleInline = Math.min(rect.right, clip.right) - Math.max(rect.left, clip.left)
@@ -126,10 +125,9 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       const markerPages: Record<string, number[]> = {}
       for (const [pageIndex, frame] of frames.entries()) {
         const visibleMarkers = await frame.evaluate(() => {
-          const view = document.querySelector<HTMLElement>('[data-segnavia-page-view]')
-          if (!view) return []
-          const clip = view.getBoundingClientRect()
-          return [...view.querySelectorAll<HTMLElement>('[data-fragmentation-marker]')].flatMap((marker) => {
+          return [...document.querySelectorAll<HTMLElement>('[data-segnavia-window] [data-fragmentation-marker]')].flatMap((marker) => {
+            const clip = marker.closest<HTMLElement>('[data-segnavia-window]')?.getBoundingClientRect()
+            if (!clip) return []
             const rect = marker.getBoundingClientRect()
             const visibleBlock = Math.min(rect.bottom, clip.bottom) - Math.max(rect.top, clip.top)
             const visibleInline = Math.min(rect.right, clip.right) - Math.max(rect.left, clip.left)

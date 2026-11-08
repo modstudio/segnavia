@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { paginateBook } from './paginate-book.ts'
 import { block, flow, input } from './paginate-book.test-helper.ts'
+import { paginateBook } from './paginate-book.ts'
 
 test('starts a new page before a forced-break block', () => {
   const result = paginateBook(
