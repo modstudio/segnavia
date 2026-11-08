@@ -40,6 +40,7 @@ function hashTargets(document: BookDocument): string[] {
   const hidden = /<div class="segnavia-targets"[^>]*>([\s\S]*?)<\/div>/.exec(document.html)?.[1] ?? ''
   return [...new Set([...hidden.matchAll(/href="#([^"]+)"/g)].map((match) => match[1] as string))]
 }
+
 const pageReferencePattern = new RegExp(`<a\\b[^>]*\\b${PAGE_REFERENCE_ATTRIBUTE}="${PAGE_REFERENCE_VALUE}"`)
 const hasPageReferences = (document: BookDocument) => pageReferencePattern.test(document.html)
 
@@ -51,6 +52,7 @@ function requireTargets(part: PrintedPart, expected: string[]): void {
     )
   }
 }
+
 const sectionsFor = (sections: BookSectionInfo[], part: 'front' | 'body') => sections.filter((section) => bookPrintPart(section.division) === part)
 
 function planBlanks(sections: BookSectionInfo[], destinations: Map<string, BookDestination>) {
@@ -70,6 +72,7 @@ function planBlanks(sections: BookSectionInfo[], destinations: Map<string, BookD
   }
   return { ids, predicted }
 }
+
 function verifyStarts(label: string, sections: BookSectionInfo[], expected: Map<string, number>, actual: Map<string, BookDestination>): void {
   for (const section of sections) {
     const predicted = expected.get(section.id)
@@ -87,6 +90,7 @@ async function appendBlank(part: PrintedPart): Promise<PrintedPart> {
   document.addPage([last.getWidth(), last.getHeight()])
   return { ...part, bytes: await document.save(), pages: part.pages + 1 }
 }
+
 function marginFactsFor(
   sections: BookSectionInfo[],
   destinations: Map<string, BookDestination>,
@@ -113,6 +117,7 @@ function marginFactsFor(
     }
   })
 }
+
 function destinationOwner(id: string, destination: BookDestination, sections: BookSectionInfo[], destinations: Map<string, BookDestination>): string {
   const owner = sections
     .flatMap((section) => {
@@ -123,6 +128,7 @@ function destinationOwner(id: string, destination: BookDestination, sections: Bo
     .at(-1)?.section
   return owner ? `${owner.title ?? owner.id} (${owner.id})` : id
 }
+
 export type FrontPrintStatus = { status: 'more' } | { status: 'stable' } | { status: 'refused'; message: string }
 
 export function frontPrintStatus(prints: Map<string, BookDestination>[], ids: string[], sections: BookSectionInfo[]): FrontPrintStatus {

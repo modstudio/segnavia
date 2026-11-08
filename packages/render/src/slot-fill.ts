@@ -72,10 +72,12 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
     ? {
         ...deck,
         slides: deck.slides.map((slide) => {
+          const html = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
+          // One application per slide keeps prepared.frames aligned with slide indices for slotsForFrames.
+          const filledHtml = prepared.apply(html)
           if ('kind' in slide.content && slide.content.kind === 'html') {
-            return { ...slide, content: { ...slide.content, html: prepared.apply(slide.content.html) } }
+            return { ...slide, content: { ...slide.content, html: filledHtml } }
           }
-          prepared.apply('')
           return slide
         }),
       }

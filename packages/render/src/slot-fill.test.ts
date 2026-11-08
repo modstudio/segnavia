@@ -132,6 +132,22 @@ test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor hos
   expect(filledDeckResult.slides[0]?.content).toEqual({ kind: 'html', html: '<p dir="auto">Filled by host</p>' })
 })
 
+test('filledDeck aligns slot measurement frames with non-HTML slides', async () => {
+  const deck = Deck.parse({
+    title: 'Aligned slot frames',
+    size: { width: 400, height: 200 },
+    slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
+    slides: [
+      { id: 'image', content: { kind: 'image', src: 'image.png', alt: 'Image' } },
+      { id: 'html', content: { kind: 'html', html: '<p data-slot-value="name">Name</p>' } },
+    ],
+  })
+
+  const { slots: prepared } = await filledDeck(deck, { fill: { id: 'host', values: { name: 'Ada' } } })
+
+  expect(prepared.frames.map((frame) => [...frame])).toEqual([[], [['name', 1]]])
+})
+
 test('asset resolution receives the render abort signal', async () => {
   const controller = new AbortController()
   let received: AbortSignal | undefined
