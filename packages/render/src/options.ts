@@ -121,6 +121,7 @@ export function innerLimits(limits: Limits | undefined): Limits | undefined {
   return {
     ...(limits.pages === undefined ? {} : { pages: limits.pages }),
     ...(limits.localFonts === undefined ? {} : { localFonts: limits.localFonts }),
+    ...(limits.assets === undefined ? {} : { assets: limits.assets }),
   }
 }
 
