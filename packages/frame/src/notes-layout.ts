@@ -1,4 +1,15 @@
-import { type Deck, Print, type PrintInput, PX_PER_MM, resolveDirection, type Slide, sheetMm } from '@segnavia/format'
+import {
+  type Deck,
+  Print,
+  type PrintInput,
+  PX_PER_MM,
+  printBoxes,
+  printProperties,
+  resolveDirection,
+  type Slide,
+  sheetMm,
+  usesPressLayout,
+} from '@segnavia/format'
 import { deckFolios } from './deck-folios.ts'
 import { DEFAULT_NOTES_FONT_FAMILY } from './page-fonts.ts'
 import { escapeHtml } from './svg.ts'
@@ -14,14 +25,23 @@ export interface NotesLayoutGeometry {
 const FIRST_SHEET_NOTES_SPACE = 128
 
 export function notesLayoutGeometry(size: Deck['size'], notesPaper: PrintInput = NOTES_PAPER): NotesLayoutGeometry {
-  const paper = sheetMm(Print.parse(notesPaper))
-  const sheet = { width: paper.width * PX_PER_MM, height: paper.height * PX_PER_MM }
+  const print = Print.parse(notesPaper)
+  const paper = sheetMm(print)
+  const boxes = printBoxes(print)
+  const press = usesPressLayout(print)
+  const sheet = {
+    width: (press ? boxes.bleedBox.width : paper.width) * PX_PER_MM,
+    height: (press ? boxes.bleedBox.height : paper.height) * PX_PER_MM,
+  }
+  const bleed = press ? print.bleed * PX_PER_MM : 0
   const margin = 48
   const border = 1
-  const widthScale = (sheet.width - margin * 2) / size.width
-  const heightScale = (sheet.height - margin * 2 - border * 2 - FIRST_SHEET_NOTES_SPACE) / size.height
+  const trimWidth = paper.width * PX_PER_MM
+  const trimHeight = paper.height * PX_PER_MM
+  const widthScale = (trimWidth - margin * 2) / size.width
+  const heightScale = (trimHeight - margin * 2 - border * 2 - FIRST_SHEET_NOTES_SPACE) / size.height
   const scale = Math.min(widthScale, heightScale)
-  return { sheet, border, slide: { x: margin + border, y: margin + border, width: size.width * scale, height: size.height * scale, scale } }
+  return { sheet, border, slide: { x: bleed + margin + border, y: bleed + margin + border, width: size.width * scale, height: size.height * scale, scale } }
 }
 
 export function speakerNotes(slide: Pick<Slide, 'notes' | 'narration'>): string {
@@ -142,7 +162,10 @@ export function paginateNotes(target: Document | null, sheetLimit?: number): Not
 }
 
 export function notesDocument(deck: Deck, options: NotesDocumentOptions): string {
-  const paper = sheetMm(Print.parse(options.notesPaper ?? NOTES_PAPER))
+  const print = Print.parse(options.notesPaper ?? NOTES_PAPER)
+  const paper = sheetMm(print)
+  const boxes = printBoxes(print)
+  const press = usesPressLayout(print)
   const geometry = notesLayoutGeometry(deck.size, options.notesPaper)
   const { width: sheetWidth, height: sheetHeight } = geometry.sheet
   const { x, width: slideWidth, height: slideHeight, scale } = geometry.slide
@@ -161,6 +184,7 @@ export function notesDocument(deck: Deck, options: NotesDocumentOptions): string
   const root = `dir="${resolveDirection(deck.dir, deck.lang, deck.title)}"${deck.lang ? ` lang="${escapeHtml(deck.lang)}"` : ''}`
   const title = options.title ? `<title>${escapeHtml(options.title)}</title>` : ''
   const family = options.font?.family ?? DEFAULT_NOTES_FONT_FAMILY
-  const css = `${options.font?.css ?? ''}@page{size:${paper.width}mm ${paper.height}mm;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 ${family};display:flex;flex-direction:column}.slide{border:${geometry.border}px solid #ccc;overflow:hidden;flex:none}.number{color:#777;margin:12px 0 4px;flex:none}.notes{min-height:0;flex:1;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}.continuation .number{margin:0 0 4px}`
+  const page = press ? boxes.bleedBox : paper
+  const css = `${options.font?.css ?? ''}@page{size:${page.width}mm ${page.height}mm;margin:0}html,body{margin:0}${printProperties(print)}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page;font:15px/1.5 ${family};display:flex;flex-direction:column}.slide{border:${geometry.border}px solid #ccc;overflow:hidden;flex:none}.number{color:#777;margin:12px 0 4px;flex:none}.notes{min-height:0;flex:1;overflow:hidden;overflow-wrap:anywhere;white-space:pre-wrap}.continuation .number{margin:0 0 4px}`
   return `<!doctype html><html ${root}><head><meta charset="utf-8">${title}<style>${css}</style></head><body>${sheets.join('')}</body></html>`
 }

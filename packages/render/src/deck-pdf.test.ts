@@ -3,7 +3,7 @@ import { Deck } from '@segnavia/format'
 import { PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import { DIAGRAMS_DRAWN_ATTRIBUTE } from '@segnavia/frame/diagrams'
 import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument, PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -14,6 +14,17 @@ async function onePage(width = 300, height = 150): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
   pdf.addPage([width, height]).drawRectangle({ x: 0, y: 0, width, height })
   return pdf.save()
+}
+
+async function requestedPdf(html: string, pdf: Parameters<Tab['pdf']>[0]): Promise<Uint8Array> {
+  const millimeters = (value: string | number | undefined, fallback: number) =>
+    typeof value === 'string' && value.endsWith('mm') ? (Number.parseFloat(value) * 72) / 25.4 : fallback
+  const width = millimeters(pdf?.width, 300)
+  const height = millimeters(pdf?.height, 150)
+  const output = await PDFDocument.create()
+  const pages = html.includes('<section class="sheet') ? 2 : 1
+  for (let index = 0; index < pages; index++) output.addPage([width, height]).drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
+  return output.save()
 }
 
 const deck = Deck.parse({
@@ -58,6 +69,81 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
   expect(htmlSlide).toContain('animation-play-state:paused!important')
   expect(htmlSlide).toContain('window.requestAnimationFrame(function(){window.requestAnimationFrame')
   expect(limitsSeen).toEqual([{ sheets: 2 }])
+})
+
+test('deck sheet bleed writes press boxes on every slide at the 96 dpi trim', async () => {
+  const output = await renderDeckPdf(
+    deck,
+    { sheet: { bleed: 3 } },
+    {
+      renderPdf: async (setup, pdf) => requestedPdf(setup.html, pdf),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  const pages = (await PDFDocument.load(output)).getPages()
+  expect(pages).toHaveLength(2)
+  for (const page of pages) {
+    expect(page.getBleedBox()).toBeDefined()
+    expect(page.getTrimBox()).toMatchObject({ width: 300, height: 150 })
+  }
+})
+
+test('plain deck sheets have no press boxes', async () => {
+  const output = await renderDeckPdf(
+    deck,
+    {},
+    {
+      renderPdf: async (setup, pdf) => requestedPdf(setup.html, pdf),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  for (const page of (await PDFDocument.load(output)).getPages()) {
+    expect(page.node.has(PDFName.of('BleedBox'))).toBe(false)
+    expect(page.node.has(PDFName.of('TrimBox'))).toBe(false)
+    expect(page.node.has(PDFName.of('ArtBox'))).toBe(false)
+  }
+})
+
+test('notesPaper bleed writes press boxes on every notes sheet', async () => {
+  const output = await renderDeckPdf(
+    deck,
+    { layout: 'notes', notesPaper: { paper: 'letter', bleed: 3 } },
+    {
+      renderPdf: async (setup, pdf) => requestedPdf(setup.html, pdf),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  const pages = (await PDFDocument.load(output)).getPages()
+  expect(pages).toHaveLength(2)
+  for (const page of pages) {
+    expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
+    expect(page.node.has(PDFName.of('TrimBox'))).toBe(true)
+  }
+})
+
+test('deck press settings refuse incompatible options before rendering', async () => {
+  const services = {
+    renderPdf: async () => onePage(),
+    fontFaces: () => '',
+    finish: async (pdf: Uint8Array) => pdf,
+  }
+  await expect(renderDeckPdf(deck, { sheet: { bleed: 3 }, imposition }, services)).rejects.toThrow('Remove sheet, or remove imposition')
+  await expect(renderDeckPdf(deck, { sheet: { bleed: 3 }, layout: 'notes' }, services)).rejects.toThrow('use notesPaper')
+  await expect(renderDeckPdf(deck, { sheet: { bleed: 3 }, preferCssPageSize: true }, services)).rejects.toThrow('Remove preferCssPageSize')
+})
+
+test('invalid deck sheet press values name the setting and remedy', async () => {
+  const services = {
+    renderPdf: async () => onePage(),
+    fontFaces: () => '',
+    finish: async (pdf: Uint8Array) => pdf,
+  }
+  await expect(renderDeckPdf(deck, { sheet: { bleed: -1 } }, services)).rejects.toThrow('sheet setting is invalid')
+  await expect(renderDeckPdf(deck, { sheet: { bleed: -1 } }, services)).rejects.toThrow('Correct sheet.bleed, or remove sheet')
+  await expect(renderDeckPdf(deck, { sheet: { markColor: 'registration' } }, services)).rejects.toThrow('Correct sheet.markColor, or remove sheet')
 })
 
 test('the print bridge and PDF waiter share one ready signal', async () => {

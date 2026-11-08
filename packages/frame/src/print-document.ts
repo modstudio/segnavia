@@ -12,11 +12,15 @@ import {
   type ImpositionInput,
   impose,
   type Limits,
+  type MarkColor,
   type Page,
   PageWidths,
+  Print,
   type PrintInput,
+  PX_PER_MM,
   pageDirection,
   pagePlacementLayout,
+  pressBoxes,
   printPadding,
   printProperties,
   resolveDirection,
@@ -104,6 +108,7 @@ export interface PrintOptions {
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
   notesPaper?: PrintInput
+  sheet?: { bleed?: number; safe?: number; marks?: boolean; markColor?: MarkColor }
   imposition?: ImpositionInput
   // Document title for the print dialog and saved PDF. Defaults to the deck
   // title; an empty value omits the tag.
@@ -129,6 +134,23 @@ export interface PrintOptions {
   dependencyOrigins?: Iterable<string>
   diagramScript?: string
   limits?: Limits
+}
+
+export function deckSheetPrint(size: Deck['size'], sheet: PrintOptions['sheet'], setting = 'sheet'): Print | undefined {
+  if (!sheet) return undefined
+  const width = size.width / PX_PER_MM
+  const height = size.height / PX_PER_MM
+  const result = Print.safeParse({
+    paper: { width: Math.min(width, height), height: Math.max(width, height), unit: 'mm' },
+    orientation: width > height ? 'landscape' : 'portrait',
+    ...sheet,
+  })
+  if (result.success) return result.data
+  const issue = result.error.issues[0]
+  const field = issue?.path.at(-1) ?? setting
+  throw new RangeError(
+    `The ${setting} setting is invalid: ${String(field)} ${issue?.message ?? 'is invalid'}. Correct ${setting}.${String(field)}, or remove ${setting}, to clear this refusal.`,
+  )
 }
 
 function documentTitle(deck: Pick<Deck, 'title'>, options: { title?: string }): string {
@@ -197,15 +219,29 @@ export function printableDeck(input: DocumentInput, options: PrintOptions & { no
   return printableDeckValue(deckFromDocument(document), options)
 }
 
-export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
+function printableSlideSheets(deck: Deck, options: PrintOptions): string {
   const { width, height } = deck.size
+  const print = deckSheetPrint(deck.size, options.sheet)
+  const boxes = print ? pressBoxes({ width: width / PX_PER_MM, height: height / PX_PER_MM }, print) : undefined
+  const press = print !== undefined && (print.bleed > 0 || print.marks)
+  const sheetWidth = press && boxes ? boxes.bleedBox.width * PX_PER_MM : width
+  const sheetHeight = press && boxes ? boxes.bleedBox.height * PX_PER_MM : height
+  const padding = press ? print.bleed * PX_PER_MM : 0
+  const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
+  return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${sheetWidth}px ${sheetHeight}px;margin:0}html,body{margin:0}${print ? printProperties(print) : ''}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
+}
+
+export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
+  if (options.sheet && options.imposition) {
+    throw new RangeError('sheet and imposition cannot be combined. Remove sheet, or remove imposition, to clear this refusal.')
+  }
+  if (options.sheet && options.layout === 'notes') {
+    throw new RangeError("sheet and layout: 'notes' cannot be combined. Remove sheet, or use notesPaper for notes press settings, to clear this refusal.")
+  }
   if (options.imposition) {
     return printableDeckValueDocument(deck, { ...options, imposition: options.imposition }).html
   }
-  if ((options.layout ?? 'slides') === 'slides') {
-    const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
-    return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
-  }
+  if ((options.layout ?? 'slides') === 'slides') return printableSlideSheets(deck, options)
   if (options.notesFont !== undefined && options.notesSheetFont === undefined) {
     throw new FontRefusedError(
       `notes could not establish app font ${JSON.stringify(options.notesFont)}; print with printDeck or deckPdf, or resolve it with resolveNotesFontCss and pass the result, to clear this refusal.`,

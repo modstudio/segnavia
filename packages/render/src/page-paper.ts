@@ -1,4 +1,15 @@
-import { type Print, paperViewport, physicalMargins, printBoxes, printProperties, sheetMm, type TextDirection, usesPressLayout } from '@segnavia/format'
+import {
+  type MarkColor,
+  type Print,
+  type PrintBoxes,
+  paperViewport,
+  physicalMargins,
+  printBoxes,
+  printProperties,
+  sheetMm,
+  type TextDirection,
+  usesPressLayout,
+} from '@segnavia/format'
 import { PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -37,27 +48,28 @@ export function assertPrintOptions(print: Print, preferCssPageSize: boolean | un
   }
 }
 
-export async function addPressBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {
-  const boxes = printBoxes(print)
+export async function addPressBoxes(pdf: Uint8Array, boxes: PrintBoxes, markColor: MarkColor = 'black'): Promise<Uint8Array> {
   const document = await loadPdf(pdf)
-  const source = document.getPage(0)
-  const content = await document.embedPage(source)
-  const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
   const bleedBox = pdfBox(boxes.bleedBox, boxes.media.height)
   const trimBox = pdfBox(boxes.trim, boxes.media.height)
-  page.drawPage(content, pressContentPlacement({ width: source.getWidth(), height: source.getHeight() }, bleedBox))
-  document.removePage(0)
-  page.node.delete(PDFName.of('CropBox'))
-  page.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
-  page.setTrimBox(trimBox.x, trimBox.y, trimBox.width, trimBox.height)
-  drawCropMarks(
-    page,
-    boxes.marks.map((mark) => ({
-      start: pdfPoint(mark.x1, mark.y1, boxes.media.height),
-      end: pdfPoint(mark.x2, mark.y2, boxes.media.height),
-    })),
-    print.markColor,
-  )
+  const sources = document.getPages()
+  for (const source of sources) {
+    const content = await document.embedPage(source)
+    const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
+    page.drawPage(content, pressContentPlacement({ width: source.getWidth(), height: source.getHeight() }, bleedBox))
+    page.node.delete(PDFName.of('CropBox'))
+    page.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
+    page.setTrimBox(trimBox.x, trimBox.y, trimBox.width, trimBox.height)
+    drawCropMarks(
+      page,
+      boxes.marks.map((mark) => ({
+        start: pdfPoint(mark.x1, mark.y1, boxes.media.height),
+        end: pdfPoint(mark.x2, mark.y2, boxes.media.height),
+      })),
+      markColor,
+    )
+  }
+  for (let index = 0; index < sources.length; index++) document.removePage(0)
   return document.save()
 }
 
@@ -120,5 +132,5 @@ export async function printPage(
       `A page with bleed or marks is one printed piece, but the content needs ${papers} papers. Shorten the content, or remove the bleed and marks.`,
     )
   }
-  return { bytes: await addPressBoxes(bytes, print), overflow: printed.overflow }
+  return { bytes: await addPressBoxes(bytes, boxes, print.markColor), overflow: printed.overflow }
 }

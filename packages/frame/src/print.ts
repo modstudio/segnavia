@@ -189,7 +189,12 @@ export async function preparedDeckValuePrint(
     const printable = printableDeckValueDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
     return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
-  return { ...resolvedDeck.size, html: printableDeckValue(preparedDeck, printOptions), ...options, slots: resolvedSlots }
+  const browserOptions = {
+    ...printOptions,
+    sheet: undefined,
+    notesPaper: printOptions.notesPaper ? { ...printOptions.notesPaper, bleed: undefined, safe: undefined, marks: undefined, markColor: undefined } : undefined,
+  }
+  return { ...resolvedDeck.size, html: printableDeckValue(preparedDeck, browserOptions), ...options, slots: resolvedSlots }
 }
 
 async function preparedPagesPrint(

@@ -216,29 +216,28 @@ export interface PrintBoxes {
   marks: MarkSegment[]
 }
 
-export function printBoxes(print: Print): PrintBoxes {
-  const sheet = sheetMm(print)
-  const outside = print.marks ? MARK_GAP_MM + MARK_LENGTH_MM : 0
+export function pressBoxes(trimSize: { width: number; height: number }, press: Pick<Print, 'bleed' | 'safe' | 'marks'>): PrintBoxes {
+  const outside = press.marks ? MARK_GAP_MM + MARK_LENGTH_MM : 0
   const bleedBox = {
     x: outside,
     y: outside,
-    width: roundMillimeters(sheet.width + print.bleed * 2),
-    height: roundMillimeters(sheet.height + print.bleed * 2),
+    width: roundMillimeters(trimSize.width + press.bleed * 2),
+    height: roundMillimeters(trimSize.height + press.bleed * 2),
   }
   const trim = {
-    x: roundMillimeters(outside + print.bleed),
-    y: roundMillimeters(outside + print.bleed),
-    width: sheet.width,
-    height: sheet.height,
+    x: roundMillimeters(outside + press.bleed),
+    y: roundMillimeters(outside + press.bleed),
+    width: trimSize.width,
+    height: trimSize.height,
   }
   const safeBox = {
-    x: roundMillimeters(trim.x + print.safe),
-    y: roundMillimeters(trim.y + print.safe),
-    width: roundMillimeters(trim.width - print.safe * 2),
-    height: roundMillimeters(trim.height - print.safe * 2),
+    x: roundMillimeters(trim.x + press.safe),
+    y: roundMillimeters(trim.y + press.safe),
+    width: roundMillimeters(trim.width - press.safe * 2),
+    height: roundMillimeters(trim.height - press.safe * 2),
   }
   const media = { width: roundMillimeters(bleedBox.width + outside * 2), height: roundMillimeters(bleedBox.height + outside * 2) }
-  if (!print.marks) return { media, bleedBox, trim, safeBox, marks: [] }
+  if (!press.marks) return { media, bleedBox, trim, safeBox, marks: [] }
 
   const leftStart = roundMillimeters(bleedBox.x - MARK_GAP_MM)
   const rightStart = roundMillimeters(bleedBox.x + bleedBox.width + MARK_GAP_MM)
@@ -259,4 +258,8 @@ export function printBoxes(print: Print): PrintBoxes {
     { x1: trimRight, y1: bottomStart, x2: trimRight, y2: bottom },
   ]
   return { media, bleedBox, trim, safeBox, marks }
+}
+
+export function printBoxes(print: Print): PrintBoxes {
+  return pressBoxes(sheetMm(print), print)
 }
