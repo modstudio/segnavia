@@ -26,7 +26,7 @@ export interface CompileStyleSheetOptions {
 }
 
 export type CompileStyleSheetResult =
-  | { ok: true; css: string; geometries: Record<string, PageGeometry>; motifs: Motif[]; fonts: FontReference[] }
+  | { ok: true; sheets: string[]; geometries: Record<string, PageGeometry>; motifs: Motif[]; fonts: FontReference[] }
   | { ok: false; refusal: string }
 
 const TOKEN_PREFIX: Record<TextStyleTokenGroup, string> = {
@@ -138,17 +138,27 @@ function balanceBlocks(css: string): string {
   return `${balanced}${css.slice(copiedUntil)}${'}'.repeat(depth)}`
 }
 
+/**
+ * Compiles each free CSS value into a separate stylesheet so CSS parse recovery
+ * cannot let an unfinished construct consume typed rules from a later sheet.
+ */
 export function compileStyleSheet(options: CompileStyleSheetOptions): CompileStyleSheetResult {
   const merged = mergeStyleSheets(options.brand, options.document)
   if (!merged.ok) return merged
   const { sheet } = merged
-  const brandCss = `${tokensCss(sheet, 'brand')}${textStylesCss(sheet, 'brand')}${balanceBlocks(sanitizeBookCss(sheet.css.brand).css)}`
+  const brandCss = balanceBlocks(sanitizeBookCss(sheet.css.brand).css)
+  const brandTypedCss = `${tokensCss(sheet, 'brand')}${textStylesCss(sheet, 'brand')}`
   const documentCss = `${tokensCss(sheet, 'document')}${textStylesCss(sheet, 'document')}`
   const authorCss = balanceBlocks(sanitizeBookCss(sheet.css.document).css)
-  const css = `${LAYER_ORDER}${layer('base', options.baseCss ?? DEFAULT_BASE_CSS)}${layer('brand', brandCss)}${layer('document', documentCss)}${layer('author', authorCss)}`
+  const sheets = [
+    `${LAYER_ORDER}${layer('base', options.baseCss ?? DEFAULT_BASE_CSS)}${layer('brand', brandTypedCss)}`,
+    ...(brandCss === '' ? [] : [layer('brand', brandCss)]),
+    layer('document', documentCss),
+    ...(authorCss === '' ? [] : [layer('author', authorCss)]),
+  ]
   return {
     ok: true,
-    css,
+    sheets,
     geometries: Object.fromEntries(Object.entries(sheet.pageGeometries).map(([name, entry]) => [name, entry.value])),
     motifs: sheet.motifs.map((entry) => entry.value),
     fonts: sheet.fonts,
