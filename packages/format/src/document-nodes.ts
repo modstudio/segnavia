@@ -35,18 +35,11 @@ export interface PartNode {
   children: DocumentNode[]
 }
 
-export interface SectionNode {
+type SectionFieldValues = z.infer<z.ZodObject<typeof SectionFields>>
+
+export interface SectionNode extends SectionFieldValues {
   type: 'section'
   id?: string
-  title?: string
-  contentsLabel?: string
-  subtitle?: string
-  contents: boolean
-  opens?: 'recto' | 'verso' | 'any' | 'continue'
-  numbering?: z.infer<(typeof SectionFields)['numbering']>
-  parents?: z.infer<typeof BookSectionParents>
-  headTemplate?: string
-  pageGeometry?: string
   template?: string
   children: DocumentNode[]
 }

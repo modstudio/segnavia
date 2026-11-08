@@ -30,16 +30,7 @@ export function authoredSection(
 ): BuiltSection {
   const document = parse(section.html)
   const runningHead = section.title
-  const node = sectionNode(
-    'front',
-    id,
-    document.children,
-    build,
-    runningHead,
-    flowAttribs(section.opens, section.parents),
-    section.contentsLabel,
-    section.subtitle,
-  )
+  const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents))
   return {
     info: { id, kind: 'front', division: 'front', title: section.title, runningHead },
     node,
@@ -64,15 +55,11 @@ export function sectionNode(
   build: BookBuild,
   runningHead?: string,
   extra: Record<string, string> = {},
-  contentsLabel?: string,
-  subtitle?: string,
 ) {
   const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id, ...extra }
   if (build !== 'print') attribs['data-segnavia-flow'] = id
   if (build === 'galley') {
     if (runningHead !== undefined) attribs['data-running-head'] = runningHead
-    if (contentsLabel !== undefined) attribs['data-contents-label'] = contentsLabel
-    if (subtitle !== undefined) attribs['data-subtitle'] = subtitle
   }
   return element('section', attribs, children)
 }
@@ -163,7 +150,7 @@ export function designedSection(
   return {
     built: {
       info: { id, kind, division, title: entry.title, runningHead },
-      node: sectionNode(kind, id, holders, build, runningHead, extra, entry.contentsLabel, entry.subtitle),
+      node: sectionNode(kind, id, holders, build, runningHead, extra),
     },
     headings,
   }
@@ -308,7 +295,7 @@ export function templatedSection(
   return {
     built: {
       info: { id, kind, division, title: entry.title, runningHead },
-      node: sectionNode(kind, id, holders, build, runningHead, extra, entry.contentsLabel, entry.subtitle),
+      node: sectionNode(kind, id, holders, build, runningHead, extra),
     },
     headings,
   }

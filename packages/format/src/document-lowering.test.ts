@@ -87,6 +87,20 @@ describe('Document lowering', () => {
     ])
   })
 
+  test('refuses empty section contents text with the remedy', () => {
+    for (const field of ['contentsLabel', 'subtitle'] as const) {
+      expect(() =>
+        Document.parse({
+          type: 'document',
+          kind: 'book',
+          title: 'Book',
+          mode: 'continuous',
+          children: [{ type: 'section', title: 'Chapter', [field]: '', children: [{ type: 'flow', html: '<p>Text</p>' }] }],
+        }),
+      ).toThrow(`${field} cannot be empty; omit ${field} or give it text to clear this refusal`)
+    }
+  })
+
   test('carries a resolved brand without replacing the document brand name', () => {
     const document = Document.parse({
       type: 'document',

@@ -135,7 +135,16 @@ export {
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
 export { type DependencyDecision, dependencyDecision, dependencyOriginSet, originSet } from './dependency-policy.ts'
 export { type DesignTokens, exportDesignTokens, importDesignTokens } from './design-tokens.ts'
-export { Direction, firstStrongDirection, htmlTextSample, languageDirection, resolveDirection, TextDirection, textDirection } from './direction.ts'
+export {
+  Direction,
+  entryDirection,
+  firstStrongDirection,
+  htmlTextSample,
+  languageDirection,
+  resolveDirection,
+  TextDirection,
+  textDirection,
+} from './direction.ts'
 export { Document, type DocumentInput, type DocumentKind, type DocumentParseOptions } from './document.ts'
 export { applyOps } from './document-apply.ts'
 export { diffDocuments } from './document-diff.ts'

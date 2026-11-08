@@ -1,13 +1,13 @@
-import { type Book, resolveDirection, textDirection } from '@segnavia/format'
+import { type Book, entryDirection, resolveDirection } from '@segnavia/format'
 import { isTag } from 'domhandler'
 import type { BuiltSection } from './book-held.ts'
 import { element, linkChildren, text } from './dom.ts'
-import type { BookDocumentOptions, BookHeading } from './types.ts'
+import { type BookDocumentOptions, type BookHeading, headingLabel } from './types.ts'
 
 function contentsList(book: Book, headings: BookHeading[], options: BookDocumentOptions) {
   const entries = headings.map((heading) => {
     const page = book.contents.pageNumbers ? (options.pageNumbers?.[heading.id] ?? '') : ''
-    const label = heading.contentsLabel ?? heading.text
+    const label = headingLabel(heading)
     const level = heading.level + (heading.depth ?? 0)
     const attributes = {
       class: 'segnavia-contents-entry',
@@ -19,7 +19,7 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
         'a',
         {
           href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`,
-          dir: textDirection(undefined, undefined, label) ?? resolveDirection(book.dir, book.lang, label),
+          dir: entryDirection(book, label),
         },
         [
           text(label),
@@ -30,7 +30,7 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
                   'span',
                   {
                     class: 'segnavia-contents-subtitle',
-                    dir: textDirection(undefined, undefined, heading.subtitle) ?? resolveDirection(book.dir, book.lang, heading.subtitle),
+                    dir: entryDirection(book, heading.subtitle),
                   },
                   [text(heading.subtitle)],
                 ),

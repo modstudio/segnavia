@@ -33,6 +33,10 @@ export interface BookHeading {
   depth?: number
 }
 
+export function headingLabel(heading: BookHeading): string {
+  return heading.contentsLabel ?? heading.text
+}
+
 export interface BookDocument {
   html: string
   sections: BookSectionInfo[]

@@ -64,8 +64,6 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
       build,
       runningHead,
       flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index) }),
-      chapter.contentsLabel,
-      chapter.subtitle,
     ),
   }
 }

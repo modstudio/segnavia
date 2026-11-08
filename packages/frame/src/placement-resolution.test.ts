@@ -34,7 +34,16 @@ test('placed page entries become designed sections before the book is built', as
   const book = parseBookFixture({
     title: 'Placed',
     mode: 'continuous',
-    chapters: [{ kind: 'placed', title: 'Placed page', contents: false, opens: 'recto', placement: { kind: 'page', address: 'page/one' } }],
+    chapters: [
+      {
+        kind: 'placed',
+        title: 'Placed page',
+        contentsLabel: 'Short label',
+        contents: false,
+        opens: 'recto',
+        placement: { kind: 'page', address: 'page/one' },
+      },
+    ],
   })
   const expanded = await expandFrameBook(book, undefined, signal, {
     resolve: async () => ({
@@ -51,6 +60,7 @@ test('placed page entries become designed sections before the book is built', as
   expect(expanded.book.body[0]).toMatchObject({
     kind: 'designed',
     title: 'Placed page',
+    contentsLabel: 'Short label',
     contents: false,
     opens: 'recto',
     pages: [{ html: expect.stringMatching(/<p data-segnavia-id="[^"]+">Resolved page<\/p>/) }],
