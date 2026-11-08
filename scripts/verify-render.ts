@@ -21,6 +21,7 @@ import { verifyDeckRender } from './verify/deck-render.ts'
 import { verifyDependencyRender } from './verify/dependency-render.ts'
 import { verifyDiagramRender } from './verify/diagram-render.ts'
 import { verifyFontSource } from './verify/font-source.ts'
+import { verifyHebrewFaceGoldens } from './verify/hebrew-face-goldens.ts'
 import { verifyHebrewNotice } from './verify/hebrew-notice.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyLocalFont } from './verify/local-font.ts'
@@ -154,6 +155,7 @@ try {
   await verifyLocalFont(renderer, work, check)
   await verifyScriptFaces(renderer, work, check)
   await verifyHebrewNotice(renderer, work, check)
+  await verifyHebrewFaceGoldens(renderer, work, check)
   let background = ''
   await renderer.pageImage(screenPage({ html: '<h1>House</h1>' }, { size: { width: 200, height: 100 } }), {
     css: 'body{margin:0;background:rgb(0, 128, 0)}',
