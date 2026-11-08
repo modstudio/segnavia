@@ -78,11 +78,13 @@ function bookSrcdoc(
   hostCss: string | undefined,
   marginLayer: boolean,
   diagramScript: string | undefined,
-  sheets: readonly string[] | undefined,
-  dependencyOrigins?: Iterable<string>,
-  limits?: Limits,
-  plan?: SavedPlan,
-  breaks?: string[],
+  options: {
+    sheets?: readonly string[]
+    dependencyOrigins?: Iterable<string>
+    limits?: Limits
+    plan?: SavedPlan
+    breaks?: string[]
+  },
 ): string {
   const nonce = newNonce()
   if (book.mode === 'paginated')
@@ -92,22 +94,36 @@ function bookSrcdoc(
       css: hostCss,
       printBackground: true,
       diagramScript,
-      limits,
-      plan,
-      breaks: breaks ?? plan?.breaks,
+      limits: options.limits,
+      plan: options.plan,
+      breaks: options.breaks ?? options.plan?.breaks,
     })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
     nonce,
     dir: marginLayer ? 'ltr' : resolveDirection(book.dir, book.lang, book.title),
     lang: book.lang,
-    sheets,
+    sheets: options.sheets,
     css: hostCss,
     relayKeys: false,
     reportHeight: false,
-    dependencyOrigins,
+    dependencyOrigins: options.dependencyOrigins,
     readyCallback: hasDiagram(html) ? RENDER_READY_BINDING : undefined,
   })
+}
+
+function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, options: RenderOptions): TabSetup {
+  if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
+  const size = sheetMm(book.page)
+  return {
+    viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
+    scripts: true,
+    html,
+    slots,
+    readiness: renderReadiness('refuse', false, false),
+    boundMs: options.boundMs,
+    ...dependencySetup(options),
+  }
 }
 
 // Building a book's document can refuse its pagination or its style sheet;
@@ -140,39 +156,34 @@ async function printBook(
   const baseCss = `${bookPageCss(book, marginLayer || paginated)}${layerCss}`
   const sheets = paginated ? undefined : refusedAsRender(() => frameStyleSheets(book.style, `${fontCss}${baseCss}`))
   const srcdoc = refusedAsRender(() =>
-    bookSrcdoc(
-      html,
-      book,
-      fontCss,
-      baseCss,
-      renderOptions.css,
-      marginLayer,
-      diagramScript,
+    bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, {
       sheets,
-      renderOptions.dependencyOrigins,
-      renderOptions.limits,
-      renderOptions.plan,
-      renderOptions.breaks,
-    ),
+      dependencyOrigins: renderOptions.dependencyOrigins,
+      limits: renderOptions.limits,
+      plan: renderOptions.plan,
+      breaks: renderOptions.breaks,
+    }),
   )
+  const setup: TabSetup = paginated
+    ? {
+        ...paginatedBookTabSetup(book, srcdoc, slots, renderOptions),
+        beforeOutput: async (tab) => {
+          await awaitBookComposition(tab)
+          await renderOptions.beforeOutput?.(tab)
+        },
+      }
+    : {
+        viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
+        scripts: continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer),
+        html: srcdoc,
+        slots,
+        readiness: renderReadiness(marginLayer ? 'refuse' : book.scripts, hasDiagram(html), renderOptions.waitForPageReady !== false),
+        boundMs: renderOptions.boundMs,
+        beforeOutput: renderOptions.beforeOutput,
+        ...dependencySetup(renderOptions),
+      }
   return dependencies.render(
-    {
-      viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-      scripts: paginated || continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer),
-      html: srcdoc,
-      slots,
-      readiness: paginated
-        ? renderReadiness('refuse', false, false)
-        : renderReadiness(marginLayer ? 'refuse' : book.scripts, hasDiagram(html), renderOptions.waitForPageReady !== false),
-      boundMs: renderOptions.boundMs,
-      beforeOutput: paginated
-        ? async (tab) => {
-            await awaitBookComposition(tab)
-            await renderOptions.beforeOutput?.(tab)
-          }
-        : renderOptions.beforeOutput,
-      ...dependencySetup(renderOptions),
-    },
+    setup,
     {
       ...pagePdfSize(size),
       printBackground: true,
@@ -190,9 +201,9 @@ export function renderBrowserBookPdf(book: Book, options: BookPdfOptions, fontCs
   }
   let script: Promise<string | undefined> | undefined
   return renderBookPdf(book, options, {
-    print: async (html, book, slots, _renderOptions, part, layerCss = '') => {
+    print: async (html, book, slots, renderOptions, part, layerCss = '') => {
       script ??= resolveDiagramScript(bookDocument(book).html)
-      return printBook(html, book, slots, options, part, layerCss, fontCss, await script, dependencies)
+      return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies)
     },
     finish: dependencies.finish,
   })
@@ -210,42 +221,21 @@ export async function renderBrowserBookPlan(
   // The plan must measure the same filled text that bookPdf prints, or its replay refuses.
   const { value: book, slots } = await filledBook(input, options.slots)
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPlan.')
-  const size = sheetMm(book.page)
   const diagramScript = await resolveDiagramScript(bookDocument(book).html)
   const srcdoc = refusedAsRender(() =>
-    bookSrcdoc(
-      '',
-      book,
-      fontCss,
-      bookPageCss(book, true),
-      options.css,
-      false,
-      diagramScript,
-      undefined,
-      options.dependencyOrigins,
-      options.limits,
-      undefined,
-      options.breaks,
-    ),
+    bookSrcdoc('', book, fontCss, bookPageCss(book, true), options.css, false, diagramScript, {
+      dependencyOrigins: options.dependencyOrigins,
+      limits: options.limits,
+      breaks: options.breaks,
+    }),
   )
-  return withTab(
-    {
-      viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-      scripts: true,
-      html: srcdoc,
-      slots: slotsForDocument(slots, [bookSlotFrames(book).all]),
-      readiness: renderReadiness('refuse', false, false),
-      boundMs: options.boundMs,
-      ...dependencySetup(options),
-    },
-    async (tab) => {
-      await awaitBookComposition(tab)
-      const text = await tab.evaluate(lastBookPlanText)
-      try {
-        return Plan.parse(JSON.parse(text ?? 'null'), { limits: options.limits })
-      } catch (error) {
-        throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-      }
-    },
-  )
+  return withTab(paginatedBookTabSetup(book, srcdoc, slotsForDocument(slots, [bookSlotFrames(book).all]), options), async (tab) => {
+    await awaitBookComposition(tab)
+    const text = await tab.evaluate(lastBookPlanText)
+    try {
+      return Plan.parse(JSON.parse(text ?? 'null'), { limits: options.limits })
+    } catch (error) {
+      throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
+    }
+  })
 }

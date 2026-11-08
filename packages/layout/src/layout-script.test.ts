@@ -6,13 +6,15 @@ import { replayPlan, savePlan } from './plan-save.ts'
 import { planPrintedPages } from './printed-pages.ts'
 
 test('layoutScript evaluates in a bare scope and its planners match the module', () => {
-  const embedded = new Function(`${layoutScript()};return {planBook,planPrintedPages,convergeLayout,savePlan,replayPlan}`)() as {
+  const embedded = new Function(`${layoutScript()};return {planBook,planPrintedPages,convergeLayout,lineInWindow,savePlan,replayPlan}`)() as {
     planBook: typeof planBook
     planPrintedPages: typeof planPrintedPages
     convergeLayout: unknown
+    lineInWindow: unknown
     savePlan: typeof savePlan
     replayPlan: typeof replayPlan
   }
+  expect(typeof embedded.lineInWindow).toBe('function')
   const measurements = input({
     flows: [flow('front', 'front', [block('text', 'p', 0, 1, 1, 0)], 'Front'), flow('body', 'chapter', [block('text', 'p', 1, 1, 1, 0)], 'Body')],
     settings: { ...settings, direction: 'rtl' },
@@ -53,14 +55,16 @@ test('layoutScript keeps its planner names after minification', async () => {
   const bundle = await built.outputs[0]?.text()
   expect(bundle).toBeDefined()
   const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-  const embedded = new Function(`${script};return {planBook,planPrintedPages,bookPlanFolios,convergeLayout,savePlan,replayPlan}`)() as {
+  const embedded = new Function(`${script};return {planBook,planPrintedPages,bookPlanFolios,convergeLayout,lineInWindow,savePlan,replayPlan}`)() as {
     planBook: typeof planBook
     planPrintedPages: typeof planPrintedPages
     bookPlanFolios: unknown
     convergeLayout: unknown
+    lineInWindow: unknown
     savePlan: typeof savePlan
     replayPlan: typeof replayPlan
   }
+  expect(typeof embedded.lineInWindow).toBe('function')
   const measurements = input({
     flows: [flow('front', 'front', [block('text', 'p', 0, 1, 1, 0)], 'Front'), flow('body', 'chapter', [block('text', 'p', 1, 1, 1, 0)], 'Body')],
     settings: { ...settings, direction: 'rtl' },

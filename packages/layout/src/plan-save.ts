@@ -1,4 +1,4 @@
-import { fingerprintValue, type Measurements, type PlanPage, type Plan as SavedPlan } from '@segnavia/format'
+import { fingerprintValue, type Measurements, type PaginateLine, type PaginateWindow, type PlanPage, type Plan as SavedPlan } from '@segnavia/format'
 import type { BookPlanNumbering } from './book-plan-folios.ts'
 import type { BookPlan } from './plan-book.ts'
 
@@ -27,6 +27,10 @@ function flowingFlow(measurements: Measurements, id: string) {
   return flow?.kind === 'fixed' ? undefined : flow
 }
 
+function lineInWindow(line: PaginateLine, window: PaginateWindow): boolean {
+  return line.top >= window.start && line.bottom <= window.end
+}
+
 function startOf(measurements: Measurements, page: Pick<PlanPage, 'windows'>): PlanPage['start'] {
   const first = page.windows[0]
   if (!first) return undefined
@@ -34,7 +38,7 @@ function startOf(measurements: Measurements, page: Pick<PlanPage, 'windows'>): P
   if (!flow) return undefined
   for (const [blockIndex, block] of flow.blocks.entries()) {
     const line = block.lines.findIndex((candidate) => candidate.top >= first.start)
-    if (line >= 0 && block.lines[line]?.bottom !== undefined && (block.lines[line]?.bottom ?? Number.POSITIVE_INFINITY) <= first.end) {
+    if (line >= 0 && block.lines[line] !== undefined && lineInWindow(block.lines[line], first)) {
       return { flow: flow.id, block: blockIndex, line, ...(block.id === undefined ? {} : { id: block.id }) }
     }
   }
@@ -48,9 +52,7 @@ function consumedLines(measurements: Measurements, page: Pick<PlanPage, 'windows
       flow: window.flow,
       lines:
         flow?.blocks.flatMap((block, blockIndex) =>
-          block.lines.flatMap((line, lineIndex) =>
-            line.top >= window.start && line.bottom <= window.end ? [{ block: blockIndex, line: lineIndex, box: line }] : [],
-          ),
+          block.lines.flatMap((line, lineIndex) => (lineInWindow(line, window) ? [{ block: blockIndex, line: lineIndex, box: line }] : [])),
         ) ?? [],
     }
   })
@@ -70,7 +72,7 @@ function flowRemainders(measurements: Measurements, pages: Pick<PlanPage, 'windo
     if (last !== pageIndex) return []
     const lines = flow.blocks.flatMap((block, blockIndex) =>
       block.lines.flatMap((line, lineIndex) =>
-        pages.every((page) => page.windows.every((window) => window.flow !== flow.id || line.top < window.start || line.bottom > window.end))
+        pages.every((page) => page.windows.every((window) => window.flow !== flow.id || !lineInWindow(line, window)))
           ? [{ block: blockIndex, line: lineIndex, box: line }]
           : [],
       ),
@@ -239,6 +241,7 @@ export function savedPlanScript(): string {
     breaksOf,
     inputFingerprint,
     flowingFlow,
+    lineInWindow,
     startOf,
     consumedLines,
     consumedNotes,
@@ -259,6 +262,7 @@ export function savedPlanScript(): string {
     replayPlan,
   ]
   return `${functions.map((fn) => fn.toString()).join('\n')}
+var lineInWindow=${lineInWindow.name};
 var savePlan=${savePlan.name};
 var replayPlan=${replayPlan.name};`
 }

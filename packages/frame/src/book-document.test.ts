@@ -112,6 +112,7 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(`visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS})`)
     expect(BOOK_COMPOSER_SCRIPT).toContain('config.breaks||(config.plan&&config.plan.breaks)||[]')
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
+    expect(BOOK_COMPOSER_SCRIPT).toContain('lineInWindow')
     expect(BOOK_COMPOSER_SCRIPT).toContain(computeFolios.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillPrintedPage')

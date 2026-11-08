@@ -18,10 +18,11 @@ import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
 import { bookPartsPrintStatus, finalNumbers, folioTextAt, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
 import { writeBookStructure } from './book-structure.ts'
 import { RenderRefusedError } from './errors.ts'
-import type { OverflowEntry, RenderOptions } from './options.ts'
+import type { OverflowEntry } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
+import type { BookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
@@ -114,7 +115,7 @@ function marginFactsFor(
   })
 }
 
-async function printBody(book: Book, slots: PreparedSlots, options: RenderOptions, adapter: BookPdfAdapter) {
+async function printBody(book: Book, slots: PreparedSlots, options: BookPdfOptions, adapter: BookPdfAdapter) {
   const firstDocument = bookDocument(book, { part: 'body', targets: true })
   if (firstDocument.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${firstDocument.issues.join('; ')}.`)
   let part = await inspect(await adapter.print(firstDocument.html, book, slots, options, 'body'))
@@ -134,7 +135,7 @@ async function convergeBody(
   slots: PreparedSlots,
   source: Awaited<ReturnType<typeof printBody>>,
   front: PrintedPart,
-  options: RenderOptions,
+  options: BookPdfOptions,
   adapter: BookPdfAdapter,
 ) {
   const ids = source.document.pageReferenceTargets
@@ -164,7 +165,7 @@ async function convergeBody(
   return part
 }
 
-async function printFront(book: Book, slots: PreparedSlots, source: BookDocument, body: PrintedPart, options: RenderOptions, adapter: BookPdfAdapter) {
+async function printFront(book: Book, slots: PreparedSlots, source: BookDocument, body: PrintedPart, options: BookPdfOptions, adapter: BookPdfAdapter) {
   const sections = sectionsFor(source.sections, 'front')
   const headingIds = new Set(source.headings.map((heading) => heading.id))
   const numberIds = [...new Set([...headingIds, ...source.pageReferenceTargets])]
@@ -220,7 +221,7 @@ async function convergeBookParts(
   frontSlots: PreparedSlots,
   bodySlots: PreparedSlots,
   body: Awaited<ReturnType<typeof printBody>>,
-  options: RenderOptions,
+  options: BookPdfOptions,
   adapter: BookPdfAdapter,
 ) {
   if (!hasPageReferences(body.document)) {
@@ -264,7 +265,7 @@ async function join(book: Book, headings: BookHeading[], front: PrintedPart, bod
   return output.save()
 }
 
-async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options: RenderOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
+async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options: BookPdfOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
   if (!book.page) throw new RenderRefusedError('Printing a paginated book needs page; set page before calling bookPdf.')
   const printed = await inspect(await adapter.print('', book, slots, options, 'body'))
   if (!printed.bytes) throw new RenderRefusedError('The paginated book print produced no bytes.')
@@ -278,7 +279,7 @@ async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options:
   return output
 }
 
-export async function renderBookPdf(input: Book, options: RenderOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
+export async function renderBookPdf(input: Book, options: BookPdfOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
   const { value: book, slots } = await filledBook(input, options.slots)
   const frames = bookSlotFrames(book)
   if (book.mode === 'paginated') return renderPaginatedBookPdf(book, slotsForDocument(slots, [frames.all]), options, adapter)
