@@ -59,14 +59,14 @@ const printedPageDocument = (page: PageValue, options: Parameters<typeof documen
 }
 
 describe('printedPageDocument', () => {
-  test('declares app faces to the composer and bridge', () => {
+  test('declares app faces to the composer', () => {
     const styled = Page.parse({
       ...page,
       style: { fonts: { body: { faces: [{ script: 'hebrew' }] } } },
     })
     const html = printedPageDocument(styled, { nonce: 'held' })
     expect(html).toContain('"font":"body","unicodeRange":"U+0590-05FF,U+FB1D-FB4F"')
-    expect(html.match(/"font":"body"/g)).toHaveLength(2)
+    expect(html.match(/"font":"body"/g)).toHaveLength(1)
   })
 
   test('gives supplied failures to the bridge report', () => {

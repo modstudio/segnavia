@@ -34,6 +34,7 @@ export function bookFrame(
       relayKeys: false,
       reportHeight: false,
       dependencyOrigins,
+      fonts: view.style?.fonts,
     }),
   }
 }

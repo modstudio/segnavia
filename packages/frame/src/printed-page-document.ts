@@ -225,7 +225,6 @@ export function printedPageValueDocument(
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
     printBackground: options.printBackground,
     readyCallback: options.readyCallback,
-    fonts: page.style?.fonts,
     fontFailures: options.fontFailures,
   })
 }

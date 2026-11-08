@@ -11,7 +11,7 @@ import { type Direction, dependencyOriginSet, type FontFailure, type FontManifes
 import { animationReport } from './animation-timing.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
-import { declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_FIELD_LIMIT, FONT_FAILURE_LIMIT, loadDeclaredFonts } from './font-load.ts'
+import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
 import { escapeHtml } from './svg.ts'
@@ -191,6 +191,10 @@ Object.defineProperty(window,'localStorage',{configurable:true,value:storage()})
       : ''
   const fontDeclarations = scriptJson(declaredFontLoads(options.fonts))
   const initialFontFailures = scriptJson(options.fontFailures ?? [])
+  const fontLoads = options.readyAfterAttribute
+    ? `Promise.resolve([]);var composerFontFailures=function(){try{var value=JSON.parse(document.documentElement.getAttribute('${FONT_FAILURE_ATTRIBUTE}')||'[]');return Array.isArray(value)?value:[];}catch(error){return [];}}`
+    : `${declaredFontLoadExpression('declarations')}.then(reportFontFailures)`
+  const reportComposerFontFailures = options.readyAfterAttribute ? 'reportFontFailures(composerFontFailures());' : ''
   return `(function(){
 ${storage}
 ${keepPassScript()}
@@ -250,9 +254,10 @@ document.addEventListener('DOMContentLoaded',report);window.addEventListener('lo
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
-var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};var familyValue=function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');};var fontLoads=(!document.fonts||!declarations.length?Promise.resolve([]):(${loadDeclaredFonts.toString()})(declarations,document.fonts,document.documentElement,familyValue,'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT})).then(function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return failures;});
-var composed=${compositionWait(options)};var diagrams=${DIAGRAM_READY_EXPR};
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};
+var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return failures;};
+var composed=${compositionWait(options)};var fontLoads=${fontLoads};var diagrams=${DIAGRAM_READY_EXPR};
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }

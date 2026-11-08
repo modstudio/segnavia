@@ -105,6 +105,11 @@ export async function loadDeclaredFonts(
   return failures
 }
 
+/** Builds the shared in-frame expression that loads every declared face. */
+export function declaredFontLoadExpression(declarations: string): string {
+  return `(!document.fonts||!${declarations}.length?Promise.resolve([]):(${loadDeclaredFonts.toString()})(${declarations},document.fonts,document.documentElement,function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');},'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT}))`
+}
+
 function boundedField(value: unknown, optional = false): boolean {
   if (optional && value === undefined) return true
   return (typeof value === 'string' || typeof value === 'number') && String(value).length <= FONT_FAILURE_FIELD_LIMIT

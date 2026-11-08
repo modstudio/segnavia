@@ -104,7 +104,6 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
     printBackground: options.printBackground,
-    fonts,
   })
 }
 
@@ -120,5 +119,6 @@ export function flowViewDocument(view: BookView, options: Pick<PaginatedDocument
     css: options.css,
     relayKeys: false,
     reportHeight: false,
+    fonts: view.style?.fonts,
   })
 }

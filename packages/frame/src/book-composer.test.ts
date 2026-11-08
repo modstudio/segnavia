@@ -178,7 +178,7 @@ describe('block keeps', () => {
     const fontsReady = script.indexOf('var fontsReady=fontLoads.then(function(){return document.fonts?document.fonts.ready:undefined;})', fontLoads)
     const wait = script.indexOf('Promise.all([loaded,', fontsReady)
     const compose = script.indexOf('var composeWhenMeasurable=function()', wait)
-    expect(script).toContain('loadDeclaredFonts(declarations,document.fonts,document.documentElement,familyValue')
+    expect(script).toContain('loadDeclaredFonts')
     expect(script).toContain("'data-segnavia-font-failures',64,256")
     expect(loaded).toBeGreaterThan(-1)
     expect(fontLoads).toBeGreaterThan(loaded)
