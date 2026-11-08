@@ -200,11 +200,15 @@ function styleText(element: Element): string {
   return element.children.map((child) => ('data' in child ? child.data : '')).join('')
 }
 
-function assetCss(source: string, declarations: boolean, options: SanitizeOptions): ReturnType<typeof sanitizeCss> {
+function assetCss(source: string, declarations: boolean, options: SanitizeOptions): ReturnType<typeof sanitizeCss> & { refusals: string[] } {
   const restores: string[] = []
+  const refusals: string[] = []
   const hold = (url: string, kind: FetchKind) => {
     const decision = originDecision(url, kind, options.origins, options.keepScripts === true)
-    if (!decision.allowed) return url
+    if (!decision.allowed) {
+      refusals.push(decision.reason)
+      return url
+    }
     const index = restores.push(url) - 1
     return `data:image/segnavia-dependency-${index},x`
   }
@@ -223,7 +227,21 @@ function assetCss(source: string, declarations: boolean, options: SanitizeOption
   const restore = (value: string) => value.replace(/data:image\/segnavia-dependency-(\d+),x/g, (_, index: string) => restores[Number(index)] ?? '')
   let css = restore(result.css)
   for (const [index, rule] of imports.entries()) css = css.replace(`.${marker}-${index}{}`, rule)
-  return { css, removed: result.removed.map(restore) }
+  return { css, removed: result.removed.map(restore), refusals }
+}
+
+/** Asset-policy refusals still visible in authored markup before frame CSP enforcement. */
+export function assetOriginRefusals(html: string, options: SanitizeOptions = {}): string[] {
+  const found: string[] = []
+  for (const element of elements(parse(html).children)) {
+    if (element.name.toLowerCase() === 'style') found.push(...assetCss(styleText(element), false, options).refusals)
+    for (const [name, value] of Object.entries(element.attribs)) {
+      const reason = assetAttribute(element, name.toLowerCase(), value, options)
+      if (reason) found.push(reason)
+      if (name.toLowerCase() === 'style') found.push(...assetCss(value, true, options).refusals)
+    }
+  }
+  return found
 }
 
 function styleFindings(element: Element, options: SanitizeOptions): string[] {

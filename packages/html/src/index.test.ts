@@ -1,9 +1,16 @@
 import { describe, expect, test } from 'bun:test'
-import { classify, fill, findActiveContent, safeMarkdownUrl, sanitize } from './index.ts'
+import { assetOriginRefusals, classify, fill, findActiveContent, safeMarkdownUrl, sanitize } from './index.ts'
 
 const prefix = 'demo'
 
 describe('sanitize', () => {
+  test('asset preflight names unapproved markup and CSS image origins', () => {
+    const url = 'https://outside.example/image.png'
+    const findings = assetOriginRefusals(`<img src="${url}"><p style="background-image:url(${url})">x</p><style>p{mask:url(${url})}</style>`)
+    expect(findings).toHaveLength(3)
+    expect(findings.every((finding) => finding.includes(`${url} at origin https://outside.example is not approved for image`))).toBe(true)
+  })
+
   test('the markdown URL rule optionally restricts link origins', () => {
     expect(safeMarkdownUrl('href', 'mailto:editor@example.com')).toBe(true)
     expect(safeMarkdownUrl('href', 'https://outside.example/x', ['https://inside.example'])).toBe(false)

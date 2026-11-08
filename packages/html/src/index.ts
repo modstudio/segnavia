@@ -136,7 +136,7 @@ export {
   type ResolvePlacement,
   resolvePlacements,
 } from './placements.ts'
-export { findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, safeMarkdownUrl, sanitize, type UrlPolicy } from './sanitize.ts'
+export { assetOriginRefusals, findActiveContent, REFUSED_ELEMENTS, type SanitizeOptions, safeImageSource, safeMarkdownUrl, sanitize, type UrlPolicy } from './sanitize.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

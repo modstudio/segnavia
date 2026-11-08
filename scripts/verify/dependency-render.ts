@@ -45,6 +45,23 @@ export async function verifyDependencyRender(
   )
   check('an approved dependency requested after load without a cache answer is refused by URL', late.includes(lateUrl), late)
 
+  const unapprovedImage = 'https://unapproved.example/image.png'
+  let unapprovedLookups = 0
+  const unapproved = await refusal(
+    renderer.pagePdf(screenPage({ html: `<img src="${unapprovedImage}">` }, { size: { width: 400, height: 200 } }), {
+      assets: async () => {
+        unapprovedLookups++
+        return undefined
+      },
+    }),
+  )
+  check(
+    'an unapproved markup image refuses before CSP can hide it',
+    unapproved.includes(unapprovedImage) && unapproved.includes('origin https://unapproved.example') && unapproved.includes('image') && unapproved.includes('origins'),
+    unapproved,
+  )
+  check('an unapproved markup image never reaches the host asset seam', unapprovedLookups === 0, String(unapprovedLookups))
+
   const fontCssUrl = 'https://fonts.googleapis.com/css2?family=Noto+Serif+Hebrew'
   const fontUrl = 'https://fonts.gstatic.com/s/notoserifhebrew/v1/hebrew.ttf'
   const markedHebrew = 'שָׁלוֹם'
