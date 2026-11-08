@@ -135,6 +135,14 @@ describe('block keeps', () => {
     expect(script).toContain("if(forcedPageBreak(childStyle.breakAfter))held.style.breakAfter='auto'")
   })
 
+  test('section boundaries carry marks without consuming source block addresses', () => {
+    const script = composerScript('{}')
+    expect(script).toContain("if(child.classList.contains('segnavia-section-boundary')){chapter=chapterOf(child);index=0;boundaries.push(child);continue;}")
+    expect(script).toContain('index+=1;sourceBlocks+=1')
+    expect(script).toContain('sourceBlocks:sourceBlocks')
+    expect(script).toContain('measureMarks(boundaries[m],block.lines,origin)')
+  })
+
   test('a row with break-inside avoid produces its line run while empty CSS produces none', () => {
     const lines = [
       { top: 0, bottom: 10 },

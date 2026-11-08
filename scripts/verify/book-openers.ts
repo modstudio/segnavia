@@ -40,14 +40,14 @@ function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
             id: 'opening-one',
             title: titles[0],
             parents,
-            children: [{ type: 'flow', html: `<p>ONE_START</p>${`<p>${'one '.repeat(42)}</p>`.repeat(7)}<p>ONE_END</p>` }],
+            children: [{ type: 'flow', html: `<p>ONE_START</p>${`<p>${'one '.repeat(42)}</p>`.repeat(12)}<p>ONE_END</p>` }],
           },
           {
             type: 'section',
             id: 'opening-two',
             title: titles[1],
             opens,
-            children: [{ type: 'flow', html: `<h2>TWO_HEADING</h2><p>${'two '.repeat(45)}</p>` }],
+            children: [{ type: 'flow', html: `<h2 data-contents="exclude">TWO_HEADING</h2>${`<p>${'two '.repeat(45)}</p>`.repeat(12)}<p>TWO_END</p>` }],
           },
         ],
       },
@@ -56,8 +56,12 @@ function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
 }
 
 async function render(renderer: Renderer, input: DocumentInput, css: string, key: string) {
-  const plan = await renderer.bookPlan(input, { css })
-  const bytes = await renderer.bookPdf(input, { css, plan })
+  const fixtureIds = () => {
+    let id = 0
+    return () => `${key}-${++id}`
+  }
+  const plan = await renderer.bookPlan(input, { css, newId: fixtureIds() })
+  const bytes = await renderer.bookPdf(input, { css, plan, newId: fixtureIds() })
   const work = mkdtempSync(path.join(tmpdir(), `segnavia-${key}-`))
   const file = path.join(work, 'book.pdf')
   writeFileSync(file, bytes)
@@ -69,6 +73,15 @@ function blankDetail(plan: Plan, index: number): string {
   return `page=${index + 1}, blank=${page?.blank}, folio=${plan.folios[index] ?? '<none>'}, face=${page?.face}, side=${page?.side}`
 }
 
+function containsText(value: string, expected: string): boolean {
+  const reversed = [...expected].reverse().join('')
+  return compact(value).includes(compact(expected)) || compact(value).includes(compact(reversed))
+}
+
+function containsHead(value: string, title: string): boolean {
+  return value.includes('HEAD[') && containsText(value, title)
+}
+
 export async function verifyBookOpeners(renderer: Renderer, check: Check): Promise<void> {
   const css = ':where(body){font:14px/20px serif}:where(p,h2){margin-block:0 3mm}'
   for (const hebrew of [false, true]) {
@@ -78,13 +91,15 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
     try {
       const shared = pageWith(joined.pages, 'TWO_HEADING')
       const end = pageWith(joined.pages, 'ONE_END')
+      const later = pageWith(joined.pages, 'TWO_END')
       const title = hebrew ? 'פרק שני' : 'Chapter Two'
       const outline = pdfOutlineItems(joined.document).find((item) => compact(item.title) === compact(title))
       const links = annotationDestinations(joined.document)
       const text = joined.pages[shared - 1] ?? ''
+      const laterText = joined.pages[later - 1] ?? ''
       const folio = joined.plan.folios[shared - 1] ?? ''
       const contentsShowsFolio = joined.pages.some((page) =>
-        page.split('\n').some((line) => compact(line).includes(compact(title)) && compact(line).includes(compact(folio))),
+        page.split('\n').some((line) => containsText(line, title) && compact(line).includes(compact(folio))),
       )
       check(
         `${key} continue joins chapter two to chapter one's last PDF page and reduces the PDF page count`,
@@ -93,8 +108,14 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
       )
       check(
         `${key} continue keeps contents, outline and running-head targets on the shared PDF page`,
-        outline?.page === shared && links.includes(shared) && contentsShowsFolio && text.includes(`HEAD[${title}]`) && text.includes(`FOLIO[${folio}]`),
-        `shared=${shared}, outline=${outline?.page}, links=${links.join(',')}, contents-folio=${contentsShowsFolio}, compared-head=${title}, compared-folio=${folio}`,
+        outline?.page === shared &&
+          links.includes(shared) &&
+          contentsShowsFolio &&
+          containsHead(text, title) &&
+          later > shared &&
+          containsHead(laterText, title) &&
+          text.includes(`FOLIO[${folio}]`),
+        `shared=${shared}, later=${later}, outline=${outline?.page}, links=${links.join(',')}, contents-folio=${contentsShowsFolio}, shared-head=${containsHead(text, title)}, later-head=${containsHead(laterText, title)}, compared-folio=${folio}`,
       )
     } finally {
       joined.close()
@@ -102,7 +123,8 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
     }
 
     const rectoInput = fixture(hebrew, 'any')
-    const body = (rectoInput.children[1] as { children: Array<Record<string, unknown>> }).children
+    rectoInput.children.splice(0, 1)
+    const body = (rectoInput.children[0] as { children: Array<Record<string, unknown>> }).children
     body[0] = { ...body[0], children: [{ type: 'flow', html: '<p>ODD_PAGE_SECTION</p>' }] }
     body[1] = { ...body[1], opens: 'recto', parents, children: [{ type: 'flow', html: '<p>RECTO_SECTION</p>' }] }
     const recto = await render(renderer, rectoInput, css, `recto-${key}`)
