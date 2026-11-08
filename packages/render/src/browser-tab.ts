@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
-import { dependencyDecision, dependencyOriginSet } from '@segnavia/format'
+import { dependencyDecision, dependencyOriginSet, type FontFailure } from '@segnavia/format'
+import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
 import type { PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -18,13 +19,27 @@ export interface BrowserTabSetup {
   beforeOutput?: (tab: Tab) => Promise<void>
   dependencyOrigins?: Iterable<string>
   dependencies?: DependencyCache
+  fontFailures?: FontFailure[]
+  fontLoadReport?: (report: { failures: FontFailure[] }) => void
 }
+
+export const fontLoadSetup = (
+  failures: FontFailure[],
+  report: BrowserTabSetup['fontLoadReport'],
+): Pick<BrowserTabSetup, 'fontFailures' | 'fontLoadReport'> => ({
+  fontFailures: failures,
+  fontLoadReport: report,
+})
 
 export type DependencyRouteDecision =
   | { action: 'continue' }
   | { action: 'abort' }
   | { action: 'missing'; url: string }
   | ({ action: 'fulfill' } & DependencyAnswer)
+
+export function mergedFontFailures(initial: readonly FontFailure[], attribute: string | null): FontFailure[] {
+  return [...initial, ...fontFailuresAttribute(attribute)]
+}
 
 export async function dependencyRouteDecision(
   url: string,
@@ -107,6 +122,10 @@ export async function renderInBrowserTab<T>(
     })
   }
   await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})
+  if (setup.fontLoadReport) {
+    const value = await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), FONT_FAILURE_ATTRIBUTE)
+    setup.fontLoadReport({ failures: mergedFontFailures(setup.fontFailures ?? [], value) })
+  }
   if (measureSlots) await mergeCapturedSlotFit(tab, measureSlots, PAGE_READY_BOUND_MS)
   await setup.beforeOutput?.(tab)
   refuseMissing()

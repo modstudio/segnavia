@@ -1,4 +1,4 @@
-import { pageDirection } from '@segnavia/format'
+import { type FontFailure, pageDirection } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { HtmlPage, PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
@@ -28,6 +28,7 @@ export async function renderPagePdf(
   deadline?: RenderDeadline,
   diagramScript?: string,
   fontCss = '',
+  fontFailures: FontFailure[] = [],
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
   const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
@@ -36,12 +37,14 @@ export async function renderPagePdf(
       viewport,
       scripts: true,
       slots,
-      html: renderedPageDocument(page, opts, true, diagramScript, fontCss),
+      html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures),
       readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
       ...dependencySetup(opts),
+      fontFailures,
+      fontLoadReport: opts.fontLoad?.report,
     },
     async (tab) => {
       await awaitPrintedPageComposition(tab, page)

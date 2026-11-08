@@ -109,6 +109,7 @@ interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOri
   nonce?: string
   relayKeys?: boolean
   reportHeight?: boolean
+  fontFailures?: FontFailure[]
 }
 
 export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: ResolvedPageDocumentOptions): string {
@@ -126,6 +127,7 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     dir: pageDirection(page),
     lang: page.lang,
     fonts: page.style?.fonts,
+    fontFailures: options.fontFailures,
     sheets,
     css: options.css,
     relayKeys: options.relayKeys ?? false,
@@ -153,6 +155,7 @@ export function renderPageValueDocument(
   nonce?: string,
   fontCss = '',
   diagramScript?: string,
+  fontFailures: FontFailure[] = [],
 ): string {
   const page = 'html' in input ? input : resolvePageHtml(input)
   const namedMeasure =
@@ -170,5 +173,6 @@ export function renderPageValueDocument(
     nonce,
     relayKeys: false,
     reportHeight: false,
+    fontFailures,
   })
 }

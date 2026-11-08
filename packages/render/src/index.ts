@@ -9,7 +9,7 @@ import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
-import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
+import { type BrowserTabSetup, fontLoadSetup, renderInBrowserTab } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
@@ -184,12 +184,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         scripts: true,
         slots,
         scale: opts.scale,
-        html: renderedPageDocument(page, prepared.options, false, diagramScript, prepared.fontCss),
+        html: renderedPageDocument(page, prepared.options, false, diagramScript, prepared.fontCss, prepared.fontFailures),
         readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
         ...dependencySetup(opts),
+        ...fontLoadSetup(prepared.fontFailures, opts.fontLoad?.report),
       },
       async (tab) => {
         await awaitPrintedPageComposition(tab, page)
@@ -245,6 +246,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             deadline,
             diagramScript,
             prepared.fontCss,
+            prepared.fontFailures,
           )
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
@@ -254,7 +256,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         return enforce(output, opts.limits)
       })
     },
-
     async pageImage(input, opts = {}) {
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
@@ -295,7 +296,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined },
             {
               pagePdf: (page, slots, options, inputIndex) =>
-                renderPagePdf(page, slots, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss),
+                renderPagePdf(page, slots, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss, prepared.fontFailures),
               piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
@@ -388,7 +389,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         ),
       )
     },
-
     async close() {
       closed = true
       queue.close()
