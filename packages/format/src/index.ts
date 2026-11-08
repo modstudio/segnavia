@@ -281,7 +281,7 @@ export {
 } from './media.ts'
 export * from './motif.ts'
 export * from './numbering.ts'
-export { approvedOrigins, DEFAULT_ORIGINS, type FetchKind, type OriginApproval, type OriginDecision, originDecision, originSet } from './origin-policy.ts'
+export { approvedOrigins, DEFAULT_ORIGINS, type FetchKind, FETCH_KINDS, type OriginApproval, type OriginDecision, originDecision, originSet } from './origin-policy.ts'
 export {
   FlowingWidth,
   FULL_PAGE_SIZE,

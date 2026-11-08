@@ -1,4 +1,4 @@
-import { approvedOrigins, type FetchKind, type Scripts } from '@segnavia/format'
+import { approvedOrigins, FETCH_KINDS, type Scripts } from '@segnavia/format'
 import type { ResolvedContent, ResolvedUrlContent } from './controller-types.ts'
 
 export interface ContentValue {
@@ -18,8 +18,7 @@ export function comparableContent(
   origins: Iterable<OriginApproval> | undefined = undefined,
 ): ContentValue {
   const resolved = content.kind === 'url' || content.kind === 'image' || content.kind === 'shot' ? { ...content, src: resolveUrl(content.src) } : content
-  const kinds: FetchKind[] = ['script', 'style', 'font', 'image']
-  const policy = kinds.map((kind) => `${kind}:${[...approvedOrigins(origins, kind)].sort().join(',')}`).join(';')
+  const policy = FETCH_KINDS.map((kind) => `${kind}:${[...approvedOrigins(origins, kind)].sort().join(',')}`).join(';')
   return { content: resolved, scripts, css, cspExtra, origins: policy }
 }
 

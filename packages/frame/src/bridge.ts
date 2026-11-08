@@ -7,7 +7,7 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import { approvedOrigins, type Direction, type FontFailure, type FontManifest, type OriginApproval, type Scripts } from '@segnavia/format'
+import { approvedOrigins, type Direction, type FetchKind, type FontFailure, type FontManifest, type OriginApproval, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
@@ -304,7 +304,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const scripts: Scripts = options.scripts === 'sandboxed' ? 'sandboxed' : 'refuse'
   const bridge = options.bridge !== false
   const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
-  const sources = (kind: 'script' | 'style' | 'font' | 'image') => {
+  const sources = (kind: FetchKind) => {
     const values = [...approvedOrigins(options.origins, kind)].sort()
     return values.length ? ` ${values.join(' ')}` : ''
   }

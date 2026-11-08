@@ -1,4 +1,5 @@
 export type FetchKind = 'script' | 'style' | 'font' | 'image'
+export const FETCH_KINDS = ['script', 'style', 'font', 'image'] as const satisfies readonly FetchKind[]
 
 export interface OriginApproval {
   origin: string
