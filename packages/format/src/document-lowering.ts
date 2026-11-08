@@ -34,6 +34,8 @@ function sectionFields(section: Extract<ParsedNode, { type: 'section' }>) {
   return defined({
     id: section.id,
     title: section.title,
+    contentsLabel: section.contentsLabel,
+    subtitle: section.subtitle,
     contents: section.contents,
     opens: section.opens === 'continue' ? undefined : section.opens,
     parents: section.parents,

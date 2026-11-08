@@ -37,10 +37,14 @@ export type BookTemplate = z.infer<typeof BookTemplate>
 const designedPagesRefusal = 'a designed section needs at least one page; add a page or remove the section to clear this refusal'
 const templatedPagesRefusal = 'a templated section needs at least one page; add a page or remove the section to clear this refusal'
 const regionNameClear = 'use a letter followed by letters, digits, hyphens or underscores to clear this refusal'
+export const ContentsLabel = z.string().min(1, 'contentsLabel cannot be empty; omit contentsLabel or give it text to clear this refusal')
+export const Subtitle = z.string().min(1, 'subtitle cannot be empty; omit subtitle or give it text to clear this refusal')
 
 const sectionFields = {
   id: z.string(),
   title: z.string().optional(),
+  contentsLabel: ContentsLabel.optional(),
+  subtitle: Subtitle.optional(),
   contents: z.boolean().default(true),
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
@@ -97,14 +101,9 @@ const flowingFront = BookSection.extend({ kind: z.literal('front').optional() })
 export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, BookContents, PlacedSection, flowingFront])
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
-export const Chapter = z.object({
-  id: z.string(),
+export const Chapter = BookSection.omit({ contents: true }).extend({
   title: z.string(),
-  html: z.string(),
   runningHead: z.string().optional(),
-  opens: BookOpens.optional(),
-  parents: BookSectionParents.optional(),
-  numbering: SectionNumbering.optional(),
 })
 export type Chapter = z.infer<typeof Chapter>
 

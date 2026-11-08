@@ -20,8 +20,8 @@ function placedImage(placement: PlacedSection['placement']): string {
 }
 
 function designed(entry: PlacedSection, html: string): BookItem {
-  const { id, title, contents, opens, parents } = entry
-  return { id, kind: 'designed', title, contents, opens, parents, pages: [{ html }] }
+  const { placement, kind, ...fields } = entry
+  return { ...fields, kind: 'designed', pages: [{ html }] }
 }
 
 async function resolvePlaced(

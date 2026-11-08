@@ -33,6 +33,12 @@ describe('book outline policy', () => {
     expect(bookOutline([{ id: 'one', level: 1, text: 'Introduction שלום', sectionId: 'one' }], new Map([['one', at(1)]]))[0]?.title).toBe('Introduction שלום')
   })
 
+  test('uses the contents label as the bookmark title', () => {
+    expect(
+      bookOutline([{ id: 'one', level: 1, text: 'Full title', contentsLabel: 'Short label', sectionId: 'one' }], new Map([['one', at(1)]]))[0]?.title,
+    ).toBe('Short label')
+  })
+
   test('uses contents depth and excludes opted-out headings', () => {
     const book = parseBookFixture({
       title: 'Book',

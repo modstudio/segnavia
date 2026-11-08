@@ -27,8 +27,14 @@ export interface BookHeading {
   id: string
   level: number
   text: string
+  contentsLabel?: string
+  subtitle?: string
   sectionId: string
   depth?: number
+}
+
+export function headingLabel(heading: BookHeading): string {
+  return heading.contentsLabel ?? heading.text
 }
 
 export interface BookDocument {
