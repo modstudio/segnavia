@@ -1,11 +1,11 @@
-import { type Book, type Limits, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
+import { type Book, KEEP_WITH_CUSTOM_PROPERTY, type Limits, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
   BOOK_FAILURE_ATTRIBUTE,
   PaginatedBookRefusedError,
   bookValueDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
-import { frameDocument, frameStyleSheets, newNonce } from '@segnavia/frame/bridge'
+import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
@@ -47,7 +47,17 @@ export interface BrowserBookDependencies {
 
 /** Whether author markup or any author stylesheet declares a keep, which only the bridge's keep pass applies. */
 export function usesKeepWith(...sources: Array<string | undefined>): boolean {
-  return sources.some((source) => source?.includes('--segnavia-keep-with') === true)
+  return sources.some((source) => source?.includes(KEEP_WITH_CUSTOM_PROPERTY) === true)
+}
+
+export function continuousBookNeedsScripts(
+  html: string,
+  sheets: readonly string[],
+  hostCss: string | undefined,
+  scripts: Book['scripts'],
+  marginLayer: boolean,
+): boolean {
+  return (!marginLayer && scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html, ...sheets, hostCss)
 }
 
 function bookSrcdoc(
@@ -58,6 +68,7 @@ function bookSrcdoc(
   hostCss: string | undefined,
   marginLayer: boolean,
   diagramScript: string | undefined,
+  sheets: readonly string[] | undefined,
   dependencyOrigins?: Iterable<string>,
   limits?: Limits,
 ): string {
@@ -69,7 +80,7 @@ function bookSrcdoc(
     nonce,
     dir: marginLayer ? 'ltr' : resolveDirection(book.dir, book.lang, book.title),
     lang: book.lang,
-    sheets: frameStyleSheets(book.style, resolveDirection(book.dir, book.lang, book.title), `${fontCss}${baseCss}`),
+    sheets,
     css: hostCss,
     relayKeys: false,
     reportHeight: false,
@@ -94,18 +105,30 @@ async function printBook(
   const marginLayer = part === 'margin'
   const fontCss = `${resolvedFontCss}${dependencies.fontFaces(renderOptions)}`
   const baseCss = `${bookPageCss(book, marginLayer || paginated)}${layerCss}`
+  let sheets: string[] | undefined
   let srcdoc: string
   try {
-    srcdoc = bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, renderOptions.dependencyOrigins, renderOptions.limits)
+    sheets = paginated ? undefined : frameStyleSheets(book.style, `${fontCss}${baseCss}`)
+    srcdoc = bookSrcdoc(
+      html,
+      book,
+      fontCss,
+      baseCss,
+      renderOptions.css,
+      marginLayer,
+      diagramScript,
+      sheets,
+      renderOptions.dependencyOrigins,
+      renderOptions.limits,
+    )
   } catch (error) {
-    if (error instanceof PaginatedBookRefusedError) throw new RenderRefusedError(error.message)
+    if (error instanceof PaginatedBookRefusedError || error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)
     throw error
   }
   return dependencies.render(
     {
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-      scripts:
-        paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html, book.style?.css, baseCss, renderOptions.css),
+      scripts: paginated || continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer),
       html: srcdoc,
       slots: preparedSlotsFor(book),
       readiness: paginated

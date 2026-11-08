@@ -30,7 +30,7 @@ export function bookFrame(
       nonce,
       dir: resolveDirection(view.dir, view.lang, view.title ?? ''),
       lang: view.lang,
-      sheets: frameStyleSheets(view.style, resolveDirection(view.dir, view.lang, view.title ?? ''), css),
+      sheets: frameStyleSheets(view.style, css),
       relayKeys: false,
       reportHeight: false,
       dependencyOrigins,

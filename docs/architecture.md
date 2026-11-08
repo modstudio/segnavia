@@ -1639,8 +1639,9 @@ margins, size, direction, numbering, metadata and limits. Logical margins have
 one physical mapping for imposition. Direction uses the shared `Direction` and
 `TextDirection` values rather than inline enums.
 
-The style layer combines a host-resolved brand sheet with the document's
-`StyleSheet`. A style sheet contains typed tokens, a font manifest, named
+The style compiler takes a brand sheet as an argument and combines it with the
+document's `StyleSheet`. `Document.brand` remains refused; the host brand seam
+comes later. A style sheet contains typed tokens, a font manifest, named
 paragraph and character styles with `basedOn`, named page geometries,
 furniture motifs and free CSS. A document entry replaces a same-named brand
 entry whole; properties do not merge across origins. Tokens become

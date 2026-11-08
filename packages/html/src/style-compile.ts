@@ -8,11 +8,11 @@ import {
   type StyleOrigin,
   type StyleSheet,
   TEXT_STYLE_PROPERTIES,
-  type TextDirection,
   type TextStyle,
   type TextStyleTokenGroup,
 } from '@segnavia/format'
 import { sanitizeBookCss } from './book-css.ts'
+import { quoteFamily } from './css-family.ts'
 import { cssTokens } from './css-tokens.ts'
 
 const LAYER_ORDER = '@layer segnavia.base, segnavia.brand, segnavia.document, segnavia.author;'
@@ -21,7 +21,6 @@ const DEFAULT_BASE_CSS = ''
 export interface CompileStyleSheetOptions {
   brand?: StyleSheet
   document: StyleSheet
-  dir: TextDirection
   baseCss?: string
 }
 
@@ -39,22 +38,8 @@ function dimension(value: Dimension): string {
   return `${value.value}${value.unit}`
 }
 
-function quoteFamily(family: string): string {
-  if (/^(?:serif|sans-serif|monospace|cursive|fantasy|system-ui)$/i.test(family)) return family
-  if (/^[-_a-z][-_a-z0-9]*$/i.test(family)) return family
-  let quoted = '"'
-  for (const character of family) {
-    const code = character.charCodeAt(0)
-    if (character === '\\' || character === '"') quoted += `\\${character}`
-    else if (character === '<') quoted += '\\3c '
-    else if (code <= 0x1f || code === 0x7f) quoted += `\\${code.toString(16)} `
-    else quoted += character
-  }
-  return `${quoted}"`
-}
-
 function familyStack(families: readonly string[]): string {
-  return families.map(quoteFamily).join(',')
+  return families.map((family) => quoteFamily(family, { quote: 'when-needed', controlCharacter: 'escape' })).join(',')
 }
 
 function tokenValue(group: TextStyleTokenGroup, value: unknown): string {

@@ -1,5 +1,5 @@
-import { type Deck, type Folio, firstStrongDirection, type PixelSize, resolveDirection, type Slide } from '@segnavia/format'
-import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
+import { type Deck, type Folio, firstStrongDirection, type PixelSize, type Slide } from '@segnavia/format'
+import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
@@ -30,6 +30,7 @@ export function stageCanvas(
     slots?: PreparedSlots
     bridge?: boolean
     folio: Folio
+    failed?: (error: StyleSheetRefusedError) => void
   },
 ): HTMLElement {
   const canvas = document.createElement('div')
@@ -44,18 +45,26 @@ export function stageCanvas(
     iframe.title = options.frameTitle(deck.title, options.folio.number)
     iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
-      iframe.srcdoc = frameDocument(slotHtml(content.html, options.slots), {
-        scripts: deck.scripts,
-        nonce: newNonce(),
-        dir: deck.dir,
-        lang: deck.lang,
-        sheets: frameStyleSheets(deck.style, resolveDirection(deck.dir, deck.lang, deck.title)),
-        css: options.css,
-        csp: options.csp || undefined,
-        dependencyOrigins: options.dependencyOrigins,
-        reportHeight: false,
-        bridge: options.bridge,
-      })
+      try {
+        iframe.srcdoc = frameDocument(slotHtml(content.html, options.slots), {
+          scripts: deck.scripts,
+          nonce: newNonce(),
+          dir: deck.dir,
+          lang: deck.lang,
+          sheets: frameStyleSheets(deck.style),
+          css: options.css,
+          csp: options.csp || undefined,
+          dependencyOrigins: options.dependencyOrigins,
+          reportHeight: false,
+          bridge: options.bridge,
+        })
+      } catch (error) {
+        if (!(error instanceof StyleSheetRefusedError)) throw error
+        if (!options.failed) throw error
+        options.failed(error)
+        layoutStageCanvas(canvas, deck.size)
+        return canvas
+      }
     } else iframe.src = controller.url(content.src)
     canvas.append(iframe)
   } else {

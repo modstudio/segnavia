@@ -22,21 +22,6 @@ export type TokenReference = z.infer<typeof TokenReference>
 export type TextStyleKind = 'paragraph' | 'character'
 export type TextStyleTokenGroup = 'colors' | 'dimensions' | 'fontFamilies'
 
-export const TEXT_STYLE_PROPERTIES = {
-  fontFamily: { kinds: ['paragraph', 'character'], tokenGroup: 'fontFamilies', cssProperty: 'font-family' },
-  fontSize: { kinds: ['paragraph', 'character'], tokenGroup: 'dimensions', cssProperty: 'font-size' },
-  lineHeight: { kinds: ['paragraph', 'character'], tokenGroup: 'dimensions', cssProperty: 'line-height' },
-  fontWeight: { kinds: ['paragraph', 'character'], cssProperty: 'font-weight' },
-  fontStyle: { kinds: ['paragraph', 'character'], cssProperty: 'font-style' },
-  color: { kinds: ['paragraph', 'character'], tokenGroup: 'colors', cssProperty: 'color' },
-  letterSpacing: { kinds: ['paragraph', 'character'], tokenGroup: 'dimensions', cssProperty: 'letter-spacing' },
-  textAlign: { kinds: ['paragraph'], cssProperty: 'text-align' },
-  spaceBefore: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'margin-block-start' },
-  spaceAfter: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'margin-block-end' },
-  indent: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'text-indent' },
-  keepWithNext: { kinds: ['paragraph'], cssProperty: '--segnavia-keep-with' },
-} as const satisfies Record<string, { kinds: readonly TextStyleKind[]; tokenGroup?: TextStyleTokenGroup; cssProperty: string }>
-
 const DimensionValue = z.union([TokenReference, Dimension])
 const TextStyleShape = {
   kind: z.enum(['paragraph', 'character']),
@@ -54,6 +39,26 @@ const TextStyleShape = {
   indent: DimensionValue.optional(),
   keepWithNext: z.boolean().optional(),
 } as const
+
+export const KEEP_WITH_CUSTOM_PROPERTY = '--segnavia-keep-with'
+
+type TextStyleProperty = Exclude<keyof typeof TextStyleShape, 'kind' | 'basedOn'>
+type TextStylePropertyFact = { kinds: readonly TextStyleKind[]; tokenGroup?: TextStyleTokenGroup; cssProperty: string }
+
+export const TEXT_STYLE_PROPERTIES = {
+  fontFamily: { kinds: ['paragraph', 'character'], tokenGroup: 'fontFamilies', cssProperty: 'font-family' },
+  fontSize: { kinds: ['paragraph', 'character'], tokenGroup: 'dimensions', cssProperty: 'font-size' },
+  lineHeight: { kinds: ['paragraph', 'character'], tokenGroup: 'dimensions', cssProperty: 'line-height' },
+  fontWeight: { kinds: ['paragraph', 'character'], cssProperty: 'font-weight' },
+  fontStyle: { kinds: ['paragraph', 'character'], cssProperty: 'font-style' },
+  color: { kinds: ['paragraph', 'character'], tokenGroup: 'colors', cssProperty: 'color' },
+  letterSpacing: { kinds: ['paragraph', 'character'], tokenGroup: 'dimensions', cssProperty: 'letter-spacing' },
+  textAlign: { kinds: ['paragraph'], cssProperty: 'text-align' },
+  spaceBefore: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'margin-block-start' },
+  spaceAfter: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'margin-block-end' },
+  indent: { kinds: ['paragraph'], tokenGroup: 'dimensions', cssProperty: 'text-indent' },
+  keepWithNext: { kinds: ['paragraph'], cssProperty: KEEP_WITH_CUSTOM_PROPERTY },
+} as const satisfies Record<TextStyleProperty, TextStylePropertyFact>
 
 export const TextStyle = z.object(TextStyleShape).superRefine((style, ctx) => {
   for (const [property, fact] of Object.entries(TEXT_STYLE_PROPERTIES)) {

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
 import { markdownHtml } from '@segnavia/html'
+import { RenderRefusedError } from './errors.ts'
 import { renderPageValueDocument } from './page-document.ts'
 
 test('a non-imposed printed named page lays out at its overridden measure and centers on the sheet', () => {
@@ -32,4 +33,10 @@ test('inlines the offline diagram renderer only for a diagram body', () => {
   expect(plain).not.toContain('DRAW')
   expect(diagram).toContain('DRAW')
   expect(diagram).toContain('<script nonce="test">')
+})
+
+test('converts a style compile refusal into RenderRefusedError', () => {
+  const page = Page.parse({ html: '<p>Body</p>', style: { textStyles: { body: { kind: 'paragraph', basedOn: 'missing' } } } })
+  expect(() => renderPageValueDocument(page, {}, false, 'test')).toThrow(RenderRefusedError)
+  expect(() => renderPageValueDocument(page, {}, false, 'test')).toThrow(/textStyles\.body\.basedOn.*clear this refusal/)
 })

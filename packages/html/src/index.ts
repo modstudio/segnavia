@@ -74,7 +74,7 @@ export { type BookFurnitureValues, embedFunction, fillBookFurniture, furnitureSc
 export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength } from './book/region-fit.ts'
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart } from './book/types.ts'
-export { bookStylesheet, sanitizeBookCss } from './book-css.ts'
+export { sanitizeBookCss } from './book-css.ts'
 export { type DescribeDocumentOptions, type DocumentDescription, type DocumentDescriptionNode, describeDocument } from './describe-document.ts'
 export { BLOCK_ELEMENTS, type ParseDocumentOptions, pageOrPrintedFromInput, parseDocument } from './document.ts'
 export type { EditDocumentOptions } from './document-command-core.ts'

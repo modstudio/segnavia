@@ -5,7 +5,7 @@ import { compileStyleSheet } from './style-compile.ts'
 const sheet = (value: unknown) => StyleSheet.parse(value)
 
 function compiled(brand: unknown, document: unknown): string[] {
-  const result = compileStyleSheet({ brand: sheet(brand), document: sheet(document), dir: 'ltr' })
+  const result = compileStyleSheet({ brand: sheet(brand), document: sheet(document) })
   expect(result.ok).toBe(true)
   return result.ok ? result.sheets : []
 }
@@ -118,7 +118,6 @@ describe('compileStyleSheet', () => {
     const withFreeCss = compileStyleSheet({
       brand: sheet({ textStyles: { brand: { kind: 'character', color: '#111111' } }, css: '.brand{color:red}' }),
       document: sheet({ textStyles: { document: { kind: 'paragraph', color: '#222222' } }, css: '.author{color:blue}' }),
-      dir: 'ltr',
       baseCss: ':where(main){display:block}',
     })
     expect(withFreeCss.ok).toBe(true)
@@ -147,7 +146,6 @@ describe('compileStyleSheet', () => {
         },
         fonts: [{ local: 'Held', fallback: 'serif' }],
       }),
-      dir: 'rtl',
     })
     expect(result).toMatchObject({
       ok: true,

@@ -213,7 +213,7 @@ export function printedPageValueDocument(
     dir: direction,
     lang: page.lang,
     title: metadata?.title,
-    sheets: frameStyleSheets(page.style, direction, baseCss),
+    sheets: frameStyleSheets(page.style, baseCss),
     css: options.css,
     relayKeys: false,
     reportHeight: options.measure === true,

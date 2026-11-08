@@ -9,7 +9,7 @@ const AUTHOR = '#336699'
 const HOST = '#4488cc'
 
 function compiled(brand: StyleSheet, document: StyleSheet): string[] {
-  const result = compileStyleSheet({ brand, document, dir: 'ltr' })
+  const result = compileStyleSheet({ brand, document })
   if (!result.ok) throw new Error(result.refusal)
   return result.sheets
 }

@@ -12,3 +12,6 @@ Book `css` moves to `style.css`, and book and page font references move to
 `style.fonts`; decks use the same font location. Books and printed pages accept
 all style sections, pages omit `pageGeometries`, decks accept `tokens`,
 `textStyles`, `fonts` and `css`, and boards accept no style sections.
+
+The former `bookStylesheet` helper is removed; compile `style` with
+`compileStyleSheet` and pass its separate sheets to the frame instead.

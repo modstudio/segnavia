@@ -10,7 +10,7 @@ import {
   resolveLimits,
   resolvePageWidth,
 } from '@segnavia/format'
-import { frameDocument, frameStyleSheets, newNonce } from '@segnavia/frame/bridge'
+import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
@@ -108,12 +108,19 @@ interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOri
 
 export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: ResolvedPageDocumentOptions): string {
   const nonce = options.nonce ?? newNonce()
+  let sheets: string[]
+  try {
+    sheets = frameStyleSheets(page.style, baseCss)
+  } catch (error) {
+    if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)
+    throw error
+  }
   return frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
     scripts: page.scripts,
     nonce,
     dir: page.dir,
     lang: page.lang,
-    sheets: frameStyleSheets(page.style, resolveDirection(page.dir, page.lang, htmlTextSample(page.html)), baseCss),
+    sheets,
     css: options.css,
     relayKeys: options.relayKeys ?? false,
     reportHeight: options.reportHeight ?? false,

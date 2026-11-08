@@ -58,6 +58,30 @@ test('page fast path and expanded print path refuse the same reserved motif plac
   expect(errors[0]?.message).toBe(expanded?.message)
 })
 
+test('page reports a style compile refusal without writing a partial frame', () => {
+  const iframe = { srcdoc: '' }
+  const errors: Error[] = []
+  const pageElement = {
+    isConnected: true,
+    loadGeneration: 0,
+    slotPreparation: undefined,
+    cancelSelectionRequests() {},
+    cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    mount: () => iframe,
+    querySelector: () => iframe,
+    fit() {},
+    dispatchEvent(event: ErrorEvent) {
+      errors.push(event.error)
+      return true
+    },
+  }
+  loadPageValue.call(pageElement, Page.parse({ html: '<p>Body</p>', style: { textStyles: { body: { kind: 'paragraph', basedOn: 'missing' } } } }))
+  expect(iframe.srcdoc).toBe('')
+  expect(errors).toHaveLength(1)
+  expect(errors[0]?.message).toContain('textStyles.body.basedOn')
+  expect(errors[0]?.message).toContain('clear this refusal')
+})
+
 test('page keeps authored HTML and reports a refused fill for a scripted item', () => {
   let iframe = pageFrame()
   const errors: Error[] = []

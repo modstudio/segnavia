@@ -1,4 +1,4 @@
-import { type Deck, resolveDirection } from '@segnavia/format'
+import type { Deck } from '@segnavia/format'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
 
@@ -14,7 +14,7 @@ export function htmlSlideDocument(
     nonce: options.nonce,
     dir: deck.dir,
     lang: deck.lang,
-    sheets: frameStyleSheets(deck.style, resolveDirection(deck.dir, deck.lang, deck.title), `${PRINT_COLOR_CSS}${options.baseCss ?? ''}`),
+    sheets: frameStyleSheets(deck.style, `${PRINT_COLOR_CSS}${options.baseCss ?? ''}`),
     css: options.css,
     reportHeight: false,
     relayKeys: false,

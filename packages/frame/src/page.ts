@@ -8,12 +8,10 @@ import {
   type Document,
   type DocumentInput,
   FULL_PAGE_SIZE,
-  htmlTextSample,
   Page,
   type PageWidths,
   pageFromDocument,
   printProperties,
-  resolveDirection,
   type SlotsOptions,
 } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
@@ -228,17 +226,21 @@ export class SegnaviaPage extends PageElementAttributes {
         this.fit()
         return
       }
+      let sheets: string[]
+      try {
+        sheets = frameStyleSheets(page.style, page.print ? printProperties(page.print) : '')
+      } catch (error) {
+        report(error)
+        this.fit()
+        return
+      }
       loadPageDocument(
         resolvedPage,
         {
           scripts: page.scripts,
           dir: page.dir,
           lang: page.lang,
-          sheets: frameStyleSheets(
-            page.style,
-            resolveDirection(page.dir, page.lang, htmlTextSample(resolvedPage.html)),
-            page.print ? printProperties(page.print) : '',
-          ),
+          sheets,
           css: this.css,
           csp: this.cspExtra || undefined,
           dependencyOrigins: this.dependencyOrigins,

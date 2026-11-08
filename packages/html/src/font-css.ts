@@ -9,7 +9,7 @@ import {
   resolveFontFace,
 } from '@segnavia/format'
 import { bytesToBase64 } from './base64.ts'
-import { hasControlChar } from './control-char.ts'
+import { quoteFamily } from './css-family.ts'
 import { parseUnicodeRange, UNICODE_RANGE_CLEARANCE } from './unicode-range.ts'
 
 export class FontCssRefusedError extends Error {
@@ -64,20 +64,15 @@ function isFontFormat(value: FontFace['format']): value is FontFormat {
   return FONT_FORMATS.some((format) => format === value)
 }
 
-// A family sits in a <style> element, so `<` is the CSS hex escape `\3c `.
-function quoteFamily(family: string): string {
-  if (hasControlChar(family)) {
-    throw new FontCssRefusedError(
-      `The family ${JSON.stringify(family)} contains a control character; remove control characters from the family name to clear this refusal.`,
-    )
-  }
-  let quoted = '"'
-  for (const ch of family) {
-    if (ch === '\\' || ch === '"') quoted += `\\${ch}`
-    else if (ch === '<') quoted += '\\3c '
-    else quoted += ch
-  }
-  return `${quoted}"`
+function quotedFamily(family: string): string {
+  return quoteFamily(family, {
+    quote: 'always',
+    controlCharacter: (refused) => {
+      throw new FontCssRefusedError(
+        `The family ${JSON.stringify(refused)} contains a control character; remove control characters from the family name to clear this refusal.`,
+      )
+    },
+  })
 }
 
 function validatedFace(font: FontFace): FontFace {
@@ -103,7 +98,7 @@ export function fontFaceCss(font: FontFace): string {
     throw error
   }
   const face = { ...validated, ...resolved }
-  return `@font-face{font-family:${quoteFamily(face.family)};src:url(data:font/${mimeType(face.format)};base64,${bytesToBase64(face.data)}) format(${JSON.stringify(face.format)});font-weight:${face.weight ?? 'normal'};font-style:${face.style ?? 'normal'};${unicodeRangeDeclaration(face)}font-display:block}`
+  return `@font-face{font-family:${quotedFamily(face.family)};src:url(data:font/${mimeType(face.format)};base64,${bytesToBase64(face.data)}) format(${JSON.stringify(face.format)});font-weight:${face.weight ?? 'normal'};font-style:${face.style ?? 'normal'};${unicodeRangeDeclaration(face)}font-display:block}`
 }
 
 function customProperty(name: string, font: AppFont): string {
@@ -113,7 +108,7 @@ function customProperty(name: string, font: AppFont): string {
     )
   }
   const generic = font.generic ? `,${font.generic}` : ''
-  return `--segnavia-font-${name}:${quoteFamily(font.family)}${generic}`
+  return `--segnavia-font-${name}:${quotedFamily(font.family)}${generic}`
 }
 
 export function fontCss(options: { app: Map<string, AppFont>; local?: readonly FontFace[] }): string {

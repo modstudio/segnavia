@@ -9,7 +9,7 @@ import {
   type Imposition as ParsedImposition,
   pagePlacementLayout,
 } from '@segnavia/format'
-import { newNonce, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
+import { newNonce, PRINT_READY_ATTRIBUTE, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
@@ -62,6 +62,7 @@ async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<
 }
 
 function nameSlideError(error: unknown, id: string): never {
+  if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(`Slide "${id}" could not be rendered: ${error.message}`)
   if (error instanceof Error) {
     error.message = `Slide "${id}" could not be rendered: ${error.message}`
     throw error

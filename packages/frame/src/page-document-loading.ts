@@ -41,7 +41,11 @@ export function loadShownPageDocument(
 ): void {
   const nonce = newNonce()
   if (!hasDiagram(page.html)) {
-    loaded(shownPageDocument(page, resolved, { ...options, nonce }))
+    try {
+      loaded(shownPageDocument(page, resolved, { ...options, nonce }))
+    } catch (error) {
+      failed(error)
+    }
     return
   }
   const write = (script: string | undefined) => {

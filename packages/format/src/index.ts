@@ -319,6 +319,7 @@ export {
 export {
   Dimension,
   HexColor,
+  KEEP_WITH_CUSTOM_PROPERTY,
   PageGeometry,
   STYLE_NAME,
   StyleSheet,
