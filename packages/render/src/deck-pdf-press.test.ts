@@ -99,3 +99,8 @@ test('deck press settings refuse removed and incompatible options before renderi
 test('notesPaper refuses press fields in favor of the deck Document', async () => {
   await expect(renderDeckPdf(deck, { layout: 'notes', notesPaper: { paper: 'letter', bleed: -1 } } as never, services)).rejects.toThrow("deck Document's print")
 })
+
+test('slides layout does not validate deck safe against notes paper', async () => {
+  const large = Deck.parse({ ...deck, size: { width: 2000, height: 2000 }, print: { safe: 140 } })
+  await expect(renderDeckPdf(large, { layout: 'slides' }, services)).resolves.toBeInstanceOf(Uint8Array)
+})

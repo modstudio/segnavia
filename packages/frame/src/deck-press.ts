@@ -61,11 +61,11 @@ export function deckNotesPrint(notesPaper: PrintInput | undefined, deck: Deck): 
   return parsePrint('notesPaper', { ...input, ...deck.print })
 }
 
-export function deckPressSettings(deck: Deck, options: DeckPressOptions): { sheet?: DeckSheetGeometry; notes: Print } {
+export function deckPressSettings(deck: Deck, options: DeckPressOptions): { sheet?: DeckSheetGeometry; notes?: Print } {
   if (options.sheet !== undefined)
     throw new RangeError("PrintOptions.sheet was removed; put press geometry on the deck Document's print to clear this refusal.")
   const sheet = deckSheetGeometry(deck)
-  const notes = deckNotesPrint(options.notesPaper, deck)
+  const notes = options.layout === 'notes' ? deckNotesPrint(options.notesPaper, deck) : undefined
   const print = options.layout === 'notes' ? notes : sheet?.print
   if (print && usesPressLayout(print) && options.preferCssPageSize) {
     throw new RangeError(
