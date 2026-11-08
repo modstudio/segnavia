@@ -1,4 +1,4 @@
-import type { AppFont, FontFace as FontFaceData, FontReference } from '@segnavia/format'
+import { type AppFont, type FontFace as FontFaceData, fontManifestWithReferences, type FontReference } from '@segnavia/format'
 import { appNames, FontRefusedError, type FontsOptions, refuseMissingFontSource, requireAppFontName, uniqueFontReferences } from '@segnavia/frame/fonts'
 
 function nativeFace(face: FontFaceData): FontFace {
@@ -17,7 +17,8 @@ export async function registerMarkdownEditorFonts(
 ): Promise<() => void> {
   const unique = uniqueFontReferences(references)
   if (!fonts) {
-    refuseMissingFontSource(unique, 'markdown editor')
+    const converted = fontManifestWithReferences(undefined, unique)
+    refuseMissingFontSource(converted.manifest, converted.undeclared, 'markdown editor')
     return () => undefined
   }
   const app = new Map<string, AppFont>()

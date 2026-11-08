@@ -29,6 +29,13 @@ test('font registration follows the page app-name refusal', async () => {
   ).rejects.toThrow(FontRefusedError)
 })
 
+test('font registration converts references before refusing a missing source', async () => {
+  const { element } = elementStyle()
+  await expect(registerMarkdownEditorFonts(element, [{ app: 'body' }], undefined, new AbortController().signal)).rejects.toThrow(
+    'markdown editor could not establish app font "body"; supply a FontSource to clear this refusal.',
+  )
+})
+
 test('font registration rolls back properties and faces after a partial failure', async () => {
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
   const originalFontFace = Object.getOwnPropertyDescriptor(globalThis, 'FontFace')
