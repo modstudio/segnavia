@@ -328,6 +328,7 @@ export {
   type StyleOrigin,
 } from './style-merge.ts'
 export {
+  Brand,
   Dimension,
   HexColor,
   KEEP_WITH_CUSTOM_PROPERTY,

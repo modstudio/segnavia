@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { StyleSheet } from './style-sheet.ts'
+import { Brand, StyleSheet } from './style-sheet.ts'
 
 function refusal(input: unknown): string {
   const result = StyleSheet.safeParse(input)
@@ -8,6 +8,18 @@ function refusal(input: unknown): string {
 }
 
 describe('StyleSheet', () => {
+  test('refuses unknown keys at every style-owned level and Brand has the same behavior', () => {
+    for (const input of [
+      { stray: true },
+      { tokens: { stray: true } },
+      { textStyles: { body: { kind: 'paragraph', stray: true } } },
+    ]) {
+      const styleMessage = refusal(input)
+      expect(styleMessage).toContain('stray')
+      expect(Brand.safeParse(input).success).toBe(false)
+    }
+  })
+
   test('enforces names on keyed sections, basedOn and token references', () => {
     expect(refusal({ tokens: { colors: { Bad: '#fff' } } })).toMatch(/"tokens"[\s\S]*"colors"[\s\S]*"Bad"/)
     expect(refusal({ textStyles: { body: { kind: 'paragraph', basedOn: 'Bad' } } })).toMatch(/"textStyles"[\s\S]*"body"[\s\S]*"basedOn"/)
