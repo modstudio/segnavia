@@ -140,7 +140,12 @@ function refuseUnknownKeys(source: Record<string, unknown>, allowed: readonly st
   throw new RangeError(messages.join(' '))
 }
 
-function parsedNestedLimits<T extends string>(value: unknown, measures: readonly T[], subject: string, prefix: 'localFonts' | 'assets'): Partial<Record<T, number>> {
+function parsedNestedLimits<T extends string>(
+  value: unknown,
+  measures: readonly T[],
+  subject: string,
+  prefix: 'localFonts' | 'assets',
+): Partial<Record<T, number>> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new RangeError(`The ${subject} limits.${prefix} limit must be an object; pass valid limits.${prefix} to clear this refusal.`)
   }

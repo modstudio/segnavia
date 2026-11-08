@@ -57,7 +57,10 @@ export async function verifyDependencyRender(
   )
   check(
     'an unapproved markup image refuses before CSP can hide it',
-    unapproved.includes(unapprovedImage) && unapproved.includes('origin https://unapproved.example') && unapproved.includes('image') && unapproved.includes('origins'),
+    unapproved.includes(unapprovedImage) &&
+      unapproved.includes('origin https://unapproved.example') &&
+      unapproved.includes('image') &&
+      unapproved.includes('origins'),
     unapproved,
   )
   check('an unapproved markup image never reaches the host asset seam', unapprovedLookups === 0, String(unapprovedLookups))
@@ -77,16 +80,17 @@ export async function verifyDependencyRender(
 
   const secondImage = `${imageOrigin}/second.png`
   const documentCap = await refusal(
-    renderer.pagesPdf(
-      [imagePage, screenPage({ html: `<img src="${secondImage}">` }, { size: { width: 400, height: 200 } })],
-      {
-        origins: cappedOptions.origins,
-        assets: cappedOptions.assets,
-        limits: { assets: { each: 2, bytes: 3 } },
-      },
-    ),
+    renderer.pagesPdf([imagePage, screenPage({ html: `<img src="${secondImage}">` }, { size: { width: 400, height: 200 } })], {
+      origins: cappedOptions.origins,
+      assets: cappedOptions.assets,
+      limits: { assets: { each: 2, bytes: 3 } },
+    }),
   )
-  check('asset bytes accumulate across every tab in one document', documentCap.includes('limits.assets.bytes') && documentCap.includes(secondImage), documentCap)
+  check(
+    'asset bytes accumulate across every tab in one document',
+    documentCap.includes('limits.assets.bytes') && documentCap.includes(secondImage),
+    documentCap,
+  )
 
   const fontCssUrl = 'https://fonts.googleapis.com/css2?family=Noto+Serif+Hebrew'
   const fontUrl = 'https://fonts.gstatic.com/s/notoserifhebrew/v1/hebrew.ttf'

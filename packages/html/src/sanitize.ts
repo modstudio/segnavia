@@ -153,12 +153,7 @@ function refusedElement(element: Element, refused: ReadonlySet<string>, options:
   return name === 'meta' && Object.keys(element.attribs).some((attribute) => attribute.toLowerCase() === 'http-equiv')
 }
 
-function assetAttribute(
-  element: Element,
-  attribute: string,
-  value: string,
-  options: SanitizeOptions,
-): string | undefined {
+function assetAttribute(element: Element, attribute: string, value: string, options: SanitizeOptions): string | undefined {
   const tag = element.name.toLowerCase()
   let kind: FetchKind | undefined
   if (options.keepScripts && tag === 'script' && attribute === 'src') kind = 'script'
@@ -170,13 +165,7 @@ function assetAttribute(
   return decision.allowed ? '' : decision.reason
 }
 
-function refusedAttribute(
-  element: Element,
-  name: string,
-  value: string,
-  links: ResolvedLinkPolicy,
-  options: SanitizeOptions,
-): string | undefined {
+function refusedAttribute(element: Element, name: string, value: string, links: ResolvedLinkPolicy, options: SanitizeOptions): string | undefined {
   const attribute = name.toLowerCase()
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
   const asset = assetAttribute(element, attribute, value, options)

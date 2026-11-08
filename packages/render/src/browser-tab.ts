@@ -33,7 +33,11 @@ export const fontLoadSetup = (
   fontLoadReport: report,
 })
 
-export type AssetRouteDecision = { action: 'continue' } | { action: 'abort'; reason: string } | { action: 'missing'; url: string } | ({ action: 'fulfill' } & AssetAnswer)
+export type AssetRouteDecision =
+  | { action: 'continue' }
+  | { action: 'abort'; reason: string }
+  | { action: 'missing'; url: string }
+  | ({ action: 'fulfill' } & AssetAnswer)
 
 export function mergedFontFailures(initial: readonly FontFailure[], attribute: string | null): FontFailure[] {
   return [...initial, ...fontFailuresAttribute(attribute)]
@@ -108,8 +112,7 @@ export async function renderInBrowserTab<T>(
     else if (decision.action === 'abort') {
       refused.add(decision.reason)
       await route.abort('blockedbyclient')
-    }
-    else if (decision.action === 'fulfill') {
+    } else if (decision.action === 'fulfill') {
       const bytes = decision.body.byteLength
       const limitRefusal = assetLimitRefusal(url, bytes, assetBudget.bytes, assetLimits)
       if (limitRefusal) {

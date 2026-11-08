@@ -2,15 +2,15 @@ import {
   type BrandSource,
   type Deck,
   exceedsLimits,
+  type FetchKind,
   type FontFace,
   type FontFailure,
   type FontSource,
-  type FetchKind,
   type Limits,
   type OmittedImpositionMark,
+  type OriginApproval,
   PageWidths,
   parseLimits,
-  type OriginApproval,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'

@@ -1,10 +1,21 @@
 import { expect, test } from 'bun:test'
 import { Deck, limitRefusal } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
-import { copyLimits, enforceDeckLimits, innerLimits, parseRenderOptions } from './options.ts'
+import { copyLimits, enforceDeckLimits, innerLimits, parseRenderOptions, type RenderOptions } from './options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
-  expect(innerLimits({ pages: 2, sheets: 3, bytes: 4, slides: 5, slideBytes: 6, notesBytes: 7, localFonts: { count: 8, bytes: 9 }, assets: { each: 10, bytes: 11 } })).toEqual({
+  expect(
+    innerLimits({
+      pages: 2,
+      sheets: 3,
+      bytes: 4,
+      slides: 5,
+      slideBytes: 6,
+      notesBytes: 7,
+      localFonts: { count: 8, bytes: 9 },
+      assets: { each: 10, bytes: 11 },
+    }),
+  ).toEqual({
     pages: 2,
     localFonts: { count: 8, bytes: 9 },
     assets: { each: 10, bytes: 11 },
@@ -35,7 +46,7 @@ test('removed render local-font limits name its replacement', () => {
 })
 
 test('parsed options own one asset budget that copies preserve', () => {
-  const options = parseRenderOptions({})
+  const options = parseRenderOptions({} as RenderOptions)
   expect(options.assetBudget).toEqual({ bytes: 0 })
   expect({ ...options }.assetBudget).toBe(options.assetBudget)
 })
