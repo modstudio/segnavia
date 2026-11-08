@@ -102,6 +102,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   slots?: SegnaviaThumbnail['slots']
   motifs?: SegnaviaThumbnail['motifs']
   fonts?: SegnaviaThumbnail['fonts']
+  brands?: SegnaviaThumbnail['brands']
   placements?: SegnaviaThumbnail['placements']
   designedCover?: SegnaviaThumbnail['designedCover']
   pageWidths?: SegnaviaThumbnail['pageWidths']
@@ -179,6 +180,7 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']
   fonts?: SegnaviaDocument['fonts']
+  brands?: SegnaviaDocument['brands']
   placements?: SegnaviaDocument['placements']
   pageWidths?: SegnaviaDocument['pageWidths']
   unstyled?: boolean

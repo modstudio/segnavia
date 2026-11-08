@@ -13,6 +13,7 @@ import {
 import { parseDocument } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
@@ -25,6 +26,7 @@ import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import { hasSlotWork, prepareSlots, slotFillRefusal } from './slot-render.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
+import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 
 export class SegnaviaThumbnail extends HTMLElement {
@@ -48,6 +50,8 @@ export class SegnaviaThumbnail extends HTMLElement {
   private placementOptions: AssetPlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
+  private brandOptions: BrandsOptions | undefined
+  private brandResolution: AbortController | undefined
   private designedCoverInput: DesignedCover | undefined
   private designedCoverValue: ParsedDesignedCover | undefined
   private designedCoverDisposal: (() => void) | undefined
@@ -78,15 +82,11 @@ export class SegnaviaThumbnail extends HTMLElement {
   set deck(input: DocumentInput | null) {
     const parsed = input === null ? null : parseDocument(input)
     this.deckDocument = parsed
-    this.value = parsed === null ? null : deckFromDocument(parsed)
-    if (this.value) this.pageValue = null
-    if (this.value) this.pageDocument = null
-    if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
-    else this.style.removeProperty('--segnavia-aspect')
-    this.changed()
+    this.resolveDeckDocument(parsed)
   }
 
   [internalThumbnailDeckLoad](deck: Deck | null) {
+    this.brandResolution?.abort()
     this.deckDocument = null
     this.value = deck
     if (this.value) this.pageValue = null
@@ -103,14 +103,11 @@ export class SegnaviaThumbnail extends HTMLElement {
   set page(input: DocumentInput | null | undefined) {
     const parsed = input == null ? null : parseDocument(input)
     this.pageDocument = parsed
-    this.pageValue = parsed === null ? null : pageFromDocument(parsed)
-    if (this.pageValue) this.value = null
-    if (this.pageValue) this.deckDocument = null
-    this.updatePageAspect()
-    this.changed()
+    this.resolvePageDocument(parsed)
   }
 
   [internalThumbnailPageLoad](page: Page | null) {
+    this.brandResolution?.abort()
     this.pageDocument = null
     this.pageValue = page
     if (this.pageValue) this.value = null
@@ -215,6 +212,16 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.changed()
   }
 
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
+    if (this.deckDocument) this.resolveDeckDocument(this.deckDocument)
+    else if (this.pageDocument) this.resolvePageDocument(this.pageDocument)
+  }
+
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
@@ -246,6 +253,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.brandResolution?.abort()
     this.observer?.disconnect()
     this.observer = null
     this.resize.disconnect()
@@ -350,6 +358,54 @@ export class SegnaviaThumbnail extends HTMLElement {
     }
     const projection = projectPageOnPaper(this.pageValue, print)
     this.style.setProperty('--segnavia-aspect', String(projection.aspect))
+  }
+
+  private resolveDeckDocument(documentValue: Document | null) {
+    this.brandResolution?.abort()
+    if (!documentValue) {
+      this.value = null
+      this.style.removeProperty('--segnavia-aspect')
+      this.changed()
+      return
+    }
+    const commit = (deck: Deck) => {
+      if (this.deckDocument !== documentValue) return
+      this.value = deck
+      this.pageValue = null
+      this.pageDocument = null
+      this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
+      this.changed()
+    }
+    this.value = null
+    this.changed()
+    this.brandResolution = resolveThumbnailDocument(documentValue, this.brandOptions, deckFromDocument, commit, (error) => {
+      if (this.deckDocument === documentValue)
+        this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true }))
+    })
+  }
+
+  private resolvePageDocument(documentValue: Document | null) {
+    this.brandResolution?.abort()
+    if (!documentValue) {
+      this.pageValue = null
+      this.updatePageAspect()
+      this.changed()
+      return
+    }
+    const commit = (page: Page) => {
+      if (this.pageDocument !== documentValue) return
+      this.pageValue = page
+      this.value = null
+      this.deckDocument = null
+      this.updatePageAspect()
+      this.changed()
+    }
+    this.pageValue = null
+    this.changed()
+    this.brandResolution = resolveThumbnailDocument(documentValue, this.brandOptions, pageFromDocument, commit, (error) => {
+      if (this.pageDocument === documentValue)
+        this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true }))
+    })
   }
 
   private mountPage() {

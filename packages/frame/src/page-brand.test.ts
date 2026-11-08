@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Document, pageFromDocument, type StyleSheet } from '@segnavia/format'
+import { Document, type pageFromDocument, type StyleSheet } from '@segnavia/format'
 import { loadBrandedPage } from './page-brand.ts'
 
 function page(brand: string | undefined, html: string) {

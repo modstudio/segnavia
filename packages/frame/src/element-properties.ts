@@ -29,7 +29,23 @@ export const ELEMENT_PROPERTIES = {
   ),
   thumbnail: descriptor(
     HEADLESS_ELEMENTS.thumbnail,
-    ['deck', 'page', 'print', 'index', 'resolveSlide', 'base', 'css', 'mountMargin', 'slots', 'motifs', 'fonts', 'placements', 'designedCover', 'pageWidths'],
+    [
+      'deck',
+      'page',
+      'print',
+      'index',
+      'resolveSlide',
+      'base',
+      'css',
+      'mountMargin',
+      'slots',
+      'motifs',
+      'fonts',
+      'brands',
+      'placements',
+      'designedCover',
+      'pageWidths',
+    ],
     ['segnavia-thumbnail-error'],
   ),
   board: descriptor(
@@ -76,7 +92,7 @@ export const ELEMENT_PROPERTIES = {
   ),
   document: descriptor(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
+    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths'],
     [],
   ),
   book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'dependencyOrigins'], []),

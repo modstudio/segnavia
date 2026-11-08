@@ -17,6 +17,7 @@ import {
 } from '@segnavia/format'
 import { fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
+import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
 
@@ -121,7 +122,9 @@ function pageParts(html: string): { head: string; body: string } {
 }
 
 export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1] & { newId?: () => string }): string {
-  return printedPageValueDocument(resolvePageHtml(printedFromDocument(parseDocument(input, { newId: options.newId }))), options)
+  const document = parseDocument(input, { newId: options.newId })
+  refuseNamedDocumentBrand(document, 'printedPageValueDocument')
+  return printedPageValueDocument(resolvePageHtml(printedFromDocument(document)), options)
 }
 
 export function printedPageValueDocument(

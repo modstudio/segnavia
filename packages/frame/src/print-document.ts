@@ -33,6 +33,7 @@ import {
   resolvePageHtml,
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
+import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
@@ -191,7 +192,9 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 }
 
 export function printableDeck(input: DocumentInput, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
-  return printableDeckValue(deckFromDocument(parseDocument(input, { newId: options.newId })), options)
+  const document = parseDocument(input, { newId: options.newId })
+  refuseNamedDocumentBrand(document, 'printableDeckValue')
+  return printableDeckValue(deckFromDocument(document), options)
 }
 
 export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
@@ -272,7 +275,9 @@ export interface PrintableDeckDocument {
 }
 
 export function printableDeckDocument(input: DocumentInput, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
-  return printableDeckValueDocument(deckFromDocument(parseDocument(input, { newId: options.newId })), options)
+  const document = parseDocument(input, { newId: options.newId })
+  refuseNamedDocumentBrand(document, 'printableDeckValueDocument')
+  return printableDeckValueDocument(deckFromDocument(document), options)
 }
 
 export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
@@ -351,7 +356,11 @@ export function printablePaper(
 // bridge carries propagated root backgrounds onto a printable element; the
 // server renderer still uses top-level page renders for PDF composition.
 export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
-  const pages = inputs.map((page) => resolvePageHtml(pageOrPrintedFromInput(page)))
+  const pages = inputs.map((input) => {
+    const document = parseDocument(input)
+    refuseNamedDocumentBrand(document, 'printablePageValuesDocument')
+    return resolvePageHtml(pageOrPrintedFromInput(document))
+  })
   return printableHtmlPagesDocument(pages, imposition, options)
 }
 

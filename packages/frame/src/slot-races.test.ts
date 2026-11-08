@@ -37,7 +37,7 @@ test('page re-runs its document edge when brands changes', () => {
   const page = { pageInput: input, load: (value: unknown) => loaded.push(value) }
   Object.setPrototypeOf(page, SegnaviaPage.prototype)
 
-  ;(page as unknown as SegnaviaPage).brands = { source: { brand: async () => undefined } }
+  ;(page as unknown as InstanceType<typeof SegnaviaPage>).brands = { source: { brand: async () => undefined } }
 
   expect(loaded).toEqual([input])
 })
@@ -350,11 +350,25 @@ test('paper re-resolves its document brands when the source changes', async () =
   Object.setPrototypeOf(paper, SegnaviaPaper.prototype)
 
   const setBrands = Object.getOwnPropertyDescriptor(SegnaviaPaper.prototype, 'brands')?.set
-  setBrands?.call(paper, { source: { brand: async (name: string) => (resolved.push(name), { css: '.house{color:red}' }) } })
+  setBrands?.call(paper, {
+    source: {
+      brand: async (name: string) => {
+        resolved.push(name)
+        return { css: '.house{color:red}' }
+      },
+    },
+  })
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(paper.resolvedBrandGeneration).toBe(paper.brandGeneration)
   expect(paper.pages[0]?.brand).toEqual({ css: '.house{color:red}' })
-  setBrands?.call(paper, { source: { brand: async (name: string) => (resolved.push(name), { css: '.house{color:blue}' }) } })
+  setBrands?.call(paper, {
+    source: {
+      brand: async (name: string) => {
+        resolved.push(name)
+        return { css: '.house{color:blue}' }
+      },
+    },
+  })
   await new Promise((resolve) => setTimeout(resolve, 0))
 
   expect(resolved).toEqual(['house', 'house'])
@@ -386,7 +400,10 @@ test('paper reports a brand refusal without painting its unbranded pages', async
     placementOptions: undefined,
     cancelSlotPreparation: (SegnaviaPaper.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
     paintResolved: () => paints++,
-    dispatchEvent: (event: ErrorEvent) => (errors.push(event.error), true),
+    dispatchEvent: (event: ErrorEvent) => {
+      errors.push(event.error)
+      return true
+    },
     paint: (SegnaviaPaper.prototype as unknown as { paint(): void }).paint,
   }
 
@@ -462,6 +479,28 @@ test('document reports invalid bindings prepared before a page is mounted', asyn
   expect(paints).toBe(1)
   expect(errors).toHaveLength(1)
   expect(errors[0]?.message).toContain('src bindings are allowed only on <img>')
+})
+
+test('document element resolves a named brand before keeping lowered pages', async () => {
+  const sourceDocument = Document.parse({
+    type: 'document',
+    kind: 'page',
+    brand: 'house',
+    children: [{ type: 'page', body: { html: '<p>Branded</p>' } }],
+  })
+  const element = {
+    sourceDocuments: [sourceDocument],
+    sourceValues: [],
+    pageValues: [],
+    brandOptions: { source: { brand: async () => ({ css: '.house{color:red}' }) } },
+    paint() {},
+    dispatchEvent: () => true,
+  }
+  const resolveDocuments = (SegnaviaDocument.prototype as unknown as { resolveDocuments(documents: Document[]): void }).resolveDocuments
+  resolveDocuments.call(element, element.sourceDocuments)
+  expect(element.sourceValues).toHaveLength(0)
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect((element.sourceValues as Array<{ brand?: unknown }>)[0]?.brand).toEqual({ css: '.house{color:red}' })
 })
 
 test("document's report receives fit from a frame it owns", async () => {
