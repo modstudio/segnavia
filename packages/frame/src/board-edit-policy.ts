@@ -39,6 +39,7 @@ export interface BoardEditTransition {
 
 const availability = (state: BoardHistory<BoardEdit>): string => `${state.undo.length > 0}:${state.redo.length > 0}`
 const unchanged = (state: BoardEditQueueState): BoardEditTransition => ({ state, effects: { abort: [], historyChanged: false } })
+const remoteBase = (state: BoardEditQueueState): Document => state.jobs[0]?.before ?? state.value
 
 export function boardEditQueue(value: Document, nextId = 1, invalidated: BoardEditQueueState['invalidated'] = null): BoardEditQueueState {
   return { value, jobs: [], invalidated, ...emptyBoardHistory(), nextId }
@@ -81,7 +82,7 @@ export function redoBoardEdit(state: BoardEditQueueState): BoardEditTransition {
 }
 
 export function applyRemoteBoardEdit(state: BoardEditQueueState, batch: DocumentBatch): BoardEditTransition {
-  const base = state.jobs[0]?.before ?? state.value
+  const base = remoteBase(state)
   const rebasedRemote = rebaseOps(base, batch.ops)
   if (rebasedRemote.conflicts.length > 0) return { ...unchanged(state), conflicts: rebasedRemote.conflicts }
   const remote = batch.base === fingerprintDocument(base) ? applyOps(base, batch) : rebasedRemote.document
@@ -113,7 +114,7 @@ export function adoptHostBoard(state: BoardEditQueueState, value: Document): Boa
       },
     }
   }
-  const base = state.jobs[0]?.before ?? state.value
+  const base = remoteBase(state)
   return applyRemoteBoardEdit(state, { base: fingerprintDocument(base), ops: diffDocuments(base, value) })
 }
 
