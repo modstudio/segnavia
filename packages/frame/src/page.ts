@@ -229,7 +229,7 @@ export class SegnaviaPage extends PageElementAttributes {
       }
       let sheets: string[]
       try {
-        sheets = frameStyleSheets(page.style, page.print ? printProperties(page.print) : '')
+        sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
       } catch (error) {
         report(error)
         this.fit()

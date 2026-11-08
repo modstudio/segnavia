@@ -13,8 +13,8 @@ export class StyleSheetRefusedError extends Error {
   }
 }
 
-export function frameStyleSheets(document: StyleSheet | undefined, baseCss = ''): string[] {
-  const compiled = compileStyleSheet({ document: document ?? {}, baseCss: `${BLOCK_DIRECTION_CSS}${baseCss}` })
+export function frameStyleSheets(document: StyleSheet | undefined, brand: StyleSheet | undefined, baseCss = ''): string[] {
+  const compiled = compileStyleSheet({ brand, document: document ?? {}, baseCss: `${BLOCK_DIRECTION_CSS}${baseCss}` })
   if (!compiled.ok) throw new StyleSheetRefusedError(compiled.refusal)
   return compiled.sheets
 }

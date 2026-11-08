@@ -1,4 +1,4 @@
-import { type Deck, exceedsLimits, type FontFace, type FontSource, type Limits, type OmittedImpositionMark, PageWidths, parseLimits } from '@segnavia/format'
+import { type BrandSource, type Deck, exceedsLimits, type FontFace, type FontSource, type Limits, type OmittedImpositionMark, PageWidths, parseLimits } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
@@ -62,6 +62,7 @@ export interface RenderOptions {
   css?: string
   fonts?: Font[]
   fontSource?: FontSource
+  brandSource?: BrandSource
   localFonts?: LocalFontsOptions
   limits?: Limits
   boundMs?: number

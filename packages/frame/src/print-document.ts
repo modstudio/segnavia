@@ -314,7 +314,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     nonce,
     dir: pageDirection(page),
     lang: page.lang,
-    sheets: frameStyleSheets(page.style, `${PRINT_COLOR_CSS}${properties}${padding}${options.baseCss ?? ''}`),
+    sheets: frameStyleSheets(page.style, page.brand, `${PRINT_COLOR_CSS}${properties}${padding}${options.baseCss ?? ''}`),
     css: options.css,
     csp: options.cspExtra || undefined,
     reportHeight: false,

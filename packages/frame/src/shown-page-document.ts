@@ -15,7 +15,7 @@ export function shownPageDocument(
     nonce: options.nonce,
     dir: pageDirection({ ...page, html }),
     lang: page.lang,
-    sheets: frameStyleSheets(page.style, `${page.print ? printProperties(page.print) : ''}${options.baseCss ?? ''}`),
+    sheets: frameStyleSheets(page.style, page.brand, `${page.print ? printProperties(page.print) : ''}${options.baseCss ?? ''}`),
     css: options.css,
     csp: options.csp,
     dependencyOrigins: options.dependencyOrigins,

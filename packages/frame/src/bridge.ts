@@ -299,7 +299,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
     options.title === undefined ? '' : `<title>${escapeHtml(options.title)}</title>`,
     bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
-    ...(options.sheets ?? frameStyleSheets(undefined)).map((sheet) => `<style>${sheet}</style>`),
+    ...(options.sheets ?? frameStyleSheets(undefined, undefined)).map((sheet) => `<style>${sheet}</style>`),
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')
   // An author's root dir and lang win, so library values fill only missing
