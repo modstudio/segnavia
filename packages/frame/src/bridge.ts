@@ -269,6 +269,13 @@ export function documentNeedsSlotFit(html: string): boolean {
   return false
 }
 
+function rootAttributes(tag: string | undefined, options: Pick<FrameOptions, 'dir' | 'lang'>): string {
+  return [
+    options.dir && !tag?.match(/\sdir\s*=/i) ? ` dir="${options.dir}"` : '',
+    options.lang && !tag?.match(/\slang\s*=/i) ? ` lang="${escapeAttribute(options.lang)}"` : '',
+  ].join('')
+}
+
 // The policy and the bridge go first, before anything the author wrote, so
 // nothing in the author's document is parsed ahead of them. A policy the
 // author adds can only narrow this one: browsers enforce every policy present.
@@ -295,12 +302,14 @@ export function frameDocument(html: string, options: FrameOptions): string {
     ...(options.sheets ?? frameStyleSheets(undefined)).map((sheet) => `<style>${sheet}</style>`),
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')
-  const attributes = [options.dir ? ` dir="${options.dir}"` : '', options.lang ? ` lang="${escapeAttribute(options.lang)}"` : ''].join('')
-  // dir and lang go on a wrapper only when the author's document has no root
-  // of its own to carry them; otherwise they are set on the root it declares.
+  // An author's root dir and lang win, so library values fill only missing
+  // attributes and never create duplicates on the document root.
   const withRoot = /<html[\s>]/i.test(body)
-    ? body.replace(/<html(\s[^>]*)?>/i, (tag) => (attributes ? tag.replace(/>$/, `${attributes}>`) : tag))
-    : `<html${attributes}><body>${body}</body></html>`
+    ? body.replace(/<html(\s[^>]*)?>/i, (tag) => {
+        const attributes = rootAttributes(tag, options)
+        return attributes ? tag.replace(/>$/, `${attributes}>`) : tag
+      })
+    : `<html${rootAttributes(undefined, options)}><body>${body}</body></html>`
   return `<!doctype html>${head}${withRoot}`
 }
 

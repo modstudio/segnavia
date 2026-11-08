@@ -216,6 +216,18 @@ describe('frame document', () => {
     expect(frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n', dir: 'rtl', lang: 'he' })).toContain('<html dir="rtl" lang="he"><body><p>x</p>')
   })
 
+  test("an author's root direction wins without a duplicate attribute", () => {
+    const html = frameDocument('<html dir="ltr"><body>שלום</body></html>', { scripts: 'refuse', nonce: 'n', dir: 'rtl' })
+    expect(html).toContain('<html dir="ltr">')
+    expect(html.match(/<html[^>]*\sdir\s*=/gi)).toHaveLength(1)
+  })
+
+  test("an author's root language wins without a duplicate attribute", () => {
+    const html = frameDocument('<html lang="fr"><body>x</body></html>', { scripts: 'refuse', nonce: 'n', lang: 'he' })
+    expect(html).toContain('<html lang="fr">')
+    expect(html.match(/<html[^>]*\slang\s*=/gi)).toHaveLength(1)
+  })
+
   test('block direction stays in the base layer before the unlayered host style', () => {
     const html = frameDocument('<p>x</p>', {
       scripts: 'refuse',

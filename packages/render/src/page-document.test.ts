@@ -15,6 +15,30 @@ test('a full printed page has no measure rule', () => {
   expect(renderPageValueDocument(page, {}, true, 'test')).not.toContain('max-inline-size:')
 })
 
+test('printed page margins follow the resolved page direction', () => {
+  const print = {
+    paper: { width: 148, height: 105, unit: 'mm' as const },
+    orientation: 'landscape' as const,
+    margin: { blockStart: 1, blockEnd: 3, inlineStart: 4, inlineEnd: 2 },
+    bleed: 3,
+  }
+  const byLanguage = Page.parse({ html: '<p>Hello</p>', lang: 'he', print })
+  const byAuthoredRoot = Page.parse({ html: '<html dir="rtl"><body>Hello</body></html>', print })
+  expect(renderPageValueDocument(byLanguage, {}, true, 'test')).toContain('padding:4mm 7mm 6mm 5mm')
+  expect(renderPageValueDocument(byAuthoredRoot, {}, true, 'test')).toContain('padding:4mm 7mm 6mm 5mm')
+})
+
+test('resolves the rendered page root direction while preserving an authored direction', () => {
+  const hebrew = Page.parse({ html: '<p>Hello</p>', lang: 'he' })
+  const firstStrong = Page.parse({ html: '<p>שלום</p>' })
+  const authored = Page.parse({ html: '<html dir="ltr"><body>שלום</body></html>' })
+  expect(renderPageValueDocument(hebrew, {}, false, 'test')).toContain('<html dir="rtl" lang="he">')
+  expect(renderPageValueDocument(firstStrong, {}, false, 'test')).toContain('<html dir="rtl">')
+  const authoredHtml = renderPageValueDocument(authored, {}, false, 'test')
+  expect(authoredHtml).toContain('<html dir="ltr">')
+  expect(authoredHtml.match(/<html[^>]*\sdir\s*=/gi)).toHaveLength(1)
+})
+
 test('the value renderer refuses markdown that skipped the Document content edge', () => {
   const markdown = Page.parse({ markdown: '# שלום\n\nEnglish text.', size: { width: 600, height: 400 } })
   expect(() => renderPageValueDocument(markdown, {}, false, 'test')).toThrow('pass its Document input through @segnavia/html parseDocument')

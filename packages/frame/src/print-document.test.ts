@@ -278,6 +278,11 @@ describe('printableDeckValue', () => {
 })
 
 describe('printablePageValues', () => {
+  test('resolves the direction of each page frame', () => {
+    const hebrew = Page.parse({ html: '<p>Hello</p>', lang: 'he' })
+    expect(printablePageValues([hebrew], grid, { nonce: 'test' })).toContain('&lt;html dir=&quot;rtl&quot; lang=&quot;he&quot;&gt;')
+  })
+
   test('wraps the concatenated per-paper placement boxes', () => {
     const pages = [fluid, fluid, fluid, fluid, fluid]
     const imposed = impose(grid, pages.length)

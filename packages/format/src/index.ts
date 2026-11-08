@@ -265,6 +265,7 @@ export {
   type ResolvedPageWidth,
   resolvePageWidth,
 } from './page.ts'
+export { pageDirection } from './page-direction.ts'
 export {
   CUSTOM_PAPER_MAX_MM,
   CUSTOM_PAPER_MIN_MM,
