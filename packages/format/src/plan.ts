@@ -87,6 +87,13 @@ function planSchema(options?: PlanParseOptions) {
         message: `pages has ${plan.pages.length} entries, above the limits.pages limit of ${pageLimit}; reduce the pages or raise limits.pages to clear this refusal`,
       })
     }
+    if (plan.folios.length !== plan.pages.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['folios'],
+        message: `folios has ${plan.folios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
+      })
+    }
   })
 }
 

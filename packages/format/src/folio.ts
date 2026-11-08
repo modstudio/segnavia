@@ -10,15 +10,18 @@ export const Numbering = z.object({
 export type Numbering = z.infer<typeof Numbering>
 
 export const SectionNumbering = z
-  .object({
-    counted: z.literal(false).optional(),
-    restart: z
-      .number()
-      .int('restart must be a positive integer; set restart to a positive integer to clear this refusal')
-      .positive('restart must be a positive integer; set restart to a positive integer to clear this refusal')
-      .max(Number.MAX_SAFE_INTEGER, 'restart must be a positive integer; set restart to a positive safe integer to clear this refusal')
-      .optional(),
-  })
+  .strictObject(
+    {
+      counted: z.literal(false, { error: 'counted can only be false; remove counted to clear this refusal' }).optional(),
+      restart: z
+        .number()
+        .int('restart must be a positive integer; set restart to a positive integer to clear this refusal')
+        .positive('restart must be a positive integer; set restart to a positive integer to clear this refusal')
+        .max(Number.MAX_SAFE_INTEGER, 'restart must be a positive integer; set restart to a positive safe integer to clear this refusal')
+        .optional(),
+    },
+    { error: 'section numbering accepts only counted and restart; remove unknown numbering fields to clear this refusal' },
+  )
   .superRefine((numbering, ctx) => {
     if (numbering.counted === false && numbering.restart !== undefined) {
       ctx.addIssue({

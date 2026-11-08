@@ -84,12 +84,8 @@ function writeSiblings(
   return { first: references[0] as PDFRef, last: references.at(-1) as PDFRef }
 }
 
-export function writeBookStructure(
-  document: PDFDocument,
-  input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book; folios?: readonly (string | null)[] },
-): void {
+export function writeBookStructure(document: PDFDocument, input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book }): void {
   writeDocumentMetadata(document, input.book)
-  if (input.folios) writePlanFolios(document, input.folios)
 
   const outline = bookOutline(input.headings, input.destinations)
   if (outline.length === 0) return

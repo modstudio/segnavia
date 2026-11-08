@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test'
+import { bookDocument, parseBookFixture } from '@segnavia/html'
 import {
   appendMeasuredBlock,
   composerScript,
   decideBookMeasurement,
+  flowSectionNumbering,
   inlineTileCount,
   measuredBlockConstraints,
   measuredKeepRuns,
@@ -13,12 +15,40 @@ import {
   unmeasuredFlows,
 } from './composer.ts'
 
+function startTagElement(tag: string): Pick<Element, 'getAttribute'> {
+  return {
+    getAttribute(name: string) {
+      const match = new RegExp(`\\s${name}="([^"]*)"`).exec(tag)
+      return match?.[1] ?? null
+    },
+  }
+}
+
 const facts = {
   hasLayout: true,
   flows: [{ id: 'chapter-1', sourceBlocks: 1, contentBlocks: 1, measuredLines: 1 }],
   plannedPages: 1,
   visibleElapsedMs: 0,
 }
+
+test('composer reads the section numbering attributes written by the book document', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+    chapters: [
+      { id: 'cover', title: 'Cover', html: '<p>Cover</p>', numbering: { counted: false } },
+      { id: 'text', title: 'Text', html: '<p>Text</p>', numbering: { restart: 4 } },
+    ],
+  })
+  const html = bookDocument(book).html
+  const cover = html.match(/<section[^>]*id="cover"(?:\s[^>]*)?>/)?.[0]
+  const text = html.match(/<section[^>]*id="text"(?:\s[^>]*)?>/)?.[0]
+  expect(cover).toBeDefined()
+  expect(text).toBeDefined()
+  expect(flowSectionNumbering(startTagElement(cover ?? ''))).toEqual({ counted: false, restart: undefined })
+  expect(flowSectionNumbering(startTagElement(text ?? ''))).toEqual({ counted: undefined, restart: 4 })
+})
 
 describe('decideBookMeasurement', () => {
   test('retries a galley without layout without charging visible time', () => {

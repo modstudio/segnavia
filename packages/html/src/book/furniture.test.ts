@@ -15,6 +15,11 @@ describe('fillBookFurniture', () => {
     expect(fillBookFurniture(html, { runningHead: 'ראשון' })).toBe('<div class="segnavia-running-head"><bdi dir="rtl">ראשון</bdi></div>')
   })
 
+  test('omits a folio motif whose plan folio is null', () => {
+    const html = '<footer><span data-motif="segnavia:folio"></span></footer>'
+    expect(fillBookFurniture(html, { folio: null })).toBe('<footer></footer>')
+  })
+
   test('fills first and last values for two named marks from each page plan', () => {
     const html =
       '<span class="kavana" data-motif="segnavia:mark" data-motif-name="kavana"></span><span class="siman" data-motif="segnavia:mark" data-motif-name="siman" data-motif-which="last"></span>'

@@ -71,6 +71,15 @@ export function lastBookPlanText(root: ParentNode = document): string | null | u
   return Array.from(root.querySelectorAll('script[data-segnavia-plan]')).at(-1)?.textContent
 }
 
+export async function composedPlanFromTab(tab: Tab, limits: Limits | undefined): Promise<SavedPlan> {
+  const text = await tab.evaluate(lastBookPlanText)
+  try {
+    return Plan.parse(JSON.parse(text ?? 'null'), { limits })
+  } catch (error) {
+    throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
+  }
+}
+
 /** Whether author markup or any author stylesheet declares a keep, which only the bridge's keep pass applies. */
 export function usesKeepWith(...sources: Array<string | undefined>): boolean {
   return sources.some((source) => source?.includes(KEEP_WITH_CUSTOM_PROPERTY) === true)
@@ -188,12 +197,7 @@ async function printBook(
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
         beforeOutput: async (tab) => {
           await awaitBookComposition(tab)
-          const text = await tab.evaluate(lastBookPlanText)
-          try {
-            composedPlan = Plan.parse(JSON.parse(text ?? 'null'), { limits: renderOptions.limits })
-          } catch (error) {
-            throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-          }
+          composedPlan = renderOptions.plan ?? (await composedPlanFromTab(tab, renderOptions.limits))
           await renderOptions.beforeOutput?.(tab)
         },
       }
@@ -266,12 +270,7 @@ export async function renderBrowserBookPlan(
     },
     async (tab) => {
       await awaitBookComposition(tab)
-      const text = await tab.evaluate(lastBookPlanText)
-      try {
-        return Plan.parse(JSON.parse(text ?? 'null'), { limits: options.limits })
-      } catch (error) {
-        throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
-      }
+      return composedPlanFromTab(tab, options.limits)
     },
   )
 }

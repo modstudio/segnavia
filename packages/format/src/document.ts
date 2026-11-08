@@ -8,11 +8,12 @@ import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { DocumentLimitsValue } from './limits.ts'
-import { NumberSystem } from './numbering.ts'
+import { isHebrew, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Print } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
+import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
@@ -99,6 +100,41 @@ function walk(nodes: DocumentNodeValue[], visit: (node: DocumentNodeValue, path:
     visit(node, nodePath)
     if ('children' in node) walk(node.children, visit, [...nodePath, 'children'])
   })
+}
+
+function documentNumberedSections(document: DocumentShapeValue): SectionNumberingFact[] {
+  const sections: SectionNumberingFact[] = []
+  const collect = (nodes: DocumentNodeValue[], division: 'front' | 'body' | 'end', path: (string | number)[]): void => {
+    nodes.forEach((node, index) => {
+      const nodePath = [...path, index]
+      const heldDivision = node.type === 'division' ? node.name : division
+      if ((node.type === 'section' || node.type === 'contents') && node.numbering !== undefined) {
+        const id = node.id ?? node.title ?? nodePath.join('.')
+        sections.push({ id, title: node.title, division: heldDivision, path: nodePath, numbering: node.numbering })
+      }
+      if ('children' in node) collect(node.children, heldDivision, [...nodePath, 'children'])
+    })
+  }
+  collect(document.children, 'body', ['children'])
+  return sections
+}
+
+function refineSectionNumberingPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
+  if (document.kind !== 'book' || document.mode === undefined) return
+  const hebrew = isHebrew(document.settings?.lang)
+  const configured = typeof document.numbering === 'object' ? document.numbering : undefined
+  const systems = {
+    frontMatter: configured?.frontMatter ?? (hebrew ? ('arabic' as const) : ('roman-lower' as const)),
+    body: configured?.body ?? (hebrew ? ('hebrew' as const) : ('arabic' as const)),
+  }
+  for (const issue of sectionNumberingIssues({
+    mode: document.mode,
+    systems,
+    sections: documentNumberedSections(document),
+    printedPageRules: document.rules !== undefined,
+  })) {
+    ctx.addIssue({ code: 'custom', ...issue })
+  }
 }
 
 type DocumentShapeValue = z.infer<typeof DocumentShape>
@@ -261,6 +297,7 @@ function refineProfileShape(document: DocumentShapeValue, profile: DocumentProfi
 
 const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
+  refineSectionNumberingPolicy(document, ctx)
   refineRootFields(document, profile, ctx)
   refineNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)

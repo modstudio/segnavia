@@ -2,7 +2,7 @@ import { resolveDirection, textDirection } from '@segnavia/format'
 import type { PaginatePageMarks } from '@segnavia/layout'
 
 export interface BookFurnitureValues {
-  folio?: string
+  folio?: string | null
   runningHead?: string
   marks?: PaginatePageMarks
 }
@@ -34,7 +34,7 @@ export function fillBookFurniture(html: string, values: BookFurnitureValues, dir
       const name = key === 'segnavia:mark' ? attribute(attrs, 'data-motif-name') : undefined
       const which = key === 'segnavia:mark' && attribute(attrs, 'data-motif-which') === 'last' ? 'last' : 'first'
       const value = field ? values[field] : name === undefined ? undefined : values.marks?.[name]?.[which]
-      if (value === undefined) return ''
+      if (value === undefined || value === null) return ''
       const outputAttrs = attrs.replace(/\sdata-motif(?:-[\w-]+)?\s*=\s*(?:(["'])([^"']*)\1|[^\s>]+)/gi, '')
       return `<${tag}${outputAttrs}><bdi dir="${resolveDirection(declared, lang, value)}">${escapeHtml(value)}</bdi></${tag}>`
     },

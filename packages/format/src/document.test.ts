@@ -179,7 +179,8 @@ describe('Document', () => {
       type: 'document' as const,
       kind: 'book' as const,
       title: 'Book',
-      mode: 'continuous' as const,
+      mode: 'paginated' as const,
+      page: { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
       children: [{ type: 'section' as const, title: 'One', numbering, children: [{ type: 'flow' as const, html: '' }] }],
     })
     expect(Document.parse(section({ counted: false })).children[0]).toMatchObject({ numbering: { counted: false } })
@@ -187,6 +188,41 @@ describe('Document', () => {
     expect(() => Document.parse(section({ restart: 0 }))).toThrow('set restart to a positive integer to clear this refusal')
     expect(() => Document.parse(section({ restart: 1.5 }))).toThrow('set restart to a positive integer to clear this refusal')
     expect(() => Document.parse(section({ counted: false, restart: 4 }))).toThrow('remove one of them to clear this refusal')
+    expect(() => Document.parse(section({ counted: true }))).toThrow('counted can only be false; remove counted to clear this refusal')
+    expect(() => Document.parse(section({ system: 'arabic' }))).toThrow('remove unknown numbering fields to clear this refusal')
+    expect(() => Document.parse(section({ start: 4 }))).toThrow('remove unknown numbering fields to clear this refusal')
+  })
+
+  test('refuses section numbering for continuous books and with printed-page rules', () => {
+    const section = { type: 'section' as const, id: 'one', title: 'One', numbering: { restart: 4 }, children: [{ type: 'flow' as const, html: '' }] }
+    expect(() => Document.parse({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: [section] })).toThrow(
+      /use the paginated layout.*clear this refusal/,
+    )
+    expect(() =>
+      Document.parse({
+        type: 'document',
+        kind: 'book',
+        title: 'Book',
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+        rules: { every: 'body' },
+        children: [section],
+      }),
+    ).toThrow('remove section numbering or the printed-page rules to clear this refusal')
+  })
+
+  test('refuses a section restart beyond its division numbering system range', () => {
+    expect(() =>
+      Document.parse({
+        type: 'document',
+        kind: 'book',
+        title: 'Book',
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+        numbering: { frontMatter: 'roman-lower', body: 'hebrew' },
+        children: [{ type: 'section', id: 'text', title: 'Text', numbering: { restart: 10_000 }, children: [{ type: 'flow', html: '' }] }],
+      }),
+    ).toThrow('hebrew range 1 to 9999')
   })
 
   test('refuses nested root fields that each profile does not lower', () => {

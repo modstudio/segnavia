@@ -86,6 +86,21 @@ describe('bookPlanFolios', () => {
     ).toEqual({ folios: ['1', null, '8', '9'], total: '4' })
   })
 
+  test('does not count an opener blank in an uncounted section', () => {
+    expect(
+      bookPlanFolios(
+        [
+          { sequence: 'body', flow: 'one', blank: false },
+          { sequence: 'body', flow: 'cover', blank: true },
+          { sequence: 'body', flow: 'cover', blank: false },
+          { sequence: 'body', flow: 'two', blank: false },
+        ],
+        { frontMatter: 'roman-lower', body: 'arabic' },
+        [{ id: 'cover', numbering: { counted: false } }],
+      ),
+    ).toEqual({ folios: ['1', null, null, '2'], total: '4' })
+  })
+
   test('counts an opener blank without showing its folio', () => {
     expect(
       bookPlanFolios(

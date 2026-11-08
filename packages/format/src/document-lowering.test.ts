@@ -198,12 +198,21 @@ describe('Document lowering', () => {
       type: 'document',
       kind: 'book',
       title: 'Book',
-      mode: 'continuous',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
       children: [
-        { type: 'section', title: 'Cover', numbering: { counted: false }, children: [{ type: 'flow', html: '<p>Cover</p>' }] },
-        { type: 'section', title: 'Text', numbering: { restart: 4 }, children: [{ type: 'flow', html: '<p>Text</p>' }] },
+        { type: 'division', name: 'front', children: [{ type: 'contents', id: 'contents', numbering: { restart: 2 } }] },
+        {
+          type: 'division',
+          name: 'body',
+          children: [
+            { type: 'section', title: 'Cover', numbering: { counted: false }, children: [{ type: 'flow', html: '<p>Cover</p>' }] },
+            { type: 'section', title: 'Text', numbering: { restart: 4 }, children: [{ type: 'flow', html: '<p>Text</p>' }] },
+          ],
+        },
       ],
     })
+    expect(bookFromDocument(document).frontMatter[0]).toMatchObject({ kind: 'contents', numbering: { restart: 2 } })
     expect(bookFromDocument(document).body.map((section) => ('numbering' in section ? section.numbering : undefined))).toEqual([
       { counted: false },
       { restart: 4 },

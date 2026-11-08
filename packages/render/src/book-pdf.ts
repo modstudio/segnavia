@@ -14,7 +14,6 @@ import {
 import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, joinedDestinations, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
-import { continuousSectionNumberingRefusal } from './book-numbering-policy.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
 import { bookPartsPrintStatus, finalNumbers, folioTextAt, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
 import { writeBookStructure } from './book-structure.ts'
@@ -281,8 +280,6 @@ async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options:
 }
 
 export async function renderBookPdf(input: Book, options: BookPdfOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
-  const numberingRefusal = continuousSectionNumberingRefusal(input)
-  if (numberingRefusal) throw new RenderRefusedError(numberingRefusal)
   const { value: book, slots } = await filledBook(input, options.slots)
   const frames = bookSlotFrames(book)
   if (book.mode === 'paginated') return renderPaginatedBookPdf(book, slotsForDocument(slots, [frames.all]), options, adapter)

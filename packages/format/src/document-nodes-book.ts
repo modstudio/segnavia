@@ -23,6 +23,7 @@ export const ContentsNode = NodeId.extend({
   pageNumbers: z.boolean().optional(),
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
+  numbering: SectionNumbering.optional(),
 })
 
 export const ParentPageNode = NodeId.extend({

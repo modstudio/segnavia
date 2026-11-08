@@ -35,7 +35,7 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
           system: numbering[page.sequence === 'front' ? 'frontMatter' : 'body'],
           start: section?.restart ?? 1,
           restart: section?.restart !== undefined ? firstNonBlankPage.get(page.flow) === index : index === 0 || page.sequence !== pages[index - 1]?.sequence,
-          counted: page.blank || section?.counted !== false,
+          counted: section?.counted !== false,
         },
       }
     }),
