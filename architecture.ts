@@ -115,6 +115,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/animation-timing.ts',
       'src/fit.ts',
       'src/image-fit.ts',
+      'src/deck-press.ts',
       'src/notes-layout.ts',
       'src/deck-folios.ts',
       'src/stage-layout.ts',
