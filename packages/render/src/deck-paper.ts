@@ -1,5 +1,5 @@
 import { type Deck, type Print, type PrintBoxes, PX_PER_MM, printBoxes, usesPressLayout } from '@segnavia/format'
-import { deckPressSettings, type NotesLayoutGeometry } from '@segnavia/frame/print-document'
+import type { deckPressSettings, notesLayoutGeometry } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import type { PdfRectangle } from './pdf-geometry.ts'
 import { pdfPixelBox } from './pdf-geometry.ts'
@@ -14,10 +14,7 @@ export interface DeckPressContext {
   slides: boolean
 }
 
-export function deckPressContext(
-  layout: 'slides' | 'notes' | undefined,
-  settings: ReturnType<typeof deckPressSettings>,
-): DeckPressContext {
+export function deckPressContext(layout: 'slides' | 'notes' | undefined, settings: ReturnType<typeof deckPressSettings>): DeckPressContext {
   const print = layout === 'notes' ? settings.notes : settings.sheet?.print
   if (!print) return { active: false, slides: false }
   const boxes = layout === 'notes' ? printBoxes(print) : settings.sheet?.boxes
@@ -25,7 +22,7 @@ export function deckPressContext(
   return { print, boxes, active, slides: active && layout !== 'notes' }
 }
 
-export function deckPrintableViewport(size: Deck['size'], notes: NotesLayoutGeometry | undefined, press: DeckPressContext) {
+export function deckPrintableViewport(size: Deck['size'], notes: ReturnType<typeof notesLayoutGeometry> | undefined, press: DeckPressContext) {
   if (notes) return { width: Math.round(notes.sheet.width), height: Math.round(notes.sheet.height) }
   if (press.active && press.boxes) {
     return { width: Math.round(press.boxes.bleedBox.width * PX_PER_MM), height: Math.round(press.boxes.bleedBox.height * PX_PER_MM) }
@@ -46,7 +43,7 @@ export function deckPrintablePdfOptions(press: DeckPressContext): Parameters<Tab
 
 export function regularSlideDrawBox(
   size: Deck['size'],
-  notes: NotesLayoutGeometry | undefined,
+  notes: ReturnType<typeof notesLayoutGeometry> | undefined,
   pressSheet: { width: number; height: number } | undefined,
 ): PdfRectangle {
   const box = notes?.slide ?? { x: 0, y: 0, ...(pressSheet ?? size) }

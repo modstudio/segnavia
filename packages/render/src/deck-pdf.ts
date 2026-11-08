@@ -27,18 +27,18 @@ import {
 } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import { fontLoadSetup } from './browser-tab.ts'
-import { RenderRefusedError } from './errors.ts'
-import type { RenderOptions } from './index.ts'
-import { type DependencyCache, dependencySetup } from './options.ts'
-import { containFixedPageOverflow } from './overflow-containment.ts'
 import {
-  type DeckPressContext,
   DECK_PRESS_SIZE_REMEDY,
+  type DeckPressContext,
   deckPressContext,
   deckPrintablePdfOptions,
   deckPrintableViewport,
   regularSlideDrawBox,
 } from './deck-paper.ts'
+import { RenderRefusedError } from './errors.ts'
+import type { RenderOptions } from './index.ts'
+import { type DependencyCache, dependencySetup } from './options.ts'
+import { containFixedPageOverflow } from './overflow-containment.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
 import { addPressBoxes, printCss } from './page-paper.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
@@ -202,10 +202,7 @@ async function composeRegularSlides(
   press: DeckPressContext,
 ): Promise<void> {
   const pages = output.getPages()
-  const pressSheet =
-    press.slides && press.boxes
-      ? { width: press.boxes.bleedBox.width * PX_PER_MM, height: press.boxes.bleedBox.height * PX_PER_MM }
-      : undefined
+  const pressSheet = press.slides && press.boxes ? { width: press.boxes.bleedBox.width * PX_PER_MM, height: press.boxes.bleedBox.height * PX_PER_MM } : undefined
   const geometry = regularSlideDrawBox(deck.size, notesGeometry, pressSheet)
   const firstPages = notesGeometry ? firstNotesPages(pageOwners, deck.slides.length) : []
   for (const item of rendered) {
@@ -226,9 +223,7 @@ async function regularDeckPdf(
 ): Promise<Uint8Array> {
   const press = deckPressContext(opts.layout, pressSettings)
   const baseCss = services.fontFaces(opts)
-  const slideBaseCss = containFixedPageOverflow(
-    `${baseCss}${press.slides && press.print ? printCss(press.print, 'ltr') : ''}`,
-  )
+  const slideBaseCss = containFixedPageOverflow(`${baseCss}${press.slides && press.print ? printCss(press.print, 'ltr') : ''}`)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
   const notesSheetFont = notesGeometry
     ? await fontCssForRender(
