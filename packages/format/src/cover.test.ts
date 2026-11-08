@@ -18,6 +18,7 @@ interface PageDocumentFields {
   lang?: string
   dir?: 'ltr' | 'rtl'
   scripts?: 'refuse' | 'sandboxed' | 'trusted'
+  brand?: string
   print?: {
     paper: { width: number; height: number; unit: 'mm' | 'pt' }
     orientation?: 'portrait' | 'landscape'
@@ -27,9 +28,10 @@ interface PageDocumentFields {
   }
 }
 
-const pageDocument = ({ html = '', id, lang, dir, scripts, print }: PageDocumentFields = {}) => ({
+const pageDocument = ({ html = '', id, lang, dir, scripts, brand, print }: PageDocumentFields = {}) => ({
   type: 'document' as const,
   kind: 'page' as const,
+  brand,
   settings: { lang, dir, scripts },
   print,
   children: [{ type: 'page' as const, id, body: { html } }],
@@ -47,6 +49,10 @@ const motif = (key: string, revision = '1'): Motif => ({
 })
 
 describe('Cover', () => {
+  test('refuses a named page brand with the cover-specific remedy', () => {
+    expect(() => Cover.parse({ page: pageDocument({ brand: 'house' }) })).toThrow(/cover page brand.*house.*remove the brand from the cover page/)
+  })
+
   test('fills the cover sheet and print defaults when print is absent', () => {
     expect(cover().page.print).toEqual({
       paper: { width: 160, height: 100, unit: 'mm' },

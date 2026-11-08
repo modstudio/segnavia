@@ -16,7 +16,13 @@ const COVER_PRINT = {
   orientation: 'landscape' as const,
 }
 
-const CoverPage = DocumentField.transform((document) => pageFromDocument(document)).superRefine((page, ctx) => {
+const CoverPage = DocumentField.superRefine((document, ctx) => {
+  if (document.brand !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['brand'], message: `cover page brand ${JSON.stringify(document.brand)} is not supported; remove the brand from the cover page` })
+  }
+})
+  .transform((document) => pageFromDocument(document))
+  .superRefine((page, ctx) => {
   if (!('html' in page.body)) {
     ctx.addIssue({
       code: 'custom',
@@ -25,7 +31,7 @@ const CoverPage = DocumentField.transform((document) => pageFromDocument(documen
         'a cover page body must be stored HTML in body.html; pass the Document through @segnavia/html parseDocument first, or give the page an html body, to clear this refusal',
     })
   }
-})
+  })
 
 const CoverShape = z.object({
   page: CoverPage,
