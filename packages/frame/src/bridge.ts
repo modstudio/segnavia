@@ -44,6 +44,10 @@ export const SELECTION_TEXT_LIMIT = 1_000_000
 export const HEADING_ID_LIMIT = 256
 export const COMPOSE_FAILURE_TEXT_LIMIT = 1024
 
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029')
+}
+
 export const PRINT_READY_ATTRIBUTE = 'data-segnavia-print-ready'
 
 // A frame may legitimately reuse a small set of artwork many times. Sixty-four
@@ -110,12 +114,12 @@ function compositionWait(options: FrameOptions): string {
   if (!options.readyAfterAttribute) return 'null'
   const report = options.reportHeight === false ? '' : 'report();'
   const failure = options.failureAttribute
-    ? `var failureName=${JSON.stringify(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${COMPOSE_FAILURE_TEXT_LIMIT})text=text.slice(0,${COMPOSE_FAILURE_TEXT_LIMIT - 1})+'…';post({type:'${MESSAGE.composeFailure}',text:text});return true;};if(failed())return;`
+    ? `var failureName=${scriptJson(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${COMPOSE_FAILURE_TEXT_LIMIT})text=text.slice(0,${COMPOSE_FAILURE_TEXT_LIMIT - 1})+'…';post({type:'${MESSAGE.composeFailure}',text:text});return true;};if(failed())return;`
     : ''
   const settle = options.failureAttribute ? 'settled=true;' : ''
   const fail = options.failureAttribute ? 'if(failed()){observer.disconnect();return;}' : ''
   const failureFilter = options.failureAttribute ? ',failureName' : ''
-  return `new Promise(function(resolve){var root=document.documentElement;var name=${JSON.stringify(options.readyAfterAttribute)};${failure}if(root.hasAttribute(name)){${settle}${report}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){${fail}if(root.hasAttribute(name)){observer.disconnect();${settle}${report}resolve();}}).observe(root,{attributes:true,attributeFilter:[name${failureFilter}]});})`
+  return `new Promise(function(resolve){var root=document.documentElement;var name=${scriptJson(options.readyAfterAttribute)};${failure}if(root.hasAttribute(name)){${settle}${report}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){${fail}if(root.hasAttribute(name)){observer.disconnect();${settle}${report}resolve();}}).observe(root,{attributes:true,attributeFilter:[name${failureFilter}]});})`
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -128,8 +132,8 @@ function compositionWait(options: FrameOptions): string {
 // layout wait, and readiness waits for that report. An element without a
 // layout box retries instead of reporting fit.
 function bridgeScript(options: FrameOptions): string {
-  const readyCallback = options.readyCallback ? `var callback=window[${JSON.stringify(options.readyCallback)}];if(typeof callback==='function')callback();` : ''
-  const keys = options.relayKeys === false ? '[]' : JSON.stringify(RELAYED_KEYS)
+  const readyCallback = options.readyCallback ? `var callback=window[${scriptJson(options.readyCallback)}];if(typeof callback==='function')callback();` : ''
+  const keys = options.relayKeys === false ? '[]' : scriptJson(RELAYED_KEYS)
   const selection =
     options.scripts === 'refuse'
       ? `window.addEventListener('message',function(e){var data=e.data;if(e.source===parent&&data&&data.type==='${MESSAGE.selectionRequest}'&&typeof data.id==='number'&&isFinite(data.id)){post({type:'${MESSAGE.selection}',id:data.id,text:String(getSelection?getSelection():''),pageText:(document.body||document.documentElement).innerText});}});`
@@ -141,7 +145,7 @@ function bridgeScript(options: FrameOptions): string {
   const print =
     options.printAtMs === undefined
       ? ''
-      : `var printAt=${JSON.stringify(options.printAtMs)};
+      : `var printAt=${scriptJson(options.printAtMs)};
 var freeze=function(){if(!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var j=0;j<animations.length;j++){try{animations[j].pause();animations[j].currentTime=printAt;}catch(error){}}};
 document.addEventListener('animationstart',freeze,true);document.addEventListener('transitionrun',freeze,true);
 var printWaits=[];
@@ -182,8 +186,8 @@ var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.p
       ? `var storage=function(){var values=new Map();return {get length(){return values.size;},key:function(index){var keys=Array.from(values.keys());return index>=0&&index<keys.length?keys[index]:null;},getItem:function(key){key=String(key);return values.has(key)?values.get(key):null;},setItem:function(key,value){values.set(String(key),String(value));},removeItem:function(key){values.delete(String(key));},clear:function(){values.clear();}};};
 Object.defineProperty(window,'localStorage',{configurable:true,value:storage()});Object.defineProperty(window,'sessionStorage',{configurable:true,value:storage()});`
       : ''
-  const fontDeclarations = JSON.stringify(declaredFontLoads(options.fonts))
-  const initialFontFailures = JSON.stringify(options.fontFailures ?? [])
+  const fontDeclarations = scriptJson(declaredFontLoads(options.fonts))
+  const initialFontFailures = scriptJson(options.fontFailures ?? [])
   return `(function(){
 ${storage}
 ${keepPassScript()}

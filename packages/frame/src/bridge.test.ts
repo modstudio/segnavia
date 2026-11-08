@@ -365,6 +365,12 @@ describe('frame document', () => {
     expect(bridgeForHost({ fontFailures: merged.slice(0, 40) })).toContain('initialFontFailures.concat(failures).slice(0,64)')
   })
 
+  test('escapes JSON values embedded in the bridge script context', () => {
+    const script = bridgeForHost({ fontFailures: [{ font: 'body', family: 'Evil</script>\u2028next\u2029', reason: 'unsupplied' }] })
+    expect(script).not.toContain('</script>')
+    expect(script).toContain('Evil\\u003c/script>\\u2028next\\u2029')
+  })
+
   test('messages with non-object data are ignored without throwing', () => {
     const source = {} as Window
     const frame = { contentWindow: source } as HTMLIFrameElement
