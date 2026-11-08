@@ -40,7 +40,7 @@ import {
   regularSlideDrawBox,
 } from './deck-paper.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
-import { addPressBoxes } from './page-paper.ts'
+import { addPressBoxes, printCss } from './page-paper.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
@@ -227,11 +227,7 @@ async function regularDeckPdf(
   const press = deckPressContext(opts.layout, pressSettings)
   const baseCss = services.fontFaces(opts)
   const slideBaseCss = containFixedPageOverflow(
-    `${baseCss}${
-      press.slides && press.boxes && press.print
-        ? `:where(html){box-sizing:border-box!important;width:${press.boxes.bleedBox.width}mm!important;height:${press.boxes.bleedBox.height}mm!important;padding:${press.print.bleed}mm!important;overflow:clip!important}`
-        : ''
-    }`,
+    `${baseCss}${press.slides && press.print ? printCss(press.print, 'ltr') : ''}`,
   )
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
   const notesSheetFont = notesGeometry
