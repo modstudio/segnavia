@@ -76,5 +76,11 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
 }
 
 export function pageOrPrintedFromInput(input: PageOrPrintedInput, options: ParseDocumentOptions = {}) {
-  return pageOrPrintedFromDocument(parseDocument(input, options))
+  const document = parseDocument(input, options)
+  if (document.brand !== undefined) {
+    throw new Error(
+      `Document names brand ${JSON.stringify(document.brand)}; resolve it with resolveBrand, then lower with pageOrPrintedFromDocument(document, brand) to clear this refusal.`,
+    )
+  }
+  return pageOrPrintedFromDocument(document)
 }

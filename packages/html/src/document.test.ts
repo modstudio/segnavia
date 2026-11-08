@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import type { DocumentInput } from '@segnavia/format'
-import { BLOCK_ELEMENTS, parseDocument } from './document.ts'
+import { BLOCK_ELEMENTS, pageOrPrintedFromInput, parseDocument } from './document.ts'
 
 function counter() {
   let value = 0
@@ -62,4 +62,17 @@ test('keeps active content for the later realize policy', () => {
   expect(html).toContain('https://fonts.example/x/v1/font.woff2')
   expect(html).toContain('<form><button>Send</button></form>')
   expect(html).toContain('src="https://cdn.example/library@1.0.0/index.js"')
+})
+
+test('pageOrPrintedFromInput refuses to lower a named brand', () => {
+  expect(() =>
+    pageOrPrintedFromInput({
+      type: 'document',
+      kind: 'page',
+      brand: 'house',
+      children: [{ type: 'page', body: { html: '<p>Page</p>' } }],
+    }),
+  ).toThrow(
+    'Document names brand "house"; resolve it with resolveBrand, then lower with pageOrPrintedFromDocument(document, brand) to clear this refusal.',
+  )
 })
