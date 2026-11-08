@@ -37,6 +37,7 @@ interface BoardResolutionEntry {
 export class BoardResolutions {
   resolver: ResolveBoardItem | undefined
   private brands: BrandsOptions | undefined
+  private boardBrandName: string | undefined
   private controller = new AbortController()
   private boardBrand: Promise<BoardBrandResolution> = Promise.resolve({ brand: undefined })
   private readonly entries = new Map<string, BoardResolutionEntry>()
@@ -44,9 +45,12 @@ export class BoardResolutions {
   constructor(private readonly boardBrandFailed: (error: unknown) => void = () => {}) {}
 
   configure(document: Document | null, brands: BrandsOptions | undefined) {
+    const brandName = document?.brand
+    if (brandName === this.boardBrandName && brands?.source === this.brands?.source) return
     this.controller.abort()
     this.controller = new AbortController()
     this.brands = brands
+    this.boardBrandName = brandName
     const controller = this.controller
     this.boardBrand = document
       ? resolveBrand(document, brands?.source, controller.signal).then(

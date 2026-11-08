@@ -117,6 +117,36 @@ test('drops a cached entry when an address changes kind', async () => {
   expect(resolutions.value('shared')?.kind).toBe('page')
 })
 
+test('keeps resolved entries when board content changes without changing its brand configuration', async () => {
+  const source = { brand: async () => undefined }
+  const board = (direction: 'ltr' | 'rtl') => Document.parse({ type: 'document', kind: 'board', title: 'Board', settings: { dir: direction }, children: [] })
+  const resolutions = new BoardResolutions()
+  resolutions.configure(board('ltr'), { source })
+  let calls = 0
+  const asset = item('asset')
+  resolutions.resolver = async () => {
+    calls += 1
+    return image
+  }
+  resolutions.request(
+    asset,
+    () => {},
+    () => {},
+  )
+  await settle()
+
+  resolutions.configure(board('rtl'), { source })
+  resolutions.request(
+    asset,
+    () => {},
+    () => {},
+  )
+  await settle()
+
+  expect(calls).toBe(1)
+  expect(resolutions.value(asset.address)).toEqual(image)
+})
+
 test('settles and reports a refused board brand once when items carry their own brands', async () => {
   const failures: unknown[] = []
   const resolutions = new BoardResolutions((error) => failures.push(error))
