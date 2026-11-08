@@ -158,7 +158,6 @@ function assetAttribute(
   attribute: string,
   value: string,
   options: SanitizeOptions,
-  approvals: Iterable<OriginApproval> | undefined,
 ): string | undefined {
   const tag = element.name.toLowerCase()
   let kind: FetchKind | undefined
@@ -167,7 +166,7 @@ function assetAttribute(
   else if (tag === 'img' && attribute === 'src') kind = 'image'
   if (!kind) return undefined
   if (kind === 'image' && safeImageSource(value)) return ''
-  const decision = originDecision(value, kind, approvals)
+  const decision = originDecision(value, kind, options.origins)
   return decision.allowed ? '' : decision.reason
 }
 
@@ -177,11 +176,10 @@ function refusedAttribute(
   value: string,
   links: ResolvedLinkPolicy,
   options: SanitizeOptions,
-  approvals: Iterable<OriginApproval> | undefined,
 ): string | undefined {
   const attribute = name.toLowerCase()
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
-  const asset = assetAttribute(element, attribute, value, options, approvals)
+  const asset = assetAttribute(element, attribute, value, options)
   if (asset !== undefined) return asset || undefined
   return REFUSED_ATTRIBUTES.has(attribute) ||
     (URL_ATTRIBUTES.has(attribute) && !safeUrl(element.name.toLowerCase(), attribute, value, links, options.converterPolicy?.urls))
@@ -251,7 +249,7 @@ export function findActiveContent(html: string, options: SanitizeOptions = {}): 
     if (refusedElement(element, refused, options, keepScripts)) found.push(`<${element.name}>`)
     found.push(...styleFindings(element, options))
     for (const [name, value] of Object.entries(element.attribs)) {
-      const reason = refusedAttribute(element, name, value, links, options, options.origins)
+      const reason = refusedAttribute(element, name, value, links, options)
       if (reason !== undefined) found.push(`${element.name}[${name}]${reason ? ` ${reason}` : ''}`)
     }
   }
@@ -269,7 +267,7 @@ function cleanStyleElement(element: Element, options: SanitizeOptions): void {
 
 function cleanAttributes(element: Element, links: ResolvedLinkPolicy, options: SanitizeOptions): void {
   for (const [name, value] of Object.entries(element.attribs)) {
-    if (refusedAttribute(element, name, value, links, options, options.origins) !== undefined) delete element.attribs[name]
+    if (refusedAttribute(element, name, value, links, options) !== undefined) delete element.attribs[name]
     else if (name.toLowerCase() === 'style') {
       const css = assetCss(value, true, options).css.trim()
       if (css) element.attribs[name] = css
