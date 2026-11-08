@@ -25,6 +25,7 @@ import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions
 import { dressPlanPages, fillFurniture, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
 import { composerLayoutReady, forcedPageBreak, measureLineBoxes, measurementRefusal, sizeFlowGalley, tableRowLines } from './composer-measure.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
+import { FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_FIELD_LIMIT, FONT_FAILURE_LIMIT, loadDeclaredFonts } from './font-load.ts'
 import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 
 export const COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
@@ -260,6 +261,7 @@ ${embedFunction('lengthPx', lengthPx)}
 ${embedFunction('fitRegionSize', fitRegionSize)}
 ${embedFunction('resolveDirection', resolveDirection)}
 ${embedFunction('pageReferenceFolio', pageReferenceFolio)}
+${embedFunction('loadDeclaredFonts', loadDeclaredFonts)}
 var ABSOLUTE_PX=${JSON.stringify(ABSOLUTE_PX)};
 var elementWithAttr=function(root,attr,value){var nodes=root.querySelectorAll('['+attr+']');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute(attr)===value)return nodes[i];}return null;};
 var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
@@ -323,7 +325,8 @@ var applyPrintedRules=function(plan){if(!config.rules)return plan;var rows=planP
 var nextLayoutFrame=function(){return new Promise(function(resolve){var settled=false;var done=function(){if(settled)return;settled=true;resolve();};if(window.requestAnimationFrame)window.requestAnimationFrame(done);setTimeout(done,16);});};
 var publishPlan=function(plan){var previous=document.querySelectorAll('script[data-segnavia-plan]');for(var i=0;i<previous.length;i++)previous[i].remove();var carrier=document.createElement('script');carrier.type='application/json';carrier.setAttribute('data-segnavia-plan','');carrier.textContent=JSON.stringify(plan).replace(/</g,'\\u003c');document.body.append(carrier);};
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});
-Promise.all([loaded,${DIAGRAM_READY_EXPR},document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){
+var fontLoads=loaded.then(function(){var declarations=config.fontLoads||[];if(!document.fonts||!declarations.length)return [];var familyValue=function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');};return loadDeclaredFonts(declarations,document.fonts,document.documentElement,familyValue,'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT});});
+Promise.all([loaded,${DIAGRAM_READY_EXPR},fontLoads,readyImages(document)]).then(function(){
 var visibleElapsed=0;
 var visibleStartedAt=performance.now();
 var settleVisibleElapsed=0;
