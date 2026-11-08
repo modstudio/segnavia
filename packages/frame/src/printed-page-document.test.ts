@@ -112,6 +112,26 @@ describe('printedPageDocument', () => {
     expect(fallback).toContain('<html dir="rtl" lang="he">')
   })
 
+  test('resolves the frame and composer direction from the page language', () => {
+    const hebrew = Page.parse({ ...page, dir: undefined })
+    const html = printedPageDocument(hebrew, { nonce: 'held' })
+
+    expect(html).toContain('<html dir="rtl" lang="he">')
+    expect(html).toContain('"direction":"rtl"')
+  })
+
+  test('prefers one authored root direction for the frame and composer', () => {
+    const authored = Page.parse({
+      ...page,
+      dir: undefined,
+      body: { html: '<html dir="ltr"><body><p>Body</p></body></html>' },
+    })
+    const html = printedPageDocument(authored, { nonce: 'held' })
+
+    expect(html.match(/\sdir="ltr"/g)).toHaveLength(1)
+    expect(html).toContain('"direction":"ltr"')
+  })
+
   test('keeps whole-document head resources beside a flow holding only body children', () => {
     const full = Page.parse({
       ...page,
