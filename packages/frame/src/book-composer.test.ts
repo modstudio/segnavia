@@ -140,6 +140,18 @@ describe('block keeps', () => {
     expect(fonts).toBeGreaterThan(layout)
     expect(measurement).toBeGreaterThan(fonts)
   })
+
+  test('replans from settled note metrics before replacing an overlapping composition', () => {
+    const script = composerScript('{}')
+    const overlap = script.indexOf("if(settlement==='overlap'&&!config.plan)")
+    const remeasure = script.indexOf('input=measureInput();var repaired=planBookOrFail(input)', overlap)
+    const remove = script.indexOf('composed.remove()', remeasure)
+    const compose = script.indexOf('composed=compose(prepared,input.geometry.noteSeries||[])', remove)
+    expect(overlap).toBeGreaterThan(-1)
+    expect(remeasure).toBeGreaterThan(overlap)
+    expect(remove).toBeGreaterThan(remeasure)
+    expect(compose).toBeGreaterThan(remove)
+  })
 })
 
 test('counts inline paper tiles from the measured extent', () => {
