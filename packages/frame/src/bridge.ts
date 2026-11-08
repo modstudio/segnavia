@@ -313,7 +313,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
     `style-src 'unsafe-inline'${sources('style')}`,
     `font-src data:${sources('font')}`,
     `img-src data: blob:${sources('image')}`,
-    ...(scripts === 'refuse' ? ['media-src * data: blob:', 'connect-src *', 'frame-src *', 'worker-src * blob:'] : scriptDirectives.slice(1)),
+    ...(scripts === 'refuse' ? ['media-src * data: blob:', 'connect-src *', 'frame-src *', "worker-src 'none'"] : scriptDirectives.slice(1)),
   ]
   const directives = [
     "default-src 'none'",

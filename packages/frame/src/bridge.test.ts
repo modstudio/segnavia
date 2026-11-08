@@ -213,7 +213,7 @@ describe('frame document', () => {
       MESSAGE.ready,
     ])
     expect(html).toContain("default-src 'none'; script-src 'nonce-n'")
-    expect(html).toContain('media-src * data: blob:; connect-src *; frame-src *; worker-src * blob:')
+    expect(html).toContain("media-src * data: blob:; connect-src *; frame-src *; worker-src 'none'")
   })
 
   test('runs the keep pass without expanding the relay surface', () => {
