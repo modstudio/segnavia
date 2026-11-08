@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { GridCell } from './board.ts'
 import { definitionCollections } from './document.ts'
 import { DocumentNode } from './document-nodes.ts'
 import { DocumentDefinitionNode } from './document-nodes-book.ts'
@@ -21,6 +22,7 @@ const SetChange = {
 }
 const ContentTarget = { type: z.literal('setContent'), id: z.string().min(1), field: z.string().min(1) }
 const OperableNode = z.union([DocumentNode, DocumentDefinitionNode])
+const Positioned = z.object({ after: z.string().nullable() })
 
 export const DocumentOp = z.union([
   z.object({ type: z.literal('insert'), parent: DocumentLocation, index: z.number().int().nonnegative(), node: OperableNode }),
@@ -41,6 +43,8 @@ export const DocumentOp = z.union([
     z.strictObject({ ...ContentTarget, unset: z.literal(true), priorAbsent: z.literal(true) }),
   ]),
   z.object({ type: z.literal('setStyle'), ...SetChange }),
+  z.object({ type: z.literal('setMember'), section: z.string().min(1), item: z.string().min(1), from: Positioned.nullable(), to: Positioned.nullable() }),
+  z.object({ type: z.literal('setCells'), section: z.string().min(1), from: z.array(GridCell).nullable(), to: z.array(GridCell).nullable() }),
 ])
 export type DocumentOp = z.infer<typeof DocumentOp>
 
