@@ -17,7 +17,7 @@ import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } fro
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError, type HtmlPage, pageOrPrintedFromInput, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { FontCssRefusedError, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
@@ -157,17 +157,6 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     dependencyOrigins: options.dependencyOrigins,
     readyCallback: hasDiagram(page.html) ? RENDER_READY_BINDING : undefined,
   })
-}
-
-export function renderPageDocument(
-  input: PageOrPrintedInput,
-  options: RenderOptions,
-  printing = false,
-  nonce?: string,
-  fontCss = '',
-  diagramScript?: string,
-): string {
-  return renderPageValueDocument(pageOrPrintedFromInput(input, { newId: options.newId }), options, printing, nonce, fontCss, diagramScript)
 }
 
 export function renderPageValueDocument(
