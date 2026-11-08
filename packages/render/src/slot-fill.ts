@@ -71,11 +71,13 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
   const value = hasSlotWork(deck.slots, slots)
     ? {
         ...deck,
-        slides: deck.slides.map((slide) =>
-          'kind' in slide.content && slide.content.kind === 'html'
-            ? { ...slide, content: { ...slide.content, html: prepared.apply(slide.content.html) } }
-            : slide,
-        ),
+        slides: deck.slides.map((slide) => {
+          if ('kind' in slide.content && slide.content.kind === 'html') {
+            return { ...slide, content: { ...slide.content, html: prepared.apply(slide.content.html) } }
+          }
+          prepared.apply('')
+          return slide
+        }),
       }
     : deck
   return { value, slots: prepared }

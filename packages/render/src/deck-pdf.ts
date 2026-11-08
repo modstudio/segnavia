@@ -47,6 +47,7 @@ interface DeckPdfServices {
       dependencies?: DependencyCache
     },
     pdf: Parameters<Tab['pdf']>[0],
+    frames: readonly number[],
   ): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
@@ -146,6 +147,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
         },
       },
       { preferCSSPageSize: true, printBackground: true },
+      [],
     ),
     Promise.all(
       htmlSlides.map(async ({ index, id, html, printAtMs }) => {
@@ -175,6 +177,7 @@ async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPd
               pageRanges: '1',
               margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
             },
+            [index],
           )
           return { index, bytes }
         } catch (error) {
@@ -246,6 +249,7 @@ async function imposedDeckPdf(
             pageRanges: '1',
             margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
           },
+          [index],
         )
         return { index, bytes }
       } catch (error) {

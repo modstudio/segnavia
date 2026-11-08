@@ -22,6 +22,8 @@ export interface PreparedSlots {
   report: SlotReport
   /** For each slot key, how many applications (one per rendered frame) marked it for measurement. */
   marked: ReadonlyMap<string, number>
+  /** The measurement marks owned by each frame, in application order. */
+  frames: ReadonlyArray<ReadonlyMap<string, number>>
   apply(html: string): string
   mergeFit(slots: Record<string, 'fit' | 'shrunk' | 'overflowed'>): SlotReport
 }
@@ -72,6 +74,7 @@ interface ResolvedSlots {
   declarations: Map<string, SlotDeclaration>
   marked: Map<string, number>
   markedHere: Set<string>
+  frames: Map<string, number>[]
 }
 
 const UNENCODED_TEXT_ELEMENTS = new Set(['style', 'script', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext', 'noscript', 'textarea', 'title'])
@@ -318,11 +321,16 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
     declarations: new Map(declarations.map((slot) => [slot.key, slot])),
     marked: new Map(),
     markedHere: new Set(),
+    frames: [],
   }
 }
 
 function applySlots(html: string, resolved: ResolvedSlots): string {
-  if (!hasBindings(html, 'slot') && !html.includes('data-slot-overflow')) return html
+  resolved.markedHere.clear()
+  if (!hasBindings(html, 'slot') && !html.includes('data-slot-overflow')) {
+    resolved.frames.push(new Map())
+    return html
+  }
   const names = bindingNames('slot')
   const document = parse(html)
   const bound = elements(document.children).filter(
@@ -334,10 +342,11 @@ function applySlots(html: string, resolved: ResolvedSlots): string {
   })
   const refusal = bindingRefusal(roots, names, resolved)
   if (refusal) throw refusal
-  resolved.markedHere.clear()
   const kept = applyElements(roots, names, resolved)
   // Each application becomes one frame, and each frame reports a key at most once.
-  for (const key of resolved.markedHere) resolved.marked.set(key, (resolved.marked.get(key) ?? 0) + 1)
+  const frame = new Map([...resolved.markedHere].map((key) => [key, 1]))
+  resolved.frames.push(frame)
+  for (const key of frame.keys()) resolved.marked.set(key, (resolved.marked.get(key) ?? 0) + 1)
   const replacements = roots
     .map((root) => ({ start: root.startIndex, end: root.endIndex, html: kept.includes(root) ? serialize(root) : '' }))
     .filter((part): part is { start: number; end: number; html: string } => part.start !== null && part.end !== null)
@@ -351,6 +360,7 @@ async function prepared(declarations: SlotDeclaration[], options: SlotsOptions, 
     declarations,
     report: resolved.report,
     marked: resolved.marked,
+    frames: resolved.frames,
     apply: (html) => applySlots(html, resolved),
     mergeFit: (slots) => {
       const report = mergeSlotFitResults(declarations, result.report, slots)

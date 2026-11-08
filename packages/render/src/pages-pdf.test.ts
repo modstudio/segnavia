@@ -46,8 +46,9 @@ test('pagesPdf renders the page objects and prepared slots it is given', async (
     preparedSlots,
     {},
     {
-      pagePdf: async (rendered) => {
+      pagePdf: async (rendered, slots) => {
         seen.push(rendered)
+        expect(slots).toBe(preparedSlots)
         throw new Error('stop after the first page')
       },
       piecePdf: async () => new Uint8Array(),

@@ -213,6 +213,45 @@ test('prints a paginated book once then finishes', async () => {
   expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
 })
 
+test('renders with a class-instance adapter whose methods are on its prototype', async () => {
+  class Adapter implements BookPdfAdapter {
+    prints = 0
+    finishes = 0
+
+    async print() {
+      this.prints += 1
+      const document = await PDFDocument.create()
+      const page = document.addPage([419.53, 595.28])
+      document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'body-section': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
+      return {
+        bytes: await document.save(),
+        overflow: { part: 'body' as const, pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
+      }
+    }
+
+    async finish(pdf: Uint8Array) {
+      this.finishes += 1
+      return pdf
+    }
+  }
+
+  const adapter = new Adapter()
+  const output = await renderBookPdf(
+    parseBookFixture({
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      chapters: [{ id: 'body-section', title: 'One', html: '<p>Text</p>' }],
+    }),
+    {},
+    adapter,
+  )
+
+  expect(adapter.prints).toBe(1)
+  expect(adapter.finishes).toBe(1)
+  expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
+})
+
 test('corrects every joined book page to the exact trim before finishing', async () => {
   const printedBookPart = async () => {
     const document = await PDFDocument.create()

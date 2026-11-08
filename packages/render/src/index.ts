@@ -83,6 +83,14 @@ function parsePagePdfOptions(options: PagePdfOptions): PagePdfOptions {
   return parsed.metadata === undefined ? parsed : { ...parsed, metadata: DocumentMetadata.parse(parsed.metadata) }
 }
 
+function slotsForFrames(slots: PreparedSlots, frames: readonly number[]): PreparedSlots {
+  const marked = new Map<string, number>()
+  for (const index of frames) {
+    for (const [key, count] of slots.frames[index] ?? []) marked.set(key, (marked.get(key) ?? 0) + count)
+  }
+  return { ...slots, marked }
+}
+
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
 export async function openRenderer(options: RendererOptions): Promise<Renderer> {
@@ -115,7 +123,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     let crashed = false
     let settled = false
     let stopWatchingBrowser: (() => void) | undefined
-    const measureSlots = setup.slots && setup.slots.marked.size > 0 && setup.html.includes('data-slot-overflow') ? setup.slots : undefined
+    const measureSlots = setup.slots && setup.slots.marked.size > 0 ? setup.slots : undefined
     try {
       return await withinBound(
         setup.deadline?.remaining() ?? setup.boundMs ?? RENDER_BOUND_MS,
@@ -304,8 +312,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             prepared,
             { ...opts, limits: copyLimits(opts.limits, opts.slots), press: undefined },
             {
-              renderPdf: (setup, pdf) =>
-                withTab({ ...setup, slots, readiness: renderReadiness('refuse', false, false), deadline }, (tab) =>
+              renderPdf: (setup, pdf, frames) =>
+                withTab({ ...setup, slots: slotsForFrames(slots, frames), readiness: renderReadiness('refuse', false, false), deadline }, (tab) =>
                   pdfWithBackdropRasters(tab, pdf, opts.effects),
                 ),
               fontFaces: (options) => fontFaces(options.fonts),
@@ -340,7 +348,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             scripts: true,
             scale: opts.scale,
             html,
-            slots,
+            slots: slotsForFrames(slots, [index]),
             readiness: renderReadiness('refuse', false, false),
             boundMs: opts.boundMs,
             deadline,

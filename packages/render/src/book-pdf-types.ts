@@ -9,8 +9,6 @@ export interface BookPdfAdapter {
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
-export type PreparedBookPdfAdapter = BookPdfAdapter & { slots: PreparedSlots }
-
 export interface PrintedPart {
   bytes?: Uint8Array
   overflow?: OverflowEntry
