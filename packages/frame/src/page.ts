@@ -77,7 +77,6 @@ export class SegnaviaPage extends PageElementAttributes {
   get placements(): PlacementsOptions | undefined {
     return this.placementOptions
   }
-
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)

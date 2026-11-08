@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, bookFromDocument, computeFolios, Document, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection, StyleSheet } from '@segnavia/format'
+import {
+  BOOK_PARENT_NAMES,
+  bookFromDocument,
+  computeFolios,
+  Document,
+  PRINTED_PAGE_NUMBER_PATH,
+  PRINTED_PAGE_TOTAL_PATH,
+  resolveDirection,
+  StyleSheet,
+} from '@segnavia/format'
 import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectBookParent, windowPageIndex } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'

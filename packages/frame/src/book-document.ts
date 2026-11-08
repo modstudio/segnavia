@@ -1,8 +1,8 @@
 import { type Book, type BookView, bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
-import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { COMPOSER_SCRIPT } from './composer.ts'
+import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 
 export {
   COMPOSE_FAILURE_ATTRIBUTE as BOOK_FAILURE_ATTRIBUTE,

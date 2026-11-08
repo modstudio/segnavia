@@ -175,7 +175,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
   get itemActions(): readonly BoardItemAction[] {
     return this.chrome.itemActions
   }
-
   set itemActions(value: readonly BoardItemAction[]) {
     this.chrome.itemActions = value
     this.chrome.refresh()

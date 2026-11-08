@@ -1,7 +1,7 @@
 import { type Board, boardFromDocument, type Document, type DocumentInput, documentFromBoard } from '@segnavia/format'
 import { parseDocument } from '@segnavia/html'
-import { BoardResolutions } from './board-resolutions.ts'
 import { boardEvent } from './board-events.ts'
+import { BoardResolutions } from './board-resolutions.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
 import type { BrandsOptions } from './brands.ts'
 
