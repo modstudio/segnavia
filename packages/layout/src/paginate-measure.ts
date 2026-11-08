@@ -3,5 +3,8 @@
 export const LAYOUT_UNIT_PX = 1 / 64
 
 export function measuredExtentFits(extent: number, limit: number): boolean {
-  return extent <= limit + LAYOUT_UNIT_PX
+  // Keep the named unit inside this serialized function as well as exported
+  // for callers: bundled Function#toString output cannot retain module scope.
+  const layoutUnitPx = 1 / 64
+  return extent <= limit + layoutUnitPx
 }
