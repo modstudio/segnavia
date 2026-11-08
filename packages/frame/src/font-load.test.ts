@@ -1,5 +1,13 @@
 import { describe, expect, test } from 'bun:test'
-import { declaredFontLoads, FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute, fontFailuresData, loadDeclaredFonts } from './font-load.ts'
+import {
+  declaredFontLoads,
+  FONT_FAILURE_ATTRIBUTE,
+  FONT_FAILURE_FIELD_LIMIT,
+  FONT_FAILURE_LIMIT,
+  fontFailuresAttribute,
+  fontFailuresData,
+  loadDeclaredFonts,
+} from './font-load.ts'
 
 describe('font load', () => {
   test('loads each matching face with its range sample and reports missing and errored faces', async () => {
@@ -12,6 +20,9 @@ describe('font load', () => {
       [regular, errored],
       { setAttribute: (name, value) => attributes.set(name, value) },
       () => 'Alef',
+      FONT_FAILURE_ATTRIBUTE,
+      FONT_FAILURE_LIMIT,
+      FONT_FAILURE_FIELD_LIMIT,
     )
     expect(samples[0]).toMatch(/[\u0591-\u05af]/)
     expect(failures).toEqual([
@@ -46,6 +57,9 @@ describe('font load', () => {
       faces,
       { setAttribute: () => {} },
       (font) => `Family ${font.slice(5)}`,
+      FONT_FAILURE_ATTRIBUTE,
+      FONT_FAILURE_LIMIT,
+      FONT_FAILURE_FIELD_LIMIT,
     )
     expect(loads).toBe(65)
     expect(failures).toHaveLength(64)

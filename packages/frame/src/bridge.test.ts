@@ -371,6 +371,10 @@ describe('frame document', () => {
     expect(script).toContain('Evil\\u003c/script>\\u2028next\\u2029')
   })
 
+  test('supplies the shared font failure bounds to the embedded loader', () => {
+    expect(bridgeForHost({ fonts: { body: { faces: [{}] } } })).toContain("familyValue,'data-segnavia-font-failures',64,256")
+  })
+
   test('messages with non-object data are ignored without throwing', () => {
     const source = {} as Window
     const frame = { contentWindow: source } as HTMLIFrameElement

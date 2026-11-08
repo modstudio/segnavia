@@ -39,6 +39,9 @@ export async function loadDeclaredFonts(
   faces: Iterable<LoadableFace>,
   root: { setAttribute(name: string, value: string): void },
   familyValue: (font: string) => string,
+  failureAttribute: string,
+  failureLimit: number,
+  fieldLimit: number,
 ): Promise<FontFailure[]> {
   const available = Array.from(faces)
   const failures: FontFailure[] = []
@@ -48,7 +51,7 @@ export async function loadDeclaredFonts(
     return String(value)
   }
   for (const declaration of declarations) {
-    const family = familyValue(declaration.font).slice(0, 256)
+    const family = familyValue(declaration.font).slice(0, fieldLimit)
     const face = available.find(
       (candidate) =>
         candidate.family.replace(/^['"]|['"]$/g, '') === family &&
@@ -57,16 +60,16 @@ export async function loadDeclaredFonts(
     )
     if (face) await face.load(declaration.sample).catch(() => undefined)
     if (face && face.status !== 'error') continue
-    if (failures.length < FONT_FAILURE_LIMIT) failures.push({
-      font: declaration.font.slice(0, 256),
+    if (failures.length < failureLimit) failures.push({
+      font: declaration.font.slice(0, fieldLimit),
       family,
       ...(declaration.weight === undefined ? {} : { weight: declaration.weight }),
       ...(declaration.style === undefined ? {} : { style: declaration.style }),
-      ...(declaration.unicodeRange === undefined ? {} : { unicodeRange: declaration.unicodeRange.slice(0, 256) }),
+      ...(declaration.unicodeRange === undefined ? {} : { unicodeRange: declaration.unicodeRange.slice(0, fieldLimit) }),
       reason: 'unloaded',
     })
   }
-  root.setAttribute('data-segnavia-font-failures', JSON.stringify(failures))
+  root.setAttribute(failureAttribute, JSON.stringify(failures))
   return failures
 }
 
