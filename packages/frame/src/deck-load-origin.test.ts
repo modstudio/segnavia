@@ -99,3 +99,31 @@ test.each([
   const controller = new DeckController({ hash: null, brands })
   await expect(controller.load({ ...documentInput(), brand: 'house' })).rejects.toThrow(message)
 })
+
+test('the latest overlapping branded load is the only deck that commits', async () => {
+  let resolveFirst!: (brand: Brand) => void
+  let firstSignal: AbortSignal | undefined
+  const firstBrand = new Promise<Brand>((resolve) => {
+    resolveFirst = resolve
+  })
+  const source: BrandSource = {
+    brand: async (name, { signal }) => {
+      if (name === 'first') {
+        firstSignal = signal
+        return firstBrand
+      }
+      return { css: '.second{color:blue}' }
+    },
+  }
+  const controller = new DeckController({ hash: null, brands: { source } })
+  const first = controller.load({ ...documentInput(), title: 'First', brand: 'first' })
+  await Promise.resolve()
+  const second = controller.load({ ...documentInput(), title: 'Second', brand: 'second' })
+
+  await second
+  resolveFirst({ css: '.first{color:red}' })
+  await expect(first).resolves.toBeUndefined()
+
+  expect(firstSignal?.aborted).toBe(true)
+  expect(controller.state.deck?.title).toBe('Second')
+})

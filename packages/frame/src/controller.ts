@@ -122,11 +122,19 @@ export class DeckController extends EventTarget {
     await this.loadDeck(input, undefined, true)
   }
   private async loadDeck(input: unknown, base: string | undefined, internal: boolean): Promise<void> {
+    const lifetime = replacePlacementLifetime(this.placementLifetime)
+    this.placementLifetime = lifetime
     const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
     if (guarded) await guarded
     if (base) this.options.base = base
-    const deck = await resolveDeckLoad(input, this.options.brands?.source, this.placementLifetime.signal, guarded, internal)
-    this.placementLifetime = replacePlacementLifetime(this.placementLifetime)
+    let deck: Deck
+    try {
+      deck = await resolveDeckLoad(input, this.options.brands?.source, lifetime.signal, guarded, internal)
+    } catch (error) {
+      if (lifetime.signal.aborted) return
+      throw error
+    }
+    if (lifetime.signal.aborted) return
     this.prefetched.clear()
     this.shots.clear()
     const loaded = stateForDeckLoad(this.current, deck, this.settings.captionsVisible, this.options, controllerHashIndex(deck, this.options.hash))
