@@ -57,6 +57,15 @@ describe('sanitize', () => {
     expect(sanitize('<img src="data:image/png;base64,AA==">')).toBe('<img src="data:image/png;base64,AA==">')
   })
 
+  test('a refused-script page keeps only images approved for the image kind and names a refused origin', () => {
+    const approved = 'https://images.example/approved.png'
+    const refused = 'https://outside.example/refused.png'
+    const options = { origins: [{ origin: 'https://images.example', kinds: ['image'] as const }] }
+    const html = `<img src="${approved}"><img src="${refused}">`
+    expect(sanitize(html, options)).toBe(`<img src="${approved}"><img>`)
+    expect(findActiveContent(html, options)).toEqual([expect.stringContaining(`${refused} at origin https://outside.example`)] as string[])
+  })
+
   test('a style element removes only the rule or declaration that fetches content', () => {
     const unsafe = '<style>@IMPORT url(data:image/png;base64,AA==)</style>'
     const external = '<style>p{background:url(https://example.com/b.png)}</style>'

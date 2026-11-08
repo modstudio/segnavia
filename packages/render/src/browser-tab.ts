@@ -51,13 +51,21 @@ export async function assetRouteDecision(
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
 }
 
-function assetLimitRefusal(url: string, bytes: number, total: number, limits: { each: number; bytes: number }): string | undefined {
+export function assetLimitRefusal(url: string, bytes: number, total: number, limits: { each: number; bytes: number }): string | undefined {
   if (bytes > limits.each) {
     return `${url} answered ${bytes} bytes, over the host's limits.assets.each of ${limits.each} bytes; raise limits.assets.each to clear this refusal`
   }
   if (total + bytes > limits.bytes) {
     return `Assets including ${url} total ${total + bytes} bytes, over the host's limits.assets.bytes of ${limits.bytes} bytes; raise limits.assets.bytes to clear this refusal`
   }
+  return undefined
+}
+
+export function fetchKind(resourceType: string): FetchKind | undefined {
+  if (resourceType === 'script') return 'script'
+  if (resourceType === 'stylesheet') return 'style'
+  if (resourceType === 'font') return 'font'
+  if (resourceType === 'image') return 'image'
   return undefined
 }
 
@@ -89,17 +97,10 @@ export async function renderInBrowserTab<T>(
     each: setup.limits?.assets?.each ?? DEFAULT_LIMITS.assets.each,
   }
   let assetBytes = 0
-  const kindFor = (resourceType: string): FetchKind | undefined => {
-    if (resourceType === 'script') return 'script'
-    if (resourceType === 'stylesheet') return 'style'
-    if (resourceType === 'font') return 'font'
-    if (resourceType === 'image') return 'image'
-    return undefined
-  }
   await context.route('**/*', async (route) => {
     const url = route.request().url()
     if (url.startsWith('data:') || url === 'about:blank') return route.continue()
-    const kind = kindFor(route.request().resourceType())
+    const kind = fetchKind(route.request().resourceType())
     if (!kind) {
       refused.add(`${url} uses unsupported ${route.request().resourceType()} fetching; no asset kind can approve it`)
       return route.abort('blockedbyclient')

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { assetRouteDecision, mergedFontFailures } from './browser-tab.ts'
+import { assetLimitRefusal, assetRouteDecision, fetchKind, mergedFontFailures } from './browser-tab.ts'
 
 describe('asset route decision', () => {
   const origins = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] as const }]
@@ -21,6 +21,18 @@ describe('asset route decision', () => {
     expect(await assetRouteDecision('data:text/javascript,ok', 'script', origins, lookup, new AbortController().signal)).toEqual({ action: 'continue' })
     expect(lookups).toBe(0)
   })
+})
+
+test('Playwright resource types map only the four approved asset kinds', () => {
+  expect(['script', 'stylesheet', 'font', 'image'].map(fetchKind)).toEqual(['script', 'style', 'font', 'image'])
+  for (const type of ['fetch', 'xhr', 'websocket', 'manifest', 'other', 'document', 'media', 'eventsource']) expect(fetchKind(type)).toBeUndefined()
+})
+
+test('asset caps name the address, byte count, limit and host option, and raised caps admit the answer', () => {
+  const url = 'https://images.example/a.png'
+  expect(assetLimitRefusal(url, 11, 0, { each: 10, bytes: 50 })).toContain(`${url} answered 11 bytes`)
+  expect(assetLimitRefusal(url, 6, 45, { each: 10, bytes: 50 })).toContain("limits.assets.bytes of 50 bytes")
+  expect(assetLimitRefusal(url, 11, 45, { each: 20, bytes: 100 })).toBeUndefined()
 })
 
 test('font load reports merge supplied-resolution and frame-load failures', () => {

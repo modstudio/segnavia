@@ -10,7 +10,7 @@
 // a pending incoming canvas on any swap has data-incoming. Motion uses
 // data-transition, data-entering, data-leaving, data-running and data-axis.
 
-import type { SlotsOptions, TransitionInput } from '@segnavia/format'
+import type { OriginApproval, SlotsOptions, TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
@@ -397,5 +397,3 @@ export class SegnaviaStage extends HTMLElement {
     this.pool.activeFrame()?.contentWindow?.postMessage({ type: MESSAGE.inspect }, '*')
   }
 }
-
-import type { OriginApproval } from '@segnavia/format'

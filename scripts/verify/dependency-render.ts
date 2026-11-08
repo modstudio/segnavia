@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
 import { screenPage } from '../screen-document.ts'
@@ -44,4 +44,28 @@ export async function verifyDependencyRender(
     ),
   )
   check('an approved dependency requested after load without a cache answer is refused by URL', late.includes(lateUrl), late)
+
+  const fontCssUrl = 'https://fonts.googleapis.com/css2?family=Noto+Serif+Hebrew'
+  const fontUrl = 'https://fonts.gstatic.com/s/notoserifhebrew/v1/hebrew.ttf'
+  const markedHebrew = 'שָׁלוֹם'
+  const hebrew = await renderer.pagePdf(
+    screenPage({ html: `<link rel="stylesheet" href="${fontCssUrl}"><p lang="he">${markedHebrew}</p>` }, { size: { width: 400, height: 200 } }),
+    {
+      assets: async (request) => {
+        if (request === fontCssUrl) {
+          return { body: new TextEncoder().encode(`@font-face{font-family:Noto;src:url(${fontUrl})}p{font-family:Noto}`), contentType: 'text/css' }
+        }
+        if (request === fontUrl) {
+          return {
+            body: readFileSync(path.join(import.meta.dirname, '../../fixtures/hebrew-notice/NotoSerifHebrew-Regular.ttf')),
+            contentType: 'font/ttf',
+          }
+        }
+      },
+    },
+  )
+  const hebrewFile = path.join(work, 'google-fonts-hebrew.pdf')
+  writeFileSync(hebrewFile, hebrew)
+  const extracted = execFileSync('pdftotext', [hebrewFile, '-'], { encoding: 'utf8' }).normalize('NFD')
+  check('an offline Google Fonts render keeps every Hebrew mark', extracted.includes(markedHebrew.normalize('NFD')), extracted)
 }

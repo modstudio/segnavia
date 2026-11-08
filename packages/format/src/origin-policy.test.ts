@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { DEFAULT_ORIGINS, originDecision, type OriginApproval } from './origin-policy.ts'
+import { DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-policy.ts'
 
 describe('origin policy', () => {
   test('defaults approve only their declared fetch kinds', () => {

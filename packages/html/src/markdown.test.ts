@@ -97,7 +97,7 @@ describe('bodyHtml', () => {
     expect(html).not.toContain('javascript:')
     expect(html).toContain('href="https://example.test"')
     expect(html).toContain('href="mailto:a@example.test"')
-    expect(html).toContain('src="https://images.test/a.png"')
+    expect(html).not.toContain('src="https://images.test/a.png"')
   })
 
   test('adds only logical geometry for overflow on screen and print', () => {
