@@ -1,5 +1,6 @@
 import type { Locator } from 'playwright-core'
 import { center, drag, waitChanges } from './board-editing-actions.ts'
+import type { DemoChange, DemoDocument } from './board-editing-types.ts'
 import type { Harness } from './harness.ts'
 
 interface DemoItem {
@@ -25,11 +26,6 @@ interface DemoBoard {
   labels: DemoLabel[]
   sections: DemoSection[]
 }
-interface DemoChange {
-  board: DemoDocument
-  edit: { kind: string }
-}
-type DemoDocument = { type: 'document'; kind: 'board' }
 type BoardElement = HTMLElement & { board: DemoDocument; selection: readonly string[] }
 type DemoWindow = typeof window & {
   boardChanges: DemoChange[]

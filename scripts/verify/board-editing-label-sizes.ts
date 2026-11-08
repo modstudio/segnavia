@@ -1,4 +1,5 @@
 import type { Locator } from 'playwright-core'
+import type { DemoDocument } from './board-editing-types.ts'
 import type { Harness } from './harness.ts'
 
 interface DemoLabel {
@@ -13,10 +14,6 @@ interface DemoBoard {
   items: Array<{ id: string; x: number; y: number; width: number }>
   labels: DemoLabel[]
   sections: Array<{ id: string; rectangle: { x: number; y: number; width: number; height: number }; items: string[] }>
-}
-interface DemoDocument {
-  type: 'document'
-  kind: 'board'
 }
 type BoardElement = HTMLElement & { board: DemoDocument }
 type DemoWindow = typeof window & {

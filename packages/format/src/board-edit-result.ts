@@ -1,7 +1,8 @@
 import type { Board } from './board.ts'
 import { type BoardShapes, itemRectangle, labelRectangle } from './board-geometry.ts'
-import type { BoardOp } from './board-ops.ts'
 import type { Box } from './deck.ts'
+import type { Document } from './document.ts'
+import type { DocumentBatch } from './document-op.ts'
 
 export type BoardChangedKind = 'item' | 'section' | 'label'
 export interface BoardChangedEntity {
@@ -38,7 +39,8 @@ export type BoardEditAdjustmentKind =
 export interface BoardEditSuccess {
   ok: true
   board: Board
-  ops: BoardOp[]
+  document: Document
+  batch: DocumentBatch
   changed: BoardChangedEntity[]
   adjustments: BoardEditAdjustment[]
   detail: 'concise' | 'full'

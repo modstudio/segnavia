@@ -28,6 +28,10 @@ function invertOp(op: DocumentOp): DocumentOp {
       }
     case 'setStyle':
       return { ...op, fields: op.prior, unset: op.priorAbsent, prior: op.fields, priorAbsent: op.unset }
+    case 'setMember':
+      return { ...op, from: op.to, to: op.from }
+    case 'setCells':
+      return { ...op, from: op.to, to: op.from }
   }
 }
 

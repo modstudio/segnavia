@@ -3,10 +3,11 @@ import { Document } from './document.ts'
 import { applyOps } from './document-apply.ts'
 import { diffDocuments } from './document-diff.ts'
 import { fingerprintDocument } from './document-fingerprint.ts'
-import { inverseBatch } from './document-invert.ts'
+import { inverseBatch, invertOps } from './document-invert.ts'
 import { DocumentBatch, type DocumentOp } from './document-op.ts'
 import { DOCUMENT_NODE_MODEL } from './document-op-model.ts'
 import { generatedCandidateDocuments, generatedDocument, generatedDocumentOfKind, randomEdit, sampledNodeTypes } from './document-op-test-helper.ts'
+import { rebaseOps } from './document-rebase.ts'
 import { jsonSchemas } from './json-schemas.ts'
 
 const CASES = 200
@@ -246,6 +247,62 @@ test('the schema-derived candidate generator covers every currently parseable mo
 test('publishes document operation JSON Schemas', () => {
   expect(jsonSchemas().documentOp).toHaveProperty('anyOf')
   expect(jsonSchemas().documentBatch).toMatchObject({ type: 'object', required: ['base', 'ops'] })
+})
+
+describe('board document operations', () => {
+  test('applies and inverts member and cell changes', () => {
+    const before = generatedDocumentOfKind('board', 81)
+    const section = before.children.find((node) => node.type === 'boardSection')
+    const item = before.children.find((node) => node.type === 'item')
+    if (!section || !item) throw new Error('generated board lacks its section or item')
+    const ops: DocumentOp[] = [
+      { type: 'setMember', section: section.id, item: item.id, from: null, to: { after: null } },
+      { type: 'setCells', section: section.id, from: null, to: [{ id: item.id, row: 0, column: 0 }] },
+    ]
+    const after = applyOps(before, batch(before, ops))
+    expect(applyOps(after, batch(after, invertOps(ops)))).toEqual(before)
+  })
+
+  test('a missing member anchor names its section and item', () => {
+    const before = generatedDocumentOfKind('board', 82)
+    const section = before.children.find((node) => node.type === 'boardSection')
+    const item = before.children.find((node) => node.type === 'item')
+    if (!section || !item) throw new Error('generated board lacks its section or item')
+    const op: DocumentOp = { type: 'setMember', section: section.id, item: item.id, from: null, to: { after: 'missing-anchor' } }
+    expect(() => applyOps(before, batch(before, [op]))).toThrow(new RegExp(`section "${section.id}" item "${item.id}".*missing-anchor`))
+  })
+
+  test('diffs board membership and cells without setting their fields wholesale', () => {
+    const before = generatedDocumentOfKind('board', 83)
+    const section = before.children.find((node) => node.type === 'boardSection')
+    const item = before.children.find((node) => node.type === 'item')
+    if (!section || !item) throw new Error('generated board lacks its section or item')
+    const after = Document.parse({
+      ...structuredClone(before),
+      children: before.children.map((node) => (node.id === section.id ? { ...node, items: [item.id], cells: [{ id: item.id, row: 0, column: 0 }] } : node)),
+    })
+    const ops = diffDocuments(before, after)
+    expect(ops.map((op) => op.type)).toEqual(['setMember', 'setCells'])
+    expect(applyOps(before, batch(before, ops))).toEqual(after)
+  })
+
+  test('removes membership before its item so the inverse can rebase', () => {
+    const empty = generatedDocumentOfKind('board', 84)
+    const section = empty.children.find((node) => node.type === 'boardSection')
+    const item = empty.children.find((node) => node.type === 'item')
+    if (!section || !item) throw new Error('generated board lacks its section or item')
+    const before = Document.parse({
+      ...structuredClone(empty),
+      children: empty.children.map((node) => (node.id === section.id ? { ...node, items: [item.id] } : node)),
+    })
+    const after = Document.parse({
+      ...structuredClone(before),
+      children: before.children.filter((node) => node.id !== item.id).map((node) => (node.id === section.id ? { ...node, items: [] } : node)),
+    })
+    const ops = diffDocuments(before, after)
+    expect(ops.findIndex((op) => op.type === 'setMember')).toBeLessThan(ops.findIndex((op) => op.type === 'remove'))
+    expect(rebaseOps(after, invertOps(ops))).toMatchObject({ document: before, conflicts: [] })
+  })
 })
 
 test('fingerprints canonical parsed JSON independently of object key order', () => {

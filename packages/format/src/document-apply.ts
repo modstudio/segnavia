@@ -1,7 +1,8 @@
-import { sameValue } from './board-op-equal.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
 import { fingerprintDocument, requireParsedDocument } from './document-fingerprint.ts'
 import { DocumentBatch, type DocumentLocation, type DocumentOp } from './document-op.ts'
+import { insertAfter, predecessor } from './document-op-anchor.ts'
+import { sameValue } from './document-op-equal.ts'
 import {
   DOCUMENT_ROOT_FIELDS,
   DOCUMENT_STYLE_FIELDS,
@@ -91,7 +92,7 @@ function applyStyle(document: HeldDocument, op: Extract<DocumentOp, { type: 'set
   else document.style = target
 }
 
-function applyRoot(document: HeldDocument, op: Exclude<DocumentOp, { type: 'insert' | 'setStyle' }>, index: number): void {
+function applyRoot(document: HeldDocument, op: Extract<DocumentOp, { id: string }>, index: number): void {
   if (op.type !== 'setFields' || op.id !== document.id) refuse(index, op, `node "${op.id}" is missing`)
   const fields = checkedChange(op, DOCUMENT_ROOT_FIELDS, index)
   checkPrior(document, document.id, op, fields, index)
@@ -130,7 +131,49 @@ function applyNodeSet(op: Extract<DocumentOp, { type: 'setFields' | 'setContent'
   applyChange(found.node, op, fields)
 }
 
-function applyOne(document: HeldDocument, op: DocumentOp, index: number): void {
+function boardSection(document: HeldDocument, id: string, op: DocumentOp, index: number): HeldNode {
+  if (document.kind !== 'board') refuse(index, op, `${op.type} is valid only on a board document`)
+  const section = findDocumentNode(document, id)?.node
+  if (section?.type !== 'boardSection') refuse(index, op, `section "${id}" is missing`)
+  return section
+}
+
+function applyMember(document: HeldDocument, op: Extract<DocumentOp, { type: 'setMember' }>, index: number): void {
+  const section = boardSection(document, op.section, op, index)
+  const held = section.items as string[]
+  const actual = held.includes(op.item) ? { after: predecessor(held, op.item, (id) => id) } : null
+  if (!sameValue(actual, op.from)) refuse(index, op, `section "${op.section}" member "${op.item}" does not match from`)
+  let items = held.filter((id) => id !== op.item)
+  if (op.to) {
+    const item = findDocumentNode(document, op.item)?.node
+    if (item?.type !== 'item') refuse(index, op, `section "${op.section}" item "${op.item}" is missing`)
+    items = insertAfter(
+      items,
+      op.item,
+      op.to.after,
+      (id) => id,
+      (reason) => refuse(index, op, `section "${op.section}" item "${op.item}": ${reason}`),
+    )
+  }
+  section.items = items
+}
+
+function applyCells(document: HeldDocument, op: Extract<DocumentOp, { type: 'setCells' }>, index: number): void {
+  const section = boardSection(document, op.section, op, index)
+  if (!sameValue(section.cells ?? null, op.from)) refuse(index, op, `section "${op.section}" cells do not match from`)
+  if (op.to === null) delete section.cells
+  else section.cells = structuredClone(op.to)
+}
+
+export function applyDocumentOp(document: OperationDocument, op: DocumentOp, index: number): void {
+  if (op.type === 'setMember') {
+    applyMember(document, op, index)
+    return
+  }
+  if (op.type === 'setCells') {
+    applyCells(document, op, index)
+    return
+  }
   if (op.type === 'insert') {
     applyInsert(document, op, index)
     return
@@ -149,7 +192,19 @@ function applyOne(document: HeldDocument, op: DocumentOp, index: number): void {
   else applyNodeSet(op, found, index)
 }
 
-function parseBatch(batch: DocumentBatch): DocumentBatch {
+export function finishDocumentOps(working: OperationDocument): DocumentValue {
+  let parsed: DocumentValue
+  try {
+    parsed = Document.parse(working)
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new Error(`document batch refused: the result is not a valid document (${reason}); ${clearance}`)
+  }
+  if (!sameValue(parsed, working)) throw new Error(`document batch refused: parsing the result would mint ids or change fields; ${clearance}`)
+  return parsed
+}
+
+export function parseDocumentBatch(batch: DocumentBatch): DocumentBatch {
   for (const [index, candidate] of ((batch as unknown as { ops?: unknown[] }).ops ?? []).entries()) {
     if (typeof candidate !== 'object' || candidate === null || (candidate as { type?: unknown }).type !== 'setContent') continue
     const op = candidate as Record<string, unknown>
@@ -168,7 +223,7 @@ function stale(document: HeldDocument, batch: DocumentBatch, actual: string): ne
   const probe = structuredClone(document)
   batch.ops.forEach((op, index) => {
     try {
-      applyOne(probe, op, index)
+      applyDocumentOp(probe, op, index)
     } catch (error) {
       mismatches.push(error instanceof Error ? error.message : String(error))
     }
@@ -179,20 +234,12 @@ function stale(document: HeldDocument, batch: DocumentBatch, actual: string): ne
 
 export function applyOps(document: DocumentValue, input: DocumentBatch): DocumentValue {
   requireParsedDocument(document, 'applyOps')
-  const batch = parseBatch(input)
+  const batch = parseDocumentBatch(input)
   const actual = fingerprintDocument(document)
   const working = structuredClone(document) as unknown as HeldDocument
   if (actual !== batch.base) stale(working, batch, actual)
   batch.ops.forEach((op, index) => {
-    applyOne(working, op, index)
+    applyDocumentOp(working, op, index)
   })
-  let parsed: DocumentValue
-  try {
-    parsed = Document.parse(working)
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error)
-    throw new Error(`document batch refused: the result is not a valid document (${reason}); ${clearance}`)
-  }
-  if (!sameValue(parsed, working)) throw new Error(`document batch refused: parsing the result would mint ids or change fields; ${clearance}`)
-  return parsed
+  return finishDocumentOps(working)
 }

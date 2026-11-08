@@ -4,7 +4,12 @@ import {
   arrange,
   type Board,
   type BoardItem,
+  boardFromDocument,
   type Document,
+  type DocumentBatch,
+  type DocumentOp,
+  diffDocuments,
+  fingerprintDocument,
   type Point,
   provisionalShape,
   removeFromGrid,
@@ -16,10 +21,11 @@ import type { SegnaviaBoard } from './board.ts'
 import {
   adoptHostBoard,
   applyBoardEdit,
-  BOARD_HISTORY_LIMIT,
+  applyRemoteBoardEdit,
   type BoardEditQueueState,
   type BoardEditTransition,
   boardEditQueue,
+  boardEditRefusal,
   detachBoardEditing,
   redoBoardEdit,
   rejectBoardEdit,
@@ -29,17 +35,20 @@ import {
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
-import { boardValue } from './board-value.ts'
+import { BOARD_HISTORY_LIMIT } from './board-history.ts'
 
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
 export { BOARD_HISTORY_LIMIT }
 
 type EditKind = 'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'move-section' | 'settle'
 type DirectBoardEdit = { [Kind in EditKind]: { kind: Kind; ids: string[] } }[EditKind]
+type HostBoardEdit = { kind: 'apply'; label: string; ids: string[] }
 type HistoryBoardEdit = { [Kind in 'undo' | 'redo']: { kind: Kind; edit: BoardEdit } }['undo' | 'redo']
-export type BoardEdit = DirectBoardEdit | HistoryBoardEdit
+export type BoardEdit = DirectBoardEdit | HostBoardEdit | HistoryBoardEdit
 export interface BoardChange {
   board: Document
+  before: Document
+  batch: DocumentBatch
   edit: BoardEdit
   signal: AbortSignal
 }
@@ -58,6 +67,8 @@ export interface BoardEditing {
   add(input: AddBoardItemInput, at?: Point): string | undefined
   remove(ids?: readonly string[]): void
   arrange(options: ArrangeOptions): void
+  apply(ops: readonly DocumentOp[], label: string): void
+  applyRemote(batch: DocumentBatch): void
   undo(): void
   redo(): void
   readonly canUndo: boolean
@@ -81,7 +92,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   ) {
     this.enabled = { move: true, resize: true, remove: true, add: true, arrange: true, ...options.editors }
     this.input = new BoardEditingInput(board, this.enabled, {
-      current: () => this.state?.value ?? null,
+      current: () => (this.state ? boardFromDocument(this.state.value) : null),
       bridge: () => this.bridge,
       live: (value) => this.live(value),
       commit: (before, after, edit) => this.commitLive(before, after, edit),
@@ -89,7 +100,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
       undo: () => this.undo(),
       redo: () => this.redo(),
     })
-    const initial = boardValue(board)
+    const initial = board.board
     this.state = initial ? boardEditQueue(initial) : null
     this.bridge = (board as SegnaviaBoard & BoardEditingHost)[boardEditing](this, this.hostValue)
     board.addEventListener('segnavia-board-selection', this.renderHandles)
@@ -119,7 +130,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   add(input: AddBoardItemInput, at?: Point): string | undefined {
-    const current = this.state?.value
+    const current = this.state ? boardFromDocument(this.state.value) : null
     if (!this.enabled.add || !current) return undefined
     const width = input.width ?? this.options.defaultWidth?.[input.kind] ?? DEFAULT_BOARD_ITEM_WIDTH
     const shape = provisionalShape(input.kind)
@@ -133,27 +144,27 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
       width,
     }
     const added = addItem(current, item)
-    this.apply(settleBoard(current, added, this.bridge.shapes(), [item.id]), { kind: 'add', ids: [item.id] })
+    this.applyBoard(settleBoard(current, added, this.bridge.shapes(), [item.id]), { kind: 'add', ids: [item.id] })
     this.board.selection = [item.id]
     return item.id
   }
 
   remove(ids: readonly string[] = this.board.selection) {
-    const current = this.state?.value
+    const current = this.state ? boardFromDocument(this.state.value) : null
     const existing = ids.filter((id) => current?.items.some((item) => item.id === id))
     if (!this.enabled.remove || !current || existing.length === 0) return
     this.board.selection = this.board.selection.filter((id) => !existing.includes(id))
     const removed = removeItems(removeFromGrid(current, this.bridge.shapes(), existing), existing)
-    this.apply(settleBoard(current, removed, this.bridge.shapes(), existing), { kind: 'remove', ids: existing })
+    this.applyBoard(settleBoard(current, removed, this.bridge.shapes(), existing), { kind: 'remove', ids: existing })
     this.board.focus()
   }
 
   arrange(options: ArrangeOptions) {
-    const current = this.state?.value
+    const current = this.state ? boardFromDocument(this.state.value) : null
     if (!this.enabled.arrange || !current) return
     const next = arrange(current, this.bridge.shapes(), options)
     const ids = current.items.filter((item, index) => item.x !== next.items[index]?.x || item.y !== next.items[index]?.y).map((item) => item.id)
-    this.apply(
+    this.applyBoard(
       settleBoard(
         current,
         next,
@@ -164,12 +175,27 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     )
   }
 
+  apply(ops: readonly DocumentOp[], label: string) {
+    if (!this.state) return
+    const transition = applyBoardEdit(this.state, ops, { kind: 'apply', label, ids: [] })
+    this.refuseConflicts(transition.conflicts)
+    this.applyTransition(transition)
+  }
+
+  applyRemote(batch: DocumentBatch) {
+    if (!this.state) return
+    const transition = applyRemoteBoardEdit(this.state, batch)
+    this.refuseConflicts(transition.conflicts)
+    this.applyTransition(transition)
+  }
+
   undo() {
     if (!this.state) return
     const entry = this.state.undo.at(-1)
     if (!entry) return
     this.board.focus()
-    this.applyTransition(undoBoardEdit(this.state), this.existingIds(entry.edit, entry.before))
+    const transition = undoBoardEdit(this.state)
+    this.applyTransition(transition, this.existingIds(entry.edit, boardFromDocument(transition.state.value)))
   }
 
   redo() {
@@ -177,7 +203,8 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const entry = this.state.redo.at(-1)
     if (!entry) return
     this.board.focus()
-    this.applyTransition(redoBoardEdit(this.state), this.existingIds(entry.edit, entry.after))
+    const transition = redoBoardEdit(this.state)
+    this.applyTransition(transition, this.existingIds(entry.edit, boardFromDocument(transition.state.value)))
   }
 
   pointerDown(event: PointerEvent): boolean {
@@ -204,15 +231,15 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.input.keyUp(event)
   }
 
-  private apply(next: Board, edit: BoardEdit) {
+  private applyBoard(next: Board, edit: BoardEdit) {
     if (!this.state) return
-    this.applyTransition(applyBoardEdit(this.state, next, edit))
+    this.applyTransition(applyBoardEdit(this.state, diffDocuments(this.state.value, this.bridge.document(next)), edit))
   }
 
   private commitLive(before: Board, next: Board, edit: BoardEdit) {
     this.bridge.setOptimistic(before)
-    if (this.state) this.state = { ...this.state, value: before }
-    this.apply(next, edit)
+    if (this.state) this.state = { ...this.state, value: this.bridge.document(before) }
+    this.applyBoard(next, edit)
   }
 
   private applyTransition(transition: BoardEditTransition, selection?: readonly string[]) {
@@ -224,7 +251,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
       this.aborts.get(id)?.abort()
       this.aborts.delete(id)
     }
-    if (transition.effects.show) this.bridge.setOptimistic(transition.effects.show)
+    if (transition.effects.show) this.bridge.setOptimistic(boardFromDocument(transition.effects.show))
     if (selection) this.board.selection = selection
     if (transition.effects.historyChanged) this.notifyHistory()
     if (transition.effects.error)
@@ -241,7 +268,13 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.runningId = id
     try {
       // One whole-document write keeps host persistence and undo on the same ordered seam.
-      await this.options.change({ board: this.bridge.document(job.after), edit: job.edit, signal: controller.signal })
+      await this.options.change({
+        board: job.after,
+        before: job.before,
+        batch: { base: fingerprintDocument(job.before), ops: [...job.ops] },
+        edit: job.edit,
+        signal: controller.signal,
+      })
       if (this.state) this.applyTransition(resolveBoardEdit(this.state, id))
     } catch (error) {
       const transition = this.state ? rejectBoardEdit(this.state, id, error) : null
@@ -260,7 +293,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     }
   }
 
-  private hostValue = (value: Board | null) => {
+  private hostValue = (value: Document | null) => {
     this.input.cancel(false)
     if (value && this.state) this.applyTransition(adoptHostBoard(this.state, value))
     else if (value) this.state = boardEditQueue(value, this.nextId, this.invalidated)
@@ -285,14 +318,15 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private settleInitial() {
-    const current = this.state?.value
-    if (!current || this.stopped) return
+    const document = this.state?.value
+    if (!document || this.stopped) return
+    const current = boardFromDocument(document)
     const measured = this.board.measuredLabelSizes()
     const labels = current.labels.map((label) => (label.size || !measured[label.id] ? label : { ...label, size: measured[label.id] }))
     const sized = labels.some((label, index) => label !== current.labels[index]) ? { ...current, labels } : current
     const ids = current.sections.map((section) => section.id)
     const settled = settleBoard(current, sized, this.bridge.shapes(), ids)
-    if (JSON.stringify(settled) !== JSON.stringify(current)) this.apply(settled, { kind: 'settle', ids })
+    if (JSON.stringify(settled) !== JSON.stringify(current)) this.applyBoard(settled, { kind: 'settle', ids })
   }
 
   private renderHandles = () => {
@@ -319,6 +353,11 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   private dispatchError(edit: BoardEdit, error: unknown) {
     this.board.dispatchEvent(new CustomEvent('segnavia-board-edit-error', { detail: { edit, error }, bubbles: true, composed: true }))
+  }
+
+  private refuseConflicts(conflicts: readonly DocumentOp[] | undefined) {
+    if (!conflicts?.length) return
+    throw new Error(boardEditRefusal(conflicts))
   }
 }
 

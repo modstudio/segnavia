@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from './board.ts'
 import type { BoardCommand } from './board-commands.ts'
+import { editBoardForBoard as editBoard } from './board-document-test-helper.ts'
 import type { ComputedBoardShapes } from './board-shapes.ts'
-import { editBoard } from './edit-board.ts'
 
 const shapes: ComputedBoardShapes = {
   shapes: { items: { a: { width: 2, height: 1 }, b: { width: 2, height: 1 }, c: { width: 2, height: 1 } }, labels: {} },

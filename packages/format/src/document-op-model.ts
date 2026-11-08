@@ -39,6 +39,11 @@ const model = (schema: ObjectSchema, content: readonly string[] = [], collection
   }
 }
 
+const boardSectionModel = (): NodeModel => {
+  const result = model(BoardSectionNode)
+  return { ...result, settable: new Set([...result.settable].filter((field) => field !== 'items' && field !== 'cells')) }
+}
+
 export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> = {
   division: model(z.object(DivisionNodeFields)),
   part: model(z.object(PartNodeFields), ['html']),
@@ -51,7 +56,7 @@ export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> 
   record: model(RecordNode),
   item: model(BoardItemNode),
   label: model(LabelNode),
-  boardSection: model(BoardSectionNode),
+  boardSection: boardSectionModel(),
   parentPage: model(ParentPageNode, ['head', 'foot', 'regions'], 'parentPages'),
   template: model(TemplateNode, ['html'], 'templates'),
   noteSeries: model(NoteSeriesNode, [], 'noteSeries'),

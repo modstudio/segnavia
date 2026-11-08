@@ -17,7 +17,7 @@ import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
 import { BoardDocumentElement } from './board-document-element.ts'
-import { type BoardEditingBridge, type BoardPointerDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
+import { type BoardEditingBridge, type BoardEditingHostValue, type BoardPointerDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
 import { BoardViewEventDispatcher, boardEvent } from './board-events.ts'
 import { BoardGestures } from './board-gestures.ts'
 import { BoardPointerInput } from './board-input.ts'
@@ -54,7 +54,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private pendingReveal: { id: string; height: number } | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly surface = document.createElement('div')
-  private editingHostValue: ((board: Board | null) => void) | null = null
+  private editingHostValue: BoardEditingHostValue | null = null
   private readonly decorations = new BoardDecorations(this.surface)
   private readonly titles = new BoardItemTitles()
   private readonly chrome = new BoardChrome(
@@ -133,7 +133,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
   }
   protected acceptBoardInput(board: Board | null) {
     this.setBoardValue(board, true)
-    this.editingHostValue?.(board)
+    this.editingHostValue?.(this.board)
   }
   private setBoardValue(input: Board | null, dispatch: boolean) {
     const previous = this.value
@@ -227,7 +227,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
   measuredLabelSizes(): Record<string, { width: number; height: number }> {
     return this.decorations.measureMissingLabels(this.value?.labels ?? [], this.currentView.zoom)
   }
-  [boardEditing](delegate: BoardPointerDelegate, hostValue: (board: Board | null) => void): BoardEditingBridge {
+  [boardEditing](delegate: BoardPointerDelegate, hostValue: BoardEditingHostValue): BoardEditingBridge {
     if (this.input.delegate || this.editingHostValue)
       throw new Error('board editing is already attached or settling; wait for it before attaching another editor')
     this.input.delegate = delegate

@@ -4,8 +4,11 @@ import { BOARD_COMMAND_HANDLERS } from './board-command-handlers.ts'
 import { BoardCommandRefusal } from './board-command-resolvers.ts'
 import { BoardCommand } from './board-commands.ts'
 import { type BoardEditAdjustment, type BoardEditResult, changedEntities, entityAt } from './board-edit-result.ts'
-import { diffBoards } from './board-ops-diff.ts'
 import type { ComputedBoardShapes } from './board-shapes.ts'
+import type { Document } from './document.ts'
+import { diffDocuments } from './document-diff.ts'
+import { fingerprintDocument } from './document-fingerprint.ts'
+import { boardFromDocument, documentFromBoard } from './document-lowering.ts'
 
 function commandType(value: unknown): string {
   if (typeof value !== 'object' || value === null || typeof (value as { type?: unknown }).type !== 'string') return 'unknown'
@@ -24,7 +27,8 @@ function fullAdjustments(board: Board, shapes: ComputedBoardShapes['shapes'], ad
   })
 }
 
-export function editBoard(board: Board, commands: BoardCommand[], shapes: ComputedBoardShapes, options: BoardCommandOptions = {}): BoardEditResult {
+export function editBoard(document: Document, commands: BoardCommand[], shapes: ComputedBoardShapes, options: BoardCommandOptions = {}): BoardEditResult {
+  const board = boardFromDocument(document)
   let current = board
   let currentShapes = shapes.shapes
   const adjustments: BoardEditAdjustment[] = []
@@ -59,10 +63,12 @@ export function editBoard(board: Board, commands: BoardCommand[], shapes: Comput
     (adjustment, index, values) =>
       values.findIndex((entry) => entry.command === adjustment.command && entry.kind === adjustment.kind && entry.id === adjustment.id) === index,
   )
+  const editedDocument = documentFromBoard(current, document)
   return {
     ok: true,
     board: current,
-    ops: diffBoards(board, current),
+    document: editedDocument,
+    batch: { base: fingerprintDocument(document), ops: diffDocuments(document, editedDocument) },
     changed: changedEntities(board, current, currentShapes, detail, shapes.shapes),
     adjustments: detail === 'full' ? fullAdjustments(current, currentShapes, uniqueAdjustments) : uniqueAdjustments,
     detail,

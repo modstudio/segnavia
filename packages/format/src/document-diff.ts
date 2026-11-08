@@ -1,7 +1,7 @@
-import { sameValue } from './board-op-equal.ts'
 import type { Document as DocumentValue } from './document.ts'
 import { requireParsedDocument } from './document-fingerprint.ts'
 import type { DocumentLocation, DocumentOp } from './document-op.ts'
+import { sameValue } from './document-op-equal.ts'
 import {
   DOCUMENT_ROOT_FIELDS,
   DOCUMENT_STYLE_FIELDS,
@@ -97,6 +97,38 @@ function appendContentChanges(old: Node, node: Node, fields: ReadonlySet<string>
   }
 }
 
+function removeBoardMembers(current: string[], desired: readonly string[], section: string, ops: DocumentOp[]): void {
+  for (const item of [...current]) {
+    if (desired.includes(item)) continue
+    const at = current.indexOf(item)
+    ops.push({ type: 'setMember', section, item, from: { after: at === 0 ? null : (current[at - 1] as string) }, to: null })
+    current.splice(at, 1)
+  }
+}
+
+function placeBoardMembers(current: string[], desired: readonly string[], section: string, ops: DocumentOp[]): void {
+  for (let at = 0; at < desired.length; at += 1) {
+    const item = desired[at] as string
+    const desiredAfter = at === 0 ? null : (desired[at - 1] as string)
+    const currentAt = current.indexOf(item)
+    const actualAfter = currentAt < 0 ? null : currentAt === 0 ? null : (current[currentAt - 1] as string)
+    if (currentAt >= 0 && actualAfter === desiredAfter) continue
+    ops.push({ type: 'setMember', section, item, from: currentAt < 0 ? null : { after: actualAfter }, to: { after: desiredAfter } })
+    if (currentAt >= 0) current.splice(currentAt, 1)
+    current.splice(at, 0, item)
+  }
+}
+
+function appendBoardSectionChanges(old: Node, node: Node, ops: DocumentOp[]): void {
+  const current = [...(old.items as string[])]
+  const desired = node.items as string[]
+  removeBoardMembers(current, desired, node.id, ops)
+  placeBoardMembers(current, desired, node.id, ops)
+  const from = (old.cells as Extract<DocumentOp, { type: 'setCells' }>['from'] | undefined) ?? null
+  const to = (node.cells as Extract<DocumentOp, { type: 'setCells' }>['to'] | undefined) ?? null
+  if (!sameValue(from, to)) ops.push({ type: 'setCells', section: node.id, from: structuredClone(from), to: structuredClone(to) })
+}
+
 function setChanges(before: Doc, after: Doc, common: ReadonlySet<string>, ops: DocumentOp[]): void {
   const beforeById = new Map(entries(before).map(({ node }) => [node.id, node]))
   for (const { node } of entries(after)) {
@@ -105,6 +137,7 @@ function setChanges(before: Doc, after: Doc, common: ReadonlySet<string>, ops: D
     const model = nodeModel(node.type)
     if (!model || old.type !== node.type) throw new Error(`diffDocuments refused: node "${node.id}" changed type; use a new id to clear this refusal`)
     appendContentChanges(old, node, model.content, ops)
+    if (node.type === 'boardSection') appendBoardSectionChanges(old, node, ops)
     const held = change(old, node, model.settable)
     if (hasChange(held)) ops.push({ type: 'setFields', id: node.id, ...held })
   }
@@ -124,10 +157,10 @@ export function diffDocuments(left: DocumentValue, right: DocumentValue): Docume
   const working = structuredClone(before)
   insertMissing(working, after, beforeIds, ops)
   reconcileOrder(working, after, ops)
-  removeMissing(working, afterIds, ops)
   const root = change(before, after, DOCUMENT_ROOT_FIELDS)
   if (hasChange(root)) ops.push({ type: 'setFields', id: before.id, ...root })
   setChanges(before, after, common, ops)
+  removeMissing(working, afterIds, ops)
   const style = change(before.style ?? {}, after.style ?? {}, DOCUMENT_STYLE_FIELDS)
   if (hasChange(style)) ops.push({ type: 'setStyle', ...style })
   return ops

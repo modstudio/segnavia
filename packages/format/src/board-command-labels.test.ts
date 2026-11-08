@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from './board.ts'
 import type { BoardCommand } from './board-commands.ts'
+import { editBoardForBoard as editBoard } from './board-document-test-helper.ts'
 import { boardShapes, type ComputedBoardShapes } from './board-shapes.ts'
-import { editBoard } from './edit-board.ts'
 
 function fixture(direction: Board['direction'] = 'ltr'): Board {
   return {

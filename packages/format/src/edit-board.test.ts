@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from './board.ts'
 import type { BoardCommand } from './board-commands.ts'
-import { applyBoardOps } from './board-ops.ts'
+import { documentForBoard, editBoardForBoard as editBoard } from './board-document-test-helper.ts'
 import type { ComputedBoardShapes } from './board-shapes.ts'
-import { editBoard } from './edit-board.ts'
+import { applyOps } from './document-apply.ts'
+import { boardFromDocument, documentFromBoard } from './document-lowering.ts'
 
 const item = (id: string, address = id, x = 0) => ({ id, kind: 'page' as const, address, x, y: 0, width: 100 })
 const board = (direction: Board['direction'] = 'ltr'): Board => ({
@@ -54,9 +55,11 @@ describe('editBoard item commands', () => {
   })
 
   test('adds, moves a group, resizes, removes and arranges in one atomic batch', () => {
+    const before = board()
+    const input = documentForBoard(before)
     const result = success(
       editBoard(
-        board(),
+        before,
         [
           { type: 'item-add', kind: 'page', address: 'new', target: { at: { x: 10, y: 20 } } },
           { type: 'item-move', items: [{ id: 'a' }, { id: 'b' }], target: { beside: { id: 'c' }, side: 'below' } },
@@ -71,7 +74,9 @@ describe('editBoard item commands', () => {
     expect(result.board.items.map((entry) => entry.id)).toEqual(['a', 'c', 'new'])
     expect(result.adjustments.some((entry) => entry.kind === 'generated-id')).toBe(true)
     expect(result.adjustments.some((entry) => entry.kind === 'width-clamped')).toBe(true)
-    expect(applyBoardOps(board(), result.ops)).toEqual(result.board)
+    expect(boardFromDocument(applyOps(input, result.batch))).toEqual(result.board)
+    expect(result.document).toEqual(applyOps(input, result.batch))
+    expect(result.document).toEqual(documentFromBoard(result.board, input))
     expect(result.changed.every((entry) => entry.box)).toBe(true)
   })
 
@@ -125,7 +130,7 @@ describe('editBoard item commands', () => {
       const before = board(direction)
       const result = success(editBoard(before, [{ type: 'item-remove', items: [{ id: 'b' }] }], shapes))
       expect(result.board.items.map((entry) => entry.id)).toEqual(['a', 'c'])
-      expect(applyBoardOps(before, result.ops)).toEqual(result.board)
+      expect(boardFromDocument(applyOps(documentForBoard(before), result.batch))).toEqual(result.board)
     })
 
     test(`defaults resize anchor to logical start in ${direction}`, () => {
@@ -300,7 +305,7 @@ describe('editBoard item commands', () => {
           command = { type: 'section-remove', section: { id: 's' }, members: 'release' }
       }
       const result = success(editBoard(before, [command], suppliedShapes))
-      expect(applyBoardOps(before, result.ops)).toEqual(result.board)
+      expect(boardFromDocument(applyOps(documentForBoard(before), result.batch))).toEqual(result.board)
       const changed = new Set(result.changed.map((entry) => entry.id))
       expectChangedCoverage(before, result.board, changed)
     }
