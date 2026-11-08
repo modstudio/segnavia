@@ -37,10 +37,10 @@ import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { type DependencyCache, dependencySetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
+import { regularSlideDrawBox } from './deck-paper.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
 import { addPressBoxes, assertPrintOptions } from './page-paper.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
-import { pdfPixelBox } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
@@ -228,12 +228,11 @@ async function composeRegularSlides(
   press: DeckPressContext,
 ): Promise<void> {
   const pages = output.getPages()
-  const slideBox =
-    notesGeometry?.slide ??
-    (press.slides && press.boxes
-      ? { x: 0, y: 0, width: press.boxes.bleedBox.width * PX_PER_MM, height: press.boxes.bleedBox.height * PX_PER_MM }
-      : { x: 0, y: 0, width: deck.size.width, height: deck.size.height })
-  const geometry = pdfPixelBox(slideBox, notesGeometry?.sheet.height ?? deck.size.height)
+  const pressSheet =
+    press.slides && press.boxes
+      ? { width: press.boxes.bleedBox.width * PX_PER_MM, height: press.boxes.bleedBox.height * PX_PER_MM }
+      : undefined
+  const geometry = regularSlideDrawBox(deck.size, notesGeometry, pressSheet)
   const firstPages = notesGeometry ? firstNotesPages(pageOwners, deck.slides.length) : []
   for (const item of rendered) {
     const pageIndex = notesGeometry ? (firstPages[item.index] ?? -1) : item.index
