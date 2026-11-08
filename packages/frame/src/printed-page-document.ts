@@ -17,7 +17,7 @@ import {
 } from '@segnavia/format'
 import { fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
-import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS } from './composer.ts'
+import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 
@@ -133,11 +133,13 @@ export function printedPageValueDocument(
     nonce: string
     baseCss?: string
     css?: string
+    csp?: string
     only?: number
     expectedCount?: number
     measure?: boolean
     printBackground?: boolean
     diagramScript?: string
+    screen?: ScreenPresentation
     readyCallback?: string
     metadata?: DocumentMetadataValue
     limits?: Limits
@@ -196,6 +198,7 @@ export function printedPageValueDocument(
     numbering,
     parents,
     rules,
+    ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
@@ -211,6 +214,7 @@ export function printedPageValueDocument(
     title: metadata?.title,
     sheets: frameStyleSheets(page.style, page.brand, baseCss),
     css: options.css,
+    csp: options.csp,
     relayKeys: false,
     reportHeight: options.measure === true,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,

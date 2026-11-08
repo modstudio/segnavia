@@ -320,7 +320,12 @@ export class SegnaviaDocument extends HTMLElement {
     page.part.add('page')
     sheet.append(page)
     page[internalPageLoad](
-      Page.parse({ ...projection.page, slots: this.resolvedSlots ? [] : projection.page.slots, html: this.filledHtml?.[index] ?? source.html }),
+      Page.parse({
+        ...projection.page,
+        printedPages: undefined,
+        slots: this.resolvedSlots ? [] : projection.page.slots,
+        html: this.filledHtml?.[index] ?? source.html,
+      }),
     )
   }
 

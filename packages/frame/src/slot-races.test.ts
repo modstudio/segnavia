@@ -42,6 +42,7 @@ test('page keeps its pending fill when replacement input is refused', async () =
     slotOptions: { fill: { id: 'x', values: { logo: { asset: 'logo' } } }, resolveAsset: () => asset.promise } as SlotsOptions,
     cancelSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    releaseFrame: (SegnaviaPage.prototype as unknown as { releaseFrame(): number }).releaseFrame,
     mount() {
       iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }
       return iframe
@@ -81,6 +82,7 @@ test('page ignores slot fit from a filled frame after loading an unfilled sandbo
       report: (report: { slots: Record<string, string> }) => reports.push(structuredClone(report)),
     } as SlotsOptions | undefined,
     cancelSlotPreparation: (SegnaviaPage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    releaseFrame: (SegnaviaPage.prototype as unknown as { releaseFrame(): number }).releaseFrame,
     mount() {
       iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }
       return iframe

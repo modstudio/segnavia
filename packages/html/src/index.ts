@@ -151,6 +151,7 @@ export {
   slotFillsConflict,
 } from './slot-print.ts'
 export {
+  fillsSlotValues,
   hasSlotWork,
   MAX_SLOT_DECLARATIONS,
   mergeSlotFitResults,

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { SlotsOptions } from '@segnavia/format'
 import { MESSAGE, SELECTION_TEXT_LIMIT } from './bridge.ts'
+import { toggleTestAttribute } from './page-element.test-helper.ts'
 
 const style = () => {
   const values = Object.create(null) as Record<string, string>
@@ -77,10 +78,7 @@ class TestElement extends EventTarget {
   }
 
   toggleAttribute(name: string, force?: boolean) {
-    const present = force ?? !this.attributes.has(name)
-    if (present) this.attributes.set(name, '')
-    else this.attributes.delete(name)
-    return present
+    return toggleTestAttribute(this, name, force)
   }
 }
 
@@ -159,6 +157,11 @@ function selectionHarness() {
   Object.assign(page, {
     getAttribute: (name: string) => attributes.get(name) ?? null,
     hasAttribute: (name: string) => attributes.has(name),
+    setAttribute: (name: string, value: string) => attributes.set(name, value),
+    removeAttribute: (name: string) => attributes.delete(name),
+    toggleAttribute(name: string, force?: boolean) {
+      return toggleTestAttribute(this, name, force)
+    },
     querySelector(selector: string) {
       for (const child of children) {
         if (selector === 'iframe' && child instanceof TestFrame) return child

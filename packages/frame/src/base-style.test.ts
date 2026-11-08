@@ -58,6 +58,14 @@ describe('headless base styles', () => {
     expect(sheetRule).toContain('position:relative')
     expect(sheetRule).not.toMatch(/(?:^|;)inset|z-index/)
     expect(BASE_CSS).not.toContain('.segnavia-page__heading-marker')
+    expect(BASE_CSS).toContain('segnavia-page:not([unstyled])[data-composed-papers] .segnavia-page__sheet){inline-size:100%;block-size:100%}')
+    expect(BASE_CSS).not.toContain('data-composed-papers] .segnavia-page__sheet iframe')
+    const composedRules = [...BASE_CSS.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((match) => match[1]?.includes('[data-composed-papers]'))
+    expect(composedRules.length).toBeGreaterThan(0)
+    for (const rule of composedRules) {
+      expect(rule[1]).toContain('.segnavia-page__sheet')
+      expect(rule[2]).not.toMatch(/(?:^|;)transform:/)
+    }
   })
 
   test('the board exposes geometry for every documented part without a surface scale', () => {

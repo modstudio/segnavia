@@ -1,7 +1,7 @@
 // Pages: fluid and growing heights through the bridge, refused scripts,
 // direction and language, block direction, and a page the host serves.
 
-import { PAGE_DEMO_PAGES } from '../build-page-demo.ts'
+import { PAGE_DEMO_PAGES, PRINTED_PAGE_DEMO_PAGES } from '../build-page-demo.ts'
 import type { Harness } from './harness.ts'
 
 // A fixed sheet keeps its own height, so #fixed never reports a measurement.
@@ -18,6 +18,66 @@ async function waitForPageMeasurements(page: Harness['page']): Promise<string[]>
   } catch {
     return page.evaluate((ids) => ids.filter((id) => document.querySelector<HTMLElement>(id)?.dataset.measured === undefined), MEASURED_PAGES)
   }
+}
+
+async function verifyPrintedPages({ page, check }: Harness): Promise<void> {
+  for (const fixture of PRINTED_PAGE_DEMO_PAGES) await page.frameLocator(`#${fixture.id} iframe`).locator('html[data-segnavia-composed]').waitFor()
+  const printCounts = await page.evaluate(async (fixtures) => {
+    const bundle = '/segnavia.js'
+    const { printPages } = (await import(bundle)) as {
+      printPages: (pages: unknown[], imposition: unknown, options: { print(win: Window): void }) => Promise<void>
+    }
+    const imposition = { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } }
+    const counts = []
+    for (const fixture of fixtures) {
+      let printed = 0
+      await printPages([fixture.fixture], imposition, {
+        print(win) {
+          printed = win.document.querySelectorAll('.paper').length
+        },
+      })
+      counts.push({ id: fixture.id, printed })
+    }
+    return counts
+  }, PRINTED_PAGE_DEMO_PAGES)
+  const printedFacts: Array<{
+    id: string
+    screen: number
+    printed: number
+    dir: string | null
+    paperDirections: string[]
+    hostHeight: number
+    frameHeight: number
+  }> = []
+  for (const fixture of PRINTED_PAGE_DEMO_PAGES) {
+    const frame = page.frameLocator(`#${fixture.id} iframe`)
+    const papers = frame.locator('[data-segnavia-printed-page]')
+    printedFacts.push({
+      id: fixture.id,
+      screen: await papers.count(),
+      printed: printCounts.find((count) => count.id === fixture.id)?.printed ?? 0,
+      dir: await frame.locator('html').getAttribute('dir'),
+      paperDirections: await papers.evaluateAll((elements) => elements.map((paper) => getComputedStyle(paper).direction)),
+      hostHeight: await page.locator(`#${fixture.id}`).evaluate((element) => element.getBoundingClientRect().height),
+      frameHeight: await page.locator(`#${fixture.id} iframe`).evaluate((element) => element.getBoundingClientRect().height),
+    })
+  }
+  check(
+    'printed Documents show the same paper count that the print path measures',
+    printedFacts.every((fact) => fact.screen > 0 && fact.screen === fact.printed),
+    JSON.stringify(printedFacts),
+  )
+  const hebrewPapers = printedFacts.find((fact) => fact.id === 'printed-he')
+  check(
+    'Hebrew composed papers carry right-to-left direction',
+    hebrewPapers?.dir === 'rtl' && hebrewPapers.paperDirections.length > 0 && hebrewPapers.paperDirections.every((dir) => dir === 'rtl'),
+    JSON.stringify(hebrewPapers),
+  )
+  check(
+    'printed Document fixtures keep the host height and fill it with their frame',
+    printedFacts.every((fact) => fact.hostHeight === 500 && fact.frameHeight === 500),
+    JSON.stringify(printedFacts),
+  )
 }
 
 export async function verifyPages(h: Harness) {
@@ -102,6 +162,8 @@ export async function verifyPages(h: Harness) {
     .locator('html')
     .evaluate((root) => `${getComputedStyle(root).getPropertyValue('--segnavia-bleed')} ${getComputedStyle(root).getPropertyValue('--segnavia-safe')}`)
   check('a shown page exposes its print bleed and safe area', printProperties === '3mm 5mm', printProperties)
+
+  await verifyPrintedPages(h)
 
   const linkFrames = ['#link-page-refuse iframe', '#link-page-sandboxed iframe', '#link-slide-refuse iframe', '#link-slide-sandboxed iframe']
   for (const selector of linkFrames) await page.frameLocator(selector).locator('#jump').waitFor()
