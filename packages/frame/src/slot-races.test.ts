@@ -30,6 +30,18 @@ function deferred<T>() {
 }
 
 const assetSlot = [{ key: 'logo', label: 'Logo', type: 'image' as const, required: false }]
+
+test('page re-runs its document edge when brands changes', () => {
+  const input = pageDocument('<p>Body</p>', 'refuse')
+  const loaded: unknown[] = []
+  const page = { pageInput: input, load: (value: unknown) => loaded.push(value) }
+  Object.setPrototypeOf(page, SegnaviaPage.prototype)
+
+  ;(page as unknown as SegnaviaPage).brands = { source: { brand: async () => undefined } }
+
+  expect(loaded).toEqual([input])
+})
+
 test('page keeps its pending fill when replacement input is refused', async () => {
   const asset = deferred<string>()
   let iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }

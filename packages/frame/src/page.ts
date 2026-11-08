@@ -112,6 +112,10 @@ export class SegnaviaPage extends PageElementAttributes {
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
+  protected brandsChanged() {
+    if (this.pageInput !== undefined) this.load(this.pageInput)
+  }
+
   get page(): Document | null {
     return this.documentValue
   }
