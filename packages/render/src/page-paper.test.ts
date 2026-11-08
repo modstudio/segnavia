@@ -98,7 +98,9 @@ test('press boxes are applied to every page', async () => {
   const output = await PDFDocument.load(await addPressBoxes(await source.save(), printBoxes(print)))
   expect(output.getPageCount()).toBe(3)
   for (const page of output.getPages()) {
-    expect(page.getBleedBox()).toBeDefined()
-    expect(page.getTrimBox()).toBeDefined()
+    expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
+    expect(page.node.has(PDFName.of('TrimBox'))).toBe(true)
+    expect(page.getBleedBox()).toEqual({ x: pt(6), y: pt(6), width: pt(106), height: pt(106) })
+    expect(page.getTrimBox()).toEqual({ x: pt(9), y: pt(9), width: pt(100), height: pt(100) })
   }
 })

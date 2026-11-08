@@ -3,6 +3,8 @@ import { Deck } from '@segnavia/format'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { renderDeckPdf } from './deck-pdf.ts'
+import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
+import { pt } from './pdf-geometry.ts'
 
 const deck = Deck.parse({
   title: 'Deck',
@@ -44,8 +46,23 @@ test('deck sheet bleed writes press boxes on every slide at the 96 dpi trim', as
   const pages = (await PDFDocument.load(await renderDeckPdf(deck, { sheet: { bleed: 3 } }, services))).getPages()
   expect(pages).toHaveLength(2)
   for (const page of pages) {
-    expect(page.getBleedBox()).toBeDefined()
-    expect(page.getTrimBox()).toMatchObject({ width: 300, height: 150 })
+    expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
+    expect(page.node.has(PDFName.of('TrimBox'))).toBe(true)
+    expect(page.getBleedBox()).toEqual(page.getMediaBox())
+    const trim = page.getTrimBox()
+    expect(trim.x).toBeCloseTo(pt(3), 1)
+    expect(trim.y).toBeCloseTo(pt(3), 1)
+    expect(trim.width).toBe(300)
+    expect(trim.height).toBe(150)
+  }
+})
+
+test('deck crop marks are drawn on every slide sheet', async () => {
+  const bytes = await renderDeckPdf(deck, { sheet: { bleed: 3, marks: true } }, services)
+  const pages = (await PDFDocument.load(bytes)).getPages()
+  expect(pages).toHaveLength(2)
+  for (let index = 0; index < pages.length; index++) {
+    expect(firstStroke(await pageContent(bytes, index))).toBeDefined()
   }
 })
 
