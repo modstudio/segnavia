@@ -81,7 +81,7 @@ test('deck press settings refuse removed and incompatible options before renderi
 })
 
 test('notesPaper refuses press fields in favor of the deck Document', async () => {
-  await expect(renderDeckPdf(deck, { layout: 'notes', notesPaper: { paper: 'letter', bleed: -1 } }, services)).rejects.toThrow(
+  await expect(renderDeckPdf(deck, { layout: 'notes', notesPaper: { paper: 'letter', bleed: -1 } } as never, services)).rejects.toThrow(
     "deck Document's print",
   )
 })

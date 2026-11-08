@@ -14,7 +14,7 @@ const ImpositionGap = z.object({
 export const MAX_IMPOSITION_CELLS = 10_000
 
 export const Imposition = z
-  .object({
+  .looseObject({
     paper: Paper,
     orientation: Orientation.default('portrait'),
     unit: PaperUnit.default('mm'),
@@ -23,8 +23,6 @@ export const Imposition = z
     rows: z.number().int().positive().optional(),
     cell: z.object({ width: z.number().positive().optional(), height: z.number().positive() }),
     gap: ImpositionGap.default({ column: 0, row: 0 }),
-    bleed: z.never({ message: "imposition.bleed was removed; set the Document's print.bleed to clear this refusal" }).optional(),
-    safe: z.never({ message: "imposition.safe was removed; set the Document's print.safe to clear this refusal" }).optional(),
     fit: z.enum(['contain', 'cover']).default('contain'),
     fill: z.enum(['sequence', 'repeat']).default('sequence'),
     sides: z.enum(['one', 'two']).optional(),
@@ -38,6 +36,11 @@ export const Imposition = z
     panels: z.array(z.number().positive()).optional(),
   })
   .superRefine((imposition, ctx) => {
+    for (const field of ['bleed', 'safe'] as const) {
+      if (imposition[field] !== undefined) {
+        ctx.addIssue({ code: 'custom', path: [field], message: `imposition.${field} was removed; set the Document's print.${field} to clear this refusal` })
+      }
+    }
     if (imposition.markColor === 'registration' && !imposition.marks) {
       ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
     }
@@ -93,6 +96,6 @@ export const Imposition = z
       ctx.addIssue({ code: 'custom', path: ['skip'], message: `skip is ${imposition.skip}, but the grid has ${cells} cells; skip must be less than ${cells}` })
     }
   })
-  .transform(resolveImposition)
+  .transform(({ bleed: _bleed, safe: _safe, ...imposition }) => resolveImposition(imposition))
 export type Imposition = z.infer<typeof Imposition>
-export type ImpositionInput = z.input<typeof Imposition>
+export type ImpositionInput = z.input<typeof Imposition> & { bleed?: never; safe?: never }

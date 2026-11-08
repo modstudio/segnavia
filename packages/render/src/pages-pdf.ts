@@ -36,7 +36,7 @@ async function composedPdf(
   frameIndexes: readonly number[] = pages.map((_, index) => index),
 ): Promise<Uint8Array> {
   const imposed = impose(imposition, pages.length, pages[0]?.print)
-  const marks = impositionMarks(imposition)
+  const marks = impositionMarks(imposition, pages[0]?.print)
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
   const baseCss = services.fontFaces(opts)

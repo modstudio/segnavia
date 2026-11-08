@@ -19,10 +19,11 @@ const grid = Imposition.parse({
   cell: { width: 10, height: 10 },
   margin: { top: 2, right: 2, bottom: 2, left: 2 },
   gap: { column: 2, row: 2 },
-  bleed: 1,
-  safe: 0.5,
 })
-const fluid = Page.parse({ html: '<p>page</p>' })
+const fluid = Page.parse({
+  html: '<p>page</p>',
+  print: { paper: { width: 10, height: 10, unit: 'mm' }, bleed: 1, safe: 0.5 },
+})
 const deck = Deck.parse({
   title: 'Print',
   size: { width: 1280, height: 720 },
@@ -37,7 +38,6 @@ describe('printableDeckValue', () => {
     cell: { width: 100, height: 80 },
     margin: { top: 20, right: 10, bottom: 20, left: 10 },
     gap: { column: 10, row: 20 },
-    bleed: 3,
   })
   test('reports the notes sheet and thumbnail geometry in CSS pixels', () => {
     const geometry = notesLayoutGeometry(deck.size)
@@ -285,7 +285,7 @@ describe('printablePageValues', () => {
 
   test('wraps the concatenated per-paper placement boxes', () => {
     const pages = [fluid, fluid, fluid, fluid, fluid]
-    const imposed = impose(grid, pages.length)
+    const imposed = impose(grid, pages.length, fluid.print)
     const content = Array.from({ length: imposed.papers }, (_, paper) =>
       printablePaper(pages.map(resolvePageHtml), grid, imposed, paper, { nonce: 'test' }),
     ).join('')
@@ -318,10 +318,9 @@ describe('printablePageValues', () => {
       rows: 1,
       cell: { width: 10, height: 10 },
       margin: { top: 2, right: 0, bottom: 1, left: 2 },
-      bleed: 3,
-      safe: 1,
     })
-    const html = printablePageValues([fluid], imposition, { css: ':root{color:red}', nonce: 'test' })
+    const page = Page.parse({ html: '<p>page</p>', print: { paper: { width: 10, height: 10, unit: 'mm' }, bleed: 3, safe: 1 } })
+    const html = printablePageValues([page], imposition, { css: ':root{color:red}', nonce: 'test' })
     expect(html).toContain(':where(html){padding:2mm 0mm 1mm 2mm}')
     expect(html.indexOf('--segnavia-safe:1mm')).toBeLessThan(html.indexOf(':where(html){padding:'))
     expect(html.indexOf(':where(html){padding:')).toBeLessThan(html.indexOf(':root{color:red}'))
@@ -366,11 +365,14 @@ describe('printablePageValues', () => {
       rows: 1,
       cell: { width: 100, height: 70 },
       margin: { top: 10, right: 10, bottom: 10, left: 10 },
-      bleed: 3,
       fit: mode,
     })
-    const page = Page.parse({ html: '<p>fixed</p>', size: { width: 600, height: 400 } })
-    const placement = impose(imposition, 1).placements[0]
+    const page = Page.parse({
+      html: '<p>fixed</p>',
+      size: { width: 600, height: 400 },
+      print: { paper: { width: 100, height: 70, unit: 'mm' }, orientation: 'landscape', bleed: 3 },
+    })
+    const placement = impose(imposition, 1, page.print).placements[0]
     if (!placement) throw new Error('Expected one placement.')
     const fit = fitPage(page, placement, mode)
     const html = printablePageValues([page], imposition, { nonce: 'test' })

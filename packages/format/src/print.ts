@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import { LogicalMargin } from './margins.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
-import type { MillimeterSize } from './geometry.ts'
 
 export const MarkColor = z.enum(['black', 'registration'])
 export type MarkColor = z.infer<typeof MarkColor>
@@ -15,17 +14,15 @@ const pressGeometryFields = {
   markColor: MarkColor.default('black'),
 }
 
-export const PressGeometry = z
-  .object(pressGeometryFields)
-  .superRefine((press, ctx) => {
-    if (press.markColor === 'registration' && !press.marks) {
-      ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
-    }
-  })
+export const PressGeometry = z.object(pressGeometryFields).superRefine((press, ctx) => {
+  if (press.markColor === 'registration' && !press.marks) {
+    ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
+  }
+})
 export type PressGeometry = z.infer<typeof PressGeometry>
 export type PressGeometryInput = z.input<typeof PressGeometry>
 
-export function pressSafeAreaIssues(press: Pick<PressGeometry, 'safe'>, trim: MillimeterSize): string[] {
+export function pressSafeAreaIssues(press: Pick<PressGeometry, 'safe'>, trim: { width: number; height: number }): string[] {
   const issues: string[] = []
   if (press.safe * 2 >= trim.width) {
     issues.push(`safe is ${press.safe}mm on the left and right, but the trim is ${trim.width}mm wide; safe must leave area inside the trim`)

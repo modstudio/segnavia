@@ -273,7 +273,7 @@ async function imposedDeckPdf(
 ): Promise<Uint8Array> {
   const baseCss = containFixedPageOverflow(services.fontFaces(opts))
   const imposed = impose(imposition, deck.slides.length, deck.print)
-  const marks = impositionMarks(imposition)
+  const marks = impositionMarks(imposition, deck.print)
   const fontFailures = services.fontFailures ?? []
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const rendered = await Promise.all(

@@ -195,7 +195,7 @@ export async function preparedDeckValuePrint(
     ...printOptions,
     notesPaper: printOptions.notesPaper ? { ...printOptions.notesPaper, bleed: undefined, safe: undefined, marks: undefined, markColor: undefined } : undefined,
   }
-  return { ...resolvedDeck.size, html: printableDeckValue(preparedDeck, browserOptions), ...options, slots: resolvedSlots }
+  return { ...resolvedDeck.size, html: printableDeckValue({ ...preparedDeck, print: undefined }, browserOptions), ...options, slots: resolvedSlots }
 }
 
 async function preparedPagesPrint(

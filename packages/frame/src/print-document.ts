@@ -105,7 +105,12 @@ export interface PrintOptions {
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
-  notesPaper?: PrintInput
+  notesPaper?: Omit<PrintInput, 'bleed' | 'safe' | 'marks' | 'markColor'> & {
+    bleed?: never
+    safe?: never
+    marks?: never
+    markColor?: never
+  }
   imposition?: ImpositionInput
   // Document title for the print dialog and saved PDF. Defaults to the deck
   // title; an empty value omits the tag.

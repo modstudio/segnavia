@@ -23,7 +23,7 @@ function invalidSetting(setting: 'notesPaper', field: PropertyKey, message: stri
   )
 }
 
-function parsePrint(setting: 'sheet' | 'notesPaper', input: PrintInput): Print {
+function parsePrint(setting: 'notesPaper', input: PrintInput): Print {
   const result = Print.safeParse(input)
   if (result.success) return result.data
   const issue = result.error.issues[0]
@@ -62,7 +62,8 @@ export function deckNotesPrint(notesPaper: PrintInput | undefined, deck: Deck): 
 }
 
 export function deckPressSettings(deck: Deck, options: DeckPressOptions): { sheet?: DeckSheetGeometry; notes: Print } {
-  if (options.sheet !== undefined) throw new RangeError("PrintOptions.sheet was removed; put press geometry on the deck Document's print to clear this refusal.")
+  if (options.sheet !== undefined)
+    throw new RangeError("PrintOptions.sheet was removed; put press geometry on the deck Document's print to clear this refusal.")
   const sheet = deckSheetGeometry(deck)
   const notes = deckNotesPrint(options.notesPaper, deck)
   const print = options.layout === 'notes' ? notes : sheet?.print

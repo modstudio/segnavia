@@ -1,5 +1,6 @@
 import { foldCellPages, foldPageCountMessage } from './fold.ts'
 import type { Imposition } from './imposition-schema.ts'
+import { refuseSafe } from './imposition-fit.ts'
 import { type Page, type PageWidths, resolvePageWidth } from './page.ts'
 import { type PaperBox, PX_PER_MM, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import type { Print } from './print.ts'
@@ -76,14 +77,7 @@ function columnXMm(imposition: Imposition, column: number, widths: number[], pap
 
 type PiecePress = { bleed?: number; safe?: number }
 
-function placementAt(
-  imposition: Imposition,
-  paper: number,
-  cell: number,
-  page: number,
-  paperSize: Imposed['paper'],
-  press: PiecePress,
-): ImpositionPlacement {
+function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper'], press: PiecePress): ImpositionPlacement {
   const mm = (value: number) => toMillimeters(value, imposition.unit)
   const column = cell % imposition.columns
   const row = Math.floor(cell / imposition.columns)
@@ -194,7 +188,13 @@ function assignPieces(imposition: Imposition, pieces: number, papers: number): P
   return assignments
 }
 
-function expandAssignments(imposition: Imposition, assignments: PieceAssignment[], pageCount: number, paper: Imposed['paper'], press: PiecePress): ImpositionPlacement[] {
+function expandAssignments(
+  imposition: Imposition,
+  assignments: PieceAssignment[],
+  pageCount: number,
+  paper: Imposed['paper'],
+  press: PiecePress,
+): ImpositionPlacement[] {
   const placements: ImpositionPlacement[] = []
   let currentPaper = -1
   let fronts: ImpositionPlacement[] = []
@@ -243,6 +243,14 @@ export function gridPlacements(imposition: Imposition, press: PiecePress = {}): 
 
 export function impose(imposition: Imposition, pageCount: number, press: PiecePress = {}): Imposed {
   if (!Number.isInteger(pageCount) || pageCount < 0) throw new RangeError(`pageCount must be a nonnegative integer; received ${String(pageCount)}`)
+  const safeIssues: string[] = []
+  const widths = columnWidthsMm(imposition)
+  refuseSafe(
+    { addIssue: (issue) => safeIssues.push(issue.message) },
+    press.safe ?? 0,
+    { width: Math.min(...widths), height: toMillimeters(imposition.cell.height, imposition.unit) },
+  )
+  if (safeIssues.length > 0) throw new RangeError(safeIssues.join('; '))
   const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
   const sides = imposition.sides === 'two' ? 2 : 1
   if (imposition.fold) return imposeFold(imposition, pageCount, paper, press)

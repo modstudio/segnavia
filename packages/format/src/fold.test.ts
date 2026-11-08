@@ -138,16 +138,8 @@ describe('folded imposition', () => {
     expect(messages).not.toContain('the fold has')
   })
 
-  test('parse refuses a fold whose safe margin is too large for the tuck-in panel', () => {
-    const result = Imposition.safeParse(foldInput({ fold: 'letter', safe: 49.3 }))
-    expect(result.success).toBe(false)
-    const safeIssues = result.error?.issues.filter((issue) => issue.path[0] === 'safe') ?? []
-    expect(safeIssues).toHaveLength(1)
-    expect(safeIssues[0]?.message).toContain('98.5mm')
-  })
-
-  test('parse accepts a fold whose safe margin fits the tuck-in panel', () => {
-    expect(parseFold({ fold: 'letter', safe: 49.2 }).safe).toBe(49.2)
+  test('parse refuses the removed fold safe field', () => {
+    expect(() => parseFold({ fold: 'letter', safe: 49.2 })).toThrow("Document's print.safe")
   })
 
   test('parse refuses a fold taller than the paper with the fold height remedy', () => {

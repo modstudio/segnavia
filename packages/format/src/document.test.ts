@@ -313,8 +313,8 @@ describe('Document', () => {
       children: [{ type: 'flow', html: '<p>Body</p>' }],
     } as const
     expect(() => Document.parse({ ...book, print: { paper: 'a4' } })).toThrow("a book's trim is page.paper")
-    expect(() =>
-      Document.parse({ type: 'document', kind: 'board', title: 'Board', settings: { dir: 'ltr' }, print: { bleed: 3 }, children: [] }),
-    ).toThrow('a board has no printed piece to trim')
+    expect(() => Document.parse({ type: 'document', kind: 'board', title: 'Board', settings: { dir: 'ltr' }, print: { bleed: 3 }, children: [] })).toThrow(
+      'a board has no printed piece to trim',
+    )
   })
 })

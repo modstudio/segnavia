@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { PressGeometry } from '@segnavia/format'
 import { parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import { type BookPdfAdapter, bookPageCss, renderBookPdf } from './book-pdf.ts'
@@ -89,6 +90,22 @@ test('passes each book print only the slot marks for the fields in that part', a
   expect(adapter.slotMarks.filter(({ part }) => part === 'body').every(({ marked }) => Bun.deepEquals(marked, [['name', 1]]))).toBe(true)
   expect(adapter.slotMarks.filter(({ part }) => part === 'front').every(({ marked }) => Bun.deepEquals(marked, [['name', 1]]))).toBe(true)
   expect(adapter.slotMarks.filter(({ part }) => part === 'margin').map(({ marked }) => marked)).toEqual([[]])
+})
+
+test('book press geometry writes boxes on every page without changing composition count', async () => {
+  const plain = continuousBook('<p>Body</p>')
+  const pressed = { ...plain, print: PressGeometry.parse({ bleed: 3, marks: true }) }
+  const plainBytes = await renderBookPdf(plain, {}, scriptedAdapter(() => 1))
+  const pressedBytes = await renderBookPdf(pressed, {}, scriptedAdapter(() => 1))
+  const plainPdf = await PDFDocument.load(plainBytes)
+  const pressedPdf = await PDFDocument.load(pressedBytes)
+  expect(pressedPdf.getPageCount()).toBe(plainPdf.getPageCount())
+  for (const page of pressedPdf.getPages()) {
+    expect(page.node.has(PDFName.of('TrimBox'))).toBe(true)
+    expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
+    expect(page.getTrimBox().width).toBeCloseTo(419.53, 1)
+    expect(page.getTrimBox().height).toBeCloseTo(595.28, 1)
+  }
 })
 
 test('places FontSource CSS before book CSS in the printed document', async () => {
