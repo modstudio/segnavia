@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, isDesignedSection, isTemplatedSection, Page } from '@segnavia/format'
-import { parseBookFixture, prepareSlots, RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
+import { parseBookFixture, RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
 import { renderPagePdf } from './page-render.ts'
 import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
@@ -69,7 +69,7 @@ test('filledBook refuses a missing required slot by name', async () => {
   expect(error.message).toContain('"school"')
 })
 
-test('a refuse-overflow key bound in two chapters is marked once per book document', async () => {
+test('filledBook keeps one slot frame per applied field', async () => {
   const book = parseBookFixture({
     title: 'Workbook',
     mode: 'paginated',
@@ -82,11 +82,8 @@ test('a refuse-overflow key bound in two chapters is marked once per book docume
   })
   const fill = { fill: { id: 'host', values: { school: 'Lincoln School' } } }
   const filled = await filledBook(book, fill)
-  const chapters = book.body.flatMap((entry) => ('html' in entry ? [entry.html] : []))
-  const once = await prepareSlots(book.slots, fill)
-  once.apply(chapters.join(''))
-  expect([...filled.slots.marked]).toEqual([...once.marked])
-  expect(filled.slots.marked.get('school')).toBe(1)
+  expect(filled.slots.frames.map((frame) => [...frame])).toEqual([[['school', 1]], [['school', 1]]])
+  expect(filled.slots.marked.get('school')).toBe(2)
 })
 
 test('a structurally cloned filled value renders with its explicit slots', async () => {

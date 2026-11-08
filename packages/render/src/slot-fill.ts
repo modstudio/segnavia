@@ -122,8 +122,34 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
         templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
       }
     : book
-  // One book document reports each key once, so marks are per rendered tab, not per applied field.
-  const marked = prepared.marked as Map<string, number>
-  for (const key of marked.keys()) marked.set(key, 1)
   return { value, slots: prepared }
+}
+
+function bookItemFrameCount(items: Book['body']): number {
+  return items.reduce((count, entry) => {
+    if (isDesignedSection(entry)) return count + entry.pages.length
+    if (isTemplatedSection(entry)) return count + entry.pages.reduce((total, page) => total + Object.keys(page.regions).length, 0)
+    if (isPart(entry)) return count + (entry.html === undefined ? 0 : 1) + bookItemFrameCount(entry.children)
+    return count + ('html' in entry ? 1 : 0)
+  }, 0)
+}
+
+function frameRange(start: number, count: number): number[] {
+  return Array.from({ length: count }, (_, offset) => start + offset)
+}
+
+/** Frame membership for the documents printed from a filled book. */
+export function bookSlotFrames(book: Book): { all: number[]; body: number[]; front: number[] } {
+  const frontCount = bookItemFrameCount(book.frontMatter)
+  const bodyCount = bookItemFrameCount(book.body)
+  const endCount = bookItemFrameCount(book.endMatter)
+  const templateCount = book.templates.length
+  const bodyStart = frontCount
+  const endStart = bodyStart + bodyCount
+  const templateStart = endStart + endCount
+  return {
+    all: frameRange(0, templateStart + templateCount),
+    front: frameRange(0, frontCount),
+    body: frameRange(bodyStart, bodyCount + endCount),
+  }
 }

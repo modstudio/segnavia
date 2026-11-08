@@ -22,7 +22,8 @@ import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
-import { filledBook } from './slot-fill.ts'
+import { slotsForDocument } from './slot-document.ts'
+import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
 export type { BookPdfAdapter } from './book-pdf-types.ts'
 
@@ -216,17 +217,18 @@ async function printFront(book: Book, slots: PreparedSlots, source: BookDocument
 
 async function convergeBookParts(
   book: Book,
-  slots: PreparedSlots,
+  frontSlots: PreparedSlots,
+  bodySlots: PreparedSlots,
   body: Awaited<ReturnType<typeof printBody>>,
   options: RenderOptions,
   adapter: BookPdfAdapter,
 ) {
   if (!hasPageReferences(body.document)) {
-    return { front: await printFront(book, slots, body.document, body.part, options, adapter), body: body.part }
+    return { front: await printFront(book, frontSlots, body.document, body.part, options, adapter), body: body.part }
   }
   for (let alternations = 1; alternations <= 3; alternations += 1) {
-    const front = await printFront(book, slots, body.document, body.part, options, adapter)
-    body.part = await convergeBody(book, slots, body, front.part, options, adapter)
+    const front = await printFront(book, frontSlots, body.document, body.part, options, adapter)
+    body.part = await convergeBody(book, bodySlots, body, front.part, options, adapter)
     const actual = finalNumbers(
       [...new Set([...body.document.headings.map((heading) => heading.id), ...body.document.pageReferenceTargets])],
       [
@@ -278,10 +280,13 @@ async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options:
 
 export async function renderBookPdf(input: Book, options: RenderOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
   const { value: book, slots } = await filledBook(input, options.slots)
-  if (book.mode === 'paginated') return renderPaginatedBookPdf(book, slots, options, adapter)
+  const frames = bookSlotFrames(book)
+  if (book.mode === 'paginated') return renderPaginatedBookPdf(book, slotsForDocument(slots, [frames.all]), options, adapter)
   if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')
-  const printedBody = await printBody(book, slots, options, adapter)
-  const converged = await convergeBookParts(book, slots, printedBody, options, adapter)
+  const bodySlots = slotsForDocument(slots, [frames.body])
+  const frontSlots = slotsForDocument(slots, [frames.front])
+  const printedBody = await printBody(book, bodySlots, options, adapter)
+  const converged = await convergeBookParts(book, frontSlots, bodySlots, printedBody, options, adapter)
   const printedFront = converged.front
   printedBody.part = converged.body
   const front = printedFront.part
@@ -300,7 +305,7 @@ export async function renderBookPdf(input: Book, options: RenderOptions, adapter
   const direction = resolveDirection(book.dir, book.lang, book.title)
   const plan = planBookPages(marginFacts, direction)
   const parents = bookParentPages(book.page.margin)
-  const margin = await adapter.print(marginDocument(book, plan, parents), book, slots, options, 'margin', marginCss(book, plan, parents))
+  const margin = await adapter.print(marginDocument(book, plan, parents), book, slotsForDocument(slots, []), options, 'margin', marginCss(book, plan, parents))
   const output = await adapter.finish(
     await setPdfPageSize(await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes), sheetMm(book.page)),
     options,

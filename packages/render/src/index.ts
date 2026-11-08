@@ -41,6 +41,7 @@ import { renderQueue } from './render-queue.ts'
 import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 import { DEFAULT_JS_HEAP_MB, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
+import { slotsForDocument } from './slot-document.ts'
 import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
 export { FontRefusedError } from '@segnavia/frame/fonts'
@@ -81,14 +82,6 @@ export { filledBook }
 function parsePagePdfOptions(options: PagePdfOptions): PagePdfOptions {
   const parsed = parseRenderOptions(options)
   return parsed.metadata === undefined ? parsed : { ...parsed, metadata: DocumentMetadata.parse(parsed.metadata) }
-}
-
-function slotsForFrames(slots: PreparedSlots, frames: readonly number[]): PreparedSlots {
-  const marked = new Map<string, number>()
-  for (const index of frames) {
-    for (const [key, count] of slots.frames[index] ?? []) marked.set(key, (marked.get(key) ?? 0) + count)
-  }
-  return { ...slots, marked }
 }
 
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
@@ -314,8 +307,17 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             { ...opts, limits: copyLimits(opts.limits, opts.slots), press: undefined },
             {
               renderPdf: (setup, pdf, frames) =>
-                withTab({ ...setup, slots: slotsForFrames(slots, frames), readiness: renderReadiness('refuse', false, false), deadline }, (tab) =>
-                  pdfWithBackdropRasters(tab, pdf, opts.effects),
+                withTab(
+                  {
+                    ...setup,
+                    slots: slotsForDocument(
+                      slots,
+                      frames.map((frame) => [frame]),
+                    ),
+                    readiness: renderReadiness('refuse', false, false),
+                    deadline,
+                  },
+                  (tab) => pdfWithBackdropRasters(tab, pdf, opts.effects),
                 ),
               fontFaces: (options) => fontFaces(options.fonts),
               finish: async (pdf) => pdf,
@@ -349,7 +351,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             scripts: true,
             scale: opts.scale,
             html,
-            slots: slotsForFrames(slots, [index]),
+            slots: slotsForDocument(slots, [[index]]),
             readiness: renderReadiness('refuse', false, false),
             boundMs: opts.boundMs,
             deadline,

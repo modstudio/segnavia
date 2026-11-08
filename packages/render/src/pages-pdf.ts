@@ -8,6 +8,7 @@ import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-impositi
 import { composeImposedPdf } from './pdf-compose.ts'
 import { joinPdfs } from './pdf-join.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
+import { slotsForDocument } from './slot-document.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
@@ -32,6 +33,7 @@ async function composedPdf(
   imposition: Imposition,
   opts: PagesPdfOptions,
   services: PagesPdfServices,
+  frameIndexes: readonly number[] = pages.map((_, index) => index),
 ): Promise<Uint8Array> {
   const imposed = impose(imposition, pages.length)
   const marks = impositionMarks(imposition)
@@ -43,14 +45,18 @@ async function composedPdf(
     groups.map(async (group) => {
       const page = pages[group.page]
       const first = group.placements[0]
-      if (!page || !first) throw new Error(`The piece for page ${group.page} has no placement.`)
+      const frameIndex = frameIndexes[group.page]
+      if (!page || !first || frameIndex === undefined) throw new Error(`The piece for page ${group.page} has no placement.`)
       const geometry = pieceGeometry(first)
       const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
       try {
         return {
           group,
           bytes: await setPdfPageSize(
-            await services.piecePdf(page, slots, geometry, css, { ...opts, limits: innerLimits(opts.limits) }),
+            await services.piecePdf(page, slotsForDocument(slots, [[frameIndex]]), geometry, css, {
+              ...opts,
+              limits: innerLimits(opts.limits),
+            }),
             geometry.paper,
             'An imposition piece prints at its paper, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
           ),
@@ -80,7 +86,12 @@ export async function renderPagesPdf(pages: HtmlPage[], slots: PreparedSlots, op
   if (!opts.imposition) {
     const rendered = await Promise.all(
       pages.map((page, inputIndex) =>
-        services.pagePdf(page, slots, { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined }, inputIndex),
+        services.pagePdf(
+          page,
+          slotsForDocument(slots, [[inputIndex]]),
+          { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
+          inputIndex,
+        ),
       ),
     )
     const output = await services.finish(await joinPdfs(rendered.map((part) => part.bytes)), opts)
@@ -103,8 +114,13 @@ export async function renderPagesPdf(pages: HtmlPage[], slots: PreparedSlots, op
     const overflow: NonNullable<PrintResult['overflow']>[] = []
     const parts = await Promise.all(
       pages.map(async (page, inputIndex) => {
-        if (!page.printedPages) return composedPdf([page], slots, imposition, opts, services)
-        const rendered = await services.pagePdf(page, slots, { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined }, inputIndex)
+        if (!page.printedPages) return composedPdf([page], slots, imposition, opts, services, [inputIndex])
+        const rendered = await services.pagePdf(
+          page,
+          slotsForDocument(slots, [[inputIndex]]),
+          { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
+          inputIndex,
+        )
         if (rendered.overflow) overflow.push(rendered.overflow)
         return rendered.bytes
       }),

@@ -39,13 +39,19 @@ async function printedPart(html: string, overrides: Record<string, number>, page
   return document.save()
 }
 
-function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number) => number): BookPdfAdapter & { html: Record<'front' | 'body', string[]> } {
+function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number) => number): BookPdfAdapter & {
+  html: Record<'front' | 'body', string[]>
+  slotMarks: Array<{ part: 'front' | 'body' | 'margin'; marked: Array<[string, number]> }>
+} {
   const html = { front: [] as string[], body: [] as string[] }
+  const slotMarks: Array<{ part: 'front' | 'body' | 'margin'; marked: Array<[string, number]> }> = []
   let frontPages = 0
   let bodyPages = 0
   return {
     html,
-    print: async (source, _book, _slots, _options, part) => {
+    slotMarks,
+    print: async (source, _book, slots, _options, part) => {
+      slotMarks.push({ part, marked: [...slots.marked] })
       if (part === 'margin') {
         return {
           bytes: await printedPart('', {}, frontPages + bodyPages),
@@ -66,6 +72,24 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
     finish: async (pdf) => pdf,
   }
 }
+
+test('passes each book print only the slot marks for the fields in that part', async () => {
+  const adapter = scriptedAdapter(() => 1)
+  await renderBookPdf(
+    continuousBook('<p data-slot-value="name">Body</p>', '<p data-slot-value="name">Front</p>'),
+    {
+      slots: {
+        declarations: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
+        fill: { id: 'host', values: { name: 'Ada' } },
+      },
+    },
+    adapter,
+  )
+
+  expect(adapter.slotMarks.filter(({ part }) => part === 'body').every(({ marked }) => Bun.deepEquals(marked, [['name', 1]]))).toBe(true)
+  expect(adapter.slotMarks.filter(({ part }) => part === 'front').every(({ marked }) => Bun.deepEquals(marked, [['name', 1]]))).toBe(true)
+  expect(adapter.slotMarks.filter(({ part }) => part === 'margin').map(({ marked }) => marked)).toEqual([[]])
+})
 
 test('places FontSource CSS before book CSS in the printed document', async () => {
   let srcdoc = ''

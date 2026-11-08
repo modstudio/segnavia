@@ -1,12 +1,14 @@
 import { expect, test } from 'bun:test'
 import { Page as PageSchema, PX_PER_MM, sheetMm } from '@segnavia/format'
-import { prepareSlots, resolvePageHtml } from '@segnavia/html'
+import { prepareSlotCollection, prepareSlots, resolvePageHtml, UnmeasuredSlotsRefusedError } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
+import type { Page as BrowserPage } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import { enforce } from './pdf-finish.ts'
 import { pt } from './pdf-geometry.ts'
+import { mergeCapturedSlotFit } from './slot-fit.ts'
 
 const Page = { parse: (input: unknown) => resolvePageHtml(PageSchema.parse(input)) }
 const preparedSlots = await prepareSlots(undefined)
@@ -38,7 +40,7 @@ test('pagesPdf refuses an empty collection with the action that clears it', asyn
   await expect(render).rejects.toThrow(new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.'))
 })
 
-test('pagesPdf renders the page objects and prepared slots it is given', async () => {
+test('pagesPdf renders the page objects with a document view of the prepared slots', async () => {
   const page = Page.parse({ html: '<p>Card</p>', size: { width: 336, height: 192 } })
   const seen: unknown[] = []
   const render = renderPagesPdf(
@@ -48,7 +50,9 @@ test('pagesPdf renders the page objects and prepared slots it is given', async (
     {
       pagePdf: async (rendered, slots) => {
         seen.push(rendered)
-        expect(slots).toBe(preparedSlots)
+        expect(slots).not.toBe(preparedSlots)
+        expect(slots.report).toBe(preparedSlots.report)
+        expect(slots.marked.size).toBe(0)
         throw new Error('stop after the first page')
       },
       piecePdf: async () => new Uint8Array(),
@@ -58,6 +62,35 @@ test('pagesPdf renders the page objects and prepared slots it is given', async (
   )
   await expect(render).rejects.toThrow('stop after the first page')
   expect(seen[0]).toBe(page)
+})
+
+test('pagesPdf gives each page only its own slot measurement marks', async () => {
+  const declarations = [{ key: 'name', label: 'Name', type: 'text' as const, required: false, overflow: 'refuse' as const }]
+  const slots = await prepareSlotCollection([declarations, declarations], { fill: { id: 'host', values: { name: 'Ada' } } })
+  const pages = [Page.parse({ html: slots.apply('<p data-slot-value="name">Name</p>') }), Page.parse({ html: slots.apply('<p>Unbound</p>') })]
+  const tab = {
+    waitForFunction: async () => {
+      throw new Error('deadline')
+    },
+    evaluate: async () => [],
+  } as unknown as BrowserPage
+  const outcomes: Array<unknown> = []
+  await renderPagesPdf(
+    pages,
+    slots,
+    {},
+    {
+      pagePdf: async (_page, pageSlots, _options, inputIndex) => {
+        outcomes[inputIndex] = await mergeCapturedSlotFit(tab, pageSlots, 100).catch((error) => error)
+        return { bytes: await cssPiece(100) }
+      },
+      piecePdf: async () => new Uint8Array(),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  expect(outcomes[0]).toBeInstanceOf(UnmeasuredSlotsRefusedError)
+  expect(outcomes[1]).toBeUndefined()
 })
 
 test('pagesPdf applies sheets to the joined output instead of each inner page', async () => {
