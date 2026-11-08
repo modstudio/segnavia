@@ -27,7 +27,7 @@ import { BoardPainter } from './board-painter.ts'
 import { placeBoardItem } from './board-placement.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import * as boardPolicy from './board-policy.ts'
-import { BoardResolutions, type ResolveBoardItem } from './board-resolutions.ts'
+import type { ResolveBoardItem } from './board-resolutions.ts'
 import { focusAfterReveal, revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardItem } from './board-selection.ts'
 import { BoardItemTitles } from './board-titles.ts'
@@ -36,7 +36,6 @@ import { upgradeProperties } from './element-properties.ts'
 import type { BoardLabels } from './labels.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
-
 export class SegnaviaBoard extends BoardDocumentElement {
   private value: Board | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
@@ -46,7 +45,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private nameProvider: BoardItemNames | undefined
   private shapes: BoardShapes = { items: {}, labels: {} }
   private items = new Map<string, BoardItem>()
-  private readonly resolutions = new BoardResolutions()
   private readonly painter = new BoardPainter()
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined
@@ -131,7 +129,11 @@ export class SegnaviaBoard extends BoardDocumentElement {
     this.painter.fonts = value
     this.render()
   }
+  protected brandsChanged() {
+    this.render()
+  }
   protected acceptBoardInput(board: Board | null) {
+    this.resolutions.configure(this.boardDocument, this.brands)
     this.setBoardValue(board, true)
     this.editingHostValue?.(this.board)
   }
@@ -170,11 +172,9 @@ export class SegnaviaBoard extends BoardDocumentElement {
   set selection(value: readonly string[]) {
     this.selectionState.selection = value
   }
-
   get itemActions(): readonly BoardItemAction[] {
     return this.chrome.itemActions
   }
-
   set itemActions(value: readonly BoardItemAction[]) {
     this.chrome.itemActions = value
     this.chrome.refresh()

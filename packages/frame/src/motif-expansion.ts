@@ -12,6 +12,7 @@ import {
   type MotifSource,
   type PageWidths,
   PRINTED_PAGE_CONTEXT,
+  resolveBrand,
   type SlotsOptions,
 } from '@segnavia/format'
 import {
@@ -28,6 +29,7 @@ import {
 } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
+import type { BrandsOptions } from './brands.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
@@ -258,8 +260,10 @@ export async function expandFrameBook(
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
+  brands?: BrandsOptions,
 ): Promise<ExpandedBook<Book>> {
-  return expandFrameBookValue(bookFromDocument(parseDocument(input)), motifs, signal, placements, purpose, pageWidths)
+  const document = parseDocument(input)
+  return expandFrameBookValue(bookFromDocument(document, await resolveBrand(document, brands?.source, signal)), motifs, signal, placements, purpose, pageWidths)
 }
 
 export async function expandFrameBookValue(

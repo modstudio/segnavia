@@ -9,6 +9,7 @@ import {
   type Page,
   type PageOrPrintedInput,
   pageDirection,
+  pageOrPrintedFromDocument,
   resolveLimits,
   resolvePageWidth,
 } from '@segnavia/format'
@@ -16,7 +17,8 @@ import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } fro
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError, type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
+import { FontCssRefusedError, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
@@ -56,7 +58,9 @@ export async function prepareRenderedPage(
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  return prepareRenderedPageValue(pageOrPrintedFromInput(input, { newId: options.newId }), options, motifs, signal, purpose)
+  const document = parseDocument(input, { newId: options.newId })
+  const brand = await resolveRenderBrand(document, options.brandSource, signal)
+  return prepareRenderedPageValue(pageOrPrintedFromDocument(document, brand), options, motifs, signal, purpose)
 }
 
 export async function prepareRenderedPageValue(
@@ -134,7 +138,7 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
   const nonce = options.nonce ?? newNonce()
   let sheets: string[]
   try {
-    sheets = frameStyleSheets(page.style, baseCss)
+    sheets = frameStyleSheets(page.style, page.brand, baseCss)
   } catch (error) {
     if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)
     throw error
@@ -153,17 +157,6 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     dependencyOrigins: options.dependencyOrigins,
     readyCallback: hasDiagram(page.html) ? RENDER_READY_BINDING : undefined,
   })
-}
-
-export function renderPageDocument(
-  input: PageOrPrintedInput,
-  options: RenderOptions,
-  printing = false,
-  nonce?: string,
-  fontCss = '',
-  diagramScript?: string,
-): string {
-  return renderPageValueDocument(pageOrPrintedFromInput(input, { newId: options.newId }), options, printing, nonce, fontCss, diagramScript)
 }
 
 export function renderPageValueDocument(

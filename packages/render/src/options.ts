@@ -1,4 +1,5 @@
 import {
+  type BrandSource,
   type Deck,
   exceedsLimits,
   type FontFace,
@@ -72,6 +73,7 @@ export interface RenderOptions {
   css?: string
   fonts?: Font[]
   fontSource?: FontSource
+  brandSource?: BrandSource
   fontLoad?: { report?: (report: { failures: FontFailure[] }) => void }
   localFonts?: LocalFontsOptions
   limits?: Limits

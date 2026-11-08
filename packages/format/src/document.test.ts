@@ -230,10 +230,27 @@ describe('Document', () => {
       { type: 'document', kind: 'book', children: [{ type: 'section', headTemplate: 'running', children: [] }] },
       { type: 'document', kind: 'book', children: [{ type: 'section', pageGeometry: 'wide', children: [] }] },
       { type: 'document', kind: 'book', children: [], parentPages: [{ type: 'parentPage', name: 'body', regions: { side: '<aside></aside>' } }] },
-      { type: 'document', kind: 'book', brand: 'publisher', children: [] },
       { type: 'document', kind: 'book', children: [], variables: [{ type: 'variable', name: 'folio', valueType: 'folio' }] },
     ]
     for (const value of values) expect(() => Document.parse(value)).toThrow('is not yet supported; remove it to clear this refusal')
+  })
+
+  test.each(['deck', 'book', 'printed', 'page', 'board'] as const)('accepts a brand name on a %s document', (kind) => {
+    const inputs = {
+      deck: { type: 'document', kind, title: 'Deck', brand: 'publisher', children: [{ type: 'slide', content: { kind: 'html', html: '' } }] },
+      book: { type: 'document', kind, title: 'Book', mode: 'continuous', brand: 'publisher', children: [] },
+      printed: {
+        type: 'document',
+        kind,
+        brand: 'publisher',
+        rules: { every: 'body' },
+        parentPages: [{ type: 'parentPage', name: 'body' }],
+        children: [{ type: 'page', body: { html: '' } }],
+      },
+      page: { type: 'document', kind, brand: 'publisher', children: [{ type: 'page', body: { html: '' } }] },
+      board: { type: 'document', kind, title: 'Board', brand: 'publisher', settings: { dir: 'ltr' }, children: [] },
+    } as const
+    expect(Document.parse(inputs[kind]).brand).toBe('publisher')
   })
 
   test('generates the document JSON Schema from the exported manifest', () => {

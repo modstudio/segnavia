@@ -13,19 +13,20 @@ import {
 import { parseDocument } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
-import { internalThumbnailDeckLoad, internalThumbnailPageLoad, loadPageValue } from './document-value-load.ts'
+import { internalThumbnailDeckLoad, internalThumbnailPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
-import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
-import { projectPageOnPaper } from './paper-geometry.ts'
 import { hasSlotWork, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
+import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 
 export class SegnaviaThumbnail extends HTMLElement {
   private margin = 400
@@ -48,6 +49,8 @@ export class SegnaviaThumbnail extends HTMLElement {
   private placementOptions: AssetPlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
+  private brandOptions: BrandsOptions | undefined
+  private brandResolution: AbortController | undefined
   private designedCoverInput: DesignedCover | undefined
   private designedCoverValue: ParsedDesignedCover | undefined
   private designedCoverDisposal: (() => void) | undefined
@@ -61,32 +64,23 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.viewport.part.add('thumbnail')
     this.root.append(this.viewport)
   }
-
   get mountMargin(): number {
     return this.margin
   }
-
   set mountMargin(value: number) {
     this.margin = value
     if (this.isConnected) this.observe()
   }
-
   get deck(): Document | null {
     return this.deckDocument
   }
-
   set deck(input: DocumentInput | null) {
     const parsed = input === null ? null : parseDocument(input)
     this.deckDocument = parsed
-    this.value = parsed === null ? null : deckFromDocument(parsed)
-    if (this.value) this.pageValue = null
-    if (this.value) this.pageDocument = null
-    if (this.value) this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
-    else this.style.removeProperty('--segnavia-aspect')
-    this.changed()
+    this.resolveDeckDocument(parsed)
   }
-
   [internalThumbnailDeckLoad](deck: Deck | null) {
+    this.brandResolution?.abort()
     this.deckDocument = null
     this.value = deck
     if (this.value) this.pageValue = null
@@ -95,22 +89,16 @@ export class SegnaviaThumbnail extends HTMLElement {
     else this.style.removeProperty('--segnavia-aspect')
     this.changed()
   }
-
   get page(): Document | null {
     return this.pageDocument
   }
-
   set page(input: DocumentInput | null | undefined) {
     const parsed = input == null ? null : parseDocument(input)
     this.pageDocument = parsed
-    this.pageValue = parsed === null ? null : pageFromDocument(parsed)
-    if (this.pageValue) this.value = null
-    if (this.pageValue) this.deckDocument = null
-    this.updatePageAspect()
-    this.changed()
+    this.resolvePageDocument(parsed)
   }
-
   [internalThumbnailPageLoad](page: Page | null) {
+    this.brandResolution?.abort()
     this.pageDocument = null
     this.pageValue = page
     if (this.pageValue) this.value = null
@@ -118,35 +106,28 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.updatePageAspect()
     this.changed()
   }
-
   get print(): Print | null {
     return this.printValue
   }
-
   set print(input: PrintInput | Print | null | undefined) {
     this.printValue = input == null ? null : Print.parse(input)
     this.updatePageAspect()
     this.changed()
   }
-
   get index(): number {
     return this.slideIndex
   }
-
   set index(value: number) {
     this.slideIndex = value
     this.changed()
   }
-
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.slideResolver
   }
-
   set resolveSlide(value: ControllerOptions['resolveSlide']) {
     this.slideResolver = value
     this.changed()
   }
-
   /** The host stylesheet an HTML slide is drawn with, as the stage's `css`. */
   get css(): string {
     return this.stylesheet
@@ -215,6 +196,16 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.changed()
   }
 
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
+    if (this.deckDocument) this.resolveDeckDocument(this.deckDocument)
+    else if (this.pageDocument) this.resolvePageDocument(this.pageDocument)
+  }
+
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
@@ -246,6 +237,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.brandResolution?.abort()
     this.observer?.disconnect()
     this.observer = null
     this.resize.disconnect()
@@ -343,31 +335,63 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   private updatePageAspect() {
-    const print = this.printValue ?? this.pageValue?.print ?? null
-    if (!this.pageValue || !print) {
-      if (!this.value) this.style.removeProperty('--segnavia-aspect')
+    updateThumbnailPageAspect(this.style, this.pageValue, this.printValue, this.value !== null)
+  }
+
+  private resolveDeckDocument(documentValue: Document | null) {
+    this.brandResolution?.abort()
+    if (!documentValue) {
+      this.value = null
+      this.style.removeProperty('--segnavia-aspect')
+      this.changed()
       return
     }
-    const projection = projectPageOnPaper(this.pageValue, print)
-    this.style.setProperty('--segnavia-aspect', String(projection.aspect))
+    const commit = (deck: Deck) => {
+      if (this.deckDocument !== documentValue) return
+      this.value = deck
+      this.pageValue = null
+      this.pageDocument = null
+      this.style.setProperty('--segnavia-aspect', `${this.value.size.width} / ${this.value.size.height}`)
+      this.changed()
+    }
+    this.value = null
+    this.changed()
+    this.brandResolution = resolveThumbnailDocument(documentValue, this.brandOptions, deckFromDocument, commit, (error) => {
+      if (this.deckDocument === documentValue) this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true }))
+    })
+  }
+
+  private resolvePageDocument(documentValue: Document | null) {
+    this.brandResolution?.abort()
+    if (!documentValue) {
+      this.pageValue = null
+      this.updatePageAspect()
+      this.changed()
+      return
+    }
+    const commit = (page: Page) => {
+      if (this.pageDocument !== documentValue) return
+      this.pageValue = page
+      this.value = null
+      this.deckDocument = null
+      this.updatePageAspect()
+      this.changed()
+    }
+    this.pageValue = null
+    this.changed()
+    this.brandResolution = resolveThumbnailDocument(documentValue, this.brandOptions, pageFromDocument, commit, (error) => {
+      if (this.pageDocument === documentValue) this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true }))
+    })
   }
 
   private mountPage() {
-    const source = this.pageValue
-    const print = this.printValue ?? source?.print ?? null
-    if (!source || !print || this.viewport.firstElementChild) return
-    const projection = projectPageOnPaper(source, print)
-    const page = createPageElement()
-    page.motifs = this.motifOptions
-    page.placements = this.placementOptions
-    page.pageWidths = this.widthOptions
-    page.fonts = this.fontOptions
-    page.slots = this.slotOptions
-    page.css = this.stylesheet
-    page.cspExtra = ''
-    page.part.add('canvas')
-    page.style.inlineSize = '100%'
-    this.viewport.append(page)
-    loadPageValue(page, projection.page)
+    mountThumbnailPage(this.viewport, this.pageValue, this.printValue, {
+      motifs: this.motifOptions,
+      placements: this.placementOptions,
+      pageWidths: this.widthOptions,
+      fonts: this.fontOptions,
+      slots: this.slotOptions,
+      css: this.stylesheet,
+    })
   }
 }

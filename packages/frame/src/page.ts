@@ -1,8 +1,5 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages follow the
-// element and grow; fixed pages scale to fit; named widths cap the centered
-// sheet, with only overridable geometry. `showUrl` shows host-served HTML whose
-// own `bridgeForHost` reports height. data-measured is set once the
-// content has reported its height, and data-height holds it.
+// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit.
+// Host-served HTML reports its height through the bridge.
 
 import {
   type Document,
@@ -12,7 +9,6 @@ import {
   Page,
   type PageWidths,
   pageDirection,
-  pageFromDocument,
   printProperties,
   type SlotsOptions,
 } from '@segnavia/format'
@@ -23,17 +19,16 @@ import { internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions, prepareShownPage } from './motif-expansion.ts'
+import { loadBrandedPage } from './page-brand.ts'
 import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
 import { PageElementAttributes } from './page-element-attributes.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { scrollPageToHeading } from './page-heading.ts'
-import { pageSheetLayout } from './page-layout.ts'
+import { pageFitLayout, pageSheetLayout } from './page-layout.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
-
-const PLACEHOLDER_HEIGHT = 150
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 
@@ -51,6 +46,7 @@ export class SegnaviaPage extends PageElementAttributes {
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
   private loadGeneration = 0
+  private brandResolution: AbortController | undefined
   private slotPreparation: AbortController | undefined
   private resolvedSlots: PreparedSlots | undefined
   private slotFrame: { frame: HTMLIFrameElement; generation: number } | undefined
@@ -64,11 +60,9 @@ export class SegnaviaPage extends PageElementAttributes {
     super()
     upgradeProperties(this)
   }
-
   get alertLabels(): Partial<AlertLabels> | undefined {
     return this.alertLabelOptions
   }
-
   set alertLabels(value: Partial<AlertLabels> | undefined) {
     this.alertLabelOptions = value
     if (this.pageInput !== undefined) this.load(this.pageInput)
@@ -77,25 +71,20 @@ export class SegnaviaPage extends PageElementAttributes {
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
-
   set slots(value: SlotsOptions | undefined) {
     this.slotOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
-
   get motifs(): MotifsOptions | undefined {
     return this.motifOptions
   }
-
   set motifs(value: MotifsOptions | undefined) {
     this.motifOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
-
   get placements(): PlacementsOptions | undefined {
     return this.placementOptions
   }
-
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)
@@ -121,6 +110,10 @@ export class SegnaviaPage extends PageElementAttributes {
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
+  protected brandsChanged() {
+    if (this.pageInput !== undefined) this.load(this.pageInput)
+  }
+
   get page(): Document | null {
     return this.documentValue
   }
@@ -129,6 +122,8 @@ export class SegnaviaPage extends PageElementAttributes {
     if (value == null) {
       this.cancelSelectionRequests()
       this.cancelSlotPreparation()
+      this.brandResolution?.abort()
+      this.brandResolution = undefined
       this.loadGeneration++
       this.resolvedSlots = undefined
       this.slotFrame = undefined
@@ -177,14 +172,26 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   load(input: DocumentInput | unknown) {
-    this.pageInput = input
     const document = parseDocument(input, { alertLabels: this.alertLabels })
-    const page = pageFromDocument(document)
+    this.brandResolution?.abort()
+    const controller = new AbortController()
+    this.brandResolution = controller
+    this.pageInput = input
     this.documentValue = document
-    this.loadValue(page)
+    loadBrandedPage(
+      document,
+      this.brands,
+      controller.signal,
+      (page) => {
+        if (this.documentValue === document) this.loadValue(page)
+      },
+      this,
+    )
   }
 
   [internalPageLoad](page: Page) {
+    this.brandResolution?.abort()
+    this.brandResolution = undefined
     this.pageInput = undefined
     this.documentValue = null
     this.loadValue(page)
@@ -230,7 +237,7 @@ export class SegnaviaPage extends PageElementAttributes {
       }
       let sheets: string[]
       try {
-        sheets = frameStyleSheets(page.style, page.print ? printProperties(page.print) : '')
+        sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
       } catch (error) {
         report(error)
         this.fit()
@@ -356,22 +363,12 @@ export class SegnaviaPage extends PageElementAttributes {
     const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
     if (!page || !sheet) return
-    const fluidBounded = page.size.height === 'auto' && page.size.width === 'full' && this.bounded
-    if (fluidBounded) {
-      sheet.style.height = '100%'
-      sheet.style.removeProperty('transform')
-      this.style.removeProperty('height')
-      if (this.contentHeight) this.dataset.height = String(this.contentHeight)
-      else delete this.dataset.height
-      return
-    }
-    const width = typeof page.size.width === 'number' ? page.size.width : null
-    const scale = width === null ? 1 : Math.min(1, this.clientWidth / width)
-    const height = this.contentHeight || PLACEHOLDER_HEIGHT
-    sheet.style.height = `${height}px`
-    sheet.style.transform = scale === 1 ? '' : `scale(${scale})`
-    this.style.height = `${Math.ceil(height * scale)}px`
-    this.dataset.height = String(height)
+    const fit = pageFitLayout(page.size, this.bounded, this.clientWidth, this.contentHeight)
+    sheet.style.height = fit.sheetHeight
+    sheet.style.transform = fit.transform
+    this.style.height = fit.hostHeight
+    if (fit.measuredHeight === undefined) delete this.dataset.height
+    else this.dataset.height = String(fit.measuredHeight)
   }
 
   private onMessage = (event: MessageEvent) => {

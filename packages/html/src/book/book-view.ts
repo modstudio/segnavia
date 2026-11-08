@@ -6,6 +6,7 @@ export function bookViewFromHtml(book: Book, html: string): BookView {
     html,
     title: book.title,
     scripts: book.scripts,
+    ...(book.brand === undefined ? {} : { brand: book.brand }),
     ...(book.dir === undefined ? {} : { dir: book.dir }),
     ...(book.lang === undefined ? {} : { lang: book.lang }),
     ...(book.style === undefined ? {} : { style: book.style }),

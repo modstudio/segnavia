@@ -28,7 +28,7 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       dir: deck.dir,
       lang: deck.lang,
       fonts: deck.style?.fonts,
-      sheets: frameStyleSheets(deck.style),
+      sheets: frameStyleSheets(deck.style, deck.brand),
       css: options.css,
       csp: options.csp || undefined,
       dependencyOrigins: options.dependencyOrigins,

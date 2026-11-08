@@ -286,7 +286,7 @@ within each kind.
 
 ### Declared but not yet supported
 
-Parsing refuses `brand`, a non-empty `variables` collection, every `condition`
+Parsing refuses a non-empty `variables` collection, every `condition`
 or `record` node, section `opens: 'continue'`, section `numbering`, section
 `headTemplate`, section `pageGeometry`, division `settings.numbering`, and
 parent-page `regions`. Division numbering uses the richer shared `Numbering`
@@ -683,6 +683,7 @@ retains the final override in every render view.
 | `fonts` | render options | Faces to embed, as bytes. An optional `unicodeRange` is a CSS unicode-range list so same-family, same-weight, same-style faces each draw their own script. A collection face carries its PostScript name so the named face can be extracted before it reaches Chromium. |
 | `FontSource`, `fonts` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, page `<segnavia-thumbnail>` views, live board page and paper items, `<segnavia-book>`, `printPages`, `printDeck`; render `fontSource` on `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf`, `deckPdf` | App fonts by the host's name. `font(name, { signal })` returns the family, faces and optional generic, or `undefined` if unknown. The document's declared faces are matched against the supplied ones: a font the source does not know, or a declared face it does not supply, is reported as an `unsupplied` font failure and composition continues at the fallback, and supplied faces the document does not declare are still embedded. A supplied face without a `unicodeRange` matches a declaration on weight and style alone. The library writes `--segnavia-font-<name>` and embeds the faces as `data:` in every frame's own css, so preview, browser print and server PDF match. Page CSS uses `var(--segnavia-font-<name>)` and never spells the family. A local font's fallback is also an app font. When a page, its placed motifs, or a book names an app font directly or as a local fallback and no `fonts` option / `fontSource` is supplied, the library refuses with `FontRefusedError` naming the place and the font; supply a `FontSource` to clear it. `printDeck` and `deckPdf` resolve `notesFont` the same way into the notes head. |
 | `StyleSheet.fonts`, `fontLoad`, `fontfailure` | document style; render `fontLoad` on `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf`, `deckPdf`, `slideImage`; the `fontfailure` event on `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-stage>` and `<segnavia-book>` | `StyleSheet.fonts` is a font manifest keyed by font name. An app entry is `{ faces, generic? }`, each face a `FontDeclaration` with optional `weight` (1-1000), `style`, `unicodeRange` and `script: 'hebrew'`. A local entry is `{ local, fallback }`. A Hebrew face with no range covers `U+0590-05FF,U+FB1D-FB4F`. `Document.parse` refuses an unknown field, a malformed range, an out-of-range weight and duplicate faces, naming the font and face. Each declared face is checked twice: against what the source supplied (`unsupplied`), and in the frame, where the face is loaded with a sample of its range (pointed Hebrew for a Hebrew range) and its own status read (`unloaded`). The frame writes its failures to the root `data-segnavia-font-failures` attribute and posts the bounded `segnavia:font-failures` report. A `FontFailure` names the font, family, weight, style and range, and its reason. Render merges both kinds and calls `fontLoad.report({ failures })`, and an element dispatches `fontfailure` with `detail.failures`, bubbling and composed. No callback means no report, and a failure never stops composition. |
+| `BrandSource`, `brands` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-board>`, `DeckController` and `<segnavia-stage>`; render `brandSource` on page, book and deck entry points | A host resolves a document's brand name to a strict `Brand`. The resolved sheet is layered whole as `segnavia.brand`; an unknown or invalid brand refuses instead of rendering unbranded. A board brand defaults each item that names none, while an item's own brand wins whole. Elements that receive a `Document` resolve before lowering. A book view and `loadDeckValue` are already lowered and use their supplied `brand`; a host that lowers directly calls `resolveBrand` first. |
 | `font` | `@segnavia/idml` import options | The host synchronously maps each distinct IDML family and style pair to an app or local font reference while importing. Local answers include an app-font fallback, which the importer also declares separately on the Book. Returning `undefined`, or omitting the seam, leaves the font unmapped and reported: it emits no `font-family`, but known weight and italic intent from the IDML style still apply to the inherited family. |
 | `asset` | `@segnavia/idml` import options | While importing title blocks, the host is called synchronously once per distinct linked URI and may return inline SVG markup. The importer reports active content in the raw markup by URI, sanitizes it, and places the clean result in the linked frame's sized slot. Returning `undefined` leaves the slot empty, and the importer never reads or fetches the URI. |
 | `localFonts` | frame `packLocalFaces`; render `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | JSON-safe local faces sent with one render: family, format, optional weight, style and PostScript name, and base64 bytes. Their host-set count and decoded-byte ceilings are `limits.localFonts`; `DEFAULT_LIMITS` supplies 64 faces and 32 MiB when either is absent. Frame and render enforce the resolved values, and render also validates each signature. Render embeds only families named by the page, its motifs or the book, and releases the decoded faces when that call ends. A `FontSource` is still required to establish each local reference's app-font fallback. The report callback lists each named local family that used its fallback; a missing local face never refuses the render. Neither the render library nor a host may persist, cache or log the transport, its bytes or its installed-font metadata. |
@@ -1669,8 +1670,19 @@ The target style layer combines a host-resolved `Brand` with the document's
 partial `StyleSheet`. A style sheet contains typed tokens, a font-face manifest
 with first-class Hebrew faces, named paragraph and character styles with
 `basedOn`, named page geometries, furniture motifs and free CSS. Its token
-schema is compatible with a W3C design-tokens subset and supports import and
-export. The compiler produces one sheet in cascade-layer order:
+schema is compatible with a W3C design-tokens subset.
+`exportDesignTokens` writes the `color`, `dimension` and `fontFamily` groups,
+each with its `$type`. Colors are sRGB components with a six-digit `hex`
+fallback. Dimensions in px and rem stay as they are; mm, pt, cm and in export
+as px at 96 px per inch, with the authored value and unit under
+`$extensions["org.segnavia"]`, which import prefers. An em token is refused,
+naming the token. `importDesignTokens` flattens group paths with `-`, resolves
+`{group.token}` aliases, and refuses a cycle, an unresolved alias, `$ref`, an
+unknown `$type` or a non-sRGB color space, naming the token path. Other
+`$extensions` are not kept on import. Text styles, page geometries, motifs,
+fonts and free CSS are not exchanged. `brandSpecimen(brand, { lang })` returns
+a continuous book that shows a brand's colors, font families and text styles in
+Latin and Hebrew samples. The compiler produces one sheet in cascade-layer order:
 `segnavia.base`, `segnavia.brand`, `segnavia.document`, then
 `segnavia.author`. Tokens become `--segnavia-*` custom properties and named
 styles become classes.
@@ -1849,7 +1861,7 @@ and screen elements. `render` owns printing and finishing, including one
 metadata writer and one outline writer. `idml` maps named styles, regions,
 sections and conditions onto `Document`.
 
-The target adds four host seams: `brand` resolves a brand by name;
+The document model adds `BrandSource.brand` to resolve a brand by name;
 `layoutProvider` registers named work by phase and priority; `newId` mints node
 and block ids; and `assets` resolves an address to bytes within a budget.
 Existing seams remain. A host continues to own storage, its agent, sharing,

@@ -1,10 +1,11 @@
-import { bookFromDocument, Cover, DocumentMetadata, deckFromDocument } from '@segnavia/format'
+import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
-import { type PreparedSlots, pageOrPrintedFromInput, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { type PreparedSlots, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { parseBookPdfOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
+import { resolveRenderBook, resolveRenderBrand, resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
@@ -30,6 +31,7 @@ import {
 import { printWithOverflow } from './overflow.ts'
 import { prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
+import { parsePagePdfOptions } from './page-render-options.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce, finishPdf } from './pdf-finish.ts'
@@ -39,7 +41,7 @@ import { type RenderDeadline, withinBound, withinRenderPermit } from './render-d
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
 import { renderReadiness } from './render-readiness.ts'
-import { DEFAULT_JS_HEAP_MB, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlideImage } from './slide-image.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
@@ -81,11 +83,6 @@ export {
   type RendererOptions,
 } from './renderer.ts'
 export { filledBook }
-
-function parsePagePdfOptions(options: PagePdfOptions): PagePdfOptions {
-  const parsed = parseRenderOptions(options)
-  return parsed.metadata === undefined ? parsed : { ...parsed, metadata: DocumentMetadata.parse(parsed.metadata) }
-}
 
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
@@ -203,8 +200,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async bookPdf(input, opts = {}) {
       opts = parseBookPdfOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const document = parseDocument(input, { newId: opts.newId })
-        const expanded = await expandFrameBookValue(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
+        const book = await resolveRenderBook(input, opts.newId, opts.brandSource, deadline.signal)
+        const expanded = await expandFrameBookValue(book, opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const { options, fontCss: resolvedFontCss, fontFailures } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
           render: (setup, pdf, pageWidth, part) =>
@@ -222,8 +219,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async bookPlan(input, opts = {}) {
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const document = parseDocument(input, { newId: opts.newId })
-        const expanded = await expandFrameBookValue(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
+        const book = await resolveRenderBook(input, opts.newId, opts.brandSource, deadline.signal)
+        const expanded = await expandFrameBookValue(book, opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const { options, fontCss: resolvedFontCss, fontFailures } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPlan(expanded.book, { ...options, fontFailures }, `${resolvedFontCss}${fontFaces(options.fonts)}`, (setup, body) =>
           withTab({ ...setup, deadline }, body),
@@ -278,14 +275,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagesPdf(inputs, opts = {}) {
       opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const expanded = await expandFramePages(
-          inputs.map((input) => resolvePageHtml(pageOrPrintedFromInput(input, { newId: opts.newId }))),
-          opts.motifs,
-          deadline.signal,
-          opts.placements,
-          'print',
-          opts.pageWidths,
+        const pages = await Promise.all(
+          inputs.map(async (input) => {
+            const document = parseDocument(input, { newId: opts.newId })
+            const brand = await resolveRenderBrand(document, opts.brandSource, deadline.signal)
+            return resolvePageHtml(pageOrPrintedFromDocument(document, brand))
+          }),
         )
+        const expanded = await expandFramePages(pages, opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const prepared = await prepareRenderedPages(expanded, opts, deadline.signal)
         const parsed = expanded.map((item) => item.page)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
@@ -310,9 +307,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async deckPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
-      const deck = deckFromDocument(parseDocument(input, { newId: opts.newId }))
-      enforceDeckLimits(deck, opts.limits)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
+        enforceDeckLimits(deck, opts.limits)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const { value: prepared, slots } = await filledDeck(deck, copySlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(
@@ -348,11 +345,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async slideImage(input, index, opts = {}) {
       opts = parseRenderOptions(opts)
-      const deck = deckFromDocument(parseDocument(input, { newId: opts.newId }))
-      enforceDeckLimits(deck, opts.limits)
-      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, (deadline) =>
-        renderSlideImage(deck, index, opts, { withTab, diagramScript: resolveDiagramScript }, deadline),
-      )
+      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
+        enforceDeckLimits(deck, opts.limits)
+        return renderSlideImage(deck, index, opts, { withTab, diagramScript: resolveDiagramScript }, deadline)
+      })
     },
 
     proofImage(input, opts) {

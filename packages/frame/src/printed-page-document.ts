@@ -19,6 +19,7 @@ import { fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from 
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
+import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
 export { COMPOSE_FAILURE_ATTRIBUTE as PRINTED_PAGE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE as PRINTED_PAGE_COMPOSED_ATTRIBUTE } from './composer.ts'
@@ -121,7 +122,9 @@ function pageParts(html: string): { head: string; body: string } {
 }
 
 export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1] & { newId?: () => string }): string {
-  return printedPageValueDocument(resolvePageHtml(printedFromDocument(parseDocument(input, { newId: options.newId }))), options)
+  const document = parseDocument(input, { newId: options.newId })
+  refuseNamedDocumentBrand(document, 'printedPageValueDocument')
+  return printedPageValueDocument(resolvePageHtml(printedFromDocument(document)), options)
 }
 
 export function printedPageValueDocument(
@@ -206,7 +209,7 @@ export function printedPageValueDocument(
     dir: direction,
     lang: page.lang,
     title: metadata?.title,
-    sheets: frameStyleSheets(page.style, baseCss),
+    sheets: frameStyleSheets(page.style, page.brand, baseCss),
     css: options.css,
     relayKeys: false,
     reportHeight: options.measure === true,

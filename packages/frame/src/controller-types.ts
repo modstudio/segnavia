@@ -1,5 +1,6 @@
 import type { Deck, PlaybackMode, Slide, SlideContent, TextDirection } from '@segnavia/format'
 import type { AssetPlacementsOptions } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 import type { Clock } from './clock.ts'
 import type { SeekPolicy } from './navigation-limit.ts'
 import type { WatchedState } from './watched.ts'
@@ -37,6 +38,7 @@ export interface DeckState {
 }
 
 export interface ControllerOptions {
+  brands?: BrandsOptions
   base?: string
   resolveSlide?: (slide: Slide, index: number) => Promise<SlideContent | ResolvedContent> | SlideContent | ResolvedContent
   placements?: AssetPlacementsOptions

@@ -2,6 +2,7 @@ import { type Book, type BookView, bookFromDocument, type DocumentInput } from '
 import { bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
 import { COMPOSER_SCRIPT } from './composer.ts'
+import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 
 export {
   COMPOSE_FAILURE_ATTRIBUTE as BOOK_FAILURE_ATTRIBUTE,
@@ -27,7 +28,9 @@ export function bookDocument(
   input: DocumentInput,
   options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'printBackground' | 'diagramScript' | 'limits' | 'plan' | 'breaks'>,
 ): string {
-  return bookValueDocument(bookFromDocument(parseDocument(input)), options)
+  const document = parseDocument(input)
+  refuseNamedDocumentBrand(document, 'bookValueDocument')
+  return bookValueDocument(bookFromDocument(document), options)
 }
 
 export function bookValueDocument(

@@ -2,7 +2,6 @@
 // fit the box the host gives it, with a shot's annotations shown on cue. It
 // draws no controls and brings no appearance: a host styles it, and builds
 // its own controls from `stage.controller`.
-//
 // Give it a controller, or a deck: attributes src, hash ("off" to leave the
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
@@ -207,9 +206,10 @@ export class SegnaviaStage extends HTMLElement {
     if (!src || !this.isConnected) return
     if (!this.owned) {
       const hash = this.getAttribute('hash')
-      this.owned = new DeckController({ hash: hash === 'off' ? null : (hash ?? 'slide-'), prefetch: this.hasAttribute('prefetch') })
+      this.owned = new DeckController({ hash: hash === 'off' ? null : (hash ?? 'slide-'), prefetch: this.hasAttribute('prefetch'), brands: this.brands })
       this.controller = this.owned
     }
+    this.owned.brands = this.brands
     void this.owned.loadUrl(src)
   }
 

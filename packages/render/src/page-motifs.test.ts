@@ -92,6 +92,24 @@ test('pagePdf and pageImage print the same motif-expanded page', async () => {
   }
 })
 
+test('pagesPdf refuses a named brand without a source before opening a tab', async () => {
+  documents.length = 0
+  const { openRenderer, RenderRefusedError } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const rendering = renderer.pagesPdf([
+    {
+      type: 'document',
+      kind: 'page',
+      brand: 'house',
+      size: { width: 200, height: 100 },
+      children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+    },
+  ])
+  await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
+  expect(documents).toHaveLength(0)
+  await renderer.close()
+})
+
 test('deckPdf reports an unsupplied declared face', async () => {
   documents.length = 0
   const { openRenderer } = await import('./index.ts')

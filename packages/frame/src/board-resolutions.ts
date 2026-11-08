@@ -1,8 +1,10 @@
-import { type BoardItem, pageOrPrintedFromDocument } from '@segnavia/format'
+import { type BoardItem, type Brand, type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
 import { classifyMediaAnswer, parseDocument, type ResolvePlacement } from '@segnavia/html'
 import { type CheckedResolvedBoardItem, checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
+type BoardBrandResolution = { brand: Brand | undefined } | { error: unknown }
 
 export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?: AbortSignal): ResolveBoardItem {
   return async (item) => {
@@ -34,7 +36,33 @@ interface BoardResolutionEntry {
 
 export class BoardResolutions {
   resolver: ResolveBoardItem | undefined
+  private brands: BrandsOptions | undefined
+  private boardBrandName: string | undefined
+  private controller = new AbortController()
+  private boardBrand: Promise<BoardBrandResolution> = Promise.resolve({ brand: undefined })
   private readonly entries = new Map<string, BoardResolutionEntry>()
+
+  constructor(private readonly boardBrandFailed: (error: unknown) => void = () => {}) {}
+
+  configure(document: Document | null, brands: BrandsOptions | undefined) {
+    const brandName = document?.brand
+    if (brandName === this.boardBrandName && brands?.source === this.brands?.source) return
+    this.controller.abort()
+    this.controller = new AbortController()
+    this.brands = brands
+    this.boardBrandName = brandName
+    const controller = this.controller
+    this.boardBrand = document
+      ? resolveBrand(document, brands?.source, controller.signal).then(
+          (brand): BoardBrandResolution => ({ brand }),
+          (error): BoardBrandResolution => ({ error }),
+        )
+      : Promise.resolve({ brand: undefined })
+    void this.boardBrand.then((result) => {
+      if (controller === this.controller && 'error' in result) this.boardBrandFailed(result.error)
+    })
+    this.entries.clear()
+  }
 
   keep(items: readonly BoardItem[]) {
     const kinds = new Map(items.map((item) => [item.address, item.kind]))
@@ -52,8 +80,15 @@ export class BoardResolutions {
     this.entries.set(item.address, entry)
     Promise.resolve()
       .then(() => this.resolver?.(item) as Promise<ResolvedBoardItem>)
-      .then((value) => {
-        const checked = checkResolved(item, value)
+      .then(async (value) => {
+        const fallbackBrand = async () => {
+          const result = await this.boardBrand
+          if ('error' in result) throw result.error
+          return result.brand
+        }
+        const checked = await checkResolved(item, value, async (document) =>
+          document ? ((await resolveBrand(document, this.brands?.source, this.controller.signal)) ?? (await fallbackBrand())) : fallbackBrand(),
+        )
         entry.value = checked
         resolved(item, checked)
       })

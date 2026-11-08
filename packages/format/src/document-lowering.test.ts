@@ -65,6 +65,18 @@ const hebrewBookFixture = {
 }
 
 describe('Document lowering', () => {
+  test('carries a resolved brand without replacing the document brand name', () => {
+    const document = Document.parse({
+      type: 'document',
+      kind: 'page',
+      brand: 'house',
+      children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+    })
+    const brand = { tokens: { colors: { ink: '#112233' } } }
+    expect(pageFromDocument(document, brand).brand).toEqual(brand)
+    expect(document.brand).toBe('house')
+  })
+
   test('lowers the demo deck to its current parsed value', () => {
     const expected = Deck.parse({
       title: 'PDF backgrounds refuse',

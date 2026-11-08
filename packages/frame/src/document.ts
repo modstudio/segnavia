@@ -2,10 +2,11 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { type Document, Page, type PageWidths, Print, type PrintInput, pageOrPrintedFromDocument, type SlotsOptions } from '@segnavia/format'
+import { type Document, Page, type PageWidths, Print, type PrintInput, pageOrPrintedFromDocument, resolveBrand, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
@@ -40,6 +41,8 @@ export class SegnaviaDocument extends HTMLElement {
   private placementOptions: PlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
+  private brandOptions: BrandsOptions | undefined
+  private brandResolution: AbortController | undefined
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
   private filledHtml: string[] | undefined
@@ -99,6 +102,15 @@ export class SegnaviaDocument extends HTMLElement {
     this.paint()
   }
 
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
+    this.resolveDocuments(this.sourceDocuments)
+  }
+
   get css(): string {
     return this.stylesheet
   }
@@ -128,9 +140,7 @@ export class SegnaviaDocument extends HTMLElement {
 
   set pages(value: PageOrPrintedInput[] | undefined) {
     this.sourceDocuments = (value ?? []).map((input) => parseDocument(input))
-    this.sourceValues = this.sourceDocuments.map(pageOrPrintedFromDocument)
-    this.pageValues = this.sourceValues.map(resolvePageHtml)
-    this.paint()
+    this.resolveDocuments(this.sourceDocuments)
     this.changed()
   }
 
@@ -151,6 +161,7 @@ export class SegnaviaDocument extends HTMLElement {
   }
 
   disconnectedCallback() {
+    this.brandResolution?.abort()
     this.cancelSlotPreparation()
     window.removeEventListener('message', this.onMessage)
     this.observer?.disconnect()
@@ -160,19 +171,16 @@ export class SegnaviaDocument extends HTMLElement {
 
   load(pageInputs: PageOrPrintedInput[], printInput: PrintInput): void {
     const documents = pageInputs.map((input) => parseDocument(input))
-    const sources = documents.map(pageOrPrintedFromDocument)
-    const pages = sources.map(resolvePageHtml)
     const print = Print.parse(printInput)
-    if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
-    this.sourceValues = sources
+    if (documents.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     this.sourceDocuments = documents
-    this.pageValues = pages
     this.printValue = print
-    this.paint()
+    this.resolveDocuments(documents)
     this.changed()
   }
 
   [internalDocumentPagesLoad](sources: Page[], print?: Print): void {
+    this.brandResolution?.abort()
     if (sources.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     this.sourceValues = sources
     this.sourceDocuments = []
@@ -304,6 +312,7 @@ export class SegnaviaDocument extends HTMLElement {
     page.placements = this.placementOptions
     page.pageWidths = this.widthOptions
     page.fonts = this.fontOptions
+    page.brands = this.brandOptions
     if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
@@ -323,6 +332,31 @@ export class SegnaviaDocument extends HTMLElement {
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
+  }
+
+  private resolveDocuments(documents: Document[]) {
+    this.brandResolution?.abort()
+    const controller = new AbortController()
+    this.brandResolution = controller
+    const commit = (brands: Awaited<ReturnType<typeof resolveBrand>>[]) => {
+      if (controller.signal.aborted || documents !== this.sourceDocuments) return
+      this.sourceValues = documents.map((document, index) => pageOrPrintedFromDocument(document, brands[index]))
+      this.pageValues = this.sourceValues.map(resolvePageHtml)
+      this.paint()
+    }
+    if (!documents.some((document) => document.brand !== undefined)) {
+      commit(documents.map(() => undefined))
+      return
+    }
+    this.sourceValues = []
+    this.pageValues = []
+    this.paint()
+    void Promise.all(documents.map((document) => resolveBrand(document, this.brandOptions?.source, controller.signal)))
+      .then(commit)
+      .catch((error) => {
+        if (controller.signal.aborted || documents !== this.sourceDocuments) return
+        this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+      })
   }
 
   private changed() {

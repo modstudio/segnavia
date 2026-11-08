@@ -177,9 +177,6 @@ function refineUnsupportedDocumentFields(document: DocumentShapeValue, ctx: z.Re
       })
     }
   })
-  if (document.brand !== undefined) {
-    ctx.addIssue({ code: 'custom', path: ['brand'], message: 'document field brand is not yet supported; remove it to clear this refusal' })
-  }
   if (document.variables.length > 0) {
     ctx.addIssue({ code: 'custom', path: ['variables'], message: 'document field variables is not yet supported; remove it to clear this refusal' })
   }

@@ -169,7 +169,7 @@ async function printBook(
   const marginLayer = part === 'margin'
   const fontCss = `${resolvedFontCss}${dependencies.fontFaces(renderOptions)}`
   const baseCss = `${bookPageCss(book, marginLayer || paginated)}${layerCss}`
-  const sheets = paginated ? undefined : refusedAsRender(() => frameStyleSheets(book.style, `${fontCss}${baseCss}`))
+  const sheets = paginated ? undefined : refusedAsRender(() => frameStyleSheets(book.style, book.brand, `${fontCss}${baseCss}`))
   const srcdoc = refusedAsRender(() =>
     bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, {
       sheets,

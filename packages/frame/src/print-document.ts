@@ -34,6 +34,7 @@ import {
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
+import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
@@ -191,7 +192,9 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 }
 
 export function printableDeck(input: DocumentInput, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
-  return printableDeckValue(deckFromDocument(parseDocument(input, { newId: options.newId })), options)
+  const document = parseDocument(input, { newId: options.newId })
+  refuseNamedDocumentBrand(document, 'printableDeckValue')
+  return printableDeckValue(deckFromDocument(document), options)
 }
 
 export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
@@ -272,7 +275,9 @@ export interface PrintableDeckDocument {
 }
 
 export function printableDeckDocument(input: DocumentInput, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
-  return printableDeckValueDocument(deckFromDocument(parseDocument(input, { newId: options.newId })), options)
+  const document = parseDocument(input, { newId: options.newId })
+  refuseNamedDocumentBrand(document, 'printableDeckValueDocument')
+  return printableDeckValueDocument(deckFromDocument(document), options)
 }
 
 export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
@@ -315,7 +320,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     dir: pageDirection(page),
     lang: page.lang,
     fonts: page.style?.fonts,
-    sheets: frameStyleSheets(page.style, `${PRINT_COLOR_CSS}${properties}${padding}${options.baseCss ?? ''}`),
+    sheets: frameStyleSheets(page.style, page.brand, `${PRINT_COLOR_CSS}${properties}${padding}${options.baseCss ?? ''}`),
     css: options.css,
     csp: options.cspExtra || undefined,
     reportHeight: false,
@@ -351,9 +356,16 @@ export function printablePaper(
 // This frame-based document is for a browser to show and print. The frame
 // bridge carries propagated root backgrounds onto a printable element; the
 // server renderer still uses top-level page renders for PDF composition.
+function loweredPrintablePages(inputs: PageOrPrintedInput[], valueEntry: string): HtmlPage[] {
+  return inputs.map((input) => {
+    const document = parseDocument(input)
+    refuseNamedDocumentBrand(document, valueEntry)
+    return resolvePageHtml(pageOrPrintedFromInput(document))
+  })
+}
+
 export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
-  const pages = inputs.map((page) => resolvePageHtml(pageOrPrintedFromInput(page)))
-  return printableHtmlPagesDocument(pages, imposition, options)
+  return printableHtmlPagesDocument(loweredPrintablePages(inputs, 'printablePageValuesDocument'), imposition, options)
 }
 
 export function printablePageValuesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
@@ -376,7 +388,7 @@ export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposi
 }
 
 export function printablePages(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
-  return printablePagesDocument(inputs, imposition, options).html
+  return printableHtmlPagesDocument(loweredPrintablePages(inputs, 'printablePageValues'), imposition, options).html
 }
 
 export function printablePageValues(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {

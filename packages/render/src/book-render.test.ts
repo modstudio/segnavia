@@ -12,9 +12,9 @@ test('enables the continuous print bridge only when markup or a stylesheet decla
 })
 
 test('typed paragraph keeps enable scripts for continuous books', () => {
-  const kept = frameStyleSheets(StyleSheet.parse({ textStyles: { heading: { kind: 'paragraph', keepWithNext: true } } }))
+  const kept = frameStyleSheets(StyleSheet.parse({ textStyles: { heading: { kind: 'paragraph', keepWithNext: true } } }), undefined)
   expect(continuousBookNeedsScripts('<p class="segnavia-style-heading">Heading</p>', kept, undefined, 'refuse', false)).toBe(true)
-  expect(continuousBookNeedsScripts('<p>Ordinary</p>', frameStyleSheets(undefined), undefined, 'refuse', false)).toBe(false)
+  expect(continuousBookNeedsScripts('<p>Ordinary</p>', frameStyleSheets(undefined, undefined), undefined, 'refuse', false)).toBe(false)
 })
 
 test('bookPlan turns a style sheet that cannot merge into a render refusal before opening a tab', async () => {

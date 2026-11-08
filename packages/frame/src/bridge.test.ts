@@ -83,7 +83,7 @@ describe('frame document', () => {
       css: 'p{color:red}',
       csp: "img-src 'none'",
       printAtMs: 0,
-      sheets: frameStyleSheets(undefined),
+      sheets: frameStyleSheets(undefined, undefined),
     })
     expect(html).not.toContain('<script')
     expect(html).toContain("script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src 'none'")
@@ -233,7 +233,7 @@ describe('frame document', () => {
     const html = frameDocument('<p>x</p>', {
       scripts: 'refuse',
       nonce: 'n',
-      sheets: frameStyleSheets(undefined),
+      sheets: frameStyleSheets(undefined, undefined),
       css: 'p{unicode-bidi:normal}',
     })
     expect(html.indexOf('unicode-bidi:plaintext')).toBeLessThan(html.indexOf('p{unicode-bidi:normal}'))

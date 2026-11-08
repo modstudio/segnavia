@@ -8,6 +8,13 @@ function refusal(input: unknown): string {
 }
 
 describe('StyleSheet', () => {
+  test('refuses unknown keys at every style-owned level', () => {
+    for (const input of [{ stray: true }, { tokens: { stray: true } }, { textStyles: { body: { kind: 'paragraph', stray: true } } }]) {
+      const styleMessage = refusal(input)
+      expect(styleMessage).toContain('stray')
+    }
+  })
+
   test('enforces names on keyed sections, basedOn and token references', () => {
     expect(refusal({ tokens: { colors: { Bad: '#fff' } } })).toMatch(/"tokens"[\s\S]*"colors"[\s\S]*"Bad"/)
     expect(refusal({ textStyles: { body: { kind: 'paragraph', basedOn: 'Bad' } } })).toMatch(/"textStyles"[\s\S]*"body"[\s\S]*"basedOn"/)

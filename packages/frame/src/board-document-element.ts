@@ -1,9 +1,27 @@
 import { type Board, boardFromDocument, type Document, type DocumentInput, documentFromBoard } from '@segnavia/format'
 import { parseDocument } from '@segnavia/html'
+import { boardEvent } from './board-events.ts'
+import { BoardResolutions } from './board-resolutions.ts'
 import { BoardSelectionElement } from './board-selection-element.ts'
+import type { BrandsOptions } from './brands.ts'
 
 export abstract class BoardDocumentElement extends BoardSelectionElement {
+  protected readonly resolutions = new BoardResolutions((error) => this.dispatchEvent(boardEvent('segnavia-board-error', { error })))
   private documentValue: Document | null = null
+  private brandOptions: BrandsOptions | undefined
+  protected get boardDocument(): Document | null {
+    return this.documentValue
+  }
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
+    this.resolutions.configure(this.documentValue, value)
+    this.brandsChanged()
+  }
+
+  protected brandsChanged(): void {}
 
   get board(): Document | null {
     return this.documentValue
