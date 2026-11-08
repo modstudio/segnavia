@@ -43,6 +43,12 @@ test('printableDeckValue names the host notes face in the notes head and leaves 
   expect(unset).not.toContain('--segnavia-bleed')
 })
 
+test('printDeck refuses invalid and incompatible sheet settings before opening a frame', async () => {
+  await expect(printDeck(deckDocument, { sheet: { bleed: -1 } })).rejects.toThrow('Correct sheet.bleed, or remove sheet')
+  await expect(printDeck(deckDocument, { sheet: { bleed: 3 }, layout: 'notes' })).rejects.toThrow('use notesPaper')
+  await expect(printDeck(deckDocument, { sheet: { bleed: 3 }, imposition: {} as never })).rejects.toThrow('Remove sheet, or remove imposition')
+})
+
 test('printableDeckValue refuses a named notesFont without a resolved notes sheet font', () => {
   expect(() => printableDeckValue(deck, { layout: 'notes', notesFont: 'serif' })).toThrow(FontRefusedError)
   expect(() => printableDeckValue(deck, { layout: 'notes', notesFont: 'serif' })).toThrow(
