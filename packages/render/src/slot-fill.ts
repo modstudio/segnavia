@@ -12,6 +12,7 @@ import {
   assertSingleSlotCopy,
   type HtmlPage,
   hasSlotWork,
+  type PreparedSlots,
   prepareSlotCollection,
   prepareSlots,
   requiredSlotRefusal,
@@ -20,66 +21,68 @@ import {
   slotFillRefusal,
 } from '@segnavia/html'
 
-const preparations = new WeakMap<object, Awaited<ReturnType<typeof prepareSlots>>>()
-
-export function preparedSlotsFor(value: object): Awaited<ReturnType<typeof prepareSlots>> | undefined {
-  return preparations.get(value)
-}
-
-function refuseRequired(prepared: Awaited<ReturnType<typeof prepareSlots>>): void {
+function refuseRequired(prepared: PreparedSlots): void {
   const refusal = requiredSlotRefusal(prepared.declarations, prepared.report)
   if (refusal) throw refusal
 }
 
-export async function filledPage(input: Page | HtmlPage, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<HtmlPage> {
+export async function filledPage(
+  input: Page | HtmlPage,
+  slots: SlotPrintOptions | undefined,
+  signal?: AbortSignal,
+): Promise<{ value: HtmlPage; slots: PreparedSlots }> {
   const page = 'html' in input ? input : resolvePageHtml(input)
   assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(page.scripts, page.slots, slots)
   if (refusal) throw refusal
-  if (!hasSlotWork(page.slots, slots)) return page
   const prepared = await prepareSlots(page.slots, slots, signal)
   refuseRequired(prepared)
-  const filled = { ...page, html: prepared.apply(page.html) }
-  preparations.set(filled, prepared)
-  return filled
+  const value = hasSlotWork(page.slots, slots) ? { ...page, html: prepared.apply(page.html) } : page
+  return { value, slots: prepared }
 }
 
-export async function filledPages(inputs: Array<Page | HtmlPage>, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<HtmlPage[]> {
+export async function filledPages(
+  inputs: Array<Page | HtmlPage>,
+  slots: SlotPrintOptions | undefined,
+  signal?: AbortSignal,
+): Promise<{ value: HtmlPage[]; slots: PreparedSlots }> {
   const pages = inputs.map((input) => ('html' in input ? input : resolvePageHtml(input)))
   assertSingleSlotCopy(slots)
   for (const page of pages) {
     const refusal = slotFillRefusal(page.scripts, page.slots, slots)
     if (refusal) throw refusal
   }
-  if (!pages.some((page) => hasSlotWork(page.slots, slots))) return pages
   const prepared = await prepareSlotCollection(
     pages.map((page) => page.slots),
     slots,
     signal,
   )
   refuseRequired(prepared)
-  return pages.map((page) => {
-    const filled = { ...page, html: prepared.apply(page.html) }
-    preparations.set(filled, prepared)
-    return filled
-  })
+  const value = pages.some((page) => hasSlotWork(page.slots, slots)) ? pages.map((page) => ({ ...page, html: prepared.apply(page.html) })) : pages
+  return { value, slots: prepared }
 }
 
-export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<Deck> {
+export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<{ value: Deck; slots: PreparedSlots }> {
   assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(deck.scripts, deck.slots, slots)
   if (refusal) throw refusal
-  if (!hasSlotWork(deck.slots, slots)) return deck
   const prepared = await prepareSlots(deck.slots, slots, signal)
   refuseRequired(prepared)
-  const filled = {
-    ...deck,
-    slides: deck.slides.map((slide) =>
-      'kind' in slide.content && slide.content.kind === 'html' ? { ...slide, content: { ...slide.content, html: prepared.apply(slide.content.html) } } : slide,
-    ),
-  }
-  preparations.set(filled, prepared)
-  return filled
+  const value = hasSlotWork(deck.slots, slots)
+    ? {
+        ...deck,
+        slides: deck.slides.map((slide) => {
+          const html = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
+          // One application per slide keeps prepared.frames aligned with slide indices for slotsForFrames.
+          const filledHtml = prepared.apply(html)
+          if ('kind' in slide.content && slide.content.kind === 'html') {
+            return { ...slide, content: { ...slide.content, html: filledHtml } }
+          }
+          return slide
+        }),
+      }
+    : deck
+  return { value, slots: prepared }
 }
 
 function fillEntry<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T, apply: (html: string) => string): T {
@@ -104,23 +107,49 @@ function mapBookItems(items: Book['body'], apply: (html: string) => string): Boo
   })
 }
 
-export async function filledBook(book: Book, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<Book> {
+export async function filledBook(book: Book, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<{ value: Book; slots: PreparedSlots }> {
   assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(book.scripts, book.slots, slots)
   if (refusal) throw refusal
-  if (!hasSlotWork(book.slots, slots)) return book
   const prepared = await prepareSlots(book.slots, slots, signal)
   refuseRequired(prepared)
-  const filled = {
-    ...book,
-    frontMatter: mapBookItems(book.frontMatter, prepared.apply),
-    body: mapBookItems(book.body, prepared.apply),
-    endMatter: mapBookItems(book.endMatter, prepared.apply),
-    templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
+  const value = hasSlotWork(book.slots, slots)
+    ? {
+        ...book,
+        frontMatter: mapBookItems(book.frontMatter, prepared.apply),
+        body: mapBookItems(book.body, prepared.apply),
+        endMatter: mapBookItems(book.endMatter, prepared.apply),
+        templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
+      }
+    : book
+  return { value, slots: prepared }
+}
+
+function bookItemFrameCount(items: Book['body']): number {
+  return items.reduce((count, entry) => {
+    if (isDesignedSection(entry)) return count + entry.pages.length
+    if (isTemplatedSection(entry)) return count + entry.pages.reduce((total, page) => total + Object.keys(page.regions).length, 0)
+    if (isPart(entry)) return count + (entry.html === undefined ? 0 : 1) + bookItemFrameCount(entry.children)
+    return count + ('html' in entry ? 1 : 0)
+  }, 0)
+}
+
+function frameRange(start: number, count: number): number[] {
+  return Array.from({ length: count }, (_, offset) => start + offset)
+}
+
+/** Frame membership for the documents printed from a filled book. */
+export function bookSlotFrames(book: Book): { all: number[]; body: number[]; front: number[] } {
+  const frontCount = bookItemFrameCount(book.frontMatter)
+  const bodyCount = bookItemFrameCount(book.body)
+  const endCount = bookItemFrameCount(book.endMatter)
+  const templateCount = book.templates.length
+  const bodyStart = frontCount
+  const endStart = bodyStart + bodyCount
+  const templateStart = endStart + endCount
+  return {
+    all: frameRange(0, templateStart + templateCount),
+    front: frameRange(0, frontCount),
+    body: frameRange(bodyStart, bodyCount + endCount),
   }
-  // One book document reports each key once, so marks are per rendered tab, not per applied field.
-  const marked = prepared.marked as Map<string, number>
-  for (const key of marked.keys()) marked.set(key, 1)
-  preparations.set(filled, prepared)
-  return filled
 }

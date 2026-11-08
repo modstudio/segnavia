@@ -14,7 +14,6 @@ import {
   REGION_NAME,
 } from './book-section.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
-import { FontReference } from './fonts.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
@@ -24,6 +23,7 @@ import { Placement } from './placement.ts'
 import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
+import { StyleSheet } from './style-sheet.ts'
 
 export {
   BookChapterEntry,
@@ -96,8 +96,7 @@ export const BookShape = z.object({
   parentPages: z.array(ParentPage).default([]),
   templates: z.array(BookTemplate).default([]),
   slots: Slots.optional(),
-  fonts: z.array(FontReference).optional(),
-  css: z.string().optional(),
+  style: StyleSheet.optional(),
   numbering: z
     .object({
       frontMatter: NumberSystem.optional(),
@@ -142,7 +141,7 @@ export const BookViewPagination = z.object({
 })
 export type BookViewPagination = z.infer<typeof BookViewPagination>
 
-export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true, fonts: true, css: true, limits: true }).extend({
+export const BookView = BookShape.pick({ title: true, dir: true, lang: true, scripts: true, style: true, limits: true }).extend({
   title: BookShape.shape.title.optional(),
   html: z.string(),
   flow: z.string().optional(),

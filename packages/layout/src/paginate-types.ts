@@ -1,127 +1,41 @@
-import type { BOOK_PARENT_NAMES, BookOpens, BookSectionParents, PageSide, TextArea, TextDirection } from '@segnavia/format'
+import type {
+  BookOpens,
+  BookSectionParents,
+  PaginateBlock as FormatPaginateBlock,
+  PaginateFlow as FormatPaginateFlow,
+  PaginateLine as FormatPaginateLine,
+  PaginateMark as FormatPaginateMark,
+  PaginateNote as FormatPaginateNote,
+  PaginateNoteRef as FormatPaginateNoteRef,
+  PaginateNoteSeriesGeometry as FormatPaginateNoteSeriesGeometry,
+  PaginatePageMarks as FormatPaginatePageMarks,
+  PaginatePageNote as FormatPaginatePageNote,
+  PaginateWindow as FormatPaginateWindow,
+  Measurements,
+  PlanPage as SavedPlanPage,
+} from '@segnavia/format'
 
-export type PaginateSequence = 'front' | 'body'
+export type PaginateSequence = NonNullable<FormatPaginateFlow['sequence']>
 
-export type PaginatePageRole = 'opener' | 'body' | 'blank' | 'fixed'
+export type PaginatePageRole = SavedPlanPage['role']
 
-export interface PaginateLine {
-  top: number
-  bottom: number
-}
-
-export interface PaginateNoteRef {
-  note: string
-  line: number
-}
-
-export interface PaginateMark {
-  name: string
-  value: string
-  line: number
-}
-
-export interface PaginateBlock {
-  id?: string
-  kind: 'heading' | 'figure' | 'table' | 'text'
-  tag: string
-  position: { chapter: number; block: number }
-  lines: PaginateLine[]
-  columns?: number
-  orphans?: number
-  widows?: number
-  keepWithNext?: boolean
-  keepTogether?: boolean
-  breakBefore?: boolean
-  headerHeight?: number
-  footnoteRefs?: PaginateNoteRef[]
-  marks?: PaginateMark[]
-}
+export type PaginateLine = FormatPaginateLine
+export type PaginateNoteRef = FormatPaginateNoteRef
+export type PaginateMark = FormatPaginateMark
+export type PaginateBlock = FormatPaginateBlock
 
 export type PaginateFlowParents = BookSectionParents
 
 export type PaginateOpens = BookOpens
 
-interface PaginateFlowBase {
-  id: string
-  sequence?: PaginateSequence
-  runningHead?: string
-  opens?: PaginateOpens
-  parents?: PaginateFlowParents
-  parts?: Record<string, string>
-}
-
-export type PaginateFlow =
-  | (PaginateFlowBase & { kind: 'front' | 'contents' | 'part' | 'chapter' | 'endnotes'; blocks: PaginateBlock[] })
-  | (PaginateFlowBase & {
-      kind: 'fixed'
-      pages: number
-      role?: 'fixed' | 'body'
-      pageParents?: PaginateFlowParents[]
-    })
-
-export interface PaginateNote {
-  id: string
-  series: string
-  lines: PaginateLine[]
-}
-
-export interface PaginateNoteSeriesGeometry {
-  name: string
-  gap: number
-}
-
-export interface PaginateBookInput {
-  flows: PaginateFlow[]
-  notes: PaginateNote[]
-  geometry: { notesGap: number; noteSeries?: PaginateNoteSeriesGeometry[] }
-  parents: Record<string, TextArea>
-  parentNames: typeof BOOK_PARENT_NAMES
-  settings: {
-    orphans?: number
-    widows?: number
-    rectoOpenings: boolean
-    direction: TextDirection
-    endnotePlacement: 'chapter' | 'book'
-  }
-}
-
-export interface PaginateWindow {
-  flow: string
-  start: number
-  end: number
-  top: number
-  column: number
-  columns: number
-}
-
-export interface PaginatePageNote {
-  id: string
-  series: string
-  whole: boolean
-  start: number
-  end: number
-}
-
-export type PaginatePageMarks = Record<string, { first: string; last: string }>
-
-export interface PaginateBookPage {
-  kind: 'front' | 'body' | 'blank'
-  number: number
-  sequence: PaginateSequence
-  flow: string
-  role: PaginatePageRole
-  windows: PaginateWindow[]
-  notes: PaginatePageNote[]
-  headerRepeat?: number
-  blank: boolean
-  sectionOpening: boolean
-  runningHead?: string
-  parts?: Record<string, string>
-  marks?: PaginatePageMarks
-  parent: string
-  face: PageSide
-  side: 'left' | 'right'
-}
+export type PaginateFlow = FormatPaginateFlow
+export type PaginateNote = FormatPaginateNote
+export type PaginateNoteSeriesGeometry = FormatPaginateNoteSeriesGeometry
+export type PaginateBookInput = Measurements
+export type PaginateWindow = FormatPaginateWindow
+export type PaginatePageNote = FormatPaginatePageNote
+export type PaginatePageMarks = FormatPaginatePageMarks
+export type PaginateBookPage = Omit<SavedPlanPage, 'start' | 'fingerprint'>
 
 // A refusal names the block it could not place, or the flow or note when no block is at fault.
 export type PaginateBookRefusal =

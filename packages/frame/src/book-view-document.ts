@@ -5,14 +5,14 @@ import {
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
+  type Plan,
   PX_PER_MM,
   resolveLimits,
   resolveParentPages,
   textArea,
 } from '@segnavia/format'
-import { bookStylesheet } from '@segnavia/html'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
-import { frameDocument } from './bridge.ts'
+import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
 
@@ -24,6 +24,8 @@ export interface PaginatedDocumentOptions {
   screen?: { spread: boolean }
   diagramScript?: string
   limits?: Limits
+  plan?: Plan
+  breaks?: string[]
 }
 
 function px(value: number): number {
@@ -70,11 +72,13 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     only: null,
     expectedCount: null,
     measure: false,
+    savedPlans: true,
     ...(options.screen ? { presentation: options.screen } : {}),
+    ...(options.plan === undefined ? {} : { plan: options.plan }),
+    ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const bookCss = bookStylesheet(options.fontCss, view.css, options.css)
-  const css =
+  const baseCss =
     `@page{size:${pagination.paper.width}mm ${pagination.paper.height}mm;margin:0}` +
     `:where(html,body){margin:0!important;padding:0!important}` +
     `:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}` +
@@ -82,7 +86,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-pages]){inline-size:${pagination.paper.width}mm}` +
     `:where([${BOOK_PAGE_ATTRIBUTE}]:last-child){break-after:auto}` +
     GALLEY_PRINT_CSS +
-    bookCss
+    (options.fontCss ?? '')
   const drawn = withDiagramScript(view.html, options.nonce, options.diagramScript)
   const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
@@ -90,7 +94,8 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     nonce: options.nonce,
     dir: pagination.direction,
     lang: view.lang,
-    css,
+    sheets: frameStyleSheets(view.style, baseCss),
+    css: options.css,
     relayKeys: false,
     reportHeight: false,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
@@ -107,7 +112,8 @@ export function flowViewDocument(view: BookView, options: Pick<PaginatedDocument
     nonce: options.nonce,
     dir: view.pagination.direction,
     lang: view.lang,
-    css: bookStylesheet(options.fontCss, view.css, options.css),
+    sheets: frameStyleSheets(view.style, options.fontCss),
+    css: options.css,
     relayKeys: false,
     reportHeight: false,
   })

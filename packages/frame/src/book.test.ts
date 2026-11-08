@@ -114,11 +114,12 @@ describe('book element input', () => {
 
   test('sanitizes book CSS and places it after generated fonts', () => {
     const rendered = bookFrame(
-      { html: '<main class="lead">Book</main>', css: '.lead{color:purple;background:url(https://example.test/ink.png)}', scripts: 'refuse' },
+      { html: '<main class="lead">Book</main>', style: { css: '.lead{color:purple;background:url(https://example.test/ink.png)}' }, scripts: 'refuse' },
       { css: '@font-face{font-family:Held;src:url(data:font/woff2;base64,AA==)}' },
     )
     expect(rendered.srcdoc).not.toContain('example.test')
     expect(rendered.srcdoc.indexOf('@font-face')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple;}'))
+    expect(rendered.srcdoc).toContain('@layer segnavia.author{.lead{color:purple;}}')
   })
 
   test('a paginated frame uses the composer and carries the spread setting', () => {
@@ -137,7 +138,7 @@ describe('book element input', () => {
       runningHead: { recto: 'title' as const, verso: 'title' as const },
     }
     const rendered = bookFrame(
-      { html: '<main class="lead" data-segnavia-galleys></main>', css: '.lead{color:purple}', scripts: 'refuse', pagination },
+      { html: '<main class="lead" data-segnavia-galleys></main>', style: { css: '.lead{color:purple}' }, scripts: 'refuse', pagination },
       { css: '.font-marker{font-family:Held}', spread: true },
     )
     expect(rendered.srcdoc).toContain('"presentation":{"spread":true}')
@@ -192,7 +193,7 @@ describe('book fonts', () => {
     book.view = {
       html: '<main data-segnavia-galleys></main>',
       title: 'Latest',
-      fonts: [{ app: 'serif' }],
+      style: { fonts: [{ app: 'serif' }] },
       pagination: {
         paper: { width: 148, height: 210 },
         margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
@@ -276,7 +277,7 @@ describe('book fonts', () => {
         font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }),
       },
     }
-    book.view = { html: '<main>Book</main>', fonts: [{ app: 'serif' }] }
+    book.view = { html: '<main>Book</main>', style: { fonts: [{ app: 'serif' }] } }
     await Promise.resolve()
     expect(frames).toHaveLength(0)
     connected = true
@@ -316,7 +317,7 @@ describe('book fonts', () => {
             : undefined,
       },
     }
-    book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'serif' }] }
+    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: [{ app: 'serif' }] } }
     for (let i = 0; i < 8; i += 1) await Promise.resolve()
     globalThis.document = previous
     expect(frames.at(-1)?.srcdoc).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
@@ -333,7 +334,7 @@ describe('book fonts', () => {
       return true
     }
     book.fonts = { source: { font: async () => undefined } }
-    book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'missing' }] }
+    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: [{ app: 'missing' }] } }
     for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "missing"; make that font available from the source to clear this refusal.',
@@ -347,7 +348,7 @@ describe('book fonts', () => {
       detail = (event as CustomEvent).detail
       return true
     }) as typeof book.dispatchEvent
-    book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'serif' }] }
+    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: [{ app: 'serif' }] } }
     for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
@@ -361,7 +362,7 @@ describe('book fonts', () => {
       detail = (event as CustomEvent).detail
       return true
     }) as typeof book.dispatchEvent
-    book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ local: 'Local Face', fallback: 'serif' }] }
+    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: [{ local: 'Local Face', fallback: 'serif' }] } }
     for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({
       message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',

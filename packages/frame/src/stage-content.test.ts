@@ -31,4 +31,17 @@ describe('stageCanvas', () => {
     expect(html.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts allow-forms')
     expect(url.querySelector('iframe')?.getAttribute('sandbox')).toBe('allow-scripts')
   })
+
+  test('reports a style compile refusal without mounting a partial frame', () => {
+    const refused = Deck.parse({
+      ...deck,
+      style: { textStyles: { body: { kind: 'paragraph', basedOn: 'missing' } } },
+    })
+    const slide = refused.slides[0]
+    if (!slide) throw new Error('Expected the HTML slide.')
+    const errors: Error[] = []
+    const canvas = stageCanvas(controller, refused, slide, slide.content as ResolvedContent, { ...options, failed: (error) => errors.push(error) })
+    expect(canvas.querySelector('iframe')).toBeNull()
+    expect(errors[0]?.message).toContain('textStyles.body.basedOn')
+  })
 })

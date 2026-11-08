@@ -27,6 +27,22 @@ describe('bookDocument', () => {
     expect(capped).toContain("raise the host's limits.pages")
   })
 
+  test('carries saved plans and breaks in config without closing the composer script', () => {
+    const plan = {
+      version: 1 as const,
+      fingerprint: '</script><script>unsafe()</script>',
+      breaks: ['middle'],
+      pages: [],
+      folios: [],
+      total: '0',
+    }
+    const html = bookDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
+    expect(html).toContain('"breaks":["middle"]')
+    expect(html).toContain('"plan":{"version":1')
+    expect(html).not.toContain('</script><script>unsafe()</script>')
+    expect(html).toContain('\\u003c/script>\\u003cscript>unsafe()\\u003c/script>')
+  })
+
   test('minified embedded composer functions retain their aliases and have no module dependencies', async () => {
     const built = await Bun.build({
       entrypoints: ['virtual:composer-functions'],
@@ -91,10 +107,14 @@ describe('bookDocument', () => {
     expect(COMPOSER_SCRIPT).toContain(openerPageIndex.toString())
     expect(COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
     expect(COMPOSER_SCRIPT).toContain(decideBookMeasurement.toString())
+    expect(COMPOSER_SCRIPT).toContain('config.breaks||(config.plan&&config.plan.breaks)||[]')
     expect(COMPOSER_SCRIPT).toContain('paginateBook')
+    expect(COMPOSER_SCRIPT).toContain('lineInWindow')
     expect(COMPOSER_SCRIPT).toContain(computeFolios.toString())
     expect(COMPOSER_SCRIPT).toContain('fillBookFurniture')
     expect(COMPOSER_SCRIPT).toContain('fillFurniture')
+    expect(COMPOSER_SCRIPT).toContain("document.querySelectorAll('script[data-segnavia-plan]')")
+    expect(COMPOSER_SCRIPT).toContain('previous[i].remove()')
     expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
     expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
     expect(COMPOSER_SCRIPT).toContain('parent.textArea')
@@ -209,7 +229,7 @@ describe('bookDocument', () => {
   test('places sanitized book CSS between generated fonts and host CSS', () => {
     const view = {
       html: '<main data-segnavia-galleys><p class="lead">Held</p></main>',
-      css: '.lead{color:purple;background:url(https://example.test/ink.png)}',
+      style: { css: '.lead{color:purple;background:url(https://example.test/ink.png)}' },
       scripts: 'refuse' as const,
       pagination: {
         paper: { width: 148, height: 210 },

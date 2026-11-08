@@ -1,5 +1,5 @@
 import { type Deck, type Folio, firstStrongDirection, type PixelSize, type Slide } from '@segnavia/format'
-import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
+import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
@@ -7,6 +7,38 @@ import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { annotationSvg } from './svg.ts'
 
 const canvasLayouts = new WeakMap<HTMLElement, (size: PixelSize) => void>()
+
+interface StageCanvasOptions {
+  css: string
+  csp: string
+  dependencyOrigins?: Iterable<string>
+  frameTitle: FrameTitle
+  loaded: () => void
+  slots?: PreparedSlots
+  bridge?: boolean
+  folio: Folio
+  failed?: (error: StyleSheetRefusedError) => void
+}
+
+function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): string | undefined {
+  try {
+    return frameDocument(slotHtml(html, options.slots), {
+      scripts: deck.scripts,
+      nonce: newNonce(),
+      dir: deck.dir,
+      lang: deck.lang,
+      sheets: frameStyleSheets(deck.style),
+      css: options.css,
+      csp: options.csp || undefined,
+      dependencyOrigins: options.dependencyOrigins,
+      reportHeight: false,
+      bridge: options.bridge,
+    })
+  } catch (error) {
+    if (!(error instanceof StyleSheetRefusedError) || !options.failed) throw error
+    options.failed(error)
+  }
+}
 
 export function layoutStageCanvas(canvas: HTMLElement, size: PixelSize) {
   canvas.style.inlineSize = `${size.width}px`
@@ -16,22 +48,7 @@ export function layoutStageCanvas(canvas: HTMLElement, size: PixelSize) {
   canvasLayouts.get(canvas)?.(size)
 }
 
-export function stageCanvas(
-  controller: DeckController,
-  deck: Deck,
-  slide: Slide,
-  content: ResolvedContent,
-  options: {
-    css: string
-    csp: string
-    dependencyOrigins?: Iterable<string>
-    frameTitle: FrameTitle
-    loaded: () => void
-    slots?: PreparedSlots
-    bridge?: boolean
-    folio: Folio
-  },
-): HTMLElement {
+export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide, content: ResolvedContent, options: StageCanvasOptions): HTMLElement {
   const canvas = document.createElement('div')
   canvas.className = 'segnavia-stage__canvas'
   canvas.dataset.slideId = slide.id
@@ -44,17 +61,12 @@ export function stageCanvas(
     iframe.title = options.frameTitle(deck.title, options.folio.number)
     iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
-      iframe.srcdoc = frameDocument(slotHtml(content.html, options.slots), {
-        scripts: deck.scripts,
-        nonce: newNonce(),
-        dir: deck.dir,
-        lang: deck.lang,
-        css: options.css,
-        csp: options.csp || undefined,
-        dependencyOrigins: options.dependencyOrigins,
-        reportHeight: false,
-        bridge: options.bridge,
-      })
+      const srcdoc = htmlFrameDocument(deck, content.html, options)
+      if (srcdoc === undefined) {
+        layoutStageCanvas(canvas, deck.size)
+        return canvas
+      }
+      iframe.srcdoc = srcdoc
     } else iframe.src = controller.url(content.src)
     canvas.append(iframe)
   } else {

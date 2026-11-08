@@ -6,6 +6,8 @@ import {
   type Limits,
   type OperationDocument,
   type OperationNode,
+  Plan,
+  type PlanPage,
   resolveLimits,
 } from '@segnavia/format'
 import { type BlockViewEntry, blockView } from './block-view.ts'
@@ -13,6 +15,21 @@ import { type BlockViewEntry, blockView } from './block-view.ts'
 export interface DescribeDocumentOptions {
   detail?: 'concise' | 'full'
   limits?: Limits
+  plan?: Plan
+}
+
+interface DocumentDescriptionPlanPage {
+  number: number
+  folio: string | undefined
+  start?: PlanPage['start']
+  role: PlanPage['role']
+  face: PlanPage['face']
+}
+
+interface DocumentDescriptionPlan {
+  fingerprint: string
+  breaks: string[]
+  pages: DocumentDescriptionPlanPage[]
 }
 
 export interface DocumentDescriptionNode {
@@ -33,6 +50,7 @@ export interface DocumentDescription {
     nodes: []
     inheritance: 'none'
   }
+  plan?: DocumentDescriptionPlan
 }
 
 function locationValue(parent: DocumentLocation, index: number): DocumentDescriptionNode['location'] {
@@ -85,10 +103,26 @@ export function describeDocument(document: Document, options: DescribeDocumentOp
   }
   const limit = resolveLimits(document.limits, options.limits).descriptionTextChars
   const blocks = blockView(document).map((block) => (options.detail === 'full' ? block : conciseBlock(block, limit)))
+  const plan = options.plan === undefined ? undefined : Plan.parse(options.plan, { limits: resolveLimits(document.limits, options.limits) })
   return {
     structure,
     definitions,
     blocks,
     styles: { document: { ...(document.style ?? {}) }, nodes: [], inheritance: 'none' },
+    ...(plan === undefined
+      ? {}
+      : {
+          plan: {
+            fingerprint: plan.fingerprint,
+            breaks: plan.breaks,
+            pages: plan.pages.map((page, index) => ({
+              number: index + 1,
+              folio: plan.folios[index],
+              ...(page.start === undefined ? {} : { start: page.start }),
+              role: page.role,
+              face: page.face,
+            })),
+          },
+        }),
   }
 }

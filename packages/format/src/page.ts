@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import { PixelSize } from './deck.ts'
 import { Direction } from './direction.ts'
-import { FontReference } from './fonts.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { Print } from './print.ts'
 import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
+import { StyleSheet } from './style-sheet.ts'
 
 // A page is designed for the screen at whatever size it needs: a flowing
 // measure, a fixed sheet, or an exact width that grows with its content.
@@ -55,7 +55,7 @@ const PageShape = z
     printedPages: PrintedPages.optional(),
     limits: DocumentLimitsValue.optional(),
     slots: Slots.optional(),
-    fonts: z.array(FontReference).optional(),
+    style: StyleSheet.optional(),
   })
   .superRefine((page, ctx) => {
     const fields = bodyChoices(page).map(({ field }) => field)

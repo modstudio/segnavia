@@ -22,12 +22,23 @@ function canonical(value: unknown): string {
   return `{${entries.map(([key, held]) => `${JSON.stringify(key)}:${canonical(held)}`).join(',')}}`
 }
 
-export function fingerprintDocument(document: DocumentValue): string {
-  const parsed = requireParsedDocument(document, 'fingerprintDocument')
+export function fingerprintScript(): string {
+  return `${canonical.toString()}
+var canonical=${canonical.name};
+${fingerprintValue.toString()}
+var fingerprintValue=${fingerprintValue.name};`
+}
+
+export function fingerprintValue(value: unknown): string {
   let hash = 0xcbf29ce484222325n
-  for (const byte of new TextEncoder().encode(canonical(parsed))) {
+  for (const byte of new TextEncoder().encode(canonical(value))) {
     hash ^= BigInt(byte)
     hash = BigInt.asUintN(64, hash * 0x100000001b3n)
   }
   return `fnv1a64:${hash.toString(16).padStart(16, '0')}`
+}
+
+export function fingerprintDocument(document: DocumentValue): string {
+  const parsed = requireParsedDocument(document, 'fingerprintDocument')
+  return fingerprintValue(parsed)
 }

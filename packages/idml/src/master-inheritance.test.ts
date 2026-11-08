@@ -168,7 +168,7 @@ test('positions inherited boxes against the applying master margins', async () =
   const result = await importIdml(
     await masterPackage([wideBase, child], 'narrow-child', [story('wide-left-story', 'Verso'), story('wide-right-story', 'Recto')]),
   )
-  expect(result.book.css).toContain(
+  expect(result.book.style?.css).toContain(
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:3.527778mm;inline-size:21.166667mm;inset-block-start:0.705556mm;block-size:2.116667mm}',
   )
 })

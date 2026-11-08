@@ -11,7 +11,6 @@ import {
   type MotifSource,
   type PageWidths,
   PRINTED_PAGE_CONTEXT,
-  printProperties,
   type SlotsOptions,
 } from '@segnavia/format'
 import {
@@ -28,10 +27,9 @@ import {
 } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
-import { frameDocument } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
+import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 export interface MotifsOptions {
   source: MotifSource
@@ -379,21 +377,4 @@ export async function prepareShownPage(
   const resolved = hasSlotWork(expanded.page.slots, slots) ? await prepareSlots(expanded.page.slots, slots, signal) : undefined
   const css = await pageFontCss(expanded.page, expanded.fonts, fonts, signal)
   return { page: expanded.page, resolved, css }
-}
-
-export function shownPageDocument(
-  page: HtmlPage,
-  resolved: PreparedSlots | undefined,
-  options: { nonce: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
-): string {
-  return frameDocument(slotHtml(page.html, resolved), {
-    scripts: page.scripts,
-    nonce: options.nonce,
-    dir: page.dir,
-    lang: page.lang,
-    css: `${page.print ? printProperties(page.print) : ''}${options.css ?? ''}`,
-    csp: options.csp,
-    dependencyOrigins: options.dependencyOrigins,
-    relayKeys: false,
-  })
 }

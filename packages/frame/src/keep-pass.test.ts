@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { KEEP_WITH_CUSTOM_PROPERTY } from '@segnavia/format'
 import { KEEP_WITH_VALUES } from '@segnavia/html'
 import { keepGap } from './keep-gap.ts'
 import { applyKeepWith, keepPassScript, outermostKeeps } from './keep-pass.ts'
@@ -97,11 +98,17 @@ function apply(root: FakeElement, candidates: FakeElement[]): void {
     querySelectorAll: (selector: string) => (selector === '[style]' ? candidates : []),
     styleSheets: [],
   }
-  applyKeepWith(document as unknown as Document, styleOf, keepGap, KEEP_WITH_VALUES)
+  applyKeepWith(document as unknown as Document, styleOf, keepGap, KEEP_WITH_VALUES, KEEP_WITH_CUSTOM_PROPERTY)
   expect(root.contains(candidates[0] ?? null)).toBe(true)
 }
 
 describe('keep pass', () => {
+  // The pass ships as function source; a bundler renames module bindings, so a
+  // shipped function that read one would throw in the frame.
+  test('shipped functions read no module constant', () => {
+    for (const fn of [outermostKeeps, applyKeepWith]) expect(fn.toString()).not.toMatch(/\bKEEP_WITH_/)
+  })
+
   test('selects only the outermost element with an inherited direction', () => {
     const root = { parentElement: null }
     const outer = { parentElement: root }
@@ -114,7 +121,10 @@ describe('keep pass', () => {
       [other, 'previous'],
     ])
     const elements = [outer, inner, other] as unknown as Element[]
-    expect(outermostKeeps(elements, (element) => style(values.get(element) ?? ''), KEEP_WITH_VALUES)).toEqual([outer, other] as unknown as Element[])
+    expect(outermostKeeps(elements, (element) => style(values.get(element) ?? ''), KEEP_WITH_VALUES, KEEP_WITH_CUSTOM_PROPERTY)).toEqual([
+      outer,
+      other,
+    ] as unknown as Element[])
   })
 
   test('does no candidate query when the literal property is absent', () => {

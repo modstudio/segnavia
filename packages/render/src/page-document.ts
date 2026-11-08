@@ -10,7 +10,7 @@ import {
   resolveLimits,
   resolvePageWidth,
 } from '@segnavia/format'
-import { frameDocument, newNonce } from '@segnavia/frame/bridge'
+import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, refuseMissingFontSource, resolveFontReferences, uniqueFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
@@ -22,10 +22,6 @@ import type { RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { printCss } from './page-paper.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
-
-export function withFontCss(options: RenderOptions, css: string): RenderOptions {
-  return { ...options, css: `${css}${options.css ?? ''}` }
-}
 
 export async function fontCssForRender<T>(work: Promise<T>): Promise<T> {
   try {
@@ -69,24 +65,24 @@ export async function prepareRenderedPageValue(
 ) {
   const page = resolvePageHtml(input)
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
-  const references = uniqueFontReferences([...(expanded.page.fonts ?? []), ...expanded.fonts])
+  const references = uniqueFontReferences([...(expanded.page.style?.fonts ?? []), ...expanded.fonts])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
-  return { page: expanded.page, options: withFontCss(options, css) }
+  return { page: expanded.page, options, fontCss: css }
 }
 
 export async function prepareRenderedPages(
-  expanded: ReadonlyArray<{ page: Pick<Page, 'fonts'>; fonts: FontReference[] }>,
+  expanded: ReadonlyArray<{ page: Pick<Page, 'style'>; fonts: FontReference[] }>,
   options: RenderOptions,
   signal: AbortSignal,
-): Promise<RenderOptions> {
-  const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
+): Promise<{ options: RenderOptions; fontCss: string }> {
+  const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.style?.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, 'page'))
   options.localFonts?.report?.(local.report)
-  return withFontCss(options, css)
+  return { options, fontCss: css }
 }
 
 export async function renderOptionsWithBookFonts(
@@ -96,28 +92,36 @@ export async function renderOptionsWithBookFonts(
   motifFonts: FontReference[] = [],
 ): Promise<{ options: RenderOptions; fontCss: string }> {
   const place = `book ${JSON.stringify(book.title)}`
-  const references = uniqueFontReferences([...(book.fonts ?? []), ...motifFonts])
+  const references = uniqueFontReferences([...(book.style?.fonts ?? []), ...motifFonts])
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const css = await fontCssForRender(resolveRenderFontReferences(references, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
   return { options, fontCss: css }
 }
 
-interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOrigins'> {
+interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOrigins' | 'css'> {
   diagramScript?: string
   nonce?: string
   relayKeys?: boolean
   reportHeight?: boolean
 }
 
-export function resolvedPageDocument(page: HtmlPage, css: string, options: ResolvedPageDocumentOptions): string {
+export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: ResolvedPageDocumentOptions): string {
   const nonce = options.nonce ?? newNonce()
+  let sheets: string[]
+  try {
+    sheets = frameStyleSheets(page.style, baseCss)
+  } catch (error) {
+    if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)
+    throw error
+  }
   return frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
     scripts: page.scripts,
     nonce,
     dir: page.dir,
     lang: page.lang,
-    css,
+    sheets,
+    css: options.css,
     relayKeys: options.relayKeys ?? false,
     reportHeight: options.reportHeight ?? false,
     dependencyOrigins: options.dependencyOrigins,
@@ -150,8 +154,15 @@ export function renderPageValueDocument(
       ? resolvePageWidth(page.size, options.pageWidths).measure
       : undefined
   const measureCss = namedMeasure === undefined ? '' : `:where(body){max-inline-size:${namedMeasure}px;margin-inline:auto}`
-  const hostCss = `${page.print ? printCss(page.print, resolveDirection(page.dir, page.lang, htmlTextSample(page.html))) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}${options.css ?? ''}`
+  const baseCss = `${page.print ? printCss(page.print, resolveDirection(page.dir, page.lang, htmlTextSample(page.html))) : ''}${measureCss}${fontCss}${fontFaces(options.fonts)}`
   const fixedSize = typeof page.size === 'object' && page.size.height !== 'auto'
-  const css = printing && !page.print && fixedSize ? containFixedPageOverflow(hostCss) : hostCss
-  return resolvedPageDocument(page, css, { dependencyOrigins: options.dependencyOrigins, diagramScript, nonce, relayKeys: false, reportHeight: false })
+  const css = printing && !page.print && fixedSize ? containFixedPageOverflow(baseCss) : baseCss
+  return resolvedPageDocument(page, css, {
+    css: options.css,
+    dependencyOrigins: options.dependencyOrigins,
+    diagramScript,
+    nonce,
+    relayKeys: false,
+    reportHeight: false,
+  })
 }

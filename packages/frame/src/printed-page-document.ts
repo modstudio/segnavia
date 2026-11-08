@@ -17,7 +17,7 @@ import {
   sheetMm,
 } from '@segnavia/format'
 import { fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
-import { frameDocument } from './bridge.ts'
+import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
 
@@ -129,6 +129,7 @@ export function printedPageValueDocument(
   page: HtmlPage,
   options: {
     nonce: string
+    baseCss?: string
     css?: string
     only?: number
     expectedCount?: number
@@ -194,7 +195,7 @@ export function printedPageValueDocument(
     rules,
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.css ?? ''}`
+  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const parts = pageParts(page.html)
   const flow = `<div data-segnavia-galleys><div data-segnavia-flow="printed-page" data-parent-opener="${parentNames.opener}" data-parent-recto="${parentNames.recto}" data-parent-verso="${parentNames.verso}">${parts.body}</div></div>`
   const drawn = withDiagramScript(`${parts.head}${flow}`, options.nonce, options.diagramScript)
@@ -205,7 +206,8 @@ export function printedPageValueDocument(
     dir: direction,
     lang: page.lang,
     title: metadata?.title,
-    css,
+    sheets: frameStyleSheets(page.style, baseCss),
+    css: options.css,
     relayKeys: false,
     reportHeight: options.measure === true,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,

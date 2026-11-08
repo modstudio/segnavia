@@ -245,7 +245,7 @@ export class SegnaviaPaper extends HTMLElement {
         .then((resolved) => commit(shown, resolved))
         .catch(report)
     }
-    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !pages.some((page) => (page.fonts ?? []).some((ref) => 'app' in ref))) {
+    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !pages.some((page) => (page.style?.fonts ?? []).some((ref) => 'app' in ref))) {
       const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
       if (motifRefusal) {
         this.paintPlaceholder(imposed)

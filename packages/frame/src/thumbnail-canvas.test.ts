@@ -42,6 +42,7 @@ describe('thumbnail geometry and resolution identity', () => {
       declarations: [],
       report: { fill: null, slots: {}, origins: {} },
       marked: new Map(),
+      frames: [],
       apply: () => '<p data-slot-overflow="name:shrink:6">A long name</p>',
       mergeFit: () => ({ fill: null, slots: {}, origins: {} }),
     } satisfies PreparedSlots
