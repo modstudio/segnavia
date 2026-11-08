@@ -171,9 +171,9 @@ describe('printed pages in SegnaviaPage', () => {
     const failure = { font: 'body', family: 'body', reason: 'unsupplied' }
     expect(errors).toEqual([])
     expect(frame().srcdoc).toContain(`initialFontFailures=[${JSON.stringify(failure)}]`)
-    const element = new SegnaviaPage() as unknown as SegnaviaPage & { onMessage(event: MessageEvent): void; querySelector(): unknown }
+    const element = new SegnaviaPage() as unknown as EventTarget & { onMessage(event: MessageEvent): void; querySelector(): unknown }
     Object.assign(element, { querySelector: () => frame() })
-    element.addEventListener('fontfailure', (event) => failures.push((event as CustomEvent).detail.failures))
+    element.addEventListener('fontfailure', (event: Event) => failures.push((event as CustomEvent).detail.failures))
     element.onMessage({
       source: frame().contentWindow,
       data: { type: MESSAGE.fontFailures, failures: [failure] },
