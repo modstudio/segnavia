@@ -7,6 +7,7 @@ import {
   boardShapeFacts,
   boardTier,
   checkResolved,
+  checkResolvedWithBrand,
   keyToView,
   pinchOf,
   shouldMountItem,
@@ -35,6 +36,13 @@ test('a pinch needs two pointers and never has a zero distance', () => {
 const view = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 1000, height: 500 } }
 const paperItem: BoardItem = { id: 'paper', kind: 'paper', address: 'paper', x: 0, y: 0, width: 100 }
 const imposition = { paper: 'letter' as const, orientation: 'portrait' as const, columns: 1, rows: 1, cell: { width: 100, height: 100 } }
+const documentInputForBoard = () => ({
+  type: 'document' as const,
+  kind: 'deck' as const,
+  title: 'Deck',
+  children: [{ type: 'slide' as const, id: 'slide', content: { kind: 'html' as const, html: '<p>Slide</p>' } }],
+})
+
 describe('board policy', () => {
   test.each([
     [
@@ -93,6 +101,20 @@ describe('board policy', () => {
       size: { width: 10, height: 20 },
       designedCover: undefined,
     })
+  })
+
+  test('uses the board brand as a whole-item default and lets an item brand win whole', async () => {
+    const deckItem: BoardItem = { id: 'deck', kind: 'deck', address: 'deck', x: 0, y: 0, width: 100 }
+    const source = {
+      brand: async (name: string) => ({ tokens: { colors: { ink: name === 'item' ? '#222222' : '#111111' } } }),
+    }
+    const signal = new AbortController().signal
+    const resolved = (brand?: string) => ({ ...documentInputForBoard(), brand })
+    const boardBrand = Promise.resolve(await source.brand('board'))
+    const inherited = await checkResolvedWithBrand(deckItem, { kind: 'deck', deck: resolved() }, boardBrand, source, signal)
+    const overridden = await checkResolvedWithBrand(deckItem, { kind: 'deck', deck: resolved('item') }, boardBrand, source, signal)
+    expect(inherited.kind === 'deck' ? inherited.deck.brand : undefined).toEqual(await source.brand('board'))
+    expect(overridden.kind === 'deck' ? overridden.deck.brand : undefined).toEqual(await source.brand('item'))
   })
 
   test('refuses a resolved board item document of the wrong kind', () => {

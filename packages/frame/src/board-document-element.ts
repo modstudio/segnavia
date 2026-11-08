@@ -5,7 +5,17 @@ import type { BrandsOptions } from './brands.ts'
 
 export abstract class BoardDocumentElement extends BoardSelectionElement {
   private documentValue: Document | null = null
-  set brands(_value: BrandsOptions | undefined) {}
+  private brandOptions: BrandsOptions | undefined
+  protected get boardDocument(): Document | null {
+    return this.documentValue
+  }
+  get brands(): BrandsOptions | undefined {
+    return this.brandOptions
+  }
+  set brands(value: BrandsOptions | undefined) {
+    this.brandOptions = value
+    if (this.documentValue) this.acceptBoardInput(boardFromDocument(this.documentValue))
+  }
 
   get board(): Document | null {
     return this.documentValue

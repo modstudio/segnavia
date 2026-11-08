@@ -3,6 +3,8 @@ import {
   type BoardItemFact,
   type BoardView,
   type BookViewInput,
+  type Brand,
+  type BrandSource,
   type Deck,
   type Document,
   type DocumentInput,
@@ -15,6 +17,7 @@ import {
   type PixelSize,
   type Point,
   pageOrPrintedFromDocument,
+  resolveBrand,
   zoomAt,
 } from '@segnavia/format'
 import { type PlacementReport, parseDocument, type ResolvedPlacement, type ResolvePlacement } from '@segnavia/html'
@@ -78,6 +81,36 @@ export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): Che
     return { ...resolved, pages, designedCover }
   }
   return { ...resolved, designedCover } as CheckedResolvedBoardItem
+}
+
+export async function checkResolvedWithBrand(
+  item: BoardItem,
+  resolved: ResolvedBoardItem,
+  boardBrand: Promise<Brand | undefined>,
+  source: BrandSource | undefined,
+  signal: AbortSignal,
+): Promise<CheckedResolvedBoardItem> {
+  const checked = checkResolved(item, resolved)
+  const fallback = async (document: Document) => (await resolveBrand(document, source, signal)) ?? (await boardBrand)
+  if (resolved.kind === 'deck') {
+    const document = resolvedDocument(item, resolved.deck, ['deck'])
+    return { ...checked, kind: 'deck', deck: deckFromDocument(document, await fallback(document)) }
+  }
+  if (resolved.kind === 'page') {
+    const document = resolvedDocument(item, resolved.page, PAGE_OR_PRINTED_KINDS)
+    return { ...checked, kind: 'page', page: pageOrPrintedFromDocument(document, await fallback(document)) }
+  }
+  if (resolved.kind === 'paper') {
+    const pages = await Promise.all(
+      resolved.pages.map(async (page) => {
+        const document = resolvedDocument(item, page, PAGE_OR_PRINTED_KINDS)
+        return pageOrPrintedFromDocument(document, await fallback(document))
+      }),
+    )
+    return { ...checked, kind: 'paper', pages }
+  }
+  if (checked.kind === 'book' && checked.view.brand === undefined) return { ...checked, view: { ...checked.view, brand: await boardBrand } }
+  return checked
 }
 
 function resolvedDocument(item: BoardItem, input: DocumentInput, accepted: readonly Document['kind'][]): Document {

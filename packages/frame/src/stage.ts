@@ -207,9 +207,10 @@ export class SegnaviaStage extends HTMLElement {
     if (!src || !this.isConnected) return
     if (!this.owned) {
       const hash = this.getAttribute('hash')
-      this.owned = new DeckController({ hash: hash === 'off' ? null : (hash ?? 'slide-'), prefetch: this.hasAttribute('prefetch') })
+      this.owned = new DeckController({ hash: hash === 'off' ? null : (hash ?? 'slide-'), prefetch: this.hasAttribute('prefetch'), brands: this.brands })
       this.controller = this.owned
     }
+    this.owned.brands = this.brands
     void this.owned.loadUrl(src)
   }
 

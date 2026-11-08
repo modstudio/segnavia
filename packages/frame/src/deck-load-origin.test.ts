@@ -77,3 +77,21 @@ test('loading the same parsed Document keeps comparable content equal for every 
   expect(first.slides.every((slide) => 'kind' in slide.content && slide.content.kind === 'html' && slide.content.html.includes('data-segnavia-id'))).toBe(true)
   expect(values(first)).toEqual(values(second))
 })
+
+test('controller resolves a named brand before the first slide', async () => {
+  const controller = new DeckController({
+    hash: null,
+    brands: { source: { brand: async (name) => (name === 'house' ? { tokens: { colors: { ink: '#123456' } } } : undefined) } },
+  })
+  await controller.load({ ...documentInput(), brand: 'house' })
+  expect(controller.state.deck?.brand).toEqual({ tokens: { colors: { ink: '#123456' } } })
+})
+
+test.each([
+  [undefined, /without a BrandSource/],
+  [{ source: { brand: async () => undefined } }, /unknown to the BrandSource/],
+  [{ source: { brand: async () => ({ stray: true }) as never } }, /invalid style sheet.*stray/],
+] as const)('controller reports brand refusal %#', async (brands, message) => {
+  const controller = new DeckController({ hash: null, brands })
+  await expect(controller.load({ ...documentInput(), brand: 'house' })).rejects.toThrow(message)
+})

@@ -132,6 +132,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
     this.render()
   }
   protected acceptBoardInput(board: Board | null) {
+    this.resolutions.configure(this.boardDocument, this.brands)
     this.setBoardValue(board, true)
     this.editingHostValue?.(this.board)
   }

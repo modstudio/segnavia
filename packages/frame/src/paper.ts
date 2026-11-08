@@ -1,8 +1,18 @@
 // <segnavia-paper>: shows one paper of an imposition, scaled to the element's
 // width. It brings no appearance, only geometry, which a host can override.
 
-import { Imposition, type ImpositionInput, impose, type Page, type PageWidths, type SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
+import {
+  type Document,
+  Imposition,
+  type ImpositionInput,
+  impose,
+  type Page,
+  type PageWidths,
+  pageOrPrintedFromDocument,
+  resolveBrand,
+  type SlotsOptions,
+} from '@segnavia/format'
+import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
@@ -27,6 +37,7 @@ export class SegnaviaPaper extends HTMLElement {
   declare cspExtra: string
   declare dependencyOrigins: Iterable<string>
   private pages: HtmlPage[] = []
+  private brandDocuments: Document[] = []
   private imposition: Imposition | null = null
   private imposed: ReturnType<typeof impose> | null = null
   private paperIndex = 0
@@ -155,18 +166,20 @@ export class SegnaviaPaper extends HTMLElement {
   load(pageInputs: PageOrPrintedInput[], impositionInput: ImpositionInput): void {
     // Parse both inputs before changing state, so a refusal leaves the shown
     // paper untouched.
-    const pages = pageInputs.map((page) => resolvePageHtml(pageOrPrintedFromInput(page)))
+    const documents = pageInputs.map((page) => parseDocument(page))
+    const pages = documents.map((page) => resolvePageHtml(pageOrPrintedFromDocument(page)))
     const imposition = Imposition.parse(impositionInput)
-    this.loadValues(pages, imposition)
+    this.loadValues(pages, imposition, documents)
   }
 
-  private loadValues(pages: HtmlPage[], imposition: Imposition): void {
+  private loadValues(pages: HtmlPage[], imposition: Imposition, brandDocuments: Document[] = []): void {
     const imposed = impose(imposition, pages.length)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     const previousPapers = this.papers
     const previousPaper = this.paperIndex
     const previousSide = this.shownSide
     this.pages = pages
+    this.brandDocuments = brandDocuments
     this.imposition = imposition
     this.imposed = imposed
     this.paperIndex = clampPaper(this.paperIndex, imposed.papers)
@@ -241,6 +254,18 @@ export class SegnaviaPaper extends HTMLElement {
       this.resolvedGeneration = 0
       if (showOriginal && !this.motifOptions && !this.fontOptions) this.paintResolved(imposition, imposed)
       this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+    }
+    if (this.brandDocuments?.some((document) => document.brand !== undefined)) {
+      const documents = this.brandDocuments
+      void Promise.all(documents.map((document) => resolveBrand(document, this.brandOptions?.source, controller.signal)))
+        .then((brands) => {
+          if (!current()) return
+          this.brandDocuments = []
+          this.pages = pages.map((page, index) => ({ ...page, brand: brands[index] }))
+          this.paint()
+        })
+        .catch(report)
+      return
     }
     const continuePaint = (shown: HtmlPage[]) => {
       const refusal = shown.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)

@@ -1,6 +1,7 @@
-import { type BoardItem, pageOrPrintedFromDocument } from '@segnavia/format'
+import { type BoardItem, type Brand, type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
 import { classifyMediaAnswer, parseDocument, type ResolvePlacement } from '@segnavia/html'
-import { type CheckedResolvedBoardItem, checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
+import { type CheckedResolvedBoardItem, checkResolvedWithBrand, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
+import type { BrandsOptions } from './brands.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
 
@@ -34,7 +35,18 @@ interface BoardResolutionEntry {
 
 export class BoardResolutions {
   resolver: ResolveBoardItem | undefined
+  private brands: BrandsOptions | undefined
+  private controller = new AbortController()
+  private boardBrand: Promise<Brand | undefined> = Promise.resolve(undefined)
   private readonly entries = new Map<string, BoardResolutionEntry>()
+
+  configure(document: Document | null, brands: BrandsOptions | undefined) {
+    this.controller.abort()
+    this.controller = new AbortController()
+    this.brands = brands
+    this.boardBrand = document ? resolveBrand(document, brands?.source, this.controller.signal) : Promise.resolve(undefined)
+    this.entries.clear()
+  }
 
   keep(items: readonly BoardItem[]) {
     const kinds = new Map(items.map((item) => [item.address, item.kind]))
@@ -52,8 +64,8 @@ export class BoardResolutions {
     this.entries.set(item.address, entry)
     Promise.resolve()
       .then(() => this.resolver?.(item) as Promise<ResolvedBoardItem>)
-      .then((value) => {
-        const checked = checkResolved(item, value)
+      .then(async (value) => {
+        const checked = await checkResolvedWithBrand(item, value, this.boardBrand, this.brands?.source, this.controller.signal)
         entry.value = checked
         resolved(item, checked)
       })

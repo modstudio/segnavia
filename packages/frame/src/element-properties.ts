@@ -76,10 +76,10 @@ export const ELEMENT_PROPERTIES = {
   ),
   document: descriptor(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths'],
+    ['css', 'cspExtra', 'dependencyOrigins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'placements', 'pageWidths'],
     [],
   ),
-  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'brands', 'motifs', 'placements', 'pageWidths', 'dependencyOrigins'], []),
+  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'dependencyOrigins'], []),
   player: descriptor(
     STYLED_ELEMENTS.player,
     ['labels', 'css', 'cspExtra', 'dependencyOrigins', 'resolveSlide', 'placements', 'transition', 'slots'],

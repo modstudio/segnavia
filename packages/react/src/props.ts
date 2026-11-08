@@ -145,7 +145,6 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
 export interface BookProps extends ElementProps<SegnaviaBook> {
   view?: SegnaviaBook['view']
   fonts?: SegnaviaBook['fonts']
-  brands?: SegnaviaBook['brands']
   motifs?: SegnaviaBook['motifs']
   placements?: SegnaviaBook['placements']
   pageWidths?: SegnaviaBook['pageWidths']
@@ -180,7 +179,6 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   slots?: SegnaviaDocument['slots']
   motifs?: SegnaviaDocument['motifs']
   fonts?: SegnaviaDocument['fonts']
-  brands?: SegnaviaDocument['brands']
   placements?: SegnaviaDocument['placements']
   pageWidths?: SegnaviaDocument['pageWidths']
   unstyled?: boolean

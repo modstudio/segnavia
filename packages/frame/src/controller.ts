@@ -9,10 +9,10 @@ import { ControllerPlayback } from './controller-playback.ts'
 import { type ContentRefreshResult, refreshControllerContent } from './controller-refresh.ts'
 import { resolveFreshContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
-import { internalDeckLoad } from './deck-load-origin.ts'
+import { internalDeckLoad, resolveDeckLoad } from './deck-load-origin.ts'
 import { type DeckAction, keyAction } from './keys.ts'
 import { navigationError } from './navigation-error.ts'
-import { addNavigationGuard, type NavigationGuardReason, parseDeckLoad, runNavigationGuard } from './navigation-guard.ts'
+import { addNavigationGuard, type NavigationGuardReason, runNavigationGuard } from './navigation-guard.ts'
 import { limitNavigation, slideRequest } from './navigation-limit.ts'
 import { hasWindow } from './schedule.ts'
 import { deckTimeline, positionAt, slideDurationMs } from './timeline.ts'
@@ -75,6 +75,9 @@ export class DeckController extends EventTarget {
   set resolveSlide(resolve: ControllerOptions['resolveSlide']) {
     this.options.resolveSlide = resolve
   }
+  set brands(value: ControllerOptions['brands']) {
+    this.options.brands = value
+  }
   get resolveSlide(): ControllerOptions['resolveSlide'] {
     return this.options.resolveSlide
   }
@@ -122,7 +125,7 @@ export class DeckController extends EventTarget {
     const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
     if (guarded) await guarded
     if (base) this.options.base = base
-    const deck = parseDeckLoad(input, guarded, internal)
+    const deck = await resolveDeckLoad(input, this.options.brands?.source, this.placementLifetime.signal, guarded, internal)
     this.placementLifetime = replacePlacementLifetime(this.placementLifetime)
     this.prefetched.clear()
     this.shots.clear()
