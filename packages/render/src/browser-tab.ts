@@ -176,7 +176,9 @@ export async function renderInBrowserTab<T>(
   await setup.beforeOutput?.(tab)
   refuseMissing()
   try {
-    return await body(tab)
+    const result = await body(tab)
+    refuseMissing()
+    return result
   } finally {
     controller.abort()
   }
