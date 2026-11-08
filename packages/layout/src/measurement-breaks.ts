@@ -14,6 +14,9 @@ export function measurementsWithBreaks(measurements: Measurements, breaks: strin
         },
   )
   const missing = breaks.find((id) => remaining.has(id))
-  if (missing !== undefined) throw new Error(`break ${missing} names no block in this book; remove it from breaks to clear this refusal`)
+  if (missing !== undefined)
+    throw new Error(
+      `break ${missing} names no measured flowing block; remove it from breaks, or compute a new plan when it came from a saved plan, to clear this refusal`,
+    )
   return { ...measurements, flows }
 }

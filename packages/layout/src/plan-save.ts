@@ -155,6 +155,11 @@ function noteRefusal(page: number, id: string): ReplayPlanResult {
   }
 }
 
+// The composer selects a page's content by its flow, so a saved page may name only a measured flow.
+function validateFlow(measurements: Measurements, page: PlanPage, pageNumber: number): ReplayPlanResult | undefined {
+  if (!measurements.flows.some((flow) => flow.id === page.flow)) return fieldRefusal(pageNumber, 'flow', `names missing flow ${JSON.stringify(page.flow)}`)
+}
+
 function validateStart(measurements: Measurements, page: PlanPage, pageNumber: number): ReplayPlanResult | undefined {
   const first = page.windows[0]
   if (!first) return page.start === undefined ? undefined : fieldRefusal(pageNumber, 'start', 'must be absent when the page has no flowing window')
@@ -216,7 +221,10 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
   for (const [index, page] of saved.pages.entries()) {
     const pageNumber = index + 1
     const invalid =
-      validateStart(measurements, page, pageNumber) ?? validateWindows(measurements, page, pageNumber) ?? validateNotes(measurements, page, pageNumber)
+      validateFlow(measurements, page, pageNumber) ??
+      validateStart(measurements, page, pageNumber) ??
+      validateWindows(measurements, page, pageNumber) ??
+      validateNotes(measurements, page, pageNumber)
     if (invalid) return invalid
     if (page.fingerprint !== pageFingerprint(measurements, page, saved.pages, index)) {
       return fingerprintRefusal(measurements, saved, page, pageNumber, index)
@@ -243,6 +251,7 @@ export function savedPlanScript(): string {
     noteRefusal,
     flowRemainders,
     noteRemainders,
+    validateFlow,
     validateStart,
     validateWindows,
     validateNotes,

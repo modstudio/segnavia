@@ -14,6 +14,6 @@ test('sets breakBefore by measured block id without changing other blocks', () =
 
 test('refuses a break id that names no measured block', () => {
   expect(() => measurementsWithBreaks(input({ flows: [] }), ['missing'])).toThrow(
-    'break missing names no block in this book; remove it from breaks to clear this refusal',
+    'break missing names no measured flowing block; remove it from breaks, or compute a new plan when it came from a saved plan, to clear this refusal',
   )
 })

@@ -85,3 +85,21 @@ test('bookPlan measures the host-filled text that bookPdf prints', async () => {
 
   expect(html).toContain('Lincoln School')
 })
+
+test('bookPlan refuses a continuous book before opening a tab', async () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'continuous',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
+    chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+  })
+  let opened = false
+
+  await expect(
+    renderBrowserBookPlan(book, {}, '', async () => {
+      opened = true
+      throw new Error('no tab expected')
+    }),
+  ).rejects.toThrow('bookPlan needs a paginated book; set mode to paginated to clear this refusal')
+  expect(opened).toBe(false)
+})

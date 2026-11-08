@@ -118,6 +118,21 @@ describe('saved book plans', () => {
     }
   })
 
+  test('refuses a saved page whose flow is not measured, before the composer selects by it', () => {
+    const measurements = hebrewMeasurements()
+    const saved = savePlan(measurements, planned(measurements), numbering)
+    const forged = structuredClone(saved)
+    const page = forged.pages[1]
+    if (!page) throw new Error('missing saved page')
+    page.flow = 'other"]'
+
+    expect(replayPlan(measurements, forged, numbering)).toEqual({
+      ok: false,
+      page: 2,
+      refusal: 'pages.1.flow names missing flow "other\\"]"; compute a new plan to clear this refusal',
+    })
+  })
+
   test('refuses an in-range saved start that no longer begins its page', () => {
     const measurements = hebrewMeasurements()
     const saved = savePlan(measurements, planned(measurements), numbering)
