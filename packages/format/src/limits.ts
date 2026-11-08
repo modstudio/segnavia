@@ -140,15 +140,15 @@ function refuseUnknownKeys(source: Record<string, unknown>, allowed: readonly st
   throw new RangeError(messages.join(' '))
 }
 
-function parsedAssetLimits(value: unknown, subject: string): Partial<Record<AssetMeasure, number>> {
+function parsedNestedLimits<T extends string>(value: unknown, measures: readonly T[], subject: string, prefix: 'localFonts' | 'assets'): Partial<Record<T, number>> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    throw new RangeError(`The ${subject} limits.assets limit must be an object; pass valid limits.assets to clear this refusal.`)
+    throw new RangeError(`The ${subject} limits.${prefix} limit must be an object; pass valid limits.${prefix} to clear this refusal.`)
   }
   const source = value as Record<string, unknown>
-  refuseUnknownKeys(source, ASSET_MEASURES, subject, 'assets')
-  const parsed: Partial<Record<AssetMeasure, number>> = {}
-  for (const measure of ASSET_MEASURES) {
-    if (source[measure] !== undefined) parsed[measure] = parsedInteger(source[measure], `limits.assets.${measure}`, subject)
+  refuseUnknownKeys(source, measures, subject, prefix)
+  const parsed: Partial<Record<T, number>> = {}
+  for (const measure of measures) {
+    if (source[measure] !== undefined) parsed[measure] = parsedInteger(source[measure], `limits.${prefix}.${measure}`, subject)
   }
   return parsed
 }
@@ -165,18 +165,10 @@ export function parseLimits(input: unknown, subject: string): Limits | undefined
     if (source[measure] !== undefined) parsed[measure] = parsedInteger(source[measure], `limits.${measure}`, subject)
   }
   if (source.localFonts !== undefined) {
-    if (typeof source.localFonts !== 'object' || source.localFonts === null || Array.isArray(source.localFonts)) {
-      throw new RangeError(`The ${subject} limits.localFonts limit must be an object; pass valid limits.localFonts to clear this refusal.`)
-    }
-    const fonts = source.localFonts as Record<string, unknown>
-    refuseUnknownKeys(fonts, LOCAL_FONT_MEASURES, subject, 'localFonts')
-    parsed.localFonts = {}
-    for (const measure of LOCAL_FONT_MEASURES) {
-      if (fonts[measure] !== undefined) parsed.localFonts[measure] = parsedInteger(fonts[measure], `limits.localFonts.${measure}`, subject)
-    }
+    parsed.localFonts = parsedNestedLimits(source.localFonts, LOCAL_FONT_MEASURES, subject, 'localFonts')
   }
   if (source.assets !== undefined) {
-    parsed.assets = parsedAssetLimits(source.assets, subject)
+    parsed.assets = parsedNestedLimits(source.assets, ASSET_MEASURES, subject, 'assets')
   }
   return parsed
 }
