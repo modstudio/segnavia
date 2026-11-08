@@ -3,6 +3,7 @@ import {
   appendMeasuredBlock,
   composerScript,
   decideBookMeasurement,
+  inlineTileCount,
   measuredBlockConstraints,
   measuredKeepRuns,
   noteFragmentExtent,
@@ -115,6 +116,15 @@ describe('block keeps', () => {
     const script = composerScript('{"pageMarker":"data-segnavia-printed-page"}')
     expect(script).not.toContain('data-segnavia-book-page')
   })
+
+  test('holds note clones at the measured text width', () => {
+    expect(composerScript('{}')).toContain("clone.style.inlineSize='100%'")
+  })
+})
+
+test('counts inline paper tiles from the measured extent', () => {
+  expect(inlineTileCount(100, 100)).toBe(1)
+  expect(inlineTileCount(250, 100)).toBe(3)
 })
 
 test('lists exactly the unmeasured source flows in order', () => {

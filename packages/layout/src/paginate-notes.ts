@@ -1,3 +1,4 @@
+import { measuredExtentFits } from './paginate-measure.ts'
 import type { PaginateNote, PaginateNotesOp, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
 
 export function paginateNotes(payload: Extract<PaginateNotesOp, { op: 'space' }>): number
@@ -71,12 +72,12 @@ export function paginateNotes(
         continue
       }
       const whole = makeFragment(item.id, item.start, total)
-      if (measure([], [...fragments, whole]) <= textHeight) {
+      if (measuredExtentFits(measure([], [...fragments, whole]), textHeight)) {
         fragments.push(whole)
         continue
       }
       let end = item.start
-      while (end < total && measure([], [...fragments, makeFragment(item.id, item.start, end + 1)]) <= textHeight) end += 1
+      while (end < total && measuredExtentFits(measure([], [...fragments, makeFragment(item.id, item.start, end + 1)]), textHeight)) end += 1
       if (end > item.start) fragments.push(makeFragment(item.id, item.start, end))
       if (end < total) leftover.push(makeFragment(item.id, end, total))
       pending = false
@@ -88,17 +89,17 @@ export function paginateNotes(
     const total = noteEnd(id)
     if (total === 0) return undefined
     const whole = makeFragment(id, 0, total)
-    if (measure(trial, [...fragments, whole]) <= textHeight) return whole
+    if (measuredExtentFits(measure(trial, [...fragments, whole]), textHeight)) return whole
     const minimum = Math.min(2, total)
-    if (measure(trial, [...fragments, makeFragment(id, 0, minimum)]) > textHeight) return undefined
+    if (!measuredExtentFits(measure(trial, [...fragments, makeFragment(id, 0, minimum)]), textHeight)) return undefined
     let end = minimum
-    while (end < total && measure(trial, [...fragments, makeFragment(id, 0, end + 1)]) <= textHeight) end += 1
+    while (end < total && measuredExtentFits(measure(trial, [...fragments, makeFragment(id, 0, end + 1)]), textHeight)) end += 1
     return makeFragment(id, 0, end)
   }
 
   function allocateNotes(placed: PaginateUnit[], existing: PaginatePageNote[], unit: PaginateUnit): PaginatePageNote[] | undefined {
     const trial = [...placed, unit]
-    if (measure(trial, existing) > textHeight) return undefined
+    if (!measuredExtentFits(measure(trial, existing), textHeight)) return undefined
     const fragments = existing.slice()
     for (const id of unit.refs) {
       if (fragments.some((fragment) => fragment.id === id)) continue

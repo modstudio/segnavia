@@ -1,6 +1,7 @@
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { paginateMarks } from './paginate-marks.ts'
+import { LAYOUT_UNIT_PX, measuredExtentFits } from './paginate-measure.ts'
 import { paginateNotes } from './paginate-notes.ts'
 import { paginateSequence } from './paginate-sequence.ts'
 import type { PaginateBlock, PaginateBookInput, PaginateBookRefusal, PaginateBookResult, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
@@ -57,7 +58,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
   }
 
   function lineTooTall(unit: PaginateUnit, textHeight: number): boolean {
-    return unit.bottom - unit.top > textHeight
+    return !measuredExtentFits(unit.bottom - unit.top, textHeight)
   }
 
   function greedyFill(placed: PaginateUnit[], fragments: PaginatePageNote[], units: PaginateUnit[], index: number, textHeight: number) {
@@ -118,6 +119,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
 
 // Ordered for embedding: each function calls only the others by name.
 export const PAGINATE_FUNCTIONS = [
+  measuredExtentFits,
   printedPageAt,
   selectBookParent,
   paginateColumns,
@@ -129,5 +131,5 @@ export const PAGINATE_FUNCTIONS = [
 ]
 
 export function paginateScript(): string {
-  return `${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar paginateBook=${paginateBook.name};`
+  return `var LAYOUT_UNIT_PX=${LAYOUT_UNIT_PX};\n${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar paginateBook=${paginateBook.name};`
 }

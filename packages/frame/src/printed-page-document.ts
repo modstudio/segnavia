@@ -190,6 +190,7 @@ export function printedPageValueDocument(
     only: options.only ?? null,
     expectedCount: options.expectedCount ?? null,
     measure: options.measure ?? false,
+    inlineOverflow: 'tile',
     numbering,
     parents,
     rules,

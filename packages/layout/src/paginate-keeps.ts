@@ -1,4 +1,5 @@
 import { paginateColumns } from './paginate-columns.ts'
+import { measuredExtentFits } from './paginate-measure.ts'
 import type { PaginateBlock, PaginateUnit } from './paginate-types.ts'
 
 export function paginateKeeps(placed: PaginateUnit[], next: PaginateUnit | undefined, textHeight: number, allowEmpty?: boolean): PaginateUnit[] {
@@ -31,7 +32,7 @@ export function paginateKeeps(placed: PaginateUnit[], next: PaginateUnit | undef
 
   function keepTogether(block: PaginateBlock): boolean {
     if (!block.keepTogether) return false
-    return layoutHeight(block) <= textHeight
+    return measuredExtentFits(layoutHeight(block), textHeight)
   }
 
   function runHeight(block: PaginateBlock, start: number, end: number): number {
@@ -41,7 +42,7 @@ export function paginateKeeps(placed: PaginateUnit[], next: PaginateUnit | undef
 
   function fittingRun(block: PaginateBlock, index: number): { start: number; end: number } | undefined {
     return block.keepRuns
-      ?.filter((run) => run.start <= index && index < run.end && runHeight(block, run.start, run.end) <= textHeight)
+      ?.filter((run) => run.start <= index && index < run.end && measuredExtentFits(runHeight(block, run.start, run.end), textHeight))
       .sort((left, right) => right.end - right.start - (left.end - left.start))[0]
   }
 
