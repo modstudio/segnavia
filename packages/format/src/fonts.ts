@@ -135,12 +135,17 @@ function faceKey(face: Pick<FontDeclaration, 'weight' | 'style' | 'unicodeRange'
   return JSON.stringify([weightKey(face.weight), face.style ?? 'normal', face.unicodeRange?.replace(/\s/g, '').toUpperCase() ?? ''])
 }
 
+function faceMatches(declaration: FontDeclaration, supplied: FontFace): boolean {
+  if (weightKey(declaration.weight) !== weightKey(supplied.weight) || (declaration.style ?? 'normal') !== (supplied.style ?? 'normal')) return false
+  return supplied.unicodeRange === undefined || faceKey(declaration) === faceKey(supplied)
+}
+
 export function matchFaces(declared: readonly FontDeclaration[], supplied: readonly FontFace[]): { faces: FontFace[]; unsupplied: FontDeclaration[] } {
   const remaining = [...supplied]
   const faces: FontFace[] = []
   const unsupplied: FontDeclaration[] = []
   for (const declaration of declared) {
-    const index = remaining.findIndex((face) => faceKey(face) === faceKey(declaration))
+    const index = remaining.findIndex((face) => faceMatches(declaration, face))
     if (index < 0) unsupplied.push(declaration)
     else faces.push(...remaining.splice(index, 1))
   }

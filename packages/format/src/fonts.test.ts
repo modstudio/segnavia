@@ -58,6 +58,13 @@ describe('FontManifest', () => {
     expect(matchFaces([{ weight: 400 }, { weight: 300 }], [regular, bold])).toEqual({ faces: [regular, bold], unsupplied: [{ weight: 300 }] })
   })
 
+  test('matches a ranged Hebrew declaration to a supplied face with no range', () => {
+    const supplied = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const }
+    const declaration = FontManifest.parse({ body: { faces: [{ script: 'hebrew' }] } }).body
+    if (!('faces' in declaration)) throw new Error('expected app font declaration')
+    expect(matchFaces(declaration.faces, [supplied])).toEqual({ faces: [supplied], unsupplied: [] })
+  })
+
   test('samples Hebrew ranges with letters, nikud and taamim', () => {
     const sample = rangeSample(HEBREW_UNICODE_RANGE)
     expect(sample).toMatch(/[\u05d0-\u05ea]/)
