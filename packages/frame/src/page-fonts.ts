@@ -84,7 +84,7 @@ export function requireAppFontName(name: string, place: string): void {
 }
 
 function unsupplied(font: string, family: string, faces: readonly FontDeclaration[]): FontFailure[] {
-  return (faces.length > 0 ? faces : [{}]).map(({ script: _script, ...face }) => ({ font, family, ...face, reason: 'unsupplied' as const }))
+  return faces.map(({ script: _script, ...face }) => ({ font, family, ...face, reason: 'unsupplied' as const }))
 }
 
 export async function resolveFontReferences(declarations: FontManifest, fonts: FontsOptions, signal: AbortSignal, place: string): Promise<ResolvedFonts> {
@@ -100,7 +100,7 @@ export async function resolveFontReferences(declarations: FontManifest, fonts: F
     const font = await fonts.source.font(name, { signal })
     signal.throwIfAborted()
     if (!font) {
-      failures.push(...unsupplied(name, name, declaration.faces))
+      failures.push(...unsupplied(name, name, declaration.faces.length > 0 ? declaration.faces : [{}]))
       continue
     }
     const matched = matchFaces(declaration.faces, font.faces)
@@ -141,7 +141,8 @@ export async function expandedPagesFontCss(
   signal: AbortSignal,
   place = 'page',
 ): Promise<ResolvedFonts> {
-  const declarations = expanded.reduce<FontManifest>((result, item) => fontManifestWithReferences({ ...result, ...item.page.style?.fonts }, item.fonts), {})
+  const declarations: FontManifest = {}
+  for (const item of expanded) Object.assign(declarations, item.page.style?.fonts, fontManifestWithReferences(undefined, item.fonts))
   if (!fonts) {
     refuseMissingFontSource(declarations, place)
     return { css: '', failures: [] }

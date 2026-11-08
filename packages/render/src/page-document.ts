@@ -13,7 +13,7 @@ import {
 } from '@segnavia/format'
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
-import { fontManifestReferences, fontManifestWithReferences, FontRefusedError, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
+import { FontRefusedError, fontManifestReferences, fontManifestWithReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
@@ -80,7 +80,8 @@ export async function prepareRenderedPages(
   options: RenderOptions,
   signal: AbortSignal,
 ): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
-  const declarations = expanded.reduce<FontManifest>((result, item) => fontManifestWithReferences({ ...result, ...item.page.style?.fonts }, item.fonts), {})
+  const declarations: FontManifest = {}
+  for (const item of expanded) Object.assign(declarations, item.page.style?.fonts, fontManifestWithReferences(undefined, item.fonts))
   const references = fontManifestReferences(declarations)
   const local = localFontsForRender(options.localFonts, references, resolveLimits(undefined, options.limits).localFonts)
   const resolved = await fontCssForRender(resolveRenderFontReferences(declarations, options.fontSource, local.faces, signal, 'page'))

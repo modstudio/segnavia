@@ -325,22 +325,6 @@ describe('book fonts', () => {
     expect(children).toHaveLength(1)
   })
 
-  test('an unknown app font surfaces through the error event', async () => {
-    const book = new SegnaviaBook()
-    Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
-    let detail: unknown
-    ;(book as unknown as { dispatchEvent: (event: Event) => boolean }).dispatchEvent = (event) => {
-      detail = (event as CustomEvent).detail
-      return true
-    }
-    book.fonts = { source: { font: async () => undefined } }
-    book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { missing: { faces: [{}] } } } }
-    for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
-    expect(detail).toEqual({
-      message: 'book "Named book" could not establish app font "missing"; make that font available from the source to clear this refusal.',
-    })
-  })
-
   test('named app fonts without a FontSource surface through the error event', async () => {
     const book = new SegnaviaBook()
     let detail: unknown

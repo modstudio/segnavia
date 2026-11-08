@@ -23,7 +23,12 @@ describe('Page and Book fonts', () => {
     expect(Page.parse({ html: '', style: { fonts: { serif: { faces: [{}] } } } }).style?.fonts).toEqual({ serif: { faces: [{}] } })
     expect(
       Book.parse(
-        identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'One', html: '<p>Text</p>' }], style: { fonts: { serif: { faces: [{}] } } } }),
+        identifiedBookInput({
+          title: 'Book',
+          mode: 'continuous',
+          chapters: [{ title: 'One', html: '<p>Text</p>' }],
+          style: { fonts: { serif: { faces: [{}] } } },
+        }),
       ).style?.fonts,
     ).toEqual({ serif: { faces: [{}] } })
   })

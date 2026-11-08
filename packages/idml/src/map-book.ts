@@ -1,4 +1,13 @@
-import { Book, BookItem, type BookSectionParents, defaultNewId, type FontReference, MM_PER_PT, type ParentPage, type Book as SegnaviaBook } from '@segnavia/format'
+import {
+  Book,
+  BookItem,
+  type BookSectionParents,
+  defaultNewId,
+  type FontReference,
+  MM_PER_PT,
+  type ParentPage,
+  type Book as SegnaviaBook,
+} from '@segnavia/format'
 import { findActiveContent, parseDocument } from '@segnavia/html'
 import { anchoredFrameStyle } from './anchored-frames.ts'
 import { chapterOpenings } from './chapter-openings.ts'
@@ -45,7 +54,9 @@ function anchoredFrameIssue(frame: IdmlAnchoredFrame, storyPages: { has(story: s
 
 function importedStyle(css: string, references: FontReference[]): SegnaviaBook['style'] {
   if (!css && references.length === 0) return undefined
-  const fonts = Object.fromEntries(references.map((reference, index) => ('app' in reference ? [reference.app, { faces: [{}] }] : [`local-${index}`, reference])))
+  const fonts = Object.fromEntries(
+    references.map((reference, index) => ('app' in reference ? [reference.app, { faces: [{}] }] : [`local-${index}`, reference])),
+  )
   return { ...(css ? { css } : {}), ...(references.length > 0 ? { fonts } : {}) }
 }
 

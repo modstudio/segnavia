@@ -133,11 +133,7 @@ describe('importIdml', () => {
     expect(result.book.style?.css).toContain('font-family:var(--segnavia-font-body);font-weight:600')
     expect(result.book.style?.css).toContain('font-family:"Installed Display", var(--segnavia-font-body);font-weight:700;font-style:italic')
     expect(
-      fontReferenceRefusals(
-        `<style>${result.book.style?.css}</style>`,
-        [{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }],
-        new Set(['body']),
-      ),
+      fontReferenceRefusals(`<style>${result.book.style?.css}</style>`, [{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }], new Set(['body'])),
     ).toEqual([])
   })
 
