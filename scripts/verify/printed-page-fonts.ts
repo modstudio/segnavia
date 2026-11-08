@@ -3,17 +3,15 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { type DocumentInput, type FontFailure, type FontSource, HEBREW_UNICODE_RANGE } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
-import { fontRows } from './hebrew-text.ts'
+import { BIDI_CONTROLS, fontRows } from './hebrew-text.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 const FACE = path.resolve(import.meta.dirname, '../../fixtures/hebrew-notice/NotoSerifHebrew-Regular.ttf')
 const HEBREW = 'בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים'
-const BIDI_CONTROLS = /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/u
-
 function codePointMultiset(value: string): string {
   return [...value.normalize('NFD')]
-    .filter((character) => !/\s/u.test(character) && !BIDI_CONTROLS.test(character))
+    .filter((character) => !/\s/u.test(character) && character.replace(BIDI_CONTROLS, '') === character)
     .map((character) => character.codePointAt(0) ?? 0)
     .sort((left, right) => left - right)
     .join(',')
