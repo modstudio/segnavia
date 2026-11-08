@@ -193,6 +193,23 @@ describe('Document lowering', () => {
     expect(bookFromDocument(document)).toEqual({ ...expected, limits: { pages: 120 } })
   })
 
+  test('carries section numbering into the lowered book section', () => {
+    const document = Document.parse({
+      type: 'document',
+      kind: 'book',
+      title: 'Book',
+      mode: 'continuous',
+      children: [
+        { type: 'section', title: 'Cover', numbering: { counted: false }, children: [{ type: 'flow', html: '<p>Cover</p>' }] },
+        { type: 'section', title: 'Text', numbering: { restart: 4 }, children: [{ type: 'flow', html: '<p>Text</p>' }] },
+      ],
+    })
+    expect(bookFromDocument(document).body.map((section) => ('numbering' in section ? section.numbering : undefined))).toEqual([
+      { counted: false },
+      { restart: 4 },
+    ])
+  })
+
   test('round-trips board edits through a Document with a root title', () => {
     const expected = Board.parse({
       title: 'Board demo',

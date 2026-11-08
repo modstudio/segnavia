@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 
@@ -43,6 +44,7 @@ const sectionFields = {
   contents: z.boolean().default(true),
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
+  numbering: SectionNumbering.optional(),
 }
 
 const partFields = {
@@ -83,6 +85,7 @@ export const BookContents = z.object({
   title: z.string().optional(),
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
+  numbering: SectionNumbering.optional(),
 })
 export type BookContents = z.infer<typeof BookContents>
 
@@ -101,6 +104,7 @@ export const Chapter = z.object({
   runningHead: z.string().optional(),
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
+  numbering: SectionNumbering.optional(),
 })
 export type Chapter = z.infer<typeof Chapter>
 

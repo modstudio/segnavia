@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { BookOpens, BookSectionParents } from './book-section.ts'
 import { TextDirection } from './direction.ts'
+import { SectionNumbering } from './folio.ts'
 import { BOOK_PARENT_NAMES } from './printed-pages.ts'
 
 export const PaginateLine = z.object({ top: z.number(), bottom: z.number() })
@@ -39,6 +40,7 @@ const PaginateFlowBase = {
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
   parts: z.record(z.string(), z.string()).optional(),
+  numbering: SectionNumbering.optional(),
 }
 
 export const PaginateFlow = z.discriminatedUnion('kind', [

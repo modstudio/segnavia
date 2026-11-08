@@ -27,6 +27,7 @@ import {
   designedSection,
   flowAttribs,
   markPlacementIssues,
+  numberingAttribs,
   sectionNode,
   templatedSection,
   templatedSectionIssues,
@@ -62,7 +63,7 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
       document.children,
       build,
       runningHead,
-      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index) }),
+      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index), ...numberingAttribs(chapter.numbering) }),
     ),
   }
 }

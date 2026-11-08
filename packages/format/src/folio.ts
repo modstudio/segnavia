@@ -9,6 +9,27 @@ export const Numbering = z.object({
 })
 export type Numbering = z.infer<typeof Numbering>
 
+export const SectionNumbering = z
+  .object({
+    counted: z.literal(false).optional(),
+    restart: z
+      .number()
+      .int('restart must be a positive integer; set restart to a positive integer to clear this refusal')
+      .positive('restart must be a positive integer; set restart to a positive integer to clear this refusal')
+      .max(Number.MAX_SAFE_INTEGER, 'restart must be a positive integer; set restart to a positive safe integer to clear this refusal')
+      .optional(),
+  })
+  .superRefine((numbering, ctx) => {
+    if (numbering.counted === false && numbering.restart !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['restart'],
+        message: 'numbering cannot set counted: false together with restart; remove one of them to clear this refusal',
+      })
+    }
+  })
+export type SectionNumbering = z.infer<typeof SectionNumbering>
+
 export interface NumberedPage {
   numbering: Numbering
 }

@@ -273,7 +273,7 @@ async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options:
   rewriteBookLinks(document, 0, new Map(), printed.destinations)
   const built = bookDocument(book)
   if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
-  writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations })
+  writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations, folios: options.plan?.folios })
   const output = await adapter.finish(await setPdfPageSize(await document.save(), sheetMm(book.page)), options)
   options.overflow?.report?.({ entries: printed.overflow ? [printed.overflow] : [] })
   return output

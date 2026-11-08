@@ -23,6 +23,12 @@ export function outlineTitle(title: string, dir: Book['dir'], lang: Book['lang']
   return markedTitle(title, resolveDirection(dir, lang, title))
 }
 
+export function writePlanFolios(document: PDFDocument, folios: readonly (string | null)[]): void {
+  if (folios.length === 0) return
+  const numbers = folios.flatMap((folio, index) => [PDFNumber.of(index), document.context.obj({ P: PDFHexString.fromText(folio ?? '') })])
+  document.catalog.set(key('PageLabels'), document.context.obj({ Nums: numbers }))
+}
+
 export function bookOutline(headings: BookHeading[], destinations: Map<string, BookDestination>): BookOutlineItem[] {
   const roots: BookOutlineItem[] = []
   const stack: Array<{ level: number; item: BookOutlineItem }> = []
@@ -78,8 +84,12 @@ function writeSiblings(
   return { first: references[0] as PDFRef, last: references.at(-1) as PDFRef }
 }
 
-export function writeBookStructure(document: PDFDocument, input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book }): void {
+export function writeBookStructure(
+  document: PDFDocument,
+  input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book; folios?: readonly (string | null)[] },
+): void {
   writeDocumentMetadata(document, input.book)
+  if (input.folios) writePlanFolios(document, input.folios)
 
   const outline = bookOutline(input.headings, input.destinations)
   if (outline.length === 0) return

@@ -15,6 +15,6 @@ export function planBook(
 ): { ok: true; plan: BookPlan } | { ok: false; refusals: PaginateBookRefusal[] } {
   const paginated = paginateBook(measurements)
   if (paginated.refusals.length > 0) return { ok: false, refusals: paginated.refusals }
-  const numbered = bookPlanFolios(paginated.pages, numbering)
+  const numbered = bookPlanFolios(paginated.pages, numbering, measurements.flows)
   return { ok: true, plan: { pages: paginated.pages, ...numbered } }
 }

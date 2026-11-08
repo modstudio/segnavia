@@ -69,7 +69,7 @@ const PlanShape = z.object({
   fingerprint: z.string(),
   breaks: z.array(z.string()),
   pages: z.array(PlanPage),
-  folios: z.array(z.string()),
+  folios: z.array(z.string().nullable()),
   total: z.string(),
 })
 

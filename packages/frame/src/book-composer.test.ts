@@ -219,3 +219,8 @@ test('refuses a page reference beyond the computed folios', () => {
     refusal: 'page reference target appendix lands on page 501, beyond the 500 computed folios; shorten the book to 500 pages or fewer to clear this refusal',
   })
 })
+
+test('renders no contents folio for an uncounted target', () => {
+  expect(pageReferenceFolio('cover', 1, [null, 'i'])).toEqual({ folio: '' })
+  expect(pageReferenceFolio('contents', 2, [null, 'i'])).toEqual({ folio: 'i' })
+})

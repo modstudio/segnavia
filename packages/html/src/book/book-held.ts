@@ -9,6 +9,7 @@ import {
   motifFieldAttribute,
   type ParentPage,
   REGION_NAME,
+  type SectionNumbering,
   type TemplatedSection,
 } from '@segnavia/format'
 import type { ChildNode, Element } from 'domhandler'
@@ -23,11 +24,19 @@ export interface BuiltSection {
   node: ReturnType<typeof element>
 }
 
-export function authoredSection(section: Pick<BookSection, 'html' | 'title' | 'opens' | 'parents'>, id: string, build: BookBuild): BuiltSection {
+export function authoredSection(section: Pick<BookSection, 'html' | 'title' | 'opens' | 'parents' | 'numbering'>, id: string, build: BookBuild): BuiltSection {
   const document = parse(section.html)
   const runningHead = section.title
-  const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents))
+  const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents, numberingAttribs(section.numbering)))
   return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead }, node }
+}
+
+export function numberingAttribs(numbering?: SectionNumbering): Record<string, string> {
+  if (!numbering) return {}
+  return {
+    ...(numbering.counted === false ? { 'data-numbering-counted': 'false' } : {}),
+    ...(numbering.restart === undefined ? {} : { 'data-numbering-restart': String(numbering.restart) }),
+  }
 }
 
 export function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}): Record<string, string> {
@@ -111,6 +120,7 @@ export function designedSection(
   geometry?: BookFlowPageGeometry,
 ): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(entry.opens, entry.parents, {
+    ...numberingAttribs(entry.numbering),
     'data-segnavia-kind': 'fixed',
     ...(kind === 'front' ? { 'data-sequence': 'front' } : {}),
   })
@@ -234,6 +244,7 @@ export function templatedSection(
   geometry?: BookFlowPageGeometry,
 ): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(entry.opens, entry.parents, {
+    ...numberingAttribs(entry.numbering),
     'data-segnavia-kind': 'templated',
     'data-template': entry.template,
     ...(kind === 'front' ? { 'data-sequence': 'front' } : {}),

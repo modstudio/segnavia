@@ -168,7 +168,15 @@ export { type RebaseResult, rebaseOps } from './document-rebase.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
-export { computeFolios, type Folio, folioScript, type NumberedPage, Numbering, sequenceFolios } from './folio.ts'
+export {
+  computeFolios,
+  type Folio,
+  folioScript,
+  type NumberedPage,
+  Numbering,
+  SectionNumbering,
+  sequenceFolios,
+} from './folio.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
 export { type ResolvedFontFace, resolveFontFace } from './font-face.ts'
 export { FontFaceRefusedError } from './font-refusal.ts'

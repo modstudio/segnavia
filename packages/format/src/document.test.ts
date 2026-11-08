@@ -156,17 +156,6 @@ describe('Document', () => {
           {
             type: 'section',
             title: 'One',
-            numbering: { system: 'arabic', start: 2, restart: false, counted: true },
-            children: [{ type: 'flow', html: '' }],
-          },
-        ],
-      },
-      {
-        ...root,
-        children: [
-          {
-            type: 'section',
-            title: 'One',
             children: [
               { type: 'flow', html: '' },
               { type: 'placed', kind: 'page', address: 'x' },
@@ -183,6 +172,21 @@ describe('Document', () => {
       { ...root, children: [{ type: 'section', title: 'One', children: [{ type: 'flow', title: 'Two', html: '' }] }] },
     ]
     for (const value of values) expect(() => Document.parse(value)).toThrow('clear this refusal')
+  })
+
+  test('accepts section numbering and refuses contradictory or invalid values with a remedy', () => {
+    const section = (numbering: unknown) => ({
+      type: 'document' as const,
+      kind: 'book' as const,
+      title: 'Book',
+      mode: 'continuous' as const,
+      children: [{ type: 'section' as const, title: 'One', numbering, children: [{ type: 'flow' as const, html: '' }] }],
+    })
+    expect(Document.parse(section({ counted: false })).children[0]).toMatchObject({ numbering: { counted: false } })
+    expect(Document.parse(section({ restart: 4 })).children[0]).toMatchObject({ numbering: { restart: 4 } })
+    expect(() => Document.parse(section({ restart: 0 }))).toThrow('set restart to a positive integer to clear this refusal')
+    expect(() => Document.parse(section({ restart: 1.5 }))).toThrow('set restart to a positive integer to clear this refusal')
+    expect(() => Document.parse(section({ counted: false, restart: 4 }))).toThrow('remove one of them to clear this refusal')
   })
 
   test('refuses nested root fields that each profile does not lower', () => {

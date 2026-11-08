@@ -93,10 +93,6 @@ function visibleTitle(document: z.infer<typeof DocumentShape>): boolean {
   return document.metadata?.title !== undefined || document.title !== undefined
 }
 
-function unsupported(path: (string | number)[], subject: string, ctx: z.RefinementCtx): void {
-  ctx.addIssue({ code: 'custom', path, message: `${subject} is not yet supported; remove it to clear this refusal` })
-}
-
 function walk(nodes: DocumentNodeValue[], visit: (node: DocumentNodeValue, path: (string | number)[]) => void, path: (string | number)[] = ['children']): void {
   nodes.forEach((node, index) => {
     const nodePath = [...path, index]
@@ -139,7 +135,6 @@ function refineSectionNode(node: Extract<DocumentNodeValue, { type: 'section' }>
       ctx.addIssue({ code: 'custom', path: [...path, field], message: `section field ${field} is not yet supported; remove it to clear this refusal` })
     }
   }
-  if (node.numbering !== undefined) unsupported([...path, 'numbering'], 'section field numbering', ctx)
 }
 
 function refineNodes(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
