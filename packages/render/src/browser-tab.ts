@@ -45,10 +45,11 @@ export async function assetRouteDecision(
   origins: Iterable<OriginApproval> | undefined,
   lookup: Assets | undefined,
   signal: AbortSignal,
+  scripts = true,
 ): Promise<AssetRouteDecision> {
   if (url.startsWith('data:') || url === 'about:blank') return { action: 'continue' }
   if (!kind) return { action: 'abort', reason: `${url} uses unsupported fetching; no asset kind can approve it` }
-  const policy = originDecision(url, kind, origins)
+  const policy = originDecision(url, kind, origins, scripts)
   if (!policy.allowed) return { action: 'abort', reason: policy.reason }
   const answer = await lookup?.(url, { kind, signal })
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
@@ -100,7 +101,7 @@ export async function renderInBrowserTab<T>(
   await context.route('**/*', async (route) => {
     const url = route.request().url()
     const kind = fetchKind(route.request().resourceType())
-    const decision = await assetRouteDecision(url, kind, setup.origins, setup.assets, controller.signal)
+    const decision = await assetRouteDecision(url, kind, setup.origins, setup.assets, controller.signal, setup.scripts)
     if (decision.action === 'continue') await route.continue()
     else if (decision.action === 'abort') {
       refused.add(decision.reason)

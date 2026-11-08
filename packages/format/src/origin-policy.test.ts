@@ -9,6 +9,12 @@ describe('origin policy', () => {
     expect(originDecision('https://example.com/image.png', 'image', []).allowed).toBe(false)
   })
 
+  test('script approvals exist only for scripted frames', () => {
+    const url = 'https://cdn.jsdelivr.net/npm/example@1.2.3/index.js'
+    expect(originDecision(url, 'script', undefined, true).allowed).toBe(true)
+    expect(originDecision(url, 'script', [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] }], false).allowed).toBe(false)
+  })
+
   test('host approvals add kinds without replacing defaults', () => {
     const approvals: OriginApproval[] = [{ origin: 'https://assets.example', kinds: ['image', 'style'] }]
     expect(originDecision('https://assets.example/a.png', 'image', approvals).allowed).toBe(true)

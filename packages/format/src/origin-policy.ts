@@ -37,8 +37,9 @@ export function originSet(values: Iterable<string> | undefined, bare = false): S
   return result
 }
 
-export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind): Set<string> {
+export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts = true): Set<string> {
   const result = new Set<string>()
+  if (kind === 'script' && !scripts) return result
   for (const approval of [...DEFAULT_ORIGINS, ...(approvals ?? [])]) {
     if (!approval.kinds.includes(kind)) continue
     const origins = originSet([approval.origin], true)
@@ -47,7 +48,7 @@ export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined,
   return result
 }
 
-export function originDecision(value: string, kind: FetchKind, approvals: Iterable<OriginApproval> | undefined): OriginDecision {
+export function originDecision(value: string, kind: FetchKind, approvals: Iterable<OriginApproval> | undefined, scripts = true): OriginDecision {
   let url: URL
   try {
     url = new URL(value)
@@ -55,7 +56,7 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
     return { allowed: false, reason: `${JSON.stringify(value)} is not an absolute https URL; an absolute URL at an approved origin clears this refusal` }
   }
   const origin = url.origin.toLowerCase()
-  if (url.protocol !== 'https:' || !approvedOrigins(approvals, kind).has(origin)) {
+  if (url.protocol !== 'https:' || !approvedOrigins(approvals, kind, scripts).has(origin)) {
     return {
       allowed: false,
       reason: `${url.href} at origin ${origin} is not approved for ${kind}; add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,

@@ -18,7 +18,7 @@ export function comparableContent(
   origins: Iterable<OriginApproval> | undefined = undefined,
 ): ContentValue {
   const resolved = content.kind === 'url' || content.kind === 'image' || content.kind === 'shot' ? { ...content, src: resolveUrl(content.src) } : content
-  const policy = FETCH_KINDS.map((kind) => `${kind}:${[...approvedOrigins(origins, kind)].sort().join(',')}`).join(';')
+  const policy = FETCH_KINDS.map((kind) => `${kind}:${[...approvedOrigins(origins, kind, scripts === 'sandboxed')].sort().join(',')}`).join(';')
   return { content: resolved, scripts, css, cspExtra, origins: policy }
 }
 

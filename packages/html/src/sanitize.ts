@@ -166,7 +166,7 @@ function assetAttribute(
   else if (tag === 'img' && attribute === 'src') kind = 'image'
   if (!kind) return undefined
   if (kind === 'image' && safeImageSource(value)) return ''
-  const decision = originDecision(value, kind, options.origins)
+  const decision = originDecision(value, kind, options.origins, options.keepScripts === true)
   return decision.allowed ? '' : decision.reason
 }
 
@@ -203,7 +203,7 @@ function styleText(element: Element): string {
 function assetCss(source: string, declarations: boolean, options: SanitizeOptions): ReturnType<typeof sanitizeCss> {
   const restores: string[] = []
   const hold = (url: string, kind: FetchKind) => {
-    const decision = originDecision(url, kind, options.origins)
+    const decision = originDecision(url, kind, options.origins, options.keepScripts === true)
     if (!decision.allowed) return url
     const index = restores.push(url) - 1
     return `data:image/segnavia-dependency-${index},x`
