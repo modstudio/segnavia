@@ -18,8 +18,9 @@ const facts = {
 }
 
 describe('decideBookMeasurement', () => {
-  test('waits without a bound while the frame has no layout', () => {
-    expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 2_000 }, 1_000)).toBe('wait-for-width')
+  test('retries a galley without layout within the bound and refuses it at the bound', () => {
+    expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 999 }, 1_000)).toBe('retry')
+    expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 1_000 }, 1_000)).toBe('refuse')
   })
 
   test('retries deferred line measurement and page planning within the bound', () => {

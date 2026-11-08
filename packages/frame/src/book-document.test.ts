@@ -14,6 +14,7 @@ import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, P
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
 import { MESSAGE } from './bridge.ts'
+import type { forcedPageBreak } from './composer-measure.ts'
 
 const book = parseBookFixture({
   title: 'Book',
@@ -55,12 +56,13 @@ describe('bookDocument', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement}`)() as {
+    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak}`)() as {
       flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
       unmeasuredFlows: typeof unmeasuredFlows
       decideBookMeasurement: typeof decideBookMeasurement
+      forcedPageBreak: typeof forcedPageBreak
     }
     expect(
       embedded.flowTextArea(
@@ -77,6 +79,7 @@ describe('bookDocument', () => {
     const flows = [{ id: 'chapter-1', sourceBlocks: 1, contentBlocks: 1, measuredLines: 0 }]
     expect(embedded.unmeasuredFlows(flows)).toEqual(['chapter-1'])
     expect(embedded.decideBookMeasurement({ hasLayout: true, flows, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
+    expect(embedded.forcedPageBreak('recto')).toBe(true)
   })
 
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {
@@ -97,11 +100,11 @@ describe('bookDocument', () => {
     expect(COMPOSER_SCRIPT).toContain('paginateBook')
     expect(COMPOSER_SCRIPT).toContain(computeFolios.toString())
     expect(COMPOSER_SCRIPT).toContain('fillBookFurniture')
-    expect(COMPOSER_SCRIPT).toContain('fillPrintedPage')
+    expect(COMPOSER_SCRIPT).toContain('fillFurniture')
     expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
     expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
     expect(COMPOSER_SCRIPT).toContain('parent.textArea')
-    expect(COMPOSER_SCRIPT).toContain("flows[f].style.setProperty('--segnavia-text-height',area.height+'px')")
+    expect(COMPOSER_SCRIPT).toContain('sizeFlowGalley(flows[f],area.width,area.height,config.orphans,config.widows)')
     expect(COMPOSER_SCRIPT).toContain("note.style.setProperty('--segnavia-text-height',area.height+'px')")
     expect(COMPOSER_SCRIPT).toContain('data-segnavia-table-header')
     expect(COMPOSER_SCRIPT).toContain('for(var w=0;w<page.windows.length;w++)')

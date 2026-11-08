@@ -181,6 +181,7 @@ export function printedPageValueDocument(
     runningHead: {},
     parentNames,
     pageMarker: 'data-segnavia-printed-page',
+    refusalSubject: 'The printed page',
     limit: limits.pages,
     limitRefusal: {
       template: limitRefusalTemplate('pages', limits.pages, { pagesSource: limits.pagesSource }),

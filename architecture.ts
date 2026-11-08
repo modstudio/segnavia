@@ -121,6 +121,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/layout-settle.ts',
       'src/book-composer.ts',
       'src/composer-measure.ts',
+      'src/composer-dress.ts',
       'src/composer.ts',
       'src/book-presentation.ts',
       'src/book-document.ts',

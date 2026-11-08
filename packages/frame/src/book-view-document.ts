@@ -66,6 +66,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
       placeholder: LIMIT_ACTUAL_PLACEHOLDER,
     },
     pageMarker: 'data-segnavia-book-page',
+    refusalSubject: 'The book',
     only: null,
     expectedCount: null,
     measure: false,
