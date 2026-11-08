@@ -6,6 +6,7 @@ import { SlotFillRefusedError } from './slot-render.ts'
 test('a scripted slot fill refuses before an unresolved declared font', async () => {
   const page: HtmlPage = {
     html: '<p data-slot-value="name">Authored</p>',
+    size: { width: 'full', height: 'auto' },
     scripts: 'sandboxed',
     slots: [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'wrap' }],
     style: { fonts: { missing: { faces: [{}] } } },
