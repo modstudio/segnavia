@@ -39,6 +39,9 @@ function parsePrint(setting: 'sheet' | 'notesPaper', input: PrintInput): Print {
 
 export function deckSheetGeometry(size: Deck['size'], sheet: DeckSheetPrint | undefined): DeckSheetGeometry | undefined {
   if (!sheet) return undefined
+  const allowed = new Set(['bleed', 'safe', 'marks', 'markColor'])
+  const unknown = Object.keys(sheet).find((key) => !allowed.has(key))
+  if (unknown) throw invalidSetting('sheet', unknown, 'is not a supported press field')
   const width = size.width / PX_PER_MM
   const height = size.height / PX_PER_MM
   const print = parsePrint('sheet', {
