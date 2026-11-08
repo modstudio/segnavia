@@ -17,6 +17,41 @@ export async function verifyOfflineRender(
     const result = await refusal(work)
     check(what, result.startsWith('refused:') && result.includes(url) && hits() === 0, `${result}; requests=${hits()}`)
   }
+  const serviceWorkerUrl = 'https://service-worker.example/sw.js'
+  let serviceWorkerOutcome = 'not observed'
+  let serviceWorkerLookups = 0
+  const serviceWorkerRender = await refusal(
+    renderer.pagePdf(
+      screenPage(
+        {
+          html: `<p id="outcome">pending</p><script>
+const finish=value=>{document.getElementById('outcome').textContent=value;pageReady()}
+if(!navigator.serviceWorker)finish('unavailable')
+else navigator.serviceWorker.register('${serviceWorkerUrl}').then(()=>finish('registered'),error=>finish('blocked:'+error.name))
+</script>`,
+        },
+        { settings: { scripts: 'sandboxed' }, size: { width: 400, height: 200 } },
+      ),
+      {
+        origins: [{ origin: 'https://service-worker.example', kinds: ['script'] }],
+        assets: async () => {
+          serviceWorkerLookups++
+          return { body: new TextEncoder().encode('self.addEventListener("fetch",()=>{})'), contentType: 'text/javascript' }
+        },
+        beforeOutput: async (tab) => {
+          serviceWorkerOutcome = (await tab.locator('#outcome').textContent()) ?? 'missing'
+        },
+      },
+    ),
+  )
+  check(
+    'a scripted render blocks service-worker registration without making a request',
+    serviceWorkerRender === 'rendered' &&
+      (serviceWorkerOutcome === 'unavailable' || serviceWorkerOutcome.startsWith('blocked:')) &&
+      serviceWorkerLookups === 0 &&
+      hits() === 0,
+    `${serviceWorkerRender}; outcome=${serviceWorkerOutcome}; assets=${serviceWorkerLookups}; requests=${hits()}`,
+  )
   await checkOfflineRefusal(
     'pagePdf refuses an unapproved asset without reaching the network',
     renderer.pagePdf(screenPage({ html }, { settings: { scripts: 'sandboxed' } }), { waitForPageReady: false }),
