@@ -107,7 +107,11 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
       const next = recto.plan.pages[blank + 1]
       check(
         `${key} recto opener inserts an undressed blank verso before the direction's recto`,
-        blank >= 0 && recto.plan.folios[blank] === null && (recto.pages[blank] ?? '').trim() === '' && next?.face === 'recto' && next.side === (hebrew ? 'left' : 'right'),
+        blank >= 0 &&
+          recto.plan.folios[blank] === null &&
+          (recto.pages[blank] ?? '').trim() === '' &&
+          next?.face === 'recto' &&
+          next.side === (hebrew ? 'left' : 'right'),
         `${blankDetail(recto.plan, blank)}, next-face=${next?.face}, next-side=${next?.side}, compared-direction=${hebrew ? 'rtl' : 'ltr'}`,
       )
     } finally {
