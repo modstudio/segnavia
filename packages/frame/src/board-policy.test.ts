@@ -1,13 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import type { BoardItem } from '@segnavia/format'
-import { Cover, MAX_BOARD_ZOOM, MIN_BOARD_ZOOM } from '@segnavia/format'
+import type { BoardItem, Document } from '@segnavia/format'
+import { Cover, MAX_BOARD_ZOOM, MIN_BOARD_ZOOM, resolveBrand } from '@segnavia/format'
 import {
   BOARD_ZOOM_FACTOR,
   boardItemFact,
   boardShapeFacts,
   boardTier,
   checkResolved,
-  checkResolvedWithBrand,
   keyToView,
   pinchOf,
   shouldMountItem,
@@ -110,9 +109,10 @@ describe('board policy', () => {
     }
     const signal = new AbortController().signal
     const resolved = (brand?: string) => ({ ...documentInputForBoard(), brand })
-    const boardBrand = Promise.resolve({ brand: await source.brand('board') })
-    const inherited = await checkResolvedWithBrand(deckItem, { kind: 'deck', deck: resolved() }, boardBrand, source, signal)
-    const overridden = await checkResolvedWithBrand(deckItem, { kind: 'deck', deck: resolved('item') }, boardBrand, source, signal)
+    const boardBrand = await source.brand('board')
+    const resolveItemBrand = async (document?: Document) => (document ? ((await resolveBrand(document, source, signal)) ?? boardBrand) : boardBrand)
+    const inherited = await checkResolved(deckItem, { kind: 'deck', deck: resolved() }, resolveItemBrand)
+    const overridden = await checkResolved(deckItem, { kind: 'deck', deck: resolved('item') }, resolveItemBrand)
     expect(inherited.kind === 'deck' ? inherited.deck.brand : undefined).toEqual(await source.brand('board'))
     expect(overridden.kind === 'deck' ? overridden.deck.brand : undefined).toEqual(await source.brand('item'))
   })

@@ -4,7 +4,6 @@ import {
   type BoardView,
   type BookViewInput,
   type Brand,
-  type BrandSource,
   type Deck,
   type Document,
   type DocumentInput,
@@ -17,7 +16,6 @@ import {
   type PixelSize,
   type Point,
   pageOrPrintedFromDocument,
-  resolveBrand,
   zoomAt,
 } from '@segnavia/format'
 import { type PlacementReport, parseDocument, type ResolvedPlacement, type ResolvePlacement } from '@segnavia/html'
@@ -29,8 +27,6 @@ interface ResolvedBase {
   cover?: string
   designedCover?: DesignedCover
 }
-
-export type BoardBrandResolution = { brand: Brand | undefined } | { error: unknown }
 
 export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'deck'; deck: DocumentInput; resolveSlide?: ControllerOptions['resolveSlide']; base?: string })
@@ -66,61 +62,46 @@ function checkSize(kind: ResolvedBoardItem['kind'], size: PixelSize) {
   }
 }
 
-export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): CheckedResolvedBoardItem {
+type ResolveBoardBrand = (document?: Document) => Promise<Brand | undefined>
+
+export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): CheckedResolvedBoardItem
+export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem, resolveItemBrand: ResolveBoardBrand): Promise<CheckedResolvedBoardItem>
+export function checkResolved(
+  item: BoardItem,
+  resolved: ResolvedBoardItem,
+  resolveItemBrand?: ResolveBoardBrand,
+): CheckedResolvedBoardItem | Promise<CheckedResolvedBoardItem> {
   const expected = item.kind === 'media' ? 'image' : item.kind
   if (resolved.kind !== expected) throw new Error(`The resolved item kind is ${resolved.kind}, not ${expected}; return a resolved ${expected}.`)
   if (resolved.kind === 'image' || resolved.kind === 'shot') checkSize(resolved.kind, { width: resolved.width, height: resolved.height })
   else if (resolved.kind !== 'deck') checkSize(resolved.kind, resolved.size)
   const designedCover = resolved.designedCover && parseDesignedCover(resolved.designedCover, `The resolved board item "${item.id}"`)
-  if (resolved.kind === 'deck') return { ...resolved, deck: deckFromDocument(resolvedDocument(item, resolved.deck, ['deck'])), designedCover }
-  if (resolved.kind === 'page')
-    return { ...resolved, page: pageOrPrintedFromDocument(resolvedDocument(item, resolved.page, PAGE_OR_PRINTED_KINDS)), designedCover }
-  if (resolved.kind === 'paper') {
-    const pages = resolved.pages.map((page) => {
-      const document = resolvedDocument(item, page, PAGE_OR_PRINTED_KINDS)
-      return pageOrPrintedFromDocument(document)
-    })
-    return { ...resolved, pages, designedCover }
-  }
-  return { ...resolved, designedCover } as CheckedResolvedBoardItem
-}
-
-export async function checkResolvedWithBrand(
-  item: BoardItem,
-  resolved: ResolvedBoardItem,
-  boardBrand: Promise<BoardBrandResolution>,
-  source: BrandSource | undefined,
-  signal: AbortSignal,
-): Promise<CheckedResolvedBoardItem> {
-  const checked = checkResolved(item, resolved)
-  const fallbackBrand = async () => {
-    const result = await boardBrand
-    if ('error' in result) throw result.error
-    return result.brand
-  }
-  const fallback = async (document: Document) => (await resolveBrand(document, source, signal)) ?? (await fallbackBrand())
   if (resolved.kind === 'deck') {
-    const deck = checked as Extract<CheckedResolvedBoardItem, { kind: 'deck' }>
     const document = resolvedDocument(item, resolved.deck, ['deck'])
-    return { ...deck, deck: deckFromDocument(document, await fallback(document)) }
+    const lower = (brand?: Brand) => ({ ...resolved, deck: deckFromDocument(document, brand), designedCover })
+    return resolveItemBrand ? resolveItemBrand(document).then(lower) : lower()
   }
   if (resolved.kind === 'page') {
-    const page = checked as Extract<CheckedResolvedBoardItem, { kind: 'page' }>
     const document = resolvedDocument(item, resolved.page, PAGE_OR_PRINTED_KINDS)
-    return { ...page, page: pageOrPrintedFromDocument(document, await fallback(document)) }
+    const lower = (brand?: Brand) => ({ ...resolved, page: pageOrPrintedFromDocument(document, brand), designedCover })
+    return resolveItemBrand ? resolveItemBrand(document).then(lower) : lower()
   }
   if (resolved.kind === 'paper') {
-    const paper = checked as Extract<CheckedResolvedBoardItem, { kind: 'paper' }>
-    const pages = await Promise.all(
-      resolved.pages.map(async (page) => {
-        const document = resolvedDocument(item, page, PAGE_OR_PRINTED_KINDS)
-        return pageOrPrintedFromDocument(document, await fallback(document))
-      }),
-    )
-    return { ...paper, pages }
+    const documents = resolved.pages.map((page) => resolvedDocument(item, page, PAGE_OR_PRINTED_KINDS))
+    if (resolveItemBrand) {
+      return Promise.all(documents.map(async (document) => pageOrPrintedFromDocument(document, await resolveItemBrand(document)))).then((pages) => ({
+        ...resolved,
+        pages,
+        designedCover,
+      }))
+    }
+    return { ...resolved, pages: documents.map((document) => pageOrPrintedFromDocument(document)), designedCover }
   }
-  if (checked.kind === 'book' && checked.view.brand === undefined) return { ...checked, view: { ...checked.view, brand: await fallbackBrand() } }
-  return checked
+  const checked = { ...resolved, designedCover } as CheckedResolvedBoardItem
+  if (checked.kind === 'book' && checked.view.brand === undefined && resolveItemBrand) {
+    return resolveItemBrand().then((brand) => ({ ...checked, view: { ...checked.view, brand } }))
+  }
+  return resolveItemBrand ? Promise.resolve(checked) : checked
 }
 
 function resolvedDocument(item: BoardItem, input: DocumentInput, accepted: readonly Document['kind'][]): Document {

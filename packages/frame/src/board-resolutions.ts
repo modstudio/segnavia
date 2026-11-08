@@ -1,9 +1,10 @@
-import { type BoardItem, type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
+import { type BoardItem, type Brand, type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
 import { classifyMediaAnswer, parseDocument, type ResolvePlacement } from '@segnavia/html'
-import { type BoardBrandResolution, type CheckedResolvedBoardItem, checkResolvedWithBrand, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
+import { type CheckedResolvedBoardItem, checkResolved, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
+type BoardBrandResolution = { brand: Brand | undefined } | { error: unknown }
 
 export function boardItemFrom(resolve: ResolvePlacement<ResolvedAsset>, signal?: AbortSignal): ResolveBoardItem {
   return async (item) => {
@@ -76,7 +77,14 @@ export class BoardResolutions {
     Promise.resolve()
       .then(() => this.resolver?.(item) as Promise<ResolvedBoardItem>)
       .then(async (value) => {
-        const checked = await checkResolvedWithBrand(item, value, this.boardBrand, this.brands?.source, this.controller.signal)
+        const fallbackBrand = async () => {
+          const result = await this.boardBrand
+          if ('error' in result) throw result.error
+          return result.brand
+        }
+        const checked = await checkResolved(item, value, async (document) =>
+          document ? ((await resolveBrand(document, this.brands?.source, this.controller.signal)) ?? (await fallbackBrand())) : fallbackBrand(),
+        )
         entry.value = checked
         resolved(item, checked)
       })
