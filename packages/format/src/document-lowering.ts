@@ -39,6 +39,7 @@ function sectionFields(section: Extract<ParsedNode, { type: 'section' }>) {
     contents: section.contents,
     opens: section.opens === 'continue' ? undefined : section.opens,
     parents: section.parents,
+    numbering: section.numbering,
   })
 }
 
@@ -93,7 +94,8 @@ function partItem(part: Extract<ParsedNode, { type: 'part' }>, division: 'front'
 function bookItem(node: ParsedNode, division: 'front' | 'body' | 'end'): BookItem {
   if (node.type === 'part') return partItem(node, division)
   if (node.type === 'section') return sectionItem(node, division)
-  if (node.type === 'contents') return defined({ id: node.id, kind: 'contents', title: node.title, opens: node.opens, parents: node.parents }) as BookItem
+  if (node.type === 'contents')
+    return defined({ id: node.id, kind: 'contents', title: node.title, opens: node.opens, parents: node.parents, numbering: node.numbering }) as BookItem
   if (node.type === 'flow') return defined({ id: node.id, title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem
   if (node.type === 'placed') return { id: node.id, kind: 'placed', contents: true, placement: placement(node) }
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)

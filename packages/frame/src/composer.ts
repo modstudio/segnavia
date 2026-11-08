@@ -41,6 +41,13 @@ export interface ScreenPresentation {
   reportPlace?: boolean
 }
 
+export function flowSectionNumbering(element: Pick<Element, 'getAttribute'>): { counted?: false; restart?: number } | undefined {
+  const counted = element.getAttribute('data-numbering-counted')
+  const restart = element.getAttribute('data-numbering-restart')
+  if (counted !== 'false' && restart === null) return undefined
+  return { counted: counted === 'false' ? false : undefined, restart: restart === null ? undefined : Number(restart) }
+}
+
 export interface FlowMeasurementFacts {
   id: string
   sourceBlocks: number
@@ -242,6 +249,7 @@ var config=${configJson};
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};
 ${layoutScript()}
 ${furnitureScript()}
+${embedFunction('flowSectionNumbering', flowSectionNumbering)}
 ${embeddedComposerFunctions()}
 ${embedFunction('heldPageNumber', heldPageNumber)}
 ${embedFunction('windowPageIndex', windowPageIndex)}
@@ -267,7 +275,7 @@ var blockKind=function(tag){if(/^h[1-6]$/.test(tag))return 'heading';if(tag==='t
 var chapterOf=function(element){return Number(element.getAttribute('data-segnavia-chapter')||0);};
 var flowKind=function(element){if(element.getAttribute('data-segnavia-kind')==='fixed')return 'fixed';if(element.getAttribute('data-segnavia-kind')==='templated')return 'templated';if(element.getAttribute('data-segnavia-kind')==='part')return 'part';if(element.classList.contains('segnavia-contents'))return 'contents';if(element.classList.contains('segnavia-front'))return 'front';if(element.classList.contains('segnavia-endnotes'))return 'endnotes';return 'chapter';};
 var parentsOf=function(element){if(!element)return null;var roles=['opener','recto','verso','blank','fixed'];var parents=null;for(var i=0;i<roles.length;i++){var name=element.getAttribute('data-parent-'+roles[i]);if(!name)continue;if(!parents)parents={};parents[roles[i]]=name;}return parents;};
-var withFlowMeta=function(flow,element){var opens=element.getAttribute('data-opens');if(opens)flow.opens=opens;var parents=parentsOf(element);if(parents)flow.parents=parents;var sequence=element.getAttribute('data-sequence');if(sequence)flow.sequence=sequence;var parts=element.getAttribute('data-segnavia-parts');if(parts)flow.parts=JSON.parse(parts);return flow;};
+var withFlowMeta=function(flow,element){var opens=element.getAttribute('data-opens');if(opens)flow.opens=opens;var parents=parentsOf(element);if(parents)flow.parents=parents;var sequence=element.getAttribute('data-sequence');if(sequence)flow.sequence=sequence;var parts=element.getAttribute('data-segnavia-parts');if(parts)flow.parts=JSON.parse(parts);var numbering=flowSectionNumbering(element);if(numbering)flow.numbering=numbering;return flow;};
 var measureMarks=function(block,lines,origin){var nodes=[];if(block.hasAttribute('data-mark'))nodes.push(block);var inner=block.querySelectorAll('[data-mark]');for(var i=0;i<inner.length;i++)nodes.push(inner[i]);var marks=[];for(var n=0;n<nodes.length;n++){var name=nodes[n].getAttribute('data-mark');if(!name)continue;var top=nodes[n].getBoundingClientRect().top-origin;marks.push({name:name,value:(nodes[n].textContent||'').replace(/\\s+/g,' ').trim(),line:lineIndex(top,lines)});}return marks;};
 var measureRefs=function(block,lines,origin){var nodes=block.querySelectorAll('.segnavia-note-ref > a');var refs=[];for(var i=0;i<nodes.length;i++){if(nodes[i].parentElement&&nodes[i].parentElement.hasAttribute('data-segnavia-note-repeat'))continue;var href=nodes[i].getAttribute('href')||'';if(href.charAt(0)!=='#')continue;var note=elementWithAttr(document,'data-segnavia-note',href.slice(1));if(!note||!note.closest('[data-segnavia-notes-galley]'))continue;var top=nodes[i].getBoundingClientRect().top-origin;refs.push({note:href.slice(1),line:lineIndex(top,lines)});}return refs;};
 var measureBlock=function(element,flowId,chapter,index,origin){var tag=element.tagName.toLowerCase();var lines=blockLines(element,origin);if(!lines.length)return null;var style=getComputedStyle(element);var keepWith=(style.getPropertyValue('--segnavia-keep-with')||'').trim();var columnsAttr=element.getAttribute('data-columns');var orphans=parseInt(style.orphans,10);var widows=parseInt(style.widows,10);var header=element.tHead?element.tHead.getBoundingClientRect().height:0;var block={kind:blockKind(tag),tag:tag,position:{chapter:chapter,block:index},lines:lines};var id=element.getAttribute('data-segnavia-id');if(id!==null)block.id=id;if(columnsAttr)block.columns=parseInt(columnsAttr,10);var constraints=measuredBlockConstraints(style.display,orphans,widows);if(constraints.orphans)block.orphans=constraints.orphans;if(constraints.widows)block.widows=constraints.widows;if(style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next')block.keepWithNext=true;if(style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous')block.keepWithPrevious=true;if(forcedPageBreak(style.breakBefore))block.breakBefore=true;if(forcedPageBreak(style.breakAfter))block.breakAfter=true;if(style.breakInside==='avoid'||style.pageBreakInside==='avoid')block.keepTogether=true;if(style.display==='table'||style.display==='inline-table'){var candidates=[];var groups=element.querySelectorAll('tr,thead,tfoot');for(var g=0;g<groups.length;g++){var groupStyle=getComputedStyle(groups[g]);var box=groups[g].getBoundingClientRect();candidates.push({avoid:groupStyle.breakInside==='avoid'||groupStyle.pageBreakInside==='avoid',top:box.top-origin,bottom:box.bottom-origin});}var runs=measuredKeepRuns(lines,candidates);if(runs.length)block.keepRuns=runs;}if(header>0)block.headerHeight=header;var refs=measureRefs(element,lines,origin);if(refs.length)block.footnoteRefs=refs;var marks=measureMarks(element,lines,origin);if(marks.length)block.marks=marks;return block;};

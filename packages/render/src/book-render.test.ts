@@ -1,9 +1,28 @@
 import { expect, test } from 'bun:test'
-import { StyleSheet } from '@segnavia/format'
+import { type Plan, StyleSheet } from '@segnavia/format'
 import { frameStyleSheets } from '@segnavia/frame/bridge'
 import { parseBookFixture } from '@segnavia/html'
+import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName } from 'pdf-lib'
 import { continuousBookNeedsScripts, lastBookPlanText, renderBrowserBookPdf, renderBrowserBookPlan, usesKeepWith } from './book-render.ts'
 import { RenderRefusedError } from './errors.ts'
+
+function planPage(number: number): Plan['pages'][number] {
+  return {
+    kind: 'body',
+    number,
+    sequence: 'body',
+    flow: 'one',
+    role: number === 1 ? 'opener' : 'body',
+    windows: [],
+    notes: [],
+    blank: false,
+    sectionOpening: number === 1,
+    parent: number === 1 ? 'segnavia:opener' : 'segnavia:recto',
+    face: number % 2 === 1 ? 'recto' : 'verso',
+    side: number % 2 === 1 ? 'right' : 'left',
+    fingerprint: `page-${number}`,
+  }
+}
 
 test('enables the continuous print bridge only when markup or a stylesheet declares a keep', () => {
   expect(usesKeepWith('<span style="--segnavia-keep-with:next">1</span> word')).toBe(true)
@@ -66,6 +85,75 @@ test('bookPlan reads its published carrier after an authored plan carrier', () =
   const root = { querySelectorAll: () => [authored, published] }
 
   expect(lastBookPlanText(root as unknown as ParentNode)).toBe(published.textContent)
+})
+
+test('bookPdf labels a fresh paginated composition from its published plan', async () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
+    chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+  })
+  const published = JSON.stringify({ version: 1, fingerprint: 'fresh', breaks: [], pages: [planPage(1), planPage(2)], folios: [null, '8'], total: '8' })
+  const output = await renderBrowserBookPdf(book, {}, '', {
+    render: async (setup) => {
+      await setup.beforeOutput?.({
+        waitForFunction: async () => undefined,
+        evaluate: async (_function: unknown, argument?: unknown) => (argument === undefined ? published : null),
+      } as never)
+      const document = await PDFDocument.create()
+      const first = document.addPage([419.53, 595.28])
+      document.addPage([419.53, 595.28])
+      document.catalog.set(PDFName.of('Dests'), document.context.obj({ one: [first.ref, PDFName.of('XYZ'), 0, first.getHeight(), null] }))
+      return {
+        bytes: await document.save(),
+        overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
+      }
+    },
+    fontFaces: () => '',
+    finish: async (pdf) => pdf,
+  })
+  const document = await PDFDocument.load(output)
+  const labels = document.catalog.lookup(PDFName.of('PageLabels')) as PDFDict
+  const numbers = labels.lookup(PDFName.of('Nums')) as PDFArray
+  expect((numbers.lookup(1) as PDFDict).lookup(PDFName.of('P'), PDFHexString).decodeText()).toBe('')
+  expect((numbers.lookup(3) as PDFDict).lookup(PDFName.of('P'), PDFHexString).decodeText()).toBe('8')
+})
+
+test('bookPdf labels a supplied plan without reading a carrier', async () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
+    chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+  })
+  const plan: Plan = { version: 1, fingerprint: 'saved', breaks: [], pages: [planPage(1)], folios: ['12'], total: '12' }
+  let carrierReads = 0
+  const output = await renderBrowserBookPdf(book, { plan }, '', {
+    render: async (setup) => {
+      await setup.beforeOutput?.({
+        waitForFunction: async () => undefined,
+        evaluate: async (_function: unknown, argument?: unknown) => {
+          if (argument === undefined) carrierReads += 1
+          return null
+        },
+      } as never)
+      const document = await PDFDocument.create()
+      const first = document.addPage([419.53, 595.28])
+      document.catalog.set(PDFName.of('Dests'), document.context.obj({ one: [first.ref, PDFName.of('XYZ'), 0, first.getHeight(), null] }))
+      return {
+        bytes: await document.save(),
+        overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
+      }
+    },
+    fontFaces: () => '',
+    finish: async (pdf) => pdf,
+  })
+  const document = await PDFDocument.load(output)
+  const labels = document.catalog.lookup(PDFName.of('PageLabels')) as PDFDict
+  const numbers = labels.lookup(PDFName.of('Nums')) as PDFArray
+  expect((numbers.lookup(1) as PDFDict).lookup(PDFName.of('P'), PDFHexString).decodeText()).toBe('12')
+  expect(carrierReads).toBe(0)
 })
 
 test('bookPlan measures the host-filled text that bookPdf prints', async () => {

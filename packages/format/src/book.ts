@@ -17,11 +17,12 @@ import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
-import { isHebrew, NoteMarker, NumberSystem } from './numbering.ts'
+import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Placement } from './placement.ts'
 import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
+import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
 
@@ -178,7 +179,6 @@ const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
 })
 
 const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
-  const hebrew = isHebrew(book.lang)
   const { chapters, ...fields } = book
   if (book.body !== undefined && chapters !== undefined) {
     ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
@@ -192,10 +192,7 @@ const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
     ...fields,
     body: book.body ?? chapters ?? [],
     bodyKey: book.body === undefined && chapters !== undefined ? ('chapters' as const) : ('body' as const),
-    numbering: {
-      frontMatter: book.numbering.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
-      body: book.numbering.body ?? (hebrew ? 'hebrew' : 'arabic'),
-    },
+    numbering: divisionNumbering(book.lang, book.numbering),
     footnotes: { ...book.footnotes, marker: footnote.marker },
     endnotes: { ...book.endnotes, marker: endnote.marker, title: endnote.title },
     notes,
@@ -245,6 +242,12 @@ function structuralBookIssues(book: z.infer<typeof ResolvedBook>): BookIssue[] {
 const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   const sections = bookSections(book)
+  const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
+    'numbering' in entry && entry.numbering !== undefined ? [{ id, title: entry.title, division, path, numbering: entry.numbering }] : [],
+  )
+  for (const issue of sectionNumberingIssues({ mode: book.mode, systems: book.numbering, sections: numberedSections, printedPageRules: false })) {
+    ctx.addIssue({ code: 'custom', ...issue })
+  }
   if (book.mode === 'paginated' && !book.page) {
     ctx.addIssue({ code: 'custom', path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   }

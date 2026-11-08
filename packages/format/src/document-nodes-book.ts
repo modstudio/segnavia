@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { BookRunningHeadSource } from './book.ts'
 import { BookOpens, BookSectionParents, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
 import { NodeId } from './document-nodes-common.ts'
-import { Numbering } from './folio.ts'
+import { SectionNumbering } from './folio.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
 
@@ -12,7 +12,7 @@ export const SectionFields = {
   subtitle: Subtitle.optional(),
   contents: z.boolean().default(true),
   opens: z.union([BookOpens, z.literal('continue')]).optional(),
-  numbering: Numbering.optional(),
+  numbering: SectionNumbering.optional(),
   parents: BookSectionParents.optional(),
   headTemplate: z.string().optional(),
   pageGeometry: z.string().optional(),
@@ -25,6 +25,7 @@ export const ContentsNode = NodeId.extend({
   pageNumbers: z.boolean().optional(),
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
+  numbering: SectionNumbering.optional(),
 })
 
 export const ParentPageNode = NodeId.extend({

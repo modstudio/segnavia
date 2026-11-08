@@ -1,8 +1,8 @@
 import {
   type Book,
+  type BookContents,
   type BookDivision,
   type BookSectionEntry,
-  type BookSectionParents,
   type BookTemplate,
   bookSections,
   type Chapter,
@@ -27,6 +27,7 @@ import {
   designedSection,
   flowAttribs,
   markPlacementIssues,
+  numberingAttribs,
   sectionHeading,
   sectionNode,
   templatedSection,
@@ -41,13 +42,13 @@ import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
 
-function contentsSection(entry: { id: string; title?: string; opens?: string; parents?: BookSectionParents }, build: BookBuild): BuiltSection {
+function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'parents' | 'numbering'>, build: BookBuild): BuiltSection {
   const { id } = entry
   const title = entry.title
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
   return {
     info: { id, kind: 'contents', division: 'front', title, runningHead: title },
-    node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parents)),
+    node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parents, numberingAttribs(entry.numbering))),
   }
 }
 
@@ -63,7 +64,7 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
       document.children,
       build,
       runningHead,
-      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index) }),
+      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index), ...numberingAttribs(chapter.numbering) }),
     ),
   }
 }

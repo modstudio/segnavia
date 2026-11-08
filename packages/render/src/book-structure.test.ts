@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { bookDocument, parseBookFixture } from '@segnavia/html'
-import { type PDFDict, PDFDocument, type PDFHexString, PDFName, type PDFNumber, PDFRef } from 'pdf-lib'
+import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName, type PDFNumber, PDFRef } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
-import { bookOutline, outlineTitle, writeBookStructure } from './book-structure.ts'
+import { bookOutline, outlineTitle, writeBookStructure, writePlanFolios } from './book-structure.ts'
 
 const at = (page: number): BookDestination => ({ page, x: 0, y: 700 })
 
@@ -66,6 +66,19 @@ test('direction marks appear only when natural and resolved directions differ', 
   expect(outlineTitle('Introduction', undefined, 'en')).toBe('Introduction')
   expect(outlineTitle('1948', undefined, 'he')).toBe('\u200f1948')
   expect(outlineTitle('1948', undefined, 'en')).toBe('1948')
+})
+
+test('writes plan folios as PDF page labels, including an uncounted page', async () => {
+  const document = await PDFDocument.create()
+  document.addPage()
+  document.addPage()
+  document.addPage()
+  writePlanFolios(document, [null, 'i', 'ii'])
+  const labels = document.catalog.lookup(PDFName.of('PageLabels')) as PDFDict
+  const numbers = labels.lookup(PDFName.of('Nums')) as PDFArray
+  expect((numbers.lookup(1) as PDFDict).lookup(PDFName.of('P'), PDFHexString).decodeText()).toBe('')
+  expect((numbers.lookup(3) as PDFDict).lookup(PDFName.of('P'), PDFHexString).decodeText()).toBe('i')
+  expect((numbers.lookup(5) as PDFDict).lookup(PDFName.of('P'), PDFHexString).decodeText()).toBe('ii')
 })
 
 test('the PDF adapter writes collapsed UTF-16 outlines and document metadata', async () => {

@@ -1,5 +1,5 @@
 import type { Book } from '@segnavia/format'
-import { PDFArray, PDFDict, type PDFDocument, PDFHexString, PDFName, PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
+import { PDFArray, PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -64,6 +64,21 @@ export function pdfOutlineItems(document: PDFDocument): OutlineItem[] {
   }
   const outlines = resolve(document, document.catalog.get(PDFName.of('Outlines')))
   if (outlines instanceof PDFDict) visit(outlines.get(PDFName.of('First')), 0)
+  return output
+}
+
+export function pdfPageLabels(document: PDFDocument): string[] {
+  const output = Array.from({ length: document.getPageCount() }, () => '')
+  const labels = resolve(document, document.catalog.get(PDFName.of('PageLabels')))
+  if (!(labels instanceof PDFDict)) return output
+  const numbers = resolve(document, labels.get(PDFName.of('Nums')))
+  if (!(numbers instanceof PDFArray)) return output
+  for (let offset = 0; offset + 1 < numbers.size(); offset += 2) {
+    const index = resolve(document, numbers.get(offset))
+    const label = resolve(document, numbers.get(offset + 1))
+    if (!(index instanceof PDFNumber) || !(label instanceof PDFDict)) continue
+    output[index.asNumber()] = textValue(resolve(document, label.get(PDFName.of('P')))) ?? ''
+  }
   return output
 }
 

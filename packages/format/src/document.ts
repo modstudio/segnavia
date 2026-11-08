@@ -8,11 +8,12 @@ import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { DocumentLimitsValue } from './limits.ts'
-import { NumberSystem } from './numbering.ts'
+import { divisionNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Print } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
+import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
@@ -93,16 +94,42 @@ function visibleTitle(document: z.infer<typeof DocumentShape>): boolean {
   return document.metadata?.title !== undefined || document.title !== undefined
 }
 
-function unsupported(path: (string | number)[], subject: string, ctx: z.RefinementCtx): void {
-  ctx.addIssue({ code: 'custom', path, message: `${subject} is not yet supported; remove it to clear this refusal` })
-}
-
 function walk(nodes: DocumentNodeValue[], visit: (node: DocumentNodeValue, path: (string | number)[]) => void, path: (string | number)[] = ['children']): void {
   nodes.forEach((node, index) => {
     const nodePath = [...path, index]
     visit(node, nodePath)
     if ('children' in node) walk(node.children, visit, [...nodePath, 'children'])
   })
+}
+
+function documentNumberedSections(document: DocumentShapeValue): SectionNumberingFact[] {
+  const sections: SectionNumberingFact[] = []
+  const collect = (nodes: DocumentNodeValue[], division: 'front' | 'body' | 'end', path: (string | number)[]): void => {
+    nodes.forEach((node, index) => {
+      const nodePath = [...path, index]
+      const heldDivision = node.type === 'division' ? node.name : division
+      if ((node.type === 'section' || node.type === 'contents') && node.numbering !== undefined) {
+        const id = node.id ?? node.title ?? nodePath.join('.')
+        sections.push({ id, title: node.title, division: heldDivision, path: nodePath, numbering: node.numbering })
+      }
+      if ('children' in node) collect(node.children, heldDivision, [...nodePath, 'children'])
+    })
+  }
+  collect(document.children, 'body', ['children'])
+  return sections
+}
+
+function refineSectionNumberingPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
+  if (document.kind !== 'book' || document.mode === undefined) return
+  const systems = divisionNumbering(document.settings?.lang, typeof document.numbering === 'object' ? document.numbering : undefined)
+  for (const issue of sectionNumberingIssues({
+    mode: document.mode,
+    systems,
+    sections: documentNumberedSections(document),
+    printedPageRules: document.rules !== undefined,
+  })) {
+    ctx.addIssue({ code: 'custom', ...issue })
+  }
 }
 
 type DocumentShapeValue = z.infer<typeof DocumentShape>
@@ -139,7 +166,6 @@ function refineSectionNode(node: Extract<DocumentNodeValue, { type: 'section' }>
       ctx.addIssue({ code: 'custom', path: [...path, field], message: `section field ${field} is not yet supported; remove it to clear this refusal` })
     }
   }
-  if (node.numbering !== undefined) unsupported([...path, 'numbering'], 'section field numbering', ctx)
 }
 
 function refineNodes(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
@@ -266,6 +292,7 @@ function refineProfileShape(document: DocumentShapeValue, profile: DocumentProfi
 
 const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
+  refineSectionNumberingPolicy(document, ctx)
   refineRootFields(document, profile, ctx)
   refineNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)

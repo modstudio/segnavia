@@ -69,7 +69,7 @@ const PlanShape = z.object({
   fingerprint: z.string(),
   breaks: z.array(z.string()),
   pages: z.array(PlanPage),
-  folios: z.array(z.string()),
+  folios: z.array(z.string().nullable()),
   total: z.string(),
 })
 
@@ -85,6 +85,13 @@ function planSchema(options?: PlanParseOptions) {
         code: 'custom',
         path: ['pages'],
         message: `pages has ${plan.pages.length} entries, above the limits.pages limit of ${pageLimit}; reduce the pages or raise limits.pages to clear this refusal`,
+      })
+    }
+    if (plan.folios.length !== plan.pages.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['folios'],
+        message: `folios has ${plan.folios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
       })
     }
   })

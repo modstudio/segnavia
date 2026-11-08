@@ -1,4 +1,4 @@
-export { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanPage, bookPlanFolios } from './book-plan-folios.ts'
+export { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanPage, type BookPlanSection, bookPlanFolios } from './book-plan-folios.ts'
 export { type ConvergedLayout, convergeLayout, type LayoutStep, type LayoutWarning } from './converge-layout.ts'
 export { layoutScript } from './layout-script.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './paginate-book.ts'

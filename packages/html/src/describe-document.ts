@@ -20,7 +20,7 @@ export interface DescribeDocumentOptions {
 
 interface DocumentDescriptionPlanPage {
   number: number
-  folio: string | undefined
+  folio: string | null | undefined
   start?: PlanPage['start']
   role: PlanPage['role']
   face: PlanPage['face']

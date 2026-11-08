@@ -42,5 +42,6 @@ describe('Plan', () => {
     expect(() => Plan.parse({ ...plan(), pages: [{ ...page(), windows: [{ flow: 'chapter', start: 11, end: 10, top: 0, column: 0, columns: 1 }] }] })).toThrow(
       /pages.0.windows.0.end.*before its start.*clear this refusal/,
     )
+    expect(() => Plan.parse({ ...plan(), folios: [] })).toThrow(/folios.*pages.*compute a new plan to clear this refusal/)
   })
 })

@@ -11,14 +11,14 @@ describe('planBook', () => {
       direction: 'ltr' as const,
       frontMatter: 'roman-lower' as const,
       body: 'arabic' as const,
-      expectedFolios: ['i', 'ii', '1'],
+      expectedFolios: ['i', null, '1'],
     },
     {
       name: 'right-to-left Hebrew',
       direction: 'rtl' as const,
       frontMatter: 'hebrew' as const,
       body: 'hebrew' as const,
-      expectedFolios: ['א', 'ב', 'א'],
+      expectedFolios: ['א', null, 'א'],
     },
   ])('combines the existing pagination and folio plans for $name books', ({ direction, frontMatter, body, expectedFolios }) => {
     const measurements = input({
