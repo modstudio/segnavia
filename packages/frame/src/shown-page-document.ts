@@ -9,10 +9,11 @@ export function shownPageDocument(
   resolved: PreparedSlots | undefined,
   options: { nonce: string; baseCss?: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
 ): string {
-  return frameDocument(slotHtml(page.html, resolved), {
+  const html = slotHtml(page.html, resolved)
+  return frameDocument(html, {
     scripts: page.scripts,
     nonce: options.nonce,
-    dir: pageDirection(page),
+    dir: pageDirection({ ...page, html }),
     lang: page.lang,
     sheets: frameStyleSheets(page.style, `${page.print ? printProperties(page.print) : ''}${options.baseCss ?? ''}`),
     css: options.css,
