@@ -322,11 +322,11 @@ export function frameDocument(html: string, options: FrameOptions): string {
     "object-src 'none'",
     "base-uri 'none'",
     "form-action 'none'",
-    options.csp ?? null,
   ].filter(Boolean)
   const head = [
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(directives.join('; '))}">`,
+    options.csp ? `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(options.csp)}">` : '',
     options.title === undefined ? '' : `<title>${escapeHtml(options.title)}</title>`,
     bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
