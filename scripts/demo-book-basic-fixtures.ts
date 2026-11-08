@@ -3,10 +3,12 @@ import { BOOK_CSS } from './demo-book-fonts.ts'
 import { keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_MOTIF_KEY } from './demo-book-motifs.ts'
 
-const section = (id: string, title: string, html: string, contents = true) => ({
+const section = (id: string, title: string, html: string, contents = true, contentsLabel?: string, subtitle?: string) => ({
   type: 'section' as const,
   id,
   title,
+  ...(contentsLabel === undefined ? {} : { contentsLabel }),
+  ...(subtitle === undefined ? {} : { subtitle }),
   contents,
   children: [{ type: 'flow' as const, html }],
 })
@@ -51,6 +53,9 @@ export const basicBookFixture = (hebrew: boolean): DocumentInput => ({
           `<h1 id="far-shore">${hebrew ? 'החוף הרחוק' : 'The Far Shore'}</h1><p class="note-paragraph">${
             hebrew ? 'בקצה המסע נמצא חוף חדש' : 'At the end of the crossing was another shore'
           }<span data-note="endnote">${hebrew ? 'מקור להערת הסיום.' : 'The source for the endnote.'}</span>.</p>`,
+          true,
+          hebrew ? 'חוף חדש' : 'A New Shore',
+          hebrew ? 'סוף המסע' : 'The journey’s end',
         ),
       ],
     },

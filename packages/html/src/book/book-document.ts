@@ -27,6 +27,7 @@ import {
   designedSection,
   flowAttribs,
   markPlacementIssues,
+  sectionHeading,
   sectionNode,
   templatedSection,
   templatedSectionIssues,
@@ -66,7 +67,6 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
     ),
   }
 }
-
 function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'designed', book: Book, build: DocumentBuild, sectionEntry: BookSectionEntry) {
   const held = designedSection(
     entry,
@@ -223,7 +223,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
     if ('contents' in entry && entry.contents && entry.title !== undefined) {
-      build.headings.push(...withSectionDepth([{ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id }], sectionEntry.depth))
+      build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth))
     }
     transformNotes(section.node, book, noteContext(sectionEntry, section.info.id, 0, entry.title, build), build.notes, build.build === 'galley')
   }
@@ -256,7 +256,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
     if (entry.title !== undefined) {
-      build.headings.push(...withSectionDepth([{ id: section.info.id, level: 1, text: entry.title, sectionId: section.info.id }], sectionEntry.depth))
+      build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth))
     }
     build.headings.push(...withSectionDepth(chapterHeadings(section, book.contents.depth), sectionEntry.depth))
     transformNotes(

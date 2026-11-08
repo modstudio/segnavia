@@ -34,6 +34,11 @@ export function firstStrongDirection(text: string): TextDirection | null {
   return textDirection(undefined, undefined, text)
 }
 
+/** An entry takes its own text's direction first, unlike resolveDirection's declared book direction first. */
+export function entryDirection(book: { dir?: Direction; lang?: string }, text: string): TextDirection {
+  return firstStrongDirection(text) ?? resolveDirection(book.dir, book.lang, text)
+}
+
 const HIDDEN_HTML_CONTENT = /<(script|style|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi
 const HTML_COMMENT = /<!--[\s\S]*?-->/g
 const HTML_TAG = /<[^>]*>/g

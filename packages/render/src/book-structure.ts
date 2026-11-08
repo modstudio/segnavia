@@ -1,6 +1,6 @@
 import type { TextDirection } from '@segnavia/format'
 import { type Book, firstStrongDirection, resolveDirection } from '@segnavia/format'
-import type { BookHeading } from '@segnavia/html'
+import { type BookHeading, headingLabel } from '@segnavia/html'
 import { type PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFRef } from 'pdf-lib'
 import { type BookDestination, explicit } from './book-destinations.ts'
 import { writeDocumentMetadata } from './document-metadata.ts'
@@ -32,7 +32,7 @@ export function bookOutline(headings: BookHeading[], destinations: Map<string, B
     if (!destination) throw new RenderRefusedError(`The heading ${heading.id} has no printed destination.`)
     const item: BookOutlineItem = {
       id: heading.id,
-      title: heading.text,
+      title: headingLabel(heading),
       destination,
       children: [],
     }
