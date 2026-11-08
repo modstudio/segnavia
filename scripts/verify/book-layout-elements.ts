@@ -1,3 +1,4 @@
+import { BOOK_COMPOSED_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE } from '@segnavia/frame/book-document'
 import type { Locator, Page } from 'playwright-core'
 import { LARGE_BOOK_WAIT_MS } from './book-stress-ready.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
@@ -173,8 +174,17 @@ export async function verifyNonceAuthorizedAuthorScripts(h: Harness) {
       frame.srcdoc = frame.srcdoc.replace('<script data-segnavia-author-script>', `<script data-segnavia-author-script nonce="${nonce}">`)
     })
     const frame = h.page.frameLocator(`#${id} iframe[data-segnavia-book-layout="pages"]`)
-    await frame.locator('html[data-segnavia-author-script-ran]').waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
-    const composed = await frame.locator('html').getAttribute('data-segnavia-composed')
-    h.check(`${id} author-script refusal check detects a nonce-authorized mutation`, composed !== null, String(composed))
+    const html = frame.locator('html')
+    await frame.locator(`html[${BOOK_COMPOSED_ATTRIBUTE}],html[${BOOK_FAILURE_ATTRIBUTE}]`).waitFor({ timeout: LARGE_BOOK_WAIT_MS, state: 'attached' })
+    const [authorScriptRan, composed, failure] = await Promise.all([
+      html.getAttribute('data-segnavia-author-script-ran'),
+      html.getAttribute(BOOK_COMPOSED_ATTRIBUTE),
+      html.getAttribute(BOOK_FAILURE_ATTRIBUTE),
+    ])
+    h.check(
+      `${id} author-script refusal check detects a nonce-authorized mutation`,
+      authorScriptRan !== null && composed !== null && failure === null,
+      failure ?? JSON.stringify({ authorScriptRan, composed }),
+    )
   }
 }
