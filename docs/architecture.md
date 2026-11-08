@@ -631,6 +631,14 @@ selection reply available to refused-script documents. Its
 that attribute appears, the bridge sends `segnavia:compose-failure` once and
 never sends ready.
 
+Books and printed pages use one frame composer. Its measure stage pours each
+flow into a galley sized from its configured text area and records block and
+line boxes, including content-edge block ids. `planBook` and bounded layout
+convergence turn those measurements into page windows. The dress stage clones
+those windows, fills parent-page furniture, and produces the composed papers.
+Presentation, page markers, printed-page counting and single-paper selection
+are config values; the runtime does not select behavior from a document kind.
+
 The element emits `ready` when that bridge message arrives and emits `error`
 with `detail.message` when loading, validation or paginated composition fails.
 

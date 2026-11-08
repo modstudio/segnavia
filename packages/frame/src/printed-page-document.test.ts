@@ -4,12 +4,7 @@ import { fragmentationCss, markdownHtml, resolvePageHtml } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { expandFramePage } from './motif-expansion.ts'
-import {
-  printedPageDocument as documentHtml,
-  COMPOSER_SCRIPT,
-  PRINTED_PAGE_FAILURE_ATTRIBUTE,
-  PrintedPagesRefusedError,
-} from './printed-page-document.ts'
+import { COMPOSER_SCRIPT, printedPageDocument as documentHtml, PRINTED_PAGE_FAILURE_ATTRIBUTE, PrintedPagesRefusedError } from './printed-page-document.ts'
 
 const page = Page.parse({
   html: '<p id="start">Body</p>',

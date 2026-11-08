@@ -10,7 +10,7 @@ import {
   pixelPhaseOffset,
   type unmeasuredFlows,
 } from './book-composer.ts'
-import { COMPOSER_SCRIPT, bookValueDocument as bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
+import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
 import { MESSAGE } from './bridge.ts'

@@ -1,7 +1,7 @@
 import { type Book, type BookView, bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
-import { COMPOSER_SCRIPT } from './composer.ts'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
+import { COMPOSER_SCRIPT } from './composer.ts'
 
 export { BOOK_COMPOSED_ATTRIBUTE, BOOK_COMPOSED_MS_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE } from './book-composer.ts'
 

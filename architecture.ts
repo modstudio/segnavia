@@ -120,6 +120,8 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/printed-page-columns.ts',
       'src/layout-settle.ts',
       'src/book-composer.ts',
+      'src/composer-measure.ts',
+      'src/composer.ts',
       'src/book-presentation.ts',
       'src/book-document.ts',
       'src/book-view-document.ts',
