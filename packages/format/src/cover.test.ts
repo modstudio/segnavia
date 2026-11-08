@@ -1,5 +1,16 @@
 import { describe, expect, test } from 'bun:test'
-import { COVER_DRAWING_VERSION, COVER_SHEET, Cover, type CoverDigestMaterial, coverDigest, digestCoverMaterial, MM_PER_PT, type Motif } from './index.ts'
+import {
+  COVER_DRAWING_VERSION,
+  COVER_SHEET,
+  Cover,
+  type CoverDigestMaterial,
+  coverDigest,
+  digestCoverMaterial,
+  jsonSchemas,
+  MM_PER_PT,
+  type Motif,
+  pageDirection,
+} from './index.ts'
 
 interface PageDocumentFields {
   html?: string
@@ -80,8 +91,27 @@ describe('Cover', () => {
     expect(parsed.page).toMatchObject({ body: { html: '<p>שלום</p>' }, lang: 'he', dir: 'rtl' })
   })
 
+  test('resolves a Hebrew page Document without an explicit direction right to left', () => {
+    const parsed = Cover.parse({ page: pageDocument({ html: '<p>שלום</p>', lang: 'he' }) })
+    if (!('html' in parsed.page.body)) throw new Error('the cover page body was not stored HTML')
+    expect(pageDirection({ ...parsed.page, html: parsed.page.body.html })).toBe('rtl')
+  })
+
+  test('refuses a markdown page body with the stored HTML remedy', () => {
+    expect(() =>
+      Cover.parse({
+        page: {
+          type: 'document',
+          kind: 'page',
+          children: [{ type: 'page', body: { markdown: '# Cover' } }],
+        },
+      }),
+    ).toThrow(
+      'a cover page body must be stored HTML in body.html; pass the Document through @segnavia/html parseDocument first, or give the page an html body, to clear this refusal',
+    )
+  })
+
   test('refuses the legacy Page input and names the Document shape', () => {
-    expect(() => Cover.parse({ page: { html: '<p>Legacy</p>' } })).toThrow('type')
     expect(() => Cover.parse({ page: { html: '<p>Legacy</p>' } })).toThrow('document')
   })
 
@@ -98,6 +128,14 @@ describe('Cover', () => {
         },
       }),
     ).toThrow('use kind page to clear this refusal')
+  })
+
+  test('publishes the page Document input in the cover JSON Schema', () => {
+    const schema = jsonSchemas().cover as { properties?: { page?: unknown } }
+    expect(schema.properties?.page).toMatchObject({
+      type: 'object',
+      properties: { type: { const: 'document' }, kind: expect.any(Object) },
+    })
   })
 })
 

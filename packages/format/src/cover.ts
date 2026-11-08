@@ -1,6 +1,5 @@
 import { z } from 'zod'
-import { Document, type DocumentInput } from './document.ts'
-import { identifyDocument } from './document-identity.ts'
+import { DocumentField } from './document.ts'
 import { pageFromDocument } from './document-lowering.ts'
 import type { Motif } from './motif.ts'
 import type { Page as PageValue } from './page.ts'
@@ -17,8 +16,19 @@ const COVER_PRINT = {
   orientation: 'landscape' as const,
 }
 
+const CoverPage = DocumentField.transform(pageFromDocument).superRefine((page, ctx) => {
+  if (!('html' in page.body)) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['body'],
+      message:
+        'a cover page body must be stored HTML in body.html; pass the Document through @segnavia/html parseDocument first, or give the page an html body, to clear this refusal',
+    })
+  }
+})
+
 const CoverShape = z.object({
-  page: Document.transform((document) => pageFromDocument(identifyDocument(document))),
+  page: CoverPage,
   id: z.string().optional(),
   name: z.string().optional(),
 })
@@ -42,11 +52,7 @@ export const Cover = CoverShape.transform((cover) => ({
   }
 })
 export type Cover = z.infer<typeof Cover>
-export interface CoverInput {
-  page: DocumentInput
-  id?: string
-  name?: string
-}
+export type CoverInput = z.input<typeof Cover>
 
 export interface CoverDigestMaterial {
   page: PageValue

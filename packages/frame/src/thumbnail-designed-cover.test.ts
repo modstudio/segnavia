@@ -1,13 +1,7 @@
 import { expect, test } from 'bun:test'
 import { coverPresentation, parseDesignedCover } from './designed-cover-policy.ts'
+import { pageDocument } from './page-document.test-helper.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
-
-const coverDocument = (html: string, scripts?: 'sandboxed') => ({
-  type: 'document' as const,
-  kind: 'page' as const,
-  settings: { scripts },
-  children: [{ type: 'page' as const, body: { html } }],
-})
 
 function viewport() {
   const children: HTMLElement[] = []
@@ -23,10 +17,10 @@ function viewport() {
 }
 
 test('the thumbnail cover edge refuses invalid input and keeps the original valid input separate from its parsed value', () => {
-  expect(() => parseDesignedCover({ cover: { page: coverDocument('', 'sandboxed') } }, 'The thumbnail')).toThrow(
+  expect(() => parseDesignedCover({ cover: { page: pageDocument('', 'sandboxed') } }, 'The thumbnail')).toThrow(
     'The thumbnail has an invalid designedCover.cover',
   )
-  const input = { cover: { page: coverDocument('cover') } }
+  const input = { cover: { page: pageDocument('cover') } }
   const parsed = parseDesignedCover(input, 'The thumbnail')
   expect(parsed).not.toBe(input)
   expect(parsed.cover.page.print).toBeDefined()
@@ -34,7 +28,7 @@ test('the thumbnail cover edge refuses invalid input and keeps the original vali
 })
 
 test.each([
-  [{ kind: 'live', cover: parseDesignedCover({ cover: { page: coverDocument('cover') } }, 'The thumbnail').cover } as const, 'live'],
+  [{ kind: 'live', cover: parseDesignedCover({ cover: { page: pageDocument('cover') } }, 'The thumbnail').cover } as const, 'live'],
   [{ kind: 'picture', src: 'kept.webp' } as const, 'picture'],
 ])('mounts one $kind thumbnail designed cover and guards re-entry', (presentation, kind) => {
   const target = viewport()

@@ -31,6 +31,13 @@ const boardDocument = (entries: readonly (typeof BOARD_ITEMS)[number][], interle
     : [...entries.map((item) => ({ type: 'item' as const, ...item })), ...BOARD_LABELS, ...BOARD_SECTIONS],
 })
 
+const coverPage = (html: string): DocumentInput => ({
+  type: 'document',
+  kind: 'page',
+  print: { paper: { width: 100, height: 150, unit: 'mm' } },
+  children: [{ type: 'page', body: { html } }],
+})
+
 export const BOARD_DOCUMENT_FIXTURES = [boardDocument(BOARD_ITEMS.slice(0, -1)), boardDocument(BOARD_ITEMS), boardDocument(BOARD_ITEMS, true)]
 
 export async function buildBoardDemo(site: string, image: string, shot: string) {
@@ -109,7 +116,7 @@ export async function buildBoardDemo(site: string, image: string, shot: string) 
       const sections = ${JSON.stringify(BOARD_SECTIONS)}
       const boardDocument = entries => ({type:'document',kind:'board',title:'Board demo',settings:{dir:'ltr'},children:[...entries.map(item=>({type:'item',...item})),...labels,...sections]})
       const values = {
-        deck:{kind:'deck',deck,title:'Creating a class',cover:${JSON.stringify(image)}}, designed:{kind:'deck',deck,title:'Designed cover',designedCover:{cover:{page:{type:'document',kind:'page',print:{paper:{width:100,height:150,unit:'mm'}},children:[{type:'page',body:{html:'<main data-designed-cover style="font:24px system-ui;padding:20px">Designed cover</main>'}}]}}}}, 'designed-picture':{kind:'deck',deck,title:'Designed cover picture',designedCover:{cover:{page:{type:'document',kind:'page',print:{paper:{width:100,height:150,unit:'mm'}},children:[{type:'page',body:{html:'<main>Designed picture</main>'}}]}},picture:${JSON.stringify(image)}}}, hebrew:{kind:'deck',deck:hebrew,title:'מצגת'}, responsive:{kind:'deck',deck:responsive,title:'Responsive deck'}, url:{kind:'deck',deck:urlDeck,title:'URL deck'},
+        deck:{kind:'deck',deck,title:'Creating a class',cover:${JSON.stringify(image)}}, designed:{kind:'deck',deck,title:'Designed cover',designedCover:{cover:{page:${JSON.stringify(coverPage('<main data-designed-cover style="font:24px system-ui;padding:20px">Designed cover</main>'))}}}}, 'designed-picture':{kind:'deck',deck,title:'Designed cover picture',designedCover:{cover:{page:${JSON.stringify(coverPage('<main>Designed picture</main>'))}},picture:${JSON.stringify(image)}}}, hebrew:{kind:'deck',deck:hebrew,title:'מצגת'}, responsive:{kind:'deck',deck:responsive,title:'Responsive deck'}, url:{kind:'deck',deck:urlDeck,title:'URL deck'},
         page:{kind:'page',page,size:{width:640,height:900},title:'Page'}, paper:{kind:'paper',pages:paperPages,imposition,size:{width:816,height:1056},title:'Paper'},
         empty:{kind:'paper',pages:[],imposition,size:{width:816,height:1056},title:'Empty paper'},
         image:{kind:'image',src:${JSON.stringify(image)},width:1280,height:720,title:'Image'}, shot:{kind:'shot',src:${JSON.stringify(shot)},width:1280,height:720,title:'Shot'},

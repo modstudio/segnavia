@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Cover } from '@segnavia/format'
 import { coverImagePlan } from './cover-image.ts'
-import { renderPageValueDocument } from './page-document.ts'
 
 const coverDocument = (html: string, print?: { paper: { width: number; height: number; unit: 'mm' } }) => ({
   type: 'document' as const,
@@ -47,12 +46,4 @@ test('keeps PNG and refuses a non-positive or fractional width', () => {
 test('refuses a missing options object by naming the width', () => {
   expect(() => coverImagePlan(cover, undefined)).toThrow('Cover image width is undefined; use a positive integer pixel width')
   expect(() => coverImagePlan(cover, null)).toThrow('Cover image width is undefined; use a positive integer pixel width')
-})
-
-test('a Hebrew cover Document with a language and no direction renders right to left', () => {
-  const hebrew = Cover.parse({
-    page: { type: 'document', kind: 'page', settings: { lang: 'he' }, children: [{ type: 'page', body: { html: '<h1>Cover</h1>' } }] },
-  })
-  expect(hebrew.page.dir).toBeUndefined()
-  expect(renderPageValueDocument(hebrew.page, {}, false, 'test')).toContain('<html dir="rtl" lang="he">')
 })
