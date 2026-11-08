@@ -62,6 +62,32 @@ export async function verifyDependencyRender(
   )
   check('an unapproved markup image never reaches the host asset seam', unapprovedLookups === 0, String(unapprovedLookups))
 
+  const imageOrigin = 'https://images.example'
+  const image = `${imageOrigin}/asset.png`
+  const imagePage = screenPage({ html: `<img src="${image}">` }, { size: { width: 400, height: 200 } })
+  const cappedOptions = {
+    origins: [{ origin: imageOrigin, kinds: ['image'] as const }],
+    assets: async () => ({ body: new Uint8Array([1, 2]), contentType: 'image/png' }),
+    limits: { assets: { each: 1 } },
+  }
+  const pageCap = await refusal(renderer.pagePdf(imagePage, cappedOptions))
+  check('pagePdf carries a lowered per-asset cap into its inner render', pageCap.includes('limits.assets.each') && pageCap.includes(image), pageCap)
+  const pagesCap = await refusal(renderer.pagesPdf([imagePage], cappedOptions))
+  check('pagesPdf carries a lowered per-asset cap into its inner render', pagesCap.includes('limits.assets.each') && pagesCap.includes(image), pagesCap)
+
+  const secondImage = `${imageOrigin}/second.png`
+  const documentCap = await refusal(
+    renderer.pagesPdf(
+      [imagePage, screenPage({ html: `<img src="${secondImage}">` }, { size: { width: 400, height: 200 } })],
+      {
+        origins: cappedOptions.origins,
+        assets: cappedOptions.assets,
+        limits: { assets: { each: 2, bytes: 3 } },
+      },
+    ),
+  )
+  check('asset bytes accumulate across every tab in one document', documentCap.includes('limits.assets.bytes') && documentCap.includes(secondImage), documentCap)
+
   const fontCssUrl = 'https://fonts.googleapis.com/css2?family=Noto+Serif+Hebrew'
   const fontUrl = 'https://fonts.gstatic.com/s/notoserifhebrew/v1/hebrew.ttf'
   const markedHebrew = 'שָׁלוֹם'
