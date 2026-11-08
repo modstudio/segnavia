@@ -326,7 +326,8 @@ var nextLayoutFrame=function(){return new Promise(function(resolve){var settled=
 var publishPlan=function(plan){var previous=document.querySelectorAll('script[data-segnavia-plan]');for(var i=0;i<previous.length;i++)previous[i].remove();var carrier=document.createElement('script');carrier.type='application/json';carrier.setAttribute('data-segnavia-plan','');carrier.textContent=JSON.stringify(plan).replace(/</g,'\\u003c');document.body.append(carrier);};
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});
 var fontLoads=loaded.then(function(){var declarations=config.fontLoads||[];if(!document.fonts||!declarations.length)return [];var familyValue=function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');};return loadDeclaredFonts(declarations,document.fonts,document.documentElement,familyValue,'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT});});
-Promise.all([loaded,${DIAGRAM_READY_EXPR},fontLoads,readyImages(document)]).then(function(){
+var fontsReady=fontLoads.then(function(){return document.fonts?document.fonts.ready:undefined;});
+Promise.all([loaded,${DIAGRAM_READY_EXPR},fontsReady,readyImages(document)]).then(function(){
 var visibleElapsed=0;
 var visibleStartedAt=performance.now();
 var settleVisibleElapsed=0;
