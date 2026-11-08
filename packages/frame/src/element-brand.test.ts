@@ -51,7 +51,6 @@ test('page resolves a named brand into the sheets its frame builds', async () =>
 
 test.each([
   [undefined, /without a BrandSource/],
-  [{ source: { brand: async (): Promise<Brand | undefined> => undefined } }, /unknown to the BrandSource/],
   [{ source: { brand: async (): Promise<Brand | undefined> => ({ stray: true }) as never } }, /invalid style sheet.*stray/],
 ] as const)('page dispatches brand refusal %# through its error event', async (brands, message) => {
   const document = Document.parse({
@@ -67,6 +66,22 @@ test.each([
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(errors).toHaveLength(1)
   expect(String(errors[0])).toMatch(message)
+})
+
+test('page element dispatches an unknown brand refusal', async () => {
+  const page = new SegnaviaPage()
+  const errors: unknown[] = []
+  page.addEventListener('error', (event) => errors.push((event as ErrorEvent).error))
+  page.brands = { source: { brand: async () => undefined } }
+  page.page = {
+    type: 'document',
+    kind: 'page',
+    brand: 'house',
+    children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+  }
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(errors).toHaveLength(1)
+  expect(String(errors[0])).toMatch(/unknown to the BrandSource/)
 })
 
 test('paper re-resolves its document brands when the source changes', async () => {

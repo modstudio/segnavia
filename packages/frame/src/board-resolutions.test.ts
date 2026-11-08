@@ -172,3 +172,32 @@ test('routes an item brand refusal through request failure', async () => {
   expect(failures).toHaveLength(1)
   expect(String(failures[0])).toContain('unknown to the BrandSource')
 })
+
+test('routes a refused board brand through an unbranded item request', async () => {
+  const reported: unknown[] = []
+  const resolutions = new BoardResolutions((error) => reported.push(error))
+  resolutions.configure(Document.parse({ type: 'document', kind: 'board', title: 'Board', settings: { dir: 'ltr' }, brand: 'missing', children: [] }), {
+    source: { brand: async () => undefined },
+  })
+  const deck = item('deck-with-fallback', 'deck-with-fallback', 'deck')
+  resolutions.resolver = async () => ({
+    kind: 'deck',
+    deck: {
+      type: 'document',
+      kind: 'deck',
+      title: 'Deck',
+      children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '<p>One</p>' } }],
+    },
+  })
+  const failures: unknown[] = []
+  resolutions.request(
+    deck,
+    () => {},
+    (_item, error) => failures.push(error),
+  )
+  await settle()
+
+  expect(reported).toHaveLength(1)
+  expect(failures).toEqual(reported)
+  expect(String(failures[0])).toContain('unknown to the BrandSource')
+})
