@@ -3,7 +3,7 @@ import type { Brand, BrandSource } from '@segnavia/format'
 import { parseDocument } from '@segnavia/html'
 import { comparableContent } from './content-value.ts'
 import { DeckController } from './controller.ts'
-import { deckPreservesNotes, isInternalDeck, parseDeckLoad, preserveNotesForLoad } from './deck-load-origin.ts'
+import { deckPreservesNotes, isInternalDeck, parseDeckLoad, preserveNotesForLoad, resolveDeckLoad } from './deck-load-origin.ts'
 
 const input = () => ({ title: 'T', slides: [{ id: 'a', content: { kind: 'html' as const, html: '' } }] })
 const documentInput = () => ({
@@ -38,6 +38,15 @@ test('notes preservation is scoped to the guarded load promise', () => {
 
   expect(deckPreservesNotes(parseDeckLoad(input(), guarded, true), 'a')).toBe(true)
   expect(deckPreservesNotes(parseDeckLoad(documentInput()), 'a')).toBe(false)
+})
+
+test('resolved document loads use the shared provenance record', async () => {
+  const guarded = Promise.resolve()
+  preserveNotesForLoad(guarded, 'a')
+  const deck = await resolveDeckLoad(documentInput(), undefined, new AbortController().signal, guarded)
+
+  expect(deckPreservesNotes(deck, 'a')).toBe(true)
+  expect(isInternalDeck(deck)).toBe(false)
 })
 
 test('host deck inputs are never mutated for load provenance', async () => {
