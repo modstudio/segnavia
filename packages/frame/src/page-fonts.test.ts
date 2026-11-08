@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { AppFont, FontFace, FontSource } from '@segnavia/format'
 import { Imposition, Page as PageSchema } from '@segnavia/format'
 import { fontCss, resolvePageHtml } from '@segnavia/html'
-import { expandFramePage, shownPageDocument } from './motif-expansion.ts'
+import { expandFramePage } from './motif-expansion.ts'
 import {
   DEFAULT_NOTES_FONT_FAMILY,
   expandedPagesFontCss,
@@ -14,6 +14,7 @@ import {
   resolvePageFonts,
 } from './page-fonts.ts'
 import { printablePageValuesDocument } from './print-document.ts'
+import { shownPageDocument } from './shown-page-document.ts'
 
 const data = new Uint8Array([0])
 const serifFace: FontFace = { family: 'Body Serif', data, format: 'truetype' }

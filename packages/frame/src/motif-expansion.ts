@@ -31,8 +31,6 @@ import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
-export { shownPageDocument } from './shown-page-document.ts'
-
 export interface MotifsOptions {
   source: MotifSource
   pins?: Record<string, string>

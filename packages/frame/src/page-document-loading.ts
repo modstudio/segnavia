@@ -1,7 +1,7 @@
 import type { HtmlPage } from '@segnavia/html'
 import { type FrameOptions, frameDocument, newNonce } from './bridge.ts'
 import { hasDiagram, loadDiagramScript, withDiagramScript } from './diagram-document.ts'
-import { shownPageDocument } from './motif-expansion.ts'
+import { shownPageDocument } from './shown-page-document.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 type DiagramScriptLoader = (html: string) => Promise<string | undefined>

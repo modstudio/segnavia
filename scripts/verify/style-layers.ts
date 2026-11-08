@@ -1,6 +1,6 @@
+import type { StyleSheet } from '@segnavia/format'
 import { frameDocument } from '@segnavia/frame/bridge'
 import { compileStyleSheet } from '@segnavia/html'
-import type { StyleSheet } from '@segnavia/format'
 import type { Harness } from './harness.ts'
 
 const BRAND = '#112233'
@@ -35,7 +35,10 @@ async function computedColor(h: Harness, brand: StyleSheet, document: StyleSheet
       }),
     srcdoc,
   )
-  return h.page.frameLocator('#style-frame').locator('#probe').evaluate((element) => getComputedStyle(element).color)
+  return h.page
+    .frameLocator('#style-frame')
+    .locator('#probe')
+    .evaluate((element) => getComputedStyle(element).color)
 }
 
 const textStyle = (color: string): StyleSheet => ({ textStyles: { probe: { kind: 'paragraph', color } } })
