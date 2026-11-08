@@ -30,6 +30,8 @@ interface ResolvedBase {
   designedCover?: DesignedCover
 }
 
+export type BoardBrandResolution = { brand: Brand | undefined } | { error: unknown }
+
 export type ResolvedBoardItem =
   | (ResolvedBase & { kind: 'deck'; deck: DocumentInput; resolveSlide?: ControllerOptions['resolveSlide']; base?: string })
   | (ResolvedBase & { kind: 'page'; page: DocumentInput; size: PixelSize })
@@ -86,12 +88,17 @@ export function checkResolved(item: BoardItem, resolved: ResolvedBoardItem): Che
 export async function checkResolvedWithBrand(
   item: BoardItem,
   resolved: ResolvedBoardItem,
-  boardBrand: Promise<Brand | undefined>,
+  boardBrand: Promise<BoardBrandResolution>,
   source: BrandSource | undefined,
   signal: AbortSignal,
 ): Promise<CheckedResolvedBoardItem> {
   const checked = checkResolved(item, resolved)
-  const fallback = async (document: Document) => (await resolveBrand(document, source, signal)) ?? (await boardBrand)
+  const fallbackBrand = async () => {
+    const result = await boardBrand
+    if ('error' in result) throw result.error
+    return result.brand
+  }
+  const fallback = async (document: Document) => (await resolveBrand(document, source, signal)) ?? (await fallbackBrand())
   if (resolved.kind === 'deck') {
     const deck = checked as Extract<CheckedResolvedBoardItem, { kind: 'deck' }>
     const document = resolvedDocument(item, resolved.deck, ['deck'])
@@ -112,7 +119,7 @@ export async function checkResolvedWithBrand(
     )
     return { ...paper, pages }
   }
-  if (checked.kind === 'book' && checked.view.brand === undefined) return { ...checked, view: { ...checked.view, brand: await boardBrand } }
+  if (checked.kind === 'book' && checked.view.brand === undefined) return { ...checked, view: { ...checked.view, brand: await fallbackBrand() } }
   return checked
 }
 

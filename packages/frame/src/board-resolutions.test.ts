@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import type { BoardItem } from '@segnavia/format'
+import { Document, type BoardItem } from '@segnavia/format'
 import { BoardResolutions } from './board-resolutions.ts'
 
 const item = (id: string, address = id, kind: BoardItem['kind'] = 'media'): BoardItem => ({ id, address, kind, x: 0, y: 0, width: 100 })
@@ -115,4 +115,31 @@ test('drops a cached entry when an address changes kind', async () => {
   await settle()
   expect(calls).toBe(2)
   expect(resolutions.value('shared')?.kind).toBe('page')
+})
+
+test('settles and reports a refused board brand once when items carry their own brands', async () => {
+  const failures: unknown[] = []
+  const resolutions = new BoardResolutions((error) => failures.push(error))
+  resolutions.configure(
+    Document.parse({ type: 'document', kind: 'board', title: 'Board', settings: { dir: 'ltr' }, brand: 'board', children: [] }),
+    { source: { brand: async (name) => (name === 'item' ? { css: '.item{color:red}' } : undefined) } },
+  )
+  const deck = item('deck', 'deck', 'deck')
+  resolutions.resolver = async () => ({
+    kind: 'deck',
+    deck: {
+      type: 'document',
+      kind: 'deck',
+      title: 'Deck',
+      brand: 'item',
+      children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '<p>One</p>' } }],
+    },
+  })
+  const resolved: unknown[] = []
+  resolutions.request(deck, (_item, value) => resolved.push(value), () => {})
+  await settle()
+
+  expect(failures).toHaveLength(1)
+  expect(String(failures[0])).toContain('unknown to the BrandSource')
+  expect(resolved).toHaveLength(1)
 })

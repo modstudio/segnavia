@@ -110,7 +110,7 @@ describe('board policy', () => {
     }
     const signal = new AbortController().signal
     const resolved = (brand?: string) => ({ ...documentInputForBoard(), brand })
-    const boardBrand = Promise.resolve(await source.brand('board'))
+    const boardBrand = Promise.resolve({ brand: await source.brand('board') })
     const inherited = await checkResolvedWithBrand(deckItem, { kind: 'deck', deck: resolved() }, boardBrand, source, signal)
     const overridden = await checkResolvedWithBrand(deckItem, { kind: 'deck', deck: resolved('item') }, boardBrand, source, signal)
     expect(inherited.kind === 'deck' ? inherited.deck.brand : undefined).toEqual(await source.brand('board'))

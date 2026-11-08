@@ -1,6 +1,6 @@
-import { type BoardItem, type Brand, type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
+import { type BoardItem, type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
 import { classifyMediaAnswer, parseDocument, type ResolvePlacement } from '@segnavia/html'
-import { type CheckedResolvedBoardItem, checkResolvedWithBrand, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
+import { type BoardBrandResolution, type CheckedResolvedBoardItem, checkResolvedWithBrand, type ResolvedAsset, type ResolvedBoardItem } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 
 export type ResolveBoardItem = (item: BoardItem) => Promise<ResolvedBoardItem>
@@ -37,14 +37,25 @@ export class BoardResolutions {
   resolver: ResolveBoardItem | undefined
   private brands: BrandsOptions | undefined
   private controller = new AbortController()
-  private boardBrand: Promise<Brand | undefined> = Promise.resolve(undefined)
+  private boardBrand: Promise<BoardBrandResolution> = Promise.resolve({ brand: undefined })
   private readonly entries = new Map<string, BoardResolutionEntry>()
+
+  constructor(private readonly boardBrandFailed: (error: unknown) => void = () => {}) {}
 
   configure(document: Document | null, brands: BrandsOptions | undefined) {
     this.controller.abort()
     this.controller = new AbortController()
     this.brands = brands
-    this.boardBrand = document ? resolveBrand(document, brands?.source, this.controller.signal) : Promise.resolve(undefined)
+    const controller = this.controller
+    this.boardBrand = document
+      ? resolveBrand(document, brands?.source, controller.signal).then(
+          (brand): BoardBrandResolution => ({ brand }),
+          (error): BoardBrandResolution => ({ error }),
+        )
+      : Promise.resolve({ brand: undefined })
+    void this.boardBrand.then((result) => {
+      if (controller === this.controller && 'error' in result) this.boardBrandFailed(result.error)
+    })
     this.entries.clear()
   }
 
