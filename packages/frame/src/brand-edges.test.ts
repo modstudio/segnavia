@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import type { BrandSource } from '@segnavia/format'
+import { type BrandSource, Imposition } from '@segnavia/format'
 import { expandFrameBook } from './motif-expansion.ts'
 import { printableDeck, printablePages } from './print-document.ts'
 
@@ -40,7 +40,17 @@ test('printablePages names its own value counterpart in the brand refusal', () =
     brand: 'house',
     children: [{ type: 'page' as const, body: { html: '<p>Page</p>' } }],
   }
-  expect(() => printablePages([page], { paper: { width: 210, height: 297, unit: 'mm' }, columns: 1, rows: 1 })).toThrow(
+  const imposition = Imposition.parse({
+    paper: { width: 210, height: 297, unit: 'mm' },
+    columns: 1,
+    rows: 1,
+    cell: { width: 100, height: 100 },
+    margin: { top: 0, right: 0, bottom: 0, left: 0 },
+    gap: { column: 0, row: 0 },
+    bleed: 0,
+    safe: 0,
+  })
+  expect(() => printablePages([page], imposition)).toThrow(
     'Document names brand "house"; resolve it with resolveBrand, lower with that brand, and pass the lowered value to printablePageValues to clear this refusal.',
   )
 })

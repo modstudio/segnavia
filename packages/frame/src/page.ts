@@ -24,13 +24,11 @@ import { loadPageDocument, loadShownPageDocument } from './page-document-loading
 import { PageElementAttributes } from './page-element-attributes.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { scrollPageToHeading } from './page-heading.ts'
-import { pageSheetLayout } from './page-layout.ts'
+import { pageFitLayout, pageSheetLayout } from './page-layout.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
-
-const PLACEHOLDER_HEIGHT = 150
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
 
@@ -365,22 +363,12 @@ export class SegnaviaPage extends PageElementAttributes {
     const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
     if (!page || !sheet) return
-    const fluidBounded = page.size.height === 'auto' && page.size.width === 'full' && this.bounded
-    if (fluidBounded) {
-      sheet.style.height = '100%'
-      sheet.style.removeProperty('transform')
-      this.style.removeProperty('height')
-      if (this.contentHeight) this.dataset.height = String(this.contentHeight)
-      else delete this.dataset.height
-      return
-    }
-    const width = typeof page.size.width === 'number' ? page.size.width : null
-    const scale = width === null ? 1 : Math.min(1, this.clientWidth / width)
-    const height = this.contentHeight || PLACEHOLDER_HEIGHT
-    sheet.style.height = `${height}px`
-    sheet.style.transform = scale === 1 ? '' : `scale(${scale})`
-    this.style.height = `${Math.ceil(height * scale)}px`
-    this.dataset.height = String(height)
+    const fit = pageFitLayout(page.size, this.bounded, this.clientWidth, this.contentHeight)
+    sheet.style.height = fit.sheetHeight
+    sheet.style.transform = fit.transform
+    this.style.height = fit.hostHeight
+    if (fit.measuredHeight === undefined) delete this.dataset.height
+    else this.dataset.height = String(fit.measuredHeight)
   }
 
   private onMessage = (event: MessageEvent) => {

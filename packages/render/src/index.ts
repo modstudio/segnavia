@@ -41,7 +41,7 @@ import { type RenderDeadline, withinBound, withinRenderPermit } from './render-d
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
 import { renderReadiness } from './render-readiness.ts'
-import { DEFAULT_JS_HEAP_MB, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlideImage } from './slide-image.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'

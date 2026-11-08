@@ -72,7 +72,5 @@ test('pageOrPrintedFromInput refuses to lower a named brand', () => {
       brand: 'house',
       children: [{ type: 'page', body: { html: '<p>Page</p>' } }],
     }),
-  ).toThrow(
-    'Document names brand "house"; resolve it with resolveBrand, then lower with pageOrPrintedFromDocument(document, brand) to clear this refusal.',
-  )
+  ).toThrow('Document names brand "house"; resolve it with resolveBrand, then lower with pageOrPrintedFromDocument(document, brand) to clear this refusal.')
 })
