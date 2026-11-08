@@ -8,7 +8,6 @@ import {
   impositionMarks,
   limitRefusal,
   type Imposition as ParsedImposition,
-  PX_PER_MM,
   pagePlacementLayout,
 } from '@segnavia/format'
 import { newNonce, PRINT_READY_ATTRIBUTE, StyleSheetRefusedError } from '@segnavia/frame/bridge'
@@ -153,10 +152,7 @@ async function renderHtmlSlides(
       try {
         const bytes = await services.renderPdf(
           {
-            viewport:
-              press.slides && press.boxes
-                ? { width: Math.round(press.boxes.bleedBox.width * PX_PER_MM), height: Math.round(press.boxes.bleedBox.height * PX_PER_MM) }
-                : deck.size,
+            viewport: press.sheet ? { width: Math.round(press.sheet.width), height: Math.round(press.sheet.height) } : deck.size,
             // The nonce policy, rather than disabling JavaScript in Chromium,
             // refuses author code while leaving the print bridge running.
             scripts: true,
@@ -202,9 +198,7 @@ async function composeRegularSlides(
   press: DeckPressContext,
 ): Promise<void> {
   const pages = output.getPages()
-  const pressSheet =
-    press.slides && press.boxes ? { width: press.boxes.bleedBox.width * PX_PER_MM, height: press.boxes.bleedBox.height * PX_PER_MM } : undefined
-  const geometry = regularSlideDrawBox(deck.size, notesGeometry, pressSheet)
+  const geometry = regularSlideDrawBox(deck.size, notesGeometry, press.sheet)
   const firstPages = notesGeometry ? firstNotesPages(pageOwners, deck.slides.length) : []
   for (const item of rendered) {
     const pageIndex = notesGeometry ? (firstPages[item.index] ?? -1) : item.index
