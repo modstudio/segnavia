@@ -31,7 +31,7 @@ test('Playwright resource types map only the four approved asset kinds', () => {
 test('asset caps name the address, byte count, limit and host option, and raised caps admit the answer', () => {
   const url = 'https://images.example/a.png'
   expect(assetLimitRefusal(url, 11, 0, { each: 10, bytes: 50 })).toContain(`${url} answered 11 bytes`)
-  expect(assetLimitRefusal(url, 6, 45, { each: 10, bytes: 50 })).toContain("limits.assets.bytes of 50 bytes")
+  expect(assetLimitRefusal(url, 6, 45, { each: 10, bytes: 50 })).toContain('limits.assets.bytes of 50 bytes')
   expect(assetLimitRefusal(url, 11, 45, { each: 20, bytes: 100 })).toBeUndefined()
 })
 
