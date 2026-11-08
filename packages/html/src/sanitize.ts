@@ -128,7 +128,10 @@ function srcsetCandidates(value: string): string[] | undefined {
 
 function srcsetAssetRefusal(value: string, options: SanitizeOptions): string {
   const candidates = srcsetCandidates(value)
-  if (!candidates) return ''
+  if (!candidates) {
+    if (DATA_IMAGE_SRCSET.test(normalizeUrl(value))) return ''
+    return 'srcset could not establish a readable candidate list; use a valid srcset candidate list or a supported data-image srcset to clear this refusal'
+  }
   for (const candidate of candidates) {
     if (safeImageSource(candidate)) continue
     const decision = originDecision(candidate, 'image', options.origins, options.keepScripts === true)

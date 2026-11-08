@@ -68,4 +68,21 @@ describe('srcset image origins', () => {
     const html = '<img srcset="data:image/png;base64,AAAA 1x, data:image/webp;base64,BBBB 2x">'
     expect(sanitize(html)).toBe(html)
   })
+
+  test('removes an unapproved srcset with an invalid descriptor', () => {
+    const html = '<img srcset="https://outside.example/a.png 3q">'
+    expect(sanitize(html, options)).toBe('<img>')
+    expect(findActiveContent(html, options)).toEqual([
+      'img[srcset] srcset could not establish a readable candidate list; use a valid srcset candidate list or a supported data-image srcset to clear this refusal',
+    ])
+  })
+
+  test('removes an approved srcset candidate with two descriptors', () => {
+    const html = '<img srcset="https://images.example/a.png 1x 2x">'
+    expect(sanitize(html, options)).toBe('<img>')
+  })
+
+  test('removes an empty srcset as before', () => {
+    expect(sanitize('<img srcset="">', options)).toBe('<img>')
+  })
 })
