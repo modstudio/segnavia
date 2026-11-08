@@ -1655,6 +1655,15 @@ author layer. Each compiled piece is a separate stylesheet so parse recovery
 in unfinished free CSS cannot consume the next piece. Host CSS follows those
 sheets unlayered and therefore wins over their normal declarations. CSS
 `!important` declarations reverse layer precedence, as the cascade defines.
+A frame built without compiled sheets still receives the base layer, so its
+blocks keep their first-letter direction.
+
+The merge checks cross-references (`basedOn` and token references) against
+the merged sheet, because a document style may rest on a brand entry. A sheet
+that cannot merge is refused with `StyleSheetRefusedError`, naming the key
+path and what clears it, through each path's existing refusal: the page
+element's error event, the stage's slide error, the book element's error, and
+`RenderRefusedError` when rendering.
 
 Content has one stored form: HTML. Every block that lacks a
 `data-segnavia-id` receives a minted id at the parse edge, and an existing id
