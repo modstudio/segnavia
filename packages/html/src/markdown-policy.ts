@@ -3,7 +3,7 @@ import type { ConverterPolicy } from './sanitize.ts'
 export const MARKDOWN_CONVERTER_POLICY: ConverterPolicy = {
   urls: {
     linkProtocols: ['https:', 'http:', 'mailto:'],
-    imageProtocols: ['https:', 'http:'],
+    imageProtocols: [],
     linkFragments: true,
     dataImages: true,
   },
