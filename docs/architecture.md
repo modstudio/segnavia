@@ -1609,7 +1609,7 @@ flowchart LR
 
   subgraph Derived[Derived values]
     MEASURE[Measurements<br/>block and line boxes<br/>fit results]
-    PLAN[Plan<br/>pages, breaks, folios<br/>variables, parent pages]
+    PLAN[BookPlan<br/>computed pages and folios<br/>variables, parent pages]
     REPORT[Report<br/>overflow, fit, fonts<br/>counts and progress]
     MEASURE --> PLAN --> REPORT
   end
@@ -1697,11 +1697,9 @@ sandbox policy sanitizes or refuses it. Styles are referenced by class and
 variables by declared name.
 
 `Measurements` records block and line boxes plus fit results. `Plan` records
-pages, first and last block ids, breaks, folios, resolved variables, parent-page
-choices and fingerprints. It unifies saved pagination and forced break plans;
-a stale plan refuses and names the first page that no longer matches. `Report`
-records bounded overflow, fit, font, count and progress facts. Strict mode
-turns report entries into refusals.
+saved book pages, forced breaks, folios and the fingerprints needed to replay
+them. `Report` records bounded overflow, fit, font, count and progress facts.
+Strict mode turns report entries into refusals.
 
 `DocumentOp` generalizes the board operation model. Nodes are addressed by id;
 definition nodes use a discriminated collection location rather than special
@@ -1738,12 +1736,41 @@ without requiring a browser. The current model has no per-node styles or style
 inheritance; those arrive with the StyleSheet, so the description does not
 invent a cascade. Concise detail bounds each block's text to the resolved
 `descriptionTextChars` code points without splitting a grapheme and replaces an
-elided tail with an ellipsis; full detail returns the text intact. Plan and
-report sections arrive with the saved `Plan` and the
-layout `Report`, and there are no placeholder fields before those values exist.
+elided tail with an ellipsis; full detail returns the text intact. A plan
+section appears when the caller supplies a saved `Plan`; the description has no
+placeholder before that value exists. Report sections arrive with the layout
+`Report`.
 `documentCommandJsonSchema()` publishes the command input schema from `html`.
 Boards use the same operations, including section and label edits
 and rebasing local history over host operations.
+
+### Saved plan
+
+`Plan`, `PlanPage` and `Measurements` are format values. A page start identifies
+the flow, the block's index in that flow, the first line's index in the
+block, and the block's optional measured id. Blank and fixed-flow pages have no
+start.
+
+Saved plans use one fingerprint scheme: FNV-1a 64 over canonical, key-sorted
+JSON. The plan fingerprint covers every planning input other than line boxes.
+Each page fingerprint covers the block line boxes and note lines that page
+consumes. When no window consumes some measured lines, those lines remain part
+of the saved baseline: the fingerprint of the last page carrying that flow or
+note also covers its unconsumed lines.
+
+Forced-break ids become `breakBefore` facts on measured blocks. `bookPlan`
+computes and returns a plan. `bookPdf({ plan })` validates fresh measurements
+against the saved fingerprints and replays the saved pages without planning
+them again. A mismatch refuses and names the first page that no longer matches.
+A replay measures with the plan's own `breaks` unless the call passes `breaks`,
+and it validates only after the measurements settle, as a first composition
+does. `bookPdf` refuses `plan` or `breaks` for a continuous book.
+
+The composer publishes a computed plan in an inert
+`script[type=application/json][data-segnavia-plan]` carrier, removing any
+carrier already in the document, and `bookPlan` reads the last one, so author
+markup cannot supply the plan. No bridge message carries the plan. Saved plans
+apply only to books; the host stores them.
 
 ### Target composition pipeline
 
@@ -1753,7 +1780,7 @@ flowchart TD
   PARSE --> RESOLVE[2. Resolve<br/>host seams<br/>brand, fonts, assets, data, providers]
   RESOLVE --> REALIZE[3. Realize<br/>html · universal<br/>frame documents, CSS, galley, config]
   REALIZE --> MEASURE[4. Measure<br/>frame · browser<br/>fonts, fit, block and line boxes]
-  MEASURE --> PLAN[5. Plan<br/>layout · universal<br/>pages, breaks, folios, variables]
+  MEASURE --> PLAN[5. BookPlan<br/>layout · universal<br/>pages, folios, variables]
   PLAN --> DRESS[6. Dress<br/>frame · browser<br/>slices, furniture, margins, line numbers]
   DRESS --> REPORT[7. Report<br/>frame + render<br/>bounded reports; strict refusal]
   REPORT --> SCREEN[Screen view<br/>frame viewers]
@@ -1768,7 +1795,7 @@ flowchart TD
 | Resolve | Parsed document and host addresses | Resolved brand, fonts, assets, motifs, placements, data and providers | Host seams at the library edge |
 | Realize | Document plus resolved values | Frame documents, layered CSS, galley and composition configuration | `html`, universal |
 | Measure | Realized documents and loaded fonts | `Measurements` | `frame`, browser |
-| Plan | Structure, settings and measurements, or a saved plan | Fingerprinted `Plan` | `layout`, universal and pure |
+| Plan | Structure, settings and measurements, or a saved plan | Computed `BookPlan` | `layout`, universal and pure |
 | Dress | Realized content and plan | Page slices with furniture, margins and line numbers | `frame`, browser |
 | Report | Dressed pages and measured outcomes | Bounded `Report`, or a strict-mode refusal | `frame` and `render` |
 | Print | Reported pages and paper settings | Browser-produced PDF pages | `render`, server with Chromium |

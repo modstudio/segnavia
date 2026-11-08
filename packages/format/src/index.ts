@@ -139,7 +139,7 @@ export { Direction, firstStrongDirection, htmlTextSample, languageDirection, res
 export { Document, type DocumentInput, type DocumentKind, type DocumentParseOptions } from './document.ts'
 export { applyOps } from './document-apply.ts'
 export { diffDocuments } from './document-diff.ts'
-export { fingerprintDocument, requireParsedDocument } from './document-fingerprint.ts'
+export { fingerprintDocument, fingerprintScript, fingerprintValue, requireParsedDocument } from './document-fingerprint.ts'
 export { defaultNewId } from './document-identity.ts'
 export { inverseBatch, invertOps } from './document-invert.ts'
 export {
@@ -232,6 +232,16 @@ export {
 } from './limits.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export {
+  Measurements,
+  PaginateBlock,
+  PaginateFlow,
+  PaginateLine,
+  PaginateMark,
+  PaginateNote,
+  PaginateNoteRef,
+  PaginateNoteSeriesGeometry,
+} from './measurements.ts'
+export {
   MEDIA_FORMATS,
   Media,
   MediaFormat,
@@ -303,6 +313,7 @@ export {
 } from './placement.ts'
 export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
 export { PlacementRefusedError } from './placement-refusal.ts'
+export { PaginatePageMarks, PaginatePageNote, PaginateWindow, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
 export { MarkColor, Print, type PrintInput } from './print.ts'
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'

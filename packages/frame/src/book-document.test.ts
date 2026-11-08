@@ -31,6 +31,22 @@ describe('bookDocument', () => {
     expect(capped).toContain("raise the host's limits.pages")
   })
 
+  test('carries saved plans and breaks in config without closing the composer script', () => {
+    const plan = {
+      version: 1 as const,
+      fingerprint: '</script><script>unsafe()</script>',
+      breaks: ['middle'],
+      pages: [],
+      folios: [],
+      total: '0',
+    }
+    const html = bookDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
+    expect(html).toContain('"breaks":["middle"]')
+    expect(html).toContain('"plan":{"version":1')
+    expect(html).not.toContain('</script><script>unsafe()</script>')
+    expect(html).toContain('\\u003c/script>\\u003cscript>unsafe()\\u003c/script>')
+  })
+
   test('minified embedded composer functions retain their aliases and have no module dependencies', async () => {
     const built = await Bun.build({
       entrypoints: ['virtual:composer-functions'],
@@ -94,10 +110,14 @@ describe('bookDocument', () => {
     expect(BOOK_COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(decideBookMeasurement.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain(`visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS})`)
+    expect(BOOK_COMPOSER_SCRIPT).toContain('config.breaks||(config.plan&&config.plan.breaks)||[]')
     expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
+    expect(BOOK_COMPOSER_SCRIPT).toContain('lineInWindow')
     expect(BOOK_COMPOSER_SCRIPT).toContain(computeFolios.toString())
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
     expect(BOOK_COMPOSER_SCRIPT).toContain('fillPrintedPage')
+    expect(BOOK_COMPOSER_SCRIPT).toContain("document.querySelectorAll('script[data-segnavia-plan]')")
+    expect(BOOK_COMPOSER_SCRIPT).toContain('previous[i].remove()')
     expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
     expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
     expect(BOOK_COMPOSER_SCRIPT).toContain('parent.textArea')

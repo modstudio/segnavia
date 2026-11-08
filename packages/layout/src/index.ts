@@ -24,5 +24,6 @@ export type {
   PaginateSequence,
   PaginateWindow,
 } from './paginate-types.ts'
-export { type Measurements, type Plan, planBook } from './plan-book.ts'
+export { type BookPlan, type Measurements, planBook } from './plan-book.ts'
+export { type ReplayPlanResult, replayPlan, savePlan } from './plan-save.ts'
 export * from './printed-pages.ts'

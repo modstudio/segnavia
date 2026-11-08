@@ -5,6 +5,7 @@ import {
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
+  type Plan,
   PX_PER_MM,
   resolveLimits,
   resolveParentPages,
@@ -23,6 +24,8 @@ export interface PaginatedDocumentOptions {
   screen?: { spread: boolean }
   diagramScript?: string
   limits?: Limits
+  plan?: Plan
+  breaks?: string[]
 }
 
 function px(value: number): number {
@@ -65,6 +68,8 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
       placeholder: LIMIT_ACTUAL_PLACEHOLDER,
     },
     ...(options.screen ? { screen: options.screen } : {}),
+    ...(options.plan === undefined ? {} : { plan: options.plan }),
+    ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const baseCss =

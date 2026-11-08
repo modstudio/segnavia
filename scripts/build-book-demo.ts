@@ -4,12 +4,12 @@ import { bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView, parseDocument } from '@segnavia/html'
-import { filledBook, type MotifsOptions } from '@segnavia/render'
+import { filledBook } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
-import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup, bookMotifs } from './demo-book-motifs.ts'
+import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 import { noteSeriesFixture, twoPageSeriesFixture, twoPageSeriesRelayoutCss } from './demo-book-note-series-fixtures.ts'
 import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
@@ -106,7 +106,7 @@ function designedLeaf(hebrew: boolean) {
     children: [{ type: 'page' as const, body: { html: `<div class="designed-leaf"><h1 id="plate" class="book-css-check">${title}</h1></div>` } }],
   }
 }
-const paginatedFixture = (hebrew: boolean): DocumentInput => ({
+export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
   type: 'document',
   kind: 'book',
   metadata: { title: hebrew ? 'הגדת הדף' : 'The Paged Book' },
@@ -259,30 +259,6 @@ export async function buildNoteCasePdfs(site: string, render: (book: DocumentInp
     const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(path.join(site, `book-paginated-notes-${hebrew ? 'he' : 'en'}.pdf`), await render(noteCasesFixture(hebrew), css))
   }
-}
-
-export async function buildBookPdfs(
-  site: string,
-  bookPdf: (book: DocumentInput, options?: { css?: string; motifs?: MotifsOptions }) => Promise<Uint8Array<ArrayBufferLike>>,
-): Promise<void> {
-  for (const hebrew of [false, true]) {
-    const css = hebrew
-      ? `${alefCss()}${notoCss()}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`
-      : `${designedCss}${haggadahHeadCss}:where(html){font:16px/1.5 Georgia,serif}`
-    writeFileSync(
-      path.join(site, `book-${hebrew ? 'he' : 'en'}.pdf`),
-      await bookPdf(
-        { ...basicBookFixture(hebrew), page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } } },
-        { motifs: bookMotifs },
-      ),
-    )
-    writeFileSync(path.join(site, `book-paginated-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(paginatedFixture(hebrew), { css, motifs: bookMotifs }))
-    writeFileSync(path.join(site, `book-keeps-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew, 'paginated')))
-    writeFileSync(path.join(site, `book-keeps-continuous-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(keepBookFixture(hebrew, 'continuous')))
-    writeFileSync(path.join(site, `book-parts-${hebrew ? 'he' : 'en'}.pdf`), await bookPdf(partsFixture(hebrew)))
-  }
-  await buildLargeBookPdfs(site, (book) => bookPdf(book))
-  await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
 }
 
 export async function buildBookDemo(site: string): Promise<void> {
