@@ -114,7 +114,20 @@ describe('LocalFaceTransport', () => {
   })
 
   test('publishes the font declaration and manifest JSON Schemas', () => {
-    expect(jsonSchemas().fontDeclaration).toMatchObject({ type: 'object' })
-    expect(jsonSchemas().fontManifest).toMatchObject({ type: 'object' })
+    expect(jsonSchemas().fontDeclaration).toMatchObject({
+      type: 'object',
+      properties: { weight: { minimum: 1, maximum: 1000 }, style: { enum: ['normal', 'italic'] }, unicodeRange: { type: 'string' }, script: { enum: ['hebrew'] } },
+      additionalProperties: false,
+    })
+    expect(jsonSchemas().fontManifest).toMatchObject({
+      type: 'object',
+      propertyNames: { pattern: '^[a-z0-9-]+$' },
+      additionalProperties: {
+        anyOf: [
+          { required: ['faces'], properties: { faces: { minItems: 1, type: 'array' } } },
+          { required: ['local', 'fallback'], properties: { local: { type: 'string' }, fallback: { pattern: '^[a-z0-9-]+$' } } },
+        ],
+      },
+    })
   })
 })
