@@ -42,3 +42,15 @@ test('falls back to the book direction when a contents label has no strong lette
   })
   expect(bookDocument(book).html).toContain('<a href="#section-2" dir="rtl">1948')
 })
+
+test('a Hebrew label and subtitle in an English contents list both resolve rtl', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    lang: 'en',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    frontMatter: [{ kind: 'contents', title: 'Contents' }],
+    chapters: [{ title: 'Chapter', contentsLabel: 'פרק ראשון', subtitle: 'הקדמה', html: '<p>Text</p>' }],
+  })
+  expect(bookDocument(book).html).toContain('<a href="#section-2" dir="rtl">פרק ראשון<span class="segnavia-contents-subtitle" dir="rtl">הקדמה</span></a>')
+})
