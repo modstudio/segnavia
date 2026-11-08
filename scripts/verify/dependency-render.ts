@@ -87,9 +87,8 @@ export async function verifyDependencyRender(
     `sample=${sample.join(',')}`,
   )
   const cappedOptions = {
-    origins: [{ origin: imageOrigin, kinds: ['image'] as const }],
-    assets: async () => ({ body: new Uint8Array([1, 2]), contentType: 'image/png' }),
-    limits: { assets: { each: 1 } },
+    ...imageOptions,
+    limits: { assets: { each: redPng.byteLength - 1 } },
   }
   const pageCap = await refusal(renderer.pagePdf(imagePage, cappedOptions))
   check('pagePdf carries a lowered per-asset cap into its inner render', pageCap.includes('limits.assets.each') && pageCap.includes(image), pageCap)
@@ -100,8 +99,8 @@ export async function verifyDependencyRender(
   const documentCap = await refusal(
     renderer.pagesPdf([imagePage, screenPage({ html: `<img src="${secondImage}">` }, { size: { width: 400, height: 200 } })], {
       origins: cappedOptions.origins,
-      assets: cappedOptions.assets,
-      limits: { assets: { each: 2, bytes: 3 } },
+      assets: async (request) => (request === image || request === secondImage ? { body: redPng, contentType: 'image/png' } : undefined),
+      limits: { assets: { each: redPng.byteLength, bytes: redPng.byteLength * 2 - 1 } },
     }),
   )
   check(
@@ -109,6 +108,17 @@ export async function verifyDependencyRender(
     documentCap.includes('limits.assets.bytes') && documentCap.includes(secondImage),
     documentCap,
   )
+  const raisedLimits = { assets: { each: redPng.byteLength + 1, bytes: redPng.byteLength * 2 + 1 } }
+  const raisedAssetCap = await refusal(renderer.pagePdf(imagePage, { ...imageOptions, limits: raisedLimits }))
+  check('a raised host asset cap admits the formerly capped image', raisedAssetCap === 'rendered', raisedAssetCap)
+  const raisedDocumentCap = await refusal(
+    renderer.pagesPdf([imagePage, screenPage({ html: `<img src="${secondImage}">` }, { size: { width: 400, height: 200 } })], {
+      origins: imageOptions.origins,
+      assets: async (request) => (request === image || request === secondImage ? { body: redPng, contentType: 'image/png' } : undefined),
+      limits: raisedLimits,
+    }),
+  )
+  check('a raised host document asset cap admits both images', raisedDocumentCap === 'rendered', raisedDocumentCap)
   const fontCssUrl = 'https://fonts.googleapis.com/css2?family=Noto+Serif+Hebrew'
   const fontUrl = 'https://fonts.gstatic.com/s/notoserifhebrew/v1/hebrew.ttf'
   const markedHebrew = 'שָׁלוֹם'
