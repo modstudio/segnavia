@@ -36,7 +36,7 @@ export function printCss(print: Print, direction: TextDirection): string {
   // would otherwise position it against Chromium's rounded viewport.
   const body = `:where(body){position:absolute!important;inset:${[edges.top, edges.right, edges.bottom, edges.left]
     .map((value) => `${value}mm`)
-    .join(' ')}!important;width:auto!important;height:auto!important}`
+    .join(' ')}!important;width:auto!important;height:auto!important;margin:0!important}`
   return `${properties}${root}${body}`
 }
 
