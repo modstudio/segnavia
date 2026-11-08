@@ -20,11 +20,13 @@ import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
+import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type DependencyCache, dependencySetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
+import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import type { BookPdfOptions, BookPlanOptions } from './renderer.ts'
@@ -170,6 +172,7 @@ async function printBook(
   const fontCss = `${resolvedFontCss}${dependencies.fontFaces(renderOptions)}`
   const baseCss = `${bookPageCss(book, marginLayer || paginated)}${layerCss}`
   const sheets = paginated ? undefined : refusedAsRender(() => frameStyleSheets(book.style, book.brand, `${fontCss}${baseCss}`))
+  let composedPlan: SavedPlan | undefined
   const srcdoc = refusedAsRender(() =>
     bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, {
       sheets,
@@ -185,6 +188,12 @@ async function printBook(
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
         beforeOutput: async (tab) => {
           await awaitBookComposition(tab)
+          const text = await tab.evaluate(lastBookPlanText)
+          try {
+            composedPlan = Plan.parse(JSON.parse(text ?? 'null'), { limits: renderOptions.limits })
+          } catch (error) {
+            throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
+          }
           await renderOptions.beforeOutput?.(tab)
         },
       }
@@ -199,7 +208,7 @@ async function printBook(
         ...dependencySetup(renderOptions),
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
       }
-  return dependencies.render(
+  const output = await dependencies.render(
     setup,
     {
       ...pagePdfSize(size),
@@ -210,6 +219,10 @@ async function printBook(
     Math.round(size.width * PX_PER_MM),
     part,
   )
+  if (!composedPlan) return output
+  const document = await loadPdf(output.bytes)
+  writePlanFolios(document, composedPlan.folios)
+  return { ...output, bytes: await document.save() }
 }
 
 export function renderBrowserBookPdf(book: Book, options: BookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {

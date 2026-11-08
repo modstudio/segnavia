@@ -23,15 +23,22 @@ export interface BookPlanFolioResult {
 
 export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPlanNumbering, sections: readonly BookPlanSection[] = []): BookPlanFolioResult {
   const sectionNumbering = new Map(sections.map((section) => [section.id, section.numbering]))
+  const firstNonBlankPage = new Map<string, number>()
+  pages.forEach((page, index) => {
+    if (!page.blank && !firstNonBlankPage.has(page.flow)) firstNonBlankPage.set(page.flow, index)
+  })
   const computed = computeFolios(
-    pages.map((page, index) => ({
-      numbering: {
-        system: numbering[page.sequence === 'front' ? 'frontMatter' : 'body'],
-        start: sectionNumbering.get(page.flow)?.restart ?? 1,
-        restart: sectionNumbering.get(page.flow)?.restart !== undefined ? !page.blank : index === 0 || page.sequence !== pages[index - 1]?.sequence,
-        counted: page.blank || sectionNumbering.get(page.flow)?.counted !== false,
-      },
-    })),
+    pages.map((page, index) => {
+      const section = sectionNumbering.get(page.flow)
+      return {
+        numbering: {
+          system: numbering[page.sequence === 'front' ? 'frontMatter' : 'body'],
+          start: section?.restart ?? 1,
+          restart: section?.restart !== undefined ? firstNonBlankPage.get(page.flow) === index : index === 0 || page.sequence !== pages[index - 1]?.sequence,
+          counted: page.blank || section?.counted !== false,
+        },
+      }
+    }),
   )
   const folios = computed.map((folio, index) => (pages[index]?.blank ? null : (folio?.text ?? null)))
   const total = sequenceFolios(pages.length, numbering.body).at(-1)?.text ?? '0'

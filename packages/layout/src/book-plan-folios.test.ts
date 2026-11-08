@@ -41,6 +41,51 @@ describe('bookPlanFolios', () => {
     ).toEqual({ folios: [null, null, 'א', 'ב', 'ח'], total: '5' })
   })
 
+  test('restarts only the first non-blank page of a section', () => {
+    expect(
+      bookPlanFolios(
+        [
+          { sequence: 'body', flow: 'one', blank: false },
+          { sequence: 'body', flow: 'two', blank: false },
+          { sequence: 'body', flow: 'two', blank: false },
+          { sequence: 'body', flow: 'two', blank: false },
+        ],
+        { frontMatter: 'roman-lower', body: 'arabic' },
+        [{ id: 'two', numbering: { restart: 8 } }],
+      ),
+    ).toEqual({ folios: ['1', '8', '9', '10'], total: '4' })
+  })
+
+  test('continues after an uncounted section from the last counted page', () => {
+    expect(
+      bookPlanFolios(
+        [
+          { sequence: 'body', flow: 'one', blank: false },
+          { sequence: 'body', flow: 'cover', blank: false },
+          { sequence: 'body', flow: 'cover', blank: false },
+          { sequence: 'body', flow: 'two', blank: false },
+        ],
+        { frontMatter: 'roman-lower', body: 'arabic' },
+        [{ id: 'cover', numbering: { counted: false } }],
+      ),
+    ).toEqual({ folios: ['1', null, null, '2'], total: '4' })
+  })
+
+  test('counts an opener blank before restarting the first visible page', () => {
+    expect(
+      bookPlanFolios(
+        [
+          { sequence: 'body', flow: 'one', blank: false },
+          { sequence: 'body', flow: 'two', blank: true },
+          { sequence: 'body', flow: 'two', blank: false },
+          { sequence: 'body', flow: 'two', blank: false },
+        ],
+        { frontMatter: 'roman-lower', body: 'arabic' },
+        [{ id: 'two', numbering: { restart: 8 } }],
+      ),
+    ).toEqual({ folios: ['1', null, '8', '9'], total: '4' })
+  })
+
   test('counts an opener blank without showing its folio', () => {
     expect(
       bookPlanFolios(
