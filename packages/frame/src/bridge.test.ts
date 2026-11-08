@@ -361,6 +361,14 @@ describe('frame document', () => {
     expect(messageFrom({ source: {} as Window, data: { type: MESSAGE.fontFailures, failures: [valid] } } as MessageEvent, frame)).toBeNull()
   })
 
+  test('messages with non-object data are ignored without throwing', () => {
+    const source = {} as Window
+    const frame = { contentWindow: source } as HTMLIFrameElement
+    for (const data of [null, undefined, 'text', 7]) {
+      expect(messageFrom({ source, data } as MessageEvent, frame)).toBeNull()
+    }
+  })
+
   test('selection messages match their frame and request and bound both strings', () => {
     const source = {} as Window
     const frame = { contentWindow: source } as HTMLIFrameElement

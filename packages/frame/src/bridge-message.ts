@@ -48,7 +48,8 @@ export function messageFromFrames(
 ): FrameMessage | null {
   const frames = frame && Symbol.iterator in Object(frame) ? [...(frame as Iterable<HTMLIFrameElement>)] : frame ? [frame as HTMLIFrameElement] : []
   if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
-  const data = event.data as Record<string, unknown>
+  const data = event.data
+  if (!data || typeof data !== 'object') return null
   if (data.type === types.key && typeof data.key === 'string' && relayedKeys.includes(data.key)) return { type: types.key, key: data.key }
   if (data.type === types.bookPlace && typeof data.key === 'string') return { type: types.bookPlace, key: data.key }
   const bounded = boundedFontReportMessage(data, types, composeFailureLimit)
