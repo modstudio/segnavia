@@ -1,6 +1,9 @@
 import { z } from 'zod'
+import { Document, type DocumentInput } from './document.ts'
+import { identifyDocument } from './document-identity.ts'
+import { pageFromDocument } from './document-lowering.ts'
 import type { Motif } from './motif.ts'
-import { Page, type Page as PageValue } from './page.ts'
+import type { Page as PageValue } from './page.ts'
 import { sheetMm } from './paper.ts'
 import { Print } from './print.ts'
 
@@ -15,7 +18,7 @@ const COVER_PRINT = {
 }
 
 const CoverShape = z.object({
-  page: Page,
+  page: Document.transform((document) => pageFromDocument(identifyDocument(document))),
   id: z.string().optional(),
   name: z.string().optional(),
 })
@@ -39,7 +42,11 @@ export const Cover = CoverShape.transform((cover) => ({
   }
 })
 export type Cover = z.infer<typeof Cover>
-export type CoverInput = z.input<typeof Cover>
+export interface CoverInput {
+  page: DocumentInput
+  id?: string
+  name?: string
+}
 
 export interface CoverDigestMaterial {
   page: PageValue

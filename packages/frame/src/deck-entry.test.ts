@@ -117,7 +117,9 @@ test('the deck entry defines only deck elements and thumbnails define pages on d
   definitions.clear()
   const coverViewport = new TestElement()
   const coverThumbnail = {
-    designedCoverValue: { cover: Cover.parse({ page: { html: '<p>Cover</p>' } }) },
+    designedCoverValue: {
+      cover: Cover.parse({ page: { type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '<p>Cover</p>' } }] } }),
+    },
     designedCoverDisposal: undefined,
     viewport: coverViewport,
     motifOptions: undefined,

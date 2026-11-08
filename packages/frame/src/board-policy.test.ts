@@ -34,14 +34,20 @@ test('a pinch needs two pointers and never has a zero distance', () => {
 const view = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 1000, height: 500 } }
 const paperItem: BoardItem = { id: 'paper', kind: 'paper', address: 'paper', x: 0, y: 0, width: 100 }
 const imposition = { paper: 'letter' as const, orientation: 'portrait' as const, columns: 1, rows: 1, cell: { width: 100, height: 100 } }
+const coverDocument = (html: string, scripts?: 'sandboxed') => ({
+  type: 'document' as const,
+  kind: 'page' as const,
+  settings: { scripts },
+  children: [{ type: 'page' as const, body: { html } }],
+})
 
 describe('board policy', () => {
   test.each([
     [
-      { cover: { page: { html: 'designed' } }, picture: 'kept.webp' },
+      { cover: { page: coverDocument('designed') }, picture: 'kept.webp' },
       { kind: 'picture', src: 'kept.webp' },
     ],
-    [{ cover: { page: { html: 'designed' } } }, { kind: 'live', cover: expect.any(Object) }],
+    [{ cover: { page: coverDocument('designed') } }, { kind: 'live', cover: expect.any(Object) }],
     [undefined, { kind: 'fallback' }],
   ] as const)('applies each ordered cover preference', (designed, expected) => {
     const parsed = designed ? { ...designed, cover: Cover.parse(designed.cover) } : undefined
@@ -106,7 +112,7 @@ describe('board policy', () => {
   })
 
   test('returns a parsed cover without changing the host value', () => {
-    const designedCover = { cover: { page: { html: 'cover' } } }
+    const designedCover = { cover: { page: coverDocument('cover') } }
     const resolved = { kind: 'paper' as const, pages: [], imposition, size: { width: 10, height: 20 }, designedCover }
     const checked = checkResolved(paperItem, resolved)
     expect(checked.designedCover?.cover.page.print).toBeDefined()
@@ -120,7 +126,7 @@ describe('board policy', () => {
       pages: [],
       imposition,
       size: { width: 10, height: 20 },
-      designedCover: { cover: { page: { html: '', scripts: 'sandboxed' as const } } },
+      designedCover: { cover: { page: coverDocument('', 'sandboxed') } },
     }
     expect(() => checkResolved(paperItem, resolved)).toThrow('resolved board item "paper" has an invalid designedCover.cover')
   })
