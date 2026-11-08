@@ -1,8 +1,10 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
+import { deckPressSettings, notesLayoutGeometry } from '@segnavia/frame/print-document'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { renderDeckPdf } from './deck-pdf.ts'
+import { regularSlideDrawBox } from './deck-paper.ts'
 import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
 
@@ -66,9 +68,23 @@ test('plain deck sheets have no press boxes', async () => {
   }
 })
 
-test('deck print writes press boxes on every notes sheet', async () => {
-  const pages = (await PDFDocument.load(await renderDeckPdf(pressedDeck, { layout: 'notes', notesPaper: { paper: 'letter' } }, services))).getPages()
+test('deck print composes notes against the bleed-box sheet and offsets the slide by bleed', async () => {
+  const viewports: Array<{ width: number; height: number }> = []
+  const bytes = await renderDeckPdf(pressedDeck, { layout: 'notes', notesPaper: { paper: 'letter' } }, {
+    ...services,
+    renderPdf: async (setup, pdf) => {
+      if (setup.html.includes('<section class="sheet')) viewports.push(setup.viewport)
+      return requestedPdf(setup.html, pdf)
+    },
+  })
+  const pages = (await PDFDocument.load(bytes)).getPages()
   expect(pages).toHaveLength(2)
+  expect(viewports).toEqual([{ width: 839, height: 1079 }])
+  const settings = deckPressSettings(pressedDeck, { layout: 'notes', notesPaper: { paper: 'letter' } })
+  const geometry = notesLayoutGeometry(pressedDeck.size, settings.notes)
+  const drawBox = regularSlideDrawBox(pressedDeck.size, geometry, undefined)
+  expect(drawBox.x).toBeGreaterThan(pt(3))
+  expect(drawBox.y).toBeGreaterThan(pt(3))
   for (const page of pages) {
     expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
     expect(page.node.has(PDFName.of('TrimBox'))).toBe(true)

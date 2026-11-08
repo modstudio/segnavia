@@ -219,7 +219,7 @@ async function regularDeckPdf(
   const press = deckPressContext(opts.layout, pressSettings)
   const baseCss = services.fontFaces(opts)
   const slideBaseCss = containFixedPageOverflow(`${baseCss}${press.slides && press.print ? printCss(press.print, 'ltr') : ''}`)
-  const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, opts.notesPaper) : undefined
+  const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, pressSettings.notes) : undefined
   const notesSheetFont = notesGeometry
     ? await fontCssForRender(
         resolveNotesFontCss(opts.notesFont, opts.fontSource ? { source: opts.fontSource } : undefined, services.signal ?? new AbortController().signal),
