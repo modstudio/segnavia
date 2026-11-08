@@ -6,7 +6,7 @@ import { Print } from './print.ts'
 import { PrintedPages, pagePrintedPagesIssues } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
-import { StyleSheet } from './style-sheet.ts'
+import { Brand, StyleSheet } from './style-sheet.ts'
 
 // A page is designed for the screen at whatever size it needs: a flowing
 // measure, a fixed sheet, or an exact width that grows with its content.
@@ -43,6 +43,7 @@ export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): Re
 
 const PageShape = z
   .object({
+    brand: Brand.optional(),
     id: z.string().optional(),
     body: PageBody.optional(),
     html: z.string().optional(),

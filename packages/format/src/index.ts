@@ -3,6 +3,7 @@
 // for hosts that do not run TypeScript.
 
 export { Board, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
+export { type BrandSource, resolveBrand } from './brand.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'
 export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
 export {

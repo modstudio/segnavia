@@ -4,6 +4,7 @@ import type { BookItem } from './book-section.ts'
 import { Deck, type Deck as DeckValue } from './deck.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
 import { Page, type Page as PageValue } from './page.ts'
+import type { Brand } from './style-sheet.ts'
 
 type ParsedNode = DocumentValue['children'][number]
 
@@ -133,12 +134,13 @@ function contentsOptions(document: DocumentValue) {
   return contents ? defined({ pageNumbers: contents.pageNumbers, depth: contents.depth }) : undefined
 }
 
-export function bookFromDocument(document: DocumentValue): BookValue {
+export function bookFromDocument(document: DocumentValue, brand?: Brand): BookValue {
   requireKind(document, 'book')
   const metadata = document.metadata
   return Book.parse(
     defined({
       title: title(document),
+      brand,
       authors: metadata?.authors,
       subject: metadata?.subject,
       limits: document.limits,
@@ -164,7 +166,7 @@ export function bookFromDocument(document: DocumentValue): BookValue {
   )
 }
 
-function pageValue(document: DocumentValue, printed: boolean): PageValue {
+function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): PageValue {
   const child = document.children.find((node): node is Extract<ParsedNode, { type: 'page' }> => node.type === 'page')
   if (!child?.body) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')
   const printedPages = printed
@@ -178,6 +180,7 @@ function pageValue(document: DocumentValue, printed: boolean): PageValue {
   return Page.parse(
     defined({
       id: child.id,
+      brand,
       body: child.body,
       size: document.size,
       print: document.print,
@@ -190,26 +193,26 @@ function pageValue(document: DocumentValue, printed: boolean): PageValue {
   )
 }
 
-export function printedFromDocument(document: DocumentValue): PageValue {
+export function printedFromDocument(document: DocumentValue, brand?: Brand): PageValue {
   requireKind(document, 'printed')
-  return pageValue(document, true)
+  return pageValue(document, true, brand)
 }
 
-export function pageFromDocument(document: DocumentValue): PageValue {
+export function pageFromDocument(document: DocumentValue, brand?: Brand): PageValue {
   requireKind(document, 'page')
-  return pageValue(document, false)
+  return pageValue(document, false, brand)
 }
 
 export const PAGE_OR_PRINTED_KINDS = ['page', 'printed'] as const
 export type PageOrPrintedInput = import('./document.ts').DocumentInput
 
-export function pageOrPrintedFromDocument(document: DocumentValue): PageValue {
-  if (document.kind === 'page') return pageFromDocument(document)
-  if (document.kind === 'printed') return printedFromDocument(document)
+export function pageOrPrintedFromDocument(document: DocumentValue, brand?: Brand): PageValue {
+  if (document.kind === 'page') return pageFromDocument(document, brand)
+  if (document.kind === 'printed') return printedFromDocument(document, brand)
   throw new Error(`document kind ${document.kind} is not accepted here; use kind ${PAGE_OR_PRINTED_KINDS.join(' or ')} to clear this refusal`)
 }
 
-export function deckFromDocument(document: DocumentValue): DeckValue {
+export function deckFromDocument(document: DocumentValue, brand?: Brand): DeckValue {
   requireKind(document, 'deck')
   const slides = document.children
     .filter((node): node is Extract<ParsedNode, { type: 'slide' }> => node.type === 'slide')
@@ -217,6 +220,7 @@ export function deckFromDocument(document: DocumentValue): DeckValue {
   return Deck.parse(
     defined({
       title: title(document),
+      brand,
       size: document.size,
       layout: document.layout,
       fit: document.fit,

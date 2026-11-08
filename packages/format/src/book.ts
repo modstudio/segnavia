@@ -23,7 +23,7 @@ import { Placement } from './placement.ts'
 import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
-import { StyleSheet } from './style-sheet.ts'
+import { Brand, StyleSheet } from './style-sheet.ts'
 
 export {
   BookChapterEntry,
@@ -80,6 +80,7 @@ export const BookRunningHead = z.object({
 export type BookRunningHead = z.infer<typeof BookRunningHead>
 
 export const BookShape = z.object({
+  brand: Brand.optional(),
   title: z.string(),
   authors: z.array(z.string()).optional(),
   subject: z.string().optional(),

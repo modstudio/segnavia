@@ -6,7 +6,7 @@ import { type Limits, limitRefusal } from './limits.ts'
 import { Placement, PlacementShape } from './placement.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
-import { StyleSheet } from './style-sheet.ts'
+import { Brand, StyleSheet } from './style-sheet.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
@@ -122,6 +122,7 @@ export function parsePlayback(value: unknown): PlaybackMode | undefined {
 }
 
 export const DeckShape = z.object({
+  brand: Brand.optional(),
   title: z.string(),
   size: PixelSize.default(DECK_SIZE),
   layout: z.enum(['fixed', 'responsive']).default('fixed'),
