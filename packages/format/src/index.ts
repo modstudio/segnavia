@@ -64,8 +64,6 @@ export {
   zoomToFit,
 } from './board-geometry.ts'
 export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
-export { applyBoardOps, BoardOp, invertBoardOps, SectionFields } from './board-ops.ts'
-export { diffBoards } from './board-ops-diff.ts'
 export {
   deriveSectionCells,
   type GridDropTarget,

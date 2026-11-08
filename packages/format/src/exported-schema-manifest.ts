@@ -1,5 +1,4 @@
 import { BoardCommand } from './board-commands.ts'
-import { BoardOp } from './board-ops.ts'
 import { BookView } from './book.ts'
 import { Cover } from './cover.ts'
 import { Manifest, PublishedShot } from './deck.ts'
@@ -26,7 +25,6 @@ export const EXPORTED_SCHEMAS = {
   manifest: Manifest,
   publishedShot: PublishedShot,
   boardCommand: BoardCommand,
-  boardOp: BoardOp,
   printSetting: PrintSetting,
   printSettingInput: PrintSettingInput,
   slotDeclaration: SlotDeclaration,

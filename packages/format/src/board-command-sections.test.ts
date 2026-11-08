@@ -1,8 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from './board.ts'
 import type { BoardCommand } from './board-commands.ts'
+import { documentForBoard } from './board-document-test-helper.ts'
 import type { ComputedBoardShapes } from './board-shapes.ts'
-import { editBoard } from './edit-board.ts'
+import { editBoard as editBoardDocument } from './edit-board.ts'
+
+const editBoard = (
+  board: Board,
+  commands: Parameters<typeof editBoardDocument>[1],
+  shapes: Parameters<typeof editBoardDocument>[2],
+  options?: Parameters<typeof editBoardDocument>[3],
+) => editBoardDocument(documentForBoard(board), commands, shapes, options)
 
 const shapes: ComputedBoardShapes = {
   shapes: {
@@ -110,9 +118,9 @@ describe('board section commands', () => {
     delete section.layout
     const result = success(editBoard(before, [{ type: 'section-set', section: { id: 'old' }, title: 'Renamed' }], shapes))
     expect(result.board.sections[0]?.layout).toBeUndefined()
-    const op = result.ops.find((entry) => entry.type === 'section-set')
-    expect(op).toMatchObject({ from: { title: 'Old' }, to: { title: 'Renamed' } })
-    expect(op && 'from' in op ? op.from : {}).not.toHaveProperty('layout')
+    const op = result.batch.ops.find((entry) => entry.type === 'setFields' && entry.id === 'old')
+    expect(op).toMatchObject({ prior: { title: 'Old' }, fields: { title: 'Renamed' } })
+    expect(op && 'prior' in op ? op.prior : {}).not.toHaveProperty('layout')
   })
 
   test('derives missing auto cells before reordering and when auto is restated', () => {
