@@ -53,6 +53,12 @@ describe('bookDocument', () => {
     expect(capped).toContain("raise the host's limits.pages")
   })
 
+  test('carries declared app faces into the paginated book composer', () => {
+    const html = bookDocument(parseBookFixture({ ...book, style: { fonts: { body: { faces: [{ script: 'hebrew' }] } } } }), { nonce: 'held' })
+    expect(html).toContain('"fontLoads":[{"font":"body","unicodeRange":"U+0590-05FF,U+FB1D-FB4F"')
+    expect(html.match(/"font":"body"/g)).toHaveLength(1)
+  })
+
   test('carries saved plans and breaks in config without closing the composer script', () => {
     const plan = {
       version: 1 as const,

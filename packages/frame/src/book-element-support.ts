@@ -1,5 +1,6 @@
 import { BOOK_LAYOUTS, type BookLayout } from './book-presentation.ts'
-import { MESSAGE } from './bridge.ts'
+import { dispatchFontFailures, MESSAGE } from './bridge.ts'
+import type { FrameMessage } from './bridge-message.ts'
 
 export function bookSourceUrl(src: string): URL {
   try {
@@ -37,6 +38,12 @@ export function acceptedBookLayout(value: string | null): BookLayout | undefined
 export function restoreBookLayoutAttribute(element: HTMLElement, previous: string | null) {
   if (previous === null) element.removeAttribute('layout')
   else element.setAttribute('layout', previous)
+}
+
+export function handleBookFontFailures(target: EventTarget, message: FrameMessage, generation: string | undefined, currentGeneration: string): boolean {
+  if (message.type !== MESSAGE.fontFailures) return false
+  if (generation === currentGeneration) dispatchFontFailures(target, message)
+  return true
 }
 
 export interface BookComposeFailureState {

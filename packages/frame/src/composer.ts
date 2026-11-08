@@ -25,6 +25,7 @@ import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions
 import { dressPlanPages, fillFurniture, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
 import { composerLayoutReady, forcedPageBreak, measureLineBoxes, measurementRefusal, sizeFlowGalley, tableRowLines } from './composer-measure.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
+import { declaredFontLoadExpression } from './font-load.ts'
 import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 
 export const COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
@@ -323,7 +324,9 @@ var applyPrintedRules=function(plan){if(!config.rules)return plan;var rows=planP
 var nextLayoutFrame=function(){return new Promise(function(resolve){var settled=false;var done=function(){if(settled)return;settled=true;resolve();};if(window.requestAnimationFrame)window.requestAnimationFrame(done);setTimeout(done,16);});};
 var publishPlan=function(plan){var previous=document.querySelectorAll('script[data-segnavia-plan]');for(var i=0;i<previous.length;i++)previous[i].remove();var carrier=document.createElement('script');carrier.type='application/json';carrier.setAttribute('data-segnavia-plan','');carrier.textContent=JSON.stringify(plan).replace(/</g,'\\u003c');document.body.append(carrier);};
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});
-Promise.all([loaded,${DIAGRAM_READY_EXPR},document.fonts?document.fonts.ready:Promise.resolve(),readyImages(document)]).then(function(){
+var fontLoads=loaded.then(function(){var declarations=config.fontLoads||[];return ${declaredFontLoadExpression('declarations')};});
+var fontsReady=fontLoads.then(function(){return document.fonts?document.fonts.ready:undefined;});
+Promise.all([loaded,${DIAGRAM_READY_EXPR},fontsReady,readyImages(document)]).then(function(){
 var visibleElapsed=0;
 var visibleStartedAt=performance.now();
 var settleVisibleElapsed=0;

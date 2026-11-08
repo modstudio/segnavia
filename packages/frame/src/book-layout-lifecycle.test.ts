@@ -1,7 +1,28 @@
 import { describe, expect, test } from 'bun:test'
 import { reflectedBookElement, switchableBookView } from './book-test-view.ts'
+import { MESSAGE } from './bridge.ts'
 
 describe('book layout lifecycle', () => {
+  test('a current frame font report dispatches a bubbling composed event', () => {
+    const { book, frames } = reflectedBookElement()
+    book.view = switchableBookView()
+    const frame = frames[0]
+    if (!frame) throw new Error('the book frame was not mounted')
+    const seen: Array<{ failures: unknown; bubbles: boolean; composed: boolean }> = []
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'fontfailure') seen.push({ failures: (event as CustomEvent).detail.failures, bubbles: event.bubbles, composed: event.composed })
+      return true
+    }) as typeof book.dispatchEvent
+    const failure = { font: 'body', family: 'Body', reason: 'unloaded' }
+    const onMessage = (book as unknown as { onMessage(event: MessageEvent): void }).onMessage
+    const generation = String((book as unknown as { loadGeneration: number }).loadGeneration)
+    frame.dataset.segnaviaBookGeneration = '-1'
+    onMessage({ source: frame.contentWindow, data: { type: MESSAGE.fontFailures, failures: [failure] } } as MessageEvent)
+    frame.dataset.segnaviaBookGeneration = generation
+    onMessage({ source: frame.contentWindow, data: { type: MESSAGE.fontFailures, failures: [failure] } } as MessageEvent)
+    expect(seen).toEqual([{ failures: [failure], bubbles: true, composed: true }])
+  })
+
   test('a reloaded frame keeps its intrinsic layout and detach clears readiness', () => {
     const { book, frames } = reflectedBookElement()
     const messages: unknown[] = []

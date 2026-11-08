@@ -15,6 +15,7 @@ import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBook
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
+import { declaredFontLoads } from './font-load.ts'
 
 export interface PaginatedDocumentOptions {
   nonce: string
@@ -33,6 +34,7 @@ function px(value: number): number {
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
+  const fonts = view.style?.fonts
   const limits = resolveLimits(view.limits, options.limits)
   const paper = { width: px(pagination.paper.width), height: px(pagination.paper.height) }
   const parents = resolveParentPages(pagination.parents).map((parent) => {
@@ -73,6 +75,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     expectedCount: null,
     measure: false,
     savedPlans: true,
+    fontLoads: declaredFontLoads(fonts),
     ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
@@ -116,5 +119,6 @@ export function flowViewDocument(view: BookView, options: Pick<PaginatedDocument
     css: options.css,
     relayKeys: false,
     reportHeight: false,
+    fonts: view.style?.fonts,
   })
 }

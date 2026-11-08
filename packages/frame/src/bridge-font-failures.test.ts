@@ -25,7 +25,14 @@ test('escapes JSON values embedded in the bridge script context', () => {
 })
 
 test('supplies the shared font failure bounds to the embedded loader', () => {
-  expect(bridgeForHost({ fonts: { body: { faces: [{}] } } })).toContain("familyValue,'data-segnavia-font-failures',64,256")
+  expect(bridgeForHost({ fonts: { body: { faces: [{}] } } })).toContain("'data-segnavia-font-failures',64,256")
+})
+
+test('a composed frame reports the composer failures without loading faces again', () => {
+  const script = bridgeForHost({ fonts: { body: { faces: [{}] } }, readyAfterAttribute: 'data-segnavia-composed' })
+  expect(script).toContain("composerFontFailures=function(){try{var value=JSON.parse(document.documentElement.getAttribute('data-segnavia-font-failures')")
+  expect(script).toContain('then(function(){reportFontFailures(composerFontFailures());')
+  expect(script).not.toContain('loadDeclaredFonts')
 })
 
 test('messages with non-object data are ignored without throwing', () => {

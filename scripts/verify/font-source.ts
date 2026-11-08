@@ -4,6 +4,7 @@ import path from 'node:path'
 import type { AppFont, FontSource } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { screenPage } from '../screen-document.ts'
+import { verifyPrintedPageFonts } from './printed-page-fonts.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -44,4 +45,5 @@ export async function verifyFontSource(renderer: Renderer, work: string, check: 
   const rows = fontRows(execFileSync('pdffonts', [file], { encoding: 'utf8' }))
   const alef = rows.filter((row) => /(?:^|\+)Alef-Regular\s/.test(row))
   check('a FontSource page whose CSS uses only var(--segnavia-font-serif) embeds the face', alef.length === 1, rows.join('; '))
+  await verifyPrintedPageFonts(renderer, work, check)
 }

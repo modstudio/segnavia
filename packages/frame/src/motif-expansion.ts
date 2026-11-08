@@ -4,7 +4,6 @@ import {
   type BookView,
   bookFromDocument,
   type DocumentInput,
-  type FontFailure,
   type FontReference,
   isDesignedSection,
   isPart,
@@ -13,7 +12,6 @@ import {
   type PageWidths,
   PRINTED_PAGE_CONTEXT,
   resolveBrand,
-  type SlotsOptions,
 } from '@segnavia/format'
 import {
   documentLanguage,
@@ -30,9 +28,7 @@ import {
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
 import type { BrandsOptions } from './brands.ts'
-import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
 export interface MotifsOptions {
   source: MotifSource
@@ -365,21 +361,4 @@ export function expandFramePages(
   pageWidths?: PageWidths,
 ): Promise<ExpandedFramePage[]> {
   return Promise.all(pages.map((page) => expandFramePage(page, motifs, signal, placements, purpose, pageWidths)))
-}
-
-export async function prepareShownPage(
-  page: HtmlPage,
-  motifs: MotifsOptions | undefined,
-  slots: SlotsOptions | undefined,
-  fonts: FontsOptions | undefined,
-  signal: AbortSignal,
-  placements?: PlacementsOptions,
-  pageWidths?: PageWidths,
-): Promise<{ page: HtmlPage; resolved?: PreparedSlots; css: string; failures: FontFailure[] }> {
-  const expanded = await expandFramePage(page, motifs, signal, placements, 'screen', pageWidths)
-  const refusal = slotFillRefusal(expanded.page.scripts, expanded.page.slots, slots)
-  if (refusal) throw refusal
-  const resolved = hasSlotWork(expanded.page.slots, slots) ? await prepareSlots(expanded.page.slots, slots, signal) : undefined
-  const { css, failures } = await pageFontCss(expanded.page, expanded.fonts, fonts, signal)
-  return { page: expanded.page, resolved, css, failures }
 }
