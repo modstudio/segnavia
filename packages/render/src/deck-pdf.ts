@@ -202,7 +202,8 @@ async function composeRegularSlides(
   press: DeckPressContext,
 ): Promise<void> {
   const pages = output.getPages()
-  const pressSheet = press.slides && press.boxes ? { width: press.boxes.bleedBox.width * PX_PER_MM, height: press.boxes.bleedBox.height * PX_PER_MM } : undefined
+  const pressSheet =
+    press.slides && press.boxes ? { width: press.boxes.bleedBox.width * PX_PER_MM, height: press.boxes.bleedBox.height * PX_PER_MM } : undefined
   const geometry = regularSlideDrawBox(deck.size, notesGeometry, pressSheet)
   const firstPages = notesGeometry ? firstNotesPages(pageOwners, deck.slides.length) : []
   for (const item of rendered) {
