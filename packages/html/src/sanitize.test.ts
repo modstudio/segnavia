@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { safeImageSource, sanitize } from './sanitize.ts'
+import { findActiveContent, safeImageSource, sanitize } from './sanitize.ts'
 
 const fetches =
   '<svg><image href="https://outside.example/a.png"/><use xlink:href="https://outside.example/s.svg#x"/><filter><feImage href="https://outside.example/f.png"/></filter></svg>'
@@ -39,5 +39,33 @@ describe('href fetches', () => {
     const html = '<svg><a href="https://outside.example">outside</a></svg>'
     expect(sanitize(html, { links: { protocols: ['https:'] } })).toBe(html)
     expect(sanitize(html, { links: { protocols: ['mailto:'] } })).toBe('<svg><a>outside</a></svg>')
+  })
+})
+
+describe('srcset image origins', () => {
+  const options = { origins: [{ origin: 'https://images.example', kinds: ['image'] as const }] }
+
+  test('keeps an approved img srcset when author scripts are refused', () => {
+    const html = '<img srcset="https://images.example/small.png 1x, https://images.example/large.png 2x">'
+    expect(sanitize(html, options)).toBe(html)
+  })
+
+  test('removes a mixed img srcset and names its first refused origin', () => {
+    const refused = 'https://outside.example/large.png'
+    const html = `<img srcset="https://images.example/small.png 320w, ${refused} 640w">`
+    expect(sanitize(html, options)).toBe('<img>')
+    expect(findActiveContent(html, options)).toEqual([expect.stringContaining(`${refused} at origin https://outside.example`)] as string[])
+  })
+
+  test('judges a picture source srcset by the same image policy', () => {
+    const kept = '<picture><source srcset="https://images.example/wide.png 2x"><img></picture>'
+    const removed = '<picture><source srcset="https://outside.example/wide.png 2x"><img></picture>'
+    expect(sanitize(kept, options)).toBe(kept)
+    expect(sanitize(removed, options)).toBe('<picture><source><img></picture>')
+  })
+
+  test('keeps a data-image srcset', () => {
+    const html = '<img srcset="data:image/png;base64,AAAA 1x, data:image/webp;base64,BBBB 2x">'
+    expect(sanitize(html)).toBe(html)
   })
 })

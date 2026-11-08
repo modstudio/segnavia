@@ -36,6 +36,9 @@ const URL_ATTRIBUTES = new Set(['href', 'xlink:href', 'src', 'srcset', 'poster',
 const DATA_IMAGE_TYPES = String.raw`(?:png|jpeg|gif|webp|svg\+xml)`
 const DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:[;,])`, 'i')
 const DATA_IMAGE_SRCSET = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:;[^,]*)?,[^,]*$`, 'i')
+const SRCSET_WIDTH = /^[1-9]\d*w$/
+const SRCSET_DENSITY = /^(?:\d+(?:\.\d*)?|\.\d+)x$/
+const SRCSET_CANDIDATE = /\s*((?:data:[^,\s]*,[^,\s]*)|[^,\s]+)(?:\s+([^\s,]+))?\s*(?:,|$)/iy
 
 export interface SanitizeOptions {
   // Protocols, origins and fragments a link may use. Overrides linkOrigins.
@@ -94,6 +97,13 @@ function insideSvg(element: Element): boolean {
   return false
 }
 
+function insidePicture(element: Element): boolean {
+  for (let parent = element.parent; parent; parent = parent.parent) {
+    if (isTag(parent) && parent.name.toLowerCase() === 'picture') return true
+  }
+  return false
+}
+
 // A tab is removed before the decision, so `java\tscript:` is still javascript.
 function normalizeUrl(value: string): string {
   return urlParserText(value).toLowerCase()
@@ -101,6 +111,30 @@ function normalizeUrl(value: string): string {
 
 export function safeImageSource(value: string): boolean {
   return DATA_IMAGE.test(normalizeUrl(value))
+}
+
+function srcsetCandidates(value: string): string[] | undefined {
+  const candidates: string[] = []
+  SRCSET_CANDIDATE.lastIndex = 0
+  while (SRCSET_CANDIDATE.lastIndex < value.length) {
+    const candidate = SRCSET_CANDIDATE.exec(value)
+    if (!candidate) return undefined
+    const descriptor = candidate[2]
+    if (descriptor && !SRCSET_WIDTH.test(descriptor) && !(SRCSET_DENSITY.test(descriptor) && Number.parseFloat(descriptor) > 0)) return undefined
+    candidates.push(candidate[1] ?? '')
+  }
+  return candidates.length > 0 ? candidates : undefined
+}
+
+function srcsetAssetRefusal(value: string, options: SanitizeOptions): string {
+  const candidates = srcsetCandidates(value)
+  if (!candidates) return ''
+  for (const candidate of candidates) {
+    if (safeImageSource(candidate)) continue
+    const decision = originDecision(candidate, 'image', options.origins, options.keepScripts === true)
+    if (!decision.allowed) return decision.reason
+  }
+  return ''
 }
 
 export function hrefAllowed(tag: string, value: string, links: ResolvedLinkPolicy | undefined): boolean {
@@ -159,6 +193,7 @@ function assetAttribute(element: Element, attribute: string, value: string, opti
   if (options.keepScripts && tag === 'script' && attribute === 'src') kind = 'script'
   else if (tag === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && attribute === 'href') kind = 'style'
   else if (tag === 'img' && attribute === 'src') kind = 'image'
+  else if ((tag === 'img' || (tag === 'source' && insidePicture(element))) && attribute === 'srcset') return srcsetAssetRefusal(value, options)
   if (!kind) return undefined
   if (kind === 'image' && safeImageSource(value)) return ''
   const decision = originDecision(value, kind, options.origins, options.keepScripts === true)
