@@ -22,7 +22,7 @@ describe('font load', () => {
   })
 
   test('rejects malformed and oversized reports whole', () => {
-    const valid = { font: 'body', family: 'Body', reason: 'unloaded' }
+    const valid = { font: 'body', family: 'Body', reason: 'unloaded' as const }
     expect(fontFailuresData([valid])).toEqual([valid])
     expect(fontFailuresData([valid, { ...valid, reason: 'other' }])).toBeNull()
     expect(fontFailuresData([{ ...valid, family: 'x'.repeat(257) }])).toBeNull()

@@ -18,7 +18,7 @@ import {
 } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
-import { frameSandbox, frameStyleSheets, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { dispatchFontFailures, frameSandbox, frameStyleSheets, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -378,8 +378,7 @@ export class SegnaviaPage extends PageElementAttributes {
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const message = messageFrom(event, frame)
-    if (message?.type === MESSAGE.fontFailures && message.failures)
-      this.dispatchEvent(new CustomEvent('fontfailure', { detail: { failures: message.failures }, bubbles: true, composed: true }))
+    dispatchFontFailures(this, message)
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
       this.frameReady = true
       releaseReadyPageRequests(this.pageRequests)
@@ -395,7 +394,6 @@ export class SegnaviaPage extends PageElementAttributes {
     this.fit()
   }
 }
-
 export function createPageElement(): SegnaviaPage {
   if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
   return document.createElement(HEADLESS_ELEMENTS.page) as SegnaviaPage

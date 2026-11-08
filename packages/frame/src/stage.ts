@@ -13,7 +13,7 @@
 
 import type { SlotsOptions, TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
-import { animationMessage, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -337,8 +337,7 @@ export class SegnaviaStage extends HTMLElement {
   // A key pressed inside the slide reaches the stage only through the bridge.
   private onMessage = (event: MessageEvent) => {
     const message = messageFrom(event, this.pool.frames())
-    if (message?.type === MESSAGE.fontFailures && message.failures)
-      this.dispatchEvent(new CustomEvent('fontfailure', { detail: { failures: message.failures }, bubbles: true, composed: true }))
+    dispatchFontFailures(this, message)
     if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
     if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
     if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
@@ -394,7 +393,6 @@ export class SegnaviaStage extends HTMLElement {
     }
     return null
   }
-
   requestAuthoringAnimationReport() {
     this.pool.activeFrame()?.contentWindow?.postMessage({ type: MESSAGE.inspect }, '*')
   }

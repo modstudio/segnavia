@@ -1,4 +1,4 @@
-import { type FontFailure, type FontManifest, rangeSample } from '@segnavia/format'
+import { type FontFailure, type FontManifest, HEBREW_UNICODE_RANGE, rangeSample } from '@segnavia/format'
 
 export const FONT_FAILURE_ATTRIBUTE = 'data-segnavia-font-failures'
 export const FONT_FAILURE_LIMIT = 64
@@ -14,7 +14,14 @@ export interface DeclaredFontLoad {
 
 export function declaredFontLoads(fonts: FontManifest | undefined): DeclaredFontLoad[] {
   return Object.entries(fonts ?? {}).flatMap(([font, entry]) =>
-    'faces' in entry ? entry.faces.map(({ script: _script, ...face }) => ({ font, ...face, sample: rangeSample(face.unicodeRange) })) : [],
+    'faces' in entry
+      ? entry.faces.map(({ script, ...face }) => ({
+          font,
+          ...face,
+          ...(script === 'hebrew' && face.unicodeRange === undefined ? { unicodeRange: HEBREW_UNICODE_RANGE } : {}),
+          sample: rangeSample(face.unicodeRange ?? (script === 'hebrew' ? HEBREW_UNICODE_RANGE : undefined)),
+        }))
+      : [],
   )
 }
 
@@ -95,4 +102,16 @@ export function fontFailuresAttribute(value: string | null): FontFailure[] {
   } catch {
     return []
   }
+}
+
+export function boundedFontReportMessage(
+  data: { type?: unknown; text?: unknown; failures?: unknown },
+  types: { composeFailure: string; fontFailures: string },
+  composeFailureLimit: number,
+): { type: string; text?: string; failures?: FontFailure[] } | null {
+  if (data.type === types.composeFailure && typeof data.text === 'string' && data.text.length > 0 && data.text.length <= composeFailureLimit)
+    return { type: types.composeFailure, text: data.text }
+  if (data.type !== types.fontFailures) return null
+  const failures = fontFailuresData(data.failures)
+  return failures ? { type: types.fontFailures, failures } : null
 }

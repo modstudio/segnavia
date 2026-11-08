@@ -9,12 +9,16 @@
 
 import { type Direction, dependencyOriginSet, type FontFailure, type FontManifest, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
+import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
+import { declaredFontLoads, loadDeclaredFonts } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
-import { declaredFontLoads, fontFailuresData, loadDeclaredFonts } from './font-load.ts'
 import { keepPassScript } from './keep-pass.ts'
 import { escapeHtml } from './svg.ts'
 
+export type { SlotFitState } from './bridge-message.ts'
+export { dispatchFontFailures } from './bridge-message.ts'
+export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
 
 export const MESSAGE = {
@@ -336,42 +340,8 @@ export function bridgeForHost(options: Omit<FrameOptions, 'scripts' | 'nonce'> =
 
 // Our frame is identified by the window a message came from, which a page
 // cannot forge. `origin` is "null" for every sandboxed frame and proves nothing.
-export function messageFrom(
-  event: MessageEvent,
-  frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
-): {
-  type: string
-  key?: string
-  text?: string
-  height?: number
-  animated?: boolean
-  lengthMs?: number | null
-  slots?: Record<string, SlotFitState>
-  failures?: FontFailure[]
-} | null {
-  const frames = frame && Symbol.iterator in Object(frame) ? [...(frame as Iterable<HTMLIFrameElement>)] : frame ? [frame as HTMLIFrameElement] : []
-  if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
-  const data = event.data as { type?: unknown; key?: unknown; text?: unknown; height?: unknown; animated?: unknown; lengthMs?: unknown; slots?: unknown }
-  if (data?.type === MESSAGE.key && typeof data.key === 'string' && (RELAYED_KEYS as readonly string[]).includes(data.key))
-    return { type: MESSAGE.key, key: data.key }
-  if (data?.type === MESSAGE.bookPlace && typeof data.key === 'string') return { type: MESSAGE.bookPlace, key: data.key }
-  if (data?.type === MESSAGE.composeFailure && typeof data.text === 'string' && data.text.length > 0 && data.text.length <= COMPOSE_FAILURE_TEXT_LIMIT)
-    return { type: MESSAGE.composeFailure, text: data.text }
-  if (data?.type === MESSAGE.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: MESSAGE.height, height: data.height }
-  if (data?.type === MESSAGE.ready) return { type: MESSAGE.ready }
-  if (data?.type === MESSAGE.fontFailures) {
-    const failures = fontFailuresData((data as { failures?: unknown }).failures)
-    if (failures) return { type: MESSAGE.fontFailures, failures }
-  }
-  const fit = slotFitMessageData(data)
-  if (fit) return fit
-  if (
-    data?.type === MESSAGE.animation &&
-    typeof data.animated === 'boolean' &&
-    (data.lengthMs === null || (typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) && data.lengthMs >= 0))
-  )
-    return { type: MESSAGE.animation, animated: data.animated, lengthMs: data.lengthMs }
-  return null
+export function messageFrom(event: MessageEvent, frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null): FrameMessage | null {
+  return messageFromFrames(event, frame, MESSAGE, RELAYED_KEYS, COMPOSE_FAILURE_TEXT_LIMIT)
 }
 
 export interface PageSelection {
@@ -396,18 +366,9 @@ export function headingMessage(event: MessageEvent, frame: HTMLIFrameElement | n
   return data.top
 }
 
-export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
-
 /** Validates the narrow slot-fit payload before a host accepts page measurements. */
 export function slotFitMessageData(data: unknown): { type: typeof MESSAGE.slotFit; slots: Record<string, SlotFitState> } | null {
-  if (!data || typeof data !== 'object' || (data as { type?: unknown }).type !== MESSAGE.slotFit) return null
-  const slots = (data as { slots?: unknown }).slots
-  if (!slots || typeof slots !== 'object' || Array.isArray(slots)) return null
-  const entries = Object.entries(slots)
-  if (entries.length > 200) return null
-  const valid = new Set<unknown>(['fit', 'shrunk', 'overflowed'])
-  if (entries.some(([key, state]) => typeof key !== 'string' || !valid.has(state))) return null
-  return { type: MESSAGE.slotFit, slots: Object.fromEntries(entries) as Record<string, SlotFitState> }
+  return validateSlotFitMessage(data, MESSAGE.slotFit) as { type: typeof MESSAGE.slotFit; slots: Record<string, SlotFitState> } | null
 }
 
 export function animationMessage(event: MessageEvent, frames: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null): AnimationMessage | null {
