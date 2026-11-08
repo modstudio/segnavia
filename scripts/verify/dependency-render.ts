@@ -3,8 +3,10 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
 import { screenPage } from '../screen-document.ts'
+import { pngPixels } from './browser-pixels.ts'
 
 const nfdCodePointMultiset = (value: string) => [...value.normalize('NFD').replace(/[\s\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu, '')].sort().join('')
+const redPng = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGO4IyIHRwzEcQDC4xDhSCTDUgAAAABJRU5ErkJggg==', 'base64'))
 
 export async function verifyDependencyRender(
   renderer: Renderer,
@@ -69,7 +71,21 @@ export async function verifyDependencyRender(
 
   const imageOrigin = 'https://images.example'
   const image = `${imageOrigin}/asset.png`
-  const imagePage = screenPage({ html: `<img src="${image}">` }, { size: { width: 400, height: 200 } })
+  const imagePage = screenPage(
+    { html: `<style>body{margin:0}<\/style><img src="${image}" style="width:40px;height:40px;image-rendering:pixelated">` },
+    { size: { width: 400, height: 200 } },
+  )
+  const imageOptions = {
+    origins: [{ origin: imageOrigin, kinds: ['image'] as const }],
+    assets: async (request: string) => (request === image ? { body: redPng, contentType: 'image/png' } : undefined),
+  }
+  const approvedImage = await pngPixels(renderer, await renderer.pageImage(imagePage, { ...imageOptions, format: 'png' }))
+  const sample = approvedImage.rgba.slice((20 * approvedImage.width + 20) * 4, (20 * approvedImage.width + 20) * 4 + 4)
+  check(
+    'an approved host image is fulfilled offline and drawn into the rendered pixels',
+    sample[0] === 220 && sample[1] === 20 && sample[2] === 30 && sample[3] === 255,
+    `sample=${sample.join(',')}`,
+  )
   const cappedOptions = {
     origins: [{ origin: imageOrigin, kinds: ['image'] as const }],
     assets: async () => ({ body: new Uint8Array([1, 2]), contentType: 'image/png' }),
@@ -93,7 +109,6 @@ export async function verifyDependencyRender(
     documentCap.includes('limits.assets.bytes') && documentCap.includes(secondImage),
     documentCap,
   )
-
   const fontCssUrl = 'https://fonts.googleapis.com/css2?family=Noto+Serif+Hebrew'
   const fontUrl = 'https://fonts.gstatic.com/s/notoserifhebrew/v1/hebrew.ttf'
   const markedHebrew = 'שָׁלוֹם'
