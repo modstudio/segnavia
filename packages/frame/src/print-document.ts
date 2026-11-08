@@ -15,10 +15,8 @@ import {
   type Page,
   PageWidths,
   type PrintInput,
-  PX_PER_MM,
   pageDirection,
   pagePlacementLayout,
-  pressBoxes,
   printPadding,
   printProperties,
   resolveDirection,
@@ -35,7 +33,7 @@ import {
   resolvePageHtml,
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
-import { type DeckSheetPrint, deckNotesPrint, deckSheetPrint } from './deck-press.ts'
+import { type DeckSheetGeometry, type DeckSheetPrint, deckPressSettings } from './deck-press.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
@@ -45,7 +43,7 @@ import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { htmlSlideDocument, PRINT_COLOR_CSS } from './slide-print-document.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
-export { deckNotesPrint, deckSheetPrint } from './deck-press.ts'
+export { deckNotesPrint, deckPressSettings, deckSheetGeometry } from './deck-press.ts'
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 export { htmlSlideDocument } from './slide-print-document.ts'
 
@@ -198,36 +196,28 @@ export function printableDeck(input: DocumentInput, options: PrintOptions & { no
   return printableDeckValue(deckFromDocument(document), options)
 }
 
-function printableSlideSheets(deck: Deck, options: PrintOptions): string {
+function printableSlideSheets(deck: Deck, options: PrintOptions, geometry: DeckSheetGeometry | undefined): string {
   const { width, height } = deck.size
-  const print = deckSheetPrint(deck.size, options.sheet)
-  const boxes = print ? pressBoxes({ width: width / PX_PER_MM, height: height / PX_PER_MM }, print) : undefined
-  const press = print !== undefined && (print.bleed > 0 || print.marks)
-  const sheetWidth = press && boxes ? boxes.bleedBox.width * PX_PER_MM : width
-  const sheetHeight = press && boxes ? boxes.bleedBox.height * PX_PER_MM : height
-  const padding = press ? print.bleed * PX_PER_MM : 0
+  const sheetWidth = geometry?.sheet.width ?? width
+  const sheetHeight = geometry?.sheet.height ?? height
+  const padding = geometry?.padding ?? 0
   const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
-  return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${sheetWidth}px ${sheetHeight}px;margin:0}html,body{margin:0}${print ? printProperties(print) : ''}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
+  return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${sheetWidth}px ${sheetHeight}px;margin:0}html,body{margin:0}${geometry ? printProperties(geometry.print) : ''}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
 }
 
 export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
-  if (options.sheet && options.imposition) {
-    throw new RangeError('sheet and imposition cannot be combined. Remove sheet, or remove imposition, to clear this refusal.')
-  }
-  if (options.sheet && options.layout === 'notes') {
-    throw new RangeError("sheet and layout: 'notes' cannot be combined. Remove sheet, or use notesPaper for notes press settings, to clear this refusal.")
-  }
+  const press = deckPressSettings(deck.size, options)
   if (options.imposition) {
     return printableDeckValueDocument(deck, { ...options, imposition: options.imposition }).html
   }
-  if ((options.layout ?? 'slides') === 'slides') return printableSlideSheets(deck, options)
+  if ((options.layout ?? 'slides') === 'slides') return printableSlideSheets(deck, options, press.sheet)
   if (options.notesFont !== undefined && options.notesSheetFont === undefined) {
     throw new FontRefusedError(
       `notes could not establish app font ${JSON.stringify(options.notesFont)}; print with printDeck or deckPdf, or resolve it with resolveNotesFontCss and pass the result, to clear this refusal.`,
     )
   }
   return notesDocument(deck, {
-    notesPaper: deckNotesPrint(options.notesPaper),
+    notesPaper: press.notes,
     slideBody: (slide) => slideBody(deck, slide, options),
     title: options.title ?? deck.title,
     labels: options.labels,
@@ -296,6 +286,7 @@ export function printableDeckDocument(input: DocumentInput, options: PrintOption
 }
 
 export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
+  deckPressSettings(deck.size, options)
   if (options.layout === 'notes') {
     throw new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }

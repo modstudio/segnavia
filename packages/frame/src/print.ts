@@ -26,7 +26,7 @@ import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './
 import { parsePageWidths } from './page-widths.ts'
 import { paperBoxSize } from './paper-geometry.ts'
 import {
-  deckNotesPrint,
+  deckPressSettings,
   type PrintablePagesOptions,
   type PrintOptions,
   paginateNotes,
@@ -168,6 +168,7 @@ export async function preparedDeckValuePrint(
   options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
   signal: AbortSignal = AbortSignal.any([]),
 ): Promise<PrintFrameOptions> {
+  deckPressSettings(deck.size, options)
   const resolvedDeck = await resolveDeckMedia(deck, options.placements, 'print', signal)
   const refusal = slotFillRefusal(resolvedDeck.scripts, resolvedDeck.slots, options.slots)
   if (refusal) throw refusal
@@ -178,7 +179,6 @@ export async function preparedDeckValuePrint(
   const notesSheetFont =
     options.notesSheetFont ?? (options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined)
   const printOptions = { ...options, notesSheetFont }
-  if (options.layout === 'notes') deckNotesPrint(options.notesPaper)
   const preparedDeck = {
     ...resolvedDeck,
     slides: resolvedDeck.slides.map((slide) =>
@@ -265,6 +265,7 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
   const signal = new AbortController().signal
   const document = parseDocument(input, { newId: options.newId })
   const deck = deckFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
+  deckPressSettings(deck.size, options)
   options = { ...options, limits: parseLimits(options.limits, 'host') }
   const reasons = exceedsLimits(deck, options.limits ?? {})
   if (reasons.length > 0) throw new RangeError(reasons.join('; '))

@@ -12,7 +12,6 @@ import {
   type PrintBoxes,
   PX_PER_MM,
   pagePlacementLayout,
-  pressBoxes,
   printBoxes,
   usesPressLayout,
 } from '@segnavia/format'
@@ -21,8 +20,7 @@ import { hasDiagram } from '@segnavia/frame/diagrams'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import {
-  deckNotesPrint,
-  deckSheetPrint,
+  deckPressSettings,
   htmlSlideDocument,
   notesLayoutGeometry,
   type PrintOptions,
@@ -39,7 +37,7 @@ import { type DependencyCache, dependencySetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { regularSlideDrawBox } from './deck-paper.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
-import { addPressBoxes, assertPrintOptions } from './page-paper.ts'
+import { addPressBoxes } from './page-paper.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
@@ -137,12 +135,11 @@ interface DeckPressContext {
   slides: boolean
 }
 
-function deckPressContext(deck: Deck, opts: DeckPdfOptions): DeckPressContext {
-  const print = opts.layout === 'notes' ? deckNotesPrint(opts.notesPaper) : deckSheetPrint(deck.size, opts.sheet)
+function deckPressContext(opts: DeckPdfOptions, settings: ReturnType<typeof deckPressSettings>): DeckPressContext {
+  const print = opts.layout === 'notes' ? settings.notes : settings.sheet?.print
   if (!print) return { active: false, slides: false }
-  assertPrintOptions(print, opts.preferCssPageSize)
-  const boxes = opts.layout === 'notes' ? printBoxes(print) : pressBoxes({ width: deck.size.width / PX_PER_MM, height: deck.size.height / PX_PER_MM }, print)
-  const active = usesPressLayout(print)
+  const boxes = opts.layout === 'notes' ? printBoxes(print) : settings.sheet?.boxes
+  const active = opts.layout === 'notes' ? usesPressLayout(print) : (settings.sheet?.active ?? false)
   return { print, boxes, active, slides: active && opts.layout !== 'notes' }
 }
 
@@ -243,8 +240,14 @@ async function composeRegularSlides(
   }
 }
 
-async function regularDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
-  const press = deckPressContext(deck, opts)
+async function regularDeckPdf(
+  deck: Deck,
+  opts: DeckPdfOptions,
+  services: DeckPdfServices,
+  pressSettings: ReturnType<typeof deckPressSettings>,
+  diagramScript?: string,
+): Promise<Uint8Array> {
+  const press = deckPressContext(opts, pressSettings)
   const baseCss = services.fontFaces(opts)
   const slideBaseCss = containFixedPageOverflow(
     `${baseCss}${
@@ -373,13 +376,12 @@ async function imposedDeckPdf(
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
-  if (opts.sheet && opts.imposition) {
-    throw new RenderRefusedError('sheet and imposition cannot be combined. Remove sheet, or remove imposition, to clear this refusal.')
-  }
-  if (opts.sheet && opts.layout === 'notes') {
-    throw new RenderRefusedError(
-      "sheet and layout: 'notes' cannot be combined. Remove sheet, or use notesPaper for notes press settings, to clear this refusal.",
-    )
+  let pressSettings: ReturnType<typeof deckPressSettings>
+  try {
+    pressSettings = deckPressSettings(deck.size, opts)
+  } catch (error) {
+    if (error instanceof RangeError) throw new RenderRefusedError(error.message)
+    throw error
   }
   const signal = services.signal ?? AbortSignal.any([])
   const resolvedFonts = await resolveDeckFonts(deck, opts, signal)
@@ -390,7 +392,7 @@ export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: 
     fontFaces: (options: RenderOptions) => `${resolvedFonts.fontCss}${services.fontFaces(options)}`,
   }
   opts = { ...opts, ...resolvedFonts.options }
-  if (!opts.imposition) return regularDeckPdf(resolvedDeck, opts, resolvedServices, diagramScript)
+  if (!opts.imposition) return regularDeckPdf(resolvedDeck, opts, resolvedServices, pressSettings, diagramScript)
   if (opts.layout === 'notes') {
     throw new RenderRefusedError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
