@@ -23,7 +23,7 @@ import {
 import { layoutScript } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageScale, spreadSlots } from './book-presentation.ts'
 import { dressPlanPages, fillFurniture, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
-import { composerLayoutReady, forcedPageBreak, measureLineBoxes, measurementRefusal, sizeFlowGalley } from './composer-measure.ts'
+import { composerLayoutReady, forcedPageBreak, measureLineBoxes, measurementRefusal, sizeFlowGalley, tableRowLines } from './composer-measure.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 
@@ -210,6 +210,7 @@ ${embedFunction('noteStackTops', noteStackTops)}
 ${embedFunction('forcedPageBreak', forcedPageBreak)}
 ${embedFunction('composerLayoutReady', composerLayoutReady)}
 ${embedFunction('sizeFlowGalley', sizeFlowGalley)}
+${embedFunction('tableRowLines', tableRowLines)}
 ${embedFunction('measureLineBoxes', measureLineBoxes)}
 ${embedFunction('measurementRefusal', measurementRefusal)}
 ${embedFunction('fillFurniture', fillFurniture)}

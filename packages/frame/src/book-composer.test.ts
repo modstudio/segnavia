@@ -102,7 +102,7 @@ describe('block keeps', () => {
       { top: 10, bottom: 20 },
       { top: 20, bottom: 30 },
     ]
-    expect(measuredKeepRuns(lines, [{ avoid: true, top: 0, bottom: 20 }])).toEqual([{ start: 0, end: 2 }])
+    expect(measuredKeepRuns(lines, [{ avoid: true, top: 0, bottom: 30 }])).toEqual([{ start: 0, end: 3 }])
     expect(measuredKeepRuns(lines, [{ avoid: false, top: 0, bottom: 20 }])).toEqual([])
   })
 

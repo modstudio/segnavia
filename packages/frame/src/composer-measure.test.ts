@@ -1,6 +1,56 @@
-import { expect, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 import { decideVisibleMeasurement } from './composer.ts'
-import { measurementRefusal } from './composer-measure.ts'
+import { measurementRefusal, tableRowLines } from './composer-measure.ts'
+
+describe('tableRowLines', () => {
+  test('a one-line row equals its row box', () => {
+    expect(tableRowLines([{ top: 10, bottom: 30, boxes: [{ top: 14, bottom: 26 }] }])).toEqual([{ top: 10, bottom: 30 }])
+  })
+
+  test('interleaved lines from two cells merge into one set of row lines', () => {
+    expect(
+      tableRowLines([
+        {
+          top: 10,
+          bottom: 70,
+          boxes: [
+            { top: 14, bottom: 24 },
+            { top: 34, bottom: 44 },
+            { top: 15, bottom: 25 },
+            { top: 35, bottom: 45 },
+          ],
+        },
+      ]),
+    ).toEqual([
+      { top: 10, bottom: 34 },
+      { top: 34, bottom: 70 },
+    ])
+  })
+
+  test('a three-line row tiles the row', () => {
+    expect(
+      tableRowLines([
+        {
+          top: 10,
+          bottom: 70,
+          boxes: [
+            { top: 14, bottom: 24 },
+            { top: 34, bottom: 44 },
+            { top: 54, bottom: 64 },
+          ],
+        },
+      ]),
+    ).toEqual([
+      { top: 10, bottom: 34 },
+      { top: 34, bottom: 54 },
+      { top: 54, bottom: 70 },
+    ])
+  })
+
+  test('an empty row is one line', () => {
+    expect(tableRowLines([{ top: 10, bottom: 30, boxes: [] }])).toEqual([{ top: 10, bottom: 30 }])
+  })
+})
 
 test('an unmeasurable printed-page galley refuses with its own subject', () => {
   expect(measurementRefusal('The printed page', [])).toBe(
