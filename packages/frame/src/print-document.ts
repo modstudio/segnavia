@@ -356,13 +356,16 @@ export function printablePaper(
 // This frame-based document is for a browser to show and print. The frame
 // bridge carries propagated root backgrounds onto a printable element; the
 // server renderer still uses top-level page renders for PDF composition.
-export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
-  const pages = inputs.map((input) => {
+function loweredPrintablePages(inputs: PageOrPrintedInput[], valueEntry: string): HtmlPage[] {
+  return inputs.map((input) => {
     const document = parseDocument(input)
-    refuseNamedDocumentBrand(document, 'printablePageValuesDocument')
+    refuseNamedDocumentBrand(document, valueEntry)
     return resolvePageHtml(pageOrPrintedFromInput(document))
   })
-  return printableHtmlPagesDocument(pages, imposition, options)
+}
+
+export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
+  return printableHtmlPagesDocument(loweredPrintablePages(inputs, 'printablePageValuesDocument'), imposition, options)
 }
 
 export function printablePageValuesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
@@ -385,7 +388,7 @@ export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposi
 }
 
 export function printablePages(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
-  return printablePagesDocument(inputs, imposition, options).html
+  return printableHtmlPagesDocument(loweredPrintablePages(inputs, 'printablePageValues'), imposition, options).html
 }
 
 export function printablePageValues(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
