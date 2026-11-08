@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'bun:test'
-import { type Document, Document as DocumentSchema, diffDocuments, fingerprintDocument } from '@segnavia/format'
+import { type Document, type DocumentOp, Document as DocumentSchema, diffDocuments, fingerprintDocument } from '@segnavia/format'
 import {
   adoptHostBoard,
   applyBoardEdit,
   applyRemoteBoardEdit,
   boardEditQueue,
+  boardEditRefusal,
   redoBoardEdit,
   rejectBoardEdit,
   resolveBoardEdit,
@@ -85,13 +86,32 @@ describe('board edit queue policy', () => {
   })
 
   test('host apply and applyRemote expose conflicts without applying part of a batch', () => {
-    const current = boardEditQueue(value(1))
-    const staleOps = diffDocuments(value(0), value(2))
+    const current = boardEditQueue(value(1, 'Current'))
+    const staleOps = diffDocuments(value(0), value(2, 'Remote'))
     const applied = applyBoardEdit(current, staleOps, { kind: 'apply', label: 'host', ids: [] })
     const remote = applyRemoteBoardEdit(current, { base: fingerprintDocument(value(0)), ops: staleOps })
     expect(applied.conflicts).toEqual(staleOps)
     expect(remote.conflicts).toEqual(staleOps)
+    expect(boardEditRefusal(remote.conflicts ?? [])).toBe(
+      'Board edit refused conflicting operations: setFields node board field title; setFields node one field x. Rebuild the batch against the current board.',
+    )
     expect(applied.state).toBe(current)
     expect(remote.state).toBe(current)
+  })
+
+  test('conflict refusals name setFields nodes and fields', () => {
+    const op: DocumentOp = { type: 'setFields', id: 'one', fields: { x: 2 }, unset: [], prior: { x: 0 }, priorAbsent: [] }
+    const transition = applyBoardEdit(boardEditQueue(value(1)), [op], { kind: 'apply', label: 'host', ids: [] })
+    expect(boardEditRefusal(transition.conflicts ?? [])).toBe(
+      'Board edit refused conflicting operations: setFields node one field x. Rebuild the batch against the current board.',
+    )
+  })
+
+  test('conflict refusals name setMember sections and items', () => {
+    const op: DocumentOp = { type: 'setMember', section: 'section-one', item: 'one', from: null, to: { after: null } }
+    const transition = applyBoardEdit(boardEditQueue(value(0)), [op], { kind: 'apply', label: 'host', ids: [] })
+    expect(boardEditRefusal(transition.conflicts ?? [])).toBe(
+      'Board edit refused conflicting operations: setMember section section-one item one. Rebuild the batch against the current board.',
+    )
   })
 })

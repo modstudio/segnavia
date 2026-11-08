@@ -25,6 +25,7 @@ import {
   type BoardEditQueueState,
   type BoardEditTransition,
   boardEditQueue,
+  boardEditRefusal,
   detachBoardEditing,
   redoBoardEdit,
   rejectBoardEdit,
@@ -356,16 +357,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   private refuseConflicts(conflicts: readonly DocumentOp[] | undefined) {
     if (!conflicts?.length) return
-    const names = conflicts.map((op) => {
-      if (op.type === 'setMember') return `${op.type} section ${op.section} item ${op.item}`
-      if (op.type === 'setCells') return `${op.type} section ${op.section} field cells`
-      if (op.type === 'setStyle') return `${op.type} document field ${[...Object.keys(op.fields), ...op.unset].join(',')}`
-      if (op.type === 'insert') return `${op.type} node ${op.node.id}`
-      if (op.type === 'setFields') return `${op.type} node ${op.id} field ${[...Object.keys(op.fields), ...op.unset].join(',')}`
-      if (op.type === 'setContent') return `${op.type} node ${op.id} field ${op.field}`
-      return `${op.type} node ${op.id}`
-    })
-    throw new Error(`Board edit refused conflicting operations: ${names.join('; ')}. Rebuild the batch against the current board.`)
+    throw new Error(boardEditRefusal(conflicts))
   }
 }
 

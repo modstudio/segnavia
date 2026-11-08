@@ -41,6 +41,30 @@ const availability = (state: BoardHistory<BoardEdit>): string => `${state.undo.l
 const unchanged = (state: BoardEditQueueState): BoardEditTransition => ({ state, effects: { abort: [], historyChanged: false } })
 const remoteBase = (state: BoardEditQueueState): Document => state.jobs[0]?.before ?? state.value
 
+function boardEditConflictName(op: DocumentOp): string {
+  switch (op.type) {
+    case 'setMember':
+      return `${op.type} section ${op.section} item ${op.item}`
+    case 'setCells':
+      return `${op.type} section ${op.section} field cells`
+    case 'setStyle':
+      return `${op.type} document field ${[...Object.keys(op.fields), ...op.unset].join(',')}`
+    case 'insert':
+      return `${op.type} node ${op.node.id}`
+    case 'setFields':
+      return `${op.type} node ${op.id} field ${[...Object.keys(op.fields), ...op.unset].join(',')}`
+    case 'setContent':
+      return `${op.type} node ${op.id} field ${op.field}`
+    case 'move':
+    case 'remove':
+      return `${op.type} node ${op.id}`
+  }
+}
+
+export function boardEditRefusal(conflicts: readonly DocumentOp[]): string {
+  return `Board edit refused conflicting operations: ${conflicts.map(boardEditConflictName).join('; ')}. Rebuild the batch against the current board.`
+}
+
 export function boardEditQueue(value: Document, nextId = 1, invalidated: BoardEditQueueState['invalidated'] = null): BoardEditQueueState {
   return { value, jobs: [], invalidated, ...emptyBoardHistory(), nextId }
 }
