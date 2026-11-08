@@ -1,5 +1,45 @@
 # @segnavia/html
 
+## 0.50.0
+
+### Minor Changes
+
+- 24b0cc8: Return `filledBook`, `filledPage`, `filledPages` and `filledDeck` results as `{ value, slots }`, and export `PreparedSlots` so prepared slot state can be passed explicitly after cloning a value.
+  `PreparedSlots` now records marks once in `frames`; each rendered document derives its grouped `marked` counts from those frames while reading the shared live fit report.
+- 6ac32e4: Compile document style sheets into isolated CSS cascade layers in every frame.
+
+  This is a breaking document-format change. `style` is now a `StyleSheet`.
+  Book `css` moves to `style.css`, and book and page font references move to
+  `style.fonts`; decks use the same font location. Books and printed pages accept
+  all style sections, pages omit `pageGeometries`, decks accept `tokens`,
+  `textStyles`, `fonts` and `css`, and boards accept no style sections.
+
+  The former `bookStylesheet` helper is removed; compile `style` with
+  `compileStyleSheet` and pass its separate sheets to the frame instead.
+
+  A style sheet that cannot merge (an unknown `basedOn` or token, a cycle, or a
+  chain deeper than 8) is refused with `StyleSheetRefusedError` from
+  `@segnavia/frame/bridge`, and with `RenderRefusedError` from render.
+  `frameDocument` without `sheets` emits the compiled base layer.
+
+- 2df0afb: Add saved book pagination through format's `Plan`, `Measurements` and
+  `fingerprintValue`, and layout's `BookPlan`, `savePlan` and `replayPlan`.
+  `bookPlan` computes the saved plan. `bookPdf` now accepts the `plan` and
+  `breaks` options, and `describeDocument` accepts a saved `plan` and describes
+  its pages.
+
+  The paginate input types (`PaginateBookInput` and its parts) are now defined by
+  format's `Measurements` schema and re-exported by layout as types.
+
+### Patch Changes
+
+- 8f84d79: Add universal book and printed-page planning, including capped convergence, and route frame composition through the shared plans.
+- Updated dependencies [8f84d79]
+- Updated dependencies [6ac32e4]
+- Updated dependencies [2df0afb]
+  - @segnavia/layout@0.50.0
+  - @segnavia/format@0.50.0
+
 ## 0.49.0
 
 ### Migrating from 0.48

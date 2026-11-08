@@ -1,5 +1,14 @@
 # @segnavia/react
 
+## 0.50.0
+
+### Patch Changes
+
+- Updated dependencies [8f84d79]
+- Updated dependencies [6ac32e4]
+- Updated dependencies [2df0afb]
+  - @segnavia/frame@0.50.0
+
 ## 0.49.0
 
 ### Migrating from 0.48
