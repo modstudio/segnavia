@@ -171,6 +171,22 @@ describe('block keeps', () => {
     expect(measurement).toBeGreaterThan(fonts)
   })
 
+  test('loads every declared face after document load and before composition', () => {
+    const script = composerScript('{"fontLoads":[{"font":"body","sample":"A"}]}')
+    const loaded = script.indexOf('var loaded=')
+    const fontLoads = script.indexOf('var fontLoads=loaded.then', loaded)
+    const fontsReady = script.indexOf('var fontsReady=fontLoads.then(function(){return document.fonts?document.fonts.ready:undefined;})', fontLoads)
+    const wait = script.indexOf('Promise.all([loaded,', fontsReady)
+    const compose = script.indexOf('var composeWhenMeasurable=function()', wait)
+    expect(script).toContain('loadDeclaredFonts')
+    expect(script).toContain("'data-segnavia-font-failures',64,256")
+    expect(loaded).toBeGreaterThan(-1)
+    expect(fontLoads).toBeGreaterThan(loaded)
+    expect(fontsReady).toBeGreaterThan(fontLoads)
+    expect(wait).toBeGreaterThan(fontsReady)
+    expect(compose).toBeGreaterThan(wait)
+  })
+
   test('replans from settled note metrics before replacing an overlapping composition', () => {
     const script = composerScript('{}')
     const convergence = script.indexOf('var planConverged=function()')

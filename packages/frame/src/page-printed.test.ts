@@ -156,6 +156,31 @@ describe('printed pages in SegnaviaPage', () => {
     expect(purposes).toEqual(['screen'])
   })
 
+  test('carries an unsupplied declared face to the element font-failure report', async () => {
+    const { page, frame, errors } = loadingHarness()
+    const failures: unknown[] = []
+    Object.assign(page, {
+      fontOptions: { source: { font: async () => undefined } },
+    })
+    page.load({
+      ...printedDocument(),
+      style: { fonts: { body: { faces: [{}] } } },
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    const failure = { font: 'body', family: 'body', reason: 'unsupplied' }
+    expect(errors).toEqual([])
+    expect(frame().srcdoc).toContain(`initialFontFailures=[${JSON.stringify(failure)}]`)
+    const element = new SegnaviaPage() as unknown as EventTarget & { onMessage(event: MessageEvent): void; querySelector(): unknown }
+    Object.assign(element, { querySelector: () => frame() })
+    element.addEventListener('fontfailure', (event: Event) => failures.push((event as CustomEvent).detail.failures))
+    element.onMessage({
+      source: frame().contentWindow,
+      data: { type: MESSAGE.fontFailures, failures: [failure] },
+    } as MessageEvent)
+    expect(failures).toEqual([[failure]])
+  })
+
   test('reports slot filling and keeps composed papers unfilled', async () => {
     const slots = { fill: { id: 'held', values: { name: 'Filled' } } } satisfies SlotsOptions
     const { page, frame, errors } = loadingHarness(slots)

@@ -3,6 +3,7 @@ import {
   DocumentMetadata,
   type DocumentMetadata as DocumentMetadataValue,
   defaultPageNumbering,
+  type FontFailure,
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
@@ -20,6 +21,7 @@ import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
+import { declaredFontLoads } from './font-load.ts'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
 export { COMPOSE_FAILURE_ATTRIBUTE as PRINTED_PAGE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE as PRINTED_PAGE_COMPOSED_ATTRIBUTE } from './composer.ts'
@@ -143,6 +145,7 @@ export function printedPageValueDocument(
     readyCallback?: string
     metadata?: DocumentMetadataValue
     limits?: Limits
+    fontFailures?: FontFailure[]
   },
 ): string {
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
@@ -198,6 +201,7 @@ export function printedPageValueDocument(
     numbering,
     parents,
     rules,
+    fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
@@ -221,6 +225,7 @@ export function printedPageValueDocument(
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
     printBackground: options.printBackground,
     readyCallback: options.readyCallback,
+    fontFailures: options.fontFailures,
   })
 }
 
