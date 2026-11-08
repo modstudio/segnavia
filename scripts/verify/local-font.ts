@@ -18,7 +18,7 @@ export async function verifyLocalFont(renderer: Renderer, work: string, check: C
     screenPage(
       { html: `<p style="font-family:'${family}',var(--segnavia-font-serif)">Local face</p>` },
       {
-        style: { fonts: [...references] },
+        style: { fonts: { local: references[0] } },
         size: { width: 400, height: 200 },
       },
     ),

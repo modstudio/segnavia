@@ -5,7 +5,7 @@ import { Manifest, PublishedShot } from './deck.ts'
 import { Document } from './document.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { DocumentBatch, DocumentOp } from './document-op.ts'
-import { FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
+import { FontDeclaration, FontManifest, FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
 import { Imposition } from './imposition-schema.ts'
 import { Lexicon } from './lexicon.ts'
 import { Media } from './media.ts'
@@ -31,6 +31,8 @@ export const EXPORTED_SCHEMAS = {
   slotDeclarationInput: SlotDeclarationInput,
   fontReference: FontReference,
   fontReferenceInput: FontReferenceInput,
+  fontDeclaration: FontDeclaration,
+  fontManifest: FontManifest,
   localFaceTransport: LocalFaceTransport,
   localFacesTransport: LocalFacesTransport,
   motif: Motif,

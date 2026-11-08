@@ -285,7 +285,7 @@ export async function printPages(pagesInput: PageOrPrintedInput[], impositionInp
     'print',
     options.pageWidths,
   )
-  const fontCss = await expandedPagesFontCss(expanded, options.fonts, signal)
+  const { css: fontCss } = await expandedPagesFontCss(expanded, options.fonts, signal)
   const pages = expanded.map((item) => item.page)
   const preparedOptions = { ...options, motifs: undefined, fonts: undefined, css: `${fontCss}${options.css ?? ''}`, deadlineAt }
   if (!options.slots?.fills) {

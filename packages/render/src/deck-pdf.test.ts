@@ -289,7 +289,7 @@ test('an imposed deck refuses notes before rendering', async () => {
   expect(renders).toBe(0)
 })
 
-test('deck PDF refuses an unknown notesFont before rendering', async () => {
+test('deck PDF continues with fallback for an unknown notesFont', async () => {
   let renders = 0
   const rendering = renderDeckPdf(
     deck,
@@ -303,9 +303,8 @@ test('deck PDF refuses an unknown notesFont before rendering', async () => {
       finish: async (pdf) => pdf,
     },
   )
-  await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
-  await expect(rendering).rejects.toThrow('notes could not establish app font "missing"; make that font available from the source to clear this refusal.')
-  expect(renders).toBe(0)
+  await rendering
+  expect(renders).toBeGreaterThan(0)
 })
 
 test('deck PDF refuses a named notesFont with no FontSource before rendering', async () => {

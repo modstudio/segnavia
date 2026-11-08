@@ -7,13 +7,18 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import { type Direction, dependencyOriginSet, type Scripts } from '@segnavia/format'
+import { type Direction, dependencyOriginSet, type FontFailure, type FontManifest, type Scripts } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
+import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
+import { declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_FIELD_LIMIT, FONT_FAILURE_LIMIT, loadDeclaredFonts } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
 import { escapeHtml } from './svg.ts'
 
+export type { SlotFitState } from './bridge-message.ts'
+export { dispatchFontFailures } from './bridge-message.ts'
+export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
 
 export const MESSAGE = {
@@ -32,11 +37,19 @@ export const MESSAGE = {
   bookLayout: 'segnavia:book-layout',
   bookPlace: 'segnavia:book-place',
   composeFailure: 'segnavia:compose-failure',
+  fontFailures: 'segnavia:font-failures',
 } as const
 
 export const SELECTION_TEXT_LIMIT = 1_000_000
 export const HEADING_ID_LIMIT = 256
 export const COMPOSE_FAILURE_TEXT_LIMIT = 1024
+
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, '\\u003c')
+    .replace(/\u2028/g, '\\u2028')
+    .replace(/\u2029/g, '\\u2029')
+}
 
 export const PRINT_READY_ATTRIBUTE = 'data-segnavia-print-ready'
 
@@ -71,6 +84,9 @@ export interface FrameOptions {
   css?: string
   // Compiled library and document sheets, kept separate for CSS parse recovery.
   sheets?: readonly string[]
+  // Declared faces are loaded in this frame before it reports readiness.
+  fonts?: FontManifest
+  fontFailures?: FontFailure[]
   // Extra CSP directives, appended to the frame's own.
   csp?: string
   dependencyOrigins?: Iterable<string>
@@ -101,12 +117,12 @@ function compositionWait(options: FrameOptions): string {
   if (!options.readyAfterAttribute) return 'null'
   const report = options.reportHeight === false ? '' : 'report();'
   const failure = options.failureAttribute
-    ? `var failureName=${JSON.stringify(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${COMPOSE_FAILURE_TEXT_LIMIT})text=text.slice(0,${COMPOSE_FAILURE_TEXT_LIMIT - 1})+'…';post({type:'${MESSAGE.composeFailure}',text:text});return true;};if(failed())return;`
+    ? `var failureName=${scriptJson(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${COMPOSE_FAILURE_TEXT_LIMIT})text=text.slice(0,${COMPOSE_FAILURE_TEXT_LIMIT - 1})+'…';post({type:'${MESSAGE.composeFailure}',text:text});return true;};if(failed())return;`
     : ''
   const settle = options.failureAttribute ? 'settled=true;' : ''
   const fail = options.failureAttribute ? 'if(failed()){observer.disconnect();return;}' : ''
   const failureFilter = options.failureAttribute ? ',failureName' : ''
-  return `new Promise(function(resolve){var root=document.documentElement;var name=${JSON.stringify(options.readyAfterAttribute)};${failure}if(root.hasAttribute(name)){${settle}${report}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){${fail}if(root.hasAttribute(name)){observer.disconnect();${settle}${report}resolve();}}).observe(root,{attributes:true,attributeFilter:[name${failureFilter}]});})`
+  return `new Promise(function(resolve){var root=document.documentElement;var name=${scriptJson(options.readyAfterAttribute)};${failure}if(root.hasAttribute(name)){${settle}${report}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){${fail}if(root.hasAttribute(name)){observer.disconnect();${settle}${report}resolve();}}).observe(root,{attributes:true,attributeFilter:[name${failureFilter}]});})`
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -119,8 +135,8 @@ function compositionWait(options: FrameOptions): string {
 // layout wait, and readiness waits for that report. An element without a
 // layout box retries instead of reporting fit.
 function bridgeScript(options: FrameOptions): string {
-  const readyCallback = options.readyCallback ? `var callback=window[${JSON.stringify(options.readyCallback)}];if(typeof callback==='function')callback();` : ''
-  const keys = options.relayKeys === false ? '[]' : JSON.stringify(RELAYED_KEYS)
+  const readyCallback = options.readyCallback ? `var callback=window[${scriptJson(options.readyCallback)}];if(typeof callback==='function')callback();` : ''
+  const keys = options.relayKeys === false ? '[]' : scriptJson(RELAYED_KEYS)
   const selection =
     options.scripts === 'refuse'
       ? `window.addEventListener('message',function(e){var data=e.data;if(e.source===parent&&data&&data.type==='${MESSAGE.selectionRequest}'&&typeof data.id==='number'&&isFinite(data.id)){post({type:'${MESSAGE.selection}',id:data.id,text:String(getSelection?getSelection():''),pageText:(document.body||document.documentElement).innerText});}});`
@@ -132,7 +148,7 @@ function bridgeScript(options: FrameOptions): string {
   const print =
     options.printAtMs === undefined
       ? ''
-      : `var printAt=${JSON.stringify(options.printAtMs)};
+      : `var printAt=${scriptJson(options.printAtMs)};
 var freeze=function(){if(!document.getAnimations)return;document.documentElement.getBoundingClientRect();var animations=document.getAnimations();for(var j=0;j<animations.length;j++){try{animations[j].pause();animations[j].currentTime=printAt;}catch(error){}}};
 document.addEventListener('animationstart',freeze,true);document.addEventListener('transitionrun',freeze,true);
 var printWaits=[];
@@ -173,6 +189,8 @@ var waits=[];for(var i=0;i<elements.length;i++){if(!elements[i])continue;waits.p
       ? `var storage=function(){var values=new Map();return {get length(){return values.size;},key:function(index){var keys=Array.from(values.keys());return index>=0&&index<keys.length?keys[index]:null;},getItem:function(key){key=String(key);return values.has(key)?values.get(key):null;},setItem:function(key,value){values.set(String(key),String(value));},removeItem:function(key){values.delete(String(key));},clear:function(){values.clear();}};};
 Object.defineProperty(window,'localStorage',{configurable:true,value:storage()});Object.defineProperty(window,'sessionStorage',{configurable:true,value:storage()});`
       : ''
+  const fontDeclarations = scriptJson(declaredFontLoads(options.fonts))
+  const initialFontFailures = scriptJson(options.fontFailures ?? [])
   return `(function(){
 ${storage}
 ${keepPassScript()}
@@ -232,8 +250,9 @@ document.addEventListener('DOMContentLoaded',report);window.addEventListener('lo
 }
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
+var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};var familyValue=function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');};var fontLoads=(!document.fonts||!declarations.length?Promise.resolve([]):(${loadDeclaredFonts.toString()})(declarations,document.fonts,document.documentElement,familyValue,'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT})).then(function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return failures;});
 var composed=${compositionWait(options)};var diagrams=${DIAGRAM_READY_EXPR};
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }
@@ -328,29 +347,8 @@ export function bridgeForHost(options: Omit<FrameOptions, 'scripts' | 'nonce'> =
 
 // Our frame is identified by the window a message came from, which a page
 // cannot forge. `origin` is "null" for every sandboxed frame and proves nothing.
-export function messageFrom(
-  event: MessageEvent,
-  frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
-): { type: string; key?: string; text?: string; height?: number; animated?: boolean; lengthMs?: number | null; slots?: Record<string, SlotFitState> } | null {
-  const frames = frame && Symbol.iterator in Object(frame) ? [...(frame as Iterable<HTMLIFrameElement>)] : frame ? [frame as HTMLIFrameElement] : []
-  if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
-  const data = event.data as { type?: unknown; key?: unknown; text?: unknown; height?: unknown; animated?: unknown; lengthMs?: unknown; slots?: unknown }
-  if (data?.type === MESSAGE.key && typeof data.key === 'string' && (RELAYED_KEYS as readonly string[]).includes(data.key))
-    return { type: MESSAGE.key, key: data.key }
-  if (data?.type === MESSAGE.bookPlace && typeof data.key === 'string') return { type: MESSAGE.bookPlace, key: data.key }
-  if (data?.type === MESSAGE.composeFailure && typeof data.text === 'string' && data.text.length > 0 && data.text.length <= COMPOSE_FAILURE_TEXT_LIMIT)
-    return { type: MESSAGE.composeFailure, text: data.text }
-  if (data?.type === MESSAGE.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: MESSAGE.height, height: data.height }
-  if (data?.type === MESSAGE.ready) return { type: MESSAGE.ready }
-  const fit = slotFitMessageData(data)
-  if (fit) return fit
-  if (
-    data?.type === MESSAGE.animation &&
-    typeof data.animated === 'boolean' &&
-    (data.lengthMs === null || (typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) && data.lengthMs >= 0))
-  )
-    return { type: MESSAGE.animation, animated: data.animated, lengthMs: data.lengthMs }
-  return null
+export function messageFrom(event: MessageEvent, frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null): FrameMessage | null {
+  return messageFromFrames(event, frame, MESSAGE, RELAYED_KEYS, COMPOSE_FAILURE_TEXT_LIMIT)
 }
 
 export interface PageSelection {
@@ -375,18 +373,9 @@ export function headingMessage(event: MessageEvent, frame: HTMLIFrameElement | n
   return data.top
 }
 
-export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
-
 /** Validates the narrow slot-fit payload before a host accepts page measurements. */
 export function slotFitMessageData(data: unknown): { type: typeof MESSAGE.slotFit; slots: Record<string, SlotFitState> } | null {
-  if (!data || typeof data !== 'object' || (data as { type?: unknown }).type !== MESSAGE.slotFit) return null
-  const slots = (data as { slots?: unknown }).slots
-  if (!slots || typeof slots !== 'object' || Array.isArray(slots)) return null
-  const entries = Object.entries(slots)
-  if (entries.length > 200) return null
-  const valid = new Set<unknown>(['fit', 'shrunk', 'overflowed'])
-  if (entries.some(([key, state]) => typeof key !== 'string' || !valid.has(state))) return null
-  return { type: MESSAGE.slotFit, slots: Object.fromEntries(entries) as Record<string, SlotFitState> }
+  return validateSlotFitMessage(data, MESSAGE.slotFit) as { type: typeof MESSAGE.slotFit; slots: Record<string, SlotFitState> } | null
 }
 
 export function animationMessage(event: MessageEvent, frames: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null): AnimationMessage | null {

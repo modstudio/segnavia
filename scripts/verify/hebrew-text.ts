@@ -11,3 +11,17 @@ export const pointMultiset = (value: string): string =>
     .map(([point]) => point)
     .sort()
     .join('')
+
+export const text = (value: string): string => value.normalize('NFC').replace(/\s+/g, ' ').trim()
+
+export function pointedLines(html: string): string[] {
+  return [...html.matchAll(/<[^>]+\sdata-pointed(?:\s[^>]*)?>([^<]+)<\/[^>]+>/g)].map((match) => text(match[1] ?? ''))
+}
+
+export function fontRows(output: string): string[] {
+  return output
+    .split('\n')
+    .slice(2)
+    .map((line) => line.trim())
+    .filter(Boolean)
+}

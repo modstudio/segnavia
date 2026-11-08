@@ -21,6 +21,7 @@ import { verifyDeckRender } from './verify/deck-render.ts'
 import { verifyDependencyRender } from './verify/dependency-render.ts'
 import { verifyDiagramRender } from './verify/diagram-render.ts'
 import { verifyFontSource } from './verify/font-source.ts'
+import { verifyHebrewFaceGoldens } from './verify/hebrew-face-goldens.ts'
 import { verifyHebrewNotice } from './verify/hebrew-notice.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyLocalFont } from './verify/local-font.ts'
@@ -55,7 +56,6 @@ check(
   collectionPdf.length > 0 && collectionPdf.equals(standalonePdf),
   `${collectionPdf.length} and ${standalonePdf.length} bytes`,
 )
-
 // A server the renders try to reach, counting every request that arrives.
 let hits = 0
 const server = createServer((request, response) => {
@@ -68,7 +68,6 @@ const server = createServer((request, response) => {
 await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
 const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 const output = path.resolve(import.meta.dirname, '../out')
-
 const renderer = await openRenderer({ executablePath: CHROMIUM, concurrency: 2, jsHeapMb })
 const work = mkdtempSync(path.join(tmpdir(), 'segnavia-render-'))
 try {
@@ -154,6 +153,7 @@ try {
   await verifyLocalFont(renderer, work, check)
   await verifyScriptFaces(renderer, work, check)
   await verifyHebrewNotice(renderer, work, check)
+  await verifyHebrewFaceGoldens(renderer, work, check)
   let background = ''
   await renderer.pageImage(screenPage({ html: '<h1>House</h1>' }, { size: { width: 200, height: 100 } }), {
     css: 'body{margin:0;background:rgb(0, 128, 0)}',

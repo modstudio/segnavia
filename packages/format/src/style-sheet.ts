@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { FontReference } from './fonts.ts'
+import { FontManifest } from './fonts.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { Motif } from './motif.ts'
 import { Orientation, Paper } from './paper.ts'
@@ -95,7 +95,7 @@ export const StyleSheet = z
     textStyles: NamedRecord(TextStyle).optional(),
     pageGeometries: NamedRecord(PageGeometry).optional(),
     motifs: z.array(Motif).optional(),
-    fonts: z.array(FontReference).optional(),
+    fonts: FontManifest.optional(),
     css: z.string().optional(),
   })
   .superRefine((sheet, ctx) => {

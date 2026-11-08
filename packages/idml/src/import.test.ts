@@ -129,10 +129,12 @@ describe('importIdml', () => {
       { family: 'Book Face', style: 'Semi Bold', postscriptName: 'BookFace-SemiBold' },
       { family: 'Display Face', style: 'Bold Italic', postscriptName: 'Display-BoldItalic' },
     ])
-    expect(result.book.style?.fonts).toEqual([{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }])
+    expect(result.book.style?.fonts).toEqual({ body: { faces: [{}] }, 'local-0': { local: 'Installed Display', fallback: 'body' } })
     expect(result.book.style?.css).toContain('font-family:var(--segnavia-font-body);font-weight:600')
     expect(result.book.style?.css).toContain('font-family:"Installed Display", var(--segnavia-font-body);font-weight:700;font-style:italic')
-    expect(fontReferenceRefusals(`<style>${result.book.style?.css}</style>`, result.book.style?.fonts ?? [], new Set(['body']))).toEqual([])
+    expect(
+      fontReferenceRefusals(`<style>${result.book.style?.css}</style>`, [{ app: 'body' }, { local: 'Installed Display', fallback: 'body' }], new Set(['body'])),
+    ).toEqual([])
   })
 
   test('refuses an invalid host font answer by font name', async () => {

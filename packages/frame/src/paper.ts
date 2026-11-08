@@ -5,6 +5,7 @@ import { Imposition, type ImpositionInput, impose, type Page, type PageWidths, t
 import { type HtmlPage, pageOrPrintedFromInput, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import { dispatchFontFailures, messageFrom } from './bridge.ts'
 import { internalPaperPagesLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
@@ -245,7 +246,7 @@ export class SegnaviaPaper extends HTMLElement {
         .then((resolved) => commit(shown, resolved))
         .catch(report)
     }
-    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !pages.some((page) => (page.style?.fonts ?? []).some((ref) => 'app' in ref))) {
+    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !pages.some((page) => Object.keys(page.style?.fonts ?? {}).length > 0)) {
       const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
       if (motifRefusal) {
         this.paintPlaceholder(imposed)
@@ -263,7 +264,7 @@ export class SegnaviaPaper extends HTMLElement {
     this.paintPlaceholder(imposed)
     void expandFramePages(pages, this.motifOptions, controller.signal, this.placementOptions, 'screen', this.widthOptions)
       .then(async (expanded) => {
-        const css = await expandedPagesFontCss(expanded, this.fontOptions, controller.signal)
+        const { css } = await expandedPagesFontCss(expanded, this.fontOptions, controller.signal)
         if (!current()) return
         this.resolvedFontCss = css
         continuePaint(expanded.map((item) => item.page))
@@ -327,6 +328,8 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   private onMessage = (event: MessageEvent) => {
+    const message = messageFrom(event, this.querySelectorAll('iframe'))
+    dispatchFontFailures(this, message)
     if (!this.resolvedSlots || this.resolvedGeneration !== this.slotGeneration) return
     mergeOwnedSlotFit(event, this.querySelectorAll('iframe'), this.resolvedSlots)
   }

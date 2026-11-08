@@ -44,8 +44,8 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 `pageGeometries`, `motifs`, `fonts` and `css` sections. Books and printed pages
 accept every section; pages omit `pageGeometries`; decks accept `tokens`,
 `textStyles`, `fonts` and `css`; boards accept none. Book free CSS is stored at
-`style.css`, and font references are stored at `style.fonts` for books, pages
-and decks.
+`style.css`, and the font manifest, keyed by font name, is stored at `style.fonts` for
+books, pages and decks.
 
 Authoring print and export should call `authoring.draftDeck()`, which returns the deck as shown, including unsaved notes, without waiting for the host save. `flush()` still waits until every save settles, so a paused save would hang export. `useAuthoring` returns the same controller, including `draftDeck()` and `adoptNotes()`.
 

@@ -55,21 +55,13 @@ test('preparedDeckValuePrint puts the resolved notes face in the notes head', as
   expect(prepared.html).toContain('var(--segnavia-font-serif)')
 })
 
-test('printDeck refuses an unknown notesFont before opening a frame', async () => {
-  await expect(
-    printDeck(deckDocument, {
-      layout: 'notes',
-      notesFont: 'missing',
-      fonts: { source: { font: async () => undefined } },
-    }),
-  ).rejects.toThrow(FontRefusedError)
-  await expect(
-    printDeck(deckDocument, {
-      layout: 'notes',
-      notesFont: 'missing',
-      fonts: { source: { font: async () => undefined } },
-    }),
-  ).rejects.toThrow('notes could not establish app font "missing"; make that font available from the source to clear this refusal.')
+test('preparedDeckValuePrint continues with fallback for an unknown notesFont', async () => {
+  const prepared = await preparedDeckValuePrint(deck, {
+    layout: 'notes',
+    notesFont: 'missing',
+    fonts: { source: { font: async () => undefined } },
+  })
+  expect(prepared.html).toContain('var(--segnavia-font-missing)')
 })
 
 test('printDeck refuses a named notesFont with no FontSource before opening a frame', async () => {

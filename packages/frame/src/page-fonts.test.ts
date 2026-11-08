@@ -48,9 +48,9 @@ describe('resolvePageFonts', () => {
     }
     const page = PageSchema.parse({
       html: '<p style="font-family: var(--segnavia-font-serif)">Body</p>',
-      style: { fonts: [{ app: 'serif' }, { app: 'serif' }] },
+      style: { fonts: { serif: { faces: [{}] } } },
     })
-    const css = await resolvePageFonts(page, [{ app: 'heading' }, { app: 'serif' }], { source: fonts }, signal)
+    const { css } = await resolvePageFonts(page, [{ app: 'heading' }, { app: 'serif' }], { source: fonts }, signal)
     expect(asked).toEqual(['serif', 'heading'])
     expect(css).toBe(
       fontCss({
@@ -65,12 +65,17 @@ describe('resolvePageFonts', () => {
     expect(css).toContain('data:font/ttf;base64,AA==')
   })
 
-  test('refuses an unknown name naming the font and the page', async () => {
-    const page = PageSchema.parse({ id: 'cover', html: '<p></p>', style: { fonts: [{ app: 'missing' }] } })
-    await expect(resolvePageFonts(page, [], { source: source({ serif }) }, signal)).rejects.toThrow(FontRefusedError)
-    await expect(resolvePageFonts(page, [], { source: source({ serif }) }, signal)).rejects.toThrow(
-      'page "cover" could not establish app font "missing"; make that font available from the source to clear this refusal.',
-    )
+  test('reports an unknown name and continues', async () => {
+    const page = PageSchema.parse({ id: 'cover', html: '<p></p>', style: { fonts: { missing: { faces: [{}] } } } })
+    expect(await resolvePageFonts(page, [], { source: source({ serif }) }, signal)).toEqual({
+      css: '',
+      failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }],
+    })
+  })
+
+  test('bounds an unsupplied report where it is built', async () => {
+    const declarations = Object.fromEntries(Array.from({ length: 65 }, (_, index) => [`font-${index}`, { faces: [{}] }]))
+    expect((await resolveFontReferences(declarations, [], { source: source({}) }, signal, 'page')).failures).toHaveLength(64)
   })
 })
 
@@ -78,7 +83,7 @@ describe('expandFramePage fonts', () => {
   test('returns the motif font union for the caller to resolve', async () => {
     const page = PageSchema.parse({
       html: '<main data-motif="letterhead">Authored</main>',
-      style: { fonts: [{ app: 'serif' }] },
+      style: { fonts: { serif: { faces: [{}] } } },
       lang: 'en',
     })
     const expanded = await expandFramePage(resolvePageHtml(page), { source: { motif: async () => letterhead } }, signal)
@@ -91,11 +96,11 @@ describe('frame and print documents', () => {
   test('srcdoc and the print document carry the same @font-face bytes and serif property', async () => {
     const page = PageSchema.parse({
       html: '<p style="font-family: var(--segnavia-font-serif)"><span data-motif="letterhead"></span></p>',
-      style: { fonts: [{ app: 'serif' }] },
+      style: { fonts: { serif: { faces: [{}] } } },
       lang: 'en',
     })
     const expanded = await expandFramePage(resolvePageHtml(page), { source: { motif: async () => letterhead } }, signal)
-    const css = await resolvePageFonts(expanded.page, expanded.fonts, { source: source({ serif, heading }) }, signal)
+    const { css } = await resolvePageFonts(expanded.page, expanded.fonts, { source: source({ serif, heading }) }, signal)
     const srcdoc = shownPageDocument(expanded.page, undefined, { nonce: 'testnonce', baseCss: css })
     const printed = printablePageValuesDocument(
       [PageSchema.parse(expanded.page)],
@@ -118,7 +123,7 @@ describe('frame and print documents', () => {
 
 describe('pageFontCss', () => {
   test('pageFontCss refuses named app fonts when no FontSource is supplied', async () => {
-    const page = PageSchema.parse({ id: 'cover', html: '<p></p>', style: { fonts: [{ app: 'serif' }] } })
+    const page = PageSchema.parse({ id: 'cover', html: '<p></p>', style: { fonts: { serif: { faces: [{}] } } } })
     await expect(pageFontCss(page, [], undefined, signal)).rejects.toThrow(FontRefusedError)
     await expect(pageFontCss(page, [], undefined, signal)).rejects.toThrow(
       'page "cover" could not establish app font "serif"; supply a FontSource to clear this refusal.',
@@ -133,7 +138,7 @@ describe('pageFontCss', () => {
   })
 
   test('refuses a local font fallback when no FontSource is supplied', async () => {
-    const page = PageSchema.parse({ html: '<p></p>', style: { fonts: [{ local: 'Some Local Face', fallback: 'serif' }] } })
+    const page = PageSchema.parse({ html: '<p></p>', style: { fonts: { local: { local: 'Some Local Face', fallback: 'serif' } } } })
     await expect(pageFontCss(page, [], undefined, signal)).rejects.toThrow(
       'page could not establish app font "serif"; supply a FontSource to clear this refusal.',
     )
@@ -142,13 +147,13 @@ describe('pageFontCss', () => {
 
 describe('expandedPagesFontCss', () => {
   test('unions a page-level font with a motif font from another page', async () => {
-    const page = PageSchema.parse({ html: '<p></p>', style: { fonts: [{ app: 'serif' }] } })
+    const page = PageSchema.parse({ html: '<p></p>', style: { fonts: { serif: { faces: [{}] } } } })
     const withMotif = await expandFramePage(
       resolvePageHtml(PageSchema.parse({ html: '<main data-motif="letterhead"></main>', lang: 'en' })),
       { source: { motif: async () => letterhead } },
       signal,
     )
-    const css = await expandedPagesFontCss([{ page: resolvePageHtml(page), fonts: [] }, withMotif], { source: source({ serif, heading }) }, signal)
+    const { css } = await expandedPagesFontCss([{ page: resolvePageHtml(page), fonts: [] }, withMotif], { source: source({ serif, heading }) }, signal)
     expect(css).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
     expect(css).toContain('@font-face{font-family:"Heading Sans";src:url(data:font/ttf;base64,AA==) format("truetype")')
     expect(css).toContain('--segnavia-font-serif:"Body Serif",serif')
@@ -156,7 +161,7 @@ describe('expandedPagesFontCss', () => {
   })
 
   test('expandedPagesFontCss refuses named app fonts when no FontSource is supplied', async () => {
-    const page = PageSchema.parse({ html: '<p></p>', style: { fonts: [{ app: 'serif' }] } })
+    const page = PageSchema.parse({ html: '<p></p>', style: { fonts: { serif: { faces: [{}] } } } })
     await expect(expandedPagesFontCss([{ page: resolvePageHtml(page), fonts: [] }], undefined, signal)).rejects.toThrow(FontRefusedError)
     await expect(expandedPagesFontCss([{ page: resolvePageHtml(page), fonts: [] }], undefined, signal)).rejects.toThrow(
       'page could not establish app font "serif"; supply a FontSource to clear this refusal.',
@@ -165,9 +170,19 @@ describe('expandedPagesFontCss', () => {
 })
 
 describe('resolveFontReferences', () => {
+  test('embeds supplied undeclared names and reports only a missing name', async () => {
+    expect(await resolveFontReferences({}, ['heading'], { source: source({ heading }) }, signal, 'page')).toEqual({
+      css: fontCss({ app: new Map([['heading', heading]]) }),
+      failures: [],
+    })
+    expect((await resolveFontReferences({}, ['missing'], { source: source({}) }, signal, 'page')).failures).toEqual([
+      { font: 'missing', family: 'missing', reason: 'unsupplied' },
+    ])
+  })
+
   test('refuses an app name that is not an APP_FONT_NAME', async () => {
-    await expect(resolveFontReferences([{ app: 'x}body{' }], { source: source({}) }, signal, 'page')).rejects.toThrow(FontRefusedError)
-    await expect(resolveFontReferences([{ app: 'x}body{' }], { source: source({}) }, signal, 'page')).rejects.toThrow(
+    await expect(resolveFontReferences({ 'x}body{': { faces: [{}] } }, [], { source: source({}) }, signal, 'page')).rejects.toThrow(FontRefusedError)
+    await expect(resolveFontReferences({ 'x}body{': { faces: [{}] } }, [], { source: source({}) }, signal, 'page')).rejects.toThrow(
       'page could not establish an app font name matching /^[a-z0-9-]+$/ ("x}body{"); use a lowercase name of letters, digits and hyphens to clear this refusal.',
     )
   })
@@ -180,18 +195,20 @@ describe('notes font', () => {
     expect(notesSheetFontFamily('serif')).toBe('var(--segnavia-font-serif)')
   })
 
-  test('resolveNotesFontCss writes the named face and refuses an unknown name', async () => {
-    expect(await resolveNotesFontCss(undefined, undefined, signal)).toEqual({ family: DEFAULT_NOTES_FONT_FAMILY, css: '' })
+  test('resolveNotesFontCss writes the named face and reports an unknown name', async () => {
+    expect(await resolveNotesFontCss(undefined, undefined, signal)).toEqual({ family: DEFAULT_NOTES_FONT_FAMILY, css: '', failures: [] })
     expect(await resolveNotesFontCss('serif', { source: source({ serif }) }, signal)).toEqual({
       family: 'var(--segnavia-font-serif)',
       css: fontCss({
         app: new Map([['serif', serif]]),
       }),
+      failures: [],
     })
-    await expect(resolveNotesFontCss('missing', { source: source({ serif }) }, signal)).rejects.toThrow(FontRefusedError)
-    await expect(resolveNotesFontCss('missing', { source: source({ serif }) }, signal)).rejects.toThrow(
-      'notes could not establish app font "missing"; make that font available from the source to clear this refusal.',
-    )
+    expect(await resolveNotesFontCss('missing', { source: source({ serif }) }, signal)).toEqual({
+      family: 'var(--segnavia-font-missing)',
+      css: '',
+      failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }],
+    })
   })
 
   test('resolveNotesFontCss refuses a named font with no FontSource', async () => {

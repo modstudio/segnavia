@@ -104,7 +104,9 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   `script-src 'none'`. Never add `allow-same-origin`.
 - A message from a frame is trusted only by `event.source`, never by
   `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,
-  a ready signal, an animation report, a bounded slot-fit report and, from a
+  a ready signal, an animation report, a bounded slot-fit report, a bounded
+  `segnavia:font-failures` report of at most 64 entries and 256 characters per
+  field whose reason is exactly `unsupplied` or `unloaded`, and, from a
   paginated book frame, a bounded `segnavia:book-place` report: a position key
   parsed by the book model and at most 256 characters. From a paginated book
   frame or a printed-page frame, a bounded `segnavia:compose-failure` report: the composer's refusal
