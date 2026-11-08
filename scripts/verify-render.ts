@@ -146,17 +146,18 @@ try {
     'imposed deckPdf refuses an unapproved asset without reaching the network',
     renderer.deckPdf(deck, { imposition: handoutImposition }),
   )
+  const approvedOrigin = origin.replace('http:', 'https:')
   const approvedOffline = await refusal(
-    renderer.pagePdf(screenPage({ html: `<img src="${origin}/approved.png"><link rel="stylesheet" href="${origin}/approved.css">` }), {
+    renderer.pagePdf(screenPage({ html: `<img src="${approvedOrigin}/approved.png"><link rel="stylesheet" href="${approvedOrigin}/approved.css">` }), {
       origins: [
-        { origin, kinds: ['image'] },
-        { origin, kinds: ['style'] },
+        { origin: approvedOrigin, kinds: ['image'] },
+        { origin: approvedOrigin, kinds: ['style'] },
       ],
     }),
   )
   check(
     'an approved request unanswered by assets refuses without reaching the network',
-    approvedOffline.startsWith('refused:') && approvedOffline.includes(`${origin}/approved.png`) && approvedOffline.includes('did not answer') && hits === 0,
+    approvedOffline.startsWith('refused:') && approvedOffline.includes(`${approvedOrigin}/approved.png`) && approvedOffline.includes('did not answer') && hits === 0,
     `${approvedOffline}; requests=${hits}`,
   )
   check(
