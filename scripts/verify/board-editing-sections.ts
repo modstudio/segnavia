@@ -27,6 +27,8 @@ interface DemoBoard {
 }
 interface DemoChange {
   board: DemoDocument
+  before: DemoDocument
+  batch: { base: string; ops: unknown[] }
   edit: { kind: string }
 }
 type DemoDocument = { type: 'document'; kind: 'board' }

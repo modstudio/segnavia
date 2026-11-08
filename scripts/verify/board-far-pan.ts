@@ -77,7 +77,7 @@ export async function checkFarBoardPan(h: Harness) {
 function boardHistory(h: Harness) {
   return h.page.evaluate(() => {
     type DocumentValue = { type: 'document'; kind: 'board' }
-    type Change = { board: DocumentValue; edit: { kind: string; ids?: string[] } }
+    type Change = { board: DocumentValue; before: DocumentValue; batch: { base: string; ops: unknown[] }; edit: { kind: string; ids?: string[] } }
     const page = window as typeof window & {
       boardChanges?: Change[]
       boardEditErrors?: unknown[]
