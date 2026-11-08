@@ -46,7 +46,7 @@ describe('paginateBook model', () => {
       if (pending.length > 0) return { placed: [], fragments: [continued], index, pending: [] }
       if (unit) return { placed: [unit], fragments: [], index: index + 1, pending: [] }
       return { placed: [], fragments: [], index, pending: [], done: true }
-    })
+    }, 'segnavia:section-title')
     expect(result.refusals).toEqual([])
     expect(result.pages.filter((page) => page.flow === 'c2').map((page) => ({ parent: page.parent, opening: page.sectionOpening }))).toEqual([
       { parent: 'segnavia:verso', opening: false },

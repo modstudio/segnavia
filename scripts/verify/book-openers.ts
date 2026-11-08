@@ -26,7 +26,7 @@ function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
     parentPages: Object.entries(parents).map(([role, name]) => ({
       type: 'parentPage' as const,
       name,
-      basedOn: `segnavia:${role}`,
+      basedOn: role === 'fixed' ? 'segnavia:blank' : `segnavia:${role}`,
       ...furniture,
     })),
     children: [
@@ -40,14 +40,19 @@ function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
             id: 'opening-one',
             title: titles[0],
             parents,
-            children: [{ type: 'flow', html: `<p>ONE_START</p>${`<p>${'one '.repeat(42)}</p>`.repeat(12)}<p>ONE_END</p>` }],
+            children: [
+              {
+                type: 'flow',
+                html: `<p>ONE_START</p>${`<p>${'one '.repeat(42)}</p>`.repeat(12)}<p style="break-before:page">ONE_LATER</p><p>ONE_END</p>`,
+              },
+            ],
           },
           {
             type: 'section',
             id: 'opening-two',
             title: titles[1],
             opens,
-            children: [{ type: 'flow', html: `<h2 data-contents="exclude">TWO_HEADING</h2>${`<p>${'two '.repeat(45)}</p>`.repeat(12)}<p>TWO_END</p>` }],
+            children: [{ type: 'flow', html: `<h2 data-contents="exclude">TWO_HEADING</h2>${`<p>${'two '.repeat(45)}</p>`.repeat(9)}<p>TWO_END</p>` }],
           },
           {
             type: 'section',
@@ -114,7 +119,7 @@ function rectoContinueFixture(hebrew: boolean): DocumentInput {
   body.splice(2)
   body[0] = {
     ...body[0],
-    children: [{ type: 'flow', html: `<p>RECTO_CONTINUE_START</p>${`<p>${'first '.repeat(45)}</p>`.repeat(18)}<p>RECTO_CONTINUE_END</p>` }],
+    children: [{ type: 'flow', html: `<p>RECTO_CONTINUE_START</p>${`<p>${'first '.repeat(45)}</p>`.repeat(12)}<p>RECTO_CONTINUE_END</p>` }],
   }
   body[1] = { ...body[1], children: [{ type: 'flow', html: '<p>RECTO_CONTINUING_HEADING</p><p>RECTO_CONTINUING_END</p>' }] }
   return input
