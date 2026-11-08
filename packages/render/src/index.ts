@@ -287,7 +287,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             slots,
             { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined },
             {
-              pagePdf: (page, slots, options, inputIndex) => renderPagePdf(page, slots, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss),
+              pagePdf: (page, slots, options, inputIndex) =>
+                renderPagePdf(page, slots, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss),
               piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
