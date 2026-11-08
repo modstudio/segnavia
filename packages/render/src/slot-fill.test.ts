@@ -97,12 +97,17 @@ test('a structurally cloned filled value renders with its explicit slots', async
   const result = await filledPage(page, { fill: { id: 'host', values: { name: 'Ada' } } })
   const cloned = structuredClone(result.value)
   let renderedSlots: unknown
-  const rendered = renderPagePdf(cloned, result.slots, {}, {
-    withTab: async (setup) => {
-      renderedSlots = setup.slots
-      throw new Error('stop after setup')
+  const rendered = renderPagePdf(
+    cloned,
+    result.slots,
+    {},
+    {
+      withTab: async (setup) => {
+        renderedSlots = setup.slots
+        throw new Error('stop after setup')
+      },
     },
-  })
+  )
   await expect(rendered).rejects.toThrow('stop after setup')
   expect(cloned.html).toContain('Ada')
   expect(result.slots.marked.get('name')).toBe(1)
