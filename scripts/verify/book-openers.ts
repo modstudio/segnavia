@@ -82,6 +82,10 @@ function containsHead(value: string, title: string): boolean {
   return value.includes('HEAD[') && containsText(value, title)
 }
 
+function containsFolio(value: string, folio: string): boolean {
+  return value.includes('FOLIO[') && containsText(value, folio)
+}
+
 export async function verifyBookOpeners(renderer: Renderer, check: Check): Promise<void> {
   const css = ':where(body){font:14px/20px serif}:where(p,h2){margin-block:0 3mm}'
   for (const hebrew of [false, true]) {
@@ -114,7 +118,7 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
           containsHead(text, title) &&
           later > shared &&
           containsHead(laterText, title) &&
-          text.includes(`FOLIO[${folio}]`),
+          containsFolio(text, folio),
         `shared=${shared}, later=${later}, outline=${outline?.page}, links=${links.join(',')}, contents-folio=${contentsShowsFolio}, shared-head=${containsHead(text, title)}, later-head=${containsHead(laterText, title)}, compared-folio=${folio}`,
       )
     } finally {
@@ -131,14 +135,15 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
     try {
       const blank = recto.plan.pages.findIndex((page) => page.blank)
       const next = recto.plan.pages[blank + 1]
+      const blankText = (recto.pages[blank] ?? '').trim()
       check(
         `${key} recto opener inserts an undressed blank verso before the direction's recto`,
         blank >= 0 &&
           recto.plan.folios[blank] === null &&
-          (recto.pages[blank] ?? '').trim() === '' &&
+          compact(blankText) === 'HEAD[]FOLIO[]' &&
           next?.face === 'recto' &&
           next.side === (hebrew ? 'left' : 'right'),
-        `${blankDetail(recto.plan, blank)}, next-face=${next?.face}, next-side=${next?.side}, compared-direction=${hebrew ? 'rtl' : 'ltr'}`,
+        `${blankDetail(recto.plan, blank)}, blank-furniture=${JSON.stringify(compact(blankText))}, next-face=${next?.face}, next-side=${next?.side}, compared-direction=${hebrew ? 'rtl' : 'ltr'}`,
       )
     } finally {
       recto.close()
