@@ -1014,7 +1014,7 @@ render-only; browser `printPages` draws neither.
 
 **Imposition.** An `Imposition` places many pages on one paper. It holds a
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and
-gaps), a bleed for every cell, and how the cells fill: `sequence` puts one
+gaps), and how the cells fill: `sequence` puts one
 page in each cell in reading order, and `repeat` puts one page in every cell.
 Its lengths are in one unit named once: millimeters, inches or points (72 to
 the inch), so a host writes its stock's numbers as the maker gives them. A
@@ -1218,7 +1218,9 @@ same placements, preserving backgrounds. A grid of two columns and three rows
 is a handout of six slides to a paper. On an imposed render, the Document's
 `print.marks` and `print.markColor` are not drawn per piece; the paper uses the
 imposition's marks. Piece bleed and safe area still come from the Document's
-`print`. The notes layout takes paper fields from `notesPaper` and press fields
+`print`. Every piece on one imposition must have the same `print.bleed` and
+`print.safe`, because one physical paper has one cutting plan; composition
+refuses the first piece that differs. The notes layout takes paper fields from `notesPaper` and press fields
 from the deck's `print`; it and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.

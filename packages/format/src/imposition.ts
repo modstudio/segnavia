@@ -75,7 +75,22 @@ function columnXMm(imposition: Imposition, column: number, widths: number[], pap
   return x
 }
 
-type PiecePress = { bleed?: number; safe?: number }
+export type PiecePress = { bleed?: number; safe?: number }
+
+export function sharedImpositionPress(pieces: readonly { print?: PiecePress }[]): PiecePress {
+  const first = { bleed: pieces[0]?.print?.bleed ?? 0, safe: pieces[0]?.print?.safe ?? 0 }
+  for (let index = 1; index < pieces.length; index++) {
+    const current = { bleed: pieces[index]?.print?.bleed ?? 0, safe: pieces[index]?.print?.safe ?? 0 }
+    for (const field of ['bleed', 'safe'] as const) {
+      if (current[field] !== first[field]) {
+        throw new RangeError(
+          `piece ${index + 1} has print.${field} ${current[field]}mm but piece 1 has ${first[field]}mm; pieces on one imposition share one bleed and one safe; give the pieces one print.${field}, or print them without imposition, to clear this refusal`,
+        )
+      }
+    }
+  }
+  return first
+}
 
 function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper'], press: PiecePress): ImpositionPlacement {
   const mm = (value: number) => toMillimeters(value, imposition.unit)

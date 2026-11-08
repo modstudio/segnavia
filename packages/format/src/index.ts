@@ -228,6 +228,8 @@ export {
   type PagePlacementKind,
   type PagePlacementLayout,
   pagePlacementLayout,
+  type PiecePress,
+  sharedImpositionPress,
 } from './imposition.ts'
 export { PAPER_FIT_TOLERANCE_MM } from './imposition-fit.ts'
 export {

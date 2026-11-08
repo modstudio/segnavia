@@ -18,7 +18,7 @@ something else.
 | **Bleed** | The distance a page's background continues past the trim, so a cut that drifts leaves no white edge. |
 | **Safe area** | The distance inside the trim that text keeps clear of. |
 | **Marks** | Crop marks drawn outside the bleed, showing where to cut. |
-| **Imposition** | How many pages are placed on one paper: the paper, a grid of cells, how the cells fill, and whether there are two sides. A label template is an imposition. |
+| **Imposition** | How many pages are placed on one paper: the paper, a grid of cells, how the cells fill, and whether there are two sides. Every piece shares one bleed and safe area because the paper has one cutting plan. A label template is an imposition. |
 | **Cell** | One place in an imposition's grid. It holds one page, shown at the cell's size. |
 | **Side** | The front or the back of a paper. The back is flipped on the long or the short edge. |
 | **Panel** | A cell of a folded piece, between two folds or a fold and an edge. |

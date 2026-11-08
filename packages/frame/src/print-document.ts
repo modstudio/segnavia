@@ -20,6 +20,7 @@ import {
   printPadding,
   printProperties,
   resolveDirection,
+  sharedImpositionPress,
   type Slide,
   type SlotsOptions,
 } from '@segnavia/format'
@@ -363,7 +364,7 @@ export function printablePageValuesDocument(pages: Page[], imposition: Impositio
 export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
-  const imposed = impose(imposition, pages.length, pages[0]?.print)
+  const imposed = impose(imposition, pages.length, sharedImpositionPress(pages))
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.
   const bodies = imposedPaperBodies(imposed, (paper, side) => printablePaper(pages, imposition, imposed, paper, options, side))

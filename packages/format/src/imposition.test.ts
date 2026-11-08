@@ -1,10 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { FULL_PAGE_SIZE, fitPage, Imposition, type ImpositionPlacement, impose, MAX_IMPOSITION_CELLS, PX_PER_MM, pagePlacementLayout } from './index.ts'
+import { FULL_PAGE_SIZE, fitPage, Imposition, type ImpositionPlacement, impose, MAX_IMPOSITION_CELLS, PX_PER_MM, pagePlacementLayout, sharedImpositionPress } from './index.ts'
 
 const parse = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({ paper: 'a4', columns: 2, rows: 2, cell: { width: 80, height: 120 }, ...overrides })
 
 describe('imposition', () => {
+  test('refuses the first piece whose bleed or safe differs', () => {
+    expect(() => sharedImpositionPress([{ print: { bleed: 0, safe: 2 } }, { print: { bleed: 5, safe: 2 } }])).toThrow(
+      'piece 2 has print.bleed 5mm but piece 1 has 0mm; pieces on one imposition share one bleed and one safe; give the pieces one print.bleed, or print them without imposition, to clear this refusal',
+    )
+    expect(() => sharedImpositionPress([{ print: { bleed: 1, safe: 2 } }, { print: { bleed: 1, safe: 3 } }])).toThrow('piece 2 has print.safe 3mm')
+    expect(sharedImpositionPress([{ print: { bleed: 1, safe: 2 } }, { print: { bleed: 1, safe: 2 } }])).toEqual({ bleed: 1, safe: 2 })
+  })
   test('one-sided defaults preserve the existing placement shape and order', () => {
     const value = parse({ columns: 2, rows: 1, cell: { width: 80, height: 120 }, skip: 1 })
     expect(value).toMatchObject({ sides: 'one', flip: 'long' })
