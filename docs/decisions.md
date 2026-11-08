@@ -280,11 +280,14 @@ rather than treated as rounding.
 **Flowing printed pages are composed inside the page document.** The library
 ships zero-specificity safe fragmentation rules by default, keeping table rows,
 figures and images whole and a heading with what follows; author or host CSS
-overrides them, and `fragmentation: 'none'` removes them. A measuring multicol
-lets Chromium decide widows, orphans and ordinary fragmentation. Authored page
-breaks are mapped to column breaks. One clipped clone of that
-flow is then placed on each exact paper with the parent page selected for its
-role. Head and foot motifs are expanded by the host first, and the nonce-bound
+overrides them, and `fragmentation: 'none'` removes them. Printed pages go
+through the same composer as a paginated book: the flow is poured into a galley
+at the text-area width, its line boxes are measured, and the pure planner in
+`@segnavia/layout` chooses every break. Each block's computed `break-inside`,
+`break-before`, `break-after`, orphans and widows become keeps and forced breaks
+in that plan, because Chromium print does not honor them. Each planned page
+then holds windowed clones of the galley on an exact paper, with the parent page
+selected for its role. Head and foot motifs are expanded by the host first, and the nonce-bound
 composer fills their formatted printed-page number and total. Post-print PDF
 stamping is not used for flowing pages because a browser print cannot perform
 the same read-back and stamping pass.
