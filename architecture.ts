@@ -120,6 +120,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/deck-folios.ts',
       'src/stage-layout.ts',
       'src/print-document.ts',
+      'src/imposed-paper.ts',
       'src/document-brand-refusal.ts',
       'src/slide-print-document.ts',
       'src/printed-page-document.ts',
