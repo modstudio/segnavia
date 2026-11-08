@@ -4,6 +4,9 @@ import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
 import { screenPage } from '../screen-document.ts'
 
+const nfdCodePointMultiset = (value: string) =>
+  [...value.normalize('NFD').replace(/[\s\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu, '')].sort().join('')
+
 export async function verifyDependencyRender(
   renderer: Renderer,
   work: string,
@@ -113,6 +116,6 @@ export async function verifyDependencyRender(
   )
   const hebrewFile = path.join(work, 'google-fonts-hebrew.pdf')
   writeFileSync(hebrewFile, hebrew)
-  const extracted = execFileSync('pdftotext', [hebrewFile, '-'], { encoding: 'utf8' }).normalize('NFD')
-  check('an offline Google Fonts render keeps every Hebrew mark', extracted.includes(markedHebrew.normalize('NFD')), extracted)
+  const extracted = execFileSync('pdftotext', [hebrewFile, '-'], { encoding: 'utf8' })
+  check('an offline Google Fonts render keeps every Hebrew mark', nfdCodePointMultiset(extracted) === nfdCodePointMultiset(markedHebrew), extracted)
 }
