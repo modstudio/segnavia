@@ -94,10 +94,21 @@ try {
   await verifyBackdropRaster(renderer, work, check)
   hits = 0
   const html = `<img src="${origin}/a.png"><link rel="stylesheet" href="${origin}/b.css"><iframe src="${origin}/c"></iframe><script>fetch("${origin}/d"); new Image().src = "${origin}/e"</script>`
-  await renderer.pagePdf(screenPage({ html }, { settings: { scripts: 'sandboxed' } }), { waitForPageReady: false })
-  await renderer.pageImage(screenPage({ html }))
-  await renderer.pagesPdf([screenPage({ html })], { imposition: labelsImposition })
-  await verifyBookOffline(renderer, origin)
+  const unapprovedUrl = `${origin}/a.png`
+  const checkOfflineRefusal = async (what: string, work: Promise<unknown>, url = unapprovedUrl) => {
+    const result = await refusal(work)
+    check(what, result.startsWith('refused:') && result.includes(url) && hits === 0, `${result}; requests=${hits}`)
+  }
+  await checkOfflineRefusal(
+    'pagePdf refuses an unapproved asset without reaching the network',
+    renderer.pagePdf(screenPage({ html }, { settings: { scripts: 'sandboxed' } }), { waitForPageReady: false }),
+  )
+  await checkOfflineRefusal('pageImage refuses an unapproved asset without reaching the network', renderer.pageImage(screenPage({ html })))
+  await checkOfflineRefusal(
+    'imposed pagesPdf refuses an unapproved asset without reaching the network',
+    renderer.pagesPdf([screenPage({ html })], { imposition: labelsImposition }),
+  )
+  await checkOfflineRefusal('bookPdf refuses an unapproved asset without reaching the network', verifyBookOffline(renderer, origin), `${origin}/book.css`)
   const deck = screenDeck([{ type: 'slide', id: 'offline', content: { kind: 'html' as const, html } }], {
     title: 'Offline deck',
     layout: 'fixed' as const,
@@ -129,14 +140,28 @@ try {
     oversizedDeck.includes('10001 cells') && oversizedDeck.includes('ceiling is 10000'),
     oversizedDeck,
   )
-  const deckPdfs = await Promise.all([
-    renderer.deckPdf(deck),
-    renderer.deckPdf(deck, { layout: 'notes' }),
+  await checkOfflineRefusal('deckPdf refuses an unapproved asset without reaching the network', renderer.deckPdf(deck))
+  await checkOfflineRefusal('notes deckPdf refuses an unapproved asset without reaching the network', renderer.deckPdf(deck, { layout: 'notes' }))
+  await checkOfflineRefusal(
+    'imposed deckPdf refuses an unapproved asset without reaching the network',
     renderer.deckPdf(deck, { imposition: handoutImposition }),
-  ])
+  )
+  const approvedOffline = await refusal(
+    renderer.pagePdf(screenPage({ html: `<img src="${origin}/approved.png"><link rel="stylesheet" href="${origin}/approved.css">` }), {
+      origins: [
+        { origin, kinds: ['image'] },
+        { origin, kinds: ['style'] },
+      ],
+    }),
+  )
   check(
-    'renders reach no server, including book chapter and note resources and top-level deck slides in slides, notes and handout layouts',
-    hits === 0 && deckPdfs.every((pdf) => pdf.length > 0),
+    'an approved request unanswered by assets refuses without reaching the network',
+    approvedOffline.startsWith('refused:') && approvedOffline.includes(`${origin}/approved.png`) && approvedOffline.includes('did not answer') && hits === 0,
+    `${approvedOffline}; requests=${hits}`,
+  )
+  check(
+    'refused offline renders reach no server, including book chapter and note resources and top-level deck slides in slides, notes and handout layouts',
+    hits === 0,
     `requests=${hits}`,
   )
   if (existsSync(FACE)) {
