@@ -13,12 +13,12 @@ const input = (overrides: Record<string, unknown> = {}) => ({
 
 describe('bookView', () => {
   test('builds a continuous view from the book document', () => {
-    const view = bookView(parseBookFixture(input({ lang: 'en', css: '.lead{color:purple}' })))
+    const view = bookView(parseBookFixture(input({ lang: 'en', style: { css: '.lead{color:purple}' } })))
     expect(view.html).toContain('id="section-1"')
     expect(view.title).toBe('Book')
     expect(view.lang).toBe('en')
     expect(view.scripts).toBe('refuse')
-    expect(view.css).toBe('.lead{color:purple}')
+    expect(view.style?.css).toBe('.lead{color:purple}')
     expect(view.pagination).toBeUndefined()
     expect(view.flow).toBeUndefined()
   })

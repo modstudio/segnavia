@@ -7,7 +7,8 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import { type Direction, dependencyOriginSet, type Scripts } from '@segnavia/format'
+import { type Direction, dependencyOriginSet, type Scripts, type StyleSheet, type TextDirection } from '@segnavia/format'
+import { compileStyleSheet } from '@segnavia/html'
 import { animationReport } from './animation-timing.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { keepPassScript } from './keep-pass.ts'
@@ -66,6 +67,8 @@ export interface FrameOptions {
   title?: string
   // Styles the host applies to every document it shows, such as its house style.
   css?: string
+  // Compiled library and document sheets, kept separate for CSS parse recovery.
+  sheets?: readonly string[]
   // Extra CSP directives, appended to the frame's own.
   csp?: string
   dependencyOrigins?: Iterable<string>
@@ -244,6 +247,12 @@ function escapeAttribute(value: string): string {
 export const BLOCK_DIRECTION_CSS =
   ':where(:is(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address):not([dir="ltr" i],[dir="rtl" i],[dir="auto" i])){unicode-bidi:plaintext}'
 
+export function frameStyleSheets(document: StyleSheet | undefined, dir: TextDirection, baseCss = ''): string[] {
+  const compiled = compileStyleSheet({ document: document ?? {}, dir, baseCss: `${BLOCK_DIRECTION_CSS}${baseCss}` })
+  if (!compiled.ok) throw new Error(compiled.refusal)
+  return compiled.sheets
+}
+
 const SCRIPT_DIRECTIVES: Record<Scripts, (withOrigins: (directive: string) => string) => string[]> = {
   refuse: () => [],
   sandboxed: (withOrigins) => [
@@ -294,7 +303,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
     options.title === undefined ? '' : `<title>${escapeHtml(options.title)}</title>`,
     bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
-    `<style>${BLOCK_DIRECTION_CSS}</style>`,
+    ...(options.sheets ?? []).map((sheet) => `<style>${sheet}</style>`),
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')
   const attributes = [options.dir ? ` dir="${options.dir}"` : '', options.lang ? ` lang="${escapeAttribute(options.lang)}"` : ''].join('')

@@ -179,7 +179,7 @@ describe('book fonts', () => {
       if (event.type === 'error') errors.push((event as CustomEvent).detail)
       return true
     }) as typeof book.dispatchEvent
-    book.fonts = {
+    book.style?.fonts = {
       source: {
         font: async (_name, { signal }) => {
           resolutions++
@@ -232,7 +232,7 @@ describe('book fonts', () => {
     ;(book as unknown as { hasAttribute: (name: string) => boolean }).hasAttribute = (name) => name === 'spread' && spread
     ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined) => void }).mountFrames = (view, css) =>
       mounted.push(bookFrame(view, { css, spread, layout: book.layout }))
-    book.fonts = { source: { font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }) } }
+    book.style?.fonts = { source: { font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }) } }
     book.view = { html: '<main>Initial</main>', title: 'Initial' }
     await Promise.resolve()
     const loading = book.attributeChangedCallback('src', null, 'https://example.test/book.json')
@@ -271,7 +271,7 @@ describe('book fonts', () => {
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => connected })
     ;(book as unknown as { hasAttribute: () => boolean }).hasAttribute = () => true
     book.replaceChildren = (() => {}) as typeof book.replaceChildren
-    book.fonts = {
+    book.style?.fonts = {
       source: {
         font: async () => ({ family: 'Body Serif', faces: [], generic: 'serif' }),
       },
@@ -308,7 +308,7 @@ describe('book fonts', () => {
     book.replaceChildren = ((...nodes: unknown[]) => {
       children.splice(0, children.length, ...nodes)
     }) as typeof book.replaceChildren
-    book.fonts = {
+    book.style?.fonts = {
       source: {
         font: async (name) =>
           name === 'serif'
@@ -332,7 +332,7 @@ describe('book fonts', () => {
       detail = (event as CustomEvent).detail
       return true
     }
-    book.fonts = { source: { font: async () => undefined } }
+    book.style?.fonts = { source: { font: async () => undefined } }
     book.view = { html: '<main>Book</main>', title: 'Named book', fonts: [{ app: 'missing' }] }
     for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
     expect(detail).toEqual({

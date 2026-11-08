@@ -1,5 +1,5 @@
-import { type Deck, type Folio, firstStrongDirection, type PixelSize, type Slide } from '@segnavia/format'
-import { frameDocument, frameSandbox, newNonce } from './bridge.ts'
+import { type Deck, type Folio, firstStrongDirection, type PixelSize, resolveDirection, type Slide } from '@segnavia/format'
+import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
@@ -49,6 +49,7 @@ export function stageCanvas(
         nonce: newNonce(),
         dir: deck.dir,
         lang: deck.lang,
+        sheets: frameStyleSheets(deck.style, resolveDirection(deck.dir, deck.lang, deck.title)),
         css: options.css,
         csp: options.csp || undefined,
         dependencyOrigins: options.dependencyOrigins,

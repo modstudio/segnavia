@@ -8,15 +8,17 @@ import {
   type Document,
   type DocumentInput,
   FULL_PAGE_SIZE,
+  htmlTextSample,
   Page,
   type PageWidths,
   pageFromDocument,
   printProperties,
+  resolveDirection,
   type SlotsOptions,
 } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
-import { frameSandbox, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { frameSandbox, frameStyleSheets, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -204,7 +206,7 @@ export class SegnaviaPage extends PageElementAttributes {
       loadShownPageDocument(
         shownPage,
         resolved,
-        { css: `${fontCss}${this.css}`, csp: this.cspExtra || undefined, dependencyOrigins: this.dependencyOrigins },
+        { baseCss: fontCss, css: this.css, csp: this.cspExtra || undefined, dependencyOrigins: this.dependencyOrigins },
         (document) => {
           if (!this.isConnected || controller.signal.aborted || generation !== this.loadGeneration || iframe !== this.querySelector('iframe')) return
           this.resolvedSlots = resolved
@@ -219,7 +221,7 @@ export class SegnaviaPage extends PageElementAttributes {
       if (!controller.signal.aborted && this.isConnected && generation === this.loadGeneration)
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
     }
-    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !(page.fonts ?? []).some((ref) => 'app' in ref)) {
+    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !(page.style?.fonts ?? []).some((ref) => 'app' in ref)) {
       const motifRefusal = framePageMotifRefusal(resolvedPage)
       if (motifRefusal) {
         report(motifRefusal)
@@ -232,7 +234,12 @@ export class SegnaviaPage extends PageElementAttributes {
           scripts: page.scripts,
           dir: page.dir,
           lang: page.lang,
-          css: `${page.print ? printProperties(page.print) : ''}${this.css}`,
+          sheets: frameStyleSheets(
+            page.style,
+            resolveDirection(page.dir, page.lang, htmlTextSample(resolvedPage.html)),
+            page.print ? printProperties(page.print) : '',
+          ),
+          css: this.css,
           csp: this.cspExtra || undefined,
           dependencyOrigins: this.dependencyOrigins,
           relayKeys: false,

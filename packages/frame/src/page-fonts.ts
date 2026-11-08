@@ -67,23 +67,23 @@ export async function resolveFontReferences(references: FontReference[], fonts: 
 }
 
 export async function resolvePageFonts(
-  page: Pick<Page, 'id' | 'fonts'>,
+  page: Pick<Page, 'id' | 'style'>,
   motifFonts: FontReference[],
   fonts: FontsOptions,
   signal: AbortSignal,
 ): Promise<string> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
-  return resolveFontReferences(uniqueFontReferences([...(page.fonts ?? []), ...motifFonts]), fonts, signal, place)
+  return resolveFontReferences(uniqueFontReferences([...(page.style?.fonts ?? []), ...motifFonts]), fonts, signal, place)
 }
 
 export async function pageFontCss(
-  page: Pick<Page, 'id' | 'fonts'>,
+  page: Pick<Page, 'id' | 'style'>,
   motifFonts: FontReference[],
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
 ): Promise<string> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
-  const references = uniqueFontReferences([...(page.fonts ?? []), ...motifFonts])
+  const references = uniqueFontReferences([...(page.style?.fonts ?? []), ...motifFonts])
   if (!fonts) {
     refuseMissingFontSource(references, place)
     return ''
@@ -92,12 +92,12 @@ export async function pageFontCss(
 }
 
 export async function expandedPagesFontCss(
-  expanded: ReadonlyArray<{ page: Pick<Page, 'fonts'>; fonts: FontReference[] }>,
+  expanded: ReadonlyArray<{ page: Pick<Page, 'style'>; fonts: FontReference[] }>,
   fonts: FontsOptions | undefined,
   signal: AbortSignal,
   place = 'page',
 ): Promise<string> {
-  const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
+  const references = uniqueFontReferences([...expanded.flatMap((item) => item.page.style?.fonts ?? []), ...expanded.flatMap((item) => item.fonts)])
   if (!fonts) {
     refuseMissingFontSource(references, place)
     return ''
@@ -111,7 +111,7 @@ export async function expandedBookFontCss(
   signal: AbortSignal,
 ): Promise<string> {
   const place = expanded.book.title ? `book ${JSON.stringify(expanded.book.title)}` : 'book'
-  const references = uniqueFontReferences([...(expanded.book.fonts ?? []), ...expanded.fonts])
+  const references = uniqueFontReferences([...(expanded.book.style?.fonts ?? []), ...expanded.fonts])
   if (!fonts) {
     refuseMissingFontSource(references, place)
     return ''

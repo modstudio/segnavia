@@ -6,6 +6,7 @@ import { type Limits, limitRefusal } from './limits.ts'
 import { Placement, PlacementShape } from './placement.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
+import { StyleSheet } from './style-sheet.ts'
 import { SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
@@ -133,6 +134,7 @@ export const DeckShape = z.object({
   playback: Playback.optional(),
   captions: z.enum(['on', 'off', 'viewer']).optional(),
   slots: Slots.optional(),
+  style: StyleSheet.optional(),
   slides: z.array(Slide).min(1),
 })
 

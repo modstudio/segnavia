@@ -8,11 +8,12 @@ import type { RenderOptions } from './options.ts'
 import { renderPageValueDocument } from './page-document.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
 
-export function renderedPageDocument(page: HtmlPage, options: RenderOptions, printing = false, diagramScript?: string): string {
-  if (!page.printedPages) return renderPageValueDocument(page, options, printing, undefined, '', diagramScript)
+export function renderedPageDocument(page: HtmlPage, options: RenderOptions, printing = false, diagramScript?: string, fontCss = ''): string {
+  if (!page.printedPages) return renderPageValueDocument(page, options, printing, undefined, fontCss, diagramScript)
   return printedPageValueDocument(page, {
     nonce: newNonce(),
-    css: `${fontFaces(options.fonts)}${options.css ?? ''}`,
+    baseCss: `${fontCss}${fontFaces(options.fonts)}`,
+    css: options.css,
     diagramScript,
     readyCallback: RENDER_READY_BINDING,
     limits: options.limits,

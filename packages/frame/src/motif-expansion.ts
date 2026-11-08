@@ -11,7 +11,9 @@ import {
   type MotifSource,
   type PageWidths,
   PRINTED_PAGE_CONTEXT,
+  htmlTextSample,
   printProperties,
+  resolveDirection,
   type SlotsOptions,
 } from '@segnavia/format'
 import {
@@ -28,7 +30,7 @@ import {
 } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
-import { frameDocument } from './bridge.ts'
+import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal, slotHtml } from './slot-render.ts'
@@ -384,14 +386,19 @@ export async function prepareShownPage(
 export function shownPageDocument(
   page: HtmlPage,
   resolved: PreparedSlots | undefined,
-  options: { nonce: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
+  options: { nonce: string; baseCss?: string; css?: string; csp?: string; dependencyOrigins?: Iterable<string> },
 ): string {
   return frameDocument(slotHtml(page.html, resolved), {
     scripts: page.scripts,
     nonce: options.nonce,
     dir: page.dir,
     lang: page.lang,
-    css: `${page.print ? printProperties(page.print) : ''}${options.css ?? ''}`,
+    sheets: frameStyleSheets(
+      page.style,
+      resolveDirection(page.dir, page.lang, htmlTextSample(page.html)),
+      `${page.print ? printProperties(page.print) : ''}${options.baseCss ?? ''}`,
+    ),
+    css: options.css,
     csp: options.csp,
     dependencyOrigins: options.dependencyOrigins,
     relayKeys: false,

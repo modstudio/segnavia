@@ -21,7 +21,7 @@ import {
 } from '@segnavia/format'
 import { embedFunction, fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
-import { frameDocument } from './bridge.ts'
+import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { DIAGRAM_READY_EXPR, withDiagramScript } from './diagram-document.ts'
 import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { fragmentColumns, fragmentSpan, paperCount } from './printed-page-columns.ts'
@@ -162,6 +162,7 @@ export function printedPageValueDocument(
   page: HtmlPage,
   options: {
     nonce: string
+    baseCss?: string
     css?: string
     only?: number
     expectedCount?: number
@@ -202,7 +203,7 @@ export function printedPageValueDocument(
     rules: page.printedPages.rules,
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]),html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${fragmentationCss(page.printedPages.fragmentation)}${options.css ?? ''}`
+  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]),html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const parts = pageParts(page.html)
   const drawn = withDiagramScript(`${parts.head}<div data-segnavia-flow>${parts.body}</div>`, options.nonce, options.diagramScript)
   const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
@@ -212,7 +213,8 @@ export function printedPageValueDocument(
     dir: direction,
     lang: page.lang,
     title: metadata?.title,
-    css,
+    sheets: frameStyleSheets(page.style, direction, baseCss),
+    css: options.css,
     relayKeys: false,
     reportHeight: options.measure === true,
     readyAfterAttribute: PRINTED_PAGE_COMPOSED_ATTRIBUTE,

@@ -14,7 +14,7 @@ export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 interface PagesPdfServices {
   pagePdf(page: HtmlPage, options: RenderOptions, inputIndex: number): Promise<PrintResult>
   piecePdf(page: HtmlPage, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
-  fontFaces(options: RenderOptions): string
+  baseCss(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
 }
 
@@ -32,14 +32,14 @@ async function composedPdf(pages: HtmlPage[], imposition: Imposition, opts: Page
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
   const properties = printProperties(imposition, imposition.unit)
-  const hostCss = `${services.fontFaces(opts)}${opts.css ?? ''}`
+  const baseCss = services.baseCss(opts)
   const rendered = await Promise.all(
     groups.map(async (group) => {
       const page = pages[group.page]
       const first = group.placements[0]
       if (!page || !first) throw new Error(`The piece for page ${group.page} has no placement.`)
       const geometry = pieceGeometry(first)
-      const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${hostCss}`
+      const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
       try {
         return {
           group,

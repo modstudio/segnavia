@@ -5,9 +5,9 @@ import {
   PaginatedBookRefusedError,
   bookValueDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
-import { frameDocument, newNonce } from '@segnavia/frame/bridge'
+import { frameDocument, frameStyleSheets, newNonce } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
-import { bookDocument, bookStylesheet, type PreparedSlots } from '@segnavia/html'
+import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
@@ -54,20 +54,23 @@ function bookSrcdoc(
   html: string,
   book: Book,
   fontCss: string,
-  css: string,
+  baseCss: string,
+  hostCss: string | undefined,
   marginLayer: boolean,
   diagramScript: string | undefined,
   dependencyOrigins?: Iterable<string>,
   limits?: Limits,
 ): string {
   const nonce = newNonce()
-  if (book.mode === 'paginated') return paginatedBookDocument(book, { nonce, fontCss, css, printBackground: true, diagramScript, limits })
+  if (book.mode === 'paginated')
+    return paginatedBookDocument(book, { nonce, fontCss: `${fontCss}${baseCss}`, css: hostCss, printBackground: true, diagramScript, limits })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
     nonce,
     dir: marginLayer ? 'ltr' : resolveDirection(book.dir, book.lang, book.title),
     lang: book.lang,
-    css: bookStylesheet(fontCss, book.css, css),
+    sheets: frameStyleSheets(book.style, resolveDirection(book.dir, book.lang, book.title), `${fontCss}${baseCss}`),
+    css: hostCss,
     relayKeys: false,
     reportHeight: false,
     dependencyOrigins,
@@ -90,10 +93,10 @@ async function printBook(
   const paginated = book.mode === 'paginated'
   const marginLayer = part === 'margin'
   const fontCss = `${resolvedFontCss}${dependencies.fontFaces(renderOptions)}`
-  const css = `${bookPageCss(book, marginLayer || paginated)}${layerCss}${renderOptions.css ?? ''}`
+  const baseCss = `${bookPageCss(book, marginLayer || paginated)}${layerCss}`
   let srcdoc: string
   try {
-    srcdoc = bookSrcdoc(html, book, fontCss, css, marginLayer, diagramScript, renderOptions.dependencyOrigins, renderOptions.limits)
+    srcdoc = bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, renderOptions.dependencyOrigins, renderOptions.limits)
   } catch (error) {
     if (error instanceof PaginatedBookRefusedError) throw new RenderRefusedError(error.message)
     throw error
@@ -101,7 +104,7 @@ async function printBook(
   return dependencies.render(
     {
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html, book.css, css),
+      scripts: paginated || (!marginLayer && book.scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html, book.style?.css, baseCss, renderOptions.css),
       html: srcdoc,
       slots: preparedSlotsFor(book),
       readiness: paginated
