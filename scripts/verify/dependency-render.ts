@@ -4,8 +4,7 @@ import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
 import { screenPage } from '../screen-document.ts'
 
-const nfdCodePointMultiset = (value: string) =>
-  [...value.normalize('NFD').replace(/[\s\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu, '')].sort().join('')
+const nfdCodePointMultiset = (value: string) => [...value.normalize('NFD').replace(/[\s\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/gu, '')].sort().join('')
 
 export async function verifyDependencyRender(
   renderer: Renderer,

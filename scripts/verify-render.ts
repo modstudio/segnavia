@@ -9,11 +9,9 @@ import { capture } from '@segnavia/capture'
 import { Document, MM_PER_PT, pageFromDocument, printBoxes } from '@segnavia/format'
 import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
 import { chromiumPath } from './chromium-path.ts'
-import { handoutImposition } from './demo-deck-pdf-fixtures.ts'
-import { labelsImposition, postcardPage } from './demo-page-fixtures.ts'
+import { postcardPage } from './demo-page-fixtures.ts'
 import { screenDeck, screenPage } from './screen-document.ts'
 import { verifyBackdropRaster } from './verify/backdrop-raster.ts'
-import { verifyBookOffline } from './verify/book-offline.ts'
 import { verifyBookRender } from './verify/book-render.ts'
 import { verifyClippedBleed } from './verify/clipped-bleed.ts'
 import { verifyLongDeckNotes } from './verify/deck-notes-render.ts'
@@ -26,6 +24,7 @@ import { verifyHebrewNotice } from './verify/hebrew-notice.ts'
 import { imageSize } from './verify/image-size.ts'
 import { verifyLocalFont } from './verify/local-font.ts'
 import { verifyNamedPaperRender } from './verify/named-paper-render.ts'
+import { verifyOfflineRender } from './verify/offline-render.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
@@ -92,31 +91,6 @@ try {
   await verifyPageOverflow(renderer, work, check, CHROMIUM)
   await verifyNamedPaperRender(renderer, work, check)
   await verifyBackdropRaster(renderer, work, check)
-  hits = 0
-  const html = `<img src="${origin}/a.png"><link rel="stylesheet" href="${origin}/b.css"><iframe src="${origin}/c"></iframe><script>fetch("${origin}/d"); new Image().src = "${origin}/e"</script>`
-  const unapprovedUrl = `${origin}/a.png`
-  const checkOfflineRefusal = async (what: string, work: Promise<unknown>, url = unapprovedUrl) => {
-    const result = await refusal(work)
-    check(what, result.startsWith('refused:') && result.includes(url) && hits === 0, `${result}; requests=${hits}`)
-  }
-  await checkOfflineRefusal(
-    'pagePdf refuses an unapproved asset without reaching the network',
-    renderer.pagePdf(screenPage({ html }, { settings: { scripts: 'sandboxed' } }), { waitForPageReady: false }),
-  )
-  await checkOfflineRefusal('pageImage refuses an unapproved asset without reaching the network', renderer.pageImage(screenPage({ html })))
-  await checkOfflineRefusal(
-    'imposed pagesPdf refuses an unapproved asset without reaching the network',
-    renderer.pagesPdf([screenPage({ html })], { imposition: labelsImposition }),
-  )
-  await checkOfflineRefusal('bookPdf refuses an unapproved asset without reaching the network', verifyBookOffline(renderer, origin), `${origin}/book.css`)
-  const deck = screenDeck([{ type: 'slide', id: 'offline', content: { kind: 'html' as const, html } }], {
-    title: 'Offline deck',
-    layout: 'fixed' as const,
-    fit: 'contain' as const,
-    frame: false,
-    settings: { scripts: 'sandboxed' as const },
-    size: { width: 400, height: 200 },
-  })
   const oversizedImposition = {
     paper: { width: 10.001, height: 1, unit: 'mm' as const },
     columns: 10_001,
@@ -134,37 +108,25 @@ try {
     oversizedPages.includes('10001 cells') && oversizedPages.includes('ceiling is 10000'),
     oversizedPages,
   )
-  const oversizedDeck = await rejectedMessage(renderer.deckPdf(deck, { imposition: oversizedImposition }))
+  const oversizedDeck = await rejectedMessage(
+    renderer.deckPdf(
+      screenDeck([{ type: 'slide', id: 'oversized', content: { kind: 'html', html: '<p>slide</p>' } }], {
+        title: 'Oversized imposition',
+        layout: 'fixed',
+        fit: 'contain',
+        frame: false,
+        size: { width: 400, height: 200 },
+      }),
+      { imposition: oversizedImposition },
+    ),
+  )
   check(
     'deckPdf refuses an imposition of 10001 cells at the edge',
     oversizedDeck.includes('10001 cells') && oversizedDeck.includes('ceiling is 10000'),
     oversizedDeck,
   )
-  await checkOfflineRefusal('deckPdf refuses an unapproved asset without reaching the network', renderer.deckPdf(deck))
-  await checkOfflineRefusal('notes deckPdf refuses an unapproved asset without reaching the network', renderer.deckPdf(deck, { layout: 'notes' }))
-  await checkOfflineRefusal(
-    'imposed deckPdf refuses an unapproved asset without reaching the network',
-    renderer.deckPdf(deck, { imposition: handoutImposition }),
-  )
-  const approvedOrigin = origin.replace('http:', 'https:')
-  const approvedOffline = await refusal(
-    renderer.pagePdf(screenPage({ html: `<img src="${approvedOrigin}/approved.png"><link rel="stylesheet" href="${approvedOrigin}/approved.css">` }), {
-      origins: [
-        { origin: approvedOrigin, kinds: ['image'] },
-        { origin: approvedOrigin, kinds: ['style'] },
-      ],
-    }),
-  )
-  check(
-    'an approved request unanswered by assets refuses without reaching the network',
-    approvedOffline.startsWith('refused:') && approvedOffline.includes(`${approvedOrigin}/approved.png`) && approvedOffline.includes('did not answer') && hits === 0,
-    `${approvedOffline}; requests=${hits}`,
-  )
-  check(
-    'refused offline renders reach no server, including book chapter and note resources and top-level deck slides in slides, notes and handout layouts',
-    hits === 0,
-    `requests=${hits}`,
-  )
+  hits = 0
+  await verifyOfflineRender(renderer, origin, () => hits, refusal, check)
   if (existsSync(FACE)) {
     const pdf = await renderer.pagePdf(screenPage({ html: '<p style="font-family:SegnaviaFace">Embedded</p>' }, { size: { width: 400, height: 200 } }), {
       fonts: [{ family: 'SegnaviaFace', data: readFileSync(FACE), format: 'truetype', weight: 700 }],
