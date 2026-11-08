@@ -20,10 +20,8 @@ const grid = Imposition.parse({
   margin: { top: 2, right: 2, bottom: 2, left: 2 },
   gap: { column: 2, row: 2 },
 })
-const fluid = Page.parse({
-  html: '<p>page</p>',
-  print: { paper: { width: 10, height: 10, unit: 'mm' }, bleed: 1, safe: 0.5 },
-})
+const gridPrint = { paper: { width: 10, height: 10, unit: 'mm' as const }, bleed: 1, safe: 0.5 }
+const fluid = Page.parse({ html: '<p>page</p>', print: gridPrint })
 const deck = Deck.parse({
   title: 'Print',
   size: { width: 1280, height: 720 },

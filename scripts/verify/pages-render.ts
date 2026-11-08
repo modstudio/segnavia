@@ -171,9 +171,10 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
 
   const verifyFixed = (file: string, input: typeof coveringImposition, cover: boolean) => {
     const parsed = Imposition.parse(input)
-    const placement = impose(parsed, 1).placements[0]
+    const page = pageFromDocument(Document.parse(fixedImposedPage))
+    const placement = impose(parsed, 1, page.print).placements[0]
     if (!placement) throw new Error('The fixed-page imposition has no placement.')
-    const fit = fitPage(pageFromDocument(Document.parse(fixedImposedPage)), placement, parsed.fit)
+    const fit = fitPage(page, placement, parsed.fit)
     const raster = rasterPdf(output, work, file)
     if (cover) {
       return {
@@ -198,7 +199,8 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
 
   const verifyBleedGrid = () => {
     const parsed = Imposition.parse(bleedGridImposition)
-    const placements = impose(parsed, bleedGridPages.length).placements
+    const piece = pageFromDocument(Document.parse(bleedGridPages[0] as (typeof bleedGridPages)[number]))
+    const placements = impose(parsed, bleedGridPages.length, piece.print).placements
     const raster = rasterPdf(output, work, 'pages-bleed-grid')
     const painted = placements.every((placement, index) => {
       const shade = bleedGridShades[index]
@@ -226,7 +228,8 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
 
   const verifyClippedBleedGrid = () => {
     const parsed = Imposition.parse(clippedBleedGridImposition)
-    const placements = impose(parsed, bleedGridPages.length).placements
+    const piece = pageFromDocument(Document.parse(bleedGridPages[0] as (typeof bleedGridPages)[number]))
+    const placements = impose(parsed, bleedGridPages.length, piece.print).placements
     const raster = rasterPdf(output, work, 'pages-bleed-grid-clipped')
     const [topLeft, topRight, bottomLeft, bottomRight] = placements
     if (!topLeft || !topRight || !bottomLeft || !bottomRight) return false
@@ -247,7 +250,8 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
   check('bleed clipped by a 2mm gap changes to the neighboring shade at the gap midline', verifyClippedBleedGrid())
 
   const growingImposition = Imposition.parse(growingFixedImposition)
-  const growingPlacements = impose(growingImposition, growingFixedPages.length).placements
+  const growingPiece = pageFromDocument(Document.parse(growingFixedPages[0] as (typeof growingFixedPages)[number]))
+  const growingPlacements = impose(growingImposition, growingFixedPages.length, growingPiece.print).placements
   const growingRaster = rasterPdf(output, work, 'pages-growing-fixed')
   const [growingNeighbor, growingTarget] = growingPlacements
   const growingFixedOk =

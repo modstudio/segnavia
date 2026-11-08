@@ -1,6 +1,6 @@
 import { foldCellPages, foldPageCountMessage } from './fold.ts'
-import type { Imposition } from './imposition-schema.ts'
 import { refuseSafe } from './imposition-fit.ts'
+import type { Imposition } from './imposition-schema.ts'
 import { type Page, type PageWidths, resolvePageWidth } from './page.ts'
 import { type PaperBox, PX_PER_MM, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 import type { Print } from './print.ts'
@@ -245,11 +245,10 @@ export function impose(imposition: Imposition, pageCount: number, press: PiecePr
   if (!Number.isInteger(pageCount) || pageCount < 0) throw new RangeError(`pageCount must be a nonnegative integer; received ${String(pageCount)}`)
   const safeIssues: string[] = []
   const widths = columnWidthsMm(imposition)
-  refuseSafe(
-    { addIssue: (issue) => safeIssues.push(issue.message) },
-    press.safe ?? 0,
-    { width: Math.min(...widths), height: toMillimeters(imposition.cell.height, imposition.unit) },
-  )
+  refuseSafe({ addIssue: (issue) => safeIssues.push(issue.message) }, press.safe ?? 0, {
+    width: Math.min(...widths),
+    height: toMillimeters(imposition.cell.height, imposition.unit),
+  })
   if (safeIssues.length > 0) throw new RangeError(safeIssues.join('; '))
   const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
   const sides = imposition.sides === 'two' ? 2 : 1

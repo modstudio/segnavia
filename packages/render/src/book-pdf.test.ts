@@ -95,8 +95,16 @@ test('passes each book print only the slot marks for the fields in that part', a
 test('book press geometry writes boxes on every page without changing composition count', async () => {
   const plain = continuousBook('<p>Body</p>')
   const pressed = { ...plain, print: PressGeometry.parse({ bleed: 3, marks: true }) }
-  const plainBytes = await renderBookPdf(plain, {}, scriptedAdapter(() => 1))
-  const pressedBytes = await renderBookPdf(pressed, {}, scriptedAdapter(() => 1))
+  const plainBytes = await renderBookPdf(
+    plain,
+    {},
+    scriptedAdapter(() => 1),
+  )
+  const pressedBytes = await renderBookPdf(
+    pressed,
+    {},
+    scriptedAdapter(() => 1),
+  )
   const plainPdf = await PDFDocument.load(plainBytes)
   const pressedPdf = await PDFDocument.load(pressedBytes)
   expect(pressedPdf.getPageCount()).toBe(plainPdf.getPageCount())

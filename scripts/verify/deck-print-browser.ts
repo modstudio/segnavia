@@ -48,7 +48,6 @@ export async function verifyDeckPrintBrowser(h: Harness) {
           cell: { width: 90, height: 70 },
           margin: { top: 12, right: 12, bottom: 12, left: 12 },
           gap: { column: 8, row: 8 },
-          bleed: 0,
           fit: 'contain',
         },
         print: (win: Window) => {

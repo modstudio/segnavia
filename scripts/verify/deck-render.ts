@@ -223,9 +223,9 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
     `backgrounds=${backgroundValues.join(',')}, band=${band}, gap=${gap}, image=${imageDark}`,
   )
 
-  const coverInput = { ...handoutImposition, fit: 'cover' as const, bleed: 3 }
+  const coverInput = { ...handoutImposition, fit: 'cover' as const }
   const cover = Imposition.parse(coverInput)
-  const coverPlacement = impose(cover, deck.slides.length).placements[0]
+  const coverPlacement = impose(cover, deck.slides.length, { bleed: 3 }).placements[0]
   if (!coverPlacement) throw new Error('The covering handout fixture is missing its first placement.')
   const coverRaster = rasterPdf(output, work, 'deck-handout-cover')
   const bleedShade = rasterMillimeters(coverRaster, coverPlacement.bleedBox.x + 1, coverPlacement.trim.y + coverPlacement.trim.height / 2)

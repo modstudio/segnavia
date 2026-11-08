@@ -13,6 +13,14 @@ const ImpositionGap = z.object({
 
 export const MAX_IMPOSITION_CELLS = 10_000
 
+function refineRemovedPiecePress(imposition: Record<string, unknown>, ctx: z.RefinementCtx): void {
+  for (const field of ['bleed', 'safe'] as const) {
+    if (imposition[field] !== undefined) {
+      ctx.addIssue({ code: 'custom', path: [field], message: `imposition.${field} was removed; set the Document's print.${field} to clear this refusal` })
+    }
+  }
+}
+
 export const Imposition = z
   .looseObject({
     paper: Paper,
@@ -36,11 +44,7 @@ export const Imposition = z
     panels: z.array(z.number().positive()).optional(),
   })
   .superRefine((imposition, ctx) => {
-    for (const field of ['bleed', 'safe'] as const) {
-      if (imposition[field] !== undefined) {
-        ctx.addIssue({ code: 'custom', path: [field], message: `imposition.${field} was removed; set the Document's print.${field} to clear this refusal` })
-      }
-    }
+    refineRemovedPiecePress(imposition, ctx)
     if (imposition.markColor === 'registration' && !imposition.marks) {
       ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
     }
