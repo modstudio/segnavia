@@ -631,6 +631,14 @@ selection reply available to refused-script documents. Its
 that attribute appears, the bridge sends `segnavia:compose-failure` once and
 never sends ready.
 
+Books and printed pages use one frame composer. Its measure stage pours each
+flow into a galley sized from its configured text area and records block and
+line boxes, including content-edge block ids. `planBook` and bounded layout
+convergence turn those measurements into page windows. The dress stage clones
+those windows, fills parent-page furniture, and produces the composed papers.
+Presentation, page markers, printed-page counting and single-paper selection
+are config values; the runtime does not select behavior from a document kind.
+
 The element emits `ready` when that bridge message arrives and emits `error`
 with `detail.message` when loading, validation or paginated composition fails.
 
@@ -850,7 +858,7 @@ The transform computes a numbering scope and a placement target from each series
 
 An authored note may have an id. A later `<a data-note-ref="id">` becomes another call carrying the original marker and linking to the one body; it is marked `data-segnavia-note-repeat`, and pagination does not measure it as another page-note call. A reference without an earlier authored note is refused. The composer finds first calls through `.segnavia-note-ref > a` and admits only targets in the page-note galley, so the measurement has no dependency on a default series name.
 
-A paginated book without a page is refused. More than one contents entry is refused. Front matter and the body cannot use the same numbering system, and page margins must leave a text area. Orphans and widows default to two lines; a block may override them through CSS. `fragmentation: 'safe'` (the default) adds zero-specificity rules to the book's CSS; Chromium honors the table-row rule in continuous print, and the flow screen view carries the same rules. `'none'` leaves breaking there to the content's own CSS. In either setting, a paginated book's plan keeps a heading with what follows and a figure or table whole by block kind, and splits a tall table only between rows. Column blocks declare `data-columns` (2 to 4 in both modes; the plan's 1 to 12 bound is internal) and take their gap from `page.columnGap` (4 mm when omitted). In a paginated book's flow build they use CSS columns while each requested column meets `BOOK_FLOW_COLUMN_MIN_PX`, and a container query falls back to one column below that measure. Running-head sources choose independently per side in paginated books: `title`, `{ mark }`, or `{ part }`, which selects the nearest enclosing part of that role. A continuous book's head is each section's own running head. `data-region` names in template HTML are checked beside undeclared-region membership, and `data-fit-min` / `data-fit-step` are checked as absolute CSS lengths (px, pt, pc, in, cm, mm or q). A min or step that is not positive, or that uses another unit, is refused, naming the template, the region, the value and the unit. Nested `[data-region]` elements in a templated page's region HTML take the same check, naming the section, page, region, value and unit. `bookDocument` builds the ordered sections, generated contents and note bodies as one pure HTML transform. In paginated mode it leaves page-note refs in the flow and lays their bodies out in per-series notes galleys; a column block's margin box is measured at column width in those same galleys. An image taller than the text area is capped to that height in the galley CSS before measuring, so it fits on one page; the same cap applies to images in page-note clones. A table taller than the text area splits between rows; each continuation window repeats the header row as a clone above that window, aligned to the table's galley inline offset, whose height the plan reserves. Any other block that cannot fit a line in the text area is refused, naming the tag, chapter and position.
+A paginated book without a page is refused. More than one contents entry is refused. Front matter and the body cannot use the same numbering system, and page margins must leave a text area. Orphans and widows default to two lines; a block may override them through CSS. `fragmentation: 'safe'` (the default) adds zero-specificity rules to the book's CSS; Chromium honors the table-row rule in continuous print, and the flow screen view carries the same rules. `'none'` leaves breaking there to the content's own CSS. The paginated plan takes keeps, orphans and widows from each block's computed CSS rather than its kind. Safe fragmentation therefore keeps headings with what follows, keeps figures whole and breaks tables between rows; without those rules, tables may break between any lines. Column blocks declare `data-columns` (2 to 4 in both modes; the plan's 1 to 12 bound is internal) and take their gap from `page.columnGap` (4 mm when omitted). In a paginated book's flow build they use CSS columns while each requested column meets `BOOK_FLOW_COLUMN_MIN_PX`, and a container query falls back to one column below that measure. Running-head sources choose independently per side in paginated books: `title`, `{ mark }`, or `{ part }`, which selects the nearest enclosing part of that role. A continuous book's head is each section's own running head. `data-region` names in template HTML are checked beside undeclared-region membership, and `data-fit-min` / `data-fit-step` are checked as absolute CSS lengths (px, pt, pc, in, cm, mm or q). A min or step that is not positive, or that uses another unit, is refused, naming the template, the region, the value and the unit. Nested `[data-region]` elements in a templated page's region HTML take the same check, naming the section, page, region, value and unit. `bookDocument` builds the ordered sections, generated contents and note bodies as one pure HTML transform. In paginated mode it leaves page-note refs in the flow and lays their bodies out in per-series notes galleys; a column block's margin box is measured at column width in those same galleys. An image taller than the text area is capped to that height in the galley CSS before measuring, so it fits on one page; the same cap applies to images in page-note clones. Under safe fragmentation, a table taller than the text area splits between rows; each continuation window repeats the header row as a clone above that window, aligned to the table's galley inline offset, whose height the plan reserves. Any other block that cannot fit a line in the text area is refused, naming the tag, chapter and position.
 
 `bookPdf` prints a continuous book with a page setting, or a paginated book from the library's page plan. Continuous mode prints the body first to locate every destination, inserts blank pages when recto openings are enabled, and checks a second body print against that prediction. Each chapter, and body page 1, then opens on a recto: the right-hand page of a left-to-right book and the left-hand page of a right-to-left book; in both directions it is an odd body page. It prints the front matter once with width-appropriate contents placeholders and again with its final front- and body-page numbers, refusing if a front destination moves. An odd front matter then receives a trailing blank. The printed-page planner selects the library's default recto, verso, opener or blank parent page for every physical page. Those parent pages carry the book margins and place the built-in `segnavia:running-head` and `segnavia:folio` motifs in their head and foot; opening and blank parents omit the running head, and blank parents omit the folio. A separate Chromium print renders and overlays that furniture layer, then the renderer joins front and body and rewrites contents and note links to explicit destinations before applying the standard effects, press and limit passes. A continuous print runs the frame's scripts when the book allows scripts, contains a diagram, or declares `--segnavia-keep-with` in its markup or stylesheets, so the bridge's keep pass applies the keeps before Chromium prints. Under `scripts: 'refuse'` the nonce CSP still admits only the library's own scripts.
 
@@ -872,9 +880,11 @@ A printed book's outline is the same ordered `BookDocument.headings` model as it
 
 Document metadata has a title, optional ordered `authors`, optional `subject`, optional language, and optional host-defined extra string fields. One PDF writer serves books and printed pages: it writes the title, semicolon-joined authors, subject, and extras to the Info dictionary; the language to the catalog; and the defined fields to Dublin Core XMP. Extra fields also pass through under XMP's `pdfx` namespace. A book supplies these document facts from its book model. `pagePdf` and `pagesPdf` accept them once for the render job, after all pages have been joined or imposed, rather than on any individual page. Without job metadata those paths remove Chromium's `about:blank` placeholder title while preserving an author title. The printed-page preview frame carries the same escaped title and keeps the page language on its root; the metadata language is a PDF catalog fact. Continuous and paginated book printing add structure after their links have become explicit destinations and refuse a heading whose printed destination cannot be established.
 
-Paginated mode measures Chromium's line boxes (grouped by top, including mixed-bidi fragments), plans the pages and their folios with `planBook` from `@segnavia/layout` inside the frame, and prints the composed papers once. The composer waits, without a bound, while its frame has no width (a hidden host or a pages frame behind the flow layout), waking on animation frames only. Once the frame has width, `decideBookMeasurement` retries while any flow with content measures no line boxes or the book plans no page, and refuses it after `BOOK_MEASUREMENT_WAIT_MS` (one second) of visible time, naming the unmeasured source flows or the page-planning cause. Paginated print always refuses author scripts. Window edges sit on the line-box midpoint between consecutive lines, never on a rect's bottom, with `overflow: clip` on the window; clipping at a rect's bottom cuts the next line and pointed Hebrew's marks (measured on Chromium 141 and Chrome 156). Chromium print does not honor `orphans`, `widows` or `break-inside: avoid`; the plan enforces every keep itself. An empty `<a href="#target" data-ref="page"></a>` is a page reference. In a composed book it receives the folio of the page containing the target's first line, in that page's sequence and numbering system; in a continuous screen flow it remains an empty working link. The number's direction is isolated. A missing target or a target id used in two sections is refused. Contents numbers use the same reference. The composer repeats pagination through layout's `convergeLayout` until every reference agrees with the resulting plan. The driver stops after three additional compositions with a `layout-did-not-converge` warning, and the composer refuses the book there; continuous PDF body and front prints each converge within three prints. `pageForTarget` maps an id inside held page m of flow f to that page, so page references and PDF links land on designed and templated pages. Folios come from `computeFolios` in format: each page carries a `Numbering` (its sequence's number system, a start, whether the count restarts there and whether the page is counted), the count restarts where a new sequence begins, and `formatNumber` writes each counted page's number. Continuous furniture, printed pages and deck slide numbers compute through the same function. Each page note is a deep clone of its galley note, clipped to the note's planned lines. An absolutely placed clone does not collapse its first block's margin through the note root, so after the pages are in the document the composer measures the clone's line boxes against the galley note's and shifts the clone by their single offset. It then re-derives each view's extent from the held clone's line boxes with the same midpoint boundaries used by the plan and re-stacks the views from the bottom of the text area. This settlement runs after alignment and again when fonts and images are ready, before the document declares itself composed. `bookPdf` refuses what `paginateBook` refuses, naming the block, and a page note it cannot align or settle: one it cannot match to its galley note, whose line count differs, whose lines do not share one offset within 0.5 px, whose held clone is missing or changed line count after pagination, or whose settled stack moves into the planned body. The shared `fillBookFurniture` fills default parent-page motifs for both the continuous margin layer and the paginated composer. `bookDocument` emits each designed page as a hidden holder keyed by flow and page, each template, and each templated page's region fragments; it refuses a page that fills a region its template does not declare, naming the section, page, region and template, and a `data-region` name in template HTML that is not an HTML name token. The composer clones designed page m into its paper at inset 0, and for a templated page clones the template into the text area and moves each fragment into its `[data-region]` element, inside `direction` and the book's `lang`, then strips the holders' ids so every id in the composed document stays unique. A region whose content exceeds its box, block or inline, is marked on the composed page with `data-segnavia-region-overflow`; render reports it in `OverflowReport` as locator `page <folio> region <name>` with its excess. The mark reports one end-side excess regardless of axis. A `[data-region]` element may declare `data-fit-min` and `data-fit-step` as absolute CSS lengths (px, pt, pc, in, cm, mm or q); the region's computed font size is the maximum. After filling, the composer measures the region, including text nodes, by unioning a range over its contents with its element boxes. When it overflows, it searches the step grid down from that size until the content fits or the next step would go below the minimum, and applies the fitted size on the region so descendants that use relative units scale with it. Without `data-fit-min` there is no fitting. When the content still overflows at the minimum, the region is marked and the report's excess is measured at that size. An invalid length, a step that is not positive, or a unit that is not absolute is refused at build, naming the template, the region, the value and the unit. The same check runs over each templated page's region HTML, naming the section, page, region, value and unit. A minimum above the computed authored size is marked at composition with `data-segnavia-region-fit-min`, naming the template, the region and the value. Render reports that mark as its own overflow entry. A region may carry both marks. The overflow stays visible. Designed, templated and region HTML take the same sanitizing as chapter HTML. `bookPdf` accepts host slot values through `filledBook` (exported from `@segnavia/render`), which applies `prepareSlots` to every book HTML field the way `printPages` does, including required-slot and `refuse`-overflow refusals. It returns `{ value, slots }`: the filled book and the prepared slots, which every print of that book is passed explicitly; `filledPage`, `filledPages` and `filledDeck` return the same shape, and a deck records one frame of measurement marks per slide. Frame `bookDocument` stays synchronous and does not take a slots option.
+Paginated mode measures Chromium's line boxes (grouped by top, including mixed-bidi fragments), plans the pages and their folios with `planBook` from `@segnavia/layout` inside the frame, and prints the composed papers once. The composer waits without a bound while the galley has no layout, waking on animation frames and pausing its visible-time clocks. Once the galley has layout, one settle streak starts for the flows; width changes do not restart it, time without layout does not advance it, and a stable width wins even at the settle bound. After settling, `decideBookMeasurement` retries while any flow with content measures no line boxes or the book plans no page, and refuses it after `BOOK_MEASUREMENT_WAIT_MS` (one second) of visible time, naming the unmeasured source flows or the page-planning cause. Paginated print always refuses author scripts. Window edges sit on the line-box midpoint between consecutive lines, never on a rect's bottom, with `overflow: clip` on the window; clipping at a rect's bottom cuts the next line and pointed Hebrew's marks (measured on Chromium 141 and Chrome 156). Chromium print does not honor `orphans`, `widows` or `break-inside: avoid`; the composer records their computed values and the plan enforces those measured keeps. For a table it records each avoided row group as a line run, so a fitting run stays whole and a taller run breaks by lines. An empty `<a href="#target" data-ref="page"></a>` is a page reference. In a composed book it receives the folio of the page containing the target's first line, in that page's sequence and numbering system; in a continuous screen flow it remains an empty working link. The number's direction is isolated. A missing target or a target id used in two sections is refused. Contents numbers use the same reference. The composer repeats pagination through layout's `convergeLayout` until every reference agrees with the resulting plan. The driver stops after three additional compositions with a `layout-did-not-converge` warning, and the composer refuses the book there; continuous PDF body and front prints each converge within three prints. `pageForTarget` maps an id inside held page m of flow f to that page, so page references and PDF links land on designed and templated pages. Folios come from `computeFolios` in format: each page carries a `Numbering` (its sequence's number system, a start, whether the count restarts there and whether the page is counted), the count restarts where a new sequence begins, and `formatNumber` writes each counted page's number. Continuous furniture, printed pages and deck slide numbers compute through the same function. Each page note is a deep clone of its galley note, clipped to the note's planned lines. An absolutely placed clone does not collapse its first block's margin through the note root, so after the pages are in the document the composer measures the clone's line boxes against the galley note's and shifts the clone by their single offset. It then re-derives each view's extent from the held clone's line boxes with the same midpoint boundaries used by the plan and re-stacks the views from the bottom of the text area. This settlement runs after alignment and again when fonts and images are ready, before the document declares itself composed. `bookPdf` refuses what `paginateBook` refuses, naming the block, and a page note it cannot align or settle: one it cannot match to its galley note, whose line count differs, whose lines do not share one offset within 0.5 px, whose held clone is missing or changed line count after pagination, or whose settled stack moves into the planned body. The shared `fillBookFurniture` fills default parent-page motifs for both the continuous margin layer and the paginated composer. `bookDocument` emits each designed page as a hidden holder keyed by flow and page, each template, and each templated page's region fragments; it refuses a page that fills a region its template does not declare, naming the section, page, region and template, and a `data-region` name in template HTML that is not an HTML name token. The composer clones designed page m into its paper at inset 0, and for a templated page clones the template into the text area and moves each fragment into its `[data-region]` element, inside `direction` and the book's `lang`, then strips the holders' ids so every id in the composed document stays unique. A region whose content exceeds its box, block or inline, is marked on the composed page with `data-segnavia-region-overflow`; render reports it in `OverflowReport` as locator `page <folio> region <name>` with its excess. The mark reports one end-side excess regardless of axis. A `[data-region]` element may declare `data-fit-min` and `data-fit-step` as absolute CSS lengths (px, pt, pc, in, cm, mm or q); the region's computed font size is the maximum. After filling, the composer measures the region, including text nodes, by unioning a range over its contents with its element boxes. When it overflows, it searches the step grid down from that size until the content fits or the next step would go below the minimum, and applies the fitted size on the region so descendants that use relative units scale with it. Without `data-fit-min` there is no fitting. When the content still overflows at the minimum, the region is marked and the report's excess is measured at that size. An invalid length, a step that is not positive, or a unit that is not absolute is refused at build, naming the template, the region, the value and the unit. The same check runs over each templated page's region HTML, naming the section, page, region, value and unit. A minimum above the computed authored size is marked at composition with `data-segnavia-region-fit-min`, naming the template, the region and the value. Render reports that mark as its own overflow entry. A region may carry both marks. The overflow stays visible. Designed, templated and region HTML take the same sanitizing as chapter HTML. `bookPdf` accepts host slot values through `filledBook` (exported from `@segnavia/render`), which applies `prepareSlots` to every book HTML field the way `printPages` does, including required-slot and `refuse`-overflow refusals. Frame `bookDocument` stays synchronous and does not take a slots option.
 
 Each rendered tab receives a prepared-slots document view whose `marked` counts are derived from the frames it renders. Frames measured together form one group, while separately measured pages and slides form separate groups, and every view reads the shared live fit report.
+
+`filledBook` returns `{ value, slots }`: the filled book and the prepared slots, which every print of that book receives explicitly. `filledPage`, `filledPages` and `filledDeck` return the same shape, and a deck records one frame of measurement marks per slide.
 
 Parent-page head and foot HTML can place a page mark independently of the running head with `data-motif="segnavia:mark"` and `data-motif-name`; `data-motif-which` chooses `first` or `last` and defaults to `first`. Only a paginated book fills this placement from the page plan's carried marks, so a page with no new value shows the last earlier value while a blank or a page before the first value shows nothing; a continuous book or a `Page` leaves it empty. The library writes an isolated `bdi` and resolves its direction from the book and the value. The HTML book reader refuses an empty name, an unknown field and a `which` value other than `first` or `last`. `BOOK_FURNITURE.region` records where the default parents place furniture; a mark is never default furniture, and an author places it in either the head or the foot.
 
@@ -1617,7 +1627,7 @@ flowchart LR
 
   subgraph Derived[Derived values]
     MEASURE[Measurements<br/>block and line boxes<br/>fit results]
-    PLAN[BookPlan<br/>computed pages and folios<br/>variables, parent pages]
+    PLAN[Plan<br/>pages, breaks, folios<br/>variables, parent pages]
     REPORT[Report<br/>overflow, fit, fonts<br/>counts and progress]
     MEASURE --> PLAN --> REPORT
   end
@@ -1649,31 +1659,15 @@ margins, size, direction, numbering, metadata and limits. Logical margins have
 one physical mapping for imposition. Direction uses the shared `Direction` and
 `TextDirection` values rather than inline enums.
 
-The style compiler takes a brand sheet as an argument and combines it with the
-document's `StyleSheet`. `Document.brand` remains refused; the host brand seam
-comes later. A style sheet contains typed tokens, a font manifest, named
-paragraph and character styles with `basedOn`, named page geometries,
-furniture motifs and free CSS. A document entry replaces a same-named brand
-entry whole; properties do not merge across origins. Tokens become
-`--segnavia-*` custom properties and named styles become classes.
-
-Frame CSS uses the cascade order `segnavia.base`, `segnavia.brand`,
-`segnavia.document`, then `segnavia.author`. Library defaults, generated print
-rules and generated font CSS belong to the base layer. Typed brand and
-document values use their matching layers, while document free CSS uses the
-author layer. Each compiled piece is a separate stylesheet so parse recovery
-in unfinished free CSS cannot consume the next piece. Host CSS follows those
-sheets unlayered and therefore wins over their normal declarations. CSS
-`!important` declarations reverse layer precedence, as the cascade defines.
-A frame built without compiled sheets still receives the base layer, so its
-blocks keep their first-letter direction.
-
-The merge checks cross-references (`basedOn` and token references) against
-the merged sheet, because a document style may rest on a brand entry. A sheet
-that cannot merge is refused with `StyleSheetRefusedError`, naming the key
-path and what clears it, through each path's existing refusal: the page
-element's error event, the stage's slide error, the book element's error, and
-`RenderRefusedError` when rendering.
+The target style layer combines a host-resolved `Brand` with the document's
+partial `StyleSheet`. A style sheet contains typed tokens, a font-face manifest
+with first-class Hebrew faces, named paragraph and character styles with
+`basedOn`, named page geometries, furniture motifs and free CSS. Its token
+schema is compatible with a W3C design-tokens subset and supports import and
+export. The compiler produces one sheet in cascade-layer order:
+`segnavia.base`, `segnavia.brand`, `segnavia.document`, then
+`segnavia.author`. Tokens become `--segnavia-*` custom properties and named
+styles become classes.
 
 Content has one stored form: HTML. Every block that lacks a
 `data-segnavia-id` receives a minted id at the parse edge, and an existing id
@@ -1705,9 +1699,11 @@ sandbox policy sanitizes or refuses it. Styles are referenced by class and
 variables by declared name.
 
 `Measurements` records block and line boxes plus fit results. `Plan` records
-saved book pages, forced breaks, folios and the fingerprints needed to replay
-them. `Report` records bounded overflow, fit, font, count and progress facts.
-Strict mode turns report entries into refusals.
+pages, first and last block ids, breaks, folios, resolved variables, parent-page
+choices and fingerprints. It unifies saved pagination and forced break plans;
+a stale plan refuses and names the first page that no longer matches. `Report`
+records bounded overflow, fit, font, count and progress facts. Strict mode
+turns report entries into refusals.
 
 `DocumentOp` generalizes the board operation model. Nodes are addressed by id;
 definition nodes use a discriminated collection location rather than special
@@ -1744,41 +1740,12 @@ without requiring a browser. The current model has no per-node styles or style
 inheritance; those arrive with the StyleSheet, so the description does not
 invent a cascade. Concise detail bounds each block's text to the resolved
 `descriptionTextChars` code points without splitting a grapheme and replaces an
-elided tail with an ellipsis; full detail returns the text intact. A plan
-section appears when the caller supplies a saved `Plan`; the description has no
-placeholder before that value exists. Report sections arrive with the layout
-`Report`.
+elided tail with an ellipsis; full detail returns the text intact. Plan and
+report sections arrive with the saved `Plan` and the
+layout `Report`, and there are no placeholder fields before those values exist.
 `documentCommandJsonSchema()` publishes the command input schema from `html`.
 Boards use the same operations, including section and label edits
 and rebasing local history over host operations.
-
-### Saved plan
-
-`Plan`, `PlanPage` and `Measurements` are format values. A page start identifies
-the flow, the block's index in that flow, the first line's index in the
-block, and the block's optional measured id. Blank and fixed-flow pages have no
-start.
-
-Saved plans use one fingerprint scheme: FNV-1a 64 over canonical, key-sorted
-JSON. The plan fingerprint covers every planning input other than line boxes.
-Each page fingerprint covers the block line boxes and note lines that page
-consumes. When no window consumes some measured lines, those lines remain part
-of the saved baseline: the fingerprint of the last page carrying that flow or
-note also covers its unconsumed lines.
-
-Forced-break ids become `breakBefore` facts on measured blocks. `bookPlan`
-computes and returns a plan. `bookPdf({ plan })` validates fresh measurements
-against the saved fingerprints and replays the saved pages without planning
-them again. A mismatch refuses and names the first page that no longer matches.
-A replay measures with the plan's own `breaks` unless the call passes `breaks`,
-and it validates only after the measurements settle, as a first composition
-does. `bookPdf` refuses `plan` or `breaks` for a continuous book.
-
-The composer publishes a computed plan in an inert
-`script[type=application/json][data-segnavia-plan]` carrier, removing any
-carrier already in the document, and `bookPlan` reads the last one, so author
-markup cannot supply the plan. No bridge message carries the plan. Saved plans
-apply only to books; the host stores them.
 
 ### Target composition pipeline
 
@@ -1788,7 +1755,7 @@ flowchart TD
   PARSE --> RESOLVE[2. Resolve<br/>host seams<br/>brand, fonts, assets, data, providers]
   RESOLVE --> REALIZE[3. Realize<br/>html · universal<br/>frame documents, CSS, galley, config]
   REALIZE --> MEASURE[4. Measure<br/>frame · browser<br/>fonts, fit, block and line boxes]
-  MEASURE --> PLAN[5. BookPlan<br/>layout · universal<br/>pages, folios, variables]
+  MEASURE --> PLAN[5. Plan<br/>layout · universal<br/>pages, breaks, folios, variables]
   PLAN --> DRESS[6. Dress<br/>frame · browser<br/>slices, furniture, margins, line numbers]
   DRESS --> REPORT[7. Report<br/>frame + render<br/>bounded reports; strict refusal]
   REPORT --> SCREEN[Screen view<br/>frame viewers]
@@ -1803,7 +1770,7 @@ flowchart TD
 | Resolve | Parsed document and host addresses | Resolved brand, fonts, assets, motifs, placements, data and providers | Host seams at the library edge |
 | Realize | Document plus resolved values | Frame documents, layered CSS, galley and composition configuration | `html`, universal |
 | Measure | Realized documents and loaded fonts | `Measurements` | `frame`, browser |
-| Plan | Structure, settings and measurements, or a saved plan | Computed `BookPlan` | `layout`, universal and pure |
+| Plan | Structure, settings and measurements, or a saved plan | Fingerprinted `Plan` | `layout`, universal and pure |
 | Dress | Realized content and plan | Page slices with furniture, margins and line numbers | `frame`, browser |
 | Report | Dressed pages and measured outcomes | Bounded `Report`, or a strict-mode refusal | `frame` and `render` |
 | Print | Reported pages and paper settings | Browser-produced PDF pages | `render`, server with Chromium |

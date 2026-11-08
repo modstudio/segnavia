@@ -1,9 +1,13 @@
 import { type Book, type BookView, bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
-import { composerScript } from './book-composer.ts'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
+import { COMPOSER_SCRIPT } from './composer.ts'
 
-export { BOOK_COMPOSED_ATTRIBUTE, BOOK_COMPOSED_MS_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE } from './book-composer.ts'
+export {
+  COMPOSE_FAILURE_ATTRIBUTE as BOOK_FAILURE_ATTRIBUTE,
+  COMPOSED_ATTRIBUTE as BOOK_COMPOSED_ATTRIBUTE,
+  COMPOSED_MS_ATTRIBUTE as BOOK_COMPOSED_MS_ATTRIBUTE,
+} from './composer.ts'
 
 export class PaginatedBookRefusedError extends Error {
   constructor(message: string) {
@@ -40,4 +44,4 @@ export function bookValueDocument(
   return paginatedViewDocument(view, view.pagination, options)
 }
 
-export const BOOK_COMPOSER_SCRIPT = composerScript('{}')
+export { COMPOSER_SCRIPT }

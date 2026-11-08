@@ -141,7 +141,7 @@ describe('book element input', () => {
       { html: '<main class="lead" data-segnavia-galleys></main>', style: { css: '.lead{color:purple}' }, scripts: 'refuse', pagination },
       { css: '.font-marker{font-family:Held}', spread: true },
     )
-    expect(rendered.srcdoc).toContain('"screen":{"spread":true}')
+    expect(rendered.srcdoc).toContain('"presentation":{"spread":true}')
     expect(rendered.srcdoc.indexOf('.font-marker')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple}'))
   })
 
@@ -216,7 +216,7 @@ describe('book fonts', () => {
 
     expect(errors).toEqual([])
     expect(mounted.at(-1)?.title).toBe('Latest')
-    expect(mounted.at(-1)?.srcdoc).toContain('"screen":{"spread":true}')
+    expect(mounted.at(-1)?.srcdoc).toContain('"presentation":{"spread":true}')
   })
 
   test('toggling spread during a source fetch leaves that fetch to mount its book', async () => {

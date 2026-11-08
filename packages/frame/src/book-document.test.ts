@@ -2,18 +2,12 @@ import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, computeFolios, PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH, resolveDirection } from '@segnavia/format'
 import { heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectBookParent, windowPageIndex } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
-import {
-  BOOK_FAILURE_ATTRIBUTE,
-  BOOK_MEASUREMENT_WAIT_MS,
-  decideBookMeasurement,
-  flowTextArea,
-  pixelPhaseOffset,
-  type unmeasuredFlows,
-} from './book-composer.ts'
-import { BOOK_COMPOSER_SCRIPT, bookValueDocument as bookDocument, bookViewDocument, PaginatedBookRefusedError } from './book-document.ts'
+import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
 import { MESSAGE } from './bridge.ts'
+import { COMPOSE_FAILURE_ATTRIBUTE as BOOK_FAILURE_ATTRIBUTE, decideBookMeasurement, flowTextArea, pixelPhaseOffset, type unmeasuredFlows } from './composer.ts'
+import type { forcedPageBreak } from './composer-measure.ts'
 
 const book = parseBookFixture({
   title: 'Book',
@@ -25,7 +19,9 @@ const book = parseBookFixture({
 
 describe('bookDocument', () => {
   test('builds the book composer config from document and host page ceilings', () => {
-    expect(bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held' })).toContain('"limit":600')
+    const html = bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held' })
+    expect(html).toContain('"limit":600')
+    expect(html).toContain('"refusalSubject":"The book"')
     const capped = bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held', limits: { pages: 300 } })
     expect(capped).toContain('"limit":300')
     expect(capped).toContain("raise the host's limits.pages")
@@ -60,7 +56,7 @@ describe('bookDocument', () => {
           setup(builder) {
             builder.onResolve({ filter: /^virtual:composer-functions$/ }, () => ({ path: 'composer-functions', namespace: 'virtual' }))
             builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
-              contents: `import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/book-composer.ts`)}; export const script = embeddedComposerFunctions();`,
+              contents: `import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/composer.ts`)}; export const script = embeddedComposerFunctions();`,
               loader: 'ts',
             }))
           },
@@ -71,12 +67,13 @@ describe('bookDocument', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement}`)() as {
+    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak}`)() as {
       flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
       unmeasuredFlows: typeof unmeasuredFlows
       decideBookMeasurement: typeof decideBookMeasurement
+      forcedPageBreak: typeof forcedPageBreak
     }
     expect(
       embedded.flowTextArea(
@@ -92,7 +89,8 @@ describe('bookDocument', () => {
     expect(embedded.pageScale(300, 200, 2)).toBe(pageScale(300, 200, 2))
     const flows = [{ id: 'chapter-1', sourceBlocks: 1, contentBlocks: 1, measuredLines: 0 }]
     expect(embedded.unmeasuredFlows(flows)).toEqual(['chapter-1'])
-    expect(embedded.decideBookMeasurement({ frameWidth: 100, flows, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
+    expect(embedded.decideBookMeasurement({ hasLayout: true, flows, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
+    expect(embedded.forcedPageBreak('recto')).toBe(true)
   })
 
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {
@@ -102,32 +100,31 @@ describe('bookDocument', () => {
     expect(html).toContain('data-segnavia-flow="chapter-a"')
     expect(html).toContain('data-segnavia-notes-galley')
     expect(html).toContain('"direction":"rtl"')
-    expect(BOOK_COMPOSER_SCRIPT).toContain(layoutScript())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(selectBookParent.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(heldPageNumber.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(windowPageIndex.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(openerPageIndex.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(decideBookMeasurement.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(`visibleElapsedMs:visibleElapsed+performance.now()-visibleStartedAt},${BOOK_MEASUREMENT_WAIT_MS})`)
-    expect(BOOK_COMPOSER_SCRIPT).toContain('config.breaks||(config.plan&&config.plan.breaks)||[]')
-    expect(BOOK_COMPOSER_SCRIPT).toContain('paginateBook')
-    expect(BOOK_COMPOSER_SCRIPT).toContain('lineInWindow')
-    expect(BOOK_COMPOSER_SCRIPT).toContain(computeFolios.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain('fillBookFurniture')
-    expect(BOOK_COMPOSER_SCRIPT).toContain('fillPrintedPage')
-    expect(BOOK_COMPOSER_SCRIPT).toContain("document.querySelectorAll('script[data-segnavia-plan]')")
-    expect(BOOK_COMPOSER_SCRIPT).toContain('previous[i].remove()')
-    expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
-    expect(BOOK_COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
-    expect(BOOK_COMPOSER_SCRIPT).toContain('parent.textArea')
-    expect(BOOK_COMPOSER_SCRIPT).toContain("flows[f].style.setProperty('--segnavia-text-height',area.height+'px')")
-    expect(BOOK_COMPOSER_SCRIPT).toContain("note.style.setProperty('--segnavia-text-height',area.height+'px')")
-    expect(BOOK_COMPOSER_SCRIPT).toContain('data-segnavia-table-header')
-    expect(BOOK_COMPOSER_SCRIPT).toContain('for(var w=0;w<page.windows.length;w++)')
-    expect(BOOK_COMPOSER_SCRIPT).toContain('flowInlineStart')
-    expect(BOOK_COMPOSER_SCRIPT).toContain(resolveDirection.toString())
-    expect(BOOK_COMPOSER_SCRIPT).toContain(
+    expect(COMPOSER_SCRIPT).toContain(layoutScript())
+    expect(COMPOSER_SCRIPT).toContain(selectBookParent.toString())
+    expect(COMPOSER_SCRIPT).toContain(heldPageNumber.toString())
+    expect(COMPOSER_SCRIPT).toContain(windowPageIndex.toString())
+    expect(COMPOSER_SCRIPT).toContain(openerPageIndex.toString())
+    expect(COMPOSER_SCRIPT).toContain(pageIndexForTarget.toString())
+    expect(COMPOSER_SCRIPT).toContain(decideBookMeasurement.toString())
+    expect(COMPOSER_SCRIPT).toContain('config.breaks||(config.plan&&config.plan.breaks)||[]')
+    expect(COMPOSER_SCRIPT).toContain('paginateBook')
+    expect(COMPOSER_SCRIPT).toContain('lineInWindow')
+    expect(COMPOSER_SCRIPT).toContain(computeFolios.toString())
+    expect(COMPOSER_SCRIPT).toContain('fillBookFurniture')
+    expect(COMPOSER_SCRIPT).toContain('fillFurniture')
+    expect(COMPOSER_SCRIPT).toContain("document.querySelectorAll('script[data-segnavia-plan]')")
+    expect(COMPOSER_SCRIPT).toContain('previous[i].remove()')
+    expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
+    expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
+    expect(COMPOSER_SCRIPT).toContain('parent.textArea')
+    expect(COMPOSER_SCRIPT).toContain('sizeFlowGalley(flows[f],area.width,area.height,config.orphans,config.widows)')
+    expect(COMPOSER_SCRIPT).toContain("note.style.setProperty('--segnavia-text-height',area.height+'px')")
+    expect(COMPOSER_SCRIPT).toContain('data-segnavia-table-header')
+    expect(COMPOSER_SCRIPT).toContain('for(var w=0;w<page.windows.length;w++)')
+    expect(COMPOSER_SCRIPT).toContain('flowInlineStart')
+    expect(COMPOSER_SCRIPT).toContain(resolveDirection.toString())
+    expect(COMPOSER_SCRIPT).toContain(
       "fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal')",
     )
   })
@@ -203,7 +200,7 @@ describe('bookDocument', () => {
     const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
     const flow = flowViewDocument(view, { nonce: 'held' })
     const print = bookViewDocument(view, { nonce: 'held' })
-    expect(screen).toContain('"screen":{"spread":true}')
+    expect(screen).toContain('"presentation":{"spread":true}')
     expect(screen).toContain('<style>.first-build-style{color:red}</style>')
     expect(screen).toContain('<style>.second-build-style{color:blue}</style>')
     expect(screen).not.toContain('<template data-segnavia-flow-build>')
@@ -222,7 +219,7 @@ describe('bookDocument', () => {
     expect(flow).toContain('data.place!==undefined&&place===undefined')
     expect(flow).not.toContain(MESSAGE.composeFailure)
     expect(flow).toContain('var settleBookPlace=function(key){scrollTo(')
-    expect(print).not.toContain('"screen"')
+    expect(print).not.toContain('"presentation"')
     expect(print).not.toContain('<template data-segnavia-flow-build>')
     expect(print).not.toContain(MESSAGE.bookLayout)
     expect(print).not.toContain(MESSAGE.bookPlace)

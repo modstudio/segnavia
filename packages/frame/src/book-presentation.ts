@@ -3,6 +3,7 @@ import { MESSAGE } from './bridge.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
 export const BOOK_LAYOUTS = ['pages', 'flow'] as const
+export const BOOK_PAGE_ATTRIBUTE = 'data-segnavia-book-page'
 
 export type BookLayout = (typeof BOOK_LAYOUTS)[number]
 
@@ -66,10 +67,10 @@ var BOOK_PLACE_KEY_LIMIT=${BOOK_PLACE_KEY_LIMIT};
 ${embedFunction('bookPlaceKey', bookPlaceKey)}`
 }
 
-export function bookPresentationScript(root: string, beforeSettle = ''): string {
+export function bookPresentationScript(root: string, beforeSettle: string, pageMarkerExpression: string): string {
   return `var bookRoot=${root};
 var bookLayout=${JSON.stringify(root === 'pages' ? 'pages' : 'flow')};
-var visibleBookBlocks=function(){var nodes=bookRoot.querySelectorAll('[data-segnavia-position]');var blocks=[];for(var i=0;i<nodes.length;i++){var box=nodes[i].getBoundingClientRect();var clip=nodes[i].closest('[data-segnavia-window],[data-segnavia-book-page]');var clipped=clip?clip.getBoundingClientRect():box;blocks.push({key:nodes[i].getAttribute('data-segnavia-position')||'',top:Math.max(box.top,clipped.top),bottom:Math.min(box.bottom,clipped.bottom)});}return blocks;};
+var visibleBookBlocks=function(){var nodes=bookRoot.querySelectorAll('[data-segnavia-position]');var blocks=[];for(var i=0;i<nodes.length;i++){var box=nodes[i].getBoundingClientRect();var clip=nodes[i].closest('[data-segnavia-window],['+${pageMarkerExpression}+']');var clipped=clip?clip.getBoundingClientRect():box;blocks.push({key:nodes[i].getAttribute('data-segnavia-position')||'',top:Math.max(box.top,clipped.top),bottom:Math.min(box.bottom,clipped.bottom)});}return blocks;};
 var targetBookBlocks=function(){var nodes=bookRoot.querySelectorAll('[data-segnavia-position]');var blocks=[];for(var i=0;i<nodes.length;i++){var box=nodes[i].getBoundingClientRect();blocks.push({key:nodes[i].getAttribute('data-segnavia-position')||'',top:box.top+scrollY});}return blocks;};
 var reportBookPlace=function(){var key=bookPlace(visibleBookBlocks());if(bookPlaceKey(key)!==undefined)parent.postMessage({type:'${MESSAGE.bookPlace}',key:key},'*');};
 var bookPlaceTimer;var scheduleBookPlace=function(){if(bookPlaceTimer!==undefined)return;bookPlaceTimer=setTimeout(function(){bookPlaceTimer=undefined;reportBookPlace();},50);};

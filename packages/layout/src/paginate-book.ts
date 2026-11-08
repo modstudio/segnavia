@@ -1,6 +1,7 @@
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { paginateMarks } from './paginate-marks.ts'
+import { measuredExtentFits } from './paginate-measure.ts'
 import { paginateNotes } from './paginate-notes.ts'
 import { paginateSequence } from './paginate-sequence.ts'
 import type { PaginateBlock, PaginateBookInput, PaginateBookRefusal, PaginateBookResult, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
@@ -13,9 +14,6 @@ export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
 
 export function paginateBook(input: PaginateBookInput): PaginateBookResult {
-  const orphans = input.settings.orphans ?? 2
-  const widows = input.settings.widows ?? 2
-
   function used(textHeight: number, placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
     return paginateColumns(placed).height + paginateNotes({ op: 'space', notes: input.notes, geometry: { ...input.geometry, textHeight }, fragments })
   }
@@ -60,7 +58,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
   }
 
   function lineTooTall(unit: PaginateUnit, textHeight: number): boolean {
-    return unit.bottom - unit.top > textHeight
+    return !measuredExtentFits(unit.bottom - unit.top, textHeight)
   }
 
   function greedyFill(placed: PaginateUnit[], fragments: PaginatePageNote[], units: PaginateUnit[], index: number, textHeight: number) {
@@ -70,6 +68,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
       const unit = units[next]
       if (!unit || lineTooTall(unit, textHeight)) break
       if (placed.length > 0 && unit.index === 0 && unit.block.breakBefore) break
+      if (placed.at(-1)?.block.breakAfter && unit.index === 0) break
       const allocated = paginateNotes(withNotes(textHeight, { op: 'allocate' as const, placed, fragments: notes, unit }))
       if (!allocated) break
       placed.push(unit)
@@ -101,7 +100,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
     if (stuck) return { placed: [], fragments: [], index, pending: held.leftover, refusal: noteRefusal(stuck.id) }
     if (held.leftover.length > 0) return { placed: [], fragments: held.fragments, index, pending: held.leftover }
     const filled = greedyFill([], held.fragments, units, index, textHeight)
-    const placed = paginateKeeps(filled.placed, units[filled.index], textHeight, orphans, widows, held.fragments.length > 0)
+    const placed = paginateKeeps(filled.placed, units[filled.index], textHeight, held.fragments.length > 0)
     const nextIndex = filled.index - (filled.placed.length - placed.length)
     const fragments = paginateNotes(withNotes(textHeight, { op: 'recompute' as const, placed, seed: held.fragments }))
     if (placed.length > 0 || fragments.length > 0) {
@@ -121,6 +120,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
 
 // Ordered for embedding: each function calls only the others by name.
 export const PAGINATE_FUNCTIONS = [
+  measuredExtentFits,
   printedPageAt,
   selectBookParent,
   paginateColumns,

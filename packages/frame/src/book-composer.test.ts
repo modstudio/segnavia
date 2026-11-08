@@ -3,23 +3,27 @@ import {
   appendMeasuredBlock,
   composerScript,
   decideBookMeasurement,
+  inlineTileCount,
+  measuredBlockConstraints,
+  measuredKeepRuns,
   noteFragmentExtent,
   noteSettlementOverlapsBody,
   noteStackTops,
   pageReferenceFolio,
   unmeasuredFlows,
-} from './book-composer.ts'
+} from './composer.ts'
 
 const facts = {
-  frameWidth: 800,
+  hasLayout: true,
   flows: [{ id: 'chapter-1', sourceBlocks: 1, contentBlocks: 1, measuredLines: 1 }],
   plannedPages: 1,
   visibleElapsedMs: 0,
 }
 
 describe('decideBookMeasurement', () => {
-  test('waits without a bound while the frame has no width', () => {
-    expect(decideBookMeasurement({ ...facts, frameWidth: 0, visibleElapsedMs: 2_000 }, 1_000)).toBe('wait-for-width')
+  test('retries a galley without layout without charging visible time', () => {
+    expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 999 }, 1_000)).toBe('retry')
+    expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 1_000 }, 1_000)).toBe('retry')
   })
 
   test('retries deferred line measurement and page planning within the bound', () => {
@@ -92,6 +96,75 @@ describe('block keeps', () => {
     expect(script).toContain("style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next'")
     expect(script).toContain("style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous'")
   })
+
+  test('composer measures forced breaks on both block edges', () => {
+    const script = composerScript('{}')
+    expect(script).toContain('if(forcedPageBreak(style.breakBefore))block.breakBefore=true')
+    expect(script).toContain('if(forcedPageBreak(style.breakAfter))block.breakAfter=true')
+    expect(script).toContain("if(forcedPageBreak(childStyle.breakBefore))held.style.breakBefore='auto'")
+    expect(script).toContain("if(forcedPageBreak(childStyle.breakAfter))held.style.breakAfter='auto'")
+  })
+
+  test('a row with break-inside avoid produces its line run while empty CSS produces none', () => {
+    const lines = [
+      { top: 0, bottom: 10 },
+      { top: 10, bottom: 20 },
+      { top: 20, bottom: 30 },
+    ]
+    expect(measuredKeepRuns(lines, [{ avoid: true, top: 0, bottom: 30 }])).toEqual([{ start: 0, end: 3 }])
+    expect(measuredKeepRuns(lines, [{ avoid: false, top: 0, bottom: 20 }])).toEqual([])
+  })
+
+  test('a display table element carries no orphan or widow constraint', () => {
+    expect(measuredBlockConstraints('table', 2, 2)).toEqual({})
+    expect(measuredBlockConstraints('block', 2, 3)).toEqual({ orphans: 2, widows: 3 })
+  })
+
+  test('takes the page marker from config', () => {
+    const script = composerScript('{"pageMarker":"data-segnavia-printed-page"}')
+    expect(script).not.toContain('data-segnavia-book-page')
+  })
+
+  test('holds note clones at the measured text width', () => {
+    const script = composerScript('{}')
+    expect(script).toContain("clone.style.inlineSize=inlineSize+'px'")
+    expect(script).toContain('holdNote(root,fragments[i].start!==0,textArea.width)')
+  })
+
+  test('waits for faces requested by established layout before measuring', () => {
+    const script = composerScript('{}')
+    const layout = script.indexOf('if(!hasLayout)return nextLayoutFrame().then(composeWhenMeasurable)')
+    const fonts = script.indexOf('if(!layoutFontsReady)return (document.fonts?document.fonts.ready:Promise.resolve())', layout)
+    const measurement = script.indexOf('var input=measureInput()', fonts)
+    expect(layout).toBeGreaterThan(-1)
+    expect(fonts).toBeGreaterThan(layout)
+    expect(measurement).toBeGreaterThan(fonts)
+  })
+
+  test('replans from settled note metrics before replacing an overlapping composition', () => {
+    const script = composerScript('{}')
+    const convergence = script.indexOf('var planConverged=function()')
+    const preparation = script.indexOf('var preparePlan=function(source)')
+    const overlap = script.indexOf("if(settlement==='overlap'&&!config.plan)")
+    const remeasure = script.indexOf('input=measureInput();var repaired=planConverged()', overlap)
+    const remove = script.indexOf('composed.remove()', remeasure)
+    const secondMeasure = script.indexOf('input=measureInput();plan=repaired;prepared=preparePlan(plan)', remove)
+    const compose = script.indexOf('composed=compose(prepared,input.geometry.noteSeries||[])', remove)
+    expect(convergence).toBeGreaterThan(-1)
+    expect(preparation).toBeGreaterThan(convergence)
+    expect(overlap).toBeGreaterThan(-1)
+    expect(remeasure).toBeGreaterThan(overlap)
+    expect(remove).toBeGreaterThan(remeasure)
+    expect(secondMeasure).toBeGreaterThan(remove)
+    expect(compose).toBeGreaterThan(secondMeasure)
+    expect(script).toContain("document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-flow]')")
+    expect(script).toContain("document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-note]')")
+  })
+})
+
+test('counts inline paper tiles from the measured extent', () => {
+  expect(inlineTileCount(100, 100)).toBe(1)
+  expect(inlineTileCount(250, 100)).toBe(3)
 })
 
 test('lists exactly the unmeasured source flows in order', () => {

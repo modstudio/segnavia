@@ -4,7 +4,9 @@ import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
 describe('book place', () => {
   test('waits for diagram drawing before its first report', () => {
-    expect(bookPresentationScript('document')).toContain(`Promise.resolve(${DIAGRAM_READY_EXPR}).then(function(){settleBookPlace();})`)
+    expect(bookPresentationScript('document', '', JSON.stringify('data-segnavia-book-page'))).toContain(
+      `Promise.resolve(${DIAGRAM_READY_EXPR}).then(function(){settleBookPlace();})`,
+    )
   })
 
   test('uses the first block crossing or following the viewport top', () => {
