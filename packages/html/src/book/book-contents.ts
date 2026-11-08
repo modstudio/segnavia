@@ -7,6 +7,7 @@ import type { BookDocumentOptions, BookHeading } from './types.ts'
 function contentsList(book: Book, headings: BookHeading[], options: BookDocumentOptions) {
   const entries = headings.map((heading) => {
     const page = book.contents.pageNumbers ? (options.pageNumbers?.[heading.id] ?? '') : ''
+    const label = heading.contentsLabel ?? heading.text
     const level = heading.level + (heading.depth ?? 0)
     const attributes = {
       class: 'segnavia-contents-entry',
@@ -14,11 +15,14 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
       ...(heading.depth === undefined ? {} : { 'data-depth': String(heading.depth) }),
     }
     return element('li', attributes, [
-      element(
-        'a',
-        { href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`, dir: resolveDirection(book.dir, book.lang, heading.text) },
-        [text(heading.text)],
-      ),
+      element('a', { href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`, dir: resolveDirection(undefined, undefined, label) }, [
+        text(label),
+        ...(heading.subtitle === undefined
+          ? []
+          : [
+              element('span', { class: 'segnavia-contents-subtitle', dir: resolveDirection(undefined, undefined, heading.subtitle) }, [text(heading.subtitle)]),
+            ]),
+      ]),
       book.contents.pageNumbers
         ? element(
             'a',

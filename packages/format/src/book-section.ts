@@ -40,6 +40,8 @@ const regionNameClear = 'use a letter followed by letters, digits, hyphens or un
 const sectionFields = {
   id: z.string(),
   title: z.string().optional(),
+  contentsLabel: z.string().optional(),
+  subtitle: z.string().optional(),
   contents: z.boolean().default(true),
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
@@ -97,6 +99,8 @@ export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 export const Chapter = z.object({
   id: z.string(),
   title: z.string(),
+  contentsLabel: z.string().optional(),
+  subtitle: z.string().optional(),
   html: z.string(),
   runningHead: z.string().optional(),
   opens: BookOpens.optional(),

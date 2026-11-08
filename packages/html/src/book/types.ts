@@ -27,6 +27,8 @@ export interface BookHeading {
   id: string
   level: number
   text: string
+  contentsLabel?: string
+  subtitle?: string
   sectionId: string
   depth?: number
 }

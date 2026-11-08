@@ -23,11 +23,27 @@ export interface BuiltSection {
   node: ReturnType<typeof element>
 }
 
-export function authoredSection(section: Pick<BookSection, 'html' | 'title' | 'opens' | 'parents'>, id: string, build: BookBuild): BuiltSection {
+export function authoredSection(
+  section: Pick<BookSection, 'html' | 'title' | 'contentsLabel' | 'subtitle' | 'opens' | 'parents'>,
+  id: string,
+  build: BookBuild,
+): BuiltSection {
   const document = parse(section.html)
   const runningHead = section.title
-  const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents))
-  return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead }, node }
+  const node = sectionNode(
+    'front',
+    id,
+    document.children,
+    build,
+    runningHead,
+    flowAttribs(section.opens, section.parents),
+    section.contentsLabel,
+    section.subtitle,
+  )
+  return {
+    info: { id, kind: 'front', division: 'front', title: section.title, runningHead },
+    node,
+  }
 }
 
 export function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}): Record<string, string> {
@@ -48,10 +64,16 @@ export function sectionNode(
   build: BookBuild,
   runningHead?: string,
   extra: Record<string, string> = {},
+  contentsLabel?: string,
+  subtitle?: string,
 ) {
   const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id, ...extra }
   if (build !== 'print') attribs['data-segnavia-flow'] = id
-  if (build === 'galley' && runningHead !== undefined) attribs['data-running-head'] = runningHead
+  if (build === 'galley') {
+    if (runningHead !== undefined) attribs['data-running-head'] = runningHead
+    if (contentsLabel !== undefined) attribs['data-contents-label'] = contentsLabel
+    if (subtitle !== undefined) attribs['data-subtitle'] = subtitle
+  }
   return element('section', attribs, children)
 }
 
@@ -97,6 +119,17 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
   })
 }
 
+export function sectionHeading(entry: { title: string; contentsLabel?: string; subtitle?: string }, id: string): BookHeading {
+  return {
+    id,
+    level: 1,
+    text: entry.title,
+    ...(entry.contentsLabel === undefined ? {} : { contentsLabel: entry.contentsLabel }),
+    ...(entry.subtitle === undefined ? {} : { subtitle: entry.subtitle }),
+    sectionId: id,
+  }
+}
+
 function heldHeadings(children: ChildNode[], sectionId: string, depth: number): BookHeading[] {
   return collectHeadings(children, sectionId, depth, 1)
 }
@@ -123,10 +156,15 @@ export function designedSection(
       ? flowPage(offset + 1, 'designed', document.children, geometry, offset % 2 === 0 ? firstRecto : !firstRecto)
       : element('div', { 'data-segnavia-designed-page': String(offset + 1), hidden: '' }, document.children)
   })
-  if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
+  if (entry.contents && entry.title !== undefined) {
+    headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
+  }
   const runningHead = entry.title
   return {
-    built: { info: { id, kind, division, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
+    built: {
+      info: { id, kind, division, title: entry.title, runningHead },
+      node: sectionNode(kind, id, holders, build, runningHead, extra, entry.contentsLabel, entry.subtitle),
+    },
     headings,
   }
 }
@@ -263,10 +301,15 @@ export function templatedSection(
     }
     return element('div', { 'data-segnavia-templated-page': String(offset + 1), 'data-template': name, hidden: '' }, regions)
   })
-  if (entry.contents && entry.title !== undefined) headings.unshift({ id, level: 1, text: entry.title, sectionId: id })
+  if (entry.contents && entry.title !== undefined) {
+    headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
+  }
   const runningHead = entry.title
   return {
-    built: { info: { id, kind, division, title: entry.title, runningHead }, node: sectionNode(kind, id, holders, build, runningHead, extra) },
+    built: {
+      info: { id, kind, division, title: entry.title, runningHead },
+      node: sectionNode(kind, id, holders, build, runningHead, extra, entry.contentsLabel, entry.subtitle),
+    },
     headings,
   }
 }

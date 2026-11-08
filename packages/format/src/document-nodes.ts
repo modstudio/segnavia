@@ -39,6 +39,8 @@ export interface SectionNode {
   type: 'section'
   id?: string
   title?: string
+  contentsLabel?: string
+  subtitle?: string
   contents: boolean
   opens?: 'recto' | 'verso' | 'any' | 'continue'
   numbering?: z.infer<(typeof SectionFields)['numbering']>

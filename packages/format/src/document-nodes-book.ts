@@ -8,6 +8,8 @@ import { NoteSeries } from './note-series.ts'
 
 export const SectionFields = {
   title: z.string().optional(),
+  contentsLabel: z.string().optional(),
+  subtitle: z.string().optional(),
   contents: z.boolean().default(true),
   opens: z.union([BookOpens, z.literal('continue')]).optional(),
   numbering: Numbering.optional(),
