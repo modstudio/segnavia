@@ -48,7 +48,7 @@ function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'p
   const title = entry.title
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
   return {
-    info: { id, kind: 'contents', division: 'front', title, runningHead: title },
+    info: { id, kind: 'contents', division: 'front', title, runningHead: title, opens: entry.opens },
     node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parents, numberingAttribs(entry.numbering))),
   }
 }
@@ -58,7 +58,7 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
   const document = parse(chapter.html)
   const runningHead = chapter.runningHead ?? chapter.title
   return {
-    info: { id, kind: 'chapter', division, title: chapter.title, runningHead },
+    info: { id, kind: 'chapter', division, title: chapter.title, runningHead, opens: chapter.opens },
     node: sectionNode(
       'chapter',
       id,

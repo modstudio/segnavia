@@ -32,7 +32,7 @@ export function authoredSection(
   const document = parse(section.html)
   const runningHead = section.title
   const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents, numberingAttribs(section.numbering)))
-  return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead }, node }
+  return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead, opens: section.opens }, node }
 }
 
 export function numberingAttribs(numbering?: SectionNumbering): Record<string, string> {
@@ -84,7 +84,7 @@ export function partSection(
     'data-segnavia-parts': JSON.stringify(parts),
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
   })
-  return { info: { id, kind: 'part', division, title: entry.title, runningHead }, node: sectionNode('part', id, children, build, runningHead, extra) }
+  return { info: { id, kind: 'part', division, title: entry.title, runningHead, opens: entry.opens }, node: sectionNode('part', id, children, build, runningHead, extra) }
 }
 
 function flowPage(page: number, kind: 'designed' | 'templated', children: ChildNode[], geometry: BookFlowPageGeometry, recto: boolean) {
@@ -156,7 +156,7 @@ export function designedSection(
   const runningHead = entry.title
   return {
     built: {
-      info: { id, kind, division, title: entry.title, runningHead },
+      info: { id, kind, division, title: entry.title, runningHead, opens: entry.opens },
       node: sectionNode(kind, id, holders, build, runningHead, extra),
     },
     headings,
@@ -302,7 +302,7 @@ export function templatedSection(
   const runningHead = entry.title
   return {
     built: {
-      info: { id, kind, division, title: entry.title, runningHead },
+      info: { id, kind, division, title: entry.title, runningHead, opens: entry.opens },
       node: sectionNode(kind, id, holders, build, runningHead, extra),
     },
     headings,

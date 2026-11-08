@@ -2,9 +2,13 @@ import { z } from 'zod'
 import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
+import type { SectionOpensFact } from './section-opens-policy.ts'
 
 export const BookOpens = z.enum(['recto', 'verso', 'any', 'continue'])
 export type BookOpens = z.infer<typeof BookOpens>
+export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
+export const SECTION_TITLE_MARK = 'segnavia:section-title'
+const PartOpens = z.enum(['recto', 'verso', 'any'])
 
 export const BookSectionParents = z.object({
   opener: z.string().min(1).optional(),
@@ -57,7 +61,7 @@ const partFields = {
   title: z.string().optional(),
   html: z.string().optional(),
   contents: z.boolean().default(true),
-  opens: BookOpens.optional(),
+  opens: PartOpens.optional(),
   parents: BookSectionParents.optional(),
   runningHead: z.string().optional(),
 }
@@ -177,6 +181,23 @@ export function isTemplatedSection(entry: BookItem): entry is TemplatedSection {
 
 export function isPlacedSection(entry: BookItem): entry is PlacedSection {
   return 'kind' in entry && entry.kind === 'placed'
+}
+
+export function flowingSection(entry: BookItem): boolean {
+  return !isPart(entry) && !isBookContents(entry) && !isDesignedSection(entry) && !isTemplatedSection(entry) && !isPlacedSection(entry)
+}
+
+export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
+  return bookSections(book).map(({ entry, id, path }) => ({
+    id,
+    title: entry.title,
+    path,
+    sequence: path.slice(0, -1).join('.'),
+    flowing: flowingSection(entry),
+    opens: entry.opens,
+    ...('numbering' in entry ? { numbering: entry.numbering } : {}),
+    parents: entry.parents,
+  }))
 }
 
 export function isChapter(entry: BookChapterEntry): entry is Chapter {

@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { Board } from './board.ts'
-import { Book } from './book.ts'
+import { Book, bookSectionOpensFacts } from './book.ts'
 import { identifiedBookInput } from './book-test-helper.ts'
 import { Deck } from './deck.ts'
 import { Document } from './document.ts'
+import { documentBookDivisions } from './document-book-items.ts'
 import { boardFromDocument, bookFromDocument, deckFromDocument, documentFromBoard, pageFromDocument, printedFromDocument } from './document-lowering.ts'
 import { Page } from './page.ts'
 
@@ -77,6 +78,43 @@ describe('Document lowering', () => {
       ],
     })
     expect(bookFromDocument(document).body[1]).toMatchObject({ id: 'two', opens: 'continue' })
+    expect(bookSectionOpensFacts(documentBookDivisions(document))).toEqual(bookSectionOpensFacts(bookFromDocument(document)))
+  })
+
+  test('projects parts and multiple flow children through the same book opens facts', () => {
+    const document = {
+      children: [
+        {
+          type: 'part',
+          id: 'part',
+          name: 'part',
+          title: 'Part',
+          contents: true,
+          children: [
+            { type: 'section', id: 'inside', title: 'Inside', children: [{ type: 'flow', html: '<p>Inside</p>' }] },
+          ],
+        },
+        {
+          type: 'section',
+          id: 'many',
+          title: 'Many',
+          children: [
+            { type: 'flow', html: '<p>First</p>' },
+            { type: 'flow', html: '<p>Second</p>' },
+          ],
+        },
+        { type: 'section', id: 'after', title: 'After', opens: 'continue', children: [{ type: 'flow', html: '<p>After</p>' }] },
+      ],
+    } as Parameters<typeof documentBookDivisions>[0]
+    const divisions = documentBookDivisions(document)
+    const book = Book.parse({ title: 'Book', mode: 'continuous', ...divisions })
+    expect(bookSectionOpensFacts(divisions)).toEqual(bookSectionOpensFacts(book))
+    expect(bookSectionOpensFacts(book).map(({ id, flowing, sequence }) => ({ id, flowing, sequence }))).toEqual([
+      { id: 'part', flowing: false, sequence: 'body' },
+      { id: 'inside', flowing: true, sequence: 'body.0.children' },
+      { id: 'many', flowing: true, sequence: 'body' },
+      { id: 'after', flowing: true, sequence: 'body' },
+    ])
   })
 
   test('carries section contents text into a book entry', () => {

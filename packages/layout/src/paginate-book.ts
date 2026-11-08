@@ -1,3 +1,4 @@
+import { SECTION_TITLE_MARK } from '@segnavia/format'
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { paginateMarks } from './paginate-marks.ts'
@@ -132,5 +133,5 @@ export const PAGINATE_FUNCTIONS = [
 ]
 
 export function paginateScript(): string {
-  return `${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar paginateBook=${paginateBook.name};`
+  return `var SECTION_TITLE_MARK=${JSON.stringify(SECTION_TITLE_MARK)};\n${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar paginateBook=${paginateBook.name};`
 }

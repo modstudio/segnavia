@@ -3,10 +3,12 @@ import {
   BookChapterEntry,
   BookItem,
   BookTemplate,
+  bookSectionOpensFacts,
   bookParentIssues,
   bookSections,
   isBookContents,
   isDesignedSection,
+  flowingSection,
   isPart,
   isPlacedSection,
   isTemplatedSection,
@@ -39,10 +41,12 @@ export {
   type BookSectionEntry,
   BookSectionParents,
   BookTemplate,
+  bookSectionOpensFacts,
   bookSections,
   Chapter,
   DesignedPage,
   DesignedSection,
+  flowingSection,
   isBookContents,
   isChapter,
   isDesignedSection,
@@ -53,6 +57,8 @@ export {
   Part,
   PlacedSection,
   REGION_NAME,
+  SECTION_BOUNDARY_CLASS,
+  SECTION_TITLE_MARK,
   TemplatedPage,
   TemplatedSection,
 } from './book-section.ts'
@@ -243,18 +249,7 @@ function structuralBookIssues(book: z.infer<typeof ResolvedBook>): BookIssue[] {
 const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   const sections = bookSections(book)
-  for (const issue of sectionOpensIssues(
-    sections.map(({ entry, id, path }) => ({
-      id,
-      title: entry.title,
-      path,
-      sequence: path.slice(0, -1).join('.'),
-      flowing: isPart(entry) || (!isBookContents(entry) && !isDesignedSection(entry) && !isTemplatedSection(entry) && !isPlacedSection(entry)),
-      opens: entry.opens,
-      ...('numbering' in entry ? { numbering: entry.numbering } : {}),
-      parents: entry.parents,
-    })),
-  )) {
+  for (const issue of sectionOpensIssues(bookSectionOpensFacts(book))) {
     ctx.addIssue({ code: 'custom', ...issue })
   }
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
@@ -300,7 +295,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
     }
   }
   const byName = new Map(parents.map((parent) => [parent.name, parent]))
-  const flowing = sections.filter(({ entry }) => !isDesignedSection(entry) && !isTemplatedSection(entry))
+  const flowing = sections.filter(({ entry }) => flowingSection(entry))
   flowing.forEach(({ entry: flow, path }, index) => {
     const names = flowingParentNames(flow.parents)
     const roles = Object.entries(names) as Array<[keyof typeof names, string]>

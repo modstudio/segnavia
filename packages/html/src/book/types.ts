@@ -15,6 +15,7 @@ export interface BookSectionInfo {
   division: 'front' | 'body' | 'end'
   title?: string
   runningHead?: string
+  opens?: BookOpens
 }
 
 export type BookPrintPart = 'front' | 'body'
@@ -44,3 +45,5 @@ export interface BookDocument {
   pageReferenceTargets: string[]
   issues: string[]
 }
+import type { BookOpens } from '@segnavia/format'
+

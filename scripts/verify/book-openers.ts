@@ -1,21 +1,21 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import type { DocumentInput, Plan } from '@segnavia/format'
+import { type DocumentInput, type Plan, SECTION_TITLE_MARK } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { annotationDestinations, pdfOutlineItems } from './book-pdf-readback.ts'
 import { compact, pagesText, pageWith } from './book-text.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
-const parents = { opener: 'opening', recto: 'opening-recto', verso: 'opening-verso', blank: 'opening-blank' }
+const parents = { opener: 'opening', recto: 'opening-recto', verso: 'opening-verso', blank: 'opening-blank', fixed: 'opening-fixed' }
 const furniture = {
   head: '<div>HEAD[<span data-motif="segnavia:running-head"></span>]</div>',
   foot: '<div>FOLIO[<span data-motif="segnavia:folio"></span>]</div>',
 }
 
 function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
-  const titles = hebrew ? ['פרק ראשון', 'פרק שני'] : ['Chapter One', 'Chapter Two']
+  const titles = hebrew ? ['פרק ראשון', 'פרק שני', 'פרק שלישי', 'לוח'] : ['Chapter One', 'Chapter Two', 'Chapter Three', 'Plate']
   return {
     type: 'document',
     kind: 'book',
@@ -48,6 +48,21 @@ function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
             title: titles[1],
             opens,
             children: [{ type: 'flow', html: `<h2 data-contents="exclude">TWO_HEADING</h2>${`<p>${'two '.repeat(45)}</p>`.repeat(12)}<p>TWO_END</p>` }],
+          },
+          {
+            type: 'section',
+            id: 'opening-three',
+            title: titles[2],
+            opens: 'any',
+            parents,
+            children: [{ type: 'flow', html: `<p>THREE_START</p>${`<p>${'three '.repeat(45)}</p>`.repeat(12)}<p>THREE_END</p>` }],
+          },
+          {
+            type: 'section',
+            id: 'opening-designed',
+            title: titles[3],
+            parents: { fixed: parents.fixed },
+            children: [{ type: 'page', body: { html: '<p>DESIGNED_PAGE</p>' } }],
           },
         ],
       },
@@ -86,6 +101,25 @@ function containsFolio(value: string, folio: string): boolean {
   return value.includes('FOLIO[') && containsText(value, folio)
 }
 
+function planTitle(plan: Plan, page: number): string | undefined {
+  const held = plan.pages[page - 1]
+  return held?.marks?.[SECTION_TITLE_MARK]?.first ?? held?.runningHead
+}
+
+function rectoContinueFixture(hebrew: boolean): DocumentInput {
+  const input = fixture(hebrew, 'continue')
+  input.rectoOpenings = true
+  input.children.splice(0, 1)
+  const body = (input.children[0] as { children: Array<Record<string, unknown>> }).children
+  body.splice(2)
+  body[0] = {
+    ...body[0],
+    children: [{ type: 'flow', html: `<p>RECTO_CONTINUE_START</p>${`<p>${'first '.repeat(45)}</p>`.repeat(18)}<p>RECTO_CONTINUE_END</p>` }],
+  }
+  body[1] = { ...body[1], children: [{ type: 'flow', html: '<p>RECTO_CONTINUING_HEADING</p><p>RECTO_CONTINUING_END</p>' }] }
+  return input
+}
+
 export async function verifyBookOpeners(renderer: Renderer, check: Check): Promise<void> {
   const css = ':where(body){font:14px/20px serif}:where(p,h2){margin-block:0 3mm}'
   for (const hebrew of [false, true]) {
@@ -96,7 +130,10 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
       const shared = pageWith(joined.pages, 'TWO_HEADING')
       const end = pageWith(joined.pages, 'ONE_END')
       const later = pageWith(joined.pages, 'TWO_END')
-      const title = hebrew ? 'פרק שני' : 'Chapter Two'
+      const three = pageWith(joined.pages, 'THREE_END')
+      const designed = pageWith(joined.pages, 'DESIGNED_PAGE')
+      const titles = hebrew ? ['פרק ראשון', 'פרק שני', 'פרק שלישי'] : ['Chapter One', 'Chapter Two', 'Chapter Three']
+      const title = titles[1] ?? ''
       const outline = pdfOutlineItems(joined.document).find((item) => compact(item.title) === compact(title))
       const links = annotationDestinations(joined.document)
       const text = joined.pages[shared - 1] ?? ''
@@ -109,6 +146,21 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
         `${key} continue joins chapter two to chapter one's last PDF page and reduces the PDF page count`,
         shared === end && joined.document.getPageCount() < separate.document.getPageCount(),
         `chapter-one-end=${end}, chapter-two-heading=${shared}, continue-pages=${joined.document.getPageCount()}, separate-pages=${separate.document.getPageCount()}`,
+      )
+      const beforeShared = shared - 1
+      check(
+        `${key} section-title marks stay within the joined screen flow and printed PDF`,
+        beforeShared > 0 &&
+          planTitle(joined.plan, beforeShared) === titles[0] &&
+          planTitle(joined.plan, shared) === title &&
+          planTitle(joined.plan, three) === titles[2] &&
+          joined.plan.pages[three - 1]?.marks?.[SECTION_TITLE_MARK] === undefined &&
+          joined.plan.pages[designed - 1]?.marks?.[SECTION_TITLE_MARK] === undefined &&
+          containsHead(joined.pages[beforeShared - 1] ?? '', titles[0] ?? '') &&
+          containsHead(joined.pages[three - 1] ?? '', titles[2] ?? '') &&
+          !containsHead(joined.pages[three - 1] ?? '', title) &&
+          !containsHead(joined.pages[designed - 1] ?? '', title),
+        `A-page=${beforeShared}, A-screen=${planTitle(joined.plan, beforeShared)}, shared=${shared}, shared-screen=${planTitle(joined.plan, shared)}, C-page=${three}, C-screen=${planTitle(joined.plan, three)}, C-pdf-head=${containsHead(joined.pages[three - 1] ?? '', titles[2] ?? '')}, designed-page=${designed}, designed-has-B=${containsHead(joined.pages[designed - 1] ?? '', title)}`,
       )
       check(
         `${key} continue keeps contents, outline and running-head targets on the shared PDF page`,
@@ -147,6 +199,20 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
       )
     } finally {
       recto.close()
+    }
+
+    const continuedRecto = await render(renderer, rectoContinueFixture(hebrew), css, `recto-continue-${key}`)
+    try {
+      const shared = pageWith(continuedRecto.pages, 'RECTO_CONTINUING_HEADING')
+      const precedingEnd = pageWith(continuedRecto.pages, 'RECTO_CONTINUE_END')
+      const blanksBefore = continuedRecto.plan.pages.slice(0, shared).filter((page) => page.blank).length
+      check(
+        `${key} recto-openings print leaves an even-page continuation unblanked`,
+        shared === precedingEnd && shared % 2 === 0 && !continuedRecto.plan.pages[shared - 1]?.blank && blanksBefore === 0,
+        `preceding-end=${precedingEnd}, continuing-heading=${shared}, even=${shared % 2 === 0}, shared-blank=${continuedRecto.plan.pages[shared - 1]?.blank}, blanks-through-shared=${blanksBefore}, pdf-pages=${continuedRecto.document.getPageCount()}`,
+      )
+    } finally {
+      continuedRecto.close()
     }
   }
 }

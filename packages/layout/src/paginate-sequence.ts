@@ -1,3 +1,4 @@
+import { SECTION_TITLE_MARK } from '@segnavia/format'
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateMarks } from './paginate-marks.ts'
 import type {
@@ -33,6 +34,12 @@ export function paginateSequence(
   }
   function emptyMarks(): PaginatePageMarks {
     return Object.create(null) as PaginatePageMarks
+  }
+
+  function marksForNewFlow(carried: PaginatePageMarks): PaginatePageMarks {
+    const scoped = Object.assign(emptyMarks(), carried)
+    delete scoped[SECTION_TITLE_MARK]
+    return scoped
   }
 
   function columnRefusal(block: PaginateBlock): PaginateBookRefusal | undefined {
@@ -321,7 +328,7 @@ export function paginateSequence(
     if ('refusal' in held && held.refusal) return { refusal: held.refusal }
     if (needsOpeningBlank(openingOf(flow), physicalOffset + pages.length))
       pages.push(makeBlank(pages.length + 1, part, flow, physicalOffset + pages.length + 1))
-    const result = paginateFlow(flow, part, pages, held.continued, held.carried, physicalOffset)
+    const result = paginateFlow(flow, part, pages, held.continued, marksForNewFlow(held.carried), physicalOffset)
     if ('refusal' in result && result.refusal) return { refusal: result.refusal }
     return { continued: result.pending, carried: result.carried }
   }

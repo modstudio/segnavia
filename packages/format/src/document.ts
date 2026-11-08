@@ -1,9 +1,11 @@
 import { z } from 'zod'
+import { bookSectionOpensFacts } from './book-section.ts'
 import { BookMode, BookPage, BookShape } from './book.ts'
 import { DeckShape } from './deck.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { DocumentMetadata } from './document-metadata.ts'
+import { documentBookDivisionsForRefinement } from './document-book-items.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
@@ -14,7 +16,7 @@ import { Print } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
-import { type SectionOpensFact, sectionOpensIssues } from './section-opens-policy.ts'
+import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
@@ -133,33 +135,11 @@ function refineSectionNumberingPolicy(document: DocumentShapeValue, ctx: z.Refin
   }
 }
 
-function documentSectionOpensFacts(document: DocumentShapeValue): SectionOpensFact[] {
-  const facts: SectionOpensFact[] = []
-  const collect = (nodes: DocumentNodeValue[], path: (string | number)[]): void => {
-    nodes.forEach((node, index) => {
-      const nodePath = [...path, index]
-      if (node.type === 'section' || node.type === 'contents') {
-        facts.push({
-          id: node.id ?? node.title ?? nodePath.join('.'),
-          title: node.title,
-          path: nodePath,
-          sequence: path.join('.'),
-          flowing: node.type === 'section' && node.children.length === 1 && node.children[0]?.type === 'flow',
-          opens: node.opens,
-          numbering: node.numbering,
-          parents: node.parents,
-        })
-      }
-      if ('children' in node) collect(node.children, [...nodePath, 'children'])
-    })
-  }
-  collect(document.children, ['children'])
-  return facts
-}
-
 function refineSectionOpensPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
   if (document.kind !== 'book') return
-  for (const issue of sectionOpensIssues(documentSectionOpensFacts(document))) ctx.addIssue({ code: 'custom', ...issue })
+  const divisions = documentBookDivisionsForRefinement(document)
+  if (!divisions) return
+  for (const issue of sectionOpensIssues(bookSectionOpensFacts(divisions))) ctx.addIssue({ code: 'custom', ...issue })
 }
 
 type DocumentShapeValue = z.infer<typeof DocumentShape>
