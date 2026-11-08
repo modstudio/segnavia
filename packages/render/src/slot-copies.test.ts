@@ -34,7 +34,7 @@ const missing = { fill: { id: 'missing', values: {} } }
 test('pages copies keep entry order and one collection per entry in the joined PDF', async () => {
   const order: string[] = []
   const pdf = await renderSlotCopyPdfs({ fills: [ada, bea] }, async (copy) => {
-    const filled = await filledPages(pages, copy)
+    const { value: filled } = await filledPages(pages, copy)
     order.push(`${copy.fill?.id}:${filled.map((page) => page.html).join('|')}`)
     return pdfWithPages(filled.length)
   })
@@ -45,7 +45,7 @@ test('pages copies keep entry order and one collection per entry in the joined P
 test('deck copies keep entry order and one slide set per entry in the joined PDF', async () => {
   const order: string[] = []
   const pdf = await renderSlotCopyPdfs({ fills: [ada, bea] }, async (copy) => {
-    const filled = await filledDeck(deck, copy)
+    const { value: filled } = await filledDeck(deck, copy)
     const html = filled.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''))
     order.push(`${copy.fill?.id}:${html.join('|')}`)
     return pdfWithPages(filled.slides.length)

@@ -16,7 +16,6 @@ import { type DependencyCache, dependencySetup, type RenderOptions } from './opt
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
-import { preparedSlotsFor } from './slot-fill.ts'
 
 async function awaitBookComposition(tab: Tab): Promise<void> {
   await tab.waitForFunction(({ composed, failed }) => document.documentElement.hasAttribute(composed) || document.documentElement.hasAttribute(failed), {
@@ -92,6 +91,7 @@ function bookSrcdoc(
 async function printBook(
   html: string,
   book: Book,
+  slots: PreparedSlots,
   renderOptions: RenderOptions,
   part: BookOverflowPart,
   layerCss: string,
@@ -130,7 +130,7 @@ async function printBook(
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
       scripts: paginated || continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer),
       html: srcdoc,
-      slots: preparedSlotsFor(book),
+      slots,
       readiness: paginated
         ? renderReadiness('refuse', false, false)
         : renderReadiness(marginLayer ? 'refuse' : book.scripts, hasDiagram(html), renderOptions.waitForPageReady !== false),
@@ -157,9 +157,9 @@ async function printBook(
 export function renderBrowserBookPdf(book: Book, options: RenderOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   let script: Promise<string | undefined> | undefined
   return renderBookPdf(book, options, {
-    print: async (html, book, renderOptions, part, layerCss = '') => {
+    print: async (html, book, slots, renderOptions, part, layerCss = '') => {
       script ??= resolveDiagramScript(bookDocument(book).html)
-      return printBook(html, book, renderOptions, part, layerCss, fontCss, await script, dependencies)
+      return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies)
     },
     finish: dependencies.finish,
   })

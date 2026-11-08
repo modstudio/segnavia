@@ -14,7 +14,6 @@ import type { PieceGeometry } from './pages-imposition.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
-import { preparedSlotsFor } from './slot-fill.ts'
 
 interface PageRenderServices {
   withTab<T>(setup: BrowserTabSetup & { boundMs?: number; deadline?: RenderDeadline; slots?: PreparedSlots }, body: (tab: Tab) => Promise<T>): Promise<T>
@@ -22,6 +21,7 @@ interface PageRenderServices {
 
 export async function renderPagePdf(
   page: HtmlPage,
+  slots: PreparedSlots,
   opts: RenderOptions,
   services: PageRenderServices,
   inputIndex?: number,
@@ -35,7 +35,7 @@ export async function renderPagePdf(
     {
       viewport,
       scripts: true,
-      slots: preparedSlotsFor(page),
+      slots,
       html: renderedPageDocument(page, opts, true, diagramScript, fontCss),
       readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
       boundMs: opts.boundMs,
@@ -73,6 +73,7 @@ export async function renderPagePdf(
 
 export function renderPiecePdf(
   page: HtmlPage,
+  slots: PreparedSlots,
   geometry: PieceGeometry,
   css: string,
   opts: RenderOptions,
@@ -85,7 +86,7 @@ export function renderPiecePdf(
     {
       viewport: geometry.viewport,
       scripts: true,
-      slots: preparedSlotsFor(page),
+      slots,
       html,
       readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
       boundMs: opts.boundMs,

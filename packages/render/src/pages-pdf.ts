@@ -1,5 +1,5 @@
 import { Imposition, type ImpositionInput, impose, impositionMarks, isPrintedPageIdentityImposition, printPadding, printProperties } from '@segnavia/format'
-import type { HtmlPage } from '@segnavia/html'
+import type { HtmlPage, PreparedSlots } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { innerLimits, parseRenderOptions } from './options.ts'
@@ -8,12 +8,13 @@ import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-impositi
 import { composeImposedPdf } from './pdf-compose.ts'
 import { joinPdfs } from './pdf-join.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
+import { slotsForDocument } from './slot-document.ts'
 
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
-  pagePdf(page: HtmlPage, options: RenderOptions, inputIndex: number): Promise<PrintResult>
-  piecePdf(page: HtmlPage, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
+  pagePdf(page: HtmlPage, slots: PreparedSlots, options: RenderOptions, inputIndex: number): Promise<PrintResult>
+  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
 }
@@ -26,7 +27,14 @@ function namePageError(error: unknown, page: number): never {
   throw new Error(`Page at index ${page} could not be rendered: ${String(error)}`)
 }
 
-async function composedPdf(pages: HtmlPage[], imposition: Imposition, opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
+async function composedPdf(
+  pages: HtmlPage[],
+  slots: PreparedSlots,
+  imposition: Imposition,
+  opts: PagesPdfOptions,
+  services: PagesPdfServices,
+  frameIndexes: readonly number[] = pages.map((_, index) => index),
+): Promise<Uint8Array> {
   const imposed = impose(imposition, pages.length)
   const marks = impositionMarks(imposition)
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
@@ -37,14 +45,18 @@ async function composedPdf(pages: HtmlPage[], imposition: Imposition, opts: Page
     groups.map(async (group) => {
       const page = pages[group.page]
       const first = group.placements[0]
-      if (!page || !first) throw new Error(`The piece for page ${group.page} has no placement.`)
+      const frameIndex = frameIndexes[group.page]
+      if (!page || !first || frameIndex === undefined) throw new Error(`The piece for page ${group.page} has no placement.`)
       const geometry = pieceGeometry(first)
       const css = `${properties}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
       try {
         return {
           group,
           bytes: await setPdfPageSize(
-            await services.piecePdf(page, geometry, css, { ...opts, limits: innerLimits(opts.limits) }),
+            await services.piecePdf(page, slotsForDocument(slots, [[frameIndex]]), geometry, css, {
+              ...opts,
+              limits: innerLimits(opts.limits),
+            }),
             geometry.paper,
             'An imposition piece prints at its paper, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
           ),
@@ -67,14 +79,20 @@ async function composedPdf(pages: HtmlPage[], imposition: Imposition, opts: Page
   )
 }
 
-// Pages arrive parsed and filled. Each filled page object keys its slot preparation, so parsing again here would
-// hand the renderer new objects and lose the preparation, and with it overflow measurement and its refusals.
-export async function renderPagesPdf(pages: HtmlPage[], opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
+// Pages arrive parsed and filled with the slot preparation that measures their overflow.
+export async function renderPagesPdf(pages: HtmlPage[], slots: PreparedSlots, opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
   opts = parseRenderOptions(opts)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {
     const rendered = await Promise.all(
-      pages.map((page, inputIndex) => services.pagePdf(page, { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined }, inputIndex)),
+      pages.map((page, inputIndex) =>
+        services.pagePdf(
+          page,
+          slotsForDocument(slots, [[inputIndex]]),
+          { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
+          inputIndex,
+        ),
+      ),
     )
     const output = await services.finish(await joinPdfs(rendered.map((part) => part.bytes)), opts)
     opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
@@ -96,8 +114,13 @@ export async function renderPagesPdf(pages: HtmlPage[], opts: PagesPdfOptions, s
     const overflow: NonNullable<PrintResult['overflow']>[] = []
     const parts = await Promise.all(
       pages.map(async (page, inputIndex) => {
-        if (!page.printedPages) return composedPdf([page], imposition, opts, services)
-        const rendered = await services.pagePdf(page, { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined }, inputIndex)
+        if (!page.printedPages) return composedPdf([page], slots, imposition, opts, services, [inputIndex])
+        const rendered = await services.pagePdf(
+          page,
+          slotsForDocument(slots, [[inputIndex]]),
+          { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
+          inputIndex,
+        )
         if (rendered.overflow) overflow.push(rendered.overflow)
         return rendered.bytes
       }),
@@ -106,5 +129,5 @@ export async function renderPagesPdf(pages: HtmlPage[], opts: PagesPdfOptions, s
     opts.overflow?.report?.({ entries: overflow })
     return output
   }
-  return services.finish(await composedPdf(pages, imposition, opts, services), opts)
+  return services.finish(await composedPdf(pages, slots, imposition, opts, services), opts)
 }

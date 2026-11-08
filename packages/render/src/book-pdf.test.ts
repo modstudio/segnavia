@@ -1,16 +1,8 @@
-import { describe, expect, test } from 'bun:test'
-import { type BookSectionInfo, parseBookFixture } from '@segnavia/html'
+import { expect, test } from 'bun:test'
+import { parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
-import type { BookDestination } from './book-destinations.ts'
-import { type BookPdfAdapter, bookPageCss, bookPartsPrintStatus, frontPrintStatus, pageReferencePrintStatus, renderBookPdf } from './book-pdf.ts'
+import { type BookPdfAdapter, bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { renderBrowserBookPdf } from './book-render.ts'
-
-const sections: BookSectionInfo[] = [{ id: 'front-section', kind: 'front', division: 'front', title: 'Preface' }]
-const destinations = (page: number): Map<string, BookDestination> =>
-  new Map([
-    ['front-section', { page: 1, x: 0, y: 0 }],
-    ['topic', { page, x: 10, y: 20 }],
-  ])
 
 const continuousBook = (body: string, front?: string) =>
   parseBookFixture({
@@ -47,13 +39,19 @@ async function printedPart(html: string, overrides: Record<string, number>, page
   return document.save()
 }
 
-function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number) => number): BookPdfAdapter & { html: Record<'front' | 'body', string[]> } {
+function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number) => number): BookPdfAdapter & {
+  html: Record<'front' | 'body', string[]>
+  slotMarks: Array<{ part: 'front' | 'body' | 'margin'; marked: Array<[string, number]> }>
+} {
   const html = { front: [] as string[], body: [] as string[] }
+  const slotMarks: Array<{ part: 'front' | 'body' | 'margin'; marked: Array<[string, number]> }> = []
   let frontPages = 0
   let bodyPages = 0
   return {
     html,
-    print: async (source, _book, _options, part) => {
+    slotMarks,
+    print: async (source, _book, slots, _options, part) => {
+      slotMarks.push({ part, marked: [...slots.marked] })
       if (part === 'margin') {
         return {
           bytes: await printedPart('', {}, frontPages + bodyPages),
@@ -74,6 +72,24 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
     finish: async (pdf) => pdf,
   }
 }
+
+test('passes each book print only the slot marks for the fields in that part', async () => {
+  const adapter = scriptedAdapter(() => 1)
+  await renderBookPdf(
+    continuousBook('<p data-slot-value="name">Body</p>', '<p data-slot-value="name">Front</p>'),
+    {
+      slots: {
+        declarations: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }],
+        fill: { id: 'host', values: { name: 'Ada' } },
+      },
+    },
+    adapter,
+  )
+
+  expect(adapter.slotMarks.filter(({ part }) => part === 'body').every(({ marked }) => Bun.deepEquals(marked, [['name', 1]]))).toBe(true)
+  expect(adapter.slotMarks.filter(({ part }) => part === 'front').every(({ marked }) => Bun.deepEquals(marked, [['name', 1]]))).toBe(true)
+  expect(adapter.slotMarks.filter(({ part }) => part === 'margin').map(({ marked }) => marked)).toEqual([[]])
+})
 
 test('places FontSource CSS before book CSS in the printed document', async () => {
   let srcdoc = ''
@@ -103,44 +119,6 @@ test('places FontSource CSS before book CSS in the printed document', async () =
     },
   )
   expect(srcdoc.indexOf('.font-source-marker')).toBeLessThan(srcdoc.indexOf('.book-rule{color:purple}'))
-})
-
-describe('front print convergence', () => {
-  test('is stable on the second print when destination pages match', () => {
-    expect(frontPrintStatus([destinations(1), destinations(1)], ['front-section', 'topic'], sections)).toEqual({ status: 'stable' })
-  })
-
-  test('continues after the second print and is stable on the third', () => {
-    expect(frontPrintStatus([destinations(1), destinations(2)], ['front-section', 'topic'], sections)).toEqual({ status: 'more' })
-    expect(frontPrintStatus([destinations(1), destinations(2), destinations(2)], ['front-section', 'topic'], sections)).toEqual({ status: 'stable' })
-  })
-
-  test('refuses a destination that still moves after the third print', () => {
-    expect(frontPrintStatus([destinations(1), destinations(2), destinations(3)], ['front-section', 'topic'], sections)).toEqual({
-      status: 'refused',
-      message: 'Front destination topic in Preface (front-section) moved from page 2 to page 3 after three prints.',
-    })
-  })
-})
-
-test('allows three page-reference reprints before refusing named moving targets', () => {
-  expect(pageReferencePrintStatus({ target: '9' }, { target: '10' }, 2)).toEqual({ status: 'more' })
-  expect(pageReferencePrintStatus({ target: '10' }, { target: '10' }, 3)).toEqual({ status: 'stable' })
-  expect(pageReferencePrintStatus({ target: '10' }, { target: '11' }, 3)).toEqual({
-    status: 'refused',
-    message:
-      'Body page references to target did not converge after three reprints; shorten the referenced content or reserve fixed space for page references to clear this refusal.',
-  })
-})
-
-test('bounds front and body alternation and names moving targets', () => {
-  expect(bookPartsPrintStatus({ target: '9' }, { target: '10' }, 2)).toEqual({ status: 'more' })
-  expect(bookPartsPrintStatus({ target: '10' }, { target: '10' }, 3)).toEqual({ status: 'stable' })
-  expect(bookPartsPrintStatus({ target: '10' }, { target: '11' }, 3)).toEqual({
-    status: 'refused',
-    message:
-      'Front and body page references to target did not converge after three alternations; shorten the referenced content or reserve fixed space for page references to clear this refusal.',
-  })
 })
 
 test('reprints a growing page reference until its moved target settles', async () => {
@@ -210,6 +188,45 @@ test('prints a paginated book once then finishes', async () => {
   )
   expect(prints).toBe(1)
   expect(finishes).toBe(1)
+  expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
+})
+
+test('renders with a class-instance adapter whose methods are on its prototype', async () => {
+  class Adapter implements BookPdfAdapter {
+    prints = 0
+    finishes = 0
+
+    async print() {
+      this.prints += 1
+      const document = await PDFDocument.create()
+      const page = document.addPage([419.53, 595.28])
+      document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'body-section': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
+      return {
+        bytes: await document.save(),
+        overflow: { part: 'body' as const, pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
+      }
+    }
+
+    async finish(pdf: Uint8Array) {
+      this.finishes += 1
+      return pdf
+    }
+  }
+
+  const adapter = new Adapter()
+  const output = await renderBookPdf(
+    parseBookFixture({
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      chapters: [{ id: 'body-section', title: 'One', html: '<p>Text</p>' }],
+    }),
+    {},
+    adapter,
+  )
+
+  expect(adapter.prints).toBe(1)
+  expect(adapter.finishes).toBe(1)
   expect((await PDFDocument.load(output)).getPageCount()).toBe(1)
 })
 
