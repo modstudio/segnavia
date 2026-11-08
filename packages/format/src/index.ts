@@ -185,6 +185,7 @@ export {
   type FontGeneric,
   FontManifest,
   FontManifestEntry,
+  fontManifestWithReferences,
   FontReference,
   FontReferenceInput,
   type FontSource,
@@ -194,6 +195,7 @@ export {
   LocalFaceTransport,
   localFontReferences,
   matchFaces,
+  persistedFontManifestWithReferences,
   rangeSample,
 } from './fonts.ts'
 export {

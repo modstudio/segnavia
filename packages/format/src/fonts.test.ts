@@ -1,6 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 import { identifiedBookInput } from './book-test-helper.ts'
-import { FontManifest, FontReference, FontReferenceInput, HEBREW_UNICODE_RANGE, LocalFaceTransport, matchFaces, rangeSample } from './fonts.ts'
+import {
+  FontManifest,
+  fontManifestWithReferences,
+  FontReference,
+  FontReferenceInput,
+  HEBREW_UNICODE_RANGE,
+  LocalFaceTransport,
+  matchFaces,
+  persistedFontManifestWithReferences,
+  rangeSample,
+} from './fonts.ts'
 import { Book, jsonSchemas, Page } from './index.ts'
 
 describe('FontReference', () => {
@@ -35,6 +45,20 @@ describe('Page and Book fonts', () => {
 })
 
 describe('FontManifest', () => {
+  test('converts references without overwriting declarations or colliding local keys', () => {
+    const fonts = { body: { faces: [{ weight: 700 }] }, 'local-0': { faces: [{}] } }
+    const references = [{ app: 'body' as const }, { app: 'heading' as const }, { local: 'Arial', fallback: 'body' as const }]
+    expect(fontManifestWithReferences(fonts, references)).toEqual({
+      manifest: { ...fonts, 'local-1': { local: 'Arial', fallback: 'body' } },
+      undeclared: ['heading'],
+    })
+    expect(persistedFontManifestWithReferences(fonts, references)).toEqual({
+      ...fonts,
+      'local-1': { local: 'Arial', fallback: 'body' },
+      heading: { faces: [{}] },
+    })
+  })
+
   test('defaults Hebrew faces to both Hebrew blocks', () => {
     expect(FontManifest.parse({ body: { faces: [{ script: 'hebrew' }] } })).toEqual({
       body: { faces: [{ script: 'hebrew', unicodeRange: HEBREW_UNICODE_RANGE }] },

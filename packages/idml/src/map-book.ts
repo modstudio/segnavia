@@ -5,6 +5,7 @@ import {
   defaultNewId,
   type FontReference,
   MM_PER_PT,
+  persistedFontManifestWithReferences,
   type ParentPage,
   type Book as SegnaviaBook,
 } from '@segnavia/format'
@@ -54,9 +55,7 @@ function anchoredFrameIssue(frame: IdmlAnchoredFrame, storyPages: { has(story: s
 
 function importedStyle(css: string, references: FontReference[]): SegnaviaBook['style'] {
   if (!css && references.length === 0) return undefined
-  const fonts = Object.fromEntries(
-    references.map((reference, index) => ('app' in reference ? [reference.app, { faces: [{}] }] : [`local-${index}`, reference])),
-  )
+  const fonts = persistedFontManifestWithReferences(undefined, references)
   return { ...(css ? { css } : {}), ...(references.length > 0 ? { fonts } : {}) }
 }
 

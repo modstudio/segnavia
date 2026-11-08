@@ -6,6 +6,7 @@ import {
   type FontFace,
   type FontFailure,
   type FontManifest,
+  persistedFontManifestWithReferences,
   type FontReference,
   type FontSource,
   matchFaces,
@@ -18,6 +19,8 @@ export interface FontsOptions {
   source: FontSource
   local?: FontFace[]
 }
+
+export { fontManifestWithReferences } from '@segnavia/format'
 
 export interface ResolvedFonts {
   css: string
@@ -57,17 +60,6 @@ export function appNames(references: FontReference[]): string[] {
 
 export function fontManifestReferences(fonts: FontManifest | undefined): FontReference[] {
   return Object.entries(fonts ?? {}).map(([name, declaration]) => ('local' in declaration ? declaration : { app: name }))
-}
-
-export function fontManifestWithReferences(fonts: FontManifest | undefined, references: readonly FontReference[]): FontManifest {
-  const merged: FontManifest = { ...fonts }
-  for (const reference of references) {
-    if ('app' in reference) merged[reference.app] ??= { faces: [] }
-    else if (!Object.values(merged).some((entry) => 'local' in entry && entry.local === reference.local && entry.fallback === reference.fallback)) {
-      merged[`local-${Object.keys(merged).length}`] = reference
-    }
-  }
-  return merged
 }
 
 export function refuseMissingFontSource(fonts: FontManifest | FontReference[], place: string): void {
@@ -118,7 +110,7 @@ export async function resolvePageFonts(
   signal: AbortSignal,
 ): Promise<ResolvedFonts> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
-  return resolveFontReferences(fontManifestWithReferences(page.style?.fonts, motifFonts), fonts, signal, place)
+  return resolveFontReferences(persistedFontManifestWithReferences(page.style?.fonts, motifFonts), fonts, signal, place)
 }
 
 export async function pageFontCss(
@@ -128,7 +120,7 @@ export async function pageFontCss(
   signal: AbortSignal,
 ): Promise<ResolvedFonts> {
   const place = page.id ? `page ${JSON.stringify(page.id)}` : 'page'
-  const declarations = fontManifestWithReferences(page.style?.fonts, motifFonts)
+  const declarations = persistedFontManifestWithReferences(page.style?.fonts, motifFonts)
   if (!fonts) {
     refuseMissingFontSource(declarations, place)
     return { css: '', failures: [] }
@@ -143,7 +135,7 @@ export async function expandedPagesFontCss(
   place = 'page',
 ): Promise<ResolvedFonts> {
   const declarations: FontManifest = {}
-  for (const item of expanded) Object.assign(declarations, item.page.style?.fonts, fontManifestWithReferences(undefined, item.fonts))
+  for (const item of expanded) Object.assign(declarations, item.page.style?.fonts, persistedFontManifestWithReferences(undefined, item.fonts))
   if (!fonts) {
     refuseMissingFontSource(declarations, place)
     return { css: '', failures: [] }
@@ -157,7 +149,7 @@ export async function expandedBookFontCss(
   signal: AbortSignal,
 ): Promise<ResolvedFonts> {
   const place = expanded.book.title ? `book ${JSON.stringify(expanded.book.title)}` : 'book'
-  const declarations = fontManifestWithReferences(expanded.book.style?.fonts, expanded.fonts)
+  const declarations = persistedFontManifestWithReferences(expanded.book.style?.fonts, expanded.fonts)
   if (!fonts) {
     refuseMissingFontSource(declarations, place)
     return { css: '', failures: [] }

@@ -71,6 +71,34 @@ export const FontManifest = z.record(AppFontName, FontManifestEntry).superRefine
 })
 export type FontManifest = z.infer<typeof FontManifest>
 
+export interface ManifestWithReferences {
+  manifest: FontManifest
+  undeclared: string[]
+}
+
+export function fontManifestWithReferences(fonts: FontManifest | undefined, references: readonly FontReference[]): ManifestWithReferences {
+  const manifest: FontManifest = { ...fonts }
+  const undeclared: string[] = []
+  for (const reference of references) {
+    if ('app' in reference) {
+      if (!(reference.app in manifest) && !undeclared.includes(reference.app)) undeclared.push(reference.app)
+      continue
+    }
+    if (Object.values(manifest).some((entry) => 'local' in entry && entry.local === reference.local && entry.fallback === reference.fallback)) continue
+    let index = 0
+    while (`local-${index}` in manifest) index++
+    manifest[`local-${index}`] = reference
+  }
+  return { manifest, undeclared }
+}
+
+/** Declares the default face when a reference-only boundary persists a document. */
+export function persistedFontManifestWithReferences(fonts: FontManifest | undefined, references: readonly FontReference[]): FontManifest {
+  const { manifest, undeclared } = fontManifestWithReferences(fonts, references)
+  for (const name of undeclared) manifest[name] = { faces: [{}] }
+  return manifest
+}
+
 export interface FontFailure {
   font: string
   family: string
