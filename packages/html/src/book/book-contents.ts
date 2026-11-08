@@ -1,4 +1,4 @@
-import { type Book, resolveDirection } from '@segnavia/format'
+import { type Book, resolveDirection, textDirection } from '@segnavia/format'
 import { isTag } from 'domhandler'
 import type { BuiltSection } from './book-held.ts'
 import { element, linkChildren, text } from './dom.ts'
@@ -15,14 +15,28 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
       ...(heading.depth === undefined ? {} : { 'data-depth': String(heading.depth) }),
     }
     return element('li', attributes, [
-      element('a', { href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`, dir: resolveDirection(undefined, undefined, label) }, [
-        text(label),
-        ...(heading.subtitle === undefined
-          ? []
-          : [
-              element('span', { class: 'segnavia-contents-subtitle', dir: resolveDirection(undefined, undefined, heading.subtitle) }, [text(heading.subtitle)]),
-            ]),
-      ]),
+      element(
+        'a',
+        {
+          href: options.crossLinks ? `segnavia:target/${heading.id}` : `#${heading.id}`,
+          dir: textDirection(undefined, undefined, label) ?? resolveDirection(book.dir, book.lang, label),
+        },
+        [
+          text(label),
+          ...(heading.subtitle === undefined
+            ? []
+            : [
+                element(
+                  'span',
+                  {
+                    class: 'segnavia-contents-subtitle',
+                    dir: textDirection(undefined, undefined, heading.subtitle) ?? resolveDirection(book.dir, book.lang, heading.subtitle),
+                  },
+                  [text(heading.subtitle)],
+                ),
+              ]),
+        ],
+      ),
       book.contents.pageNumbers
         ? element(
             'a',

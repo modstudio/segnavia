@@ -17,3 +17,16 @@ test('uses a section contents label and independently resolves its subtitle dire
   const section = result.html.match(/<section[^>]*id="section-2"(?:\s[^>]*)?>/)?.[0]
   expect(section).toContain('data-contents-label="פרק ראשון" data-subtitle="מבוא לספר"')
 })
+
+test('falls back to the book direction when a contents label has no strong letter', () => {
+  const book = parseBookFixture({
+    title: 'ספר',
+    mode: 'paginated',
+    dir: 'rtl',
+    lang: 'he',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    frontMatter: [{ kind: 'contents', title: 'תוכן' }],
+    chapters: [{ title: 'פרק', contentsLabel: '1948', html: '<p>טקסט</p>' }],
+  })
+  expect(bookDocument(book).html).toContain('<a href="#section-2" dir="rtl">1948')
+})
