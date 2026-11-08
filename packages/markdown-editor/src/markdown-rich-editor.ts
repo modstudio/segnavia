@@ -1,4 +1,4 @@
-import type { FontReference } from '@segnavia/format'
+import { type FontReference, persistedFontManifestWithReferences } from '@segnavia/format'
 import { createPageElement, HEADLESS_ELEMENTS, SegnaviaPage } from '@segnavia/frame'
 import type { FontsOptions } from '@segnavia/frame/fonts'
 import { safeMarkdownUrl } from '@segnavia/html'
@@ -40,11 +40,12 @@ function lockedView(options: () => LockedViewOptions) {
           page.css = current.css()
           page.fonts = current.fonts
           page.alertLabels = current.alertLabels
+          const fontManifest = persistedFontManifestWithReferences(undefined, current.fontReferences)
           page.page = {
             type: 'document',
             kind: 'page',
             settings: { scripts: 'refuse' },
-            style: { fonts: current.fontReferences },
+            style: { fonts: fontManifest },
             children: [{ type: 'page', body: { markdown: String(node.attrs.source ?? '') } }],
           }
           dom.append(page)

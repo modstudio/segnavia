@@ -1,7 +1,6 @@
-import { Cover, type Deck, pageOrPrintedFromDocument } from '@segnavia/format'
+import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
-import { printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
 import { type PreparedSlots, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { parseBookPdfOptions } from './book-options.ts'
@@ -10,7 +9,7 @@ import { resolveRenderBook, resolveRenderBrand, resolveRenderDeck } from './bran
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
-import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
+import { type BrowserTabSetup, fontLoadSetup, renderInBrowserTab } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
@@ -41,8 +40,9 @@ import { proofCapturedImage, proofCaptureOptions, proofRasterImage } from './pro
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
-import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
-import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+import { renderReadiness } from './render-readiness.ts'
+import { DEFAULT_JS_HEAP_MB, type PagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+import { renderSlideImage } from './slide-image.ts'
 import { renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
@@ -181,12 +181,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         scripts: true,
         slots,
         scale: opts.scale,
-        html: renderedPageDocument(page, prepared.options, false, diagramScript, prepared.fontCss),
+        html: renderedPageDocument(page, prepared.options, false, diagramScript, prepared.fontCss, prepared.fontFailures),
         readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
         ...dependencySetup(opts),
+        ...fontLoadSetup(prepared.fontFailures, opts.fontLoad?.report),
       },
       async (tab) => {
         await awaitPrintedPageComposition(tab, page)
@@ -201,7 +202,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const book = await resolveRenderBook(input, opts.newId, opts.brandSource, deadline.signal)
         const expanded = await expandFrameBookValue(book, opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
-        const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
+        const { options, fontCss: resolvedFontCss, fontFailures } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
           render: (setup, pdf, pageWidth, part) =>
             withTab({ ...setup, deadline }, async (tab) => {
@@ -211,6 +212,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             }),
           fontFaces: (options) => fontFaces(options.fonts),
           finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+          fontFailures,
         })
       })
     },
@@ -219,8 +221,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const book = await resolveRenderBook(input, opts.newId, opts.brandSource, deadline.signal)
         const expanded = await expandFrameBookValue(book, opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
-        const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
-        return renderBrowserBookPlan(expanded.book, options, `${resolvedFontCss}${fontFaces(options.fonts)}`, (setup, body) =>
+        const { options, fontCss: resolvedFontCss, fontFailures } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
+        return renderBrowserBookPlan(expanded.book, { ...options, fontFailures }, `${resolvedFontCss}${fontFaces(options.fonts)}`, (setup, body) =>
           withTab({ ...setup, deadline }, body),
         )
       })
@@ -242,6 +244,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             deadline,
             diagramScript,
             prepared.fontCss,
+            prepared.fontFailures,
           )
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
@@ -251,7 +254,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         return enforce(output, opts.limits)
       })
     },
-
     async pageImage(input, opts = {}) {
       opts = parseRenderOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
@@ -292,7 +294,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined },
             {
               pagePdf: (page, slots, options, inputIndex) =>
-                renderPagePdf(page, slots, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss),
+                renderPagePdf(page, slots, options, { withTab }, inputIndex, deadline, diagramScript, prepared.fontCss, prepared.fontFailures),
               piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
@@ -346,34 +348,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
         enforceDeckLimits(deck, opts.limits)
-        const { value: filled, slots } = await filledDeck(deck, opts.slots, deadline.signal)
-        const preparedDeck = await resolveDeckMedia(filled, opts.placements, 'print', deadline.signal)
-        const slide = preparedDeck.slides[index]
-        if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
-        const single: Deck = { ...preparedDeck, slides: [slide] }
-        const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
-        const diagramScript = await resolveDiagramScript(slideHtml)
-        const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false)
-        const css = `${fontFaces(opts.fonts)}${opts.css ?? ''}`
-        const html = printableDeckValue(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins, diagramScript })
-        return withTab(
-          {
-            viewport: deck.size,
-            scripts: true,
-            scale: opts.scale,
-            html,
-            slots: slotsForDocument(slots, [[index]]),
-            readiness: renderReadiness('refuse', false, false),
-            boundMs: opts.boundMs,
-            deadline,
-            beforeOutput: opts.beforeOutput,
-            ...dependencySetup(opts),
-          },
-          async (tab) => {
-            await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)
-            return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
-          },
-        )
+        return renderSlideImage(deck, index, opts, { withTab, diagramScript: resolveDiagramScript }, deadline)
       })
     },
 
@@ -385,7 +360,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         ),
       )
     },
-
     async close() {
       closed = true
       queue.close()

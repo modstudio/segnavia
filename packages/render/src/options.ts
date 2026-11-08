@@ -3,6 +3,7 @@ import {
   type Deck,
   exceedsLimits,
   type FontFace,
+  type FontFailure,
   type FontSource,
   type Limits,
   type OmittedImpositionMark,
@@ -73,6 +74,7 @@ export interface RenderOptions {
   fonts?: Font[]
   fontSource?: FontSource
   brandSource?: BrandSource
+  fontLoad?: { report?: (report: { failures: FontFailure[] }) => void }
   localFonts?: LocalFontsOptions
   limits?: Limits
   boundMs?: number

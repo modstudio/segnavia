@@ -45,4 +45,13 @@ describe('StyleSheet', () => {
     expect(message).toMatch(/"motifs"[\s\S]*1[\s\S]*"key"/)
     expect(message).toContain('give every motif a unique key to clear this refusal')
   })
+
+  test('refuses invalid font faces through the style sheet with the font and face index', () => {
+    for (const face of [{ future: true }, { unicodeRange: 'Hebrew' }, { weight: 1001 }]) {
+      expect(refusal({ fonts: { body: { faces: [face] } } })).toMatch(/"fonts"[\s\S]*"body"[\s\S]*"faces"[\s\S]*0/)
+    }
+    const duplicate = refusal({ fonts: { body: { faces: [{ weight: 400 }, { weight: 400, style: 'normal' }] } } })
+    expect(duplicate).toMatch(/"fonts"[\s\S]*"body"[\s\S]*"faces"[\s\S]*1/)
+    expect(duplicate).toContain('duplicates face 0')
+  })
 })

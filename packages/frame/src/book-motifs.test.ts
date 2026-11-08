@@ -15,6 +15,20 @@ const motifs = {
 }
 
 describe('book motifs', () => {
+  test('dispatches unsupplied book font failures from prepared motifs', async () => {
+    const { book } = reflectedBookElement()
+    Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })
+    let detail: unknown
+    ;(book as unknown as { dispatchEvent: (event: Event) => boolean }).dispatchEvent = (event) => {
+      detail = (event as CustomEvent).detail
+      return true
+    }
+    book.fonts = { source: { font: async () => undefined } }
+    book.view = { html: '<main>Book</main>', style: { fonts: { missing: { faces: [{}] } } } }
+    for (let i = 0; i < 20; i += 1) await Promise.resolve()
+    expect(detail).toEqual({ failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }] })
+  })
+
   test('a later flow frame uses the motif-expanded prepared view', async () => {
     const { book, frames } = reflectedBookElement()
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => true })

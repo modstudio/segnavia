@@ -199,6 +199,7 @@ describe('frame document', () => {
       MESSAGE.slotFit,
       MESSAGE.key,
       MESSAGE.height,
+      MESSAGE.fontFailures,
       MESSAGE.ready,
     ])
     expect(html).toContain("script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'")

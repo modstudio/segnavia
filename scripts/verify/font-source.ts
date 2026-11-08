@@ -30,7 +30,7 @@ export async function verifyFontSource(renderer: Renderer, work: string, check: 
     screenPage(
       { html: '<p style="font-family: var(--segnavia-font-serif)">Embedded</p>' },
       {
-        style: { fonts: [{ app: 'serif' }] },
+        style: { fonts: { serif: { faces: [{}] } } },
         size: { width: 400, height: 200 },
       },
     ),

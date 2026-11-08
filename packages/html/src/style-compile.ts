@@ -1,6 +1,6 @@
 import {
   type Dimension,
-  type FontReference,
+  type FontManifest,
   type MergedStyleSheet,
   type Motif,
   mergeStyleSheets,
@@ -25,7 +25,7 @@ export interface CompileStyleSheetOptions {
 }
 
 export type CompileStyleSheetResult =
-  | { ok: true; sheets: string[]; geometries: Record<string, PageGeometry>; motifs: Motif[]; fonts: FontReference[] }
+  | { ok: true; sheets: string[]; geometries: Record<string, PageGeometry>; motifs: Motif[]; fonts: FontManifest }
   | { ok: false; refusal: string }
 
 const TOKEN_PREFIX: Record<TextStyleTokenGroup, string> = {

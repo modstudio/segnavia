@@ -27,6 +27,7 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       nonce: newNonce(),
       dir: deck.dir,
       lang: deck.lang,
+      fonts: deck.style?.fonts,
       sheets: frameStyleSheets(deck.style, deck.brand),
       css: options.css,
       csp: options.csp || undefined,

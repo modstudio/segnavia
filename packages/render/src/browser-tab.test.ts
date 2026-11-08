@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { dependencyOriginSet } from '@segnavia/format'
-import { dependencyRouteDecision } from './browser-tab.ts'
+import { dependencyRouteDecision, mergedFontFailures } from './browser-tab.ts'
 
 describe('dependency route decision', () => {
   const origin = dependencyOriginSet(['https://cdn.jsdelivr.net'])
@@ -22,4 +22,16 @@ describe('dependency route decision', () => {
     expect(await dependencyRouteDecision('data:text/javascript,ok', origin, lookup)).toEqual({ action: 'continue' })
     expect(lookups).toBe(0)
   })
+})
+
+test('font load reports merge supplied-resolution and frame-load failures', () => {
+  expect(
+    mergedFontFailures(
+      [{ font: 'missing', family: 'missing', reason: 'unsupplied' }],
+      JSON.stringify([{ font: 'body', family: 'Body', weight: 700, reason: 'unloaded' }]),
+    ),
+  ).toEqual([
+    { font: 'missing', family: 'missing', reason: 'unsupplied' },
+    { font: 'body', family: 'Body', weight: 700, reason: 'unloaded' },
+  ])
 })

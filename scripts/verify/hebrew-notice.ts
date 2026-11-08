@@ -3,7 +3,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Renderer } from '@segnavia/render'
 import { screenPage } from '../screen-document.ts'
-import { pointMultiset, unpointed } from './hebrew-text.ts'
+import { fontRows, pointedLines, pointMultiset, unpointed } from './hebrew-text.ts'
 import { readPpm } from './pdf-raster.ts'
 import { differencePixels, EFFECT_REGION_THRESHOLD, READER_RASTER_DPI, SCALE } from './pixel-difference.ts'
 import { decodePng } from './png-pixels.ts'
@@ -29,20 +29,6 @@ function downsample(source: Uint8Array, width: number, height: number): Uint8Arr
     }
   }
   return target
-}
-
-const text = (value: string): string => value.normalize('NFC').replace(/\s+/g, ' ').trim()
-
-function pointedLines(html: string): string[] {
-  return [...html.matchAll(/<[^>]+\sdata-pointed(?:\s[^>]*)?>([^<]+)<\/[^>]+>/g)].map((match) => text(match[1] ?? ''))
-}
-
-function fontRows(output: string): string[] {
-  return output
-    .split('\n')
-    .slice(2)
-    .map((line) => line.trim())
-    .filter(Boolean)
 }
 
 export async function verifyHebrewNotice(renderer: Renderer, work: string, check: Check): Promise<void> {

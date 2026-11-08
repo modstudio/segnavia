@@ -23,6 +23,9 @@ const tab = {
   screenshot() {
     return Promise.resolve(new Uint8Array([4, 5, 6]))
   },
+  locator() {
+    return { evaluateAll: () => Promise.resolve([]), contentFrame: () => tab }
+  },
   on() {
     return tab
   },
@@ -107,6 +110,29 @@ test('pagesPdf refuses a named brand without a source before opening a tab', asy
   await renderer.close()
 })
 
+test('deckPdf reports an unsupplied declared face', async () => {
+  documents.length = 0
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const reports: unknown[] = []
+  try {
+    await renderer.deckPdf(
+      {
+        type: 'document',
+        kind: 'deck',
+        title: 'Font report',
+        style: { fonts: { missing: { faces: [{}] } } },
+        size: { width: 200, height: 100 },
+        children: [{ type: 'slide', content: { kind: 'image', src: 'data:image/png;base64,', alt: '' } }],
+      },
+      { fontSource: { font: async () => undefined }, fontLoad: { report: (report) => reports.push(report) } },
+    )
+  } finally {
+    await renderer.close()
+  }
+  expect(reports).toContainEqual({ failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }] })
+})
+
 test('pagePdf embeds only named transported local faces and retains no decoded buffer', async () => {
   documents.length = 0
   const { openRenderer } = await import('./index.ts')
@@ -128,10 +154,10 @@ test('pagePdf embeds only named transported local faces and retains no decoded b
         type: 'document',
         kind: 'page',
         style: {
-          fonts: [
-            { local: 'Local Family', fallback: 'serif' },
-            { local: 'Missing Family', fallback: 'heading' },
-          ],
+          fonts: {
+            local: { local: 'Local Family', fallback: 'serif' },
+            missing: { local: 'Missing Family', fallback: 'heading' },
+          },
         },
         size: { width: 200, height: 100 },
         children: [{ type: 'page', body: { html: '<p style="font-family:Local Family">Local</p>' } }],

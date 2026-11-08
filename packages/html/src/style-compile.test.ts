@@ -136,22 +136,22 @@ describe('compileStyleSheet', () => {
     expect(compiled({ css: '' }, { css: '' })).toHaveLength(2)
   })
 
-  test('returns merged geometries, motifs and font references', () => {
+  test('returns merged geometries, motifs and font declarations', () => {
     const motif = { key: 'folio', revision: '1', label: 'Folio', fields: [], versions: [{ lang: 'en', html: '1' }] }
     const result = compileStyleSheet({
-      brand: sheet({ motifs: [motif], fonts: [{ app: 'serif' }] }),
+      brand: sheet({ motifs: [motif], fonts: { serif: { faces: [{}] } } }),
       document: sheet({
         pageGeometries: {
           main: { paper: 'a4', orientation: 'portrait', margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } },
         },
-        fonts: [{ local: 'Held', fallback: 'serif' }],
+        fonts: { held: { local: 'Held', fallback: 'serif' } },
       }),
     })
     expect(result).toMatchObject({
       ok: true,
       geometries: { main: { paper: 'a4' } },
       motifs: [{ key: 'folio' }],
-      fonts: [{ app: 'serif' }, { local: 'Held', fallback: 'serif' }],
+      fonts: { serif: { faces: [{}] }, held: { local: 'Held', fallback: 'serif' } },
     })
   })
 })
