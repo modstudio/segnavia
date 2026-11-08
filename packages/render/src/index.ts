@@ -4,7 +4,8 @@ import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
 import { printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
 import { type PreparedSlots, pageOrPrintedFromInput, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
-import { renderBrowserBookPdf } from './book-render.ts'
+import { parseBookPdfOptions } from './book-options.ts'
+import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
@@ -69,6 +70,8 @@ export type {
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
 export {
+  type BookPdfOptions,
+  type BookPlanOptions,
   CONTAINER_ARGS,
   DEFAULT_JS_HEAP_MB,
   PAGE_READY_BOUND_MS,
@@ -197,7 +200,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
   const renderer: Renderer = {
     async bookPdf(input, opts = {}) {
-      opts = parseRenderOptions(opts)
+      opts = parseBookPdfOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const document = parseDocument(input, { newId: opts.newId })
         const expanded = await expandFrameBookValue(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
@@ -212,6 +215,17 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           fontFaces: (options) => fontFaces(options.fonts),
           finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
         })
+      })
+    },
+    async bookPlan(input, opts = {}) {
+      opts = parseRenderOptions(opts)
+      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const document = parseDocument(input, { newId: opts.newId })
+        const expanded = await expandFrameBookValue(bookFromDocument(document), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
+        const { options, fontCss: resolvedFontCss } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
+        return renderBrowserBookPlan(expanded.book, options, `${resolvedFontCss}${fontFaces(options.fonts)}`, (setup, body) =>
+          withTab({ ...setup, deadline }, body),
+        )
       })
     },
     async pagePdf(input, opts = {}) {

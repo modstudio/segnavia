@@ -1,4 +1,4 @@
-import { type Book, KEEP_WITH_CUSTOM_PROPERTY, type Limits, PX_PER_MM, resolveDirection, sheetMm } from '@segnavia/format'
+import { type Book, KEEP_WITH_CUSTOM_PROPERTY, type Limits, Plan, PX_PER_MM, resolveDirection, type Plan as SavedPlan, sheetMm } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
   BOOK_FAILURE_ATTRIBUTE,
@@ -16,8 +16,11 @@ import { type DependencyCache, dependencySetup, type RenderOptions } from './opt
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
+import type { BookPdfOptions, BookPlanOptions } from './renderer.ts'
+import { slotsForDocument } from './slot-document.ts'
+import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
-async function awaitBookComposition(tab: Tab): Promise<void> {
+export async function awaitBookComposition(tab: Tab): Promise<void> {
   await tab.waitForFunction(({ composed, failed }) => document.documentElement.hasAttribute(composed) || document.documentElement.hasAttribute(failed), {
     composed: BOOK_COMPOSED_ATTRIBUTE,
     failed: BOOK_FAILURE_ATTRIBUTE,
@@ -42,6 +45,14 @@ export interface BrowserBookDependencies {
   render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0], pageWidth: number, part: BookOverflowPart): Promise<PrintResult<true>>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
+}
+
+// A chapter can author its own plan carrier, so the composer's published one is the last.
+// The tab evaluates this function's source, so the zero-argument overload is the one it calls.
+export function lastBookPlanText(): string | null | undefined
+export function lastBookPlanText(root: ParentNode): string | null | undefined
+export function lastBookPlanText(root: ParentNode = document): string | null | undefined {
+  return Array.from(root.querySelectorAll('script[data-segnavia-plan]')).at(-1)?.textContent
 }
 
 /** Whether author markup or any author stylesheet declares a keep, which only the bridge's keep pass applies. */
@@ -70,10 +81,21 @@ function bookSrcdoc(
   sheets: readonly string[] | undefined,
   dependencyOrigins?: Iterable<string>,
   limits?: Limits,
+  plan?: SavedPlan,
+  breaks?: string[],
 ): string {
   const nonce = newNonce()
   if (book.mode === 'paginated')
-    return paginatedBookDocument(book, { nonce, fontCss: `${fontCss}${baseCss}`, css: hostCss, printBackground: true, diagramScript, limits })
+    return paginatedBookDocument(book, {
+      nonce,
+      fontCss: `${fontCss}${baseCss}`,
+      css: hostCss,
+      printBackground: true,
+      diagramScript,
+      limits,
+      plan,
+      breaks: breaks ?? plan?.breaks,
+    })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
     nonce,
@@ -88,11 +110,22 @@ function bookSrcdoc(
   })
 }
 
+// Building a book's document can refuse its pagination or its style sheet;
+// both reach the host as a render refusal.
+function refusedAsRender<T>(build: () => T): T {
+  try {
+    return build()
+  } catch (error) {
+    if (error instanceof PaginatedBookRefusedError || error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)
+    throw error
+  }
+}
+
 async function printBook(
   html: string,
   book: Book,
   slots: PreparedSlots,
-  renderOptions: RenderOptions,
+  renderOptions: BookPdfOptions,
   part: BookOverflowPart,
   layerCss: string,
   resolvedFontCss: string,
@@ -105,11 +138,9 @@ async function printBook(
   const marginLayer = part === 'margin'
   const fontCss = `${resolvedFontCss}${dependencies.fontFaces(renderOptions)}`
   const baseCss = `${bookPageCss(book, marginLayer || paginated)}${layerCss}`
-  let sheets: string[] | undefined
-  let srcdoc: string
-  try {
-    sheets = paginated ? undefined : frameStyleSheets(book.style, `${fontCss}${baseCss}`)
-    srcdoc = bookSrcdoc(
+  const sheets = paginated ? undefined : refusedAsRender(() => frameStyleSheets(book.style, `${fontCss}${baseCss}`))
+  const srcdoc = refusedAsRender(() =>
+    bookSrcdoc(
       html,
       book,
       fontCss,
@@ -120,11 +151,10 @@ async function printBook(
       sheets,
       renderOptions.dependencyOrigins,
       renderOptions.limits,
-    )
-  } catch (error) {
-    if (error instanceof PaginatedBookRefusedError || error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)
-    throw error
-  }
+      renderOptions.plan,
+      renderOptions.breaks,
+    ),
+  )
   return dependencies.render(
     {
       viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
@@ -154,13 +184,68 @@ async function printBook(
   )
 }
 
-export function renderBrowserBookPdf(book: Book, options: RenderOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export function renderBrowserBookPdf(book: Book, options: BookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+  if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
+    return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
+  }
   let script: Promise<string | undefined> | undefined
   return renderBookPdf(book, options, {
-    print: async (html, book, slots, renderOptions, part, layerCss = '') => {
+    print: async (html, book, slots, _renderOptions, part, layerCss = '') => {
       script ??= resolveDiagramScript(bookDocument(book).html)
-      return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies)
+      return printBook(html, book, slots, options, part, layerCss, fontCss, await script, dependencies)
     },
     finish: dependencies.finish,
   })
+}
+
+export async function renderBrowserBookPlan(
+  input: Book,
+  options: BookPlanOptions,
+  fontCss: string,
+  withTab: (setup: TabSetup, body: (tab: Tab) => Promise<SavedPlan>) => Promise<SavedPlan>,
+): Promise<SavedPlan> {
+  if (input.mode !== 'paginated') {
+    throw new RenderRefusedError('bookPlan needs a paginated book; set mode to paginated to clear this refusal')
+  }
+  // The plan must measure the same filled text that bookPdf prints, or its replay refuses.
+  const { value: book, slots } = await filledBook(input, options.slots)
+  if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPlan.')
+  const size = sheetMm(book.page)
+  const diagramScript = await resolveDiagramScript(bookDocument(book).html)
+  const srcdoc = refusedAsRender(() =>
+    bookSrcdoc(
+      '',
+      book,
+      fontCss,
+      bookPageCss(book, true),
+      options.css,
+      false,
+      diagramScript,
+      undefined,
+      options.dependencyOrigins,
+      options.limits,
+      undefined,
+      options.breaks,
+    ),
+  )
+  return withTab(
+    {
+      viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
+      scripts: true,
+      html: srcdoc,
+      slots: slotsForDocument(slots, [bookSlotFrames(book).all]),
+      readiness: renderReadiness('refuse', false, false),
+      boundMs: options.boundMs,
+      ...dependencySetup(options),
+    },
+    async (tab) => {
+      await awaitBookComposition(tab)
+      const text = await tab.evaluate(lastBookPlanText)
+      try {
+        return Plan.parse(JSON.parse(text ?? 'null'), { limits: options.limits })
+      } catch (error) {
+        throw new RenderRefusedError(error instanceof Error ? error.message : String(error))
+      }
+    },
+  )
 }

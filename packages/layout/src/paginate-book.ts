@@ -69,6 +69,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
     while (next < units.length) {
       const unit = units[next]
       if (!unit || lineTooTall(unit, textHeight)) break
+      if (placed.length > 0 && unit.index === 0 && unit.block.breakBefore) break
       const allocated = paginateNotes(withNotes(textHeight, { op: 'allocate' as const, placed, fragments: notes, unit }))
       if (!allocated) break
       placed.push(unit)
