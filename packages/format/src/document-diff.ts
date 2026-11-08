@@ -157,10 +157,10 @@ export function diffDocuments(left: DocumentValue, right: DocumentValue): Docume
   const working = structuredClone(before)
   insertMissing(working, after, beforeIds, ops)
   reconcileOrder(working, after, ops)
-  removeMissing(working, afterIds, ops)
   const root = change(before, after, DOCUMENT_ROOT_FIELDS)
   if (hasChange(root)) ops.push({ type: 'setFields', id: before.id, ...root })
   setChanges(before, after, common, ops)
+  removeMissing(working, afterIds, ops)
   const style = change(before.style ?? {}, after.style ?? {}, DOCUMENT_STYLE_FIELDS)
   if (hasChange(style)) ops.push({ type: 'setStyle', ...style })
   return ops

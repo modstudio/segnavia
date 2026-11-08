@@ -7,6 +7,7 @@ import { inverseBatch, invertOps } from './document-invert.ts'
 import { DocumentBatch, type DocumentOp } from './document-op.ts'
 import { DOCUMENT_NODE_MODEL } from './document-op-model.ts'
 import { generatedCandidateDocuments, generatedDocument, generatedDocumentOfKind, randomEdit, sampledNodeTypes } from './document-op-test-helper.ts'
+import { rebaseOps } from './document-rebase.ts'
 import { jsonSchemas } from './json-schemas.ts'
 
 const CASES = 200
@@ -283,6 +284,24 @@ describe('board document operations', () => {
     const ops = diffDocuments(before, after)
     expect(ops.map((op) => op.type)).toEqual(['setMember', 'setCells'])
     expect(applyOps(before, batch(before, ops))).toEqual(after)
+  })
+
+  test('removes membership before its item so the inverse can rebase', () => {
+    const empty = generatedDocumentOfKind('board', 84)
+    const section = empty.children.find((node) => node.type === 'boardSection')
+    const item = empty.children.find((node) => node.type === 'item')
+    if (!section || !item) throw new Error('generated board lacks its section or item')
+    const before = Document.parse({
+      ...structuredClone(empty),
+      children: empty.children.map((node) => (node.id === section.id ? { ...node, items: [item.id] } : node)),
+    })
+    const after = Document.parse({
+      ...structuredClone(before),
+      children: before.children.filter((node) => node.id !== item.id).map((node) => (node.id === section.id ? { ...node, items: [] } : node)),
+    })
+    const ops = diffDocuments(before, after)
+    expect(ops.findIndex((op) => op.type === 'setMember')).toBeLessThan(ops.findIndex((op) => op.type === 'remove'))
+    expect(rebaseOps(after, invertOps(ops))).toMatchObject({ document: before, conflicts: [] })
   })
 })
 

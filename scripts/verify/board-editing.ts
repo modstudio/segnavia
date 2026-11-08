@@ -3,6 +3,7 @@ import { checkBoardSelectionCompatibility } from './board-editing-compatibility.
 import { checkBoardEditingLabelSizes } from './board-editing-label-sizes.ts'
 import { checkBoardEditingReset } from './board-editing-reset.ts'
 import { checkBoardEditingSections } from './board-editing-sections.ts'
+import type { DemoChange, DemoDocument } from './board-editing-types.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 
 interface DemoItem {
@@ -20,16 +21,6 @@ interface DemoBoard {
   direction: 'ltr' | 'rtl'
   items: DemoItem[]
   sections: DemoSection[]
-}
-interface DemoDocument {
-  type: 'document'
-  kind: 'board'
-}
-interface DemoChange {
-  board: DemoDocument
-  before: DemoDocument
-  batch: { base: string; ops: unknown[] }
-  edit: { kind: string; ids?: string[] }
 }
 type BoardElement = HTMLElement & {
   board: DemoDocument | null
