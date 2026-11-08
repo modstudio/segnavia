@@ -4,23 +4,9 @@ import path from 'node:path'
 import { type FontSource, HEBREW_UNICODE_RANGE } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { screenPage } from '../screen-document.ts'
-import { pointMultiset, unpointed } from './hebrew-text.ts'
+import { fontRows, pointedLines, pointMultiset, unpointed } from './hebrew-text.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
-
-const text = (value: string): string => value.normalize('NFC').replace(/\s+/g, ' ').trim()
-
-function pointedLines(html: string): string[] {
-  return [...html.matchAll(/<[^>]+\sdata-pointed(?:\s[^>]*)?>([^<]+)<\/[^>]+>/g)].map((match) => text(match[1] ?? ''))
-}
-
-function fontRows(output: string): string[] {
-  return output
-    .split('\n')
-    .slice(2)
-    .map((line) => line.trim())
-    .filter(Boolean)
-}
 
 const faces = [
   // Alef has nikud but no U+0591-05AF taamim glyphs, so its specimen stops at the marks the face can own without fallback.
