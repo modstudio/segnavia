@@ -4,7 +4,7 @@ import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/b
 import type { PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
-import type { AssetAnswer, Assets } from './options.ts'
+import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
 import { withinBound } from './render-deadline.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, waitsForReadiness } from './render-readiness.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
@@ -19,6 +19,7 @@ export interface BrowserTabSetup {
   beforeOutput?: (tab: Tab) => Promise<void>
   origins?: Iterable<OriginApproval>
   assets?: Assets
+  assetBudget?: AssetBudget
   limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
@@ -96,7 +97,7 @@ export async function renderInBrowserTab<T>(
     bytes: setup.limits?.assets?.bytes ?? DEFAULT_LIMITS.assets.bytes,
     each: setup.limits?.assets?.each ?? DEFAULT_LIMITS.assets.each,
   }
-  let assetBytes = 0
+  const assetBudget = setup.assetBudget ?? { bytes: 0 }
   await context.route('**/*', async (route) => {
     const url = route.request().url()
     if (url.startsWith('data:') || url === 'about:blank') return route.continue()
@@ -114,12 +115,12 @@ export async function renderInBrowserTab<T>(
     if (decision.action === 'continue') await route.continue()
     else if (decision.action === 'fulfill') {
       const bytes = decision.body.byteLength
-      const limitRefusal = assetLimitRefusal(url, bytes, assetBytes, assetLimits)
+      const limitRefusal = assetLimitRefusal(url, bytes, assetBudget.bytes, assetLimits)
       if (limitRefusal) {
         refused.add(limitRefusal)
         await route.abort('blockedbyclient')
       } else {
-        assetBytes += bytes
+        assetBudget.bytes += bytes
         await route.fulfill({ body: Buffer.from(decision.body), contentType: decision.contentType })
       }
     } else {

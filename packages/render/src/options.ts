@@ -27,6 +27,10 @@ export interface AssetAnswer {
 
 export type Assets = (url: string, options: { kind: import('@segnavia/format').FetchKind; signal: AbortSignal }) => Promise<AssetAnswer | undefined>
 
+export interface AssetBudget {
+  bytes: number
+}
+
 export type OverflowPart = 'page' | 'front' | 'body' | 'margin'
 
 export interface OverflowContribution {
@@ -70,6 +74,8 @@ export interface RenderOptions {
   newId?: () => string
   origins?: Iterable<OriginApproval>
   assets?: Assets
+  /** @internal Shared by every browser tab opened for one render call. */
+  assetBudget?: AssetBudget
   css?: string
   fonts?: Font[]
   fontSource?: FontSource
@@ -111,6 +117,7 @@ export function parseRenderOptions<T extends RenderOptions>(options: T): T {
   }
   return {
     ...options,
+    assetBudget: { bytes: 0 },
     limits: parseLimits(options.limits, 'host'),
     ...(options.pageWidths === undefined ? {} : { pageWidths: PageWidths.parse(options.pageWidths) }),
   }
@@ -135,9 +142,10 @@ export function enforceDeckLimits(deck: Deck, limits: Limits | undefined): void 
   if (reasons.length > 0) throw new RenderRefusedError(reasons.join('; '))
 }
 
-export const assetSetup = (options: RenderOptions): Pick<RenderOptions, 'origins' | 'assets' | 'limits'> => ({
+export const assetSetup = (options: RenderOptions): Pick<RenderOptions, 'origins' | 'assets' | 'assetBudget' | 'limits'> => ({
   origins: options.origins,
   assets: options.assets,
+  assetBudget: options.assetBudget,
   limits: options.limits,
 })
 

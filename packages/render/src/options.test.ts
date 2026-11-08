@@ -33,3 +33,9 @@ test('render deck limits refuse before rendering', () => {
 test('removed render local-font limits name its replacement', () => {
   expect(() => parseRenderOptions({ localFonts: { limits: { count: 1 } } } as never)).toThrow('limits.localFonts')
 })
+
+test('parsed options own one asset budget that copies preserve', () => {
+  const options = parseRenderOptions({})
+  expect(options.assetBudget).toEqual({ bytes: 0 })
+  expect({ ...options }.assetBudget).toBe(options.assetBudget)
+})
