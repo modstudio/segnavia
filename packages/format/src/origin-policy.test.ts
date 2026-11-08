@@ -3,10 +3,10 @@ import { DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-p
 
 describe('origin policy', () => {
   test('defaults approve only their declared fetch kinds', () => {
-    expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'style', []).allowed).toBe(true)
-    expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'script', []).allowed).toBe(false)
-    expect(originDecision('https://fonts.gstatic.com/s/inter.woff2', 'font', []).allowed).toBe(true)
-    expect(originDecision('https://example.com/image.png', 'image', []).allowed).toBe(false)
+    expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'style', [], true).allowed).toBe(true)
+    expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'script', [], true).allowed).toBe(false)
+    expect(originDecision('https://fonts.gstatic.com/s/inter.woff2', 'font', [], true).allowed).toBe(true)
+    expect(originDecision('https://example.com/image.png', 'image', [], true).allowed).toBe(false)
   })
 
   test('script approvals exist only for scripted frames', () => {
@@ -17,9 +17,9 @@ describe('origin policy', () => {
 
   test('host approvals add kinds without replacing defaults', () => {
     const approvals: OriginApproval[] = [{ origin: 'https://assets.example', kinds: ['image', 'style'] }]
-    expect(originDecision('https://assets.example/a.png', 'image', approvals).allowed).toBe(true)
-    expect(originDecision('https://assets.example/a.js', 'script', approvals).allowed).toBe(false)
-    expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'style', approvals).allowed).toBe(true)
+    expect(originDecision('https://assets.example/a.png', 'image', approvals, true).allowed).toBe(true)
+    expect(originDecision('https://assets.example/a.js', 'script', approvals, true).allowed).toBe(false)
+    expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'style', approvals, true).allowed).toBe(true)
   })
 
   test('all default script CDNs require exact versions', () => {
@@ -31,8 +31,8 @@ describe('origin policy', () => {
       ['https://code.jquery.com/jquery-3.7.1.min.js', 'https://code.jquery.com/jquery-latest.min.js'],
     ]
     for (const [pinned, unpinned] of examples) {
-      expect(originDecision(pinned, 'script', []).allowed).toBe(true)
-      const decision = originDecision(unpinned, 'script', DEFAULT_ORIGINS)
+      expect(originDecision(pinned, 'script', [], true).allowed).toBe(true)
+      const decision = originDecision(unpinned, 'script', DEFAULT_ORIGINS, true)
       expect(decision.allowed).toBe(false)
       if (!decision.allowed) expect(decision.reason).toContain('exact x.y.z package version')
     }

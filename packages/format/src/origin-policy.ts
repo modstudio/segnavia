@@ -37,7 +37,7 @@ export function originSet(values: Iterable<string> | undefined, bare = false): S
   return result
 }
 
-export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts = true): Set<string> {
+export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
   const result = new Set<string>()
   if (kind === 'script' && !scripts) return result
   for (const approval of [...DEFAULT_ORIGINS, ...(approvals ?? [])]) {
@@ -48,7 +48,7 @@ export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined,
   return result
 }
 
-export function originDecision(value: string, kind: FetchKind, approvals: Iterable<OriginApproval> | undefined, scripts = true): OriginDecision {
+export function originDecision(value: string, kind: FetchKind, approvals: Iterable<OriginApproval> | undefined, scripts: boolean): OriginDecision {
   let url: URL
   try {
     url = new URL(value)
