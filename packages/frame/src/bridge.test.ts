@@ -88,7 +88,7 @@ describe('frame document', () => {
     expect(html).not.toContain('<script')
     expect(html).toContain("default-src 'none'; script-src 'none'")
     expect(html).toContain("object-src 'none'; base-uri 'none'; form-action 'none'")
-    expect(html).toContain('<meta http-equiv="Content-Security-Policy" content="img-src &#39;none&#39;">')
+    expect(html).toContain('<meta http-equiv="Content-Security-Policy" content="img-src \'none\'">')
     expect(html.match(/http-equiv="Content-Security-Policy"/g)).toHaveLength(2)
     expect(html).toContain('<style>*,*::before,*::after{animation-play-state:paused!important}</style>')
     expect(html).toContain(BLOCK_DIRECTION_CSS)
