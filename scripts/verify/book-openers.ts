@@ -82,6 +82,10 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
       const outline = pdfOutlineItems(joined.document).find((item) => compact(item.title) === compact(title))
       const links = annotationDestinations(joined.document)
       const text = joined.pages[shared - 1] ?? ''
+      const folio = joined.plan.folios[shared - 1] ?? ''
+      const contentsShowsFolio = joined.pages.some((page) =>
+        page.split('\n').some((line) => compact(line).includes(compact(title)) && compact(line).includes(compact(folio))),
+      )
       check(
         `${key} continue joins chapter two to chapter one's last PDF page and reduces the PDF page count`,
         shared === end && joined.document.getPageCount() < separate.document.getPageCount(),
@@ -89,8 +93,8 @@ export async function verifyBookOpeners(renderer: Renderer, check: Check): Promi
       )
       check(
         `${key} continue keeps contents, outline and running-head targets on the shared PDF page`,
-        outline?.page === shared && links.includes(shared) && text.includes(`HEAD[${title}]`) && text.includes(`FOLIO[${joined.plan.folios[shared - 1]}]`),
-        `shared=${shared}, outline=${outline?.page}, links=${links.join(',')}, compared-head=${title}, compared-folio=${joined.plan.folios[shared - 1]}`,
+        outline?.page === shared && links.includes(shared) && contentsShowsFolio && text.includes(`HEAD[${title}]`) && text.includes(`FOLIO[${folio}]`),
+        `shared=${shared}, outline=${outline?.page}, links=${links.join(',')}, contents-folio=${contentsShowsFolio}, compared-head=${title}, compared-folio=${folio}`,
       )
     } finally {
       joined.close()
