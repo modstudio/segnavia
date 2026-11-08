@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { diffDocuments, type Document, Document as DocumentSchema, invertOps } from '@segnavia/format'
-import { appendBoardHistory, BOARD_HISTORY_LIMIT, emptyBoardHistory, rebaseBoardHistory, redoBoardHistory, undoBoardHistory } from './board-history.ts'
+import { type Document, Document as DocumentSchema, diffDocuments, invertOps } from '@segnavia/format'
+import {
+  appendBoardHistory,
+  BOARD_HISTORY_LIMIT,
+  type BoardHistory,
+  emptyBoardHistory,
+  rebaseBoardHistory,
+  redoBoardHistory,
+  undoBoardHistory,
+} from './board-history.ts'
 
 function board(x = 0, title = 'Board'): Document {
   return DocumentSchema.parse({
@@ -21,7 +29,7 @@ function entry(before: Document, after: Document, edit: string) {
 describe('board history', () => {
   test('caps undo entries and clears redo on append', () => {
     const held = entry(board(), board(1), 'move')
-    let history = { undo: [], redo: [held] }
+    let history: BoardHistory<string> = { undo: [], redo: [held] }
     for (let index = 0; index <= BOARD_HISTORY_LIMIT; index += 1) history = appendBoardHistory(history, { ...held, edit: `${index}` })
     expect(history.undo).toHaveLength(BOARD_HISTORY_LIMIT)
     expect(history.redo).toEqual([])
