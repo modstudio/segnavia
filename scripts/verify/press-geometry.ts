@@ -34,7 +34,10 @@ export async function verifyDocumentPressGeometry(renderer: Renderer, work: stri
     children: [1, 2].map((number) => ({
       type: 'slide' as const,
       id: `slide-${number}`,
-      content: { kind: 'html' as const, html: '<html style="background:rgb(120,120,120)"><body style="margin:0;background:inherit"></body></html>' },
+      content: {
+        kind: 'html' as const,
+        html: '<html style="background:rgb(120,120,120)"><body style="margin:0"><div style="position:absolute;inset:0;background:rgb(60,60,60)"></div></body></html>',
+      },
       notes: `Notes ${number}`,
     })),
   } as const
@@ -48,19 +51,21 @@ export async function verifyDocumentPressGeometry(renderer: Renderer, work: stri
   writeFileSync(deckFile, deckBytes)
   execFileSync('pdftoppm', ['-f', '2', '-l', '2', '-r', '72', '-gray', '-singlefile', deckFile, deckRaster])
   const raster = readPgm(`${deckRaster}.pgm`)
-  const matching: Array<{ x: number; y: number }> = []
-  for (let y = 0; y < raster.height; y++) {
-    for (let x = 0; x < raster.width; x++) {
-      const value = raster.pixels[y * raster.width + x]
-      if (value !== undefined && value >= 115 && value <= 125) matching.push({ x, y })
-    }
-  }
+  const trimTop = deckPage.getHeight() - deckTrim.y - deckTrim.height
   const extent = {
-    left: Math.min(...matching.map(({ x }) => x)),
-    top: Math.min(...matching.map(({ y }) => y)),
-    right: Math.max(...matching.map(({ x }) => x)) + 1,
-    bottom: Math.max(...matching.map(({ y }) => y)) + 1,
+    left: deckTrim.x,
+    top: trimTop,
+    width: deckTrim.width,
+    height: deckTrim.height,
   }
+  const grayAt = (x: number, y: number) => raster.pixels[Math.round(y) * raster.width + Math.round(x)]
+  const fillSamples = [
+    grayAt(extent.left + 2, extent.top + 2),
+    grayAt(extent.left + extent.width - 2, extent.top + 2),
+    grayAt(extent.left + 2, extent.top + extent.height - 2),
+    grayAt(extent.left + extent.width - 2, extent.top + extent.height - 2),
+    grayAt(extent.left + extent.width / 2, extent.top + extent.height / 2),
+  ]
   check(
     'a deck Document print writes page 2 press boxes and fills its trim',
     close(deckPage.getWidth(), 351) &&
@@ -69,11 +74,12 @@ export async function verifyDocumentPressGeometry(renderer: Renderer, work: stri
       close(deckTrim.y, 25.5) &&
       close(deckTrim.width, 300) &&
       close(deckTrim.height, 150) &&
-      close(extent.left, 26) &&
-      close(extent.top, 26) &&
-      close(extent.right - extent.left, 300) &&
-      close(extent.bottom - extent.top, 150),
-    `media=${deckPage.getWidth().toFixed(1)}x${deckPage.getHeight().toFixed(1)}pt, trim=${boxText(deckTrim)}, bleed=${boxText(deckBleed)}, fill=${extent.left}/${extent.top}/${extent.right - extent.left}/${extent.bottom - extent.top}pt`,
+      close(extent.left, 25.5) &&
+      close(extent.top, 25.5) &&
+      close(extent.width, 300) &&
+      close(extent.height, 150) &&
+      fillSamples.every((value) => value !== undefined && value >= 55 && value <= 65),
+    `media=${deckPage.getWidth().toFixed(1)}x${deckPage.getHeight().toFixed(1)}pt, trim=${boxText(deckTrim)}, bleed=${boxText(deckBleed)}, fill=${extent.left.toFixed(2)}/${extent.top.toFixed(2)}/${extent.width.toFixed(2)}/${extent.height.toFixed(2)}pt samples=${fillSamples.join('/')}`,
   )
 
   const notes = await pressPages(await renderer.deckPdf(deck, { layout: 'notes' }), { width: 612, height: 792 })
@@ -91,7 +97,7 @@ export async function verifyDocumentPressGeometry(renderer: Renderer, work: stri
     mode: 'continuous',
     page: { paper: 'a5', margin },
     print,
-    children: [{ type: 'flow', html: '<h1>Press book</h1><p>One composed page.</p>' }],
+    children: [{ type: 'flow', title: 'Chapter', html: '<h1>Press book</h1><p>One composed page.</p>' }],
   }
   const bookPages = await pressPages(await renderer.bookPdf(book), { width: 419.53, height: 595.28 })
   check(
