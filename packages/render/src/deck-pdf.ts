@@ -7,6 +7,7 @@ import {
   impose,
   impositionMarks,
   limitRefusal,
+  type Limits,
   type Imposition as ParsedImposition,
   pagePlacementLayout,
 } from '@segnavia/format'
@@ -51,6 +52,7 @@ interface DeckPdfServices {
       beforeOutput?: (tab: Tab) => Promise<void>
       origins?: Iterable<OriginApproval>
       assets?: Assets
+      limits?: Limits
       fontFailures?: FontFailure[]
       fontLoadReport?: (report: { failures: FontFailure[] }) => void
     },

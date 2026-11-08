@@ -52,6 +52,7 @@ interface TabSetup {
   slots?: PreparedSlots
   origins?: Iterable<OriginApproval>
   assets?: Assets
+  limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
 }

@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { DEFAULT_LIMITS, type FetchKind, type FontFailure, type Limits, type OriginApproval, originDecision } from '@segnavia/format'
+import { type FetchKind, type FontFailure, type Limits, type OriginApproval, originDecision, resolveLimits } from '@segnavia/format'
 import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
 import type { PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, Page as Tab } from 'playwright-core'
@@ -93,10 +93,7 @@ export async function renderInBrowserTab<T>(
   const refused = new Set<string>()
   const missing = new Set<string>()
   const controller = new AbortController()
-  const assetLimits = {
-    bytes: setup.limits?.assets?.bytes ?? DEFAULT_LIMITS.assets.bytes,
-    each: setup.limits?.assets?.each ?? DEFAULT_LIMITS.assets.each,
-  }
+  const assetLimits = resolveLimits(undefined, setup.limits).assets
   const assetBudget = setup.assetBudget ?? { bytes: 0 }
   await context.route('**/*', async (route) => {
     const url = route.request().url()
