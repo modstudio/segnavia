@@ -28,4 +28,25 @@ describe('font load', () => {
     expect(fontFailuresData([{ ...valid, family: 'x'.repeat(257) }])).toBeNull()
     expect(fontFailuresData(Array.from({ length: 65 }, () => valid))).toBeNull()
   })
+
+  test('attempts every declaration while bounding the report', async () => {
+    let loads = 0
+    const faces = Array.from({ length: 65 }, (_, index) => ({
+      family: `Family ${index}`,
+      weight: 'normal',
+      style: 'normal',
+      status: 'error',
+      load: async () => {
+        loads++
+      },
+    }))
+    const failures = await loadDeclaredFonts(
+      faces.map((_, index) => ({ font: `font-${index}`, sample: 'a' })),
+      faces,
+      { setAttribute: () => {} },
+      (font) => `Family ${font.slice(5)}`,
+    )
+    expect(loads).toBe(65)
+    expect(failures).toHaveLength(64)
+  })
 })

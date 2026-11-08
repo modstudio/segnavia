@@ -47,7 +47,7 @@ export async function loadDeclaredFonts(
     if (value === 'bold') return '700'
     return String(value)
   }
-  for (const declaration of declarations.slice(0, 64)) {
+  for (const declaration of declarations) {
     const family = familyValue(declaration.font).slice(0, 256)
     const face = available.find(
       (candidate) =>
@@ -57,7 +57,7 @@ export async function loadDeclaredFonts(
     )
     if (face) await face.load(declaration.sample).catch(() => undefined)
     if (face && face.status !== 'error') continue
-    failures.push({
+    if (failures.length < FONT_FAILURE_LIMIT) failures.push({
       font: declaration.font.slice(0, 256),
       family,
       ...(declaration.weight === undefined ? {} : { weight: declaration.weight }),
