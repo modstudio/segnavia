@@ -3,11 +3,10 @@ import { computeFolios, type DocumentInput, Page, type Page as PageValue } from 
 import { fragmentationCss, markdownHtml, resolvePageHtml } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
-import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { expandFramePage } from './motif-expansion.ts'
 import {
   printedPageDocument as documentHtml,
-  PRINTED_PAGE_COMPOSER_SCRIPT,
+  COMPOSER_SCRIPT,
   PRINTED_PAGE_FAILURE_ATTRIBUTE,
   PrintedPagesRefusedError,
 } from './printed-page-document.ts'
@@ -81,10 +80,10 @@ describe('printedPageDocument', () => {
     expect(html).toContain('"numbering":"hebrew"')
     expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
     expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
-    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(layoutScript())
-    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(computeFolios.toString())
-    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(decideLayoutSettle.toString())
-    expect(PRINTED_PAGE_COMPOSER_SCRIPT).toContain(`performance.now()-startedAt,${LAYOUT_SETTLE_MS}`)
+    expect(COMPOSER_SCRIPT).toContain(layoutScript())
+    expect(COMPOSER_SCRIPT).toContain(computeFolios.toString())
+    expect(COMPOSER_SCRIPT).toContain('measureInput')
+    expect(COMPOSER_SCRIPT).toContain('planBook')
     expect(html).toContain(`var failureName="${PRINTED_PAGE_FAILURE_ATTRIBUTE}"`)
     expect(html).toContain(`type:'${MESSAGE.composeFailure}'`)
   })
@@ -101,9 +100,9 @@ describe('printedPageDocument', () => {
   })
 
   test('does not read the window width while composing', () => {
-    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('clientWidth')
-    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('innerWidth')
-    expect(PRINTED_PAGE_COMPOSER_SCRIPT).not.toContain('documentElement.clientWidth')
+    expect(COMPOSER_SCRIPT).not.toContain('clientWidth')
+    expect(COMPOSER_SCRIPT).not.toContain('innerWidth')
+    expect(COMPOSER_SCRIPT).not.toContain('documentElement.clientWidth')
   })
 
   test('writes escaped metadata title while keeping the page language', () => {
@@ -121,7 +120,8 @@ describe('printedPageDocument', () => {
       body: { html: '<!doctype html><html><head><meta name="x"><style>.x{color:red}</style></head><body><p>Whole</p></body></html>' },
     })
     const html = printedPageDocument(full, { nonce: 'held' })
-    expect(html).toContain('<meta name="x"><style>.x{color:red}</style><div data-segnavia-flow><p data-segnavia-id="test-5">Whole</p></div>')
+    expect(html).toContain('<meta name="x"><style>.x{color:red}</style><div data-segnavia-galleys><div data-segnavia-flow="printed-page"')
+    expect(html).toContain('<p data-segnavia-id="test-5">Whole</p>')
     expect(html).not.toContain('<div data-segnavia-flow><!doctype html>')
   })
 
@@ -147,17 +147,16 @@ describe('printedPageDocument', () => {
 
   test('settles furniture resources and fonts before marking composition complete', () => {
     const html = printedPageDocument(page, { nonce: 'held' })
-    expect(html).toContain('readyImages(pages)')
-    expect(html).toContain('document.fonts?document.fonts.ready:Promise.resolve(),readyImages(pages)')
+    expect(html).toContain('readyImages(composed)')
+    expect(html).toContain('document.fonts?document.fonts.ready:Promise.resolve(),readyImages(composed)')
     expect(html).not.toContain('setTimeout(resolve,50)')
   })
 
-  test('counts columns after loaded layout is stable and refuses a changed measured count', () => {
+  test('plans line boxes after loaded layout is stable and refuses a changed measured count', () => {
     const html = printedPageDocument(page, { nonce: 'held', only: 2, expectedCount: 3 })
     expect(html).toContain("window.addEventListener('load',resolve,{once:true})")
-    expect(html).toContain('var channel=new MessageChannel()')
-    expect(html).toContain("decision==='wait-for-layout'")
-    expect(html).toContain('setTimeout(sample,0)')
+    expect(html).toContain('measureInput')
+    expect(html).toContain('planBook')
     expect(html).toContain('"expectedCount":3')
     expect(html).toContain('the composed page count changed from ')
   })

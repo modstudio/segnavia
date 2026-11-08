@@ -65,7 +65,11 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
       template: limitRefusalTemplate('pages', limits.pages, { pagesSource: limits.pagesSource }),
       placeholder: LIMIT_ACTUAL_PLACEHOLDER,
     },
-    ...(options.screen ? { screen: options.screen } : {}),
+    pageMarker: 'data-segnavia-book-page',
+    only: null,
+    expectedCount: null,
+    measure: false,
+    ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const bookCss = bookStylesheet(options.fontCss, view.css, options.css)
@@ -79,7 +83,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `@media print{:where([data-segnavia-galley-source]){display:none!important}}` +
     bookCss
   const drawn = withDiagramScript(view.html, options.nonce, options.diagramScript)
-  const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json, options.screen !== undefined)}</script>`
+  const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,

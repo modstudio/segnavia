@@ -21,6 +21,7 @@ export interface PaginateMark {
 }
 
 export interface PaginateBlock {
+  id?: string
   kind: 'heading' | 'figure' | 'table' | 'text'
   tag: string
   position: { chapter: number; block: number }
@@ -30,6 +31,7 @@ export interface PaginateBlock {
   widows?: number
   keepWithNext?: boolean
   keepTogether?: boolean
+  breakBefore?: boolean
   headerHeight?: number
   footnoteRefs?: PaginateNoteRef[]
   marks?: PaginateMark[]

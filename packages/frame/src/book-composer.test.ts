@@ -11,15 +11,15 @@ import {
 } from './book-composer.ts'
 
 const facts = {
-  frameWidth: 800,
+  hasLayout: true,
   flows: [{ id: 'chapter-1', sourceBlocks: 1, contentBlocks: 1, measuredLines: 1 }],
   plannedPages: 1,
   visibleElapsedMs: 0,
 }
 
 describe('decideBookMeasurement', () => {
-  test('waits without a bound while the frame has no width', () => {
-    expect(decideBookMeasurement({ ...facts, frameWidth: 0, visibleElapsedMs: 2_000 }, 1_000)).toBe('wait-for-width')
+  test('waits without a bound while the frame has no layout', () => {
+    expect(decideBookMeasurement({ ...facts, hasLayout: false, visibleElapsedMs: 2_000 }, 1_000)).toBe('wait-for-width')
   })
 
   test('retries deferred line measurement and page planning within the bound', () => {

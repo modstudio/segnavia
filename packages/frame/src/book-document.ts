@@ -1,6 +1,6 @@
 import { type Book, type BookView, bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
-import { composerScript } from './book-composer.ts'
+import { COMPOSER_SCRIPT } from './composer.ts'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
 
 export { BOOK_COMPOSED_ATTRIBUTE, BOOK_COMPOSED_MS_ATTRIBUTE, BOOK_FAILURE_ATTRIBUTE } from './book-composer.ts'
@@ -40,4 +40,4 @@ export function bookValueDocument(
   return paginatedViewDocument(view, view.pagination, options)
 }
 
-export const BOOK_COMPOSER_SCRIPT = composerScript('{}')
+export { COMPOSER_SCRIPT }

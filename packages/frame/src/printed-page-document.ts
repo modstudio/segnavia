@@ -8,9 +8,6 @@ import {
   type Limits,
   limitRefusalTemplate,
   type Page,
-  PRINTED_PAGE_NUMBER_PATH,
-  PRINTED_PAGE_ROLES,
-  PRINTED_PAGE_TOTAL_PATH,
   PX_PER_MM,
   printedFromDocument,
   type ResolvedParentPage,
@@ -19,12 +16,10 @@ import {
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
-import { embedFunction, fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
-import { layoutScript } from '@segnavia/layout'
+import { fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
-import { DIAGRAM_READY_EXPR, withDiagramScript } from './diagram-document.ts'
-import { decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
-import { fragmentColumns, fragmentSpan, paperCount } from './printed-page-columns.ts'
+import { COMPOSER_SCRIPT, composerScript } from './composer.ts'
+import { withDiagramScript } from './diagram-document.ts'
 
 export const PRINTED_PAGE_COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const PRINTED_PAGE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
@@ -128,32 +123,6 @@ function pageParts(html: string): { head: string; body: string } {
   return { head: safeHead, body }
 }
 
-function composerScript(configJson: string): string {
-  return `(function(){
-var fail=function(reason){document.documentElement.setAttribute('${PRINTED_PAGE_FAILURE_ATTRIBUTE}',String(reason));};
-var config=${configJson};var source=document.querySelector('[data-segnavia-flow]');if(!source){fail('the composed flow element is missing');return;}
-${layoutScript()}
-${embedFunction('decideLayoutSettle', decideLayoutSettle)}
-${embedFunction('fragmentSpan', fragmentSpan)}
-${embedFunction('fragmentColumns', fragmentColumns)}
-${embedFunction('paperCount', paperCount)}
-var readyImages=function(root){var images=Array.from(root.querySelectorAll('img,image'));return Promise.all(images.map(function(image){if(image.tagName.toLowerCase()==='img'&&image.decode)return image.decode().catch(function(){});if(image.tagName.toLowerCase()==='img'&&image.complete)return Promise.resolve();return new Promise(function(resolve){image.addEventListener('load',resolve,{once:true});image.addEventListener('error',resolve,{once:true});});}));};
-var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});Promise.all([loaded,${DIAGRAM_READY_EXPR},document.fonts?document.fonts.ready:Promise.resolve(),readyImages(source)]).then(function(){
-try{var parentByName={};for(var p=0;p<config.parents.length;p++)parentByName[config.parents[p].name]=config.parents[p];
-var measure=document.createElement('div');measure.setAttribute('data-segnavia-measure','');measure.style.cssText='position:absolute;visibility:hidden;inset-block-start:0;inset-inline-start:0;inline-size:'+config.geometry.textWidth+'px;block-size:'+config.geometry.textHeight+'px;column-width:'+config.geometry.textWidth+'px;column-gap:0;column-fill:auto;direction:'+config.direction+';';
-var spacer=Math.max(0,config.geometry.textHeight-config.geometry.firstHeight);if(spacer){var space=document.createElement('div');space.style.cssText='block-size:'+spacer+'px;break-after:avoid';measure.append(space);}while(source.firstChild)measure.append(source.firstChild);source.replaceWith(measure);
-var all=measure.querySelectorAll('*');for(var b=0;b<all.length;b++){var style=getComputedStyle(all[b]);if(style.breakBefore==='page')all[b].style.breakBefore='column';if(style.breakAfter==='page')all[b].style.breakAfter='column';}
-return new Promise(function(resolve,reject){var previous;var startedAt=performance.now();var channel=new MessageChannel();var sample=function(){var current={inlineSize:measure.getBoundingClientRect().width,scrollWidth:measure.scrollWidth};var decision=decideLayoutSettle(current,previous,config.geometry,performance.now()-startedAt,${LAYOUT_SETTLE_MS});if(decision==='settled'){channel.port1.close();channel.port2.close();resolve();return;}if(decision==='refuse'){channel.port1.close();channel.port2.close();reject(new Error('the measure box did not hold the configured text width with a stable scroll width within ${LAYOUT_SETTLE_MS} ms; remove author CSS that changes the composer measure box size, such as padding, border, transform or inline-size on every element, or let content whose layout keeps changing settle, to clear this refusal'));return;}previous=current;if(decision==='wait-for-layout'){setTimeout(sample,0);return;}channel.port2.postMessage(0);};channel.port1.onmessage=sample;channel.port2.postMessage(0);}).then(function(){var box=measure.getBoundingClientRect();var spans=[];var keepRect=function(rect){if(rect.height)spans.push(fragmentSpan(rect,box,config.direction));};var walker=document.createTreeWalker(measure,NodeFilter.SHOW_TEXT);var text;while(text=walker.nextNode()){if(!(text.textContent||'').trim())continue;var range=document.createRange();range.selectNodeContents(text);var textRects=range.getClientRects();for(var t=0;t<textRects.length;t++)keepRect(textRects[t]);range.detach();}var elements=measure.querySelectorAll('*');for(var e=0;e<elements.length;e++){var elementRects=elements[e].getClientRects();for(var r=0;r<elementRects.length;r++)keepRect(elementRects[r]);}var count=paperCount(spans,config.geometry.textWidth);var setHeight=function(papers){var height=(papers*config.geometry.paperHeight)+'px';document.documentElement.style.blockSize=height;document.body.style.blockSize=height;};if(count>config.limit){fail(config.limitRefusal.template.split(config.limitRefusal.placeholder).join(String(count)));measure.remove();if(config.measure){setHeight(count);document.documentElement.setAttribute('${PRINTED_PAGE_COMPOSED_ATTRIBUTE}','');}return;}if(config.expectedCount!==null&&count!==config.expectedCount){throw new Error('the composed page count changed from '+config.expectedCount+' to '+count+' between measurement and paper composition; wait for the page layout to settle or shorten the content to clear this refusal');}
-var firstColumn=function(element){var held=element.getClientRects();if(!held.length)return 0;return fragmentColumns(fragmentSpan(held[0],box,config.direction),config.geometry.textWidth).first;};
-var planned=planPrintedPages(config.rules,count,config.direction,config.numbering);
-var fill=function(root,selected){var data={};data['${PRINTED_PAGE_NUMBER_PATH}']=selected.number;data['${PRINTED_PAGE_TOTAL_PATH}']=selected.total;var bindings=root.querySelectorAll('[data-slot-value]');for(var i=0;i<bindings.length;i++){var path=bindings[i].getAttribute('data-slot-value');if(Object.prototype.hasOwnProperty.call(data,path)){bindings[i].removeAttribute('data-slot-value');bindings[i].textContent=data[path];if(!bindings[i].hasAttribute('dir'))bindings[i].setAttribute('dir','auto');}}};
-var pages=document.createElement('div');pages.setAttribute('data-segnavia-pages','');for(var index=1;index<=count;index++){if(config.only!==null&&config.only!==index)continue;var selected=planned[index-1];if(config.roles.indexOf(selected.role)<0)throw new Error('unknown printed-page role '+selected.role);var parent=parentByName[selected.parent],margin=parent.margin;var paper=document.createElement('section');paper.setAttribute('data-segnavia-printed-page',String(index));paper.setAttribute('data-segnavia-role',selected.role);paper.setAttribute('data-segnavia-side',selected.face);paper.style.cssText='position:relative;box-sizing:border-box;inline-size:'+config.geometry.paperWidth+'px;block-size:'+config.geometry.paperHeight+'px;overflow:hidden;break-after:page;direction:'+config.direction+';';
-var inlineStart=(selected.side==='right')===(config.direction==='ltr')?margin.inlineStart:margin.inlineEnd;var view=document.createElement('div');view.setAttribute('data-segnavia-page-view','');view.style.cssText='position:absolute;overflow:hidden;inset-block-start:'+margin.blockStart+'px;inset-inline-start:'+inlineStart+'px;inline-size:'+config.geometry.textWidth+'px;block-size:'+(index===1?config.geometry.firstHeight:config.geometry.textHeight)+'px;';var clone=measure.cloneNode(true);clone.removeAttribute('data-segnavia-measure');clone.setAttribute('data-segnavia-flow-clone','');clone.style.visibility='visible';clone.style.position='absolute';clone.style.insetBlockStart=(index===1&&spacer?-spacer:0)+'px';clone.style.insetInlineStart=(-((index-1)*config.geometry.textWidth))+'px';var ids=clone.querySelectorAll('[id]'),originals=measure.querySelectorAll('[id]');for(var q=0;q<ids.length;q++)if(firstColumn(originals[q])!==index-1)ids[q].removeAttribute('id');view.append(clone);paper.append(view);
-var furniture=function(region,html){if(!html)return;var held=document.createElement('div');held.setAttribute('data-segnavia-'+region,'');held.setAttribute('data-segnavia-parent',parent.name);var regionSize=region==='head'?margin.blockStart:margin.blockEnd;held.style.cssText='position:absolute;overflow:hidden;inset-inline-start:'+inlineStart+'px;inline-size:'+config.geometry.textWidth+'px;'+(region==='head'?'inset-block-start:0;block-size:'+regionSize+'px':'inset-block-end:0;block-size:'+regionSize+'px');held.innerHTML=html;fill(held,selected);paper.append(held);};furniture('head',parent.head);furniture('foot',parent.foot);pages.append(paper);}measure.remove();document.body.append(pages);var regions=pages.querySelectorAll('[data-segnavia-head],[data-segnavia-foot]');for(var f=0;f<regions.length;f++){if(regions[f].scrollHeight>regions[f].clientHeight+.5){var kind=regions[f].hasAttribute('data-segnavia-head')?'head':'foot';regions[f].setAttribute('data-segnavia-furniture-overflow',regions[f].getAttribute('data-segnavia-parent')+':'+kind+':'+(regions[f].scrollHeight-regions[f].clientHeight));}}setHeight(config.only===null?count:1);return Promise.all([document.fonts?document.fonts.ready:Promise.resolve(),readyImages(pages)]).then(function(){document.documentElement.setAttribute('${PRINTED_PAGE_COMPOSED_ATTRIBUTE}','');});});
-}catch(error){fail(error instanceof Error?error.message:String(error));}}).catch(function(error){fail(error instanceof Error?error.message:String(error));});
-})();`
-}
-
 export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1] & { newId?: () => string }): string {
   return printedPageValueDocument(resolvePageHtml(printedFromDocument(parseDocument(input, { newId: options.newId }))), options)
 }
@@ -181,13 +150,37 @@ export function printedPageValueDocument(
   const direction = resolveDirection(page.dir, page.lang, htmlTextSample(page.html))
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
-  const parents = resolved.map((parent) => ({
-    ...parent,
-    margin: Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])),
-  }))
+  const parents = resolved.map((parent) => {
+    const margin = Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])) as typeof parent.margin
+    return {
+      ...parent,
+      margin,
+      textArea: {
+        width: measured.paperWidth - margin.inlineStart - margin.inlineEnd,
+        height: measured.paperHeight - margin.blockStart - margin.blockEnd,
+      },
+    }
+  })
+  const rules = page.printedPages.rules
+  const parentNames = {
+    opener: rules.first ?? rules.every,
+    recto: rules.recto ?? rules.every,
+    verso: rules.verso ?? rules.every,
+    blank: rules.every,
+    fixed: rules.every,
+  }
   const config = {
     direction,
-    geometry: measured,
+    dir: page.dir,
+    lang: page.lang,
+    geometry: { ...measured, columnGap: 0, notesGap: 0 },
+    orphans: 2,
+    widows: 2,
+    rectoOpenings: false,
+    endnotePlacement: 'chapter',
+    runningHead: {},
+    parentNames,
+    pageMarker: 'data-segnavia-printed-page',
     limit: limits.pages,
     limitRefusal: {
       template: limitRefusalTemplate('pages', limits.pages, { pagesSource: limits.pagesSource }),
@@ -198,13 +191,13 @@ export function printedPageValueDocument(
     measure: options.measure ?? false,
     numbering,
     parents,
-    roles: PRINTED_PAGE_ROLES,
-    rules: page.printedPages.rules,
+    rules,
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const css = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]),html:not([${PRINTED_PAGE_COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${fragmentationCss(page.printedPages.fragmentation)}${options.css ?? ''}`
   const parts = pageParts(page.html)
-  const drawn = withDiagramScript(`${parts.head}<div data-segnavia-flow>${parts.body}</div>`, options.nonce, options.diagramScript)
+  const flow = `<div data-segnavia-galleys><div data-segnavia-flow="printed-page" data-parent-opener="${parentNames.opener}" data-parent-recto="${parentNames.recto}" data-parent-verso="${parentNames.verso}">${parts.body}</div></div>`
+  const drawn = withDiagramScript(`${parts.head}${flow}`, options.nonce, options.diagramScript)
   const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
@@ -222,4 +215,5 @@ export function printedPageValueDocument(
   })
 }
 
-export const PRINTED_PAGE_COMPOSER_SCRIPT = composerScript('{}')
+export { COMPOSER_SCRIPT }
+
