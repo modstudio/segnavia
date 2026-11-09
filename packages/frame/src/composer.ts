@@ -23,7 +23,14 @@ import {
 import { layoutScript } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
-import { dressPlanPages, fillFurniture, fillRegion, markFurnitureOverflow, markRegionOverflow, resolveRegionHeads } from './composer-dress.ts'
+import {
+  dressPlanPages,
+  fillFurniture,
+  fillRegionImplementation,
+  markFurnitureOverflow,
+  markRegionOverflow,
+  resolveRegionHeadsImplementation,
+} from './composer-dress.ts'
 import {
   composerLayoutReady,
   descendantKeepSignals,
@@ -221,9 +228,12 @@ ${embedFunction('fillFurniture', fillFurniture)}
 var MOTIF_ATTRIBUTE=${JSON.stringify(MOTIF_ATTRIBUTE)};
 var HEAD_TEMPLATE_MOTIF=${JSON.stringify(HEAD_TEMPLATE_MOTIF)};
 var HEAD_TEMPLATE_NAME_ATTRIBUTE=${JSON.stringify(HEAD_TEMPLATE_NAME_ATTRIBUTE)};
-${embedFunction('headTemplatePlacements', headTemplatePlacements)}
-${embedFunction('fillRegion', fillRegion)}
-${embedFunction('resolveRegionHeads', resolveRegionHeads)}
+${embedFunction('scanHeadTemplatePlacements', headTemplatePlacements)}
+var headTemplatePlacements=function(html){return scanHeadTemplatePlacements(html,MOTIF_ATTRIBUTE,HEAD_TEMPLATE_MOTIF,HEAD_TEMPLATE_NAME_ATTRIBUTE);};
+${embedFunction('fillRegionImplementation', fillRegionImplementation)}
+var fillRegion=function(html,values,direction,lang){return fillRegionImplementation(html,values,headTemplatePlacements,MOTIF_ATTRIBUTE);};
+${embedFunction('resolveRegionHeadsImplementation', resolveRegionHeadsImplementation)}
+var resolveRegionHeads=function(templates,variables,recordSlots,direction,lang){return resolveRegionHeadsImplementation(templates,variables,recordSlots,direction,lang,resolveHeadTemplate);};
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}
 ${embedFunction('markRegionOverflow', markRegionOverflow)}
 ${embedFunction('dressPlanPages', dressPlanPages)}

@@ -99,7 +99,7 @@ describe('saved book plans', () => {
       ],
     })
     const saved = savePlan(measurements, planned(measurements), numbering)
-    expect(saved.pages.find((page) => page.blank)?.variables).toEqual({})
+    expect(saved.pages.find((page) => page.blank)?.variables).toEqual({ 'segnavia:pages-total': 'ה' })
     expect(replayPlan(measurements, saved, numbering)).toMatchObject({ ok: true })
   })
 

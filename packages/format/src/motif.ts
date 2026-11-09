@@ -24,7 +24,12 @@ export interface HeadTemplatePlacement {
   selfClosing: boolean
 }
 
-export function headTemplatePlacements(html: string): HeadTemplatePlacement[] {
+export function headTemplatePlacements(
+  html: string,
+  motifAttribute = MOTIF_ATTRIBUTE,
+  motif = HEAD_TEMPLATE_MOTIF,
+  nameAttribute = HEAD_TEMPLATE_NAME_ATTRIBUTE,
+): HeadTemplatePlacement[] {
   const attribute = (markup: string, name: string): string | undefined => {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const match = new RegExp(`\\b${escaped}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(markup)
@@ -47,14 +52,14 @@ export function headTemplatePlacements(html: string): HeadTemplatePlacement[] {
     const token = tags[index]
     if (!token) continue
     const markup = token[0]
-    if (markup.startsWith('</') || attribute(markup, MOTIF_ATTRIBUTE) !== HEAD_TEMPLATE_MOTIF) continue
+    if (markup.startsWith('</') || attribute(markup, motifAttribute) !== motif) continue
     const start = token.index ?? 0
     const openEnd = start + markup.length
     const tag = token[1] ?? ''
     const selfClosing = /\/\s*>$/.test(markup)
     const end = selfClosing ? openEnd : placementEnd(tags, index, tag, openEnd)
     if (end === undefined) continue
-    placements.push({ start, end, openEnd, tag, name: attribute(markup, HEAD_TEMPLATE_NAME_ATTRIBUTE) ?? '', selfClosing })
+    placements.push({ start, end, openEnd, tag, name: attribute(markup, nameAttribute) ?? '', selfClosing })
   }
   return placements
 }

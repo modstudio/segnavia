@@ -9,7 +9,6 @@ export {
   calendarDate,
   resolveAsOfDay,
 } from './as-of-policy.ts'
-
 export { Board, BoardItem, BoardLabel, BoardSection, GridCell, LABEL_MIN_WIDTH } from './board.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'
 export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
@@ -239,7 +238,6 @@ export {
   rangeSample,
 } from './fonts.ts'
 export { HeadTemplate, HeadTemplatePart, LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
-export { withLibraryEntries } from './library-names.ts'
 export {
   fitPage,
   type Imposed,
@@ -266,6 +264,7 @@ export {
 export { Imposition, type ImpositionInput, MAX_IMPOSITION_CELLS } from './imposition-schema.ts'
 export { jsonSchemas } from './json-schemas.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
+export { withLibraryEntries } from './library-names.ts'
 export * from './limit-exports.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export * from './measurements.ts'

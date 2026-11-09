@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { identifiedBookInput } from './book-test-helper.ts'
-import { Book, BookViewPagination, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
+import { Book, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
@@ -209,22 +209,6 @@ describe('book', () => {
       widows: 2,
       endnotePlacement: 'book',
     })
-  })
-
-  test('resolved pagination stores declarations only and round-trips through its parser', () => {
-    const pagination = resolveBookPagination(
-      Book.parse(
-        input({
-          mode: 'paginated',
-          page,
-          variables: [{ name: 'topic', kind: 'text', from: 'content' }],
-          headTemplates: [{ name: 'topic-head', parts: [{ variable: 'topic' }] }],
-        }),
-      ),
-    )
-    expect(pagination?.variables.map(({ name }) => name)).toEqual(['topic'])
-    expect(pagination?.headTemplates.map(({ name }) => name)).toEqual(['topic-head'])
-    expect(BookViewPagination.parse(JSON.parse(JSON.stringify(pagination)))).toEqual(pagination)
   })
 
   test('a missing kind keeps a flowing section, and designed pages parse with their fields', () => {

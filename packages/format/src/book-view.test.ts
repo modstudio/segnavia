@@ -53,8 +53,8 @@ describe('book view', () => {
     const parsed = BookView.parse({ html: '<main>ספר</main>', pagination })
     expect(parsed).toMatchObject({ html: '<main>ספר</main>', pagination })
     expect(parsed.pagination).not.toHaveProperty('fragmentation')
-    expect(parsed.pagination?.variables.map((variable) => variable.name)).toContain('segnavia:folio')
-    expect(parsed.pagination?.headTemplates.map((template) => template.name)).toEqual(['segnavia:running-head', 'segnavia:folio'])
+    expect(parsed.pagination?.variables).toEqual([])
+    expect(parsed.pagination?.headTemplates).toEqual([])
   })
 
   test('exports its unresolved JSON Schema', () => {

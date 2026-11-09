@@ -2,14 +2,23 @@ import { type HeadTemplate, headTemplatePlacements, MOTIF_ATTRIBUTE } from '@seg
 import { resolveHeadTemplate } from '@segnavia/layout'
 
 export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {
-  const placements = headTemplatePlacements(html).filter(
+  return fillRegionImplementation(html, values, headTemplatePlacements, MOTIF_ATTRIBUTE)
+}
+
+export function fillRegionImplementation(
+  html: string,
+  values: { heads: Record<string, string> },
+  placementsIn: typeof headTemplatePlacements,
+  motifAttribute: string,
+): string {
+  const placements = placementsIn(html).filter(
     (placement, index, all) => !all.some((container, other) => other !== index && container.start < placement.start && container.end >= placement.end),
   )
   let output = html
   for (const placement of [...placements].reverse()) {
     const value = values.heads[placement.name]
     const opening = html.slice(placement.start, placement.openEnd)
-    const cleaned = opening.replace(new RegExp(`\\s${MOTIF_ATTRIBUTE}(?:-[\\w-]+)?\\s*=\\s*(?:(["'])([^"']*)\\1|[^\\s>]+)`, 'gi'), '').replace(/\/\s*>$/, '>')
+    const cleaned = opening.replace(new RegExp(`\\s${motifAttribute}(?:-[\\w-]+)?\\s*=\\s*(?:(["'])([^"']*)\\1|[^\\s>]+)`, 'gi'), '').replace(/\/\s*>$/, '>')
     const replacement = value ? `${cleaned}${value}</${placement.tag}>` : ''
     output = `${output.slice(0, placement.start)}${replacement}${output.slice(placement.end)}`
   }
@@ -23,8 +32,19 @@ export function resolveRegionHeads(
   direction?: string,
   lang?: string,
 ): Record<string, string> {
+  return resolveRegionHeadsImplementation(templates, variables, recordSlots, direction, lang, resolveHeadTemplate)
+}
+
+export function resolveRegionHeadsImplementation(
+  templates: readonly HeadTemplate[],
+  variables: Readonly<Record<string, string>>,
+  recordSlots: Readonly<Record<string, string | undefined>>,
+  direction: string | undefined,
+  lang: string | undefined,
+  resolve: typeof resolveHeadTemplate,
+): Record<string, string> {
   const declared = direction === 'ltr' || direction === 'rtl' || direction === 'auto' ? direction : undefined
-  return Object.fromEntries(templates.map((template) => [template.name, resolveHeadTemplate(template, variables, recordSlots, declared, lang)]))
+  return Object.fromEntries(templates.map((template) => [template.name, resolve(template, variables, recordSlots, declared, lang)]))
 }
 
 export interface RegionExcess {

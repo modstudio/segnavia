@@ -3,22 +3,16 @@ import {
   bookPageGeometries,
   bookPageName,
   bookParentPages,
-  formatNumber,
-  LIBRARY_VARIABLES,
   physicalMargins,
   pressBoxes,
   resolveDirection,
-  sequenceFolios,
   sheetMm,
   usesPressLayout,
-  variableValue,
-  withLibraryEntries,
 } from '@segnavia/format'
 import type { PreparedSlots } from '@segnavia/html'
 import {
   type BookDocument,
   type BookHeading,
-  type BookPageFacts,
   type BookSectionInfo,
   bookDocument,
   bookPrintPart,
@@ -28,9 +22,10 @@ import {
 } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, joinedDestinations, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
+import { marginFactsFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
-import { bookPartsPrintStatus, finalNumbers, folioTextAt, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
+import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
 import { writeBookStructure } from './book-structure.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry } from './options.ts'
@@ -41,6 +36,8 @@ import { setPdfPageSize } from './pdf-page-size.ts'
 import type { BookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
+
+export { marginFactsFor } from './book-margin-facts.ts'
 
 async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
   const document = await loadPdf(output.bytes)
@@ -102,65 +99,6 @@ async function appendBlank(part: PrintedPart): Promise<PrintedPart> {
   const last = document.getPage(document.getPageCount() - 1)
   document.addPage([last.getWidth(), last.getHeight()])
   return { ...part, bytes: await document.save(), pages: part.pages + 1 }
-}
-
-export function marginFactsFor(
-  sections: BookSectionInfo[],
-  destinations: Map<string, BookDestination>,
-  pages: number,
-  blanks: Set<number>,
-  system: Book['numbering']['body'],
-  variables: Book['variables'],
-): BookPageFacts[] {
-  const folios = sequenceFolios(pages, system)
-  const starts = sections
-    .flatMap((section) => {
-      const page = destinations.get(section.id)?.page
-      return page === undefined ? [] : [{ page, section }]
-    })
-    .sort((left, right) => left.page - right.page)
-  const countedPages = (from: number, through: number) => {
-    let count = 0
-    for (let page = from; page <= through; page += 1) if (!blanks.has(page)) count += 1
-    return count
-  }
-  const variablesFor = (owner: (typeof starts)[number] | undefined, page: number, folio: string): Record<string, string> => {
-    const resolved: Record<string, string> = {}
-    const ownerIndex = owner ? starts.indexOf(owner) : -1
-    const ownerEnd = ownerIndex >= 0 ? (starts[ownerIndex + 1]?.page ?? pages + 1) - 1 : page
-    const recordFolio = owner?.section.record ? formatNumber(countedPages(owner.page, page), system) : undefined
-    const recordTotal = owner?.section.record ? formatNumber(countedPages(owner.page, ownerEnd), system) : undefined
-    const documentFolio = formatNumber(countedPages(1, page), system)
-    const documentTotal = formatNumber(countedPages(1, pages), system)
-    for (const variable of withLibraryEntries(LIBRARY_VARIABLES, variables)) {
-      const value = variableValue(variable, {
-        folio,
-        documentFolio,
-        numberingTotal: folioTextAt(folios, pages),
-        documentTotal,
-        recordIndex: owner?.section.record?.index,
-        recordCount: owner?.section.record?.count,
-        recordFolio,
-        recordTotal,
-        sectionTitle: owner?.section.title,
-      })
-      if (value) resolved[variable.name] = value
-    }
-    return resolved
-  }
-  return Array.from({ length: pages }, (_, index): BookPageFacts => {
-    const page = index + 1
-    if (blanks.has(page)) return { blank: true, sectionOpening: false }
-    const owner = starts.filter((start) => start.page <= page).at(-1)
-    const folio = folioTextAt(folios, page)
-    return {
-      blank: false,
-      sectionOpening: owner?.page === page,
-      folio,
-      variables: variablesFor(owner, page, folio),
-      recordSlots: owner?.section.values ?? {},
-    }
-  })
 }
 
 async function printBody(book: Book, slots: PreparedSlots, options: BookPdfOptions, adapter: BookPdfAdapter) {

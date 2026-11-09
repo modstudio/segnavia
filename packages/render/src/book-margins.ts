@@ -42,7 +42,13 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
 }
 
 function furniture(book: Book, html: string, page: BookPrintedPagePlan): string {
-  const heads = resolveRegionHeads(withLibraryEntries(LIBRARY_HEAD_TEMPLATES, book.headTemplates), page.variables ?? {}, page.recordSlots ?? {}, book.dir, book.lang)
+  const heads = resolveRegionHeads(
+    withLibraryEntries(LIBRARY_HEAD_TEMPLATES, book.headTemplates),
+    page.variables ?? {},
+    page.recordSlots ?? {},
+    book.dir,
+    book.lang,
+  )
   return fillRegion(html, { heads }, book.dir, book.lang)
 }
 

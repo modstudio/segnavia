@@ -13,7 +13,11 @@ export function refineLibraryNames(kind: string, entries: readonly { name: strin
   })
 }
 
-export function withLibraryEntries<T extends { name: string }>(library: readonly T[], declared: readonly T[]): T[] {
-  const names = new Set(declared.map((entry) => entry.name))
-  return [...library.filter((entry) => !names.has(entry.name)), ...declared]
+export function withLibraryEntries<Library extends { name: string }, Declared extends { name: string }>(
+  library: readonly Library[],
+  declared?: readonly Declared[],
+): Array<Library | Declared> {
+  const authored = declared ?? []
+  const names = new Set(authored.map((entry) => entry.name))
+  return [...library.filter((entry) => !names.has(entry.name)), ...authored]
 }
