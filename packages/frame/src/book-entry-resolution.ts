@@ -61,15 +61,15 @@ async function resolvePlaced(
 }
 
 async function resolveItem(
+  book: Book,
   item: BookItem,
   options: PlacementsOptions<ResolvedAsset>,
   purpose: 'screen' | 'print',
-  width: number,
   signal: AbortSignal,
 ): Promise<BookItem> {
-  if (isPart(item)) return { ...item, children: await Promise.all(item.children.map((child) => resolveItem(child, options, purpose, width, signal))) }
+  if (isPart(item)) return { ...item, children: await Promise.all(item.children.map((child) => resolveItem(book, child, options, purpose, signal))) }
   if (!isPlacedSection(item)) return item
-  return resolvePlaced(item, options, purpose, width, signal)
+  return resolvePlaced(item, options, purpose, bookPlacementWidth(book, item.pageGeometry), signal)
 }
 
 function firstPlacedPath(book: Book): (string | number)[] | undefined {
@@ -103,11 +103,10 @@ export async function resolveBookEntries(
     ({
       resolve: async () => undefined,
     } satisfies PlacementsOptions<ResolvedAsset>)
-  const width = bookPlacementWidth(book)
   const [frontMatter, body, endMatter] = await Promise.all([
-    Promise.all(book.frontMatter.map((item) => resolveItem(item, activeOptions, purpose, width, signal))),
-    Promise.all(book.body.map((item) => resolveItem(item, activeOptions, purpose, width, signal))),
-    Promise.all(book.endMatter.map((item) => resolveItem(item, activeOptions, purpose, width, signal))),
+    Promise.all(book.frontMatter.map((item) => resolveItem(book, item, activeOptions, purpose, signal))),
+    Promise.all(book.body.map((item) => resolveItem(book, item, activeOptions, purpose, signal))),
+    Promise.all(book.endMatter.map((item) => resolveItem(book, item, activeOptions, purpose, signal))),
   ])
   return { ...book, frontMatter, body, endMatter }
 }

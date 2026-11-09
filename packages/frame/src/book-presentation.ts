@@ -90,3 +90,17 @@ export function pageScale(frameInline: number, paperInline: number, columns: num
   if (![frameInline, paperInline, columns].every(Number.isFinite) || frameInline <= 0 || paperInline <= 0 || columns <= 0) return 0
   return Math.min(1, frameInline / (paperInline * columns))
 }
+
+export function pageGrid(
+  sizes: readonly { width: number; height: number }[],
+  spread: boolean,
+): { columns: number; slots: number; width: number; height: number } {
+  const valid = sizes.filter((size) => Number.isFinite(size.width) && size.width > 0 && Number.isFinite(size.height) && size.height > 0)
+  if (valid.length === 0) return { columns: spread ? 2 : 1, slots: 0, width: 0, height: 0 }
+  return {
+    columns: spread ? 2 : 1,
+    slots: spread ? spreadSlots(valid.length) : valid.length,
+    width: Math.max(...valid.map((size) => size.width)),
+    height: Math.max(...valid.map((size) => size.height)),
+  }
+}

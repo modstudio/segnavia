@@ -27,6 +27,7 @@ import {
   collectHeadings,
   designedSection,
   flowAttribs,
+  languageAttribs,
   markPlacementIssues,
   numberingAttribs,
   sectionHeading,
@@ -65,7 +66,7 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
       document.children,
       build,
       runningHead,
-      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index), ...numberingAttribs(chapter.numbering) }),
+      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index), ...languageAttribs(chapter) }, chapter.pageGeometry),
     ),
   }
 }
@@ -77,7 +78,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
     sectionEntry.division,
     build.build,
     book.contents.depth,
-    build.build === 'flow' ? bookFlowPageGeometry(book) : undefined,
+    build.build === 'flow' ? bookFlowPageGeometry(book, entry.pageGeometry) : undefined,
   )
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)
@@ -96,7 +97,7 @@ function appendTemplated(entry: TemplatedSection, id: string, kind: 'front' | 't
     build.build,
     book.contents.depth,
     build.templates,
-    build.build === 'flow' ? bookFlowPageGeometry(book) : undefined,
+    build.build === 'flow' ? bookFlowPageGeometry(book, entry.pageGeometry) : undefined,
   )
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)

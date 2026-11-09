@@ -1,5 +1,6 @@
 import {
   type Book,
+  bookPageGeometries,
   type FontFailure,
   KEEP_WITH_CUSTOM_PROPERTY,
   type Limits,
@@ -7,6 +8,7 @@ import {
   Plan,
   PX_PER_MM,
   pressBoxes,
+  resolveBookPageGeometry,
   resolveDirection,
   type Plan as SavedPlan,
   sheetMm,
@@ -29,8 +31,9 @@ import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type Assets, assetSetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
+import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
-import { pagePdfSize } from './pdf-page-size.ts'
+import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import type { BookPdfOptions, BookPlanOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
@@ -143,8 +146,13 @@ function bookSrcdoc(
 
 function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, options: RenderOptions): TabSetup {
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
-  const trim = sheetMm(book.page)
-  const size = book.print && usesPressLayout(book.print) ? pressBoxes(trim, book.print).bleedBox : trim
+  const sizes = bookPageGeometries(book).map((geometry) =>
+    book.print && usesPressLayout(book.print) ? pressBoxes(geometry.paper, book.print).bleedBox : geometry.paper,
+  )
+  const size = {
+    width: Math.max(...sizes.map((candidate) => candidate.width)),
+    height: Math.max(...sizes.map((candidate) => candidate.height)),
+  }
   return {
     viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
     scripts: true,
@@ -154,6 +162,13 @@ function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, o
     boundMs: options.boundMs,
     ...assetSetup(options),
   }
+}
+
+function paginatedBookWidth(book: Book): number {
+  const widths = bookPageGeometries(book).map((geometry) =>
+    book.print && usesPressLayout(book.print) ? pressBoxes(geometry.paper, book.print).bleedBox.width : geometry.paper.width,
+  )
+  return Math.max(...widths)
 }
 
 // Building a book's document can refuse its pagination or its style sheet;
@@ -218,18 +233,47 @@ async function printBook(
         ...assetSetup(renderOptions),
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
       }
-  const output = await dependencies.render(
+  let output = await dependencies.render(
     setup,
-    {
-      ...pagePdfSize(size),
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
-    },
-    Math.round(size.width * PX_PER_MM),
+    paginated
+      ? {
+          printBackground: true,
+          preferCSSPageSize: true,
+          margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+        }
+      : {
+          ...pagePdfSize(size),
+          printBackground: true,
+          preferCSSPageSize: true,
+          margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+        },
+    Math.round((paginated ? paginatedBookWidth(book) : size.width) * PX_PER_MM),
     part,
   )
   if (!composedPlan) return output
+  const trims = composedPlan.pages.map((page, index) => {
+    const geometry = resolveBookPageGeometry(book, page.pageGeometry)
+    if (!geometry)
+      throw new RenderRefusedError(
+        `The plan page ${index + 1} names unknown page geometry ${JSON.stringify(page.pageGeometry)}; compute a new plan to clear this refusal.`,
+      )
+    return geometry.paper
+  })
+  const pageSizeRemedy = (index: number) => {
+    const name = composedPlan?.pages[index]?.pageGeometry
+    const geometry = name === undefined ? 'the default geometry' : `geometry ${JSON.stringify(name)}`
+    return `Plan page ${index + 1} uses ${geometry}; check that geometry's paper or compute a new plan to clear this refusal.`
+  }
+  if (!book.print || !usesPressLayout(book.print)) output = { ...output, bytes: await setPdfPageSizes(output.bytes, trims, pageSizeRemedy) }
+  else {
+    const boxes = trims.map((trim) => pressBoxes(trim, book.print as NonNullable<Book['print']>))
+    const sized = await setPdfPageSizes(
+      output.bytes,
+      boxes.map((item) => item.bleedBox),
+      pageSizeRemedy,
+    )
+    output = { ...output, bytes: await addPressBoxesByPage(sized, boxes, book.print.markColor) }
+  }
   const document = await loadPdf(output.bytes)
   writePlanFolios(document, composedPlan.folios)
   return { ...output, bytes: await document.save() }

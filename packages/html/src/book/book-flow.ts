@@ -1,4 +1,4 @@
-import { type Book, bookSections, isPart, MAX_PART_DEPTH, PX_PER_MM, SECTION_BOUNDARY_CLASS, sheetMm } from '@segnavia/format'
+import { type Book, bookSections, isPart, MAX_PART_DEPTH, PX_PER_MM, resolveBookPageGeometry, SECTION_BOUNDARY_CLASS } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { fragmentationCss } from '../fragmentation.ts'
@@ -44,17 +44,18 @@ export interface BookFlowPageGeometry {
   marginInlineStartVerso: number
 }
 
-export function bookFlowPageGeometry(book: Book): BookFlowPageGeometry | undefined {
-  if (!book.page) return undefined
-  const paper = sheetMm(book.page)
+export function bookFlowPageGeometry(book: Book, name?: string): BookFlowPageGeometry | undefined {
+  const geometry = resolveBookPageGeometry(book, name)
+  if (!geometry) return undefined
+  const paper = geometry.paper
   return {
     paperInline: paper.width * PX_PER_MM,
     paperBlock: paper.height * PX_PER_MM,
-    textInline: (paper.width - book.page.margin.inlineStart - book.page.margin.inlineEnd) * PX_PER_MM,
-    textBlock: (paper.height - book.page.margin.blockStart - book.page.margin.blockEnd) * PX_PER_MM,
-    marginBlockStart: book.page.margin.blockStart * PX_PER_MM,
-    marginInlineStartRecto: book.page.margin.inlineStart * PX_PER_MM,
-    marginInlineStartVerso: book.page.margin.inlineEnd * PX_PER_MM,
+    textInline: (paper.width - geometry.margin.inlineStart - geometry.margin.inlineEnd) * PX_PER_MM,
+    textBlock: (paper.height - geometry.margin.blockStart - geometry.margin.blockEnd) * PX_PER_MM,
+    marginBlockStart: geometry.margin.blockStart * PX_PER_MM,
+    marginInlineStartRecto: geometry.margin.inlineStart * PX_PER_MM,
+    marginInlineStartVerso: geometry.margin.inlineEnd * PX_PER_MM,
   }
 }
 

@@ -13,6 +13,7 @@ import { verifyBookPlan } from './book-plan.ts'
 import { type BookRenderFixture, bookRenderFixture } from './book-render-fixtures.ts'
 import { expectedBookLinkPages } from './book-render-links.ts'
 import { verifySectionNumbering } from './book-section-numbering.ts'
+import { verifyBookSectionPaper } from './book-section-paper.ts'
 import { compact, decodeXml, pagesText, pageWith } from './book-text.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
@@ -285,6 +286,7 @@ async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, ch
 export async function verifyBookRender(renderer: Renderer, work: string, check: Check): Promise<void> {
   await verifyBookPlan(renderer, check)
   await verifyBookOpeners(renderer, check)
+  await verifyBookSectionPaper(renderer, work, check)
   await verifySectionNumbering(renderer, check)
   await verifyBookCssRender(renderer, work, check)
   await verifyFixture(renderer, work, bookRenderFixture('english'), check)

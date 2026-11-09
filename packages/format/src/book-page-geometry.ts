@@ -1,0 +1,67 @@
+import type { BookPage, BookSectionEntry } from './book.ts'
+import { sheetMm } from './paper.ts'
+import { bookParentPages, type ParentPage, resolveParentPages } from './printed-pages.ts'
+import type { PageGeometry, StyleSheet } from './style-sheet.ts'
+
+export interface ResolvedBookPageGeometry {
+  name?: string
+  paper: { width: number; height: number }
+  margin: BookPage['margin']
+  columns: { count: number; gap: number }
+  parents: Array<{ name: string; margin: BookPage['margin'] }>
+}
+
+function resolved(
+  name: string | undefined,
+  geometry: Pick<PageGeometry, 'paper' | 'orientation' | 'margin' | 'columns'>,
+  defaultGap: number,
+  customParents: ParentPage[],
+): ResolvedBookPageGeometry {
+  return {
+    ...(name === undefined ? {} : { name }),
+    paper: sheetMm(geometry),
+    margin: geometry.margin,
+    columns: geometry.columns ?? { count: 1, gap: defaultGap },
+    parents: resolveParentPages([...bookParentPages(geometry.margin), ...customParents]).map(({ name: parentName, margin }) => ({ name: parentName, margin })),
+  }
+}
+
+interface BookGeometrySource {
+  page?: BookPage
+  style?: StyleSheet
+  parentPages?: ParentPage[]
+}
+
+export function resolveBookPageGeometry(book: BookGeometrySource, name?: string): ResolvedBookPageGeometry | undefined {
+  if (!book.page) return undefined
+  if (name === undefined) return resolved(undefined, book.page, book.page.columnGap, book.parentPages ?? [])
+  const geometry = book.style?.pageGeometries?.[name]
+  return geometry ? resolved(name, geometry, book.page.columnGap, book.parentPages ?? []) : undefined
+}
+
+export function bookPageName(index: number): string {
+  return `segnavia-page-${index + 1}`
+}
+
+export function sectionPageGeometry(book: BookGeometrySource, section: Pick<BookSectionEntry, 'entry'>): ResolvedBookPageGeometry | undefined {
+  return resolveBookPageGeometry(book, 'pageGeometry' in section.entry ? section.entry.pageGeometry : undefined)
+}
+
+export function bookPageGeometries(book: BookGeometrySource): ResolvedBookPageGeometry[] {
+  const base = resolveBookPageGeometry(book)
+  if (!base) return []
+  return [
+    base,
+    ...Object.keys(book.style?.pageGeometries ?? {}).flatMap((name) => {
+      const geometry = resolveBookPageGeometry(book, name)
+      return geometry ? [geometry] : []
+    }),
+  ]
+}
+
+export function sameBookPageGeometry(left: ResolvedBookPageGeometry | undefined, right: ResolvedBookPageGeometry | undefined): boolean {
+  return (
+    JSON.stringify(left && { paper: left.paper, margin: left.margin, columns: left.columns }) ===
+    JSON.stringify(right && { paper: right.paper, margin: right.margin, columns: right.columns })
+  )
+}

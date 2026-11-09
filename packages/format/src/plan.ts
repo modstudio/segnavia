@@ -46,6 +46,7 @@ export const PlanPage = z
     parts: z.record(z.string(), z.string()).optional(),
     marks: PaginatePageMarks.optional(),
     parent: z.string(),
+    pageGeometry: z.string().optional(),
     face: z.enum(['recto', 'verso']),
     side: z.enum(['left', 'right']),
     start: PlanPageStart.optional(),
