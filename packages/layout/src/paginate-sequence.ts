@@ -36,7 +36,7 @@ export function paginateSequence(
   }
 
   function marksForNewFlow(carried: PaginatePageMarks): PaginatePageMarks {
-    return Object.fromEntries(Object.entries(carried).filter(([, mark]) => mark.scope !== 'flow')) as PaginatePageMarks
+    return Object.assign(emptyMarks(), Object.fromEntries(Object.entries(carried).filter(([, mark]) => mark.scope !== 'flow')))
   }
 
   function columnRefusal(block: PaginateBlock): PaginateBookRefusal | undefined {
