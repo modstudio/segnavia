@@ -127,13 +127,15 @@ function notesSection(
   parts?: Record<string, string>,
   opens?: string,
 ): BuiltSection {
-  const scope =
-    notes.scopeTitle !== undefined && (notes.series.placement === 'chapter' || notes.series.placement === 'part')
-      ? [element('p', { class: 'segnavia-notes-scope', dir: resolveDirection(book.dir, book.lang, notes.scopeTitle) }, [text(notes.scopeTitle)])]
-      : []
+  const runs = notes.runs.flatMap((run) => [
+    ...(run.heading === undefined
+      ? []
+      : [element('p', { class: 'segnavia-notes-scope', dir: resolveDirection(book.dir, book.lang, run.heading) }, [text(run.heading)])]),
+    ...run.paragraphs,
+  ])
   return {
     info: { id, kind: 'endnotes', division: notes.targetId === 'book' ? 'body' : notes.division, title: notes.series.title, runningHead },
-    node: sectionNode('endnotes', id, [notesHeading(book, notes), ...scope, ...notes.paragraphs], build, runningHead, {
+    node: sectionNode('endnotes', id, [notesHeading(book, notes), ...runs], build, runningHead, {
       ...flowAttribs(opens, book.parentRules),
       ...(parts ? { 'data-segnavia-parts': JSON.stringify(parts) } : {}),
       ...(notes.series.placement === 'chapter' && notes.chapter > 0 ? { 'data-segnavia-chapter': String(notes.chapter) } : {}),
@@ -166,14 +168,16 @@ function decorateSection(sectionEntry: BookSectionEntry, build: DocumentBuild): 
 
 function noteContext(sectionEntry: BookSectionEntry, targetId: string, chapter: number, title: string | undefined, build: DocumentBuild): NoteSectionContext {
   const ancestry = sectionEntry.ancestry.at(-1)
+  const runningHead = 'runningHead' in sectionEntry.entry ? sectionEntry.entry.runningHead : undefined
   for (const part of sectionEntry.ancestry) build.partTargets.set(part.id, targetId)
   return {
     chapter,
     title,
+    runningHead,
     division: sectionEntry.division,
     targetId,
     ...(chapter === 0 && sectionEntry.division !== 'front' ? { placementKey: targetId.replace(/^segnavia-/, '') } : {}),
-    ...(ancestry ? { part: { id: ancestry.id, title: ancestry.title } } : {}),
+    ...(ancestry ? { part: { id: ancestry.id, title: ancestry.title, runningHead: ancestry.runningHead } } : {}),
   }
 }
 

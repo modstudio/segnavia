@@ -11,6 +11,7 @@ const input = (overrides: Record<string, unknown> = {}) => ({
   body: [chapter('One', '<p>Text</p>')],
   ...overrides,
 })
+const scopeHeadings = (html: string) => [...html.matchAll(/<p class="segnavia-notes-scope" dir="(?:ltr|rtl)">(.*?)<\/p>/g)].map((match) => match[1])
 
 describe('note series document', () => {
   test('keeps page series in separate declaration-ordered blocks in flow and continuous builds', () => {
@@ -53,6 +54,112 @@ describe('note series document', () => {
     expect(commentary).toContain('comment')
     expect(commentary).toContain('more')
     expect(commentary).not.toContain('source')
+  })
+
+  const headingMatrix = [
+    { placement: 'chapter', numbering: 'chapter', headings: ['One', 'Two', 'Three'] },
+    { placement: 'chapter', numbering: 'part', headings: [] },
+    { placement: 'chapter', numbering: 'book', headings: [] },
+    { placement: 'part', numbering: 'chapter', headings: ['One', 'Two', 'Three'] },
+    { placement: 'part', numbering: 'part', headings: ['First Part', 'Second Part'] },
+    { placement: 'part', numbering: 'book', headings: [] },
+    { placement: 'book', numbering: 'chapter', headings: ['One', 'Two', 'Three'] },
+    { placement: 'book', numbering: 'part', headings: ['First Part', 'Second Part'] },
+    { placement: 'book', numbering: 'book', headings: [] },
+  ] as const
+
+  for (const { placement, numbering, headings } of headingMatrix) {
+    test(`heads ${placement}-placed notes numbered by ${numbering} by their numbering runs`, () => {
+      const note = (body: string) => `<p>Text<span data-note="sources">${body}</span></p>`
+      const result = bookDocument(
+        parseBookFixture(
+          input({
+            notes: [{ name: 'sources', placement, numbering, marker: 'roman-lower', title: 'Sources' }],
+            body: [
+              {
+                id: 'first-part',
+                name: 'first',
+                title: 'First Part',
+                children: [chapter('One', note('first')), chapter('Two', note('second'))],
+              },
+              {
+                id: 'second-part',
+                name: 'second',
+                title: 'Second Part',
+                children: [chapter('Three', note('third'))],
+              },
+            ],
+          }),
+        ),
+      )
+      expect(scopeHeadings(result.html)).toEqual([...headings])
+    })
+  }
+
+  test('uses chapter short titles and resolves each heading direction in a Hebrew book', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          title: 'ספר',
+          notes: [{ name: 'sources', placement: 'book', numbering: 'chapter', marker: 'roman-lower', title: 'Sources' }],
+          body: undefined,
+          chapters: [
+            { title: 'פרק ראשון', runningHead: 'קצר', html: '<p><span data-note="sources">א</span></p>' },
+            { title: 'Second Chapter', runningHead: 'Short', html: '<p><span data-note="sources">ב</span></p>' },
+          ],
+        }),
+      ),
+    )
+    expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="rtl">קצר<\/p><p class="segnavia-note-sources"/)
+    expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="ltr">Short<\/p><p class="segnavia-note-sources"/)
+    expect(scopeHeadings(result.html)).toEqual(['קצר', 'Short'])
+  })
+
+  test('uses a part short title for its numbering run', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          notes: [{ name: 'sources', placement: 'book', numbering: 'part', marker: 'roman-lower', title: 'Sources' }],
+          body: [
+            {
+              id: 'first-part',
+              name: 'first',
+              title: 'First Part',
+              runningHead: 'Part I',
+              children: [chapter('One', '<p><span data-note="sources">first</span></p>')],
+            },
+          ],
+        }),
+      ),
+    )
+    expect(scopeHeadings(result.html)).toEqual(['Part I'])
+  })
+
+  test('leaves the shared chapter-zero run of front matter and held sections unheaded', () => {
+    const note = (body: string) => `<p>Text<span data-note="sources">${body}</span></p>`
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          notes: [{ name: 'sources', placement: 'book', numbering: 'chapter', marker: 'roman-lower', title: 'Sources' }],
+          frontMatter: [chapter('Preface', note('front'))],
+          body: [{ kind: 'designed', pages: [{ html: note('held') }] }, chapter('One', note('first'))],
+        }),
+      ),
+    )
+    expect(result.issues).toEqual([])
+    expect(scopeHeadings(result.html)).toEqual(['One'])
+  })
+
+  test('omits a part-numbering heading when the note is outside any part', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          notes: [{ name: 'sources', placement: 'book', numbering: 'part', marker: 'roman-lower', title: 'Sources' }],
+          body: [chapter('One', '<p><span data-note="sources">first</span></p>')],
+        }),
+      ),
+    )
+    expect(scopeHeadings(result.html)).toEqual([])
   })
 
   test('places and numbers a series by chapter', () => {
