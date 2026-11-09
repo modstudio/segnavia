@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { primitiveRoot } from './repeated-mark.ts'
 
 export const NumberSystem = z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew'])
 export type NumberSystem = z.infer<typeof NumberSystem>
@@ -24,22 +25,45 @@ export function divisionNumbering(
 const NoteMark = z.string().regex(/^\S{1,8}$/u, 'a note mark must be 1 to 8 characters with no whitespace')
 
 const NoteSymbols = z
-  .object({
-    symbols: z.array(NoteMark).min(1, 'a note symbol sequence must have at least one entry'),
-  })
+  .strictObject(
+    {
+      symbols: z.array(NoteMark).min(1, 'a note symbol sequence must have at least one entry'),
+    },
+    'a note marker object must supply one of symbols or mark',
+  )
   .superRefine(({ symbols }, ctx) => {
-    const seen = new Set<string>()
+    const roots = new Map<string, string>()
     symbols.forEach((symbol, index) => {
-      if (seen.has(symbol))
-        ctx.addIssue({ code: 'custom', path: ['symbols', index], message: `note symbol ${symbol} is duplicated; every entry must be distinct` })
-      seen.add(symbol)
+      const root = primitiveRoot(symbol)
+      const earlier = roots.get(root)
+      if (earlier) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['symbols', index],
+          message: `note symbols ${earlier} and ${symbol} print the same repeated mark; supply entries with different primitive roots`,
+        })
+      } else roots.set(root, symbol)
     })
   })
 
-export const NoteMarker = z.union([NumberSystem, z.literal('symbols'), NoteSymbols, z.object({ mark: NoteMark })])
+const FixedNoteMark = z.strictObject({ mark: NoteMark }, 'a note marker object must supply one of symbols or mark')
+
+export const NoteMarker = z.union([NumberSystem, z.literal('symbols'), NoteSymbols, FixedNoteMark])
 export type NoteMarker = z.infer<typeof NoteMarker>
 
-export const DEFAULT_NOTE_SYMBOLS = ['*', '§', '‖', '¶'] as const
+const DEFAULT_NOTE_SYMBOLS = ['*', '§', '‖', '¶'] as const
+
+export type NoteMarkerSource =
+  | { kind: 'number'; system: NumberSystem }
+  | { kind: 'sequence'; entries: readonly [string, ...string[]] }
+  | { kind: 'fixed'; mark: string }
+
+export function noteMarkerSource(marker: NoteMarker): NoteMarkerSource {
+  if (marker === 'symbols') return { kind: 'sequence', entries: DEFAULT_NOTE_SYMBOLS }
+  if (typeof marker === 'string') return { kind: 'number', system: marker }
+  if ('symbols' in marker) return { kind: 'sequence', entries: marker.symbols as [string, ...string[]] }
+  return { kind: 'fixed', mark: marker.mark }
+}
 
 function positiveInteger(value: number): void {
   if (!Number.isInteger(value) || value < 1) throw new RangeError(`value ${value} must be a positive integer`)
@@ -114,22 +138,15 @@ export function numberingScript(): string {
 
 export function noteMarker(index: number, marker: NoteMarker): string {
   positiveInteger(index)
-  if (typeof marker === 'string' && marker !== 'symbols') return formatNumber(index, marker)
-  if (typeof marker === 'object' && 'mark' in marker) return marker.mark
-  const symbols = marker === 'symbols' ? DEFAULT_NOTE_SYMBOLS : marker.symbols
-  const symbol = symbols[(index - 1) % symbols.length]
-  if (symbol === undefined) throw new Error('a note symbol sequence must have at least one entry')
-  return symbol.repeat(Math.ceil(index / symbols.length))
-}
-
-export function noteMarkerEntries(marker: NoteMarker): readonly string[] | undefined {
-  if (marker === 'symbols') return DEFAULT_NOTE_SYMBOLS
-  if (typeof marker === 'object') return 'mark' in marker ? [marker.mark] : marker.symbols
-  return undefined
-}
-
-export function noteMarkerDescription(marker: NoteMarker): string {
-  const entries = noteMarkerEntries(marker)
-  if (!entries) return marker as NumberSystem
-  return typeof marker === 'object' && 'mark' in marker ? `mark ${marker.mark}` : `symbols ${entries.join(' ')}`
+  const source = noteMarkerSource(marker)
+  switch (source.kind) {
+    case 'number':
+      return formatNumber(index, source.system)
+    case 'fixed':
+      return source.mark
+    case 'sequence': {
+      const symbol = source.entries[(index - 1) % source.entries.length] ?? source.entries[0]
+      return symbol.repeat(Math.ceil(index / source.entries.length))
+    }
+  }
 }

@@ -52,12 +52,27 @@ describe('number formatting', () => {
     expect([1, 2, 9].map((index) => noteMarker(index, { mark: '⁂' }))).toEqual(['⁂', '⁂', '⁂'])
   })
 
-  test('note marker schemas refuse empty, whitespace and duplicate sequence entries', () => {
-    for (const marker of [{ symbols: [] }, { symbols: [''] }, { symbols: ['* *'] }, { symbols: ['*', '*'] }]) {
+  test('note marker schemas refuse invalid and colliding sequence entries', () => {
+    for (const marker of [{ symbols: [] }, { symbols: [''] }, { symbols: ['* *'] }, { symbols: ['*', '*'] }, { symbols: ['*', '**'] }]) {
       expect(NoteMarker.safeParse(marker).success).toBe(false)
     }
+    const collision = NoteMarker.safeParse({ symbols: ['*', '**'] })
+    expect(JSON.stringify(collision.error?.issues)).toContain('note symbols * and ** print the same repeated mark')
     expect(NoteMarker.safeParse({ mark: '' }).success).toBe(false)
     expect(NoteMarker.safeParse({ mark: 'with space' }).success).toBe(false)
+  })
+
+  test('note marker objects name exactly one kind', () => {
+    for (const marker of [
+      { symbols: ['*'], mark: '⁂' },
+      { mark: '⁂', symbols: ['*'] },
+      { symbols: ['*'], other: true },
+      { mark: '⁂', other: true },
+    ]) {
+      const result = NoteMarker.safeParse(marker)
+      expect(result.success).toBe(false)
+      expect(JSON.stringify(result.error?.issues)).toContain('supply one of symbols or mark')
+    }
   })
 
   test('every numbering system refuses non-positive and non-integer values', () => {

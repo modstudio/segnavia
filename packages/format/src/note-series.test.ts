@@ -75,7 +75,7 @@ describe('note series', () => {
     ])
   })
 
-  test('reports every conflicting marker kind and permits number systems beside symbols', () => {
+  test('reports every conflicting marker kind and permits disjoint number systems and symbols', () => {
     const conflicts: Array<[NoteMarker, NoteMarker, string]> = [
       ['arabic', 'arabic', 'footnote and endnote markers are both arabic; the two must differ when both kinds are used'],
       [{ mark: '⁂' }, { mark: '⁂' }, 'footnote and endnote markers are both mark ⁂; the two must differ when both kinds are used'],
@@ -89,6 +89,9 @@ describe('note series', () => {
         { symbols: ['†', '§'] },
         'footnote and endnote markers symbols * § and symbols † § share mark §; the two must differ when both kinds are used',
       ],
+      [{ mark: '1' }, 'arabic', 'footnote and endnote markers mark 1 and arabic share mark 1; the two must differ when both kinds are used'],
+      [{ symbols: ['*'] }, { mark: '**' }, 'footnote and endnote markers symbols * and mark ** share mark **; the two must differ when both kinds are used'],
+      [{ mark: 'א' }, 'hebrew', 'footnote and endnote markers mark א and hebrew share mark א; the two must differ when both kinds are used'],
     ]
     for (const [footnote, endnote, message] of conflicts) {
       const series = resolveNoteSeries({ ...settings(), footnotes: { restart: 'chapter', marker: footnote }, endnotes: { placement: 'book', marker: endnote } })
@@ -103,7 +106,15 @@ describe('note series', () => {
     expect(noteMarkerIssues(compatible, new Set(['footnote', 'endnote']))).toEqual([])
   })
 
-  test('an omitted marker avoids an earlier supplied symbol sequence', () => {
+  test('a custom sequence pushes conflicting English defaults to later markers', () => {
+    const series = resolveNoteSeries({
+      ...settings(),
+      notes: [{ name: 'first', placement: 'book', numbering: 'book', marker: { symbols: ['*'] } }],
+    })
+    expect(series.map(({ marker }) => marker)).toEqual(['arabic', 'roman-lower', { symbols: ['*'] }])
+  })
+
+  test('an omitted marker skips a number system that can print an earlier sequence', () => {
     const series = resolveNoteSeries({
       ...settings(),
       notes: [
@@ -112,7 +123,7 @@ describe('note series', () => {
       ],
     })
     expect(series[2]?.marker).toEqual({ symbols: ['i'] })
-    expect(series[3]?.marker).toBe('roman-lower')
+    expect(series[3]?.marker).toBe('hebrew')
   })
 
   test('default series avoid a supplied custom marker declared after them', () => {

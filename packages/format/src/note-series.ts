@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { REGION_NAME } from './book-section.ts'
-import { isHebrew, NoteMarker, type NoteMarker as NoteMarkerValue, noteMarkerDescription, noteMarkerEntries } from './numbering.ts'
+import { isHebrew, NoteMarker, type NoteMarkerSource, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarkerSource } from './numbering.ts'
+import { primitiveRoot } from './repeated-mark.ts'
 
 export const NotePlacement = z.enum(['page', 'chapter', 'part', 'book'])
 export type NotePlacement = z.infer<typeof NotePlacement>
@@ -52,12 +53,94 @@ function markerOrder(lang: string | undefined): NoteMarkerValue[] {
   return isHebrew(lang) ? ['hebrew', 'arabic', 'symbols', 'roman-lower'] : ['symbols', 'arabic', 'roman-lower', 'hebrew']
 }
 
-function sharedMarkerEntry(left: NoteMarkerValue, right: NoteMarkerValue): string | undefined {
-  const leftEntries = noteMarkerEntries(left)
-  const rightEntries = noteMarkerEntries(right)
-  if (leftEntries && rightEntries) return leftEntries.find((entry) => rightEntries.includes(entry))
-  if (!leftEntries && !rightEntries && left === right) return left as string
+const ENDNOTE_PREFERRED_MARKER: NoteMarkerValue = 'arabic'
+
+type MarkerConflict = { kind: 'same'; marker: NoteMarkerValue } | { kind: 'shared'; mark: string }
+
+const NUMBER_CHARACTERS: Record<NumberSystem, RegExp> = {
+  arabic: /^[0-9]+$/u,
+  'roman-lower': /^[ivxlcdm]+$/u,
+  'roman-upper': /^[IVXLCDM]+$/u,
+  hebrew: /^[א-ת׳״]+$/u,
+}
+
+function commonPower(left: string, right: string): string | undefined {
+  const root = primitiveRoot(left)
+  if (root !== primitiveRoot(right)) return undefined
+  const leftPower = left.length / root.length
+  const rightPower = right.length / root.length
+  const multiple = (leftPower * rightPower) / greatestCommonDivisor(leftPower, rightPower)
+  return root.repeat(multiple)
+}
+
+function greatestCommonDivisor(left: number, right: number): number {
+  let a = left
+  let b = right
+  while (b !== 0) [a, b] = [b, a % b]
+  return a
+}
+
+function sourceMarks(source: ReturnType<typeof noteMarkerSource>): readonly string[] {
+  return source.kind === 'fixed' ? [source.mark] : source.kind === 'sequence' ? source.entries : []
+}
+
+type NumberSource = Extract<NoteMarkerSource, { kind: 'number' }>
+type SequenceSource = Extract<NoteMarkerSource, { kind: 'sequence' }>
+type FixedSource = Extract<NoteMarkerSource, { kind: 'fixed' }>
+
+function numberSymbolConflict(number: NumberSource, symbolLike: SequenceSource | FixedSource): MarkerConflict | undefined {
+  const mark = sourceMarks(symbolLike).find((entry) => NUMBER_CHARACTERS[number.system].test(entry))
+  return mark === undefined ? undefined : { kind: 'shared', mark }
+}
+
+function fixedSequenceConflict(fixed: FixedSource, sequence: SequenceSource): MarkerConflict | undefined {
+  const entry = sequence.entries.find((candidate) => fixed.mark.startsWith(candidate) && candidate.repeat(fixed.mark.length / candidate.length) === fixed.mark)
+  return entry === undefined ? undefined : { kind: 'shared', mark: fixed.mark }
+}
+
+function sequenceConflict(left: SequenceSource, right: SequenceSource, marker: NoteMarkerValue): MarkerConflict | undefined {
+  if (left.entries.length === right.entries.length && left.entries.every((entry, index) => entry === right.entries[index])) {
+    return { kind: 'same', marker }
+  }
+  for (const leftEntry of left.entries) {
+    for (const rightEntry of right.entries) {
+      const mark = commonPower(leftEntry, rightEntry)
+      if (mark !== undefined) return { kind: 'shared', mark }
+    }
+  }
   return undefined
+}
+
+function markerConflictForSources(left: NoteMarkerSource, right: NoteMarkerSource, marker: NoteMarkerValue): MarkerConflict | undefined {
+  switch (left.kind) {
+    case 'number':
+      if (right.kind === 'number') return left.system === right.system ? { kind: 'same', marker } : undefined
+      return numberSymbolConflict(left, right)
+    case 'fixed':
+      if (right.kind === 'number') return numberSymbolConflict(right, left)
+      if (right.kind === 'fixed') return left.mark === right.mark ? { kind: 'same', marker } : undefined
+      return fixedSequenceConflict(left, right)
+    case 'sequence':
+      if (right.kind === 'number') return numberSymbolConflict(right, left)
+      if (right.kind === 'fixed') return fixedSequenceConflict(right, left)
+      return sequenceConflict(left, right, marker)
+  }
+}
+
+function markerConflict(left: NoteMarkerValue, right: NoteMarkerValue): MarkerConflict | undefined {
+  return markerConflictForSources(noteMarkerSource(left), noteMarkerSource(right), left)
+}
+
+function noteMarkerDescription(marker: NoteMarkerValue): string {
+  const source = noteMarkerSource(marker)
+  switch (source.kind) {
+    case 'number':
+      return source.system
+    case 'fixed':
+      return `mark ${source.mark}`
+    case 'sequence':
+      return `symbols ${source.entries.join(' ')}`
+  }
 }
 
 function defaultMarkerOrder(preferred: NoteMarkerValue | undefined, lang: string | undefined): NoteMarkerValue[] {
@@ -66,7 +149,7 @@ function defaultMarkerOrder(preferred: NoteMarkerValue | undefined, lang: string
 }
 
 function unusedMarker(preferred: NoteMarkerValue | undefined, lang: string | undefined, unavailable: NoteMarkerValue[]): NoteMarkerValue {
-  return defaultMarkerOrder(preferred, lang).find((marker) => unavailable.every((claimed) => sharedMarkerEntry(marker, claimed) === undefined)) ?? 'symbols'
+  return defaultMarkerOrder(preferred, lang).find((marker) => unavailable.every((claimed) => markerConflict(marker, claimed) === undefined)) ?? 'symbols'
 }
 
 function resolveCustomSeries(series: NoteSeriesInput): ResolvableNoteSeries {
@@ -120,7 +203,7 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
     placement: 'page',
     numbering: settings.footnotes.restart,
     marker: settings.footnotes.marker,
-    preferredMarker: hebrew ? 'hebrew' : 'symbols',
+    preferredMarker: markerOrder(settings.lang)[0],
     title: hebrew ? 'מקורות' : 'Footnotes',
     ...footnotePresentation,
     ...declared.get('footnote'),
@@ -130,7 +213,7 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
     placement: settings.endnotes.placement,
     numbering: 'book',
     marker: settings.endnotes.marker,
-    preferredMarker: 'arabic',
+    preferredMarker: ENDNOTE_PREFERRED_MARKER,
     title: settings.endnotes.title ?? (hebrew ? 'הערות' : 'Notes'),
     ...endnotePresentation,
     ...declared.get('endnote'),
@@ -185,13 +268,16 @@ export function noteMarkerIssues(series: ResolvedNoteSeries[], used: ReadonlySet
       const a = active[left]
       const b = active[right]
       if (!a || !b) continue
-      const shared = sharedMarkerEntry(a.marker, b.marker)
-      if (shared === undefined) continue
+      const conflict = markerConflict(a.marker, b.marker)
+      if (conflict === undefined) continue
       const suffix = a.markerConflictSuffixes[b.name] ?? b.markerConflictSuffixes[a.name] ?? 'used series must have different markers'
       const leftDescription = noteMarkerDescription(a.marker)
       const rightDescription = noteMarkerDescription(b.marker)
-      const conflict = leftDescription === rightDescription ? `are both ${leftDescription}` : `${leftDescription} and ${rightDescription} share mark ${shared}`
-      issues.push(`${a.markerLabel} and ${b.markerLabel} markers ${conflict}; ${suffix}`)
+      const description =
+        conflict.kind === 'same'
+          ? `are both ${noteMarkerDescription(conflict.marker)}`
+          : `${leftDescription} and ${rightDescription} share mark ${conflict.mark}`
+      issues.push(`${a.markerLabel} and ${b.markerLabel} markers ${description}; ${suffix}`)
     }
   }
   return issues
