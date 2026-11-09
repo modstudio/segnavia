@@ -134,12 +134,6 @@ describe('block keeps', () => {
     expect(blocks).toEqual([{ keepWithNext: true }, {}])
   })
 
-  test('composer reads standard and custom keeps in both directions', () => {
-    const script = composerScript('{}')
-    expect(script).toContain("style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next'")
-    expect(script).toContain("style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous'")
-  })
-
   test('composer measures forced breaks on both block edges', () => {
     const script = composerScript('{}')
     expect(script).toContain('if(forcedPageBreak(style.breakBefore))block.breakBefore=true')

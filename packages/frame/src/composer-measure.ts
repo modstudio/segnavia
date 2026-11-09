@@ -19,6 +19,45 @@ export interface MeasuredLineBox {
   bottom: number
 }
 
+export interface KeepSignalValues {
+  breakInside: string
+  pageBreakInside: string
+  breakAfter: string
+  pageBreakAfter: string
+  breakBefore: string
+  pageBreakBefore: string
+  keepWith: string
+}
+
+export interface KeepSignals {
+  avoidInside: boolean
+  keepWithNext: boolean
+  keepWithPrevious: boolean
+}
+
+export function keepSignals(values: KeepSignalValues): KeepSignals {
+  return {
+    avoidInside: values.breakInside === 'avoid' || values.pageBreakInside === 'avoid',
+    keepWithNext: values.breakAfter === 'avoid' || values.pageBreakAfter === 'avoid' || values.keepWith === 'next',
+    keepWithPrevious: values.breakBefore === 'avoid' || values.pageBreakBefore === 'avoid' || values.keepWith === 'previous',
+  }
+}
+
+export function outermostKeepValue(value: string, parentValue: string, acceptedValues: readonly string[]): boolean {
+  return acceptedValues.includes(value) && value !== parentValue
+}
+
+export function descendantKeepSignals(values: KeepSignalValues, parentKeepWith: string): KeepSignals {
+  return keepSignals({
+    ...values,
+    keepWith: outermostKeepValue(values.keepWith, parentKeepWith, ['next', 'previous']) ? values.keepWith : '',
+  })
+}
+
+export function inlineLevelDisplay(display: string): boolean {
+  return display.split(' ')[0]?.startsWith('inline') === true
+}
+
 export function measuredBlockConstraints(display: string, orphans: number, widows: number): { orphans?: number; widows?: number } {
   const blockContainers = ['block', 'flow-root', 'list-item', 'inline-block', 'table-cell', 'table-caption']
   if (!blockContainers.includes(display)) return {}
@@ -47,6 +86,7 @@ export function measuredCandidateKeeps(lines: readonly MeasuredLineBox[], candid
   const keepRuns: Array<{ start: number; end: number }> = []
   if (candidate.avoidInside) keepRuns.push(run)
   if (candidate.keepWithNext && run.end < lines.length) keepRuns.push({ start: run.start, end: run.end + 1 })
+  if (candidate.keepWithNext && run.end === lines.length && run.end - run.start > 1 && !candidate.avoidInside) keepRuns.push(run)
   if (candidate.keepWithPrevious && run.start > 0) keepRuns.push({ start: run.start - 1, end: run.start + 1 })
   return {
     keepRuns,

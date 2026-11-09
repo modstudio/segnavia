@@ -79,6 +79,17 @@ describe('paginateKeeps', () => {
     expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 30, 0)], [win('c1', 30, 70, 0)]])
   })
 
+  test('a two-line nested tail heading does not split before moving with the next block', () => {
+    const container = block('text', 'section', 1, 1, 3, 30, {
+      keepRuns: [{ start: 1, end: 3 }],
+      keepWithNext: true,
+      keepWithNextFrom: 1,
+    })
+    const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 0, 3, 0), container, block('text', 'p', 1, 2, 2, 60)])] })).pages
+
+    expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 40, 0)], [win('c1', 40, 80, 0)]])
+  })
+
   test('a whole-block keep-with-next still moves the entire block', () => {
     const pages = paginateBook(
       input({

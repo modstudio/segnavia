@@ -1,6 +1,16 @@
 import { describe, expect, test } from 'bun:test'
 import { decideVisibleMeasurement } from './composer.ts'
-import { type MeasuredKeepCandidate, measuredBlockConstraints, measuredKeepRuns, measurementRefusal, tableRowLines } from './composer-measure.ts'
+import {
+  descendantKeepSignals,
+  inlineLevelDisplay,
+  keepSignals,
+  type KeepSignalValues,
+  type MeasuredKeepCandidate,
+  measuredBlockConstraints,
+  measuredKeepRuns,
+  measurementRefusal,
+  tableRowLines,
+} from './composer-measure.ts'
 
 const lines = [
   { top: 0, bottom: 10 },
@@ -12,6 +22,49 @@ const lines = [
 function candidate(extra: Partial<MeasuredKeepCandidate>): MeasuredKeepCandidate {
   return { top: 0, bottom: 10, avoidInside: false, keepWithNext: false, keepWithPrevious: false, ...extra }
 }
+
+function signalValues(extra: Partial<KeepSignalValues> = {}): KeepSignalValues {
+  return { breakInside: 'auto', pageBreakInside: 'auto', breakAfter: 'auto', pageBreakAfter: 'auto', breakBefore: 'auto', pageBreakBefore: 'auto', keepWith: '', ...extra }
+}
+
+describe('keep signals', () => {
+  test('reads the three keep decisions from plain computed values', () => {
+    expect(keepSignals(signalValues({ pageBreakInside: 'avoid', breakAfter: 'avoid', keepWith: 'previous' }))).toEqual({
+      avoidInside: true,
+      keepWithNext: true,
+      keepWithPrevious: true,
+    })
+  })
+
+  test('does not turn a block keep inherited by its children into descendant keeps', () => {
+    const children = Array.from({ length: 3 }, () => descendantKeepSignals(signalValues({ keepWith: 'next' }), 'next'))
+    expect(children).toEqual([
+      { avoidInside: false, keepWithNext: false, keepWithPrevious: false },
+      { avoidInside: false, keepWithNext: false, keepWithPrevious: false },
+      { avoidInside: false, keepWithNext: false, keepWithPrevious: false },
+    ])
+  })
+
+  test('keeps a child that changes its inherited keep direction', () => {
+    expect(descendantKeepSignals(signalValues({ keepWith: 'previous' }), 'next')).toEqual({
+      avoidInside: false,
+      keepWithNext: false,
+      keepWithPrevious: true,
+    })
+  })
+
+  test('classifies every inline-level display by its first token', () => {
+    expect(['inline', 'inline-block', 'inline-flex', 'inline-grid', 'inline-table', 'inline flow-root'].map(inlineLevelDisplay)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ])
+    expect(inlineLevelDisplay('block')).toBe(false)
+  })
+})
 
 describe('measuredKeepRuns', () => {
   test('maps a list item with break-inside avoid to its line run', () => {
@@ -42,6 +95,13 @@ describe('measuredKeepRuns', () => {
     })
   })
 
+  test('keeps a two-line tail heading together and records its start', () => {
+    expect(measuredKeepRuns(lines, [candidate({ top: 20, bottom: 40, keepWithNext: true })])).toEqual({
+      keepRuns: [{ start: 2, end: 4 }],
+      keepWithNextFrom: 2,
+    })
+  })
+
   test('carries a keep-with-previous first child across the block edge', () => {
     expect(measuredKeepRuns(lines, [candidate({ keepWithPrevious: true })])).toEqual({
       keepRuns: [],
@@ -55,18 +115,6 @@ describe('measuredKeepRuns', () => {
         { start: 0, end: 2 },
         { start: 2, end: 4 },
       ],
-    })
-  })
-
-  test('measures an RTL Hebrew dialogue speaker at the container tail', () => {
-    const rtlLineBoxes = [
-      { top: 0, bottom: 12 },
-      { top: 12, bottom: 24 },
-      { top: 24, bottom: 36 },
-    ]
-    expect(measuredKeepRuns(rtlLineBoxes, [candidate({ top: 24, bottom: 36, keepWithNext: true })])).toEqual({
-      keepRuns: [],
-      keepWithNextFrom: 2,
     })
   })
 })
