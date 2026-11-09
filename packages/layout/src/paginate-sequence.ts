@@ -24,8 +24,12 @@ export function paginateSequence(
     return selectBookParent(fact, pageIndex, pageIndex, input.settings.direction, input.parentNames)
   }
 
-  function pageHeight(parent: string): number {
-    return input.parents[parent]?.height ?? 0
+  function pageHeight(flow: PaginateFlow, parent: string): number {
+    return input.geometryParents?.[flow.pageGeometry]?.[parent]?.height ?? input.parents[parent]?.height ?? 0
+  }
+
+  function geometryOf(flow: PaginateFlow): string {
+    return flow.pageGeometry
   }
 
   function notesOnlyOpeningPage(page: PaginatePageFill, opener: boolean): boolean {
@@ -123,6 +127,7 @@ export function paginateSequence(
       parent: planned.parent,
       face: planned.face,
       side: planned.side,
+      pageGeometry: geometryOf(flow),
     }
   }
 
@@ -154,6 +159,7 @@ export function paginateSequence(
       parent: planned.parent,
       face: planned.face,
       side: planned.side,
+      pageGeometry: geometryOf(flow),
     }
   }
 
@@ -184,6 +190,7 @@ export function paginateSequence(
       parent: planned.parent,
       face: planned.face,
       side: planned.side,
+      pageGeometry: geometryOf(flow),
     }
   }
 
@@ -246,13 +253,13 @@ export function paginateSequence(
     let nextCarried = carried
     while (index < units.length || pending.length > 0) {
       let planned = selected(flow, opener, false, undefined, physicalOffset + pages.length + 1)
-      const height = pageHeight(planned.parent)
+      const height = pageHeight(flow, planned.parent)
       const textArea = opener ? `the "${planned.parent}" opener parent's ${height}px text area` : undefined
       let page = fillPage(units, index, pending, height, textArea)
       const isOpening: boolean = opener && page.placed.length > 0
       if (notesOnlyOpeningPage(page, opener)) {
         planned = selected(flow, isOpening, false, undefined, physicalOffset + pages.length + 1)
-        page = fillPage(units, index, pending, pageHeight(planned.parent))
+        page = fillPage(units, index, pending, pageHeight(flow, planned.parent))
       }
       if (page.refusal) return { refusal: page.refusal, pending, carried: nextCarried }
       if (page.done || (page.placed.length === 0 && page.fragments.length === 0)) return { pending, carried: nextCarried }
@@ -288,7 +295,7 @@ export function paginateSequence(
     let nextCarried = carried
     while (pending.length > 0) {
       const planned = selected(flow, false, false, 'body', physicalOffset + pages.length + 1)
-      const page = fillPage([], 0, pending, pageHeight(planned.parent))
+      const page = fillPage([], 0, pending, pageHeight(flow, planned.parent))
       if (page.refusal) return { refusal: page.refusal, carried: nextCarried }
       if (page.done || (page.placed.length === 0 && page.fragments.length === 0)) return { carried: nextCarried }
       nextCarried = emitMarked(part, flow, false, page.placed, page.fragments, pages, nextCarried, planned)

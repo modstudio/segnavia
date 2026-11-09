@@ -53,6 +53,7 @@ const sectionFields = {
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
   numbering: SectionNumbering.optional(),
+  pageGeometry: z.string().optional(),
 }
 
 const partFields = {
@@ -197,6 +198,7 @@ export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
     opens: entry.opens,
     ...('numbering' in entry ? { numbering: entry.numbering } : {}),
     parents: entry.parents,
+    ...('pageGeometry' in entry ? { pageGeometry: entry.pageGeometry } : {}),
   }))
 }
 

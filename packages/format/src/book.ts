@@ -27,6 +27,7 @@ import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
+import { bookPageGeometries, type ResolvedBookPageGeometry, resolveBookPageGeometry, sameBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 
 export {
   BookChapterEntry,
@@ -61,6 +62,8 @@ export {
   TemplatedPage,
   TemplatedSection,
 } from './book-section.ts'
+export { bookPageGeometries, DEFAULT_PAGE_GEOMETRY, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
+export type { PageGeometry } from './style-sheet.ts'
 
 export const BookMode = z.enum(['continuous', 'paginated'])
 export type BookMode = z.infer<typeof BookMode>
@@ -138,6 +141,14 @@ export const BookViewPagination = z.object({
   paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
   margin: BookPage.shape.margin,
   columnGap: z.number().nonnegative(),
+  geometries: z.array(
+    z.object({
+      name: z.string(),
+      paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
+      margin: BookPage.shape.margin,
+      columns: z.object({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
+    }),
+  ),
   direction: TextDirection,
   numbering: z.object({ frontMatter: NumberSystem, body: NumberSystem }),
   rectoOpenings: z.boolean(),
@@ -249,7 +260,31 @@ function structuralBookIssues(book: z.infer<typeof ResolvedBook>): BookIssue[] {
 const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   const sections = bookSections(book)
-  for (const issue of sectionOpensIssues(bookSectionOpensFacts(book))) {
+  const geometryByPath = new Map(sections.map((section) => [section.path.join('.'), sectionPageGeometry(book as Book, section)]))
+  for (const section of sections) {
+    if (!('pageGeometry' in section.entry) || section.entry.pageGeometry === undefined) continue
+    const name = section.entry.pageGeometry
+    const label = section.entry.title ?? section.id
+    if (book.style?.pageGeometries?.[name] === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...section.path, 'pageGeometry'],
+        message: `Section "${label}" (${section.id}) names unknown page geometry "${name}"; declare it in style.pageGeometries, or remove pageGeometry to clear this refusal.`,
+      })
+    }
+    if (book.mode === 'continuous') {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...section.path, 'pageGeometry'],
+        message: `Section "${label}" (${section.id}) sets pageGeometry in a continuous book; use paginated layout, or remove pageGeometry to clear this refusal.`,
+      })
+    }
+  }
+  const opensFacts = bookSectionOpensFacts(book).map((fact) => ({
+    ...fact,
+    geometry: geometryByPath.get(fact.path.join('.')),
+  }))
+  for (const issue of sectionOpensIssues(opensFacts)) {
     ctx.addIssue({ code: 'custom', ...issue })
   }
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
@@ -294,14 +329,18 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       })
     }
   }
-  const byName = new Map(parents.map((parent) => [parent.name, parent]))
   const flowing = sections.filter(({ entry }) => flowingSection(entry))
-  flowing.forEach(({ entry: flow, path }, index) => {
+  flowing.forEach((section, index) => {
+    const { entry: flow, path } = section
+    const geometry = sectionPageGeometry(book as Book, section)
+    const sectionTrim = geometry?.paper ?? trim
+    const sectionParents = resolveParentPages([...(geometry ? bookParentPages(geometry.margin) : bookParentPages(book.page.margin)), ...book.parentPages])
+    const byName = new Map(sectionParents.map((parent) => [parent.name, parent]))
     const names = flowingParentNames(flow.parents)
     const roles = Object.entries(names) as Array<[keyof typeof names, string]>
     const widths = roles.flatMap(([role, name]) => {
       const parent = byName.get(name)
-      return parent ? [{ role, name, width: textArea(parent, trim).width }] : []
+      return parent ? [{ role, name, width: textArea(parent, sectionTrim).width }] : []
     })
     const first = widths[0]
     const different = widths.find((candidate) => candidate.width !== first?.width)
@@ -312,6 +351,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       path,
       message: `the ${label} flow uses parent pages "${first.name}" (${first.width}mm) and "${different.name}" (${different.width}mm) with different text widths; make the widths equal or split the flow into sections to clear this refusal`,
     })
+    return
   })
 })
 
@@ -366,6 +406,7 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     paper: sheetMm(book.page),
     margin: book.page.margin,
     columnGap: book.page.columnGap,
+    geometries: bookPageGeometries(book),
     direction: resolveDirection(book.dir, book.lang, book.title),
     numbering: book.numbering,
     rectoOpenings: book.rectoOpenings,

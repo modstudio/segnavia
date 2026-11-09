@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BookMode, BookPage, BookShape } from './book.ts'
+import { resolveBookPageGeometry } from './book-page-geometry.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
 import { DeckShape, deckTrim } from './deck.ts'
 import { documentBookProjectionForRefinement, documentSourcePath } from './document-book-items.ts'
@@ -142,8 +143,34 @@ function refineSectionOpensPolicy(document: DocumentShapeValue, ctx: z.Refinemen
   if (document.kind !== 'book') return
   const projection = documentBookProjectionForRefinement(document)
   if (!projection) return
-  const facts = bookSectionOpensFacts(projection.divisions).map((fact) => ({ ...fact, path: documentSourcePath(projection, fact.path) }))
+  const facts = bookSectionOpensFacts(projection.divisions).map((fact) => ({
+    ...fact,
+    path: documentSourcePath(projection, fact.path),
+    geometry: resolveBookPageGeometry(document, fact.pageGeometry),
+  }))
   for (const issue of sectionOpensIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
+}
+
+function refineSectionPageGeometry(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
+  if (document.kind !== 'book') return
+  walk(document.children, (node, path) => {
+    if (node.type !== 'section' || node.pageGeometry === undefined) return
+    const label = node.title ?? node.id ?? path.join('.')
+    if (document.style?.pageGeometries?.[node.pageGeometry] === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...path, 'pageGeometry'],
+        message: `Section "${label}" names unknown page geometry "${node.pageGeometry}"; declare it in style.pageGeometries, or remove pageGeometry to clear this refusal.`,
+      })
+    }
+    if (document.mode === 'continuous') {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...path, 'pageGeometry'],
+        message: `Section "${label}" sets pageGeometry in a continuous book; use paginated layout, or remove pageGeometry to clear this refusal.`,
+      })
+    }
+  })
 }
 
 type DocumentShapeValue = z.infer<typeof DocumentShape>
@@ -172,7 +199,7 @@ function refinePageNode(
 }
 
 function refineSectionNode(node: Extract<DocumentNodeValue, { type: 'section' }>, path: (string | number)[], ctx: z.RefinementCtx): void {
-  for (const field of ['headTemplate', 'pageGeometry'] as const) {
+  for (const field of ['headTemplate'] as const) {
     if (node[field] !== undefined) {
       ctx.addIssue({ code: 'custom', path: [...path, field], message: `section field ${field} is not yet supported; remove it to clear this refusal` })
     }
@@ -338,6 +365,7 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   refineSectionNumberingPolicy(document, ctx)
   refineSectionOpensPolicy(document, ctx)
+  refineSectionPageGeometry(document, ctx)
   refineRootFields(document, profile, ctx)
   refineNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)

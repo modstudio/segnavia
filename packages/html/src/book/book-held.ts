@@ -25,13 +25,20 @@ export interface BuiltSection {
 }
 
 export function authoredSection(
-  section: Pick<BookSection, 'html' | 'title' | 'contentsLabel' | 'subtitle' | 'opens' | 'parents' | 'numbering'>,
+  section: Pick<BookSection, 'html' | 'title' | 'contentsLabel' | 'subtitle' | 'opens' | 'parents' | 'numbering' | 'pageGeometry'>,
   id: string,
   build: BookBuild,
 ): BuiltSection {
   const document = parse(section.html)
   const runningHead = section.title
-  const node = sectionNode('front', id, document.children, build, runningHead, flowAttribs(section.opens, section.parents, numberingAttribs(section.numbering)))
+  const node = sectionNode(
+    'front',
+    id,
+    document.children,
+    build,
+    runningHead,
+    flowAttribs(section.opens, section.parents, numberingAttribs(section.numbering), section.pageGeometry),
+  )
   return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead, opens: section.opens }, node }
 }
 
@@ -43,9 +50,10 @@ export function numberingAttribs(numbering?: SectionNumbering): Record<string, s
   }
 }
 
-export function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}): Record<string, string> {
+export function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}, pageGeometry?: string): Record<string, string> {
   const attribs = { ...extra }
   if (opens) attribs['data-opens'] = opens
+  if (pageGeometry) attribs['data-page-geometry'] = pageGeometry
   if (!parents) return attribs
   for (const role of ['opener', 'recto', 'verso', 'blank', 'fixed'] as const) {
     const name = parents[role]
@@ -83,7 +91,7 @@ export function partSection(
     'data-segnavia-kind': 'part',
     'data-segnavia-parts': JSON.stringify(parts),
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
-  })
+  }, entry.pageGeometry)
   return {
     info: { id, kind: 'part', division, title: entry.title, runningHead, opens: entry.opens },
     node: sectionNode('part', id, children, build, runningHead, extra),
@@ -143,7 +151,7 @@ export function designedSection(
     ...numberingAttribs(entry.numbering),
     'data-segnavia-kind': 'fixed',
     ...(kind === 'front' ? { 'data-sequence': 'front' } : {}),
-  })
+  }, entry.pageGeometry)
   const headings: BookHeading[] = []
   const firstRecto = entry.opens !== 'verso'
   const holders = entry.pages.map((page, offset) => {
@@ -273,7 +281,7 @@ export function templatedSection(
     'data-segnavia-kind': 'templated',
     'data-template': entry.template,
     ...(kind === 'front' ? { 'data-sequence': 'front' } : {}),
-  })
+  }, entry.pageGeometry)
   const headings: BookHeading[] = []
   const firstRecto = entry.opens !== 'verso'
   const holders = entry.pages.map((page, offset) => {
