@@ -20,9 +20,26 @@ export interface Speech {
   audio: { bytes: Uint8Array; extension: string } | null
 }
 
+/**
+ * Per-generation voice controls. Eleven v3 accepts `stability` and `style`;
+ * Eleven v4 and v4 Turbo accept `stability` and `similarity_boost`; other
+ * ElevenLabs text-to-speech models accept all five fields.
+ */
+export interface VoiceSettings {
+  stability?: number
+  similarity_boost?: number
+  style?: number
+  speed?: number
+  use_speaker_boost?: boolean
+}
+
+export interface VoiceSynthesisOptions {
+  voiceSettings?: VoiceSettings
+}
+
 export interface VoiceProvider {
   id: string
-  synthesize(text: string, voice?: string): Promise<Speech>
+  synthesize(text: string, voice?: string, options?: VoiceSynthesisOptions): Promise<Speech>
 }
 
 export interface PronunciationDictionary {
@@ -97,7 +114,7 @@ export function elevenLabsProvider(options: {
   const dictionaryId = locators.length > 0 ? `-${JSON.stringify(locators)}` : ''
   return {
     id: `${baseId}${dictionaryId}`,
-    async synthesize(text, voice = options.voice) {
+    async synthesize(text, voice = options.voice, synthesisOptions) {
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps`, {
         method: 'POST',
         headers: { 'xi-api-key': options.apiKey(), 'content-type': 'application/json' },
@@ -105,6 +122,7 @@ export function elevenLabsProvider(options: {
           text,
           model_id: options.model ?? 'eleven_multilingual_v2',
           ...(locators.length > 0 ? { pronunciation_dictionary_locators: locators } : {}),
+          ...(synthesisOptions?.voiceSettings === undefined ? {} : { voice_settings: synthesisOptions.voiceSettings }),
         }),
       })
       if (!response.ok) throw new Error(`ElevenLabs refused the synthesis: ${response.status} ${await response.text()}`)
@@ -128,13 +146,13 @@ export function elevenLabsProvider(options: {
 // without timestamps. Both halves are the host's.
 export function alignedProvider(options: {
   id: string
-  speak: (text: string, voice?: string) => Promise<{ bytes: Uint8Array; extension: string; durationMs: number }>
+  speak: (text: string, voice?: string, options?: VoiceSynthesisOptions) => Promise<{ bytes: Uint8Array; extension: string; durationMs: number }>
   align: (audio: Uint8Array, text: string) => Promise<Word[]>
 }): VoiceProvider {
   return {
     id: options.id,
-    async synthesize(text, voice) {
-      const audio = await options.speak(text, voice)
+    async synthesize(text, voice, synthesisOptions) {
+      const audio = await options.speak(text, voice, synthesisOptions)
       const words = await options.align(audio.bytes, text)
       const expected = splitWords(text).length
       if (words.length !== expected) throw new Error(`The aligner placed ${words.length} words; the narration has ${expected}.`)
@@ -149,15 +167,20 @@ export interface Narrated {
   audio: string | null
 }
 
-export async function narrate(provider: VoiceProvider, text: string, options: { cacheDirectory: string; voice?: string }): Promise<Narrated> {
+export async function narrate(
+  provider: VoiceProvider,
+  text: string,
+  options: { cacheDirectory: string; voice?: string; voiceSettings?: VoiceSettings },
+): Promise<Narrated> {
   const hash = createHash('sha256')
-    .update(JSON.stringify([provider.id, options.voice ?? null, text]))
+    .update(JSON.stringify([provider.id, options.voice ?? null, text, ...(options.voiceSettings === undefined ? [] : [options.voiceSettings])]))
     .digest('hex')
     .slice(0, 16)
   mkdirSync(options.cacheDirectory, { recursive: true })
   const timings = path.join(options.cacheDirectory, `${hash}.json`)
   if (existsSync(timings)) return JSON.parse(readFileSync(timings, 'utf8')) as Narrated
-  const speech = await provider.synthesize(text, options.voice)
+  const synthesisOptions = options.voiceSettings === undefined ? undefined : { voiceSettings: options.voiceSettings }
+  const speech = await provider.synthesize(text, options.voice, synthesisOptions)
   let audio: string | null = null
   if (speech.audio) {
     audio = `${hash}.${speech.audio.extension}`
