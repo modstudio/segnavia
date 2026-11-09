@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { AsOf, CalendarDate, Zone } from './as-of.ts'
-import { AsOfRefusedError, asOfRefusal, asOfZone, calendarDate, resolveAsOfDay } from './as-of-policy.ts'
+import { AsOfRefusedError, asOfRefusal, calendarDate, resolveAsOfDay } from './as-of-policy.ts'
 import { BookShape } from './book.ts'
 import { DeckShape } from './deck.ts'
 import { jsonSchemas } from './json-schemas.ts'
@@ -10,18 +10,22 @@ const boundaryMoment = Date.UTC(2026, 10, 14, 4, 30)
 
 describe('as-of policy', () => {
   test('resolves fixed, current and anchor values', () => {
-    expect(resolveAsOfDay({ kind: 'fixed', date: '2026-11-14' }, { moment: Number.NaN, zone: 'America/New_York' })).toEqual({
+    expect(resolveAsOfDay({ kind: 'fixed', date: '2026-11-14' }, { moment: Number.NaN, hostZone: 'America/New_York' })).toEqual({
       kind: 'day',
       day: { date: '2026-11-14', zone: 'America/New_York', kind: 'fixed' },
     })
-    expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment, zone: 'America/New_York' })).toEqual({
+    expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment, hostZone: 'America/New_York' })).toEqual({
       kind: 'day',
       day: { date: '2026-11-13', zone: 'America/New_York', kind: 'current' },
     })
-    expect(resolveAsOfDay({ kind: 'anchor', anchor: 'coming-shabbos' }, { moment: boundaryMoment, zone: 'America/New_York' })).toEqual({
+    expect(resolveAsOfDay({ kind: 'anchor', anchor: 'coming-shabbos' }, { moment: boundaryMoment, hostZone: 'America/New_York' })).toEqual({
       kind: 'anchor',
       anchor: 'coming-shabbos',
       today: '2026-11-13',
+    })
+    expect(resolveAsOfDay(undefined, { moment: boundaryMoment, hostZone: 'America/New_York' })).toEqual({
+      kind: 'day',
+      day: { date: '2026-11-13', zone: 'America/New_York', kind: 'current' },
     })
   })
 
@@ -31,9 +35,18 @@ describe('as-of policy', () => {
   })
 
   test('uses the record zone, then the host zone, then UTC', () => {
-    expect(asOfZone({ kind: 'current', zone: 'Europe/London' }, 'America/New_York')).toBe('Europe/London')
-    expect(asOfZone({ kind: 'current' }, 'America/New_York')).toBe('America/New_York')
-    expect(asOfZone(undefined)).toBe('UTC')
+    expect(resolveAsOfDay({ kind: 'fixed', date: '2026-11-14', zone: 'Europe/London' }, { moment: Number.NaN, hostZone: 'America/New_York' })).toEqual({
+      kind: 'day',
+      day: { date: '2026-11-14', zone: 'Europe/London', kind: 'fixed' },
+    })
+    expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment, hostZone: 'America/New_York' })).toEqual({
+      kind: 'day',
+      day: { date: '2026-11-13', zone: 'America/New_York', kind: 'current' },
+    })
+    expect(resolveAsOfDay({ kind: 'fixed', date: '2026-11-14' }, { moment: Number.NaN })).toEqual({
+      kind: 'day',
+      day: { date: '2026-11-14', zone: 'UTC', kind: 'fixed' },
+    })
   })
 
   test('refuses invalid zones and impossible dates', () => {
@@ -51,8 +64,10 @@ describe('as-of policy', () => {
   })
 
   test('round-trips a page as-of value through parsing and JSON', () => {
-    const page = Page.parse({ html: '<p>Day</p>', asOf: { kind: 'fixed', date: '2026-11-14', zone: 'America/New_York' } })
-    expect(Page.parse(JSON.parse(JSON.stringify(page)))).toEqual(page)
+    const asOf = { kind: 'fixed' as const, date: '2026-11-14' as const, zone: 'America/New_York' as const }
+    const page = Page.parse({ html: '<p>Day</p>', asOf })
+    expect(page.asOf).toEqual(asOf)
+    expect(Page.parse(JSON.parse(JSON.stringify(page))).asOf).toEqual(asOf)
   })
 
   test('stores as-of values on books and decks', () => {

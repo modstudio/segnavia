@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AsOf } from './as-of.ts'
 import { BookMode, BookPage, BookShape } from './book.ts'
 import { resolveBookPageGeometry } from './book-page-geometry.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
@@ -43,6 +44,7 @@ export const DocumentShape = z.object({
   style: StyleSheet.optional(),
   data: DocumentData.optional(),
   size: PageSize.optional(),
+  asOf: AsOf.optional(),
   print: DocumentPrint.optional(),
   layout: DeckShape.shape.layout.unwrap().optional(),
   fit: DeckShape.shape.fit.unwrap().optional(),

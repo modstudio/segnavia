@@ -7,7 +7,6 @@ export {
   AsOfRefusedError,
   type AsOfResolution,
   asOfRefusal,
-  asOfZone,
   calendarDate,
   resolveAsOfDay,
 } from './as-of-policy.ts'
