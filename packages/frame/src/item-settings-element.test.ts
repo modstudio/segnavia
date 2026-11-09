@@ -6,7 +6,8 @@ import { ItemSettingsTestElement, installItemSettingsTestDocument } from './item
 installItemSettingsTestDocument()
 
 const { ItemSettingsController } = await import('./item-settings-authoring.ts')
-const { SegnaviaItemSettings } = await import('./item-settings-element.ts')
+const freshElementModule = './item-settings-element.ts?fresh'
+const { SegnaviaItemSettings } = (await import(freshElementModule)) as typeof import('./item-settings-element.ts')
 
 const original: Fill = { id: 'mina', values: { name: 'Mina' } }
 const other: Fill = { id: 'noah', values: { name: 'Noah' } }
