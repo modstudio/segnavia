@@ -29,7 +29,7 @@ export function paginateSequence(
   }
 
   function geometryOf(flow: PaginateFlow): string {
-    return flow.pageGeometry
+    return flow.pageGeometry ?? 'segnavia:default'
   }
 
   function notesOnlyOpeningPage(page: PaginatePageFill, opener: boolean): boolean {

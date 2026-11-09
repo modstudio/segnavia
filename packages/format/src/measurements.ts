@@ -72,6 +72,7 @@ export const Measurements = z.object({
   geometry: z.object({ notesGap: z.number(), noteSeries: z.array(PaginateNoteSeriesGeometry).optional() }),
   parents: z.record(z.string(), z.object({ width: z.number(), height: z.number() })),
   geometryParents: z.record(z.string(), z.record(z.string(), z.object({ width: z.number(), height: z.number() }))).optional(),
+  pageGeometries: z.record(z.string(), z.object({ width: z.number(), height: z.number() })).optional(),
   parentNames: z.object({
     recto: z.literal(BOOK_PARENT_NAMES.recto),
     verso: z.literal(BOOK_PARENT_NAMES.verso),

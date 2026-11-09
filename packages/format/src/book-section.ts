@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Direction } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
@@ -54,6 +55,8 @@ const sectionFields = {
   parents: BookSectionParents.optional(),
   numbering: SectionNumbering.optional(),
   pageGeometry: z.string().optional(),
+  lang: z.string().optional(),
+  dir: Direction.optional(),
 }
 
 const partFields = {

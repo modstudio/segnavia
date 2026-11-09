@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PLACE_KEY_LIMIT, bookPlace, bookPlaceKey, bookPlaceOffset, bookPresentationScript, pageScale, spreadSlots } from './book-presentation.ts'
+import { BOOK_PLACE_KEY_LIMIT, bookPlace, bookPlaceKey, bookPlaceOffset, bookPresentationScript, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
 describe('book place', () => {
@@ -80,5 +80,23 @@ describe('pageScale', () => {
     expect(pageScale(300, 200, 0)).toBe(0)
     expect(pageScale(Number.NaN, 200, 1)).toBe(0)
     expect(pageScale(300, Number.POSITIVE_INFINITY, 1)).toBe(0)
+  })
+})
+
+describe('pageGrid', () => {
+  test('uses the largest shown dimensions at one shared spread scale', () => {
+    expect(
+      pageGrid(
+        [
+          { width: 612, height: 792 },
+          { width: 792, height: 612 },
+        ],
+        true,
+      ),
+    ).toEqual({ columns: 2, slots: 3, width: 792, height: 792 })
+  })
+
+  test('keeps the single-geometry grid dimensions unchanged', () => {
+    expect(pageGrid([{ width: 612, height: 792 }], false)).toEqual({ columns: 1, slots: 1, width: 612, height: 792 })
   })
 })

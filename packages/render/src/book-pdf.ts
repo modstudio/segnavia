@@ -1,4 +1,4 @@
-import { type Book, bookParentPages, physicalMargins, pressBoxes, resolveDirection, sequenceFolios, sheetMm, usesPressLayout } from '@segnavia/format'
+import { type Book, bookPageGeometries, bookParentPages, physicalMargins, pressBoxes, resolveDirection, sequenceFolios, sheetMm, usesPressLayout } from '@segnavia/format'
 import type { PreparedSlots } from '@segnavia/html'
 import {
   type BookDocument,
@@ -277,7 +277,7 @@ async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options:
   const built = bookDocument(book)
   if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
   writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations })
-  const output = await finishBookPdf(book, await document.save(), options, adapter)
+  const output = await adapter.finish(await document.save(), options)
   options.overflow?.report?.({ entries: printed.overflow ? [printed.overflow] : [] })
   return output
 }
@@ -331,6 +331,14 @@ export function bookPageCss(book: Book, marginLayer = false): string {
   const trim = sheetMm(book.page)
   const bleed = book.print && usesPressLayout(book.print) ? book.print.bleed : 0
   const size = book.print && usesPressLayout(book.print) ? pressBoxes(trim, book.print).bleedBox : trim
+  if (marginLayer && book.mode === 'paginated') {
+    return bookPageGeometries(book)
+      .map((geometry, index) => {
+        const source = book.print && usesPressLayout(book.print) ? pressBoxes(geometry.paper, book.print).bleedBox : geometry.paper
+        return `@page segnavia-page-${index + 1}{size:${source.width}mm ${source.height}mm;margin:${bleed}mm}`
+      })
+      .join('')
+  }
   if (marginLayer) return `@page{size:${size.width}mm ${size.height}mm;margin:${bleed}mm}`
   const edge = book.page.margin
   const right = physicalMargins(edge, 'ltr', 'recto')

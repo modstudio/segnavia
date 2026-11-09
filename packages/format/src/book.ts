@@ -342,6 +342,17 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       const parent = byName.get(name)
       return parent ? [{ role, name, width: textArea(parent, sectionTrim).width }] : []
     })
+    const geometryWidth = sectionTrim.width - (geometry?.margin.inlineStart ?? book.page.margin.inlineStart) - (geometry?.margin.inlineEnd ?? book.page.margin.inlineEnd)
+    const mismatched = widths.find((candidate) => candidate.width !== geometryWidth)
+    if (mismatched) {
+      const label = flow.title ?? `flow ${index + 1}`
+      ctx.addIssue({
+        code: 'custom',
+        path,
+        message: `the ${label} flow has different text widths: parent page "${mismatched.name}" is ${mismatched.width}mm, but its page geometry is ${geometryWidth}mm; make both widths equal or remove that parent to clear this refusal`,
+      })
+      return
+    }
     const first = widths[0]
     const different = widths.find((candidate) => candidate.width !== first?.width)
     if (!first || !different) return

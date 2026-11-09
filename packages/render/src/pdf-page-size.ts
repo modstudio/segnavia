@@ -71,7 +71,20 @@ function translateAnnotations(annotations: PDFArray | undefined, x: number, y: n
 
 export async function setPdfPageSize(pdf: Uint8Array, size: MillimeterPageSize, remedy?: string): Promise<Uint8Array> {
   const document = await loadPdf(pdf, { updateMetadata: false })
-  for (const page of document.getPages()) {
+  return setDocumentPageSizes(document, document.getPages().map(() => size), remedy)
+}
+
+async function setDocumentPageSizes(
+  document: Awaited<ReturnType<typeof loadPdf>>,
+  sizes: readonly MillimeterPageSize[],
+  remedy?: string,
+): Promise<Uint8Array> {
+  if (document.getPageCount() !== sizes.length) {
+    throw new RenderRefusedError(`Chromium printed ${document.getPageCount()} pages where the plan names ${sizes.length}; compute a new plan to clear this refusal.`)
+  }
+  for (const [index, page] of document.getPages().entries()) {
+    const size = sizes[index]
+    if (!size) throw new RenderRefusedError(`The plan has no paper geometry for page ${index + 1}; compute a new plan to clear this refusal.`)
     const cropBox = page.node.CropBox()
     const correction = pdfPageSizeCorrection(page.getMediaBox(), size, remedy)
     page.translateContent(correction.translation.x, correction.translation.y)
@@ -83,4 +96,8 @@ export async function setPdfPageSize(pdf: Uint8Array, size: MillimeterPageSize, 
     for (const name of ['BleedBox', 'TrimBox', 'ArtBox']) page.node.delete(PDFName.of(name))
   }
   return document.save()
+}
+
+export async function setPdfPageSizes(pdf: Uint8Array, sizes: readonly MillimeterPageSize[], remedy?: string): Promise<Uint8Array> {
+  return setDocumentPageSizes(await loadPdf(pdf, { updateMetadata: false }), sizes, remedy)
 }

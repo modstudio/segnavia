@@ -32,6 +32,8 @@ function sectionFields(section: Extract<DocumentNode, { type: 'section' }>, path
     parents: section.parents,
     numbering: section.numbering,
     pageGeometry: section.pageGeometry,
+    lang: section.lang,
+    dir: section.dir,
   })
 }
 

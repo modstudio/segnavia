@@ -6,16 +6,14 @@ import {
   type Limits,
   limitRefusalTemplate,
   type Plan,
-  PX_PER_MM,
   resolveLimits,
-  resolveParentPages,
-  textArea,
 } from '@segnavia/format'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { declaredFontLoads } from './font-load.ts'
+import { composerPageGeometries, composerPageRules } from './book-page-geometries.ts'
 
 export interface PaginatedDocumentOptions {
   nonce: string
@@ -29,39 +27,25 @@ export interface PaginatedDocumentOptions {
   breaks?: string[]
 }
 
-function px(value: number): number {
-  return value * PX_PER_MM
-}
-
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
   const fonts = view.style?.fonts
   const limits = resolveLimits(view.limits, options.limits)
-  const paper = { width: px(pagination.paper.width), height: px(pagination.paper.height) }
-  const parents = resolveParentPages(pagination.parents).map((parent) => {
-    const margin = {
-      blockStart: px(parent.margin.blockStart),
-      blockEnd: px(parent.margin.blockEnd),
-      inlineStart: px(parent.margin.inlineStart),
-      inlineEnd: px(parent.margin.inlineEnd),
-    }
-    return { ...parent, margin, textArea: textArea({ margin }, paper) }
-  })
+  const geometries = composerPageGeometries(pagination)
+  const geometry = geometries[0]
+  if (!geometry) throw new Error('A paginated book needs a default page geometry.')
   const config = {
     direction: pagination.direction,
     dir: view.dir,
     lang: view.lang,
-    geometry: {
-      paperWidth: px(pagination.paper.width),
-      paperHeight: px(pagination.paper.height),
-      columnGap: px(pagination.columnGap),
-      notesGap: 9,
-    },
+    geometry: { ...geometry, notesGap: 9 },
+    geometries,
+    defaultPageGeometry: geometry.name,
     orphans: pagination.orphans,
     widows: pagination.widows,
     rectoOpenings: pagination.rectoOpenings,
     endnotePlacement: pagination.endnotePlacement,
     runningHead: pagination.runningHead,
-    parents,
+    parents: geometry.parents,
     parentNames: BOOK_PARENT_NAMES,
     numbering: pagination.numbering,
     limit: limits.pages,
@@ -82,7 +66,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const baseCss =
-    `@page{size:${pagination.paper.width}mm ${pagination.paper.height}mm;margin:0}` +
+    composerPageRules(pagination, geometries) +
     `:where(html,body){margin:0!important;padding:0!important}` +
     `:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}` +
     `:where([data-segnavia-galleys]){position:absolute;inset-block-start:0;inset-inline-start:0}` +
