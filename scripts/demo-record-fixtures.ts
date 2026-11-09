@@ -35,7 +35,7 @@ export const recordsTableDocument: DocumentInput = {
       values: {
         name: `Record name ${index}`,
         amount: `$${index}.00`,
-        note: index % 50 === 0 ? Array.from({ length: 900 }, () => `Long note ${index}.`).join(' ') : `Short note ${index}.`,
+        note: index % 50 === 0 ? Array.from({ length: 230 }, () => `Long note ${index}.`).join(' ') : `Short note ${index}.`,
       },
     }
   }),
@@ -67,7 +67,7 @@ export const hebrewRecordsDocument: DocumentInput = {
       html: '<style>body{font:18px sans-serif}p{line-height:1.5}</style><h1 data-slot-value="title"></h1><p data-slot-value="body"></p>',
     },
   ],
-  children: [1200, 400, 2000].map((words, offset) => ({
+  children: [350, 150, 650].map((words, offset) => ({
     type: 'record' as const,
     id: `hebrew-record-${offset + 1}`,
     template: 'hebrew-row',
