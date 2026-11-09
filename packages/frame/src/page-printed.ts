@@ -1,4 +1,4 @@
-import type { OriginApproval, Page, PageWidths, SlotsOptions } from '@segnavia/format'
+import type { AsOfDay, OriginApproval, Page, PageWidths, SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
 import { expandPrintedFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
@@ -22,6 +22,7 @@ export interface PrintedPageFrameOptions {
   csp?: string
   origins?: Iterable<OriginApproval>
   signal: AbortSignal
+  day?: AsOfDay
   loaded(document: string): void
   failed(error: unknown): void
 }
@@ -29,7 +30,7 @@ export interface PrintedPageFrameOptions {
 export function loadPrintedPageFrame(page: Page | HtmlPage, options: PrintedPageFrameOptions): void {
   if (fillsSlotValues(page.slots, options.slots)) options.failed(new Error(PRINTED_SLOT_REFUSAL))
   const printed = resolvePrintedPageHtml(page)
-  void expandPrintedFramePage(printed, options.motifs, options.signal, options.placements, 'screen', options.widths)
+  void expandPrintedFramePage(printed, options.motifs, options.signal, options.placements, 'screen', options.widths, options.day)
     .then(async (expanded) => {
       const fonts = await pageFontCss(expanded.page, expanded.fonts, options.fonts, options.signal)
       loadPrintedPageDocument(

@@ -1,4 +1,4 @@
-import { type DocumentInput, type Media, mediaTextDirection, Placement, type Placement as PlacementValue } from '@segnavia/format'
+import { type AsOfDay, type DocumentInput, type Media, mediaTextDirection, Placement, type Placement as PlacementValue } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
 
@@ -8,7 +8,7 @@ const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEME
 export type ResolvedPlacement = { kind: 'media'; media: Media; src: string } | { kind: 'page'; page: DocumentInput }
 export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
-  context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal },
+  context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal; day?: AsOfDay },
 ) => Promise<R | undefined>
 
 export interface PlacementPlanEntry {

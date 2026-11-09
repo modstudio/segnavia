@@ -10,6 +10,7 @@ export {
   calendarDate,
   resolveAsOfDay,
 } from './as-of-policy.ts'
+export { type AnchorSource, type DocumentDayOptions, resolveDocumentDay } from './document-day.ts'
 
 export { Board, BoardItem, BoardLabel, BoardSection, GridCell, LABEL_MIN_WIDTH } from './board.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'

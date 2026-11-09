@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { AsOfDay } from './as-of.ts'
 
 export const SLOT_TYPES = ['text', 'phone', 'email', 'link', 'qr', 'image'] as const
 export const SlotType = z.enum(SLOT_TYPES)
@@ -90,6 +91,8 @@ export interface SlotsOptions {
   overrides?: FillValues
   /** The fill selected from a host data source; fill values override it per declared key. */
   source?: Fill
+  /** Resolves source values for the document's established day. Mutually exclusive with source. */
+  resolve?: (context: { day: AsOfDay; signal: AbortSignal }) => Promise<Fill | undefined>
   fill?: Fill
   declarations?: SlotDeclarationInput[]
   /** Resolve an asset without network access. Hosts should honor the signal so timed-out renders stop this work promptly. */

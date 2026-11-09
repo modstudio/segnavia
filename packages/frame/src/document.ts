@@ -3,6 +3,7 @@
 // natural size at the browser's 96 dpi.
 
 import {
+  type AnchorSource,
   type Document,
   type OriginApproval,
   Page,
@@ -12,6 +13,7 @@ import {
   pageOrPrintedFromDocument,
   resolveBrand,
   type SlotsOptions,
+  type Zone,
 } from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
@@ -51,6 +53,10 @@ export class SegnaviaDocument extends HTMLElement {
   private placementOptions: PlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
+  private anchorOptions: AnchorSource | undefined
+  private asOfOptions: { zone?: Zone } | undefined
+  private momentValue: number | undefined
+  private loadMoment = 0
   private brandOptions: BrandsOptions | undefined
   private brandResolution: AbortController | undefined
   private slotGeneration = 0
@@ -89,6 +95,29 @@ export class SegnaviaDocument extends HTMLElement {
 
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
+    this.paint()
+  }
+
+  get anchors(): AnchorSource | undefined {
+    return this.anchorOptions
+  }
+  set anchors(value: AnchorSource | undefined) {
+    this.anchorOptions = value
+    this.paint()
+  }
+  get asOf(): { zone?: Zone } | undefined {
+    return this.asOfOptions
+  }
+  set asOf(value: { zone?: Zone } | undefined) {
+    this.asOfOptions = value
+    this.paint()
+  }
+  get moment(): number | undefined {
+    return this.momentValue
+  }
+  set moment(value: number | undefined) {
+    if (value !== undefined && !Number.isFinite(value)) throw new RangeError('moment must be finite epoch milliseconds.')
+    this.momentValue = value
     this.paint()
   }
 
@@ -218,6 +247,7 @@ export class SegnaviaDocument extends HTMLElement {
     this.cancelSlotPreparation()
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
+    this.loadMoment = this.momentValue ?? Date.now()
     this.filledHtml = undefined
     this.resolvedSlots = undefined
     this.resolvedGeneration = 0
@@ -230,7 +260,7 @@ export class SegnaviaDocument extends HTMLElement {
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
     this.paintResolved(print)
-    if (this.motifOptions) return
+    if (this.motifOptions || this.slotOptions?.resolve) return
     const refusal = this.pageValues.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
     if (refusal) {
       this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
@@ -323,7 +353,11 @@ export class SegnaviaDocument extends HTMLElement {
     page.pageWidths = this.widthOptions
     page.fonts = this.fontOptions
     page.brands = this.brandOptions
-    if (this.motifOptions) page.slots = this.slotOptions
+    page.anchors = this.anchorOptions
+    page.asOf = this.asOfOptions
+    page.moment = this.loadMoment
+    if (this.motifOptions || this.slotOptions?.resolve) page.slots = this.slotOptions
+    page.addEventListener('asof', (event) => this.dispatchEvent(new CustomEvent('asof', { detail: (event as CustomEvent).detail })))
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
     page.origins = this.origins
