@@ -4,9 +4,11 @@ import {
   FontManifest,
   FontReference,
   FontReferenceInput,
+  fontManifestReferences,
   fontManifestWithReferences,
   HEBREW_UNICODE_RANGE,
   LocalFaceTransport,
+  localFontReferences,
   matchFaces,
   persistedFontManifestWithReferences,
   rangeSample,
@@ -45,6 +47,25 @@ describe('Page and Book fonts', () => {
 })
 
 describe('FontManifest', () => {
+  test('converts a manifest to references without browser globals', () => {
+    expect(
+      fontManifestReferences(
+        {
+          body: { faces: [{}] },
+          heading: { local: 'Heading Sans', fallback: 'body' },
+        },
+        ['caption', 'body'],
+      ),
+    ).toEqual([{ app: 'body' }, { local: 'Heading Sans', fallback: 'body' }, { app: 'caption' }])
+  })
+
+  test('selects local references from references, a manifest or no fonts', () => {
+    const local = { local: 'Heading Sans', fallback: 'body' }
+    expect(localFontReferences([{ app: 'body' }, local])).toEqual([local])
+    expect(localFontReferences({ body: { faces: [{}] }, heading: local })).toEqual([local])
+    expect(localFontReferences(undefined)).toEqual([])
+  })
+
   test('converts references without overwriting declarations or colliding local keys', () => {
     const fonts = { body: { faces: [{ weight: 700 }] }, 'local-0': { faces: [{}] } }
     const references = [{ app: 'body' as const }, { app: 'heading' as const }, { local: 'Arial', fallback: 'body' as const }]

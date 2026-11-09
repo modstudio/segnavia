@@ -77,6 +77,13 @@ export interface ManifestWithReferences {
   undeclared: string[]
 }
 
+export function fontManifestReferences(fonts: FontManifest | undefined, undeclared: readonly string[] = []): FontReference[] {
+  const references = Object.entries(fonts ?? {}).map(([name, declaration]) => ('local' in declaration ? declaration : { app: name }))
+  const declared = new Set(references.flatMap((reference) => ('app' in reference ? [reference.app] : [])))
+  for (const name of undeclared) if (!declared.has(name)) references.push({ app: name })
+  return references
+}
+
 export function fontManifestWithReferences(fonts: FontManifest | undefined, references: readonly FontReference[]): ManifestWithReferences {
   const manifest: FontManifest = { ...fonts }
   const undeclared: string[] = []
@@ -114,13 +121,15 @@ const LocalFontShape = { local: z.string().min(1), fallback: AppFontName } as co
 
 export const FontReference = z.union([z.object(AppFontShape), z.object(LocalFontShape)])
 export type FontReference = z.infer<typeof FontReference>
+export type FontReferencesSource = readonly FontReference[] | FontManifest | undefined
 
 export const FontReferenceInput = z.union([z.strictObject(AppFontShape), z.strictObject(LocalFontShape)])
 export type FontReferenceInput = z.input<typeof FontReferenceInput>
 
-export function localFontReferences(references: readonly FontReference[]): Array<{ local: string; fallback: string }> {
+export function localFontReferences(fonts: FontReferencesSource): LocalFontDeclaration[] {
+  const references = Array.isArray(fonts) ? fonts : fontManifestReferences(fonts as FontManifest | undefined)
   const seen = new Set<string>()
-  const locals: Array<{ local: string; fallback: string }> = []
+  const locals: LocalFontDeclaration[] = []
   for (const reference of references) {
     if (!('local' in reference)) continue
     const key = JSON.stringify(reference)
