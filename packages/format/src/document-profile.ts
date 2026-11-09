@@ -38,7 +38,6 @@ export const DOCUMENT_PROFILES = {
       'widows',
       'fragmentation',
       'runningHead',
-      'rules',
       'limits',
       'print',
     ],

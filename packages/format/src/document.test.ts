@@ -201,11 +201,9 @@ describe('Document', () => {
     expect(
       Document.parse({
         type: 'document',
-        kind: 'book',
-        title: 'Book',
-        mode: 'paginated',
-        page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+        kind: 'printed',
         rules: { every: 'body' },
+        parentPages: [{ type: 'parentPage', name: 'body' }],
         children: [section],
       }).children[0],
     ).toMatchObject({ numbering: { restart: 4 } })
