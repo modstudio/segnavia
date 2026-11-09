@@ -73,6 +73,12 @@ export interface CoverDigestMaterial {
   motifs: readonly Motif[]
 }
 
+export interface CoverDigestOptions {
+  stamp: string
+  fonts?: readonly string[]
+  motifs?: readonly Motif[]
+}
+
 function canonicalValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.filter((item) => item !== undefined).map(canonicalValue)
   if (value === null || typeof value !== 'object') return value
@@ -110,13 +116,17 @@ export async function digestCoverMaterial(material: CoverDigestMaterial): Promis
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-export function coverDigest(cover: Cover, inputs: { stamp: string; fonts?: readonly string[]; motifs?: readonly Motif[] }): Promise<string> {
-  return digestCoverMaterial({
+export function coverDigestMaterial(cover: Cover, options: CoverDigestOptions): CoverDigestMaterial {
+  return {
     page: cover.page,
     sheet: sheetMm(cover.page.print),
     drawingVersion: COVER_DRAWING_VERSION,
-    stamp: inputs.stamp,
-    fonts: inputs.fonts ?? [],
-    motifs: inputs.motifs ?? [],
-  })
+    stamp: options.stamp,
+    fonts: options.fonts ?? [],
+    motifs: options.motifs ?? [],
+  }
+}
+
+export async function coverDigest(cover: CoverInput, options: CoverDigestOptions): Promise<string> {
+  return digestCoverMaterial(coverDigestMaterial(Cover.parse(cover), options))
 }

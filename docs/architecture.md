@@ -1619,12 +1619,15 @@ the thumbnail's slot data. A board has no slot-data option, so its live cover is
 drawn without slot data; a host whose board cover binds slots keeps and supplies
 the cover picture instead.
 
-`coverDigest` gives the cover picture an immutable address. It hashes the
-canonical page without identity metadata, the sheet, the cover drawing
-version, the host's renderer stamp, sorted host-supplied font file identifiers
-and sorted motifs. It does not hash placed media or slot data the picture
-draws, so a host whose cover places media or binds slots folds their revision
-into the renderer stamp. The host may draw the cover through
+`coverDigest` and `renderer.coverImage` both accept the same stored `CoverInput`
+and parse it at their boundary. `coverDigest` refuses an already parsed `Cover`;
+a holder of one passes `coverDigestMaterial(cover, options)` to
+`digestCoverMaterial`. The digest gives the cover picture an immutable address.
+It hashes the canonical page without identity metadata, the sheet, the cover
+drawing version, the host's renderer stamp, sorted host-supplied font file
+identifiers and sorted motifs. It does not hash placed media or slot data the
+picture draws, so a host whose cover places media or binds slots folds their
+revision into the renderer stamp. The host may draw the cover through
 `renderer.coverImage(cover, { width, format })`, which draws it offline with no
 approved dependencies to WebP (the default) or PNG exactly `width` pixels wide
 at the sheet's aspect, keep the picture under that digest and serve it from an

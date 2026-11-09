@@ -263,11 +263,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
 
-    coverImage(input, opts) {
+    async coverImage(input, opts) {
       const cover = Cover.parse(input)
       const plan = coverImagePlan(cover, opts)
       const options = parseRenderOptions(plan.options)
-      return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+      return await withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, 'screen')
         return renderPreparedPageImage(prepared, options, deadline)
       })

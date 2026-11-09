@@ -103,8 +103,10 @@ export {
   COVER_SHEET,
   Cover,
   type CoverDigestMaterial,
+  type CoverDigestOptions,
   type CoverInput,
   coverDigest,
+  coverDigestMaterial,
   digestCoverMaterial,
 } from './cover.ts'
 export {
