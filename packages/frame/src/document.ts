@@ -238,6 +238,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     this.style.removeProperty('--segnavia-document-paper-aspect')
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
+    this.paintResolved(print)
     const controller = new AbortController()
     this.slotPreparation = controller
     const isCurrent = () => this.isConnected && !controller.signal.aborted && generation === this.slotGeneration

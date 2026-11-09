@@ -14,7 +14,7 @@ Object.assign(globalThis, {
 
 const { SegnaviaDocument } = await import('./document.ts')
 
-test('document resolves and reports one shared day for three equal pages', async () => {
+test('document paints its sheets immediately, then resolves and reports one shared day for three equal pages', async () => {
   let anchorCalls = 0
   let slotCalls = 0
   let paints = 0
@@ -64,12 +64,13 @@ test('document resolves and reports one shared day for three equal pages', async
   Object.getOwnPropertyDescriptor(asOfPrototype, 'moment')?.set?.call(documentViewer, Date.parse('2026-11-14T12:00:00Z'))
 
   documentViewer.paint()
+  expect(paints).toBe(1)
   await new Promise((resolve) => setTimeout(resolve, 0))
 
   expect(anchorCalls).toBe(1)
   expect(slotCalls).toBe(1)
   expect(events).toEqual([{ date: '2026-11-09', zone: 'UTC', kind: 'anchor', anchor: 'week' }])
-  expect(paints).toBe(1)
+  expect(paints).toBe(2)
 })
 
 test('a document collection pass writes the page day before applying host slots', async () => {
