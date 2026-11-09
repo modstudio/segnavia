@@ -40,6 +40,7 @@ export const DOCUMENT_PROFILES = {
       'runningHead',
       'parentRules',
       'limits',
+      'asOf',
       'print',
     ],
   },
@@ -84,7 +85,7 @@ export const DOCUMENT_PROFILES = {
     },
     numbering: 'printed',
     canonicalChildren: null,
-    fields: ['brand', 'settings', 'style', 'data', 'size', 'print', 'numbering', 'fragmentation', 'parentRules', 'limits'],
+    fields: ['brand', 'settings', 'style', 'data', 'size', 'asOf', 'print', 'numbering', 'fragmentation', 'parentRules', 'limits'],
   },
   deck: {
     printShape: 'press',
@@ -116,6 +117,7 @@ export const DOCUMENT_PROFILES = {
       'style',
       'data',
       'size',
+      'asOf',
       'print',
       'layout',
       'fit',
@@ -148,7 +150,7 @@ export const DOCUMENT_PROFILES = {
     sectionChildren: null,
     numbering: null,
     canonicalChildren: null,
-    fields: ['brand', 'settings', 'style', 'data', 'size', 'print', 'limits'],
+    fields: ['brand', 'settings', 'style', 'data', 'size', 'asOf', 'print', 'limits'],
   },
   board: {
     printShape: 'none',

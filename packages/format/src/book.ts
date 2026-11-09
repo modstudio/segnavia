@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AsOf } from './as-of.ts'
 import { bookPageGeometries, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 import { parentPaperIssues } from './book-parent-geometry-policy.ts'
 import {
@@ -111,6 +112,7 @@ export const BookShape = z.object({
   variables: z.array(Variable).default([]),
   slots: Slots.optional(),
   style: StyleSheet.optional(),
+  asOf: AsOf.optional(),
   print: PressGeometry.optional(),
   numbering: z
     .object({
