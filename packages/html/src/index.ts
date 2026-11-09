@@ -44,7 +44,7 @@ export {
   windowPageIndex,
 } from '@segnavia/layout'
 export { base64ToBytes, bytesToBase64 } from './base64.ts'
-export { BINDINGS, bindingNames, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
+export { BINDINGS, bindingNames, bindingPaths, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { BLOCK_CONTEXT, type BlockKind, blockContextAllowed } from './block-context.ts'
 export type { ContentAddress } from './block-fragments.ts'
 export {

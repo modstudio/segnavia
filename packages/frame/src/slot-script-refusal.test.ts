@@ -39,7 +39,7 @@ test('page fast path and expanded print path refuse the same reserved motif plac
     querySelector: () => iframe,
     fit() {},
     dispatchEvent(event: ErrorEvent) {
-      errors.push(event.error)
+      if (event.type === 'error') errors.push(event.error)
       return true
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
@@ -73,7 +73,7 @@ test('page reports a style compile refusal without writing a partial frame', () 
     querySelector: () => iframe,
     fit() {},
     dispatchEvent(event: ErrorEvent) {
-      errors.push(event.error)
+      if (event.type === 'error') errors.push(event.error)
       return true
     },
   }
@@ -105,7 +105,7 @@ test('page keeps authored HTML and reports a refused fill for a scripted item', 
     querySelector: () => iframe,
     fit() {},
     dispatchEvent(event: ErrorEvent) {
-      errors.push(event.error)
+      if (event.type === 'error') errors.push(event.error)
       return true
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
@@ -147,7 +147,7 @@ test('page expands a data-free motif before refusing a scripted page fill withou
     querySelector: () => iframe,
     fit() {},
     dispatchEvent(event: ErrorEvent) {
-      errors.push(event.error)
+      if (event.type === 'error') errors.push(event.error)
       return true
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
@@ -239,7 +239,7 @@ test('paper expands data-free motifs before refusing scripted fills and keeps on
       paints++
     },
     dispatchEvent(event: ErrorEvent) {
-      errors.push(event.error)
+      if (event.type === 'error') errors.push(event.error)
       return true
     },
     paint: (SegnaviaPaper.prototype as unknown as { paint(): void }).paint,
@@ -290,7 +290,7 @@ test('stage renders authored content and reports a refused fill for a scripted d
     room: {},
     querySelector: () => null,
     dispatchEvent(event: ErrorEvent) {
-      errors.push(event.error)
+      if (event.type === 'error') errors.push(event.error)
       return true
     },
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,

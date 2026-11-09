@@ -1,6 +1,7 @@
 import type { Deck, Page, Print } from '@segnavia/format'
 
 export const internalPageLoad = Symbol.for('@segnavia/frame/internal-page-load')
+export const internalPageDayLoad = Symbol.for('@segnavia/frame/internal-page-day-load')
 export const internalThumbnailDeckLoad = Symbol.for('@segnavia/frame/internal-thumbnail-deck-load')
 export const internalThumbnailPageLoad = Symbol.for('@segnavia/frame/internal-thumbnail-page-load')
 export const internalDocumentPagesLoad = Symbol.for('@segnavia/frame/internal-document-pages-load')

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Deck, type SlotsOptions } from '@segnavia/format'
+import { Deck, Page, type SlotsOptions } from '@segnavia/format'
 import { prepareSlots } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { pageDocument } from './page-document.test-helper.ts'
@@ -349,6 +349,7 @@ test('document reports invalid bindings prepared before a page is mounted', asyn
   let paints = 0
   const documentViewer = {
     isConnected: true,
+    sourceValues: [Page.parse({ html: '<source data-slot-src="logo">', scripts: 'refuse', slots: assetSlot })],
     pageValues: [{ html: '<source data-slot-src="logo">', scripts: 'refuse', slots: assetSlot }],
     printValue: {},
     slotOptions: { fill: { id: 'x', values: { logo: 'data:image/png;base64,AAAA' } } } as SlotsOptions,
@@ -364,7 +365,7 @@ test('document reports invalid bindings prepared before a page is mounted', asyn
       paints++
     },
     dispatchEvent(event: ErrorEvent) {
-      errors.push(event)
+      if (event.type === 'error') errors.push(event)
       return true
     },
     paint: (SegnaviaDocument.prototype as unknown as { paint(): void }).paint,

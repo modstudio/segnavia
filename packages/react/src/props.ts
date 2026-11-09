@@ -1,4 +1,5 @@
 import type {
+  AsOfDay,
   ControllerOptions,
   DeckController,
   DocumentInput,
@@ -141,6 +142,10 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   brands?: SegnaviaPage['brands']
   alertLabels?: SegnaviaPage['alertLabels']
   placements?: SegnaviaPage['placements']
+  anchors?: SegnaviaPage['anchors']
+  asOf?: SegnaviaPage['asOf']
+  moment?: SegnaviaPage['moment']
+  onAsof?: CustomEventProp<AsOfDay>
   pageWidths?: SegnaviaPage['pageWidths']
   src?: string
   label?: string
@@ -187,6 +192,10 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   fonts?: SegnaviaDocument['fonts']
   brands?: SegnaviaDocument['brands']
   placements?: SegnaviaDocument['placements']
+  anchors?: SegnaviaDocument['anchors']
+  asOf?: SegnaviaDocument['asOf']
+  moment?: SegnaviaDocument['moment']
+  onAsof?: CustomEventProp<AsOfDay>
   pageWidths?: SegnaviaDocument['pageWidths']
   unstyled?: boolean
 }

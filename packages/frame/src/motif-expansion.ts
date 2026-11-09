@@ -1,4 +1,5 @@
 import {
+  type AsOfDay,
   type Book,
   type BookItem,
   type BookView,
@@ -294,15 +295,16 @@ export async function expandFramePage(
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
+  day?: AsOfDay,
 ): Promise<ExpandedFramePage> {
   const regions = pageParentRegions(page)
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
     if (refusal) throw refusal
-    return { page: await resolvePagePlacements(page, placements, purpose, signal, pageWidths), fonts: [] }
+    return { page: await resolvePagePlacements(page, placements, purpose, signal, pageWidths, day), fonts: [] }
   }
   const lang = page.lang?.trim() || documentLanguage(page.html)
-  const { bodyResults, parentResults, fonts } = await expandPageMotifs(page, [{ html: page.html, lang }], regions, lang, motifs, signal)
+  const { bodyResults, parentResults, fonts } = await expandPageMotifs(page, [{ html: page.html, lang }], regions, lang, motifs, signal, day)
   const result = bodyResults[0]
   if (!result) throw new Error('A page motif expansion produced no body result.')
   const printedPages = page.printedPages
@@ -312,7 +314,7 @@ export async function expandFramePage(
       }
     : undefined
   const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
-  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths), fonts }
+  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths, day), fonts }
 }
 
 export function expandFramePages(

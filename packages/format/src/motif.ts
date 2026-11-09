@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { AsOfDay } from './as-of.ts'
 import { TextDirection } from './direction.ts'
 import { FontReference, FontReferenceInput } from './fonts.ts'
 import { SlotKey } from './slots.ts'
@@ -6,6 +7,10 @@ import { SlotKey } from './slots.ts'
 export const MOTIF_ATTRIBUTE = 'data-motif'
 export const PRINTED_PAGE_CONTEXT = 'printedPage'
 export const RECORD_CONTEXT = 'record'
+export const AS_OF_CONTEXT = 'asOf'
+export const AS_OF_DATE_PATH = `${AS_OF_CONTEXT}.date`
+export const AS_OF_ZONE_PATH = `${AS_OF_CONTEXT}.zone`
+export const AS_OF_ANCHOR_PATH = `${AS_OF_CONTEXT}.anchor`
 export const PRINTED_PAGE_NUMBER_PATH = `${PRINTED_PAGE_CONTEXT}.number`
 export const PRINTED_PAGE_TOTAL_PATH = `${PRINTED_PAGE_CONTEXT}.total`
 export const PRINTED_PAGE_DOCUMENT_NUMBER_PATH = `${PRINTED_PAGE_CONTEXT}.documentNumber`
@@ -134,7 +139,7 @@ export interface MotifPlacement {
 
 export interface MotifSource {
   motif(key: string, options: { revision?: string; signal: AbortSignal }): Promise<Motif | undefined>
-  data?(placement: MotifPlacement, options: { signal: AbortSignal }): Promise<Record<string, unknown>>
+  data?(placement: MotifPlacement, options: { signal: AbortSignal; day?: AsOfDay }): Promise<Record<string, unknown>>
 }
 
 export type MotifVersionChoice = { ok: true; version: MotifVersion; index: number } | { ok: false; reason: string }

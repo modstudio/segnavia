@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test'
+import { Page } from '@segnavia/format'
+import { internalPageDayLoad } from './document-value-load.ts'
 import { toggleTestAttribute } from './page-element.test-helper.ts'
 
 class TestElement extends EventTarget {
@@ -41,7 +43,6 @@ function pageHarness() {
     style: { configurable: true, value: style() },
   })
   Object.assign(page, {
-    dispatchEvent: () => true,
     getAttribute: (name: string) => attributes.get(name) ?? null,
     hasAttribute: (name: string) => attributes.has(name),
     setAttribute(name: string, value: string) {
@@ -105,6 +106,44 @@ test('a label names the mounted page frame', () => {
   page.label = 'Notice'
   page.load(content)
   expect(page.querySelector<HTMLIFrameElement>('iframe')?.title).toBe('Notice')
+})
+
+test('reports the one as-of day used by a page load', () => {
+  const page = pageHarness()
+  const days: unknown[] = []
+  page.moment = Date.parse('2026-11-14T04:30:00Z')
+  page.asOf = { zone: 'America/New_York' }
+  page.addEventListener('asof', (event) => days.push((event as CustomEvent).detail))
+  page.load(content)
+  expect(days).toEqual([{ date: '2026-11-13', zone: 'America/New_York', kind: 'current' }])
+})
+
+test('a page given an established document day does not resolve or report it again', () => {
+  const page = pageHarness()
+  let anchorCalls = 0
+  let slotCalls = 0
+  let events = 0
+  page.anchors = {
+    choices: [{ name: 'week', label: 'Week' }],
+    resolve: () => {
+      anchorCalls++
+      return '2026-11-09'
+    },
+  }
+  page.slots = {
+    resolve: async () => {
+      slotCalls++
+      return undefined
+    },
+  }
+  page.addEventListener('asof', () => events++)
+
+  page[internalPageDayLoad](Page.parse({ html: '<p>Page</p>', asOf: { kind: 'anchor', anchor: 'week' } }), {
+    day: { date: '2026-11-09', zone: 'UTC', kind: 'anchor', anchor: 'week' },
+    slots: { source: { id: 'week', values: {} } },
+  })
+
+  expect({ anchorCalls, slotCalls, events }).toEqual({ anchorCalls: 0, slotCalls: 0, events: 0 })
 })
 
 test('the mounted page frame resolves its root direction from the page language', () => {

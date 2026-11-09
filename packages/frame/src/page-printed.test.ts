@@ -104,7 +104,7 @@ function loadingHarness(slotOptions?: SlotsOptions) {
       frame.srcdoc = document
     },
     dispatchEvent(event: ErrorEvent) {
-      errors.push(event.error)
+      if (event.type === 'error') errors.push(event.error)
       return true
     },
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
