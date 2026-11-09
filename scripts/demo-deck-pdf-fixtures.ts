@@ -47,6 +47,10 @@ export function backgroundDeck(scripts: Scripts, image: string) {
   })
 }
 
+export function backgroundNotesBleedDeck(scripts: Scripts, image: string) {
+  return Document.parse({ ...backgroundDeck(scripts, image), print: { bleed: 3 } })
+}
+
 export function handoutDeck(scripts: Scripts, image: string, shot: Shot) {
   return Document.parse({
     type: 'document',

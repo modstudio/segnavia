@@ -45,7 +45,7 @@ export function deckPrintablePdfOptions(press: DeckPressContext): Parameters<Tab
 }
 
 export function htmlSlidePdfOptions(size: Deck['size'], press: DeckPressContext): Parameters<Tab['pdf']>[0] {
-  if (press.active && press.boxes) return deckPrintablePdfOptions(press)
+  if (press.slides && press.boxes) return deckPrintablePdfOptions(press)
   return {
     width: `${size.width}px`,
     height: `${size.height}px`,

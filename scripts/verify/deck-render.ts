@@ -3,8 +3,8 @@ import { mkdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { Document, deckFromDocument, fitPage, Imposition, impose, MM_PER_PT, PX_PER_MM, pagePlacementLayout } from '@segnavia/format'
 import { annotationFocusBox, fitImage } from '@segnavia/frame/image-fit'
-import { notesLayoutGeometry } from '@segnavia/frame/print-document'
-import { backgroundDeck, deckPdfShades, handoutDeck, handoutImposition } from '../demo-deck-pdf-fixtures.ts'
+import { deckNotesPrint, notesLayoutGeometry } from '@segnavia/frame/print-document'
+import { backgroundDeck, backgroundNotesBleedDeck, deckPdfShades, handoutDeck, handoutImposition } from '../demo-deck-pdf-fixtures.ts'
 import { fitDeck, fitShot } from '../demo-fit-fixtures.ts'
 import { type Raster, rasterCssPixels, rasterMillimeters, rasterPdf, readPpm } from './pdf-raster.ts'
 
@@ -136,6 +136,25 @@ export function verifyDeckRender(output: string, work: string, check: Check): vo
         near(inside, deckPdfShades.root) &&
         ['Root background notes.', 'Body background notes.', 'Div background notes.', 'Image slide notes.'].every((note) => text.includes(note)),
       `backgrounds=${notesValues.join(',')}, border=${border}, inside=${inside}, outside thumbnail=${outside}`,
+    )
+
+    const bleedDeck = deckFromDocument(Document.parse(backgroundNotesBleedDeck(scripts, 'image')))
+    const bleedGeometry = notesLayoutGeometry(bleedDeck.size, deckNotesPrint(undefined, bleedDeck))
+    const bleedDivSlide = rasterPdf(output, work, `${notesFile}-bleed`, 3)
+    const bleedDiv = rasterCssPixels(
+      bleedDivSlide,
+      bleedGeometry.slide.x + 300 * bleedGeometry.slide.scale,
+      bleedGeometry.slide.y + 200 * bleedGeometry.slide.scale,
+    )
+    const bleedOutsideDiv = rasterCssPixels(
+      bleedDivSlide,
+      bleedGeometry.slide.x + 100 * bleedGeometry.slide.scale,
+      bleedGeometry.slide.y + 200 * bleedGeometry.slide.scale,
+    )
+    check(
+      `a notes-layout deck with bleed lays out its HTML slide at deck size with ${scripts} scripts`,
+      near(bleedDiv, deckPdfShades.div) && bleedOutsideDiv > 250,
+      `div=${bleedDiv}, outside div=${bleedOutsideDiv}`,
     )
   }
   const [refusedImage, sandboxedImage] = imageRasters

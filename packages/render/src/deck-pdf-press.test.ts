@@ -73,13 +73,14 @@ test('HTML slides print at the deck size or the press bleed box', async () => {
   const recordingServices = {
     ...services,
     renderPdf: async (setup: { html: string }, pdf: Parameters<Tab['pdf']>[0]) => {
-      if (setup.html.includes('<p>HTML</p>')) slideOptions.push(pdf)
+      if (setup.html.includes('<p>HTML</p>') && !setup.html.includes('<section class="sheet')) slideOptions.push(pdf)
       return requestedPdf(setup.html, pdf)
     },
   }
 
   await renderDeckPdf(deck, {}, recordingServices)
   await renderDeckPdf(bleedDeck, {}, recordingServices)
+  await renderDeckPdf(bleedDeck, { layout: 'notes' }, recordingServices)
 
   const boxes = deckPressSettings(bleedDeck, {}).boxes
   expect(boxes).toBeDefined()
@@ -97,6 +98,13 @@ test('HTML slides print at the deck size or the press bleed box', async () => {
       preferCSSPageSize: false,
       printBackground: true,
       margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+      pageRanges: '1',
+    },
+    {
+      width: '400px',
+      height: '200px',
+      printBackground: true,
+      margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
       pageRanges: '1',
     },
   ])

@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { Shot } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
-import { backgroundDeck, handoutDeck, handoutImposition } from './demo-deck-pdf-fixtures.ts'
+import { backgroundDeck, backgroundNotesBleedDeck, handoutDeck, handoutImposition } from './demo-deck-pdf-fixtures.ts'
 
 export async function buildDeckPdfs(renderer: Renderer, output: string, image: string, shot: Shot, inline: (src: string) => string): Promise<void> {
   for (const scripts of ['refuse', 'sandboxed'] as const) {
@@ -10,6 +10,10 @@ export async function buildDeckPdfs(renderer: Renderer, output: string, image: s
     for (const layout of ['slides', 'notes'] as const) {
       writeFileSync(path.join(output, `deck-backgrounds-${scripts}-${layout}.pdf`), await renderer.deckPdf(deck, { layout, inline }))
     }
+    writeFileSync(
+      path.join(output, `deck-backgrounds-${scripts}-notes-bleed.pdf`),
+      await renderer.deckPdf(backgroundNotesBleedDeck(scripts, image), { layout: 'notes', inline }),
+    )
   }
   const handout = handoutDeck('refuse', image, shot)
   writeFileSync(path.join(output, 'deck-handout.pdf'), await renderer.deckPdf(handout, { imposition: handoutImposition, inline }))
