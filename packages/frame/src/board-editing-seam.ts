@@ -14,6 +14,7 @@ export interface BoardEditingBridge {
   view(): BoardView
   shapes(): BoardShapes
   labelShape(label: BoardLabel): MeasuredSize
+  labelNode(id: string): HTMLElement | undefined
   document(board: Board): Document
   local(event: { clientX: number; clientY: number }): Point
   setDropTarget(id?: string): void
@@ -36,6 +37,7 @@ interface BridgeParts {
   view(): BoardView
   shapes(): BoardShapes
   labelShape(label: BoardLabel): MeasuredSize
+  labelNode(id: string): HTMLElement | undefined
   document(board: Board): Document
   local(event: { clientX: number; clientY: number }): Point
   setDropTarget(id?: string): void
@@ -55,6 +57,7 @@ export function createBoardEditingBridge(parts: BridgeParts): BoardEditingBridge
     view: parts.view,
     shapes: parts.shapes,
     labelShape: parts.labelShape,
+    labelNode: parts.labelNode,
     document: parts.document,
     local: parts.local,
     setDropTarget: parts.setDropTarget,

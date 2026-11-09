@@ -60,7 +60,7 @@ export function renderDropMarker(
 }
 
 export function renderResizeHandles(overlay: HTMLElement, item: BoardItem | undefined, view: BoardView, shape: { width: number; height: number } | undefined) {
-  overlay.replaceChildren(...[...overlay.children].filter((node) => (node as HTMLElement).part.contains('marquee')))
+  for (const node of overlay.querySelectorAll('[part~="resize-handle"]')) node.remove()
   if (!item || !shape) return
   const point = boardToScreen(view, item)
   const width = item.width * view.zoom

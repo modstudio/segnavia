@@ -17,6 +17,20 @@ type DemoWindow = typeof window & {
   boardEditing: { undo(): void }
 }
 
+function boxesMatch(
+  first: { x: number; y: number; width: number; height: number } | null,
+  second: { x: number; y: number; width: number; height: number } | null,
+) {
+  return Boolean(
+    first &&
+      second &&
+      Math.abs(first.x - second.x) < 1 &&
+      Math.abs(first.y - second.y) < 1 &&
+      Math.abs(first.width - second.width) < 1 &&
+      Math.abs(first.height - second.height) < 1,
+  )
+}
+
 export async function checkBoardEditingLabels(h: Harness, board: Locator, original: DemoBoard) {
   const reset = async () => {
     await board.evaluate((element, source) => {
@@ -201,6 +215,113 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
     undone.item?.x === mixedBefore.item.x && undone.label.x === mixedBefore.label.x,
     JSON.stringify(undone),
   )
+
+  await reset()
+  const oldHebrewText = await hebrew.textContent()
+  await hebrew.dblclick()
+  const editor = board.locator('[part~="label-editor"]')
+  await editor.waitFor({ state: 'visible' })
+  await h.page.keyboard.type(' חדשה')
+  await h.page.keyboard.press('ControlOrMeta+Enter')
+  await waitChanges(h.page, 1)
+  const committed = await board.evaluate((element) => {
+    const state = window as unknown as DemoWindow
+    const label = state.boardValue(element as BoardElement).labels.find((entry) => entry.id === 'label-he') as DemoLabel
+    return { label, changes: state.boardChanges.length }
+  })
+  h.check(
+    'double-clicking a Hebrew label and pressing Mod+Enter commits one text change',
+    committed.changes === 1 && committed.label.text === `${oldHebrewText} חדשה`,
+    JSON.stringify(committed),
+  )
+  await board.evaluate(() => (window as unknown as DemoWindow).boardEditing.undo())
+  await waitChanges(h.page, 2)
+  const editedUndo = await board.evaluate((element) => {
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
+    return value.labels.find((entry) => entry.id === 'label-he') as DemoLabel
+  })
+  h.check('one undo restores the old Hebrew label text', editedUndo.text === oldHebrewText, JSON.stringify(editedUndo))
+
+  await reset()
+  await hebrew.click()
+  await h.page.keyboard.press('Enter')
+  await editor.waitFor({ state: 'visible' })
+  const beforeLineBreak = await editor.inputValue()
+  await h.page.keyboard.press('Enter')
+  const lineBreak = await board.evaluate((element) => ({
+    changes: (window as unknown as DemoWindow).boardChanges.length,
+    selected: (element as BoardElement).selection,
+  }))
+  h.check(
+    'Enter on a selected label opens its editor and Enter inside inserts a line without committing',
+    (await editor.inputValue()) === `${beforeLineBreak}\n` && lineBreak.changes === 0 && lineBreak.selected[0] === 'label-he',
+    JSON.stringify(lineBreak),
+  )
+  await h.page.keyboard.press('Escape')
+
+  await reset()
+  await hebrew.dblclick()
+  await editor.waitFor({ state: 'visible' })
+  await h.page.keyboard.type(' draft')
+  await h.page.keyboard.press('Escape')
+  const escaped = await board.evaluate((element) => {
+    const state = window as unknown as DemoWindow
+    return { label: state.boardValue(element as BoardElement).labels.find((entry) => entry.id === 'label-he') as DemoLabel, changes: state.boardChanges.length }
+  })
+  h.check('Escape cancels label text editing without a change', escaped.changes === 0 && escaped.label.text === oldHebrewText, JSON.stringify(escaped))
+
+  await reset()
+  await hebrew.dblclick()
+  await editor.waitFor({ state: 'visible' })
+  await editor.fill('')
+  await h.page.keyboard.press('ControlOrMeta+Enter')
+  const emptyCommit = await board.evaluate((element) => {
+    const state = window as unknown as DemoWindow
+    const value = state.boardValue(element as BoardElement)
+    return { label: value.labels.find((entry) => entry.id === 'label-he') as DemoLabel | undefined, changes: state.boardChanges.length }
+  })
+  h.check(
+    'committing empty label text makes no change and keeps the label',
+    emptyCommit.changes === 0 && emptyCommit.label?.text === oldHebrewText,
+    JSON.stringify(emptyCommit),
+  )
+
+  await reset()
+  const shortcutBefore = await board.evaluate((element) => {
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
+    return value.labels.find((entry) => entry.id === 'label-he') as DemoLabel
+  })
+  await hebrew.dblclick()
+  await editor.waitFor({ state: 'visible' })
+  await h.page.keyboard.press('ArrowRight')
+  await h.page.keyboard.press('Delete')
+  const shortcutAfter = await board.evaluate((element) => {
+    const state = window as unknown as DemoWindow
+    const value = state.boardValue(element as BoardElement)
+    return {
+      label: value.labels.find((entry) => entry.id === 'label-he') as DemoLabel | undefined,
+      changes: state.boardChanges.length,
+    }
+  })
+  h.check(
+    'ArrowRight and Delete in the editor do not move or remove the label',
+    shortcutAfter.changes === 0 && shortcutAfter.label?.x === shortcutBefore.x && shortcutAfter.label.y === shortcutBefore.y && (await editor.count()) === 1,
+    JSON.stringify({ shortcutBefore, shortcutAfter }),
+  )
+  await h.page.keyboard.press('Escape')
+
+  await reset()
+  await hebrew.dblclick()
+  await editor.waitFor({ state: 'visible' })
+  const labelBox = await hebrew.boundingBox()
+  const editorBox = await editor.boundingBox()
+  const editorDirection = await editor.evaluate((element) => ({ attribute: element.getAttribute('dir'), computed: getComputedStyle(element).direction }))
+  h.check(
+    'the Hebrew label editor resolves RTL and sits over the label box',
+    editorDirection.attribute === 'auto' && editorDirection.computed === 'rtl' && boxesMatch(labelBox, editorBox),
+    JSON.stringify({ labelBox, editorBox, editorDirection }),
+  )
+  await h.page.keyboard.press('Escape')
 
   await reset()
   await board.evaluate((element) => ((element as BoardElement).selection = ['label-he']))
