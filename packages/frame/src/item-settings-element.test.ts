@@ -83,6 +83,29 @@ test('emits each edited fill before the debounced save', async () => {
   expect(order).toEqual([{ id: 'mina', values: { name: 'M' } }, { id: 'mina', values: { name: 'Mina Patel' } }, 'save'])
 })
 
+test('does not emit an edited fill while its host id is pending', () => {
+  const element = new SegnaviaItemSettings()
+  element.fills = [original]
+  element.fill = original.id
+  const controller = new ItemSettingsController(element, {
+    createFill: () => new Promise<Fill>(() => {}),
+    saveFill: async () => {},
+    deleteFill: async () => {},
+  })
+  element.connectAuthoring(controller)
+  const inputs: Fill[] = []
+  element.addEventListener('segnavia-fill-input', (event) => inputs.push((event as CustomEvent<Fill>).detail))
+
+  ;(element as unknown as { addNewFill(): void }).addNewFill()
+  typeName(element, 'Provisional name')
+  expect(inputs).toEqual([])
+
+  element.fill = original.id
+  typeName(element, 'Host name')
+  expect(inputs).toEqual([{ id: 'mina', values: { name: 'Host name' } }])
+  controller.detach()
+})
+
 describe('item settings host refreshes', () => {
   test('keeps a typed draft while its save is debouncing', () => {
     const { element } = setup(async () => {})

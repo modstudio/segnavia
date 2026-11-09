@@ -142,6 +142,7 @@ export class SegnaviaItemSettings extends HTMLElement {
   }
 
   private emitInput(fill: Fill) {
+    if (isProvisionalFillId(fill.id)) return
     this.dispatchEvent(new CustomEvent<Fill>('segnavia-fill-input', { detail: cloneFill(fill), bubbles: true, composed: true }))
   }
 
