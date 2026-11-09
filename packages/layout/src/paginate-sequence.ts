@@ -188,25 +188,12 @@ export function paginateSequence(
     pages.push(makeContent(part, pages.length + 1, flow, opener, placed, fragments, planned))
   }
 
-  function appendFixed(
-    flow: PaginateFlow,
-    part: PaginateSequence,
-    pages: PaginateBookPage[],
-    continued: PaginatePageNote[],
-    physicalOffset: number,
-  ) {
+  function appendFixed(flow: PaginateFlow, part: PaginateSequence, pages: PaginateBookPage[], continued: PaginatePageNote[], physicalOffset: number) {
     const count = flow.kind === 'fixed' ? flow.pages : 0
     for (let index = 0; index < count; index += 1) {
       const opener = index === 0
       pages.push(
-        makeFixed(
-          part,
-          pages.length + 1,
-          flow,
-          opener,
-          physicalOffset + pages.length + 1,
-          flow.kind === 'fixed' ? flow.pageParentRules?.[index] : undefined,
-        ),
+        makeFixed(part, pages.length + 1, flow, opener, physicalOffset + pages.length + 1, flow.kind === 'fixed' ? flow.pageParentRules?.[index] : undefined),
       )
     }
     return { pending: continued }
@@ -254,13 +241,7 @@ export function paginateSequence(
     return paginateFlowing(flow, part, pages, continued, physicalOffset)
   }
 
-  function flushNotes(
-    continued: PaginatePageNote[],
-    flow: PaginateFlow,
-    part: PaginateSequence,
-    pages: PaginateBookPage[],
-    physicalOffset: number,
-  ) {
+  function flushNotes(continued: PaginatePageNote[], flow: PaginateFlow, part: PaginateSequence, pages: PaginateBookPage[], physicalOffset: number) {
     let pending = continued
     while (pending.length > 0) {
       const planned = selected(flow, false, false, 'body', physicalOffset + pages.length + 1)

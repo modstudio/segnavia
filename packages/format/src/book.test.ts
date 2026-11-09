@@ -89,7 +89,6 @@ describe('book', () => {
       rectoOpenings: false,
       orphans: 2,
       widows: 2,
-      runningHead: { recto: 'title', verso: 'title' },
       contents: { pageNumbers: true, depth: 2 },
     })
     expect(Object.keys(parsed)).not.toContain('chapters')
@@ -125,23 +124,20 @@ describe('book', () => {
     expect(result.error?.issues[0]).toMatchObject({ path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   })
 
-  test('page column gap defaults to four millimeters and running heads default to the title', () => {
+  test('page column gap and line-count defaults can be overridden', () => {
     const book = Book.parse(input({ mode: 'paginated', page }))
     expect(book.page?.columnGap).toBe(4)
-    expect(book.runningHead).toEqual({ recto: 'title', verso: 'title' })
     expect(book.orphans).toBe(2)
     expect(book.widows).toBe(2)
     const marked = Book.parse(
       input({
         mode: 'paginated',
         page: { ...page, columnGap: 6 },
-        runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'last' } },
         orphans: 3,
         widows: 1,
       }),
     )
     expect(marked.page?.columnGap).toBe(6)
-    expect(marked.runningHead).toEqual({ recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'last' } })
     expect(marked.orphans).toBe(3)
     expect(marked.widows).toBe(1)
   })

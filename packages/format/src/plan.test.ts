@@ -13,7 +13,6 @@ function page(): PlanValue['pages'][number] {
     variables: {},
     blank: false,
     sectionOpening: true,
-    marks: {},
     parent: 'segnavia:opener',
     face: 'recto',
     side: 'right',

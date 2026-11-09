@@ -143,7 +143,6 @@ describe('book element input', () => {
       parents: [],
       endnotePlacement: 'book' as const,
       contents: { pageNumbers: true, depth: 2 },
-      runningHead: { recto: 'title' as const, verso: 'title' as const },
     }
     const rendered = bookFrame(
       { html: '<main class="lead" data-segnavia-galleys></main>', style: { css: '.lead{color:purple}' }, scripts: 'refuse', pagination },
@@ -222,7 +221,6 @@ describe('book fonts', () => {
         parents: [],
         endnotePlacement: 'book',
         contents: { pageNumbers: true, depth: 2 },
-        runningHead: { recto: 'title', verso: 'title' },
       },
     }
     spread = true

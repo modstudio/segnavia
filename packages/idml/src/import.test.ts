@@ -190,7 +190,7 @@ describe('importIdml', () => {
     expect(result.report.fonts).toMatchObject([{ appliedFont: 'Hebrew Face' }])
   })
 
-  test('imports applied master furniture and matched body marks from package parts', async () => {
+  test('imports applied master furniture and matched body variables from package parts', async () => {
     const map =
       '<Document Self="master-book"><DocumentPreference PageWidth="100" PageHeight="100" FacingPages="true" PageBinding="RightToLeft"/><MarginPreference Top="10" Bottom="10" Left="10" Right="10"/><TextVariable Self="v" Name="Siman" VariableType="MatchCharacterStyleType"><MatchCharacterStylePreference AppliedCharacterStyle="mark" SearchStrategy="FirstOnPage"/></TextVariable><idPkg:Spread src="Spreads/s.xml"/><idPkg:MasterSpread src="MasterSpreads/h.xml"/><idPkg:Styles src="Resources/Styles.xml"/></Document>'
     const bytes = await testZip([
@@ -225,7 +225,7 @@ describe('importIdml', () => {
     expect(result.book.parentPages[0]?.head).toContain('data-motif-name="Siman"')
     expect(result.book.parentPages[0]?.head).toContain('data-motif-which="first"')
     const chapter = result.book.body[0]
-    expect(chapter && 'html' in chapter ? chapter.html : '').toContain('<span data-mark="Siman">')
+    expect(chapter && 'html' in chapter ? chapter.html : '').toContain('<span data-variable="Siman">')
     expect(result.report.unsupportedElements).not.toHaveProperty('master story')
   })
 

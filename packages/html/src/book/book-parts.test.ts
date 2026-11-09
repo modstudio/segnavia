@@ -70,11 +70,11 @@ test('a title-only front part targets its own first child instead of the body', 
   ])
 })
 
-test("a part opening's pages carry the part itself and its running-head value", () => {
+test("a part opening's pages carry the part itself and its title", () => {
   const book = parseBookFixture({
     title: 'Parts',
     mode: 'continuous',
-    body: [{ name: 'part', title: 'Part', runningHead: 'Short Part', html: '<p>Opening</p>' }],
+    body: [{ name: 'part', title: 'Part', html: '<p>Opening</p>' }],
   })
-  expect(bookDocument(book).html).toContain('data-segnavia-parts="{&quot;part&quot;:&quot;Short Part&quot;}"')
+  expect(bookDocument(book).html).toContain('data-segnavia-parts="{&quot;part&quot;:&quot;Part&quot;}"')
 })

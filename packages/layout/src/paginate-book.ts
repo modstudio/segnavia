@@ -167,7 +167,6 @@ export const PAGINATE_FUNCTIONS = [
   paginateColumns,
   paginateNotes,
   paginateKeeps,
-  paginateMarks,
   pageSetPoints,
   paginateVariables,
   resolveVariablesAcrossPages,

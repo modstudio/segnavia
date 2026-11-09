@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { type DocumentInput, type Plan, SECTION_TITLE_MARK } from '@segnavia/format'
+import type { DocumentInput, Plan } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { annotationDestinations, pdfOutlineItems } from './book-pdf-readback.ts'
@@ -114,7 +114,7 @@ function containsFolio(value: string, folio: string): boolean {
 
 function planTitle(plan: Plan, page: number): string | undefined {
   const held = plan.pages[page - 1]
-  return held?.marks?.[SECTION_TITLE_MARK]?.first ?? held?.runningHead
+  return held?.variables['segnavia:section-title']
 }
 
 function rectoContinueFixture(hebrew: boolean): DocumentInput {
@@ -156,13 +156,13 @@ async function verifyContinuation(renderer: Renderer, check: Check, hebrew: bool
     )
     const beforeShared = shared - 1
     check(
-      `${key} section-title marks stay within the joined screen flow and printed PDF`,
+      `${key} section-title variables stay within the joined screen flow and printed PDF`,
       beforeShared > 0 &&
         planTitle(joined.plan, beforeShared) === titles[0] &&
         planTitle(joined.plan, shared) === title &&
         planTitle(joined.plan, three) === titles[2] &&
-        joined.plan.pages[three - 1]?.marks?.[SECTION_TITLE_MARK] === undefined &&
-        joined.plan.pages[designed - 1]?.marks?.[SECTION_TITLE_MARK] === undefined &&
+        joined.plan.pages[three - 1]?.variables['segnavia:section-title'] === undefined &&
+        joined.plan.pages[designed - 1]?.variables['segnavia:section-title'] === undefined &&
         containsHead(joined.pages[beforeShared - 1] ?? '', titles[0] ?? '') &&
         containsHead(joined.pages[three - 1] ?? '', titles[2] ?? '') &&
         !containsHead(joined.pages[three - 1] ?? '', title) &&

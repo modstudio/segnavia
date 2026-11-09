@@ -72,7 +72,6 @@ export const DOCUMENT_PROFILES = {
       contentsLabel:
         'section field contentsLabel is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
       subtitle: 'section field subtitle is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
-      headTemplate: 'section field headTemplate is not allowed in a printed document; remove it to clear this refusal',
       pageGeometry:
         'section field pageGeometry is not allowed in a printed document; remove it because printed sections share the document paper to clear this refusal',
       template: 'section field template is not allowed in a printed document; remove it to clear this refusal',

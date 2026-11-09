@@ -49,7 +49,6 @@ describe('book view', () => {
       parents: [{ name: 'segnavia:recto', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }],
       endnotePlacement: 'book' as const,
       contents: { pageNumbers: true, depth: 2 },
-      runningHead: { recto: { mark: 'siman', which: 'first' as const }, verso: 'title' as const },
     }
     const parsed = BookView.parse({ html: '<main>ספר</main>', pagination })
     expect(parsed).toMatchObject({ html: '<main>ספר</main>', pagination })

@@ -22,8 +22,9 @@ export const HeadTemplates = z
   .default([])
   .superRefine((templates, ctx) => {
     templates.forEach((template, index) => {
-      if (template.name.startsWith('segnavia:'))
+      const library = LIBRARY_HEAD_TEMPLATES.find((candidate) => candidate.name === template.name)
+      if (template.name.startsWith('segnavia:') && JSON.stringify(template) !== JSON.stringify(library))
         ctx.addIssue({ code: 'custom', path: [index, 'name'], message: `head template name ${JSON.stringify(template.name)} is reserved for the library` })
     })
   })
-  .transform((templates) => [...LIBRARY_HEAD_TEMPLATES, ...templates])
+  .transform((templates) => [...LIBRARY_HEAD_TEMPLATES.filter((library) => !templates.some((template) => template.name === library.name)), ...templates])

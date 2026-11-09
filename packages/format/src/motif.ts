@@ -4,7 +4,6 @@ import { FontReference, FontReferenceInput } from './fonts.ts'
 import { SlotKey } from './slots.ts'
 
 export const MOTIF_ATTRIBUTE = 'data-motif'
-export const PRINTED_PAGE_CONTEXT = 'printedPage'
 export const RECORD_CONTEXT = 'record'
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
 export const BOOK_FURNITURE = [

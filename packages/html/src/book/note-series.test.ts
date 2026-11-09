@@ -104,14 +104,14 @@ describe('note series document', () => {
           notes: [{ name: 'sources', placement: 'book', numbering: 'chapter', marker: 'roman-lower', title: 'Sources' }],
           body: undefined,
           chapters: [
-            { title: 'פרק ראשון', runningHead: 'קצר', html: '<p><span data-note="sources">א</span></p>' },
-            { title: 'Second Chapter', runningHead: 'Short', html: '<p><span data-note="sources">ב</span></p>' },
+            { title: 'פרק ראשון', html: '<p><span data-note="sources">א</span></p>' },
+            { title: 'Second Chapter', html: '<p><span data-note="sources">ב</span></p>' },
           ],
         }),
       ),
     )
-    expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="rtl">קצר<\/p><p class="segnavia-note-sources"/)
-    expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="ltr">Short<\/p><p class="segnavia-note-sources"/)
+    expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="rtl">פרק ראשון<\/p><p class="segnavia-note-sources"/)
+    expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="ltr">Second Chapter<\/p><p class="segnavia-note-sources"/)
     expect(scopeHeadings(result.html)).toEqual(['קצר', 'Short'])
   })
 
@@ -125,14 +125,13 @@ describe('note series document', () => {
               id: 'first-part',
               name: 'first',
               title: 'First Part',
-              runningHead: 'Part I',
               children: [chapter('One', '<p><span data-note="sources">first</span></p>')],
             },
           ],
         }),
       ),
     )
-    expect(scopeHeadings(result.html)).toEqual(['Part I'])
+    expect(scopeHeadings(result.html)).toEqual(['First Part'])
   })
 
   test('leaves the shared chapter-zero run of front matter and held sections unheaded', () => {

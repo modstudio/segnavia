@@ -1,5 +1,4 @@
 import { describe, expect, test } from 'bun:test'
-import { SECTION_TITLE_MARK } from '@segnavia/format'
 import { bookDocument, parseBookFixture } from '@segnavia/html'
 import {
   appendMeasuredBlock,
@@ -142,21 +141,19 @@ describe('block keeps', () => {
     expect(script).toContain("if(forcedPageBreak(childStyle.breakAfter))held.style.breakAfter='auto'")
   })
 
-  test('default title heads read the continuing boundary running head', () => {
+  test('section-title variables read the continuing boundary title', () => {
     const script = composerScript('{}')
-    expect(script).toContain(`choice={mark:${JSON.stringify(SECTION_TITLE_MARK)},which:'first'}`)
+    expect(script).toContain("block.hasAttribute('data-segnavia-section-title')")
     const book = parseBookFixture({
       title: 'Book',
       mode: 'paginated',
       page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
       chapters: [
         { title: 'One', html: '<p>First</p>' },
-        { title: 'Two', runningHead: 'Running Two', opens: 'continue', html: '<p>Second</p>' },
+        { title: 'Two', opens: 'continue', html: '<p>Second</p>' },
       ],
     })
-    expect(bookDocument(book).html).toContain(
-      `data-mark="${SECTION_TITLE_MARK}" data-mark-scope="flow" data-segnavia-chapter="2" id="section-2">Running Two</div>`,
-    )
+    expect(bookDocument(book).html).toContain('data-segnavia-section-title="Two" data-segnavia-chapter="2" id="section-2">Two</div>')
   })
 
   test('takes the page marker from config', () => {

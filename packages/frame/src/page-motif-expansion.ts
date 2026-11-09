@@ -1,4 +1,4 @@
-import { type MotifSource, PRINTED_PAGE_CONTEXT, RECORD_CONTEXT } from '@segnavia/format'
+import { type MotifSource, RECORD_CONTEXT } from '@segnavia/format'
 import {
   type ExpandedMotifs,
   expandMotifs,
@@ -68,7 +68,7 @@ export async function expandPageMotifs(
       prefix: 'slot',
       linkOrigins: motifs.linkOrigins,
       signal,
-      ...(furniture ? { deferPaths: [PRINTED_PAGE_CONTEXT, RECORD_CONTEXT] } : {}),
+      ...(furniture ? { deferPaths: [RECORD_CONTEXT] } : {}),
     })
   const bodyResults = await Promise.all(bodies.map((body) => expand(body.html, body.lang, false)))
   const parentResults = new Map(

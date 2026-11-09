@@ -33,7 +33,7 @@ function fixtures(): PaginateBookInput[] {
         flow('c3', 'chapter', [
           block('text', 'p', 3, 1, 6, 0, {
             columns: 2,
-            marks: [
+            variables: [
               { name: 'siman', value: 'A', line: 0 },
               { name: 'siman', value: 'B', line: 5 },
             ],
@@ -60,7 +60,7 @@ function fixtures(): PaginateBookInput[] {
       flows: [
         flow('c1', 'chapter', [
           block('text', 'p', 1, 1, 12, 0, {
-            marks: [
+            variables: [
               { name: 'siman', value: 'A', line: 0 },
               { name: 'siman', value: 'B', line: 4 },
               { name: 'kavana', value: 'K', line: 2 },
@@ -114,7 +114,7 @@ function fixtures(): PaginateBookInput[] {
       flows: [
         flow('c1', 'chapter', [
           block('text', 'p', 1, 1, 2, 0, {
-            marks: [
+            variables: [
               { name: '__proto__', value: 'P', line: 0 },
               { name: 'constructor', value: 'C', line: 1 },
             ],
@@ -178,8 +178,6 @@ describe('paginateBook', () => {
     expect(pages.map((page) => page.number)).toEqual([1, 2, 3])
     expect(pages.map((page) => page.sequence)).toEqual(['body', 'body', 'body'])
     expect(pages[0]?.sectionOpening).toBe(true)
-    expect(pages[0]?.runningHead).toBeUndefined()
-    expect(pages[1]?.runningHead).toBe('One')
     expect(pages.every((page) => !('folio' in page))).toBe(true)
   })
 

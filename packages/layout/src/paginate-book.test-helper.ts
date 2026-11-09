@@ -19,8 +19,8 @@ export function block(
   return { kind, tag, position: { chapter, block: index }, lines: lines(count, start), ...extra }
 }
 
-export function flow(id: string, kind: Exclude<PaginateFlow['kind'], 'fixed'>, blocks: PaginateBlock[], runningHead?: string): PaginateFlow {
-  return { id, kind, blocks, ...(runningHead === undefined ? {} : { runningHead }) }
+export function flow(id: string, kind: Exclude<PaginateFlow['kind'], 'fixed'>, blocks: PaginateBlock[], _title?: string): PaginateFlow {
+  return { id, kind, blocks }
 }
 
 export function note(id: string, count: number, height = lineHeight, series = 'footnote'): PaginateNote {

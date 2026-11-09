@@ -14,14 +14,7 @@ import {
 import { layoutScript } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
-import {
-  dressPlanPages,
-  fillFurniture,
-  fillRegion,
-  markFurnitureOverflow,
-  markRegionOverflow,
-  resolveRegionHeads,
-} from './composer-dress.ts'
+import { dressPlanPages, fillFurniture, fillRegion, markFurnitureOverflow, markRegionOverflow, resolveRegionHeads } from './composer-dress.ts'
 import {
   composerLayoutReady,
   descendantKeepSignals,

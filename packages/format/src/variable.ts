@@ -34,8 +34,9 @@ export const Variables = z
   .default([])
   .superRefine((variables, ctx) => {
     variables.forEach((variable, index) => {
-      if (variable.name.startsWith('segnavia:'))
+      const library = LIBRARY_VARIABLES.find((candidate) => candidate.name === variable.name)
+      if (variable.name.startsWith('segnavia:') && JSON.stringify(variable) !== JSON.stringify(library))
         ctx.addIssue({ code: 'custom', path: [index, 'name'], message: `variable name ${JSON.stringify(variable.name)} is reserved for the library` })
     })
   })
-  .transform((variables) => [...LIBRARY_VARIABLES, ...variables])
+  .transform((variables) => [...LIBRARY_VARIABLES.filter((library) => !variables.some((variable) => variable.name === library.name)), ...variables])

@@ -11,7 +11,6 @@ import {
   bookSections,
   flowingSection,
   isPlacedSection,
-  REGION_NAME,
 } from './book-section.ts'
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'

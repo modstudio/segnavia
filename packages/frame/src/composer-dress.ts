@@ -81,8 +81,10 @@ export function fillFurniture(
   const bindings = root.querySelectorAll('[data-slot-value]')
   for (const binding of bindings) {
     const path = binding.getAttribute('data-slot-value')
-    if (!path || !Object.hasOwn(slots, path)) continue
-    const value = slots[path]
+    if (!path?.startsWith('record.')) continue
+    const key = path.slice('record.'.length)
+    if (!Object.hasOwn(slots, key)) continue
+    const value = slots[key]
     if (value === undefined) {
       binding.remove()
       continue

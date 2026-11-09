@@ -82,11 +82,11 @@ export {
   documentCommandJsonSchema,
 } from './document-commands.ts'
 export { type EditDocumentFailure, type EditDocumentResult, type EditDocumentSuccess, editDocument } from './edit-document.ts'
+export { embedFunction } from './embed-function.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export { fragmentationCss } from './fragmentation.ts'
-export { embedFunction } from './embed-function.ts'
 export { KEEP_WITH_VALUES } from './keep-with.ts'
 export type { LinkPolicy } from './link-policy.ts'
 export {

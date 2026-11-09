@@ -27,7 +27,6 @@ export function partsFixture(hebrew: boolean): DocumentInput {
     settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     rectoOpenings: true,
-    runningHead: { recto: { part: 'part' }, verso: 'title' },
     children: [
       {
         type: 'division',

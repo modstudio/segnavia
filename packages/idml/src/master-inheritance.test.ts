@@ -50,7 +50,7 @@ const baseMaster = {
 
 const baseStories = [story('base-left-story', 'Base verso', 'nested'), story('base-right-story', 'Base recto', 'nested')]
 
-test('composes matching page-level base folios below a master own marks', async () => {
+test('composes matching page-level base folios below a master own head templates', async () => {
   const child = {
     id: 'child',
     xml: `<MasterSpread Self="child" Name="Child">${page('child-left', 0, 'base')}${page('child-right', 100, 'base')}${headFrame('child-left-frame', 'child-left-story', 0)}${headFrame('child-right-frame', 'child-right-story', 100)}</MasterSpread>`,
@@ -61,7 +61,7 @@ test('composes matching page-level base folios below a master own marks', async 
   expect(result.book.parentPages.map((parent) => parent.name)).toEqual(['idml-child-recto', 'idml-child-verso'])
   const recto = result.book.parentPages[0]?.head ?? ''
   const verso = result.book.parentPages[1]?.head ?? ''
-  expect(recto).toContain('data-motif="segnavia:folio"')
+  expect(recto).toContain('data-motif="segnavia:head-template" data-motif-name="segnavia:folio"')
   expect(recto).toContain('Base recto')
   expect(recto).not.toContain('Base verso')
   expect(recto.indexOf('Base recto')).toBeLessThan(recto.indexOf('Own recto'))
@@ -84,7 +84,7 @@ test('suppresses inherited master items when the master spread or page disables 
   expect(heads).toContain('Own verso')
   expect(heads).not.toContain('Base recto')
   expect(heads).not.toContain('Base verso')
-  expect(heads).not.toContain('data-motif="segnavia:folio"')
+  expect(heads).not.toContain('data-motif-name="segnavia:folio"')
 
   const pageHidden = {
     id: 'page-hidden',

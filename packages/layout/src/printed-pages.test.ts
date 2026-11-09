@@ -47,8 +47,8 @@ describe('planBookPages', () => {
   test('preserves each role default without an explicit rule list', () => {
     const pages = planBookPages(
       [
-        { blank: false, sectionOpening: true, folio: 'i', runningHead: 'Front' },
-        { blank: false, sectionOpening: true, folio: 'ii', runningHead: 'Template', role: 'body' },
+        { blank: false, sectionOpening: true, folio: 'i' },
+        { blank: false, sectionOpening: true, folio: 'ii', role: 'body' },
         { blank: true, sectionOpening: false, role: 'fixed' },
         { blank: false, sectionOpening: false, role: 'fixed' },
       ],

@@ -7,7 +7,6 @@ import {
   type MotifPlacement,
   type MotifSource,
   motifFieldAttribute,
-  PRINTED_PAGE_CONTEXT,
   RECORD_CONTEXT,
   resolveDirection,
   type Scripts,
@@ -168,7 +167,7 @@ async function fillVersion(html: string, placement: MotifPlacement, element: Ele
   state.options.signal.throwIfAborted()
   if (data) {
     const deferred = new Set(state.options.deferPaths ?? [])
-    for (const context of [PRINTED_PAGE_CONTEXT, RECORD_CONTEXT]) {
+    for (const context of [RECORD_CONTEXT]) {
       if (!deferred.has(context) || !Object.hasOwn(data, context)) continue
       refuse(state, element, `the reserved ${context} context because host data contains that key`, `remove ${context} from MotifSource.data`)
       return undefined

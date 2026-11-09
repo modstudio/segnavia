@@ -1,14 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  BOOK_PARENT_NAMES,
-  bookFromDocument,
-  computeFolios,
-  Document,
-  PRINTED_PAGE_NUMBER_PATH,
-  PRINTED_PAGE_TOTAL_PATH,
-  resolveDirection,
-  StyleSheet,
-} from '@segnavia/format'
+import { BOOK_PARENT_NAMES, bookFromDocument, computeFolios, Document, resolveDirection, StyleSheet } from '@segnavia/format'
 import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectParent, windowPageIndex } from '@segnavia/html'
 import { FLOWING_PARENT_RULES, layoutScript } from '@segnavia/layout'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
@@ -144,12 +135,10 @@ describe('bookDocument', () => {
     expect(COMPOSER_SCRIPT).toContain('paginateBook')
     expect(COMPOSER_SCRIPT).toContain('lineInWindow')
     expect(COMPOSER_SCRIPT).toContain(computeFolios.toString())
-    expect(COMPOSER_SCRIPT).toContain('fillBookFurniture')
+    expect(COMPOSER_SCRIPT).toContain('fillRegion')
     expect(COMPOSER_SCRIPT).toContain('fillFurniture')
     expect(COMPOSER_SCRIPT).toContain("document.querySelectorAll('script[data-segnavia-plan]')")
     expect(COMPOSER_SCRIPT).toContain('previous[i].remove()')
-    expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
-    expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
     expect(COMPOSER_SCRIPT).toContain('parent.textArea')
     expect(COMPOSER_SCRIPT).toContain('sizeFlowGalley(flows[f],area.width,area.height,config.orphans,config.widows)')
     expect(COMPOSER_SCRIPT).toContain("note.style.setProperty('--segnavia-text-height',area.height+'px')")
@@ -236,7 +225,6 @@ describe('bookDocument', () => {
         parents: [],
         endnotePlacement: 'book' as const,
         contents: { pageNumbers: true, depth: 2 },
-        runningHead: { recto: 'title' as const, verso: 'title' as const },
       },
     }
     const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
@@ -293,7 +281,6 @@ describe('bookDocument', () => {
         parents: [],
         endnotePlacement: 'book' as const,
         contents: { pageNumbers: true, depth: 2 },
-        runningHead: { recto: 'title' as const, verso: 'title' as const },
       },
     }
     const html = bookViewDocument(view, { nonce: 'held', fontCss: '.lead{color:blue}', css: '.lead{color:green}' })

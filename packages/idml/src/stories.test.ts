@@ -208,7 +208,7 @@ test('maps a page-number processing instruction nested in master Content', () =>
   const styles = new StyleMapper([paragraphStyle], [], report, 'rtl')
   const root = parsedStory('<Content><?ACE 18?></Content>', report)
   const result = storyHtml({ id: 'master', root, master: true }, styles, report, 'rtl', undefined)
-  expect(result.html).toContain('data-motif="segnavia:folio"')
+  expect(result.html).toContain('data-motif="segnavia:head-template" data-motif-name="segnavia:folio"')
 })
 
 test('preserves text and processing instruction order inside Content', () => {
@@ -216,7 +216,7 @@ test('preserves text and processing instruction order inside Content', () => {
   const styles = new StyleMapper([paragraphStyle], [], report, 'rtl')
   const root = parsedStory('<Content>A<?ACE 18?>B</Content>', report)
   const result = storyHtml({ id: 'master', root, master: true }, styles, report, 'rtl', undefined)
-  expect(result.html).toMatch(/A.*data-motif="segnavia:folio".*B/)
+  expect(result.html).toMatch(/A.*data-motif="segnavia:head-template" data-motif-name="segnavia:folio".*B/)
 
   const unknownRoot = parsedStory('<Content><?ACE 7?></Content>', report)
   storyHtml({ id: 'unknown', root: unknownRoot, master: true }, styles, report, 'rtl', undefined)
