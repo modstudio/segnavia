@@ -1766,6 +1766,20 @@ Block ops do not sanitize: active-content policy remains at realize, where the
 sandbox policy sanitizes or refuses it. Styles are referenced by class and
 variables by declared name.
 
+A variable is declared by name in `Document.variables` and typed by its
+`kind`. A `text` variable takes its value `from` the content or from section
+titles, and its `pick` chooses, per page, the value in force at the page's
+first line (`start`), the first value set on the page (`first`, the default)
+or the last (`last`); a page that sets none takes the value carried from
+earlier pages. A section-title value is carried only within its flow. A
+`folio` or `pages` variable is the page's folio or the page total, counted
+`of` the division numbering, the whole document or the page's record. Content
+refers to a variable with `data-variable`; `Document.parse` refuses an
+undeclared reference, a repeated name and a name under the reserved
+`segnavia:` prefix. The plan resolves every declared variable for each page
+into `PlanPage.variables`, and a blank page carries none and leaves the
+carried values unchanged.
+
 `Measurements` records block and line boxes plus fit results. `Plan` records
 pages, first and last block ids, breaks, folios, resolved variables, parent-page
 choices and fingerprints. It unifies saved pagination and forced break plans;
