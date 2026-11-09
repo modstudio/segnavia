@@ -19,8 +19,8 @@ import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } fr
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import {
+  assetSetup,
   copyLimits,
-  dependencySetup,
   enforceDeckLimits,
   type ImageOptions,
   innerLimits,
@@ -57,8 +57,8 @@ export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
 export type { LocalFontsOptions, LocalFontsReport } from './local-fonts.ts'
 export type {
-  DependencyAnswer,
-  DependencyCache,
+  AssetAnswer,
+  Assets,
   Font,
   ImageOptions,
   MarksReport,
@@ -186,7 +186,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
-        ...dependencySetup(opts),
+        ...assetSetup(opts),
         ...fontLoadSetup(prepared.fontFailures, opts.fontLoad?.report),
       },
       async (tab) => {

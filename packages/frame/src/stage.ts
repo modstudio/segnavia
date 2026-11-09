@@ -10,7 +10,7 @@
 // a pending incoming canvas on any swap has data-incoming. Motion uses
 // data-transition, data-entering, data-leaving, data-running and data-axis.
 
-import type { SlotsOptions, TransitionInput } from '@segnavia/format'
+import type { OriginApproval, SlotsOptions, TransitionInput } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
@@ -39,7 +39,7 @@ export class SegnaviaStage extends HTMLElement {
   }
   declare css: string
   declare cspExtra: string
-  declare dependencyOrigins: Iterable<string>
+  declare origins: Iterable<OriginApproval>
   declare bridgeReadyTimeoutMs: number
   declare frameTitle: FrameTitle
   private owned: DeckController | null = null
@@ -270,7 +270,7 @@ export class SegnaviaStage extends HTMLElement {
       neighbors: this.neighbors,
       css: this.css,
       csp: this.cspExtra,
-      dependencyOrigins: this.dependencyOrigins,
+      origins: this.origins,
       frameTitle: this.frameTitle,
       transition: this.transition,
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,

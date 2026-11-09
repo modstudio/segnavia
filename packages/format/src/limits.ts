@@ -15,15 +15,22 @@ const LOCAL_FONT_LIMITS = [
   { measure: 'bytes', subject: 'local fonts', unit: 'decoded bytes' },
 ] as const
 
+const ASSET_LIMITS = [
+  { measure: 'bytes', subject: 'document assets', unit: 'bytes' },
+  { measure: 'each', subject: 'asset', unit: 'bytes' },
+] as const
+
 type TopLevelMeasure = (typeof TOP_LEVEL_LIMITS)[number]['measure']
 type LocalFontMeasure = (typeof LOCAL_FONT_LIMITS)[number]['measure']
+type AssetMeasure = (typeof ASSET_LIMITS)[number]['measure']
 
 export type Limits = Partial<Record<TopLevelMeasure, number>> & {
   localFonts?: Partial<Record<LocalFontMeasure, number>>
+  assets?: Partial<Record<AssetMeasure, number>>
 }
 
 export type DocumentLimits = Pick<Limits, 'pages' | 'descriptionTextChars'>
-export type LimitMeasure = TopLevelMeasure | `localFonts.${LocalFontMeasure}`
+export type LimitMeasure = TopLevelMeasure | `localFonts.${LocalFontMeasure}` | `assets.${AssetMeasure}`
 export type PageLimitSource = 'document' | 'default' | 'host'
 
 export interface ResolvedLimits extends Limits {
@@ -31,6 +38,7 @@ export interface ResolvedLimits extends Limits {
   pagesSource: PageLimitSource
   descriptionTextChars: number
   localFonts: Record<LocalFontMeasure, number>
+  assets: Record<AssetMeasure, number>
 }
 
 export const DEFAULT_PAGE_LIMIT = 500
@@ -39,7 +47,8 @@ export const DEFAULT_LIMITS = {
   pages: DEFAULT_PAGE_LIMIT,
   descriptionTextChars: 240,
   localFonts: { count: 64, bytes: 32 * 1024 * 1024 },
-} as const satisfies Pick<ResolvedLimits, 'pages' | 'descriptionTextChars' | 'localFonts'>
+  assets: { bytes: 50 * 1024 * 1024, each: 10 * 1024 * 1024 },
+} as const satisfies Pick<ResolvedLimits, 'pages' | 'descriptionTextChars' | 'localFonts' | 'assets'>
 
 const REMOVED_LIMIT_NAMES: Record<string, string> = {
   maxSheets: 'limits.sheets',
@@ -52,6 +61,7 @@ const REMOVED_LIMIT_NAMES: Record<string, string> = {
 
 const TOP_LEVEL_MEASURES = TOP_LEVEL_LIMITS.map(({ measure }) => measure)
 const LOCAL_FONT_MEASURES = LOCAL_FONT_LIMITS.map(({ measure }) => measure)
+const ASSET_MEASURES = ASSET_LIMITS.map(({ measure }) => measure)
 
 function invalidInteger(value: unknown): boolean {
   return typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0
@@ -73,7 +83,7 @@ function documentLimits(value: unknown, ctx: z.RefinementCtx): unknown {
   for (const key of Object.keys(source)) {
     if (key === 'pages' || key === 'descriptionTextChars') continue
     const field = `limits.${key}`
-    const hostLimit = key === 'localFonts' || TOP_LEVEL_MEASURES.includes(key as TopLevelMeasure)
+    const hostLimit = key === 'localFonts' || key === 'assets' || TOP_LEVEL_MEASURES.includes(key as TopLevelMeasure)
     ctx.addIssue({
       code: 'custom',
       path: [key],
@@ -111,6 +121,10 @@ export function resolveLimits(document: DocumentLimits | undefined, host: Limits
       count: host?.localFonts?.count ?? DEFAULT_LIMITS.localFonts.count,
       bytes: host?.localFonts?.bytes ?? DEFAULT_LIMITS.localFonts.bytes,
     },
+    assets: {
+      bytes: host?.assets?.bytes ?? DEFAULT_LIMITS.assets.bytes,
+      each: host?.assets?.each ?? DEFAULT_LIMITS.assets.each,
+    },
   }
 }
 
@@ -126,36 +140,50 @@ function refuseUnknownKeys(source: Record<string, unknown>, allowed: readonly st
   throw new RangeError(messages.join(' '))
 }
 
+function parsedNestedLimits<T extends string>(
+  value: unknown,
+  measures: readonly T[],
+  subject: string,
+  prefix: 'localFonts' | 'assets',
+): Partial<Record<T, number>> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new RangeError(`The ${subject} limits.${prefix} limit must be an object; pass valid limits.${prefix} to clear this refusal.`)
+  }
+  const source = value as Record<string, unknown>
+  refuseUnknownKeys(source, measures, subject, prefix)
+  const parsed: Partial<Record<T, number>> = {}
+  for (const measure of measures) {
+    if (source[measure] !== undefined) parsed[measure] = parsedInteger(source[measure], `limits.${prefix}.${measure}`, subject)
+  }
+  return parsed
+}
+
 export function parseLimits(input: unknown, subject: string): Limits | undefined {
   if (input === undefined) return undefined
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
     throw new RangeError(`The ${subject} limits must be an object; pass valid limits to clear this refusal.`)
   }
   const source = input as Record<string, unknown>
-  refuseUnknownKeys(source, [...TOP_LEVEL_MEASURES, 'localFonts'], subject)
+  refuseUnknownKeys(source, [...TOP_LEVEL_MEASURES, 'localFonts', 'assets'], subject)
   const parsed: Limits = {}
   for (const measure of TOP_LEVEL_MEASURES) {
     if (source[measure] !== undefined) parsed[measure] = parsedInteger(source[measure], `limits.${measure}`, subject)
   }
   if (source.localFonts !== undefined) {
-    if (typeof source.localFonts !== 'object' || source.localFonts === null || Array.isArray(source.localFonts)) {
-      throw new RangeError(`The ${subject} limits.localFonts limit must be an object; pass valid limits.localFonts to clear this refusal.`)
-    }
-    const fonts = source.localFonts as Record<string, unknown>
-    refuseUnknownKeys(fonts, LOCAL_FONT_MEASURES, subject, 'localFonts')
-    parsed.localFonts = {}
-    for (const measure of LOCAL_FONT_MEASURES) {
-      if (fonts[measure] !== undefined) parsed.localFonts[measure] = parsedInteger(fonts[measure], `limits.localFonts.${measure}`, subject)
-    }
+    parsed.localFonts = parsedNestedLimits(source.localFonts, LOCAL_FONT_MEASURES, subject, 'localFonts')
+  }
+  if (source.assets !== undefined) {
+    parsed.assets = parsedNestedLimits(source.assets, ASSET_MEASURES, subject, 'assets')
   }
   return parsed
 }
 
 const TEXT = Object.fromEntries(
-  [...TOP_LEVEL_LIMITS, ...LOCAL_FONT_LIMITS.map(({ measure, ...text }) => ({ measure: `localFonts.${measure}`, ...text }))].map(({ measure, ...text }) => [
-    measure,
-    text,
-  ]),
+  [
+    ...TOP_LEVEL_LIMITS,
+    ...LOCAL_FONT_LIMITS.map(({ measure, ...text }) => ({ measure: `localFonts.${measure}`, ...text })),
+    ...ASSET_LIMITS.map(({ measure, ...text }) => ({ measure: `assets.${measure}`, ...text })),
+  ].map(({ measure, ...text }) => [measure, text]),
 ) as Record<LimitMeasure, { subject: string; unit: string }>
 
 const PAGE_CLEAR: Record<PageLimitSource, string> = {

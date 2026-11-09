@@ -2,11 +2,13 @@ import {
   type BrandSource,
   type Deck,
   exceedsLimits,
+  type FetchKind,
   type FontFace,
   type FontFailure,
   type FontSource,
   type Limits,
   type OmittedImpositionMark,
+  type OriginApproval,
   PageWidths,
   parseLimits,
 } from '@segnavia/format'
@@ -20,12 +22,16 @@ import type { PressReport } from './press/types.ts'
 
 export type Font = FontFace
 
-export interface DependencyAnswer {
+export interface AssetAnswer {
   body: Uint8Array
   contentType: string
 }
 
-export type DependencyCache = (url: string) => Promise<DependencyAnswer | undefined>
+export type Assets = (url: string, options: { kind: FetchKind; signal: AbortSignal }) => Promise<AssetAnswer | undefined>
+
+export interface AssetBudget {
+  bytes: number
+}
 
 export type OverflowPart = 'page' | 'front' | 'body' | 'margin'
 
@@ -68,8 +74,10 @@ export interface MarksReport {
 
 export interface RenderOptions {
   newId?: () => string
-  dependencyOrigins?: Iterable<string>
-  dependencies?: DependencyCache
+  origins?: Iterable<OriginApproval>
+  assets?: Assets
+  /** @internal Shared by every browser tab opened for one render call. */
+  assetBudget?: AssetBudget
   css?: string
   fonts?: Font[]
   fontSource?: FontSource
@@ -111,6 +119,8 @@ export function parseRenderOptions<T extends RenderOptions>(options: T): T {
   }
   return {
     ...options,
+    origins: options.origins === undefined ? undefined : [...options.origins],
+    assetBudget: { bytes: 0 },
     limits: parseLimits(options.limits, 'host'),
     ...(options.pageWidths === undefined ? {} : { pageWidths: PageWidths.parse(options.pageWidths) }),
   }
@@ -121,6 +131,7 @@ export function innerLimits(limits: Limits | undefined): Limits | undefined {
   return {
     ...(limits.pages === undefined ? {} : { pages: limits.pages }),
     ...(limits.localFonts === undefined ? {} : { localFonts: limits.localFonts }),
+    ...(limits.assets === undefined ? {} : { assets: limits.assets }),
   }
 }
 
@@ -134,9 +145,11 @@ export function enforceDeckLimits(deck: Deck, limits: Limits | undefined): void 
   if (reasons.length > 0) throw new RenderRefusedError(reasons.join('; '))
 }
 
-export const dependencySetup = (options: RenderOptions): Pick<RenderOptions, 'dependencyOrigins' | 'dependencies'> => ({
-  dependencyOrigins: options.dependencyOrigins,
-  dependencies: options.dependencies,
+export const assetSetup = (options: RenderOptions): Pick<RenderOptions, 'origins' | 'assets' | 'assetBudget' | 'limits'> => ({
+  origins: options.origins,
+  assets: options.assets,
+  assetBudget: options.assetBudget,
+  limits: options.limits,
 })
 
 export interface ImageOptions extends RenderOptions {

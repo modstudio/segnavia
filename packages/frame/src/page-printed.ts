@@ -1,4 +1,4 @@
-import type { PageWidths, SlotsOptions } from '@segnavia/format'
+import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
@@ -20,6 +20,7 @@ export interface PrintedPageFrameOptions {
   slots?: SlotsOptions
   css?: string
   csp?: string
+  origins?: Iterable<OriginApproval>
   signal: AbortSignal
   loaded(document: string): void
   failed(error: unknown): void
@@ -31,7 +32,7 @@ export function loadPrintedPageFrame(page: HtmlPage, options: PrintedPageFrameOp
     .then((shown) =>
       loadPrintedPageDocument(
         shown.page,
-        { baseCss: shown.css, css: options.css, csp: options.csp, screen: { spread: false }, fontFailures: shown.failures },
+        { baseCss: shown.css, css: options.css, csp: options.csp, origins: options.origins, screen: { spread: false }, fontFailures: shown.failures },
         options.loaded,
         options.failed,
       ),

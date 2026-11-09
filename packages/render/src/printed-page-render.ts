@@ -27,6 +27,7 @@ export function renderedPageDocument(
       readyCallback: RENDER_READY_BINDING,
       limits: options.limits,
       fontFailures,
+      origins: options.origins,
     })
   } catch (error) {
     if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)

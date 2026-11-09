@@ -23,6 +23,12 @@ describe('resolveLimits', () => {
     expect(resolveLimits(undefined, { localFonts: { bytes: 3 } }).localFonts).toEqual({ count: 64, bytes: 3 })
   })
 
+  test('uses host-only asset defaults and replaces each field independently', () => {
+    expect(resolveLimits(undefined, undefined).assets).toEqual(DEFAULT_LIMITS.assets)
+    expect(resolveLimits(undefined, { assets: { bytes: 20 } }).assets).toEqual({ bytes: 20, each: DEFAULT_LIMITS.assets.each })
+    expect(parseLimits({ assets: { each: 10 } }, 'host')).toEqual({ assets: { each: 10 } })
+  })
+
   test('resolves the concise description text ceiling from document, host, and default values', () => {
     expect(resolveLimits(undefined, undefined).descriptionTextChars).toBe(DEFAULT_LIMITS.descriptionTextChars)
     expect(resolveLimits({ descriptionTextChars: 20 }, { descriptionTextChars: 10 }).descriptionTextChars).toBe(10)
@@ -54,6 +60,7 @@ describe('parseLimits', () => {
   test('document schemas report invalid and host-only limits without throwing from safeParse', () => {
     expect(Page.safeParse({ html: '<p>Page</p>', limits: { pages: -1 } }).success).toBe(false)
     expect(Page.safeParse({ html: '<p>Page</p>', limits: { sheets: 1 } }).success).toBe(false)
+    expect(Page.safeParse({ html: '<p>Page</p>', limits: { assets: { bytes: 1 } } }).success).toBe(false)
     expect(
       Book.safeParse(identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'Chapter', html: '<p>Text</p>' }], limits: { bytes: 1 } }))
         .success,

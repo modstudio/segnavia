@@ -68,7 +68,7 @@ export function buildScriptedDependencyDemo(site: string, shell: (body: string) 
       await import('./segnavia.js')
       await customElements.whenDefined('segnavia-page')
       const view = document.getElementById('scripted-dependencies')
-      view.dependencyOrigins = ['https://cdn.jsdelivr.net', 'https://fonts.googleapis.com', 'https://fonts.gstatic.com']
+      view.origins = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] }]
       view.page = await fetch('scripted-dependencies-page.json').then(response => response.json())
     </script>`),
   )

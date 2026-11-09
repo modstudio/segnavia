@@ -126,7 +126,7 @@ export async function renderOptionsWithFontManifest(
   return { options, fontCss: resolved.css, fontFailures: resolved.failures }
 }
 
-interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'dependencyOrigins' | 'css'> {
+interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'origins' | 'css'> {
   diagramScript?: string
   nonce?: string
   relayKeys?: boolean
@@ -154,7 +154,7 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     css: options.css,
     relayKeys: options.relayKeys ?? false,
     reportHeight: options.reportHeight ?? false,
-    dependencyOrigins: options.dependencyOrigins,
+    origins: options.origins,
     readyCallback: hasDiagram(page.html) ? RENDER_READY_BINDING : undefined,
   })
 }
@@ -179,7 +179,7 @@ export function renderPageValueDocument(
   const css = printing && !page.print && fixedSize ? containFixedPageOverflow(baseCss) : baseCss
   return resolvedPageDocument(page, css, {
     css: options.css,
-    dependencyOrigins: options.dependencyOrigins,
+    origins: options.origins,
     diagramScript,
     nonce,
     relayKeys: false,

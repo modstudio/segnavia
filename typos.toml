@@ -10,3 +10,5 @@ paeth = "paeth"
 ba = "ba"
 # The OpenType width variation axis tag, as it appears in embedded font names.
 wdth = "wdth"
+# The case-insensitive sticky RegExp flags, in the order Biome writes them.
+iy = "iy"

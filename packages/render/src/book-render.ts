@@ -3,6 +3,7 @@ import {
   type FontFailure,
   KEEP_WITH_CUSTOM_PROPERTY,
   type Limits,
+  type OriginApproval,
   Plan,
   PX_PER_MM,
   pressBoxes,
@@ -26,7 +27,7 @@ import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
-import { type DependencyCache, dependencySetup, type RenderOptions } from './options.ts'
+import { type Assets, assetSetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize } from './pdf-page-size.ts'
@@ -52,8 +53,9 @@ interface TabSetup {
   boundMs?: number
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: PreparedSlots
-  dependencyOrigins?: Iterable<string>
-  dependencies?: DependencyCache
+  origins?: Iterable<OriginApproval>
+  assets?: Assets
+  limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
 }
@@ -107,7 +109,7 @@ function bookSrcdoc(
   diagramScript: string | undefined,
   options: {
     sheets?: readonly string[]
-    dependencyOrigins?: Iterable<string>
+    origins?: Iterable<OriginApproval>
     limits?: Limits
     plan?: SavedPlan
     breaks?: string[]
@@ -134,7 +136,7 @@ function bookSrcdoc(
     css: hostCss,
     relayKeys: false,
     reportHeight: false,
-    dependencyOrigins: options.dependencyOrigins,
+    origins: options.origins,
     readyCallback: hasDiagram(html) ? RENDER_READY_BINDING : undefined,
   })
 }
@@ -150,7 +152,7 @@ function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, o
     slots,
     readiness: renderReadiness('refuse', false, false),
     boundMs: options.boundMs,
-    ...dependencySetup(options),
+    ...assetSetup(options),
   }
 }
 
@@ -189,7 +191,7 @@ async function printBook(
   const srcdoc = refusedAsRender(() =>
     bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, {
       sheets,
-      dependencyOrigins: renderOptions.dependencyOrigins,
+      origins: renderOptions.origins,
       limits: renderOptions.limits,
       plan: renderOptions.plan,
       breaks: renderOptions.breaks,
@@ -213,7 +215,7 @@ async function printBook(
         readiness: renderReadiness(marginLayer ? 'refuse' : book.scripts, hasDiagram(html), renderOptions.waitForPageReady !== false),
         boundMs: renderOptions.boundMs,
         beforeOutput: renderOptions.beforeOutput,
-        ...dependencySetup(renderOptions),
+        ...assetSetup(renderOptions),
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
       }
   const output = await dependencies.render(
@@ -262,7 +264,7 @@ export async function renderBrowserBookPlan(
   const diagramScript = await resolveDiagramScript(bookDocument(book).html)
   const srcdoc = refusedAsRender(() =>
     bookSrcdoc('', book, fontCss, bookPageCss(book, true), options.css, false, diagramScript, {
-      dependencyOrigins: options.dependencyOrigins,
+      origins: options.origins,
       limits: options.limits,
       breaks: options.breaks,
     }),

@@ -86,12 +86,20 @@ describe('frame document', () => {
       sheets: frameStyleSheets(undefined, undefined),
     })
     expect(html).not.toContain('<script')
-    expect(html).toContain("script-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; img-src 'none'")
+    expect(html).toContain("default-src 'none'; script-src 'none'")
+    expect(html).toContain("object-src 'none'; base-uri 'none'; form-action 'none'")
+    expect(html).toContain('<meta http-equiv="Content-Security-Policy" content="img-src \'none\'">')
+    expect(html.match(/http-equiv="Content-Security-Policy"/g)).toHaveLength(2)
     expect(html).toContain('<style>*,*::before,*::after{animation-play-state:paused!important}</style>')
     expect(html).toContain(BLOCK_DIRECTION_CSS)
     expect(html).toContain('<style>p{color:red}</style>')
     expect(html).toContain('<html dir="rtl" lang="he">')
-    const sandboxed = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n', bridge: false, dependencyOrigins: ['https://cdn.example'] })
+    const sandboxed = frameDocument('<p>x</p>', {
+      scripts: 'sandboxed',
+      nonce: 'n',
+      bridge: false,
+      origins: [{ origin: 'https://cdn.example', kinds: ['script', 'style', 'font'] }],
+    })
     expect(sandboxed).toContain("script-src 'none'")
     expect(sandboxed).toContain("style-src 'unsafe-inline' https://cdn.example")
     expect(sandboxed).toContain('font-src data: https://cdn.example')
@@ -147,7 +155,11 @@ describe('frame document', () => {
   })
 
   test('approved dependency origins are written into scripted CSP directives', () => {
-    const html = frameDocument('<p>x</p>', { scripts: 'sandboxed', nonce: 'n', dependencyOrigins: ['https://cdn.jsdelivr.net'] })
+    const html = frameDocument('<p>x</p>', {
+      scripts: 'sandboxed',
+      nonce: 'n',
+      origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script', 'style', 'font'] }],
+    })
     expect(html).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net")
     expect(html).toContain("style-src 'unsafe-inline' https://cdn.jsdelivr.net")
     expect(html).toContain('font-src data: https://cdn.jsdelivr.net')
@@ -202,7 +214,8 @@ describe('frame document', () => {
       MESSAGE.fontFailures,
       MESSAGE.ready,
     ])
-    expect(html).toContain("script-src 'nonce-n'; object-src 'none'; base-uri 'none'; form-action 'none'")
+    expect(html).toContain("default-src 'none'; script-src 'nonce-n'")
+    expect(html).toContain("media-src * data: blob:; connect-src *; frame-src *; worker-src 'none'")
   })
 
   test('runs the keep pass without expanding the relay surface', () => {

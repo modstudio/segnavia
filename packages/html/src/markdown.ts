@@ -1,4 +1,4 @@
-import { type Direction, type Page, type PageBody, resolveDirection } from '@segnavia/format'
+import { type Direction, type OriginApproval, type Page, type PageBody, resolveDirection } from '@segnavia/format'
 import rehypeStringify from 'rehype-stringify'
 import remarkDirective from 'remark-directive'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -43,6 +43,7 @@ export interface BodyHtmlOptions {
   alertLabels?: Partial<AlertLabels>
   dir?: Direction
   lang?: string
+  origins?: Iterable<OriginApproval>
 }
 
 type Node = {
@@ -250,23 +251,24 @@ function convert(markdown: string, options: BodyHtmlOptions): MarkdownResult {
     .use(hastPlugin)
     .use(rehypeStringify)
     .processSync(markdown)
-  return { html: `${GEOMETRY_STYLE}${sanitize(String(result), { converterPolicy: MARKDOWN_CONVERTER_POLICY })}`, outline }
+  return { html: `${GEOMETRY_STYLE}${sanitize(String(result), { converterPolicy: MARKDOWN_CONVERTER_POLICY, origins: options.origins })}`, outline }
 }
 
 function optionKey(options: BodyHtmlOptions): string {
-  return JSON.stringify([options.dir, options.lang, options.alertLabels])
+  return JSON.stringify([options.dir, options.lang, options.alertLabels, options.origins])
 }
 
 function markdownResult(body: Extract<PageBody, { markdown: string }>, options: BodyHtmlOptions): MarkdownResult {
+  const resolvedOptions = { ...options, origins: options.origins ? [...options.origins] : undefined }
   let entries = memo.get(body)
   if (!entries) {
     entries = new Map()
     memo.set(body, entries)
   }
-  const key = optionKey(options)
+  const key = optionKey(resolvedOptions)
   const found = entries.get(key)
   if (found !== undefined) return found
-  const result = convert(body.markdown, options)
+  const result = convert(body.markdown, resolvedOptions)
   entries.set(key, result)
   return result
 }

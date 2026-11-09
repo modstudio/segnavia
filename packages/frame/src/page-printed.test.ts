@@ -138,6 +138,16 @@ describe('printed pages in SegnaviaPage', () => {
     expect(frame().srcdoc).toMatch(/<meta http-equiv="Content-Security-Policy" content="[^"]*img-src data:/)
   })
 
+  test('carries approved image origins into the composed frame', async () => {
+    const { page, frame, errors } = loadingHarness()
+    Object.assign(page, { origins: [{ origin: 'https://images.example', kinds: ['image'] }] })
+    page.load(printedDocument())
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(errors).toEqual([])
+    expect(frame().srcdoc).toMatch(/img-src [^;]*https:\/\/images\.example/)
+  })
+
   test('resolves composed-paper placements for the screen surface', async () => {
     const purposes: string[] = []
     const { page, errors } = loadingHarness()

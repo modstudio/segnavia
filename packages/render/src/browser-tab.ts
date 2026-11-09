@@ -1,10 +1,19 @@
 import { Buffer } from 'node:buffer'
-import { dependencyDecision, dependencyOriginSet, type FontFailure } from '@segnavia/format'
+import {
+  type FetchKind,
+  type FontFailure,
+  type Limits,
+  limitRefusal,
+  type OriginApproval,
+  originDecision,
+  type ResolvedLimits,
+  resolveLimits,
+} from '@segnavia/format'
 import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
-import type { PreparedSlots } from '@segnavia/html'
-import type { Browser, BrowserContext, Page as Tab } from 'playwright-core'
+import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
+import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
-import type { DependencyAnswer, DependencyCache } from './options.ts'
+import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
 import { withinBound } from './render-deadline.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, waitsForReadiness } from './render-readiness.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
@@ -17,8 +26,10 @@ export interface BrowserTabSetup {
   html: string
   readiness: RenderReadiness
   beforeOutput?: (tab: Tab) => Promise<void>
-  dependencyOrigins?: Iterable<string>
-  dependencies?: DependencyCache
+  origins?: Iterable<OriginApproval>
+  assets?: Assets
+  assetBudget?: AssetBudget
+  limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
 }
@@ -31,25 +42,66 @@ export const fontLoadSetup = (
   fontLoadReport: report,
 })
 
-export type DependencyRouteDecision =
+export type AssetRouteDecision =
   | { action: 'continue' }
-  | { action: 'abort' }
+  | { action: 'abort'; reason: string }
   | { action: 'missing'; url: string }
-  | ({ action: 'fulfill' } & DependencyAnswer)
+  | ({ action: 'fulfill' } & AssetAnswer)
 
 export function mergedFontFailures(initial: readonly FontFailure[], attribute: string | null): FontFailure[] {
   return [...initial, ...fontFailuresAttribute(attribute)]
 }
 
-export async function dependencyRouteDecision(
+export async function assetRouteDecision(
   url: string,
-  dependencyOrigins: ReadonlySet<string>,
-  lookup: DependencyCache | undefined,
-): Promise<DependencyRouteDecision> {
-  if (url.startsWith('data:')) return { action: 'continue' }
-  if (!dependencyDecision(url, dependencyOrigins).allowed) return { action: 'abort' }
-  const answer = await lookup?.(url)
+  kind: FetchKind | undefined,
+  origins: Iterable<OriginApproval> | undefined,
+  lookup: Assets | undefined,
+  signal: AbortSignal,
+  scripts = true,
+): Promise<AssetRouteDecision> {
+  if (url.startsWith('data:') || url === 'about:blank') return { action: 'continue' }
+  if (!kind) return { action: 'abort', reason: `${url} uses unsupported fetching; no asset kind can approve it` }
+  const policy = originDecision(url, kind, origins, scripts)
+  if (!policy.allowed) return { action: 'abort', reason: policy.reason }
+  let answer: AssetAnswer | undefined
+  try {
+    answer = await lookup?.(url, { kind, signal })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { action: 'abort', reason: `The host assets option rejected ${url}: ${message}; answer the approved asset to clear this refusal` }
+  }
+  if (signal.aborted)
+    return { action: 'abort', reason: `${url} answered after its asset request was aborted; settle assets before the render ends to clear this refusal` }
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
+}
+
+export function assetLimitRefusal(url: string, bytes: number, total: number, limits: ResolvedLimits['assets']): string | undefined {
+  if (bytes > limits.each) {
+    return limitRefusal('assets.each', bytes, limits.each, { where: url, setting: 'limits.assets.each' })
+  }
+  if (total + bytes > limits.bytes) {
+    return limitRefusal('assets.bytes', total + bytes, limits.bytes, { where: url, setting: 'limits.assets.bytes' })
+  }
+  return undefined
+}
+
+export function fetchKind(resourceType: string): FetchKind | undefined {
+  if (resourceType === 'script') return 'script'
+  if (resourceType === 'stylesheet') return 'style'
+  if (resourceType === 'font') return 'font'
+  if (resourceType === 'image') return 'image'
+  return undefined
+}
+
+export function browserContextOptions(setup: Pick<BrowserTabSetup, 'viewport' | 'scale' | 'scripts'>): BrowserContextOptions {
+  return {
+    viewport: setup.viewport,
+    deviceScaleFactor: setup.scale ?? 1,
+    javaScriptEnabled: setup.scripts,
+    offline: true,
+    serviceWorkers: 'block',
+  }
 }
 
 export async function renderInBrowserTab<T>(
@@ -59,31 +111,47 @@ export async function renderInBrowserTab<T>(
   state: { settled(): boolean; opened(context: BrowserContext): void; crashed(): void },
   body: (tab: Tab) => Promise<T>,
 ): Promise<T> {
-  const context = await browser.newContext({
-    viewport: setup.viewport,
-    deviceScaleFactor: setup.scale ?? 1,
-    javaScriptEnabled: setup.scripts,
-    offline: true,
-  })
+  const markupRefusals = assetOriginRefusals(setup.html, { keepScripts: setup.scripts, origins: setup.origins })
+  if (markupRefusals.length > 0) throw new RenderRefusedError([...new Set(markupRefusals)].join('; '))
+  const context = await browser.newContext(browserContextOptions(setup))
   state.opened(context)
   if (state.settled()) {
     await context.close().catch(() => {})
     return undefined as T
   }
   if (measureSlots) await installSlotFitCapture(context)
+  const refused = new Set<string>()
   const missing = new Set<string>()
-  const dependencyOrigins = dependencyOriginSet(setup.dependencyOrigins)
+  const controller = new AbortController()
+  const assetLimits = resolveLimits(undefined, setup.limits).assets
+  const assetBudget = setup.assetBudget ?? { bytes: 0 }
   await context.route('**/*', async (route) => {
     const url = route.request().url()
-    const decision = await dependencyRouteDecision(url, dependencyOrigins, setup.dependencies)
+    const kind = fetchKind(route.request().resourceType())
+    const decision = await assetRouteDecision(url, kind, setup.origins, setup.assets, controller.signal, setup.scripts)
     if (decision.action === 'continue') await route.continue()
-    else if (decision.action === 'fulfill') await route.fulfill({ body: Buffer.from(decision.body), contentType: decision.contentType })
-    else {
-      if (decision.action === 'missing') missing.add(decision.url)
+    else if (decision.action === 'abort') {
+      refused.add(decision.reason)
+      await route.abort('blockedbyclient')
+    } else if (decision.action === 'fulfill') {
+      const bytes = decision.body.byteLength
+      const limitRefusal = assetLimitRefusal(url, bytes, assetBudget.bytes, assetLimits)
+      if (limitRefusal) {
+        refused.add(limitRefusal)
+        await route.abort('blockedbyclient')
+      } else {
+        assetBudget.bytes += bytes
+        await route.fulfill({ body: Buffer.from(decision.body), contentType: decision.contentType })
+      }
+    } else {
+      missing.add(decision.url)
       await route.abort('blockedbyclient')
     }
   })
-  await context.routeWebSocket('**/*', (socket) => socket.close())
+  await context.routeWebSocket('**/*', (socket) => {
+    refused.add(`${socket.url()} uses unsupported websocket fetching; no asset kind can approve it`)
+    socket.close()
+  })
   const tab = await context.newPage()
   tab.on('crash', state.crashed)
   let authorReady = !setup.readiness.author
@@ -110,7 +178,8 @@ export async function renderInBrowserTab<T>(
   }
   await tab.setContent(setup.html, { waitUntil: 'load' })
   const refuseMissing = () => {
-    if (missing.size > 0) throw new RenderRefusedError(`The host cache did not answer approved dependencies: ${[...missing].join(', ')}.`)
+    if (refused.size > 0) throw new RenderRefusedError([...refused].join('; '))
+    if (missing.size > 0) throw new RenderRefusedError(`The host assets option did not answer approved requests: ${[...missing].join(', ')}.`)
   }
   refuseMissing()
   if (waitsForReadiness(setup.readiness)) {
@@ -129,5 +198,11 @@ export async function renderInBrowserTab<T>(
   if (measureSlots) await mergeCapturedSlotFit(tab, measureSlots, PAGE_READY_BOUND_MS)
   await setup.beforeOutput?.(tab)
   refuseMissing()
-  return body(tab)
+  try {
+    const result = await body(tab)
+    refuseMissing()
+    return result
+  } finally {
+    controller.abort()
+  }
 }
