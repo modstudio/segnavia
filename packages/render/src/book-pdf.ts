@@ -40,7 +40,6 @@ import type { BookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
-export type { BookPdfAdapter } from './book-pdf-types.ts'
 async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
   const document = await loadPdf(output.bytes)
   return { bytes: output.bytes, overflow: output.overflow, pages: document.getPageCount(), destinations: namedDestinations(document) }

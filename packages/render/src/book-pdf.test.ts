@@ -2,7 +2,8 @@ import { expect, test } from 'bun:test'
 import { PressGeometry, pressBoxes, sheetMm, usesPressLayout } from '@segnavia/format'
 import { parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
-import { type BookPdfAdapter, bookPageCss, marginFactsFor, renderBookPdf } from './book-pdf.ts'
+import { bookPageCss, marginFactsFor, renderBookPdf } from './book-pdf.ts'
+import type { BookPdfAdapter } from './book-pdf-types.ts'
 import { renderBrowserBookPdf } from './book-render.ts'
 
 const continuousBook = (body: string, front?: string) =>
