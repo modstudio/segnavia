@@ -21,23 +21,23 @@ describe('pronunciation lexicon', () => {
   })
 
   test.each([
-    [{ entries: [{ term: '', say: 'word' }] }, 'empty term'],
-    [{ entries: [{ term: 'two  words', say: 'word' }] }, 'term with repeated spaces'],
-    [{ entries: [{ term: ' two words', say: 'word' }] }, 'term with a leading space'],
-    [{ entries: [{ term: 'two words ', say: 'word' }] }, 'term with a trailing space'],
-    [{ entries: [{ term: 'two\twords', say: 'word' }] }, 'term with non-space whitespace'],
-    [{ entries: [{ term: 'word', say: '' }] }, 'empty respelling'],
-    [{ entries: [{ term: 'word', say: 'two words' }] }, 'respelling with whitespace'],
+    ['empty term', { entries: [{ term: '', say: 'word' }] }],
+    ['term with repeated spaces', { entries: [{ term: 'two  words', say: 'word' }] }],
+    ['term with a leading space', { entries: [{ term: ' two words', say: 'word' }] }],
+    ['term with a trailing space', { entries: [{ term: 'two words ', say: 'word' }] }],
+    ['term with non-space whitespace', { entries: [{ term: 'two\twords', say: 'word' }] }],
+    ['empty respelling', { entries: [{ term: 'word', say: '' }] }],
+    ['respelling with whitespace', { entries: [{ term: 'word', say: 'two words' }] }],
     [
+      'duplicate term',
       {
         entries: [
           { term: 'word', say: 'first' },
           { term: 'word', say: 'second' },
         ],
       },
-      'duplicate term',
     ],
-  ])('refuses a %s', (value) => {
+  ])('refuses %s', (_name, value) => {
     expect(Lexicon.safeParse(value).success).toBe(false)
   })
 

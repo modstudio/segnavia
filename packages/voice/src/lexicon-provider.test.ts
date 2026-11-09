@@ -28,6 +28,32 @@ describe('lexicon provider', () => {
     ])
   })
 
+  test.each([
+    ['English', 'Yom Tov sameach', { term: 'Yom Tov', say: 'YomTov' }, 'YomTov sameach', 'Yom Tov', 'sameach'],
+    ['Hebrew', 'יום טוב שמח', { term: 'יום טוב', say: 'יוםטוב' }, 'יוםטוב שמח', 'יום טוב', 'שמח'],
+  ])("restores the author's %s phrase to one spoken word", async (_name, script, entry, spoken, phrase, finalWord) => {
+    const received: string[] = []
+    const inner: VoiceProvider = {
+      id: 'voice',
+      async synthesize(text) {
+        received.push(text)
+        return {
+          words: text.split(/\s+/).map((word, index) => ({ text: word, startMs: index * 100, endMs: index * 100 + 80 })),
+          durationMs: 200,
+          audio: null,
+        }
+      },
+    }
+
+    const speech = await lexiconProvider(inner, { entries: [entry] }).synthesize(script)
+
+    expect(received).toEqual([spoken])
+    expect(speech.words).toEqual([
+      { text: phrase, startMs: 0, endMs: 80 },
+      { text: finalWord, startMs: 100, endMs: 180 },
+    ])
+  })
+
   test('wraps the inner identity and changes with the lexicon', () => {
     const inner: VoiceProvider = { id: 'voice-a', synthesize: async () => ({ words: [], durationMs: 0, audio: null }) }
     expect(lexiconProvider(inner, lexicon).id).toBe(`voice-a-lexicon-${lexiconVersion(lexicon)}`)

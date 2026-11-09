@@ -1,10 +1,8 @@
 import { z } from 'zod'
 
-const SingleWord = z.string().min(1).regex(/^\S+$/u)
-const Phrase = z
-  .string()
-  .min(1)
-  .regex(/^\S+(?: \S+)*$/u)
+const WORD_PATTERN = '\\S+'
+const SingleWord = z.string().regex(new RegExp(`^${WORD_PATTERN}$`, 'u'), 'a respelling is one word')
+const Phrase = z.string().regex(new RegExp(`^${WORD_PATTERN}(?: ${WORD_PATTERN})*$`, 'u'), 'a term is one or more words separated by single spaces')
 
 export const PronunciationEntry = z.object({
   term: Phrase,

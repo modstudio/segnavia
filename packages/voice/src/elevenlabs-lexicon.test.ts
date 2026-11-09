@@ -75,6 +75,61 @@ describe('ElevenLabs lexicon publishing', () => {
     })
   })
 
+  test('applies case-insensitive matching to phoneme rules', async () => {
+    let body: unknown
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body))
+      return Response.json({ id: 'dictionary-a', version_id: 'version-a' })
+    }) as typeof fetch
+
+    await publishElevenLabsLexicon({
+      apiKey: () => 'secret',
+      name: 'Shared words',
+      phonemes: true,
+      caseSensitive: false,
+      lexicon: { entries: [{ term: 'route', say: 'root', ipa: 'ɹuːt' }] },
+    })
+
+    expect(body).toEqual({
+      name: 'Shared words',
+      rules: [
+        {
+          type: 'phoneme',
+          string_to_replace: 'route',
+          phoneme: 'ɹuːt',
+          alphabet: 'ipa',
+          case_sensitive: false,
+          word_boundaries: true,
+        },
+      ],
+    })
+  })
+
+  test('refuses case-insensitive term collisions before publishing', async () => {
+    let requests = 0
+    globalThis.fetch = (async () => {
+      requests++
+      return Response.json({ id: 'dictionary-a', version_id: 'version-a' })
+    }) as unknown as typeof fetch
+
+    const publishing = publishElevenLabsLexicon({
+      apiKey: () => 'secret',
+      name: 'Shared words',
+      caseSensitive: false,
+      lexicon: {
+        entries: [
+          { term: 'Yom Tov', say: 'YomTov' },
+          { term: 'yom tov', say: 'holiday' },
+        ],
+      },
+    })
+
+    await expect(publishing).rejects.toThrow(
+      'The terms "Yom Tov" and "yom tov" collide when caseSensitive is false. Set caseSensitive to true or remove one entry.',
+    )
+    expect(requests).toBe(0)
+  })
+
   test('rejects when the request signal is aborted', async () => {
     const controller = new AbortController()
     controller.abort(new DOMException('Publishing cancelled', 'AbortError'))
