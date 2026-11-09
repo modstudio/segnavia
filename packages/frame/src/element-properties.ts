@@ -116,7 +116,7 @@ export const ELEMENT_PROPERTIES = {
   paperPicker: descriptor(STYLED_ELEMENTS.paperPicker, ['value', 'labels'], ['change']),
   itemSettings: descriptor(
     ITEM_SETTINGS_TAG,
-    ['declarations', 'fills', 'fill', 'overrides', 'source', 'report', 'labels'],
+    ['declarations', 'fills', 'fill', 'overrides', 'source', 'report', 'labels', 'controls'],
     ['segnavia-fill-select', 'segnavia-fill-input'],
   ),
 } as const

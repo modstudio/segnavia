@@ -30,7 +30,7 @@ import type {
   SegnaviaTime,
   SegnaviaTrack,
 } from '@segnavia/frame/controls'
-import type { ItemSettingsLabels, SegnaviaItemSettings } from '@segnavia/frame/item-settings'
+import type { ItemSettingsControls, ItemSettingsLabels, SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { PlayerControls, PlayerFit, SegnaviaPlayer } from '@segnavia/frame/player'
 import type { HTMLAttributes, ReactNode } from 'react'
 
@@ -124,6 +124,7 @@ export type ItemSettingsProps = ElementProps<SegnaviaItemSettings> & {
   source?: SegnaviaItemSettings['source']
   report?: SegnaviaItemSettings['report']
   labels?: Partial<ItemSettingsLabels>
+  controls?: ItemSettingsControls
   onSegnaviaFillSelect?: CustomEventProp<string>
   onSegnaviaFillInput?: CustomEventProp<SegnaviaItemSettings['fills'][number]>
 }

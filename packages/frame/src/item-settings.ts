@@ -2,6 +2,19 @@ import { ItemSettingsController, type ItemSettingsHandlers } from './item-settin
 import { ITEM_SETTINGS_TAG, SegnaviaItemSettings } from './item-settings-element.ts'
 
 export { ItemSettingsController, type ItemSettingsErrorDetail, type ItemSettingsHandlers } from './item-settings-authoring.ts'
+export type {
+  ActionControlCallbacks,
+  AssetControlCallbacks,
+  FieldControlCallbacks,
+  FillSwitcherCallbacks,
+  FillSwitcherView,
+  ItemSettingsActionKind,
+  ItemSettingsActionView,
+  ItemSettingsControlRenderer,
+  ItemSettingsControls,
+  ItemSettingsFieldView,
+  ItemSettingsRenderedControl,
+} from './item-settings-controls.ts'
 export { ITEM_SETTINGS_TAG, SegnaviaItemSettings } from './item-settings-element.ts'
 export { ENGLISH_ITEM_SETTINGS_LABELS, type ItemSettingsLabels, itemSettingsLabels } from './item-settings-labels.ts'
 export type { ItemSettingsSection, ItemSettingsSectionContext } from './item-settings-section.ts'

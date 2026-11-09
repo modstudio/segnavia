@@ -173,6 +173,7 @@ export type {
 } from '@segnavia/frame/document-authoring'
 export type {
   ItemSettingsController,
+  ItemSettingsControls,
   ItemSettingsErrorDetail,
   ItemSettingsHandlers,
   ItemSettingsLabels,
