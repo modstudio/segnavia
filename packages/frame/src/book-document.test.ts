@@ -225,6 +225,8 @@ describe('bookDocument', () => {
         parents: [],
         endnotePlacement: 'book' as const,
         contents: { pageNumbers: true, depth: 2 },
+        variables: [],
+        headTemplates: [],
       },
     }
     const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
@@ -281,6 +283,8 @@ describe('bookDocument', () => {
         parents: [],
         endnotePlacement: 'book' as const,
         contents: { pageNumbers: true, depth: 2 },
+        variables: [],
+        headTemplates: [],
       },
     }
     const html = bookViewDocument(view, { nonce: 'held', fontCss: '.lead{color:blue}', css: '.lead{color:green}' })

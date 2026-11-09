@@ -146,11 +146,7 @@ function furnitureNode(
   const className = furnitureClass(token, styles, direction)
   if (token.kind === 'processing-instruction') {
     if (master && /\bACE\s+18\b/.test(token.text ?? '')) {
-      return new Element(
-        'span',
-        { ...headTemplatePlacement('segnavia:folio'), ...(className ? { class: className } : {}) },
-        [],
-      )
+      return new Element('span', { ...headTemplatePlacement('segnavia:folio'), ...(className ? { class: className } : {}) }, [])
     }
     report.add(report.unsupportedSpecialCharacters, token.text ?? 'processing instruction', token.location)
     return undefined

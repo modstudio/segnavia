@@ -15,9 +15,9 @@ import { ConditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, Templa
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
+import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LogicalMargin } from './margins.ts'
-import { refineLibraryNames } from './library-names.ts'
 import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
@@ -68,8 +68,14 @@ export const DocumentShape = z.object({
   parentPages: z.array(ParentPageNode).default([]),
   templates: z.array(TemplateNode).default([]),
   noteSeries: z.array(NoteSeriesNode).default([]),
-  variables: z.array(VariableNode).default([]).superRefine((variables, ctx) => refineLibraryNames('variable', variables, ctx)),
-  headTemplates: z.array(HeadTemplateNode).default([]).superRefine((templates, ctx) => refineLibraryNames('head template', templates, ctx)),
+  variables: z
+    .array(VariableNode)
+    .default([])
+    .superRefine((variables, ctx) => refineLibraryNames('variable', variables, ctx)),
+  headTemplates: z
+    .array(HeadTemplateNode)
+    .default([])
+    .superRefine((templates, ctx) => refineLibraryNames('head template', templates, ctx)),
   conditions: z.array(ConditionNode).default([]),
 })
 

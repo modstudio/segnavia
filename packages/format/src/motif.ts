@@ -30,31 +30,32 @@ export interface HeadTemplatePlacement {
   selfClosing: boolean
 }
 
+function placementEnd(tags: RegExpMatchArray[], index: number, tag: string, openEnd: number): number | undefined {
+  let depth = 1
+  for (let cursor = index + 1; cursor < tags.length; cursor += 1) {
+    const candidate = tags[cursor]
+    if (!candidate || (candidate[1] ?? '').toLowerCase() !== tag.toLowerCase()) continue
+    if (candidate[0].startsWith('</')) depth -= 1
+    else if (!/\/\s*>$/.test(candidate[0])) depth += 1
+    if (depth === 0) return (candidate.index ?? 0) + candidate[0].length
+  }
+  return openEnd === 0 ? openEnd : undefined
+}
+
 export function headTemplatePlacements(html: string): HeadTemplatePlacement[] {
   const tags = [...html.matchAll(/<\/?([a-zA-Z][\w:-]*)([^>]*)>/g)]
   const placements: HeadTemplatePlacement[] = []
   for (let index = 0; index < tags.length; index += 1) {
     const token = tags[index]
+    if (!token) continue
     const markup = token[0]
     if (markup.startsWith('</') || htmlAttribute(markup, MOTIF_ATTRIBUTE) !== HEAD_TEMPLATE_MOTIF) continue
     const start = token.index ?? 0
     const openEnd = start + markup.length
     const tag = token[1] ?? ''
     const selfClosing = /\/\s*>$/.test(markup)
-    let end = openEnd
-    if (!selfClosing) {
-      let depth = 1
-      for (let cursor = index + 1; cursor < tags.length; cursor += 1) {
-        const candidate = tags[cursor]
-        if ((candidate[1] ?? '').toLowerCase() !== tag.toLowerCase()) continue
-        if (candidate[0].startsWith('</')) depth -= 1
-        else if (!/\/\s*>$/.test(candidate[0])) depth += 1
-        if (depth !== 0) continue
-        end = (candidate.index ?? 0) + candidate[0].length
-        break
-      }
-      if (depth !== 0) continue
-    }
+    const end = selfClosing ? openEnd : placementEnd(tags, index, tag, openEnd)
+    if (end === undefined) continue
     placements.push({ start, end, openEnd, tag, name: htmlAttribute(markup, HEAD_TEMPLATE_NAME_ATTRIBUTE) ?? '', selfClosing })
   }
   return placements

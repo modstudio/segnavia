@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { refineLibraryNames, withLibraryDefaults } from './library-names.ts'
+import { hasLibraryDefaults, refineLibraryNames, withLibraryDefaults } from './library-names.ts'
 
 export const TextVariable = z.object({
   name: z.string().min(1),
@@ -30,8 +30,13 @@ export const LIBRARY_VARIABLES: Variable[] = [
   Variable.parse({ name: 'segnavia:pages-total', kind: 'pages' }),
 ]
 
-export const Variables = z
+const DeclaredVariables = z
   .array(Variable)
-  .default([])
   .superRefine((variables, ctx) => refineLibraryNames('variable', variables, ctx))
   .transform((variables) => withLibraryDefaults(LIBRARY_VARIABLES, variables))
+
+const ResolvedVariables = z
+  .any()
+  .refine((value) => Array.isArray(value) && hasLibraryDefaults(value))
+  .transform((value) => value as Variable[])
+export const Variables = z.union([ResolvedVariables, DeclaredVariables]).prefault([])

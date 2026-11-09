@@ -397,4 +397,4 @@ export {
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
 export { LIBRARY_VARIABLES, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
-export { type VariablePageFacts, variableValue } from './variable-value.ts'
+export { textVariableValue, type VariablePageFacts, variableValue } from './variable-value.ts'

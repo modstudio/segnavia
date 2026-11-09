@@ -43,5 +43,8 @@ export function parseBookFixture(
     const field = value[key]
     if (Array.isArray(field)) identified[key] = field.map((entry) => identify(entry, newId))
   }
-  return Book.parse(identifyContent(identified, newId))
+  const content = identifyContent(identified, newId) as Input
+  if (value.variables !== undefined) content.variables = value.variables
+  if (value.headTemplates !== undefined) content.headTemplates = value.headTemplates
+  return Book.parse(content)
 }

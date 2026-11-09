@@ -13,8 +13,12 @@ export interface VariablePageFacts {
   sectionTitle?: string
 }
 
+export function textVariableValue(variable: Extract<Variable, { kind: 'text' }>, facts: VariablePageFacts): string {
+  return variable.from === 'section-title' ? (facts.sectionTitle ?? '') : ''
+}
+
 export function variableValue(variable: Variable, facts: VariablePageFacts): string {
-  if (variable.kind === 'text') return variable.from === 'section-title' ? (facts.sectionTitle ?? '') : ''
+  if (variable.kind === 'text') return textVariableValue(variable, facts)
   if (variable.kind === 'record') {
     const value = variable.value === 'index' ? facts.recordIndex : facts.recordCount
     return value === undefined ? '' : formatNumber(value, variable.system ?? 'arabic')

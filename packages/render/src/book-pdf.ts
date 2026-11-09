@@ -41,7 +41,6 @@ import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
 export type { BookPdfAdapter } from './book-pdf-types.ts'
-
 async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
   const document = await loadPdf(output.bytes)
   return { bytes: output.bytes, overflow: output.overflow, pages: document.getPageCount(), destinations: namedDestinations(document) }
@@ -127,7 +126,7 @@ export function marginFactsFor(
   const variablesFor = (owner: (typeof starts)[number] | undefined, page: number, folio: string): Record<string, string> => {
     const resolved: Record<string, string> = {}
     const ownerIndex = owner ? starts.indexOf(owner) : -1
-    const ownerEnd = ownerIndex >= 0 ? ((starts[ownerIndex + 1]?.page ?? pages + 1) - 1) : page
+    const ownerEnd = ownerIndex >= 0 ? (starts[ownerIndex + 1]?.page ?? pages + 1) - 1 : page
     const recordFolio = owner?.section.record ? formatNumber(countedPages(owner.page, page), system) : undefined
     const recordTotal = owner?.section.record ? formatNumber(countedPages(owner.page, ownerEnd), system) : undefined
     const documentFolio = formatNumber(countedPages(1, page), system)

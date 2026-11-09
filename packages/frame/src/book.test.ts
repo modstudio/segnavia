@@ -143,6 +143,8 @@ describe('book element input', () => {
       parents: [],
       endnotePlacement: 'book' as const,
       contents: { pageNumbers: true, depth: 2 },
+      variables: [],
+      headTemplates: [],
     }
     const rendered = bookFrame(
       { html: '<main class="lead" data-segnavia-galleys></main>', style: { css: '.lead{color:purple}' }, scripts: 'refuse', pagination },

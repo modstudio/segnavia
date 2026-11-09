@@ -1,4 +1,4 @@
-import { headTemplatePlacements, MOTIF_ATTRIBUTE, type HeadTemplate } from '@segnavia/format'
+import { type HeadTemplate, headTemplatePlacements, MOTIF_ATTRIBUTE } from '@segnavia/format'
 import { resolveHeadTemplate } from '@segnavia/layout'
 
 export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {
@@ -9,9 +9,7 @@ export function fillRegion(html: string, values: { heads: Record<string, string>
   for (const placement of [...placements].reverse()) {
     const value = values.heads[placement.name]
     const opening = html.slice(placement.start, placement.openEnd)
-    const cleaned = opening
-      .replace(new RegExp(`\\s${MOTIF_ATTRIBUTE}(?:-[\\w-]+)?\\s*=\\s*(?:(["'])([^"']*)\\1|[^\\s>]+)`, 'gi'), '')
-      .replace(/\/\s*>$/, '>')
+    const cleaned = opening.replace(new RegExp(`\\s${MOTIF_ATTRIBUTE}(?:-[\\w-]+)?\\s*=\\s*(?:(["'])([^"']*)\\1|[^\\s>]+)`, 'gi'), '').replace(/\/\s*>$/, '>')
     const replacement = value ? `${cleaned}${value}</${placement.tag}>` : ''
     output = `${output.slice(0, placement.start)}${replacement}${output.slice(placement.end)}`
   }
