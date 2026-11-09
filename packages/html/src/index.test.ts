@@ -47,7 +47,7 @@ describe('sanitize', () => {
 
   test('links decides authored hrefs when a converter policy is also supplied', () => {
     const converterPolicy = {
-      urls: { linkProtocols: ['https:'], imageProtocols: [], linkFragments: true, dataImages: false },
+      urls: { linkProtocols: ['https:'], linkFragments: true, dataImages: false },
       inertControls: [],
     }
     expect(sanitize('<a href="mailto:a@b.c">m</a>', { links: { protocols: ['https:', 'mailto:'] }, converterPolicy })).toBe('<a href="mailto:a@b.c">m</a>')

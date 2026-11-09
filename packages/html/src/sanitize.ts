@@ -59,7 +59,6 @@ export interface SanitizeOptions {
 
 export interface UrlPolicy {
   linkProtocols: readonly string[]
-  imageProtocols: readonly string[]
   linkFragments: boolean
   dataImages: boolean
 }
@@ -159,18 +158,20 @@ function safeUrl(tag: string, attribute: string, value: string, links: ResolvedL
   if (attribute === 'src' || attribute === 'poster') {
     if (policy?.dataImages && safeImageSource(value)) return true
     if (!policy) return safeImageSource(value)
-    try {
-      return policy.imageProtocols.includes(new URL(url).protocol)
-    } catch {
-      return false
-    }
+    return false
   }
   return false
 }
 
 /** The URL decision used when schema-based authoring admits a link or image. */
-export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, linkOrigins?: Iterable<string>): boolean {
-  if (attribute === 'src') return safeUrl('', attribute, value, undefined, MARKDOWN_CONVERTER_POLICY.urls)
+export function safeMarkdownUrl(attribute: 'href', value: string, approvals?: Iterable<string>): boolean
+export function safeMarkdownUrl(attribute: 'src', value: string, approvals?: Iterable<OriginApproval>): boolean
+export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, approvals?: Iterable<string> | Iterable<OriginApproval>): boolean {
+  if (attribute === 'src') {
+    if (safeImageSource(value)) return true
+    return originDecision(value, 'image', approvals as Iterable<OriginApproval> | undefined, false).allowed
+  }
+  const linkOrigins = approvals as Iterable<string> | undefined
   return linkAllowed(value, linkPolicyFromConverter(MARKDOWN_CONVERTER_POLICY.urls, linkOrigins === undefined ? undefined : originSet(linkOrigins)))
 }
 
