@@ -138,10 +138,6 @@ describe('folded imposition', () => {
     expect(messages).not.toContain('the fold has')
   })
 
-  test('parse refuses the removed fold safe field', () => {
-    expect(() => parseFold({ fold: 'letter', safe: 49.2 })).toThrow("Document's print.safe")
-  })
-
   test('parse refuses a fold taller than the paper with the fold height remedy', () => {
     const result = Imposition.safeParse(foldInput({ fold: 'letter', cell: { height: 120 } }))
     expect(result.success).toBe(false)

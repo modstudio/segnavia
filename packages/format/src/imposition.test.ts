@@ -215,6 +215,10 @@ describe('imposition', () => {
     expect(() => impose(parse(), 1.5)).toThrow('1.5')
   })
 
+  test('safe must leave area inside an imposition cell', () => {
+    expect(() => impose(parse(), 1, { safe: 40 })).toThrow('safe is 40mm on the left and right, but the cell is 80mm wide; safe must leave area inside the cell')
+  })
+
   test('custom paper and grid lengths can both use points', () => {
     const value = Imposition.parse({
       paper: { width: 612, height: 792, unit: 'pt' },
