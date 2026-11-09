@@ -8,6 +8,7 @@ function host(fills: Fill[] = [], fill: string | null = null) {
   const state = {
     fills,
     fill,
+    overrides: {},
     labels: ENGLISH_ITEM_SETTINGS_LABELS,
     selects: [] as string[],
     refreshCount: 0,

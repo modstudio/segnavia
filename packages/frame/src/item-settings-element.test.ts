@@ -10,17 +10,23 @@ const { SegnaviaItemSettings } = await import('./item-settings-element.ts')
 const original: Fill = { id: 'mina', values: { name: 'Mina' } }
 const other: Fill = { id: 'noah', values: { name: 'Noah' } }
 
-function setup(saveFill: (fill: Fill) => Promise<void>) {
+function setup(saveFill: (fill: Fill) => Promise<void>, saveOverrides?: (values: Fill['values']) => Promise<void>) {
   const element = new SegnaviaItemSettings()
+  element.declarations = [{ key: 'name', label: 'Name', type: 'text', required: false }]
   element.fills = [original, other]
   element.fill = original.id
   const controller = new ItemSettingsController(element, {
     createFill: async () => original,
     saveFill,
+    saveOverrides,
     deleteFill: async () => {},
   })
   element.connectAuthoring(controller)
   return { element, controller }
+}
+
+function toggleNameDesignOnly(element: InstanceType<typeof SegnaviaItemSettings>, enabled: boolean) {
+  ;(element as unknown as { toggleDesignOnly(key: string, enabled: boolean): void }).toggleDesignOnly('name', enabled)
 }
 
 function typeName(element: InstanceType<typeof SegnaviaItemSettings>, name: string) {
@@ -75,7 +81,73 @@ test('does not emit an edited fill while its host id is pending', () => {
   controller.detach()
 })
 
+test('routes design-only edits to overrides and clearing the override reveals the unchanged fill', async () => {
+  const fills: Fill[] = []
+  const overrides: Fill['values'][] = []
+  const { element, controller } = setup(
+    async (fill) => {
+      fills.push(fill)
+    },
+    async (values) => {
+      overrides.push(values)
+    },
+  )
+
+  toggleNameDesignOnly(element, true)
+  expect(element.overrides).toEqual({ name: 'Mina' })
+  expect(element.fills[0]).toEqual(original)
+  typeName(element, 'Design Mina')
+  await controller.flush()
+
+  expect(fills).toEqual([])
+  expect(overrides).toEqual([{ name: 'Design Mina' }])
+  expect(element.fills[0]).toEqual(original)
+
+  toggleNameDesignOnly(element, false)
+  expect(element.overrides).toEqual({})
+  expect(element.fills[0]?.values.name).toBe('Mina')
+  await controller.flush()
+  expect(overrides).toEqual([{ name: 'Design Mina' }, {}])
+
+  typeName(element, 'Fill Mina')
+  await controller.flush()
+  expect(fills).toEqual([{ id: 'mina', values: { name: 'Fill Mina' } }])
+  expect(overrides).toEqual([{ name: 'Design Mina' }, {}])
+})
+
+test('routes an edit to the fill when an override is present but cannot be saved', async () => {
+  const fills: Fill[] = []
+  const { element, controller } = setup(async (fill) => {
+    fills.push(fill)
+  })
+  element.overrides = { name: 'Design Mina' }
+  const inputs: Fill[] = []
+  element.addEventListener('segnavia-fill-input', (event) => inputs.push((event as CustomEvent<Fill>).detail))
+
+  typeName(element, 'Fill Mina')
+  await controller.flush()
+
+  expect(fills).toEqual([{ id: 'mina', values: { name: 'Fill Mina' } }])
+  expect(inputs).toEqual([{ id: 'mina', values: { name: 'Fill Mina' } }])
+  expect(element.overrides).toEqual({ name: 'Design Mina' })
+})
+
 describe('item settings host refreshes', () => {
+  test('keeps a design draft and adopts a host override after its save settles', async () => {
+    const { element, controller } = setup(
+      async () => {},
+      async () => {},
+    )
+    toggleNameDesignOnly(element, true)
+    typeName(element, 'Design draft')
+
+    element.overrides = { name: 'Host design' }
+    expect(element.overrides).toEqual({ name: 'Design draft' })
+
+    await controller.flush()
+    expect(element.overrides).toEqual({ name: 'Host design' })
+  })
+
   test('keeps a typed draft while its save is debouncing', () => {
     const { element } = setup(async () => {})
     typeName(element, 'Mina Patel')

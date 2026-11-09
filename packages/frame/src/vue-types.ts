@@ -1,4 +1,4 @@
-import type { DocumentInput, Fill, Print, PrintInput, PrintSetting, SlotDeclaration, SlotReport, TransitionInput } from '@segnavia/format'
+import type { DocumentInput, Fill, FillValues, Print, PrintInput, PrintSetting, SlotDeclaration, SlotReport, TransitionInput } from '@segnavia/format'
 import type { PaperPickerLabelOverrides } from './controls-entry.ts'
 import type { ItemSettingsLabels } from './item-settings-labels.ts'
 import type { PlayerLabels } from './labels.ts'
@@ -34,6 +34,7 @@ export type ElementPropertyWrites = {
     declarations: readonly SlotDeclaration[] | undefined
     fills: readonly Fill[] | undefined
     fill: string | null | undefined
+    overrides: FillValues | undefined
     source: Fill | undefined
     report: SlotReport | undefined
     labels: Partial<ItemSettingsLabels> | undefined

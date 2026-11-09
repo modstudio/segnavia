@@ -68,6 +68,7 @@ function copySlots(options: SlotPrintOptions, entry: SlotFillEntry, capture: ((r
   return {
     declarations: options.declarations,
     resolveAsset: options.resolveAsset,
+    overrides: options.overrides,
     fill: entry.fill,
     source: entry.source,
     report: capture,

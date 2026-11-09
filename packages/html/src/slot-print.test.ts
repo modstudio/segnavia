@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { SlotReport, SlotsOptions } from '@segnavia/format'
 import { collectSlotPrintCopies, SlotFillsConflictError, SlotFillsRefusedError, slotFillCopyId } from './slot-print.ts'
-import { RequiredSlotsRefusedError, SlotFillRefusedError, UnmeasuredSlotsRefusedError } from './slots.ts'
+import { prepareSlots, RequiredSlotsRefusedError, SlotFillRefusedError, UnmeasuredSlotsRefusedError } from './slots.ts'
 
 const ada = { fill: { id: 'ada', values: { name: 'Ada' } } }
 const bea = { fill: { id: 'bea', values: { name: 'Bea' } } }
@@ -25,6 +25,16 @@ test('copies run in entry order and keep one result per entry', async () => {
   })
   expect(seen).toEqual(['ada', 'bea'])
   expect(copies).toEqual(['Ada', 'Bea'])
+})
+
+test('every fill copy keeps the design overrides', async () => {
+  const copies = await collectSlotPrintCopies({ overrides: { name: 'Design' }, fills: [ada, bea] }, async (copy) => {
+    const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: true }], copy)
+    return { html: prepared.apply('<p data-slot-value="name"></p>'), report: prepared.report }
+  })
+
+  expect(copies.every((copy) => copy.html.includes('>Design</p>'))).toBeTrue()
+  expect(copies.map((copy) => copy.report.origins)).toEqual([{ name: 'design' }, { name: 'design' }])
 })
 
 test('the host report is called once per entry in entry order', async () => {

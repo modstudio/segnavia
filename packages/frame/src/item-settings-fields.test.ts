@@ -16,6 +16,7 @@ test('each reported slot renders its state part, value and readable label', () =
       declarations,
       fills: [],
       fill: null,
+      overrides: {},
       source: undefined,
       report: { fill: null, slots: Object.fromEntries(SLOT_STATES.map((state) => [state, state])), origins: {} },
       labels: ENGLISH_ITEM_SETTINGS_LABELS,
@@ -49,6 +50,7 @@ test('an overflowed slot renders its state and warning parts together', () => {
       declarations: [{ key: 'name', label: 'Name', type: 'text', required: false }],
       fills: [],
       fill: null,
+      overrides: {},
       source: undefined,
       report: { fill: null, slots: { name: 'overflowed' }, origins: {} },
       labels: ENGLISH_ITEM_SETTINGS_LABELS,
@@ -68,6 +70,38 @@ test('an overflowed slot renders its state and warning parts together', () => {
   const field = container.children[1]?.children[0]
   expect(field?.children.find((child) => child.part.has('state'))?.dataset.state).toBe('overflowed')
   expect(field?.children.find((child) => child.part.has('warning'))?.dataset.warning).toBe('overflowed')
+})
+
+test('design-only state is exposed only when the host can save overrides', () => {
+  const context = {
+    declarations: [{ key: 'name', label: 'Name', type: 'text' as const, required: false }],
+    fills: [{ id: 'mina', values: { name: 'Mina' } }],
+    fill: 'mina',
+    overrides: { name: 'Design Mina' },
+    source: undefined,
+    report: undefined,
+    labels: ENGLISH_ITEM_SETTINGS_LABELS,
+    dir: 'ltr' as const,
+  }
+  const actions = {
+    onSelectFill() {},
+    onAddFill() {},
+    onRemoveFill() {},
+    onRenameFill() {},
+    onChangeValue() {},
+    onOverride() {},
+    onUseSource() {},
+  }
+  const without = new ItemSettingsTestElement()
+  renderFields(without as unknown as HTMLElement, context, actions)
+  expect(without.children[1]?.children[0]?.children[2]?.children).toHaveLength(0)
+
+  const withOverrides = new ItemSettingsTestElement()
+  renderFields(withOverrides as unknown as HTMLElement, context, { ...actions, onDesignOnly() {} })
+  const toggle = withOverrides.children[1]?.children[0]?.children[2]?.children[0]
+  expect(toggle?.part.has('design-only')).toBeTrue()
+  expect(toggle?.dataset.designOnly).toBe('true')
+  expect(toggle?.children[0]?.dataset.action).toBe('design-only')
 })
 
 function slotLabel(state: SlotState): string {

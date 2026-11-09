@@ -1,4 +1,4 @@
-import type { Fill, SlotDeclaration, SlotValue } from '@segnavia/format'
+import type { Fill, FillValues, SlotDeclaration, SlotValue } from '@segnavia/format'
 import { cloneFill, cloneFills, isProvisionalFillId, sameFill } from './item-settings-fills.ts'
 import type { ItemSettingsLabels } from './item-settings-labels.ts'
 import { FillSaveQueue } from './item-settings-save.ts'
@@ -6,12 +6,13 @@ import { FillSaveQueue } from './item-settings-save.ts'
 export interface ItemSettingsHandlers {
   createFill(input: { label: string }): Promise<Fill>
   saveFill(fill: Fill): Promise<void>
+  saveOverrides?(values: FillValues): Promise<void>
   deleteFill(id: string): Promise<void>
   pickAsset?: (slot: SlotDeclaration) => Promise<SlotValue | undefined>
 }
 
 export interface ItemSettingsErrorDetail {
-  operation: 'createFill' | 'saveFill' | 'deleteFill'
+  operation: 'createFill' | 'saveFill' | 'saveOverrides' | 'deleteFill'
   fillId: string | null
   message: string
   error: unknown
@@ -20,6 +21,7 @@ export interface ItemSettingsErrorDetail {
 export interface ItemSettingsAuthoringHost {
   fills: Fill[]
   fill: string | null
+  overrides: FillValues
   labels: ItemSettingsLabels
   emitSelect(id: string): void
   refresh(): void
@@ -34,6 +36,7 @@ interface PendingCreate {
 
 export class ItemSettingsController extends EventTarget {
   private queue: FillSaveQueue
+  private overrideQueue: FillSaveQueue
   private pending = new Map<string, PendingCreate>()
   private stopped = false
 
@@ -49,7 +52,15 @@ export class ItemSettingsController extends EventTarget {
       },
       (id, error) => this.error('saveFill', id, error),
     )
+    this.overrideQueue = new FillSaveQueue(
+      (fill) => this.handlers.saveOverrides?.(fill.values) ?? Promise.resolve(),
+      (fill) => {
+        this.host.overrides = fill.values
+      },
+      (_id, error) => this.error('saveOverrides', null, error),
+    )
     this.seedFills(host.fills)
+    this.seedOverrides(host.overrides)
   }
 
   /**
@@ -72,9 +83,14 @@ export class ItemSettingsController extends EventTarget {
     return this.handlers.pickAsset
   }
 
+  get canSaveOverrides(): boolean {
+    return this.handlers.saveOverrides !== undefined
+  }
+
   update(handlers: ItemSettingsHandlers) {
     this.handlers = handlers
     this.queue.setSave((fill) => this.handlers.saveFill(fill))
+    this.overrideQueue.setSave((fill) => this.handlers.saveOverrides?.(fill.values) ?? Promise.resolve())
     this.host.refresh()
   }
 
@@ -97,6 +113,15 @@ export class ItemSettingsController extends EventTarget {
     this.queue.edit(fill)
   }
 
+  seedOverrides(values: FillValues): FillValues {
+    return this.overrideQueue.seed({ id: 'design', values }).values
+  }
+
+  saveDesign(values: FillValues) {
+    if (!this.canSaveOverrides) return
+    this.overrideQueue.edit({ id: 'design', values })
+  }
+
   delete(id: string, previousFills: readonly Fill[], previousSelected: string | null) {
     if (isProvisionalFillId(id)) {
       const pending = this.pending.get(id)
@@ -110,12 +135,13 @@ export class ItemSettingsController extends EventTarget {
 
   async flush(): Promise<void> {
     await Promise.all([...this.pending.values()].map((pending) => pending.promise))
-    await this.queue.flushAll()
+    await Promise.all([this.queue.flushAll(), this.overrideQueue.flushAll()])
   }
 
   detach() {
     this.stopped = true
     this.queue.dispose()
+    this.overrideQueue.dispose()
     this.pending.clear()
     this.host.disconnectAuthoring()
   }

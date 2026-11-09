@@ -354,6 +354,7 @@ export * from './printed-pages.ts'
 export { RecordFacts, RecordValues } from './record-facts.ts'
 export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
+export * from './slot-values.ts'
 export * from './slots.ts'
 export {
   type MergedStyleSheet,

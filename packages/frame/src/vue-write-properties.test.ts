@@ -63,6 +63,7 @@ function assignDeclaredWrites(
   elements.itemSettings.declarations = writes.itemSettings.declarations
   elements.itemSettings.fills = writes.itemSettings.fills
   elements.itemSettings.fill = writes.itemSettings.fill
+  elements.itemSettings.overrides = writes.itemSettings.overrides
   elements.itemSettings.source = writes.itemSettings.source
   elements.itemSettings.report = writes.itemSettings.report
   elements.itemSettings.labels = writes.itemSettings.labels

@@ -1,4 +1,4 @@
-import type { Fill, SlotValue } from '@segnavia/format'
+import { type Fill, type FillValues, hasSlotValue, type SlotValue } from '@segnavia/format'
 
 export const PROVISIONAL_FILL_PREFIX = 'provisional:'
 
@@ -27,6 +27,17 @@ export function cloneFill(fill: Fill): Fill {
 
 export function cloneFills(fills: readonly Fill[]): Fill[] {
   return fills.map(cloneFill)
+}
+
+export function cloneFillValues(values: FillValues): FillValues {
+  return cloneFill({ id: '', values }).values
+}
+
+export function setFillValuesValue(values: FillValues, key: string, value: SlotValue | undefined): FillValues {
+  const next = cloneFillValues(values)
+  if (!hasSlotValue(value)) delete next[key]
+  else next[key] = cloneSlotValue(value)
+  return next
 }
 
 export function sameSlotValue(left: SlotValue | undefined, right: SlotValue | undefined): boolean {
@@ -70,8 +81,7 @@ export function setFillValue(fills: readonly Fill[], id: string, key: string, va
   return fills.map((fill) => {
     const next = cloneFill(fill)
     if (fill.id !== id) return next
-    if (value === undefined || value === '') delete next.values[key]
-    else next.values[key] = cloneSlotValue(value)
+    next.values = setFillValuesValue(next.values, key, value)
     return next
   })
 }
