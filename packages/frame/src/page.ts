@@ -14,10 +14,12 @@ import {
   type SlotsOptions,
 } from '@segnavia/format'
 import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { hasAsOfBinding } from './as-of-bindings.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { slotsForDay, slotsWithDay } from './day-slots.ts'
-import { internalPageLoad } from './document-value-load.ts'
+import type { EstablishedPageDay } from './document-day-context.ts'
+import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
@@ -198,8 +200,14 @@ export class SegnaviaPage extends PageAsOfElement {
     this.documentValue = null
     this.loadValue(page)
   }
-
-  private loadValue(page: Page) {
+  [internalPageDayLoad](page: Page, established: EstablishedPageDay) {
+    this.brandResolution?.abort()
+    this.brandResolution = undefined
+    this.pageInput = undefined
+    this.documentValue = null
+    this.loadValue(page, established)
+  }
+  private loadValue(page: Page, established?: EstablishedPageDay) {
     this.hostServed = false
     const generation = this.releaseFrame()
     const controller = new AbortController()
@@ -233,13 +241,10 @@ export class SegnaviaPage extends PageAsOfElement {
       anchors: this.anchorOptions,
       signal: controller.signal,
     }
-    const bindDay =
-      !this.motifOptions &&
-      !page.printedPages &&
-      /data-slot-(?:value|href|src|present|when|each|width)=["'][^"']*\basOf(?:\.|["'])/.test(resolvePageHtml(page).html)
+    const bindDay = !this.motifOptions && !page.printedPages && hasAsOfBinding(resolvePageHtml(page).html)
     const render = (day: AsOfDay, slots: SlotsOptions) => {
       if (!isCurrent()) return
-      this.dispatchEvent(new CustomEvent('asof', { detail: day }))
+      if (!established) this.dispatchEvent(new CustomEvent('asof', { detail: day }))
       renderPageValue(
         page,
         day,
@@ -259,7 +264,13 @@ export class SegnaviaPage extends PageAsOfElement {
       )
     }
     const policy = resolveAsOfDay(page.asOf, facts)
-    if (policy.kind === 'day' && !this.slotOptions?.resolve) {
+    if (established) {
+      try {
+        render(established.day, slotsWithDay(established.slots, established.day, established.slots.source, bindDay))
+      } catch (error) {
+        report(error)
+      }
+    } else if (policy.kind === 'day' && !this.slotOptions?.resolve) {
       try {
         render(policy.day, slotsWithDay(this.slotOptions, policy.day, this.slotOptions?.source, bindDay))
       } catch (error) {

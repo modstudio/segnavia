@@ -1,5 +1,6 @@
 import type { AsOfDay, FontFailure, PageWidths, SlotsOptions } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
+import { hasAsOfBinding } from './as-of-bindings.ts'
 import { slotsWithDay } from './day-slots.ts'
 import { type ExpandedFramePage, expandFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
@@ -44,7 +45,7 @@ export async function prepareShownPage(
     },
     day,
   )
-  const bindsDay = /data-slot-(?:value|href|src|present|when|each|width)=["'][^"']*\basOf(?:\.|["'])/.test(expanded.page.html)
+  const bindsDay = hasAsOfBinding(expanded.page.html)
   const effectiveSlots = day && bindsDay ? slotsWithDay(slots, day, slots?.source, true) : slots
   const resolved = hasSlotWork(expanded.page.slots, effectiveSlots) ? await prepareSlots(expanded.page.slots, effectiveSlots, signal) : undefined
   return { ...expanded, resolved }

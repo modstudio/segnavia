@@ -1,10 +1,14 @@
 import type { AsOfDay } from '@segnavia/format'
-import { bindingRoot, fill } from '@segnavia/html'
+import { bindingPaths, bindingRoot, fill } from '@segnavia/html'
 
-const SLOT_BINDING = /data-slot-(?:value|href|src|present|when|each|width)=["']([^"']+)["']/g
+export function hasAsOfBinding(html: string): boolean {
+  return bindingPaths(html, 'slot').some((path) => bindingRoot(path) === 'asOf')
+}
 
 export function fillAsOfBindings(html: string, day: AsOfDay): string {
-  const roots = [...html.matchAll(SLOT_BINDING)].map((match) => bindingRoot(match[1] ?? '')).filter((root) => root !== 'asOf')
+  const roots = bindingPaths(html, 'slot')
+    .map(bindingRoot)
+    .filter((root) => root !== 'asOf')
   return fill(html, {
     prefix: 'slot',
     data: { asOf: { date: day.date, zone: day.zone, ...(day.anchor === undefined ? {} : { anchor: day.anchor }) } },

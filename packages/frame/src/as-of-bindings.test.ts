@@ -7,3 +7,13 @@ test('fills only the reserved asOf root and leaves host slots for their own pass
     '<time dir="auto">2026-11-14</time><b dir="auto">shabbos</b><span data-slot-value="name">Name</span>',
   )
 })
+
+test('finds unquoted and entity-encoded day bindings through the parsed page', () => {
+  const html = fillAsOfBindings('<p data-slot-value=asOf&#46;date></p><i data-slot-value=person.name></i>', {
+    date: '2026-11-14',
+    zone: 'UTC',
+    kind: 'current',
+  })
+  expect(html).toContain('2026-11-14')
+  expect(html).toContain('data-slot-value="person.name"')
+})
