@@ -1,5 +1,77 @@
 # @segnavia/format
 
+## 0.51.0
+
+### Minor Changes
+
+- dc433bb: Allow author scripts, styles, fonts and images through one kind-aware origin policy in live frames and offline rendering. Google Fonts and pinned script CDNs are approved by default; hosts add `{ origin, kinds }` entries with `origins`.
+
+  Breaking: replace `dependencyOrigins: [origin]` with `origins: [{ origin, kinds: ['script', 'style', 'font'] }]`, and replace the render `dependencies(url)` cache with `assets(url, { kind, signal })`. Rendered assets default to 50 MiB per document and 10 MiB each through host-only `limits.assets`.
+
+  A remote image in converted Markdown is kept only when its image origin is approved by `origins`; converter protocol allowances no longer bypass the origin policy.
+
+  Cover-image rendering forwards `origins` and `assets`. Page thumbnails, live composed-page views, and both composed-page print frames carry `origins` into their author-frame CSP.
+
+  Refused-script frames inherit `manifest-src 'none'`, `prefetch-src 'none'` and `child-src 'none'` from `default-src 'none'`.
+
+  `srcset` candidates follow the same origin policy as `img src`.
+
+- 2564247: Use `DocumentOp` and `DocumentBatch` as the board operation model, with rebased
+  per-writer undo and remote edits through `BoardEditing.applyRemote`.
+
+  `editBoard` now takes a parsed board `Document` and returns the edited
+  `document` with its `batch`. `BoardEditing.apply` and `applyRemote` refuse a
+  conflicting batch whole and direct the host to rebuild it against the current
+  board.
+
+  This removes `BoardOp`, `applyBoardOps`, `invertBoardOps`, `diffBoards`,
+  `SectionFields`, and `jsonSchemas().boardOp`.
+
+- 355e4fb: Name a brand from any document and resolve it through the host.
+
+  A deck, book, printed page, page or board may set `brand` to a name. The host
+  keeps the brand and supplies it through `BrandSource`: the `brands` property on
+  `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-board>`, `<segnavia-stage>`
+  and `DeckController`, and the `brandSource` option on the render entry points.
+  The resolved brand is layered under the document's own style. A board's brand
+  is the default for each item that names none, and an item's own brand replaces
+  it whole. A brand the host does not supply, or one that is not a valid style
+  sheet, is refused, naming the brand; nothing renders unbranded. A host that
+  lowers a document by itself calls `resolveBrand` first.
+
+  `exportDesignTokens` and `importDesignTokens` move a brand's color, dimension
+  and font-family tokens to and from the W3C design-tokens format.
+  `brandSpecimen` builds a book showing a brand in English or Hebrew.
+
+  `StyleSheet` now refuses an unknown key at every level, naming its path. Remove
+  any stray keys from stored style sheets before upgrading.
+
+- ba2b416: A book section may set `contentsLabel` and `subtitle`. The label replaces the section title in the contents entry and the PDF bookmark, and the subtitle sits beneath the contents entry. Each takes its own text's direction first through `entryDirection`. An empty label or subtitle is refused. A placed section now keeps every section field when it resolves.
+- 1395b57: A book section may set `opens: 'continue'` to join the preceding flowing section's flow without a page break, keeping its own contents entry, outline node, heading destination and running-head title. `BookOpens` gains `continue`, while a part's `opens` stays `recto`, `verso` or `any`. `continue` is refused on the first section of a division or part, on or after a non-flowing section, and together with section `numbering` or `parents`. Recto planning skips a continuing section. A page mark whose element sets `data-mark-scope="flow"` is not carried into a later section's flow, and `PaginateMark` and `PaginatePageMarks` carry that optional `scope`. The `title` running-head source shows the first section title on the page.
+- 9d16f46: Take a page Document as the designed-cover input and refuse the legacy Page shape. Put the cover print setting on the Document root; a print setting on the page node is not read. The cover page body must contain stored HTML, so pass a markdown Document through `@segnavia/html`'s `parseDocument` first. Parsed covers still expose the lowered Page value to render and frame consumers.
+- 498edfc: Declare a document's fonts as a font manifest and report every face that is missing. `StyleSheet.fonts` is now a record keyed by font name: an app font with its `FontDeclaration` faces (`weight`, `style`, `unicodeRange`, `script: 'hebrew'`), or a local font with its fallback. A Hebrew face with no range covers `U+0590-05FF,U+FB1D-FB4F`. A declared face the host does not supply is reported `unsupplied`, and one Chromium does not load is reported `unloaded`; composition continues at the fallback. Render reports through `fontLoad.report({ failures })`, and the page, paper, stage and book elements dispatch `fontfailure`. Add `matchFaces`, `rangeSample`, `fontManifestWithReferences` and `persistedFontManifestWithReferences`. Breaking: the retired `FontReference[]` form of `style.fonts` is refused, and a font the source does not know no longer refuses the render.
+- 5a1a73f: Put press fields in a printable Document's `print` setting for decks, books and printed pages. Their PDFs now write trim and bleed boxes and crop marks on every page, and deck notes sheets take press fields from the deck's `print`.
+
+  Imposition no longer accepts `bleed` or `safe`, and `notesPaper` no longer accepts press fields. Pieces on one imposition must have the same `print.bleed` and `print.safe`; composition refuses the first piece that differs. Invalid paper fields on deck and book `print` values, removed imposition fields, removed `PrintOptions.sheet`, and press fields on `notesPaper` are refused with their replacement settings.
+
+- 8ae6b29: A printed Document may hold one or more flowing `section` children instead of a single `page`. Each section has exactly one `flow` child and may set `title`, `opens` and `numbering`. A printed section refuses `parents`, `contents`, `contentsLabel`, `subtitle`, `headTemplate` and `pageGeometry`, and a first section that opens with `continue` is refused. Folios come from the section plan, so an uncounted cover carries no number, while printed-page rules choose only each page's parent, face, side and role. `printedPage.total`, in books and printed documents, is now the folio of the last counted body page (falling back to the last counted page), so an uncounted cover no longer adds to "page i of m". `<segnavia-page>`, `pagePdf` and `pagesPdf` compose sectioned printed documents, and `@segnavia/html` exports `resolvePrintedPageHtml`, `isPrintedHtmlPage`, `printedPageAuthorHtml`, `printedPageDirection`, `printedSectionFlows` and the `PrintedHtmlPage` type for them. Imposition (`<segnavia-paper>` and the printable-pages document) refuses a sectioned printed document. A single-page printed document composes exactly as before.
+- e5b86f8: Pour record nodes into paginated template sections with record-scoped and
+  document-scoped furniture numbering.
+
+  Breaking: replace a record's `name` with `template` and text `values`.
+  Templates may declare `slots`; parsing now refuses unknown or unusable record
+  templates, incomplete values, non-text slots, parent-page ownership, continuous
+  books and keys also claimed by host slots. Add `record.index`, `record.count`,
+  `printedPage.documentNumber` and `printedPage.documentTotal` slot paths.
+  Paginated books accept titled records wherever they accept flowing sections;
+  front- and end-matter records follow the existing optional-title rule.
+  Saved plan version 2 carries record and whole-document numbering; recompute
+  saved plans made with an earlier version.
+
+- 22c3521: A paginated book section may set `numbering: { counted: false }` or `numbering: { restart: N }`. Plan folios are the single source of page numbers: `Plan.folios` entries are `string | null`, where null marks an uncounted or blank page, and must match `pages` in length. Contents numbers and running folios read them, and the printed PDF carries them as page labels. Section numbering is refused on a continuous book or with a restart beyond the division's number system.
+- fefb30e: Allow each paginated book section to select a named paper geometry while keeping one page plan and one PDF. Page composition, screen presentation, saved plans, parent pages, placements, running furniture, folios, destinations and press boxes follow each page's selected trim.
+- b44900a: Compose books and printed pages with one measure, plan, and dress runtime. Replace `BOOK_COMPOSER_SCRIPT` and `PRINTED_PAGE_COMPOSER_SCRIPT` with `COMPOSER_SCRIPT` and `composerScript`, and add optional `PaginateBlock.id`, `PaginateBlock.breakBefore` and `PaginateBlock.breakAfter` measurements. A forced page break before or after a block starts a new page in the plan.
+
 ## 0.50.0
 
 ### Minor Changes

@@ -1,5 +1,61 @@
 # @segnavia/react
 
+## 0.51.0
+
+### Minor Changes
+
+- dc433bb: Allow author scripts, styles, fonts and images through one kind-aware origin policy in live frames and offline rendering. Google Fonts and pinned script CDNs are approved by default; hosts add `{ origin, kinds }` entries with `origins`.
+
+  Breaking: replace `dependencyOrigins: [origin]` with `origins: [{ origin, kinds: ['script', 'style', 'font'] }]`, and replace the render `dependencies(url)` cache with `assets(url, { kind, signal })`. Rendered assets default to 50 MiB per document and 10 MiB each through host-only `limits.assets`.
+
+  A remote image in converted Markdown is kept only when its image origin is approved by `origins`; converter protocol allowances no longer bypass the origin policy.
+
+  Cover-image rendering forwards `origins` and `assets`. Page thumbnails, live composed-page views, and both composed-page print frames carry `origins` into their author-frame CSP.
+
+  Refused-script frames inherit `manifest-src 'none'`, `prefetch-src 'none'` and `child-src 'none'` from `default-src 'none'`.
+
+  `srcset` candidates follow the same origin policy as `img src`.
+
+- 355e4fb: Name a brand from any document and resolve it through the host.
+
+  A deck, book, printed page, page or board may set `brand` to a name. The host
+  keeps the brand and supplies it through `BrandSource`: the `brands` property on
+  `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-board>`, `<segnavia-stage>`
+  and `DeckController`, and the `brandSource` option on the render entry points.
+  The resolved brand is layered under the document's own style. A board's brand
+  is the default for each item that names none, and an item's own brand replaces
+  it whole. A brand the host does not supply, or one that is not a valid style
+  sheet, is refused, naming the brand; nothing renders unbranded. A host that
+  lowers a document by itself calls `resolveBrand` first.
+
+  `exportDesignTokens` and `importDesignTokens` move a brand's color, dimension
+  and font-family tokens to and from the W3C design-tokens format.
+  `brandSpecimen` builds a book showing a brand in English or Hebrew.
+
+  `StyleSheet` now refuses an unknown key at every level, naming its path. Remove
+  any stray keys from stored style sheets before upgrading.
+
+### Patch Changes
+
+- Updated dependencies [dc433bb]
+- Updated dependencies [2564247]
+- Updated dependencies [355e4fb]
+- Updated dependencies [ba2b416]
+- Updated dependencies [1395b57]
+- Updated dependencies [9d16f46]
+- Updated dependencies [498edfc]
+- Updated dependencies [5a1a73f]
+- Updated dependencies [92717bd]
+- Updated dependencies [b5b5cee]
+- Updated dependencies [28ecd63]
+- Updated dependencies [8ae6b29]
+- Updated dependencies [e5b86f8]
+- Updated dependencies [22c3521]
+- Updated dependencies [fefb30e]
+- Updated dependencies [b44900a]
+- Updated dependencies [c72645f]
+  - @segnavia/frame@0.51.0
+
 ## 0.50.0
 
 ### Patch Changes
