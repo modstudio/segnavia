@@ -21,6 +21,7 @@ import {
   twoSidedCardPages,
   twoSidedSequenceImposition,
 } from '../demo-page-fixtures.ts'
+import { verifySectionedRender } from './pages-sectioned-render.ts'
 import { rasterPdf, rasterMillimeters as rasterValue } from './pdf-raster.ts'
 import { darkestNear } from './pgm.ts'
 
@@ -105,24 +106,8 @@ function verifyParentDetails(output: string, check: Check): void {
 }
 
 export function verifyPagesRender(output: string, work: string, check: Check): void {
-  const sectioned = execFileSync('pdftotext', ['-layout', path.join(output, 'pages-sectioned.pdf'), '-'], { encoding: 'utf8' })
-    .split('\f')
-    .filter(Boolean)
-  check(
-    'a sectioned printed document has an uncounted cover and two numbered body papers',
-    sectioned.length === 3 &&
-      sectioned[0]?.includes('SECTIONED COVER') === true &&
-      sectioned[0]?.includes('Page') === false &&
-      sectioned[0]?.includes('of') === false &&
-      sectioned[1]?.includes('Page 1 of 2') === true &&
-      sectioned[2]?.includes('Page 2 of 2') === true,
-    sectioned.map((text, index) => `${index + 1}:${text.replace(/\s+/g, ' ').trim()}`).join(' | '),
-  )
+  verifySectionedRender(output, check)
   const imposedInfo = (file: string) => execFileSync('pdfinfo', [path.join(output, file)], { encoding: 'utf8' })
-  check(
-    'pagesPdf prints the sectioned fixture with the same paper count as pagePdf',
-    /Pages:\s+3\b/.test(imposedInfo('pages-sectioned.pdf')) && /Pages:\s+3\b/.test(imposedInfo('pages-sectioned-multi.pdf')),
-  )
   const english = parentText(output, 'english')
   const englishHead = english.filter((page) => page.includes('LETTERHEAD')).length
   const englishFeet = english.map((page, index) => page.includes(`Page ${index + 1} of 3`))

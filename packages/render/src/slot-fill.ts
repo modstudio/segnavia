@@ -69,6 +69,16 @@ export async function filledPage(
   return { value, slots: prepared }
 }
 
+export function filledPages(
+  inputs: Array<Page | HtmlPage>,
+  slots: SlotPrintOptions | undefined,
+  signal?: AbortSignal,
+): Promise<{ value: HtmlPage[]; slots: PreparedSlots }>
+export function filledPages(
+  inputs: Array<Page | HtmlPage | PrintedHtmlPage>,
+  slots: SlotPrintOptions | undefined,
+  signal?: AbortSignal,
+): Promise<{ value: Array<HtmlPage | PrintedHtmlPage>; slots: PreparedSlots }>
 export async function filledPages(
   inputs: Array<Page | HtmlPage | PrintedHtmlPage>,
   slots: SlotPrintOptions | undefined,

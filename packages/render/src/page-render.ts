@@ -1,4 +1,4 @@
-import { type FontFailure, pageDirection } from '@segnavia/format'
+import type { FontFailure } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'

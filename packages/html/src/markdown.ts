@@ -1,4 +1,4 @@
-import { type Direction, type OriginApproval, type Page, type PageBody, pageDirection, resolveDirection } from '@segnavia/format'
+import { type Direction, type OriginApproval, type Page, type PageBody, pageDirection, resolveDirection, type TextDirection } from '@segnavia/format'
 import rehypeStringify from 'rehype-stringify'
 import remarkDirective from 'remark-directive'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -322,12 +322,14 @@ export function resolvePrintedPageHtml(page: Page | HtmlPage): PrintedHtmlPage {
     const { body: _body, ...fields } = page as Page
     return { ...fields, printedPages: { ...printedPages, sections } }
   }
-  if (!('html' in page)) {
+  let html: string
+  if ('html' in page) html = page.html
+  else {
     if (page.body === undefined || !('html' in page.body)) {
       throw new Error('a parsed page needs stored HTML; pass its Document input through @segnavia/html parseDocument to clear this refusal')
     }
+    html = page.body.html
   }
-  const html = 'html' in page ? page.html : page.body.html
   const { body: _body, html: _html, ...fields } = page as Page & { html?: string }
   return {
     ...fields,
@@ -343,6 +345,6 @@ export function printedPageAuthorHtml(page: HtmlPage | PrintedHtmlPage): string 
   return isPrintedHtmlPage(page) ? page.printedPages.sections.map((section) => section.html).join('') : page.html
 }
 
-export function printedPageDirection(page: HtmlPage | PrintedHtmlPage): Direction {
+export function printedPageDirection(page: HtmlPage | PrintedHtmlPage): TextDirection {
   return pageDirection({ ...page, html: printedPageAuthorHtml(page) })
 }

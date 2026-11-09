@@ -276,20 +276,6 @@ describe('printableDeckValue', () => {
 })
 
 describe('printablePageValues', () => {
-  test('refuses sectioned printed pages with section-aware alternatives', () => {
-    const sectioned = Page.parse({
-      print: { paper: 'letter' },
-      printedPages: {
-        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
-        rules: { every: 'body' },
-        sections: [{ id: 'body', html: '<p>Body</p>' }],
-      },
-    })
-    expect(() => printablePageValuesDocument([sectioned], grid)).toThrow(
-      'show it with <segnavia-page> or print it with pagePdf to clear this refusal',
-    )
-  })
-
   test('resolves the direction of each page frame', () => {
     const hebrew = Page.parse({ html: '<p>Hello</p>', lang: 'he' })
     expect(printablePageValues([hebrew], grid, { nonce: 'test' })).toContain('&lt;html dir=&quot;rtl&quot; lang=&quot;he&quot;&gt;')
