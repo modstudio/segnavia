@@ -24,8 +24,8 @@ export function lexiconProvider(inner: VoiceProvider, lexicon: Lexicon): VoicePr
   const fixedLexicon = { entries }
   return {
     id: `${inner.id}-lexicon-${lexiconVersion(fixedLexicon)}`,
-    async synthesize(text, voice) {
-      const speech = await inner.synthesize(respell(text, fixedLexicon), voice)
+    async synthesize(text, voice, options) {
+      const speech = await inner.synthesize(respell(text, fixedLexicon), voice, options)
       return { ...speech, words: remapCaptionWords(speech.words, text) }
     },
   }

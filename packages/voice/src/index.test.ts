@@ -95,6 +95,27 @@ describe('ElevenLabs provider', () => {
     expect(speech.audio?.extension).toBe('mp3')
   })
 
+  test('sends exactly the per-synthesis voice settings', async () => {
+    let body: Record<string, unknown> = {}
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      body = JSON.parse(String(init.body))
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: { characters: ['word'], character_start_times_seconds: [0], character_end_times_seconds: [0.1] },
+        }),
+      )
+    }) as typeof fetch
+    await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('word', undefined, {
+      voiceSettings: { stability: 0.4, similarity_boost: 0.8, style: 0.2, speed: 1.1, use_speaker_boost: true },
+    })
+    expect(body).toEqual({
+      text: 'word',
+      model_id: 'eleven_multilingual_v2',
+      voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.2, speed: 1.1, use_speaker_boost: true },
+    })
+  })
+
   test('its identity includes the configured voice', () => {
     const apiKey = () => 'secret'
     expect(elevenLabsProvider({ voice: 'voice-a', model: 'model-a', apiKey }).id).toBe('elevenlabs-model-a-voice-a')
