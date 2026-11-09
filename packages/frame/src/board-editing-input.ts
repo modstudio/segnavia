@@ -13,9 +13,9 @@ import {
 } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
 import type { BoardEdit } from './board-editing.ts'
-import { marqueeBoardNodes, moveBoardNodes, resizeBoardLabel } from './board-label-editing.ts'
 import { placeMarquee, renderDropMarker, resizedAtPointer } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardPointerDelegate } from './board-editing-seam.ts'
+import { marqueeBoardNodes, moveBoardNodes, resizeBoardLabel } from './board-label-editing.ts'
 import { selectBoardNode } from './board-selection.ts'
 
 type Gesture =
@@ -184,12 +184,13 @@ export class BoardEditingInput implements BoardPointerDelegate {
       const point = bridge.local(event)
       const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
       const moved = moveBoardNodes(gesture.before, gesture.ids, delta)
+      const itemIds = gesture.ids.filter((id) => gesture.before.items.some((item) => item.id === id))
       const release = screenToBoard(bridge.view(), point)
-      const withoutGridPlacement = removeFromGrid(moved, bridge.shapes(), gesture.ids)
-      const assigned = assignMembership(withoutGridPlacement, bridge.shapes(), gesture.ids, release, gesture.before.sections)
-      const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => gesture.ids.includes(id)))
+      const withoutGridPlacement = removeFromGrid(moved, bridge.shapes(), itemIds)
+      const assigned = assignMembership(withoutGridPlacement, bridge.shapes(), itemIds, release, gesture.before.sections)
+      const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => itemIds.includes(id)))
       const drop = target?.layout === 'manual' ? undefined : target ? gridDropTarget(gesture.before, bridge.shapes(), target.id, release) : undefined
-      const placed = target && target.layout !== 'manual' && drop ? insertIntoGrid(moved, bridge.shapes(), target.id, gesture.ids, drop) : assigned
+      const placed = target && target.layout !== 'manual' && drop ? insertIntoGrid(moved, bridge.shapes(), target.id, itemIds, drop) : assigned
       this.callbacks.commit(gesture.before, settleBoard(gesture.before, placed, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
     } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []

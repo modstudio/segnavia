@@ -2,6 +2,7 @@ import { center, drag, waitChanges } from './board-editing-actions.ts'
 import { checkBoardSelectionCompatibility } from './board-editing-compatibility.ts'
 import { checkBoardEditingHostOps } from './board-editing-host-ops.ts'
 import { checkBoardEditingLabelSizes } from './board-editing-label-sizes.ts'
+import { checkBoardEditingLabels } from './board-editing-labels.ts'
 import { checkBoardEditingReset } from './board-editing-reset.ts'
 import { checkBoardEditingSections } from './board-editing-sections.ts'
 import type { DemoBoard, DemoChange, DemoDocument, DemoItem, DemoSection } from './board-editing-types.ts'
@@ -61,6 +62,8 @@ export async function checkBoardEditing(h: Harness) {
   const pageItem = board.locator('[data-board-item="page"]')
   const hostBox = await board.boundingBox()
   if (!hostBox) throw new Error('The board has no box for editing checks.')
+
+  await checkBoardEditingLabels(h, board, original)
 
   await checkBoardEditingSections(h, board, first, second, reset)
 

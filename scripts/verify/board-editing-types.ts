@@ -16,9 +16,19 @@ export interface DemoSection {
   items: string[]
 }
 
+export interface DemoLabel {
+  id: string
+  text: string
+  x: number
+  y: number
+  width?: number
+  size?: { width: number; height: number }
+}
+
 export interface DemoBoard {
   direction: 'ltr' | 'rtl'
   items: DemoItem[]
+  labels: DemoLabel[]
   sections: DemoSection[]
 }
 

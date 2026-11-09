@@ -2,12 +2,12 @@ import {
   type Board,
   type BoardShapes,
   type BoardView,
-  LABEL_MIN_WIDTH,
-  type Point,
   boardToScreen,
+  LABEL_MIN_WIDTH,
   labelDirection,
   labelXForWidth,
   moveItems,
+  type Point,
   screenToBoard,
 } from '@segnavia/format'
 

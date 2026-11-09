@@ -45,7 +45,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private nameProvider: BoardItemNames | undefined
   private shapes: BoardShapes = { items: {}, labels: {} }
   private items = new Map<string, BoardItem>()
-  private labelsById = new Map<string, Board['labels'][number]>()
   private readonly painter = new BoardPainter()
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined
@@ -66,7 +65,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private readonly selectionState = new BoardSelection(
     this,
     () => this.items,
-    () => this.labelsById,
+    () => new Map(this.value?.labels.map((label) => [label.id, label]) ?? []),
     () => new Map([...this.mounts.nodes, ...this.decorations.nodes]),
   )
   private readonly mounts = new BoardMounts(
@@ -143,7 +142,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
     const previous = this.value
     this.value = input
     this.items = new Map(this.value?.items.map((item) => [item.id, item]) ?? [])
-    this.labelsById = new Map(this.value?.labels.map((label) => [label.id, label]) ?? [])
     this.selectionState.reconcile()
     if (this.pendingReveal && !this.items.has(this.pendingReveal.id)) this.pendingReveal = undefined
     this.resolutions.keep(this.value?.items ?? [])

@@ -235,9 +235,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private onDoubleClick = (event: MouseEvent) => {
-    const handle = event.composedPath().find(
-      (target): target is HTMLElement => target instanceof HTMLElement && target.dataset.labelResizeHandle !== undefined,
-    )
+    const handle = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.labelResizeHandle !== undefined)
     const id = handle?.dataset.labelResizeHandle
     const current = this.state ? boardFromDocument(this.state.value) : null
     const label = current?.labels.find((entry) => entry.id === id)

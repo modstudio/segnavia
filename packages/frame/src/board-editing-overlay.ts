@@ -1,8 +1,8 @@
 import {
   type Board,
   type BoardItem,
-  type BoardLabel,
   type BoardItemAnchor,
+  type BoardLabel,
   type BoardShapes,
   type BoardView,
   boardToScreen,

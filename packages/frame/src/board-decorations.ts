@@ -34,6 +34,7 @@ export class BoardDecorations {
       const text = node.firstElementChild as HTMLElement
       text.textContent = label.text
       text.dir = resolveDirection(undefined, undefined, label.text)
+      text.style.display = label.width === undefined ? '' : 'block'
       text.style.whiteSpace = label.width === undefined ? 'pre' : 'pre-wrap'
       text.style.inlineSize = label.width === undefined ? '' : `${label.width * view.zoom}px`
       placeBoardNode(node, view, label)
@@ -88,7 +89,6 @@ export class BoardDecorations {
   private mountSection(id: string): HTMLElement {
     const node = document.createElement('div')
     node.dataset.decoration = ''
-    node.dataset.boardLabel = id
     node.part.add('section')
     const title = document.createElement('div')
     title.part.add('section-title')
@@ -108,6 +108,7 @@ export class BoardDecorations {
   private mountLabel(id: string): HTMLElement {
     const node = document.createElement('div')
     node.dataset.decoration = ''
+    node.dataset.boardLabel = id
     node.part.add('label')
     node.append(document.createElement('span'))
     this.labelNodes.set(id, node)

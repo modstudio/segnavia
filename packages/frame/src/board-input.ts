@@ -61,7 +61,10 @@ export class BoardPointerInput {
     const actionStarted = this.actionPointers.delete(event.pointerId)
     if (actionStarted || this.gestures.dragged || this.actionButton(event)) return
     const titleItem = this.callbacks.item(titleId)
-    this.callbacks.select(titleItem?.id ?? this.labelNode(event)?.dataset.boardLabel ?? this.callbacks.itemAt(event)?.id ?? null, event.shiftKey || event.metaKey || event.ctrlKey)
+    this.callbacks.select(
+      titleItem?.id ?? this.labelNode(event)?.dataset.boardLabel ?? this.callbacks.itemAt(event)?.id ?? null,
+      event.shiftKey || event.metaKey || event.ctrlKey,
+    )
   }
 
   private onPointerDown = (event: PointerEvent) => {
