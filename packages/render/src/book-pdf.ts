@@ -122,7 +122,8 @@ function marginFactsFor(
     const resolved: Record<string, string> = {}
     for (const variable of variables) {
       if (variable.kind === 'text' && variable.from === 'section-title' && owner?.section.runningHead) resolved[variable.name] = owner.section.runningHead
-      if (variable.kind === 'record' && owner?.section.record) resolved[variable.name] = formatNumber(owner.section.record[variable.value], variable.system ?? 'arabic')
+      if (variable.kind === 'record' && owner?.section.record)
+        resolved[variable.name] = formatNumber(owner.section.record[variable.value], variable.system ?? 'arabic')
       if (variable.kind === 'folio') resolved[variable.name] = folio
       if (variable.kind === 'pages') resolved[variable.name] = folioTextAt(folios, pages)
     }

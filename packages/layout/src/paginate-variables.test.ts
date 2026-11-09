@@ -55,6 +55,26 @@ describe('paginateVariables', () => {
     expect(values.last?.last).toBe('Last')
   })
 
+  test('a Hebrew parasha uses first while start carries into a continuation', () => {
+    const definitions = [
+      { name: 'parasha-first', kind: 'text' as const, from: 'content' as const, pick: 'first' as const },
+      { name: 'parasha-start', kind: 'text' as const, from: 'content' as const, pick: 'start' as const },
+    ]
+    const opening = paginateVariables(
+      [
+        unit(0, [
+          { name: 'parasha-first', value: 'בראשית' },
+          { name: 'parasha-start', value: 'בראשית' },
+        ]),
+      ],
+      {},
+      definitions,
+    )
+    const continuation = paginateVariables([unit(1)], opening.carried, definitions)
+    expect(opening.values['parasha-first']?.first).toBe('בראשית')
+    expect(continuation.values['parasha-start']?.start).toBe('בראשית')
+  })
+
   test('nothing set and nothing carried gives empty values', () => {
     expect(paginateVariables([unit(0)], {}, declarations).values).toMatchObject({
       start: { start: '', first: '', last: '' },

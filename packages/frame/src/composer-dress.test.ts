@@ -1,11 +1,23 @@
 import { expect, test } from 'bun:test'
 import { PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH } from '@segnavia/format'
 import { fillBookFurniture } from '@segnavia/html'
-import { fillFurniture, fillRegion, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
+import { fillFurniture, fillRegion, markFurnitureOverflow, markRegionOverflow, resolveRegionHeads } from './composer-dress.ts'
 
 test('fills named head templates and removes an empty placement', () => {
   const html = '<div data-motif="segnavia:head-template" data-motif-name="head"></div><i data-motif="segnavia:head-template" data-motif-name="empty"></i>'
   expect(fillRegion(html, { heads: { head: '<bdi dir="rtl">פרשה</bdi>', empty: '' } }, 'rtl', 'he')).toBe('<div><bdi dir="rtl">פרשה</bdi></div>')
+})
+
+test('fills printed-page furniture from a text variable and record slot', () => {
+  const heads = resolveRegionHeads(
+    [{ name: 'record-head', parts: [{ variable: 'parasha' }, { record: 'name' }], separator: ' — ', dropEmpty: true, collapseEqual: true }],
+    { parasha: 'בראשית' },
+    { name: 'כהן' },
+    'rtl',
+    'he',
+  )
+  const html = fillRegion('<div data-motif="segnavia:head-template" data-motif-name="record-head"></div>', { heads }, 'rtl', 'he')
+  expect(html).toContain('<bdi dir="rtl">בראשית</bdi><span dir="rtl"> — </span><bdi dir="rtl">כהן</bdi>')
 })
 
 test('fills a right-to-left Hebrew motif and a printed-page slot in one pass', () => {

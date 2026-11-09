@@ -16,7 +16,7 @@ import {
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { pageGeometryIssues } from './document-page-geometry-policy.ts'
-import { HeadTemplate } from './head-template.ts'
+import { HeadTemplate, LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
@@ -31,7 +31,7 @@ import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
-import { Variable } from './variable.ts'
+import { LIBRARY_VARIABLES, Variable } from './variable.ts'
 
 export { bookPageGeometries, bookPageName, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export {
@@ -110,8 +110,8 @@ export const BookShape = z.object({
   parentPages: z.array(ParentPage).default([]),
   parentRules: parentRules.optional(),
   templates: z.array(BookTemplate).default([]),
-  variables: z.array(Variable).default([]),
-  headTemplates: z.array(HeadTemplate).default([]),
+  variables: z.array(Variable).default(LIBRARY_VARIABLES),
+  headTemplates: z.array(HeadTemplate).default(LIBRARY_HEAD_TEMPLATES),
   slots: Slots.optional(),
   style: StyleSheet.optional(),
   asOf: AsOf.optional(),
@@ -356,6 +356,6 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     runningHead: book.runningHead,
     variables: book.variables,
     headTemplates: book.headTemplates,
-    recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => entry.values ? [[entry.id, entry.values]] : [])),
+    recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),
   }
 }

@@ -33,7 +33,12 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
 }
 
 function furniture(book: Book, html: string, page: BookPrintedPagePlan): string {
-  const heads = resolveRegionHeads(book.headTemplates, page.variables, page.recordSlots, book.dir, book.lang)
+  const variables = {
+    ...(page.runningHead === undefined ? {} : { 'segnavia:section-title': page.runningHead }),
+    ...(page.folio === undefined ? {} : { 'segnavia:folio': page.folio }),
+    ...page.variables,
+  }
+  const heads = resolveRegionHeads(book.headTemplates, variables, page.recordSlots ?? {}, book.dir, book.lang)
   return fillBookFurniture(fillRegion(html, { heads }, book.dir, book.lang), { folio: page.folio, runningHead: page.runningHead }, book.dir, book.lang)
 }
 

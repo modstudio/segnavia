@@ -57,6 +57,18 @@ test('validates head template placements and parts at parse', () => {
   expect(() =>
     Document.parse({
       ...base,
+      parentPages: [
+        {
+          type: 'parentPage',
+          name: 'body',
+          head: '<span data-motif="ornament" data-motif-name="host"></span><span data-motif="segnavia:head-template"></span>',
+        },
+      ],
+    }),
+  ).toThrow(/placement names undeclared template.*clear this refusal/)
+  expect(() =>
+    Document.parse({
+      ...base,
       parentPages: [{ type: 'parentPage', name: 'body' }],
       headTemplates: [{ type: 'headTemplate', name: 'head', parts: [{ variable: 'missing' }] }],
     }),

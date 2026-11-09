@@ -74,7 +74,7 @@ describe('bookDocument', () => {
     }
     const html = bookDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
     expect(html).toContain('"breaks":["middle"]')
-    expect(html).toContain('"plan":{"version":4')
+    expect(html).toContain('"plan":{"version":5')
     expect(html).not.toContain('</script><script>unsafe()</script>')
     expect(html).toContain('\\u003c/script>\\u003cscript>unsafe()\\u003c/script>')
   })

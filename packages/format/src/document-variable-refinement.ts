@@ -30,10 +30,16 @@ function dataVariableNames(html: string): string[] {
 }
 
 function placedHeadTemplateNames(html: string): string[] {
-  if (!/\bdata-motif\s*=\s*(?:"segnavia:head-template"|'segnavia:head-template'|segnavia:head-template)/i.test(html)) return []
   const names: string[] = []
-  const attribute = /\bdata-motif-name\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi
-  for (const match of html.matchAll(attribute)) names.push(match[1] ?? match[2] ?? match[3] ?? '')
+  const attribute = (attrs: string, name: string): string | undefined => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = new RegExp(`\\b${escaped}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(attrs)
+    return match?.[1] ?? match?.[2] ?? match?.[3]
+  }
+  for (const tag of html.matchAll(/<[a-zA-Z][^>]*>/g)) {
+    if (attribute(tag[0], 'data-motif') !== 'segnavia:head-template') continue
+    names.push(attribute(tag[0], 'data-motif-name') ?? '')
+  }
   return names
 }
 
