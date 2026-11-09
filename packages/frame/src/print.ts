@@ -13,6 +13,7 @@ import {
   type ImpositionInput,
   type Limits,
   limitRefusal,
+  PRESS_GEOMETRY_FIELDS,
   pageOrPrintedFromDocument,
   parseLimits,
   resolveBrand,
@@ -26,6 +27,7 @@ import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './
 import { parsePageWidths } from './page-widths.ts'
 import { paperBoxSize } from './paper-geometry.ts'
 import {
+  deckPressSettings,
   type PrintablePagesOptions,
   type PrintOptions,
   paginateNotes,
@@ -167,6 +169,7 @@ export async function preparedDeckValuePrint(
   options: BrowserPrintOptions & { notesSheetFont?: { family: string; css: string } },
   signal: AbortSignal = AbortSignal.any([]),
 ): Promise<PrintFrameOptions> {
+  deckPressSettings(deck, options)
   const resolvedDeck = await resolveDeckMedia(deck, options.placements, 'print', signal)
   const refusal = slotFillRefusal(resolvedDeck.scripts, resolvedDeck.slots, options.slots)
   if (refusal) throw refusal
@@ -189,7 +192,12 @@ export async function preparedDeckValuePrint(
     const printable = printableDeckValueDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
     return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
-  return { ...resolvedDeck.size, html: printableDeckValue(preparedDeck, printOptions), ...options, slots: resolvedSlots }
+  const removedPressFields = Object.fromEntries(PRESS_GEOMETRY_FIELDS.map((field) => [field, undefined]))
+  const browserOptions = {
+    ...printOptions,
+    notesPaper: printOptions.notesPaper ? { ...printOptions.notesPaper, ...removedPressFields } : undefined,
+  }
+  return { ...resolvedDeck.size, html: printableDeckValue({ ...preparedDeck, print: undefined }, browserOptions), ...options, slots: resolvedSlots }
 }
 
 async function preparedPagesPrint(

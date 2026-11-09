@@ -1,7 +1,7 @@
 import { paperPixels, printBoxes, sheetMm } from './paper.ts'
 import type { Print } from './print.ts'
 
-export function usesPressLayout(print: Print): boolean {
+export function usesPressLayout(print: Pick<Print, 'bleed' | 'marks'>): boolean {
   return print.bleed > 0 || print.marks
 }
 

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { BookMode, BookPage, BookShape } from './book.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
-import { DeckShape } from './deck.ts'
+import { DeckShape, deckTrim } from './deck.ts'
 import { documentBookProjectionForRefinement, documentSourcePath } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
@@ -10,9 +10,11 @@ import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { DocumentLimitsValue } from './limits.ts'
+import { LogicalMargin } from './margins.ts'
 import { divisionNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
-import { Print } from './print.ts'
+import { Orientation, Paper, sheetMm } from './paper.ts'
+import { PressGeometry, Print, pressSafeAreaIssues } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
@@ -22,6 +24,7 @@ import { StyleSheet } from './style-sheet.ts'
 
 const DocumentSettings = z.object({ scripts: Scripts.optional(), dir: DeckShape.shape.dir, lang: z.string().optional() })
 const DocumentData = z.object({ slots: Slots.optional() })
+const DocumentPrint = PressGeometry.and(z.object({ paper: Paper.optional(), orientation: Orientation.optional(), margin: LogicalMargin.optional() }))
 
 export const DocumentShape = z.object({
   type: z.literal('document'),
@@ -35,7 +38,7 @@ export const DocumentShape = z.object({
   style: StyleSheet.optional(),
   data: DocumentData.optional(),
   size: PageSize.optional(),
-  print: Print.optional(),
+  print: DocumentPrint.optional(),
   layout: DeckShape.shape.layout.unwrap().optional(),
   fit: DeckShape.shape.fit.unwrap().optional(),
   frame: DeckShape.shape.frame.unwrap().optional(),
@@ -298,6 +301,39 @@ function refineProfileShape(document: DocumentShapeValue, profile: DocumentProfi
   if (profile.topology === 'book') refineBookNodes(document, ctx)
 }
 
+function pressTrim(document: DocumentShapeValue, profile: DocumentProfile): { width: number; height: number } | undefined {
+  if (profile.printTrimSource === 'bookPage') return document.page ? sheetMm(document.page) : undefined
+  if (profile.printTrimSource !== 'deckSize') return undefined
+  return deckTrim(
+    typeof document.size === 'object' && typeof document.size.width === 'number' && typeof document.size.height === 'number' ? document.size : undefined,
+  )
+}
+
+function refinePrint(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
+  const print = document.print
+  if (!print) return
+  if (profile.printShape === 'none') {
+    ctx.addIssue({ code: 'custom', path: ['print'], message: `${profile.printTrim}; remove print to clear this refusal` })
+    return
+  }
+  for (const field of ['paper', 'orientation', 'margin'] as const) {
+    if (profile.printShape === 'press' && print[field] !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['print', field],
+        message: `print.${field} is not accepted because ${profile.printTrim}; remove print.${field} to clear this refusal`,
+      })
+    }
+  }
+  const paper = profile.printShape === 'paper' ? Print.safeParse(print) : undefined
+  if (paper && !paper.success) {
+    for (const issue of paper.error.issues) ctx.addIssue({ code: 'custom', path: ['print', ...issue.path], message: issue.message })
+    return
+  }
+  const trim = pressTrim(document, profile)
+  if (trim) for (const message of pressSafeAreaIssues(print, trim)) ctx.addIssue({ code: 'custom', path: ['print', 'safe'], message })
+}
+
 const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   refineSectionNumberingPolicy(document, ctx)
@@ -307,6 +343,7 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   refineDefinitions(document, profile, ctx)
   refineUnsupportedDocumentFields(document, ctx)
   refineProfileShape(document, profile, ctx)
+  refinePrint(document, profile, ctx)
 }).transform((document) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   const withScripts =

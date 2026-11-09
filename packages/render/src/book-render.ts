@@ -5,9 +5,11 @@ import {
   type Limits,
   Plan,
   PX_PER_MM,
+  pressBoxes,
   resolveDirection,
   type Plan as SavedPlan,
   sheetMm,
+  usesPressLayout,
 } from '@segnavia/format'
 import {
   BOOK_COMPOSED_ATTRIBUTE,
@@ -139,7 +141,8 @@ function bookSrcdoc(
 
 function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, options: RenderOptions): TabSetup {
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
-  const size = sheetMm(book.page)
+  const trim = sheetMm(book.page)
+  const size = book.print && usesPressLayout(book.print) ? pressBoxes(trim, book.print).bleedBox : trim
   return {
     viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
     scripts: true,
@@ -175,7 +178,8 @@ async function printBook(
   dependencies: BrowserBookDependencies,
 ): Promise<PrintResult<true>> {
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
-  const size = sheetMm(book.page)
+  const trim = sheetMm(book.page)
+  const size = book.print && usesPressLayout(book.print) ? pressBoxes(trim, book.print).bleedBox : trim
   const paginated = book.mode === 'paginated'
   const marginLayer = part === 'margin'
   const fontCss = `${resolvedFontCss}${dependencies.fontFaces(renderOptions)}`

@@ -9,8 +9,6 @@ const grid = Imposition.parse({
   cell: { width: 10, height: 10 },
   margin: { top: 2, right: 2, bottom: 2, left: 2 },
   gap: { column: 2, row: 2 },
-  bleed: 1,
-  safe: 0.5,
 })
 
 describe('print frame sandbox', () => {

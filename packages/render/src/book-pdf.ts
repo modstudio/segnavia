@@ -1,4 +1,4 @@
-import { type Book, bookParentPages, physicalMargins, resolveDirection, sequenceFolios, sheetMm } from '@segnavia/format'
+import { type Book, bookParentPages, physicalMargins, pressBoxes, resolveDirection, sequenceFolios, sheetMm, usesPressLayout } from '@segnavia/format'
 import type { PreparedSlots } from '@segnavia/html'
 import {
   type BookDocument,
@@ -20,6 +20,7 @@ import { writeBookStructure } from './book-structure.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry } from './options.ts'
 import type { PrintResult } from './overflow.ts'
+import { addPressBoxes } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import type { BookPdfOptions } from './renderer.ts'
@@ -276,7 +277,7 @@ async function renderPaginatedBookPdf(book: Book, slots: PreparedSlots, options:
   const built = bookDocument(book)
   if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
   writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations })
-  const output = await adapter.finish(await setPdfPageSize(await document.save(), sheetMm(book.page)), options)
+  const output = await finishBookPdf(book, await document.save(), options, adapter)
   options.overflow?.report?.({ entries: printed.overflow ? [printed.overflow] : [] })
   return output
 }
@@ -309,22 +310,30 @@ export async function renderBookPdf(input: Book, options: BookPdfOptions, adapte
   const plan = planBookPages(marginFacts, direction)
   const parents = bookParentPages(book.page.margin)
   const margin = await adapter.print(marginDocument(book, plan, parents), book, slotsForDocument(slots, []), options, 'margin', marginCss(book, plan, parents))
-  const output = await adapter.finish(
-    await setPdfPageSize(await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes), sheetMm(book.page)),
-    options,
-  )
+  const output = await finishBookPdf(book, await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes), options, adapter)
   options.overflow?.report?.({
     entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),
   })
   return output
 }
 
+async function finishBookPdf(book: Book, bytes: Uint8Array, options: BookPdfOptions, adapter: BookPdfAdapter): Promise<Uint8Array> {
+  if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPdf.')
+  const trim = sheetMm(book.page)
+  if (!book.print || !usesPressLayout(book.print)) return adapter.finish(await setPdfPageSize(bytes, trim), options)
+  const boxes = pressBoxes(trim, book.print)
+  const sized = await setPdfPageSize(bytes, boxes.bleedBox)
+  return adapter.finish(await addPressBoxes(sized, boxes, book.print.markColor), options)
+}
+
 export function bookPageCss(book: Book, marginLayer = false): string {
   if (!book.page) return ''
-  const size = sheetMm(book.page)
-  if (marginLayer) return `@page{size:${size.width}mm ${size.height}mm;margin:0}`
+  const trim = sheetMm(book.page)
+  const bleed = book.print && usesPressLayout(book.print) ? book.print.bleed : 0
+  const size = book.print && usesPressLayout(book.print) ? pressBoxes(trim, book.print).bleedBox : trim
+  if (marginLayer) return `@page{size:${size.width}mm ${size.height}mm;margin:${bleed}mm}`
   const edge = book.page.margin
   const right = physicalMargins(edge, 'ltr', 'recto')
   const left = physicalMargins(edge, 'ltr', 'verso')
-  return `@page{size:${size.width}mm ${size.height}mm;margin-top:${right.top}mm;margin-bottom:${right.bottom}mm}@page :right{margin-left:${right.left}mm;margin-right:${right.right}mm}@page :left{margin-left:${left.left}mm;margin-right:${left.right}mm}`
+  return `@page{size:${size.width}mm ${size.height}mm;margin-top:${right.top + bleed}mm;margin-bottom:${right.bottom + bleed}mm}@page :right{margin-left:${right.left + bleed}mm;margin-right:${right.right + bleed}mm}@page :left{margin-left:${left.left + bleed}mm;margin-right:${left.right + bleed}mm}`
 }

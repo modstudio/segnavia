@@ -40,6 +40,11 @@ test('printableDeckValue names the host notes face in the notes head and leaves 
   expect(unset).toContain('font:15px/1.5 sans-serif;')
   expect(unset).not.toContain('var(--segnavia-font-')
   expect(unset).not.toContain('system-ui')
+  expect(unset).not.toContain('--segnavia-bleed')
+})
+
+test('printDeck refuses the removed sheet setting before opening a frame', async () => {
+  await expect(printDeck(deckDocument, { sheet: { bleed: 3 } } as never)).rejects.toThrow("deck Document's print")
 })
 
 test('printableDeckValue refuses a named notesFont without a resolved notes sheet font', () => {

@@ -131,9 +131,9 @@ function foldCutPositions(placements: ImpositionPlacement[]): Set<number> {
 }
 
 /** Computes physical crop-mark geometry without changing the fixed paper size. */
-export function impositionMarks(imposition: Imposition): ImpositionSideMarks[] {
+export function impositionMarks(imposition: Imposition, press: { bleed?: number; safe?: number } = {}): ImpositionSideMarks[] {
   if (!imposition.marks) return []
-  const { paper, placements: frontPlacements } = gridPlacements(imposition)
+  const { paper, placements: frontPlacements } = gridPlacements(imposition, press)
   const foldCuts = imposition.fold ? foldCutPositions(frontPlacements) : new Set<number>()
   const build = (sideName: 'front' | 'back', placements: ImpositionPlacement[]) => {
     const side: ImpositionSideMarks = { side: sideName, marks: [], omittedMarks: [] }

@@ -3,7 +3,9 @@ import { Direction, TextDirection } from './direction.ts'
 import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
 import { type Limits, limitRefusal } from './limits.ts'
+import { PX_PER_MM } from './paper.ts'
 import { Placement, PlacementShape } from './placement.ts'
+import { PressGeometry } from './print.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
@@ -109,6 +111,10 @@ export type Slide = z.infer<typeof Slide>
 
 export const DECK_SIZE = { width: 1280, height: 720 } as const
 
+export function deckTrim(size: { width: number; height: number } = DECK_SIZE): { width: number; height: number } {
+  return { width: size.width / PX_PER_MM, height: size.height / PX_PER_MM }
+}
+
 // How the track draws progress while the deck plays through: one segment per
 // slide, or one continuous seek bar. `step`, its earlier name, still parses.
 export const PLAYBACK_MODES = ['segmented', 'continuous'] as const
@@ -136,6 +142,7 @@ export const DeckShape = z.object({
   captions: z.enum(['on', 'off', 'viewer']).optional(),
   slots: Slots.optional(),
   style: StyleSheet.optional(),
+  print: PressGeometry.optional(),
   slides: z.array(Slide).min(1),
 })
 

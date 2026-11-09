@@ -17,6 +17,7 @@ import {
   PrintSetting,
   PrintSettingInput,
   paperPixels,
+  pressBoxes,
   printBoxes,
   printProperties,
   sheetMm,
@@ -132,6 +133,19 @@ describe('paper', () => {
       trim: { x: 0, y: 0, width: 105, height: 148 },
       safeBox: { x: 0, y: 0, width: 105, height: 148 },
       marks: [],
+    })
+  })
+
+  test('press boxes cover zero, bleed-only and marks-only layouts', () => {
+    const trim = { width: 100, height: 150 }
+    expect(pressBoxes(trim, { bleed: 0, safe: 0, marks: false }).media).toEqual(trim)
+    expect(pressBoxes(trim, { bleed: 3, safe: 0, marks: false })).toMatchObject({
+      media: { width: 106, height: 156 },
+      trim: { x: 3, y: 3, width: 100, height: 150 },
+    })
+    expect(pressBoxes(trim, { bleed: 0, safe: 0, marks: true })).toMatchObject({
+      media: { width: 112, height: 162 },
+      trim: { x: 6, y: 6, width: 100, height: 150 },
     })
   })
 

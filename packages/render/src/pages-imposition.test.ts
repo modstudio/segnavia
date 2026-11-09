@@ -9,14 +9,13 @@ const repeat = Imposition.parse({
   cell: { width: 10, height: 10 },
   margin: { top: 5, right: 5, bottom: 5, left: 5 },
   gap: { column: 4, row: 4 },
-  bleed: 2,
   fill: 'repeat',
 })
 
 describe('imposed PDF pieces', () => {
   test('groups repeated fluid placements with the same rendered geometry', () => {
     const pages = [Page.parse({ html: '<p>one</p>' })]
-    const groups = groupPieces(pages, impose(repeat, pages.length), repeat.fit)
+    const groups = groupPieces(pages, impose(repeat, pages.length, { bleed: 2 }), repeat.fit)
     expect(groups).toHaveLength(1)
     expect(groups[0]?.placements).toHaveLength(4)
   })
@@ -24,13 +23,13 @@ describe('imposed PDF pieces', () => {
   test('keeps fluid pieces apart when their physical bleed differs', () => {
     const clipped = Imposition.parse({ ...repeat, margin: { top: 1, right: 5, bottom: 5, left: 5 } })
     const pages = [Page.parse({ html: '<p>one</p>' })]
-    expect(groupPieces(pages, impose(clipped, 1), clipped.fit)).toHaveLength(2)
+    expect(groupPieces(pages, impose(clipped, 1, { bleed: 2 }), clipped.fit)).toHaveLength(2)
   })
 
   test('keeps fluid pieces apart when equal boxes bleed on different sides', () => {
     const butted = Imposition.parse({ ...repeat, rows: 1, gap: { column: 0, row: 0 } })
     const pages = [Page.parse({ html: '<p>one</p>' })]
-    const groups = groupPieces(pages, impose(butted, 1), butted.fit)
+    const groups = groupPieces(pages, impose(butted, 1, { bleed: 2 }), butted.fit)
     const [left, right] = groups.flatMap((group) => group.placements)
     expect(left?.layout.piece).toEqual(right?.layout.piece)
     expect(left?.placement.bleed).not.toEqual(right?.placement.bleed)
@@ -40,7 +39,7 @@ describe('imposed PDF pieces', () => {
 
   test('groups a named page by its rendered piece geometry and carries an override', () => {
     const page = Page.parse({ html: '<p>one</p>', size: { width: 'standard', height: 'auto' } })
-    const imposed = impose(repeat, 1)
+    const imposed = impose(repeat, 1, { bleed: 2 })
     const first = imposed.placements[0]
     if (!first) throw new Error('Expected a placement.')
     const wider = { ...first, trim: { ...first.trim, width: 300 }, bleedBox: { ...first.bleedBox, width: 300 } }
@@ -65,11 +64,10 @@ describe('imposed PDF pieces', () => {
       rows: 1,
       cell: { width: 100, height: 70 },
       margin: { top: 2, right: 2, bottom: 15, left: 10 },
-      bleed: 5,
       fit: 'cover',
     })
     const page = Page.parse({ html: '', size: { width: 600, height: 400 } })
-    const imposed = impose(imposition, 1)
+    const imposed = impose(imposition, 1, { bleed: 5 })
     const placement = imposed.placements[0]
     if (!placement) throw new Error('Expected a placement.')
     const fit = fitPage(page, placement, imposition.fit)
@@ -82,13 +80,13 @@ describe('imposed PDF pieces', () => {
 
   test('prints a fluid piece at its paper box and a fixed piece at its CSS size', () => {
     const pages = [Page.parse({ html: '<p>one</p>' })]
-    const fluid = groupPieces(pages, impose(repeat, pages.length), repeat.fit)[0]?.placements[0]
+    const fluid = groupPieces(pages, impose(repeat, pages.length, { bleed: 2 }), repeat.fit)[0]?.placements[0]
     if (!fluid) throw new Error('Expected a fluid placement.')
     expect(pieceGeometry(fluid).paper).toEqual({ width: fluid.layout.paper.width, height: fluid.layout.paper.height })
     expect(pieceGeometry(fluid).pdf).toEqual({ width: `${fluid.layout.paper.width}mm`, height: `${fluid.layout.paper.height}mm` })
 
     const fixedPage = Page.parse({ html: '<p>card</p>', size: { width: 400, height: 100 } })
-    const fixed = groupPieces([fixedPage], impose(repeat, 1), repeat.fit)[0]?.placements[0]
+    const fixed = groupPieces([fixedPage], impose(repeat, 1, { bleed: 2 }), repeat.fit)[0]?.placements[0]
     if (!fixed) throw new Error('Expected a fixed placement.')
     expect(pieceGeometry(fixed).paper).toEqual({ width: 400 / PX_PER_MM, height: 100 / PX_PER_MM })
     expect(pieceGeometry(fixed).pdf).toEqual({ width: '400px', height: '100px' })
@@ -103,10 +101,9 @@ describe('imposed PDF pieces', () => {
       cell: { width: 20, height: 20 },
       margin: { top: 2, right: 2, bottom: 2, left: 2 },
       gap: { column: 0, row: 0 },
-      bleed: 2,
     })
     const page = Page.parse({ html: '', size: { width: 200, height: 'auto' } })
-    const imposed = impose(imposition, 2)
+    const imposed = impose(imposition, 2, { bleed: 2 })
     const placement = imposed.placements[1]
     if (!placement) throw new Error('Expected the right-hand placement.')
     expect(placement.bleed.left).toBe(0)
