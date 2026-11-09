@@ -189,7 +189,14 @@ function abortable<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
 
 export async function resolvePlacements<R extends { kind: string }>(
   html: string,
-  options: { resolvePlacement: ResolvePlacement<R>; purpose: 'screen' | 'print'; width: number; signal: AbortSignal; report?: PlacementReport },
+  options: {
+    resolvePlacement: ResolvePlacement<R>
+    purpose: 'screen' | 'print'
+    width: number
+    signal: AbortSignal
+    day?: AsOfDay
+    report?: PlacementReport
+  },
 ): Promise<string> {
   const document = parse(html)
   const found = elements(document.children)
@@ -212,6 +219,7 @@ export async function resolvePlacements<R extends { kind: string }>(
               purpose: options.purpose,
               width: entry.width ?? options.width,
               signal: options.signal,
+              day: options.day,
             }),
           options.signal,
         )

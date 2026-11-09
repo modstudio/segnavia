@@ -41,7 +41,6 @@ function pageHarness() {
     style: { configurable: true, value: style() },
   })
   Object.assign(page, {
-    dispatchEvent: () => true,
     getAttribute: (name: string) => attributes.get(name) ?? null,
     hasAttribute: (name: string) => attributes.has(name),
     setAttribute(name: string, value: string) {
@@ -105,6 +104,16 @@ test('a label names the mounted page frame', () => {
   page.label = 'Notice'
   page.load(content)
   expect(page.querySelector<HTMLIFrameElement>('iframe')?.title).toBe('Notice')
+})
+
+test('reports the one as-of day used by a page load', () => {
+  const page = pageHarness()
+  const days: unknown[] = []
+  page.moment = Date.parse('2026-11-14T04:30:00Z')
+  page.asOf = { zone: 'America/New_York' }
+  page.addEventListener('asof', (event) => days.push((event as CustomEvent).detail))
+  page.load(content)
+  expect(days).toEqual([{ date: '2026-11-13', zone: 'America/New_York', kind: 'current' }])
 })
 
 test('the mounted page frame resolves its root direction from the page language', () => {

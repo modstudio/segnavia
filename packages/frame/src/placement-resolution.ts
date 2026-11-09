@@ -1,4 +1,14 @@
-import { type AsOfDay, type Book, type BookView, FULL_PAGE_SIZE, type PageWidths, paperPixels, resolveBookPageGeometry, resolvePageWidth, sheetMm } from '@segnavia/format'
+import {
+  type AsOfDay,
+  type Book,
+  type BookView,
+  FULL_PAGE_SIZE,
+  type PageWidths,
+  paperPixels,
+  resolveBookPageGeometry,
+  resolvePageWidth,
+  sheetMm,
+} from '@segnavia/format'
 import type { HtmlPage, PrintedHtmlPage } from '@segnavia/html'
 import { resolvePlacements } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'

@@ -1,5 +1,6 @@
 import type { AsOfDay, OriginApproval, Page, PageWidths, SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
+import { fillAsOfBindings } from './as-of-bindings.ts'
 import { expandPrintedFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -32,6 +33,20 @@ export function loadPrintedPageFrame(page: Page | HtmlPage, options: PrintedPage
   const printed = resolvePrintedPageHtml(page)
   void expandPrintedFramePage(printed, options.motifs, options.signal, options.placements, 'screen', options.widths, options.day)
     .then(async (expanded) => {
+      if (options.day) {
+        expanded.page = {
+          ...expanded.page,
+          printedPages: {
+            ...expanded.page.printedPages,
+            sections: expanded.page.printedPages.sections.map((section) => ({ ...section, html: fillAsOfBindings(section.html, options.day as AsOfDay) })),
+            parents: expanded.page.printedPages.parents.map((parent) => ({
+              ...parent,
+              ...(parent.head === undefined ? {} : { head: fillAsOfBindings(parent.head, options.day as AsOfDay) }),
+              ...(parent.foot === undefined ? {} : { foot: fillAsOfBindings(parent.foot, options.day as AsOfDay) }),
+            })),
+          },
+        }
+      }
       const fonts = await pageFontCss(expanded.page, expanded.fonts, options.fonts, options.signal)
       loadPrintedPageDocument(
         expanded.page,

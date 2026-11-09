@@ -3,7 +3,6 @@
 // natural size at the browser's 96 dpi.
 
 import {
-  type AnchorSource,
   type Document,
   type OriginApproval,
   Page,
@@ -13,12 +12,12 @@ import {
   pageOrPrintedFromDocument,
   resolveBrand,
   type SlotsOptions,
-  type Zone,
 } from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
+import { DocumentAsOfElement } from './document-as-of-element.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
@@ -33,7 +32,7 @@ import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal
 
 const MOUNT_MARGIN = 600
 
-export class SegnaviaDocument extends HTMLElement {
+export class SegnaviaDocument extends DocumentAsOfElement {
   static {
     defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['origins'])
   }
@@ -53,10 +52,6 @@ export class SegnaviaDocument extends HTMLElement {
   private placementOptions: PlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
-  private anchorOptions: AnchorSource | undefined
-  private asOfOptions: { zone?: Zone } | undefined
-  private momentValue: number | undefined
-  private loadMoment = 0
   private brandOptions: BrandsOptions | undefined
   private brandResolution: AbortController | undefined
   private slotGeneration = 0
@@ -98,26 +93,7 @@ export class SegnaviaDocument extends HTMLElement {
     this.paint()
   }
 
-  get anchors(): AnchorSource | undefined {
-    return this.anchorOptions
-  }
-  set anchors(value: AnchorSource | undefined) {
-    this.anchorOptions = value
-    this.paint()
-  }
-  get asOf(): { zone?: Zone } | undefined {
-    return this.asOfOptions
-  }
-  set asOf(value: { zone?: Zone } | undefined) {
-    this.asOfOptions = value
-    this.paint()
-  }
-  get moment(): number | undefined {
-    return this.momentValue
-  }
-  set moment(value: number | undefined) {
-    if (value !== undefined && !Number.isFinite(value)) throw new RangeError('moment must be finite epoch milliseconds.')
-    this.momentValue = value
+  protected asOfInputsChanged(): void {
     this.paint()
   }
 

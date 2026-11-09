@@ -41,7 +41,10 @@ export async function resolveDocumentDay(asOf: AsOf | undefined, options: Docume
   }
   const parsed = CalendarDate.safeParse(answer)
   if (!parsed.success) {
-    throw refused(anchor, `the day asked from was ${today} in ${zone}, but the host's anchor source returned an invalid date; make the source return a YYYY-MM-DD calendar date`)
+    throw refused(
+      anchor,
+      `the day asked from was ${today} in ${zone}, but the host's anchor source returned an invalid date; make the source return a YYYY-MM-DD calendar date`,
+    )
   }
   return { date: parsed.data, zone, kind: 'anchor', anchor }
 }

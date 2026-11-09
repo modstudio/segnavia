@@ -10,8 +10,6 @@ export {
   calendarDate,
   resolveAsOfDay,
 } from './as-of-policy.ts'
-export { type AnchorSource, type DocumentDayOptions, resolveDocumentDay } from './document-day.ts'
-
 export { Board, BoardItem, BoardLabel, BoardSection, GridCell, LABEL_MIN_WIDTH } from './board.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'
 export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
@@ -166,6 +164,7 @@ export {
 } from './direction.ts'
 export { Document, type DocumentInput, type DocumentKind, type DocumentParseOptions } from './document.ts'
 export { applyOps } from './document-apply.ts'
+export { type AnchorSource, type DocumentDayOptions, resolveDocumentDay } from './document-day.ts'
 export { diffDocuments } from './document-diff.ts'
 export { fingerprintDocument, fingerprintScript, fingerprintValue, requireParsedDocument } from './document-fingerprint.ts'
 export { defaultNewId } from './document-identity.ts'

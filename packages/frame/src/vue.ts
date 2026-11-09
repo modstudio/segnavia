@@ -1,3 +1,4 @@
+import type { AsOfDay } from '@segnavia/format'
 import type { DefineComponent } from 'vue'
 import type {
   BoardChangeDetail,
@@ -69,6 +70,7 @@ type ElementClasses = {
 }
 
 export interface FrameVueEventDetails {
+  asof: AsOfDay
   'segnavia-controller': unknown
   'segnavia-fit': FittedSize
   'segnavia-frame-mount': StageFrameDetail

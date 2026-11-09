@@ -58,7 +58,14 @@ describe('resolveDocumentDay', () => {
     await expect(
       resolveDocumentDay(
         { kind: 'anchor', anchor: 'shabbos' },
-        { moment, anchors: source(async () => (++calls, '2026-11-14')), signal: controller.signal },
+        {
+          moment,
+          anchors: source(async () => {
+            calls += 1
+            return '2026-11-14'
+          }),
+          signal: controller.signal,
+        },
       ),
     ).rejects.toHaveProperty('name', 'AbortError')
     expect(calls).toBe(0)
