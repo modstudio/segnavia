@@ -4,13 +4,14 @@ import {
   COVER_SHEET,
   Cover,
   type CoverDigestMaterial,
+  type CoverInput,
   coverDigest,
+  coverDigestMaterial,
   digestCoverMaterial,
   jsonSchemas,
   MM_PER_PT,
   type Motif,
   pageDirection,
-  sheetMm,
 } from './index.ts'
 
 interface PageDocumentFields {
@@ -151,15 +152,16 @@ describe('cover digest', () => {
   test('an input has the digest of its parsed cover material', async () => {
     const input = coverInput()
     const parsed = Cover.parse(input)
-    const digest = await digestCoverMaterial({
-      page: parsed.page,
-      sheet: sheetMm(parsed.page.print),
-      drawingVersion: COVER_DRAWING_VERSION,
-      stamp: 'renderer',
-      fonts: [],
-      motifs: [],
-    })
-    expect(await coverDigest(input, { stamp: 'renderer' })).toBe(digest)
+    const options = { stamp: 'renderer' }
+    const digest = await digestCoverMaterial(coverDigestMaterial(parsed, options))
+    expect(await coverDigest(input, options)).toBe(digest)
+  })
+
+  test('refuses an invalid input through the returned promise', async () => {
+    const invalid = { page: { type: 'document', kind: 'printed', children: [] } } as CoverInput
+    const digest = coverDigest(invalid, { stamp: 'renderer' })
+    expect(digest).toBeInstanceOf(Promise)
+    await expect(digest).rejects.toThrow('page')
   })
 
   test('is stable across key and unordered input order', async () => {

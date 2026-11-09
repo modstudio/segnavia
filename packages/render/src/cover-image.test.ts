@@ -1,5 +1,5 @@
-import { expect, test } from 'bun:test'
-import { Cover, type CoverInput, coverDigest } from '@segnavia/format'
+import { expect, mock, test } from 'bun:test'
+import { Cover, type coverDigest } from '@segnavia/format'
 import { coverImagePlan } from './cover-image.ts'
 import type { Renderer } from './renderer.ts'
 
@@ -13,21 +13,23 @@ const cover = Cover.parse({ page: coverDocument('<h1>Cover</h1>') })
 
 type Same<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false
 const sharedCoverInput: Same<Parameters<Renderer['coverImage']>[0], Parameters<typeof coverDigest>[0]> = true
+void sharedCoverInput
 
-test('a host passes one cover input to image rendering and digesting', async () => {
-  const input = { page: coverDocument('<h1>Cover</h1>') } satisfies CoverInput
-  const rendered: CoverInput[] = []
-  const renderer: Pick<Renderer, 'coverImage'> = {
-    async coverImage(coverInput) {
-      rendered.push(coverInput)
-      return new Uint8Array()
-    },
-  }
+const browser = {
+  isConnected: () => true,
+  on: () => browser,
+  close: async () => {},
+}
 
-  await Promise.all([renderer.coverImage(input, { width: 160 }), coverDigest(input, { stamp: 'renderer' })])
+mock.module('playwright-core', () => ({ chromium: { launch: async () => browser } }))
 
-  expect(sharedCoverInput).toBe(true)
-  expect(rendered).toEqual([input])
+test('renderer coverImage refuses an invalid input through the returned promise', async () => {
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const rendered = renderer.coverImage({ page: { type: 'document', kind: 'printed', children: [] } }, { width: 160 })
+  expect(rendered).toBeInstanceOf(Promise)
+  await expect(rendered).rejects.toThrow('page')
+  await renderer.close()
 })
 
 test.each([
