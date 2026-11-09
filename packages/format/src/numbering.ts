@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { primitiveRoot } from './repeated-mark.ts'
 
 export const NumberSystem = z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew'])
 export type NumberSystem = z.infer<typeof NumberSystem>
@@ -21,10 +22,48 @@ export function divisionNumbering(
   return { frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'), body: configured.body ?? defaultPageNumbering(lang) }
 }
 
-export const NoteMarker = z.union([NumberSystem, z.literal('symbols')])
+const NoteMark = z.string().regex(/^\S{1,8}$/u, 'a note mark must be 1 to 8 characters with no whitespace')
+
+const NoteSymbols = z
+  .strictObject(
+    {
+      symbols: z.array(NoteMark).min(1, 'a note symbol sequence must have at least one entry'),
+    },
+    'a note marker object must supply one of symbols or mark',
+  )
+  .superRefine(({ symbols }, ctx) => {
+    const roots = new Map<string, string>()
+    symbols.forEach((symbol, index) => {
+      const root = primitiveRoot(symbol)
+      const earlier = roots.get(root)
+      if (earlier) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['symbols', index],
+          message: `note symbols ${earlier} and ${symbol} print the same repeated mark; supply entries with different primitive roots`,
+        })
+      } else roots.set(root, symbol)
+    })
+  })
+
+const FixedNoteMark = z.strictObject({ mark: NoteMark }, 'a note marker object must supply one of symbols or mark')
+
+export const NoteMarker = z.union([NumberSystem, z.literal('symbols'), NoteSymbols, FixedNoteMark])
 export type NoteMarker = z.infer<typeof NoteMarker>
 
-const NOTE_SYMBOLS = ['*', '†', '‡', '§'] as const
+const DEFAULT_NOTE_SYMBOLS = ['*', '§', '‖', '¶'] as const
+
+export type NoteMarkerSource =
+  | { kind: 'number'; system: NumberSystem }
+  | { kind: 'sequence'; entries: readonly [string, ...string[]] }
+  | { kind: 'fixed'; mark: string }
+
+export function noteMarkerSource(marker: NoteMarker): NoteMarkerSource {
+  if (marker === 'symbols') return { kind: 'sequence', entries: DEFAULT_NOTE_SYMBOLS }
+  if (typeof marker === 'string') return { kind: 'number', system: marker }
+  if ('symbols' in marker) return { kind: 'sequence', entries: marker.symbols as [string, ...string[]] }
+  return { kind: 'fixed', mark: marker.mark }
+}
 
 function positiveInteger(value: number): void {
   if (!Number.isInteger(value) || value < 1) throw new RangeError(`value ${value} must be a positive integer`)
@@ -99,7 +138,15 @@ export function numberingScript(): string {
 
 export function noteMarker(index: number, marker: NoteMarker): string {
   positiveInteger(index)
-  if (marker !== 'symbols') return formatNumber(index, marker)
-  const symbol = NOTE_SYMBOLS[(index - 1) % NOTE_SYMBOLS.length] as (typeof NOTE_SYMBOLS)[number]
-  return symbol.repeat(Math.ceil(index / NOTE_SYMBOLS.length))
+  const source = noteMarkerSource(marker)
+  switch (source.kind) {
+    case 'number':
+      return formatNumber(index, source.system)
+    case 'fixed':
+      return source.mark
+    case 'sequence': {
+      const symbol = source.entries[(index - 1) % source.entries.length] ?? source.entries[0]
+      return symbol.repeat(Math.ceil(index / source.entries.length))
+    }
+  }
 }

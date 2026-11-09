@@ -41,7 +41,7 @@ something else.
 | **Contents entry** | A front-matter entry that places the generated table of contents at that position; it may have a title but has no authored HTML. |
 | **Book page** | The trim, orientation and mirrored margins used by a paginated book. With `rectoOpenings`, each chapter that starts a page, and body page 1, opens on an odd-page recto: right-hand in a left-to-right book and left-hand in a right-to-left book. |
 | **Number system** | The Arabic, lower- or upper-case Roman, or Hebrew system used for book page numbers and note markers. |
-| **Note marker** | The number system or symbol sequence that identifies a footnote or endnote. |
+| **Note marker** | The number system, repeating symbol sequence or fixed unnumbered mark that identifies every note in one series. |
 | **Untimed slide** | A slide with neither narration nor `holdMs`. Playback stops there until Play advances. |
 | **Timed slide** | A narrated slide or an unnarrated slide with `holdMs`. Its clock advances to the next slide when it ends. |
 | **Deck timeline** | Each slide's deck-wide start and duration plus the timed total. Untimed slides are marked and add zero to the total. |

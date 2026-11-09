@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { formatNumber, type NoteMarker, type NumberSystem, noteMarker } from './numbering.ts'
+import { formatNumber, NoteMarker, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarker } from './numbering.ts'
 
 describe('number formatting', () => {
   test('arabic numbers use decimal digits at their boundary', () => {
@@ -44,7 +44,35 @@ describe('number formatting', () => {
   })
 
   test('symbol note markers cycle before repeating', () => {
-    expect([1, 4, 5, 8, 9].map((index) => noteMarker(index, 'symbols'))).toEqual(['*', '§', '**', '§§', '***'])
+    expect(Array.from({ length: 9 }, (_, index) => noteMarker(index + 1, 'symbols'))).toEqual(['*', '§', '‖', '¶', '**', '§§', '‖‖', '¶¶', '***'])
+  })
+
+  test('supplied symbol sequences wrap and repeat while fixed marks stay unnumbered', () => {
+    expect(Array.from({ length: 7 }, (_, index) => noteMarker(index + 1, { symbols: ['†', '‡', '§'] }))).toEqual(['†', '‡', '§', '††', '‡‡', '§§', '†††'])
+    expect([1, 2, 9].map((index) => noteMarker(index, { mark: '⁂' }))).toEqual(['⁂', '⁂', '⁂'])
+  })
+
+  test('note marker schemas refuse invalid and colliding sequence entries', () => {
+    for (const marker of [{ symbols: [] }, { symbols: [''] }, { symbols: ['* *'] }, { symbols: ['*', '*'] }, { symbols: ['*', '**'] }]) {
+      expect(NoteMarker.safeParse(marker).success).toBe(false)
+    }
+    const collision = NoteMarker.safeParse({ symbols: ['*', '**'] })
+    expect(JSON.stringify(collision.error?.issues)).toContain('note symbols * and ** print the same repeated mark')
+    expect(NoteMarker.safeParse({ mark: '' }).success).toBe(false)
+    expect(NoteMarker.safeParse({ mark: 'with space' }).success).toBe(false)
+  })
+
+  test('note marker objects name exactly one kind', () => {
+    for (const marker of [
+      { symbols: ['*'], mark: '⁂' },
+      { mark: '⁂', symbols: ['*'] },
+      { symbols: ['*'], other: true },
+      { mark: '⁂', other: true },
+    ]) {
+      const result = NoteMarker.safeParse(marker)
+      expect(result.success).toBe(false)
+      expect(JSON.stringify(result.error?.issues)).toContain('supply one of symbols or mark')
+    }
   })
 
   test('every numbering system refuses non-positive and non-integer values', () => {
@@ -55,7 +83,7 @@ describe('number formatting', () => {
         expect(() => formatNumber(value, system)).toThrow(`value ${value}`)
       }
     }
-    const markers: NoteMarker[] = [...systems, 'symbols']
+    const markers: NoteMarkerValue[] = [...systems, 'symbols', { symbols: ['*'] }, { mark: '⁂' }]
     for (const marker of markers) expect(() => noteMarker(0, marker)).toThrow('value 0')
   })
 

@@ -21,7 +21,7 @@ export async function verifyNoteSeries(h: Harness) {
         pageNotes,
       }
     })
-    const expectedMarkers = language === 'he' ? ['א', 'ב', '1'] : ['*', '†', '1']
+    const expectedMarkers = language === 'he' ? ['א', 'ב', '1'] : ['*', '§', '1']
     const expectedHeading = language === 'he' ? 'הערות' : 'Comments'
     h.check(
       `${id} distinguishes two book-numbered series by marker`,

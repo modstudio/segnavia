@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { noteMarkerIssues, resolveNoteSeries } from './note-series.ts'
+import type { NoteMarker } from './numbering.ts'
 
 const settings = (lang?: string) => ({
   lang,
@@ -66,10 +67,70 @@ describe('note series', () => {
   test('reports every used pair sharing a marker', () => {
     const series = resolveNoteSeries({
       ...settings(),
+      footnotes: { restart: 'chapter', marker: 'symbols' },
       notes: [{ name: 'sources', placement: 'book', numbering: 'book', marker: 'symbols' }],
     })
     expect(noteMarkerIssues(series, new Set(['footnote', 'sources']))).toEqual([
-      'footnote and note series sources markers are both symbols; used series must have different markers',
+      'footnote and note series sources markers are both symbols * § ‖ ¶; used series must have different markers',
     ])
+  })
+
+  test('reports every conflicting marker kind and permits disjoint number systems and symbols', () => {
+    const conflicts: Array<[NoteMarker, NoteMarker, string]> = [
+      ['arabic', 'arabic', 'footnote and endnote markers are both arabic; the two must differ when both kinds are used'],
+      [{ mark: '⁂' }, { mark: '⁂' }, 'footnote and endnote markers are both mark ⁂; the two must differ when both kinds are used'],
+      [
+        { mark: '†' },
+        { symbols: ['*', '†'] },
+        'footnote and endnote markers mark † and symbols * † share mark †; the two must differ when both kinds are used',
+      ],
+      [
+        { symbols: ['*', '§'] },
+        { symbols: ['†', '§'] },
+        'footnote and endnote markers symbols * § and symbols † § share mark §; the two must differ when both kinds are used',
+      ],
+      [{ mark: '1' }, 'arabic', 'footnote and endnote markers mark 1 and arabic share mark 1; the two must differ when both kinds are used'],
+      [{ symbols: ['*'] }, { mark: '**' }, 'footnote and endnote markers symbols * and mark ** share mark **; the two must differ when both kinds are used'],
+      [{ mark: 'א' }, 'hebrew', 'footnote and endnote markers mark א and hebrew share mark א; the two must differ when both kinds are used'],
+    ]
+    for (const [footnote, endnote, message] of conflicts) {
+      const series = resolveNoteSeries({ ...settings(), footnotes: { restart: 'chapter', marker: footnote }, endnotes: { placement: 'book', marker: endnote } })
+      expect(noteMarkerIssues(series, new Set(['footnote', 'endnote']))).toEqual([message])
+    }
+
+    const compatible = resolveNoteSeries({
+      ...settings(),
+      footnotes: { restart: 'chapter', marker: 'arabic' },
+      endnotes: { placement: 'book', marker: 'symbols' },
+    })
+    expect(noteMarkerIssues(compatible, new Set(['footnote', 'endnote']))).toEqual([])
+  })
+
+  test('a custom sequence pushes conflicting English defaults to later markers', () => {
+    const series = resolveNoteSeries({
+      ...settings(),
+      notes: [{ name: 'first', placement: 'book', numbering: 'book', marker: { symbols: ['*'] } }],
+    })
+    expect(series.map(({ marker }) => marker)).toEqual(['arabic', 'roman-lower', { symbols: ['*'] }])
+  })
+
+  test('an omitted marker skips a number system that can print an earlier sequence', () => {
+    const series = resolveNoteSeries({
+      ...settings(),
+      notes: [
+        { name: 'first', placement: 'book', numbering: 'book', marker: { symbols: ['i'] } },
+        { name: 'second', placement: 'book', numbering: 'book' },
+      ],
+    })
+    expect(series[2]?.marker).toEqual({ symbols: ['i'] })
+    expect(series[3]?.marker).toBe('hebrew')
+  })
+
+  test('default series avoid a supplied custom marker declared after them', () => {
+    const series = resolveNoteSeries({
+      ...settings(),
+      notes: [{ name: 'author', placement: 'book', numbering: 'book', marker: { mark: '*' } }],
+    })
+    expect(series.map(({ marker }) => marker)).toEqual(['arabic', 'roman-lower', { mark: '*' }])
   })
 })

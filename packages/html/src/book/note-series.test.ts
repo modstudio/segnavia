@@ -313,6 +313,53 @@ describe('note series document', () => {
     expect(result.html).toContain('data-segnavia-note-repeat')
   })
 
+  test('renders supplied footnote symbols and fixed unnumbered endnotes through the book build', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          footnotes: { marker: { symbols: ['※', '⁂'] }, restart: 'book' },
+          endnotes: { marker: { mark: '¤' }, placement: 'book' },
+          body: [
+            chapter(
+              'One',
+              '<p><span data-note="footnote">f1</span><span data-note="footnote">f2</span><span data-note="footnote">f3</span><span data-note="endnote">e1</span><span data-note="endnote">e2</span></p>',
+            ),
+          ],
+        }),
+      ),
+    )
+    expect(result.issues).toEqual([])
+    expect(result.html.match(/<bdi>※<\/bdi>/g)).toHaveLength(2)
+    expect(result.html.match(/<bdi>⁂<\/bdi>/g)).toHaveLength(2)
+    expect(result.html.match(/<bdi>※※<\/bdi>/g)).toHaveLength(2)
+    expect(result.html.match(/<bdi>¤<\/bdi>/g)).toHaveLength(4)
+    expect(result.html).toContain('id="segnavia-en-1"')
+    expect(result.html).toContain('id="segnavia-en-2"')
+  })
+
+  test('isolates fixed footnotes and supplied endnote symbols in a Hebrew book', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          lang: 'he',
+          footnotes: { marker: { mark: '¤' }, restart: 'book' },
+          endnotes: { marker: { symbols: ['※', '⁂'] }, placement: 'book' },
+          body: [
+            chapter(
+              'א',
+              '<p><span data-note="footnote">מקור א</span><span data-note="footnote">מקור ב</span><span data-note="endnote">הערה א</span><span data-note="endnote">הערה ב</span><span data-note="endnote">הערה ג</span></p>',
+            ),
+          ],
+        }),
+      ),
+    )
+    expect(result.issues).toEqual([])
+    expect(result.html.match(/<bdi>¤<\/bdi>/g)).toHaveLength(4)
+    expect(result.html.match(/<bdi>※<\/bdi>/g)).toHaveLength(2)
+    expect(result.html.match(/<bdi>⁂<\/bdi>/g)).toHaveLength(2)
+    expect(result.html.match(/<bdi>※※<\/bdi>/g)).toHaveLength(2)
+  })
+
   test('reports unknown series and forward repeated calls', () => {
     const unknown = bookDocument(parseBookFixture(input({ body: [chapter('One', '<p><span data-note="missing">body</span></p>')] })))
     expect(unknown.issues).toEqual(['data-note names unknown note series missing; declare the series in notes or use a declared series name'])
