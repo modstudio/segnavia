@@ -247,7 +247,7 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
   await hebrew.dblclick()
   await editor.waitFor({ state: 'visible' })
   await h.page.keyboard.type(' בטשטוש')
-  await h.page.locator('.editing').click({ position: { x: 1, y: 1 } })
+  await h.page.locator('segnavia-board-list').click({ position: { x: 1, y: 1 } })
   await waitChanges(h.page, 1)
   const blurred = await board.evaluate((element) => {
     const state = window as unknown as DemoWindow
