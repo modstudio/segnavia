@@ -1,11 +1,13 @@
 import { describe, expect, test } from 'bun:test'
 import type { Fill } from '@segnavia/format'
-import { installItemSettingsTestDocument } from './item-settings-test-document.test-helper.ts'
+import type { ItemSettingsControls } from './item-settings-controls.ts'
+import { ItemSettingsTestElement, installItemSettingsTestDocument } from './item-settings-test-document.test-helper.ts'
 
 installItemSettingsTestDocument()
 
 const { ItemSettingsController } = await import('./item-settings-authoring.ts')
-const { SegnaviaItemSettings } = await import('./item-settings-element.ts')
+const freshElementModule = './item-settings-element.ts?fresh'
+const { SegnaviaItemSettings } = (await import(freshElementModule)) as typeof import('./item-settings-element.ts')
 
 const original: Fill = { id: 'mina', values: { name: 'Mina' } }
 const other: Fill = { id: 'noah', values: { name: 'Noah' } }
@@ -130,6 +132,84 @@ test('routes an edit to the fill when an override is present but cannot be saved
   expect(fills).toEqual([{ id: 'mina', values: { name: 'Fill Mina' } }])
   expect(inputs).toEqual([{ id: 'mina', values: { name: 'Fill Mina' } }])
   expect(element.overrides).toEqual({ name: 'Design Mina' })
+})
+
+test('the controls property replaces a native control and a new renderer replaces the host control', () => {
+  const element = new SegnaviaItemSettings()
+  element.declarations = [{ key: 'name', label: 'Name', type: 'text', required: false }]
+  let disposed = 0
+  const first = new ItemSettingsTestElement('input')
+  const firstRenderer: NonNullable<ItemSettingsControls['field']> = () => ({
+    element: first as unknown as HTMLElement,
+    update() {},
+    dispose: () => {
+      disposed += 1
+    },
+  })
+  element.connectedCallback()
+  element.controls = { field: firstRenderer }
+
+  expect(first.dataset.slot).toBe('name')
+  expect(first.parentNode).not.toBeNull()
+
+  const second = new ItemSettingsTestElement('input')
+  element.controls = { field: () => ({ element: second as unknown as HTMLElement, update() {}, dispose() {} }) }
+
+  expect(disposed).toBe(1)
+  expect(first.parentNode).toBeNull()
+  expect(second.dataset.slot).toBe('name')
+})
+
+test('disconnect disposes host controls and reconnect creates them again', () => {
+  const element = new SegnaviaItemSettings()
+  element.declarations = [{ key: 'name', label: 'Name', type: 'text', required: false }]
+  let creates = 0
+  let disposes = 0
+  element.controls = {
+    field: () => {
+      creates += 1
+      return {
+        element: new ItemSettingsTestElement('input') as unknown as HTMLElement,
+        update() {},
+        dispose: () => {
+          disposes += 1
+        },
+      }
+    },
+  }
+  element.connectedCallback()
+
+  element.disconnectedCallback()
+  expect(disposes).toBe(1)
+
+  element.connectedCallback()
+  expect(creates).toBe(2)
+})
+
+test('a host section keeps input focus and selection across a render', () => {
+  const element = new SegnaviaItemSettings()
+  let input: ItemSettingsTestElement | undefined
+  element.addSection({
+    id: 'host',
+    label: 'Host',
+    render(container) {
+      input = new ItemSettingsTestElement('input')
+      input.part.add('host-control')
+      input.dataset.action = 'edit'
+      container.append(input as unknown as HTMLElement)
+    },
+  })
+  element.connectedCallback()
+  input?.focus()
+  input?.setSelectionRange(2, 4)
+  const previous = input
+
+  element.fills = [original]
+
+  expect(input).not.toBe(previous)
+  expect(document.activeElement).toBe(input as unknown as Element)
+  expect(input?.selectionStart).toBe(2)
+  expect(input?.selectionEnd).toBe(4)
 })
 
 describe('item settings host refreshes', () => {

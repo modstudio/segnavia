@@ -1,10 +1,24 @@
-import type { Fill, SlotDeclaration, SlotState, SlotValue } from '@segnavia/format'
-import { fillLabel, selectedFill } from './item-settings-fills.ts'
+import type { SlotDeclaration, SlotState, SlotValue } from '@segnavia/format'
+import {
+  type AssetControlCallbacks,
+  type FieldControlCallbacks,
+  type ItemSettingsActionKind,
+  type ItemSettingsActionView,
+  type ItemSettingsAssetView,
+  type ItemSettingsControlRenderer,
+  type ItemSettingsControls,
+  type ItemSettingsFieldView,
+  type ItemSettingsRenderedControl,
+  isolated,
+  nativeAction,
+  nativeAsset,
+  nativeField,
+  nativeFillSwitcher,
+} from './item-settings-controls.ts'
+import { selectedFill } from './item-settings-fills.ts'
 import type { ItemSettingsLabels } from './item-settings-labels.ts'
 import type { ItemSettingsSectionContext } from './item-settings-section.ts'
 import { type SlotFieldView, slotFieldView } from './item-settings-values.ts'
-
-const INPUT_TYPE = { text: 'text', phone: 'tel', email: 'email', link: 'url', qr: 'url' } as const
 
 const SLOT_STATE_LABEL_KEYS = {
   filled: 'stateFilled',
@@ -15,10 +29,6 @@ const SLOT_STATE_LABEL_KEYS = {
   shrunk: 'stateShrunk',
   overflowed: 'stateOverflowed',
 } as const satisfies Record<SlotState, keyof ItemSettingsLabels>
-
-function slotStateLabel(state: SlotState, labels: ItemSettingsLabels): string {
-  return labels[SLOT_STATE_LABEL_KEYS[state]]
-}
 
 export interface FieldsActions {
   pickAsset?: (slot: SlotDeclaration) => Promise<SlotValue | undefined>
@@ -31,217 +41,232 @@ export interface FieldsActions {
   onOverride(key: string): void
   onUseSource(key: string): void
 }
+interface MountedControl<View> {
+  renderer: ItemSettingsControlRenderer<View, never>
+  control: ItemSettingsRenderedControl<View>
+}
+interface SlotMount {
+  field: HTMLElement
+  caption: HTMLElement
+  actions: HTMLElement
+  feedback: HTMLElement[]
+  kind: 'field' | 'asset'
+  main: MountedControl<ItemSettingsFieldView | ItemSettingsAssetView>
+  actionControls: Map<ItemSettingsActionKind, MountedControl<ItemSettingsActionView>>
+}
 
-export function renderFields(container: HTMLElement, context: ItemSettingsSectionContext, actions: FieldsActions): void {
-  const fill = selectedFill(context.fills, context.fill)
-  const switcher = document.createElement('div')
-  switcher.part.add('fills')
-  switcher.append(fillSelect(context, actions), fillName(context, fill, actions), addButton(context.labels, actions), removeButton(context, actions))
-  const slots = document.createElement('div')
-  slots.part.add('slots')
-  for (const slot of context.declarations) {
-    slots.append(
-      slotField(slot, slotFieldView(slot, context.overrides, fill, context.source, context.report, actions.onDesignOnly !== undefined), context, actions),
-    )
+export class FieldsPanel {
+  private readonly switcher = document.createElement('div')
+  private readonly slots = document.createElement('div')
+  private fillControl: MountedControl<Parameters<typeof nativeFillSwitcher>[0]> | undefined
+  private slotControls = new Map<string, SlotMount>()
+  private actions!: FieldsActions
+  private context!: ItemSettingsSectionContext
+  private controls: ItemSettingsControls = {}
+
+  constructor(container: HTMLElement) {
+    this.slots.part.add('slots')
+    container.append(this.switcher, this.slots)
   }
-  container.append(switcher, slots)
-}
 
-function fillSelect(context: ItemSettingsSectionContext, actions: FieldsActions): HTMLLabelElement {
-  const label = document.createElement('label')
-  const caption = document.createElement('span')
-  caption.append(isolated(context.labels.fills))
-  const select = document.createElement('select')
-  select.part.add('fill-select')
-  for (const fill of context.fills) {
-    const option = document.createElement('option')
-    option.value = fill.id
-    option.textContent = fillLabel(fill)
-    select.append(option)
+  update(context: ItemSettingsSectionContext, actions: FieldsActions, controls: ItemSettingsControls = {}) {
+    this.context = context
+    this.actions = actions
+    this.controls = controls
+    this.updateFillSwitcher()
+    const retained = new Set<string>()
+    for (const [index, declaration] of context.declarations.entries()) {
+      retained.add(declaration.key)
+      const kind = declaration.type === 'image' ? 'asset' : 'field'
+      const fieldView = this.fieldView(declaration)
+      const view = kind === 'asset' ? { ...fieldView, canPickAsset: this.actions.pickAsset !== undefined } : fieldView
+      let mount = this.slotControls.get(declaration.key)
+      let created = false
+      if (!mount || mount.kind !== kind) {
+        if (mount) {
+          this.disposeSlot(mount)
+          mount.field.remove()
+        }
+        mount = this.createSlot(declaration, view, kind)
+        this.slotControls.set(declaration.key, mount)
+        created = true
+      }
+      this.updateSlot(mount, declaration, view, !created)
+      if (this.slots.children[index] !== mount.field) this.slots.insertBefore(mount.field, this.slots.children[index] ?? null)
+    }
+    for (const [key, mount] of this.slotControls)
+      if (!retained.has(key)) {
+        this.disposeSlot(mount)
+        mount.field.remove()
+        this.slotControls.delete(key)
+      }
   }
-  select.value = context.fill ?? ''
-  select.addEventListener('change', () => actions.onSelectFill(select.value))
-  label.append(caption, select)
-  return label
-}
 
-function fillName(context: ItemSettingsSectionContext, fill: Fill | undefined, actions: FieldsActions): HTMLLabelElement {
-  const label = document.createElement('label')
-  const caption = document.createElement('span')
-  caption.append(isolated(context.labels.fillName))
-  const input = document.createElement('input')
-  input.part.add('fill-label')
-  input.dir = 'auto'
-  input.value = fill?.label ?? ''
-  input.disabled = fill === undefined
-  input.addEventListener('input', () => actions.onRenameFill(input.value))
-  label.append(caption, input)
-  return label
-}
-
-function addButton(labels: ItemSettingsLabels, actions: FieldsActions): HTMLButtonElement {
-  const button = document.createElement('button')
-  button.type = 'button'
-  button.dataset.action = 'add'
-  button.textContent = labels.addFill
-  button.dir = 'auto'
-  button.addEventListener('click', () => actions.onAddFill())
-  return button
-}
-
-function removeButton(context: ItemSettingsSectionContext, actions: FieldsActions): HTMLButtonElement {
-  const button = document.createElement('button')
-  button.type = 'button'
-  button.dataset.action = 'remove'
-  button.textContent = context.labels.removeFill
-  button.dir = 'auto'
-  button.disabled = context.fill === null
-  button.addEventListener('click', () => actions.onRemoveFill())
-  return button
-}
-
-function slotField(slot: SlotDeclaration, view: SlotFieldView, context: ItemSettingsSectionContext, actions: FieldsActions): HTMLElement {
-  const field = document.createElement('div')
-  field.part.add('slot')
-  field.dataset.key = slot.key
-  field.append(slotCaption(view, context.labels), slotControl(slot, view, context, actions), slotActions(view, context.labels, actions))
-  const state = slotState(view, context.labels)
-  if (state) field.append(state)
-  field.append(...slotWarnings(view, context.labels))
-  return field
-}
-
-function slotState(view: SlotFieldView, labels: ItemSettingsLabels): HTMLParagraphElement | undefined {
-  if (view.state === undefined) return undefined
-  const state = document.createElement('p')
-  state.part.add('state')
-  state.dataset.state = view.state
-  state.append(isolated(slotStateLabel(view.state, labels)))
-  return state
-}
-
-function slotCaption(view: SlotFieldView, labels: ItemSettingsLabels): HTMLSpanElement {
-  const caption = document.createElement('span')
-  caption.append(isolated(view.label))
-  if (!view.required) return caption
-  const marker = document.createElement('span')
-  marker.part.add('required')
-  marker.setAttribute('aria-hidden', 'true')
-  marker.textContent = '*'
-  caption.append(marker)
-  caption.title = labels.required
-  return caption
-}
-
-function slotControl(slot: SlotDeclaration, view: SlotFieldView, context: ItemSettingsSectionContext, actions: FieldsActions): HTMLElement {
-  if (slot.type === 'image') return imageControl(slot, view, context.labels, actions)
-  const input = document.createElement('input')
-  input.type = INPUT_TYPE[slot.type]
-  input.dir = 'auto'
-  input.value = view.text
-  input.readOnly = view.readOnly
-  input.required = view.required
-  input.setAttribute('aria-required', String(view.required))
-  if (view.readOnly) input.setAttribute('aria-readonly', 'true')
-  input.addEventListener('input', () => actions.onChangeValue(slot.key, input.value))
-  return input
-}
-
-function imageControl(slot: SlotDeclaration, view: SlotFieldView, labels: ItemSettingsLabels, actions: FieldsActions): HTMLElement {
-  const group = document.createElement('div')
-  const file = document.createElement('input')
-  file.type = 'file'
-  file.accept = 'image/*'
-  file.disabled = view.readOnly
-  file.required = view.required
-  file.setAttribute('aria-required', String(view.required))
-  file.addEventListener('change', () => readImageFile(file, slot.key, actions))
-  group.append(file)
-  if (typeof view.value === 'object') {
-    const chosen = document.createElement('span')
-    chosen.dataset.asset = view.value.asset
-    chosen.append(isolated(view.value.asset))
-    group.append(chosen)
+  dispose() {
+    this.fillControl?.control.dispose()
+    for (const mount of this.slotControls.values()) this.disposeSlot(mount)
+    this.slotControls.clear()
   }
-  if (!actions.pickAsset || view.readOnly) return group
-  const pick = document.createElement('button')
-  pick.type = 'button'
-  pick.dataset.action = 'pick-asset'
-  pick.textContent = labels.chooseAsset
-  pick.dir = 'auto'
-  pick.addEventListener('click', () => void pickAsset(slot, actions))
-  group.append(pick)
-  return group
-}
 
-function slotActions(view: SlotFieldView, labels: ItemSettingsLabels, actions: FieldsActions): HTMLElement {
-  const row = document.createElement('div')
-  row.part.add('slot-actions')
-  if (view.canDesignOnly) row.append(designOnlyToggle(view, labels, actions))
-  if (view.canOverride) {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.dataset.action = 'override'
-    button.textContent = labels.override
-    button.dir = 'auto'
-    button.addEventListener('click', () => actions.onOverride(view.key))
-    row.append(button)
+  private updateFillSwitcher() {
+    const view = { fills: this.context.fills, fill: this.context.fill, dir: this.context.dir, labels: this.context.labels }
+    const renderer = this.controls.fillSwitcher ?? nativeFillSwitcher
+    if (!this.fillControl || this.fillControl.renderer !== renderer) {
+      this.fillControl?.control.dispose()
+      const control = renderer(view, {
+        onSelect: (id) => this.actions.onSelectFill(id),
+        onRename: (label) => this.actions.onRenameFill(label),
+        onAdd: () => this.actions.onAddFill(),
+        onRemove: () => this.actions.onRemoveFill(),
+      })
+      this.fillControl = { renderer: renderer as ItemSettingsControlRenderer<typeof view, never>, control }
+      this.switcher.replaceChildren(control.element)
+    } else this.fillControl.control.update(view)
   }
-  if (view.canUseSource) {
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.dataset.action = 'use-source'
-    button.textContent = labels.useSource
-    button.dir = 'auto'
-    button.addEventListener('click', () => actions.onUseSource(view.key))
-    row.append(button)
+
+  private fieldView(declaration: SlotDeclaration): ItemSettingsFieldView {
+    const fill = selectedFill(this.context.fills, this.context.fill)
+    return {
+      ...slotFieldView(declaration, this.context.overrides, fill, this.context.source, this.context.report, this.actions.onDesignOnly !== undefined),
+      declaration,
+      dir: this.context.dir,
+      labels: this.context.labels,
+    }
   }
-  return row
+
+  private createSlot(declaration: SlotDeclaration, view: ItemSettingsFieldView | ItemSettingsAssetView, kind: 'field' | 'asset'): SlotMount {
+    const field = document.createElement('div')
+    field.part.add('slot')
+    field.dataset.key = declaration.key
+    const caption = document.createElement('span')
+    const actions = document.createElement('div')
+    actions.part.add('slot-actions')
+    const renderer = this.slotRenderer(kind)
+    const rendered = renderer(view, this.slotCallbacks(declaration, kind) as never)
+    rendered.element.dataset.slot = declaration.key
+    field.append(caption, rendered.element, actions)
+    return {
+      field,
+      caption,
+      actions,
+      feedback: [],
+      kind,
+      main: { renderer, control: rendered },
+      actionControls: new Map(),
+    }
+  }
+
+  private updateSlot(mount: SlotMount, declaration: SlotDeclaration, view: ItemSettingsFieldView | ItemSettingsAssetView, updateExisting: boolean) {
+    const renderer = this.slotRenderer(mount.kind)
+    if (mount.main.renderer !== renderer) {
+      mount.main.control.dispose()
+      const control = renderer(view, this.slotCallbacks(declaration, mount.kind) as never)
+      control.element.dataset.slot = declaration.key
+      mount.main.control.element.replaceWith(control.element)
+      mount.main = { renderer, control }
+    } else if (updateExisting) mount.main.control.update(view)
+    mount.caption.replaceChildren(...this.caption(view))
+    if (view.required) mount.caption.title = this.context.labels.required
+    else mount.caption.removeAttribute('title')
+    this.updateActions(mount, view)
+    for (const node of mount.feedback) node.remove()
+    mount.feedback = this.feedback(view)
+    mount.field.append(...mount.feedback)
+  }
+
+  private updateActions(mount: SlotMount, view: ItemSettingsFieldView) {
+    const kinds: ItemSettingsActionKind[] = []
+    if (view.canDesignOnly) kinds.push('design-only')
+    if (view.canOverride) kinds.push('override')
+    if (view.canUseSource) kinds.push('use-source')
+    const retained = new Set(kinds)
+    for (const [index, action] of kinds.entries()) {
+      const actionView: ItemSettingsActionView = { ...view, action }
+      const renderer = this.controls.action ?? nativeAction
+      let mounted = mount.actionControls.get(action)
+      if (!mounted || mounted.renderer !== renderer) {
+        mounted?.control.dispose()
+        const control = renderer(actionView, { onActivate: (enabled) => this.activate(view.key, action, enabled) })
+        control.element.dataset.slot = view.key
+        control.element.dataset.action = action
+        if (mounted) mounted.control.element.replaceWith(control.element)
+        else mount.actions.append(control.element)
+        mounted = { renderer: renderer as ItemSettingsControlRenderer<ItemSettingsActionView, never>, control }
+        mount.actionControls.set(action, mounted)
+      } else mounted.control.update(actionView)
+      if (mount.actions.children[index] !== mounted.control.element) mount.actions.insertBefore(mounted.control.element, mount.actions.children[index] ?? null)
+    }
+    for (const [kind, mounted] of mount.actionControls)
+      if (!retained.has(kind)) {
+        mounted.control.dispose()
+        mounted.control.element.remove()
+        mount.actionControls.delete(kind)
+      }
+  }
+
+  private activate(key: string, action: ItemSettingsActionKind, enabled?: boolean) {
+    if (action === 'override') this.actions.onOverride(key)
+    else if (action === 'use-source') this.actions.onUseSource(key)
+    else this.actions.onDesignOnly?.(key, enabled ?? false)
+  }
+  private slotCallbacks(declaration: SlotDeclaration, kind: 'field' | 'asset'): FieldControlCallbacks | AssetControlCallbacks {
+    const onChange = (value: SlotValue | undefined) => this.actions.onChangeValue(declaration.key, value)
+    return kind === 'asset' ? { onChange, pickAsset: () => this.pickAsset(declaration.key) } : { onChange }
+  }
+  private slotRenderer(kind: 'field' | 'asset'): ItemSettingsControlRenderer<ItemSettingsFieldView | ItemSettingsAssetView, never> {
+    return (kind === 'asset' ? (this.controls.asset ?? nativeAsset) : (this.controls.field ?? nativeField)) as ItemSettingsControlRenderer<
+      ItemSettingsFieldView | ItemSettingsAssetView,
+      never
+    >
+  }
+  private async pickAsset(key: string) {
+    const declaration = this.context.declarations.find((slot) => slot.key === key)
+    if (!declaration) return
+    const value = await this.actions.pickAsset?.(declaration)
+    if (value !== undefined) this.actions.onChangeValue(key, value)
+  }
+  private caption(view: SlotFieldView): HTMLElement[] {
+    const nodes = [isolated(view.label)]
+    if (view.required) {
+      const marker = document.createElement('span')
+      marker.part.add('required')
+      marker.setAttribute('aria-hidden', 'true')
+      marker.textContent = '*'
+      nodes.push(marker)
+    }
+    return nodes
+  }
+  private feedback(view: SlotFieldView): HTMLElement[] {
+    const nodes: HTMLElement[] = []
+    if (view.state) {
+      const state = document.createElement('p')
+      state.part.add('state')
+      state.dataset.state = view.state
+      state.append(isolated(this.context.labels[SLOT_STATE_LABEL_KEYS[view.state]]))
+      nodes.push(state)
+    }
+    for (const warning of view.warnings) {
+      const note = document.createElement('p')
+      note.part.add('warning')
+      note.dataset.warning = warning
+      note.append(isolated(this.context.labels[warning]))
+      nodes.push(note)
+    }
+    return nodes
+  }
+  private disposeSlot(mount: SlotMount) {
+    mount.main.control.dispose()
+    for (const action of mount.actionControls.values()) action.control.dispose()
+  }
 }
 
-function designOnlyToggle(view: SlotFieldView, labels: ItemSettingsLabels, actions: FieldsActions): HTMLLabelElement {
-  const label = document.createElement('label')
-  label.part.add('design-only')
-  label.dataset.designOnly = String(view.designOnly)
-  const input = document.createElement('input')
-  input.type = 'checkbox'
-  input.checked = view.designOnly
-  input.dataset.action = 'design-only'
-  input.addEventListener('change', () => actions.onDesignOnly?.(view.key, input.checked))
-  const caption = document.createElement('span')
-  caption.append(isolated(labels.designOnly))
-  label.append(input, caption)
-  return label
-}
-
-function slotWarnings(view: SlotFieldView, labels: ItemSettingsLabels): HTMLParagraphElement[] {
-  return view.warnings.map((warning) => {
-    const note = document.createElement('p')
-    note.part.add('warning')
-    note.dataset.warning = warning
-    note.append(isolated(labels[warning]))
-    return note
-  })
-}
-
-function readImageFile(input: HTMLInputElement, key: string, actions: FieldsActions) {
-  const file = input.files?.[0]
-  if (!file) return
-  const reader = new FileReader()
-  reader.addEventListener('load', () => {
-    if (typeof reader.result === 'string') actions.onChangeValue(key, reader.result)
-  })
-  reader.readAsDataURL(file)
-}
-
-async function pickAsset(slot: SlotDeclaration, actions: FieldsActions) {
-  const value = await actions.pickAsset?.(slot)
-  if (value !== undefined) actions.onChangeValue(slot.key, value)
-}
-
-// Library and label text sits in a <bdi>, so it takes its own direction while its block keeps the panel's alignment.
-function isolated(text: string): HTMLElement {
-  const bdi = document.createElement('bdi')
-  bdi.textContent = text
-  return bdi
+export function renderFields(
+  container: HTMLElement,
+  context: ItemSettingsSectionContext,
+  actions: FieldsActions,
+  controls?: ItemSettingsControls,
+): FieldsPanel {
+  const panel = new FieldsPanel(container)
+  panel.update(context, actions, controls)
+  return panel
 }

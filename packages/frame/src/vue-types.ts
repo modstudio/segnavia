@@ -1,5 +1,6 @@
 import type { DocumentInput, Fill, FillValues, Print, PrintInput, PrintSetting, SlotDeclaration, SlotReport, TransitionInput } from '@segnavia/format'
 import type { PaperPickerLabelOverrides } from './controls-entry.ts'
+import type { ItemSettingsControls } from './item-settings-controls.ts'
 import type { ItemSettingsLabels } from './item-settings-labels.ts'
 import type { PlayerLabels } from './labels.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
@@ -38,6 +39,7 @@ export type ElementPropertyWrites = {
     source: Fill | undefined
     report: SlotReport | undefined
     labels: Partial<ItemSettingsLabels> | undefined
+    controls: ItemSettingsControls | undefined
   }
 }
 
