@@ -34,3 +34,12 @@ test('advances a counted blank and skips an uncounted cover', () => {
     ]),
   ).toEqual({ documentFolios: [null, null, '2'], documentTotal: '2', recordTotals: { a: '2' }, records: { a: { index: '1', count: '1' } } })
 })
+
+test('uses the body system for a counted front-matter paper', () => {
+  expect(bookPlanDocumentNumbers([page('front', false, 'front')], { frontMatter: 'roman-lower', body: 'hebrew' })).toEqual({
+    documentFolios: ['א'],
+    documentTotal: 'א',
+    recordTotals: {},
+    records: {},
+  })
+})

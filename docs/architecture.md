@@ -295,20 +295,24 @@ Node `id` is accepted and preserved; deck slides and board children require one
 until the id-minting slice lands, while a lowering may omit it where the current
 internal value has no id.
 
-A record node is `{ type: 'record', id?, template, values }`. Its named template
-declares text `slots`; lowering replaces each record in reading order with one
-flowing section that opens on a new page, restarts at page one, and carries the
-record index, count and values. The HTML layer binds those values into the
-template's `data-slot-value` elements before a host fill runs. Record templates
-cannot set parent pages, and records require paginated layout because their page
-numbers restart.
+A record node is `{ type: 'record', id?, title?, template, values }`. Its named
+template declares text `slots`; lowering replaces each record in reading order
+with one flowing section that opens on a new page, restarts at page one, and
+carries the record index, count and values. Paginated books admit records at the
+root, inside divisions and inside parts wherever they admit flowing sections; a
+body record needs a title, while front- and end-matter records follow those
+divisions' untitled flowing-section rule. The HTML layer binds record values
+into the template's `data-slot-value` elements before a host fill runs. Record
+templates cannot set parent pages, and records require paginated layout because
+their page numbers restart.
 
 Parent-page furniture may bind `record.index`, `record.count`,
 `printedPage.number`, `printedPage.total`, `printedPage.documentNumber` and
 `printedPage.documentTotal`. Record index and count use the body number system
 and are empty outside a record. Page number and total are scoped to the record
 flow on record pages; document number and total count the whole document, while
-blank and uncounted papers show no document number.
+blank and uncounted papers show no document number. Document number and total
+use the body number system on every paper, including front matter.
 
 ### Markdown page bodies
 
@@ -1766,7 +1770,9 @@ variables by declared name.
 `Measurements` records block and line boxes plus fit results. `Plan` records
 pages, first and last block ids, breaks, folios, resolved variables, parent-page
 choices and fingerprints. It unifies saved pagination and forced break plans;
-a stale plan refuses and names the first page that no longer matches. `Report`
+a stale plan refuses and names the first page that no longer matches. Saved plan
+version 2 carries record-scoped and whole-document numbering; earlier saved
+plans must be recomputed. `Report`
 records bounded overflow, fit, font, count and progress facts. Strict mode
 turns report entries into refusals.
 
