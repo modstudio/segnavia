@@ -5,6 +5,7 @@ import { bookFromDocument, Document, type DocumentInput, formatNumber, MM_PER_PT
 import type { OverflowReport, Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { verifyBookCssRender } from './book-css-render.ts'
+import { verifyBookOpeners } from './book-openers.ts'
 import { verifyContinuousPageReference } from './book-page-reference.ts'
 import { verifyPartsOutlines } from './book-parts-render.ts'
 import { annotationDestinations, verifyPdfStructure } from './book-pdf-readback.ts'
@@ -283,6 +284,7 @@ async function verifyPaginatedContentsLinks(renderer: Renderer, work: string, ch
 
 export async function verifyBookRender(renderer: Renderer, work: string, check: Check): Promise<void> {
   await verifyBookPlan(renderer, check)
+  await verifyBookOpeners(renderer, check)
   await verifySectionNumbering(renderer, check)
   await verifyBookCssRender(renderer, work, check)
   await verifyFixture(renderer, work, bookRenderFixture('english'), check)

@@ -1,9 +1,11 @@
 import { describe, expect, test } from 'bun:test'
+import { ZodError } from 'zod'
 import { Board } from './board.ts'
-import { Book } from './book.ts'
+import { Book, bookSectionOpensFacts } from './book.ts'
 import { identifiedBookInput } from './book-test-helper.ts'
 import { Deck } from './deck.ts'
 import { Document } from './document.ts'
+import { documentBookDivisions } from './document-book-items.ts'
 import { boardFromDocument, bookFromDocument, deckFromDocument, documentFromBoard, pageFromDocument, printedFromDocument } from './document-lowering.ts'
 import { Page } from './page.ts'
 
@@ -64,7 +66,98 @@ const hebrewBookFixture = {
   ],
 }
 
+function continueRefusalAt(children: unknown[], index: number, field: string, divided: boolean): boolean {
+  const documentChildren = divided ? [{ type: 'division', name: 'body', children }] : children
+  try {
+    Document.parse({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: documentChildren })
+    throw new Error('the continue policy should refuse this document')
+  } catch (error) {
+    if (!(error instanceof ZodError)) throw error
+    const prefix = divided ? ['children', 0, 'children'] : ['children']
+    return error.issues.some((issue) => issue.path.join('.') === [...prefix, index, field].join('.'))
+  }
+}
+
 describe('Document lowering', () => {
+  test('keeps continue when lowering a flowing book section', () => {
+    const document = Document.parse({
+      type: 'document',
+      kind: 'book',
+      title: 'Book',
+      mode: 'continuous',
+      children: [
+        { type: 'section', id: 'one', title: 'One', children: [{ type: 'flow', html: '<p>One</p>' }] },
+        { type: 'section', id: 'two', title: 'Two', opens: 'continue', children: [{ type: 'flow', html: '<p>Two</p>' }] },
+      ],
+    })
+    expect(bookFromDocument(document).body[1]).toMatchObject({ id: 'two', opens: 'continue' })
+    expect(bookSectionOpensFacts(documentBookDivisions(document))).toEqual(bookSectionOpensFacts(bookFromDocument(document)))
+  })
+
+  test('projects parts and multiple flow children through the same book opens facts', () => {
+    const document = {
+      children: [
+        {
+          type: 'part',
+          id: 'part',
+          name: 'part',
+          title: 'Part',
+          contents: true,
+          children: [{ type: 'section', id: 'inside', title: 'Inside', children: [{ type: 'flow', html: '<p>Inside</p>' }] }],
+        },
+        {
+          type: 'section',
+          id: 'many',
+          title: 'Many',
+          children: [
+            { type: 'flow', html: '<p>First</p>' },
+            { type: 'flow', html: '<p>Second</p>' },
+          ],
+        },
+        { type: 'section', id: 'after', title: 'After', opens: 'continue', children: [{ type: 'flow', html: '<p>After</p>' }] },
+      ],
+    } as Parameters<typeof documentBookDivisions>[0]
+    const divisions = documentBookDivisions(document)
+    const book = Book.parse({ title: 'Book', mode: 'continuous', ...divisions })
+    expect(bookSectionOpensFacts(divisions)).toEqual(bookSectionOpensFacts(book))
+    expect(bookSectionOpensFacts(book).map(({ id, flowing, sequence }) => ({ id, flowing, sequence }))).toEqual([
+      { id: 'part', flowing: false, sequence: 'body' },
+      { id: 'inside', flowing: true, sequence: 'body.0.children' },
+      { id: 'many', flowing: true, sequence: 'body' },
+      { id: 'after', flowing: true, sequence: 'body' },
+    ])
+  })
+
+  test('reports every continue refusal at its source node with and without divisions', () => {
+    const flow = (id: string, fields: Record<string, unknown> = {}) => ({
+      type: 'section' as const,
+      id,
+      title: id,
+      ...fields,
+      children: [{ type: 'flow' as const, html: `<p>${id}</p>` }],
+    })
+    const cases = [
+      { children: [flow('first', { opens: 'continue' })], index: 0, field: 'opens' },
+      {
+        children: [
+          { type: 'section' as const, id: 'fixed', title: 'fixed', children: [{ type: 'page' as const, body: { html: '<p>fixed</p>' } }] },
+          flow('after-fixed', { opens: 'continue' }),
+        ],
+        index: 1,
+        field: 'opens',
+      },
+      { children: [flow('one'), flow('numbered', { opens: 'continue', numbering: { counted: false } })], index: 1, field: 'numbering' },
+      { children: [flow('one'), flow('dressed', { opens: 'continue', parents: { opener: 'chapter' } })], index: 1, field: 'parents' },
+    ]
+    const paths: boolean[] = []
+    for (const divided of [false, true]) {
+      for (const held of cases) {
+        paths.push(continueRefusalAt(held.children, held.index, held.field, divided))
+      }
+    }
+    expect(paths).toEqual(Array(8).fill(true))
+  })
+
   test('carries section contents text into a book entry', () => {
     const document = Document.parse({
       type: 'document',

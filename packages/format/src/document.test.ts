@@ -266,7 +266,6 @@ describe('Document', () => {
 
   test('refuses declared fields that lowering does not yet support', () => {
     const values = [
-      { type: 'document', kind: 'book', children: [{ type: 'section', opens: 'continue', children: [] }] },
       { type: 'document', kind: 'book', children: [{ type: 'section', headTemplate: 'running', children: [] }] },
       { type: 'document', kind: 'book', children: [{ type: 'section', pageGeometry: 'wide', children: [] }] },
       { type: 'document', kind: 'book', children: [], parentPages: [{ type: 'parentPage', name: 'body', regions: { side: '<aside></aside>' } }] },

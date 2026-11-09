@@ -4,12 +4,12 @@ import {
   BookItem,
   BookTemplate,
   bookParentIssues,
+  bookSectionOpensFacts,
   bookSections,
+  flowingSection,
   isBookContents,
-  isDesignedSection,
   isPart,
   isPlacedSection,
-  isTemplatedSection,
   MAX_PART_DEPTH,
   REGION_NAME,
 } from './book-section.ts'
@@ -24,6 +24,7 @@ import { PressGeometry } from './print.ts'
 import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { sectionNumberingIssues } from './section-numbering-policy.ts'
+import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
 
@@ -39,10 +40,12 @@ export {
   type BookSectionEntry,
   BookSectionParents,
   BookTemplate,
+  bookSectionOpensFacts,
   bookSections,
   Chapter,
   DesignedPage,
   DesignedSection,
+  flowingSection,
   isBookContents,
   isChapter,
   isDesignedSection,
@@ -53,6 +56,8 @@ export {
   Part,
   PlacedSection,
   REGION_NAME,
+  SECTION_BOUNDARY_CLASS,
+  SECTION_TITLE_MARK,
   TemplatedPage,
   TemplatedSection,
 } from './book-section.ts'
@@ -244,6 +249,9 @@ function structuralBookIssues(book: z.infer<typeof ResolvedBook>): BookIssue[] {
 const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   const sections = bookSections(book)
+  for (const issue of sectionOpensIssues(bookSectionOpensFacts(book))) {
+    ctx.addIssue({ code: 'custom', ...issue })
+  }
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
     'numbering' in entry && entry.numbering !== undefined ? [{ id, title: entry.title, division, path, numbering: entry.numbering }] : [],
   )
@@ -287,7 +295,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
     }
   }
   const byName = new Map(parents.map((parent) => [parent.name, parent]))
-  const flowing = sections.filter(({ entry }) => !isDesignedSection(entry) && !isTemplatedSection(entry))
+  const flowing = sections.filter(({ entry }) => flowingSection(entry))
   flowing.forEach(({ entry: flow, path }, index) => {
     const names = flowingParentNames(flow.parents)
     const roles = Object.entries(names) as Array<[keyof typeof names, string]>

@@ -18,6 +18,7 @@ import {
 import type { Document } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
 import { addContents } from './book-contents.ts'
+import { continuingFlowRoots } from './book-continue.ts'
 import { notesGalleys, targetLinks, withBlankPages } from './book-document-nodes.ts'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN, bookDocumentCss, bookFlowPageGeometry, markBlockPositions, resolveBookBuild } from './book-flow.ts'
 import {
@@ -47,7 +48,7 @@ function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'p
   const title = entry.title
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
   return {
-    info: { id, kind: 'contents', division: 'front', title, runningHead: title },
+    info: { id, kind: 'contents', division: 'front', title, runningHead: title, opens: entry.opens },
     node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parents, numberingAttribs(entry.numbering))),
   }
 }
@@ -57,7 +58,7 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
   const document = parse(chapter.html)
   const runningHead = chapter.runningHead ?? chapter.title
   return {
-    info: { id, kind: 'chapter', division, title: chapter.title, runningHead },
+    info: { id, kind: 'chapter', division, title: chapter.title, runningHead, opens: chapter.opens },
     node: sectionNode(
       'chapter',
       id,
@@ -357,18 +358,19 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   if (requestedBuild !== 'print') markBlockPositions(sections)
 
   const visible = sections.filter((section) => options.part === undefined || bookPrintPart(section.info.division) === options.part)
+  const visibleRoots = continuingFlowRoots(visible)
   const document = parse('') as Document
   document.children =
     requestedBuild === 'galley'
       ? [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),
           ...(options.targets ? [targetLinks(visible)] : []),
-          element('div', { 'data-segnavia-galleys': '' }, [...templateHolders(book.templates), ...visible.map((section) => section.node), ...noteGalleys]),
+          element('div', { 'data-segnavia-galleys': '' }, [...templateHolders(book.templates), ...visibleRoots.map((section) => section.node), ...noteGalleys]),
         ]
       : [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),
           ...(options.targets ? [targetLinks(visible)] : []),
-          ...withBlankPages(visible, options.blankBefore),
+          ...withBlankPages(visibleRoots, options.blankBefore),
         ]
   linkChildren(document)
   return {

@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { BookMode, BookPage, BookShape } from './book.ts'
+import { bookSectionOpensFacts } from './book-section.ts'
 import { DeckShape, deckTrim } from './deck.ts'
+import { documentBookProjectionForRefinement, documentSourcePath } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { DocumentMetadata } from './document-metadata.ts'
@@ -16,6 +18,7 @@ import { PressGeometry, Print, pressSafeAreaIssues } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
+import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
@@ -135,6 +138,14 @@ function refineSectionNumberingPolicy(document: DocumentShapeValue, ctx: z.Refin
   }
 }
 
+function refineSectionOpensPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
+  if (document.kind !== 'book') return
+  const projection = documentBookProjectionForRefinement(document)
+  if (!projection) return
+  const facts = bookSectionOpensFacts(projection.divisions).map((fact) => ({ ...fact, path: documentSourcePath(projection, fact.path) }))
+  for (const issue of sectionOpensIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
+}
+
 type DocumentShapeValue = z.infer<typeof DocumentShape>
 type DocumentProfile = (typeof DOCUMENT_PROFILES)[DocumentKind]
 
@@ -161,9 +172,6 @@ function refinePageNode(
 }
 
 function refineSectionNode(node: Extract<DocumentNodeValue, { type: 'section' }>, path: (string | number)[], ctx: z.RefinementCtx): void {
-  if (node.opens === 'continue') {
-    ctx.addIssue({ code: 'custom', path: [...path, 'opens'], message: 'section field opens is not yet supported; remove it to clear this refusal' })
-  }
   for (const field of ['headTemplate', 'pageGeometry'] as const) {
     if (node[field] !== undefined) {
       ctx.addIssue({ code: 'custom', path: [...path, field], message: `section field ${field} is not yet supported; remove it to clear this refusal` })
@@ -329,6 +337,7 @@ function refinePrint(document: DocumentShapeValue, profile: DocumentProfile, ctx
 const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   refineSectionNumberingPolicy(document, ctx)
+  refineSectionOpensPolicy(document, ctx)
   refineRootFields(document, profile, ctx)
   refineNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)

@@ -38,7 +38,7 @@ something else.
 | **Chapter** | A titled part of a book, with HTML and an optional replacement title for its running head. |
 | **Front matter** | The optional entries before a book's chapters. Each is either an authored section with optional title and contents opt-out, or the generated contents entry. |
 | **Contents entry** | A front-matter entry that places the generated table of contents at that position; it may have a title but has no authored HTML. |
-| **Book page** | The trim, orientation and mirrored margins used by a paginated book. With `rectoOpenings`, each chapter and body page 1 opens on an odd-page recto: right-hand in a left-to-right book and left-hand in a right-to-left book. |
+| **Book page** | The trim, orientation and mirrored margins used by a paginated book. With `rectoOpenings`, each chapter that starts a page, and body page 1, opens on an odd-page recto: right-hand in a left-to-right book and left-hand in a right-to-left book. |
 | **Number system** | The Arabic, lower- or upper-case Roman, or Hebrew system used for book page numbers and note markers. |
 | **Note marker** | The number system or symbol sequence that identifies a footnote or endnote. |
 | **Untimed slide** | A slide with neither narration nor `holdMs`. Playback stops there until Play advances. |

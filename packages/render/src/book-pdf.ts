@@ -52,12 +52,14 @@ function requireTargets(part: PrintedPart, expected: string[]): void {
 }
 
 const sectionsFor = (sections: BookSectionInfo[], part: 'front' | 'body') => sections.filter((section) => bookPrintPart(section.division) === part)
+const openingSectionsFor = (sections: BookSectionInfo[], part: 'front' | 'body') =>
+  sectionsFor(sections, part).filter((section) => section.opens !== 'continue')
 
 function planBlanks(sections: BookSectionInfo[], destinations: Map<string, BookDestination>) {
   const ids: string[] = []
   const predicted = new Map<string, number>()
   let blanks = 0
-  for (const section of sectionsFor(sections, 'body')) {
+  for (const section of openingSectionsFor(sections, 'body')) {
     const original = destinations.get(section.id)?.page
     if (original === undefined) throw new RenderRefusedError(`The first body print has no destination for ${section.id}.`)
     let page = original + blanks
@@ -126,7 +128,7 @@ async function printBody(book: Book, slots: PreparedSlots, options: BookPdfOptio
     const finalDocument = bookDocument(book, { part: 'body', targets: true, blankBefore: plan.ids })
     part = await inspect(await adapter.print(finalDocument.html, book, slots, options, 'body'))
     requireTargets(part, hashTargets(finalDocument))
-    verifyStarts('body', sectionsFor(firstDocument.sections, 'body'), plan.predicted, part.destinations)
+    verifyStarts('body', openingSectionsFor(firstDocument.sections, 'body'), plan.predicted, part.destinations)
   }
   return { document: firstDocument, part, blankBefore: plan.ids, predicted: plan.predicted }
 }
@@ -157,7 +159,7 @@ async function convergeBody(
     part = printed
     const status = pageReferencePrintStatus(expected, actual, reprints)
     if (status.status === 'stable') {
-      if (book.rectoOpenings) verifyStarts('body', sectionsFor(source.document.sections, 'body'), source.predicted, part.destinations)
+      if (book.rectoOpenings) verifyStarts('body', openingSectionsFor(source.document.sections, 'body'), source.predicted, part.destinations)
       return part
     }
     if (status.status === 'refused') throw new RenderRefusedError(status.message)
