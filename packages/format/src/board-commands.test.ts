@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BoardCommand, BoardTarget, PlacementTarget } from './board-commands.ts'
+import { BoardCommand, type BoardCommandOf, BoardTarget, PlacementTarget } from './board-commands.ts'
 import { jsonSchemas } from './json-schemas.ts'
 
 describe('BoardCommand', () => {
@@ -33,6 +33,7 @@ describe('BoardCommand', () => {
       { type: 'board-set', direction: 'rtl' },
     ]
     for (const command of commands) expect(BoardCommand.safeParse(command).success).toBe(true)
+    expect((BoardCommand.parse({ type: 'label-set', label: { id: 'note' }, text: 'Changed', width: 120 }) as BoardCommandOf<'label-set'>).width).toBe(120)
     expect(PlacementTarget.safeParse({ section: { id: 's' } }).success).toBe(false)
   })
 })

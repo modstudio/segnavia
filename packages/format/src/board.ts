@@ -5,6 +5,10 @@ import { AssetKind } from './placement.ts'
 
 const BoardKind = AssetKind
 
+// The board's minimum width is about one em: the smallest width that holds one glyph at the board's label text size, in board units.
+const BOARD_MIN_WIDTH = 16
+export const LABEL_MIN_WIDTH = BOARD_MIN_WIDTH
+
 export const BoardItem = z.object({
   id: z.string(),
   kind: BoardKind,
@@ -20,6 +24,7 @@ export const BoardLabel = z.object({
   text: z.string(),
   x: z.number(),
   y: z.number(),
+  width: z.number().optional(),
   size: MeasuredSize.optional(),
 })
 export type BoardLabel = z.infer<typeof BoardLabel>
@@ -92,6 +97,16 @@ export const Board = BoardShape.superRefine((board, ctx) => {
   checkIds(board.items, 'items')
   checkIds(board.labels, 'labels')
   checkIds(board.sections, 'sections')
+
+  board.labels.forEach((label, index) => {
+    if (label.width !== undefined && label.width < LABEL_MIN_WIDTH) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['labels', index, 'width'],
+        message: `label "${label.id}" width ${label.width} is below the minimum ${LABEL_MIN_WIDTH}; provide a width of at least ${LABEL_MIN_WIDTH}`,
+      })
+    }
+  })
 
   const itemsByAddress = new Map<string, (typeof board.items)[number]>()
   board.items.forEach((item, index) => {

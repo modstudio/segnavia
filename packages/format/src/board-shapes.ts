@@ -1,7 +1,6 @@
 import type { Board, BoardItem, BoardLabel } from './board.ts'
-import type { BoardShapes } from './board-geometry.ts'
+import { type BoardShapes, labelDirection } from './board-geometry.ts'
 import type { MeasuredSize, PixelSize } from './deck.ts'
-import { resolveDirection } from './direction.ts'
 import type { AssetKind } from './placement.ts'
 
 export type BoardItemFact =
@@ -13,7 +12,7 @@ export type BoardItemFact =
   | { kind: 'shot'; size: MeasuredSize }
 
 export interface BoardShapesOptions {
-  measureLabel?: (text: string, direction: Board['direction']) => MeasuredSize | undefined
+  measureLabel?: (text: string, direction: Board['direction'], width: number | undefined) => MeasuredSize | undefined
 }
 
 export interface ComputedBoardShapes {
@@ -55,14 +54,20 @@ function itemShape(item: BoardItem, facts: Readonly<Record<string, BoardItemFact
   return resolvedShape(fact)
 }
 
-function estimatedLabelShape(text: string): MeasuredSize {
-  return { width: Math.max(1, text.length * BOARD_LABEL_ESTIMATE.widthPerCharacter), height: BOARD_LABEL_ESTIMATE.height }
+function estimatedLabelShape(label: BoardLabel): MeasuredSize {
+  if (label.width === undefined) return { width: Math.max(1, label.text.length * BOARD_LABEL_ESTIMATE.widthPerCharacter), height: BOARD_LABEL_ESTIMATE.height }
+  const charactersPerLine = Math.max(1, Math.floor(label.width / BOARD_LABEL_ESTIMATE.widthPerCharacter))
+  // This is deliberately a simple fallback estimate; the browser measurement remains authoritative.
+  const lines = label.text.split('\n').reduce((count, line) => count + Math.max(1, Math.ceil(line.length / charactersPerLine)), 0)
+  return { width: label.width, height: lines * BOARD_LABEL_ESTIMATE.height }
 }
 
 export function labelShape(label: BoardLabel, measureLabel?: BoardShapesOptions['measureLabel']): LabelShapeResult {
-  if (label.size) return { shape: label.size, source: 'stored' }
-  const measured = measureLabel?.(label.text, resolveDirection(undefined, undefined, label.text))
-  return measured ? { shape: measured, source: 'measured' } : { shape: estimatedLabelShape(label.text), source: 'estimated' }
+  if (label.size && (label.width === undefined || label.size.width === label.width)) return { shape: label.size, source: 'stored' }
+  const measured = measureLabel?.(label.text, labelDirection(label), label.width)
+  return measured
+    ? { shape: { ...measured, width: label.width ?? measured.width }, source: 'measured' }
+    : { shape: estimatedLabelShape(label), source: 'estimated' }
 }
 
 export function boardShapes(board: Board, facts: Readonly<Record<string, BoardItemFact>>, options: BoardShapesOptions = {}): ComputedBoardShapes {

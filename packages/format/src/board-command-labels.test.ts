@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Board } from './board.ts'
+import { type Board, LABEL_MIN_WIDTH } from './board.ts'
 import type { BoardCommand } from './board-commands.ts'
 import { editBoardForBoard as editBoard } from './board-document-test-helper.ts'
 import { boardShapes, type ComputedBoardShapes } from './board-shapes.ts'
@@ -83,6 +83,21 @@ describe('board label commands', () => {
     expect(result.changed).toContainEqual(expect.objectContaining({ kind: 'label', id: 'old' }))
   })
 
+  test('sets, clamps and clears authored width while invalidating stored size', () => {
+    const before = fixture()
+    const set = success(editBoard(before, [{ type: 'label-set', label: { id: 'old' }, width: 80 }], shapes(before)))
+    expect(set.board.labels[0]).toEqual({ id: 'old', text: 'Old', x: 300, y: 100, width: 80 })
+    expect(set.changed).toContainEqual(expect.objectContaining({ kind: 'label', id: 'old' }))
+
+    const clamped = success(editBoard(set.board, [{ type: 'label-set', label: { id: 'old' }, width: 1 }], boardShapes(set.board, {})))
+    expect(clamped.board.labels[0]?.width).toBe(LABEL_MIN_WIDTH)
+    expect(clamped.adjustments).toContainEqual(expect.objectContaining({ kind: 'width-clamped', id: 'old' }))
+
+    const cleared = success(editBoard(clamped.board, [{ type: 'label-set', label: { id: 'old' }, width: null }], boardShapes(clamped.board, {})))
+    expect(cleared.board.labels[0]).not.toHaveProperty('width')
+    expect(cleared.board.labels[0]).not.toHaveProperty('size')
+  })
+
   test('reports an estimated label used to place another label', () => {
     const before = fixture()
     delete before.labels[0]?.size
@@ -104,7 +119,7 @@ describe('board label commands', () => {
         shapes(before),
         { measureLabel: () => ({ width: 0, height: 0 }) },
       ],
-      [{ type: 'label-set', label: { id: 'old' } }, /requires at least one of text or target.*pass a command matching BoardCommand/, shapes(before)],
+      [{ type: 'label-set', label: { id: 'old' } }, /requires at least one of text, width or target.*pass a command matching BoardCommand/, shapes(before)],
       [
         { type: 'label-set', label: { id: 'old' }, target: { free: true } },
         /label "old" has no resolved shape.*pass the resolved shape/,

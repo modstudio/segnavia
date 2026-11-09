@@ -7,6 +7,7 @@ import {
   boardToScreen,
   itemAt,
   itemHeight,
+  labelXForWidth,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,
   revealView,
@@ -43,6 +44,16 @@ const shapes: BoardShapes = {
 }
 
 describe('board geometry', () => {
+  test('keeps a label inline-start edge fixed when its width changes', () => {
+    expect(labelXForWidth({ id: 'ltr', text: 'Label', x: 100, y: 20 }, 80, 120)).toBe(100)
+
+    const estimatedHebrew = { id: 'estimated-rtl', text: 'שלום', x: 100, y: 20 }
+    expect(labelXForWidth(estimatedHebrew, 32, 70)).toBe(62)
+
+    const authoredHebrew = { id: 'authored-rtl', text: 'תווית', x: 100, y: 20, width: 80 }
+    expect(labelXForWidth(authoredHebrew, authoredHebrew.width, 120)).toBe(60)
+  })
+
   test('uses the supplied intrinsic aspect ratio for item height', () => {
     expect(itemHeight(itemA, shapeA)).toBe(50)
   })

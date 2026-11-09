@@ -79,9 +79,15 @@ const LabelRef = z.object({ id: z.string() })
 const LabelAddCommand = z.object({ type: z.literal('label-add'), id: z.string().optional(), text: z.string(), target: PlacementTarget.optional() })
 const LabelRemoveCommand = z.object({ type: z.literal('label-remove'), labels: z.array(LabelRef).min(1) })
 const LabelSetCommand = z
-  .object({ type: z.literal('label-set'), label: LabelRef, text: z.string().optional(), target: PlacementTarget.optional() })
-  .refine((command) => command.text !== undefined || command.target !== undefined, {
-    message: 'label-set requires at least one of text or target',
+  .object({
+    type: z.literal('label-set'),
+    label: LabelRef,
+    text: z.string().optional(),
+    width: z.number().nullable().optional(),
+    target: PlacementTarget.optional(),
+  })
+  .refine((command) => command.text !== undefined || command.width !== undefined || command.target !== undefined, {
+    message: 'label-set requires at least one of text, width or target',
   })
 const BoardSetCommand = z
   .object({ type: z.literal('board-set'), title: z.string().optional(), direction: TextDirection.optional() })
