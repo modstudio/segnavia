@@ -8,6 +8,7 @@ import {
   MOTIF_ATTRIBUTE,
   motifFieldAttribute,
   type ParentPage,
+  type RecordFacts,
   REGION_NAME,
   type SectionNumbering,
   type TemplatedSection,
@@ -48,6 +49,10 @@ export function numberingAttribs(numbering?: SectionNumbering): Record<string, s
     ...(numbering.counted === false ? { 'data-numbering-counted': 'false' } : {}),
     ...(numbering.restart === undefined ? {} : { 'data-numbering-restart': String(numbering.restart) }),
   }
+}
+
+export function recordAttribs(record?: RecordFacts): Record<string, string> {
+  return record ? { 'data-record-index': String(record.index), 'data-record-count': String(record.count) } : {}
 }
 
 export function languageAttribs(section: { numbering?: SectionNumbering; lang?: string; dir?: string }): Record<string, string> {

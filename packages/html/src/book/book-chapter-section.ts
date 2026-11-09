@@ -1,7 +1,7 @@
 import type { BookDivision, Chapter } from '@segnavia/format'
 import { bindRecordValues } from '../record-values.ts'
 import { parse } from '../sanitize.ts'
-import { type BuiltSection, flowAttribs, languageAttribs, sectionNode } from './book-held.ts'
+import { type BuiltSection, flowAttribs, languageAttribs, recordAttribs, sectionNode } from './book-held.ts'
 import type { BookBuild } from './types.ts'
 
 export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, index: number, division: BookDivision, build: BookBuild): BuiltSection {
@@ -23,7 +23,7 @@ export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: strin
         {
           'data-segnavia-chapter': String(index),
           ...languageAttribs(chapter),
-          ...(chapter.record ? { 'data-record-index': String(chapter.record.index), 'data-record-count': String(chapter.record.count) } : {}),
+          ...recordAttribs(chapter.record),
         },
         chapter.pageGeometry,
       ),
