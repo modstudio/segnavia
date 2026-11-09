@@ -68,10 +68,7 @@ test('resolves stored values once and fills once per distinct resulting day', as
 
 test('refuses distinct days under one resolved source before resolving slots', async () => {
   let slotCalls = 0
-  const pages = [
-    Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }),
-    Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-10' } }),
-  ]
+  const pages = [Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }), Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-10' } })]
   const resolution = resolveDocumentDayContexts(pages, {
     moment: 0,
     slots: {
@@ -92,10 +89,7 @@ test('refuses distinct days under one resolved source before resolving slots', a
 test('allows distinct days when every page uses the same static source', async () => {
   const source = { id: 'shared', values: { title: 'Bulletin' } }
   const contexts = await resolveDocumentDayContexts(
-    [
-      Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }),
-      Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-10' } }),
-    ],
+    [Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }), Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-10' } })],
     { moment: 0, slots: { source }, refuseMixedResolvedDays: true, signal: signal() },
   )
 
