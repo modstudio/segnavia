@@ -1,5 +1,5 @@
 import { Buffer } from 'node:buffer'
-import { type FetchKind, type FontFailure, type Limits, type OriginApproval, originDecision, resolveLimits } from '@segnavia/format'
+import { type FetchKind, type FontFailure, type Limits, limitRefusal, type OriginApproval, originDecision, type ResolvedLimits, resolveLimits } from '@segnavia/format'
 import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
 import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, Page as Tab } from 'playwright-core'
@@ -66,12 +66,12 @@ export async function assetRouteDecision(
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
 }
 
-export function assetLimitRefusal(url: string, bytes: number, total: number, limits: { each: number; bytes: number }): string | undefined {
+export function assetLimitRefusal(url: string, bytes: number, total: number, limits: ResolvedLimits['assets']): string | undefined {
   if (bytes > limits.each) {
-    return `${url} answered ${bytes} bytes, over the host's limits.assets.each of ${limits.each} bytes; raise limits.assets.each to clear this refusal`
+    return limitRefusal('assets.each', bytes, limits.each, { where: url, setting: 'limits.assets.each' })
   }
   if (total + bytes > limits.bytes) {
-    return `Assets including ${url} total ${total + bytes} bytes, over the host's limits.assets.bytes of ${limits.bytes} bytes; raise limits.assets.bytes to clear this refusal`
+    return limitRefusal('assets.bytes', total + bytes, limits.bytes, { where: url, setting: 'limits.assets.bytes' })
   }
   return undefined
 }
