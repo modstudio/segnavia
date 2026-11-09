@@ -3,8 +3,8 @@ import { decideVisibleMeasurement } from './composer.ts'
 import {
   descendantKeepSignals,
   inlineLevelDisplay,
-  keepSignals,
   type KeepSignalValues,
+  keepSignals,
   type MeasuredKeepCandidate,
   measuredBlockConstraints,
   measuredKeepRuns,
@@ -24,7 +24,16 @@ function candidate(extra: Partial<MeasuredKeepCandidate>): MeasuredKeepCandidate
 }
 
 function signalValues(extra: Partial<KeepSignalValues> = {}): KeepSignalValues {
-  return { breakInside: 'auto', pageBreakInside: 'auto', breakAfter: 'auto', pageBreakAfter: 'auto', breakBefore: 'auto', pageBreakBefore: 'auto', keepWith: '', ...extra }
+  return {
+    breakInside: 'auto',
+    pageBreakInside: 'auto',
+    breakAfter: 'auto',
+    pageBreakAfter: 'auto',
+    breakBefore: 'auto',
+    pageBreakBefore: 'auto',
+    keepWith: '',
+    ...extra,
+  }
 }
 
 describe('keep signals', () => {
