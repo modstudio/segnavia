@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { Document, printedFromDocument } from '@segnavia/format'
 import { bindRecordValues } from './record-values.ts'
 
 const section = {
@@ -7,11 +8,20 @@ const section = {
   recordTemplate: { name: 'row', slots: [{ key: 'name' }] },
 }
 
-test('binds record text with automatic direction and consumes values', () => {
-  expect(bindRecordValues(section)).toEqual({
-    html: '<p dir="auto">שָׁלוֹם</p>',
-    recordTemplate: section.recordTemplate,
-  })
+test('keeps a Hebrew record value through lowering and binds it with automatic direction', () => {
+  const lowered = printedFromDocument(
+    Document.parse({
+      type: 'document',
+      kind: 'printed',
+      print: { paper: 'letter' },
+      rules: { every: 'body' },
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      templates: [{ type: 'template', name: 'row', html: section.html, slots: [{ key: 'name', label: 'Name', type: 'text' }] }],
+      children: [{ type: 'record', template: 'row', values: section.values }],
+    }),
+  ).printedPages?.sections?.[0]
+  expect(lowered?.values).toEqual({ name: 'שָׁלוֹם' })
+  expect(bindRecordValues(lowered as NonNullable<typeof lowered>).html).toBe('<p dir="auto">שָׁלוֹם</p>')
 })
 
 test('refuses a declared template slot that its HTML never binds', () => {

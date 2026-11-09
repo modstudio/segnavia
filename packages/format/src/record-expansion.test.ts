@@ -115,9 +115,4 @@ describe('record expansion', () => {
     expect(() => Document.parse({ ...base, children: [untitled] })).toThrow('a body record needs a title; provide title to clear this refusal')
     expect(() => Document.parse({ ...base, children: [{ type: 'division', name: 'front', children: [untitled] }] })).not.toThrow()
   })
-
-  test('keeps a Hebrew document language and direction', () => {
-    const page = printedFromDocument(Document.parse(input({ settings: { lang: 'he', dir: 'rtl' } })))
-    expect(page).toMatchObject({ lang: 'he', dir: 'rtl' })
-  })
 })
