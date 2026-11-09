@@ -1655,6 +1655,12 @@ settled. These signals are independent, so an author's early ready call cannot
 stand in for unfinished diagrams and a drawn diagram cannot stand in for the
 author's call. Refused-script documents require only the diagram fact when they
 carry a placeholder. `waitForPageReady: false` opts out of both waits. Renders
+call `beforeOutput` with the live page after that readiness and before output;
+the hook runs under the page's deliberate script policy, where `scripts:
+'refuse'` permits only nonce-bearing scripts and therefore refuses an inline
+script added with `page.addScriptTag({ content })`, `scripts: 'sandboxed'`
+allows author inline scripts, `page.evaluate` runs hook code in either mode,
+and the nonce is not exposed. Renders
 are bounded by `RENDER_BOUND_MS`, queued at
 the renderer's `concurrency`, and checked against the host's `limits`.
 Chromium never shares a renderer process between browser contexts, so a page

@@ -88,6 +88,16 @@ export interface RenderOptions {
   boundMs?: number
   waitForPageReady?: boolean
   preferCssPageSize?: boolean
+  /**
+   * Receives the live page after render readiness and before output.
+   *
+   * The hook runs under the page's script policy. With `scripts: 'refuse'`,
+   * that policy deliberately allows only nonce-bearing scripts, so CSP refuses
+   * an inline script added with `tab.addScriptTag({ content })`; use
+   * `tab.evaluate` to run hook code in the page. With `scripts: 'sandboxed'`,
+   * author inline scripts are allowed, but hooks should still use `tab.evaluate`.
+   * The nonce is not exposed.
+   */
   beforeOutput?: (tab: Tab) => Promise<void>
   slots?: SlotPrintOptions
   placements?: PlacementsOptions
