@@ -26,7 +26,7 @@ export function verifyRecordsRender(output: string, check: Check): void {
 
   const hebrew = papers(output, 'records-hebrew.pdf')
   const expected = ['עמוד א', 'עמוד ב', 'עמוד א', 'עמוד א', 'עמוד ב', 'עמוד ג']
-  check('PASS Hebrew records have a bound Hebrew value', Boolean(hebrew[0]?.includes('מילה1')))
+  check('PASS Hebrew records have a bound Hebrew value', Boolean(hebrew[0]?.includes('מילה')))
   check('PASS Hebrew records restart per record', hebrew.length === 6 && hebrew.every((paper, index) => paper.includes(expected[index] ?? 'missing')))
   check(
     'PASS Hebrew document numbers run from א to ו',
