@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Document } from './document.ts'
-import { printedFromDocument } from './document-lowering.ts'
+import { bookFromDocument, printedFromDocument } from './document-lowering.ts'
 
 const slot = (key: string, options: { required?: boolean; type?: 'text' | 'email' } = {}) => ({
   key,
@@ -67,6 +67,53 @@ describe('record expansion', () => {
         parentPages: [],
       }),
     ).toThrow('continuous layout cannot apply')
+  })
+
+  test('lowers records at the book root, in a division and in a part', () => {
+    const record = (id: string, title: string, name: string) => ({ type: 'record' as const, id, title, template: 'row', values: { name } })
+    const document = Document.parse({
+      type: 'document',
+      kind: 'book',
+      title: 'Records',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+      templates: input().templates,
+      children: [
+        {
+          type: 'part',
+          name: 'rows',
+          children: [record('row-1', 'One', 'Name 1')],
+        },
+        record('row-2', 'Two', 'Name 2'),
+      ],
+    })
+    const book = bookFromDocument(document)
+    expect(book.body[0]).toMatchObject({
+      name: 'rows',
+      children: [{ id: 'row-1', title: 'One', values: { name: 'Name 1' }, record: { index: 1, count: 2 }, opens: 'any', numbering: { restart: 1 } }],
+    })
+    expect(book.body[1]).toMatchObject({
+      id: 'row-2',
+      title: 'Two',
+      values: { name: 'Name 2' },
+      record: { index: 2, count: 2 },
+      opens: 'any',
+      numbering: { restart: 1 },
+    })
+  })
+
+  test('matches the book title rule for records in body and front matter', () => {
+    const base = {
+      type: 'document' as const,
+      kind: 'book' as const,
+      title: 'Records',
+      mode: 'paginated' as const,
+      page: { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+      templates: input().templates,
+    }
+    const untitled = { type: 'record' as const, template: 'row', values: { name: 'Name' } }
+    expect(() => Document.parse({ ...base, children: [untitled] })).toThrow('a body record needs a title; provide title to clear this refusal')
+    expect(() => Document.parse({ ...base, children: [{ type: 'division', name: 'front', children: [untitled] }] })).not.toThrow()
   })
 
   test('keeps a Hebrew document language and direction', () => {

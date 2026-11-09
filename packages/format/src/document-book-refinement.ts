@@ -100,7 +100,7 @@ function refineBookEntries(
 }
 
 function refineBookLeaf(node: DocumentNode, division: Division, nodePath: (string | number)[], contentsOptions: { count: number }, ctx: z.RefinementCtx): void {
-  if (!['contents', 'flow', 'placed'].includes(node.type)) {
+  if (!['contents', 'flow', 'placed', 'record'].includes(node.type)) {
     ctx.addIssue({
       code: 'custom',
       path: [...nodePath, 'type'],
@@ -119,6 +119,9 @@ function refineBookLeaf(node: DocumentNode, division: Division, nodePath: (strin
   }
   if (node.type === 'flow' && division === 'body' && node.title === undefined) {
     ctx.addIssue({ code: 'custom', path: [...nodePath, 'title'], message: 'a body flow needs a title; provide title to clear this refusal' })
+  }
+  if (node.type === 'record' && division === 'body' && node.title === undefined) {
+    ctx.addIssue({ code: 'custom', path: [...nodePath, 'title'], message: 'a body record needs a title; provide title to clear this refusal' })
   }
 }
 

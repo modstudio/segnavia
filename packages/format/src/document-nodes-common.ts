@@ -28,6 +28,7 @@ export const PlacedNode = PlacementShape.extend({ type: z.literal('placed'), id:
 
 export const RecordNode = NodeId.extend({
   type: z.literal('record'),
+  title: z.string().optional(),
   template: z.string().min(1),
   values: z.record(SlotKey, z.string()),
 })

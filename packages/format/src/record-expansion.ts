@@ -3,7 +3,7 @@ import type { TemplateNode } from './document-nodes-book.ts'
 
 export interface ExpandedRecordSection {
   id?: string
-  title?: undefined
+  title?: string
   opens: 'any'
   numbering: { restart: 1 }
   html: string
@@ -30,6 +30,7 @@ export function recordExpansion(document: {
         record,
         {
           id: record.id,
+          title: record.title,
           opens: 'any',
           numbering: { restart: 1 },
           html: template.html,
