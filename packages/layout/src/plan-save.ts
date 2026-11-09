@@ -1,4 +1,12 @@
-import { fingerprintValue, type Measurements, type PaginateLine, type PaginateWindow, type PlanPage, type Plan as SavedPlan } from '@segnavia/format'
+import {
+  fingerprintValue,
+  type Measurements,
+  type PaginateLine,
+  type PaginateWindow,
+  PLAN_VERSION,
+  type PlanPage,
+  type Plan as SavedPlan,
+} from '@segnavia/format'
 import type { BookPlanNumbering } from './book-plan-folios.ts'
 import type { PaginateUnit } from './paginate-types.ts'
 import { resolveVariablesAcrossPages } from './paginate-variables.ts'
@@ -114,6 +122,7 @@ function pageFingerprint(
           parent: measurements.geometryParents?.[page.pageGeometry]?.[page.parent],
         }),
     role: page.role,
+    parentName: page.parent,
     blank: page.blank,
     variables: page.variables,
     lines: consumedLines(measurements, page),
@@ -142,9 +151,9 @@ function savedPage(measurements: Measurements, pages: BookPlan['pages'], page: B
   return { ...page, ...(start === undefined ? {} : { start }), fingerprint: pageFingerprint(measurements, page, pages, pageIndex) }
 }
 
-export function savePlan(measurements: Measurements, plan: BookPlan, numbering: BookPlanNumbering): SavedPlan {
+function savePlanWithVersion(measurements: Measurements, plan: BookPlan, numbering: BookPlanNumbering, version: typeof PLAN_VERSION): SavedPlan {
   return {
-    version: 3,
+    version,
     fingerprint: inputFingerprint(measurements, numbering),
     breaks: breaksOf(measurements),
     pages: plan.pages.map((page, pageIndex) => savedPage(measurements, plan.pages, page, pageIndex)),
@@ -155,6 +164,10 @@ export function savePlan(measurements: Measurements, plan: BookPlan, numbering: 
     recordTotals: plan.recordTotals,
     records: plan.records,
   }
+}
+
+export function savePlan(measurements: Measurements, plan: BookPlan, numbering: BookPlanNumbering): SavedPlan {
+  return savePlanWithVersion(measurements, plan, numbering, PLAN_VERSION)
 }
 
 function blockName(measurements: Measurements, start: NonNullable<PlanPage['start']>): string {
@@ -282,7 +295,7 @@ function textVariablesForReplay(measurements: Measurements, pages: PlanPage[]): 
   })
 }
 
-export function replayPlan(measurements: Measurements, saved: SavedPlan, numbering: BookPlanNumbering): ReplayPlanResult {
+function replayPlanWithVersion(measurements: Measurements, saved: SavedPlan, numbering: BookPlanNumbering, version: typeof PLAN_VERSION): ReplayPlanResult {
   if (saved.fingerprint !== inputFingerprint(measurements, numbering) || fingerprintValue(saved.breaks) !== fingerprintValue(breaksOf(measurements))) {
     return {
       ok: false,
@@ -310,7 +323,7 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
   return {
     ok: true,
     plan: {
-      version: 3,
+      version,
       pages: saved.pages,
       folios: saved.folios,
       total: saved.total,
@@ -320,6 +333,10 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       records: saved.records,
     },
   }
+}
+
+export function replayPlan(measurements: Measurements, saved: SavedPlan, numbering: BookPlanNumbering): ReplayPlanResult {
+  return replayPlanWithVersion(measurements, saved, numbering, PLAN_VERSION)
 }
 
 export function savedPlanScript(): string {
@@ -334,7 +351,7 @@ export function savedPlanScript(): string {
     consumedNotes,
     pageFingerprint,
     savedPage,
-    savePlan,
+    savePlanWithVersion,
     blockName,
     pageRefusal,
     fieldRefusal,
@@ -351,10 +368,12 @@ export function savedPlanScript(): string {
     fingerprintRefusal,
     pageUnits,
     textVariablesForReplay,
-    replayPlan,
+    replayPlanWithVersion,
   ]
   return `${functions.map((fn) => fn.toString()).join('\n')}
 var lineInWindow=${lineInWindow.name};
-var savePlan=${savePlan.name};
-var replayPlan=${replayPlan.name};`
+var savePlanImplementation=${savePlanWithVersion.name};
+var savePlan=function(measurements,plan,numbering){return savePlanImplementation(measurements,plan,numbering,${PLAN_VERSION});};
+var replayPlanImplementation=${replayPlanWithVersion.name};
+var replayPlan=function(measurements,saved,numbering){return replayPlanImplementation(measurements,saved,numbering,${PLAN_VERSION});};`
 }

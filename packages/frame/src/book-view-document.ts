@@ -1,13 +1,4 @@
-import {
-  BOOK_PARENT_NAMES,
-  type BookView,
-  type BookViewPagination,
-  LIMIT_ACTUAL_PLACEHOLDER,
-  type Limits,
-  limitRefusalTemplate,
-  type Plan,
-  resolveLimits,
-} from '@segnavia/format'
+import { type BookView, type BookViewPagination, LIMIT_ACTUAL_PLACEHOLDER, type Limits, limitRefusalTemplate, type Plan, resolveLimits } from '@segnavia/format'
 import { composerPageGeometries, composerPageRules } from './book-page-geometries.ts'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
@@ -45,7 +36,6 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     endnotePlacement: pagination.endnotePlacement,
     runningHead: pagination.runningHead,
     variables: pagination.variables ?? [],
-    parentNames: BOOK_PARENT_NAMES,
     numbering: pagination.numbering,
     limit: limits.pages,
     limitRefusal: {

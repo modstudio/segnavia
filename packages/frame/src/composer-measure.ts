@@ -1,3 +1,19 @@
+import { defaultParentRules, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
+
+export function flowTextArea(
+  rules: ParentRules | undefined,
+  areas: Record<string, TextArea>,
+  kind = 'chapter',
+  role?: 'body' | 'fixed',
+  defaults?: typeof defaultParentRules,
+): TextArea {
+  const selectedRules = rules ?? (defaults ?? defaultParentRules)(kind, role)
+  const names = [...new Set(textHoldingParentRules(selectedRules).map((rule) => rule.parent))]
+  const selected = names.map((name) => areas[name])
+  if (selected.length === 0 || selected.some((area) => !area)) throw new Error('A flow parent has no text area.')
+  return { width: selected[0]?.width ?? 0, height: Math.min(...selected.map((area) => area?.height ?? 0)) }
+}
+
 export function forcedPageBreak(value: string): boolean {
   return value === 'page' || value === 'left' || value === 'right' || value === 'recto' || value === 'verso'
 }

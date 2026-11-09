@@ -9,7 +9,12 @@ import { compact, pagesText } from './book-text.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
-const sectionParents = { opener: 'folio-opener', recto: 'folio-recto', verso: 'folio-verso', blank: 'folio-blank' }
+const sectionParentRules = [
+  { when: { blank: true }, parent: 'folio-blank' },
+  { when: { position: 'sectionFirst' }, parent: 'folio-opener' },
+  { when: { face: 'verso' }, parent: 'folio-verso' },
+  { parent: 'folio-recto' },
+] as const
 const uncountedFlows = new Set(['numbering-cover', 'numbering-inside-cover'])
 
 const fixtureIds = () => {
@@ -46,7 +51,7 @@ function fixture(): DocumentInput {
             type: 'section',
             id: 'numbering-cover',
             contents: false,
-            parents: sectionParents,
+            parentRules: sectionParentRules,
             numbering: { counted: false },
             children: [{ type: 'flow', html: '<p>COVER-PAGE</p>' }],
           },
@@ -54,16 +59,16 @@ function fixture(): DocumentInput {
             type: 'section',
             id: 'numbering-inside-cover',
             contents: false,
-            parents: sectionParents,
+            parentRules: sectionParentRules,
             numbering: { counted: false },
             children: [{ type: 'flow', html: '<p>INSIDE-COVER-PAGE</p>' }],
           },
-          { type: 'contents', id: 'numbering-contents', title: 'Contents', parents: sectionParents },
+          { type: 'contents', id: 'numbering-contents', title: 'Contents', parentRules: sectionParentRules },
           {
             type: 'section',
             id: 'numbering-preface',
             title: 'Preface',
-            parents: sectionParents,
+            parentRules: sectionParentRules,
             children: [{ type: 'flow', html: `<p>PREFACE-PAGE ${'Short preface text. '.repeat(12)}</p>` }],
           },
         ],
@@ -76,21 +81,21 @@ function fixture(): DocumentInput {
             type: 'section',
             id: 'numbering-chapter-one',
             title: 'Chapter One',
-            parents: sectionParents,
+            parentRules: sectionParentRules,
             children: [{ type: 'flow', html: longChapter('CHAPTER-ONE') }],
           },
           {
             type: 'section',
             id: 'numbering-chapter-two',
             title: 'Chapter Two',
-            parents: sectionParents,
+            parentRules: sectionParentRules,
             children: [{ type: 'flow', html: longChapter('CHAPTER-TWO') }],
           },
           {
             type: 'section',
             id: 'numbering-chapter-three',
             title: 'Chapter Three',
-            parents: sectionParents,
+            parentRules: sectionParentRules,
             numbering: { restart: 50 },
             children: [{ type: 'flow', html: longChapter('CHAPTER-THREE') }],
           },

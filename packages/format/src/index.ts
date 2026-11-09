@@ -1,6 +1,5 @@
-// The shapes every package agrees on. Hosts read and write these as JSON, so
-// each is a Zod schema and the JSON Schema is generated from it (`jsonSchemas`)
-// for hosts that do not run TypeScript.
+// The shapes every package agrees on. Hosts read and write these as JSON, so each is a Zod schema;
+// `jsonSchemas` generates JSON Schema for hosts that do not run TypeScript.
 
 export { Board, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'
@@ -338,6 +337,7 @@ export {
   toMillimeters,
 } from './paper.ts'
 export { paperViewport, usesPressLayout } from './paper-viewport.ts'
+export * from './parent-rules.ts'
 export {
   AssetKind,
   CropEdge,
@@ -349,7 +349,7 @@ export {
 } from './placement.ts'
 export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
 export { PlacementRefusedError } from './placement-refusal.ts'
-export { PaginatePageMarks, PaginatePageNote, PaginateWindow, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
+export { PaginatePageMarks, PaginatePageNote, PaginateWindow, PLAN_VERSION, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
 export {
   MarkColor,
   PRESS_GEOMETRY_FIELDS,

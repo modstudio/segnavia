@@ -30,6 +30,13 @@ function refineRecord(
     })
     return
   }
+  if (template.parentRules !== undefined) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['templates', document.templates.indexOf(template), 'parentRules'],
+      message: `template ${template.name} has parentRules and cannot be used by a record; remove its parentRules because record pages use the document's parent rules, to clear this refusal`,
+    })
+  }
   if (!template.slots?.length) {
     ctx.addIssue({
       code: 'custom',
@@ -49,12 +56,6 @@ function refineRecord(
   }
   const templatePath = ['templates', document.templates.indexOf(template)]
   for (const slot of template.slots) refineSlot(record, path, template, templatePath, slot, hostSlots, ctx)
-  if (template.parents !== undefined)
-    ctx.addIssue({
-      code: 'custom',
-      path: [...templatePath, 'parents'],
-      message: `template ${template.name} has parents and cannot be used by a record; remove its parents because record pages use the document printed-page rules to clear this refusal`,
-    })
   if (document.kind === 'book' && document.mode === 'continuous')
     ctx.addIssue({
       code: 'custom',

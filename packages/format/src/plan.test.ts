@@ -24,7 +24,7 @@ function page(): PlanValue['pages'][number] {
 
 function plan(): PlanValue {
   return {
-    version: 3,
+    version: 4,
     fingerprint: 'fnv1a64:0000000000000000',
     breaks: [],
     pages: [page()],
@@ -44,7 +44,7 @@ describe('Plan', () => {
   })
 
   test('refuses the first invalid field with a clearing action', () => {
-    expect(() => Plan.parse({ ...plan(), version: 1 })).toThrow(/version.*compute a new plan to clear this refusal/)
+    expect(() => Plan.parse({ ...plan(), version: 3 })).toThrow(/version.*compute a new plan to clear this refusal/)
     expect(() => Plan.parse({ ...plan(), pages: [page(), { ...page(), number: 2 }] }, { limits: { pages: 1 } })).toThrow(
       /pages.*limits.pages.*clear this refusal/,
     )

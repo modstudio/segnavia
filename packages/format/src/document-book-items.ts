@@ -32,7 +32,7 @@ export function documentSectionFields(section: Extract<DocumentNode, { type: 'se
     subtitle: section.subtitle,
     contents: section.contents ?? SECTION_CONTENTS_DEFAULT,
     opens: section.opens,
-    parents: section.parents,
+    parentRules: section.parentRules,
     numbering: section.numbering,
     pageGeometry: section.pageGeometry,
     lang: section.lang,
@@ -89,7 +89,7 @@ function partItem(
     html: part.html,
     contents: part.contents,
     opens: part.opens,
-    parents: part.parents,
+    parentRules: part.parentRules,
     runningHead: part.runningHead,
     children: part.children.map((child, index) =>
       bookItem(child, division, [...sourcePath, 'children', index], [...bookPath, 'children', index], sourcePaths, expanded),
@@ -119,7 +119,7 @@ function bookItem(
       kind: 'contents',
       title: node.title,
       opens: node.opens,
-      parents: node.parents,
+      parentRules: node.parentRules,
       numbering: node.numbering,
     }) as BookItem
   if (node.type === 'flow') return defined({ id: nodeId(node, bookPath), title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem

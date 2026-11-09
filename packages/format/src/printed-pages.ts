@@ -4,12 +4,10 @@ import { SectionNumbering } from './folio.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
+import { BOOK_PARENT_NAMES, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import { CONTINUE_OPENS_REMEDY } from './section-opens-policy.ts'
 import { Variable } from './variable.ts'
-
-export const PRINTED_PAGE_ROLES = ['every', 'first', 'recto', 'verso', 'last'] as const
-export type PrintedPageRole = (typeof PRINTED_PAGE_ROLES)[number]
 
 export const Fragmentation = z.enum(['safe', 'none'])
 export type Fragmentation = z.infer<typeof Fragmentation>
@@ -22,38 +20,11 @@ export const ParentPage = z.object({
   foot: z.string().optional(),
 })
 
-const ParentName = z.string().min(1)
-
-export const PrintedPageRules = z
-  .object({
-    every: z.string({ error: 'every is required; name the default parent page to clear this refusal' }).min(1),
-    first: ParentName.optional(),
-    recto: ParentName.optional(),
-    verso: ParentName.optional(),
-    last: ParentName.optional(),
-  })
-  .passthrough()
-  .superRefine((rules, ctx) => {
-    const unknown = Object.keys(rules).filter((key) => !PRINTED_PAGE_ROLES.includes(key as PrintedPageRole))
-    if (unknown.length) {
-      ctx.addIssue({
-        code: 'custom',
-        message: `unknown printed-page role ${unknown.map((key) => JSON.stringify(key)).join(', ')}; use only every, first, recto, verso or last to clear this refusal`,
-      })
-    }
-  })
-  .transform(({ every, first, recto, verso, last }) => ({
-    every,
-    ...(first === undefined ? {} : { first }),
-    ...(recto === undefined ? {} : { recto }),
-    ...(verso === undefined ? {} : { verso }),
-    ...(last === undefined ? {} : { last }),
-  }))
-
 export const PrintedPages = z.object({
   variables: z.array(Variable).default([]),
   parents: z.array(ParentPage).min(1),
-  rules: PrintedPageRules,
+  parentRules,
+  rules: z.unknown().optional(),
   numbering: NumberSystem.optional(),
   fragmentation: Fragmentation.default('safe'),
   sections: z
@@ -63,6 +34,8 @@ export const PrintedPages = z.object({
         title: z.string().optional(),
         opens: BookOpens.optional(),
         numbering: SectionNumbering.optional(),
+        parentRules: parentRules.optional(),
+        parents: z.unknown().optional(),
         html: z.string(),
         values: RecordValues.optional(),
         record: RecordFacts.optional(),
@@ -82,29 +55,9 @@ export const PrintedPages = z.object({
 })
 
 export type ParentPage = z.infer<typeof ParentPage>
-export type PrintedPageRules = z.infer<typeof PrintedPageRules>
 export type PrintedPages = z.infer<typeof PrintedPages>
 
-export const BOOK_PARENT_NAMES = {
-  recto: 'segnavia:recto',
-  verso: 'segnavia:verso',
-  opener: 'segnavia:opener',
-  blank: 'segnavia:blank',
-} as const
-
-export interface FlowingParentNames {
-  opener: string
-  recto: string
-  verso: string
-}
-
-export function flowingParentNames(parents?: Partial<FlowingParentNames>): FlowingParentNames {
-  return {
-    opener: parents?.opener ?? 'segnavia:opener',
-    recto: parents?.recto ?? 'segnavia:recto',
-    verso: parents?.verso ?? 'segnavia:verso',
-  }
-}
+export { BOOK_PARENT_NAMES } from './parent-rules.ts'
 
 function furniture(region: 'head' | 'foot'): string {
   return BOOK_FURNITURE.filter((item) => item.region === region)
@@ -175,6 +128,12 @@ export function parentListIssues(
   const listed = new Map<string, ParentPage>()
   const known = new Set<string>([...(options.known ?? [])])
   parents.forEach((parent, index) => {
+    if (parent.name.startsWith('segnavia:')) {
+      issues.push({
+        path: [...root, index, 'name'],
+        message: `host parent page "${parent.name}" cannot use the built-in segnavia: namespace; give it a new name, set basedOn to "${parent.name}", and select the new name with parentRules to clear this refusal`,
+      })
+    }
     if (listed.has(parent.name))
       issues.push({
         path: [...root, index, 'name'],
@@ -210,14 +169,16 @@ export function parentListIssues(
 export function printedPagesIssues(value: PrintedPages): Array<{ path: (string | number)[]; message: string }> {
   const issues = parentListIssues(value.parents)
   const names = new Set(value.parents.map((parent) => parent.name))
-  for (const [role, name] of Object.entries(value.rules)) {
-    if (name === undefined) continue
-    if (!names.has(name))
-      issues.push({
-        path: ['rules', role],
-        message: `${role} names unknown parent page "${name}"; add that parent page or name an existing one to clear this refusal`,
-      })
+  issues.push(...parentRuleIssues(value.parentRules, names))
+  if (value.rules !== undefined) {
+    issues.push(renamedParentRulesFieldIssue('printed field rules', ['rules']))
   }
+  value.sections?.forEach((section, index) => {
+    if (section.parentRules) issues.push(...parentRuleIssues(section.parentRules, names, ['sections', index, 'parentRules']))
+    if (section.parents !== undefined) {
+      issues.push(renamedParentRulesFieldIssue('printed section field parents', ['sections', index, 'parents']))
+    }
+  })
   return issues
 }
 

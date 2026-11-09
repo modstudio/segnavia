@@ -7,7 +7,7 @@ const base = {
   print: { paper: 'letter' as const, orientation: 'portrait' as const },
   printedPages: {
     parents: [{ name: 'body', margin: { blockStart: 20, blockEnd: 20, inlineStart: 15, inlineEnd: 15 } }],
-    rules: { every: 'body' },
+    parentRules: [{ parent: 'body' }],
   },
 }
 
@@ -49,7 +49,7 @@ describe('Page printedPages', () => {
     [{ ...base, print: undefined }, 'add print.paper'],
     [{ ...base, scripts: 'sandboxed' }, 'deterministic cloned content'],
     [{ ...base, print: { ...base.print, margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } } }, 'remove print.margin'],
-    [{ ...base, printedPages: { ...base.printedPages, rules: { every: 'missing' } } }, 'add that parent page'],
+    [{ ...base, printedPages: { ...base.printedPages, parentRules: [{ parent: 'missing' }] } }, 'add that parent page'],
     [{ ...base, printedPages: { ...base.printedPages, parents: [...base.printedPages.parents, base.printedPages.parents[0]] } }, 'unique name'],
     [
       {
@@ -59,7 +59,7 @@ describe('Page printedPages', () => {
             { name: 'one', basedOn: 'two' },
             { name: 'two', basedOn: 'one' },
           ],
-          rules: { every: 'one' },
+          parentRules: [{ parent: 'one' }],
         },
       },
       'remove a basedOn link',
@@ -68,10 +68,43 @@ describe('Page printedPages', () => {
     expect(() => Page.parse(input)).toThrow(remedy)
   })
 
-  test('refuses a missing every and an unknown role with their allowed fixes', () => {
-    expect(() => Page.parse({ ...base, printedPages: { ...base.printedPages, rules: {} } })).toThrow('name the default parent page')
-    expect(() => Page.parse({ ...base, printedPages: { ...base.printedPages, rules: { every: 'body', middle: 'body' } } })).toThrow(
-      'use only every, first, recto, verso or last',
+  test('refuses invalid rule lists and a host built-in name with their remedies', () => {
+    expect(() => Page.parse({ ...base, printedPages: { ...base.printedPages, parentRules: [{ when: { face: 'recto' }, parent: 'body' }] } })).toThrow(
+      'add an unconditional last rule',
+    )
+    expect(() =>
+      Page.parse({ ...base, printedPages: { ...base.printedPages, parentRules: [{ parent: 'body' }, { when: { face: 'recto' }, parent: 'body' }] } }),
+    ).toThrow('move the unconditional rule to the end')
+    expect(() =>
+      Page.parse({ ...base, printedPages: { ...base.printedPages, parents: [{ ...base.printedPages.parents[0], name: 'segnavia:recto' }] } }),
+    ).toThrow('set basedOn')
+    expect(() => Page.parse({ ...base, printedPages: { ...base.printedPages, parentRules: [{ when: {}, parent: 'body' }, { parent: 'body' }] } })).toThrow(
+      'state a position, face or blank condition, or remove when',
+    )
+  })
+
+  test('refuses unknown and renamed parent fields in printed sections', () => {
+    expect(() =>
+      Page.parse({
+        ...base,
+        html: undefined,
+        printedPages: {
+          ...base.printedPages,
+          sections: [{ id: 'one', html: '<p>One</p>', parentRules: [{ parent: 'missing' }] }],
+        },
+      }),
+    ).toThrow('unknown parent page')
+    const result = Page.safeParse({
+      ...base,
+      html: undefined,
+      printedPages: { ...base.printedPages, sections: [{ id: 'one', html: '<p>One</p>', parents: { recto: 'body' } }] },
+    })
+    expect(result.error?.issues.find((issue) => issue.message.includes('renamed'))?.path).toEqual(['printedPages', 'sections', 0, 'parents'])
+  })
+
+  test('refuses the renamed printed rules field', () => {
+    expect(() => Page.parse({ ...base, printedPages: { ...base.printedPages, rules: { every: 'body' } } })).toThrow(
+      'printed field rules was renamed; use parentRules instead',
     )
   })
 })

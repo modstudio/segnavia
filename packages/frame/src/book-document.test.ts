@@ -9,8 +9,8 @@ import {
   resolveDirection,
   StyleSheet,
 } from '@segnavia/format'
-import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectBookParent, windowPageIndex } from '@segnavia/html'
-import { layoutScript } from '@segnavia/layout'
+import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectParent, windowPageIndex } from '@segnavia/html'
+import { FLOWING_PARENT_RULES, layoutScript } from '@segnavia/layout'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
@@ -61,7 +61,7 @@ describe('bookDocument', () => {
 
   test('carries saved plans and breaks in config without closing the composer script', () => {
     const plan = {
-      version: 3 as const,
+      version: 4 as const,
       fingerprint: '</script><script>unsafe()</script>',
       breaks: ['middle'],
       pages: [],
@@ -74,7 +74,7 @@ describe('bookDocument', () => {
     }
     const html = bookDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
     expect(html).toContain('"breaks":["middle"]')
-    expect(html).toContain('"plan":{"version":3')
+    expect(html).toContain('"plan":{"version":4')
     expect(html).not.toContain('</script><script>unsafe()</script>')
     expect(html).toContain('\\u003c/script>\\u003cscript>unsafe()\\u003c/script>')
   })
@@ -112,14 +112,11 @@ describe('bookDocument', () => {
       forcedPageBreak: typeof forcedPageBreak
     }
     expect(
-      embedded.flowTextArea(
-        {},
-        {
-          [BOOK_PARENT_NAMES.opener]: { width: 100, height: 180 },
-          [BOOK_PARENT_NAMES.recto]: { width: 100, height: 160 },
-          [BOOK_PARENT_NAMES.verso]: { width: 100, height: 170 },
-        },
-      ),
+      embedded.flowTextArea(FLOWING_PARENT_RULES, {
+        [BOOK_PARENT_NAMES.opener]: { width: 100, height: 180 },
+        [BOOK_PARENT_NAMES.recto]: { width: 100, height: 160 },
+        [BOOK_PARENT_NAMES.verso]: { width: 100, height: 170 },
+      }),
     ).toEqual({ width: 100, height: 160 })
     expect(embedded.spreadSlots(4)).toBe(spreadSlots(4))
     expect(embedded.pageScale(300, 200, 2)).toBe(pageScale(300, 200, 2))
@@ -137,7 +134,7 @@ describe('bookDocument', () => {
     expect(html).toContain('data-segnavia-notes-galley')
     expect(html).toContain('"direction":"rtl"')
     expect(COMPOSER_SCRIPT).toContain(layoutScript())
-    expect(COMPOSER_SCRIPT).toContain(selectBookParent.toString())
+    expect(COMPOSER_SCRIPT).toContain(selectParent.toString())
     expect(COMPOSER_SCRIPT).toContain(heldPageNumber.toString())
     expect(COMPOSER_SCRIPT).toContain(windowPageIndex.toString())
     expect(COMPOSER_SCRIPT).toContain(openerPageIndex.toString())
@@ -186,8 +183,9 @@ describe('bookDocument', () => {
       [BOOK_PARENT_NAMES.verso]: { width: 100, height: 170 },
     }
 
-    expect(flowTextArea({ opener: 'tall', recto: 'short', verso: 'short' }, areas)).toEqual({ width: 120, height: 150 })
-    expect(flowTextArea({}, areas)).toEqual({ width: 100, height: 160 })
+    expect(flowTextArea([{ when: { position: 'sectionFirst' }, parent: 'tall' }, { parent: 'short' }], areas)).toEqual({ width: 120, height: 150 })
+    expect(flowTextArea(FLOWING_PARENT_RULES, areas)).toEqual({ width: 100, height: 160 })
+    expect(flowTextArea(undefined, areas)).toEqual({ width: 100, height: 160 })
   })
 
   test('refuses a continuous book and a document with issues', () => {

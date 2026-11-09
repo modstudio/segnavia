@@ -19,7 +19,7 @@ export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: strin
       runningHead,
       flowAttribs(
         chapter.opens,
-        chapter.parents,
+        chapter.parentRules,
         {
           'data-segnavia-chapter': String(index),
           ...languageAttribs(chapter),

@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { BookSectionParents } from './book-section.ts'
 import { ContentsNode, SectionFields } from './document-nodes-book.ts'
 import {
   BoardItemNode,
@@ -13,6 +12,8 @@ import {
   RecordNode,
   SlideNode,
 } from './document-nodes-common.ts'
+import type { ParentRules } from './parent-rules.ts'
+import { parentRules } from './parent-rules.ts'
 
 export interface DivisionNode {
   type: 'division'
@@ -30,7 +31,8 @@ export interface PartNode {
   html?: string
   contents: boolean
   opens?: 'recto' | 'verso' | 'any'
-  parents?: z.infer<typeof BookSectionParents>
+  parentRules?: ParentRules
+  parents?: unknown
   runningHead?: string
   children: DocumentNode[]
 }
@@ -88,7 +90,8 @@ export const PartNodeFields = {
   html: z.string().optional(),
   contents: z.boolean().default(true),
   opens: z.enum(['recto', 'verso', 'any']).optional(),
-  parents: BookSectionParents.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
   runningHead: z.string().optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }

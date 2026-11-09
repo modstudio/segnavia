@@ -27,7 +27,7 @@ export function note(id: string, count: number, height = lineHeight, series = 'f
   return { id, series, lines: lines(count, 0, height) }
 }
 
-type InputOverrides = Omit<Partial<PaginateBookInput>, 'geometry' | 'parents' | 'parentNames'> &
+type InputOverrides = Omit<Partial<PaginateBookInput>, 'geometry' | 'parents'> &
   Pick<PaginateBookInput, 'flows'> & { geometry?: { textHeight: number; notesGap: number; noteSeries?: PaginateNoteSeriesGeometry[] } }
 
 export function input(overrides: InputOverrides): PaginateBookInput {
@@ -39,7 +39,6 @@ export function input(overrides: InputOverrides): PaginateBookInput {
     notes: [],
     geometry: { notesGap: geometry.notesGap, ...(geometry.noteSeries ? { noteSeries: geometry.noteSeries } : {}) },
     parents: Object.fromEntries(Object.values(BOOK_PARENT_NAMES).map((name) => [name, area])),
-    parentNames: BOOK_PARENT_NAMES,
     settings: {
       rectoOpenings: false,
       direction: 'ltr',

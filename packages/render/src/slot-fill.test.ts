@@ -137,7 +137,7 @@ test('sectioned printed pages fill every section and refuse multiple copies', as
       slots: [{ key: 'name', label: 'Name', type: 'text' }],
       printedPages: {
         parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
         sections: [
           { id: 'one', html: '<p data-slot-value="name">One</p>' },
           { id: 'two', html: '<p data-slot-value="name">Two</p>' },
@@ -160,7 +160,7 @@ test('record values bind before a different host slot fill', async () => {
       slots: [{ key: 'host.name', label: 'Host name', type: 'text' }],
       printedPages: {
         parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
         sections: [
           {
             id: 'record',

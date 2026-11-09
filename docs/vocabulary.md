@@ -74,7 +74,7 @@ something else.
 | **Placeholder** | The plain bordered image drawn when a placed asset is invalid, missing, refused or fails to resolve. |
 | **Imposition placement** | The physical position where one page lands on a printing paper. |
 | **Motif version** | One rendition of a motif, keyed by values of its choice fields and chosen by most-specific match. |
-| **Parent page** | Named inherited print geometry and head or foot motif regions selected by a role for a flowing page. |
+| **Parent page** | Named inherited print geometry and head or foot motif regions, chosen for each page by the first matching parent rule. |
 | **Printed page** | One physical page produced by fragmenting a flowing page; it has a side, parent page, formatted number and total. |
 
 ## Words the API avoids

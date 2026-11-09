@@ -1,21 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { Book } from './book.ts'
 import { identifiedBookInput } from './book-test-helper.ts'
-import { BOOK_PARENT_NAMES, flowingParentNames, textArea } from './printed-pages.ts'
+import { textArea } from './printed-pages.ts'
 
 describe('textArea', () => {
   test('subtracts the parent margins from the paper', () => {
     const parent = { blockStart: 20, blockEnd: 25, inlineStart: 18, inlineEnd: 12 }
     expect(textArea({ margin: parent }, { width: 148, height: 210 })).toEqual({ width: 118, height: 165 })
-  })
-
-  test('resolves the three flowing roles from overrides and defaults', () => {
-    expect(flowingParentNames()).toEqual({
-      opener: BOOK_PARENT_NAMES.opener,
-      recto: BOOK_PARENT_NAMES.recto,
-      verso: BOOK_PARENT_NAMES.verso,
-    })
-    expect(flowingParentNames({ opener: 'opening' })).toEqual({ opener: 'opening', recto: 'segnavia:recto', verso: 'segnavia:verso' })
   })
 })
 
@@ -29,7 +20,7 @@ test('a flowing section refuses parent pages with different text widths', () => 
         { name: 'opening', margin: { blockStart: 30, blockEnd: 10, inlineStart: 20, inlineEnd: 10 } },
         { name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 25, inlineEnd: 10 } },
       ],
-      chapters: [{ title: 'One', html: '<p>Text</p>', parents: { opener: 'opening', recto: 'body', verso: 'body' } }],
+      chapters: [{ title: 'One', html: '<p>Text</p>', parentRules: [{ when: { position: 'sectionFirst' }, parent: 'opening' }, { parent: 'body' }] }],
     }),
   )
   expect(result.success).toBe(false)

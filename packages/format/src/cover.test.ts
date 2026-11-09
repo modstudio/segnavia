@@ -129,7 +129,7 @@ describe('Cover', () => {
           kind: 'printed',
           print: { paper: 'letter' },
           parentPages: [{ type: 'parentPage', name: 'body' }],
-          rules: { every: 'body' },
+          parentRules: [{ parent: 'body' }],
           children: [{ type: 'page', body: { html: '' } }],
         },
       }),

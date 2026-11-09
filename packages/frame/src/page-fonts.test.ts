@@ -103,7 +103,7 @@ describe('expandFramePage fonts', () => {
               foot: '<footer data-motif="foot"></footer>',
             },
           ],
-          rules: { every: 'body' },
+          parentRules: [{ parent: 'body' }],
           sections: [
             { id: 'one', html: '<main data-motif="one"></main>' },
             { id: 'two', html: '<main data-motif="two"></main>' },

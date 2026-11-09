@@ -102,7 +102,7 @@ test('pagesPdf keeps every input aligned with the slot frames its HTML produced'
       slots: [{ key: 'section', label: 'Section', type: 'text', overflow: 'refuse' }],
       printedPages: {
         parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
         sections: [
           { id: 'one', html: '<p data-slot-value="section">One</p>' },
           { id: 'two', html: '<p data-slot-value="section">Two</p>' },
@@ -303,7 +303,7 @@ test('pagesPdf refuses a non-identity imposition for printed pages with its reme
   const page = Page.parse({
     html: '<p>Flow</p>',
     print: { paper: 'letter' },
-    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
   })
   const render = renderPagesPdf(
     [page],
@@ -323,7 +323,7 @@ test('identity-imposed printed pages use full page rendering while plain neighbo
   const printed = Page.parse({
     html: '<p>Flow</p>',
     print: { paper: 'letter' },
-    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
   })
   const plain = Page.parse({ html: '<p>Plain</p>', size: 'fluid' })
   const calls: string[] = []

@@ -13,7 +13,6 @@ export {
   BookRunningHeadSource,
   BookSection,
   type BookSectionEntry,
-  BookSectionParents,
   BookTemplate,
   BookView,
   type BookViewInput,

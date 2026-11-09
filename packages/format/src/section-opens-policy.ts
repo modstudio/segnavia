@@ -1,7 +1,8 @@
 import type { ResolvedBookPageGeometry } from './book-page-geometry.ts'
 import { sameBookPageGeometry } from './book-page-geometry.ts'
-import type { BookOpens, BookSectionParents } from './book-section.ts'
+import type { BookOpens } from './book-section.ts'
 import type { SectionNumbering } from './folio.ts'
+import type { ParentRules } from './parent-rules.ts'
 
 export interface SectionOpensFact {
   id: string
@@ -11,7 +12,7 @@ export interface SectionOpensFact {
   flowing: boolean
   opens?: BookOpens
   numbering?: SectionNumbering
-  parents?: BookSectionParents
+  parentRules?: ParentRules
   pageGeometry?: string
   geometry?: ResolvedBookPageGeometry
 }
@@ -59,10 +60,10 @@ export function sectionOpensIssues(sections: readonly SectionOpensFact[]): Secti
         message: `Section "${name}" (${section.id}) opens with continue and sets numbering, but a continuing section has no first page to count or restart; remove numbering or use another opens value to clear this refusal.`,
       })
     }
-    if (section.parents !== undefined) {
+    if (section.parentRules !== undefined) {
       issues.push({
-        path: [...section.path, 'parents'],
-        message: `Section "${name}" (${section.id}) opens with continue and sets parents, but a continuing section has no first page to dress; remove parents or use another opens value to clear this refusal.`,
+        path: [...section.path, 'parentRules'],
+        message: `Section "${name}" (${section.id}) opens with continue and sets parentRules, but a continuing section has no first page to dress; remove parentRules or use another opens value to clear this refusal.`,
       })
     }
   }

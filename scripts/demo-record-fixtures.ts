@@ -17,7 +17,7 @@ export const recordsTableDocument: DocumentInput = {
       foot: '<footer>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></footer>',
     },
   ],
-  rules: { every: 'body' },
+  parentRules: [{ parent: 'body' }],
   templates: [
     {
       type: 'template',
@@ -58,7 +58,7 @@ export const hebrewRecordsDocument: DocumentInput = {
       foot: '<footer>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span>; מסמך <span data-slot-value="printedPage.documentNumber"></span> מתוך <span data-slot-value="printedPage.documentTotal"></span></footer>',
     },
   ],
-  rules: { every: 'body' },
+  parentRules: [{ parent: 'body' }],
   templates: [
     {
       type: 'template',

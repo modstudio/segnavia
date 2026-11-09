@@ -24,7 +24,7 @@ function printedDocument(html: string): DocumentInput {
     settings: { lang: 'he', dir: 'rtl' },
     style: { fonts: { hebrew: { faces: [{ script: 'hebrew' }] } } },
     print: { paper: 'a5' },
-    rules: { every: 'body' },
+    parentRules: [{ parent: 'body' }],
     parentPages: [{ type: 'parentPage', name: 'body', geometry: { margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } } }],
     children: [{ type: 'page', body: { html } }],
   }

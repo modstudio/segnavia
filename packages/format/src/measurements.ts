@@ -1,8 +1,8 @@
 import { z } from 'zod'
-import { BookOpens, BookSectionParents } from './book-section.ts'
+import { BookOpens } from './book-section.ts'
 import { TextDirection } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
-import { BOOK_PARENT_NAMES } from './printed-pages.ts'
+import { parentRules } from './parent-rules.ts'
 import { RecordFacts } from './record-facts.ts'
 import { Variable } from './variable.ts'
 
@@ -44,7 +44,7 @@ const PaginateFlowBase = {
   sequence: z.enum(['front', 'body']).optional(),
   runningHead: z.string().optional(),
   opens: BookOpens.optional(),
-  parents: BookSectionParents.optional(),
+  parentRules: parentRules.optional(),
   parts: z.record(z.string(), z.string()).optional(),
   numbering: SectionNumbering.optional(),
   record: RecordFacts.optional(),
@@ -62,7 +62,7 @@ export const PaginateFlow = z.discriminatedUnion('kind', [
     kind: z.literal('fixed'),
     pages: z.number(),
     role: z.enum(['fixed', 'body']).optional(),
-    pageParents: z.array(BookSectionParents).optional(),
+    pageParentRules: z.array(parentRules).optional(),
   }),
 ])
 export type PaginateFlow = z.infer<typeof PaginateFlow>
@@ -81,12 +81,6 @@ export const Measurements = z.object({
   parents: z.record(z.string(), z.object({ width: z.number(), height: z.number() })),
   geometryParents: z.record(z.string(), z.record(z.string(), z.object({ width: z.number(), height: z.number() }))).optional(),
   pageGeometries: z.record(z.string(), z.object({ width: z.number(), height: z.number() })).optional(),
-  parentNames: z.object({
-    recto: z.literal(BOOK_PARENT_NAMES.recto),
-    verso: z.literal(BOOK_PARENT_NAMES.verso),
-    opener: z.literal(BOOK_PARENT_NAMES.opener),
-    blank: z.literal(BOOK_PARENT_NAMES.blank),
-  }),
   settings: z.object({
     orphans: z.number().optional(),
     widows: z.number().optional(),

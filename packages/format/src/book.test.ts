@@ -195,7 +195,7 @@ describe('book', () => {
       kind: 'designed' as const,
       title: 'Spread',
       opens: 'verso' as const,
-      parents: { fixed: 'ornament' },
+      parentRules: [{ parent: 'ornament' }],
       pages: [{ html: '<h1>One</h1>' }, { html: '<h1>Two</h1>' }],
     }
     const book = Book.parse(
@@ -240,7 +240,7 @@ describe('book', () => {
       input({
         mode: 'paginated',
         page,
-        chapters: [{ title: 'Plate', kind: 'designed', parents: { fixed: 'missing' }, pages: [{ html: '<p>Art</p>' }] }, chapter],
+        chapters: [{ title: 'Plate', kind: 'designed', parentRules: [{ parent: 'missing' }], pages: [{ html: '<p>Art</p>' }] }, chapter],
       }),
     )
     expect(result.error?.issues[0]?.message).toContain('section Plate')
@@ -277,7 +277,7 @@ describe('book', () => {
         page,
         templates: [
           { name: 'lesson', html: '<div data-region="heading"></div><div data-region="reading-text"></div>' },
-          { name: 'lesson-alt', html: '<div data-region="heading"></div>', parents: { recto: 'ornament' } },
+          { name: 'lesson-alt', html: '<div data-region="heading"></div>', parentRules: [{ parent: 'ornament' }] },
         ],
         parentPages: [{ name: 'ornament', basedOn: 'segnavia:blank' }],
         slots: [{ key: 'school', label: 'School', type: 'text', required: true }],
@@ -370,30 +370,5 @@ describe('book', () => {
     expect(result.error?.issues[0]?.message).toContain('body.0.children.0.children.0')
     expect(result.error?.issues[0]?.message).toContain('maximum part depth of 6')
     expect(jsonSchemas()).not.toHaveProperty('book')
-  })
-
-  test('an untitled nested section uses its full path in a parent refusal', () => {
-    const result = Book.safeParse(
-      input({
-        mode: 'paginated',
-        page,
-        chapters: undefined,
-        body: [{ name: 'part', children: [{ kind: 'designed', parents: { fixed: 'missing' }, pages: [{ html: '<p>Art</p>' }] }] }],
-      }),
-    )
-    expect(result.error?.issues[0]?.message).toContain('section body.0.children.0')
-  })
-
-  test('a nested flow-width refusal reports the section full tree path', () => {
-    const result = Book.safeParse(
-      input({
-        mode: 'paginated',
-        page,
-        parentPages: [{ name: 'narrow', basedOn: 'segnavia:recto', margin: { blockStart: 10, blockEnd: 10, inlineStart: 30, inlineEnd: 10 } }],
-        chapters: undefined,
-        body: [{ name: 'part', children: [{ title: 'Nested', html: '<p>Text</p>', parents: { recto: 'narrow' } }] }],
-      }),
-    )
-    expect(result.error?.issues.find((issue) => issue.message.includes('different text widths'))?.path).toEqual(['body', 0, 'children', 0])
   })
 })

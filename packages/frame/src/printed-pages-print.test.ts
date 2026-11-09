@@ -12,7 +12,10 @@ const printed = (dir: TextDirection = 'ltr') =>
       html: '<p>flow</p>',
       dir,
       print: { paper: 'letter' },
-      printedPages: { parents: [{ name: 'body', margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 } }], rules: { every: 'body' } },
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 } }],
+        parentRules: [{ parent: 'body' }],
+      },
     }),
   )
 

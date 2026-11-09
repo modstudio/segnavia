@@ -5,6 +5,7 @@ import { bookSectionOpensFacts } from './book-section.ts'
 import { DeckShape, deckTrim } from './deck.ts'
 import { documentBookProjectionForRefinement, documentSourcePath, SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
+import { refineUnsupportedDocumentFields } from './document-field-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { refineDocumentNodes } from './document-node-refinement.ts'
@@ -18,8 +19,8 @@ import { LogicalMargin } from './margins.ts'
 import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
+import { parentRules } from './parent-rules.ts'
 import { PressGeometry, Print, pressSafeAreaIssues } from './print.ts'
-import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
@@ -59,7 +60,8 @@ export const DocumentShape = z.object({
   widows: BookShape.shape.widows.unwrap().optional(),
   fragmentation: BookShape.shape.fragmentation.unwrap().optional(),
   runningHead: BookShape.shape.runningHead.unwrap().optional(),
-  rules: PrintedPageRules.optional(),
+  parentRules: parentRules.optional(),
+  rules: z.unknown().optional(),
   children: z.array(DocumentNode),
   parentPages: z.array(ParentPageNode).default([]),
   templates: z.array(TemplateNode).default([]),
@@ -172,27 +174,12 @@ function refineDefinitions(document: DocumentShapeValue, profile: DocumentProfil
   }
 }
 
-function refineUnsupportedDocumentFields(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
-  document.conditions.forEach((condition, index) => {
-    ctx.addIssue({ code: 'custom', path: ['conditions', index], message: `condition ${condition.name} is not yet supported; remove it to clear this refusal` })
-  })
-  document.parentPages.forEach((parent, index) => {
-    if (parent.regions !== undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['parentPages', index, 'regions'],
-        message: 'parentPage field regions is not yet supported; remove it to clear this refusal',
-      })
-    }
-  })
-}
-
 function requirementPresent(document: DocumentShapeValue, requirement: string): boolean {
   if (requirement === 'title') return visibleTitle(document)
   if (requirement === 'mode') return document.mode !== undefined
   if (requirement === 'page.body') return document.children[0]?.type === 'page' && document.children[0].body !== undefined
   if (requirement === 'parentPages') return document.parentPages.length > 0
-  if (requirement === 'rules') return document.rules !== undefined
+  if (requirement === 'parentRules') return document.parentRules !== undefined
   return document.settings?.dir !== undefined
 }
 

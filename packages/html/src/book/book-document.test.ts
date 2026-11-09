@@ -93,14 +93,6 @@ describe('book document', () => {
     expect(bookDocument(withoutNumbers, { pageNumbers: { topic: '8' } }).html).toContain('<span class="segnavia-contents-page"></span>')
   })
 
-  test('inserts requested blank pages immediately before their sections', () => {
-    const result = bookDocument(parseBookFixture(input()), { blankBefore: ['section-2'] }).html
-    expect(result).toContain(
-      '</section><div class="segnavia-blank" aria-hidden="true"></div><section class="segnavia-section segnavia-chapter" id="section-2" data-segnavia-chapter="2">',
-    )
-    for (const css of ['@media print', ':where(.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}']) expect(result).toContain(css)
-    for (const attribute of ['data-segnavia-flow', 'data-segnavia-position']) expect(result).not.toContain(attribute)
-  })
   test('reports an issue when both used note kinds share a marker', () => {
     const html = '<p><span data-note="footnote">f</span><span data-note="endnote">e</span></p>'
     const result = bookDocument(parseBookFixture(input({ chapters: [chapter('One', html)], footnotes: { marker: 'arabic' }, endnotes: { marker: 'arabic' } })))

@@ -42,13 +42,13 @@ import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
 
-function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'parents' | 'numbering'>, build: BookBuild): BuiltSection {
+function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'parentRules' | 'numbering'>, build: BookBuild): BuiltSection {
   const { id } = entry
   const title = entry.title
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
   return {
     info: { id, kind: 'contents', division: 'front', title, runningHead: title, opens: entry.opens },
-    node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parents, numberingAttribs(entry.numbering))),
+    node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parentRules, numberingAttribs(entry.numbering))),
   }
 }
 
@@ -134,7 +134,7 @@ function notesSection(
   return {
     info: { id, kind: 'endnotes', division: notes.targetId === 'book' ? 'body' : notes.division, title: notes.series.title, runningHead },
     node: sectionNode('endnotes', id, [notesHeading(book, notes), ...scope, ...notes.paragraphs], build, runningHead, {
-      ...(opens ? flowAttribs(opens) : {}),
+      ...flowAttribs(opens, book.parentRules),
       ...(parts ? { 'data-segnavia-parts': JSON.stringify(parts) } : {}),
       ...(notes.series.placement === 'chapter' && notes.chapter > 0 ? { 'data-segnavia-chapter': String(notes.chapter) } : {}),
     }),
@@ -183,18 +183,18 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     if (sectionEntry.division !== 'front') continue
     const { entry } = sectionEntry
     if (isPart(entry)) {
-      addPart(sectionEntry, build)
+      addPart(sectionEntry, build, book.parentRules)
       continue
     }
     if (isBookContents(entry)) {
-      contents = contentsSection(entry, build.build)
+      contents = contentsSection({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, build.build)
       build.sections.push(contents)
       decorateSection(sectionEntry, build)
       continue
     }
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
-      appendDesigned(entry, sectionEntry.id, 'front', book, build, sectionEntry)
+      appendDesigned({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, sectionEntry.id, 'front', book, build, sectionEntry)
       continue
     }
     if (isTemplatedSection(entry)) {
@@ -203,7 +203,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
       continue
     }
     if (!('html' in entry)) continue
-    const section = authoredSection(entry, sectionEntry.id, build.build)
+    const section = authoredSection({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, sectionEntry.id, build.build)
     build.sections.push(section)
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
@@ -220,13 +220,13 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     if (sectionEntry.division !== division) continue
     const { entry } = sectionEntry
     if (isPart(entry)) {
-      addPart(sectionEntry, build)
+      addPart(sectionEntry, build, book.parentRules)
       continue
     }
     if (isBookContents(entry)) continue
     if (isDesignedSection(entry)) {
       build.designedNumber += 1
-      appendDesigned(entry, sectionEntry.id, 'designed', book, build, sectionEntry)
+      appendDesigned({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, sectionEntry.id, 'designed', book, build, sectionEntry)
       continue
     }
     if (isTemplatedSection(entry)) {
@@ -236,7 +236,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     }
     if (!('html' in entry)) continue
     build.chapterNumber += 1
-    const section = chapterSection(entry, build.chapterNumber, sectionEntry.division, build.build)
+    const section = chapterSection({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, build.chapterNumber, sectionEntry.division, build.build)
     build.sections.push(section)
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
@@ -348,7 +348,11 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
       ? [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),
           ...(options.targets ? [targetLinks(visible)] : []),
-          element('div', { 'data-segnavia-galleys': '' }, [...templateHolders(book.templates), ...visibleRoots.map((section) => section.node), ...noteGalleys]),
+          element('div', { 'data-segnavia-galleys': '' }, [
+            ...templateHolders(book.templates.map((template) => ({ ...template, parentRules: template.parentRules ?? book.parentRules }))),
+            ...visibleRoots.map((section) => section.node),
+            ...noteGalleys,
+          ]),
         ]
       : [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),

@@ -8,7 +8,7 @@ test('lowers printed sections with their plan fields and keeps Hebrew settings',
     kind: 'printed',
     settings: { lang: 'he' },
     print: { paper: 'a4' },
-    rules: { every: 'body' },
+    parentRules: [{ parent: 'body' }],
     parentPages: [{ type: 'parentPage', name: 'body' }],
     children: [
       {

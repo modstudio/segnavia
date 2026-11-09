@@ -124,6 +124,8 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/document-brand-refusal.ts',
       'src/slide-print-document.ts',
       'src/printed-page-document.ts',
+      'src/printed-page-geometry.ts',
+      'src/printed-parent-selection.ts',
       'src/layout-settle.ts',
       'src/composer-measure.ts',
       'src/composer-dress.ts',

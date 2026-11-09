@@ -6,7 +6,19 @@ import { paginateNotes } from './paginate-notes.ts'
 import { paginateSequence } from './paginate-sequence.ts'
 import type { PaginateBlock, PaginateBookInput, PaginateBookRefusal, PaginateBookResult, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
 import { pageSetPoints, paginateVariables, resolveVariablesAcrossPages } from './paginate-variables.ts'
-import { printedPageAt, selectBookParent } from './printed-pages.ts'
+import {
+  DESIGNED_PARENT_RULES,
+  defaultParentRules,
+  FLOWING_PARENT_RULES,
+  finalParentSelections,
+  finishedPaginateResult,
+  finishedPlanParentResult,
+  finishedPlanParents,
+  initialParentSelection,
+  selectParent,
+  TEMPLATED_PARENT_RULES,
+} from './parent-selection.ts'
+import { pageFace } from './printed-pages.ts'
 
 export { paginateColumns } from './paginate-columns.ts'
 export { paginateKeeps } from './paginate-keeps.ts'
@@ -15,7 +27,11 @@ export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
 export { paginateVariables, resolveVariablesAcrossPages } from './paginate-variables.ts'
 
-export function paginateBook(input: PaginateBookInput): PaginateBookResult {
+function paginateBookWithPageFace(
+  input: PaginateBookInput,
+  faceOf: (index: number, direction: 'ltr' | 'rtl') => { face: 'recto' | 'verso'; side: 'left' | 'right' },
+  paginate: typeof paginateSequence,
+): PaginateBookResult {
   function variablesForPages(result: PaginateBookResult): PaginateBookResult {
     const declarations = input.variables.filter((variable) => variable.kind === 'text')
     const variables = resolveVariablesAcrossPages(
@@ -140,14 +156,16 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
     return { placed: forced.placed, fragments: forced.fragments, index: nextIndex + 1, pending: forced.pending }
   }
 
-  return variablesForPages(paginateSequence(input, fillPage))
+  return variablesForPages(paginate(input, fillPage, faceOf))
+}
+
+export function paginateBook(input: PaginateBookInput): PaginateBookResult {
+  return paginateBookWithPageFace(input, pageFace, paginateSequence)
 }
 
 // Ordered for embedding: each function calls only the others by name.
 export const PAGINATE_FUNCTIONS = [
   measuredExtentFits,
-  printedPageAt,
-  selectBookParent,
   paginateColumns,
   paginateNotes,
   paginateKeeps,
@@ -155,10 +173,23 @@ export const PAGINATE_FUNCTIONS = [
   pageSetPoints,
   paginateVariables,
   resolveVariablesAcrossPages,
-  paginateSequence,
-  paginateBook,
+  selectParent,
+  initialParentSelection,
+  finalParentSelections,
+  finishedPlanParents,
+  finishedPlanParentResult,
+  finishedPaginateResult,
 ]
 
+const EMBEDDED_PARENT_RULE_LISTS = [
+  ['FLOWING_PARENT_RULES', FLOWING_PARENT_RULES],
+  ['TEMPLATED_PARENT_RULES', TEMPLATED_PARENT_RULES],
+  ['DESIGNED_PARENT_RULES', DESIGNED_PARENT_RULES],
+] as const
+
 export function paginateScript(): string {
-  return `${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar paginateBook=${paginateBook.name};`
+  const defaultLists = EMBEDDED_PARENT_RULE_LISTS.map(([name, rules]) => `var ${name}=${JSON.stringify(rules)};`).join('')
+  const embeddedDefaults =
+    "function defaultParentRules(kind,role){if(kind==='fixed'&&role!=='body')return DESIGNED_PARENT_RULES;if(kind==='fixed')return TEMPLATED_PARENT_RULES;return FLOWING_PARENT_RULES;}"
+  return `${defaultLists}${embeddedDefaults}var ${defaultParentRules.name}=defaultParentRules;\nvar pageFace=${pageFace.toString()};var ${pageFace.name}=pageFace;\n${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar selectParent=${selectParent.name};var paginateSequence=${paginateSequence.toString()};var paginateBookWithPageFace=${paginateBookWithPageFace.toString()};var paginateBook=function(input){return paginateBookWithPageFace(input,pageFace,paginateSequence);};var ${paginateBook.name}=paginateBook;`
 }
