@@ -58,10 +58,11 @@ describe('book document', () => {
     expect(through).toContain('<bdi>2</bdi>')
   })
 
-  test('writes Hebrew footnote and endnote markers', () => {
+  test('writes distinct Hebrew and Arabic note markers when an endnote customizes the footnote default', () => {
     const html = '<p>A<span data-note="footnote">f</span> B<span data-note="endnote">e</span></p>'
     const result = bookDocument(parseBookFixture(input({ lang: 'he', chapters: [chapter('פרק', html)], endnotes: { marker: 'hebrew' } })))
-    expect(result.html.match(/<bdi>א<\/bdi>/g)).toHaveLength(4)
+    expect(result.html.match(/<bdi>א<\/bdi>/g)).toHaveLength(2)
+    expect(result.html.match(/<bdi>1<\/bdi>/g)).toHaveLength(2)
   })
 
   test('places footnote blocks after a paragraph, inside a list item, and shares one block for two notes', () => {

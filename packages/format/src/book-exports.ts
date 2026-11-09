@@ -53,3 +53,4 @@ export {
   type ResolvedNoteSeries,
   resolveNoteSeries,
 } from './note-series.ts'
+export { NoteMarker } from './numbering.ts'

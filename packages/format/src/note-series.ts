@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { REGION_NAME } from './book-section.ts'
-import { isHebrew, NoteMarker, type NoteMarker as NoteMarkerValue } from './numbering.ts'
+import { isHebrew, NoteMarker, type NoteMarker as NoteMarkerValue, noteMarkerDescription, noteMarkerEntries } from './numbering.ts'
 
 export const NotePlacement = z.enum(['page', 'chapter', 'part', 'book'])
 export type NotePlacement = z.infer<typeof NotePlacement>
@@ -39,7 +39,7 @@ type SeriesPresentation = Pick<
   'idStem' | 'idScope' | 'blockClass' | 'bodyClass' | 'titleClass' | 'sectionIdPrefix' | 'markerLabel' | 'markerConflictSuffixes' | 'markBlockSeries'
 >
 
-type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker'> & { marker?: NoteMarkerValue }
+type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker'> & { marker?: NoteMarkerValue; preferredMarker?: NoteMarkerValue }
 
 interface NoteSeriesSettings {
   lang?: string
@@ -52,8 +52,21 @@ function markerOrder(lang: string | undefined): NoteMarkerValue[] {
   return isHebrew(lang) ? ['hebrew', 'arabic', 'symbols', 'roman-lower'] : ['symbols', 'arabic', 'roman-lower', 'hebrew']
 }
 
-function unusedMarker(lang: string | undefined, used: Set<NoteMarkerValue>): NoteMarkerValue {
-  return markerOrder(lang).find((marker) => !used.has(marker)) ?? 'symbols'
+function sharedMarkerEntry(left: NoteMarkerValue, right: NoteMarkerValue): string | undefined {
+  const leftEntries = noteMarkerEntries(left)
+  const rightEntries = noteMarkerEntries(right)
+  if (leftEntries && rightEntries) return leftEntries.find((entry) => rightEntries.includes(entry))
+  if (!leftEntries && !rightEntries && left === right) return left as string
+  return undefined
+}
+
+function defaultMarkerOrder(preferred: NoteMarkerValue | undefined, lang: string | undefined): NoteMarkerValue[] {
+  const order = markerOrder(lang)
+  return preferred === undefined ? order : [preferred, ...order.filter((marker) => marker !== preferred)]
+}
+
+function unusedMarker(preferred: NoteMarkerValue | undefined, lang: string | undefined, unavailable: NoteMarkerValue[]): NoteMarkerValue {
+  return defaultMarkerOrder(preferred, lang).find((marker) => unavailable.every((claimed) => sharedMarkerEntry(marker, claimed) === undefined)) ?? 'symbols'
 }
 
 function resolveCustomSeries(series: NoteSeriesInput): ResolvableNoteSeries {
@@ -106,7 +119,8 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
     name: 'footnote',
     placement: 'page',
     numbering: settings.footnotes.restart,
-    marker: settings.footnotes.marker ?? (hebrew ? 'hebrew' : 'symbols'),
+    marker: settings.footnotes.marker,
+    preferredMarker: hebrew ? 'hebrew' : 'symbols',
     title: hebrew ? 'מקורות' : 'Footnotes',
     ...footnotePresentation,
     ...declared.get('footnote'),
@@ -115,7 +129,8 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
     name: 'endnote',
     placement: settings.endnotes.placement,
     numbering: 'book',
-    marker: settings.endnotes.marker ?? 'arabic',
+    marker: settings.endnotes.marker,
+    preferredMarker: 'arabic',
     title: settings.endnotes.title ?? (hebrew ? 'הערות' : 'Notes'),
     ...endnotePresentation,
     ...declared.get('endnote'),
@@ -125,10 +140,11 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
     endnote,
     ...settings.notes.filter(({ name }) => name !== 'footnote' && name !== 'endnote').map(resolveCustomSeries),
   ]
-  const used = new Set<NoteMarkerValue>()
+  const explicitMarkers = inputs.flatMap(({ marker }) => (marker === undefined ? [] : [marker]))
+  const used: NoteMarkerValue[] = []
   return inputs.map((series) => {
-    const marker = series.marker ?? unusedMarker(settings.lang, used)
-    used.add(marker)
+    const marker = series.marker ?? unusedMarker(series.preferredMarker, settings.lang, [...used, ...explicitMarkers])
+    used.push(marker)
     return {
       name: series.name,
       placement: series.placement,
@@ -169,9 +185,13 @@ export function noteMarkerIssues(series: ResolvedNoteSeries[], used: ReadonlySet
       const a = active[left]
       const b = active[right]
       if (!a || !b) continue
-      if (a.marker !== b.marker) continue
+      const shared = sharedMarkerEntry(a.marker, b.marker)
+      if (shared === undefined) continue
       const suffix = a.markerConflictSuffixes[b.name] ?? b.markerConflictSuffixes[a.name] ?? 'used series must have different markers'
-      issues.push(`${a.markerLabel} and ${b.markerLabel} markers are both ${a.marker}; ${suffix}`)
+      const leftDescription = noteMarkerDescription(a.marker)
+      const rightDescription = noteMarkerDescription(b.marker)
+      const conflict = leftDescription === rightDescription ? `are both ${leftDescription}` : `${leftDescription} and ${rightDescription} share mark ${shared}`
+      issues.push(`${a.markerLabel} and ${b.markerLabel} markers ${conflict}; ${suffix}`)
     }
   }
   return issues

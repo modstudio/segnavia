@@ -21,10 +21,25 @@ export function divisionNumbering(
   return { frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'), body: configured.body ?? defaultPageNumbering(lang) }
 }
 
-export const NoteMarker = z.union([NumberSystem, z.literal('symbols')])
+const NoteMark = z.string().regex(/^\S{1,8}$/u, 'a note mark must be 1 to 8 characters with no whitespace')
+
+const NoteSymbols = z
+  .object({
+    symbols: z.array(NoteMark).min(1, 'a note symbol sequence must have at least one entry'),
+  })
+  .superRefine(({ symbols }, ctx) => {
+    const seen = new Set<string>()
+    symbols.forEach((symbol, index) => {
+      if (seen.has(symbol))
+        ctx.addIssue({ code: 'custom', path: ['symbols', index], message: `note symbol ${symbol} is duplicated; every entry must be distinct` })
+      seen.add(symbol)
+    })
+  })
+
+export const NoteMarker = z.union([NumberSystem, z.literal('symbols'), NoteSymbols, z.object({ mark: NoteMark })])
 export type NoteMarker = z.infer<typeof NoteMarker>
 
-const NOTE_SYMBOLS = ['*', '†', '‡', '§'] as const
+export const DEFAULT_NOTE_SYMBOLS = ['*', '§', '‖', '¶'] as const
 
 function positiveInteger(value: number): void {
   if (!Number.isInteger(value) || value < 1) throw new RangeError(`value ${value} must be a positive integer`)
@@ -99,7 +114,22 @@ export function numberingScript(): string {
 
 export function noteMarker(index: number, marker: NoteMarker): string {
   positiveInteger(index)
-  if (marker !== 'symbols') return formatNumber(index, marker)
-  const symbol = NOTE_SYMBOLS[(index - 1) % NOTE_SYMBOLS.length] as (typeof NOTE_SYMBOLS)[number]
-  return symbol.repeat(Math.ceil(index / NOTE_SYMBOLS.length))
+  if (typeof marker === 'string' && marker !== 'symbols') return formatNumber(index, marker)
+  if (typeof marker === 'object' && 'mark' in marker) return marker.mark
+  const symbols = marker === 'symbols' ? DEFAULT_NOTE_SYMBOLS : marker.symbols
+  const symbol = symbols[(index - 1) % symbols.length]
+  if (symbol === undefined) throw new Error('a note symbol sequence must have at least one entry')
+  return symbol.repeat(Math.ceil(index / symbols.length))
+}
+
+export function noteMarkerEntries(marker: NoteMarker): readonly string[] | undefined {
+  if (marker === 'symbols') return DEFAULT_NOTE_SYMBOLS
+  if (typeof marker === 'object') return 'mark' in marker ? [marker.mark] : marker.symbols
+  return undefined
+}
+
+export function noteMarkerDescription(marker: NoteMarker): string {
+  const entries = noteMarkerEntries(marker)
+  if (!entries) return marker as NumberSystem
+  return typeof marker === 'object' && 'mark' in marker ? `mark ${marker.mark}` : `symbols ${entries.join(' ')}`
 }
