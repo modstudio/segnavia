@@ -1,12 +1,16 @@
-import type { PaginatePageMarks, PaginateUnit } from './paginate-types.ts'
+import type { PaginateMark, PaginatePageMarks, PaginateUnit } from './paginate-types.ts'
 
 export function paginateMarks(placed: PaginateUnit[], carried: PaginatePageMarks): { marks: PaginatePageMarks; carried: PaginatePageMarks } {
+  function heldMark(mark: PaginateMark): PaginatePageMarks[string] {
+    const scope = mark.scope === undefined ? {} : { scope: mark.scope }
+    return { first: mark.value, last: mark.value, ...scope }
+  }
   const onPage = Object.create(null) as PaginatePageMarks
   for (const unit of placed) {
     for (const mark of unit.block.marks ?? []) {
       if (mark.line !== unit.index) continue
       const current = onPage[mark.name]
-      if (!current) onPage[mark.name] = { first: mark.value, last: mark.value }
+      if (!current) onPage[mark.name] = heldMark(mark)
       else current.last = mark.value
     }
   }

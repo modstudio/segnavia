@@ -10,7 +10,7 @@ export type PaginateLine = z.infer<typeof PaginateLine>
 export const PaginateNoteRef = z.object({ note: z.string(), line: z.number() })
 export type PaginateNoteRef = z.infer<typeof PaginateNoteRef>
 
-export const PaginateMark = z.object({ name: z.string(), value: z.string(), line: z.number() })
+export const PaginateMark = z.object({ name: z.string(), value: z.string(), line: z.number(), scope: z.literal('flow').optional() })
 export type PaginateMark = z.infer<typeof PaginateMark>
 
 export const PaginateBlock = z.object({

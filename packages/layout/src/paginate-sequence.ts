@@ -35,6 +35,10 @@ export function paginateSequence(
     return Object.create(null) as PaginatePageMarks
   }
 
+  function marksForNewFlow(carried: PaginatePageMarks): PaginatePageMarks {
+    return Object.assign(emptyMarks(), Object.fromEntries(Object.entries(carried).filter(([, mark]) => mark.scope !== 'flow')))
+  }
+
   function columnRefusal(block: PaginateBlock): PaginateBookRefusal | undefined {
     const ceiling = 12
     const count = block.columns
@@ -321,7 +325,7 @@ export function paginateSequence(
     if ('refusal' in held && held.refusal) return { refusal: held.refusal }
     if (needsOpeningBlank(openingOf(flow), physicalOffset + pages.length))
       pages.push(makeBlank(pages.length + 1, part, flow, physicalOffset + pages.length + 1))
-    const result = paginateFlow(flow, part, pages, held.continued, held.carried, physicalOffset)
+    const result = paginateFlow(flow, part, pages, held.continued, marksForNewFlow(held.carried), physicalOffset)
     if ('refusal' in result && result.refusal) return { refusal: result.refusal }
     return { continued: result.pending, carried: result.carried }
   }
