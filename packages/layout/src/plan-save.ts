@@ -141,7 +141,7 @@ function savedPage(measurements: Measurements, pages: BookPlan['pages'], page: B
 
 export function savePlan(measurements: Measurements, plan: BookPlan, numbering: BookPlanNumbering): SavedPlan {
   return {
-    version: 1,
+    version: 2,
     fingerprint: inputFingerprint(measurements, numbering),
     breaks: breaksOf(measurements),
     pages: plan.pages.map((page, pageIndex) => savedPage(measurements, plan.pages, page, pageIndex)),
@@ -262,6 +262,7 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
   return {
     ok: true,
     plan: {
+      version: 2,
       pages: saved.pages,
       folios: saved.folios,
       total: saved.total,

@@ -7,6 +7,7 @@ import type { PaginateBookPage, PaginateBookRefusal } from './paginate-types.ts'
 export type Measurements = FormatMeasurements
 
 export interface BookPlan extends BookPlanFolioResult, BookPlanDocumentNumbers {
+  version: 2
   pages: PaginateBookPage[]
 }
 
@@ -18,5 +19,5 @@ export function planBook(
   if (paginated.refusals.length > 0) return { ok: false, refusals: paginated.refusals }
   const numbered = bookPlanFolios(paginated.pages, numbering, measurements.flows)
   const documentNumbers = bookPlanDocumentNumbers(paginated.pages, numbering, measurements.flows)
-  return { ok: true, plan: { pages: paginated.pages, ...numbered, ...documentNumbers } }
+  return { ok: true, plan: { version: 2, pages: paginated.pages, ...numbered, ...documentNumbers } }
 }

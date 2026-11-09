@@ -66,7 +66,7 @@ export const PlanPage = z
 export type PlanPage = z.infer<typeof PlanPage>
 
 const PlanShape = z.object({
-  version: z.literal(1, { error: 'version must be 1; compute a new plan to clear this refusal' }),
+  version: z.literal(2, { error: 'version must be 2; compute a new plan to clear this refusal' }),
   fingerprint: z.string(),
   breaks: z.array(z.string()),
   pages: z.array(PlanPage),

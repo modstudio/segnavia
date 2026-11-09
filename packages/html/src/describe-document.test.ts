@@ -34,7 +34,7 @@ function page(number: number, face: PlanPage['face'], side: PlanPage['side'], st
 }
 
 const plan = (pages: PlanPage[]): Plan => ({
-  version: 1,
+  version: 2,
   fingerprint: 'fnv1a64:plan',
   breaks: ['chapter-two'],
   pages,

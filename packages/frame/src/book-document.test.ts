@@ -61,7 +61,7 @@ describe('bookDocument', () => {
 
   test('carries saved plans and breaks in config without closing the composer script', () => {
     const plan = {
-      version: 1 as const,
+      version: 2 as const,
       fingerprint: '</script><script>unsafe()</script>',
       breaks: ['middle'],
       pages: [],
@@ -74,7 +74,7 @@ describe('bookDocument', () => {
     }
     const html = bookDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
     expect(html).toContain('"breaks":["middle"]')
-    expect(html).toContain('"plan":{"version":1')
+    expect(html).toContain('"plan":{"version":2')
     expect(html).not.toContain('</script><script>unsafe()</script>')
     expect(html).toContain('\\u003c/script>\\u003cscript>unsafe()\\u003c/script>')
   })
