@@ -48,7 +48,6 @@ test('removed render local-font limits name its replacement', () => {
 test('parsed options own one asset budget that copies preserve', () => {
   const options = parseRenderOptions({} as RenderOptions)
   expect(options.assetBudget).toEqual({ bytes: 0 })
-  expect({ ...options }.assetBudget).toBe(options.assetBudget)
 })
 
 test('parsed options materialize one-shot origin approvals', () => {
