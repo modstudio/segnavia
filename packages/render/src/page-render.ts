@@ -1,6 +1,6 @@
 import { type FontFailure, pageDirection } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
-import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml } from '@segnavia/html'
+import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
@@ -49,7 +49,7 @@ export async function renderPagePdf(
       await awaitPrintedPageComposition(tab, page)
       const captures = await prepareBackdropRasters(tab, opts.effects)
       if (page.print) {
-        const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, pageDirection({ ...page, html: printedPageAuthorHtml(page) }))
+        const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page))
         return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
       }
       const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null

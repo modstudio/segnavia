@@ -3,7 +3,7 @@ import { BookMode, BookPage, BookShape } from './book.ts'
 import { resolveBookPageGeometry } from './book-page-geometry.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
 import { DeckShape, deckTrim } from './deck.ts'
-import { documentBookProjectionForRefinement, documentSourcePath } from './document-book-items.ts'
+import { documentBookProjectionForRefinement, documentSourcePath, SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { DocumentMetadata } from './document-metadata.ts'
@@ -315,7 +315,7 @@ export function defaultSectionContents(nodes: DocumentNodeValue[], enabled: bool
   return nodes.map((node) => {
     if (!('children' in node)) return node
     const children = defaultSectionContents(node.children, enabled)
-    if (node.type === 'section' && enabled && node.contents === undefined) return { ...node, contents: true, children }
+    if (node.type === 'section' && enabled && node.contents === undefined) return { ...node, contents: SECTION_CONTENTS_DEFAULT, children }
     return { ...node, children }
   })
 }

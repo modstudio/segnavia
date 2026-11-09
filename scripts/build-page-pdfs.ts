@@ -53,6 +53,7 @@ export async function buildPagePdfs(renderer: Renderer, output: string, site?: s
   }
   writeFileSync(path.join(output, 'pages-parent-english-overflow.json'), englishOverflow)
   writeFileSync(path.join(output, 'pages-sectioned.pdf'), await renderer.pagePdf(printedSectionDocument))
+  writeFileSync(path.join(output, 'pages-sectioned-multi.pdf'), await renderer.pagesPdf([printedSectionDocument]))
   writeFileSync(path.join(output, 'pages-parent-unsized-image.pdf'), await renderer.pagePdf(parentPageUnsizedImage, { motifs }))
   writeFileSync(path.join(output, 'pages-parent-narrow-break.pdf'), await renderer.pagePdf(parentPageNarrowBreak, { motifs }))
   let furnitureOverflow = ''

@@ -1,5 +1,5 @@
 import { type Book, type BookView, FULL_PAGE_SIZE, type PageWidths, paperPixels, resolveBookPageGeometry, resolvePageWidth, sheetMm } from '@segnavia/format'
-import type { HtmlPage } from '@segnavia/html'
+import type { HtmlPage, PrintedHtmlPage } from '@segnavia/html'
 import { resolvePlacements } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 
@@ -12,8 +12,8 @@ export function bookPlacementWidth(book: Book | BookView, pageGeometry?: string,
   return resolvePageWidth(FULL_PAGE_SIZE, pageWidths).viewportWidth
 }
 
-function resolvePlacementHtml(
-  page: HtmlPage,
+export function resolvePagePlacementHtml(
+  page: HtmlPage | PrintedHtmlPage,
   html: string,
   placements: PlacementsOptions | undefined,
   purpose: 'screen' | 'print',
@@ -33,14 +33,38 @@ export async function resolvePagePlacements(
   pageWidths?: PageWidths,
 ): Promise<HtmlPage> {
   if (!placements) return page
-  const html = await resolvePlacementHtml(page, page.html, placements, purpose, signal, pageWidths)
+  const html = await resolvePagePlacementHtml(page, page.html, placements, purpose, signal, pageWidths)
   if (!page.printedPages) return { ...page, html }
   const parents = await Promise.all(
     page.printedPages.parents.map(async (parent) => ({
       ...parent,
-      ...(parent.head === undefined ? {} : { head: await resolvePlacementHtml(page, parent.head, placements, purpose, signal, pageWidths) }),
-      ...(parent.foot === undefined ? {} : { foot: await resolvePlacementHtml(page, parent.foot, placements, purpose, signal, pageWidths) }),
+      ...(parent.head === undefined ? {} : { head: await resolvePagePlacementHtml(page, parent.head, placements, purpose, signal, pageWidths) }),
+      ...(parent.foot === undefined ? {} : { foot: await resolvePagePlacementHtml(page, parent.foot, placements, purpose, signal, pageWidths) }),
     })),
   )
   return { ...page, html, printedPages: { ...page.printedPages, parents } }
+}
+
+export async function resolvePrintedPagePlacements(
+  page: PrintedHtmlPage,
+  placements: PlacementsOptions | undefined,
+  purpose: 'screen' | 'print',
+  signal: AbortSignal,
+  pageWidths?: PageWidths,
+): Promise<PrintedHtmlPage> {
+  if (!placements) return page
+  const sections = await Promise.all(
+    page.printedPages.sections.map(async (section) => ({
+      ...section,
+      html: await resolvePagePlacementHtml(page, section.html, placements, purpose, signal, pageWidths),
+    })),
+  )
+  const parents = await Promise.all(
+    page.printedPages.parents.map(async (parent) => ({
+      ...parent,
+      ...(parent.head === undefined ? {} : { head: await resolvePagePlacementHtml(page, parent.head, placements, purpose, signal, pageWidths) }),
+      ...(parent.foot === undefined ? {} : { foot: await resolvePagePlacementHtml(page, parent.foot, placements, purpose, signal, pageWidths) }),
+    })),
+  )
+  return { ...page, printedPages: { ...page.printedPages, sections, parents } }
 }

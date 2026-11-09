@@ -1,7 +1,7 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
-import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
-import { type PreparedSlots, parseDocument, printedPageAuthorHtml, resolvePageHtml } from '@segnavia/html'
+import { expandFrameBookValue, expandFramePage, expandPrintedFramePage } from '@segnavia/frame/motifs'
+import { type PreparedSlots, parseDocument, printedPageAuthorHtml, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { parseBookPdfOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
@@ -276,19 +276,21 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagesPdf(inputs, opts = {}) {
       opts = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const pages = await Promise.all(
+        const expanded = await Promise.all(
           inputs.map(async (input) => {
             const document = parseDocument(input, { newId: opts.newId })
             const brand = await resolveRenderBrand(document, opts.brandSource, deadline.signal)
-            return resolvePageHtml(pageOrPrintedFromDocument(document, brand))
+            const page = pageOrPrintedFromDocument(document, brand)
+            return page.printedPages?.sections
+              ? expandPrintedFramePage(resolvePrintedPageHtml(page), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
+              : expandFramePage(resolvePageHtml(page), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
           }),
         )
-        const expanded = await expandFramePages(pages, opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
         const prepared = await prepareRenderedPages(expanded, opts, deadline.signal)
         const parsed = expanded.map((item) => item.page)
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const { value: pages, slots } = await filledPages(parsed, copySlots, deadline.signal)
-          const diagramScript = await resolveDiagramScript(pages.map((page) => page.html).join(''))
+          const diagramScript = await resolveDiagramScript(pages.map(printedPageAuthorHtml).join(''))
           return renderPagesPdf(
             pages,
             slots,

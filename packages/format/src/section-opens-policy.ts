@@ -21,6 +21,8 @@ export interface SectionOpensIssue {
   message: string
 }
 
+export const CONTINUE_OPENS_REMEDY = 'use another opens value to clear this refusal'
+
 function label(section: SectionOpensFact): string {
   return section.title ?? section.id
 }
@@ -36,7 +38,7 @@ export function sectionOpensIssues(sections: readonly SectionOpensFact[]): Secti
     if (!before) {
       issues.push({
         path: [...section.path, 'opens'],
-        message: `Section "${name}" (${section.id}) opens with continue but is first in its division or part; use another opens value to clear this refusal.`,
+        message: `Section "${name}" (${section.id}) opens with continue but is first in its division or part; ${CONTINUE_OPENS_REMEDY}.`,
       })
     } else if (!section.flowing || !before.flowing) {
       issues.push({

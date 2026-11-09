@@ -1,5 +1,5 @@
 import type { FontFailure, OriginApproval } from '@segnavia/format'
-import { type HtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
+import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { type FrameOptions, frameDocument, newNonce } from './bridge.ts'
 import { hasDiagram, loadDiagramScript, withDiagramScript } from './diagram-document.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
@@ -41,7 +41,7 @@ export function loadPrintedPageDocument(
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
 ): void {
-  const page = 'html' in source ? resolvePrintedPageHtml(source) : source
+  const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
   loadDiagramDocument(
     printedPageAuthorHtml(page),
     (nonce, diagramScript) => printedPageValueDocument(page, { ...options, nonce, diagramScript }),

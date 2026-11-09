@@ -12,6 +12,7 @@ import {
   assertSingleSlotCopy,
   type HtmlPage,
   hasSlotWork,
+  isPrintedHtmlPage,
   type PreparedSlots,
   type PrintedHtmlPage,
   prepareSlotCollection,
@@ -47,7 +48,7 @@ export async function filledPage(
   slots: SlotPrintOptions | undefined,
   signal?: AbortSignal,
 ): Promise<{ value: HtmlPage | PrintedHtmlPage; slots: PreparedSlots }> {
-  if (!('html' in input) && !('body' in input)) {
+  if (isPrintedHtmlPage(input)) {
     assertSingleSlotCopy(slots)
     const refusal = slotFillRefusal(input.scripts, input.slots, slots)
     if (refusal) throw refusal
@@ -69,11 +70,11 @@ export async function filledPage(
 }
 
 export async function filledPages(
-  inputs: Array<Page | HtmlPage>,
+  inputs: Array<Page | HtmlPage | PrintedHtmlPage>,
   slots: SlotPrintOptions | undefined,
   signal?: AbortSignal,
-): Promise<{ value: HtmlPage[]; slots: PreparedSlots }> {
-  const pages = inputs.map((input) => ('html' in input ? input : resolvePageHtml(input)))
+): Promise<{ value: Array<HtmlPage | PrintedHtmlPage>; slots: PreparedSlots }> {
+  const pages = inputs.map((input) => (isPrintedHtmlPage(input) || 'html' in input ? input : resolvePageHtml(input)))
   assertSingleSlotCopy(slots)
   for (const page of pages) {
     const refusal = slotFillRefusal(page.scripts, page.slots, slots)
@@ -85,7 +86,19 @@ export async function filledPages(
     signal,
   )
   refuseRequired(prepared)
-  const value = pages.some((page) => hasSlotWork(page.slots, slots)) ? pages.map((page) => ({ ...page, html: prepared.apply(page.html) })) : pages
+  const value = pages.some((page) => hasSlotWork(page.slots, slots))
+    ? pages.map((page) =>
+        isPrintedHtmlPage(page)
+          ? {
+              ...page,
+              printedPages: {
+                ...page.printedPages,
+                sections: page.printedPages.sections.map((section) => ({ ...section, html: prepared.apply(section.html) })),
+              },
+            }
+          : { ...page, html: prepared.apply(page.html) },
+      )
+    : pages
   return { value, slots: prepared }
 }
 

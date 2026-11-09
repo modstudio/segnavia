@@ -102,10 +102,12 @@ export {
   isDiagramFence,
   isGithubAlertBlock,
   type MarkdownHeading,
+  isPrintedHtmlPage,
   markdownHtml,
   markdownOutline,
   type PrintedHtmlPage,
   printedPageAuthorHtml,
+  printedPageDirection,
   resolvePageHtml,
   resolvePrintedPageHtml,
 } from './markdown.ts'

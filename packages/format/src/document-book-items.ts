@@ -4,6 +4,8 @@ import type { DocumentNode } from './document-nodes.ts'
 type Division = 'front' | 'body' | 'end'
 type Path = (string | number)[]
 
+export const SECTION_CONTENTS_DEFAULT = true
+
 export interface DocumentBookProjection {
   divisions: BookDivisions
   sourcePaths: Map<string, Path>
@@ -27,7 +29,7 @@ export function documentSectionFields(section: Extract<DocumentNode, { type: 'se
     title: section.title,
     contentsLabel: section.contentsLabel,
     subtitle: section.subtitle,
-    contents: section.contents ?? true,
+    contents: section.contents ?? SECTION_CONTENTS_DEFAULT,
     opens: section.opens,
     parents: section.parents,
     numbering: section.numbering,

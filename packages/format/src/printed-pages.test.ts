@@ -36,6 +36,15 @@ describe('Page printedPages', () => {
     expect(() => Page.parse({ ...base, printedPages: { ...base.printedPages, sections } })).toThrow('remove the body or sections to clear this refusal')
   })
 
+  test('refuses continue on the first printed section with its remedy', () => {
+    expect(() =>
+      PrintedPages.parse({
+        ...base.printedPages,
+        sections: [{ id: 'continued', opens: 'continue', html: '<p>Continued</p>' }],
+      }),
+    ).toThrow('use another opens value to clear this refusal')
+  })
+
   test.each([
     [{ ...base, print: undefined }, 'add print.paper'],
     [{ ...base, scripts: 'sandboxed' }, 'deterministic cloned content'],

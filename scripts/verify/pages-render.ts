@@ -119,6 +119,10 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     sectioned.map((text, index) => `${index + 1}:${text.replace(/\s+/g, ' ').trim()}`).join(' | '),
   )
   const imposedInfo = (file: string) => execFileSync('pdfinfo', [path.join(output, file)], { encoding: 'utf8' })
+  check(
+    'pagesPdf prints the sectioned fixture with the same paper count as pagePdf',
+    /Pages:\s+3\b/.test(imposedInfo('pages-sectioned.pdf')) && /Pages:\s+3\b/.test(imposedInfo('pages-sectioned-multi.pdf')),
+  )
   const english = parentText(output, 'english')
   const englishHead = english.filter((page) => page.includes('LETTERHEAD')).length
   const englishFeet = english.map((page, index) => page.includes(`Page ${index + 1} of 3`))

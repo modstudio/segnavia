@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { bodyHtml, isGithubAlertBlock, markdownHtml, markdownOutline, resolvePageHtml } from './markdown.ts'
+import { bodyHtml, isGithubAlertBlock, markdownHtml, markdownOutline, resolvePageHtml, resolvePrintedPageHtml } from './markdown.ts'
 import { findActiveContent } from './sanitize.ts'
 
 describe('bodyHtml', () => {
@@ -144,6 +144,15 @@ test('markdownOutline lowercases headings independently of the host locale', () 
 test('resolvePageHtml reads stored HTML and refuses markdown that skipped the content edge', () => {
   expect(() => resolvePageHtml(Page.parse({ markdown: '# Heading' }))).toThrow('pass its Document input through @segnavia/html parseDocument')
   expect(resolvePageHtml(Page.parse({ html: '<h1>Heading</h1>' })).html).toBe('<h1>Heading</h1>')
+})
+
+test('resolvePrintedPageHtml keeps the stored-HTML requirement for an implicit body', () => {
+  const page = Page.parse({
+    markdown: '# Heading',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }], rules: { every: 'body' } },
+  })
+  expect(() => resolvePrintedPageHtml(page)).toThrow('pass its Document input through @segnavia/html parseDocument')
 })
 
 test('markdownOutline preserves Hebrew and suffixes duplicate headings at every level', () => {

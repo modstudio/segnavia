@@ -3,6 +3,7 @@ import { Book, type Book as BookValue } from './book.ts'
 import { Deck, type Deck as DeckValue } from './deck.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
 import { documentBookDivisions, documentSectionFields } from './document-book-items.ts'
+import { DOCUMENT_PROFILES } from './document-profile.ts'
 import { Page, type Page as PageValue } from './page.ts'
 import type { Brand } from './style-sheet.ts'
 
@@ -101,7 +102,7 @@ function printedSections(document: DocumentValue) {
   return document.children.flatMap((node, index) => {
     if (node.type !== 'section') return []
     const flow = node.children[0]
-    if (flow?.type !== 'flow') throw new Error('a printed section needs exactly one flow child; replace its children with one flow child to clear this refusal')
+    if (flow?.type !== 'flow') throw new Error(DOCUMENT_PROFILES.printed.sectionChildren.message)
     const fields = documentSectionFields(node, ['children', index])
     return [defined({ id: fields.id, title: fields.title, opens: fields.opens, numbering: fields.numbering, html: flow.html })]
   })

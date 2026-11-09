@@ -9,7 +9,7 @@ import {
   printProperties,
   sharedImpositionPress,
 } from '@segnavia/format'
-import type { HtmlPage, PreparedSlots } from '@segnavia/html'
+import type { HtmlPage, PreparedSlots, PrintedHtmlPage } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { innerLimits, parseRenderOptions } from './options.ts'
@@ -23,7 +23,7 @@ import { slotsForDocument } from './slot-document.ts'
 export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
-  pagePdf(page: HtmlPage, slots: PreparedSlots, options: RenderOptions, inputIndex: number): Promise<PrintResult>
+  pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: RenderOptions, inputIndex: number): Promise<PrintResult>
   piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
@@ -90,7 +90,12 @@ async function composedPdf(
 }
 
 // Pages arrive parsed and filled with the slot preparation that measures their overflow.
-export async function renderPagesPdf(pages: HtmlPage[], slots: PreparedSlots, opts: PagesPdfOptions, services: PagesPdfServices): Promise<Uint8Array> {
+export async function renderPagesPdf(
+  pages: Array<HtmlPage | PrintedHtmlPage>,
+  slots: PreparedSlots,
+  opts: PagesPdfOptions,
+  services: PagesPdfServices,
+): Promise<Uint8Array> {
   opts = parseRenderOptions(opts)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {
@@ -126,7 +131,7 @@ export async function renderPagesPdf(pages: HtmlPage[], slots: PreparedSlots, op
     const overflow: NonNullable<PrintResult['overflow']>[] = []
     const parts = await Promise.all(
       pages.map(async (page, inputIndex) => {
-        if (!page.printedPages) return composedPdf([page], slots, imposition, opts, services, [inputIndex])
+        if (!page.printedPages && 'html' in page) return composedPdf([page], slots, imposition, opts, services, [inputIndex])
         const rendered = await services.pagePdf(
           page,
           slotsForDocument(slots, [[inputIndex]]),
@@ -141,5 +146,5 @@ export async function renderPagesPdf(pages: HtmlPage[], slots: PreparedSlots, op
     opts.overflow?.report?.({ entries: overflow })
     return output
   }
-  return services.finish(await composedPdf(pages, slots, imposition, opts, services), opts)
+  return services.finish(await composedPdf(pages as HtmlPage[], slots, imposition, opts, services), opts)
 }

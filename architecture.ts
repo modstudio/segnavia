@@ -134,7 +134,6 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/book-page-geometries.ts',
       'src/book-entry-resolution.ts',
       'src/motif-expansion.ts',
-      'src/printed-page-expansion.ts',
       'src/placement-resolution.ts',
       'src/page-fonts.ts',
       'src/slot-render.ts',

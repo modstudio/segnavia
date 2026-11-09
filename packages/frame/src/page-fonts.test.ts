@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import type { AppFont, FontFace, FontSource } from '@segnavia/format'
 import { Imposition, Page as PageSchema } from '@segnavia/format'
-import { fontCss, resolvePageHtml } from '@segnavia/html'
-import { expandFramePage } from './motif-expansion.ts'
+import { fontCss, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
+import { expandFramePage, expandPrintedFramePage } from './motif-expansion.ts'
 import {
   DEFAULT_NOTES_FONT_FAMILY,
   expandedPagesFontCss,
@@ -89,6 +89,41 @@ describe('expandFramePage fonts', () => {
     const expanded = await expandFramePage(resolvePageHtml(page), { source: { motif: async () => letterhead } }, signal)
     expect(expanded.fonts).toEqual([{ app: 'heading' }])
     expect(expanded.page.html).toContain('<header style="font-family: var(--segnavia-font-heading)">Head</header>')
+  })
+
+  test('reports all section and parent placements once for a printed page', async () => {
+    const page = resolvePrintedPageHtml(
+      PageSchema.parse({
+        print: { paper: 'letter' },
+        printedPages: {
+          parents: [
+            {
+              name: 'body',
+              margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+              foot: '<footer data-motif="foot"></footer>',
+            },
+          ],
+          rules: { every: 'body' },
+          sections: [
+            { id: 'one', html: '<main data-motif="one"></main>' },
+            { id: 'two', html: '<main data-motif="two"></main>' },
+          ],
+        },
+      }),
+    )
+    const reports: Array<{ placed: Array<{ key: string }> }> = []
+    await expandPrintedFramePage(
+      page,
+      {
+        source: {
+          motif: async (key) => ({ key, revision: '1', label: key, fields: [], versions: [{ lang: 'en', html: `<b>${key}</b>` }], fonts: [] }),
+        },
+        placed: (report) => reports.push(report),
+      },
+      signal,
+    )
+    expect(reports).toHaveLength(1)
+    expect(reports[0]?.placed.map((placement) => placement.key)).toEqual(['one', 'two', 'foot'])
   })
 })
 

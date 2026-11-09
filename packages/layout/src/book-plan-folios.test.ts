@@ -114,6 +114,18 @@ describe('bookPlanFolios', () => {
     ).toEqual({ folios: ['1', null, '3'], total: '3' })
   })
 
+  test('includes a trailing counted blank in the total', () => {
+    expect(
+      bookPlanFolios(
+        [
+          { sequence: 'body', flow: 'chapter', blank: false },
+          { sequence: 'body', flow: 'chapter', blank: true },
+        ],
+        { frontMatter: 'roman-lower', body: 'arabic' },
+      ),
+    ).toEqual({ folios: ['1', null], total: '2' })
+  })
+
   test('uses the last body folio as the total after front matter', () => {
     expect(
       bookPlanFolios(

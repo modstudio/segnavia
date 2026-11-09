@@ -10,14 +10,22 @@ import {
   type OriginApproval,
   type Page,
   PX_PER_MM,
-  pageDirection,
   printedFromDocument,
   type ResolvedParentPage,
   resolveLimits,
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
-import { fragmentationCss, type PrintedHtmlPage, parseDocument, printedPageAuthorHtml, printedSectionFlows, resolvePrintedPageHtml } from '@segnavia/html'
+import {
+  fragmentationCss,
+  type HtmlPage,
+  isPrintedHtmlPage,
+  type PrintedHtmlPage,
+  parseDocument,
+  printedPageDirection,
+  printedSectionFlows,
+  resolvePrintedPageHtml,
+} from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
@@ -131,7 +139,7 @@ export function printedPageDocument(input: DocumentInput, options: Parameters<ty
 }
 
 export function printedPageValueDocument(
-  source: PrintedHtmlPage | Parameters<typeof resolvePrintedPageHtml>[0],
+  source: PrintedHtmlPage | Page | HtmlPage,
   options: {
     nonce: string
     baseCss?: string
@@ -150,13 +158,13 @@ export function printedPageValueDocument(
     origins?: Iterable<OriginApproval>
   },
 ): string {
-  const page = 'body' in source || 'html' in source ? resolvePrintedPageHtml(source) : source
+  const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)
   const measured = geometry(page, resolved, paper.width, paper.height)
-  const direction = pageDirection({ ...page, html: printedPageAuthorHtml(page) })
+  const direction = printedPageDirection(page)
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
   const parents = resolved.map((parent) => {
@@ -213,7 +221,7 @@ export function printedPageValueDocument(
   const parts = sections.map((section) => pageParts(section.html))
   const implicit = sections.length === 1 && sections[0]?.implicit === true
   const flows = implicit
-    ? `<div data-segnavia-flow="printed-page" data-parent-opener="${parentNames.opener}" data-parent-recto="${parentNames.recto}" data-parent-verso="${parentNames.verso}">${parts[0]?.body ?? ''}</div>`
+    ? `<div data-segnavia-flow="${sections[0]?.id}" data-parent-opener="${parentNames.opener}" data-parent-recto="${parentNames.recto}" data-parent-verso="${parentNames.verso}">${parts[0]?.body ?? ''}</div>`
     : printedSectionFlows(
         sections.map((section, index) => ({ ...section, html: parts[index]?.body ?? '' })),
         { opener: parentNames.opener, recto: parentNames.recto, verso: parentNames.verso },
