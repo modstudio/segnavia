@@ -4,6 +4,7 @@ import { walkDocumentNodes } from './document-node-refinement.ts'
 import type { DocumentNode } from './document-nodes.ts'
 import type { HeadTemplateNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
+import { withLibraryEntries } from './library-names.ts'
 import { headTemplatePlacements } from './motif.ts'
 import { LIBRARY_VARIABLES } from './variable.ts'
 
@@ -41,7 +42,7 @@ export function refineDocumentVariables(
   },
   ctx: z.RefinementCtx,
 ): void {
-  const declared = new Set(LIBRARY_VARIABLES.map((variable) => variable.name))
+  const declared = new Set(withLibraryEntries(LIBRARY_VARIABLES, document.variables).map((variable) => variable.name))
   const authoredVariables = new Set<string>()
   document.variables.forEach((variable, index) => {
     if (authoredVariables.has(variable.name)) {
@@ -52,7 +53,6 @@ export function refineDocumentVariables(
       })
     }
     authoredVariables.add(variable.name)
-    declared.add(variable.name)
   })
   const templates = document.templates ?? []
   const referenced = [...contentHtml(document.children ?? []), ...templates.flatMap((template) => htmlValues({ ...template, type: 'template' }))].flatMap(
@@ -67,7 +67,7 @@ export function refineDocumentVariables(
     })
   }
   const slots = new Set([...templates.flatMap((template) => template.slots?.map((slot) => slot.key) ?? []), ...(document.recordSlotNames ?? [])])
-  const heads = new Set(LIBRARY_HEAD_TEMPLATES.map((template) => template.name))
+  const heads = new Set(withLibraryEntries(LIBRARY_HEAD_TEMPLATES, document.headTemplates).map((template) => template.name))
   const authoredHeads = new Set<string>()
   document.headTemplates.forEach((template, index) => {
     if (authoredHeads.has(template.name))
@@ -77,7 +77,6 @@ export function refineDocumentVariables(
         message: `head template name ${JSON.stringify(template.name)} is declared more than once; keep one declaration or rename one to clear this refusal`,
       })
     authoredHeads.add(template.name)
-    heads.add(template.name)
     template.parts.forEach((part, partIndex) => {
       if ('variable' in part && !declared.has(part.variable))
         ctx.addIssue({

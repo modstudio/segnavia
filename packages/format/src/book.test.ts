@@ -1,25 +1,32 @@
 import { describe, expect, test } from 'bun:test'
 import { identifiedBookInput } from './book-test-helper.ts'
-import { Book, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
+import { Book, BookViewPagination, isBookContents, isDesignedSection, isTemplatedSection, jsonSchemas, noteMarkerIssues, resolveBookPagination } from './index.ts'
 
 const chapter = { title: 'Chapter', html: '<p>Text</p>' }
 const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } }
 const input = (overrides: Record<string, unknown> = {}) => identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
-  test('keeps library definitions alongside authored definitions', () => {
+  test('stores only authored definitions and round-trips parsed books', () => {
     const book = Book.parse(
       input({
+        chapters: undefined,
+        body: [{ id: 'chapter', title: 'Chapter', html: '<p>Text</p>', contents: true }],
         variables: [{ name: 'topic', kind: 'text', from: 'content' }],
         headTemplates: [{ name: 'topic-head', parts: [{ variable: 'topic' }] }],
       }),
     )
-    expect(book.variables.map(({ name }) => name)).toEqual(['segnavia:section-title', 'segnavia:folio', 'segnavia:pages-total', 'topic'])
-    expect(book.headTemplates.map(({ name }) => name)).toEqual(['segnavia:running-head', 'segnavia:folio', 'topic-head'])
+    expect(book.variables.map(({ name }) => name)).toEqual(['topic'])
+    expect(book.headTemplates.map(({ name }) => name)).toEqual(['topic-head'])
+    expect(Book.parse(JSON.parse(JSON.stringify(book)))).toEqual(book)
+    expect(Book.safeParse(JSON.parse(JSON.stringify(Book.parse(input())))).success).toBeTrue()
   })
 
   test('refuses library names and undeclared head-template variables at the book edge', () => {
     expect(() => Book.parse(input({ variables: [{ name: 'segnavia:folio', kind: 'folio' }] }))).toThrow(
+      /reserved for the library; rename it without the segnavia: prefix/,
+    )
+    expect(() => Book.parse(input({ headTemplates: [{ name: 'segnavia:folio', parts: [{ variable: 'segnavia:folio' }] }] }))).toThrow(
       /reserved for the library; rename it without the segnavia: prefix/,
     )
     expect(() => Book.parse(input({ headTemplates: [{ name: 'h', parts: [{ variable: 'missing' }] }] }))).toThrow(/undeclared variable.*missing/)
@@ -202,6 +209,22 @@ describe('book', () => {
       widows: 2,
       endnotePlacement: 'book',
     })
+  })
+
+  test('resolved pagination stores declarations only and round-trips through its parser', () => {
+    const pagination = resolveBookPagination(
+      Book.parse(
+        input({
+          mode: 'paginated',
+          page,
+          variables: [{ name: 'topic', kind: 'text', from: 'content' }],
+          headTemplates: [{ name: 'topic-head', parts: [{ variable: 'topic' }] }],
+        }),
+      ),
+    )
+    expect(pagination?.variables.map(({ name }) => name)).toEqual(['topic'])
+    expect(pagination?.headTemplates.map(({ name }) => name)).toEqual(['topic-head'])
+    expect(BookViewPagination.parse(JSON.parse(JSON.stringify(pagination)))).toEqual(pagination)
   })
 
   test('a missing kind keeps a flowing section, and designed pages parse with their fields', () => {

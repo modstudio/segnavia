@@ -30,12 +30,21 @@ describe('planBook', () => {
     const folios = bookPlanFolios(paginated.pages, { frontMatter, body })
     const documentNumbers = bookPlanDocumentNumbers(paginated.pages, { frontMatter, body }, measurements.flows)
     const result = planBook(measurements, { frontMatter, body })
+    const total = direction === 'ltr' ? '1' : 'א'
     expect(result).toEqual({
       ok: true,
-      plan: { version: 5, pages: paginated.pages, ...folios, ...documentNumbers },
+      plan: {
+        version: 5,
+        pages: paginated.pages.map((page, index) => ({
+          ...page,
+          variables: { ...(expectedFolios[index] ? { 'segnavia:folio': expectedFolios[index] } : {}), 'segnavia:pages-total': total },
+        })),
+        ...folios,
+        ...documentNumbers,
+      },
     })
     expect(result.ok && result.plan.folios).toEqual([...expectedFolios])
-    expect(result.ok && result.plan.total).toBe(direction === 'ltr' ? '1' : 'א')
+    expect(result.ok && result.plan.total).toBe(total)
   })
 
   test('returns pagination refusals instead of a partial plan', () => {
@@ -68,8 +77,26 @@ describe('planBook', () => {
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
     expect(result.ok && result.plan.pages.filter((page) => page.flow === 'record').map((page) => page.variables)).toEqual([
-      { folio: '2', 'document-folio': '3', 'record-folio': '1', pages: '3', 'document-pages': '4', 'record-pages': '2' },
-      { folio: '3', 'document-folio': '4', 'record-folio': '2', pages: '3', 'document-pages': '4', 'record-pages': '2' },
+      {
+        folio: '2',
+        'document-folio': '3',
+        'record-folio': '1',
+        pages: '3',
+        'document-pages': '4',
+        'record-pages': '2',
+        'segnavia:folio': '2',
+        'segnavia:pages-total': '3',
+      },
+      {
+        folio: '3',
+        'document-folio': '4',
+        'record-folio': '2',
+        pages: '3',
+        'document-pages': '4',
+        'record-pages': '2',
+        'segnavia:folio': '3',
+        'segnavia:pages-total': '3',
+      },
     ])
   })
 
@@ -99,8 +126,8 @@ describe('planBook', () => {
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
     expect(result.ok && result.plan.pages.filter((page) => page.flow === 'record').map((page) => page.variables)).toEqual([
-      { 'record-pages': '2' },
-      { 'record-folio': '2', 'record-pages': '2' },
+      { 'record-pages': '2', 'segnavia:pages-total': '3' },
+      { 'record-folio': '2', 'record-pages': '2', 'segnavia:folio': '3', 'segnavia:pages-total': '3' },
     ])
   })
 
@@ -124,6 +151,11 @@ describe('planBook', () => {
       ],
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
-    expect(result.ok && result.plan.pages[0]?.variables).toEqual({ opening: 'First line', closing: 'Middle' })
+    expect(result.ok && result.plan.pages[0]?.variables).toEqual({
+      opening: 'First line',
+      closing: 'Middle',
+      'segnavia:folio': '1',
+      'segnavia:pages-total': '1',
+    })
   })
 })

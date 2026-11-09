@@ -3,7 +3,6 @@ import {
   HEAD_TEMPLATE_MOTIF,
   HEAD_TEMPLATE_NAME_ATTRIBUTE,
   headTemplatePlacements,
-  htmlAttribute,
   MOTIF_ATTRIBUTE,
   resolveDirection,
   SECTION_BOUNDARY_CLASS,
@@ -222,7 +221,6 @@ ${embedFunction('fillFurniture', fillFurniture)}
 var MOTIF_ATTRIBUTE=${JSON.stringify(MOTIF_ATTRIBUTE)};
 var HEAD_TEMPLATE_MOTIF=${JSON.stringify(HEAD_TEMPLATE_MOTIF)};
 var HEAD_TEMPLATE_NAME_ATTRIBUTE=${JSON.stringify(HEAD_TEMPLATE_NAME_ATTRIBUTE)};
-${embedFunction('htmlAttribute', htmlAttribute)}
 ${embedFunction('headTemplatePlacements', headTemplatePlacements)}
 ${embedFunction('fillRegion', fillRegion)}
 ${embedFunction('resolveRegionHeads', resolveRegionHeads)}

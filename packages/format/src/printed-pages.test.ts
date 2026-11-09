@@ -28,6 +28,17 @@ describe('Page printedPages', () => {
     expect(PrintedPages.safeParse({ ...base.printedPages, fragmentation: 'always' }).success).toBe(false)
   })
 
+  test('stores authored definitions and round-trips through JSON', () => {
+    const printed = PrintedPages.parse({
+      ...base.printedPages,
+      variables: [{ name: 'topic', kind: 'text', from: 'content' }],
+      headTemplates: [{ name: 'topic-head', parts: [{ variable: 'topic' }] }],
+    })
+    expect(printed.variables.map(({ name }) => name)).toEqual(['topic'])
+    expect(printed.headTemplates.map(({ name }) => name)).toEqual(['topic-head'])
+    expect(PrintedPages.parse(JSON.parse(JSON.stringify(printed)))).toEqual(printed)
+  })
+
   test('accepts sections without a page body and refuses sections together with a body', () => {
     const sections = [{ id: 'body', title: 'Body', opens: 'recto' as const, numbering: { restart: 2 }, html: '<p>Body</p>' }]
     const sectioned = Page.parse({ ...base, html: undefined, printedPages: { ...base.printedPages, sections } })

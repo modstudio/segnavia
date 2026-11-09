@@ -239,6 +239,7 @@ export {
   rangeSample,
 } from './fonts.ts'
 export { HeadTemplate, HeadTemplatePart, LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
+export { withLibraryEntries } from './library-names.ts'
 export {
   fitPage,
   type Imposed,

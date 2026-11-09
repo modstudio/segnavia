@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
+import { Book } from './book.ts'
 import { Document } from './document.ts'
+import { bookFromDocument } from './document-lowering.ts'
 
 test('parses typed variables and refuses invalid names and references with remedies', () => {
   const base = {
@@ -87,4 +89,26 @@ test('validates head template placements and parts at parse', () => {
       variables: [{ type: 'variable', name: 'record-index', kind: 'record', value: 'position' }],
     }),
   ).toThrow(/index|count/)
+})
+
+test('a document-lowered book stores authored definitions and re-parses after JSON', () => {
+  const document = Document.parse({
+    type: 'document',
+    kind: 'book',
+    title: 'Book',
+    mode: 'continuous',
+    variables: [{ type: 'variable', name: 'topic', kind: 'text', from: 'content' }],
+    headTemplates: [{ type: 'headTemplate', name: 'topic-head', parts: [{ variable: 'topic' }] }],
+    children: [
+      {
+        type: 'part',
+        name: 'body',
+        children: [{ type: 'section', title: 'Section', children: [{ type: 'flow', html: '<p data-variable="topic">Body</p>' }] }],
+      },
+    ],
+  })
+  const book = bookFromDocument(document)
+  expect(book.variables.map(({ name }) => name)).toEqual(['topic'])
+  expect(book.headTemplates.map(({ name }) => name)).toEqual(['topic-head'])
+  expect(Book.parse(JSON.parse(JSON.stringify(book)))).toEqual(book)
 })

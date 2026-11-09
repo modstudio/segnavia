@@ -6,6 +6,8 @@ import {
   type FontFailure,
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
+  LIBRARY_HEAD_TEMPLATES,
+  LIBRARY_VARIABLES,
   limitRefusalTemplate,
   type OriginApproval,
   type Page,
@@ -16,6 +18,7 @@ import {
   resolveParentPages,
   sheetMm,
   textArea,
+  withLibraryEntries,
 } from '@segnavia/format'
 import {
   fragmentationCss,
@@ -101,8 +104,8 @@ export function printedPageValueDocument(
     widows: 2,
     rectoOpenings: false,
     endnotePlacement: 'chapter',
-    variables: page.printedPages.variables,
-    headTemplates: page.printedPages.headTemplates,
+    variables: withLibraryEntries(LIBRARY_VARIABLES, page.printedPages.variables),
+    headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, page.printedPages.headTemplates),
     recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.values ?? {}])),
     pageMarker: 'data-segnavia-printed-page',
     pageAttributes: ['data-segnavia-page-view'],

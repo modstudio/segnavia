@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, bookFromDocument, computeFolios, Document, resolveDirection, StyleSheet } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, bookFromDocument, bookParentPages, computeFolios, Document, resolveDirection, StyleSheet } from '@segnavia/format'
 import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectParent, windowPageIndex } from '@segnavia/html'
 import { FLOWING_PARENT_RULES, layoutScript } from '@segnavia/layout'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
@@ -50,6 +50,21 @@ describe('bookDocument', () => {
     expect(html.match(/"font":"body"/g)).toHaveLength(1)
   })
 
+  test('joins library and authored definitions in the composer config', () => {
+    const html = bookDocument(
+      parseBookFixture({
+        ...book,
+        variables: [{ name: 'topic', kind: 'text', from: 'content' }],
+        headTemplates: [{ name: 'topic-head', parts: [{ variable: 'topic' }] }],
+      }),
+      { nonce: 'held' },
+    )
+    expect(html).toContain('"name":"segnavia:section-title"')
+    expect(html).toContain('"name":"segnavia:running-head"')
+    expect(html).toContain('"name":"topic"')
+    expect(html).toContain('"name":"topic-head"')
+  })
+
   test('carries saved plans and breaks in config without closing the composer script', () => {
     const plan = {
       version: 5 as const,
@@ -94,13 +109,14 @@ describe('bookDocument', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak}`)() as {
+    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion}`)() as {
       flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
       unmeasuredFlows: typeof unmeasuredFlows
       decideBookMeasurement: typeof decideBookMeasurement
       forcedPageBreak: typeof forcedPageBreak
+      fillRegion: (html: string, values: { heads: Record<string, string> }) => string
     }
     expect(
       embedded.flowTextArea(FLOWING_PARENT_RULES, {
@@ -115,6 +131,10 @@ describe('bookDocument', () => {
     expect(embedded.unmeasuredFlows(flows)).toEqual(['chapter-1'])
     expect(embedded.decideBookMeasurement({ hasLayout: true, flows, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
     expect(embedded.forcedPageBreak('recto')).toBe(true)
+    const parent = bookParentPages({ blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 })[0]
+    expect(embedded.fillRegion(parent?.head ?? '', { heads: { 'segnavia:running-head': '<bdi>Chapter</bdi>' } })).toBe(
+      '<div class="segnavia-running-head"><bdi>Chapter</bdi></div>',
+    )
   })
 
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {

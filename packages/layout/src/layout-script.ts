@@ -1,4 +1,4 @@
-import { fingerprintScript, folioScript, textVariableValue, variableValue } from '@segnavia/format'
+import { fingerprintScript, folioScript, LIBRARY_VARIABLES, textVariableValue, variableValue, withLibraryEntries } from '@segnavia/format'
 import { bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { bookPlanFolios } from './book-plan-folios.ts'
 import { convergeLayout } from './converge-layout.ts'
@@ -25,6 +25,9 @@ ${bookPlanDocumentNumbers.toString()}
 var bookPlanDocumentNumbers=${bookPlanDocumentNumbers.name};
 ${textVariableValue.toString()}
 ${variableValue.toString()}
+${withLibraryEntries.toString()}
+var withLibraryEntries=${withLibraryEntries.name};
+var LIBRARY_VARIABLES=${JSON.stringify(LIBRARY_VARIABLES)};
 ${numberVariableValue.toString()}
 ${pagesWithNumberVariables.toString()}
 ${planBookScript()}

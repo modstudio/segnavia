@@ -4,6 +4,7 @@ import {
   bookPageName,
   bookParentPages,
   formatNumber,
+  LIBRARY_VARIABLES,
   physicalMargins,
   pressBoxes,
   resolveDirection,
@@ -11,6 +12,7 @@ import {
   sheetMm,
   usesPressLayout,
   variableValue,
+  withLibraryEntries,
 } from '@segnavia/format'
 import type { PreparedSlots } from '@segnavia/html'
 import {
@@ -130,7 +132,7 @@ export function marginFactsFor(
     const recordTotal = owner?.section.record ? formatNumber(countedPages(owner.page, ownerEnd), system) : undefined
     const documentFolio = formatNumber(countedPages(1, page), system)
     const documentTotal = formatNumber(countedPages(1, pages), system)
-    for (const variable of variables) {
+    for (const variable of withLibraryEntries(LIBRARY_VARIABLES, variables)) {
       const value = variableValue(variable, {
         folio,
         documentFolio,

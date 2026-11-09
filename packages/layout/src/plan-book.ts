@@ -1,4 +1,12 @@
-import { type Measurements as FormatMeasurements, formatNumber, PLAN_VERSION, type Variable, variableValue } from '@segnavia/format'
+import {
+  type Measurements as FormatMeasurements,
+  formatNumber,
+  LIBRARY_VARIABLES,
+  PLAN_VERSION,
+  type Variable,
+  variableValue,
+  withLibraryEntries,
+} from '@segnavia/format'
 import { type BookPlanDocumentNumbers, bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanSection, bookPlanFolios } from './book-plan-folios.ts'
 import { paginateBook } from './paginate-book.ts'
@@ -73,10 +81,10 @@ export function planBook(
   measurements: Measurements,
   numbering: BookPlanNumbering,
 ): { ok: true; plan: BookPlan } | { ok: false; refusals: PaginateBookRefusal[] } {
-  return planBookWithVersion(measurements, numbering, PLAN_VERSION)
+  return planBookWithVersion({ ...measurements, variables: withLibraryEntries(LIBRARY_VARIABLES, measurements.variables) }, numbering, PLAN_VERSION)
 }
 
 export function planBookScript(): string {
   return `var planBookImplementation=${planBookWithVersion.toString()};
-var planBook=function(measurements,numbering){return planBookImplementation(measurements,numbering,${PLAN_VERSION});};`
+var planBook=function(measurements,numbering){return planBookImplementation({...measurements,variables:withLibraryEntries(LIBRARY_VARIABLES,measurements.variables)},numbering,${PLAN_VERSION});};`
 }

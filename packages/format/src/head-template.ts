@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Direction } from './direction.ts'
-import { hasLibraryDefaults, refineLibraryNames, withLibraryDefaults } from './library-names.ts'
+import { refineLibraryNames } from './library-names.ts'
 
 export const HeadTemplatePart = z.union([z.object({ variable: z.string().min(1) }), z.object({ record: z.string().min(1) })])
 export const HeadTemplate = z.object({
@@ -18,17 +18,7 @@ export const LIBRARY_HEAD_TEMPLATES: HeadTemplate[] = [
   HeadTemplate.parse({ name: 'segnavia:folio', parts: [{ variable: 'segnavia:folio' }] }),
 ]
 
-const DeclaredHeadTemplates = z
+export const HeadTemplates = z
   .array(HeadTemplate)
   .superRefine((templates, ctx) => refineLibraryNames('head template', templates, ctx))
-  .transform((templates) => withLibraryDefaults(LIBRARY_HEAD_TEMPLATES, templates))
-
-export const HeadTemplates = z
-  .union([
-    z
-      .any()
-      .refine((value) => Array.isArray(value) && hasLibraryDefaults(value))
-      .transform((value) => value as HeadTemplate[]),
-    DeclaredHeadTemplates,
-  ])
-  .prefault([])
+  .default([])
