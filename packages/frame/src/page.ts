@@ -12,12 +12,10 @@ import {
   resolveDocumentDayResult,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type AlertLabels, type HtmlPage, parseDocument } from '@segnavia/html'
+import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
 import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
-import { slotsForDay } from './day-slots.ts'
-import type { EstablishedPageDay } from './document-day-context.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'

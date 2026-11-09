@@ -1,4 +1,6 @@
 import {
+  type AnchorSource,
+  type AsOfDay,
   type BrandSource,
   type Deck,
   deckLimitsExceeded,
@@ -11,6 +13,7 @@ import {
   type OriginApproval,
   PageWidths,
   parseLimits,
+  type Zone,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
@@ -73,6 +76,9 @@ export interface MarksReport {
 }
 
 export interface RenderOptions {
+  moment?: number
+  anchors?: AnchorSource
+  asOf?: { zone?: Zone; report?: (days: AsOfDay[]) => void }
   newId?: () => string
   origins?: Iterable<OriginApproval>
   assets?: Assets
@@ -124,6 +130,7 @@ export interface RenderOptions {
 }
 
 export function parseRenderOptions<T extends RenderOptions>(options: T): T {
+  if (options.moment !== undefined && !Number.isFinite(options.moment)) throw new RangeError('moment must be finite epoch milliseconds.')
   if (typeof options.localFonts === 'object' && options.localFonts !== null && 'limits' in options.localFonts) {
     parseLimits({ localFonts: { limits: options.localFonts.limits } }, 'host')
   }

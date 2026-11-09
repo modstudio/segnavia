@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { AsOfDay, SlotsOptions } from '@segnavia/format'
 import { slotsForDay, slotsWithDay } from './day-slots.ts'
-import { hasSlotWork, prepareSlots } from './slot-render.ts'
+import { hasSlotWork, prepareSlots } from './slots.ts'
 
 const day: AsOfDay = { date: '2026-11-14', zone: 'America/New_York', kind: 'anchor', anchor: 'shabbos' }
 

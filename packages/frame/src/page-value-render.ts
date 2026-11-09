@@ -1,7 +1,6 @@
 import { type AsOfDay, type Page, type PageWidths, pageDirection, printProperties, type SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
+import { type HtmlPage, resolvePageHtml, slotsWithDay } from '@segnavia/html'
 import { frameStyleSheets } from './bridge.ts'
-import { slotsWithDay } from './day-slots.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'

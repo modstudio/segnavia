@@ -1,5 +1,5 @@
 import { AS_OF_CONTEXT, type AsOfDay } from '@segnavia/format'
-import { bindingPaths, bindingRoot, fill } from '@segnavia/html'
+import { bindingPaths, bindingRoot, fill } from './bindings.ts'
 import { asOfValues } from './day-slots.ts'
 
 export function hasAsOfBinding(html: string): boolean {

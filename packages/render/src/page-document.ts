@@ -17,13 +17,22 @@ import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } fro
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, expandPrintedFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError, type HtmlPage, type PrintedHtmlPage, parseDocument, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
+import {
+  type EstablishedPageDay,
+  FontCssRefusedError,
+  type HtmlPage,
+  type PrintedHtmlPage,
+  parseDocument,
+  resolvePageHtml,
+  resolvePrintedPageHtml,
+} from '@segnavia/html'
 import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
 import type { RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
+import { resolveRenderDayContexts } from './page-as-of.ts'
 import { printCss } from './page-paper.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
 
@@ -61,9 +70,12 @@ export async function prepareRenderedPage(
   const document = parseDocument(input, { newId: options.newId })
   const brand = await resolveRenderBrand(document, options.brandSource, signal)
   const page = pageOrPrintedFromDocument(document, brand)
-  return page.printedPages?.sections
-    ? prepareRenderedPrintedPageValue(page, options, motifs, signal, purpose)
-    : prepareRenderedPageValue(page, options, motifs, signal, purpose)
+  const contexts = await resolveRenderDayContexts([page], options, signal)
+  const established = contexts.pages[0] as EstablishedPageDay
+  const prepared = page.printedPages?.sections
+    ? await prepareRenderedPrintedPageValue(page, options, motifs, signal, purpose, established.day)
+    : await prepareRenderedPageValue(page, options, motifs, signal, purpose, established.day)
+  return { ...prepared, established }
 }
 
 export async function prepareRenderedPageValue(
@@ -72,9 +84,10 @@ export async function prepareRenderedPageValue(
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
+  day?: import('@segnavia/format').AsOfDay,
 ) {
   const page = resolvePageHtml(input)
-  const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
+  const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths, day)
   return preparedRender(expanded, options, signal)
 }
 
@@ -84,8 +97,9 @@ async function prepareRenderedPrintedPageValue(
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   purpose: 'screen' | 'print',
+  day?: import('@segnavia/format').AsOfDay,
 ) {
-  const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options.placements, purpose, options.pageWidths)
+  const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options.placements, purpose, options.pageWidths, day)
   return preparedRender(expanded, options, signal)
 }
 

@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test'
 import { limitRefusal } from '@segnavia/format'
-import { pagesSheetsExceeded } from './print.ts'
+import { pagesSheetsExceeded, printPages } from './print.ts'
+
+test('browser page print refuses a non-finite moment before creating output', async () => {
+  await expect(printPages([], { paper: 'letter', columns: 1, rows: 1, cell: { width: 1, height: 1 } }, { moment: Number.NaN })).rejects.toThrow(
+    'moment must be finite epoch milliseconds.',
+  )
+})
 
 test('a prepared print above the sheet limit carries the measured refusal', () => {
   expect(pagesSheetsExceeded(4, { sheets: 3 })).toEqual({

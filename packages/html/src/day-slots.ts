@@ -8,7 +8,7 @@ import {
   type SlotDeclarationInput,
   type SlotsOptions,
 } from '@segnavia/format'
-import { bindingRoot } from '@segnavia/html'
+import { bindingRoot } from './bindings.ts'
 
 const declarations: SlotDeclarationInput[] = [
   { key: AS_OF_DATE_PATH, label: 'As-of date', type: 'text' },

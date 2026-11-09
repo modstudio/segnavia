@@ -1,6 +1,5 @@
 import type { AsOfDay, OriginApproval, Page, PageWidths, SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
-import { fillAsOfBindings } from './as-of-bindings.ts'
+import { fillAsOfBindings, type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
 import { expandPrintedFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'

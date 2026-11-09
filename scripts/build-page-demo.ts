@@ -57,7 +57,21 @@ export const PAGE_DEMO_PAGES = [
   { id: 'rtl-div', file: 'page-rtl-div.json', fixture: rightToLeftDivPage },
   { id: 'fixed', file: 'page-fixed.json', fixture: fixedPage },
   { id: 'postcard', file: 'page-postcard.json', fixture: postcardPage },
+  {
+    id: 'as-of',
+    file: 'page-as-of.json',
+    fixture: {
+      type: 'document',
+      kind: 'page',
+      asOf: { kind: 'current', zone: 'UTC' },
+      size: { width: 420, height: 120 },
+      children: [{ type: 'page', body: { html: '<p style="font:24px sans-serif">Data as of <time data-slot-value="asOf.date"></time></p>' } }],
+    },
+  },
 ] as const
+
+export const AS_OF_DEMO_MOMENT = Date.parse('2026-11-14T12:00:00Z')
+export const AS_OF_DEMO_DATE = '2026-11-14'
 
 // The page demo: each page fixture as JSON, and one host page showing them all, with the in-page link frames beside them.
 export function buildPageDemo(site: string, shell: (body: string) => string): void {
