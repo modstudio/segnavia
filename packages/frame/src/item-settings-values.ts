@@ -1,4 +1,5 @@
 import type { Fill, SlotDeclaration, SlotReport, SlotState, SlotValue } from '@segnavia/format'
+import type { ItemSettingsLabels } from './item-settings-labels.ts'
 
 export type SlotWarning = 'missing' | 'overflowed' | 'shrunk'
 
@@ -12,7 +13,22 @@ export interface SlotFieldView {
   readOnly: boolean
   canOverride: boolean
   canUseSource: boolean
+  state: SlotState | undefined
   warnings: SlotWarning[]
+}
+
+const SLOT_STATE_LABEL_KEYS = {
+  filled: 'stateFilled',
+  placeholder: 'statePlaceholder',
+  unavailable: 'stateUnavailable',
+  invalid: 'stateInvalid',
+  fit: 'stateFit',
+  shrunk: 'stateShrunk',
+  overflowed: 'stateOverflowed',
+} as const satisfies Record<SlotState, string>
+
+export function slotStateLabel(state: SlotState, labels: ItemSettingsLabels): string {
+  return labels[SLOT_STATE_LABEL_KEYS[state]]
 }
 
 function layeredValue(fill: Fill | undefined, source: Fill | undefined, key: string): { value?: SlotValue; origin?: 'hand' | 'source' } {
@@ -58,6 +74,7 @@ export function slotFieldView(slot: SlotDeclaration, fill: Fill | undefined, sou
     readOnly,
     canOverride: readOnly && fill !== undefined,
     canUseSource: origin === 'hand' && sourceHasValue && fill !== undefined,
+    state: report?.slots[slot.key],
     warnings: slotWarnings(slot, report?.slots[slot.key], layered.value !== undefined),
   }
 }

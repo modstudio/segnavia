@@ -9,6 +9,13 @@ export interface ItemSettingsLabels {
   useSource: string
   chooseAsset: string
   required: string
+  stateFilled: string
+  statePlaceholder: string
+  stateUnavailable: string
+  stateInvalid: string
+  stateFit: string
+  stateShrunk: string
+  stateOverflowed: string
   missing: string
   overflowed: string
   shrunk: string
@@ -25,6 +32,13 @@ export const ENGLISH_ITEM_SETTINGS_LABELS: ItemSettingsLabels = {
   useSource: 'Use source',
   chooseAsset: 'Choose asset',
   required: 'Required',
+  stateFilled: 'Filled',
+  statePlaceholder: 'Placeholder',
+  stateUnavailable: 'Unavailable',
+  stateInvalid: 'Invalid',
+  stateFit: 'Fits',
+  stateShrunk: 'Shrunk',
+  stateOverflowed: 'Overflowed',
   missing: 'This required field is not filled.',
   overflowed: 'This value overflowed its slot.',
   shrunk: 'This value was shrunk to fit.',

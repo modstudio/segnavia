@@ -2,7 +2,7 @@ import type { Fill, SlotDeclaration, SlotValue } from '@segnavia/format'
 import { fillLabel, selectedFill } from './item-settings-fills.ts'
 import type { ItemSettingsLabels } from './item-settings-labels.ts'
 import type { ItemSettingsSectionContext } from './item-settings-section.ts'
-import { type SlotFieldView, slotFieldView } from './item-settings-values.ts'
+import { type SlotFieldView, slotFieldView, slotStateLabel } from './item-settings-values.ts'
 
 const INPUT_TYPE = { text: 'text', phone: 'tel', email: 'email', link: 'url', qr: 'url' } as const
 
@@ -87,13 +87,20 @@ function slotField(slot: SlotDeclaration, view: SlotFieldView, context: ItemSett
   const field = document.createElement('div')
   field.part.add('slot')
   field.dataset.key = slot.key
-  field.append(
-    slotCaption(view, context.labels),
-    slotControl(slot, view, context, actions),
-    slotActions(view, context.labels, actions),
-    ...slotWarnings(view, context.labels),
-  )
+  field.append(slotCaption(view, context.labels), slotControl(slot, view, context, actions), slotActions(view, context.labels, actions))
+  const state = slotState(view, context.labels)
+  if (state) field.append(state)
+  field.append(...slotWarnings(view, context.labels))
   return field
+}
+
+function slotState(view: SlotFieldView, labels: ItemSettingsLabels): HTMLParagraphElement | undefined {
+  if (view.state === undefined) return undefined
+  const state = document.createElement('p')
+  state.part.add('state')
+  state.dataset.state = view.state
+  state.append(isolated(slotStateLabel(view.state, labels)))
+  return state
 }
 
 function slotCaption(view: SlotFieldView, labels: ItemSettingsLabels): HTMLSpanElement {

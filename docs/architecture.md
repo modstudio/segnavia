@@ -1162,8 +1162,10 @@ input per declaration: text, phone (`tel`), email, link and qr (`url`), and
 image (a file input that reads a data URL, plus Choose asset when `pickAsset`
 is supplied). A value whose `report.origins[key]` is `source` is read-only
 with Override; Override stores a hand value, and Use source clears it.
-Required slots carry a marker and `aria-required`. Warnings come from
-`report.slots`: missing (required and not filled), overflowed and shrunk.
+Required slots carry a marker and `aria-required`. Each reported slot shows a
+readable state label with `part="state"` and its state in `data-state` for host
+styling. Warnings remain separate and come from `report.slots`: missing
+(required and not filled), overflowed and shrunk.
 The element resolves direction from `dir` then `lang`; each value input uses
 `dir="auto"`. `attachItemSettings` is the write seam, as `movePage` is for
 documents. React exports `ItemSettings` and `useItemSettings`.

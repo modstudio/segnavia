@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import type { Fill, SlotDeclaration, SlotReport } from '@segnavia/format'
-import { overrideValue, slotFieldView, slotWarnings } from './item-settings-values.ts'
+import type { Fill, SlotDeclaration, SlotReport, SlotState } from '@segnavia/format'
+import { ENGLISH_ITEM_SETTINGS_LABELS } from './item-settings-labels.ts'
+import { overrideValue, slotFieldView, slotStateLabel, slotWarnings } from './item-settings-values.ts'
 
 const name: SlotDeclaration = { key: 'name', label: 'Name', type: 'text', required: true }
 const email: SlotDeclaration = { key: 'email', label: 'Email', type: 'email', required: false }
@@ -41,5 +42,21 @@ describe('slot field view', () => {
   test('before any report, a required slot a layer supplies is not reported missing', () => {
     expect(slotFieldView(name, fill, source, undefined).warnings).toEqual([])
     expect(slotFieldView(name, fill, undefined, undefined).warnings).toEqual(['missing'])
+  })
+
+  test('maps every reported slot state to its readable label', () => {
+    const labels: Record<SlotState, string> = {
+      filled: 'Filled',
+      placeholder: 'Placeholder',
+      unavailable: 'Unavailable',
+      invalid: 'Invalid',
+      fit: 'Fits',
+      shrunk: 'Shrunk',
+      overflowed: 'Overflowed',
+    }
+    for (const state of Object.keys(labels) as SlotState[]) {
+      expect(slotFieldView(name, fill, source, { fill: 'mina', slots: { name: state }, origins: {} }).state).toBe(state)
+      expect(slotStateLabel(state, ENGLISH_ITEM_SETTINGS_LABELS)).toBe(labels[state])
+    }
   })
 })
