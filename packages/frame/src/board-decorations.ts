@@ -15,6 +15,11 @@ export class BoardDecorations {
     return this.labelNodes
   }
 
+  labelTextNode(id: string): HTMLElement | undefined {
+    const text = this.labelNodes.get(id)?.querySelector('[data-board-label-text]')
+    return text instanceof HTMLElement ? text : undefined
+  }
+
   render(board: Board, view: BoardView) {
     const sectionIds = new Set(board.sections.map((section) => section.id))
     const labelIds = new Set(board.labels.map((label) => label.id))
@@ -31,7 +36,7 @@ export class BoardDecorations {
     for (const label of board.labels) {
       const node = this.labelNodes.get(label.id) ?? this.mountLabel(label.id)
       // The positioned box keeps the surface's physical direction; only its text takes the label's own direction.
-      const text = node.firstElementChild as HTMLElement
+      const text = this.labelTextNode(label.id) as HTMLElement
       text.textContent = label.text
       text.dir = resolveDirection(undefined, undefined, label.text)
       text.style.display = label.width === undefined ? '' : 'block'
@@ -51,11 +56,11 @@ export class BoardDecorations {
 
   measureLabel(text: string, direction: Board['direction'], authoredWidth: number | undefined, viewZoom: number) {
     const node = [...this.labelNodes.values()].find((entry) => {
-      const content = entry.firstElementChild as HTMLElement | null
+      const content = entry.querySelector<HTMLElement>('[data-board-label-text]')
       return content?.textContent === text && content.dir === direction
     })
     if (!node) return undefined
-    const content = node.firstElementChild as HTMLElement
+    const content = node.querySelector<HTMLElement>('[data-board-label-text]') as HTMLElement
     const previous = { display: content.style.display, whiteSpace: content.style.whiteSpace, inlineSize: content.style.inlineSize }
     content.style.display = authoredWidth === undefined ? '' : 'block'
     content.style.whiteSpace = authoredWidth === undefined ? 'pre' : 'pre-wrap'
@@ -119,7 +124,9 @@ export class BoardDecorations {
     node.dataset.decoration = ''
     node.dataset.boardLabel = id
     node.part.add('label')
-    node.append(document.createElement('span'))
+    const text = document.createElement('span')
+    text.dataset.boardLabelText = id
+    node.append(text)
     this.labelNodes.set(id, node)
     this.mounted(node, id)
     this.insert(node)

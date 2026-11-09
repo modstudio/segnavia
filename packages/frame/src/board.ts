@@ -237,7 +237,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
       view: () => this.currentView,
       shapes: () => this.shapes,
       labelShape: (label) => this.decorations.labelShape(label, this.currentView.zoom),
-      labelNode: (id) => this.decorations.nodes.get(id),
+      labelTextNode: (id) => this.decorations.labelTextNode(id),
       document: (board) => this.documentWithBoard(board),
       setDropTarget: (id) => this.decorations.setDropTarget(id),
       local: (event) => this.gestures.local(event),

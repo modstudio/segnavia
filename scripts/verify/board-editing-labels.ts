@@ -11,6 +11,7 @@ type BoardElement = HTMLElement & {
 type DemoWindow = typeof window & {
   boardChanges: DemoChange[]
   hostBoard: DemoDocument
+  openedItem?: DemoItem
   labelSelection?: { label?: DemoLabel; labels?: DemoLabel[] }
   boardValue(target: { board: DemoDocument }): DemoBoard
   setBoardValue(target: { board: DemoDocument }, value: DemoBoard): void
@@ -241,6 +242,48 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
     return value.labels.find((entry) => entry.id === 'label-he') as DemoLabel
   })
   h.check('one undo restores the old Hebrew label text', editedUndo.text === oldHebrewText, JSON.stringify(editedUndo))
+
+  await reset()
+  await hebrew.dblclick()
+  await editor.waitFor({ state: 'visible' })
+  await h.page.keyboard.type(' בטשטוש')
+  await h.page.locator('.editing').click({ position: { x: 1, y: 1 } })
+  await waitChanges(h.page, 1)
+  const blurred = await board.evaluate((element) => {
+    const state = window as unknown as DemoWindow
+    const label = state.boardValue(element as BoardElement).labels.find((entry) => entry.id === 'label-he') as DemoLabel
+    return { label, changes: state.boardChanges.length }
+  })
+  h.check(
+    'leaving the label editor commits one text change',
+    [blurred.changes === 1, blurred.label.text === `${oldHebrewText} בטשטוש`].every(Boolean),
+    JSON.stringify(blurred),
+  )
+  await board.evaluate(() => (window as unknown as DemoWindow).boardEditing.undo())
+  await waitChanges(h.page, 2)
+  const blurredUndo = await board.evaluate((element) => {
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
+    return value.labels.find((entry) => entry.id === 'label-he') as DemoLabel
+  })
+  h.check('one undo restores text committed by blur', blurredUndo.text === oldHebrewText, JSON.stringify(blurredUndo))
+
+  await reset()
+  await hebrew.click()
+  await board.evaluate(() => {
+    const state = window as unknown as DemoWindow
+    state.openedItem = undefined
+  })
+  await page.focus()
+  await h.page.keyboard.press('Enter')
+  const focusedItem = await board.evaluate(() => ({
+    opened: (window as unknown as DemoWindow).openedItem?.id,
+    editors: document.querySelector('segnavia-board')?.shadowRoot?.querySelectorAll('[part~="label-editor"]').length,
+  }))
+  h.check(
+    'Enter on a focused item opens the item without opening the selected label editor',
+    [focusedItem.opened === 'page', focusedItem.editors === 0].every(Boolean),
+    JSON.stringify(focusedItem),
+  )
 
   await reset()
   await hebrew.click()
