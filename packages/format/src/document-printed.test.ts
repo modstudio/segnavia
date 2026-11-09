@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { printedFromDocument } from './document-lowering.ts'
 import { Document } from './document.ts'
+import { printedFromDocument } from './document-lowering.ts'
 
 test('lowers printed sections with their plan fields and keeps Hebrew settings', () => {
   const document = Document.parse({
