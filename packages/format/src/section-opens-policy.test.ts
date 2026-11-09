@@ -45,6 +45,7 @@ test('refuses continue when adjacent resolved geometries differ', () => {
     paper: { width, height: 279.4 },
     margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
     columns: { count: 1, gap: 4 },
+    parents: [],
   })
   const issues = sectionOpensIssues([
     section({ id: 'one', opens: 'any', path: ['body', 0], geometry: geometry('portrait', 215.9) }),
@@ -60,6 +61,7 @@ test('accepts differently named geometries that resolve identically', () => {
     paper: { width: 215.9, height: 279.4 },
     margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
     columns: { count: 1, gap: 4 },
+    parents: [],
   }
   expect(
     sectionOpensIssues([section({ id: 'one', opens: 'any', path: ['body', 0], geometry: base }), section({ geometry: { ...base, name: 'two' } })]),

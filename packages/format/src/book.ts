@@ -14,11 +14,11 @@ import {
 } from './book-section.ts'
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
+import { pageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
-import { pageGeometryIssues } from './document-page-geometry-policy.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Placement } from './placement.ts'
 import { PressGeometry } from './print.ts'
@@ -141,16 +141,15 @@ export const BookViewPagination = z.object({
   paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
   margin: BookPage.shape.margin,
   columnGap: z.number().nonnegative(),
-  geometries: z
-    .array(
-      z.object({
-        name: z.string().optional(),
-        paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
-        margin: BookPage.shape.margin,
-        columns: z.object({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
-        parents: z.array(ParentPage.omit({ basedOn: true }).extend({ margin: BookPage.shape.margin })),
-      }),
-    ),
+  geometries: z.array(
+    z.object({
+      name: z.string().optional(),
+      paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
+      margin: BookPage.shape.margin,
+      columns: z.object({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
+      parents: z.array(ParentPage.omit({ basedOn: true }).extend({ margin: BookPage.shape.margin })),
+    }),
+  ),
   direction: TextDirection,
   numbering: z.object({ frontMatter: NumberSystem, body: NumberSystem }),
   rectoOpenings: z.boolean(),

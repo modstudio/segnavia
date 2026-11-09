@@ -80,7 +80,11 @@ export async function setPdfPageSize(pdf: Uint8Array, size: MillimeterPageSize, 
 
 type PageSizeRemedy = string | ((index: number) => string)
 
-async function setDocumentPageSizes(document: Awaited<ReturnType<typeof loadPdf>>, sizes: readonly MillimeterPageSize[], remedy?: PageSizeRemedy): Promise<Uint8Array> {
+async function setDocumentPageSizes(
+  document: Awaited<ReturnType<typeof loadPdf>>,
+  sizes: readonly MillimeterPageSize[],
+  remedy?: PageSizeRemedy,
+): Promise<Uint8Array> {
   if (document.getPageCount() !== sizes.length) {
     throw new RenderRefusedError(
       `Chromium printed ${document.getPageCount()} pages where the plan names ${sizes.length}; compute a new plan to clear this refusal.`,

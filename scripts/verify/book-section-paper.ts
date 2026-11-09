@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { type DocumentInput, MM_PER_PT, PAPER_MM, pressBoxes, PX_PER_MM } from '@segnavia/format'
+import { type DocumentInput, MM_PER_PT, PAPER_MM, PX_PER_MM, pressBoxes } from '@segnavia/format'
 import type { ResolvePlacement } from '@segnavia/html'
 import type { Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
@@ -86,11 +86,7 @@ function fixture(hebrew: boolean): DocumentInput {
       {
         type: 'division',
         name: 'body',
-        children: [
-          section(hebrew ? 'ראשון' : 'First', 'FIRST'),
-          landscape,
-          section(hebrew ? 'שלישי' : 'Third', 'THIRD'),
-        ],
+        children: [section(hebrew ? 'ראשון' : 'First', 'FIRST'), landscape, section(hebrew ? 'שלישי' : 'Third', 'THIRD')],
       },
     ],
   }
@@ -122,11 +118,11 @@ export async function verifyBookSectionPaper(renderer: Renderer, work: string, c
     const widthsSeen: number[] = []
     const resolvePlacement: ResolvePlacement = async (_placement, context) => {
       if (context.width !== undefined) widthsSeen.push(context.width)
-        return {
-          kind: 'media' as const,
-          media: { format: 'png' as const, size: { width: 1, height: 1 } },
-          src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
-        }
+      return {
+        kind: 'media' as const,
+        media: { format: 'png' as const, size: { width: 1, height: 1 } },
+        src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      }
     }
     const placements = { resolve: resolvePlacement }
     const plan = await renderer.bookPlan(input, { css: 'body{font:14px/20px serif}p{margin:0 0 3mm}', newId: fixtureIds(), placements })

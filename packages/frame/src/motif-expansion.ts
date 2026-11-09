@@ -135,7 +135,14 @@ function entryShape(entry: BookItem): { entry: BookItem; fields: BookHtmlField[]
     const copy = { ...entry }
     return {
       entry: copy,
-      fields: [{ html: copy.html as string, furniture: false, ...('pageGeometry' in copy ? { pageGeometry: copy.pageGeometry } : {}), replace: (html) => (copy.html = html) }],
+      fields: [
+        {
+          html: copy.html as string,
+          furniture: false,
+          ...('pageGeometry' in copy ? { pageGeometry: copy.pageGeometry } : {}),
+          replace: (html) => (copy.html = html),
+        },
+      ],
     }
   }
   return { entry, fields: [] }
