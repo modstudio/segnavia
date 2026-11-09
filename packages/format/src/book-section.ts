@@ -4,7 +4,9 @@ import { Direction } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
+import { RecordFacts, RecordValues } from './record-facts.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
+import { Slots } from './slots.ts'
 
 export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
@@ -36,6 +38,7 @@ export const BookTemplate = z.object({
   name: z.string().min(1),
   html: z.string(),
   parents: BookSectionParents.optional(),
+  slots: Slots.optional(),
 })
 export type BookTemplate = z.infer<typeof BookTemplate>
 
@@ -57,6 +60,9 @@ const sectionFields = {
   pageGeometry: z.string().optional(),
   lang: z.string().optional(),
   dir: Direction.optional(),
+  values: RecordValues.optional(),
+  record: RecordFacts.optional(),
+  recordTemplate: z.object({ name: z.string(), slots: Slots }).optional(),
 }
 
 const partFields = {

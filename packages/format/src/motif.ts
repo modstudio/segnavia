@@ -5,8 +5,13 @@ import { SlotKey } from './slots.ts'
 
 export const MOTIF_ATTRIBUTE = 'data-motif'
 export const PRINTED_PAGE_CONTEXT = 'printedPage'
+export const RECORD_CONTEXT = 'record'
 export const PRINTED_PAGE_NUMBER_PATH = `${PRINTED_PAGE_CONTEXT}.number`
 export const PRINTED_PAGE_TOTAL_PATH = `${PRINTED_PAGE_CONTEXT}.total`
+export const PRINTED_PAGE_DOCUMENT_NUMBER_PATH = `${PRINTED_PAGE_CONTEXT}.documentNumber`
+export const PRINTED_PAGE_DOCUMENT_TOTAL_PATH = `${PRINTED_PAGE_CONTEXT}.documentTotal`
+export const RECORD_INDEX_PATH = `${RECORD_CONTEXT}.index`
+export const RECORD_COUNT_PATH = `${RECORD_CONTEXT}.count`
 export const PRINTED_PAGE_FOLIO_PATH = `${PRINTED_PAGE_CONTEXT}.folio`
 export const PRINTED_PAGE_RUNNING_HEAD_PATH = `${PRINTED_PAGE_CONTEXT}.runningHead`
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'

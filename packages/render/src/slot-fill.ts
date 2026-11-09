@@ -10,6 +10,7 @@ import {
 } from '@segnavia/format'
 import {
   assertSingleSlotCopy,
+  bindRecordValues,
   type HtmlPage,
   hasSlotWork,
   isPrintedHtmlPage,
@@ -55,7 +56,10 @@ export async function filledPage(
     const prepared = await prepareSlots(input.slots, slots, signal)
     refuseRequired(prepared)
     const sections = hasSlotWork(input.slots, slots)
-      ? input.printedPages.sections.map((section) => ({ ...section, html: prepared.apply(section.html) }))
+      ? input.printedPages.sections.map((section) => {
+          const bound = bindRecordValues(section)
+          return { ...bound, html: prepared.apply(bound.html) }
+        })
       : input.printedPages.sections
     return { value: { ...input, printedPages: { ...input.printedPages, sections } }, slots: prepared }
   }
@@ -105,7 +109,10 @@ export async function filledPages(
               ...page,
               printedPages: {
                 ...page.printedPages,
-                sections: page.printedPages.sections.map((section) => ({ ...section, html: prepared.apply(section.html) })),
+                sections: page.printedPages.sections.map((section) => {
+                  const bound = bindRecordValues(section)
+                  return { ...bound, html: prepared.apply(bound.html) }
+                }),
               },
             }
           : { ...page, html: prepared.apply(page.html) }
@@ -151,7 +158,10 @@ function fillEntry<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T, 
       })),
     }
   }
-  if ('html' in entry) return { ...entry, html: apply(entry.html) }
+  if ('html' in entry) {
+    const bound = bindRecordValues(entry)
+    return { ...bound, html: apply(bound.html) } as T
+  }
   return entry
 }
 

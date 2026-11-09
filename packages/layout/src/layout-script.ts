@@ -1,4 +1,5 @@
 import { fingerprintScript, folioScript } from '@segnavia/format'
+import { bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { bookPlanFolios } from './book-plan-folios.ts'
 import { convergeLayout } from './converge-layout.ts'
 import { measurementsWithBreaks } from './measurement-breaks.ts'
@@ -18,6 +19,8 @@ ${planPrintedPages.toString()}
 var planPrintedPages=${planPrintedPages.name};
 ${bookPlanFolios.toString()}
 var bookPlanFolios=${bookPlanFolios.name};
+${bookPlanDocumentNumbers.toString()}
+var bookPlanDocumentNumbers=${bookPlanDocumentNumbers.name};
 ${planBook.toString()}
 var planBook=${planBook.name};
 ${convergeLayout.toString()}

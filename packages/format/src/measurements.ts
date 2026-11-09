@@ -3,6 +3,7 @@ import { BookOpens, BookSectionParents } from './book-section.ts'
 import { TextDirection } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
 import { BOOK_PARENT_NAMES } from './printed-pages.ts'
+import { RecordFacts } from './record-facts.ts'
 
 export const PaginateLine = z.object({ top: z.number(), bottom: z.number() })
 export type PaginateLine = z.infer<typeof PaginateLine>
@@ -41,6 +42,7 @@ const PaginateFlowBase = {
   parents: BookSectionParents.optional(),
   parts: z.record(z.string(), z.string()).optional(),
   numbering: SectionNumbering.optional(),
+  record: RecordFacts.optional(),
   pageGeometry: z.string().optional(),
 }
 

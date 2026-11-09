@@ -24,6 +24,7 @@ import {
 import { verifySectionedRender } from './pages-sectioned-render.ts'
 import { rasterPdf, rasterMillimeters as rasterValue } from './pdf-raster.ts'
 import { darkestNear } from './pgm.ts'
+import { verifyRecordsRender } from './records-render.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 
@@ -107,6 +108,7 @@ function verifyParentDetails(output: string, check: Check): void {
 
 export function verifyPagesRender(output: string, work: string, check: Check): void {
   verifySectionedRender(output, check)
+  verifyRecordsRender(output, check)
   const imposedInfo = (file: string) => execFileSync('pdfinfo', [path.join(output, file)], { encoding: 'utf8' })
   const english = parentText(output, 'english')
   const englishHead = english.filter((page) => page.includes('LETTERHEAD')).length

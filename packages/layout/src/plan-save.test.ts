@@ -29,7 +29,19 @@ describe('saved book plans', () => {
     expect(saved.pages[0]?.start).toEqual({ flow: 'פרק', block: 0, line: 0, id: 'שָׁלוֹם' })
     expect(SavedPlan.parse(saved)).toEqual(saved)
     const replayed = replayPlan(measurements, saved, numbering)
-    expect(replayed).toEqual({ ok: true, plan: { pages: saved.pages, folios: saved.folios, total: saved.total } })
+    expect(replayed).toEqual({
+      ok: true,
+      plan: {
+        version: 2,
+        pages: saved.pages,
+        folios: saved.folios,
+        total: saved.total,
+        documentFolios: saved.documentFolios,
+        documentTotal: saved.documentTotal,
+        recordTotals: saved.recordTotals,
+        records: saved.records,
+      },
+    })
     if (replayed.ok) expect(replayed.plan.pages).toBe(saved.pages)
   })
 
@@ -106,7 +118,7 @@ describe('saved book plans', () => {
   test('replays a plan saved with the default-page fingerprint shape', () => {
     const measurements = input({ flows: [flow('legacy', 'chapter', [block('text', 'p', 1, 1, 2, 0, { id: 'paragraph' })])] })
     const saved = SavedPlan.parse({
-      version: 1,
+      version: 2,
       fingerprint: 'fnv1a64:7e19b82bbaa191e9',
       breaks: [],
       pages: [
@@ -130,6 +142,10 @@ describe('saved book plans', () => {
       ],
       folios: ['א'],
       total: 'א',
+      documentFolios: ['א'],
+      documentTotal: 'א',
+      recordTotals: {},
+      records: {},
     })
     expect(replayPlan(measurements, saved, numbering)).toMatchObject({ ok: true })
   })

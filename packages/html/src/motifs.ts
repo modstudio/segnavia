@@ -8,6 +8,7 @@ import {
   type MotifSource,
   motifFieldAttribute,
   PRINTED_PAGE_CONTEXT,
+  RECORD_CONTEXT,
   resolveDirection,
   type Scripts,
 } from '@segnavia/format'
@@ -165,14 +166,13 @@ function needsHostData(html: string, options: ExpandMotifsOptions): boolean {
 async function fillVersion(html: string, placement: MotifPlacement, element: Element, state: ExpansionState): Promise<string | undefined> {
   const data = await state.options.source.data?.(placement, { signal: state.options.signal })
   state.options.signal.throwIfAborted()
-  if (data && new Set(state.options.deferPaths ?? []).has(PRINTED_PAGE_CONTEXT) && Object.hasOwn(data, PRINTED_PAGE_CONTEXT)) {
-    refuse(
-      state,
-      element,
-      `the reserved ${PRINTED_PAGE_CONTEXT} context because host data contains that key`,
-      `remove ${PRINTED_PAGE_CONTEXT} from MotifSource.data`,
-    )
-    return undefined
+  if (data) {
+    const deferred = new Set(state.options.deferPaths ?? [])
+    for (const context of [PRINTED_PAGE_CONTEXT, RECORD_CONTEXT]) {
+      if (!deferred.has(context) || !Object.hasOwn(data, context)) continue
+      refuse(state, element, `the reserved ${context} context because host data contains that key`, `remove ${context} from MotifSource.data`)
+      return undefined
+    }
   }
   const filled = fill(html, {
     prefix: state.options.prefix,

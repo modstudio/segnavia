@@ -22,7 +22,18 @@ function page(): PlanValue['pages'][number] {
 }
 
 function plan(): PlanValue {
-  return { version: 1, fingerprint: 'fnv1a64:0000000000000000', breaks: [], pages: [page()], folios: ['1'], total: '1' }
+  return {
+    version: 2,
+    fingerprint: 'fnv1a64:0000000000000000',
+    breaks: [],
+    pages: [page()],
+    folios: ['1'],
+    total: '1',
+    documentFolios: ['1'],
+    documentTotal: '1',
+    recordTotals: {},
+    records: {},
+  }
 }
 
 describe('Plan', () => {
@@ -32,7 +43,7 @@ describe('Plan', () => {
   })
 
   test('refuses the first invalid field with a clearing action', () => {
-    expect(() => Plan.parse({ ...plan(), version: 2 })).toThrow(/version.*compute a new plan to clear this refusal/)
+    expect(() => Plan.parse({ ...plan(), version: 1 })).toThrow(/version.*compute a new plan to clear this refusal/)
     expect(() => Plan.parse({ ...plan(), pages: [page(), { ...page(), number: 2 }] }, { limits: { pages: 1 } })).toThrow(
       /pages.*limits.pages.*clear this refusal/,
     )
@@ -43,5 +54,6 @@ describe('Plan', () => {
       /pages.0.windows.0.end.*before its start.*clear this refusal/,
     )
     expect(() => Plan.parse({ ...plan(), folios: [] })).toThrow(/folios.*pages.*compute a new plan to clear this refusal/)
+    expect(() => Plan.parse({ ...plan(), documentFolios: [] })).toThrow(/documentFolios.*pages.*compute a new plan to clear this refusal/)
   })
 })

@@ -29,7 +29,7 @@ export const DOCUMENT_NODE_SAMPLES: Record<DocumentNodeType, Sample> = {
   slide: (seed) => ({ type: 'slide', id: `slide-${seed}`, content: { kind: 'html', html: HEBREW }, notes: HEBREW }),
   placed: (seed) => ({ type: 'placed', id: `placed-${seed}`, kind: 'page', address: 'asset' }),
   contents: (seed) => ({ type: 'contents', id: `contents-${seed}`, title: 'Contents' }),
-  record: (seed) => ({ type: 'record', id: `record-${seed}`, name: 'record' }),
+  record: (seed) => ({ type: 'record', id: `record-${seed}`, template: 'body', values: { name: HEBREW } }),
   item: (seed) => ({ type: 'item', id: `item-${seed}`, kind: 'page', address: 'asset', x: 0, y: 0, width: 10 }),
   label: (seed) => ({ type: 'label', id: `label-${seed}`, text: HEBREW, x: 1, y: 2 }),
   boardSection: (seed) => ({
@@ -71,7 +71,7 @@ function base(kind: DocumentKind, seed: number): Record<string, unknown> {
         },
       ],
       parentPages: [{ type: 'parentPage', id: `base-parent-${seed}`, name: 'body', geometry: {}, head: HEBREW }],
-      templates: [{ type: 'template', id: `base-template-${seed}`, name: 'body', html: HEBREW }],
+      templates: [{ type: 'template', id: `base-template-${seed}`, name: 'body', html: HEBREW, slots: [{ key: 'name', label: 'Name', type: 'text' }] }],
       noteSeries: [{ type: 'noteSeries', id: `base-notes-${seed}`, name: 'notes' }],
     }
   if (kind === 'deck') return { ...common, title: 'Deck', children: [DOCUMENT_NODE_SAMPLES.slide(seed), DOCUMENT_NODE_SAMPLES.slide(seed + 10_000)] }

@@ -27,6 +27,7 @@ import {
   twoSidedCardPages,
   twoSidedSequenceImposition,
 } from './demo-page-fixtures.ts'
+import { hebrewRecordsDocument, recordsTableDocument } from './demo-record-fixtures.ts'
 
 function buildParentPageBrowserFixtures(site: string): void {
   writeFileSync(
@@ -54,6 +55,8 @@ export async function buildPagePdfs(renderer: Renderer, output: string, site?: s
   writeFileSync(path.join(output, 'pages-parent-english-overflow.json'), englishOverflow)
   writeFileSync(path.join(output, 'pages-sectioned.pdf'), await renderer.pagePdf(printedSectionDocument))
   writeFileSync(path.join(output, 'pages-sectioned-multi.pdf'), await renderer.pagesPdf([printedSectionDocument]))
+  writeFileSync(path.join(output, 'records-table.pdf'), await renderer.pagePdf(recordsTableDocument))
+  writeFileSync(path.join(output, 'records-hebrew.pdf'), await renderer.pagePdf(hebrewRecordsDocument))
   writeFileSync(path.join(output, 'pages-parent-unsized-image.pdf'), await renderer.pagePdf(parentPageUnsizedImage, { motifs }))
   writeFileSync(path.join(output, 'pages-parent-narrow-break.pdf'), await renderer.pagePdf(parentPageNarrowBreak, { motifs }))
   let furnitureOverflow = ''

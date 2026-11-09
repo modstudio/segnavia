@@ -141,12 +141,16 @@ function savedPage(measurements: Measurements, pages: BookPlan['pages'], page: B
 
 export function savePlan(measurements: Measurements, plan: BookPlan, numbering: BookPlanNumbering): SavedPlan {
   return {
-    version: 1,
+    version: 2,
     fingerprint: inputFingerprint(measurements, numbering),
     breaks: breaksOf(measurements),
     pages: plan.pages.map((page, pageIndex) => savedPage(measurements, plan.pages, page, pageIndex)),
     folios: plan.folios,
     total: plan.total,
+    documentFolios: plan.documentFolios,
+    documentTotal: plan.documentTotal,
+    recordTotals: plan.recordTotals,
+    records: plan.records,
   }
 }
 
@@ -255,7 +259,19 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       return fingerprintRefusal(measurements, saved, page, pageNumber, index)
     }
   }
-  return { ok: true, plan: { pages: saved.pages, folios: saved.folios, total: saved.total } }
+  return {
+    ok: true,
+    plan: {
+      version: 2,
+      pages: saved.pages,
+      folios: saved.folios,
+      total: saved.total,
+      documentFolios: saved.documentFolios,
+      documentTotal: saved.documentTotal,
+      recordTotals: saved.recordTotals,
+      records: saved.records,
+    },
+  }
 }
 
 export function savedPlanScript(): string {

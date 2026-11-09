@@ -1,6 +1,7 @@
 import type { z } from 'zod'
 import type { DocumentNode } from './document-nodes.ts'
 import { type DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { refineRecords } from './record-refinement.ts'
 
 type DocumentProfile = (typeof DOCUMENT_PROFILES)[DocumentKind]
 type Path = (string | number)[]
@@ -36,15 +37,17 @@ function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: P
   }
 }
 
-export function refineDocumentNodes(document: { kind: DocumentKind; children: DocumentNode[] }, profile: DocumentProfile, ctx: z.RefinementCtx): void {
+export function refineDocumentNodes(
+  document: Parameters<typeof refineRecords>[0] & { kind: DocumentKind },
+  profile: DocumentProfile,
+  ctx: z.RefinementCtx,
+): void {
   walk(document.children, (node, path) => {
     if (!(profile.children as readonly string[]).includes(node.type)) {
       ctx.addIssue({ code: 'custom', path: [...path, 'type'], message: profileRefusal(node.type, document.kind, profile.children) })
     }
-    if (node.type === 'record') {
-      ctx.addIssue({ code: 'custom', path, message: `record ${node.name} is not yet supported; remove it to clear this refusal` })
-    }
     if (node.type === 'page') refinePage(node, path, document.kind, profile, ctx)
     if (node.type === 'section') refineSection(node, path, profile, ctx)
   })
+  refineRecords(document, ctx)
 }

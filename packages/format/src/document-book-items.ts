@@ -1,5 +1,6 @@
 import type { BookDivisions, BookItem } from './book-section.ts'
 import type { DocumentNode } from './document-nodes.ts'
+import { type ExpandedRecordSection, recordExpansion } from './record-expansion.ts'
 
 type Division = 'front' | 'body' | 'end'
 type Path = (string | number)[]
@@ -79,6 +80,7 @@ function partItem(
   sourcePath: Path,
   bookPath: Path,
   sourcePaths: Map<string, Path>,
+  expanded: Map<Extract<DocumentNode, { type: 'record' }>, ExpandedRecordSection>,
 ): BookItem {
   return defined({
     id: nodeId(part, bookPath),
@@ -89,13 +91,27 @@ function partItem(
     opens: part.opens,
     parents: part.parents,
     runningHead: part.runningHead,
-    children: part.children.map((child, index) => bookItem(child, division, [...sourcePath, 'children', index], [...bookPath, 'children', index], sourcePaths)),
+    children: part.children.map((child, index) =>
+      bookItem(child, division, [...sourcePath, 'children', index], [...bookPath, 'children', index], sourcePaths, expanded),
+    ),
   }) as BookItem
 }
 
-function bookItem(node: DocumentNode, division: Division, sourcePath: Path, bookPath: Path, sourcePaths: Map<string, Path>): BookItem {
+function bookItem(
+  node: DocumentNode,
+  division: Division,
+  sourcePath: Path,
+  bookPath: Path,
+  sourcePaths: Map<string, Path>,
+  expanded: Map<Extract<DocumentNode, { type: 'record' }>, ExpandedRecordSection>,
+): BookItem {
   sourcePaths.set(pathKey(bookPath), sourcePath)
-  if (node.type === 'part') return partItem(node, division, sourcePath, bookPath, sourcePaths)
+  if (node.type === 'record') {
+    const section = expanded.get(node)
+    if (!section) throw new Error('record expansion was not established during lowering')
+    return { ...section, id: section.id ?? nodeId(node, bookPath), contents: false }
+  }
+  if (node.type === 'part') return partItem(node, division, sourcePath, bookPath, sourcePaths, expanded)
   if (node.type === 'section') return sectionItem(node, division, bookPath)
   if (node.type === 'contents')
     return defined({
@@ -111,11 +127,15 @@ function bookItem(node: DocumentNode, division: Division, sourcePath: Path, book
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)
 }
 
-export function documentBookProjection(document: { children: DocumentNode[] }): DocumentBookProjection {
+export function documentBookProjection(document: {
+  children: DocumentNode[]
+  templates?: Parameters<typeof recordExpansion>[0]['templates']
+}): DocumentBookProjection {
   const sourcePaths = new Map<string, Path>()
+  const expanded = recordExpansion({ children: document.children, templates: document.templates ?? [] })
   const divisions = document.children.filter((node): node is Extract<DocumentNode, { type: 'division' }> => node.type === 'division')
   if (divisions.length === 0) {
-    const body = document.children.map((node, index) => bookItem(node, 'body', ['children', index], ['body', index], sourcePaths))
+    const body = document.children.map((node, index) => bookItem(node, 'body', ['children', index], ['body', index], sourcePaths, expanded))
     return { divisions: { frontMatter: [], body, endMatter: [] }, sourcePaths }
   }
   const entries = (name: Division, key: 'frontMatter' | 'body' | 'endMatter') => {
@@ -124,7 +144,7 @@ export function documentBookProjection(document: { children: DocumentNode[] }): 
       if (node.type !== 'division' || node.name !== name) return
       node.children.forEach((child, childIndex) => {
         const index = result.length
-        result.push(bookItem(child, name, ['children', divisionIndex, 'children', childIndex], [key, index], sourcePaths))
+        result.push(bookItem(child, name, ['children', divisionIndex, 'children', childIndex], [key, index], sourcePaths, expanded))
       })
     })
     return result
@@ -135,7 +155,7 @@ export function documentBookProjection(document: { children: DocumentNode[] }): 
   }
 }
 
-export function documentBookDivisions(document: { children: DocumentNode[] }): BookDivisions {
+export function documentBookDivisions(document: { children: DocumentNode[]; templates?: Parameters<typeof recordExpansion>[0]['templates'] }): BookDivisions {
   return documentBookProjection(document).divisions
 }
 
