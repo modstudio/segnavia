@@ -58,7 +58,7 @@ export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> 
   label: model(LabelNode),
   boardSection: boardSectionModel(),
   parentPage: model(ParentPageNode, ['head', 'foot', 'regions'], 'parentPages'),
-  template: model(TemplateNode, ['html'], 'templates'),
+  template: model(TemplateNode, ['html', 'slots'], 'templates'),
   noteSeries: model(NoteSeriesNode, [], 'noteSeries'),
   variable: model(VariableNode, [], 'variables'),
   condition: model(ConditionNode, [], 'conditions'),

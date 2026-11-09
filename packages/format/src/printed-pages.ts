@@ -61,6 +61,9 @@ export const PrintedPages = z.object({
         opens: BookOpens.optional(),
         numbering: SectionNumbering.optional(),
         html: z.string(),
+        values: z.record(z.string(), z.string()).optional(),
+        record: z.object({ index: z.number().int().positive(), count: z.number().int().positive() }).optional(),
+        recordTemplate: z.object({ name: z.string(), slots: z.array(z.object({ key: z.string() })) }).optional(),
       }),
     )
     .min(1)

@@ -41,6 +41,7 @@ const PaginateFlowBase = {
   parents: BookSectionParents.optional(),
   parts: z.record(z.string(), z.string()).optional(),
   numbering: SectionNumbering.optional(),
+  record: z.object({ index: z.number().int().positive(), count: z.number().int().positive() }).optional(),
   pageGeometry: z.string().optional(),
 }
 

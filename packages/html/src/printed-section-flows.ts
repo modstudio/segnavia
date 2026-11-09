@@ -3,14 +3,17 @@ import { continuingFlowRoots } from './book/book-continue.ts'
 import { type BuiltSection, flowAttribs, numberingAttribs } from './book/book-held.ts'
 import { element } from './book/dom.ts'
 import { parse, serialize } from './sanitize.ts'
+import { bindRecordValues } from './record-values.ts'
 
 type PrintedSection = NonNullable<PrintedPages['sections']>[number]
 
 export function printedSectionFlows(sections: readonly PrintedSection[], parents: { opener: string; recto: string; verso: string }): string {
   const built: BuiltSection[] = sections.map((section) => {
+    section = bindRecordValues(section)
     const attribs = flowAttribs(section.opens, parents, {
       ...numberingAttribs(section.numbering),
       'data-sequence': 'body',
+      ...(section.record ? { 'data-record-index': String(section.record.index), 'data-record-count': String(section.record.count) } : {}),
     })
     return {
       info: { id: section.id, kind: 'chapter', division: 'body', title: section.title, runningHead: section.title, opens: section.opens },

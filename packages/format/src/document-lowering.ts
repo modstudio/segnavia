@@ -6,6 +6,7 @@ import { documentBookDivisions, documentSectionFields } from './document-book-it
 import { DOCUMENT_PROFILES } from './document-profile.ts'
 import { Page, type Page as PageValue } from './page.ts'
 import type { Brand } from './style-sheet.ts'
+import { recordExpansion } from './record-expansion.ts'
 
 type ParsedNode = DocumentValue['children'][number]
 
@@ -99,7 +100,13 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
 }
 
 function printedSections(document: DocumentValue) {
+  const expanded = recordExpansion(document)
   return document.children.flatMap((node, index) => {
+    if (node.type === 'record') {
+      const section = expanded.get(node)
+      if (!section) throw new Error('record expansion was not established during lowering')
+      return [{ ...section, id: section.id ?? `children.${index}` }]
+    }
     if (node.type !== 'section') return []
     const flow = node.children[0]
     if (flow?.type !== 'flow') throw new Error(DOCUMENT_PROFILES.printed.sectionChildren.message)

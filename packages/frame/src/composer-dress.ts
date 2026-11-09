@@ -49,12 +49,10 @@ export function fillFurniture(
   values: FurnitureValues,
   dir: string | undefined,
   lang: string | undefined,
-  numberPath: string,
-  totalPath: string,
+  slots: Record<string, string | undefined>,
   fillMotifs: (source: string, values: FurnitureValues, dir?: string, lang?: string) => string,
 ): void {
   root.innerHTML = fillMotifs(html, values, dir, lang)
-  const slots: Record<string, string | undefined> = { [numberPath]: values.folio, [totalPath]: values.total }
   const bindings = root.querySelectorAll('[data-slot-value]')
   for (const binding of bindings) {
     const path = binding.getAttribute('data-slot-value')

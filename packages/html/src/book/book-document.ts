@@ -43,6 +43,7 @@ import { addPart, attachPendingPartHeadings, partNames } from './book-part-build
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
+import { bindRecordValues } from '../record-values.ts'
 
 function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'parents' | 'numbering'>, build: BookBuild): BuiltSection {
   const { id } = entry
@@ -55,6 +56,7 @@ function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'p
 }
 
 function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, index: number, division: BookDivision, build: BookBuild): BuiltSection {
+  chapter = bindRecordValues(chapter)
   const { id } = chapter
   const document = parse(chapter.html)
   const runningHead = chapter.runningHead ?? chapter.title
@@ -66,7 +68,16 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
       document.children,
       build,
       runningHead,
-      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index), ...languageAttribs(chapter) }, chapter.pageGeometry),
+      flowAttribs(
+        chapter.opens,
+        chapter.parents,
+        {
+          'data-segnavia-chapter': String(index),
+          ...languageAttribs(chapter),
+          ...(chapter.record ? { 'data-record-index': String(chapter.record.index), 'data-record-count': String(chapter.record.count) } : {}),
+        },
+        chapter.pageGeometry,
+      ),
     ),
   }
 }

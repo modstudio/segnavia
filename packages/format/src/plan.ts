@@ -72,6 +72,10 @@ const PlanShape = z.object({
   pages: z.array(PlanPage),
   folios: z.array(z.string().nullable()),
   total: z.string(),
+  documentFolios: z.array(z.string().nullable()),
+  documentTotal: z.string(),
+  recordTotals: z.record(z.string(), z.string()),
+  records: z.record(z.string(), z.object({ index: z.string(), count: z.string() })),
 })
 
 export interface PlanParseOptions {
@@ -94,6 +98,9 @@ function planSchema(options?: PlanParseOptions) {
         path: ['folios'],
         message: `folios has ${plan.folios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
       })
+    }
+    if (plan.documentFolios.length !== plan.pages.length) {
+      ctx.addIssue({ code: 'custom', path: ['documentFolios'], message: `documentFolios has ${plan.documentFolios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal` })
     }
   })
 }

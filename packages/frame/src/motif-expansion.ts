@@ -10,6 +10,7 @@ import {
   isTemplatedSection,
   type PageWidths,
   PRINTED_PAGE_CONTEXT,
+  RECORD_CONTEXT,
   resolveBrand,
 } from '@segnavia/format'
 import {
@@ -195,7 +196,7 @@ export function bookViewMotifRefusal(view: BookView): MotifRefusedError | undefi
 }
 
 async function expandBookHtml(field: BookHtmlField, lang: string | undefined, scripts: Book['scripts'], motifs: MotifsOptions, signal: AbortSignal) {
-  const deferred = field.furniture ? { deferPaths: [PRINTED_PAGE_CONTEXT], deferLibrary: true } : {}
+  const deferred = field.furniture ? { deferPaths: [PRINTED_PAGE_CONTEXT, RECORD_CONTEXT], deferLibrary: true } : {}
   return expandMotifs(field.html, {
     source: motifs.source,
     pins: motifs.pins,

@@ -216,7 +216,8 @@ function refineRequirements(document: DocumentShapeValue, profile: DocumentProfi
 
 function refineChildCount(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
   if (profile.childForms) {
-    const matches = profile.childForms.forms.some((form) => {
+    const recordSections = document.kind === 'printed' && document.children.length > 0 && document.children.every((node) => node.type === 'section' || node.type === 'record')
+    const matches = recordSections || profile.childForms.forms.some((form) => {
       if (document.children.some((node) => node.type !== form.node)) return false
       return 'exact' in form ? document.children.length === form.exact : document.children.length >= form.min
     })
