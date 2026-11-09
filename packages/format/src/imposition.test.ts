@@ -5,6 +5,9 @@ const parse = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({ paper: 'a4', columns: 2, rows: 2, cell: { width: 80, height: 120 }, ...overrides })
 
 describe('imposition', () => {
+  test('strips unknown imposition keys', () => {
+    expect(Imposition.parse({ paper: 'a4', columns: 1, rows: 1, cell: { width: 20, height: 20 }, unknown: true })).not.toHaveProperty('unknown')
+  })
   test('refuses the first piece whose bleed or safe differs', () => {
     expect(() => sharedImpositionPress([{ print: { bleed: 0, safe: 2 } }, { print: { bleed: 5, safe: 2 } }])).toThrow(
       'piece 2 has print.bleed 5mm but piece 1 has 0mm; pieces on one imposition share one bleed and one safe; give the pieces one print.bleed, or print them without imposition, to clear this refusal',

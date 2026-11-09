@@ -22,7 +22,7 @@ function refineRemovedPiecePress(imposition: Record<string, unknown>, ctx: z.Ref
 }
 
 export const Imposition = z
-  .looseObject({
+  .object({
     paper: Paper,
     orientation: Orientation.default('portrait'),
     unit: PaperUnit.default('mm'),
@@ -42,6 +42,8 @@ export const Imposition = z
     cornerMarks: z.boolean().default(false),
     fold: z.enum(FOLD_KINDS).optional(),
     panels: z.array(z.number().positive()).optional(),
+    bleed: z.unknown().optional(),
+    safe: z.unknown().optional(),
   })
   .superRefine((imposition, ctx) => {
     refineRemovedPiecePress(imposition, ctx)
