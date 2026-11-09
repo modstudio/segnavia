@@ -31,10 +31,11 @@ function isZone(value: string): boolean {
 export const Zone = z.string().refine(isZone, 'must be a time zone accepted by Intl.DateTimeFormat')
 export type Zone = z.infer<typeof Zone>
 
+// An absent as-of means the current day.
 export const AsOf = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('fixed'), date: CalendarDate, zone: Zone.optional() }),
   z.object({ kind: z.literal('current'), zone: Zone.optional() }),
-  z.object({ kind: z.literal('anchor'), anchor: z.string(), zone: Zone.optional() }),
+  z.object({ kind: z.literal('anchor'), anchor: z.string().min(1), zone: Zone.optional() }),
 ])
 export type AsOf = z.infer<typeof AsOf>
 

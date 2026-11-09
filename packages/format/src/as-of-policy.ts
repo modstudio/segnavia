@@ -5,7 +5,7 @@ export interface AsOfFacts {
   hostZone?: Zone
 }
 
-export type AsOfResolution = { kind: 'day'; day: AsOfDay } | { kind: 'anchor'; anchor: string; today: CalendarDate }
+export type AsOfResolution = { kind: 'day'; day: AsOfDay } | { kind: 'anchor'; anchor: string; today: CalendarDate; zone: Zone }
 
 export function calendarDate(moment: number, zone: Zone): CalendarDate {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -25,7 +25,7 @@ export function resolveAsOfDay(asOf: AsOf | undefined, facts: AsOfFacts): AsOfRe
   const zone = asOfZone(asOf, facts.hostZone)
   if (asOf?.kind === 'fixed') return { kind: 'day', day: { date: asOf.date, zone, kind: 'fixed' } }
   const today = calendarDate(facts.moment, zone)
-  if (asOf?.kind === 'anchor') return { kind: 'anchor', anchor: asOf.anchor, today }
+  if (asOf?.kind === 'anchor') return { kind: 'anchor', anchor: asOf.anchor, today, zone }
   return { kind: 'day', day: { date: today, zone, kind: 'current' } }
 }
 
