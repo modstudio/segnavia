@@ -1,15 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import { computeFolios, type DocumentInput, Page, type Page as PageValue } from '@segnavia/format'
-import { fragmentationCss, markdownHtml, resolvePageHtml } from '@segnavia/html'
+import { fragmentationCss, markdownHtml, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { expandFramePage } from './motif-expansion.ts'
 import {
   COMPOSER_SCRIPT,
   printedPageDocument as documentHtml,
-  printedPageValueDocument,
   PRINTED_PAGE_FAILURE_ATTRIBUTE,
   PrintedPagesRefusedError,
+  printedPageValueDocument,
 } from './printed-page-document.ts'
 
 const page = Page.parse({
@@ -66,7 +66,7 @@ const printedPageDocument = (page: PageValue, options: Parameters<typeof documen
 
 describe('printedPageDocument', () => {
   test('keeps the implicit single flow markup byte-identical', () => {
-    const html = printedPageValueDocument(resolvePageHtml(page), { nonce: 'held' })
+    const html = printedPageValueDocument(resolvePrintedPageHtml(page), { nonce: 'held' })
     expect(html).toContain(
       '<div data-segnavia-galleys><div data-segnavia-flow="printed-page" data-parent-opener="first" data-parent-recto="body" data-parent-verso="body"><p id="start">Body</p></div></div>',
     )
@@ -84,7 +84,7 @@ describe('printedPageDocument', () => {
         ],
       },
     })
-    const html = printedPageValueDocument(resolvePageHtml(sectioned), { nonce: 'held' })
+    const html = printedPageValueDocument(resolvePrintedPageHtml(sectioned), { nonce: 'held' })
     expect(html).toContain(
       '<div data-segnavia-flow="cover" id="cover" data-numbering-counted="false" data-sequence="body" data-opens="any" data-parent-opener="first" data-parent-recto="body" data-parent-verso="body"><h1>Cover</h1></div>',
     )
@@ -105,7 +105,7 @@ describe('printedPageDocument', () => {
         ],
       },
     })
-    const html = printedPageValueDocument(resolvePageHtml(sectioned), { nonce: 'held' })
+    const html = printedPageValueDocument(resolvePrintedPageHtml(sectioned), { nonce: 'held' })
     expect(html.match(/<div data-segnavia-flow=/g)).toHaveLength(1)
     expect(html).toContain('class="segnavia-section-boundary"')
     expect(html).toContain('data-mark="segnavia:section-title"')

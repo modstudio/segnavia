@@ -130,13 +130,11 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     english.length === 3 && englishHead === 1 && englishFeet.every(Boolean) && Boolean(englishBreaks) && keepWhole && widowsHonored,
     `pages=${english.length} head=${englishHead} feet=${englishFeet.join(',')} forced=${Boolean(englishBreaks)} keep=${keepWhole} widows=${widowCounts.join(',')}`,
   )
-
   verifyParentDetails(output, check)
   check(
     '30 labels fill one paper and a 31st label starts a second paper',
     /Pages:\s+1\b/.test(imposedInfo('pages-labels.pdf')) && /Pages:\s+2\b/.test(imposedInfo('pages-labels-31.pdf')),
   )
-
   const labelImposition = Imposition.parse(labelsImposition)
   const labelPlacements = impose(labelImposition, 30).placements
   const labelWords = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-labels.pdf'), '-'], { encoding: 'utf8' })

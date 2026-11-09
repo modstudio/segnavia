@@ -9,7 +9,7 @@ import {
   resolveLimits,
   sheetMm,
 } from '@segnavia/format'
-import type { HtmlPage } from '@segnavia/html'
+import { type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { imposedPaperDocument, type PrintablePagesOptions, type PrintablePaperBody, printablePaper } from './print-document.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
@@ -20,7 +20,7 @@ export const PRINTED_PAGE_COUNT_REFUSAL =
 
 function composedFrame(page: HtmlPage, index: number, expectedCount: number, options: PrintablePagesOptions): string {
   const viewport = paperViewport(page.print as NonNullable<HtmlPage['print']>)
-  const srcdoc = printedPageValueDocument(page, {
+  const srcdoc = printedPageValueDocument(resolvePrintedPageHtml(page), {
     nonce: options.nonce ?? newNonce(),
     css: options.css,
     only: index,
@@ -39,7 +39,7 @@ function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, dead
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', frameSandbox('refuse'))
   frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${viewport.width}px;height:${viewport.height}px;border:0;opacity:0;pointer-events:none`
-  const srcdoc = printedPageValueDocument(page, {
+  const srcdoc = printedPageValueDocument(resolvePrintedPageHtml(page), {
     nonce: options.nonce ?? newNonce(),
     css: options.css,
     measure: true,

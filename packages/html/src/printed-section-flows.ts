@@ -1,15 +1,12 @@
 import type { PrintedPages } from '@segnavia/format'
 import { continuingFlowRoots } from './book/book-continue.ts'
-import { flowAttribs, numberingAttribs, type BuiltSection } from './book/book-held.ts'
+import { type BuiltSection, flowAttribs, numberingAttribs } from './book/book-held.ts'
 import { element } from './book/dom.ts'
 import { parse, serialize } from './sanitize.ts'
 
 type PrintedSection = NonNullable<PrintedPages['sections']>[number]
 
-export function printedSectionFlows(
-  sections: readonly PrintedSection[],
-  parents: { opener: string; recto: string; verso: string },
-): string {
+export function printedSectionFlows(sections: readonly PrintedSection[], parents: { opener: string; recto: string; verso: string }): string {
   const built: BuiltSection[] = sections.map((section) => {
     const attribs = flowAttribs(section.opens, parents, {
       ...numberingAttribs(section.numbering),

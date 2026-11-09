@@ -93,6 +93,7 @@ function bodyChoices(page: { body?: PageBody; html?: string; markdown?: string }
 
 export const Page = PageShape.transform(({ html, markdown, ...page }) => ({
   ...page,
-  body: bodyChoices({ ...page, html, markdown })[0]?.body,
+  // A sectioned printed page carries no body, and resolvePageHtml refuses it in favor of the printed resolver.
+  body: bodyChoices({ ...page, html, markdown })[0]?.body as PageBody,
 }))
 export type Page = z.infer<typeof Page>

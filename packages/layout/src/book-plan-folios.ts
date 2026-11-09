@@ -41,7 +41,13 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
     }),
   )
   const folios = computed.map((folio, index) => (pages[index]?.blank ? null : (folio?.text ?? null)))
-  const bodyTotal = computed.findLast((folio, index) => pages[index]?.sequence === 'body' && folio !== null)
-  const total = bodyTotal?.text ?? computed.findLast((folio) => folio !== null)?.text ?? '0'
+  let lastCounted: string | undefined
+  let lastBody: string | undefined
+  computed.forEach((folio, index) => {
+    if (folio === null) return
+    lastCounted = folio.text
+    if (pages[index]?.sequence === 'body') lastBody = folio.text
+  })
+  const total = lastBody ?? lastCounted ?? '0'
   return { folios, total }
 }
