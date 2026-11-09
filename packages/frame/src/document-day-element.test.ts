@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Page, type SlotsOptions } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
-import { prepareShownPage } from './page-preparation.ts'
 
 class TestElement extends EventTarget {}
 Object.assign(globalThis, {
@@ -73,13 +72,12 @@ test('document resolves and reports one shared day for three equal pages', async
   expect(paints).toBe(1)
 })
 
-test('a document collection pass leaves its as-of binding for the page that writes the day', async () => {
+test('a document collection pass writes the page day before applying host slots', async () => {
   const source = Page.parse({
     html: '<p data-slot-value="name">Name</p><time data-slot-value="asOf.date">placeholder</time>',
     asOf: { kind: 'fixed', date: '2026-11-14' },
     slots: [{ key: 'name', label: 'Name', type: 'text' }],
   })
-  let context: { day: { date: string; zone: string; kind: 'fixed' }; slots: SlotsOptions } | undefined
   const documentViewer = {
     isConnected: true,
     sourceValues: [source],
@@ -97,9 +95,7 @@ test('a document collection pass leaves its as-of binding for the page that writ
     style: { removeProperty() {} },
     replaceChildren() {},
     cancelSlotPreparation: (SegnaviaDocument.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
-    paintResolved() {
-      context = this.pageDayContexts[0]
-    },
+    paintResolved() {},
     dispatchEvent() {
       return true
     },
@@ -110,17 +106,5 @@ test('a document collection pass leaves its as-of binding for the page that writ
   await new Promise((resolve) => setTimeout(resolve, 0))
   const filled = documentViewer.filledHtml?.[0]
   expect(filled).toContain('Avi')
-  expect(filled).toContain('data-slot-value="asOf.date"')
-  if (!filled || !context) throw new Error('Expected the document day context and filled page HTML.')
-  const shown = await prepareShownPage(
-    { ...resolvePageHtml(source), html: filled, slots: [] },
-    undefined,
-    context.slots,
-    undefined,
-    new AbortController().signal,
-    undefined,
-    undefined,
-    context.day,
-  )
-  expect(shown.resolved?.apply(shown.page.html)).toContain('2026-11-14')
+  expect(filled).toContain('2026-11-14')
 })

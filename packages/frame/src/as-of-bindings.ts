@@ -6,7 +6,8 @@ export function hasAsOfBinding(html: string): boolean {
   return bindingPaths(html, 'slot').some((path) => bindingRoot(path) === AS_OF_CONTEXT)
 }
 
-export function fillAsOfBindings(html: string, day: AsOfDay): string {
+export function fillAsOfBindings(html: string, day: AsOfDay | undefined): string {
+  if (!day) return html
   const roots = bindingPaths(html, 'slot')
     .map(bindingRoot)
     .filter((root) => root !== AS_OF_CONTEXT)

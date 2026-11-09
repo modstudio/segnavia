@@ -13,6 +13,7 @@ import {
   type SlotsOptions,
 } from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { fillAsOfBindings } from './as-of-bindings.ts'
 import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
@@ -261,7 +262,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
         if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
         this.resolvedSlots = resolved
         this.resolvedGeneration = generation
-        this.filledHtml = this.pageValues.map((page) => resolved.apply(page.html))
+        this.filledHtml = this.pageValues.map((page, index) => resolved.apply(fillAsOfBindings(page.html, contexts.pages[index]?.day)))
         this.paintResolved(print)
       })
       .catch((error) => {
