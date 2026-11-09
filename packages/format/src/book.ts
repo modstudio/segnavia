@@ -147,7 +147,7 @@ export const BookViewPagination = z.object({
       paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
       margin: BookPage.shape.margin,
       columns: z.object({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
-      parents: z.array(ParentPage.omit({ basedOn: true }).extend({ margin: BookPage.shape.margin })),
+      parents: z.array(ParentPage.pick({ name: true }).extend({ margin: BookPage.shape.margin })),
     }),
   ),
   direction: TextDirection,

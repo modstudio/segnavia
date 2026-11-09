@@ -1,4 +1,4 @@
-import { type BookViewPagination, bookPageName, PX_PER_MM, textArea } from '@segnavia/format'
+import { type BookViewPagination, bookPageName, PX_PER_MM, type ResolvedParentPage, resolveParentPages, textArea } from '@segnavia/format'
 
 export interface ComposerPageGeometry {
   name?: string
@@ -8,15 +8,19 @@ export interface ComposerPageGeometry {
   paperHeight: number
   columnGap: number
   columnCount: number
-  parents: Array<BookViewPagination['geometries'][number]['parents'][number] & { textArea: { width: number; height: number } }>
+  parents: Array<ResolvedParentPage & { textArea: { width: number; height: number } }>
 }
 
 export function composerPageGeometries(pagination: BookViewPagination): ComposerPageGeometry[] {
+  const furniture = new Map(resolveParentPages(pagination.parents).map((parent) => [parent.name, parent]))
   return pagination.geometries.map((geometry, index) => {
     const paper = { width: geometry.paper.width * PX_PER_MM, height: geometry.paper.height * PX_PER_MM }
     const parents = geometry.parents.map((parent) => {
+      const resolved = furniture.get(parent.name)
+      if (!resolved)
+        throw new Error(`Page geometry parent "${parent.name}" has no matching pagination parent; add it to pagination.parents to clear this refusal`)
       const margin = Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])) as typeof parent.margin
-      return { ...parent, margin, textArea: textArea({ margin }, paper) }
+      return { ...resolved, margin, textArea: textArea({ margin }, paper) }
     })
     return {
       name: geometry.name,
