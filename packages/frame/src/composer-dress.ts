@@ -1,21 +1,35 @@
-export interface ComposerFolioPlan {
-  folios: Array<string | null>
-  total: string
-  documentFolios: Array<string | null>
-  documentTotal: string
-  recordTotals: Record<string, string>
-  records: Record<string, { index: string; count: string }>
+import {
+  type Plan,
+  PRINTED_PAGE_DOCUMENT_NUMBER_PATH,
+  PRINTED_PAGE_DOCUMENT_TOTAL_PATH,
+  PRINTED_PAGE_NUMBER_PATH,
+  PRINTED_PAGE_TOTAL_PATH,
+  RECORD_COUNT_PATH,
+  RECORD_INDEX_PATH,
+} from '@segnavia/format'
+
+export type ComposerFolioPlan = Pick<Plan, 'folios' | 'total' | 'documentFolios' | 'documentTotal' | 'recordTotals' | 'records'>
+
+export const COMPOSER_FURNITURE_PATHS = {
+  number: PRINTED_PAGE_NUMBER_PATH,
+  total: PRINTED_PAGE_TOTAL_PATH,
+  documentNumber: PRINTED_PAGE_DOCUMENT_NUMBER_PATH,
+  documentTotal: PRINTED_PAGE_DOCUMENT_TOTAL_PATH,
+  recordIndex: RECORD_INDEX_PATH,
+  recordCount: RECORD_COUNT_PATH,
 }
 
-export function composerFurnitureValues(plan: ComposerFolioPlan, flow: string, index: number): Record<string, string | undefined> {
+export type ComposerFurniturePaths = typeof COMPOSER_FURNITURE_PATHS
+
+export function composerFurnitureValues(plan: ComposerFolioPlan, flow: string, index: number, paths: ComposerFurniturePaths): Record<string, string | undefined> {
   const record = plan.records[flow]
   return {
-    'printedPage.number': plan.folios[index] ?? undefined,
-    'printedPage.total': plan.recordTotals[flow] ?? plan.total,
-    'printedPage.documentNumber': plan.documentFolios[index] ?? undefined,
-    'printedPage.documentTotal': plan.documentTotal,
-    'record.index': record?.index ?? '',
-    'record.count': record?.count ?? '',
+    [paths.number]: plan.folios[index] ?? undefined,
+    [paths.total]: plan.recordTotals[flow] ?? plan.total,
+    [paths.documentNumber]: plan.documentFolios[index] ?? undefined,
+    [paths.documentTotal]: plan.documentTotal,
+    [paths.recordIndex]: record?.index ?? '',
+    [paths.recordCount]: record?.count ?? '',
   }
 }
 
