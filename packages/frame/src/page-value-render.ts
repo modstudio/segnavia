@@ -1,11 +1,12 @@
 import { type AsOfDay, type Page, type PageWidths, pageDirection, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml } from '@segnavia/html'
 import { frameStyleSheets } from './bridge.ts'
+import { slotsWithDay } from './day-slots.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
-import { prepareShownPage } from './page-preparation.ts'
+import { prepareShownPage, slotsForShownPage } from './page-preparation.ts'
 import { loadPrintedPageFrame } from './page-printed.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
 
@@ -37,13 +38,29 @@ export function renderPageValue(
   handlers: PageValueRenderHandlers,
 ): void {
   if (page.printedPages) {
+    let effectiveSlots: SlotsOptions
+    try {
+      effectiveSlots = slotsWithDay(slots, day, slots.source)
+    } catch (error) {
+      handlers.report(error)
+      handlers.fit()
+      return
+    }
     handlers.composed(identity)
-    loadPrintedPageFrame(page, { ...options, slots, day, signal, loaded: handlers.write, failed: handlers.report })
+    loadPrintedPageFrame(page, { ...options, slots: effectiveSlots, day, signal, loaded: handlers.write, failed: handlers.report })
     handlers.fit()
     return
   }
   const resolvedPage = resolvePageHtml(page)
   if (!options.motifs && !options.fonts && !options.placements && Object.keys(page.style?.fonts ?? {}).length === 0) {
+    let effectiveSlots: SlotsOptions
+    try {
+      effectiveSlots = slotsForShownPage(resolvedPage, slots, day) ?? {}
+    } catch (error) {
+      handlers.report(error)
+      handlers.fit()
+      return
+    }
     const motifRefusal = framePageMotifRefusal(resolvedPage)
     if (motifRefusal) {
       handlers.report(motifRefusal)
@@ -73,10 +90,10 @@ export function renderPageValue(
       handlers.write,
       handlers.report,
     )
-    const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, slots)
+    const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, effectiveSlots)
     if (refusal) handlers.report(refusal)
-    else if (hasSlotWork(resolvedPage.slots, slots)) {
-      void prepareSlots(resolvedPage.slots, slots, signal)
+    else if (hasSlotWork(resolvedPage.slots, effectiveSlots)) {
+      void prepareSlots(resolvedPage.slots, effectiveSlots, signal)
         .then((resolved) => handlers.show(resolvedPage, resolved))
         .catch(handlers.report)
     }

@@ -325,13 +325,13 @@ test('present removes an optional slot element a fill leaves empty, so its layou
   const filled = await prepareSlots([...role], { fill: { id: 'mina', values: {} } })
   expect(filled.apply(html)).toBe('<div class="grid"><p>Kept</p></div>')
   const unfilled = await prepareSlots([...role])
-  expect(unfilled.apply(html)).toBe('<div class="grid"><p>Kept</p><p>Role</p></div>')
+  expect(unfilled.apply(html)).toBe('<div class="grid"><p>Kept</p><p data-slot-value="role">Role</p></div>')
 })
 
 test('preparation keeps required items viewable when their slots are unfilled', async () => {
   const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: true }])
   expect(prepared.report.slots.name).toBe('unavailable')
-  expect(prepared.apply('<p data-slot-value="name">Design name</p>')).toContain('Design name')
+  expect(prepared.apply('<p data-slot-value="name">Design name</p>')).toBe('<p data-slot-value="name">Design name</p>')
 })
 
 test('a fit result never turns an unfilled required slot into a printable one', () => {
@@ -350,7 +350,7 @@ test('only a slot the fill supplied is marked for measurement', async () => {
   ]
   const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { role: 'Teacher' } } })
   const html = prepared.apply('<p data-slot-value="name">Design name</p><p data-slot-value="role">Role</p>')
-  expect(html).toContain('<p>Design name</p>')
+  expect(html).toContain('<p data-slot-value="name">Design name</p>')
   expect(html).toContain('data-slot-overflow="role:refuse"')
 })
 

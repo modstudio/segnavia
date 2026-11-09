@@ -108,9 +108,9 @@ function mergedDeclarations(groups: ReadonlyArray<readonly SlotDeclaration[]>, o
 function applyValue(element: Element, name: string, resolved: ResolvedSlots): void {
   const path = element.attribs[name]
   if (path === undefined) return
-  delete element.attribs[name]
   const value = resolved.data[path]
   if (value === undefined) return
+  delete element.attribs[name]
   if (resolved.types[path] === 'qr') {
     const svg = qrSvg(value)
     svg.parent = element

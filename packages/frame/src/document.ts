@@ -13,6 +13,7 @@ import {
   type SlotsOptions,
 } from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
@@ -223,7 +224,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     this.cancelSlotPreparation()
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
-    this.loadMoment = this.momentValue ?? Date.now()
+    const asOfLoad = captureAsOfLoad(this)
     this.filledHtml = undefined
     this.resolvedSlots = undefined
     this.resolvedGeneration = 0
@@ -240,9 +241,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     this.slotPreparation = controller
     const isCurrent = () => this.isConnected && !controller.signal.aborted && generation === this.slotGeneration
     void resolveDocumentDayContexts(this.sourceValues, {
-      moment: this.loadMoment,
-      hostZone: this.asOfOptions?.zone,
-      anchors: this.anchorOptions,
+      ...asOfLoad,
       slots: this.slotOptions,
       signal: controller.signal,
     })

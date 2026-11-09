@@ -32,6 +32,7 @@ export async function prepareShownPage(
   pageWidths?: PageWidths,
   day?: AsOfDay,
 ): Promise<{ page: HtmlPage; resolved?: PreparedSlots; css: string; failures: FontFailure[] }> {
+  let effectiveSlots = slots
   const expanded = await prepareExpandedPage(
     page,
     motifs,
@@ -40,13 +41,16 @@ export async function prepareShownPage(
     placements,
     pageWidths,
     (expansion) => {
-      const refusal = slotFillRefusal(expansion.page.scripts, expansion.page.slots, slots)
+      effectiveSlots = slotsForShownPage(expansion.page, slots, day)
+      const refusal = slotFillRefusal(expansion.page.scripts, expansion.page.slots, effectiveSlots)
       if (refusal) throw refusal
     },
     day,
   )
-  const bindsDay = hasAsOfBinding(expanded.page.html)
-  const effectiveSlots = day && bindsDay ? slotsWithDay(slots, day, slots?.source, true) : slots
   const resolved = hasSlotWork(expanded.page.slots, effectiveSlots) ? await prepareSlots(expanded.page.slots, effectiveSlots, signal) : undefined
   return { ...expanded, resolved }
+}
+
+export function slotsForShownPage(page: Pick<HtmlPage, 'html'>, slots: SlotsOptions | undefined, day: AsOfDay | undefined): SlotsOptions | undefined {
+  return day ? slotsWithDay(slots, day, slots?.source, hasAsOfBinding(page.html)) : slots
 }

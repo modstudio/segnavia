@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Page, type SlotsOptions } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
+import { prepareShownPage } from './page-preparation.ts'
 
 class TestElement extends EventTarget {}
 Object.assign(globalThis, {
@@ -25,20 +26,12 @@ test('document resolves and reports one shared day for three equal pages', async
     sourceValues: pages,
     pageValues: pages.map(resolvePageHtml),
     printValue: {},
-    anchorOptions: {
-      choices: [{ name: 'week', label: 'Week' }],
-      resolve: async () => {
-        anchorCalls++
-        return '2026-11-09'
-      },
-    },
     slotOptions: {
       resolve: async () => {
         slotCalls++
         return { id: 'week', values: {} }
       },
     } as SlotsOptions,
-    momentValue: Date.parse('2026-11-14T12:00:00Z'),
     slotGeneration: 0,
     slotPreparation: undefined,
     filledHtml: undefined,
@@ -53,12 +46,23 @@ test('document resolves and reports one shared day for three equal pages', async
     paintResolved() {
       paints++
     },
+    asOfInputsChanged() {},
     dispatchEvent(event: Event) {
       if (event.type === 'asof') events.push((event as CustomEvent).detail)
       return true
     },
     paint: (SegnaviaDocument.prototype as unknown as { paint(): void }).paint,
   }
+
+  const asOfPrototype = Object.getPrototypeOf(SegnaviaDocument.prototype)
+  Object.getOwnPropertyDescriptor(asOfPrototype, 'anchors')?.set?.call(documentViewer, {
+    choices: [{ name: 'week', label: 'Week' }],
+    resolve: async () => {
+      anchorCalls++
+      return '2026-11-09'
+    },
+  })
+  Object.getOwnPropertyDescriptor(asOfPrototype, 'moment')?.set?.call(documentViewer, Date.parse('2026-11-14T12:00:00Z'))
 
   documentViewer.paint()
   await new Promise((resolve) => setTimeout(resolve, 0))
@@ -67,4 +71,56 @@ test('document resolves and reports one shared day for three equal pages', async
   expect(slotCalls).toBe(1)
   expect(events).toEqual([{ date: '2026-11-09', zone: 'UTC', kind: 'anchor', anchor: 'week' }])
   expect(paints).toBe(1)
+})
+
+test('a document collection pass leaves its as-of binding for the page that writes the day', async () => {
+  const source = Page.parse({
+    html: '<p data-slot-value="name">Name</p><time data-slot-value="asOf.date">placeholder</time>',
+    asOf: { kind: 'fixed', date: '2026-11-14' },
+    slots: [{ key: 'name', label: 'Name', type: 'text' }],
+  })
+  let context: { day: { date: string; zone: string; kind: 'fixed' }; slots: SlotsOptions } | undefined
+  const documentViewer = {
+    isConnected: true,
+    sourceValues: [source],
+    pageValues: [resolvePageHtml(source)],
+    printValue: {},
+    slotOptions: { source: { id: 'person', values: { name: 'Avi' } } } as SlotsOptions,
+    slotGeneration: 0,
+    slotPreparation: undefined,
+    filledHtml: undefined as string[] | undefined,
+    resolvedSlots: undefined,
+    resolvedGeneration: 0,
+    pageDayContexts: [],
+    observer: null,
+    pageObserver: null,
+    style: { removeProperty() {} },
+    replaceChildren() {},
+    cancelSlotPreparation: (SegnaviaDocument.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
+    paintResolved() {
+      context = this.pageDayContexts[0]
+    },
+    dispatchEvent() {
+      return true
+    },
+    paint: (SegnaviaDocument.prototype as unknown as { paint(): void }).paint,
+  }
+
+  documentViewer.paint()
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  const filled = documentViewer.filledHtml?.[0]
+  expect(filled).toContain('Avi')
+  expect(filled).toContain('data-slot-value="asOf.date"')
+  if (!filled || !context) throw new Error('Expected the document day context and filled page HTML.')
+  const shown = await prepareShownPage(
+    { ...resolvePageHtml(source), html: filled, slots: [] },
+    undefined,
+    context.slots,
+    undefined,
+    new AbortController().signal,
+    undefined,
+    undefined,
+    context.day,
+  )
+  expect(shown.resolved?.apply(shown.page.html)).toContain('2026-11-14')
 })

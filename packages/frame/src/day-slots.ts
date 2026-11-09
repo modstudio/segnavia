@@ -1,22 +1,37 @@
-import type { AsOfDay, FillValues, SlotDeclarationInput, SlotsOptions } from '@segnavia/format'
+import {
+  AS_OF_ANCHOR_PATH,
+  AS_OF_CONTEXT,
+  AS_OF_DATE_PATH,
+  AS_OF_ZONE_PATH,
+  type AsOfDay,
+  type FillValues,
+  type SlotDeclarationInput,
+  type SlotsOptions,
+} from '@segnavia/format'
+import { bindingRoot } from '@segnavia/html'
 
-const ROOT = 'asOf'
 const declarations: SlotDeclarationInput[] = [
-  { key: 'asOf.date', label: 'As-of date', type: 'text' },
-  { key: 'asOf.zone', label: 'As-of zone', type: 'text' },
-  { key: 'asOf.anchor', label: 'As-of anchor', type: 'text' },
+  { key: AS_OF_DATE_PATH, label: 'As-of date', type: 'text' },
+  { key: AS_OF_ZONE_PATH, label: 'As-of zone', type: 'text' },
+  { key: AS_OF_ANCHOR_PATH, label: 'As-of anchor', type: 'text' },
 ]
 
-const root = (key: string) => key.split('.')[0]
-
 function collision(options: SlotsOptions | undefined): string | undefined {
-  const declared = options?.declarations?.find((slot) => root(slot.key) === ROOT)?.key
+  const declared = options?.declarations?.find((slot) => bindingRoot(slot.key) === AS_OF_CONTEXT)?.key
   if (declared) return declared
   for (const values of [options?.overrides, options?.fill?.values, options?.source?.values]) {
-    const key = Object.keys(values ?? {}).find((held) => root(held) === ROOT)
+    const key = Object.keys(values ?? {}).find((held) => bindingRoot(held) === AS_OF_CONTEXT)
     if (key) return key
   }
   return undefined
+}
+
+export function asOfValues(day: AsOfDay): FillValues {
+  return {
+    [AS_OF_DATE_PATH]: day.date,
+    [AS_OF_ZONE_PATH]: day.zone,
+    ...(day.anchor === undefined ? {} : { [AS_OF_ANCHOR_PATH]: day.anchor }),
+  }
 }
 
 export function slotsOptionsRefusal(options: SlotsOptions | undefined): Error | undefined {
@@ -32,11 +47,7 @@ export function slotsOptionsRefusal(options: SlotsOptions | undefined): Error | 
 export function slotsWithDay(options: SlotsOptions | undefined, day: AsOfDay, source: SlotsOptions['source'], bindDay = false): SlotsOptions {
   const refusal = slotsOptionsRefusal(options)
   if (refusal) throw refusal
-  const values: FillValues = {
-    'asOf.date': day.date,
-    'asOf.zone': day.zone,
-    ...(day.anchor === undefined ? {} : { 'asOf.anchor': day.anchor }),
-  }
+  const values = asOfValues(day)
   return {
     ...options,
     resolve: undefined,
@@ -47,8 +58,6 @@ export function slotsWithDay(options: SlotsOptions | undefined, day: AsOfDay, so
 }
 
 export async function slotsForDay(options: SlotsOptions | undefined, day: AsOfDay, signal: AbortSignal, bindDay = false): Promise<SlotsOptions> {
-  const refusal = slotsOptionsRefusal(options)
-  if (refusal) throw refusal
   const resolved = options?.resolve ? await options.resolve({ day, signal }) : options?.source
   signal.throwIfAborted()
   return slotsWithDay(options, day, resolved, bindDay)

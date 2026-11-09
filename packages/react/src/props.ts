@@ -1,5 +1,5 @@
-import type { AsOfDay } from '@segnavia/format'
 import type {
+  AsOfDay,
   ControllerOptions,
   DeckController,
   DocumentInput,

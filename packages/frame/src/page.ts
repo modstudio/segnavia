@@ -9,14 +9,14 @@ import {
   Page,
   type PageWidths,
   resolveAsOfDay,
-  resolveDocumentDay,
+  resolveDocumentDayResult,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
-import { hasAsOfBinding } from './as-of-bindings.ts'
+import { type AlertLabels, type HtmlPage, parseDocument } from '@segnavia/html'
+import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
-import { slotsForDay, slotsWithDay } from './day-slots.ts'
+import { slotsForDay } from './day-slots.ts'
 import type { EstablishedPageDay } from './document-day-context.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -233,14 +233,13 @@ export class SegnaviaPage extends PageAsOfElement {
     const write = (document: string) => {
       if (isCurrent()) this.writeDocument(iframe, document)
     }
-    const moment = this.momentValue ?? Date.now()
+    const { moment, hostZone, anchors } = captureAsOfLoad(this)
     const facts = {
       moment,
-      hostZone: this.asOfOptions?.zone,
-      anchors: this.anchorOptions,
+      hostZone,
+      anchors,
       signal: controller.signal,
     }
-    const bindDay = !this.motifOptions && !page.printedPages && hasAsOfBinding(resolvePageHtml(page).html)
     const render = (day: AsOfDay, slots: SlotsOptions) => {
       if (!isCurrent()) return
       if (!established) this.dispatchEvent(new CustomEvent('asof', { detail: day }))
@@ -264,20 +263,12 @@ export class SegnaviaPage extends PageAsOfElement {
     }
     const policy = resolveAsOfDay(page.asOf, facts)
     if (established) {
-      try {
-        render(established.day, slotsWithDay(established.slots, established.day, established.slots.source, bindDay))
-      } catch (error) {
-        report(error)
-      }
+      render(established.day, established.slots)
     } else if (policy.kind === 'day' && !this.slotOptions?.resolve) {
-      try {
-        render(policy.day, slotsWithDay(this.slotOptions, policy.day, this.slotOptions?.source, bindDay))
-      } catch (error) {
-        report(error)
-      }
+      render(policy.day, { ...this.slotOptions, resolve: undefined, source: this.slotOptions?.source })
     } else {
-      void resolveDocumentDay(page.asOf, facts)
-        .then(async (day) => ({ day, slots: await slotsForDay(this.slotOptions, day, controller.signal, bindDay) }))
+      void resolveDocumentDayResult(policy, facts)
+        .then(async (day) => ({ day, slots: await slotsForDay(this.slotOptions, day, controller.signal) }))
         .then(({ day, slots }) => render(day, slots))
         .catch(report)
     }

@@ -1,6 +1,6 @@
 import type { AsOf, AsOfDay, CalendarDate as CalendarDateValue, Zone } from './as-of.ts'
 import { CalendarDate } from './as-of.ts'
-import { AsOfRefusedError, asOfRefusal, resolveAsOfDay } from './as-of-policy.ts'
+import { AsOfRefusedError, type AsOfResolution, asOfRefusal, resolveAsOfDay } from './as-of-policy.ts'
 
 export interface AnchorSource {
   choices: readonly { name: string; label: string | Readonly<Record<string, string>> }[]
@@ -23,7 +23,12 @@ function refused(anchor: string, reason: string): AsOfRefusedError {
 
 export async function resolveDocumentDay(asOf: AsOf | undefined, options: DocumentDayOptions): Promise<AsOfDay> {
   options.signal.throwIfAborted()
-  const resolution = resolveAsOfDay(asOf, options)
+  return resolveDocumentDayResult(resolveAsOfDay(asOf, options), options)
+}
+
+/** Completes an already-evaluated as-of policy without evaluating that policy a second time. */
+export async function resolveDocumentDayResult(resolution: AsOfResolution, options: DocumentDayOptions): Promise<AsOfDay> {
+  options.signal.throwIfAborted()
   if (resolution.kind === 'day') return resolution.day
   const { anchor, today, zone } = resolution
   if (!options.anchors) {

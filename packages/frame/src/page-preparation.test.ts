@@ -16,3 +16,47 @@ test('a scripted slot fill refuses before an unresolved declared font', async ()
     SlotFillRefusedError,
   )
 })
+
+test('a page binding its day with placements injects the reserved slots once', async () => {
+  const page: HtmlPage = {
+    html: '<time data-slot-value="asOf.date">placeholder</time>',
+    size: { width: 'full', height: 'auto' },
+    scripts: 'refuse',
+    slots: [],
+    style: { fonts: {} },
+  }
+  const day = { date: '2026-11-14', zone: 'UTC', kind: 'current' as const }
+  const prepared = await prepareShownPage(
+    page,
+    undefined,
+    undefined,
+    undefined,
+    new AbortController().signal,
+    { resolve: async () => undefined },
+    undefined,
+    day,
+  )
+  expect(prepared.resolved?.apply(prepared.page.html)).toContain('2026-11-14')
+})
+
+test('a scripted motif page refuses the effective slots that include its day', async () => {
+  const page: HtmlPage = {
+    html: '<time data-slot-value="asOf.date"></time><div data-motif="dated"></div>',
+    size: { width: 'full', height: 'auto' },
+    scripts: 'sandboxed',
+    slots: [],
+    style: { fonts: {} },
+  }
+  const motifs = {
+    source: {
+      motif: async () => ({ key: 'dated', revision: '1', label: 'Dated', fields: [], fonts: [], versions: [{ lang: 'en', html: '<p>Dated</p>' }] }),
+    },
+  }
+  await expect(
+    prepareShownPage(page, motifs, undefined, undefined, new AbortController().signal, undefined, undefined, {
+      date: '2026-11-14',
+      zone: 'UTC',
+      kind: 'current',
+    }),
+  ).rejects.toBeInstanceOf(SlotFillRefusedError)
+})

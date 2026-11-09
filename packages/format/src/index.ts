@@ -164,7 +164,7 @@ export {
 } from './direction.ts'
 export { Document, type DocumentInput, type DocumentKind, type DocumentParseOptions } from './document.ts'
 export { applyOps } from './document-apply.ts'
-export { type AnchorSource, type DocumentDayOptions, resolveDocumentDay } from './document-day.ts'
+export { type AnchorSource, type DocumentDayOptions, resolveDocumentDay, resolveDocumentDayResult } from './document-day.ts'
 export { diffDocuments } from './document-diff.ts'
 export { fingerprintDocument, fingerprintScript, fingerprintValue, requireParsedDocument } from './document-fingerprint.ts'
 export { defaultNewId } from './document-identity.ts'
