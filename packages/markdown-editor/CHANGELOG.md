@@ -1,5 +1,34 @@
 # @segnavia/markdown-editor
 
+## 0.51.0
+
+### Minor Changes
+
+- 498edfc: Declare a document's fonts as a font manifest and report every face that is missing. `StyleSheet.fonts` is now a record keyed by font name: an app font with its `FontDeclaration` faces (`weight`, `style`, `unicodeRange`, `script: 'hebrew'`), or a local font with its fallback. A Hebrew face with no range covers `U+0590-05FF,U+FB1D-FB4F`. A declared face the host does not supply is reported `unsupplied`, and one Chromium does not load is reported `unloaded`; composition continues at the fallback. Render reports through `fontLoad.report({ failures })`, and the page, paper, stage and book elements dispatch `fontfailure`. Add `matchFaces`, `rangeSample`, `fontManifestWithReferences` and `persistedFontManifestWithReferences`. Breaking: the retired `FontReference[]` form of `style.fonts` is refused, and a font the source does not know no longer refuses the render.
+
+### Patch Changes
+
+- Updated dependencies [dc433bb]
+- Updated dependencies [2564247]
+- Updated dependencies [355e4fb]
+- Updated dependencies [ba2b416]
+- Updated dependencies [1395b57]
+- Updated dependencies [9d16f46]
+- Updated dependencies [498edfc]
+- Updated dependencies [5a1a73f]
+- Updated dependencies [92717bd]
+- Updated dependencies [b5b5cee]
+- Updated dependencies [28ecd63]
+- Updated dependencies [8ae6b29]
+- Updated dependencies [e5b86f8]
+- Updated dependencies [22c3521]
+- Updated dependencies [fefb30e]
+- Updated dependencies [b44900a]
+- Updated dependencies [c72645f]
+  - @segnavia/format@0.51.0
+  - @segnavia/frame@0.51.0
+  - @segnavia/html@0.51.0
+
 ## 0.50.0
 
 ### Patch Changes

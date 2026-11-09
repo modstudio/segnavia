@@ -1,5 +1,24 @@
 # @segnavia/voice
 
+## 0.51.0
+
+### Patch Changes
+
+- Updated dependencies [dc433bb]
+- Updated dependencies [2564247]
+- Updated dependencies [355e4fb]
+- Updated dependencies [ba2b416]
+- Updated dependencies [1395b57]
+- Updated dependencies [9d16f46]
+- Updated dependencies [498edfc]
+- Updated dependencies [5a1a73f]
+- Updated dependencies [8ae6b29]
+- Updated dependencies [e5b86f8]
+- Updated dependencies [22c3521]
+- Updated dependencies [fefb30e]
+- Updated dependencies [b44900a]
+  - @segnavia/format@0.51.0
+
 ## 0.50.0
 
 ### Patch Changes
