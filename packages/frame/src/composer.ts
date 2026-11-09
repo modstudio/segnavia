@@ -4,7 +4,6 @@ import {
   HEAD_TEMPLATE_NAME_ATTRIBUTE,
   headTemplatePlacements,
   MOTIF_ATTRIBUTE,
-  resolveDirection,
   SECTION_BOUNDARY_CLASS,
   textHoldingParentRules,
 } from '@segnavia/format'
@@ -260,7 +259,6 @@ ${embedFunction('pageIndexForTarget', pageIndexForTarget)}
 ${embedFunction('parseCssLength', parseCssLength)}
 ${embedFunction('lengthPx', lengthPx)}
 ${embedFunction('fitRegionSize', fitRegionSize)}
-${embedFunction('resolveDirection', resolveDirection)}
 ${embedFunction('pageReferenceFolio', pageReferenceFolio)}
 var ABSOLUTE_PX=${JSON.stringify(ABSOLUTE_PX)};
 var elementWithAttr=function(root,attr,value){var nodes=root.querySelectorAll('['+attr+']');for(var i=0;i<nodes.length;i++){if(nodes[i].getAttribute(attr)===value)return nodes[i];}return null;};

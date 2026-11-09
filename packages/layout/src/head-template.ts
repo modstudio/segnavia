@@ -1,4 +1,4 @@
-import { type Direction, type HeadTemplate, resolveDirection } from '@segnavia/format'
+import { type Direction, type HeadTemplate, resolveDirection, textDirection } from '@segnavia/format'
 
 export function escapeHeadTemplateHtml(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
@@ -26,6 +26,10 @@ export function resolveHeadTemplate(
   return kept.map((value) => `<bdi dir="${resolveDirection(undefined, lang, value)}">${escapeHeadTemplateHtml(value)}</bdi>`).join(separator)
 }
 
+// The frame script carries resolveHeadTemplate with everything it calls. Each function is
+// declared under its own, possibly minified, name so the calls inside the others resolve.
 export function headTemplateScript(): string {
-  return `var escapeHeadTemplateHtml=${escapeHeadTemplateHtml.toString()};var resolveHeadTemplate=${resolveHeadTemplate.toString()};`
+  return Object.entries({ textDirection, resolveDirection, escapeHeadTemplateHtml, resolveHeadTemplate })
+    .map(([name, fn]) => `${fn.toString()}\nvar ${name}=${fn.name};`)
+    .join('\n')
 }

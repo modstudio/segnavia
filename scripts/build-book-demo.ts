@@ -106,6 +106,11 @@ function designedLeaf(hebrew: boolean) {
     children: [{ type: 'page' as const, body: { html: `<div class="designed-leaf"><h1 id="plate" class="book-css-check">${title}</h1></div>` } }],
   }
 }
+// The chapter HTML sets these through data-variable, so every book built from it declares them.
+const CHAPTER_VARIABLES = [
+  { type: 'variable' as const, name: 'kavana', kind: 'text' as const, from: 'content' as const, pick: 'first' as const },
+  { type: 'variable' as const, name: 'siman', kind: 'text' as const, from: 'content' as const, pick: 'first' as const },
+]
 export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
   type: 'document',
   kind: 'book',
@@ -116,10 +121,7 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
   page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, columnGap: 5 },
   rectoOpenings: true,
   endnotes: { placement: 'chapter' },
-  variables: [
-    { type: 'variable', name: 'kavana', kind: 'text', from: 'content', pick: 'first' },
-    { type: 'variable', name: 'siman', kind: 'text', from: 'content', pick: 'first' },
-  ],
+  variables: CHAPTER_VARIABLES,
   headTemplates: [
     { type: 'headTemplate', name: 'kavana', parts: [{ variable: 'kavana' }] },
     { type: 'headTemplate', name: 'siman', parts: [{ variable: 'siman' }] },
@@ -245,6 +247,7 @@ export function largePaginatedFixture(hebrew: boolean): DocumentInput {
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     rectoOpenings: true,
     endnotes: { placement: 'chapter' },
+    variables: CHAPTER_VARIABLES,
     // Regular paginated fixtures cover numbered contents. This stress fixture leaves page numbers
     // off so its 300-page composition bound measures pagination without page-reference resolution.
     children: [

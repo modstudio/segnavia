@@ -98,7 +98,7 @@ describe('bookDocument', () => {
           setup(builder) {
             builder.onResolve({ filter: /^virtual:composer-functions$/ }, () => ({ path: 'composer-functions', namespace: 'virtual' }))
             builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
-              contents: `import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/composer.ts`)}; export const script = embeddedComposerFunctions();`,
+              contents: `import { layoutScript } from ${JSON.stringify(Bun.resolveSync('@segnavia/layout', import.meta.dir))}; import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/composer.ts`)}; export const script = layoutScript() + embeddedComposerFunctions();`,
               loader: 'ts',
             }))
           },
@@ -110,8 +110,15 @@ describe('bookDocument', () => {
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
     const embedded = new Function(
-      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion}`,
+      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,resolveRegionHeads}`,
     )() as {
+      resolveRegionHeads: (
+        templates: { name: string; parts: { variable: string }[]; separator: string; dropEmpty: boolean; collapseEqual: boolean }[],
+        variables: Record<string, string>,
+        recordSlots: Record<string, string>,
+        direction?: string,
+        lang?: string,
+      ) => Record<string, string>
       flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
@@ -137,6 +144,10 @@ describe('bookDocument', () => {
     expect(embedded.fillRegion(parent?.head ?? '', { heads: { 'segnavia:running-head': '<bdi>Chapter</bdi>' } })).toBe(
       '<div class="segnavia-running-head"><bdi>Chapter</bdi></div>',
     )
+    const template = { name: 'head', parts: [{ variable: 'parasha' }, { variable: 'siman' }], separator: ' · ', dropEmpty: true, collapseEqual: false }
+    expect(embedded.resolveRegionHeads([template], { parasha: 'בראשית', siman: 'Mark B' }, {}, 'rtl', 'he')).toEqual({
+      head: '<bdi dir="rtl">בראשית</bdi><span dir="rtl"> · </span><bdi dir="rtl">Mark B</bdi>',
+    })
   })
 
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {
