@@ -113,6 +113,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
         value: this.bridge.value,
         view: this.bridge.view,
         shape: (id) => this.bridge.shapes().labels[id],
+        shapes: this.bridge.shapes,
         labelShape: this.bridge.labelShape,
         node: this.bridge.labelNode,
         document: this.bridge.document,

@@ -1,9 +1,10 @@
 import {
   type Board,
   type BoardLabel,
+  type BoardShapes,
   type BoardView,
-  type Document,
   boardToScreen,
+  type Document,
   editBoard,
   labelDirection,
   labelXForWidth,
@@ -18,6 +19,7 @@ interface LabelEditorSource {
   value(): Board | null
   view(): BoardView
   shape(id: string): { width: number; height: number } | undefined
+  shapes(): BoardShapes
   labelShape(label: BoardLabel): MeasuredSize
   node(id: string): HTMLElement | undefined
   document(board: Board): Document
@@ -158,11 +160,11 @@ export class BoardLabelEditor {
       if (text !== undefined) {
         const board = this.source.value()
         if (board) {
-          const result = editBoard(
-            this.source.document(board),
-            [{ type: 'label-set', label: { id: active.id }, text }],
-            { shapes: { items: {}, labels: Object.fromEntries(board.labels.flatMap((label) => (this.source.shape(label.id) ? [[label.id, this.source.shape(label.id)] as const] : [])) }, provisional: [], estimated: [] },
-          )
+          const result = editBoard(this.source.document(board), [{ type: 'label-set', label: { id: active.id }, text }], {
+            shapes: this.source.shapes(),
+            provisional: [],
+            estimated: [],
+          })
           if (result.ok) this.change(result.board, 'edit-label', active.id)
         }
       }
