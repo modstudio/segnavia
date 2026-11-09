@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
-import { Cover } from '@segnavia/format'
+import { Cover, type CoverInput, coverDigest } from '@segnavia/format'
 import { coverImagePlan } from './cover-image.ts'
+import type { Renderer } from './renderer.ts'
 
 const coverDocument = (html: string, print?: { paper: { width: number; height: number; unit: 'mm' } }) => ({
   type: 'document' as const,
@@ -9,6 +10,25 @@ const coverDocument = (html: string, print?: { paper: { width: number; height: n
   children: [{ type: 'page' as const, body: { html } }],
 })
 const cover = Cover.parse({ page: coverDocument('<h1>Cover</h1>') })
+
+type Same<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false
+const sharedCoverInput: Same<Parameters<Renderer['coverImage']>[0], Parameters<typeof coverDigest>[0]> = true
+
+test('a host passes one cover input to image rendering and digesting', async () => {
+  const input = { page: coverDocument('<h1>Cover</h1>') } satisfies CoverInput
+  const rendered: CoverInput[] = []
+  const renderer: Pick<Renderer, 'coverImage'> = {
+    async coverImage(coverInput) {
+      rendered.push(coverInput)
+      return new Uint8Array()
+    },
+  }
+
+  await Promise.all([renderer.coverImage(input, { width: 160 }), coverDigest(input, { stamp: 'renderer' })])
+
+  expect(sharedCoverInput).toBe(true)
+  expect(rendered).toEqual([input])
+})
 
 test.each([
   [160, 100],

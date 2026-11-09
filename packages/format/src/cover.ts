@@ -110,7 +110,8 @@ export async function digestCoverMaterial(material: CoverDigestMaterial): Promis
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-export function coverDigest(cover: Cover, inputs: { stamp: string; fonts?: readonly string[]; motifs?: readonly Motif[] }): Promise<string> {
+export function coverDigest(input: CoverInput, inputs: { stamp: string; fonts?: readonly string[]; motifs?: readonly Motif[] }): Promise<string> {
+  const cover = Cover.parse(input)
   return digestCoverMaterial({
     page: cover.page,
     sheet: sheetMm(cover.page.print),

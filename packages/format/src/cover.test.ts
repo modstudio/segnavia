@@ -10,6 +10,7 @@ import {
   MM_PER_PT,
   type Motif,
   pageDirection,
+  sheetMm,
 } from './index.ts'
 
 interface PageDocumentFields {
@@ -17,7 +18,7 @@ interface PageDocumentFields {
   id?: string
   lang?: string
   dir?: 'ltr' | 'rtl'
-  scripts?: 'refuse' | 'sandboxed' | 'trusted'
+  scripts?: 'refuse' | 'sandboxed'
   brand?: string
   print?: {
     paper: { width: number; height: number; unit: 'mm' | 'pt' }
@@ -37,7 +38,8 @@ const pageDocument = ({ html = '', id, lang, dir, scripts, brand, print }: PageD
   children: [{ type: 'page' as const, id, body: { html } }],
 })
 
-const cover = (html = '<h1>Cover</h1>') => Cover.parse({ page: pageDocument({ html }) })
+const coverInput = (html = '<h1>Cover</h1>') => ({ page: pageDocument({ html }) })
+const cover = (html = '<h1>Cover</h1>') => Cover.parse(coverInput(html))
 
 const motif = (key: string, revision = '1'): Motif => ({
   key,
@@ -146,38 +148,52 @@ describe('Cover', () => {
 })
 
 describe('cover digest', () => {
+  test('an input has the digest of its parsed cover material', async () => {
+    const input = coverInput()
+    const parsed = Cover.parse(input)
+    const digest = await digestCoverMaterial({
+      page: parsed.page,
+      sheet: sheetMm(parsed.page.print),
+      drawingVersion: COVER_DRAWING_VERSION,
+      stamp: 'renderer',
+      fonts: [],
+      motifs: [],
+    })
+    expect(await coverDigest(input, { stamp: 'renderer' })).toBe(digest)
+  })
+
   test('is stable across key and unordered input order', async () => {
-    const first = Cover.parse({ name: 'Named', page: pageDocument({ html: 'same', lang: 'en' }), id: 'cover' })
-    const second = Cover.parse({ id: 'cover', page: pageDocument({ lang: 'en', html: 'same' }), name: 'Named' })
+    const first = { name: 'Named', page: pageDocument({ html: 'same', lang: 'en' }), id: 'cover' }
+    const second = { id: 'cover', page: pageDocument({ lang: 'en', html: 'same' }), name: 'Named' }
     expect(await coverDigest(first, { stamp: 'renderer', fonts: ['z', 'a'], motifs: [motif('z'), motif('a')] })).toBe(
       await coverDigest(second, { stamp: 'renderer', fonts: ['a', 'z'], motifs: [motif('a'), motif('z')] }),
     )
   })
 
   test('is stable across motif revision order', async () => {
-    const parsed = cover()
+    const input = coverInput()
     const older = { ...motif('a', '1'), label: 'z' }
     const newer = { ...motif('a', '2'), label: 'a' }
-    const digest = await coverDigest(parsed, { stamp: 'renderer', motifs: [newer, older] })
-    expect(digest).toBe(await coverDigest(parsed, { stamp: 'renderer', motifs: [older, newer] }))
+    const digest = await coverDigest(input, { stamp: 'renderer', motifs: [newer, older] })
+    expect(digest).toBe(await coverDigest(input, { stamp: 'renderer', motifs: [older, newer] }))
     expect(digest).toBe('6a45a9684ad238d04265f10715c3083c7adbe3975b6960f1dfa2cddc39cc1afe')
   })
 
   test('is stable across canonical motif order', async () => {
-    const parsed = cover()
+    const input = coverInput()
     const first = motif('a')
     const second = { ...motif('a'), label: 'different' }
-    expect(await coverDigest(parsed, { stamp: 'renderer', motifs: [second, first] })).toBe(
-      await coverDigest(parsed, { stamp: 'renderer', motifs: [first, second] }),
+    expect(await coverDigest(input, { stamp: 'renderer', motifs: [second, first] })).toBe(
+      await coverDigest(input, { stamp: 'renderer', motifs: [first, second] }),
     )
   })
 
   test('changes with page HTML, fonts, motifs and renderer stamp', async () => {
-    const base = await coverDigest(cover(), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('a')] })
-    expect(await coverDigest(cover('<h1>Changed</h1>'), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('a')] })).not.toBe(base)
-    expect(await coverDigest(cover(), { stamp: 'renderer', fonts: ['font-b'], motifs: [motif('a')] })).not.toBe(base)
-    expect(await coverDigest(cover(), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('b')] })).not.toBe(base)
-    expect(await coverDigest(cover(), { stamp: 'new-renderer', fonts: ['font-a'], motifs: [motif('a')] })).not.toBe(base)
+    const base = await coverDigest(coverInput(), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('a')] })
+    expect(await coverDigest(coverInput('<h1>Changed</h1>'), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('a')] })).not.toBe(base)
+    expect(await coverDigest(coverInput(), { stamp: 'renderer', fonts: ['font-b'], motifs: [motif('a')] })).not.toBe(base)
+    expect(await coverDigest(coverInput(), { stamp: 'renderer', fonts: ['font-a'], motifs: [motif('b')] })).not.toBe(base)
+    expect(await coverDigest(coverInput(), { stamp: 'new-renderer', fonts: ['font-a'], motifs: [motif('a')] })).not.toBe(base)
   })
 
   test('changes with the sheet and drawing version', async () => {
@@ -194,14 +210,14 @@ describe('cover digest', () => {
     expect(await digestCoverMaterial({ ...material, drawingVersion: COVER_DRAWING_VERSION + 1 })).not.toBe(base)
   })
 
-  test('a parsed non-default sheet changes the digest', async () => {
-    const portrait = Cover.parse({ page: pageDocument({ html: '<h1>Cover</h1>', print: { paper: { width: 100, height: 150, unit: 'mm' } } }) })
-    expect(await coverDigest(portrait, { stamp: 'renderer' })).not.toBe(await coverDigest(cover(), { stamp: 'renderer' }))
+  test('a non-default sheet changes the digest', async () => {
+    const portrait = { page: pageDocument({ html: '<h1>Cover</h1>', print: { paper: { width: 100, height: 150, unit: 'mm' } } }) }
+    expect(await coverDigest(portrait, { stamp: 'renderer' })).not.toBe(await coverDigest(coverInput(), { stamp: 'renderer' }))
   })
 
   test('ignores cover identity and page id', async () => {
-    const first = Cover.parse({ id: 'cover-a', name: 'Alpha', page: pageDocument({ id: 'page-a', html: 'same' }) })
-    const second = Cover.parse({ id: 'cover-b', name: 'Beta', page: pageDocument({ id: 'page-b', html: 'same' }) })
+    const first = { id: 'cover-a', name: 'Alpha', page: pageDocument({ id: 'page-a', html: 'same' }) }
+    const second = { id: 'cover-b', name: 'Beta', page: pageDocument({ id: 'page-b', html: 'same' }) }
     expect(await coverDigest(first, { stamp: 'renderer' })).toBe(await coverDigest(second, { stamp: 'renderer' }))
   })
 })
