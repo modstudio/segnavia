@@ -4,6 +4,7 @@ import { TextDirection } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
 import { BOOK_PARENT_NAMES } from './printed-pages.ts'
 import { RecordFacts } from './record-facts.ts'
+import { Variable } from './variable.ts'
 
 export const PaginateLine = z.object({ top: z.number(), bottom: z.number() })
 export type PaginateLine = z.infer<typeof PaginateLine>
@@ -13,6 +14,9 @@ export type PaginateNoteRef = z.infer<typeof PaginateNoteRef>
 
 export const PaginateMark = z.object({ name: z.string(), value: z.string(), line: z.number(), scope: z.literal('flow').optional() })
 export type PaginateMark = z.infer<typeof PaginateMark>
+
+export const PaginateVariable = z.object({ name: z.string(), value: z.string(), line: z.number(), scope: z.literal('flow').optional() })
+export type PaginateVariable = z.infer<typeof PaginateVariable>
 
 export const PaginateBlock = z.object({
   kind: z.enum(['heading', 'figure', 'table', 'text']),
@@ -31,6 +35,7 @@ export const PaginateBlock = z.object({
   headerHeight: z.number().optional(),
   footnoteRefs: z.array(PaginateNoteRef).optional(),
   marks: z.array(PaginateMark).optional(),
+  variables: z.array(PaginateVariable).optional(),
 })
 export type PaginateBlock = z.infer<typeof PaginateBlock>
 
@@ -69,6 +74,7 @@ export const PaginateNoteSeriesGeometry = z.object({ name: z.string(), gap: z.nu
 export type PaginateNoteSeriesGeometry = z.infer<typeof PaginateNoteSeriesGeometry>
 
 export const Measurements = z.object({
+  variables: z.array(Variable).default([]),
   flows: z.array(PaginateFlow),
   notes: z.array(PaginateNote),
   geometry: z.object({ notesGap: z.number(), noteSeries: z.array(PaginateNoteSeriesGeometry).optional() }),

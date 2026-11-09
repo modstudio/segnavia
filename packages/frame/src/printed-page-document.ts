@@ -197,6 +197,7 @@ export function printedPageValueDocument(
     rectoOpenings: false,
     endnotePlacement: 'chapter',
     runningHead: {},
+    variables: page.printedPages.variables,
     parentNames,
     pageMarker: 'data-segnavia-printed-page',
     pageAttributes: ['data-segnavia-page-view'],

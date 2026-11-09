@@ -286,8 +286,7 @@ within each kind.
 
 ### Declared but not yet supported
 
-Parsing refuses a non-empty `variables` collection, every `condition`
-node, section `headTemplate`, division `settings.numbering`, and
+Parsing refuses every `condition` node, section `headTemplate`, division `settings.numbering`, and
 parent-page `regions`. Division numbering uses the richer shared `Numbering`
 value, while the current Book carries only a number system. It also refuses `limits` on
 deck and board documents. Remove the named field or node to clear the refusal.
@@ -1767,12 +1766,27 @@ Block ops do not sanitize: active-content policy remains at realize, where the
 sandbox policy sanitizes or refuses it. Styles are referenced by class and
 variables by declared name.
 
+A variable is declared by name in `Document.variables` and typed by its
+`kind`. A `text` variable takes its value `from` the content or from section
+titles, and its `pick` chooses, per page, the value in force at the page's
+first line (`start`), the first value set on the page (`first`, the default)
+or the last (`last`); a page that sets none takes the value carried from
+earlier pages. A section-title value is carried only within its flow. A
+`folio` or `pages` variable is the page's folio or the page total, counted
+`of` the division numbering, the whole document or the page's record. Content
+refers to a variable with `data-variable`; `Document.parse` refuses an
+undeclared reference, a repeated name and a name under the reserved
+`segnavia:` prefix. The plan resolves every declared variable for each page
+into `PlanPage.variables`, and a blank page carries none and leaves the
+carried values unchanged.
+
 `Measurements` records block and line boxes plus fit results. `Plan` records
 pages, first and last block ids, breaks, folios, resolved variables, parent-page
 choices and fingerprints. It unifies saved pagination and forced break plans;
 a stale plan refuses and names the first page that no longer matches. Saved plan
-version 2 carries record-scoped and whole-document numbering; earlier saved
-plans must be recomputed. `Report`
+version 3 carries record-scoped and whole-document numbering and each page's
+resolved variables in its page fingerprint; a plan below version 3 must be
+recomputed. `Report`
 records bounded overflow, fit, font, count and progress facts. Strict mode
 turns report entries into refusals.
 

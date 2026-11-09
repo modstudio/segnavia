@@ -4,7 +4,7 @@ import { bookPlanFolios } from './book-plan-folios.ts'
 import { convergeLayout } from './converge-layout.ts'
 import { measurementsWithBreaks } from './measurement-breaks.ts'
 import { paginateScript } from './paginate-book.ts'
-import { planBook } from './plan-book.ts'
+import { numberVariableValue, pagesWithNumberVariables, planBook } from './plan-book.ts'
 import { savedPlanScript } from './plan-save.ts'
 import { planPrintedPages } from './printed-pages.ts'
 
@@ -21,6 +21,8 @@ ${bookPlanFolios.toString()}
 var bookPlanFolios=${bookPlanFolios.name};
 ${bookPlanDocumentNumbers.toString()}
 var bookPlanDocumentNumbers=${bookPlanDocumentNumbers.name};
+${numberVariableValue.toString()}
+${pagesWithNumberVariables.toString()}
 ${planBook.toString()}
 var planBook=${planBook.name};
 ${convergeLayout.toString()}

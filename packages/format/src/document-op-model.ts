@@ -1,12 +1,9 @@
-import { z } from 'zod'
 import { DocumentShape, definitionCollections } from './document.ts'
-import { DivisionNodeFields, type DocumentNode, PartNodeFields, SectionNodeFields } from './document-nodes.ts'
-import { ConditionNode, ContentsNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
-import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, RecordNode, SlideNode } from './document-nodes-common.ts'
+import { nodeModel } from './document-node-model.ts'
 import type { DocumentLocation } from './document-op.ts'
 
-type ObjectSchema = z.ZodObject<z.ZodRawShape>
-export type DocumentNodeType = DocumentNode['type'] | 'parentPage' | 'template' | 'noteSeries' | 'variable' | 'condition'
+export { DOCUMENT_NODE_MODEL, type DocumentNodeType, nodeModel } from './document-node-model.ts'
+
 export type OperationNode = Record<string, unknown> & { id: string; type: string; children?: OperationNode[] }
 export type OperationDocument = Record<string, unknown> & { id: string; kind: string; children: OperationNode[]; style?: Record<string, unknown> }
 
@@ -17,60 +14,10 @@ export interface DocumentEntry {
   depth: number
 }
 
-interface NodeModel {
-  fields: ReadonlySet<string>
-  content: ReadonlySet<string>
-  settable: ReadonlySet<string>
-  children: boolean
-  collection?: (typeof definitionCollections)[number]
-}
-
-const schemaFields = (schema: ObjectSchema): string[] => schema.keyof().options
-const model = (schema: ObjectSchema, content: readonly string[] = [], collection?: NodeModel['collection']): NodeModel => {
-  const fields = new Set(schemaFields(schema))
-  for (const field of content) if (!fields.has(field)) throw new Error(`document op model field ${field} is absent from its node schema`)
-  const contentFields = new Set(content)
-  return {
-    fields,
-    content: contentFields,
-    settable: new Set([...fields].filter((field) => !['type', 'id', 'children'].includes(field) && !contentFields.has(field))),
-    children: fields.has('children'),
-    ...(collection ? { collection } : {}),
-  }
-}
-
-const boardSectionModel = (): NodeModel => {
-  const result = model(BoardSectionNode)
-  return { ...result, settable: new Set([...result.settable].filter((field) => field !== 'items' && field !== 'cells')) }
-}
-
-export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> = {
-  division: model(z.object(DivisionNodeFields)),
-  part: model(z.object(PartNodeFields), ['html']),
-  section: model(z.object(SectionNodeFields)),
-  flow: model(FlowNode, ['html']),
-  page: model(PageNode, ['body', 'regions']),
-  slide: model(SlideNode, ['content', 'notes']),
-  placed: model(PlacedNode),
-  contents: model(ContentsNode),
-  record: model(RecordNode),
-  item: model(BoardItemNode),
-  label: model(LabelNode),
-  boardSection: boardSectionModel(),
-  parentPage: model(ParentPageNode, ['head', 'foot', 'regions'], 'parentPages'),
-  template: model(TemplateNode, ['html'], 'templates'),
-  noteSeries: model(NoteSeriesNode, [], 'noteSeries'),
-  variable: model(VariableNode, [], 'variables'),
-  condition: model(ConditionNode, [], 'conditions'),
-}
-
+const schemaFields = (schema: { keyof: () => { options: string[] } }): string[] => schema.keyof().options
 const ROOT_RESERVED = new Set(['id', 'type', 'kind', 'children', 'style', ...definitionCollections])
 export const DOCUMENT_ROOT_FIELDS = new Set(schemaFields(DocumentShape).filter((field) => !ROOT_RESERVED.has(field)))
 export const DOCUMENT_STYLE_FIELDS = new Set(schemaFields(DocumentShape.shape.style.unwrap()))
-
-export function nodeModel(type: string): NodeModel | undefined {
-  return DOCUMENT_NODE_MODEL[type as DocumentNodeType]
-}
 
 export function documentEntries(document: OperationDocument): DocumentEntry[] {
   const result: DocumentEntry[] = []

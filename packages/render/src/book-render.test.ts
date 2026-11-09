@@ -15,6 +15,7 @@ function planPage(number: number): Plan['pages'][number] {
     role: number === 1 ? 'opener' : 'body',
     windows: [],
     notes: [],
+    variables: {},
     blank: false,
     sectionOpening: number === 1,
     parent: number === 1 ? 'segnavia:opener' : 'segnavia:recto',
@@ -95,7 +96,7 @@ test('bookPdf labels a fresh paginated composition from its published plan', asy
     chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
   })
   const published = JSON.stringify({
-    version: 2,
+    version: 3,
     fingerprint: 'fresh',
     breaks: [],
     pages: [planPage(1), planPage(2)],
@@ -139,7 +140,7 @@ test('bookPdf labels a supplied plan without reading a carrier', async () => {
     chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
   })
   const plan: Plan = {
-    version: 2,
+    version: 3,
     fingerprint: 'saved',
     breaks: [],
     pages: [planPage(1)],

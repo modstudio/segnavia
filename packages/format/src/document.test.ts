@@ -319,7 +319,6 @@ describe('Document', () => {
     const values = [
       { type: 'document', kind: 'book', children: [{ type: 'section', headTemplate: 'running', children: [] }] },
       { type: 'document', kind: 'book', children: [], parentPages: [{ type: 'parentPage', name: 'body', regions: { side: '<aside></aside>' } }] },
-      { type: 'document', kind: 'book', children: [], variables: [{ type: 'variable', name: 'folio', valueType: 'folio' }] },
     ]
     for (const value of values) expect(() => Document.parse(value)).toThrow('is not yet supported; remove it to clear this refusal')
   })

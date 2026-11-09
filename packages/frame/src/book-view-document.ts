@@ -44,6 +44,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     rectoOpenings: pagination.rectoOpenings,
     endnotePlacement: pagination.endnotePlacement,
     runningHead: pagination.runningHead,
+    variables: pagination.variables ?? [],
     parentNames: BOOK_PARENT_NAMES,
     numbering: pagination.numbering,
     limit: limits.pages,

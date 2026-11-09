@@ -13,6 +13,7 @@ import type {
   PaginateWindow as FormatPaginateWindow,
   Measurements,
   PlanPage as SavedPlanPage,
+  TextVariable,
 } from '@segnavia/format'
 
 export type PaginateSequence = NonNullable<FormatPaginateFlow['sequence']>
@@ -35,6 +36,7 @@ export type PaginateBookInput = Measurements
 export type PaginateWindow = FormatPaginateWindow
 export type PaginatePageNote = FormatPaginatePageNote
 export type PaginatePageMarks = FormatPaginatePageMarks
+export type PaginateTextVariable = TextVariable
 export type PaginateBookPage = Omit<SavedPlanPage, 'start' | 'fingerprint'>
 
 // A refusal names the block it could not place, or the flow or note when no block is at fault.

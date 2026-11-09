@@ -1,5 +1,7 @@
 import { fingerprintValue, type Measurements, type PaginateLine, type PaginateWindow, type PlanPage, type Plan as SavedPlan } from '@segnavia/format'
 import type { BookPlanNumbering } from './book-plan-folios.ts'
+import type { PaginateUnit } from './paginate-types.ts'
+import { resolveVariablesAcrossPages } from './paginate-variables.ts'
 import type { BookPlan } from './plan-book.ts'
 
 export type ReplayPlanResult = { ok: true; plan: BookPlan } | { ok: false; page: number; refusal: string }
@@ -9,7 +11,7 @@ function withoutLineBoxes(measurements: Measurements) {
   return {
     ...stable,
     flows: measurements.flows.map(({ pageGeometry: _pageGeometry, ...flow }) =>
-      flow.kind === 'fixed' ? flow : { ...flow, blocks: flow.blocks.map(({ lines: _lines, ...block }) => block) },
+      flow.kind === 'fixed' ? flow : { ...flow, blocks: flow.blocks.map(({ lines: _lines, variables: _variables, ...block }) => block) },
     ),
     notes: measurements.notes.map(({ lines: _lines, ...note }) => note),
   }
@@ -99,7 +101,7 @@ function noteRemainders(measurements: Measurements, pages: Pick<PlanPage, 'notes
 
 function pageFingerprint(
   measurements: Measurements,
-  page: Pick<PlanPage, 'role' | 'blank' | 'windows' | 'notes' | 'pageGeometry' | 'parent'>,
+  page: Pick<PlanPage, 'role' | 'blank' | 'windows' | 'notes' | 'pageGeometry' | 'parent' | 'variables'>,
   pages: Pick<PlanPage, 'windows' | 'notes'>[],
   pageIndex: number,
 ): string {
@@ -113,6 +115,7 @@ function pageFingerprint(
         }),
     role: page.role,
     blank: page.blank,
+    variables: page.variables,
     lines: consumedLines(measurements, page),
     notes: consumedNotes(measurements, page),
     remainder: {
@@ -141,7 +144,7 @@ function savedPage(measurements: Measurements, pages: BookPlan['pages'], page: B
 
 export function savePlan(measurements: Measurements, plan: BookPlan, numbering: BookPlanNumbering): SavedPlan {
   return {
-    version: 2,
+    version: 3,
     fingerprint: inputFingerprint(measurements, numbering),
     breaks: breaksOf(measurements),
     pages: plan.pages.map((page, pageIndex) => savedPage(measurements, plan.pages, page, pageIndex)),
@@ -181,6 +184,18 @@ function noteRefusal(page: number, id: string): ReplayPlanResult {
     page,
     refusal: `page ${page} no longer matches the plan: note ${id} laid out differently; compute a new plan to clear this refusal`,
   }
+}
+
+function variableRefusal(page: number, name: string): ReplayPlanResult {
+  return {
+    ok: false,
+    page,
+    refusal: `page ${page} no longer matches the plan: variable ${JSON.stringify(name)} resolved differently; compute a new plan to clear this refusal`,
+  }
+}
+
+function firstDifferingVariable(saved: Record<string, string>, actual: Record<string, string>): string | undefined {
+  return [...new Set([...Object.keys(saved), ...Object.keys(actual)])].find((name) => saved[name] !== actual[name])
 }
 
 // The composer selects a page's content by its flow, so a saved page may name only a measured flow.
@@ -238,6 +253,35 @@ function fingerprintRefusal(measurements: Measurements, saved: SavedPlan, page: 
   return pageRefusal(pageNumber, name)
 }
 
+function pageUnits(measurements: Measurements, page: PlanPage): PaginateUnit[] {
+  if (page.blank) return []
+  const placed: PaginateUnit[] = []
+  for (const window of page.windows) {
+    const flow = flowingFlow(measurements, window.flow)
+    if (!flow) continue
+    for (const block of flow.blocks) {
+      block.lines.forEach((line, lineIndex) => {
+        if (lineInWindow(line, window)) placed.push({ flowId: flow.id, block, index: lineIndex, top: line.top, bottom: line.bottom, refs: [] })
+      })
+    }
+  }
+  return placed
+}
+
+function textVariablesForReplay(measurements: Measurements, pages: PlanPage[]): Array<Record<string, string>> {
+  const declarations = measurements.variables.filter((variable) => variable.kind === 'text')
+  const textVariables = resolveVariablesAcrossPages(pages, (page) => pageUnits(measurements, page), declarations)
+  return pages.map((page, index) => {
+    const variables = { ...page.variables }
+    for (const declaration of declarations) {
+      delete variables[declaration.name]
+      const value = textVariables[index]?.[declaration.name]
+      if (value) variables[declaration.name] = value
+    }
+    return variables
+  })
+}
+
 export function replayPlan(measurements: Measurements, saved: SavedPlan, numbering: BookPlanNumbering): ReplayPlanResult {
   if (saved.fingerprint !== inputFingerprint(measurements, numbering) || fingerprintValue(saved.breaks) !== fingerprintValue(breaksOf(measurements))) {
     return {
@@ -246,6 +290,7 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       refusal: "the plan's inputs changed (settings, geometry, breaks or block order); compute a new plan to clear this refusal",
     }
   }
+  const actualVariables = textVariablesForReplay(measurements, saved.pages)
   for (const [index, page] of saved.pages.entries()) {
     const pageNumber = index + 1
     const invalid =
@@ -255,14 +300,17 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       validateWindows(measurements, page, pageNumber) ??
       validateNotes(measurements, page, pageNumber)
     if (invalid) return invalid
-    if (page.fingerprint !== pageFingerprint(measurements, page, saved.pages, index)) {
+    const actual = actualVariables[index] ?? {}
+    if (page.fingerprint !== pageFingerprint(measurements, { ...page, variables: actual }, saved.pages, index)) {
+      const variable = firstDifferingVariable(page.variables, actual)
+      if (variable && page.fingerprint === pageFingerprint(measurements, page, saved.pages, index)) return variableRefusal(pageNumber, variable)
       return fingerprintRefusal(measurements, saved, page, pageNumber, index)
     }
   }
   return {
     ok: true,
     plan: {
-      version: 2,
+      version: 3,
       pages: saved.pages,
       folios: saved.folios,
       total: saved.total,
@@ -291,6 +339,8 @@ export function savedPlanScript(): string {
     pageRefusal,
     fieldRefusal,
     noteRefusal,
+    variableRefusal,
+    firstDifferingVariable,
     flowRemainders,
     noteRemainders,
     validateFlow,
@@ -299,6 +349,8 @@ export function savedPlanScript(): string {
     validateWindows,
     validateNotes,
     fingerprintRefusal,
+    pageUnits,
+    textVariablesForReplay,
     replayPlan,
   ]
   return `${functions.map((fn) => fn.toString()).join('\n')}

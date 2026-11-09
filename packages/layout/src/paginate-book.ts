@@ -5,6 +5,7 @@ import { measuredExtentFits } from './paginate-measure.ts'
 import { paginateNotes } from './paginate-notes.ts'
 import { paginateSequence } from './paginate-sequence.ts'
 import type { PaginateBlock, PaginateBookInput, PaginateBookRefusal, PaginateBookResult, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
+import { pageSetPoints, paginateVariables, resolveVariablesAcrossPages } from './paginate-variables.ts'
 import { printedPageAt, selectBookParent } from './printed-pages.ts'
 
 export { paginateColumns } from './paginate-columns.ts'
@@ -12,8 +13,32 @@ export { paginateKeeps } from './paginate-keeps.ts'
 export { paginateMarks } from './paginate-marks.ts'
 export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
+export { paginateVariables, resolveVariablesAcrossPages } from './paginate-variables.ts'
 
 export function paginateBook(input: PaginateBookInput): PaginateBookResult {
+  function variablesForPages(result: PaginateBookResult): PaginateBookResult {
+    const declarations = input.variables.filter((variable) => variable.kind === 'text')
+    const variables = resolveVariablesAcrossPages(
+      result.pages,
+      (page) => {
+        const placed: PaginateUnit[] = []
+        for (const window of page.windows) {
+          const flow = input.flows.find((candidate) => candidate.id === window.flow)
+          if (!flow || flow.kind === 'fixed') continue
+          for (const block of flow.blocks) {
+            block.lines.forEach((line, index) => {
+              if (line.top >= window.start && line.bottom <= window.end) {
+                placed.push({ flowId: flow.id, block, index, top: line.top, bottom: line.bottom, refs: [] })
+              }
+            })
+          }
+        }
+        return placed
+      },
+      declarations,
+    )
+    return { ...result, pages: result.pages.map((page, index) => ({ ...page, variables: variables[index] ?? {} })) }
+  }
   function used(textHeight: number, placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
     return paginateColumns(placed).height + paginateNotes({ op: 'space', notes: input.notes, geometry: { ...input.geometry, textHeight }, fragments })
   }
@@ -115,7 +140,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
     return { placed: forced.placed, fragments: forced.fragments, index: nextIndex + 1, pending: forced.pending }
   }
 
-  return paginateSequence(input, fillPage)
+  return variablesForPages(paginateSequence(input, fillPage))
 }
 
 // Ordered for embedding: each function calls only the others by name.
@@ -127,6 +152,9 @@ export const PAGINATE_FUNCTIONS = [
   paginateNotes,
   paginateKeeps,
   paginateMarks,
+  pageSetPoints,
+  paginateVariables,
+  resolveVariablesAcrossPages,
   paginateSequence,
   paginateBook,
 ]

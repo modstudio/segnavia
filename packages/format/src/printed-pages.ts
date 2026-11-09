@@ -6,6 +6,7 @@ import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import { CONTINUE_OPENS_REMEDY } from './section-opens-policy.ts'
+import { Variable } from './variable.ts'
 
 export const PRINTED_PAGE_ROLES = ['every', 'first', 'recto', 'verso', 'last'] as const
 export type PrintedPageRole = (typeof PRINTED_PAGE_ROLES)[number]
@@ -50,6 +51,7 @@ export const PrintedPageRules = z
   }))
 
 export const PrintedPages = z.object({
+  variables: z.array(Variable).default([]),
   parents: z.array(ParentPage).min(1),
   rules: PrintedPageRules,
   numbering: NumberSystem.optional(),

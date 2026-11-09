@@ -12,6 +12,7 @@ import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LogicalMargin } from './margins.ts'
 import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numbering.ts'
@@ -184,9 +185,6 @@ function refineUnsupportedDocumentFields(document: DocumentShapeValue, ctx: z.Re
       })
     }
   })
-  if (document.variables.length > 0) {
-    ctx.addIssue({ code: 'custom', path: ['variables'], message: 'document field variables is not yet supported; remove it to clear this refusal' })
-  }
 }
 
 function requirementPresent(document: DocumentShapeValue, requirement: string): boolean {
@@ -333,6 +331,7 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   refineDocumentNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)
   refineUnsupportedDocumentFields(document, ctx)
+  refineDocumentVariables(document, ctx)
   refineProfileShape(document, profile, ctx)
   refinePrint(document, profile, ctx)
 }).transform((document) => {
