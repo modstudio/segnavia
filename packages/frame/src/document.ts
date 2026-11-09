@@ -332,7 +332,6 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     )
     for (const item of list.querySelectorAll<HTMLElement>('.segnavia-document__item')) this.pageObserver.observe(item)
   }
-
   private mount(sheet: HTMLElement) {
     if (sheet.firstElementChild) return
     const index = Number(sheet.dataset.page)
@@ -362,17 +361,14 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       context,
     )
   }
-
   private onMessage = (event: MessageEvent) => {
     if (!this.resolvedSlots || this.resolvedGeneration !== this.slotGeneration) return
     mergeOwnedSlotFit(event, this.querySelectorAll('iframe'), this.resolvedSlots)
   }
-
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
   }
-
   private resolveDocuments(documents: Document[]) {
     this.brandResolution?.abort()
     const controller = new AbortController()
@@ -397,7 +393,6 @@ export class SegnaviaDocument extends DocumentAsOfElement {
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
       })
   }
-
   private changed() {
     this.dispatchEvent(new CustomEvent('segnavia-document-change'))
   }
