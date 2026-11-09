@@ -34,9 +34,9 @@ export {
   Part,
   PlacedSection,
   REGION_NAME,
+  resolveBookPagination,
   SECTION_BOUNDARY_CLASS,
   SECTION_TITLE_MARK,
-  resolveBookPagination,
   TemplatedPage,
   TemplatedSection,
 } from './book.ts'

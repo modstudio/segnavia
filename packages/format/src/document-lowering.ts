@@ -1,8 +1,8 @@
 import { Board, type Board as BoardValue } from './board.ts'
 import { Book, type Book as BookValue } from './book.ts'
 import { Deck, type Deck as DeckValue } from './deck.ts'
-import { documentBookDivisions } from './document-book-items.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
+import { documentBookDivisions } from './document-book-items.ts'
 import { Page, type Page as PageValue } from './page.ts'
 import type { Brand } from './style-sheet.ts'
 

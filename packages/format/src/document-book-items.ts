@@ -76,7 +76,14 @@ function bookItem(node: DocumentNode, division: Division, path: (string | number
   if (node.type === 'part') return partItem(node, division, path)
   if (node.type === 'section') return sectionItem(node, division, path)
   if (node.type === 'contents')
-    return defined({ id: nodeId(node, path), kind: 'contents', title: node.title, opens: node.opens, parents: node.parents, numbering: node.numbering }) as BookItem
+    return defined({
+      id: nodeId(node, path),
+      kind: 'contents',
+      title: node.title,
+      opens: node.opens,
+      parents: node.parents,
+      numbering: node.numbering,
+    }) as BookItem
   if (node.type === 'flow') return defined({ id: nodeId(node, path), title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem
   if (node.type === 'placed') return { id: nodeId(node, path), kind: 'placed', contents: true, placement: placement(node) }
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)
@@ -88,9 +95,7 @@ export function documentBookDivisions(document: { children: DocumentNode[] }): B
     return { frontMatter: [], body: document.children.map((node, index) => bookItem(node, 'body', ['body', index])), endMatter: [] }
   }
   const entries = (name: Division, key: 'frontMatter' | 'body' | 'endMatter') =>
-    divisions
-      .filter((division) => division.name === name)
-      .flatMap((division) => division.children.map((node, index) => bookItem(node, name, [key, index])))
+    divisions.filter((division) => division.name === name).flatMap((division) => division.children.map((node, index) => bookItem(node, name, [key, index])))
   return { frontMatter: entries('front', 'frontMatter'), body: entries('body', 'body'), endMatter: entries('end', 'endMatter') }
 }
 

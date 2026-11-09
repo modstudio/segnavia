@@ -39,14 +39,18 @@ describe('paginateBook model', () => {
     })
     sample.parents.deep = { width: 100, height: 30 }
     const continued = { id: 'n1', series: 'footnote', whole: false, start: 0, end: 1 }
-    const result = paginateSequence(sample, (units, index, pending) => {
-      const unit = units[index]
-      if (unit?.flowId === 'c1') return { placed: [unit], fragments: [], index: index + 1, pending: [continued] }
-      if (units[0]?.flowId === 'c1') return { placed: [], fragments: [], index, pending, done: true }
-      if (pending.length > 0) return { placed: [], fragments: [continued], index, pending: [] }
-      if (unit) return { placed: [unit], fragments: [], index: index + 1, pending: [] }
-      return { placed: [], fragments: [], index, pending: [], done: true }
-    }, 'segnavia:section-title')
+    const result = paginateSequence(
+      sample,
+      (units, index, pending) => {
+        const unit = units[index]
+        if (unit?.flowId === 'c1') return { placed: [unit], fragments: [], index: index + 1, pending: [continued] }
+        if (units[0]?.flowId === 'c1') return { placed: [], fragments: [], index, pending, done: true }
+        if (pending.length > 0) return { placed: [], fragments: [continued], index, pending: [] }
+        if (unit) return { placed: [unit], fragments: [], index: index + 1, pending: [] }
+        return { placed: [], fragments: [], index, pending: [], done: true }
+      },
+      'segnavia:section-title',
+    )
     expect(result.refusals).toEqual([])
     expect(result.pages.filter((page) => page.flow === 'c2').map((page) => ({ parent: page.parent, opening: page.sectionOpening }))).toEqual([
       { parent: 'segnavia:verso', opening: false },

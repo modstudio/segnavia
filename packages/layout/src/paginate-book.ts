@@ -14,11 +14,7 @@ export { paginateMarks } from './paginate-marks.ts'
 export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
 
-function paginateBookWithSectionTitle(
-  input: PaginateBookInput,
-  sectionTitleMark: string,
-  paginate: typeof paginateSequence,
-): PaginateBookResult {
+function paginateBookWithSectionTitle(input: PaginateBookInput, sectionTitleMark: string, paginate: typeof paginateSequence): PaginateBookResult {
   function used(textHeight: number, placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
     return paginateColumns(placed).height + paginateNotes({ op: 'space', notes: input.notes, geometry: { ...input.geometry, textHeight }, fragments })
   }

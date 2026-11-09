@@ -45,5 +45,5 @@ export interface BookDocument {
   pageReferenceTargets: string[]
   issues: string[]
 }
-import type { BookOpens } from '@segnavia/format'
 
+import type { BookOpens } from '@segnavia/format'

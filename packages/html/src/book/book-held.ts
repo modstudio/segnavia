@@ -84,7 +84,10 @@ export function partSection(
     'data-segnavia-parts': JSON.stringify(parts),
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
   })
-  return { info: { id, kind: 'part', division, title: entry.title, runningHead, opens: entry.opens }, node: sectionNode('part', id, children, build, runningHead, extra) }
+  return {
+    info: { id, kind: 'part', division, title: entry.title, runningHead, opens: entry.opens },
+    node: sectionNode('part', id, children, build, runningHead, extra),
+  }
 }
 
 function flowPage(page: number, kind: 'designed' | 'templated', children: ChildNode[], geometry: BookFlowPageGeometry, recto: boolean) {

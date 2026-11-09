@@ -125,99 +125,109 @@ function rectoContinueFixture(hebrew: boolean): DocumentInput {
   return input
 }
 
+async function verifyContinuation(renderer: Renderer, check: Check, hebrew: boolean, css: string): Promise<void> {
+  const key = hebrew ? 'hebrew' : 'english'
+  const joined = await render(renderer, fixture(hebrew, 'continue'), css, `continue-${key}`)
+  const separate = await render(renderer, fixture(hebrew, 'any'), css, `separate-${key}`)
+  try {
+    const shared = pageWith(joined.pages, 'TWO_HEADING')
+    const end = pageWith(joined.pages, 'ONE_END')
+    const later = pageWith(joined.pages, 'TWO_END')
+    const three = pageWith(joined.pages, 'THREE_END')
+    const designed = pageWith(joined.pages, 'DESIGNED_PAGE')
+    const titles = hebrew ? ['פרק ראשון', 'פרק שני', 'פרק שלישי'] : ['Chapter One', 'Chapter Two', 'Chapter Three']
+    const title = titles[1] ?? ''
+    const outline = pdfOutlineItems(joined.document).find((item) => compact(item.title) === compact(title))
+    const links = annotationDestinations(joined.document)
+    const text = joined.pages[shared - 1] ?? ''
+    const laterText = joined.pages[later - 1] ?? ''
+    const folio = joined.plan.folios[shared - 1] ?? ''
+    const contentsShowsFolio = joined.pages.some((page) => page.split('\n').some((line) => containsText(line, title) && compact(line).includes(compact(folio))))
+    check(
+      `${key} continue joins chapter two to chapter one's last PDF page and reduces the PDF page count`,
+      shared === end && joined.document.getPageCount() < separate.document.getPageCount(),
+      `chapter-one-end=${end}, chapter-two-heading=${shared}, continue-pages=${joined.document.getPageCount()}, separate-pages=${separate.document.getPageCount()}`,
+    )
+    const beforeShared = shared - 1
+    check(
+      `${key} section-title marks stay within the joined screen flow and printed PDF`,
+      beforeShared > 0 &&
+        planTitle(joined.plan, beforeShared) === titles[0] &&
+        planTitle(joined.plan, shared) === title &&
+        planTitle(joined.plan, three) === titles[2] &&
+        joined.plan.pages[three - 1]?.marks?.[SECTION_TITLE_MARK] === undefined &&
+        joined.plan.pages[designed - 1]?.marks?.[SECTION_TITLE_MARK] === undefined &&
+        containsHead(joined.pages[beforeShared - 1] ?? '', titles[0] ?? '') &&
+        containsHead(joined.pages[three - 1] ?? '', titles[2] ?? '') &&
+        !containsHead(joined.pages[three - 1] ?? '', title) &&
+        !containsHead(joined.pages[designed - 1] ?? '', title),
+      `A-page=${beforeShared}, A-screen=${planTitle(joined.plan, beforeShared)}, shared=${shared}, shared-screen=${planTitle(joined.plan, shared)}, C-page=${three}, C-screen=${planTitle(joined.plan, three)}, C-pdf-head=${containsHead(joined.pages[three - 1] ?? '', titles[2] ?? '')}, designed-page=${designed}, designed-has-B=${containsHead(joined.pages[designed - 1] ?? '', title)}`,
+    )
+    check(
+      `${key} continue keeps contents, outline and running-head targets on the shared PDF page`,
+      outline?.page === shared &&
+        links.includes(shared) &&
+        contentsShowsFolio &&
+        containsHead(text, title) &&
+        later > shared &&
+        containsHead(laterText, title) &&
+        containsFolio(text, folio),
+      `shared=${shared}, later=${later}, outline=${outline?.page}, links=${links.join(',')}, contents-folio=${contentsShowsFolio}, shared-head=${containsHead(text, title)}, later-head=${containsHead(laterText, title)}, compared-folio=${folio}`,
+    )
+  } finally {
+    joined.close()
+    separate.close()
+  }
+}
+
+async function verifyRecto(renderer: Renderer, check: Check, hebrew: boolean, css: string): Promise<void> {
+  const key = hebrew ? 'hebrew' : 'english'
+  const rectoInput = fixture(hebrew, 'any')
+  rectoInput.children.splice(0, 1)
+  const body = (rectoInput.children[0] as { children: Array<Record<string, unknown>> }).children
+  body[0] = { ...body[0], children: [{ type: 'flow', html: '<p>ODD_PAGE_SECTION</p>' }] }
+  body[1] = { ...body[1], opens: 'recto', parents, children: [{ type: 'flow', html: '<p>RECTO_SECTION</p>' }] }
+  const recto = await render(renderer, rectoInput, css, `recto-${key}`)
+  try {
+    const blank = recto.plan.pages.findIndex((page) => page.blank)
+    const next = recto.plan.pages[blank + 1]
+    const blankText = (recto.pages[blank] ?? '').trim()
+    check(
+      `${key} recto opener inserts an undressed blank verso before the direction's recto`,
+      blank >= 0 &&
+        recto.plan.folios[blank] === null &&
+        compact(blankText) === 'HEAD[]FOLIO[]' &&
+        next?.face === 'recto' &&
+        next.side === (hebrew ? 'left' : 'right'),
+      `${blankDetail(recto.plan, blank)}, blank-furniture=${JSON.stringify(compact(blankText))}, next-face=${next?.face}, next-side=${next?.side}, compared-direction=${hebrew ? 'rtl' : 'ltr'}`,
+    )
+  } finally {
+    recto.close()
+  }
+}
+
+async function verifyRectoContinuation(renderer: Renderer, check: Check, hebrew: boolean, css: string): Promise<void> {
+  const key = hebrew ? 'hebrew' : 'english'
+  const continuedRecto = await render(renderer, rectoContinueFixture(hebrew), css, `recto-continue-${key}`)
+  try {
+    const shared = pageWith(continuedRecto.pages, 'RECTO_CONTINUING_HEADING')
+    const precedingEnd = pageWith(continuedRecto.pages, 'RECTO_CONTINUE_END')
+    const blanksBefore = continuedRecto.plan.pages.slice(0, shared).filter((page) => page.blank).length
+    check(
+      `${key} recto-openings print leaves an even-page continuation unblanked`,
+      shared === precedingEnd && shared % 2 === 0 && !continuedRecto.plan.pages[shared - 1]?.blank && blanksBefore === 0,
+      `preceding-end=${precedingEnd}, continuing-heading=${shared}, even=${shared % 2 === 0}, shared-blank=${continuedRecto.plan.pages[shared - 1]?.blank}, blanks-through-shared=${blanksBefore}, pdf-pages=${continuedRecto.document.getPageCount()}`,
+    )
+  } finally {
+    continuedRecto.close()
+  }
+}
+
 export async function verifyBookOpeners(renderer: Renderer, check: Check): Promise<void> {
   const css = ':where(body){font:14px/20px serif}:where(p,h2){margin-block:0 3mm}'
   for (const hebrew of [false, true]) {
-    const key = hebrew ? 'hebrew' : 'english'
-    const joined = await render(renderer, fixture(hebrew, 'continue'), css, `continue-${key}`)
-    const separate = await render(renderer, fixture(hebrew, 'any'), css, `separate-${key}`)
-    try {
-      const shared = pageWith(joined.pages, 'TWO_HEADING')
-      const end = pageWith(joined.pages, 'ONE_END')
-      const later = pageWith(joined.pages, 'TWO_END')
-      const three = pageWith(joined.pages, 'THREE_END')
-      const designed = pageWith(joined.pages, 'DESIGNED_PAGE')
-      const titles = hebrew ? ['פרק ראשון', 'פרק שני', 'פרק שלישי'] : ['Chapter One', 'Chapter Two', 'Chapter Three']
-      const title = titles[1] ?? ''
-      const outline = pdfOutlineItems(joined.document).find((item) => compact(item.title) === compact(title))
-      const links = annotationDestinations(joined.document)
-      const text = joined.pages[shared - 1] ?? ''
-      const laterText = joined.pages[later - 1] ?? ''
-      const folio = joined.plan.folios[shared - 1] ?? ''
-      const contentsShowsFolio = joined.pages.some((page) =>
-        page.split('\n').some((line) => containsText(line, title) && compact(line).includes(compact(folio))),
-      )
-      check(
-        `${key} continue joins chapter two to chapter one's last PDF page and reduces the PDF page count`,
-        shared === end && joined.document.getPageCount() < separate.document.getPageCount(),
-        `chapter-one-end=${end}, chapter-two-heading=${shared}, continue-pages=${joined.document.getPageCount()}, separate-pages=${separate.document.getPageCount()}`,
-      )
-      const beforeShared = shared - 1
-      check(
-        `${key} section-title marks stay within the joined screen flow and printed PDF`,
-        beforeShared > 0 &&
-          planTitle(joined.plan, beforeShared) === titles[0] &&
-          planTitle(joined.plan, shared) === title &&
-          planTitle(joined.plan, three) === titles[2] &&
-          joined.plan.pages[three - 1]?.marks?.[SECTION_TITLE_MARK] === undefined &&
-          joined.plan.pages[designed - 1]?.marks?.[SECTION_TITLE_MARK] === undefined &&
-          containsHead(joined.pages[beforeShared - 1] ?? '', titles[0] ?? '') &&
-          containsHead(joined.pages[three - 1] ?? '', titles[2] ?? '') &&
-          !containsHead(joined.pages[three - 1] ?? '', title) &&
-          !containsHead(joined.pages[designed - 1] ?? '', title),
-        `A-page=${beforeShared}, A-screen=${planTitle(joined.plan, beforeShared)}, shared=${shared}, shared-screen=${planTitle(joined.plan, shared)}, C-page=${three}, C-screen=${planTitle(joined.plan, three)}, C-pdf-head=${containsHead(joined.pages[three - 1] ?? '', titles[2] ?? '')}, designed-page=${designed}, designed-has-B=${containsHead(joined.pages[designed - 1] ?? '', title)}`,
-      )
-      check(
-        `${key} continue keeps contents, outline and running-head targets on the shared PDF page`,
-        outline?.page === shared &&
-          links.includes(shared) &&
-          contentsShowsFolio &&
-          containsHead(text, title) &&
-          later > shared &&
-          containsHead(laterText, title) &&
-          containsFolio(text, folio),
-        `shared=${shared}, later=${later}, outline=${outline?.page}, links=${links.join(',')}, contents-folio=${contentsShowsFolio}, shared-head=${containsHead(text, title)}, later-head=${containsHead(laterText, title)}, compared-folio=${folio}`,
-      )
-    } finally {
-      joined.close()
-      separate.close()
-    }
-
-    const rectoInput = fixture(hebrew, 'any')
-    rectoInput.children.splice(0, 1)
-    const body = (rectoInput.children[0] as { children: Array<Record<string, unknown>> }).children
-    body[0] = { ...body[0], children: [{ type: 'flow', html: '<p>ODD_PAGE_SECTION</p>' }] }
-    body[1] = { ...body[1], opens: 'recto', parents, children: [{ type: 'flow', html: '<p>RECTO_SECTION</p>' }] }
-    const recto = await render(renderer, rectoInput, css, `recto-${key}`)
-    try {
-      const blank = recto.plan.pages.findIndex((page) => page.blank)
-      const next = recto.plan.pages[blank + 1]
-      const blankText = (recto.pages[blank] ?? '').trim()
-      check(
-        `${key} recto opener inserts an undressed blank verso before the direction's recto`,
-        blank >= 0 &&
-          recto.plan.folios[blank] === null &&
-          compact(blankText) === 'HEAD[]FOLIO[]' &&
-          next?.face === 'recto' &&
-          next.side === (hebrew ? 'left' : 'right'),
-        `${blankDetail(recto.plan, blank)}, blank-furniture=${JSON.stringify(compact(blankText))}, next-face=${next?.face}, next-side=${next?.side}, compared-direction=${hebrew ? 'rtl' : 'ltr'}`,
-      )
-    } finally {
-      recto.close()
-    }
-
-    const continuedRecto = await render(renderer, rectoContinueFixture(hebrew), css, `recto-continue-${key}`)
-    try {
-      const shared = pageWith(continuedRecto.pages, 'RECTO_CONTINUING_HEADING')
-      const precedingEnd = pageWith(continuedRecto.pages, 'RECTO_CONTINUE_END')
-      const blanksBefore = continuedRecto.plan.pages.slice(0, shared).filter((page) => page.blank).length
-      check(
-        `${key} recto-openings print leaves an even-page continuation unblanked`,
-        shared === precedingEnd && shared % 2 === 0 && !continuedRecto.plan.pages[shared - 1]?.blank && blanksBefore === 0,
-        `preceding-end=${precedingEnd}, continuing-heading=${shared}, even=${shared % 2 === 0}, shared-blank=${continuedRecto.plan.pages[shared - 1]?.blank}, blanks-through-shared=${blanksBefore}, pdf-pages=${continuedRecto.document.getPageCount()}`,
-      )
-    } finally {
-      continuedRecto.close()
-    }
+    await verifyContinuation(renderer, check, hebrew, css)
+    await verifyRecto(renderer, check, hebrew, css)
+    await verifyRectoContinuation(renderer, check, hebrew, css)
   }
 }

@@ -24,11 +24,16 @@ test('scopes a continuing section title to its joined flow', () => {
   const pages = paginateBook(
     input({
       flows: [
-        flow('shared', 'chapter', [
-          block('text', 'p', 1, 1, 7, 0),
-          block('text', 'div', 2, 2, 1, 70, { marks: [{ name: SECTION_TITLE_MARK, value: 'Two', line: 0 }] }),
-          block('text', 'p', 2, 3, 7, 80),
-        ], 'One'),
+        flow(
+          'shared',
+          'chapter',
+          [
+            block('text', 'p', 1, 1, 7, 0),
+            block('text', 'div', 2, 2, 1, 70, { marks: [{ name: SECTION_TITLE_MARK, value: 'Two', line: 0 }] }),
+            block('text', 'p', 2, 3, 7, 80),
+          ],
+          'One',
+        ),
         flow('three', 'chapter', [block('text', 'p', 3, 1, 7, 0)], 'Three'),
         { id: 'designed', kind: 'fixed', pages: 1, runningHead: 'Designed' },
       ],

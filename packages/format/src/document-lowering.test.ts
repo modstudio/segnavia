@@ -90,9 +90,7 @@ describe('Document lowering', () => {
           name: 'part',
           title: 'Part',
           contents: true,
-          children: [
-            { type: 'section', id: 'inside', title: 'Inside', children: [{ type: 'flow', html: '<p>Inside</p>' }] },
-          ],
+          children: [{ type: 'section', id: 'inside', title: 'Inside', children: [{ type: 'flow', html: '<p>Inside</p>' }] }],
         },
         {
           type: 'section',
