@@ -11,6 +11,7 @@ export {
   type LimitRefusalOptions,
   type Limits,
   type LocalFontLimitFace,
+  limitExceeded,
   limitRefusal,
   limitRefusalTemplate,
   localFontLimitExceeded,

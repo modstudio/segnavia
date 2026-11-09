@@ -11,8 +11,10 @@ import {
   deckLimitsExceeded,
   Imposition,
   type ImpositionInput,
+  type LimitExceeded,
   LimitExceededError,
   type Limits,
+  limitExceeded,
   PRESS_GEOMETRY_FIELDS,
   pageOrPrintedFromDocument,
   parseLimits,
@@ -255,10 +257,14 @@ export function copiesPrint(copies: readonly PrintFrameOptions[]): PrintFrameOpt
   }
 }
 
+export function pagesSheetsExceeded(sheets: number | undefined, limits: Limits | undefined): LimitExceeded | undefined {
+  const limit = limits?.sheets
+  if (sheets !== undefined && limit !== undefined && sheets > limit) return limitExceeded('sheets', sheets, limit)
+}
+
 function refusePagesSheets(options: PrintFrameOptions): void {
-  if (options.sheets === undefined) return
-  const limit = options.limits?.sheets
-  if (limit !== undefined && options.sheets > limit) throw new LimitExceededError('sheets', options.sheets, limit)
+  const exceeded = pagesSheetsExceeded(options.sheets, options.limits)
+  if (exceeded) throw new LimitExceededError([exceeded])
 }
 
 export async function printDeck(input: DocumentInput, options: BrowserPrintOptions = {}): Promise<void> {

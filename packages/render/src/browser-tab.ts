@@ -2,8 +2,9 @@ import { Buffer } from 'node:buffer'
 import {
   type FetchKind,
   type FontFailure,
+  type LimitExceeded,
   type Limits,
-  limitRefusal,
+  limitExceeded,
   type OriginApproval,
   originDecision,
   type ResolvedLimits,
@@ -12,7 +13,7 @@ import {
 import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
 import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
 import { withinBound } from './render-deadline.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, waitsForReadiness } from './render-readiness.ts'
@@ -76,12 +77,12 @@ export async function assetRouteDecision(
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
 }
 
-export function assetLimitRefusal(url: string, bytes: number, total: number, limits: ResolvedLimits['assets']): string | undefined {
+export function assetLimitRefusal(url: string, bytes: number, total: number, limits: ResolvedLimits['assets']): LimitExceeded | undefined {
   if (bytes > limits.each) {
-    return limitRefusal('assets.each', bytes, limits.each, { where: url, setting: 'limits.assets.each' })
+    return limitExceeded('assets.each', bytes, limits.each, { where: url, setting: 'limits.assets.each' })
   }
   if (total + bytes > limits.bytes) {
-    return limitRefusal('assets.bytes', total + bytes, limits.bytes, { where: url, setting: 'limits.assets.bytes' })
+    return limitExceeded('assets.bytes', total + bytes, limits.bytes, { where: url, setting: 'limits.assets.bytes' })
   }
   return undefined
 }
@@ -121,6 +122,7 @@ export async function renderInBrowserTab<T>(
   }
   if (measureSlots) await installSlotFitCapture(context)
   const refused = new Set<string>()
+  const exceeded = new Map<string, LimitExceeded>()
   const missing = new Set<string>()
   const controller = new AbortController()
   const assetLimits = resolveLimits(undefined, setup.limits).assets
@@ -137,7 +139,8 @@ export async function renderInBrowserTab<T>(
       const bytes = decision.body.byteLength
       const limitRefusal = assetLimitRefusal(url, bytes, assetBudget.bytes, assetLimits)
       if (limitRefusal) {
-        refused.add(limitRefusal)
+        refused.add(limitRefusal.message)
+        exceeded.set(limitRefusal.message, limitRefusal)
         await route.abort('blockedbyclient')
       } else {
         assetBudget.bytes += bytes
@@ -178,7 +181,15 @@ export async function renderInBrowserTab<T>(
   }
   await tab.setContent(setup.html, { waitUntil: 'load' })
   const refuseMissing = () => {
-    if (refused.size > 0) throw new RenderRefusedError([...refused].join('; '))
+    if (refused.size > 0) {
+      const message = [...refused].join('; ')
+      const limitEntries = [...refused].flatMap((reason) => {
+        const entry = exceeded.get(reason)
+        return entry ? [entry] : []
+      })
+      if (limitEntries.length > 0) throw new RenderLimitError(limitEntries as [LimitExceeded, ...LimitExceeded[]], message)
+      throw new RenderRefusedError(message)
+    }
     if (missing.size > 0) throw new RenderRefusedError(`The host assets option did not answer approved requests: ${[...missing].join(', ')}.`)
   }
   refuseMissing()

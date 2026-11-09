@@ -10,6 +10,7 @@ import {
   type FontSource,
   fontManifestReferences,
   fontManifestWithReferences,
+  type LimitExceeded,
   matchFaces,
   type Page,
 } from '@segnavia/format'
@@ -29,9 +30,12 @@ export interface ResolvedFonts {
 }
 
 export class FontRefusedError extends Error {
-  constructor(message: string) {
+  readonly exceeded?: readonly LimitExceeded[]
+
+  constructor(message: string, exceeded?: readonly LimitExceeded[]) {
     super(message)
     this.name = 'FontRefusedError'
+    this.exceeded = exceeded
   }
 }
 

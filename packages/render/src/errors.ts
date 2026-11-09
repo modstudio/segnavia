@@ -31,17 +31,17 @@ export class RenderLimitError extends RenderRefusedError {
   readonly exceeded: readonly LimitExceeded[]
 
   constructor(measure: LimitMeasure, actual: number, limit: number, options?: LimitRefusalOptions)
-  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]])
+  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]], message?: string)
   constructor(
     measureOrExceeded: LimitMeasure | readonly [LimitExceeded, ...LimitExceeded[]],
-    actual?: number,
+    actualOrMessage?: number | string,
     limit?: number,
     options: LimitRefusalOptions = {},
   ) {
     const structured =
       typeof measureOrExceeded === 'string'
-        ? new LimitExceededError(measureOrExceeded, actual as number, limit as number, options)
-        : new LimitExceededError(measureOrExceeded)
+        ? new LimitExceededError(measureOrExceeded, actualOrMessage as number, limit as number, options)
+        : new LimitExceededError(measureOrExceeded, actualOrMessage as string | undefined)
     super(structured.message)
     this.exceeded = structured.exceeded
   }

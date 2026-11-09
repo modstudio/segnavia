@@ -226,7 +226,7 @@ export function limitRefusal(measure: LimitMeasure, actual: number, limit: numbe
   return refusal(measure, actual, limit, options)
 }
 
-function exceeded(measure: LimitMeasure, actual: number, limit: number, options: LimitRefusalOptions = {}): LimitExceeded {
+export function limitExceeded(measure: LimitMeasure, actual: number, limit: number, options: LimitRefusalOptions = {}): LimitExceeded {
   return {
     measure,
     limit,
@@ -241,15 +241,16 @@ export class LimitExceededError extends RangeError {
   readonly exceeded: readonly LimitExceeded[]
 
   constructor(measure: LimitMeasure, actual: number, limit: number, options?: LimitRefusalOptions)
-  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]])
+  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]], message?: string)
   constructor(
     measureOrExceeded: LimitMeasure | readonly [LimitExceeded, ...LimitExceeded[]],
-    actual?: number,
+    actualOrMessage?: number | string,
     limit?: number,
     options: LimitRefusalOptions = {},
   ) {
-    const entries = typeof measureOrExceeded === 'string' ? [exceeded(measureOrExceeded, actual as number, limit as number, options)] : measureOrExceeded
-    super(entries.map(({ message }) => message).join('; '))
+    const entries =
+      typeof measureOrExceeded === 'string' ? [limitExceeded(measureOrExceeded, actualOrMessage as number, limit as number, options)] : measureOrExceeded
+    super(typeof actualOrMessage === 'string' ? actualOrMessage : entries.map(({ message }) => message).join('; '))
     this.exceeded = entries
   }
 }
@@ -285,12 +286,12 @@ export interface LocalFontLimitFace {
 export function localFontLimitExceeded(faces: readonly LocalFontLimitFace[], limits: ResolvedLimits['localFonts']): LimitExceeded | undefined {
   if (faces.length > limits.count) {
     const options = { where: JSON.stringify(faces[limits.count]?.family ?? 'unknown family') }
-    return exceeded('localFonts.count', faces.length, limits.count, options)
+    return limitExceeded('localFonts.count', faces.length, limits.count, options)
   }
   let bytes = 0
   for (const face of faces) {
     bytes += face.bytes
-    if (bytes > limits.bytes) return exceeded('localFonts.bytes', bytes, limits.bytes, { where: JSON.stringify(face.family) })
+    if (bytes > limits.bytes) return limitExceeded('localFonts.bytes', bytes, limits.bytes, { where: JSON.stringify(face.family) })
   }
 }
 

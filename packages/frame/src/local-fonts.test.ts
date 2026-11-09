@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { type AppFont, type FontSource, LimitExceededError, Page } from '@segnavia/format'
+import { type AppFont, type FontSource, isLimitExceeded, limitRefusal, Page } from '@segnavia/format'
 import { packLocalFaces, readLocalFonts } from './local-fonts.ts'
 import { FontRefusedError, resolvePageFonts } from './page-fonts.ts'
 
@@ -244,14 +244,8 @@ describe('packLocalFaces', () => {
     expect(packLocalFaces(faces, [{ local: 'Local Family', fallback: 'serif' }])).toHaveLength(18)
   })
 
-  test('refuses count and decoded-byte overflow with actionable shared wording', () => {
+  test('refuses count and decoded-byte overflow through the font error with structured limit facts', () => {
     const face = { family: 'Local Family', data: truetype, format: 'truetype' as const }
-    expect(() =>
-      packLocalFaces(
-        Array.from({ length: 65 }, () => face),
-        [{ local: 'Local Family', fallback: 'serif' }],
-      ),
-    ).toThrow(LimitExceededError)
     expect(() =>
       packLocalFaces(
         Array.from({ length: 65 }, () => face),
@@ -264,7 +258,18 @@ describe('packLocalFaces', () => {
     try {
       packLocalFaces([face], [{ local: 'Local Family', fallback: 'serif' }], { localFonts: { bytes: 3 } })
     } catch (error) {
-      expect((error as LimitExceededError).exceeded).toMatchObject([{ measure: 'localFonts.bytes', limit: 3, actual: 4, where: '"Local Family"' }])
+      expect(error).toBeInstanceOf(FontRefusedError)
+      expect(isLimitExceeded(error)).toBe(true)
+      expect((error as FontRefusedError).message).toBe(limitRefusal('localFonts.bytes', 4, 3, { where: '"Local Family"' }))
+      expect((error as FontRefusedError).exceeded).toEqual([
+        {
+          measure: 'localFonts.bytes',
+          limit: 3,
+          actual: 4,
+          where: '"Local Family"',
+          message: limitRefusal('localFonts.bytes', 4, 3, { where: '"Local Family"' }),
+        },
+      ])
     }
   })
 })
