@@ -4,6 +4,7 @@ import { SectionNumbering } from './folio.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
+import { RecordFacts, RecordValues } from './record-facts.ts'
 import { CONTINUE_OPENS_REMEDY } from './section-opens-policy.ts'
 
 export const PRINTED_PAGE_ROLES = ['every', 'first', 'recto', 'verso', 'last'] as const
@@ -61,8 +62,8 @@ export const PrintedPages = z.object({
         opens: BookOpens.optional(),
         numbering: SectionNumbering.optional(),
         html: z.string(),
-        values: z.record(z.string(), z.string()).optional(),
-        record: z.object({ index: z.number().int().positive(), count: z.number().int().positive() }).optional(),
+        values: RecordValues.optional(),
+        record: RecordFacts.optional(),
         recordTemplate: z.object({ name: z.string(), slots: z.array(z.object({ key: z.string() })) }).optional(),
       }),
     )

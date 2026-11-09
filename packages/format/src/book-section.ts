@@ -5,6 +5,7 @@ import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
+import { RecordFacts, RecordValues } from './record-facts.ts'
 import { Slots } from './slots.ts'
 
 export { BookOpens }
@@ -59,8 +60,8 @@ const sectionFields = {
   pageGeometry: z.string().optional(),
   lang: z.string().optional(),
   dir: Direction.optional(),
-  values: z.record(z.string(), z.string()).optional(),
-  record: z.object({ index: z.number().int().positive(), count: z.number().int().positive() }).optional(),
+  values: RecordValues.optional(),
+  record: RecordFacts.optional(),
   recordTemplate: z.object({ name: z.string(), slots: Slots }).optional(),
 }
 

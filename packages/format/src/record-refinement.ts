@@ -1,17 +1,7 @@
 import type { z } from 'zod'
-import type { DocumentNode } from './document-nodes.ts'
+import { collectRecords, type DocumentNode, type DocumentNodePath } from './document-nodes.ts'
 import type { TemplateNode } from './document-nodes-book.ts'
 import type { Slots } from './slots.ts'
-
-type Path = (string | number)[]
-
-function records(nodes: DocumentNode[], path: Path = ['children']): Array<{ node: Extract<DocumentNode, { type: 'record' }>; path: Path }> {
-  return nodes.flatMap((node, index) => {
-    const nodePath = [...path, index]
-    const own = node.type === 'record' ? [{ node, path: nodePath }] : []
-    return 'children' in node ? [...own, ...records(node.children, [...nodePath, 'children'])] : own
-  })
-}
 
 export function refineRecords(
   document: { kind: string; mode?: string; children: DocumentNode[]; templates: TemplateNode[]; data?: { slots?: Slots } },
@@ -19,7 +9,7 @@ export function refineRecords(
 ): void {
   const templates = new Map(document.templates.map((template) => [template.name, template]))
   const hostSlots = new Set(document.data?.slots?.map((slot) => slot.key) ?? [])
-  for (const { node: record, path } of records(document.children)) {
+  for (const { node: record, path } of collectRecords(document.children)) {
     refineRecord(document, record, path, templates.get(record.template), hostSlots, ctx)
   }
 }
@@ -27,7 +17,7 @@ export function refineRecords(
 function refineRecord(
   document: Parameters<typeof refineRecords>[0],
   record: Extract<DocumentNode, { type: 'record' }>,
-  path: Path,
+  path: DocumentNodePath,
   template: TemplateNode | undefined,
   hostSlots: ReadonlySet<string>,
   ctx: z.RefinementCtx,
@@ -75,9 +65,9 @@ function refineRecord(
 
 function refineSlot(
   record: Extract<DocumentNode, { type: 'record' }>,
-  recordPath: Path,
+  recordPath: DocumentNodePath,
   template: TemplateNode,
-  templatePath: Path,
+  templatePath: DocumentNodePath,
   slot: NonNullable<TemplateNode['slots']>[number],
   hostSlots: ReadonlySet<string>,
   ctx: z.RefinementCtx,

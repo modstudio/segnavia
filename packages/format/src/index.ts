@@ -164,6 +164,7 @@ export {
 } from './document-lowering.ts'
 export * from './document-metadata.ts'
 export { DocumentNodeInput } from './document-node-input.ts'
+export { RecordFacts, RecordValues } from './record-facts.ts'
 export { DocumentBatch, DocumentCollection, DocumentLocation, DocumentOp } from './document-op.ts'
 export {
   DOCUMENT_NODE_MODEL,

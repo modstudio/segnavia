@@ -1,5 +1,6 @@
-import type { DocumentNode } from './document-nodes.ts'
+import { collectRecords, type DocumentNode } from './document-nodes.ts'
 import type { TemplateNode } from './document-nodes-book.ts'
+import type { RecordFacts, RecordValues } from './record-facts.ts'
 
 export interface ExpandedRecordSection {
   id?: string
@@ -7,20 +8,16 @@ export interface ExpandedRecordSection {
   opens: 'any'
   numbering: { restart: 1 }
   html: string
-  values: Record<string, string>
-  record: { index: number; count: number }
+  values: RecordValues
+  record: RecordFacts
   recordTemplate: { name: string; slots: NonNullable<TemplateNode['slots']> }
-}
-
-function collect(nodes: DocumentNode[]): Array<Extract<DocumentNode, { type: 'record' }>> {
-  return nodes.flatMap((node) => [...(node.type === 'record' ? [node] : []), ...('children' in node ? collect(node.children) : [])])
 }
 
 export function recordExpansion(document: {
   children: DocumentNode[]
   templates: TemplateNode[]
 }): Map<Extract<DocumentNode, { type: 'record' }>, ExpandedRecordSection> {
-  const records = collect(document.children)
+  const records = collectRecords(document.children).map(({ node }) => node)
   const templates = new Map(document.templates.map((template) => [template.name, template]))
   return new Map(
     records.map((record, offset) => {

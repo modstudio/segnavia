@@ -58,6 +58,16 @@ export type DocumentNode =
   | z.infer<typeof LabelNode>
   | z.infer<typeof BoardSectionNode>
 
+export type DocumentNodePath = Array<string | number>
+
+export function collectRecords(nodes: DocumentNode[], path: DocumentNodePath = ['children']): Array<{ node: z.infer<typeof RecordNode>; path: DocumentNodePath }> {
+  return nodes.flatMap((node, index) => {
+    const nodePath = [...path, index]
+    const own = node.type === 'record' ? [{ node, path: nodePath }] : []
+    return 'children' in node ? [...own, ...collectRecords(node.children, [...nodePath, 'children'])] : own
+  })
+}
+
 export const DivisionNodeFields = {
   type: z.literal('division'),
   id: z.string().optional(),

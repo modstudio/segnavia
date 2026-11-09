@@ -1,4 +1,4 @@
-import { computeFolios, type NumberSystem, type SectionNumbering } from '@segnavia/format'
+import { computeFolios, type NumberSystem, type RecordFacts, type SectionNumbering } from '@segnavia/format'
 
 export interface BookPlanPage {
   sequence: string
@@ -9,7 +9,7 @@ export interface BookPlanPage {
 export interface BookPlanSection {
   id: string
   numbering?: SectionNumbering
-  record?: { index: number; count: number }
+  record?: RecordFacts
 }
 
 export interface BookPlanNumbering {

@@ -4,7 +4,7 @@ import { Slide } from './deck.ts'
 import { Numbering } from './folio.ts'
 import { PageBody } from './page.ts'
 import { PlacementShape } from './placement.ts'
-import { SlotKey } from './slots.ts'
+import { RecordValues } from './record-facts.ts'
 
 export const NodeId = z.object({ id: z.string().optional() })
 
@@ -30,7 +30,7 @@ export const RecordNode = NodeId.extend({
   type: z.literal('record'),
   title: z.string().optional(),
   template: z.string().min(1),
-  values: z.record(SlotKey, z.string()),
+  values: RecordValues,
 })
 
 export const BoardItemNode = BoardItem.omit({ id: true }).extend({ type: z.literal('item'), id: z.string().optional() })
