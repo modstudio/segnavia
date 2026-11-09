@@ -73,17 +73,17 @@ export function filledPages(
   inputs: Array<Page | HtmlPage>,
   slots: SlotPrintOptions | undefined,
   signal?: AbortSignal,
-): Promise<{ value: HtmlPage[]; slots: PreparedSlots }>
+): Promise<{ value: HtmlPage[]; slots: PreparedSlots; frameGroups: number[][] }>
 export function filledPages(
   inputs: Array<Page | HtmlPage | PrintedHtmlPage>,
   slots: SlotPrintOptions | undefined,
   signal?: AbortSignal,
-): Promise<{ value: Array<HtmlPage | PrintedHtmlPage>; slots: PreparedSlots }>
+): Promise<{ value: Array<HtmlPage | PrintedHtmlPage>; slots: PreparedSlots; frameGroups: number[][] }>
 export async function filledPages(
   inputs: Array<Page | HtmlPage | PrintedHtmlPage>,
   slots: SlotPrintOptions | undefined,
   signal?: AbortSignal,
-): Promise<{ value: Array<HtmlPage | PrintedHtmlPage>; slots: PreparedSlots }> {
+): Promise<{ value: Array<HtmlPage | PrintedHtmlPage>; slots: PreparedSlots; frameGroups: number[][] }> {
   const pages = inputs.map((input) => (isPrintedHtmlPage(input) || 'html' in input ? input : resolvePageHtml(input)))
   assertSingleSlotCopy(slots)
   for (const page of pages) {
@@ -96,9 +96,11 @@ export async function filledPages(
     signal,
   )
   refuseRequired(prepared)
+  const frameGroups: number[][] = []
   const value = pages.some((page) => hasSlotWork(page.slots, slots))
-    ? pages.map((page) =>
-        isPrintedHtmlPage(page)
+    ? pages.map((page) => {
+        const firstFrame = prepared.frames.length
+        const filled = isPrintedHtmlPage(page)
           ? {
               ...page,
               printedPages: {
@@ -106,10 +108,13 @@ export async function filledPages(
                 sections: page.printedPages.sections.map((section) => ({ ...section, html: prepared.apply(section.html) })),
               },
             }
-          : { ...page, html: prepared.apply(page.html) },
-      )
+          : { ...page, html: prepared.apply(page.html) }
+        frameGroups.push(Array.from({ length: prepared.frames.length - firstFrame }, (_, index) => firstFrame + index))
+        return filled
+      })
     : pages
-  return { value, slots: prepared }
+  if (frameGroups.length === 0) pages.forEach(() => void frameGroups.push([]))
+  return { value, slots: prepared, frameGroups }
 }
 
 export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<{ value: Deck; slots: PreparedSlots }> {

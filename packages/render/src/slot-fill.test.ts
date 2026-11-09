@@ -146,8 +146,9 @@ test('sectioned printed pages fill every section and refuse multiple copies', as
     }),
   )
   const fill = { fill: { id: 'host', values: { name: 'Ada' } } }
-  const { value } = await filledPage(page, fill)
+  const { value, slots: prepared } = await filledPage(page, fill)
   expect(value.printedPages.sections.map((section) => section.html)).toEqual(['<p dir="auto">Ada</p>', '<p dir="auto">Ada</p>'])
+  expect(prepared.frames).toHaveLength(2)
   await expect(filledPage(page, { fills: [fill, fill] })).rejects.toThrow('Pass fill or source for a single copy')
 })
 
