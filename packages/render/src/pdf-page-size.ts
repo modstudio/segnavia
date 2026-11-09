@@ -57,7 +57,7 @@ function translateArray(array: PDFArray, x: number, y: number): void {
   }
 }
 
-function translateAnnotations(annotations: PDFArray | undefined, x: number, y: number): void {
+export function translatePdfAnnotations(annotations: PDFArray | undefined, x: number, y: number): void {
   if (!annotations) return
   for (let index = 0; index < annotations.size(); index += 1) {
     const annotation = annotations.lookup(index)
@@ -90,7 +90,7 @@ async function setDocumentPageSizes(document: Awaited<ReturnType<typeof loadPdf>
     const cropBox = page.node.CropBox()
     const correction = pdfPageSizeCorrection(page.getMediaBox(), size, remedy)
     page.translateContent(correction.translation.x, correction.translation.y)
-    translateAnnotations(page.node.Annots(), correction.translation.x, correction.translation.y)
+    translatePdfAnnotations(page.node.Annots(), correction.translation.x, correction.translation.y)
     // Keep the exact box at origin 0 because PDF embedders such as pdf-lib ignore a MediaBox origin.
     page.setMediaBox(correction.mediaBox.x, correction.mediaBox.y, correction.mediaBox.width, correction.mediaBox.height)
     if (cropBox) page.setCropBox(correction.mediaBox.x, correction.mediaBox.y, correction.mediaBox.width, correction.mediaBox.height)
