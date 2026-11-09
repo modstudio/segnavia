@@ -13,6 +13,7 @@ export interface FillSwitcherView extends ControlView {
 }
 export interface ItemSettingsFieldView extends ControlView, SlotFieldView {
   declaration: SlotDeclaration
+  canPickAsset: boolean
 }
 export interface ItemSettingsActionView extends ItemSettingsFieldView {
   action: ItemSettingsActionKind
@@ -53,6 +54,7 @@ function isolated(text: string): HTMLElement {
 
 export const nativeFillSwitcher: NonNullable<ItemSettingsControls['fillSwitcher']> = (initial, callbacks) => {
   const root = document.createElement('div')
+  root.dataset.nativeFillSwitcher = ''
   const selectLabel = document.createElement('label')
   const selectCaption = document.createElement('span')
   const select = document.createElement('select')
@@ -68,10 +70,12 @@ export const nativeFillSwitcher: NonNullable<ItemSettingsControls['fillSwitcher'
   nameLabel.append(nameCaption, name)
   const add = document.createElement('button')
   add.type = 'button'
+  add.dataset.action = 'add'
   add.part.add('fill-add')
   add.addEventListener('click', callbacks.onAdd)
   const remove = document.createElement('button')
   remove.type = 'button'
+  remove.dataset.action = 'remove'
   remove.part.add('fill-remove')
   remove.addEventListener('click', callbacks.onRemove)
   root.append(selectLabel, nameLabel, add, remove)
@@ -129,6 +133,7 @@ export const nativeAsset: NonNullable<ItemSettingsControls['asset']> = (initial,
   const chosen = document.createElement('span')
   const pick = document.createElement('button')
   pick.type = 'button'
+  pick.dataset.action = 'pick-asset'
   pick.part.add('asset-pick')
   pick.addEventListener('click', () => void callbacks.pickAsset())
   root.append(file)
@@ -141,7 +146,7 @@ export const nativeAsset: NonNullable<ItemSettingsControls['asset']> = (initial,
       chosen.replaceChildren(isolated(view.value.asset))
       if (!chosen.isConnected) root.append(chosen)
     } else chosen.remove()
-    if (!view.readOnly) {
+    if (view.canPickAsset && !view.readOnly) {
       pick.replaceChildren(isolated(view.labels.chooseAsset))
       pick.dir = 'auto'
       if (!pick.isConnected) root.append(pick)

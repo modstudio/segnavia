@@ -76,12 +76,17 @@ export class FieldsPanel {
       const view = this.fieldView(declaration)
       const kind = declaration.type === 'image' ? 'asset' : 'field'
       let mount = this.slotControls.get(declaration.key)
+      let created = false
       if (!mount || mount.kind !== kind) {
-        if (mount) this.disposeSlot(mount)
+        if (mount) {
+          this.disposeSlot(mount)
+          mount.field.remove()
+        }
         mount = this.createSlot(declaration, view, kind)
         this.slotControls.set(declaration.key, mount)
+        created = true
       }
-      this.updateSlot(mount, declaration, view)
+      this.updateSlot(mount, declaration, view, !created)
       if (this.slots.children[index] !== mount.field) this.slots.insertBefore(mount.field, this.slots.children[index] ?? null)
     }
     for (const [key, mount] of this.slotControls)
@@ -119,6 +124,7 @@ export class FieldsPanel {
     return {
       ...slotFieldView(declaration, this.context.overrides, fill, this.context.source, this.context.report, this.actions.onDesignOnly !== undefined),
       declaration,
+      canPickAsset: this.actions.pickAsset !== undefined,
       dir: this.context.dir,
       labels: this.context.labels,
     }
@@ -150,7 +156,7 @@ export class FieldsPanel {
     }
   }
 
-  private updateSlot(mount: SlotMount, declaration: SlotDeclaration, view: ItemSettingsFieldView) {
+  private updateSlot(mount: SlotMount, declaration: SlotDeclaration, view: ItemSettingsFieldView, updateExisting: boolean) {
     const renderer = mount.kind === 'asset' ? (this.controls.asset ?? nativeAsset) : (this.controls.field ?? nativeField)
     if (mount.main.renderer !== renderer) {
       mount.main.control.dispose()
@@ -162,8 +168,10 @@ export class FieldsPanel {
       control.element.dataset.slot = declaration.key
       mount.main.control.element.replaceWith(control.element)
       mount.main = { renderer: renderer as ItemSettingsControlRenderer<ItemSettingsFieldView, never>, control }
-    } else mount.main.control.update(view)
+    } else if (updateExisting) mount.main.control.update(view)
     mount.caption.replaceChildren(...this.caption(view))
+    if (view.required) mount.caption.title = this.context.labels.required
+    else mount.caption.removeAttribute('title')
     this.updateActions(mount, view)
     for (const node of mount.feedback) node.remove()
     mount.feedback = this.feedback(view)

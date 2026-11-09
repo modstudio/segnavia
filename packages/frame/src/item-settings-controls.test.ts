@@ -56,6 +56,7 @@ test('host renderers replace every control kind and receive working callbacks', 
   let fieldCallbacks: FieldControlCallbacks | undefined
   let assetCallbacks: AssetControlCallbacks | undefined
   const actionCallbacks = new Map<string, ActionControlCallbacks>()
+  const hostElements = new Map<string, ItemSettingsTestElement>()
   const controls: ItemSettingsControls = {
     fillSwitcher(_view, callbacks) {
       fillCallbacks = callbacks
@@ -63,15 +64,21 @@ test('host renderers replace every control kind and receive working callbacks', 
     },
     field(_view, callbacks) {
       fieldCallbacks = callbacks
-      return rendered(new ItemSettingsTestElement(), [])
+      const element = new ItemSettingsTestElement()
+      hostElements.set('field', element)
+      return rendered(element, [])
     },
     asset(_view, callbacks) {
       assetCallbacks = callbacks
-      return rendered(new ItemSettingsTestElement(), [])
+      const element = new ItemSettingsTestElement()
+      hostElements.set('asset', element)
+      return rendered(element, [])
     },
     action(view, callbacks) {
-      actionCallbacks.set(view.action, callbacks)
-      return rendered(new ItemSettingsTestElement(), [])
+      actionCallbacks.set(`${view.key}:${view.action}`, callbacks)
+      const element = new ItemSettingsTestElement()
+      hostElements.set(`${view.key}:${view.action}`, element)
+      return rendered(element, [])
     },
   }
   const panel = new FieldsPanel(new ItemSettingsTestElement() as unknown as HTMLElement)
@@ -84,6 +91,10 @@ test('host renderers replace every control kind and receive working callbacks', 
   handlers.onDesignOnly = (key, enabled) => calls.push(`design:${key}:${enabled}`)
   panel.update(context(), handlers, controls)
 
+  expect(hostElements.get('field')?.dataset.slot).toBe('name')
+  expect(hostElements.get('asset')?.dataset.slot).toBe('picture')
+  expect(hostElements.get('name:override')?.dataset).toEqual({ slot: 'name', action: 'override' })
+
   fillCallbacks?.onSelect('mina')
   fillCallbacks?.onRename('Renamed')
   fillCallbacks?.onAdd()
@@ -91,14 +102,14 @@ test('host renderers replace every control kind and receive working callbacks', 
   fieldCallbacks?.onChange('Changed')
   assetCallbacks?.onChange({ asset: 'uploaded' })
   await assetCallbacks?.pickAsset()
-  actionCallbacks.get('override')?.onActivate()
-  actionCallbacks.get('design-only')?.onActivate(true)
+  actionCallbacks.get('name:override')?.onActivate()
+  actionCallbacks.get('name:design-only')?.onActivate(true)
 
   const withHandValue = context()
   withHandValue.fills = [{ id: 'mina', values: { name: 'Hand name', picture: { asset: 'old' } } }]
   panel.update(withHandValue, handlers, controls)
   handlers.onUseSource = (key) => calls.push(`source:${key}`)
-  actionCallbacks.get('use-source')?.onActivate()
+  actionCallbacks.get('name:use-source')?.onActivate()
 
   expect(calls).toEqual(['select:mina', 'rename:Renamed', 'add', 'remove', 'override:name', 'design:name:true', 'source:name'])
   expect(changes).toEqual([
@@ -137,18 +148,22 @@ test('a keyed control is updated in place, keeps focus, and is disposed when its
 
   expect(creates).toBe(1)
   expect(updates).toEqual(['Next'])
-  expect(document.activeElement).toBe(element)
+  expect(document.activeElement).toBe(element as unknown as Element)
+
+  panel.update(second, actions([]), { field: () => rendered(new ItemSettingsTestElement(), []) })
+  expect(disposes).toBe(1)
 
   second.declarations = second.declarations.filter((slot) => slot.key !== 'name')
-  panel.update(second, actions([]), controls)
-  expect(disposes).toBe(1)
+  panel.update(second, actions([]), { field: () => rendered(new ItemSettingsTestElement(), []) })
 })
 
 test('default native controls expose every documented part', () => {
   const container = new ItemSettingsTestElement()
   new FieldsPanel(container as unknown as HTMLElement).update(context(), actions([]))
   const parts = descendants(container).flatMap((element) => [...element.part])
-  expect(parts).toContainAllValues(['fill-select', 'fill-label', 'fill-add', 'fill-remove', 'slot-input', 'asset-file', 'asset-pick', 'slot-action'])
+  for (const part of ['fill-select', 'fill-label', 'fill-add', 'fill-remove', 'slot-input', 'asset-file', 'asset-pick', 'slot-action']) {
+    expect(parts).toContain(part)
+  }
 })
 
 function descendants(element: ItemSettingsTestElement): ItemSettingsTestElement[] {

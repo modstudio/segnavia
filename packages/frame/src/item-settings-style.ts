@@ -8,6 +8,7 @@ export const ITEM_SETTINGS_CSS = `
 :where([part~="section"]){display:grid;gap:var(--segnavia-gap-large,.75rem);text-align:start}
 :where([part~="section-title"]){margin:0;font-size:var(--segnavia-title-size,.95rem);font-weight:var(--segnavia-title-weight,600);unicode-bidi:isolate}
 :where([part~="fills"]){display:flex;flex-wrap:wrap;align-items:end;gap:var(--segnavia-gap-medium,.5rem)}
+:where([part~="fills"] > [data-native-fill-switcher]){display:contents}
 :where([part~="fills"] label){display:grid;gap:var(--segnavia-gap-small,.25rem);min-inline-size:12rem;flex:1}
 :where([part~="fills"] button){inline-size:auto}
 :where([part~="slots"]){display:grid;gap:var(--segnavia-gap-large,.75rem)}
