@@ -9,20 +9,26 @@ const INSIDE_BLOCKS = new Set(['li', 'dd', 'dt', 'td', 'th'])
 export interface NoteSectionContext {
   chapter: number
   title?: string
+  runningHead?: string
   division: BookDivision
   targetId: string
   placementKey?: string
-  part?: { id: string; title?: string }
+  part?: { id: string; title?: string; runningHead?: string }
+}
+
+export interface CollectedNoteRun {
+  scopeKey: string
+  heading?: string
+  paragraphs: Element[]
 }
 
 export interface CollectedNotes {
   series: ResolvedNoteSeries
   placementKey: string
   targetId: string
-  scopeTitle?: string
   division: BookDivision
   chapter: number
-  paragraphs: Element[]
+  runs: CollectedNoteRun[]
 }
 
 interface AuthoredNote {
@@ -68,6 +74,16 @@ function placementKey(series: ResolvedNoteSeries, context: NoteSectionContext): 
   if (series.placement === 'book') return 'book'
   if (series.placement === 'part') return context.part?.id ?? 'book'
   return context.placementKey ?? String(context.chapter)
+}
+
+const SCOPE_RANK = { page: -1, chapter: 0, part: 1, book: 2 } as const
+
+function runHeading(series: ResolvedNoteSeries, context: NoteSectionContext): string | undefined {
+  if (series.numbering === 'book' || SCOPE_RANK[series.numbering] > SCOPE_RANK[series.placement]) return undefined
+  if (series.numbering === 'part') return context.part?.runningHead ?? context.part?.title
+  // Chapter scope zero is shared by every front-matter and held section, so it has no single title to name.
+  if (context.chapter === 0) return undefined
+  return context.runningHead ?? context.title
 }
 
 function nextNumber(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): { number: number; scope: string } {
@@ -122,7 +138,6 @@ function collectedNotes(series: ResolvedNoteSeries, context: NoteSectionContext,
   const mapKey = `${series.name}:${key}`
   const existing = state.collected.get(mapKey)
   if (existing) return existing
-  const scopeTitle = series.placement === 'part' ? context.part?.title : series.placement === 'chapter' ? context.title : undefined
   const bookTarget =
     series.placement === 'book' ||
     (series.placement === 'part' && context.part === undefined) ||
@@ -131,10 +146,9 @@ function collectedNotes(series: ResolvedNoteSeries, context: NoteSectionContext,
     series,
     placementKey: key,
     targetId: bookTarget ? 'book' : series.placement === 'part' ? (context.part?.id ?? context.targetId) : context.targetId,
-    scopeTitle,
     division: context.division,
     chapter: context.chapter,
-    paragraphs: [],
+    runs: [],
   }
   state.collected.set(mapKey, collected)
   return collected
@@ -164,7 +178,12 @@ function transformAuthoredNote(
       paragraphs.push(paragraph)
       state.pageParagraphs.set(series.name, paragraphs)
     } else addPageBlock(block, paragraph, blocks, series, seriesOrder)
-  } else collectedNotes(series, context, state).paragraphs.push(paragraph)
+  } else {
+    const collected = collectedNotes(series, context, state)
+    const run = collected.runs.at(-1)
+    if (run?.scopeKey === scope) run.paragraphs.push(paragraph)
+    else collected.runs.push({ scopeKey: scope, heading: runHeading(series, context), paragraphs: [paragraph] })
+  }
   if (authoredId) state.authored.set(authoredId, { noteId, refId, marker })
   state.used.add(series.name)
 }
