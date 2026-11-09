@@ -13,7 +13,9 @@ export interface ComposerPageGeometry {
 const defaultParentNames = new Set(Object.values(BOOK_PARENT_NAMES))
 
 export function composerPageGeometries(pagination: BookViewPagination): ComposerPageGeometry[] {
-  const customParents = pagination.parents.filter((parent) => !defaultParentNames.has(parent.name as (typeof BOOK_PARENT_NAMES)[keyof typeof BOOK_PARENT_NAMES]))
+  const customParents = pagination.parents.filter(
+    (parent) => !defaultParentNames.has(parent.name as (typeof BOOK_PARENT_NAMES)[keyof typeof BOOK_PARENT_NAMES]),
+  )
   const source = pagination.geometries ?? [
     {
       name: 'segnavia:default',

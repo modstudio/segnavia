@@ -9,6 +9,7 @@ import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } 
 import { DocumentMetadata } from './document-metadata.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LogicalMargin } from './margins.ts'
@@ -149,28 +150,6 @@ function refineSectionOpensPolicy(document: DocumentShapeValue, ctx: z.Refinemen
     geometry: resolveBookPageGeometry(document, fact.pageGeometry),
   }))
   for (const issue of sectionOpensIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
-}
-
-function refineSectionPageGeometry(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
-  if (document.kind !== 'book') return
-  walk(document.children, (node, path) => {
-    if (node.type !== 'section' || node.pageGeometry === undefined) return
-    const label = node.title ?? node.id ?? path.join('.')
-    if (document.style?.pageGeometries?.[node.pageGeometry] === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [...path, 'pageGeometry'],
-        message: `Section "${label}" names unknown page geometry "${node.pageGeometry}"; declare it in style.pageGeometries, or remove pageGeometry to clear this refusal.`,
-      })
-    }
-    if (document.mode === 'continuous') {
-      ctx.addIssue({
-        code: 'custom',
-        path: [...path, 'pageGeometry'],
-        message: `Section "${label}" sets pageGeometry in a continuous book; use paginated layout, or remove pageGeometry to clear this refusal.`,
-      })
-    }
-  })
 }
 
 type DocumentShapeValue = z.infer<typeof DocumentShape>
@@ -365,7 +344,7 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   refineSectionNumberingPolicy(document, ctx)
   refineSectionOpensPolicy(document, ctx)
-  refineSectionPageGeometry(document, ctx)
+  for (const issue of documentPageGeometryIssues(document)) ctx.addIssue({ code: 'custom', ...issue })
   refineRootFields(document, profile, ctx)
   refineNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)

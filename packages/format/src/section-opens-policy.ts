@@ -1,7 +1,7 @@
-import type { BookOpens, BookSectionParents } from './book-section.ts'
-import type { SectionNumbering } from './folio.ts'
 import type { ResolvedBookPageGeometry } from './book-page-geometry.ts'
 import { sameBookPageGeometry } from './book-page-geometry.ts'
+import type { BookOpens, BookSectionParents } from './book-section.ts'
+import type { SectionNumbering } from './folio.ts'
 
 export interface SectionOpensFact {
   id: string

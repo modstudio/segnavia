@@ -6,6 +6,7 @@ import {
   Imposition,
   type ImpositionInput,
   impose,
+  mixedImpositionGeometryRefusal,
   type OriginApproval,
   type Page,
   type PageWidths,
@@ -178,8 +179,10 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   private loadValues(pages: HtmlPage[], imposition: Imposition, brandDocuments: Document[] = []): void {
-    const imposed = impose(imposition, pages.length)
     if (pages.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
+    const geometryRefusal = mixedImpositionGeometryRefusal(pages)
+    if (geometryRefusal) throw new RangeError(geometryRefusal)
+    const imposed = impose(imposition, pages.length)
     const previousPapers = this.papers
     const previousPaper = this.paperIndex
     const previousSide = this.shownSide

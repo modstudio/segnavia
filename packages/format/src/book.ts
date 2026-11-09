@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { bookPageGeometries, sectionPageGeometry } from './book-page-geometry.ts'
 import {
   BookChapterEntry,
   BookItem,
@@ -7,12 +8,10 @@ import {
   bookSectionOpensFacts,
   bookSections,
   flowingSection,
-  isBookContents,
-  isPart,
   isPlacedSection,
-  MAX_PART_DEPTH,
   REGION_NAME,
 } from './book-section.ts'
+import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
@@ -27,8 +26,8 @@ import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
-import { bookPageGeometries, type ResolvedBookPageGeometry, resolveBookPageGeometry, sameBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 
+export { bookPageGeometries, DEFAULT_PAGE_GEOMETRY, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export {
   BookChapterEntry,
   BookContents,
@@ -62,7 +61,6 @@ export {
   TemplatedPage,
   TemplatedSection,
 } from './book-section.ts'
-export { bookPageGeometries, DEFAULT_PAGE_GEOMETRY, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export type { PageGeometry } from './style-sheet.ts'
 
 export const BookMode = z.enum(['continuous', 'paginated'])
@@ -141,14 +139,16 @@ export const BookViewPagination = z.object({
   paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
   margin: BookPage.shape.margin,
   columnGap: z.number().nonnegative(),
-  geometries: z.array(
-    z.object({
-      name: z.string(),
-      paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
-      margin: BookPage.shape.margin,
-      columns: z.object({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
-    }),
-  ),
+  geometries: z
+    .array(
+      z.object({
+        name: z.string(),
+        paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
+        margin: BookPage.shape.margin,
+        columns: z.object({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
+      }),
+    )
+    .optional(),
   direction: TextDirection,
   numbering: z.object({ frontMatter: NumberSystem, body: NumberSystem }),
   rectoOpenings: z.boolean(),
@@ -217,51 +217,10 @@ const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
   }
 })
 
-function partSectionIssues(items: z.infer<typeof BookItem>[], path: (string | number)[]): Array<{ path: (string | number)[]; message: string }> {
-  return items.flatMap((entry, index) => {
-    if (!isPart(entry)) return []
-    const partPath = [...path, index]
-    const hasSection =
-      entry.html !== undefined ||
-      bookSections({ frontMatter: [], body: entry.children, endMatter: [] }).some(({ entry: child }) => !isPart(child) || child.html !== undefined)
-    const own = !hasSection
-      ? [{ path: partPath, message: `part ${partPath.join('.')} has no section; add html or a section inside it to clear this refusal` }]
-      : []
-    return [...own, ...partSectionIssues(entry.children, [...partPath, 'children'])]
-  })
-}
+type ResolvedBookValue = z.infer<typeof ResolvedBook>
 
-type BookIssue = { path: (string | number)[]; message: string }
-
-function structuralBookIssues(book: z.infer<typeof ResolvedBook>): BookIssue[] {
-  const issues: BookIssue[] = []
-  if (book.body.length === 0) issues.push({ path: ['body'], message: 'a book needs at least one body entry; add a chapter or part' })
-  issues.push(
-    ...partSectionIssues(book.frontMatter, ['frontMatter']),
-    ...partSectionIssues(book.body, [book.bodyKey]),
-    ...partSectionIssues(book.endMatter, ['endMatter']),
-  )
-  const sections = bookSections(book)
-  for (const section of sections) {
-    if (isBookContents(section.entry) && section.division !== 'front') {
-      issues.push({ path: section.path, message: `contents belongs in frontMatter; move this ${section.division} contents entry there` })
-    }
-  }
-  const paths = sections.flatMap(({ entry, division, path }) => (division === 'front' && isBookContents(entry) ? [path.join('.')] : []))
-  if (paths.length > 1) {
-    issues.push({
-      path: ['frontMatter'],
-      message: `front-matter entries at ${paths[0]} and ${paths[1]} are both contents entries; one must go`,
-    })
-  }
-  return issues
-}
-
-const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
-  for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
-  const sections = bookSections(book)
-  const geometryByPath = new Map(sections.map((section) => [section.path.join('.'), sectionPageGeometry(book as Book, section)]))
-  for (const section of sections) {
+function refineNamedPageGeometries(book: ResolvedBookValue, ctx: z.RefinementCtx): void {
+  for (const section of bookSections(book)) {
     if (!('pageGeometry' in section.entry) || section.entry.pageGeometry === undefined) continue
     const name = section.entry.pageGeometry
     const label = section.entry.title ?? section.id
@@ -280,6 +239,75 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       })
     }
   }
+}
+
+function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx): void {
+  const page = book.page
+  if (!page) return
+  const trim = sheetMm(page)
+  const parents = resolveParentPages([...bookParentPages(page.margin), ...book.parentPages])
+  const defaults = new Set(bookParentPages(page.margin).map((parent) => parent.name))
+  for (const parent of parents) {
+    const area = textArea(parent, trim)
+    const path = defaults.has(parent.name) ? ['page', 'margin'] : ['parentPages']
+    if (area.height <= 0) {
+      const total = parent.margin.blockStart + parent.margin.blockEnd
+      ctx.addIssue({
+        code: 'custom',
+        path,
+        message: `parent page "${parent.name}" has top and bottom margins totaling ${total}mm on paper ${trim.height}mm high; reduce the vertical margins to leave a text area`,
+      })
+    }
+    if (area.width <= 0) {
+      const total = parent.margin.inlineStart + parent.margin.inlineEnd
+      ctx.addIssue({
+        code: 'custom',
+        path,
+        message: `parent page "${parent.name}" has inner and outer margins totaling ${total}mm on paper ${trim.width}mm wide; reduce the horizontal margins to leave a text area`,
+      })
+    }
+  }
+  const flowing = bookSections(book).filter(({ entry }) => flowingSection(entry))
+  flowing.forEach((section, index) => {
+    const { entry: flow, path } = section
+    const geometry = sectionPageGeometry(book as Book, section)
+    const sectionTrim = geometry?.paper ?? trim
+    const sectionParents = resolveParentPages([...(geometry ? bookParentPages(geometry.margin) : bookParentPages(page.margin)), ...book.parentPages])
+    const byName = new Map(sectionParents.map((parent) => [parent.name, parent]))
+    const names = flowingParentNames(flow.parents)
+    const roles = Object.entries(names) as Array<[keyof typeof names, string]>
+    const widths = roles.flatMap(([role, name]) => {
+      const parent = byName.get(name)
+      return parent ? [{ role, name, width: textArea(parent, sectionTrim).width }] : []
+    })
+    const geometryWidth = sectionTrim.width - (geometry?.margin.inlineStart ?? page.margin.inlineStart) - (geometry?.margin.inlineEnd ?? page.margin.inlineEnd)
+    const mismatched = widths.find((candidate) => candidate.width !== geometryWidth)
+    if (mismatched) {
+      const label = flow.title ?? `flow ${index + 1}`
+      ctx.addIssue({
+        code: 'custom',
+        path,
+        message: `the ${label} flow has different text widths: parent page "${mismatched.name}" is ${mismatched.width}mm, but its page geometry is ${geometryWidth}mm; make both widths equal or remove that parent to clear this refusal`,
+      })
+      return
+    }
+    const first = widths[0]
+    const different = widths.find((candidate) => candidate.width !== first?.width)
+    if (!first || !different) return
+    const label = flow.title ?? `flow ${index + 1}`
+    ctx.addIssue({
+      code: 'custom',
+      path,
+      message: `the ${label} flow uses parent pages "${first.name}" (${first.width}mm) and "${different.name}" (${different.width}mm) with different text widths; make the widths equal or split the flow into sections to clear this refusal`,
+    })
+  })
+}
+
+const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
+  for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
+  const sections = bookSections(book)
+  const geometryByPath = new Map(sections.map((section) => [section.path.join('.'), sectionPageGeometry(book as Book, section)]))
+  refineNamedPageGeometries(book, ctx)
   const opensFacts = bookSectionOpensFacts(book).map((fact) => ({
     ...fact,
     geometry: geometryByPath.get(fact.path.join('.')),
@@ -305,103 +333,8 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   }
   for (const issue of noteSeriesIssues(book.notes, book.mode)) ctx.addIssue({ code: 'custom', ...issue })
   for (const issue of bookParentIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
-  if (!book.page) return
-  const trim = sheetMm(book.page)
-  const parents = resolveParentPages([...bookParentPages(book.page.margin), ...book.parentPages])
-  const defaults = new Set(bookParentPages(book.page.margin).map((parent) => parent.name))
-  for (const parent of parents) {
-    const area = textArea(parent, trim)
-    const path = defaults.has(parent.name) ? ['page', 'margin'] : ['parentPages']
-    if (area.height <= 0) {
-      const total = parent.margin.blockStart + parent.margin.blockEnd
-      ctx.addIssue({
-        code: 'custom',
-        path,
-        message: `parent page "${parent.name}" has top and bottom margins totaling ${total}mm on paper ${trim.height}mm high; reduce the vertical margins to leave a text area`,
-      })
-    }
-    if (area.width <= 0) {
-      const total = parent.margin.inlineStart + parent.margin.inlineEnd
-      ctx.addIssue({
-        code: 'custom',
-        path,
-        message: `parent page "${parent.name}" has inner and outer margins totaling ${total}mm on paper ${trim.width}mm wide; reduce the horizontal margins to leave a text area`,
-      })
-    }
-  }
-  const flowing = sections.filter(({ entry }) => flowingSection(entry))
-  flowing.forEach((section, index) => {
-    const { entry: flow, path } = section
-    const geometry = sectionPageGeometry(book as Book, section)
-    const sectionTrim = geometry?.paper ?? trim
-    const sectionParents = resolveParentPages([...(geometry ? bookParentPages(geometry.margin) : bookParentPages(book.page.margin)), ...book.parentPages])
-    const byName = new Map(sectionParents.map((parent) => [parent.name, parent]))
-    const names = flowingParentNames(flow.parents)
-    const roles = Object.entries(names) as Array<[keyof typeof names, string]>
-    const widths = roles.flatMap(([role, name]) => {
-      const parent = byName.get(name)
-      return parent ? [{ role, name, width: textArea(parent, sectionTrim).width }] : []
-    })
-    const geometryWidth = sectionTrim.width - (geometry?.margin.inlineStart ?? book.page.margin.inlineStart) - (geometry?.margin.inlineEnd ?? book.page.margin.inlineEnd)
-    const mismatched = widths.find((candidate) => candidate.width !== geometryWidth)
-    if (mismatched) {
-      const label = flow.title ?? `flow ${index + 1}`
-      ctx.addIssue({
-        code: 'custom',
-        path,
-        message: `the ${label} flow has different text widths: parent page "${mismatched.name}" is ${mismatched.width}mm, but its page geometry is ${geometryWidth}mm; make both widths equal or remove that parent to clear this refusal`,
-      })
-      return
-    }
-    const first = widths[0]
-    const different = widths.find((candidate) => candidate.width !== first?.width)
-    if (!first || !different) return
-    const label = flow.title ?? `flow ${index + 1}`
-    ctx.addIssue({
-      code: 'custom',
-      path,
-      message: `the ${label} flow uses parent pages "${first.name}" (${first.width}mm) and "${different.name}" (${different.width}mm) with different text widths; make the widths equal or split the flow into sections to clear this refusal`,
-    })
-    return
-  })
+  refineParentPageGeometry(book, ctx)
 })
-
-function partDepthIssues(value: unknown): Array<{ path: (string | number)[]; message: string }> {
-  if (typeof value !== 'object' || value === null) return []
-  const input = value as Record<string, unknown>
-  const roots = [
-    ['frontMatter', input.frontMatter],
-    ['body', input.body],
-    ['chapters', input.chapters],
-    ['endMatter', input.endMatter],
-  ] as const
-  const stack: Array<{ value: unknown; path: (string | number)[]; depth: number }> = []
-  for (const [key, entries] of roots) {
-    if (!Array.isArray(entries)) continue
-    entries.forEach((entry, index) => {
-      stack.push({ value: entry, path: [key, index], depth: 0 })
-    })
-  }
-  const issues: Array<{ path: (string | number)[]; message: string }> = []
-  while (stack.length > 0) {
-    const current = stack.pop()
-    if (!current || typeof current.value !== 'object' || current.value === null || !('name' in current.value)) continue
-    const depth = current.depth + 1
-    if (depth > MAX_PART_DEPTH) {
-      issues.push({
-        path: current.path,
-        message: `part ${current.path.join('.')} exceeds the maximum part depth of ${MAX_PART_DEPTH}; reduce the nesting to clear this refusal`,
-      })
-      continue
-    }
-    const children = (current.value as Record<string, unknown>).children
-    if (!Array.isArray(children)) continue
-    children.forEach((child, index) => {
-      stack.push({ value: child, path: [...current.path, 'children', index], depth })
-    })
-  }
-  return issues
-}
 
 const DepthCheckedBook = z.preprocess((value, ctx) => {
   for (const issue of partDepthIssues(value)) ctx.addIssue({ code: 'custom', ...issue })

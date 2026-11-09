@@ -105,10 +105,7 @@ describe('saved book plans', () => {
 
   test('replays a single-geometry plan and names the first page whose section geometry changed', () => {
     const measurements = input({
-      flows: [
-        flow('one', 'chapter', [block('text', 'p', 1, 1, 2, 0)]),
-        { ...flow('two', 'chapter', [block('text', 'p', 2, 1, 2, 0)]), pageGeometry: 'wide' },
-      ],
+      flows: [flow('one', 'chapter', [block('text', 'p', 1, 1, 2, 0)]), { ...flow('two', 'chapter', [block('text', 'p', 2, 1, 2, 0)]), pageGeometry: 'wide' }],
       pageGeometries: { 'segnavia:default': { width: 600, height: 800 }, wide: { width: 800, height: 600 } },
     })
     const saved = savePlan(measurements, planned(measurements), numbering)

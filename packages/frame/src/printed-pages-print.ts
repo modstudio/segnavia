@@ -1,4 +1,14 @@
-import { type Imposition, impose, isPrintedPageIdentityImposition, limitRefusal, PX_PER_MM, paperViewport, resolveLimits, sheetMm } from '@segnavia/format'
+import {
+  type Imposition,
+  impose,
+  isPrintedPageIdentityImposition,
+  limitRefusal,
+  mixedImpositionGeometryRefusal,
+  PX_PER_MM,
+  paperViewport,
+  resolveLimits,
+  sheetMm,
+} from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { imposedPaperDocument, type PrintablePagesOptions, type PrintablePaperBody, printablePaper } from './print-document.ts'
@@ -68,6 +78,8 @@ export async function printedPagesPrintDocument(
   imposition: Imposition,
   options: PrintablePagesOptions & { deadlineAt: number },
 ): Promise<{ html: string; paper: { width: number; height: number }; sheets: number }> {
+  const geometryRefusal = mixedImpositionGeometryRefusal(pages)
+  if (geometryRefusal) throw new RangeError(geometryRefusal)
   const printed = pages.filter((page) => page.printedPages)
   for (const page of printed) {
     if (!page.print || !isPrintedPageIdentityImposition(page.print, imposition)) {

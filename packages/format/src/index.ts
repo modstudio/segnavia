@@ -232,6 +232,7 @@ export {
   sharedImpositionPress,
 } from './imposition.ts'
 export { PAPER_FIT_TOLERANCE_MM } from './imposition-fit.ts'
+export { mixedImpositionGeometryRefusal } from './imposition-geometry-policy.ts'
 export {
   type ImpositionMarkEdge,
   type ImpositionSideMarks,

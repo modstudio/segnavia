@@ -66,12 +66,7 @@ function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, in
       document.children,
       build,
       runningHead,
-      flowAttribs(
-        chapter.opens,
-        chapter.parents,
-        { 'data-segnavia-chapter': String(index), ...languageAttribs(chapter) },
-        chapter.pageGeometry,
-      ),
+      flowAttribs(chapter.opens, chapter.parents, { 'data-segnavia-chapter': String(index), ...languageAttribs(chapter) }, chapter.pageGeometry),
     ),
   }
 }

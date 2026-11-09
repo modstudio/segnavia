@@ -31,9 +31,9 @@ import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type Assets, assetSetup, type RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
+import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
-import { addPressBoxesByPage } from './page-paper.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import type { BookPdfOptions, BookPlanOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
@@ -164,6 +164,13 @@ function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, o
   }
 }
 
+function paginatedBookWidth(book: Book): number {
+  const widths = bookPageGeometries(book).map((geometry) =>
+    book.print && usesPressLayout(book.print) ? pressBoxes(geometry.paper, book.print).bleedBox.width : geometry.paper.width,
+  )
+  return Math.max(...widths)
+}
+
 // Building a book's document can refuse its pagination or its style sheet;
 // both reach the host as a render refusal.
 function refusedAsRender<T>(build: () => T): T {
@@ -240,13 +247,16 @@ async function printBook(
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
         },
-    Math.round(size.width * PX_PER_MM),
+    Math.round((paginated ? paginatedBookWidth(book) : size.width) * PX_PER_MM),
     part,
   )
   if (!composedPlan) return output
   const trims = composedPlan.pages.map((page, index) => {
     const geometry = resolveBookPageGeometry(book, page.pageGeometry)
-    if (!geometry) throw new RenderRefusedError(`The plan page ${index + 1} names unknown page geometry ${JSON.stringify(page.pageGeometry)}; compute a new plan to clear this refusal.`)
+    if (!geometry)
+      throw new RenderRefusedError(
+        `The plan page ${index + 1} names unknown page geometry ${JSON.stringify(page.pageGeometry)}; compute a new plan to clear this refusal.`,
+      )
     return geometry.paper
   })
   if (!book.print || !usesPressLayout(book.print)) output = { ...output, bytes: await setPdfPageSizes(output.bytes, trims) }

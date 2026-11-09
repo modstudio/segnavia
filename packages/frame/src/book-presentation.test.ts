@@ -1,5 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PLACE_KEY_LIMIT, bookPlace, bookPlaceKey, bookPlaceOffset, bookPresentationScript, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
+import {
+  BOOK_PLACE_KEY_LIMIT,
+  bookPlace,
+  bookPlaceKey,
+  bookPlaceOffset,
+  bookPresentationScript,
+  pageGrid,
+  pageScale,
+  spreadSlots,
+} from './book-presentation.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
 describe('book place', () => {

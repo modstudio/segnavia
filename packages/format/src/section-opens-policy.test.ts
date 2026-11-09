@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { type SectionOpensFact, sectionOpensIssues } from './section-opens-policy.ts'
 import type { ResolvedBookPageGeometry } from './book-page-geometry.ts'
+import { type SectionOpensFact, sectionOpensIssues } from './section-opens-policy.ts'
 
 const section = (overrides: Partial<SectionOpensFact> = {}): SectionOpensFact => ({
   id: 'two',
@@ -62,9 +62,6 @@ test('accepts differently named geometries that resolve identically', () => {
     columns: { count: 1, gap: 4 },
   }
   expect(
-    sectionOpensIssues([
-      section({ id: 'one', opens: 'any', path: ['body', 0], geometry: base }),
-      section({ geometry: { ...base, name: 'two' } }),
-    ]),
+    sectionOpensIssues([section({ id: 'one', opens: 'any', path: ['body', 0], geometry: base }), section({ geometry: { ...base, name: 'two' } })]),
   ).toEqual([])
 })

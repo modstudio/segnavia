@@ -27,7 +27,7 @@ interface BookGeometrySource {
 
 export function resolveBookPageGeometry(book: BookGeometrySource, name?: string): ResolvedBookPageGeometry | undefined {
   if (!book.page) return undefined
-  if (name === undefined) return resolved(DEFAULT_PAGE_GEOMETRY, book.page, book.page.columnGap)
+  if (name === undefined || name === DEFAULT_PAGE_GEOMETRY) return resolved(DEFAULT_PAGE_GEOMETRY, book.page, book.page.columnGap)
   const geometry = book.style?.pageGeometries?.[name]
   return geometry ? resolved(name, geometry, book.page.columnGap) : undefined
 }
@@ -49,5 +49,8 @@ export function bookPageGeometries(book: BookGeometrySource): ResolvedBookPageGe
 }
 
 export function sameBookPageGeometry(left: ResolvedBookPageGeometry | undefined, right: ResolvedBookPageGeometry | undefined): boolean {
-  return JSON.stringify(left && { paper: left.paper, margin: left.margin, columns: left.columns }) === JSON.stringify(right && { paper: right.paper, margin: right.margin, columns: right.columns })
+  return (
+    JSON.stringify(left && { paper: left.paper, margin: left.margin, columns: left.columns }) ===
+    JSON.stringify(right && { paper: right.paper, margin: right.margin, columns: right.columns })
+  )
 }
