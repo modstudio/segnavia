@@ -9,7 +9,8 @@
     "directory": "packages/diagrams"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "sideEffects": [
     "./src/auto.ts",

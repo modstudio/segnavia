@@ -9,7 +9,8 @@
     "directory": "packages/markdown-editor"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "sideEffects": [
     "./src/markdown-editor.ts",
