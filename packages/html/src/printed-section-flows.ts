@@ -2,8 +2,8 @@ import type { PrintedPages } from '@segnavia/format'
 import { continuingFlowRoots } from './book/book-continue.ts'
 import { type BuiltSection, flowAttribs, numberingAttribs } from './book/book-held.ts'
 import { element } from './book/dom.ts'
-import { parse, serialize } from './sanitize.ts'
 import { bindRecordValues } from './record-values.ts'
+import { parse, serialize } from './sanitize.ts'
 
 type PrintedSection = NonNullable<PrintedPages['sections']>[number]
 

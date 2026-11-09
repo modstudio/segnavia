@@ -127,7 +127,10 @@ function bookItem(
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)
 }
 
-export function documentBookProjection(document: { children: DocumentNode[]; templates?: Parameters<typeof recordExpansion>[0]['templates'] }): DocumentBookProjection {
+export function documentBookProjection(document: {
+  children: DocumentNode[]
+  templates?: Parameters<typeof recordExpansion>[0]['templates']
+}): DocumentBookProjection {
   const sourcePaths = new Map<string, Path>()
   const expanded = recordExpansion({ children: document.children, templates: document.templates ?? [] })
   const divisions = document.children.filter((node): node is Extract<DocumentNode, { type: 'division' }> => node.type === 'division')

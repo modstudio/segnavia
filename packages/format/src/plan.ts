@@ -100,7 +100,11 @@ function planSchema(options?: PlanParseOptions) {
       })
     }
     if (plan.documentFolios.length !== plan.pages.length) {
-      ctx.addIssue({ code: 'custom', path: ['documentFolios'], message: `documentFolios has ${plan.documentFolios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal` })
+      ctx.addIssue({
+        code: 'custom',
+        path: ['documentFolios'],
+        message: `documentFolios has ${plan.documentFolios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
+      })
     }
   })
 }

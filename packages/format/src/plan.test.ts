@@ -22,7 +22,18 @@ function page(): PlanValue['pages'][number] {
 }
 
 function plan(): PlanValue {
-  return { version: 1, fingerprint: 'fnv1a64:0000000000000000', breaks: [], pages: [page()], folios: ['1'], total: '1' }
+  return {
+    version: 1,
+    fingerprint: 'fnv1a64:0000000000000000',
+    breaks: [],
+    pages: [page()],
+    folios: ['1'],
+    total: '1',
+    documentFolios: ['1'],
+    documentTotal: '1',
+    recordTotals: {},
+    records: {},
+  }
 }
 
 describe('Plan', () => {

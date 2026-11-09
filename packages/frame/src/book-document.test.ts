@@ -67,6 +67,10 @@ describe('bookDocument', () => {
       pages: [],
       folios: [],
       total: '0',
+      documentFolios: [],
+      documentTotal: '0',
+      recordTotals: {},
+      records: {},
     }
     const html = bookDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
     expect(html).toContain('"breaks":["middle"]')

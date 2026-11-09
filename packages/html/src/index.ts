@@ -142,7 +142,7 @@ export {
   resolvePlacements,
 } from './placements.ts'
 export { printedSectionFlows } from './printed-section-flows.ts'
-export { bindRecordValues, type BoundRecordSection, type RecordValueSection } from './record-values.ts'
+export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
 export {
   assetOriginRefusals,
   findActiveContent,

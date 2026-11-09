@@ -94,7 +94,18 @@ test('bookPdf labels a fresh paginated composition from its published plan', asy
     page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
     chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
   })
-  const published = JSON.stringify({ version: 1, fingerprint: 'fresh', breaks: [], pages: [planPage(1), planPage(2)], folios: [null, '8'], total: '8' })
+  const published = JSON.stringify({
+    version: 1,
+    fingerprint: 'fresh',
+    breaks: [],
+    pages: [planPage(1), planPage(2)],
+    folios: [null, '8'],
+    total: '8',
+    documentFolios: [null, '1'],
+    documentTotal: '1',
+    recordTotals: {},
+    records: {},
+  })
   const output = await renderBrowserBookPdf(book, {}, '', {
     render: async (setup) => {
       await setup.beforeOutput?.({
@@ -127,7 +138,18 @@ test('bookPdf labels a supplied plan without reading a carrier', async () => {
     page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
     chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
   })
-  const plan: Plan = { version: 1, fingerprint: 'saved', breaks: [], pages: [planPage(1)], folios: ['12'], total: '12' }
+  const plan: Plan = {
+    version: 1,
+    fingerprint: 'saved',
+    breaks: [],
+    pages: [planPage(1)],
+    folios: ['12'],
+    total: '12',
+    documentFolios: ['1'],
+    documentTotal: '1',
+    recordTotals: {},
+    records: {},
+  }
   let carrierReads = 0
   const output = await renderBrowserBookPdf(book, { plan }, '', {
     render: async (setup) => {

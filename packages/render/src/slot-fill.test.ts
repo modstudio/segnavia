@@ -152,6 +152,32 @@ test('sectioned printed pages fill every section and refuse multiple copies', as
   await expect(filledPage(page, { fills: [fill, fill] })).rejects.toThrow('Pass fill or source for a single copy')
 })
 
+test('record values bind before a different host slot fill', async () => {
+  const page = resolvePrintedPageHtml(
+    Page.parse({
+      scripts: 'refuse',
+      print: { paper: 'letter' },
+      slots: [{ key: 'host.name', label: 'Host name', type: 'text' }],
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+        rules: { every: 'body' },
+        sections: [
+          {
+            id: 'record',
+            html: '<p data-slot-value="record.name"></p><p data-slot-value="host.name"></p>',
+            values: { 'record.name': 'Ada' },
+            record: { index: 1, count: 1 },
+            recordTemplate: { name: 'row', slots: [{ key: 'record.name' }] },
+          },
+        ],
+      },
+    }),
+  )
+  const { value } = await filledPage(page, { fill: { id: 'host', values: { 'host.name': 'School' } } })
+  expect(value.printedPages.sections[0]?.html).toBe('<p dir="auto">Ada</p><p dir="auto">School</p>')
+  expect(value.printedPages.sections[0]?.values).toBeUndefined()
+})
+
 test('filledDeck aligns slot measurement frames with non-HTML slides', async () => {
   const deck = Deck.parse({
     title: 'Aligned slot frames',

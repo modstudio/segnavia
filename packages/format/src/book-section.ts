@@ -4,8 +4,8 @@ import { Direction } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
-import { Slots } from './slots.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
+import { Slots } from './slots.ts'
 
 export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'

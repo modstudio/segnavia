@@ -287,13 +287,28 @@ within each kind.
 ### Declared but not yet supported
 
 Parsing refuses a non-empty `variables` collection, every `condition`
-or `record` node, section `headTemplate`, division `settings.numbering`, and
+node, section `headTemplate`, division `settings.numbering`, and
 parent-page `regions`. Division numbering uses the richer shared `Numbering`
 value, while the current Book carries only a number system. It also refuses `limits` on
 deck and board documents. Remove the named field or node to clear the refusal.
 Node `id` is accepted and preserved; deck slides and board children require one
 until the id-minting slice lands, while a lowering may omit it where the current
 internal value has no id.
+
+A record node is `{ type: 'record', id?, template, values }`. Its named template
+declares text `slots`; lowering replaces each record in reading order with one
+flowing section that opens on a new page, restarts at page one, and carries the
+record index, count and values. The HTML layer binds those values into the
+template's `data-slot-value` elements before a host fill runs. Record templates
+cannot set parent pages, and records require paginated layout because their page
+numbers restart.
+
+Parent-page furniture may bind `record.index`, `record.count`,
+`printedPage.number`, `printedPage.total`, `printedPage.documentNumber` and
+`printedPage.documentTotal`. Record index and count use the body number system
+and are empty outside a record. Page number and total are scoped to the record
+flow on record pages; document number and total count the whole document, while
+blank and uncounted papers show no document number.
 
 ### Markdown page bodies
 

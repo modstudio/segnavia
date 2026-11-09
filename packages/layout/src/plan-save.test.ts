@@ -29,7 +29,18 @@ describe('saved book plans', () => {
     expect(saved.pages[0]?.start).toEqual({ flow: 'פרק', block: 0, line: 0, id: 'שָׁלוֹם' })
     expect(SavedPlan.parse(saved)).toEqual(saved)
     const replayed = replayPlan(measurements, saved, numbering)
-    expect(replayed).toEqual({ ok: true, plan: { pages: saved.pages, folios: saved.folios, total: saved.total } })
+    expect(replayed).toEqual({
+      ok: true,
+      plan: {
+        pages: saved.pages,
+        folios: saved.folios,
+        total: saved.total,
+        documentFolios: saved.documentFolios,
+        documentTotal: saved.documentTotal,
+        recordTotals: saved.recordTotals,
+        records: saved.records,
+      },
+    })
     if (replayed.ok) expect(replayed.plan.pages).toBe(saved.pages)
   })
 
@@ -130,6 +141,10 @@ describe('saved book plans', () => {
       ],
       folios: ['א'],
       total: 'א',
+      documentFolios: ['א'],
+      documentTotal: 'א',
+      recordTotals: {},
+      records: {},
     })
     expect(replayPlan(measurements, saved, numbering)).toMatchObject({ ok: true })
   })

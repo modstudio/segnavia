@@ -1,5 +1,5 @@
 import type { SlotDeclaration } from '@segnavia/format'
-import { isTag, Text } from 'domhandler'
+import { Text } from 'domhandler'
 import { elements, parse, serialize } from './sanitize.ts'
 
 export interface RecordValueSection {

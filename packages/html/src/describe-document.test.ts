@@ -40,6 +40,10 @@ const plan = (pages: PlanPage[]): Plan => ({
   pages,
   folios: ['א', 'ב'],
   total: 'ב',
+  documentFolios: ['א', 'ב'],
+  documentTotal: 'ב',
+  recordTotals: {},
+  records: {},
 })
 
 describe('describeDocument saved plan', () => {

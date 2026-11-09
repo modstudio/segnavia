@@ -63,10 +63,7 @@ describe('Document', () => {
     )
   })
 
-  test('refuses reserved records and conditions with a remedy', () => {
-    expect(() => Document.parse({ type: 'document', kind: 'book', children: [{ type: 'record', name: 'row' }] })).toThrow(
-      'record row is not yet supported; remove it to clear this refusal',
-    )
+  test('refuses reserved conditions with a remedy', () => {
     expect(() =>
       Document.parse({
         type: 'document',

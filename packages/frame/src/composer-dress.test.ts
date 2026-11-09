@@ -36,8 +36,7 @@ test('fills a right-to-left Hebrew motif and a printed-page slot in one pass', (
     { folio: 'יב', runningHead: 'פרק ראשון', total: 'כ' },
     'rtl',
     'he',
-    PRINTED_PAGE_NUMBER_PATH,
-    PRINTED_PAGE_TOTAL_PATH,
+    { [PRINTED_PAGE_NUMBER_PATH]: 'יב', [PRINTED_PAGE_TOTAL_PATH]: 'כ' },
     fillBookFurniture,
   )
 
@@ -54,16 +53,7 @@ test('removes an undefined furniture binding', () => {
     },
   }
   const root = { innerHTML: '', querySelectorAll: () => [slot] } as unknown as Element
-  fillFurniture(
-    root,
-    '<span data-slot-value="printedPage.number"></span>',
-    {},
-    undefined,
-    undefined,
-    PRINTED_PAGE_NUMBER_PATH,
-    PRINTED_PAGE_TOTAL_PATH,
-    (html) => html,
-  )
+  fillFurniture(root, '<span data-slot-value="printedPage.number"></span>', {}, undefined, undefined, { [PRINTED_PAGE_NUMBER_PATH]: undefined }, (html) => html)
   expect(slot.removed).toBeTrue()
 })
 

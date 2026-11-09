@@ -37,7 +37,11 @@ function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: P
   }
 }
 
-export function refineDocumentNodes(document: Parameters<typeof refineRecords>[0] & { kind: DocumentKind }, profile: DocumentProfile, ctx: z.RefinementCtx): void {
+export function refineDocumentNodes(
+  document: Parameters<typeof refineRecords>[0] & { kind: DocumentKind },
+  profile: DocumentProfile,
+  ctx: z.RefinementCtx,
+): void {
   walk(document.children, (node, path) => {
     if (!(profile.children as readonly string[]).includes(node.type)) {
       ctx.addIssue({ code: 'custom', path: [...path, 'type'], message: profileRefusal(node.type, document.kind, profile.children) })

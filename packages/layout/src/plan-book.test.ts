@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { bookPlanFolios } from './book-plan-folios.ts'
 import { block, flow, input, settings } from './paginate-book.test-helper.ts'
 import { paginateBook } from './paginate-book.ts'
@@ -27,10 +28,11 @@ describe('planBook', () => {
     })
     const paginated = paginateBook(measurements)
     const folios = bookPlanFolios(paginated.pages, { frontMatter, body })
+    const documentNumbers = bookPlanDocumentNumbers(paginated.pages, { frontMatter, body }, measurements.flows)
     const result = planBook(measurements, { frontMatter, body })
     expect(result).toEqual({
       ok: true,
-      plan: { pages: paginated.pages, ...folios },
+      plan: { pages: paginated.pages, ...folios, ...documentNumbers },
     })
     expect(result.ok && result.plan.folios).toEqual([...expectedFolios])
     expect(result.ok && result.plan.total).toBe(direction === 'ltr' ? '1' : 'א')

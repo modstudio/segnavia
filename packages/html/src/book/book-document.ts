@@ -1,11 +1,9 @@
 import {
   type Book,
   type BookContents,
-  type BookDivision,
   type BookSectionEntry,
   type BookTemplate,
   bookSections,
-  type Chapter,
   type DesignedSection,
   isBookContents,
   isDesignedSection,
@@ -17,6 +15,7 @@ import {
 } from '@segnavia/format'
 import type { Document } from 'domhandler'
 import { elements, parse, serialize } from '../sanitize.ts'
+import { chapterSection } from './book-chapter-section.ts'
 import { addContents } from './book-contents.ts'
 import { continuingFlowRoots } from './book-continue.ts'
 import { notesGalleys, targetLinks, withBlankPages } from './book-document-nodes.ts'
@@ -27,7 +26,6 @@ import {
   collectHeadings,
   designedSection,
   flowAttribs,
-  languageAttribs,
   markPlacementIssues,
   numberingAttribs,
   sectionHeading,
@@ -43,7 +41,6 @@ import { addPart, attachPendingPartHeadings, partNames } from './book-part-build
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
-import { bindRecordValues } from '../record-values.ts'
 
 function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'parents' | 'numbering'>, build: BookBuild): BuiltSection {
   const { id } = entry
@@ -55,32 +52,6 @@ function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'p
   }
 }
 
-function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, index: number, division: BookDivision, build: BookBuild): BuiltSection {
-  chapter = bindRecordValues(chapter)
-  const { id } = chapter
-  const document = parse(chapter.html)
-  const runningHead = chapter.runningHead ?? chapter.title
-  return {
-    info: { id, kind: 'chapter', division, title: chapter.title, runningHead, opens: chapter.opens },
-    node: sectionNode(
-      'chapter',
-      id,
-      document.children,
-      build,
-      runningHead,
-      flowAttribs(
-        chapter.opens,
-        chapter.parents,
-        {
-          'data-segnavia-chapter': String(index),
-          ...languageAttribs(chapter),
-          ...(chapter.record ? { 'data-record-index': String(chapter.record.index), 'data-record-count': String(chapter.record.count) } : {}),
-        },
-        chapter.pageGeometry,
-      ),
-    ),
-  }
-}
 function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'designed', book: Book, build: DocumentBuild, sectionEntry: BookSectionEntry) {
   const held = designedSection(
     entry,
