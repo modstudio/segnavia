@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { BookOpens } from './book-opens.ts'
+import { SectionNumbering } from './folio.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
@@ -50,6 +52,18 @@ export const PrintedPages = z.object({
   rules: PrintedPageRules,
   numbering: NumberSystem.optional(),
   fragmentation: Fragmentation.default('safe'),
+  sections: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        opens: BookOpens.optional(),
+        numbering: SectionNumbering.optional(),
+        html: z.string(),
+      }),
+    )
+    .min(1)
+    .optional(),
 })
 
 export type ParentPage = z.infer<typeof ParentPage>

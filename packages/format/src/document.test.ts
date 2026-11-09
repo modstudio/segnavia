@@ -193,12 +193,12 @@ describe('Document', () => {
     expect(() => Document.parse(section({ start: 4 }))).toThrow('remove unknown numbering fields to clear this refusal')
   })
 
-  test('refuses section numbering for continuous books and with printed-page rules', () => {
+  test('refuses section numbering for continuous books and accepts it with printed-page rules', () => {
     const section = { type: 'section' as const, id: 'one', title: 'One', numbering: { restart: 4 }, children: [{ type: 'flow' as const, html: '' }] }
     expect(() => Document.parse({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: [section] })).toThrow(
       /use the paginated layout.*clear this refusal/,
     )
-    expect(() =>
+    expect(
       Document.parse({
         type: 'document',
         kind: 'book',
@@ -207,8 +207,64 @@ describe('Document', () => {
         page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
         rules: { every: 'body' },
         children: [section],
+      }).children[0],
+    ).toMatchObject({ numbering: { restart: 4 } })
+  })
+
+  test('refuses invalid printed section forms and fields with remedies', () => {
+    const root = {
+      type: 'document' as const,
+      kind: 'printed' as const,
+      rules: { every: 'body' },
+      parentPages: [{ type: 'parentPage' as const, name: 'body' }],
+    }
+    const flow = { type: 'flow' as const, html: '<p>Body</p>' }
+    expect(() =>
+      Document.parse({
+        ...root,
+        children: [
+          { type: 'page', body: { html: '' } },
+          { type: 'section', children: [flow] },
+        ],
       }),
-    ).toThrow('remove section numbering or the printed-page rules to clear this refusal')
+    ).toThrow('remove the page or the sections to clear this refusal')
+    expect(() => Document.parse({ ...root, children: [{ type: 'section', children: [] }] })).toThrow(
+      'replace its children with one flow child to clear this refusal',
+    )
+    expect(() => Document.parse({ ...root, children: [{ type: 'section', parents: { opener: 'body' }, children: [flow] }] })).toThrow(
+      'remove it and use document rules to clear this refusal',
+    )
+    expect(() => Document.parse({ ...root, children: [{ type: 'section', pageGeometry: 'wide', children: [flow] }] })).toThrow(
+      'remove it because printed sections share the document paper to clear this refusal',
+    )
+    expect(() => Document.parse({ ...root, children: [{ type: 'section', opens: 'continue', children: [flow] }] })).toThrow(
+      'use another opens value to clear this refusal',
+    )
+  })
+
+  test('uses the printed number system to refuse an out-of-range section restart', () => {
+    expect(() =>
+      Document.parse({
+        type: 'document',
+        kind: 'printed',
+        numbering: 'hebrew',
+        rules: { every: 'body' },
+        parentPages: [{ type: 'parentPage', name: 'body' }],
+        children: [{ type: 'section', title: 'Text', numbering: { restart: 10_000 }, children: [{ type: 'flow', html: '' }] }],
+      }),
+    ).toThrow('hebrew range 1 to 9999')
+  })
+
+  test('accepts template definitions on printed documents', () => {
+    const parsed = Document.parse({
+      type: 'document',
+      kind: 'printed',
+      rules: { every: 'body' },
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      templates: [{ type: 'template', name: 'record', html: '<p>Record</p>' }],
+      children: [{ type: 'page', body: { html: '' } }],
+    })
+    expect(parsed.templates[0]).toMatchObject({ name: 'record', html: '<p>Record</p>' })
   })
 
   test('refuses a section restart beyond its division numbering system range', () => {

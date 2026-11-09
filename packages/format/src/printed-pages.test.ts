@@ -28,6 +28,14 @@ describe('Page printedPages', () => {
     expect(PrintedPages.safeParse({ ...base.printedPages, fragmentation: 'always' }).success).toBe(false)
   })
 
+  test('accepts sections without a page body and refuses sections together with a body', () => {
+    const sections = [{ id: 'body', title: 'Body', opens: 'recto' as const, numbering: { restart: 2 }, html: '<p>Body</p>' }]
+    const sectioned = Page.parse({ ...base, html: undefined, printedPages: { ...base.printedPages, sections } })
+    expect(sectioned.body).toBeUndefined()
+    expect(sectioned.printedPages?.sections).toEqual(sections)
+    expect(() => Page.parse({ ...base, printedPages: { ...base.printedPages, sections } })).toThrow('remove the body or sections to clear this refusal')
+  })
+
   test.each([
     [{ ...base, print: undefined }, 'add print.paper'],
     [{ ...base, scripts: 'sandboxed' }, 'deterministic cloned content'],

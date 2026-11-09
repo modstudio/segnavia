@@ -1,5 +1,6 @@
-import { Document, type Document as DocumentValue } from './document.ts'
+import { Document, type Document as DocumentValue, defaultSectionContents } from './document.ts'
 import { fingerprintDocument, requireParsedDocument } from './document-fingerprint.ts'
+import type { DocumentNode } from './document-nodes.ts'
 import { DocumentBatch, type DocumentLocation, type DocumentOp } from './document-op.ts'
 import { insertAfter, predecessor } from './document-op-anchor.ts'
 import { sameValue } from './document-op-equal.ts'
@@ -13,6 +14,7 @@ import {
   type OperationDocument,
   type OperationNode,
 } from './document-op-model.ts'
+import { DOCUMENT_PROFILES, type DocumentKind } from './document-profile.ts'
 
 type Held = Record<string, unknown>
 type HeldNode = OperationNode
@@ -40,6 +42,11 @@ function checkNodeLocation(node: HeldNode, location: DocumentLocation, index: nu
     refuse(index, op, `collection "${location.name}" cannot hold node type "${node.type}"`)
   }
   if (location.kind === 'node' && expectedCollection) refuse(index, op, `node type "${node.type}" belongs in collection "${expectedCollection}"`)
+}
+
+function nodeWithDefaults(document: HeldDocument, node: HeldNode): HeldNode {
+  const defaultsContents = (DOCUMENT_PROFILES[document.kind as DocumentKind].sectionFields as readonly string[]).includes('contents')
+  return defaultSectionContents([structuredClone(node) as DocumentNode], defaultsContents)[0] as HeldNode
 }
 
 function checkedChange(op: Extract<DocumentOp, { type: 'setFields' | 'setStyle' }>, allowed: ReadonlySet<string>, index: number): string[] {
@@ -80,7 +87,7 @@ function applyInsert(document: HeldDocument, op: Extract<DocumentOp, { type: 'in
   checkNodeLocation(node, op.parent, index, op)
   const target = entries(document, op.parent, index, op)
   if (op.index > target.length) refuse(index, op, `index ${op.index} is outside 0..${target.length}`)
-  target.splice(op.index, 0, structuredClone(node))
+  target.splice(op.index, 0, nodeWithDefaults(document, node))
 }
 
 function applyStyle(document: HeldDocument, op: Extract<DocumentOp, { type: 'setStyle' }>, index: number): void {
@@ -101,7 +108,7 @@ function applyRoot(document: HeldDocument, op: Extract<DocumentOp, { id: string 
 
 function applyRemove(document: HeldDocument, op: Extract<DocumentOp, { type: 'remove' }>, found: Found, index: number): void {
   if (!sameLocation(found.parent, op.parent) || found.index !== op.index) refuse(index, op, `node "${op.id}" is not at its prior parent and index`)
-  if (!sameValue(found.node, op.prior)) refuse(index, op, `node "${op.id}" does not match its prior value`)
+  if (!sameValue(found.node, nodeWithDefaults(document, op.prior as HeldNode))) refuse(index, op, `node "${op.id}" does not match its prior value`)
   entries(document, found.parent, index, op).splice(found.index, 1)
 }
 

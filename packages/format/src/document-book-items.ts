@@ -21,13 +21,13 @@ function nodeId(node: { id?: string; title?: string }, path: Path): string {
   return node.id ?? node.title ?? path.join('.')
 }
 
-function sectionFields(section: Extract<DocumentNode, { type: 'section' }>, path: Path) {
+export function documentSectionFields(section: Extract<DocumentNode, { type: 'section' }>, path: Path) {
   return defined({
     id: nodeId(section, path),
     title: section.title,
     contentsLabel: section.contentsLabel,
     subtitle: section.subtitle,
-    contents: section.contents,
+    contents: section.contents ?? true,
     opens: section.opens,
     parents: section.parents,
     numbering: section.numbering,
@@ -45,7 +45,7 @@ function placement(node: Extract<DocumentNode, { type: 'placed' }>) {
 }
 
 function sectionItem(section: Extract<DocumentNode, { type: 'section' }>, division: Division, bookPath: Path): BookItem {
-  const fields = sectionFields(section, bookPath)
+  const fields = documentSectionFields(section, bookPath)
   const pages = section.children.filter((node): node is Extract<DocumentNode, { type: 'page' }> => node.type === 'page')
   if (pages.length > 0 && pages.every((page) => page.regions !== undefined)) {
     const template = section.template

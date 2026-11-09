@@ -10,7 +10,7 @@ export const SectionFields = {
   title: z.string().optional(),
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
-  contents: z.boolean().default(true),
+  contents: z.boolean().optional(),
   opens: BookOpens.optional(),
   numbering: SectionNumbering.optional(),
   parents: BookSectionParents.optional(),

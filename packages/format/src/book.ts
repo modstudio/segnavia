@@ -255,7 +255,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   const numberedSections = sections.flatMap(({ entry, division, id, path }) =>
     'numbering' in entry && entry.numbering !== undefined ? [{ id, title: entry.title, division, path, numbering: entry.numbering }] : [],
   )
-  for (const issue of sectionNumberingIssues({ mode: book.mode, systems: book.numbering, sections: numberedSections, printedPageRules: false })) {
+  for (const issue of sectionNumberingIssues({ mode: book.mode, systems: book.numbering, sections: numberedSections })) {
     ctx.addIssue({ code: 'custom', ...issue })
   }
   if (book.mode === 'paginated' && !book.page) {

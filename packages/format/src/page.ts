@@ -60,7 +60,17 @@ const PageShape = z
   })
   .superRefine((page, ctx) => {
     const fields = bodyChoices(page).map(({ field }) => field)
-    if (fields.length === 0) ctx.addIssue({ code: 'custom', path: ['body'], message: 'body, html or markdown is required; provide exactly one page body' })
+    const sections = page.printedPages?.sections
+    if (fields.length === 0 && !sections) {
+      ctx.addIssue({ code: 'custom', path: ['body'], message: 'body, html or markdown is required; provide exactly one page body' })
+    }
+    if (fields.length > 0 && sections) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['printedPages', 'sections'],
+        message: 'page body and printedPages.sections were both given; remove the body or sections to clear this refusal',
+      })
+    }
     if (fields.length > 1) {
       const names = fields.join(', ')
       for (const field of fields)

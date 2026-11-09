@@ -1,11 +1,11 @@
 import { z } from 'zod'
+import { BookOpens } from './book-opens.ts'
 import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
 
-export const BookOpens = z.enum(['recto', 'verso', 'any', 'continue'])
-export type BookOpens = z.infer<typeof BookOpens>
+export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
 export const SECTION_TITLE_MARK = 'segnavia:section-title'
 const PartOpens = z.enum(['recto', 'verso', 'any'])

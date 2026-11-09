@@ -13,7 +13,6 @@ export interface SectionNumberingPolicyInput {
   mode: 'continuous' | 'paginated'
   systems: { frontMatter: NumberSystem; body: NumberSystem }
   sections: readonly SectionNumberingFact[]
-  printedPageRules: boolean
 }
 
 export interface SectionNumberingIssue {
@@ -39,14 +38,6 @@ export function sectionNumberingIssues(input: SectionNumberingPolicyInput): Sect
         {
           path: [...section.path, 'numbering'],
           message: `Section "${label}" (${section.id}) sets numbering, but continuous books cannot apply section numbering; use the paginated layout or remove numbering from section "${label}" to clear this refusal.`,
-        },
-      ]
-    }
-    if (input.printedPageRules) {
-      return [
-        {
-          path: [...section.path, 'numbering'],
-          message: `Section "${label}" (${section.id}) sets numbering together with printed-page rules, whose numbering replaces plan folios; remove section numbering or the printed-page rules to clear this refusal.`,
         },
       ]
     }
