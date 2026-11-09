@@ -13,7 +13,6 @@ export interface FillSwitcherView extends ControlView {
 }
 export interface ItemSettingsFieldView extends ControlView, SlotFieldView {
   declaration: SlotDeclaration
-  canPickAsset: boolean
 }
 export interface ItemSettingsActionView extends ItemSettingsFieldView {
   action: ItemSettingsActionKind
@@ -123,7 +122,7 @@ export const nativeField: NonNullable<ItemSettingsControls['field']> = (initial,
   return { element: input, update, dispose() {} }
 }
 
-export const nativeAsset: NonNullable<ItemSettingsControls['asset']> = (initial, callbacks) => {
+function nativeAssetControl(initial: ItemSettingsFieldView, callbacks: AssetControlCallbacks, canPick: boolean) {
   const root = document.createElement('div')
   const file = document.createElement('input')
   file.type = 'file'
@@ -146,7 +145,7 @@ export const nativeAsset: NonNullable<ItemSettingsControls['asset']> = (initial,
       chosen.replaceChildren(isolated(view.value.asset))
       if (!chosen.isConnected) root.append(chosen)
     } else chosen.remove()
-    if (view.canPickAsset && !view.readOnly) {
+    if (canPick && !view.readOnly) {
       pick.replaceChildren(isolated(view.labels.chooseAsset))
       pick.dir = 'auto'
       if (!pick.isConnected) root.append(pick)
@@ -155,6 +154,9 @@ export const nativeAsset: NonNullable<ItemSettingsControls['asset']> = (initial,
   update(initial)
   return { element: root, update, dispose() {} }
 }
+
+export const nativeAsset: NonNullable<ItemSettingsControls['asset']> = (initial, callbacks) => nativeAssetControl(initial, callbacks, true)
+export const nativeAssetWithoutPicker: NonNullable<ItemSettingsControls['asset']> = (initial, callbacks) => nativeAssetControl(initial, callbacks, false)
 
 export const nativeAction: NonNullable<ItemSettingsControls['action']> = (initial, callbacks) => {
   if (initial.action === 'design-only') {

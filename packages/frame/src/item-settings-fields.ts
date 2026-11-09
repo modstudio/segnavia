@@ -8,6 +8,7 @@ import {
   type ItemSettingsRenderedControl,
   nativeAction,
   nativeAsset,
+  nativeAssetWithoutPicker,
   nativeField,
   nativeFillSwitcher,
 } from './item-settings-controls.ts'
@@ -124,7 +125,6 @@ export class FieldsPanel {
     return {
       ...slotFieldView(declaration, this.context.overrides, fill, this.context.source, this.context.report, this.actions.onDesignOnly !== undefined),
       declaration,
-      canPickAsset: this.actions.pickAsset !== undefined,
       dir: this.context.dir,
       labels: this.context.labels,
     }
@@ -137,7 +137,7 @@ export class FieldsPanel {
     const caption = document.createElement('span')
     const actions = document.createElement('div')
     actions.part.add('slot-actions')
-    const renderer = kind === 'asset' ? (this.controls.asset ?? nativeAsset) : (this.controls.field ?? nativeField)
+    const renderer = kind === 'asset' ? this.assetRenderer() : (this.controls.field ?? nativeField)
     const callbacks =
       kind === 'asset'
         ? { onChange: (value: SlotValue | undefined) => this.actions.onChangeValue(declaration.key, value), pickAsset: () => this.pickAsset(declaration.key) }
@@ -157,7 +157,7 @@ export class FieldsPanel {
   }
 
   private updateSlot(mount: SlotMount, declaration: SlotDeclaration, view: ItemSettingsFieldView, updateExisting: boolean) {
-    const renderer = mount.kind === 'asset' ? (this.controls.asset ?? nativeAsset) : (this.controls.field ?? nativeField)
+    const renderer = mount.kind === 'asset' ? this.assetRenderer() : (this.controls.field ?? nativeField)
     if (mount.main.renderer !== renderer) {
       mount.main.control.dispose()
       const callbacks =
@@ -212,6 +212,9 @@ export class FieldsPanel {
     if (action === 'override') this.actions.onOverride(key)
     else if (action === 'use-source') this.actions.onUseSource(key)
     else this.actions.onDesignOnly?.(key, enabled ?? false)
+  }
+  private assetRenderer() {
+    return this.controls.asset ?? (this.actions.pickAsset ? nativeAsset : nativeAssetWithoutPicker)
   }
   private async pickAsset(key: string) {
     const declaration = this.context.declarations.find((slot) => slot.key === key)

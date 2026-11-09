@@ -166,6 +166,15 @@ test('default native controls expose every documented part', () => {
   }
 })
 
+test('the default asset picker stays absent when the host supplies no picker', () => {
+  const container = new ItemSettingsTestElement()
+  const handlers = actions([])
+  handlers.pickAsset = undefined
+  new FieldsPanel(container as unknown as HTMLElement).update(context(), handlers)
+  const parts = descendants(container).flatMap((element) => [...element.part])
+  expect(parts).not.toContain('asset-pick')
+})
+
 function descendants(element: ItemSettingsTestElement): ItemSettingsTestElement[] {
   return element.children.flatMap((child) => [child, ...descendants(child)])
 }
