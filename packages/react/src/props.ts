@@ -98,6 +98,7 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   resolveSlide?: ControllerOptions['resolveSlide']
   base?: string
   css?: string
+  origins?: SegnaviaThumbnail['origins']
   mountMargin?: number
   slots?: SegnaviaThumbnail['slots']
   motifs?: SegnaviaThumbnail['motifs']

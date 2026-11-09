@@ -2,6 +2,7 @@ import {
   type Deck,
   type Document,
   type DocumentInput,
+  type OriginApproval,
   deckFromDocument,
   type Page,
   type PageWidths,
@@ -49,6 +50,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   private placementOptions: AssetPlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
+  private originOptions: Iterable<OriginApproval> = []
   private brandOptions: BrandsOptions | undefined
   private brandResolution: AbortController | undefined
   private designedCoverInput: DesignedCover | undefined
@@ -135,6 +137,15 @@ export class SegnaviaThumbnail extends HTMLElement {
 
   set css(value: string) {
     this.stylesheet = value
+    this.changed()
+  }
+
+  get origins(): Iterable<OriginApproval> {
+    return this.originOptions
+  }
+
+  set origins(value: Iterable<OriginApproval>) {
+    this.originOptions = value
     this.changed()
   }
 
@@ -391,6 +402,7 @@ export class SegnaviaThumbnail extends HTMLElement {
       pageWidths: this.widthOptions,
       fonts: this.fontOptions,
       slots: this.slotOptions,
+      origins: this.originOptions,
       css: this.stylesheet,
     })
   }

@@ -37,6 +37,7 @@ export const ELEMENT_PROPERTIES = {
       'resolveSlide',
       'base',
       'css',
+      'origins',
       'mountMargin',
       'slots',
       'motifs',
