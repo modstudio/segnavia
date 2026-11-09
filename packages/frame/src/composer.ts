@@ -23,7 +23,19 @@ import {
   markFurnitureOverflow,
   markRegionOverflow,
 } from './composer-dress.ts'
-import { composerLayoutReady, flowTextArea, forcedPageBreak, measureLineBoxes, measurementRefusal, sizeFlowGalley, tableRowLines } from './composer-measure.ts'
+import {
+  composerLayoutReady,
+  flowTextArea,
+  forcedPageBreak,
+  measuredBlockConstraints,
+  measuredCandidateKeeps,
+  measuredCandidateRun,
+  measuredKeepRuns,
+  measureLineBoxes,
+  measurementRefusal,
+  sizeFlowGalley,
+  tableRowLines,
+} from './composer-measure.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
 import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
@@ -88,38 +100,6 @@ export function decideVisibleMeasurement(facts: VisibleMeasurementFacts, boundMs
 export interface MeasuredKeepBlock {
   keepWithNext?: boolean
   keepWithPrevious?: boolean
-}
-
-export interface MeasuredKeepCandidate {
-  avoid: boolean
-  top: number
-  bottom: number
-}
-
-export function measuredBlockConstraints(display: string, orphans: number, widows: number): { orphans?: number; widows?: number } {
-  const blockContainers = ['block', 'flow-root', 'list-item', 'inline-block', 'table-cell', 'table-caption']
-  if (!blockContainers.includes(display)) return {}
-  return {
-    ...(Number.isFinite(orphans) && orphans > 0 ? { orphans } : {}),
-    ...(Number.isFinite(widows) && widows > 0 ? { widows } : {}),
-  }
-}
-
-export function measuredKeepRuns(lines: readonly NoteLineBox[], candidates: readonly MeasuredKeepCandidate[]): Array<{ start: number; end: number }> {
-  const runs: Array<{ start: number; end: number }> = []
-  for (const candidate of candidates) {
-    if (!candidate.avoid) continue
-    const indexes = lines.flatMap((line, index) => {
-      const middle = (line.top + line.bottom) / 2
-      return middle >= candidate.top - 0.5 && middle <= candidate.bottom + 0.5 ? [index] : []
-    })
-    const start = indexes[0]
-    const last = indexes.at(-1)
-    if (start === undefined || last === undefined) continue
-    const run = { start, end: last + 1 }
-    if (!runs.some((held) => held.start === run.start && held.end === run.end)) runs.push(run)
-  }
-  return runs
 }
 
 export interface NoteLineBox {
@@ -217,6 +197,8 @@ ${embedFunction('advanceVisibleTime', advanceVisibleTime)}
 ${embedFunction('decideVisibleMeasurement', decideVisibleMeasurement)}
 ${embedFunction('appendMeasuredBlock', appendMeasuredBlock)}
 ${embedFunction('measuredBlockConstraints', measuredBlockConstraints)}
+${embedFunction('measuredCandidateRun', measuredCandidateRun)}
+${embedFunction('measuredCandidateKeeps', measuredCandidateKeeps)}
 ${embedFunction('measuredKeepRuns', measuredKeepRuns)}
 ${embedFunction('noteFragmentExtent', noteFragmentExtent)}
 ${embedFunction('noteSettlementOverlapsBody', noteSettlementOverlapsBody)}
@@ -281,7 +263,8 @@ var withFlowMeta=function(flow,element){var opens=element.getAttribute('data-ope
 var measureMarks=function(block,lines,origin){var nodes=[];if(block.hasAttribute('data-mark'))nodes.push(block);var inner=block.querySelectorAll('[data-mark]');for(var i=0;i<inner.length;i++)nodes.push(inner[i]);var marks=[];for(var n=0;n<nodes.length;n++){var name=nodes[n].getAttribute('data-mark');if(!name)continue;var top=nodes[n].getBoundingClientRect().top-origin;var mark={name:name,value:(nodes[n].textContent||'').replace(/\\s+/g,' ').trim(),line:lineIndex(top,lines)};if(nodes[n].getAttribute('data-mark-scope')==='flow')mark.scope='flow';marks.push(mark);}return marks;};
 var measureVariables=function(block,lines,origin){var nodes=[];if(block.hasAttribute('data-variable'))nodes.push(block);var inner=block.querySelectorAll('[data-variable]');for(var i=0;i<inner.length;i++)nodes.push(inner[i]);var values=[];for(var n=0;n<nodes.length;n++){var name=nodes[n].getAttribute('data-variable');if(!name)continue;var declaration=(config.variables||[]).find(function(variable){return variable.kind==='text'&&variable.from==='content'&&variable.name===name;});if(!declaration)continue;var top=nodes[n].getBoundingClientRect().top-origin;values.push({name:name,value:(nodes[n].textContent||'').replace(/\\s+/g,' ').trim(),line:lineIndex(top,lines)});}var titleNodes=[];if(block.getAttribute('data-mark')===${JSON.stringify(SECTION_TITLE_MARK)})titleNodes.push(block);var titles=block.querySelectorAll('[data-mark=${JSON.stringify(SECTION_TITLE_MARK)}]');for(var t=0;t<titles.length;t++)titleNodes.push(titles[t]);for(var d=0;d<(config.variables||[]).length;d++){var titleVariable=config.variables[d];if(titleVariable.kind!=='text'||titleVariable.from!=='section-title')continue;for(var s=0;s<titleNodes.length;s++){var titleTop=titleNodes[s].getBoundingClientRect().top-origin;values.push({name:titleVariable.name,value:(titleNodes[s].textContent||'').replace(/\\s+/g,' ').trim(),line:lineIndex(titleTop,lines),scope:'flow'});}}return values;};
 var measureRefs=function(block,lines,origin){var nodes=block.querySelectorAll('.segnavia-note-ref > a');var refs=[];for(var i=0;i<nodes.length;i++){if(nodes[i].parentElement&&nodes[i].parentElement.hasAttribute('data-segnavia-note-repeat'))continue;var href=nodes[i].getAttribute('href')||'';if(href.charAt(0)!=='#')continue;var note=elementWithAttr(document,'data-segnavia-note',href.slice(1));if(!note||!note.closest('[data-segnavia-notes-galley]'))continue;var top=nodes[i].getBoundingClientRect().top-origin;refs.push({note:href.slice(1),line:lineIndex(top,lines)});}return refs;};
-var measureBlock=function(element,flowId,chapter,index,origin){var tag=element.tagName.toLowerCase();var lines=blockLines(element,origin);if(!lines.length)return null;var style=getComputedStyle(element);var keepWith=(style.getPropertyValue('--segnavia-keep-with')||'').trim();var columnsAttr=element.getAttribute('data-columns');var orphans=parseInt(style.orphans,10);var widows=parseInt(style.widows,10);var header=element.tHead?element.tHead.getBoundingClientRect().height:0;var block={kind:blockKind(tag),tag:tag,position:{chapter:chapter,block:index},lines:lines};var id=element.getAttribute('data-segnavia-id');if(id!==null)block.id=id;if(columnsAttr)block.columns=parseInt(columnsAttr,10);var constraints=measuredBlockConstraints(style.display,orphans,widows);if(constraints.orphans)block.orphans=constraints.orphans;if(constraints.widows)block.widows=constraints.widows;if(style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next')block.keepWithNext=true;if(style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous')block.keepWithPrevious=true;if(forcedPageBreak(style.breakBefore))block.breakBefore=true;if(forcedPageBreak(style.breakAfter))block.breakAfter=true;if(style.breakInside==='avoid'||style.pageBreakInside==='avoid')block.keepTogether=true;if(style.display==='table'||style.display==='inline-table'){var candidates=[];var groups=element.querySelectorAll('tr,thead,tfoot');for(var g=0;g<groups.length;g++){var groupStyle=getComputedStyle(groups[g]);var box=groups[g].getBoundingClientRect();candidates.push({avoid:groupStyle.breakInside==='avoid'||groupStyle.pageBreakInside==='avoid',top:box.top-origin,bottom:box.bottom-origin});}var runs=measuredKeepRuns(lines,candidates);if(runs.length)block.keepRuns=runs;}if(header>0)block.headerHeight=header;var refs=measureRefs(element,lines,origin);if(refs.length)block.footnoteRefs=refs;var marks=measureMarks(element,lines,origin);if(marks.length)block.marks=marks;var variables=measureVariables(element,lines,origin);if(variables.length)block.variables=variables;return block;};
+var descendantKeepCandidates=function(element,origin){var candidates=[];var descendants=element.querySelectorAll('*');for(var i=0;i<descendants.length;i++){var style=getComputedStyle(descendants[i]);var display=style.display;if(display==='none'||display==='contents'||display==='inline'||display==='ruby'||display==='ruby-base'||display==='ruby-text')continue;var keepWith=(style.getPropertyValue('--segnavia-keep-with')||'').trim();var avoidInside=style.breakInside==='avoid'||style.pageBreakInside==='avoid';var keepWithNext=style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next';var keepWithPrevious=style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous';if(!avoidInside&&!keepWithNext&&!keepWithPrevious)continue;var box=descendants[i].getBoundingClientRect();candidates.push({top:box.top-origin,bottom:box.bottom-origin,avoidInside:avoidInside,keepWithNext:keepWithNext,keepWithPrevious:keepWithPrevious});}return candidates;};
+var measureBlock=function(element,flowId,chapter,index,origin){var tag=element.tagName.toLowerCase();var lines=blockLines(element,origin);if(!lines.length)return null;var style=getComputedStyle(element);var keepWith=(style.getPropertyValue('--segnavia-keep-with')||'').trim();var columnsAttr=element.getAttribute('data-columns');var orphans=parseInt(style.orphans,10);var widows=parseInt(style.widows,10);var header=element.tHead?element.tHead.getBoundingClientRect().height:0;var block={kind:blockKind(tag),tag:tag,position:{chapter:chapter,block:index},lines:lines};var id=element.getAttribute('data-segnavia-id');if(id!==null)block.id=id;if(columnsAttr)block.columns=parseInt(columnsAttr,10);var constraints=measuredBlockConstraints(style.display,orphans,widows);if(constraints.orphans)block.orphans=constraints.orphans;if(constraints.widows)block.widows=constraints.widows;if(style.breakAfter==='avoid'||style.pageBreakAfter==='avoid'||keepWith==='next')block.keepWithNext=true;if(style.breakBefore==='avoid'||style.pageBreakBefore==='avoid'||keepWith==='previous')block.keepWithPrevious=true;if(forcedPageBreak(style.breakBefore))block.breakBefore=true;if(forcedPageBreak(style.breakAfter))block.breakAfter=true;if(style.breakInside==='avoid'||style.pageBreakInside==='avoid')block.keepTogether=true;var keeps=measuredKeepRuns(lines,descendantKeepCandidates(element,origin));if(keeps.keepRuns.length)block.keepRuns=keeps.keepRuns;if(keeps.keepWithNextFrom!==undefined&&!block.keepWithNext){block.keepWithNext=true;block.keepWithNextFrom=keeps.keepWithNextFrom;}if(keeps.keepWithPrevious)block.keepWithPrevious=true;if(header>0)block.headerHeight=header;var refs=measureRefs(element,lines,origin);if(refs.length)block.footnoteRefs=refs;var marks=measureMarks(element,lines,origin);if(marks.length)block.marks=marks;var variables=measureVariables(element,lines,origin);if(variables.length)block.variables=variables;return block;};
 var contentBearing=function(element){if(getComputedStyle(element).display==='none')return false;if((element.textContent||'').trim()!=='')return true;var replaced='img,svg,video,canvas,picture,iframe,object,embed,math';if(element.matches(replaced)||element.querySelector(replaced))return true;var tag=element.tagName.toLowerCase();return (tag==='table'&&element.querySelector('tr')!==null)||element.querySelector('table tr')!==null;};
 var measureFlow=function(element){var id=element.getAttribute('data-segnavia-flow')||element.id;var kind=flowKind(element);if(kind==='fixed'||kind==='templated'){var selector=kind==='templated'?'[data-segnavia-templated-page]':'[data-segnavia-designed-page]';var holders=element.querySelectorAll(selector);var fixed={id:id,kind:'fixed',pages:holders.length,sourceBlocks:0,contentBlocks:0};if(kind==='templated'){fixed.role='body';fixed.pageParentRules=[];for(var h=0;h<holders.length;h++){var templateName=holders[h].getAttribute('data-template');fixed.pageParentRules.push(mergeParents(parentsOf(element),parentsOf(templateName?elementWithAttr(document,'data-segnavia-template',templateName):null)));}}var headFixed=element.getAttribute('data-running-head');if(headFixed)fixed.runningHead=headFixed;return withFlowMeta(fixed,element);}var origin=originTop(element);var chapter=chapterOf(element);var blocks=[];var index=0;var sourceBlocks=0;var contentBlocks=0;var boundaries=[];for(var i=0;i<element.children.length;i++){var child=element.children[i];if(child.tagName==='STYLE'||child.tagName==='SCRIPT')continue;if(child.classList.contains('${SECTION_BOUNDARY_CLASS}')){chapter=chapterOf(child);index=0;boundaries=[child];continue;}index+=1;sourceBlocks+=1;if(contentBearing(child))contentBlocks+=1;var block=measureBlock(child,id,chapter,index,origin);if(block){var heldMarks=[];var heldVariables=[];for(var m=0;m<boundaries.length;m++){heldMarks=heldMarks.concat(measureMarks(boundaries[m],block.lines,origin));heldVariables=heldVariables.concat(measureVariables(boundaries[m],block.lines,origin));}if(heldMarks.length)block.marks=heldMarks.concat(block.marks||[]);if(heldVariables.length)block.variables=heldVariables.concat(block.variables||[]);boundaries=[];appendMeasuredBlock(blocks,block);}}var flow={id:id,kind:kind,blocks:blocks,sourceBlocks:sourceBlocks,contentBlocks:contentBlocks};var head=element.getAttribute('data-running-head');if(head)flow.runningHead=head;return withFlowMeta(flow,element);};
 var measureNotes=function(){var notes=[];var nodes=document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-note]');for(var i=0;i<nodes.length;i++){var id=nodes[i].getAttribute('data-segnavia-note');var galley=nodes[i].closest('[data-segnavia-notes-galley]');var series=galley?galley.getAttribute('data-segnavia-note-series'):'';if(!id||!series)continue;notes.push({id:id,series:series,lines:blockLines(nodes[i],originTop(nodes[i]))});}return notes;};

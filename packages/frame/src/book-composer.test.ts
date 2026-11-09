@@ -8,8 +8,6 @@ import {
   decideBookMeasurement,
   flowSectionNumbering,
   inlineTileCount,
-  measuredBlockConstraints,
-  measuredKeepRuns,
   noteFragmentExtent,
   noteSettlementOverlapsBody,
   noteStackTops,
@@ -165,21 +163,6 @@ describe('block keeps', () => {
     expect(bookDocument(book).html).toContain(
       `data-mark="${SECTION_TITLE_MARK}" data-mark-scope="flow" data-segnavia-chapter="2" id="section-2">Running Two</div>`,
     )
-  })
-
-  test('a row with break-inside avoid produces its line run while empty CSS produces none', () => {
-    const lines = [
-      { top: 0, bottom: 10 },
-      { top: 10, bottom: 20 },
-      { top: 20, bottom: 30 },
-    ]
-    expect(measuredKeepRuns(lines, [{ avoid: true, top: 0, bottom: 30 }])).toEqual([{ start: 0, end: 3 }])
-    expect(measuredKeepRuns(lines, [{ avoid: false, top: 0, bottom: 20 }])).toEqual([])
-  })
-
-  test('a display table element carries no orphan or widow constraint', () => {
-    expect(measuredBlockConstraints('table', 2, 2)).toEqual({})
-    expect(measuredBlockConstraints('block', 2, 3)).toEqual({ orphans: 2, widows: 3 })
   })
 
   test('takes the page marker from config', () => {

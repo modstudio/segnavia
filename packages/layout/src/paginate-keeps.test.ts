@@ -65,6 +65,32 @@ describe('paginateKeeps', () => {
     expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 50, 0)], [win('c1', 50, 70, 0)]])
   })
 
+  test('a list item keep run is never split across pages', () => {
+    const list = block('text', 'ul', 1, 0, 6, 0, { keepRuns: [{ start: 2, end: 6 }] })
+    const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [list])] })).pages
+
+    expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 20, 0)], [win('c1', 20, 60, 0)]])
+  })
+
+  test('a nested tail heading moves with the next block while earlier container lines stay', () => {
+    const container = block('text', 'section', 1, 1, 3, 20, { keepWithNext: true, keepWithNextFrom: 1 })
+    const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [block('text', 'p', 1, 0, 2, 0), container, block('text', 'p', 1, 2, 2, 50)])] })).pages
+
+    expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 30, 0)], [win('c1', 30, 70, 0)]])
+  })
+
+  test('a whole-block keep-with-next still moves the entire block', () => {
+    const pages = paginateBook(
+      input({
+        flows: [
+          flow('c1', 'chapter', [block('text', 'p', 1, 0, 3, 0), block('heading', 'h2', 1, 1, 2, 30, { keepWithNext: true }), block('text', 'p', 1, 2, 2, 50)]),
+        ],
+      }),
+    ).pages
+
+    expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 30, 0)], [win('c1', 30, 70, 0)]])
+  })
+
   test('table keep runs break between rows and not inside a fitting row in both directions', () => {
     for (const direction of ['ltr', 'rtl'] as const) {
       const table = block('table', 'table', 1, 1, 6, 40, {

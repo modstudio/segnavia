@@ -30,6 +30,7 @@ export const PaginateBlock = z.object({
   orphans: z.number().optional(),
   widows: z.number().optional(),
   keepWithNext: z.boolean().optional(),
+  keepWithNextFrom: z.number().int().nonnegative().optional(),
   keepTogether: z.boolean().optional(),
   keepRuns: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() })).optional(),
   headerHeight: z.number().optional(),

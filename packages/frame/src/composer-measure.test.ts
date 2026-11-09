@@ -1,6 +1,80 @@
 import { describe, expect, test } from 'bun:test'
 import { decideVisibleMeasurement } from './composer.ts'
-import { measurementRefusal, tableRowLines } from './composer-measure.ts'
+import { type MeasuredKeepCandidate, measuredBlockConstraints, measuredKeepRuns, measurementRefusal, tableRowLines } from './composer-measure.ts'
+
+const lines = [
+  { top: 0, bottom: 10 },
+  { top: 10, bottom: 20 },
+  { top: 20, bottom: 30 },
+  { top: 30, bottom: 40 },
+]
+
+function candidate(extra: Partial<MeasuredKeepCandidate>): MeasuredKeepCandidate {
+  return { top: 0, bottom: 10, avoidInside: false, keepWithNext: false, keepWithPrevious: false, ...extra }
+}
+
+describe('measuredKeepRuns', () => {
+  test('maps a list item with break-inside avoid to its line run', () => {
+    expect(measuredKeepRuns(lines, [candidate({ top: 10, bottom: 30, avoidInside: true })])).toEqual({
+      keepRuns: [{ start: 1, end: 3 }],
+    })
+  })
+
+  test('keeps distinct nested descendant runs', () => {
+    expect(measuredKeepRuns(lines, [candidate({ top: 0, bottom: 40, avoidInside: true }), candidate({ top: 10, bottom: 30, avoidInside: true })])).toEqual({
+      keepRuns: [
+        { start: 0, end: 4 },
+        { start: 1, end: 3 },
+      ],
+    })
+  })
+
+  test('joins a nested keep-with-next heading to the following line', () => {
+    expect(measuredKeepRuns(lines, [candidate({ top: 10, bottom: 20, keepWithNext: true })])).toEqual({
+      keepRuns: [{ start: 1, end: 3 }],
+    })
+  })
+
+  test('records the start of a keep-with-next heading on the last line', () => {
+    expect(measuredKeepRuns(lines, [candidate({ top: 30, bottom: 40, keepWithNext: true })])).toEqual({
+      keepRuns: [],
+      keepWithNextFrom: 3,
+    })
+  })
+
+  test('carries a keep-with-previous first child across the block edge', () => {
+    expect(measuredKeepRuns(lines, [candidate({ keepWithPrevious: true })])).toEqual({
+      keepRuns: [],
+      keepWithPrevious: true,
+    })
+  })
+
+  test('table row candidates retain their existing runs', () => {
+    expect(measuredKeepRuns(lines, [candidate({ top: 0, bottom: 20, avoidInside: true }), candidate({ top: 20, bottom: 40, avoidInside: true })])).toEqual({
+      keepRuns: [
+        { start: 0, end: 2 },
+        { start: 2, end: 4 },
+      ],
+    })
+  })
+
+  test('measures an RTL Hebrew dialogue speaker at the container tail', () => {
+    const rtlLineBoxes = [
+      { top: 0, bottom: 12 },
+      { top: 12, bottom: 24 },
+      { top: 24, bottom: 36 },
+    ]
+    expect(measuredKeepRuns(rtlLineBoxes, [candidate({ top: 24, bottom: 36, keepWithNext: true })])).toEqual({
+      keepRuns: [],
+      keepWithNextFrom: 2,
+    })
+  })
+})
+
+test('a display table element carries no orphan or widow constraint', () => {
+  expect(measuredBlockConstraints('table', 2, 2)).toEqual({})
+  expect(measuredBlockConstraints('block', 2, 3)).toEqual({ orphans: 2, widows: 3 })
+})
 
 describe('tableRowLines', () => {
   test('a one-line row equals its row box', () => {
