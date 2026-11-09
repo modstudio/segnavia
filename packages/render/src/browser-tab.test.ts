@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { assetLimitRefusal, assetRouteDecision, fetchKind, mergedFontFailures } from './browser-tab.ts'
+import { assetLimitRefusal, assetRouteDecision, browserContextOptions, fetchKind, mergedFontFailures } from './browser-tab.ts'
 
 describe('asset route decision', () => {
   const origins = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] as const }]
@@ -56,6 +56,13 @@ describe('asset route decision', () => {
 test('Playwright resource types map only the four approved asset kinds', () => {
   expect(['script', 'stylesheet', 'font', 'image'].map(fetchKind)).toEqual(['script', 'style', 'font', 'image'])
   for (const type of ['fetch', 'xhr', 'websocket', 'manifest', 'other', 'document', 'media', 'eventsource']) expect(fetchKind(type)).toBeUndefined()
+})
+
+test('browser contexts are offline and block service workers', () => {
+  expect(browserContextOptions({ viewport: { width: 400, height: 200 }, scripts: true })).toMatchObject({
+    offline: true,
+    serviceWorkers: 'block',
+  })
 })
 
 test('asset caps name the address, byte count, limit and host option, and raised caps admit the answer', () => {

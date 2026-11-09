@@ -45,7 +45,7 @@ else navigator.serviceWorker.register('${serviceWorkerUrl}').then(()=>finish('re
     ),
   )
   check(
-    'a scripted render blocks service-worker registration without making a request',
+    'a scripted render registers no service worker and makes no request',
     serviceWorkerRender === 'rendered' &&
       (serviceWorkerOutcome === 'unavailable' || serviceWorkerOutcome.startsWith('blocked:')) &&
       serviceWorkerLookups === 0 &&

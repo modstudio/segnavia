@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 import { type FetchKind, type FontFailure, type Limits, limitRefusal, type OriginApproval, originDecision, type ResolvedLimits, resolveLimits } from '@segnavia/format'
 import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
 import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
-import type { Browser, BrowserContext, Page as Tab } from 'playwright-core'
+import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
 import { withinBound } from './render-deadline.ts'
@@ -84,6 +84,16 @@ export function fetchKind(resourceType: string): FetchKind | undefined {
   return undefined
 }
 
+export function browserContextOptions(setup: Pick<BrowserTabSetup, 'viewport' | 'scale' | 'scripts'>): BrowserContextOptions {
+  return {
+    viewport: setup.viewport,
+    deviceScaleFactor: setup.scale ?? 1,
+    javaScriptEnabled: setup.scripts,
+    offline: true,
+    serviceWorkers: 'block',
+  }
+}
+
 export async function renderInBrowserTab<T>(
   browser: Browser,
   setup: BrowserTabSetup,
@@ -93,13 +103,7 @@ export async function renderInBrowserTab<T>(
 ): Promise<T> {
   const markupRefusals = assetOriginRefusals(setup.html, { keepScripts: setup.scripts, origins: setup.origins })
   if (markupRefusals.length > 0) throw new RenderRefusedError([...new Set(markupRefusals)].join('; '))
-  const context = await browser.newContext({
-    viewport: setup.viewport,
-    deviceScaleFactor: setup.scale ?? 1,
-    javaScriptEnabled: setup.scripts,
-    offline: true,
-    serviceWorkers: 'block',
-  })
+  const context = await browser.newContext(browserContextOptions(setup))
   state.opened(context)
   if (state.settled()) {
     await context.close().catch(() => {})
