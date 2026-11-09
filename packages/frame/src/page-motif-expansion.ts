@@ -33,8 +33,12 @@ export function pageParentRegions(page: HtmlPage | PrintedHtmlPage): ParentRegio
 }
 
 export function pageMotifRefusal(bodyHtml: readonly string[], regions: readonly ParentRegion[]): MotifRefusedError | undefined {
-  for (const html of [...bodyHtml, ...regions.map((region) => region.html)]) {
+  for (const html of bodyHtml) {
     const refusal = libraryMotifPlacementRefusal(html)
+    if (refusal) return new MotifRefusedError(refusal)
+  }
+  for (const html of regions.map((region) => region.html)) {
+    const refusal = libraryMotifPlacementRefusal(html, true)
     if (refusal) return new MotifRefusedError(refusal)
   }
   if (regions.some((region) => hasHostMotifPlacement(region.html))) {

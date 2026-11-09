@@ -3,6 +3,7 @@ import { BookOpens } from './book-opens.ts'
 import { SectionNumbering } from './folio.ts'
 import { HeadTemplates } from './head-template.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
+import { headTemplatePlacement } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 import { BOOK_PARENT_NAMES, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
@@ -62,7 +63,12 @@ export { BOOK_PARENT_NAMES } from './parent-rules.ts'
 
 export function bookParentPages(margin: LogicalMargin): ParentPage[] {
   const held = () => ({ ...margin })
-  const placement = (name: string, className: string) => `<div class="${className}" data-motif="segnavia:head-template" data-motif-name="${name}"></div>`
+  const placement = (name: string, className: string) => {
+    const attributes = Object.entries(headTemplatePlacement(name))
+      .map(([key, value]) => `${key}="${value}"`)
+      .join(' ')
+    return `<div class="${className}" ${attributes}></div>`
+  }
   const head = placement('segnavia:running-head', 'segnavia-running-head')
   const foot = placement('segnavia:folio', 'segnavia-folio')
   return [

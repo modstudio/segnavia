@@ -18,4 +18,17 @@ describe('resolveHeadTemplate', () => {
       '<bdi dir="rtl">בראשית</bdi><span dir="rtl"> / </span><bdi dir="ltr">Genesis</bdi>',
     )
   })
+
+  test('escapes values and separators before writing head markup', () => {
+    const template = HeadTemplate.parse({ name: 'escaped', parts: [{ variable: 'value' }, { variable: 'other' }], separator: ' < ' })
+    const resolved = resolveHeadTemplate(template, { value: 'A & <b>B</b>', other: 'C' }, {}, 'ltr', 'en')
+    expect(resolved).toContain('A &amp; &lt;b&gt;B&lt;/b&gt;')
+    expect(resolved).toContain('<span dir="ltr"> &lt; </span>')
+    expect(resolved).not.toContain('<b>B</b>')
+  })
+
+  test('ignores inherited record-slot properties', () => {
+    const template = HeadTemplate.parse({ name: 'safe', parts: [{ record: 'constructor' }] })
+    expect(resolveHeadTemplate(template, {}, {}, 'ltr', 'en')).toBe('')
+  })
 })

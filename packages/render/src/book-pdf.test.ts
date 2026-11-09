@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { PressGeometry, pressBoxes, sheetMm, usesPressLayout } from '@segnavia/format'
 import { parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
-import { type BookPdfAdapter, bookPageCss, renderBookPdf } from './book-pdf.ts'
+import { type BookPdfAdapter, bookPageCss, marginFactsFor, renderBookPdf } from './book-pdf.ts'
 import { renderBrowserBookPdf } from './book-render.ts'
 
 const continuousBook = (body: string, front?: string) =>
@@ -13,6 +13,21 @@ const continuousBook = (body: string, front?: string) =>
     ...(front === undefined ? {} : { frontMatter: [{ title: 'Preface', html: front }] }),
     chapters: [{ id: 'body-section', title: 'One', html: body }],
   })
+
+test('resolves record-page totals and document folios for the margin plan', () => {
+  const facts = marginFactsFor(
+    [{ id: 'record', kind: 'chapter', division: 'body', title: 'Record', record: { index: 2, count: 5 } }],
+    new Map([['record', { page: 2, x: 0, y: 0 }]]),
+    4,
+    new Set(),
+    'roman-upper',
+    [
+      { name: 'record-pages', kind: 'pages', of: 'record' },
+      { name: 'document-folio', kind: 'folio', of: 'document' },
+    ],
+  )
+  expect(facts[2]?.variables).toMatchObject({ 'record-pages': 'III', 'document-folio': 'III' })
+})
 
 test('maps asymmetric book margins to physical right and left pages independent of text direction', () => {
   const expected =

@@ -11,7 +11,10 @@ export function resolveHeadTemplate(
   direction?: Direction,
   lang?: string,
 ): string {
-  const values = template.parts.map((part) => ('variable' in part ? (variables[part.variable] ?? '') : (recordSlots[part.record] ?? '')))
+  const values = template.parts.map((part) => {
+    if ('variable' in part) return Object.hasOwn(variables, part.variable) ? (variables[part.variable] ?? '') : ''
+    return Object.hasOwn(recordSlots, part.record) ? (recordSlots[part.record] ?? '') : ''
+  })
   const kept: string[] = []
   for (const value of values) {
     if (template.dropEmpty && value === '') continue

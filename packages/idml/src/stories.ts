@@ -1,5 +1,5 @@
 import type { HeadTemplate, TextDirection, TextVariable } from '@segnavia/format'
-import { MOTIF_ATTRIBUTE, motifFieldAttribute, resolveDirection } from '@segnavia/format'
+import { headTemplatePlacement, resolveDirection } from '@segnavia/format'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN } from '@segnavia/html'
 import serialize from 'dom-serializer'
 import { Element, Text } from 'domhandler'
@@ -128,8 +128,7 @@ function markNode(variable: IdmlTextVariable, className: string | undefined): El
   return new Element(
     'span',
     {
-      [MOTIF_ATTRIBUTE]: 'segnavia:head-template',
-      [motifFieldAttribute('name')]: `idml:${variable.name}:${pick}`,
+      ...headTemplatePlacement(`idml:${variable.name}:${pick}`),
       ...(className ? { class: className } : {}),
     },
     [],
@@ -149,7 +148,7 @@ function furnitureNode(
     if (master && /\bACE\s+18\b/.test(token.text ?? '')) {
       return new Element(
         'span',
-        { [MOTIF_ATTRIBUTE]: 'segnavia:head-template', [motifFieldAttribute('name')]: 'segnavia:folio', ...(className ? { class: className } : {}) },
+        { ...headTemplatePlacement('segnavia:folio'), ...(className ? { class: className } : {}) },
         [],
       )
     }

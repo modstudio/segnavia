@@ -6,6 +6,17 @@ test('fills named head templates and removes an empty placement', () => {
   expect(fillRegion(html, { heads: { head: '<bdi dir="rtl">פרשה</bdi>', empty: '' } }, 'rtl', 'he')).toBe('<div><bdi dir="rtl">פרשה</bdi></div>')
 })
 
+test('fills balanced and self-closing head-template placements', () => {
+  expect(
+    fillRegion('<div data-motif="segnavia:head-template" data-motif-name="head"><div class="inner">old</div></div>', {
+      heads: { head: '<bdi>New</bdi>' },
+    }),
+  ).toBe('<div><bdi>New</bdi></div>')
+  expect(fillRegion('<span class="folio" data-motif="segnavia:head-template" data-motif-name="head"/>', { heads: { head: '<bdi>7</bdi>' } })).toBe(
+    '<span class="folio"><bdi>7</bdi></span>',
+  )
+})
+
 test('fills printed-page furniture from a text variable and record slot', () => {
   const heads = resolveRegionHeads(
     [{ name: 'record-head', parts: [{ variable: 'parasha' }, { record: 'name' }], separator: ' — ', dropEmpty: true, collapseEqual: true }],

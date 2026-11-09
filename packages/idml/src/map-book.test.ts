@@ -169,6 +169,8 @@ test('maps RTL master heads, chapter parents, variables, unmapped items, and no-
   expect(book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-haggadah-recto', 'idml-h-haggadah-verso', 'idml-none'])
   expect(book.parentPages[0]?.margin).toMatchObject({ inlineStart: 13 * (25.4 / 72), inlineEnd: 12 * (25.4 / 72) })
   expect(book.parentPages[0]?.head).toContain('data-motif="segnavia:head-template" data-motif-name="idml:Siman:last"')
+  expect(book.variables.map((item) => item.name)).toContain('Siman')
+  expect(book.headTemplates.map((item) => item.name)).toContain('idml:Siman:last')
   expect(book.parentPages[0]?.head).toContain('class="idml-master-frame-1"')
   expect(book.parentPages[0]?.head).toContain('class="idml-c-mark idml-o-2"')
   expect(book.style?.css).toContain(

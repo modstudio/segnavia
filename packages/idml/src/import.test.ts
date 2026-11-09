@@ -223,6 +223,8 @@ describe('importIdml', () => {
     const result = await importIdml(bytes)
     expect(result.book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-book-recto', 'idml-h-book-verso'])
     expect(result.book.parentPages[0]?.head).toContain('data-motif="segnavia:head-template" data-motif-name="idml:Siman:first"')
+    expect(result.book.variables.map((variable) => variable.name)).toContain('Siman')
+    expect(result.book.headTemplates.map((template) => template.name)).toContain('idml:Siman:first')
     const chapter = result.book.body[0]
     expect(chapter && 'html' in chapter ? chapter.html : '').toContain('<span data-variable="Siman">')
     expect(result.report.unsupportedElements).not.toHaveProperty('master story')

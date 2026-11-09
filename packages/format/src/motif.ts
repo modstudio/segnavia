@@ -6,16 +6,59 @@ import { SlotKey } from './slots.ts'
 export const MOTIF_ATTRIBUTE = 'data-motif'
 export const RECORD_CONTEXT = 'record'
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
-export const BOOK_FURNITURE = [
-  {
-    key: 'segnavia:head-template',
-    className: 'segnavia-head-template',
-    region: 'head',
-    fields: [{ key: 'name', required: true }],
-  },
-] as const
-export type BookFurniture = (typeof BOOK_FURNITURE)[number]
 export const motifFieldAttribute = (key: string) => `${MOTIF_ATTRIBUTE}-${key}`
+export const HEAD_TEMPLATE_MOTIF = 'segnavia:head-template'
+export const HEAD_TEMPLATE_NAME_ATTRIBUTE = motifFieldAttribute('name')
+
+export const headTemplatePlacement = (name: string): Record<string, string> => ({
+  [MOTIF_ATTRIBUTE]: HEAD_TEMPLATE_MOTIF,
+  [HEAD_TEMPLATE_NAME_ATTRIBUTE]: name,
+})
+
+export function htmlAttribute(markup: string, name: string): string | undefined {
+  const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const match = new RegExp(`\\b${escaped}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(markup)
+  return match?.[1] ?? match?.[2] ?? match?.[3]
+}
+
+export interface HeadTemplatePlacement {
+  start: number
+  end: number
+  openEnd: number
+  tag: string
+  name: string
+  selfClosing: boolean
+}
+
+export function headTemplatePlacements(html: string): HeadTemplatePlacement[] {
+  const tags = [...html.matchAll(/<\/?([a-zA-Z][\w:-]*)([^>]*)>/g)]
+  const placements: HeadTemplatePlacement[] = []
+  for (let index = 0; index < tags.length; index += 1) {
+    const token = tags[index]
+    const markup = token[0]
+    if (markup.startsWith('</') || htmlAttribute(markup, MOTIF_ATTRIBUTE) !== HEAD_TEMPLATE_MOTIF) continue
+    const start = token.index ?? 0
+    const openEnd = start + markup.length
+    const tag = token[1] ?? ''
+    const selfClosing = /\/\s*>$/.test(markup)
+    let end = openEnd
+    if (!selfClosing) {
+      let depth = 1
+      for (let cursor = index + 1; cursor < tags.length; cursor += 1) {
+        const candidate = tags[cursor]
+        if ((candidate[1] ?? '').toLowerCase() !== tag.toLowerCase()) continue
+        if (candidate[0].startsWith('</')) depth -= 1
+        else if (!/\/\s*>$/.test(candidate[0])) depth += 1
+        if (depth !== 0) continue
+        end = (candidate.index ?? 0) + candidate[0].length
+        break
+      }
+      if (depth !== 0) continue
+    }
+    placements.push({ start, end, openEnd, tag, name: htmlAttribute(markup, HEAD_TEMPLATE_NAME_ATTRIBUTE) ?? '', selfClosing })
+  }
+  return placements
+}
 
 const uniqueChoices = (field: { choices?: string[]; default?: string }, ctx: z.RefinementCtx) => {
   if (field.choices && new Set(field.choices).size !== field.choices.length) {

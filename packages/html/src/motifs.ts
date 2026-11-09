@@ -1,6 +1,7 @@
 import {
   chooseMotifVersion,
   type FontReference,
+  HEAD_TEMPLATE_MOTIF,
   LIBRARY_MOTIF_PREFIX,
   MOTIF_ATTRIBUTE,
   type Motif,
@@ -78,10 +79,10 @@ function motifElements(html: string): Element[] {
   return elements(parse(html).children).filter((element) => Object.hasOwn(element.attribs, MOTIF_ATTRIBUTE))
 }
 
-export function libraryMotifPlacementRefusal(html: string): string | undefined {
+export function libraryMotifPlacementRefusal(html: string, allowHeadTemplate = false): string | undefined {
   const placed = motifElements(html).find((element) => {
     const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
-    return key.startsWith(LIBRARY_MOTIF_PREFIX) && key !== 'segnavia:head-template'
+    return key.startsWith(LIBRARY_MOTIF_PREFIX) && (!allowHeadTemplate || key !== HEAD_TEMPLATE_MOTIF)
   })
   return placed ? refusal(placed, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key') : undefined
 }
@@ -93,7 +94,7 @@ export function hasMotifPlacement(html: string): boolean {
 export function hasHostMotifPlacement(html: string): boolean {
   return motifElements(html).some((element) => {
     const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
-    return key !== 'segnavia:head-template' && !key.startsWith(LIBRARY_MOTIF_PREFIX)
+    return key !== HEAD_TEMPLATE_MOTIF && !key.startsWith(LIBRARY_MOTIF_PREFIX)
   })
 }
 
@@ -282,7 +283,7 @@ async function expandNodes(nodes: ChildNode[], inheritedLang: string | undefined
     if (!isTag(node)) continue
     if (
       Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE) &&
-      node.attribs[MOTIF_ATTRIBUTE] !== 'segnavia:head-template' &&
+      node.attribs[MOTIF_ATTRIBUTE] !== HEAD_TEMPLATE_MOTIF &&
       !(state.options.deferLibrary && (node.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
     )
       await expandPlacement(node, inheritedLang, stack, state)

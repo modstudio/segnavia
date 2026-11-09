@@ -15,6 +15,7 @@ import {
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { pageGeometryIssues } from './document-page-geometry-policy.ts'
+import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { HeadTemplate, HeadTemplates } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
@@ -149,10 +150,20 @@ export const BookViewPagination = z.object({
   parents: z.array(ParentPage),
   endnotePlacement: z.enum(['book', 'chapter']),
   contents: z.object({ pageNumbers: z.boolean(), depth: z.number().int().min(1).max(6) }),
-  variables: z.array(Variable).optional(),
-  headTemplates: z.array(HeadTemplate).optional(),
+  variables: Variables,
+  headTemplates: HeadTemplates,
   recordSlotsByFlow: z.record(z.string(), z.record(z.string(), z.string())).optional(),
-})
+}).superRefine((pagination, ctx) =>
+  refineDocumentVariables(
+    {
+      variables: pagination.variables,
+      headTemplates: pagination.headTemplates,
+      parentPages: pagination.parents,
+      recordSlotNames: Object.values(pagination.recordSlotsByFlow ?? {}).flatMap((slots) => Object.keys(slots)),
+    },
+    ctx,
+  ),
+)
 export type BookViewPagination = z.infer<typeof BookViewPagination>
 
 export const BookView = BookShape.pick({ title: true, brand: true, dir: true, lang: true, scripts: true, style: true, limits: true }).extend({
@@ -281,6 +292,16 @@ function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx)
 }
 
 const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
+  refineDocumentVariables(
+    {
+      variables: book.variables,
+      headTemplates: book.headTemplates,
+      parentPages: book.parentPages,
+      templates: book.templates,
+      recordSlotNames: bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? Object.keys(entry.values) : [])),
+    },
+    ctx,
+  )
   for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   const sections = bookSections(book)
   const geometryByPath = new Map(sections.map((section) => [section.path.join('.'), sectionPageGeometry(book as Book, section)]))

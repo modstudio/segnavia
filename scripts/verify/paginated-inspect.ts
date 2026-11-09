@@ -21,7 +21,7 @@ export interface PaginatedReport {
   blocks: { extra: number; missing: number; shown: number }
   lines: { shifted: number; checked: number }
   markHead: { complete: boolean; carried: boolean; values: { page: number; kavana: string; siman: string }[]; detail: string }
-  runningHead: { fromMark: boolean; carried: boolean; detail: string }
+  variableHead: { resolved: boolean; carried: boolean; detail: string }
   direction: string | null
   ids: { unique: boolean; count: number; duplicates: string[] }
   designed: PaginatedDesignedReport
@@ -298,7 +298,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     }
   }
 
-  function runningHead() {
+  function variableHead() {
     const heads = Array.from(
       document.querySelectorAll(
         '[data-segnavia-book-page][data-segnavia-role="body"][data-segnavia-flow="segnavia-chapter-3"], [data-segnavia-book-page][data-segnavia-role="body"][data-segnavia-flow="segnavia-chapter-4"]',
@@ -307,7 +307,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     const expected = document.documentElement.getAttribute('lang') === 'he' ? 'סימן ב' : 'Mark B'
     const marked = heads.filter((head) => head === expected)
     return {
-      fromMark: marked.length > 0,
+      resolved: marked.length > 0,
       carried: marked.length >= 2,
       detail: heads.join('|'),
     }
@@ -383,7 +383,7 @@ export function inspectPaginatedBook(): PaginatedReport {
     blocks: blocks(),
     lines: lineShift(),
     markHead: markHead(),
-    runningHead: runningHead(),
+    variableHead: variableHead(),
     direction: document.documentElement.getAttribute('dir'),
     ids: uniqueIds(),
     designed: designed(),

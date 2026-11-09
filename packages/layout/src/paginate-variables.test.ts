@@ -96,4 +96,25 @@ describe('paginateVariables', () => {
     expect(result.pages.filter((page) => page.flow === 'one').map((page) => page.variables.title)).toEqual(['One', 'One'])
     expect(result.pages.find((page) => page.flow === 'two')?.variables.title).toBeUndefined()
   })
+
+  test('prototype-shaped variable names remain own properties', () => {
+    const definitions = [
+      { name: '__proto__', kind: 'text' as const, from: 'content' as const, pick: 'first' as const },
+      { name: 'constructor', kind: 'text' as const, from: 'content' as const, pick: 'last' as const },
+    ]
+    const values = paginateVariables(
+      [
+        unit(0, [
+          { name: '__proto__', value: 'first' },
+          { name: 'constructor', value: 'last' },
+        ]),
+      ],
+      {},
+      definitions,
+    ).values
+    expect(Object.hasOwn(Object.prototype, 'first')).toBeFalse()
+    expect(Object.hasOwn(Object.prototype, 'last')).toBeFalse()
+    expect(Object.getOwnPropertyDescriptor(values, '__proto__')?.value.first).toBe('first')
+    expect(Object.getOwnPropertyDescriptor(values, 'constructor')?.value.last).toBe('last')
+  })
 })

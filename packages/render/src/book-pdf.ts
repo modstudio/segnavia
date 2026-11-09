@@ -10,6 +10,7 @@ import {
   sequenceFolios,
   sheetMm,
   usesPressLayout,
+  variableValue,
 } from '@segnavia/format'
 import type { PreparedSlots } from '@segnavia/html'
 import {
@@ -103,7 +104,7 @@ async function appendBlank(part: PrintedPart): Promise<PrintedPart> {
   return { ...part, bytes: await document.save(), pages: part.pages + 1 }
 }
 
-function marginFactsFor(
+export function marginFactsFor(
   sections: BookSectionInfo[],
   destinations: Map<string, BookDestination>,
   pages: number,
@@ -118,14 +119,32 @@ function marginFactsFor(
       return page === undefined ? [] : [{ page, section }]
     })
     .sort((left, right) => left.page - right.page)
-  const variablesFor = (owner: (typeof starts)[number] | undefined, folio: string): Record<string, string> => {
+  const countedPages = (from: number, through: number) => {
+    let count = 0
+    for (let page = from; page <= through; page += 1) if (!blanks.has(page)) count += 1
+    return count
+  }
+  const variablesFor = (owner: (typeof starts)[number] | undefined, page: number, folio: string): Record<string, string> => {
     const resolved: Record<string, string> = {}
+    const ownerIndex = owner ? starts.indexOf(owner) : -1
+    const ownerEnd = ownerIndex >= 0 ? ((starts[ownerIndex + 1]?.page ?? pages + 1) - 1) : page
+    const recordFolio = owner?.section.record ? formatNumber(countedPages(owner.page, page), system) : undefined
+    const recordTotal = owner?.section.record ? formatNumber(countedPages(owner.page, ownerEnd), system) : undefined
+    const documentFolio = formatNumber(countedPages(1, page), system)
+    const documentTotal = formatNumber(countedPages(1, pages), system)
     for (const variable of variables) {
-      if (variable.kind === 'text' && variable.from === 'section-title' && owner?.section.title) resolved[variable.name] = owner.section.title
-      if (variable.kind === 'record' && owner?.section.record)
-        resolved[variable.name] = formatNumber(owner.section.record[variable.value], variable.system ?? 'arabic')
-      if (variable.kind === 'folio') resolved[variable.name] = folio
-      if (variable.kind === 'pages') resolved[variable.name] = folioTextAt(folios, pages)
+      const value = variableValue(variable, {
+        folio,
+        documentFolio,
+        numberingTotal: folioTextAt(folios, pages),
+        documentTotal,
+        recordIndex: owner?.section.record?.index,
+        recordCount: owner?.section.record?.count,
+        recordFolio,
+        recordTotal,
+        sectionTitle: owner?.section.title,
+      })
+      if (value) resolved[variable.name] = value
     }
     return resolved
   }
@@ -138,7 +157,7 @@ function marginFactsFor(
       blank: false,
       sectionOpening: owner?.page === page,
       folio,
-      variables: variablesFor(owner, folio),
+      variables: variablesFor(owner, page, folio),
       recordSlots: owner?.section.values ?? {},
     }
   })

@@ -1,23 +1,21 @@
-import type { HeadTemplate } from '@segnavia/format'
+import { headTemplatePlacements, MOTIF_ATTRIBUTE, type HeadTemplate } from '@segnavia/format'
 import { resolveHeadTemplate } from '@segnavia/layout'
 
 export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {
-  function attribute(attrs: string, name: string): string | undefined {
-    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const found = new RegExp(`\\s${escaped}\\s*=\\s*(?:(["'])([^"']*)\\1|([^\\s>]+))`, 'i').exec(attrs)
-    return found?.[2] ?? found?.[3]
-  }
-  return html.replace(
-    /<([a-zA-Z][\w:-]*)([^>]*?)\sdata-motif\s*=\s*(?:(["'])segnavia:head-template\3|segnavia:head-template)([^>]*)>([\s\S]*?)<\/\1>/gi,
-    (_match, tag, before, _quote, after) => {
-      const attrs = `${before}${after}`
-      const name = attribute(attrs, 'data-motif-name')
-      const value = name === undefined ? undefined : values.heads[name]
-      if (!value) return ''
-      const outputAttrs = attrs.replace(/\sdata-motif(?:-[\w-]+)?\s*=\s*(?:(["'])([^"']*)\1|[^\s>]+)/gi, '')
-      return `<${tag}${outputAttrs}>${value}</${tag}>`
-    },
+  const placements = headTemplatePlacements(html).filter(
+    (placement, index, all) => !all.some((container, other) => other !== index && container.start < placement.start && container.end >= placement.end),
   )
+  let output = html
+  for (const placement of [...placements].reverse()) {
+    const value = values.heads[placement.name]
+    const opening = html.slice(placement.start, placement.openEnd)
+    const cleaned = opening
+      .replace(new RegExp(`\\s${MOTIF_ATTRIBUTE}(?:-[\\w-]+)?\\s*=\\s*(?:(["'])([^"']*)\\1|[^\\s>]+)`, 'gi'), '')
+      .replace(/\/\s*>$/, '>')
+    const replacement = value ? `${cleaned}${value}</${placement.tag}>` : ''
+    output = `${output.slice(0, placement.start)}${replacement}${output.slice(placement.end)}`
+  }
+  return output
 }
 
 export function resolveRegionHeads(

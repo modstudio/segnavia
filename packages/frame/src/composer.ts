@@ -1,4 +1,14 @@
-import { type Folio, resolveDirection, SECTION_BOUNDARY_CLASS, textHoldingParentRules } from '@segnavia/format'
+import {
+  type Folio,
+  HEAD_TEMPLATE_MOTIF,
+  HEAD_TEMPLATE_NAME_ATTRIBUTE,
+  headTemplatePlacements,
+  htmlAttribute,
+  MOTIF_ATTRIBUTE,
+  resolveDirection,
+  SECTION_BOUNDARY_CLASS,
+  textHoldingParentRules,
+} from '@segnavia/format'
 import {
   ABSOLUTE_PX,
   embedFunction,
@@ -209,6 +219,11 @@ ${embedFunction('tableRowLines', tableRowLines)}
 ${embedFunction('measureLineBoxes', measureLineBoxes)}
 ${embedFunction('measurementRefusal', measurementRefusal)}
 ${embedFunction('fillFurniture', fillFurniture)}
+var MOTIF_ATTRIBUTE=${JSON.stringify(MOTIF_ATTRIBUTE)};
+var HEAD_TEMPLATE_MOTIF=${JSON.stringify(HEAD_TEMPLATE_MOTIF)};
+var HEAD_TEMPLATE_NAME_ATTRIBUTE=${JSON.stringify(HEAD_TEMPLATE_NAME_ATTRIBUTE)};
+${embedFunction('htmlAttribute', htmlAttribute)}
+${embedFunction('headTemplatePlacements', headTemplatePlacements)}
 ${embedFunction('fillRegion', fillRegion)}
 ${embedFunction('resolveRegionHeads', resolveRegionHeads)}
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}

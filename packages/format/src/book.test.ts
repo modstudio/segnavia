@@ -18,6 +18,13 @@ describe('book', () => {
     expect(book.headTemplates.map(({ name }) => name)).toEqual(['segnavia:running-head', 'segnavia:folio', 'topic-head'])
   })
 
+  test('refuses library names and undeclared head-template variables at the book edge', () => {
+    expect(() => Book.parse(input({ variables: [{ name: 'segnavia:folio', kind: 'folio' }] }))).toThrow(
+      /reserved for the library; rename it without the segnavia: prefix/,
+    )
+    expect(() => Book.parse(input({ headTemplates: [{ name: 'h', parts: [{ variable: 'missing' }] }] }))).toThrow(/undeclared variable.*missing/)
+  })
+
   test('accepts book placements from the table and refuses other asset kinds', () => {
     expect(Book.parse(input({ chapters: [{ kind: 'placed', placement: { kind: 'page', address: 'pages/one' } }] })).body[0]).toMatchObject({
       kind: 'placed',

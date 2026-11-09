@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { refineLibraryNames, withLibraryDefaults } from './library-names.ts'
 
 export const TextVariable = z.object({
   name: z.string().min(1),
@@ -32,11 +33,5 @@ export const LIBRARY_VARIABLES: Variable[] = [
 export const Variables = z
   .array(Variable)
   .default([])
-  .superRefine((variables, ctx) => {
-    variables.forEach((variable, index) => {
-      const library = LIBRARY_VARIABLES.find((candidate) => candidate.name === variable.name)
-      if (variable.name.startsWith('segnavia:') && JSON.stringify(variable) !== JSON.stringify(library))
-        ctx.addIssue({ code: 'custom', path: [index, 'name'], message: `variable name ${JSON.stringify(variable.name)} is reserved for the library` })
-    })
-  })
-  .transform((variables) => [...LIBRARY_VARIABLES.filter((library) => !variables.some((variable) => variable.name === library.name)), ...variables])
+  .superRefine((variables, ctx) => refineLibraryNames('variable', variables, ctx))
+  .transform((variables) => withLibraryDefaults(LIBRARY_VARIABLES, variables))

@@ -1,4 +1,4 @@
-import { type Measurements as FormatMeasurements, formatNumber, PLAN_VERSION, type Variable } from '@segnavia/format'
+import { type Measurements as FormatMeasurements, formatNumber, PLAN_VERSION, type Variable, variableValue } from '@segnavia/format'
 import { type BookPlanDocumentNumbers, bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanSection, bookPlanFolios } from './book-plan-folios.ts'
 import { paginateBook } from './paginate-book.ts'
@@ -21,18 +21,16 @@ export function numberVariableValue(
   folios: BookPlanFolioResult,
   documents: BookPlanDocumentNumbers,
 ): string {
-  if (variable.kind === 'record') {
-    const value = record?.[variable.value]
-    return value === undefined ? '' : formatNumber(value, variable.system ?? 'arabic')
-  }
-  if (variable.kind === 'folio') {
-    if (variable.of === 'numbering') return folios.folios[index] ?? ''
-    if (variable.of === 'document') return documents.documentFolios[index] ?? ''
-    return page.blank ? '' : formatNumber(recordIndex, numbering.body)
-  }
-  if (variable.of === 'numbering') return folios.total
-  if (variable.of === 'document') return documents.documentTotal
-  return documents.recordTotals[page.flow] ?? ''
+  return variableValue(variable, {
+    folio: folios.folios[index],
+    documentFolio: documents.documentFolios[index],
+    numberingTotal: folios.total,
+    documentTotal: documents.documentTotal,
+    recordIndex: record?.index,
+    recordCount: record?.count,
+    recordFolio: page.blank ? '' : formatNumber(recordIndex, numbering.body),
+    recordTotal: documents.recordTotals[page.flow],
+  })
 }
 
 export function pagesWithNumberVariables(

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { Direction } from './direction.ts'
+import { refineLibraryNames, withLibraryDefaults } from './library-names.ts'
 
 export const HeadTemplatePart = z.union([z.object({ variable: z.string().min(1) }), z.object({ record: z.string().min(1) })])
 export const HeadTemplate = z.object({
@@ -20,11 +21,5 @@ export const LIBRARY_HEAD_TEMPLATES: HeadTemplate[] = [
 export const HeadTemplates = z
   .array(HeadTemplate)
   .default([])
-  .superRefine((templates, ctx) => {
-    templates.forEach((template, index) => {
-      const library = LIBRARY_HEAD_TEMPLATES.find((candidate) => candidate.name === template.name)
-      if (template.name.startsWith('segnavia:') && JSON.stringify(template) !== JSON.stringify(library))
-        ctx.addIssue({ code: 'custom', path: [index, 'name'], message: `head template name ${JSON.stringify(template.name)} is reserved for the library` })
-    })
-  })
-  .transform((templates) => [...LIBRARY_HEAD_TEMPLATES.filter((library) => !templates.some((template) => template.name === library.name)), ...templates])
+  .superRefine((templates, ctx) => refineLibraryNames('head template', templates, ctx))
+  .transform((templates) => withLibraryDefaults(LIBRARY_HEAD_TEMPLATES, templates))
