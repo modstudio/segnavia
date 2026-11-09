@@ -40,6 +40,7 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
   await board.evaluate((element) => ((element as BoardElement).selection = ['label-he']))
   const hebrew = board.locator('[data-board-label="label-he"]')
   const handle = board.locator('[part~="label-resize-handle"]')
+  await handle.waitFor({ state: 'visible' })
   const beforeBox = await hebrew.boundingBox()
   const beforeHandle = await handle.boundingBox()
   h.check(
@@ -82,11 +83,12 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
 
   await reset()
   await board.evaluate((element) => ((element as BoardElement).selection = ['page', 'label-he']))
+  const page = board.locator('[data-board-item="page"]')
   const mixedBefore = await board.evaluate((element) => {
     const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
     return { item: value.items.find((item) => item.id === 'page') as DemoItem, label: value.labels.find((label) => label.id === 'label-he') as DemoLabel }
   })
-  await drag(h.page, await center(hebrew), 30, 20)
+  await drag(h.page, await center(page), 30, 20)
   await waitChanges(h.page, 1)
   const mixedAfter = await board.evaluate((element) => {
     const state = window as unknown as DemoWindow

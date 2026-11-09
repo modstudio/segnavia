@@ -180,7 +180,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
     this.chrome.itemActions = value
     this.chrome.refresh()
   }
-
   get labels(): Partial<BoardLabels> {
     return this.chrome.labels
   }

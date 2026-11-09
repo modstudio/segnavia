@@ -63,9 +63,8 @@ export async function checkBoardEditing(h: Harness) {
   const hostBox = await board.boundingBox()
   if (!hostBox) throw new Error('The board has no box for editing checks.')
 
-  await checkBoardEditingLabels(h, board, original)
-
   await checkBoardEditingSections(h, board, first, second, reset)
+  await checkBoardEditingLabels(h, board, original)
 
   await checkBoardSelectionCompatibility(h, board, second, reset)
   await reset()
@@ -100,8 +99,9 @@ export async function checkBoardEditing(h: Harness) {
   const all = await board.evaluate((element) => ({
     selected: (element as BoardElement).selection.length,
     items: (window as unknown as DemoWindow).boardValue(element as BoardElement).items.length,
+    labels: (window as unknown as DemoWindow).boardValue(element as BoardElement).labels.length,
   }))
-  h.check('Cmd or Ctrl+A selects every board item', all.selected === all.items, JSON.stringify(all))
+  h.check('Cmd or Ctrl+A selects every board node', all.selected === all.items + all.labels, JSON.stringify(all))
 
   await reset()
   await board.evaluate((element) => ((element as BoardElement).selection = ['page', 'paper']))
