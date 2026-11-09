@@ -1,6 +1,5 @@
 import type {
   BookOpens,
-  BookSectionParents,
   PaginateBlock as FormatPaginateBlock,
   PaginateFlow as FormatPaginateFlow,
   PaginateLine as FormatPaginateLine,
@@ -25,7 +24,7 @@ export type PaginateNoteRef = FormatPaginateNoteRef
 export type PaginateMark = FormatPaginateMark
 export type PaginateBlock = FormatPaginateBlock
 
-export type PaginateFlowParents = BookSectionParents
+export type PaginateFlowParents = NonNullable<FormatPaginateFlow['parentRules']>
 
 export type PaginateOpens = BookOpens
 

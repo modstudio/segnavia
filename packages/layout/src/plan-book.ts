@@ -1,4 +1,4 @@
-import { type Measurements as FormatMeasurements, formatNumber, type Variable } from '@segnavia/format'
+import { type Measurements as FormatMeasurements, formatNumber, PLAN_VERSION, type Variable } from '@segnavia/format'
 import { type BookPlanDocumentNumbers, bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanSection, bookPlanFolios } from './book-plan-folios.ts'
 import { paginateBook } from './paginate-book.ts'
@@ -7,7 +7,7 @@ import type { PaginateBookPage, PaginateBookRefusal } from './paginate-types.ts'
 export type Measurements = FormatMeasurements
 
 export interface BookPlan extends BookPlanFolioResult, BookPlanDocumentNumbers {
-  version: 3
+  version: typeof PLAN_VERSION
   pages: PaginateBookPage[]
 }
 
@@ -52,14 +52,27 @@ export function pagesWithNumberVariables(
   })
 }
 
-export function planBook(
+function planBookWithVersion(
   measurements: Measurements,
   numbering: BookPlanNumbering,
+  version: typeof PLAN_VERSION,
 ): { ok: true; plan: BookPlan } | { ok: false; refusals: PaginateBookRefusal[] } {
   const paginated = paginateBook(measurements)
   if (paginated.refusals.length > 0) return { ok: false, refusals: paginated.refusals }
   const numbered = bookPlanFolios(paginated.pages, numbering, measurements.flows)
   const documentNumbers = bookPlanDocumentNumbers(paginated.pages, numbering, measurements.flows)
   const pages = pagesWithNumberVariables(paginated.pages, measurements.variables, numbering, numbered, documentNumbers, measurements.flows)
-  return { ok: true, plan: { version: 3, pages, ...numbered, ...documentNumbers } }
+  return { ok: true, plan: { version, pages, ...numbered, ...documentNumbers } }
+}
+
+export function planBook(
+  measurements: Measurements,
+  numbering: BookPlanNumbering,
+): { ok: true; plan: BookPlan } | { ok: false; refusals: PaginateBookRefusal[] } {
+  return planBookWithVersion(measurements, numbering, PLAN_VERSION)
+}
+
+export function planBookScript(): string {
+  return `var planBookImplementation=${planBookWithVersion.toString()};
+var planBook=function(measurements,numbering){return planBookImplementation(measurements,numbering,${PLAN_VERSION});};`
 }

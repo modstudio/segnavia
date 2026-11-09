@@ -12,6 +12,12 @@ type Check = (what: string, ok: boolean, detail?: string) => void
 
 const margin = { blockStart: 18, blockEnd: 18, inlineStart: 20, inlineEnd: 16 }
 const parents = { opener: 'section-opener', recto: 'section-recto', verso: 'section-verso', fixed: 'section-fixed' }
+const sectionParentRules = [
+  { when: { blank: true as const }, parent: 'segnavia:blank' },
+  { when: { position: 'sectionFirst' as const }, parent: parents.opener },
+  { when: { face: 'verso' as const }, parent: parents.verso },
+  { parent: parents.recto },
+]
 const fixtureIds = () => {
   let id = 0
   return () => `section-paper-${++id}`
@@ -24,7 +30,7 @@ function fixture(hebrew: boolean): DocumentInput {
     ...(pageGeometry ? { pageGeometry } : {}),
     lang: hebrew ? 'he' : 'en',
     dir: hebrew ? ('rtl' as const) : ('ltr' as const),
-    parents,
+    parentRules: sectionParentRules,
     children: [
       {
         type: 'flow' as const,
@@ -38,7 +44,7 @@ function fixture(hebrew: boolean): DocumentInput {
     pageGeometry: 'landscape',
     lang: hebrew ? 'he' : 'en',
     dir: hebrew ? ('rtl' as const) : ('ltr' as const),
-    parents,
+    parentRules: [{ parent: parents.fixed }],
     children: [
       { type: 'page' as const, body: { html: '<p>DESIGNED_ONE</p><img data-segnavia-media="landscape-asset" alt="landscape asset">' } },
       { type: 'page' as const, body: { html: '<p>DESIGNED_TWO</p>' } },

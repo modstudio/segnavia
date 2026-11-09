@@ -150,7 +150,7 @@ test('resolvePrintedPageHtml keeps the stored-HTML requirement for an implicit b
   const page = Page.parse({
     markdown: '# Heading',
     print: { paper: 'letter' },
-    printedPages: { parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }], rules: { every: 'body' } },
+    printedPages: { parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }], parentRules: [{ parent: 'body' }] },
   })
   expect(() => resolvePrintedPageHtml(page)).toThrow('pass its Document input through @segnavia/html parseDocument')
 })

@@ -20,9 +20,10 @@ import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
+import { FLOWING_PARENT_RULES, parentRules, textHoldingParentRules } from './parent-rules.ts'
 import { Placement } from './placement.ts'
 import { PressGeometry } from './print.ts'
-import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, textArea } from './printed-pages.ts'
+import { bookParentPages, Fragmentation, ParentPage, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
@@ -41,7 +42,6 @@ export {
   BookOpens,
   BookSection,
   type BookSectionEntry,
-  BookSectionParents,
   BookTemplate,
   bookSectionOpensFacts,
   bookSections,
@@ -106,6 +106,7 @@ export const BookShape = z.object({
   endMatter: z.array(BookItem).default([]),
   chapters: z.array(BookChapterEntry).optional(),
   parentPages: z.array(ParentPage).default([]),
+  parentRules: parentRules.optional(),
   templates: z.array(BookTemplate).default([]),
   variables: z.array(Variable).default([]),
   slots: Slots.optional(),
@@ -266,15 +267,14 @@ function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx)
     const sectionTrim = geometry?.paper ?? trim
     const sectionParents = geometry?.parents ?? parents
     const byName = new Map(sectionParents.map((parent) => [parent.name, parent]))
-    const names = flowingParentNames(flow.parents)
-    const roles = Object.entries(names) as Array<[keyof typeof names, string]>
-    const widths = roles.flatMap(([role, name]) => {
+    const rules = flow.parentRules ?? book.parentRules ?? FLOWING_PARENT_RULES
+    const names = [...new Set(textHoldingParentRules(rules).map((rule) => rule.parent))]
+    const widths = names.flatMap((name) => {
       const parent = byName.get(name)
-      return parent ? [{ role, name, width: textArea(parent, sectionTrim).width }] : []
+      return parent ? [{ name, width: textArea(parent, sectionTrim).width }] : []
     })
     const label = flow.title ?? `flow ${index + 1}`
-    const namedParents = [...new Set(Object.values(flow.parents ?? {}))]
-    const fitFacts = namedParents.flatMap((name) => {
+    const fitFacts = names.flatMap((name) => {
       const parent = byName.get(name)
       return parent ? [{ section: label, parent: name, path, paper: sectionTrim, textArea: textArea(parent, sectionTrim) }] : []
     })

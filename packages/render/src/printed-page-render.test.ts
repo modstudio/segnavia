@@ -9,7 +9,7 @@ const composed = resolvePageHtml(
   Page.parse({
     html: '<p>body</p>',
     print: { paper: 'letter' },
-    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
   }),
 )
 

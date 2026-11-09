@@ -1,8 +1,8 @@
+import type { ParentRules } from '@segnavia/format'
 import {
   BOOK_FURNITURE,
   type Book,
   type BookSection,
-  type BookSectionParents,
   type BookTemplate,
   type DesignedSection,
   MOTIF_ATTRIBUTE,
@@ -26,7 +26,7 @@ export interface BuiltSection {
 }
 
 export function authoredSection(
-  section: Pick<BookSection, 'html' | 'title' | 'contentsLabel' | 'subtitle' | 'opens' | 'parents' | 'numbering' | 'pageGeometry' | 'lang' | 'dir'>,
+  section: Pick<BookSection, 'html' | 'title' | 'contentsLabel' | 'subtitle' | 'opens' | 'parentRules' | 'numbering' | 'pageGeometry' | 'lang' | 'dir'>,
   id: string,
   build: BookBuild,
 ): BuiltSection {
@@ -38,7 +38,7 @@ export function authoredSection(
     document.children,
     build,
     runningHead,
-    flowAttribs(section.opens, section.parents, languageAttribs(section), section.pageGeometry),
+    flowAttribs(section.opens, section.parentRules, languageAttribs(section), section.pageGeometry),
   )
   return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead, opens: section.opens }, node }
 }
@@ -63,15 +63,11 @@ export function languageAttribs(section: { numbering?: SectionNumbering; lang?: 
   }
 }
 
-export function flowAttribs(opens?: string, parents?: BookSectionParents, extra: Record<string, string> = {}, pageGeometry?: string): Record<string, string> {
+export function flowAttribs(opens?: string, rules?: ParentRules, extra: Record<string, string> = {}, pageGeometry?: string): Record<string, string> {
   const attribs = { ...extra }
   if (opens) attribs['data-opens'] = opens
   if (pageGeometry) attribs['data-page-geometry'] = pageGeometry
-  if (!parents) return attribs
-  for (const role of ['opener', 'recto', 'verso', 'blank', 'fixed'] as const) {
-    const name = parents[role]
-    if (name) attribs[`data-parent-${role}`] = name
-  }
+  if (rules) attribs['data-segnavia-parent-rules'] = JSON.stringify(rules)
   return attribs
 }
 
@@ -100,7 +96,7 @@ export function partSection(
 ): BuiltSection {
   const children = entry.html === undefined ? [] : parse(entry.html).children
   const runningHead = entry.runningHead ?? entry.title
-  const extra = flowAttribs(entry.opens, entry.parents, {
+  const extra = flowAttribs(entry.opens, entry.parentRules, {
     'data-segnavia-kind': 'part',
     'data-segnavia-parts': JSON.stringify(parts),
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
@@ -162,7 +158,7 @@ export function designedSection(
 ): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(
     entry.opens,
-    entry.parents,
+    entry.parentRules,
     {
       ...languageAttribs(entry),
       'data-segnavia-kind': 'fixed',
@@ -296,7 +292,7 @@ export function templatedSection(
 ): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(
     entry.opens,
-    entry.parents,
+    entry.parentRules,
     {
       ...languageAttribs(entry),
       'data-segnavia-kind': 'templated',
@@ -345,6 +341,6 @@ export function templatedSection(
 
 export function templateHolders(templates: BookTemplate[]): ReturnType<typeof element>[] {
   return templates.map((template) =>
-    element('div', { 'data-segnavia-template': template.name, hidden: '', ...flowAttribs(undefined, template.parents) }, parse(template.html).children),
+    element('div', { 'data-segnavia-template': template.name, hidden: '', ...flowAttribs(undefined, template.parentRules) }, parse(template.html).children),
   )
 }

@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { DEFAULT_LIMITS, type Limits } from './limits.ts'
 
+export const PLAN_VERSION = 4 as const
+
 export const PaginateWindow = z.object({
   flow: z.string(),
   start: z.number(),
@@ -67,7 +69,7 @@ export const PlanPage = z
 export type PlanPage = z.infer<typeof PlanPage>
 
 const PlanShape = z.object({
-  version: z.literal(3, { error: 'version must be 3; compute a new plan to clear this refusal' }),
+  version: z.literal(PLAN_VERSION, { error: `version must be ${PLAN_VERSION}; compute a new plan to clear this refusal` }),
   fingerprint: z.string(),
   breaks: z.array(z.string()),
   pages: z.array(PlanPage),

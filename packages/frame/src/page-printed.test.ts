@@ -26,7 +26,7 @@ const printedDocument = (body = '<p>One paper</p>', withSlots = false) => ({
   settings: { scripts: 'refuse' as const, lang: 'en' },
   print: { paper: 'letter' as const },
   ...(withSlots ? { data: { slots: [{ key: 'name', label: 'Name', type: 'text' as const }] } } : {}),
-  rules: { every: 'body' },
+  parentRules: [{ parent: 'body' }],
   parentPages: [
     {
       type: 'parentPage' as const,
@@ -249,7 +249,7 @@ describe('printed pages in SegnaviaPage', () => {
     ;(page as unknown as { pageValue: Page }).pageValue = Page.parse({
       html: '<p>Paper</p>',
       print: { paper: 'letter' },
-      printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+      printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
     })
 
     await expect(page.readSelection()).rejects.toThrow(
@@ -273,7 +273,7 @@ describe('printed pages in SegnaviaPage', () => {
       pageValue: Page.parse({
         html: '<p>Paper</p>',
         print: { paper: 'letter' },
-        printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+        printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
       }),
       loadGeneration: 2,
       composedFrame: { frame, generation: 1 },

@@ -7,7 +7,7 @@ test('imposition refuses sectioned printed pages with section-aware alternatives
     print: { paper: 'letter' },
     printedPages: {
       parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
-      rules: { every: 'body' },
+      parentRules: [{ parent: 'body' }],
       sections: [{ id: 'body', html: '<p>Body</p>' }],
     },
   })

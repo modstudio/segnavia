@@ -51,7 +51,7 @@ const bounded = Page.parse({ html: '<p>Page</p>', size: { width: 'full', height:
 const printed = Page.parse({
   html: '<p>Paper</p>',
   print: { paper: 'letter' },
-  printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+  printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
 })
 
 test('host height survives a bounded full page followed by composed papers', () => {

@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { bookFromDocument, type DocumentInput } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView, parseDocument } from '@segnavia/html'
@@ -102,7 +102,7 @@ function designedLeaf(hebrew: boolean) {
   return {
     type: 'section' as const,
     title,
-    parents: { fixed: 'ornament-foot' },
+    parentRules: [{ when: { blank: true }, parent: BOOK_PARENT_NAMES.blank }, { parent: 'ornament-foot' }],
     children: [{ type: 'page' as const, body: { html: `<div class="designed-leaf"><h1 id="plate" class="book-css-check">${title}</h1></div>` } }],
   }
 }
@@ -138,12 +138,22 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
         { ...designedSpread(hebrew), id: 'segnavia-designed-1' },
         flowSection(hebrew ? 'פרק ראשון' : 'Chapter One', chapterOneHtml(hebrew, undefined, true, 'segnavia-chapter-3'), {
           id: 'segnavia-chapter-1',
-          parents: { ...markParents, opener: 'deep-opener' },
+          parentRules: [
+            { when: { blank: true }, parent: BOOK_PARENT_NAMES.blank },
+            { when: { position: 'sectionFirst' }, parent: 'deep-opener' },
+            { when: { face: 'verso' }, parent: markParents.verso },
+            { parent: markParents.recto },
+          ],
         }),
         { ...designedLeaf(hebrew), id: 'segnavia-designed-2' },
         flowSection(hebrew ? 'פרק שני' : 'Chapter Two', chapterTwoHtml(hebrew), {
           id: 'segnavia-chapter-2',
-          parents: { opener: 'wide-opener', recto: 'wide-recto', verso: 'wide-verso' },
+          parentRules: [
+            { when: { blank: true }, parent: BOOK_PARENT_NAMES.blank },
+            { when: { position: 'sectionFirst' }, parent: 'wide-opener' },
+            { when: { face: 'verso' }, parent: 'wide-verso' },
+            { parent: 'wide-recto' },
+          ],
         }),
         flowSection(hebrew ? 'פרק שלישי' : 'Chapter Three', chapterThreeHtml(hebrew), { id: 'segnavia-chapter-3' }),
         flowSection(hebrew ? 'פרק רביעי' : 'Chapter Four', chapterFourHtml(hebrew), { id: 'segnavia-chapter-4' }),

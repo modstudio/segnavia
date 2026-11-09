@@ -161,7 +161,7 @@ test('a printed source mounts as one projected page per document sheet', () => {
   const source = Page.parse({
     html: '<p>One designed page</p>',
     print: { paper: 'letter' },
-    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
   })
   const viewer = new SegnaviaDocument() as unknown as {
     pageValues: Page[]

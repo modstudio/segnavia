@@ -1,4 +1,4 @@
-import { type BookSectionEntry, isPart } from '@segnavia/format'
+import { type BookSectionEntry, isPart, type ParentRules } from '@segnavia/format'
 import type { DocumentBuild } from './book-document.ts'
 import { partSection } from './book-held.ts'
 
@@ -8,13 +8,13 @@ export function partNames(ancestry: PartFact[], own?: PartFact): Record<string, 
   return Object.fromEntries([...ancestry, ...(own ? [own] : [])].map((part) => [part.name, part.runningHead ?? part.title ?? '']))
 }
 
-export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild): boolean {
+export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bookRules?: ParentRules): boolean {
   const { entry } = sectionEntry
   if (!isPart(entry)) return false
   const id = sectionEntry.id ?? ''
   if (entry.html !== undefined) {
     const parts = partNames(sectionEntry.ancestry, { name: entry.name, title: entry.title, runningHead: entry.runningHead, id })
-    build.sections.push(partSection(entry, id, sectionEntry.division, build.build, parts))
+    build.sections.push(partSection({ ...entry, parentRules: entry.parentRules ?? bookRules }, id, sectionEntry.division, build.build, parts))
     attachPendingPartHeadings(build, sectionEntry, id)
   }
   if (entry.contents && entry.title !== undefined) {

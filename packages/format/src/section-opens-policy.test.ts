@@ -23,15 +23,15 @@ test('refuses continue when either adjacent section is not flowing', () => {
   expect(sectionOpensIssues([{ ...first, flowing: false }, section()])[0]?.message).toContain('has no flow to join')
 })
 
-test('refuses continue with numbering and parents by the fields that clear it', () => {
+test('refuses continue with numbering and parent rules by the fields that clear it', () => {
   const issues = sectionOpensIssues([
     section({ id: 'one', opens: 'any', path: ['body', 0] }),
-    section({ numbering: { counted: false }, parents: { opener: 'chapter' } }),
+    section({ numbering: { counted: false }, parentRules: [{ parent: 'chapter' }] }),
   ])
-  expect(issues.map((issue) => issue.path.at(-1))).toEqual(['numbering', 'parents'])
+  expect(issues.map((issue) => issue.path.at(-1))).toEqual(['numbering', 'parentRules'])
   expect(issues.map((issue) => issue.message)).toEqual([
     expect.stringContaining('remove numbering or use another opens value'),
-    expect.stringContaining('remove parents or use another opens value'),
+    expect.stringContaining('remove parentRules or use another opens value'),
   ])
 })
 

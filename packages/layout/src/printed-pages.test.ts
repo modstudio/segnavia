@@ -1,32 +1,28 @@
 import { describe, expect, test } from 'bun:test'
 import { BOOK_PARENT_NAMES, defaultPageNumbering } from '@segnavia/format'
-import { planBookPages, planPrintedPages, printedPageAt, selectBookParent } from './printed-pages.ts'
+import { pageFace, planBookPages, planPrintedPages } from './printed-pages.ts'
 
 describe('planPrintedPages', () => {
-  const rules = { every: 'body', first: 'opening', last: 'ending', recto: 'odd', verso: 'even' }
+  const rules = [
+    { when: { position: 'documentFirst' as const }, parent: 'opening' },
+    { when: { position: 'documentLast' as const }, parent: 'ending' },
+    { when: { face: 'recto' as const }, parent: 'odd' },
+    { when: { face: 'verso' as const }, parent: 'even' },
+    { parent: 'body' },
+  ]
 
-  test('applies first, last, side and every precedence', () => {
-    expect(planPrintedPages(rules, 4, 'ltr').map(({ role, parent, side }) => ({ role, parent, side }))).toEqual([
-      { role: 'first', parent: 'opening', side: 'right' },
-      { role: 'verso', parent: 'even', side: 'left' },
-      { role: 'recto', parent: 'odd', side: 'right' },
-      { role: 'last', parent: 'ending', side: 'left' },
+  test('applies first, last, face and default precedence', () => {
+    expect(planPrintedPages(rules, 4, 'ltr').map(({ parent, side }) => ({ parent, side }))).toEqual([
+      { parent: 'opening', side: 'right' },
+      { parent: 'even', side: 'left' },
+      { parent: 'odd', side: 'right' },
+      { parent: 'ending', side: 'left' },
     ])
     expect(planPrintedPages(rules, 1, 'ltr')[0]?.parent).toBe('opening')
-    for (const direction of ['ltr', 'rtl'] as const) {
-      for (let count = 1; count <= 5; count += 1) {
-        expect(planPrintedPages(rules, count, direction).map(({ role, parent, side }) => ({ role, parent, side }))).toEqual(
-          Array.from({ length: count }, (_, index) => {
-            const { role, parent, side } = printedPageAt(rules, index + 1, count, direction)
-            return { role, parent, side }
-          }),
-        )
-      }
-    }
   })
 
   test('puts recto on the left in right-to-left and formats Hebrew numbers', () => {
-    const pages = planPrintedPages({ every: 'body' }, 3, 'rtl', 'hebrew')
+    const pages = planPrintedPages([{ parent: 'body' }], 3, 'rtl', 'hebrew')
     expect(pages.map((page) => [page.side, page.number, page.total])).toEqual([
       ['left', 'א', 'ג'],
       ['right', 'ב', 'ג'],
@@ -37,12 +33,10 @@ describe('planPrintedPages', () => {
     expect(defaultPageNumbering('en')).toBe('arabic')
   })
 
-  test('keeps recto and verso faces independent of physical direction', () => {
-    expect([printedPageAt(rules, 1, 3, 'ltr'), printedPageAt(rules, 2, 3, 'ltr')].map(({ face, side }) => ({ face, side }))).toEqual([
+  test('keeps faces independent of physical direction', () => {
+    expect([pageFace(1, 'ltr'), pageFace(2, 'ltr'), pageFace(1, 'rtl'), pageFace(2, 'rtl')]).toEqual([
       { face: 'recto', side: 'right' },
       { face: 'verso', side: 'left' },
-    ])
-    expect([printedPageAt(rules, 1, 3, 'rtl'), printedPageAt(rules, 2, 3, 'rtl')].map(({ face, side }) => ({ face, side }))).toEqual([
       { face: 'recto', side: 'left' },
       { face: 'verso', side: 'right' },
     ])
@@ -50,79 +44,21 @@ describe('planPrintedPages', () => {
 })
 
 describe('planBookPages', () => {
-  test('gives blanks and section openings precedence over physical-page parity', () => {
+  test('preserves each role default without an explicit rule list', () => {
     const pages = planBookPages(
       [
         { blank: false, sectionOpening: true, folio: 'i', runningHead: 'Front' },
-        { blank: false, sectionOpening: false, folio: 'ii', runningHead: 'Front' },
-        { blank: true, sectionOpening: false, folio: 'iii', runningHead: 'Front' },
-        { blank: false, sectionOpening: false, folio: 'iv', runningHead: 'Next' },
-      ],
-      'ltr',
-    )
-
-    expect(pages).toEqual([
-      { index: 1, role: 'opener', parent: BOOK_PARENT_NAMES.opener, face: 'recto', side: 'right', folio: 'i' },
-      { index: 2, role: 'verso', parent: BOOK_PARENT_NAMES.verso, face: 'verso', side: 'left', folio: 'ii', runningHead: 'Front' },
-      { index: 3, role: 'blank', parent: BOOK_PARENT_NAMES.blank, face: 'recto', side: 'right' },
-      { index: 4, role: 'verso', parent: BOOK_PARENT_NAMES.verso, face: 'verso', side: 'left', folio: 'iv', runningHead: 'Next' },
-    ])
-  })
-
-  test('keeps the physical face when role precedence selects an opener or blank', () => {
-    expect(selectBookParent({ blank: false, sectionOpening: true }, 1, 2, 'ltr', BOOK_PARENT_NAMES).face).toBe('recto')
-    expect(selectBookParent({ blank: true, sectionOpening: false }, 2, 2, 'rtl', BOOK_PARENT_NAMES).face).toBe('verso')
-  })
-
-  test('puts odd physical pages on the left for right-to-left books', () => {
-    const pages = planBookPages(
-      [
-        { blank: false, sectionOpening: false, folio: 'א', runningHead: 'ראשון' },
-        { blank: false, sectionOpening: false, folio: 'ב', runningHead: 'ראשון' },
-      ],
-      'rtl',
-    )
-    expect(pages.map(({ role, side }) => ({ role, side }))).toEqual([
-      { role: 'recto', side: 'left' },
-      { role: 'verso', side: 'right' },
-    ])
-  })
-
-  test('selects a section parent per role and side, then the book default', () => {
-    const named = { opener: 's-opener', recto: 's-recto', verso: 's-verso', blank: 's-blank', fixed: 's-fixed' }
-    const pages = planBookPages(
-      [
-        { blank: false, sectionOpening: true, folio: '1', parents: named },
-        { blank: false, sectionOpening: false, folio: '2', runningHead: 'Body', parents: named },
-        { blank: false, sectionOpening: false, folio: '3', runningHead: 'Body', parents: named },
-        { blank: true, sectionOpening: false, parents: named },
-        { blank: false, sectionOpening: true, folio: '5', role: 'fixed', parents: named },
-        { blank: false, sectionOpening: false, folio: '6', role: 'fixed' },
+        { blank: false, sectionOpening: true, folio: 'ii', runningHead: 'Template', role: 'body' },
+        { blank: true, sectionOpening: false, role: 'fixed' },
+        { blank: false, sectionOpening: false, role: 'fixed' },
       ],
       'ltr',
     )
     expect(pages.map(({ role, parent }) => ({ role, parent }))).toEqual([
-      { role: 'opener', parent: 's-opener' },
-      { role: 'verso', parent: 's-verso' },
-      { role: 'recto', parent: 's-recto' },
-      { role: 'blank', parent: 's-blank' },
-      { role: 'fixed', parent: 's-fixed' },
+      { role: 'opener', parent: BOOK_PARENT_NAMES.opener },
+      { role: 'verso', parent: BOOK_PARENT_NAMES.verso },
+      { role: 'blank', parent: BOOK_PARENT_NAMES.blank },
       { role: 'fixed', parent: BOOK_PARENT_NAMES.blank },
-    ])
-  })
-
-  test('a body role skips the opener parent even on a section opening', () => {
-    const named = { opener: 's-opener', recto: 's-recto', verso: 's-verso' }
-    const pages = planBookPages(
-      [
-        { blank: false, sectionOpening: true, folio: '1', runningHead: 'Lesson', role: 'body', parents: named },
-        { blank: false, sectionOpening: false, folio: '2', runningHead: 'Lesson', role: 'body', parents: named },
-      ],
-      'ltr',
-    )
-    expect(pages.map(({ role, parent, runningHead }) => ({ role, parent, runningHead }))).toEqual([
-      { role: 'recto', parent: 's-recto', runningHead: 'Lesson' },
-      { role: 'verso', parent: 's-verso', runningHead: 'Lesson' },
     ])
   })
 })

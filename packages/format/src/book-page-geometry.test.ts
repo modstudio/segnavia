@@ -55,7 +55,7 @@ describe('book page geometry', () => {
           pageGeometries: { wide: { paper: 'letter', orientation: 'landscape', margin: { blockStart: 10, blockEnd: 10, inlineStart: 20, inlineEnd: 20 } } },
         },
         parentPages: [{ name: 'narrow', margin: { blockStart: 10, blockEnd: 10, inlineStart: 150, inlineEnd: 150 } }],
-        chapters: [{ ...chapter, pageGeometry: 'wide', parents: { recto: 'narrow' } }],
+        chapters: [{ ...chapter, pageGeometry: 'wide', parentRules: [{ parent: 'narrow' }] }],
       }),
     )
     const issue = result.error?.issues.find((candidate) => candidate.message.includes('does not fit'))

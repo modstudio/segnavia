@@ -1,12 +1,10 @@
-import type { PageSide, TextDirection } from '@segnavia/format'
-import { BOOK_PARENT_NAMES, type BookSectionParents, type NumberSystem, type PrintedPageRole, type PrintedPageRules, sequenceFolios } from '@segnavia/format'
-
-export type { BookSectionParents }
+import type { NumberSystem, PageSide, ParentRules, TextDirection } from '@segnavia/format'
+import { sequenceFolios } from '@segnavia/format'
+import { defaultParentRules, selectParent } from './parent-selection.ts'
 
 export type PrintedPageSide = 'left' | 'right'
 export interface PrintedPagePlan {
   index: number
-  role: PrintedPageRole
   parent: string
   face: PageSide
   side: PrintedPageSide
@@ -19,13 +17,14 @@ export type BookPrintedPageRole = 'recto' | 'verso' | 'opener' | 'blank' | 'fixe
 export interface BookPageFacts {
   blank: boolean
   sectionOpening: boolean
+  sectionLast?: boolean
   folio?: string
   runningHead?: string
   role?: BookPrintedPageRole | 'body'
-  parents?: BookSectionParents
+  parentRules?: ParentRules
 }
 
-export interface BookPrintedPagePlan extends Omit<BookPageFacts, 'blank' | 'sectionOpening'> {
+export interface BookPrintedPagePlan extends Omit<BookPageFacts, 'blank' | 'sectionOpening' | 'parentRules'> {
   index: number
   role: BookPrintedPageRole
   parent: string
@@ -33,76 +32,64 @@ export interface BookPrintedPagePlan extends Omit<BookPageFacts, 'blank' | 'sect
   side: PrintedPageSide
 }
 
-export function printedPageAt(
-  rules: PrintedPageRules,
-  index: number,
-  count: number,
-  direction: TextDirection,
-): Pick<PrintedPagePlan, 'role' | 'parent' | 'face' | 'side'> {
+export function pageFace(index: number, direction: TextDirection): { face: PageSide; side: PrintedPageSide } {
   const recto = index % 2 === 1
-  const face: PageSide = recto ? 'recto' : 'verso'
-  const side: PrintedPageSide = recto === (direction === 'ltr') ? 'right' : 'left'
-  let role: PrintedPageRole = 'every'
-  let parent = rules.every
-  if (recto && rules.recto) {
-    role = 'recto'
-    parent = rules.recto
-  } else if (!recto && rules.verso) {
-    role = 'verso'
-    parent = rules.verso
-  }
-  if (index === count && rules.last) {
-    role = 'last'
-    parent = rules.last
-  }
-  if (index === 1 && rules.first) {
-    role = 'first'
-    parent = rules.first
-  }
-  return { role, parent, face, side }
+  return { face: recto ? 'recto' : 'verso', side: recto === (direction === 'ltr') ? 'right' : 'left' }
 }
 
-export function planPrintedPages(rules: PrintedPageRules, count: number, direction: TextDirection, numbering: NumberSystem = 'arabic'): PrintedPagePlan[] {
+export function planPrintedPages(rules: ParentRules, count: number, direction: TextDirection, numbering: NumberSystem = 'arabic'): PrintedPagePlan[] {
   if (!Number.isSafeInteger(count) || count < 1) throw new RangeError('A printed-page plan needs a positive safe page count.')
   const folios = sequenceFolios(count, numbering)
   const last = folios.at(-1)
   if (!last) throw new RangeError('A printed-page plan needs at least one computed folio.')
-  const total = last.text
   return folios.map((folio, offset) => {
     const index = offset + 1
-    return { index, ...printedPageAt(rules, index, count, direction), number: folio.text, total }
+    const physical = pageFace(index, direction)
+    const parent = selectParent(rules, {
+      documentFirst: index === 1,
+      documentLast: index === count,
+      sectionFirst: index === 1,
+      sectionLast: index === count,
+      face: physical.face,
+      blank: false,
+    })
+    return { index, parent, ...physical, number: folio.text, total: last.text }
   })
 }
 
-export function selectBookParent(
-  fact: BookPageFacts,
-  index: number,
-  count: number,
-  direction: TextDirection,
-  names: typeof BOOK_PARENT_NAMES,
-): Pick<BookPrintedPagePlan, 'role' | 'parent' | 'face' | 'side'> {
-  const physical = printedPageAt({ every: names.recto, recto: names.recto, verso: names.verso }, index, count, direction)
-  const named = fact.parents
-  if (fact.blank) return { role: 'blank', parent: named?.blank ?? names.blank, face: physical.face, side: physical.side }
-  if (fact.role === 'fixed') return { role: 'fixed', parent: named?.fixed ?? names.blank, face: physical.face, side: physical.side }
-  if (fact.sectionOpening && fact.role !== 'body') return { role: 'opener', parent: named?.opener ?? names.opener, face: physical.face, side: physical.side }
-  if (physical.role === 'verso') return { role: 'verso', parent: named?.verso ?? names.verso, face: physical.face, side: physical.side }
-  return { role: 'recto', parent: named?.recto ?? names.recto, face: physical.face, side: physical.side }
+function bookPageRules(fact: BookPageFacts): ParentRules {
+  if (fact.parentRules) return fact.parentRules
+  if (fact.role === 'body') return defaultParentRules('fixed', 'body')
+  if (fact.role === 'fixed') return defaultParentRules('fixed', 'fixed')
+  return defaultParentRules('flowing')
 }
 
-export function planBookPages(facts: BookPageFacts[], direction: TextDirection, names = BOOK_PARENT_NAMES): BookPrintedPagePlan[] {
+export function planBookPages(facts: BookPageFacts[], direction: TextDirection): BookPrintedPagePlan[] {
   return facts.map((fact, offset) => {
     const index = offset + 1
-    const selected = selectBookParent(fact, index, facts.length, direction, names)
-    if (selected.role === 'blank') return { index, ...selected }
-    if (selected.role === 'opener') {
-      return { index, ...selected, ...(fact.folio === undefined ? {} : { folio: fact.folio }) }
-    }
+    const physical = pageFace(index, direction)
+    const role: BookPrintedPageRole = fact.blank
+      ? 'blank'
+      : fact.role === 'fixed'
+        ? 'fixed'
+        : fact.sectionOpening && fact.role !== 'body'
+          ? 'opener'
+          : physical.face
+    const parent = selectParent(bookPageRules(fact), {
+      documentFirst: index === 1,
+      documentLast: index === facts.length,
+      sectionFirst: fact.sectionOpening,
+      sectionLast: fact.sectionLast ?? false,
+      face: physical.face,
+      blank: fact.blank,
+    })
     return {
       index,
-      ...selected,
-      ...(fact.folio === undefined ? {} : { folio: fact.folio }),
-      ...(fact.runningHead === undefined ? {} : { runningHead: fact.runningHead }),
+      role,
+      parent,
+      ...physical,
+      ...(fact.folio === undefined || role === 'blank' ? {} : { folio: fact.folio }),
+      ...(fact.runningHead === undefined || role === 'blank' || role === 'opener' ? {} : { runningHead: fact.runningHead }),
     }
   })
 }

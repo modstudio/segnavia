@@ -79,7 +79,7 @@ function base(kind: DocumentKind, seed: number): Record<string, unknown> {
   if (kind === 'printed')
     return {
       ...common,
-      rules: { every: 'body' },
+      parentRules: [{ parent: 'body' }],
       style: { fonts: {} },
       parentPages: [{ type: 'parentPage', id: `printed-parent-${seed}`, name: 'body', geometry: {}, foot: HEBREW }],
       children: [DOCUMENT_NODE_SAMPLES.page(seed)],

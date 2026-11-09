@@ -183,8 +183,14 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
   const firstHtml = book.body[0] && 'html' in book.body[0] ? book.body[0].html : ''
   expect(firstHtml).toContain('<span data-mark="Siman"><span class="idml-c-mark">Whole </span>')
   expect(firstHtml).toContain('>run</span></span>')
-  expect(book.body[0]?.parents).toEqual({ opener: 'idml-h-haggadah-recto', recto: 'idml-h-haggadah-recto', verso: 'idml-h-haggadah-verso' })
-  expect(book.body[1]?.parents).toEqual({ opener: 'idml-none' })
+  expect(book.body[0]?.parentRules).toEqual([
+    { when: { blank: true }, parent: 'segnavia:blank' },
+    { when: { position: 'sectionFirst' }, parent: 'idml-h-haggadah-recto' },
+    { when: { face: 'verso' }, parent: 'idml-h-haggadah-verso' },
+    { parent: 'idml-h-haggadah-recto' },
+  ])
+  expect(book.body[1]?.parentRules?.[0]).toEqual({ when: { blank: true }, parent: 'segnavia:blank' })
+  expect(book.body[1]?.parentRules?.[1]).toEqual({ when: { position: 'sectionFirst' }, parent: 'idml-none' })
   expect(report.data().locations['element:master TextFrame']).toEqual(['H-Haggadah#body-frame'])
   expect(report.data().locations['element:master Rectangle']).toEqual(['H-Haggadah#rect'])
   expect(report.data().unsupportedElements['master story']).toBe(1)
@@ -258,7 +264,8 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
     inlineStart: 15 * (25.4 / 72),
     inlineEnd: 20 * (25.4 / 72),
   })
-  expect(book.body[0]?.parents).toEqual({ opener: 'idml-a-master-recto', verso: 'idml-a-master-recto' })
+  expect(book.body[0]?.parentRules?.[0]).toEqual({ when: { blank: true }, parent: 'segnavia:blank' })
+  expect(book.body[0]?.parentRules?.[1]).toEqual({ when: { position: 'sectionFirst' }, parent: 'idml-a-master-recto' })
 })
 
 test('emits an unapplied base master and preserves its inheritance', () => {
@@ -323,7 +330,8 @@ test('reports extra master pages and unknown applied masters by location', () =>
     partsRead: [],
   }
   const book = modelToBook(model, report)
-  expect(book.body[0]?.parents).toEqual({ opener: 'segnavia:recto' })
+  expect(book.body[0]?.parentRules?.[0]).toEqual({ when: { blank: true }, parent: 'segnavia:blank' })
+  expect(book.body[0]?.parentRules?.[1]).toEqual({ when: { position: 'sectionFirst' }, parent: 'segnavia:recto' })
   expect(report.data().locations['element:applied master unknown:missing']).toEqual(['body-page'])
 
   const target = model.spreads[0]?.pages[0]
@@ -367,6 +375,11 @@ test('reports a mixed-master chapter as structured data and breaks ties by page 
     marginFor: () => model.preferences.margin,
   }
   const report = new ReportCollector()
-  expect(chapterParents('body', model, storyPageUses(model), mapping, report)).toEqual({ opener: 'a-recto', verso: 'a-verso' })
+  expect(chapterParents('body', model, storyPageUses(model), mapping, report)).toEqual([
+    { when: { blank: true }, parent: 'segnavia:blank' },
+    { when: { position: 'sectionFirst' }, parent: 'a-recto' },
+    { when: { face: 'verso' }, parent: 'a-verso' },
+    { parent: 'segnavia:recto' },
+  ])
   expect(report.data().mixedMasterChapters).toEqual([{ chapter: 'body', side: 'verso', masters: ['a', 'b'], chosen: 'a' }])
 })

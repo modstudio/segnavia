@@ -9,12 +9,13 @@ import {
   limitRefusalTemplate,
   type OriginApproval,
   type Page,
+  type ParentRules,
   PX_PER_MM,
   printedFromDocument,
-  type ResolvedParentPage,
   resolveLimits,
   resolveParentPages,
   sheetMm,
+  textArea,
 } from '@segnavia/format'
 import {
   fragmentationCss,
@@ -31,98 +32,12 @@ import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, compose
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { declaredFontLoads } from './font-load.ts'
+import { PrintedPagesRefusedError, printedPageGeometry } from './printed-page-geometry.ts'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
 export { COMPOSE_FAILURE_ATTRIBUTE as PRINTED_PAGE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE as PRINTED_PAGE_COMPOSED_ATTRIBUTE } from './composer.ts'
 
-export class PrintedPagesRefusedError extends Error {
-  constructor(message: string) {
-    super(message)
-    this.name = 'PrintedPagesRefusedError'
-  }
-}
-
-interface Geometry {
-  paperWidth: number
-  paperHeight: number
-  textWidth: number
-  textHeight: number
-  firstHeight: number
-}
-
-function geometry(page: PrintedHtmlPage, parents: ResolvedParentPage[], width: number, height: number): Geometry {
-  const printed = page.printedPages as NonNullable<Page['printedPages']>
-  const byName = new Map(parents.map((parent) => [parent.name, parent]))
-  const normal = byName.get(printed.rules.every) as ResolvedParentPage
-  const textWidth = width - normal.margin.inlineStart - normal.margin.inlineEnd
-  const textHeight = height - normal.margin.blockStart - normal.margin.blockEnd
-  if (textWidth <= 0) {
-    throw new PrintedPagesRefusedError(
-      `Parent page "${normal.name}" could not establish a positive text width; reduce its inner plus outer margins to clear this refusal.`,
-    )
-  }
-  if (textHeight <= 0) {
-    throw new PrintedPagesRefusedError(
-      `Parent page "${normal.name}" could not establish a positive text height; reduce its top plus bottom margins to clear this refusal.`,
-    )
-  }
-  const roles = Object.entries(printed.rules).filter((entry): entry is [string, string] => entry[1] !== undefined)
-  const names = [...new Set(roles.map(([, name]) => name))]
-  for (const name of names) {
-    const parent = byName.get(name) as ResolvedParentPage
-    const candidateWidth = width - parent.margin.inlineStart - parent.margin.inlineEnd
-    const candidateHeight = height - parent.margin.blockStart - parent.margin.blockEnd
-    if (candidateWidth <= 0) {
-      throw new PrintedPagesRefusedError(
-        `Parent page "${name}" could not establish a positive text width; reduce its inner plus outer margins to clear this refusal.`,
-      )
-    }
-    if (candidateHeight <= 0) {
-      throw new PrintedPagesRefusedError(
-        `Parent page "${name}" could not establish a positive text height; reduce its top plus bottom margins to clear this refusal.`,
-      )
-    }
-    if (Math.abs(candidateWidth - textWidth) > 0.001) {
-      throw new PrintedPagesRefusedError(
-        `Parent pages "${normal.name}" and "${name}" could not establish one text width; make their inner plus outer margins equal to clear this refusal.`,
-      )
-    }
-    const solelyFirst = roles.every(([role, used]) => used !== name || role === 'first')
-    if (!solelyFirst && Math.abs(candidateHeight - textHeight) > 0.001) {
-      throw new PrintedPagesRefusedError(
-        `Parent pages "${normal.name}" and "${name}" could not establish one text height outside the first page; make their top plus bottom margins equal to clear this refusal.`,
-      )
-    }
-  }
-  const first = byName.get(printed.rules.first ?? printed.rules.every) as ResolvedParentPage
-  const firstHeight = height - first.margin.blockStart - first.margin.blockEnd
-  if (firstHeight <= 0) {
-    throw new PrintedPagesRefusedError(
-      `First parent page "${first.name}" could not establish a positive text height; reduce its top plus bottom margins to clear this refusal.`,
-    )
-  }
-  if (firstHeight > textHeight + 0.001) {
-    throw new PrintedPagesRefusedError(
-      `First parent page "${first.name}" has a taller text height than "${normal.name}"; increase its top plus bottom margins to clear this refusal.`,
-    )
-  }
-  const lastName = printed.rules.last
-  if (lastName) {
-    const last = byName.get(lastName) as ResolvedParentPage
-    if (JSON.stringify(last.margin) !== JSON.stringify(normal.margin)) {
-      throw new PrintedPagesRefusedError(
-        `Last parent page "${last.name}" could not establish geometry independent of which page is last; give it the same margins as "${normal.name}" to clear this refusal.`,
-      )
-    }
-  }
-  return {
-    paperWidth: width * PX_PER_MM,
-    paperHeight: height * PX_PER_MM,
-    textWidth: textWidth * PX_PER_MM,
-    textHeight: textHeight * PX_PER_MM,
-    firstHeight: firstHeight * PX_PER_MM,
-  }
-}
+export { PrintedPagesRefusedError }
 
 function pageParts(html: string): { head: string; body: string } {
   if (!/<html\b|<body\b/i.test(html)) return { head: '', body: html }
@@ -163,7 +78,7 @@ export function printedPageValueDocument(
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)
-  const measured = geometry(page, resolved, paper.width, paper.height)
+  const measured = printedPageGeometry(page, resolved, paper.width, paper.height)
   const direction = printedPageDirection(page)
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
@@ -172,20 +87,10 @@ export function printedPageValueDocument(
     return {
       ...parent,
       margin,
-      textArea: {
-        width: measured.paperWidth - margin.inlineStart - margin.inlineEnd,
-        height: measured.paperHeight - margin.blockStart - margin.blockEnd,
-      },
+      textArea: textArea({ margin }, { width: measured.paperWidth, height: measured.paperHeight }),
     }
   })
-  const rules = page.printedPages.rules
-  const parentNames = {
-    opener: rules.first ?? rules.every,
-    recto: rules.recto ?? rules.every,
-    verso: rules.verso ?? rules.every,
-    blank: rules.every,
-    fixed: rules.every,
-  }
+  const parentRules: ParentRules = page.printedPages.parentRules
   const config = {
     direction,
     dir: page.dir,
@@ -198,7 +103,6 @@ export function printedPageValueDocument(
     endnotePlacement: 'chapter',
     runningHead: {},
     variables: page.printedPages.variables,
-    parentNames,
     pageMarker: 'data-segnavia-printed-page',
     pageAttributes: ['data-segnavia-page-view'],
     refusalSubject: 'The printed page',
@@ -212,7 +116,7 @@ export function printedPageValueDocument(
     measure: options.measure ?? false,
     inlineOverflow: 'tile',
     numbering: { frontMatter: numbering, body: numbering },
-    rules,
+    parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.screen ? { presentation: options.screen } : {}),
   }
@@ -222,10 +126,10 @@ export function printedPageValueDocument(
   const parts = sections.map((section) => pageParts(section.html))
   const implicit = sections.length === 1 && sections[0]?.implicit === true
   const flows = implicit
-    ? `<div data-segnavia-flow="${sections[0]?.id}" data-parent-opener="${parentNames.opener}" data-parent-recto="${parentNames.recto}" data-parent-verso="${parentNames.verso}">${parts[0]?.body ?? ''}</div>`
+    ? `<div data-segnavia-flow="${sections[0]?.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${parts[0]?.body ?? ''}</div>`
     : printedSectionFlows(
         sections.map((section, index) => ({ ...section, html: parts[index]?.body ?? '' })),
-        { opener: parentNames.opener, recto: parentNames.recto, verso: parentNames.verso },
+        parentRules,
       )
   const flow = `<div data-segnavia-galleys>${flows}</div>`
   const drawn = withDiagramScript(`${parts.map((part) => part.head).join('')}${flow}`, options.nonce, options.diagramScript)

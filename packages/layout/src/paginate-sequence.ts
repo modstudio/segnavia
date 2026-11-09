@@ -13,15 +13,16 @@ import type {
   PaginateSequence,
   PaginateUnit,
 } from './paginate-types.ts'
-import { type BookPrintedPagePlan, selectBookParent } from './printed-pages.ts'
+import { finishedPaginateResult, initialParentSelection } from './parent-selection.ts'
+import type { BookPrintedPagePlan } from './printed-pages.ts'
 
 export function paginateSequence(
   input: PaginateBookInput,
   fillPage: (units: PaginateUnit[], index: number, pending: PaginatePageNote[], textHeight: number, textArea?: string) => PaginatePageFill,
+  faceOf: (index: number, direction: 'ltr' | 'rtl') => { face: 'recto' | 'verso'; side: 'left' | 'right' },
 ): PaginateBookResult {
-  function selected(flow: PaginateFlow, opening: boolean, blank: boolean, role: 'body' | 'fixed' | undefined, pageIndex: number, parents = flow.parents) {
-    const fact = { blank, sectionOpening: opening, ...(role === undefined ? {} : { role }), ...(parents === undefined ? {} : { parents }) }
-    return selectBookParent(fact, pageIndex, pageIndex, input.settings.direction, input.parentNames)
+  function selected(flow: PaginateFlow, opening: boolean, blank: boolean, role: 'body' | 'fixed' | undefined, pageIndex: number, rules = flow.parentRules) {
+    return initialParentSelection(flow, { opening, blank, ...(role ? { role } : {}), pageIndex, ...(rules ? { rules } : {}) }, input.settings.direction, faceOf)
   }
 
   function pageHeight(flow: PaginateFlow, parent: string): number {
@@ -168,10 +169,10 @@ export function paginateSequence(
     opener: boolean,
     marks: PaginatePageMarks,
     physicalIndex: number,
-    parents = flow.parents,
+    rules = flow.parentRules,
   ): PaginateBookPage {
     const templated = flow.kind === 'fixed' && flow.role === 'body'
-    const planned = selected(flow, opener, false, templated ? 'body' : 'fixed', physicalIndex, parents)
+    const planned = selected(flow, opener, false, templated ? 'body' : 'fixed', physicalIndex, rules)
     return {
       kind: part,
       number,
@@ -230,7 +231,7 @@ export function paginateSequence(
           opener,
           marked.marks,
           physicalOffset + pages.length + 1,
-          flow.kind === 'fixed' ? flow.pageParents?.[index] : undefined,
+          flow.kind === 'fixed' ? flow.pageParentRules?.[index] : undefined,
         ),
       )
     }
@@ -371,7 +372,5 @@ export function paginateSequence(
     front.pages.push(makeBlank(front.pages.length + 1, 'front', lastFront, front.pages.length + 1))
   }
   const body = paginatePart(bodyFlows, 'body', front.pages.length)
-  if (body.refusals.length > 0) return { pages: [...front.pages, ...body.pages], refusals: body.refusals }
-  if (front.refusals.length > 0) return { pages: [...front.pages, ...body.pages], refusals: front.refusals }
-  return { pages: [...front.pages, ...body.pages], refusals: [] }
+  return finishedPaginateResult(front, body, input)
 }

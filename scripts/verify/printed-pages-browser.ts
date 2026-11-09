@@ -36,7 +36,7 @@ interface LegacyPrintedPage {
   scripts?: string
   printedPages?: {
     parents?: Array<{ name: string; margin: unknown }>
-    rules?: unknown
+    parentRules?: unknown
     fragmentation?: unknown
   }
 }
@@ -49,7 +49,7 @@ function printedDocument(page: LegacyPrintedPage) {
     ...fields,
     settings: { lang, dir, scripts },
     parentPages: (printedPages?.parents ?? []).map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
-    rules: printedPages?.rules,
+    parentRules: printedPages?.parentRules,
     fragmentation: printedPages?.fragmentation,
     children: [{ type: 'page', body: { html } }],
   }
@@ -148,7 +148,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
     }
     const parentPages = {
       parents: [{ name: 'body', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } }],
-      rules: { every: 'body' },
+      parentRules: [{ parent: 'body' }],
     }
     const viewportFixture = {
       type: 'document' as const,
@@ -156,7 +156,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       settings: { lang: 'en' },
       print: { paper: 'letter' as const },
       parentPages: parentPages.parents.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),
-      rules: parentPages.rules,
+      parentRules: parentPages.parentRules,
       children: [{ type: 'page' as const, body: { html: '<div style="block-size:249.4mm"></div><div style="block-size:249.4mm"></div>' } }],
     }
     const viewportSource = printedPageDocument(viewportFixture, { nonce: 'viewport-independent-composition' })
@@ -282,7 +282,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
             geometry: { margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } },
           },
         ],
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
         children: [{ type: 'page', body: { html: Array.from({ length: 501 }, () => '<div style="block-size:249.4mm"></div>').join('') } }],
       }
       return new Promise<string | null>((resolve) => {

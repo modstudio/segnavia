@@ -98,7 +98,7 @@ describe('frame content security policy', () => {
         print: { paper: 'a5' },
         printedPages: {
           parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
-          rules: { every: 'body' },
+          parentRules: [{ parent: 'body' }],
         },
       }),
     )

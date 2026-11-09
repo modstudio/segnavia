@@ -29,7 +29,7 @@ function fixtures(): PaginateBookInput[] {
         flow('toc', 'contents', [block('text', 'p', 0, 1, 2, 0)]),
         flow('c1', 'chapter', [block('heading', 'h2', 1, 1, 1, 0), block('text', 'p', 1, 2, 6, 10, { footnoteRefs: [{ note: 'n1', line: 2 }] })], 'א'),
         flow('c2', 'chapter', [block('table', 'table', 2, 1, 8, 0, { headerHeight: 10 })], 'ב'),
-        { id: 'spread', kind: 'fixed', pages: 2, parents: { opener: 'ornament' } },
+        { id: 'spread', kind: 'fixed', pages: 2, parentRules: [{ parent: 'ornament' }] },
         flow('c3', 'chapter', [
           block('text', 'p', 3, 1, 6, 0, {
             columns: 2,

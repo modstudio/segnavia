@@ -27,17 +27,23 @@ const page = Page.parse({
       },
       { name: 'first', basedOn: 'body', margin: { blockStart: 30, blockEnd: 20, inlineStart: 15, inlineEnd: 10 } },
     ],
-    rules: { every: 'body', first: 'first' },
+    parentRules: [{ when: { position: 'documentFirst' }, parent: 'first' }, { parent: 'body' }],
   },
 })
 
-const changedPage = (parent: object, rules: object) =>
+const changedPage = (parent: object, rules: Record<string, string>) =>
   Page.parse({
     ...page,
     printedPages: {
       ...page.printedPages,
       parents: [...(page.printedPages?.parents ?? []), parent],
-      rules: { ...page.printedPages?.rules, every: 'body', ...rules },
+      parentRules: [
+        ...(rules.first ? [{ when: { position: 'documentFirst' as const }, parent: rules.first }] : []),
+        ...(rules.last ? [{ when: { position: 'documentLast' as const }, parent: rules.last }] : []),
+        ...(rules.recto ? [{ when: { face: 'recto' as const }, parent: rules.recto }] : []),
+        ...(rules.verso ? [{ when: { face: 'verso' as const }, parent: rules.verso }] : []),
+        { parent: 'body' },
+      ],
     },
   })
 
@@ -51,7 +57,7 @@ function printedDocument(page: PageValue): DocumentInput {
     style: page.style,
     print: page.print,
     limits: page.limits,
-    rules: printed.rules,
+    parentRules: printed.parentRules,
     numbering: printed.numbering,
     fragmentation: printed.fragmentation,
     parentPages: printed.parents.map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
@@ -68,7 +74,7 @@ describe('printedPageDocument', () => {
   test('keeps the implicit single flow markup byte-identical', () => {
     const html = printedPageValueDocument(resolvePrintedPageHtml(page), { nonce: 'held' })
     expect(html).toContain(
-      '<div data-segnavia-galleys><div data-segnavia-flow="printed-page" data-parent-opener="first" data-parent-recto="body" data-parent-verso="body"><p id="start">Body</p></div></div>',
+      '<div data-segnavia-galleys><div data-segnavia-flow="printed-page" data-segnavia-parent-rules="[{&quot;when&quot;:{&quot;position&quot;:&quot;documentFirst&quot;},&quot;parent&quot;:&quot;first&quot;},{&quot;parent&quot;:&quot;body&quot;}]"><p id="start">Body</p></div></div>',
     )
   })
 
@@ -86,10 +92,10 @@ describe('printedPageDocument', () => {
     })
     const html = printedPageValueDocument(resolvePrintedPageHtml(sectioned), { nonce: 'held' })
     expect(html).toContain(
-      '<div data-segnavia-flow="cover" id="cover" data-numbering-counted="false" data-sequence="body" data-opens="any" data-parent-opener="first" data-parent-recto="body" data-parent-verso="body"><h1>Cover</h1></div>',
+      '<div data-segnavia-flow="cover" id="cover" data-numbering-counted="false" data-sequence="body" data-opens="any" data-segnavia-parent-rules="[{&quot;when&quot;:{&quot;position&quot;:&quot;documentFirst&quot;},&quot;parent&quot;:&quot;first&quot;},{&quot;parent&quot;:&quot;body&quot;}]"><h1>Cover</h1></div>',
     )
     expect(html).toContain(
-      '<div data-segnavia-flow="body" id="body" data-numbering-restart="1" data-sequence="body" data-opens="recto" data-parent-opener="first" data-parent-recto="body" data-parent-verso="body"><p>Body</p></div>',
+      '<div data-segnavia-flow="body" id="body" data-numbering-restart="1" data-sequence="body" data-opens="recto" data-segnavia-parent-rules="[{&quot;when&quot;:{&quot;position&quot;:&quot;documentFirst&quot;},&quot;parent&quot;:&quot;first&quot;},{&quot;parent&quot;:&quot;body&quot;}]"><p>Body</p></div>',
     )
   })
 
@@ -320,7 +326,7 @@ describe('printedPageDocument', () => {
       printedPages: {
         ...page.printedPages,
         parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', foot: '<footer data-motif="folio"></footer>' }],
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
       },
     })
     const source = {
@@ -345,7 +351,7 @@ describe('printedPageDocument', () => {
       printedPages: {
         ...page.printedPages,
         parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', head: '<header data-motif="bilingual"></header>' }],
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
       },
     })
     const source = {
@@ -363,34 +369,5 @@ describe('printedPageDocument', () => {
     }
     const expanded = await expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)
     expect(expanded.page.printedPages?.parents[0]?.head).toContain('<span>עברית</span>')
-  })
-
-  test('refuses a reserved library motif placed in a parent page', async () => {
-    const placed = Page.parse({
-      ...page,
-      printedPages: {
-        ...page.printedPages,
-        parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', foot: '<footer data-motif="segnavia:folio"></footer>' }],
-        rules: { every: 'body' },
-      },
-    })
-    const source = { motif: async () => undefined }
-    await expect(expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)).rejects.toThrow(
-      '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
-    )
-  })
-
-  test('parses an unquoted reserved parent placement without a motif source', async () => {
-    const placed = Page.parse({
-      ...page,
-      printedPages: {
-        ...page.printedPages,
-        parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', foot: '<footer DATA-MOTIF=segnavia:folio></footer>' }],
-        rules: { every: 'body' },
-      },
-    })
-    await expect(expandFramePage(resolvePageHtml(placed), undefined, new AbortController().signal)).rejects.toThrow(
-      '"segnavia:" is reserved for library motifs; rename the motif key to clear this refusal',
-    )
   })
 })

@@ -1,4 +1,4 @@
-import { BOOK_PARENT_NAMES, type BookSectionParents, type LogicalMargin, type ParentPage, type PhysicalMargin } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, FLOWING_PARENT_RULES, type LogicalMargin, type ParentPage, type ParentRules, type PhysicalMargin } from '@segnavia/format'
 import { logicalMargin } from './margins.ts'
 import { IDML_NONE_MASTER, masterPage, type ParentBuildContext, pageSideForRole, regionHtml } from './master-regions.ts'
 import type { IdmlModel } from './model.ts'
@@ -202,13 +202,15 @@ export function chapterParents(
   pages: Map<string, PageUse[]>,
   mapping: MasterMapping,
   report: ReportCollector,
-): BookSectionParents | undefined {
+): ParentRules | undefined {
   const rtl = model.preferences.binding === 'right-to-left'
   const uses = pages.get(story)
   const first = uses?.[0]
   if (!first) return undefined
   const firstRole = roleFor(first.page, rtl, first.ordinal)
-  const result: BookSectionParents = { opener: mapping.parentFor(first.page.appliedMaster, firstRole, first.page.id) }
+  const opener = mapping.parentFor(first.page.appliedMaster, firstRole, first.page.id)
+  let recto: string = BOOK_PARENT_NAMES.recto
+  let verso: string = BOOK_PARENT_NAMES.verso
   for (const role of ['recto', 'verso'] as const) {
     const candidates = uses.slice(1).filter((entry) => roleFor(entry.page, rtl, entry.ordinal) === role)
     if (candidates.length === 0) continue
@@ -218,8 +220,17 @@ export function chapterParents(
       counts.set(id, (counts.get(id) ?? 0) + 1)
     }
     const chosen = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0]
-    if (chosen) result[role] = mapping.parentFor(chosen, role, candidates[0]?.page.id ?? story)
+    if (chosen) {
+      const selected = mapping.parentFor(chosen, role, candidates[0]?.page.id ?? story)
+      if (role === 'recto') recto = selected
+      else verso = selected
+    }
     if (chosen && counts.size > 1) report.mixedMasterChapters.push({ chapter: story, side: role, masters: [...counts.keys()], chosen })
   }
-  return result
+  const names: Readonly<Record<string, string>> = {
+    [BOOK_PARENT_NAMES.opener]: opener,
+    [BOOK_PARENT_NAMES.verso]: verso,
+    [BOOK_PARENT_NAMES.recto]: recto,
+  }
+  return FLOWING_PARENT_RULES.map((rule) => ({ ...rule, parent: names[rule.parent] ?? rule.parent }))
 }

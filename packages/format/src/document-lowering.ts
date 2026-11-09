@@ -89,6 +89,7 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       ...data(document),
       ...loweredDivisions,
       parentPages: document.parentPages.map(parentPage),
+      parentRules: document.parentRules,
       templates: document.templates.map(template),
       variables: document.variables.map(variable),
       notes: document.noteSeries.map(noteSeries),
@@ -117,7 +118,7 @@ function printedSections(document: DocumentValue) {
     const flow = node.children[0]
     if (flow?.type !== 'flow') throw new Error(DOCUMENT_PROFILES.printed.sectionChildren.message)
     const fields = documentSectionFields(node, ['children', index])
-    return [defined({ id: fields.id, title: fields.title, opens: fields.opens, numbering: fields.numbering, html: flow.html })]
+    return [defined({ id: fields.id, title: fields.title, opens: fields.opens, numbering: fields.numbering, parentRules: fields.parentRules, html: flow.html })]
   })
 }
 
@@ -128,7 +129,7 @@ function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): Pa
   const printedPages = printed
     ? {
         parents: document.parentPages.map(parentPage),
-        rules: document.rules,
+        parentRules: document.parentRules,
         numbering: typeof document.numbering === 'string' ? document.numbering : undefined,
         fragmentation: document.fragmentation,
         variables: document.variables.map(variable),

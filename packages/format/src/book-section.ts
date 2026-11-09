@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
 import { Direction } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
+import { type ParentRules, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
@@ -12,15 +13,6 @@ export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
 export const SECTION_TITLE_MARK = 'segnavia:section-title'
 const PartOpens = z.enum(['recto', 'verso', 'any'])
-
-export const BookSectionParents = z.object({
-  opener: z.string().min(1).optional(),
-  recto: z.string().min(1).optional(),
-  verso: z.string().min(1).optional(),
-  blank: z.string().min(1).optional(),
-  fixed: z.string().min(1).optional(),
-})
-export type BookSectionParents = z.infer<typeof BookSectionParents>
 
 export const DesignedPage = z.object({ html: z.string() })
 export type DesignedPage = z.infer<typeof DesignedPage>
@@ -37,7 +29,8 @@ export type TemplatedPage = z.infer<typeof TemplatedPage>
 export const BookTemplate = z.object({
   name: z.string().min(1),
   html: z.string(),
-  parents: BookSectionParents.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
   slots: Slots.optional(),
 })
 export type BookTemplate = z.infer<typeof BookTemplate>
@@ -55,7 +48,8 @@ const sectionFields = {
   subtitle: Subtitle.optional(),
   contents: z.boolean().default(true),
   opens: BookOpens.optional(),
-  parents: BookSectionParents.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
   numbering: SectionNumbering.optional(),
   pageGeometry: z.string().optional(),
   lang: z.string().optional(),
@@ -72,7 +66,8 @@ const partFields = {
   html: z.string().optional(),
   contents: z.boolean().default(true),
   opens: PartOpens.optional(),
-  parents: BookSectionParents.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
   runningHead: z.string().optional(),
 }
 
@@ -102,7 +97,8 @@ export const BookContents = z.object({
   kind: z.literal('contents'),
   title: z.string().optional(),
   opens: BookOpens.optional(),
-  parents: BookSectionParents.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
   numbering: SectionNumbering.optional(),
 })
 export type BookContents = z.infer<typeof BookContents>
@@ -206,7 +202,7 @@ export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
     flowing: flowingSection(entry),
     opens: entry.opens,
     ...('numbering' in entry ? { numbering: entry.numbering } : {}),
-    parents: entry.parents,
+    parentRules: entry.parentRules,
     ...('pageGeometry' in entry ? { pageGeometry: entry.pageGeometry } : {}),
   }))
 }
@@ -218,7 +214,8 @@ export function isChapter(entry: BookChapterEntry): entry is Chapter {
 interface NamedSection {
   label: string
   path: (string | number)[]
-  parents?: BookSectionParents
+  parentRules?: ParentRules
+  legacyParents?: unknown
   templated?: TemplatedSection
 }
 
@@ -231,9 +228,15 @@ function pathLabel(path: (string | number)[]): string {
 function namedSections(book: BookDivisions): NamedSection[] {
   return bookSections(book).map(({ entry, path }): NamedSection => {
     if (isDesignedSection(entry) || isTemplatedSection(entry)) {
-      return { label: entry.title ?? pathLabel(path), path, parents: entry.parents, templated: isTemplatedSection(entry) ? entry : undefined }
+      return {
+        label: entry.title ?? pathLabel(path),
+        path,
+        parentRules: entry.parentRules,
+        legacyParents: entry.parents,
+        templated: isTemplatedSection(entry) ? entry : undefined,
+      }
     }
-    return { label: entry.title ?? pathLabel(path), path, parents: entry.parents }
+    return { label: entry.title ?? pathLabel(path), path, parentRules: entry.parentRules, legacyParents: entry.parents }
   })
 }
 
@@ -241,16 +244,9 @@ function hasKind(book: BookDivisions, match: (entry: BookItem) => boolean): bool
   return bookSections(book).some(({ entry }) => match(entry))
 }
 
-function unknownParent(label: string, role: string, name: string, path: (string | number)[]): Issue {
-  return {
-    path: [...path, 'parents', role],
-    message: `${label} names unknown parent page "${name}"; add that parent page or name an existing one to clear this refusal`,
-  }
-}
-
-function parentNameIssues(label: string, path: (string | number)[], parents: BookSectionParents | undefined, known: Set<string>): Issue[] {
-  if (!parents) return []
-  return Object.entries(parents).flatMap(([role, name]) => (name && !known.has(name) ? [unknownParent(label, role, name, path)] : []))
+function namedParentRuleIssues(label: string, path: (string | number)[], rules: ParentRules | undefined, known: Set<string>): Issue[] {
+  if (!rules) return []
+  return parentRuleIssues(rules, known, [...path, 'parentRules']).map((issue) => ({ ...issue, message: `${label} ${issue.message}` }))
 }
 
 function templateListIssues(templates: BookTemplate[], knownParents: Set<string>): Issue[] {
@@ -271,7 +267,10 @@ function templateListIssues(templates: BookTemplate[], knownParents: Set<string>
       })
     }
     seen.add(template.name)
-    issues.push(...parentNameIssues(`template ${template.name}`, path, template.parents, knownParents))
+    if (template.parents !== undefined) {
+      issues.push(renamedParentRulesFieldIssue('template field parents', [...path, 'parents']))
+    }
+    issues.push(...namedParentRuleIssues(`template ${template.name}`, path, template.parentRules, knownParents))
   })
   return issues
 }
@@ -308,6 +307,7 @@ export function bookParentIssues(
   book: BookDivisions & {
     mode: 'continuous' | 'paginated'
     parentPages: ParentPage[]
+    parentRules?: ParentRules
     templates: BookTemplate[]
   },
 ): Array<{ path: (string | number)[]; message: string }> {
@@ -331,10 +331,14 @@ export function bookParentIssues(
     }),
   )
   const knownParents = new Set<string>([...Object.values(BOOK_PARENT_NAMES), ...book.parentPages.map((parent) => parent.name)])
+  issues.push(...namedParentRuleIssues('book', [], book.parentRules, knownParents))
   issues.push(...templateListIssues(book.templates, knownParents))
   const knownTemplates = new Set(book.templates.map((template) => template.name))
   for (const section of namedSections(book)) {
-    issues.push(...parentNameIssues(`section ${section.label}`, section.path, section.parents, knownParents))
+    if (section.legacyParents !== undefined) {
+      issues.push(renamedParentRulesFieldIssue('section or part field parents', [...section.path, 'parents']))
+    }
+    issues.push(...namedParentRuleIssues(`section ${section.label}`, section.path, section.parentRules, knownParents))
     issues.push(...templatedPageIssues(section, knownTemplates))
   }
   return issues

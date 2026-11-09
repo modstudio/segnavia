@@ -38,7 +38,7 @@ test('a failed printed-page diagram entry reports the error and writes the compo
   const printed = {
     ...page,
     print: { paper: 'letter' },
-    printedPages: { parents: [{ name: 'body' }], rules: { every: 'body' } },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
   } as HtmlPage
   const result = await new Promise<{ document: string; errors: unknown[] }>((resolve) => {
     const errors: unknown[] = []

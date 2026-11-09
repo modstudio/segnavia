@@ -1,5 +1,5 @@
 import './source-guard.ts'
-import type { DocumentInput, ImpositionInput, Motif, MotifSource, PrintedPageRules } from '@segnavia/format'
+import type { DocumentInput, ImpositionInput, Motif, MotifSource, ParentRules } from '@segnavia/format'
 
 export * from './demo-screen-page-fixtures.ts'
 
@@ -229,7 +229,7 @@ export const growingFixedImposition: ImpositionInput = {
   gap: { column: 0, row: 0 },
 }
 
-const parentPages = {
+const parentPages: { parents: NonNullable<Parameters<typeof printedDocument>[0]['parents']>; parentRules: ParentRules } = {
   parents: [
     {
       name: 'body',
@@ -243,7 +243,7 @@ const parentPages = {
       head: '<header data-motif="printed-head"></header>',
     },
   ],
-  rules: { every: 'body', first: 'first' },
+  parentRules: [{ when: { position: 'documentFirst' }, parent: 'first' }, { parent: 'body' }],
 }
 
 function printedDocument(input: {
@@ -257,7 +257,7 @@ function printedDocument(input: {
     head?: string
     foot?: string
   }>
-  rules?: PrintedPageRules
+  parentRules?: ParentRules
 }): DocumentInput {
   const parents = input.parents ?? parentPages.parents
   return {
@@ -266,7 +266,7 @@ function printedDocument(input: {
     settings: { lang: input.lang, dir: input.dir },
     print: { paper: 'letter' },
     parentPages: parents.map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
-    rules: input.rules ?? parentPages.rules,
+    parentRules: input.parentRules ?? parentPages.parentRules,
     children: [{ type: 'page', body: { html: input.html } }],
   }
 }
@@ -318,7 +318,7 @@ export const printedSectionDocument: DocumentInput = {
       foot: '<footer>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></footer>',
     },
   ],
-  rules: { every: 'body', first: 'cover' },
+  parentRules: [{ when: { position: 'documentFirst' }, parent: 'cover' }, { parent: 'body' }],
   children: [
     {
       type: 'section',
@@ -366,5 +366,5 @@ export const parentPageFurnitureOverflow: DocumentInput = printedDocument({
       head: '<div style="block-size:200px">Too-tall furniture</div>',
     },
   ],
-  rules: { every: 'body' },
+  parentRules: [{ parent: 'body' }],
 })

@@ -35,7 +35,7 @@ const printedPagesFixture = {
         head: '<header data-motif="printed-head"></header>',
       },
     ],
-    rules: { every: 'body', first: 'first' },
+    parentRules: [{ when: { position: 'documentFirst' }, parent: 'first' }, { parent: 'body' }],
   },
 }
 
@@ -147,7 +147,7 @@ describe('Document lowering', () => {
         field: 'opens',
       },
       { children: [flow('one'), flow('numbered', { opens: 'continue', numbering: { counted: false } })], index: 1, field: 'numbering' },
-      { children: [flow('one'), flow('dressed', { opens: 'continue', parents: { opener: 'chapter' } })], index: 1, field: 'parents' },
+      { children: [flow('one'), flow('dressed', { opens: 'continue', parentRules: [{ parent: 'chapter' }] })], index: 1, field: 'parentRules' },
     ]
     const paths: boolean[] = []
     for (const divided of [false, true]) {
@@ -259,7 +259,7 @@ describe('Document lowering', () => {
         settings: { scripts: expected.scripts, dir: expected.dir, lang: expected.lang },
         size: expected.size,
         print: expected.print,
-        rules: expected.printedPages.rules,
+        parentRules: expected.printedPages.parentRules,
         numbering: expected.printedPages.numbering,
         fragmentation: expected.printedPages.fragmentation,
         parentPages: expected.printedPages.parents.map(({ margin, ...parent }) => ({ type: 'parentPage' as const, ...parent, geometry: { margin } })),

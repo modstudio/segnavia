@@ -111,7 +111,7 @@ export async function verifyDocumentPressGeometry(renderer: Renderer, work: stri
     kind: 'printed',
     print: { paper: 'letter', ...print },
     parentPages: [{ type: 'parentPage', name: 'body', geometry: { margin } }],
-    rules: { every: 'body' },
+    parentRules: [{ parent: 'body' }],
     children: [{ type: 'page', body: { html: '<h1>Printed page</h1><p>One composed page.</p>' } }],
   }
   const printedPages = await pressPages(await renderer.pagePdf(printed), { width: 612, height: 792 })

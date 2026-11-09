@@ -1,6 +1,7 @@
 import type { z } from 'zod'
 import type { DocumentNode } from './document-nodes.ts'
 import { type DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { refineRecords } from './record-refinement.ts'
 
 type DocumentProfile = (typeof DOCUMENT_PROFILES)[DocumentKind]
@@ -22,9 +23,23 @@ function refinePage(node: Extract<DocumentNode, { type: 'page' }>, path: Path, k
   }
 }
 
-const SECTION_FIELDS = ['title', 'contentsLabel', 'subtitle', 'contents', 'opens', 'numbering', 'parents', 'headTemplate', 'pageGeometry', 'template'] as const
+const SECTION_FIELDS = [
+  'title',
+  'contentsLabel',
+  'subtitle',
+  'contents',
+  'opens',
+  'numbering',
+  'parentRules',
+  'headTemplate',
+  'pageGeometry',
+  'template',
+] as const
 
 function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: Path, profile: DocumentProfile, ctx: z.RefinementCtx): void {
+  if (node.parents !== undefined) {
+    ctx.addIssue({ code: 'custom', ...renamedParentRulesFieldIssue('section field parents', [...path, 'parents']) })
+  }
   for (const field of SECTION_FIELDS) {
     if (node[field] === undefined || (profile.sectionFields as readonly string[]).includes(field)) continue
     const remedies = profile.sectionFieldRemedies as Partial<Record<(typeof SECTION_FIELDS)[number], string>>
@@ -34,6 +49,18 @@ function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: P
   const requirement = profile.sectionChildren
   if (requirement && (node.children.length !== requirement.exact || node.children[0]?.type !== requirement.node)) {
     ctx.addIssue({ code: 'custom', path: [...path, 'children'], message: requirement.message })
+  }
+}
+
+function refineContents(node: Extract<DocumentNode, { type: 'contents' }>, path: Path, ctx: z.RefinementCtx): void {
+  if (node.parents !== undefined) {
+    ctx.addIssue({ code: 'custom', ...renamedParentRulesFieldIssue('contents field parents', [...path, 'parents']) })
+  }
+}
+
+function refinePart(node: Extract<DocumentNode, { type: 'part' }>, path: Path, ctx: z.RefinementCtx): void {
+  if (node.parents !== undefined) {
+    ctx.addIssue({ code: 'custom', ...renamedParentRulesFieldIssue('part field parents', [...path, 'parents']) })
   }
 }
 
@@ -48,6 +75,8 @@ export function refineDocumentNodes(
     }
     if (node.type === 'page') refinePage(node, path, document.kind, profile, ctx)
     if (node.type === 'section') refineSection(node, path, profile, ctx)
+    if (node.type === 'part') refinePart(node, path, ctx)
+    if (node.type === 'contents') refineContents(node, path, ctx)
   })
   refineRecords(document, ctx)
 }

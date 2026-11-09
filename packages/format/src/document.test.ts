@@ -199,7 +199,7 @@ describe('Document', () => {
       Document.parse({
         type: 'document',
         kind: 'printed',
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
         parentPages: [{ type: 'parentPage', name: 'body' }],
         children: [section],
       }).children[0],
@@ -210,7 +210,7 @@ describe('Document', () => {
     const root = {
       type: 'document' as const,
       kind: 'printed' as const,
-      rules: { every: 'body' },
+      parentRules: [{ parent: 'body' }],
       parentPages: [{ type: 'parentPage' as const, name: 'body' }],
     }
     const flow = { type: 'flow' as const, html: '<p>Body</p>' }
@@ -226,9 +226,7 @@ describe('Document', () => {
     expect(() => Document.parse({ ...root, children: [{ type: 'section', children: [] }] })).toThrow(
       'replace its children with one flow child to clear this refusal',
     )
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', parents: { opener: 'body' }, children: [flow] }] })).toThrow(
-      'remove it and use document rules to clear this refusal',
-    )
+    expect(() => Document.parse({ ...root, children: [{ type: 'section', parentRules: [{ parent: 'body' }], children: [flow] }] })).not.toThrow()
     expect(() => Document.parse({ ...root, children: [{ type: 'section', pageGeometry: 'wide', children: [flow] }] })).toThrow(
       'remove it because printed sections share the document paper to clear this refusal',
     )
@@ -243,7 +241,7 @@ describe('Document', () => {
         type: 'document',
         kind: 'printed',
         numbering: 'hebrew',
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
         parentPages: [{ type: 'parentPage', name: 'body' }],
         children: [{ type: 'section', title: 'Text', numbering: { restart: 10_000 }, children: [{ type: 'flow', html: '' }] }],
       }),
@@ -254,7 +252,7 @@ describe('Document', () => {
     const parsed = Document.parse({
       type: 'document',
       kind: 'printed',
-      rules: { every: 'body' },
+      parentRules: [{ parent: 'body' }],
       parentPages: [{ type: 'parentPage', name: 'body' }],
       templates: [{ type: 'template', name: 'record', html: '<p>Record</p>' }],
       children: [{ type: 'page', body: { html: '' } }],
@@ -308,7 +306,7 @@ describe('Document', () => {
       Document.parse({
         type: 'document',
         kind: 'printed',
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
         parentPages: [{ type: 'parentPage', name: 'body' }],
         children: [{ type: 'page', body: { html: '' }, regions: {} }],
       }),
@@ -350,7 +348,7 @@ describe('Document', () => {
         type: 'document',
         kind,
         brand: 'publisher',
-        rules: { every: 'body' },
+        parentRules: [{ parent: 'body' }],
         parentPages: [{ type: 'parentPage', name: 'body' }],
         children: [{ type: 'page', body: { html: '' } }],
       },

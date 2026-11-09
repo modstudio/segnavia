@@ -79,7 +79,7 @@ test('matches page missing-source behavior for body and parent-page placements',
 
   const parent = { name: 'held', head: '<header data-motif="running"></header>', margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } }
   const parentBook = parseBookFixture({ title: 'Parent', mode: 'continuous', parentPages: [parent], chapters: [{ title: 'One', html: '<p></p>' }] })
-  const parentPage = Page.parse({ html: '<p></p>', print: { paper: 'a4' }, printedPages: { parents: [parent], rules: { every: 'held' } } })
+  const parentPage = Page.parse({ html: '<p></p>', print: { paper: 'a4' }, printedPages: { parents: [parent], parentRules: [{ parent: 'held' }] } })
   expect(bookMotifRefusal(parentBook)?.message).toBe(framePageMotifRefusal(resolvePageHtml(parentPage))?.message)
   expect(bookMotifRefusal(parentBook)?.message).toBe(
     'A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.',

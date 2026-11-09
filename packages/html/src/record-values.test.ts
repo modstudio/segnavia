@@ -14,7 +14,7 @@ test('keeps a Hebrew record value through lowering and binds it with automatic d
       type: 'document',
       kind: 'printed',
       print: { paper: 'letter' },
-      rules: { every: 'body' },
+      parentRules: [{ parent: 'body' }],
       parentPages: [{ type: 'parentPage', name: 'body' }],
       templates: [{ type: 'template', name: 'row', html: section.html, slots: [{ key: 'name', label: 'Name', type: 'text' }] }],
       children: [{ type: 'record', template: 'row', values: section.values }],

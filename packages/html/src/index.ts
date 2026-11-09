@@ -30,7 +30,6 @@ export {
   type BookPageFacts,
   type BookPrintedPagePlan,
   type BookPrintedPageRole,
-  type BookSectionParents,
   heldPageNumber,
   openerPageIndex,
   PAGINATE_FUNCTIONS,
@@ -41,8 +40,7 @@ export {
   paginateScript,
   planBookPages,
   planPrintedPages,
-  printedPageAt,
-  selectBookParent,
+  selectParent,
   windowPageIndex,
 } from '@segnavia/layout'
 export { base64ToBytes, bytesToBase64 } from './base64.ts'

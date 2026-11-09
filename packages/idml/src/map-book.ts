@@ -1,11 +1,11 @@
 import {
   Book,
   BookItem,
-  type BookSectionParents,
   defaultNewId,
   type FontReference,
   MM_PER_PT,
   type ParentPage,
+  type ParentRules,
   persistedFontManifestWithReferences,
   type Book as SegnaviaBook,
 } from '@segnavia/format'
@@ -69,7 +69,7 @@ interface ImportedChapter {
   story: string
   title: string
   html: string
-  parents?: BookSectionParents
+  parentRules?: ParentRules
 }
 
 function partBody(chapters: ImportedChapter[], conversion: IdmlConversion, newId: () => string): BookItem[] {
@@ -94,7 +94,7 @@ function partBody(chapters: ImportedChapter[], conversion: IdmlConversion, newId
         contents: true,
         ...(part.title ? { title: part.title } : {}),
         ...(opener.length > 0 ? { html: opener.map((chapter) => chapter.html).join('') } : {}),
-        ...(opener[0]?.parents ? { parents: opener[0].parents } : {}),
+        ...(opener[0]?.parentRules ? { parentRules: opener[0].parentRules } : {}),
         children,
       }),
     )
@@ -165,12 +165,12 @@ export function modelToBook(
   const openingPolicy = chapterOpenings(openings, preferences.facingPages)
   for (const opening of openingPolicy.verso) report.versoOpening(opening.story, opening.page)
   const chapters = emitted.map(({ story, mapped: value }) => {
-    const parents = chapterParents(story.id, model, storyPages, masters, report)
+    const parentRules = chapterParents(story.id, model, storyPages, masters, report)
     const source = openers.html.get(story.id) ?? value.html
     const document = parseDocument({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: source } }] }, { newId })
     const page = document.children[0]
     const html = page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : source
-    return { story: story.id, title: story.id, html, ...(parents ? { parents } : {}) }
+    return { story: story.id, title: story.id, html, ...(parentRules ? { parentRules } : {}) }
   })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)

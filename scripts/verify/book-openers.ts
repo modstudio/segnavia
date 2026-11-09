@@ -9,6 +9,12 @@ import { compact, pagesText, pageWith } from './book-text.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
 const parents = { opener: 'opening', recto: 'opening-recto', verso: 'opening-verso', blank: 'opening-blank', fixed: 'opening-fixed' }
+const parentRules = [
+  { when: { blank: true }, parent: parents.blank },
+  { when: { position: 'sectionFirst' }, parent: parents.opener },
+  { when: { face: 'verso' }, parent: parents.verso },
+  { parent: parents.recto },
+] as const
 const furniture = {
   head: '<div>HEAD[<span data-motif="segnavia:running-head"></span>]</div>',
   foot: '<div>FOLIO[<span data-motif="segnavia:folio"></span>]</div>',
@@ -39,7 +45,7 @@ function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
             type: 'section',
             id: 'opening-one',
             title: titles[0],
-            parents,
+            parentRules,
             children: [
               {
                 type: 'flow',
@@ -59,14 +65,14 @@ function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
             id: 'opening-three',
             title: titles[2],
             opens: 'any',
-            parents,
+            parentRules,
             children: [{ type: 'flow', html: `<p>THREE_START</p>${`<p>${'three '.repeat(45)}</p>`.repeat(12)}<p>THREE_END</p>` }],
           },
           {
             type: 'section',
             id: 'opening-designed',
             title: titles[3],
-            parents: { fixed: parents.fixed },
+            parentRules: [{ parent: parents.fixed }],
             children: [{ type: 'page', body: { html: '<p>DESIGNED_PAGE</p>' } }],
           },
         ],
@@ -186,7 +192,7 @@ async function verifyRecto(renderer: Renderer, check: Check, hebrew: boolean, cs
   rectoInput.children.splice(0, 1)
   const body = (rectoInput.children[0] as { children: Array<Record<string, unknown>> }).children
   body[0] = { ...body[0], children: [{ type: 'flow', html: '<p>ODD_PAGE_SECTION</p>' }] }
-  body[1] = { ...body[1], opens: 'recto', parents, children: [{ type: 'flow', html: '<p>RECTO_SECTION</p>' }] }
+  body[1] = { ...body[1], opens: 'recto', parentRules, children: [{ type: 'flow', html: '<p>RECTO_SECTION</p>' }] }
   const recto = await render(renderer, rectoInput, css, `recto-${key}`)
   try {
     const blank = recto.plan.pages.findIndex((page) => page.blank)

@@ -14,7 +14,7 @@ function input(overrides: Record<string, unknown> = {}) {
     type: 'document',
     kind: 'printed',
     print: { paper: 'letter' },
-    rules: { every: 'body' },
+    parentRules: [{ parent: 'body' }],
     parentPages: [{ type: 'parentPage', name: 'body', geometry: {} }],
     templates: [{ type: 'template', name: 'row', html: '<p data-slot-value="name"></p>', slots: [slot('name')] }],
     children: [1, 2, 3].map((index) => ({ type: 'record', id: `row-${index}`, template: 'row', values: { name: `Name ${index}` } })),
@@ -45,11 +45,6 @@ describe('record expansion', () => {
       'required template slot',
     ],
     ['non-text slot', { templates: [{ type: 'template', name: 'row', html: '<p></p>', slots: [slot('name', { type: 'email' })] }] }, 'bind text only'],
-    [
-      'template parents',
-      { templates: [{ type: 'template', name: 'row', html: '<p></p>', parents: { opener: 'body' }, slots: [slot('name')] }] },
-      'has parents',
-    ],
     ['host collision', { data: { slots: [slot('name')] } }, 'both claim it'],
   ])('refuses %s', (_name, changed, message) => {
     expect(() => Document.parse(input(changed))).toThrow(message)
@@ -63,7 +58,7 @@ describe('record expansion', () => {
         title: 'Records',
         mode: 'continuous',
         print: undefined,
-        rules: undefined,
+        parentRules: undefined,
         parentPages: [],
       }),
     ).toThrow('continuous layout cannot apply')

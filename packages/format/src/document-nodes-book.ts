@@ -1,10 +1,11 @@
 import { z } from 'zod'
-import { BookOpens, BookSectionParents, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
+import { BookOpens, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
 import { Direction } from './direction.ts'
 import { NodeId } from './document-nodes-common.ts'
 import { SectionNumbering } from './folio.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
+import { parentRules } from './parent-rules.ts'
 import { NumberVariable, TextVariable } from './variable.ts'
 
 export const SectionFields = {
@@ -14,7 +15,8 @@ export const SectionFields = {
   contents: z.boolean().optional(),
   opens: BookOpens.optional(),
   numbering: SectionNumbering.optional(),
-  parents: BookSectionParents.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
   headTemplate: z.string().optional(),
   pageGeometry: z.string().optional(),
   lang: z.string().optional(),
@@ -27,7 +29,8 @@ export const ContentsNode = NodeId.extend({
   depth: z.number().int().min(1).max(6).optional(),
   pageNumbers: z.boolean().optional(),
   opens: BookOpens.optional(),
-  parents: BookSectionParents.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
   numbering: SectionNumbering.optional(),
 })
 
