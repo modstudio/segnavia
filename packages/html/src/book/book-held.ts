@@ -35,7 +35,7 @@ export function authoredSection(
     section.title,
     flowAttribs(section.opens, section.parentRules, languageAttribs(section), section.pageGeometry),
   )
-  return { info: { id, kind: 'front', division: 'front', title: section.title, opens: section.opens }, node }
+  return { info: { id, kind: 'front', division: 'front', title: section.title, opens: section.opens, numbering: section.numbering }, node }
 }
 
 export function numberingAttribs(numbering?: SectionNumbering): Record<string, string> {
@@ -172,7 +172,7 @@ export function designedSection(
   }
   return {
     built: {
-      info: { id, kind, division, title: entry.title, opens: entry.opens },
+      info: { id, kind, division, title: entry.title, opens: entry.opens, numbering: entry.numbering },
       node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
     headings,
@@ -281,7 +281,7 @@ export function templatedSection(
   }
   return {
     built: {
-      info: { id, kind, division, title: entry.title, opens: entry.opens },
+      info: { id, kind, division, title: entry.title, opens: entry.opens, numbering: entry.numbering },
       node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
     headings,

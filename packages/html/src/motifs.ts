@@ -84,7 +84,11 @@ export function libraryMotifPlacementRefusal(html: string, allowHeadTemplate = f
     const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
     return key.startsWith(LIBRARY_MOTIF_PREFIX) && (!allowHeadTemplate || key !== HEAD_TEMPLATE_MOTIF)
   })
-  return placed ? refusal(placed, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key') : undefined
+  if (!placed) return undefined
+  if (placed.attribs[MOTIF_ATTRIBUTE] === HEAD_TEMPLATE_MOTIF) {
+    return refusal(placed, 'a head-template placement outside parent head, foot or region HTML', 'move it into a parent head, foot or region')
+  }
+  return refusal(placed, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key')
 }
 
 export function hasMotifPlacement(html: string): boolean {

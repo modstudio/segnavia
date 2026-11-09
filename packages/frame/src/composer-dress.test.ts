@@ -17,6 +17,16 @@ test('fills balanced and self-closing head-template placements', () => {
   )
 })
 
+test('fills only the outer placement when head-template placements are nested', () => {
+  const html = '<div data-motif="segnavia:head-template" data-motif-name="outer"><div data-motif="segnavia:head-template" data-motif-name="inner"></div></div>'
+  expect(fillRegion(html, { heads: { outer: '<bdi>Outer</bdi>', inner: '<bdi>Inner</bdi>' } })).toBe('<div><bdi>Outer</bdi></div>')
+})
+
+test('removes inherited and unbounded head-template placements', () => {
+  expect(fillRegion('<div data-motif="segnavia:head-template" data-motif-name="constructor"></div>', { heads: {} })).toBe('')
+  expect(fillRegion('<div data-motif="segnavia:head-template" data-motif-name="head">Text', { heads: { head: '<bdi>Head</bdi>' } })).toBe('Text')
+})
+
 test('fills printed-page furniture from a text variable and record slot', () => {
   const heads = resolveRegionHeads(
     [{ name: 'record-head', parts: [{ variable: 'parasha' }, { record: 'name' }], separator: ' — ', dropEmpty: true, collapseEqual: true }],

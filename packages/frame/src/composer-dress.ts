@@ -16,7 +16,11 @@ export function fillRegionImplementation(
   )
   let output = html
   for (const placement of [...placements].reverse()) {
-    const value = values.heads[placement.name]
+    const value = Object.hasOwn(values.heads, placement.name) ? values.heads[placement.name] : undefined
+    if (!placement.bounded) {
+      output = `${output.slice(0, placement.start)}${output.slice(placement.openEnd)}`
+      continue
+    }
     const opening = html.slice(placement.start, placement.openEnd)
     const cleaned = opening.replace(new RegExp(`\\s${motifAttribute}(?:-[\\w-]+)?\\s*=\\s*(?:(["'])([^"']*)\\1|[^\\s>]+)`, 'gi'), '').replace(/\/\s*>$/, '>')
     const replacement = value ? `${cleaned}${value}</${placement.tag}>` : ''

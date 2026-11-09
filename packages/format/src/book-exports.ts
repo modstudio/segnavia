@@ -42,6 +42,11 @@ export {
   TemplatedSection,
 } from './book.ts'
 export {
+  type BookVariableNumberPage,
+  type BookVariablePageNumbers,
+  bookVariablePageNumbers,
+} from './book-variable-page-numbers.ts'
+export {
   NoteNumbering,
   NotePlacement,
   NoteSeries,

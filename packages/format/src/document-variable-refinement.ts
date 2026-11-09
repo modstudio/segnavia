@@ -95,12 +95,18 @@ export function refineDocumentVariables(
   const regionHtml = document.parentPages
     .flatMap((parent) => [parent.head, parent.foot, ...Object.values(parent.regions ?? {})])
     .filter((html): html is string => html !== undefined)
-  for (const name of regionHtml.flatMap((html) => headTemplatePlacements(html).map((placement) => placement.name))) {
-    if (!heads.has(name))
+  for (const placement of regionHtml.flatMap((html) => headTemplatePlacements(html))) {
+    if (!heads.has(placement.name))
       ctx.addIssue({
         code: 'custom',
         path: ['parentPages'],
-        message: `segnavia:head-template placement names undeclared template ${JSON.stringify(name)}; declare that head template or remove the placement to clear this refusal`,
+        message: `segnavia:head-template placement names undeclared template ${JSON.stringify(placement.name)}; declare that head template or remove the placement to clear this refusal`,
+      })
+    if (!placement.bounded)
+      ctx.addIssue({
+        code: 'custom',
+        path: ['parentPages'],
+        message: `segnavia:head-template placement for ${JSON.stringify(placement.name)} is unclosed; close the element to clear this refusal`,
       })
   }
 }

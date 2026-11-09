@@ -36,7 +36,9 @@ const bilingual: Motif = {
 describe('libraryMotifPlacementRefusal', () => {
   test('allows head-template placements only when the caller identifies parent furniture', () => {
     const html = '<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span>'
-    expect(libraryMotifPlacementRefusal(html)).toContain('reserved for library motifs')
+    expect(libraryMotifPlacementRefusal(html)).toContain(
+      'a head-template placement outside parent head, foot or region HTML; move it into a parent head, foot or region to clear this refusal',
+    )
     expect(libraryMotifPlacementRefusal(html, true)).toBeUndefined()
   })
   test.each(['<div DATA-MOTIF="segnavia:x"></div>', '<div data-motif=segnavia:x></div>', "<div data-motif='segnavia:x'></div>"])(

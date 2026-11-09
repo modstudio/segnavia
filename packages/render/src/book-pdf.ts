@@ -22,7 +22,7 @@ import {
 } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, joinedDestinations, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
-import { marginFactsFor } from './book-margin-facts.ts'
+import { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
 import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
@@ -37,7 +37,7 @@ import type { BookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
-export { marginFactsFor } from './book-margin-facts.ts'
+export { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 
 async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
   const document = await loadPdf(output.bytes)
@@ -279,23 +279,23 @@ export async function renderBookPdf(input: Book, options: BookPdfOptions, adapte
   const front = printedFront.part
   const bodyBlankPages = new Set(printedBody.blankBefore.map((id) => (printedBody.part.destinations.get(id)?.page ?? 1) - 1))
   const frontBlankPages = new Set<number>(printedFront.trailingBlank ? [front.pages] : [])
+  const frontSections = sectionsFor(printedBody.document.sections, 'front')
+  const bodySections = sectionsFor(printedBody.document.sections, 'body')
+  const frontVariablePages = marginVariablePagesFor(frontSections, front.destinations, front.pages, frontBlankPages)
+  const bodyVariablePages = marginVariablePagesFor(bodySections, printedBody.part.destinations, printedBody.part.pages, bodyBlankPages)
+  if (printedFront.trailingBlank && bodyVariablePages[0]) frontVariablePages[frontVariablePages.length - 1] = { ...bodyVariablePages[0], blank: true }
+  const documentPages = [...frontVariablePages, ...bodyVariablePages]
   const marginFacts = [
-    ...marginFactsFor(
-      sectionsFor(printedBody.document.sections, 'front'),
-      front.destinations,
-      front.pages,
-      frontBlankPages,
-      book.numbering.frontMatter,
-      book.variables,
-    ),
-    ...marginFactsFor(
-      sectionsFor(printedBody.document.sections, 'body'),
-      printedBody.part.destinations,
-      printedBody.part.pages,
-      bodyBlankPages,
-      book.numbering.body,
-      book.variables,
-    ),
+    ...marginFactsFor(frontSections, front.destinations, front.pages, frontBlankPages, book.numbering.frontMatter, book.variables, {
+      pages: documentPages,
+      offset: 0,
+      system: book.numbering.body,
+    }),
+    ...marginFactsFor(bodySections, printedBody.part.destinations, printedBody.part.pages, bodyBlankPages, book.numbering.body, book.variables, {
+      pages: documentPages,
+      offset: front.pages,
+      system: book.numbering.body,
+    }),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)
   const plan = planBookPages(marginFacts, direction)

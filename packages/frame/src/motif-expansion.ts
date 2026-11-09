@@ -68,7 +68,7 @@ interface MotifPolicy {
 
 const BOOK_MOTIF_POLICY: MotifPolicy = {
   placement: (html, furniture) => (furniture ? hasHostMotifPlacement(html) : hasMotifPlacement(html)),
-  libraryRefusal: (html, furniture) => (furniture ? undefined : libraryMotifPlacementRefusal(html)),
+  libraryRefusal: (html, furniture) => libraryMotifPlacementRefusal(html, furniture),
 }
 
 function motifSourceRefusal(fields: BookHtmlField[], policy: MotifPolicy): MotifRefusedError | undefined {

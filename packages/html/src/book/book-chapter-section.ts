@@ -11,7 +11,7 @@ export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: strin
   const { id } = chapter
   const document = parse(chapter.html)
   return {
-    info: { id, kind: 'chapter', division, title: chapter.title, opens: chapter.opens, values: recordValues, record },
+    info: { id, kind: 'chapter', division, title: chapter.title, opens: chapter.opens, values: recordValues, record, numbering: chapter.numbering },
     node: sectionNode(
       'chapter',
       id,

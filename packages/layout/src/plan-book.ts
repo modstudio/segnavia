@@ -1,6 +1,6 @@
 import {
+  bookVariablePageNumbers,
   type Measurements as FormatMeasurements,
-  formatNumber,
   LIBRARY_VARIABLES,
   PLAN_VERSION,
   type Variable,
@@ -23,9 +23,8 @@ export function numberVariableValue(
   variable: Exclude<Variable, { kind: 'text' }>,
   page: PaginateBookPage,
   index: number,
-  recordIndex: number,
+  recordFolio: string | null,
   record: { index: number; count: number } | undefined,
-  numbering: BookPlanNumbering,
   folios: BookPlanFolioResult,
   documents: BookPlanDocumentNumbers,
 ): string {
@@ -36,7 +35,7 @@ export function numberVariableValue(
     documentTotal: documents.documentTotal,
     recordIndex: record?.index,
     recordCount: record?.count,
-    recordFolio: page.blank ? '' : formatNumber(recordIndex, numbering.body),
+    recordFolio: recordFolio ?? '',
     recordTotal: documents.recordTotals[page.flow],
   })
 }
@@ -49,15 +48,22 @@ export function pagesWithNumberVariables(
   documents: BookPlanDocumentNumbers,
   sections: readonly BookPlanSection[] = [],
 ): PaginateBookPage[] {
-  const recordIndexes = new Map<string, number>()
   const countedByFlow = new Map(sections.map((section) => [section.id, section.numbering?.counted !== false]))
   const recordsByFlow = new Map(sections.flatMap((section) => (section.record ? [[section.id, section.record] as const] : [])))
+  const numberPages = bookVariablePageNumbers(
+    pages.map((page) => ({
+      flow: page.flow,
+      blank: page.blank,
+      counted: countedByFlow.get(page.flow) !== false,
+      record: recordsByFlow.has(page.flow),
+    })),
+    numbering.body,
+  )
   return pages.map((page, index) => {
-    if (countedByFlow.get(page.flow) !== false) recordIndexes.set(page.flow, (recordIndexes.get(page.flow) ?? 0) + 1)
     const resolved = { ...page.variables }
     for (const variable of variables) {
       if (variable.kind === 'text') continue
-      const value = numberVariableValue(variable, page, index, recordIndexes.get(page.flow) ?? 0, recordsByFlow.get(page.flow), numbering, folios, documents)
+      const value = numberVariableValue(variable, page, index, numberPages.recordFolios[index] ?? null, recordsByFlow.get(page.flow), folios, documents)
       if (value) resolved[variable.name] = value
     }
     return { ...page, variables: resolved }

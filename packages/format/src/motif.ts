@@ -22,6 +22,7 @@ export interface HeadTemplatePlacement {
   tag: string
   name: string
   selfClosing: boolean
+  bounded: boolean
 }
 
 export function headTemplatePlacements(
@@ -57,9 +58,16 @@ export function headTemplatePlacements(
     const openEnd = start + markup.length
     const tag = token[1] ?? ''
     const selfClosing = /\/\s*>$/.test(markup)
-    const end = selfClosing ? openEnd : placementEnd(tags, index, tag, openEnd)
-    if (end === undefined) continue
-    placements.push({ start, end, openEnd, tag, name: attribute(markup, nameAttribute) ?? '', selfClosing })
+    const closeEnd = selfClosing ? openEnd : placementEnd(tags, index, tag, openEnd)
+    placements.push({
+      start,
+      end: closeEnd ?? openEnd,
+      openEnd,
+      tag,
+      name: attribute(markup, nameAttribute) ?? '',
+      selfClosing,
+      bounded: closeEnd !== undefined,
+    })
   }
   return placements
 }
