@@ -10,12 +10,14 @@ import {
   type DocumentOp,
   diffDocuments,
   fingerprintDocument,
+  labelXForWidth,
   type Point,
   provisionalShape,
   removeFromGrid,
   removeItems,
   screenToBoard,
   settleBoard,
+  withLabelWidth,
 } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
 import {
@@ -35,6 +37,7 @@ import {
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderLabelResizeHandle, renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
+import { boardPathElement } from './board-event-path.ts'
 import { BOARD_HISTORY_LIMIT } from './board-history.ts'
 import { boardLabels } from './labels.ts'
 
@@ -235,13 +238,17 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private onDoubleClick = (event: MouseEvent) => {
-    const handle = event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.labelResizeHandle !== undefined)
+    const handle = boardPathElement(event, 'labelResizeHandle')
     const id = handle?.dataset.labelResizeHandle
     const current = this.state ? boardFromDocument(this.state.value) : null
     const label = current?.labels.find((entry) => entry.id === id)
     if (!current || !label || label.width === undefined) return
-    const { width: _width, size: _size, ...unwrapped } = label
-    const next = { ...current, labels: current.labels.map((entry) => (entry.id === label.id ? unwrapped : entry)) }
+    const currentWidth = this.bridge.shapes().labels[label.id]?.width
+    if (currentWidth === undefined) return
+    const unwrapped = withLabelWidth(label, undefined)
+    const unwrappedWidth = this.bridge.labelShape(unwrapped).width
+    const anchored = { ...unwrapped, x: labelXForWidth(label, currentWidth, unwrappedWidth) }
+    const next = { ...current, labels: current.labels.map((entry) => (entry.id === label.id ? anchored : entry)) }
     this.applyBoard(next, { kind: 'resize', ids: [label.id] })
     event.preventDefault()
   }

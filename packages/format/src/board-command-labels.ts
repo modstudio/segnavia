@@ -11,6 +11,7 @@ import {
 import { BoardCommandRefusal, resolveLabel } from './board-command-resolvers.ts'
 import { placeBoardEntityTarget } from './board-command-targets.ts'
 import type { BoardCommand, BoardCommandOf } from './board-commands.ts'
+import { withLabelWidth } from './board-edit.ts'
 import type { BoardEditAdjustment } from './board-edit-result.ts'
 import { labelShape } from './board-shapes.ts'
 import type { MeasuredSize } from './geometry.ts'
@@ -67,11 +68,8 @@ function labelSet(context: CommandContext, command: BoardCommandOf<'label-set'>)
   const clampedWidth = typeof command.width === 'number' ? Math.max(LABEL_MIN_WIDTH, command.width) : command.width
   const width = clampedWidth === null ? undefined : clampedWidth === undefined ? current.width : clampedWidth
   const widthChanged = width !== current.width
-  const { size: _storedSize, width: _storedWidth, ...withoutMeasurement } = current
   let label: BoardLabel =
-    textChanged || widthChanged
-      ? { ...withoutMeasurement, ...(textChanged ? { text: command.text as string } : {}), ...(width === undefined ? {} : { width }) }
-      : current
+    textChanged || widthChanged ? withLabelWidth({ ...current, ...(textChanged ? { text: command.text as string } : {}) }, width) : current
   let shapes = context.shapes
   const adjustments: BoardEditAdjustment[] = []
   if (typeof command.width === 'number' && clampedWidth !== command.width)

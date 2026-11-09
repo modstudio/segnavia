@@ -1,4 +1,5 @@
-import { Board, type BoardItem, LABEL_MIN_WIDTH } from './board.ts'
+import { Board, type BoardItem, type BoardLabel, LABEL_MIN_WIDTH } from './board.ts'
+import { labelDirection, labelXForWidth } from './board-geometry.ts'
 import type { Point } from './deck.ts'
 
 export const MIN_BOARD_ITEM_WIDTH = LABEL_MIN_WIDTH
@@ -11,6 +12,31 @@ export function moveItems(board: Board, ids: readonly string[], delta: Point): B
     ...board,
     items: board.items.map((item) => (moved.has(item.id) ? { ...item, x: item.x + delta.x, y: item.y + delta.y } : item)),
   }
+}
+
+export function moveBoardNodes(board: Board, ids: readonly string[], delta: Point): Board {
+  const moved = moveItems(board, ids, delta)
+  const selected = new Set(ids)
+  return {
+    ...moved,
+    labels: moved.labels.map((label) => (selected.has(label.id) ? { ...label, x: label.x + delta.x, y: label.y + delta.y } : label)),
+  }
+}
+
+export function withLabelWidth(label: BoardLabel, width: number | undefined): BoardLabel {
+  const { size: _size, width: _width, ...unmeasured } = label
+  return width === undefined ? unmeasured : { ...unmeasured, width }
+}
+
+export function resizeLabel(board: Board, id: string, edgeX: number, currentWidth: number): Board {
+  const label = board.labels.find((entry) => entry.id === id)
+  if (!label) return board
+  const direction = labelDirection(label)
+  const inlineStart = direction === 'rtl' ? label.x + currentWidth : label.x
+  const requested = direction === 'rtl' ? inlineStart - edgeX : edgeX - inlineStart
+  const width = Math.max(LABEL_MIN_WIDTH, requested)
+  const resized = { ...withLabelWidth(label, width), x: labelXForWidth(label, currentWidth, width) }
+  return { ...board, labels: board.labels.map((entry) => (entry.id === id ? resized : entry)) }
 }
 
 export function moveSection(board: Board, sectionId: string, delta: Point): Board {

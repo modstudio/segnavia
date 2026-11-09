@@ -105,7 +105,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
         (view) => this.setView(view),
       ),
     action: (action, item) => this.dispatchEvent(boardEvent('segnavia-board-item-action', { action, item })),
-    focus: (id) => (id ? this.mounts.nodes.get(id)?.focus() : this.focus()),
+    focus: (id) => (id && this.mounts.nodes.get(id) ? this.mounts.nodes.get(id)?.focus() : this.focus()),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
   constructor() {
@@ -238,6 +238,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
       value: () => this.value,
       view: () => this.currentView,
       shapes: () => this.shapes,
+      labelShape: (label) => this.decorations.labelShape(label, this.currentView.zoom),
       document: (board) => this.documentWithBoard(board),
       setDropTarget: (id) => this.decorations.setDropTarget(id),
       local: (event) => this.gestures.local(event),

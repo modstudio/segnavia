@@ -10,7 +10,6 @@ import {
   gridDropMarkerBox,
   itemHeight,
   type Point,
-  provisionalShape,
   resizeItem,
   screenToBoard,
 } from '@segnavia/format'
@@ -30,19 +29,6 @@ export function resizedAtPointer(board: Board, id: string, corner: string, point
   const boardPoint = screenToBoard(view, point)
   const width = corner.endsWith('right') ? boardPoint.x - item.x : item.x + item.width - boardPoint.x
   return resizeItem(board, id, width, anchor, (value) => (value * shape.height) / shape.width)
-}
-
-export function marqueeItems(board: Board, start: Point, point: Point, view: BoardView, shapes: BoardShapes): BoardItem[] {
-  const left = Math.min(start.x, point.x)
-  const top = Math.min(start.y, point.y)
-  const width = Math.abs(point.x - start.x)
-  const height = Math.abs(point.y - start.y)
-  return board.items.filter((item) => {
-    const itemStart = boardToScreen(view, item)
-    const itemWidth = item.width * view.zoom
-    const itemHeightPx = itemHeight(item, shapes.items[item.id] ?? provisionalShape(item.kind)) * view.zoom
-    return itemStart.x <= left + width && itemStart.x + itemWidth >= left && itemStart.y <= top + height && itemStart.y + itemHeightPx >= top
-  })
 }
 
 export function placeMarquee(node: HTMLElement, start: Point, point: Point) {

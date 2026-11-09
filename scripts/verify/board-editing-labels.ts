@@ -11,6 +11,7 @@ type BoardElement = HTMLElement & {
 type DemoWindow = typeof window & {
   boardChanges: DemoChange[]
   hostBoard: DemoDocument
+  labelSelection?: { label?: DemoLabel; labels?: DemoLabel[] }
   boardValue(target: { board: DemoDocument }): DemoBoard
   setBoardValue(target: { board: DemoDocument }, value: DemoBoard): void
   boardEditing: { undo(): void }
@@ -37,10 +38,27 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
   }
 
   await reset()
-  await board.evaluate((element) => ((element as BoardElement).selection = ['label-he']))
   const hebrew = board.locator('[data-board-label="label-he"]')
   const handle = board.locator('[part~="label-resize-handle"]')
+  await board.evaluate((element) => {
+    const state = window as unknown as DemoWindow
+    state.labelSelection = undefined
+    element.addEventListener(
+      'segnavia-board-selection',
+      (event) => {
+        state.labelSelection = (event as CustomEvent).detail
+      },
+      { once: true },
+    )
+  })
+  await hebrew.click()
   await handle.waitFor({ state: 'visible' })
+  const selected = await board.evaluate(() => (window as unknown as DemoWindow).labelSelection)
+  h.check(
+    'clicking a Hebrew label selects it and shows its resize handle',
+    selected?.label?.id === 'label-he' && selected.labels?.length === 1 && (await handle.count()) === 1,
+    JSON.stringify(selected),
+  )
   const beforeBox = await hebrew.boundingBox()
   const beforeHandle = await handle.boundingBox()
   h.check(
@@ -68,7 +86,71 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
     const state = window as unknown as DemoWindow
     return state.boardValue(element as BoardElement).labels.find((label) => label.id === 'label-he') as DemoLabel
   })
-  h.check('double-clicking the label handle clears its authored width in one change', cleared.width === undefined, JSON.stringify(cleared))
+  const clearedBox = await hebrew.boundingBox()
+  h.check(
+    'double-clicking an RTL label handle clears its width and keeps its right edge fixed',
+    cleared.width === undefined && Boolean(resizedBox && clearedBox && Math.abs(resizedBox.x + resizedBox.width - clearedBox.x - clearedBox.width) < 1),
+    JSON.stringify({ resizedBox, clearedBox, cleared }),
+  )
+
+  await reset()
+  const draggedBefore = await board.evaluate((element) => {
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
+    return value.labels.find((label) => label.id === 'label-he') as DemoLabel
+  })
+  await drag(h.page, await center(hebrew), 30, 20)
+  await waitChanges(h.page, 1)
+  const draggedAfter = await board.evaluate((element) => {
+    const state = window as unknown as DemoWindow
+    const value = state.boardValue(element as BoardElement)
+    return { label: value.labels.find((label) => label.id === 'label-he') as DemoLabel, changes: state.boardChanges.length }
+  })
+  h.check(
+    'dragging a label by its own node commits one change',
+    draggedAfter.changes === 1 && draggedAfter.label.x === draggedBefore.x + 30 && draggedAfter.label.y === draggedBefore.y + 20,
+    JSON.stringify({ draggedBefore, draggedAfter }),
+  )
+  await board.evaluate(() => (window as unknown as DemoWindow).boardEditing.undo())
+  await waitChanges(h.page, 2)
+  const draggedUndo = await board.evaluate((element) => {
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
+    return value.labels.find((label) => label.id === 'label-he') as DemoLabel
+  })
+  h.check(
+    'one undo restores a label dragged by its own node',
+    draggedUndo.x === draggedBefore.x && draggedUndo.y === draggedBefore.y,
+    JSON.stringify({ draggedBefore, draggedUndo }),
+  )
+
+  await reset()
+  const nudgedBefore = await board.evaluate((element) => {
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
+    return value.labels.find((label) => label.id === 'label-he') as DemoLabel
+  })
+  await hebrew.click()
+  await h.page.keyboard.press('ArrowRight')
+  await waitChanges(h.page, 1)
+  const nudgedAfter = await board.evaluate((element) => {
+    const state = window as unknown as DemoWindow
+    const value = state.boardValue(element as BoardElement)
+    return { label: value.labels.find((label) => label.id === 'label-he') as DemoLabel, changes: state.boardChanges.length }
+  })
+  h.check(
+    'clicking a label focuses the board so ArrowRight makes one move',
+    nudgedAfter.changes === 1 && nudgedAfter.label.x === nudgedBefore.x + 1 && nudgedAfter.label.y === nudgedBefore.y,
+    JSON.stringify({ nudgedBefore, nudgedAfter }),
+  )
+  await board.evaluate(() => (window as unknown as DemoWindow).boardEditing.undo())
+  await waitChanges(h.page, 2)
+  const nudgedUndo = await board.evaluate((element) => {
+    const value = (window as unknown as DemoWindow).boardValue(element as BoardElement)
+    return value.labels.find((label) => label.id === 'label-he') as DemoLabel
+  })
+  h.check(
+    'one undo restores a label nudged after its own click',
+    nudgedUndo.x === nudgedBefore.x && nudgedUndo.y === nudgedBefore.y,
+    JSON.stringify({ nudgedBefore, nudgedUndo }),
+  )
 
   await reset()
   await board.evaluate((element) => ((element as BoardElement).selection = ['label']))
