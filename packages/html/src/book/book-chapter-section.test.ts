@@ -8,7 +8,7 @@ test('binds record values and marks the chapter flow', () => {
       id: 'row-1',
       html: '<p data-slot-value="name"></p>',
       values: { name: 'Ada' },
-      recordTemplate: { name: 'row', slots: [{ key: 'name' }] },
+      recordTemplate: { name: 'row', slots: [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }] },
       record: { index: 1, count: 3 },
     },
     1,

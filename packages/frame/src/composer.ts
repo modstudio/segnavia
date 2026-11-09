@@ -23,7 +23,14 @@ import {
 import { layoutScript } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
-import { COMPOSER_FURNITURE_PATHS, composerFurnitureValues, dressPlanPages, fillFurniture, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
+import {
+  COMPOSER_FURNITURE_PATHS,
+  composerFurnitureValues,
+  dressPlanPages,
+  fillFurniture,
+  markFurnitureOverflow,
+  markRegionOverflow,
+} from './composer-dress.ts'
 import { composerLayoutReady, forcedPageBreak, measureLineBoxes, measurementRefusal, sizeFlowGalley, tableRowLines } from './composer-measure.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'

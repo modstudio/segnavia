@@ -8,8 +8,8 @@ import {
   MOTIF_ATTRIBUTE,
   motifFieldAttribute,
   type ParentPage,
-  type RecordFacts,
   REGION_NAME,
+  type RecordFacts,
   type SectionNumbering,
   type TemplatedSection,
 } from '@segnavia/format'

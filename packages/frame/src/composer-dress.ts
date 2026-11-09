@@ -21,7 +21,12 @@ export const COMPOSER_FURNITURE_PATHS = {
 
 export type ComposerFurniturePaths = typeof COMPOSER_FURNITURE_PATHS
 
-export function composerFurnitureValues(plan: ComposerFolioPlan, flow: string, index: number, paths: ComposerFurniturePaths): Record<string, string | undefined> {
+export function composerFurnitureValues(
+  plan: ComposerFolioPlan,
+  flow: string,
+  index: number,
+  paths: ComposerFurniturePaths,
+): Record<string, string | undefined> {
   const record = plan.records[flow]
   return {
     [paths.number]: plan.folios[index] ?? undefined,
