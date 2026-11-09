@@ -63,6 +63,18 @@ export function labelXForWidth(label: BoardLabel, currentWidth: number, width: n
   return labelDirection(label) === 'rtl' ? label.x + currentWidth - width : label.x
 }
 
+export function boardNodesInRectangle(board: Board, shapes: BoardShapes, rectangle: Box): string[] {
+  const touches = (node: Box) =>
+    node.x <= rectangle.x + rectangle.width &&
+    node.x + node.width >= rectangle.x &&
+    node.y <= rectangle.y + rectangle.height &&
+    node.y + node.height >= rectangle.y
+  return [
+    ...board.items.filter((item) => touches(itemRectangle(item, shapes))).map((item) => item.id),
+    ...board.labels.filter((label) => touches(labelRectangle(label, shapes))).map((label) => label.id),
+  ]
+}
+
 export function defaultGridColumns(count: number): number {
   return Math.max(1, Math.ceil(Math.sqrt(count)))
 }

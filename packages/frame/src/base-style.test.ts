@@ -78,6 +78,8 @@ describe('headless base styles', () => {
     expect(BASE_CSS).toContain('[part~="marquee"]){position:absolute;box-sizing:border-box;border:1px solid var(--segnavia-board-marquee-color,#2463eb)')
     expect(BASE_CSS).toContain('inline-size:8px;block-size:8px;translate:-50% -50%')
     expect(BASE_CSS).toContain('var(--segnavia-board-handle-background,#fff)')
+    expect(BASE_CSS).toContain('[part~="label-resize-handle"]){position:absolute;box-sizing:border-box;inline-size:8px;block-size:24px')
+    expect(BASE_CSS).toContain('[part~="label"][data-selected]){outline:2px solid var(--segnavia-board-selection-color,#2463eb)')
     expect(BASE_CSS).toContain('[part~="drop-marker"]){position:absolute;box-sizing:border-box;background:var(--segnavia-board-drop-marker-color,#2463eb)')
     expect(BASE_CSS).toContain('[part~="section"][part~="drop-target"]){outline:2px solid var(--segnavia-board-drop-target-color,#2463eb)')
   })

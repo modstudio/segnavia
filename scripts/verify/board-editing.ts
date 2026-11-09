@@ -2,6 +2,7 @@ import { center, drag, waitChanges } from './board-editing-actions.ts'
 import { checkBoardSelectionCompatibility } from './board-editing-compatibility.ts'
 import { checkBoardEditingHostOps } from './board-editing-host-ops.ts'
 import { checkBoardEditingLabelSizes } from './board-editing-label-sizes.ts'
+import { checkBoardEditingLabels } from './board-editing-labels.ts'
 import { checkBoardEditingReset } from './board-editing-reset.ts'
 import { checkBoardEditingSections } from './board-editing-sections.ts'
 import type { DemoBoard, DemoChange, DemoDocument, DemoItem, DemoSection } from './board-editing-types.ts'
@@ -63,6 +64,7 @@ export async function checkBoardEditing(h: Harness) {
   if (!hostBox) throw new Error('The board has no box for editing checks.')
 
   await checkBoardEditingSections(h, board, first, second, reset)
+  await checkBoardEditingLabels(h, board, original)
 
   await checkBoardSelectionCompatibility(h, board, second, reset)
   await reset()
@@ -97,8 +99,9 @@ export async function checkBoardEditing(h: Harness) {
   const all = await board.evaluate((element) => ({
     selected: (element as BoardElement).selection.length,
     items: (window as unknown as DemoWindow).boardValue(element as BoardElement).items.length,
+    labels: (window as unknown as DemoWindow).boardValue(element as BoardElement).labels.length,
   }))
-  h.check('Cmd or Ctrl+A selects every board item', all.selected === all.items, JSON.stringify(all))
+  h.check('Cmd or Ctrl+A selects every board node', all.selected === all.items + all.labels, JSON.stringify(all))
 
   await reset()
   await board.evaluate((element) => ((element as BoardElement).selection = ['page', 'paper']))

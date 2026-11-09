@@ -6,7 +6,14 @@ export class BoardDecorations {
   private readonly labelNodes = new Map<string, HTMLElement>()
   private dropTargetId: string | undefined
 
-  constructor(private readonly surface: HTMLElement) {}
+  constructor(
+    private readonly surface: HTMLElement,
+    private readonly mounted: (node: HTMLElement, id: string) => void,
+  ) {}
+
+  get nodes(): ReadonlyMap<string, HTMLElement> {
+    return this.labelNodes
+  }
 
   render(board: Board, view: BoardView) {
     const sectionIds = new Set(board.sections.map((section) => section.id))
@@ -27,6 +34,9 @@ export class BoardDecorations {
       const text = node.firstElementChild as HTMLElement
       text.textContent = label.text
       text.dir = resolveDirection(undefined, undefined, label.text)
+      text.style.display = label.width === undefined ? '' : 'block'
+      text.style.whiteSpace = label.width === undefined ? 'pre' : 'pre-wrap'
+      text.style.inlineSize = label.width === undefined ? '' : `${label.width * view.zoom}px`
       placeBoardNode(node, view, label)
       node.style.fontSize = `${16 * view.zoom}px`
     }
@@ -39,27 +49,37 @@ export class BoardDecorations {
     this.labelNodes.clear()
   }
 
-  measureLabel(text: string, direction: Board['direction'], zoom: number) {
+  measureLabel(text: string, direction: Board['direction'], authoredWidth: number | undefined, viewZoom: number) {
     const node = [...this.labelNodes.values()].find((entry) => {
       const content = entry.firstElementChild as HTMLElement | null
       return content?.textContent === text && content.dir === direction
     })
     if (!node) return undefined
+    const content = node.firstElementChild as HTMLElement
+    const previous = { display: content.style.display, whiteSpace: content.style.whiteSpace, inlineSize: content.style.inlineSize }
+    content.style.display = authoredWidth === undefined ? '' : 'block'
+    content.style.whiteSpace = authoredWidth === undefined ? 'pre' : 'pre-wrap'
+    content.style.inlineSize = authoredWidth === undefined ? '' : `${authoredWidth * viewZoom}px`
     const rectangle = node.getBoundingClientRect()
-    return rectangle.width > 0 && rectangle.height > 0 ? { width: rectangle.width / zoom, height: rectangle.height / zoom } : undefined
+    Object.assign(content.style, previous)
+    return rectangle.width > 0 && rectangle.height > 0 ? { width: rectangle.width / viewZoom, height: rectangle.height / viewZoom } : undefined
+  }
+
+  labelShape(label: Board['labels'][number], zoom: number) {
+    return labelShape(label, (text, direction, width) => this.measureLabel(text, direction, width, zoom)).shape
   }
 
   measureMissingLabels(labels: Board['labels'], zoom: number): Record<string, { width: number; height: number }> {
     return Object.fromEntries(
       labels.flatMap((label) => {
-        const result = labelShape(label, (text, direction) => this.measureLabel(text, direction, zoom))
+        const result = labelShape(label, (text, direction, width) => this.measureLabel(text, direction, width, zoom))
         return result.source === 'measured' ? [[label.id, result.shape]] : []
       }),
     )
   }
 
   shapes(board: Board, facts: Readonly<Record<string, BoardItemFact>>, zoom: number): BoardShapes {
-    return boardShapes(board, facts, { measureLabel: (text, direction) => this.measureLabel(text, direction, zoom) }).shapes
+    return boardShapes(board, facts, { measureLabel: (text, direction, width) => this.measureLabel(text, direction, width, zoom) }).shapes
   }
 
   setDropTarget(id?: string) {
@@ -97,9 +117,11 @@ export class BoardDecorations {
   private mountLabel(id: string): HTMLElement {
     const node = document.createElement('div')
     node.dataset.decoration = ''
+    node.dataset.boardLabel = id
     node.part.add('label')
     node.append(document.createElement('span'))
     this.labelNodes.set(id, node)
+    this.mounted(node, id)
     this.insert(node)
     return node
   }

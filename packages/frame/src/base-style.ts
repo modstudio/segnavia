@@ -13,7 +13,7 @@
 //   --segnavia-transition-scale    the canvas fit scale used for slide travel
 //   --segnavia-paper             the paper behind its placements
 //   --segnavia-backdrop          the in-window presentation backdrop
-//   --segnavia-board-selection-color the selected board item outline
+//   --segnavia-board-selection-color the selected board node outline
 //   --segnavia-board-marquee-color the board editing marquee border
 //   --segnavia-board-marquee-fill the board editing marquee fill
 //   --segnavia-board-handle-color the board editing handle border
@@ -55,8 +55,10 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="editing-overlay"]){position:absolute;inset:0;z-index:4;pointer-events:none}
 :where(:host(segnavia-board:not([unstyled])) [part~="marquee"]){position:absolute;box-sizing:border-box;border:1px solid var(--segnavia-board-marquee-color,#2463eb);background:var(--segnavia-board-marquee-fill,rgba(36,99,235,.12))}
 :where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"]){position:absolute;box-sizing:border-box;inline-size:8px;block-size:8px;translate:-50% -50%;border:1px solid var(--segnavia-board-handle-color,#2463eb);background:var(--segnavia-board-handle-background,#fff);pointer-events:auto}
+:where(:host(segnavia-board:not([unstyled])) [part~="label-resize-handle"]){position:absolute;box-sizing:border-box;inline-size:8px;block-size:24px;padding:0;translate:-50% -50%;border:1px solid var(--segnavia-board-handle-color,#2463eb);background:var(--segnavia-board-handle-background,#fff);cursor:ew-resize;pointer-events:auto}
 :where(:host(segnavia-board:not([unstyled])) [part~="drop-marker"]){position:absolute;box-sizing:border-box;background:var(--segnavia-board-drop-marker-color,#2463eb)}
 :where(:host(segnavia-board:not([unstyled]))[data-editing] [part~="item"][data-selected]){cursor:move}
+:where(:host(segnavia-board:not([unstyled]))[data-editing] [part~="label"][data-selected]){cursor:move}
 :where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="top-left"]),:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="bottom-right"]){cursor:nwse-resize}
 :where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="top-right"]),:where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"][data-corner="bottom-left"]){cursor:nesw-resize}
 :where(:host(segnavia-board:not([unstyled])) [part~="item"]){position:absolute;overflow:hidden;background:var(--segnavia-board-item,transparent)}
@@ -67,6 +69,7 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="cover"]){background:var(--segnavia-board-cover,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="placeholder"]){background:var(--segnavia-board-placeholder,transparent)}
 :where(:host(segnavia-board:not([unstyled])) [part~="label"]){position:absolute;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-label,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="label"][data-selected]){outline:2px solid var(--segnavia-board-selection-color,#2463eb);outline-offset:2px}
 :where(:host(segnavia-board:not([unstyled])) [part~="item-title"]){position:absolute;translate:0 -100%;color:var(--segnavia-board-item-title,currentColor)}
 :where(:host(segnavia-board:not([unstyled])) [part~="item-title"] > div){display:flex;flex-direction:row;align-items:center;gap:.25em;inline-size:100%;text-align:start}
 :where(:host(segnavia-board:not([unstyled])) [part~="item-icon"]:empty){display:none}

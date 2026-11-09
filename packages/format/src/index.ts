@@ -40,10 +40,13 @@ export {
   addItem,
   type BoardItemAnchor,
   MIN_BOARD_ITEM_WIDTH,
+  moveBoardNodes,
   moveItems,
   moveSection,
   removeItems,
   resizeItem,
+  resizeLabel,
+  withLabelWidth,
 } from './board-edit.ts'
 export type {
   BoardChangedEntity,
@@ -60,6 +63,7 @@ export {
   type BoardShapes,
   type BoardView,
   boardBounds,
+  boardNodesInRectangle,
   boardToScreen,
   itemAt,
   itemHeight,

@@ -4,6 +4,7 @@ import {
   arrange,
   type BoardShapes,
   boardBounds,
+  boardNodesInRectangle,
   boardToScreen,
   itemAt,
   itemHeight,
@@ -60,6 +61,10 @@ describe('board geometry', () => {
 
   test('bounds include items, measured labels and sections', () => {
     expect(boardBounds(board, shapes)).toEqual({ x: -20, y: -10, width: 300, height: 120 })
+  })
+
+  test('finds items and labels touched by a marquee in board coordinates', () => {
+    expect(boardNodesInRectangle(board, shapes, { x: -25, y: -15, width: 100, height: 70 })).toEqual(['a', 'b', 'label'])
   })
 
   test('label bounds use the board position when its shape also has a position', () => {

@@ -1,4 +1,4 @@
-import type { Board, BoardShapes, BoardView, Document, Point } from '@segnavia/format'
+import type { Board, BoardLabel, BoardShapes, BoardView, Document, MeasuredSize, Point } from '@segnavia/format'
 
 export interface BoardPointerDelegate {
   pointerDown(event: PointerEvent): boolean
@@ -13,6 +13,7 @@ export interface BoardEditingBridge {
   value(): Board | null
   view(): BoardView
   shapes(): BoardShapes
+  labelShape(label: BoardLabel): MeasuredSize
   document(board: Board): Document
   local(event: { clientX: number; clientY: number }): Point
   setDropTarget(id?: string): void
@@ -34,6 +35,7 @@ interface BridgeParts {
   value(): Board | null
   view(): BoardView
   shapes(): BoardShapes
+  labelShape(label: BoardLabel): MeasuredSize
   document(board: Board): Document
   local(event: { clientX: number; clientY: number }): Point
   setDropTarget(id?: string): void
@@ -52,6 +54,7 @@ export function createBoardEditingBridge(parts: BridgeParts): BoardEditingBridge
     value: parts.value,
     view: parts.view,
     shapes: parts.shapes,
+    labelShape: parts.labelShape,
     document: parts.document,
     local: parts.local,
     setDropTarget: parts.setDropTarget,

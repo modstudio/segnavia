@@ -1,5 +1,5 @@
 import type { Board, BoardSection } from './board.ts'
-import { moveItems, moveSection } from './board-edit.ts'
+import { moveBoardNodes, moveItems, moveSection } from './board-edit.ts'
 import { type BoardShapes, itemHeight } from './board-geometry.ts'
 import { layoutSection } from './board-section-grid.ts'
 
@@ -103,12 +103,7 @@ function entityRectangle(board: Board, shapes: BoardShapes, entity: Entity): Box
 
 function moveEntity(board: Board, entity: Entity, delta: Point): Board {
   if (entity.kind === 'item') return moveItems(board, [entity.id], delta)
-  if (entity.kind === 'label') {
-    return {
-      ...board,
-      labels: board.labels.map((label) => (label.id === entity.id ? { ...label, x: label.x + delta.x, y: label.y + delta.y } : label)),
-    }
-  }
+  if (entity.kind === 'label') return moveBoardNodes(board, [entity.id], delta)
   return moveSection(board, entity.id, delta)
 }
 

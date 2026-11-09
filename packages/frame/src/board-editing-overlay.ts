@@ -2,6 +2,7 @@ import {
   type Board,
   type BoardItem,
   type BoardItemAnchor,
+  type BoardLabel,
   type BoardShapes,
   type BoardView,
   boardToScreen,
@@ -9,10 +10,10 @@ import {
   gridDropMarkerBox,
   itemHeight,
   type Point,
-  provisionalShape,
   resizeItem,
   screenToBoard,
 } from '@segnavia/format'
+import { labelResizeHandlePoint } from './board-label-editing.ts'
 
 const anchors: Record<string, BoardItemAnchor> = {
   'top-left': 'bottom-right',
@@ -28,19 +29,6 @@ export function resizedAtPointer(board: Board, id: string, corner: string, point
   const boardPoint = screenToBoard(view, point)
   const width = corner.endsWith('right') ? boardPoint.x - item.x : item.x + item.width - boardPoint.x
   return resizeItem(board, id, width, anchor, (value) => (value * shape.height) / shape.width)
-}
-
-export function marqueeItems(board: Board, start: Point, point: Point, view: BoardView, shapes: BoardShapes): BoardItem[] {
-  const left = Math.min(start.x, point.x)
-  const top = Math.min(start.y, point.y)
-  const width = Math.abs(point.x - start.x)
-  const height = Math.abs(point.y - start.y)
-  return board.items.filter((item) => {
-    const itemStart = boardToScreen(view, item)
-    const itemWidth = item.width * view.zoom
-    const itemHeightPx = itemHeight(item, shapes.items[item.id] ?? provisionalShape(item.kind)) * view.zoom
-    return itemStart.x <= left + width && itemStart.x + itemWidth >= left && itemStart.y <= top + height && itemStart.y + itemHeightPx >= top
-  })
 }
 
 export function placeMarquee(node: HTMLElement, start: Point, point: Point) {
@@ -86,4 +74,25 @@ export function renderResizeHandles(overlay: HTMLElement, item: BoardItem | unde
     handle.style.top = `${point.y + (corner.startsWith('bottom') ? height : 0)}px`
     overlay.append(handle)
   }
+}
+
+export function renderLabelResizeHandle(
+  overlay: HTMLElement,
+  label: BoardLabel | undefined,
+  view: BoardView,
+  shape: { width: number; height: number } | undefined,
+  name: string,
+) {
+  overlay.querySelector('[part~="label-resize-handle"]')?.remove()
+  if (!label || !shape) return
+  const point = labelResizeHandlePoint(label, view, shape)
+  const handle = document.createElement('button')
+  handle.type = 'button'
+  handle.part.add('label-resize-handle')
+  handle.dataset.labelResizeHandle = label.id
+  handle.dir = 'auto'
+  handle.setAttribute('aria-label', name)
+  handle.style.left = `${point.x}px`
+  handle.style.top = `${point.y}px`
+  overlay.append(handle)
 }
