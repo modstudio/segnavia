@@ -146,8 +146,6 @@ export {
   textDirection,
 } from './direction.ts'
 export { Document, type DocumentInput, type DocumentKind, type DocumentParseOptions } from './document.ts'
-export { VariableNode } from './document-nodes-book.ts'
-export { NumberVariable, TextVariable, Variable } from './variable.ts'
 export { applyOps } from './document-apply.ts'
 export { diffDocuments } from './document-diff.ts'
 export { fingerprintDocument, fingerprintScript, fingerprintValue, requireParsedDocument } from './document-fingerprint.ts'
@@ -166,6 +164,7 @@ export {
 } from './document-lowering.ts'
 export * from './document-metadata.ts'
 export { DocumentNodeInput } from './document-node-input.ts'
+export { VariableNode } from './document-nodes-book.ts'
 export { DocumentBatch, DocumentCollection, DocumentLocation, DocumentOp } from './document-op.ts'
 export {
   DOCUMENT_NODE_MODEL,
@@ -264,17 +263,7 @@ export {
   resolveLimits,
 } from './limits.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
-export {
-  Measurements,
-  PaginateBlock,
-  PaginateFlow,
-  PaginateLine,
-  PaginateMark,
-  PaginateVariable,
-  PaginateNote,
-  PaginateNoteRef,
-  PaginateNoteSeriesGeometry,
-} from './measurements.ts'
+export * from './measurements.ts'
 export {
   MEDIA_FORMATS,
   Media,
@@ -400,3 +389,4 @@ export {
 } from './style-sheet.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
+export { NumberVariable, TextVariable, Variable } from './variable.ts'

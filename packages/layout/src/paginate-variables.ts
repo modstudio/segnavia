@@ -12,12 +12,14 @@ export interface PaginateVariableValues {
   last: string
 }
 
-export function paginateVariables(
-  placed: PaginateUnit[],
-  carried: Record<string, CarriedVariable>,
-  declarations: readonly TextVariable[],
-): { values: Record<string, PaginateVariableValues>; carried: Record<string, CarriedVariable> } {
-  const setOnPage = Object.create(null) as Record<string, Array<{ value: string; firstLine: boolean; scope?: 'flow' }>>
+interface PageSetPoint {
+  value: string
+  firstLine: boolean
+  scope?: 'flow'
+}
+
+export function pageSetPoints(placed: PaginateUnit[]): Record<string, PageSetPoint[]> {
+  const setOnPage = Object.create(null) as Record<string, PageSetPoint[]>
   const firstUnit = placed[0]
   for (const unit of placed) {
     for (const setPoint of unit.block.variables ?? []) {
@@ -27,6 +29,15 @@ export function paginateVariables(
       setOnPage[setPoint.name] = values
     }
   }
+  return setOnPage
+}
+
+export function paginateVariables(
+  placed: PaginateUnit[],
+  carried: Record<string, CarriedVariable>,
+  declarations: readonly TextVariable[],
+): { values: Record<string, PaginateVariableValues>; carried: Record<string, CarriedVariable> } {
+  const setOnPage = pageSetPoints(placed)
   const values = Object.create(null) as Record<string, PaginateVariableValues>
   const next = Object.assign(Object.create(null), carried) as Record<string, CarriedVariable>
   for (const declaration of declarations) {

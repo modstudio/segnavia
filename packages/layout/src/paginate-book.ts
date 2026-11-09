@@ -1,19 +1,19 @@
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { paginateMarks } from './paginate-marks.ts'
-import { type CarriedVariable, paginateVariables } from './paginate-variables.ts'
 import { measuredExtentFits } from './paginate-measure.ts'
 import { paginateNotes } from './paginate-notes.ts'
 import { paginateSequence } from './paginate-sequence.ts'
 import type { PaginateBlock, PaginateBookInput, PaginateBookRefusal, PaginateBookResult, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
+import { type CarriedVariable, pageSetPoints, paginateVariables } from './paginate-variables.ts'
 import { printedPageAt, selectBookParent } from './printed-pages.ts'
 
 export { paginateColumns } from './paginate-columns.ts'
 export { paginateKeeps } from './paginate-keeps.ts'
 export { paginateMarks } from './paginate-marks.ts'
-export { paginateVariables } from './paginate-variables.ts'
 export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
+export { paginateVariables } from './paginate-variables.ts'
 
 export function paginateBook(input: PaginateBookInput): PaginateBookResult {
   function variablesForPages(result: PaginateBookResult): PaginateBookResult {
@@ -22,10 +22,10 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
     let previousFlow: string | undefined
     const pages = result.pages.map((page) => {
       if (page.flow !== previousFlow) {
-        carried = Object.assign(
-          Object.create(null),
-          Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow')),
-        ) as Record<string, CarriedVariable>
+        carried = Object.assign(Object.create(null), Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow'))) as Record<
+          string,
+          CarriedVariable
+        >
       }
       previousFlow = page.flow
       if (page.blank) return { ...page, variables: {} }
@@ -167,6 +167,7 @@ export const PAGINATE_FUNCTIONS = [
   paginateNotes,
   paginateKeeps,
   paginateMarks,
+  pageSetPoints,
   paginateVariables,
   paginateSequence,
   paginateBook,

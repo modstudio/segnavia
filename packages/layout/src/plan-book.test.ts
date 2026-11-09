@@ -49,4 +49,23 @@ describe('planBook', () => {
       refusals: paginated.refusals,
     })
   })
+
+  test('resolves folio and page-count variables by numbering, document and record', () => {
+    const measurements = input({
+      variables: [
+        { name: 'folio', kind: 'folio', of: 'numbering' },
+        { name: 'document-folio', kind: 'folio', of: 'document' },
+        { name: 'record-folio', kind: 'folio', of: 'record' },
+        { name: 'pages', kind: 'pages', of: 'numbering' },
+        { name: 'document-pages', kind: 'pages', of: 'document' },
+        { name: 'record-pages', kind: 'pages', of: 'record' },
+      ],
+      flows: [{ ...flow('record', 'chapter', [block('text', 'p', 1, 1, 6, 0)]), record: { index: 1, count: 1 } }],
+    })
+    const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
+    expect(result.ok && result.plan.pages.map((page) => page.variables)).toEqual([
+      { folio: '1', 'document-folio': '1', 'record-folio': '1', pages: '2', 'document-pages': '2', 'record-pages': '2' },
+      { folio: '2', 'document-folio': '2', 'record-folio': '2', pages: '2', 'document-pages': '2', 'record-pages': '2' },
+    ])
+  })
 })

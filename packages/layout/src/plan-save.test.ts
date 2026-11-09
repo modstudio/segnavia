@@ -65,11 +65,7 @@ describe('saved book plans', () => {
   test('refuses the page whose saved variable value changed', () => {
     const measurements = input({
       variables: [{ name: 'topic', kind: 'text', from: 'content', pick: 'first' }],
-      flows: [
-        flow('chapter', 'chapter', [
-          block('text', 'p', 1, 1, 12, 0, { id: 'paragraph', variables: [{ name: 'topic', value: 'Before', line: 6 }] }),
-        ]),
-      ],
+      flows: [flow('chapter', 'chapter', [block('text', 'p', 1, 1, 12, 0, { id: 'paragraph', variables: [{ name: 'topic', value: 'Before', line: 6 }] })])],
     })
     const saved = savePlan(measurements, planned(measurements), numbering)
     const changed = structuredClone(measurements)

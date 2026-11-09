@@ -15,6 +15,7 @@ function planPage(number: number): Plan['pages'][number] {
     role: number === 1 ? 'opener' : 'body',
     windows: [],
     notes: [],
+    variables: {},
     blank: false,
     sectionOpening: number === 1,
     parent: number === 1 ? 'segnavia:opener' : 'segnavia:recto',

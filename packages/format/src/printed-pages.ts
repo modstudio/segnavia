@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { Variable } from './variable.ts'
 import { BookOpens } from './book-opens.ts'
 import { SectionNumbering } from './folio.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
@@ -7,6 +6,7 @@ import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import { CONTINUE_OPENS_REMEDY } from './section-opens-policy.ts'
+import { Variable } from './variable.ts'
 
 export const PRINTED_PAGE_ROLES = ['every', 'first', 'recto', 'verso', 'last'] as const
 export type PrintedPageRole = (typeof PRINTED_PAGE_ROLES)[number]

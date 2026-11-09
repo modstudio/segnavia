@@ -1,8 +1,8 @@
 import { fingerprintValue, type Measurements, type PaginateLine, type PaginateWindow, type PlanPage, type Plan as SavedPlan } from '@segnavia/format'
 import type { BookPlanNumbering } from './book-plan-folios.ts'
-import type { BookPlan } from './plan-book.ts'
-import { type CarriedVariable, paginateVariables } from './paginate-variables.ts'
 import type { PaginateUnit } from './paginate-types.ts'
+import { type CarriedVariable, paginateVariables } from './paginate-variables.ts'
+import type { BookPlan } from './plan-book.ts'
 
 export type ReplayPlanResult = { ok: true; plan: BookPlan } | { ok: false; page: number; refusal: string }
 
@@ -241,6 +241,45 @@ function fingerprintRefusal(measurements: Measurements, saved: SavedPlan, page: 
   return pageRefusal(pageNumber, name)
 }
 
+function pageUnits(measurements: Measurements, page: PlanPage): PaginateUnit[] {
+  if (page.blank) return []
+  const placed: PaginateUnit[] = []
+  for (const window of page.windows) {
+    const flow = flowingFlow(measurements, window.flow)
+    if (!flow) continue
+    for (const block of flow.blocks) {
+      block.lines.forEach((line, lineIndex) => {
+        if (lineInWindow(line, window)) placed.push({ flowId: flow.id, block, index: lineIndex, top: line.top, bottom: line.bottom, refs: [] })
+      })
+    }
+  }
+  return placed
+}
+
+function textVariablesForReplay(measurements: Measurements, pages: PlanPage[]): Array<Record<string, string>> {
+  const declarations = measurements.variables.filter((variable) => variable.kind === 'text')
+  let carried = Object.create(null) as Record<string, CarriedVariable>
+  let previousFlow: string | undefined
+  return pages.map((page) => {
+    if (page.flow !== previousFlow) {
+      carried = Object.assign(Object.create(null), Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow'))) as Record<
+        string,
+        CarriedVariable
+      >
+    }
+    previousFlow = page.flow
+    const resolved = paginateVariables(pageUnits(measurements, page), carried, declarations)
+    carried = resolved.carried
+    const variables = { ...page.variables }
+    for (const declaration of declarations) {
+      delete variables[declaration.name]
+      const value = resolved.values[declaration.name]?.[declaration.pick]
+      if (value) variables[declaration.name] = value
+    }
+    return variables
+  })
+}
+
 export function replayPlan(measurements: Measurements, saved: SavedPlan, numbering: BookPlanNumbering): ReplayPlanResult {
   if (saved.fingerprint !== inputFingerprint(measurements, numbering) || fingerprintValue(saved.breaks) !== fingerprintValue(breaksOf(measurements))) {
     return {
@@ -249,9 +288,7 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       refusal: "the plan's inputs changed (settings, geometry, breaks or block order); compute a new plan to clear this refusal",
     }
   }
-  const declarations = measurements.variables.filter((variable) => variable.kind === 'text')
-  let carried = Object.create(null) as Record<string, CarriedVariable>
-  let previousFlow: string | undefined
+  const actualVariables = textVariablesForReplay(measurements, saved.pages)
   for (const [index, page] of saved.pages.entries()) {
     const pageNumber = index + 1
     const invalid =
@@ -261,34 +298,7 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       validateWindows(measurements, page, pageNumber) ??
       validateNotes(measurements, page, pageNumber)
     if (invalid) return invalid
-    if (page.flow !== previousFlow) {
-      carried = Object.assign(
-        Object.create(null),
-        Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow')),
-      ) as Record<string, CarriedVariable>
-    }
-    previousFlow = page.flow
-    const placed: PaginateUnit[] = []
-    if (!page.blank) {
-      for (const window of page.windows) {
-        const flow = flowingFlow(measurements, window.flow)
-        if (!flow) continue
-        for (const block of flow.blocks) {
-          block.lines.forEach((line, lineIndex) => {
-            if (lineInWindow(line, window)) placed.push({ flowId: flow.id, block, index: lineIndex, top: line.top, bottom: line.bottom, refs: [] })
-          })
-        }
-      }
-    }
-    const resolved = paginateVariables(placed, carried, declarations)
-    carried = resolved.carried
-    const actualVariables = { ...page.variables }
-    for (const declaration of declarations) {
-      delete actualVariables[declaration.name]
-      const value = resolved.values[declaration.name]?.[declaration.pick]
-      if (value) actualVariables[declaration.name] = value
-    }
-    if (page.fingerprint !== pageFingerprint(measurements, { ...page, variables: actualVariables }, saved.pages, index)) {
+    if (page.fingerprint !== pageFingerprint(measurements, { ...page, variables: actualVariables[index] ?? {} }, saved.pages, index)) {
       return fingerprintRefusal(measurements, saved, page, pageNumber, index)
     }
   }
@@ -332,6 +342,8 @@ export function savedPlanScript(): string {
     validateWindows,
     validateNotes,
     fingerprintRefusal,
+    pageUnits,
+    textVariablesForReplay,
     replayPlan,
   ]
   return `${functions.map((fn) => fn.toString()).join('\n')}

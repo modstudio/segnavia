@@ -10,10 +10,10 @@ import type {
   PaginateNoteSeriesGeometry as FormatPaginateNoteSeriesGeometry,
   PaginatePageMarks as FormatPaginatePageMarks,
   PaginatePageNote as FormatPaginatePageNote,
-  TextVariable,
   PaginateWindow as FormatPaginateWindow,
   Measurements,
   PlanPage as SavedPlanPage,
+  TextVariable,
 } from '@segnavia/format'
 
 export type PaginateSequence = NonNullable<FormatPaginateFlow['sequence']>

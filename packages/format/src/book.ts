@@ -14,7 +14,6 @@ import {
 } from './book-section.ts'
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
-import { Variable } from './variable.ts'
 import { pageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
@@ -29,6 +28,7 @@ import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
+import { Variable } from './variable.ts'
 
 export { bookPageGeometries, bookPageName, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export {
@@ -161,7 +161,7 @@ export const BookViewPagination = z.object({
   endnotePlacement: z.enum(['book', 'chapter']),
   contents: z.object({ pageNumbers: z.boolean(), depth: z.number().int().min(1).max(6) }),
   runningHead: BookRunningHead,
-  variables: z.array(Variable),
+  variables: z.array(Variable).optional(),
 })
 export type BookViewPagination = z.infer<typeof BookViewPagination>
 

@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test'
+import { block, flow, input } from './paginate-book.test-helper.ts'
+import { paginateBook } from './paginate-book.ts'
 import type { PaginateUnit } from './paginate-types.ts'
 import { paginateVariables } from './paginate-variables.ts'
 
@@ -59,5 +61,19 @@ describe('paginateVariables', () => {
       first: { start: '', first: '', last: '' },
       last: { start: '', first: '', last: '' },
     })
+  })
+
+  test('section-title values carry only within their flow', () => {
+    const result = paginateBook(
+      input({
+        variables: [{ name: 'title', kind: 'text', from: 'section-title', pick: 'first' }],
+        flows: [
+          flow('one', 'chapter', [block('text', 'p', 1, 1, 6, 0, { variables: [{ name: 'title', value: 'One', line: 0, scope: 'flow' }] })]),
+          flow('two', 'chapter', [block('text', 'p', 2, 1, 1, 0)]),
+        ],
+      }),
+    )
+    expect(result.pages.filter((page) => page.flow === 'one').map((page) => page.variables.title)).toEqual(['One', 'One'])
+    expect(result.pages.find((page) => page.flow === 'two')?.variables.title).toBeUndefined()
   })
 })

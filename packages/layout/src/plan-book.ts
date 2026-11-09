@@ -1,4 +1,4 @@
-import { formatNumber, type Measurements as FormatMeasurements } from '@segnavia/format'
+import { type Measurements as FormatMeasurements, formatNumber, type Variable } from '@segnavia/format'
 import { type BookPlanDocumentNumbers, bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { type BookPlanFolioResult, type BookPlanNumbering, bookPlanFolios } from './book-plan-folios.ts'
 import { paginateBook } from './paginate-book.ts'
@@ -11,6 +11,45 @@ export interface BookPlan extends BookPlanFolioResult, BookPlanDocumentNumbers {
   pages: PaginateBookPage[]
 }
 
+export function numberVariableValue(
+  variable: Exclude<Variable, { kind: 'text' }>,
+  page: PaginateBookPage,
+  index: number,
+  recordIndex: number,
+  numbering: BookPlanNumbering,
+  folios: BookPlanFolioResult,
+  documents: BookPlanDocumentNumbers,
+): string {
+  if (variable.kind === 'folio') {
+    if (variable.of === 'numbering') return folios.folios[index] ?? ''
+    if (variable.of === 'document') return documents.documentFolios[index] ?? ''
+    return page.blank ? '' : formatNumber(recordIndex, numbering.body)
+  }
+  if (variable.of === 'numbering') return folios.total
+  if (variable.of === 'document') return documents.documentTotal
+  return documents.recordTotals[page.flow] ?? ''
+}
+
+export function pagesWithNumberVariables(
+  pages: PaginateBookPage[],
+  variables: readonly Variable[],
+  numbering: BookPlanNumbering,
+  folios: BookPlanFolioResult,
+  documents: BookPlanDocumentNumbers,
+): PaginateBookPage[] {
+  const recordIndexes = new Map<string, number>()
+  return pages.map((page, index) => {
+    if (!page.blank) recordIndexes.set(page.flow, (recordIndexes.get(page.flow) ?? 0) + 1)
+    const resolved = { ...page.variables }
+    for (const variable of variables) {
+      if (variable.kind === 'text') continue
+      const value = numberVariableValue(variable, page, index, recordIndexes.get(page.flow) ?? 0, numbering, folios, documents)
+      if (value) resolved[variable.name] = value
+    }
+    return { ...page, variables: resolved }
+  })
+}
+
 export function planBook(
   measurements: Measurements,
   numbering: BookPlanNumbering,
@@ -19,25 +58,6 @@ export function planBook(
   if (paginated.refusals.length > 0) return { ok: false, refusals: paginated.refusals }
   const numbered = bookPlanFolios(paginated.pages, numbering, measurements.flows)
   const documentNumbers = bookPlanDocumentNumbers(paginated.pages, numbering, measurements.flows)
-  const recordIndexes = new Map<string, number>()
-  const pages = paginated.pages.map((page, index) => {
-    if (!page.blank) recordIndexes.set(page.flow, (recordIndexes.get(page.flow) ?? 0) + 1)
-    const variables = { ...page.variables }
-    for (const variable of measurements.variables) {
-      if (variable.kind === 'text') continue
-      let value = ''
-      if (variable.kind === 'folio') {
-        if (variable.of === 'numbering') value = numbered.folios[index] ?? ''
-        if (variable.of === 'document') value = documentNumbers.documentFolios[index] ?? ''
-        if (variable.of === 'record' && !page.blank) value = formatNumber(recordIndexes.get(page.flow) ?? 0, numbering.body)
-      } else {
-        if (variable.of === 'numbering') value = numbered.total
-        if (variable.of === 'document') value = documentNumbers.documentTotal
-        if (variable.of === 'record') value = documentNumbers.recordTotals[page.flow] ?? ''
-      }
-      if (value) variables[variable.name] = value
-    }
-    return { ...page, variables }
-  })
+  const pages = pagesWithNumberVariables(paginated.pages, measurements.variables, numbering, numbered, documentNumbers)
   return { ok: true, plan: { version: 3, pages, ...numbered, ...documentNumbers } }
 }
