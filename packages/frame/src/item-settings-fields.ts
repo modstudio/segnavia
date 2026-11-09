@@ -61,7 +61,6 @@ export class FieldsPanel {
   private controls: ItemSettingsControls = {}
 
   constructor(container: HTMLElement) {
-    this.switcher.part.add('fills')
     this.slots.part.add('slots')
     container.append(this.switcher, this.slots)
   }

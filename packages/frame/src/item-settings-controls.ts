@@ -53,7 +53,7 @@ function isolated(text: string): HTMLElement {
 
 export const nativeFillSwitcher: NonNullable<ItemSettingsControls['fillSwitcher']> = (initial, callbacks) => {
   const root = document.createElement('div')
-  root.dataset.nativeFillSwitcher = ''
+  root.part.add('fills')
   const selectLabel = document.createElement('label')
   const selectCaption = document.createElement('span')
   const select = document.createElement('select')
