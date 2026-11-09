@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board, BoardLabel, BoardShapes, BoardView } from '@segnavia/format'
-import { labelResizeHandlePoint } from './board-label-editing.ts'
+import { committedLabelText, labelDoubleClickTarget, labelResizeHandlePoint } from './board-label-editing.ts'
 
 const view: BoardView = { zoom: 2, pan: { x: 10, y: 20 }, viewport: { width: 800, height: 600 } }
 const shapes: BoardShapes = { items: { item: { width: 4, height: 3 } }, labels: { latin: { width: 80, height: 20 }, hebrew: { width: 70, height: 38 } } }
@@ -23,5 +23,27 @@ describe('label resize', () => {
     const board = fixture()
     expect(labelResizeHandlePoint(board.labels[0] as BoardLabel, view, shapes.labels.latin as { width: number; height: number })).toEqual({ x: 370, y: 120 })
     expect(labelResizeHandlePoint(board.labels[1] as BoardLabel, view, shapes.labels.hebrew as { width: number; height: number })).toEqual({ x: 410, y: 218 })
+  })
+})
+
+describe('label text editing', () => {
+  test('uses the pointerdown label when pointer capture retargets double-click to the board', () => {
+    const captured = labelDoubleClickTarget(undefined, 'hebrew')
+    expect(labelDoubleClickTarget(undefined, undefined, captured)).toEqual({ kind: 'label', id: 'hebrew' })
+  })
+
+  test('keeps a resize handle distinct when pointer capture retargets double-click to the board', () => {
+    const captured = labelDoubleClickTarget('hebrew', 'hebrew')
+    expect(labelDoubleClickTarget(undefined, undefined, captured)).toEqual({ kind: 'handle', id: 'hebrew' })
+  })
+
+  test.each([
+    ['unchanged text', 'Old text', 'Old text', undefined],
+    ['empty text', 'Old text', '', undefined],
+    ['whitespace-only text', 'Old text', ' \n\t', undefined],
+    ['changed text', 'Old text', 'New text', 'New text'],
+    ['changed Hebrew text', 'עברית', 'עברית חדשה', 'עברית חדשה'],
+  ])('%s', (_name, oldText, newText, expected) => {
+    expect(committedLabelText(oldText, newText)).toBe(expected)
   })
 })

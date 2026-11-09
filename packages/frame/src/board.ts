@@ -188,7 +188,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
     this.chrome.labels = value
     this.chrome.refresh()
   }
-
   set view(value: BoardView) {
     this.viewWasSet = true
     this.setView(value)
@@ -238,6 +237,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
       view: () => this.currentView,
       shapes: () => this.shapes,
       labelShape: (label) => this.decorations.labelShape(label, this.currentView.zoom),
+      labelTextNode: (id) => this.decorations.labelTextNode(id),
       document: (board) => this.documentWithBoard(board),
       setDropTarget: (id) => this.decorations.setDropTarget(id),
       local: (event) => this.gestures.local(event),

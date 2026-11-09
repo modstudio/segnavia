@@ -56,6 +56,7 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="marquee"]){position:absolute;box-sizing:border-box;border:1px solid var(--segnavia-board-marquee-color,#2463eb);background:var(--segnavia-board-marquee-fill,rgba(36,99,235,.12))}
 :where(:host(segnavia-board:not([unstyled])) [part~="resize-handle"]){position:absolute;box-sizing:border-box;inline-size:8px;block-size:8px;translate:-50% -50%;border:1px solid var(--segnavia-board-handle-color,#2463eb);background:var(--segnavia-board-handle-background,#fff);pointer-events:auto}
 :where(:host(segnavia-board:not([unstyled])) [part~="label-resize-handle"]){position:absolute;box-sizing:border-box;inline-size:8px;block-size:24px;padding:0;translate:-50% -50%;border:1px solid var(--segnavia-board-handle-color,#2463eb);background:var(--segnavia-board-handle-background,#fff);cursor:ew-resize;pointer-events:auto}
+:where(:host(segnavia-board:not([unstyled])) [part~="label-editor"]){position:absolute;box-sizing:border-box;min-inline-size:0;min-block-size:0;margin:0;padding:0;border:0;overflow:hidden;resize:none;pointer-events:auto}
 :where(:host(segnavia-board:not([unstyled])) [part~="drop-marker"]){position:absolute;box-sizing:border-box;background:var(--segnavia-board-drop-marker-color,#2463eb)}
 :where(:host(segnavia-board:not([unstyled]))[data-editing] [part~="item"][data-selected]){cursor:move}
 :where(:host(segnavia-board:not([unstyled]))[data-editing] [part~="label"][data-selected]){cursor:move}
