@@ -105,6 +105,18 @@ function verifyParentDetails(output: string, check: Check): void {
 }
 
 export function verifyPagesRender(output: string, work: string, check: Check): void {
+  const sectioned = execFileSync('pdftotext', ['-layout', path.join(output, 'pages-sectioned.pdf'), '-'], { encoding: 'utf8' })
+    .split('\f')
+    .filter(Boolean)
+  check(
+    'a sectioned printed document has an uncounted cover and two numbered body papers',
+    sectioned.length === 3 &&
+      sectioned[0]?.includes('SECTIONED COVER') === true &&
+      !sectioned[0]?.includes('Page') &&
+      sectioned[1]?.includes('Page 1 of 2') === true &&
+      sectioned[2]?.includes('Page 2 of 2') === true,
+    sectioned.map((text, index) => `${index + 1}:${text.replace(/\s+/g, ' ').trim()}`).join(' | '),
+  )
   const imposedInfo = (file: string) => execFileSync('pdfinfo', [path.join(output, file)], { encoding: 'utf8' })
   const english = parentText(output, 'english')
   const englishHead = english.filter((page) => page.includes('LETTERHEAD')).length

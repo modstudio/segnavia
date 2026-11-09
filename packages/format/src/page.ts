@@ -93,6 +93,6 @@ function bodyChoices(page: { body?: PageBody; html?: string; markdown?: string }
 
 export const Page = PageShape.transform(({ html, markdown, ...page }) => ({
   ...page,
-  body: bodyChoices({ ...page, html, markdown })[0]?.body as PageBody,
+  body: bodyChoices({ ...page, html, markdown })[0]?.body,
 }))
 export type Page = z.infer<typeof Page>

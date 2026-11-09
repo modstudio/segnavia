@@ -22,13 +22,17 @@ import {
   printedPageMotifSource,
   printedPageMotifs,
   printedParentPageCases,
+  printedSectionDocument,
   twoSidedCardImposition,
   twoSidedCardPages,
   twoSidedSequenceImposition,
 } from './demo-page-fixtures.ts'
 
 function buildParentPageBrowserFixtures(site: string): void {
-  writeFileSync(path.join(site, 'parent-pages-print.json'), JSON.stringify({ cases: printedParentPageCases, motifs: printedPageMotifs }))
+  writeFileSync(
+    path.join(site, 'parent-pages-print.json'),
+    JSON.stringify({ cases: printedParentPageCases, motifs: printedPageMotifs, sectioned: printedSectionDocument }),
+  )
 }
 
 export async function buildPagePdfs(renderer: Renderer, output: string, site?: string): Promise<void> {
@@ -48,6 +52,7 @@ export async function buildPagePdfs(renderer: Renderer, output: string, site?: s
     writeFileSync(path.join(output, `pages-parent-${fixture.name}.pdf`), pdf)
   }
   writeFileSync(path.join(output, 'pages-parent-english-overflow.json'), englishOverflow)
+  writeFileSync(path.join(output, 'pages-sectioned.pdf'), await renderer.pagePdf(printedSectionDocument))
   writeFileSync(path.join(output, 'pages-parent-unsized-image.pdf'), await renderer.pagePdf(parentPageUnsizedImage, { motifs }))
   writeFileSync(path.join(output, 'pages-parent-narrow-break.pdf'), await renderer.pagePdf(parentPageNarrowBreak, { motifs }))
   let furnitureOverflow = ''

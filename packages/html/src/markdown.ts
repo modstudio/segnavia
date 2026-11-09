@@ -292,10 +292,11 @@ export function markdownOutline(markdown: string | Extract<PageBody, { markdown:
   return outlinedMarkdownResult(body).outline
 }
 
-export type HtmlPage = Omit<Page, 'body'> & { html: string }
+export type HtmlPage = Omit<Page, 'body'> & { html?: string }
 
 export function resolvePageHtml(page: Page): HtmlPage {
   const { body, ...fields } = page
+  if (body === undefined) return fields
   if (!('html' in body)) {
     throw new Error('a parsed page needs stored HTML; pass its Document input through @segnavia/html parseDocument to clear this refusal')
   }

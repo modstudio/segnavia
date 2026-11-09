@@ -4,7 +4,13 @@ import { fragmentationCss, markdownHtml, resolvePageHtml } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { expandFramePage } from './motif-expansion.ts'
-import { COMPOSER_SCRIPT, printedPageDocument as documentHtml, PRINTED_PAGE_FAILURE_ATTRIBUTE, PrintedPagesRefusedError } from './printed-page-document.ts'
+import {
+  COMPOSER_SCRIPT,
+  printedPageDocument as documentHtml,
+  printedPageValueDocument,
+  PRINTED_PAGE_FAILURE_ATTRIBUTE,
+  PrintedPagesRefusedError,
+} from './printed-page-document.ts'
 
 const page = Page.parse({
   html: '<p id="start">Body</p>',
@@ -59,6 +65,53 @@ const printedPageDocument = (page: PageValue, options: Parameters<typeof documen
 }
 
 describe('printedPageDocument', () => {
+  test('keeps the implicit single flow markup byte-identical', () => {
+    const html = printedPageValueDocument(resolvePageHtml(page), { nonce: 'held' })
+    expect(html).toContain(
+      '<div data-segnavia-galleys><div data-segnavia-flow="printed-page" data-parent-opener="first" data-parent-recto="body" data-parent-verso="body"><p id="start">Body</p></div></div>',
+    )
+  })
+
+  test('builds numbered printed sections as separate body flows', () => {
+    const sectioned = Page.parse({
+      ...page,
+      body: undefined,
+      printedPages: {
+        ...page.printedPages,
+        sections: [
+          { id: 'cover', title: 'Cover', opens: 'any', numbering: { counted: false }, html: '<h1>Cover</h1>' },
+          { id: 'body', title: 'Body', opens: 'recto', numbering: { restart: 1 }, html: '<p>Body</p>' },
+        ],
+      },
+    })
+    const html = printedPageValueDocument(resolvePageHtml(sectioned), { nonce: 'held' })
+    expect(html).toContain(
+      '<div data-segnavia-flow="cover" id="cover" data-numbering-counted="false" data-sequence="body" data-opens="any" data-parent-opener="first" data-parent-recto="body" data-parent-verso="body"><h1>Cover</h1></div>',
+    )
+    expect(html).toContain(
+      '<div data-segnavia-flow="body" id="body" data-numbering-restart="1" data-sequence="body" data-opens="recto" data-parent-opener="first" data-parent-recto="body" data-parent-verso="body"><p>Body</p></div>',
+    )
+  })
+
+  test('joins a continuing printed section behind a section boundary', () => {
+    const sectioned = Page.parse({
+      ...page,
+      body: undefined,
+      printedPages: {
+        ...page.printedPages,
+        sections: [
+          { id: 'one', title: 'One', html: '<p>One</p>' },
+          { id: 'two', title: 'Two', opens: 'continue', html: '<p>Two</p>' },
+        ],
+      },
+    })
+    const html = printedPageValueDocument(resolvePageHtml(sectioned), { nonce: 'held' })
+    expect(html.match(/<div data-segnavia-flow=/g)).toHaveLength(1)
+    expect(html).toContain('class="segnavia-section-boundary"')
+    expect(html).toContain('data-mark="segnavia:section-title"')
+    expect(html).toContain('id="two">Two</div><p>Two</p>')
+  })
+
   test('declares app faces to the composer', () => {
     const styled = Page.parse({
       ...page,
@@ -91,7 +144,7 @@ describe('printedPageDocument', () => {
   test('carries resolved config under the bridge nonce and injects the shared policy', () => {
     const html = printedPageDocument(page, { nonce: 'held' })
     expect(html.match(/<script nonce="held">/g)?.length).toBeGreaterThanOrEqual(1)
-    expect(html).toContain('"numbering":"hebrew"')
+    expect(html).toContain('"numbering":{"frontMatter":"hebrew","body":"hebrew"}')
     expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
     expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
     expect(COMPOSER_SCRIPT).toContain(layoutScript())
