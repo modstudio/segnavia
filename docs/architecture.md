@@ -781,7 +781,9 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
 3. HTML goes into a frame through `frameDocument`. Every author frame's CSP
    starts from `default-src 'none'`; `style-src`, `font-src` and `img-src` list
    the approved origins for their respective kinds. Refused-script frames also
-   write `worker-src 'none'`. A host `csp` is emitted as a second
+   write `worker-src 'none'`. In those frames, `manifest-src`, `prefetch-src`
+   and `child-src` inherit `'none'` from the default; these are the intentional
+   exceptions to keeping every other fetch directive at its prior value. A host `csp` is emitted as a second
    `<meta http-equiv="Content-Security-Policy">`, enforced independently, so it
    can only narrow the frame's policy. The CSP and the bridge
    come first, before anything the author wrote. Under `scripts: 'refuse'`
@@ -789,7 +791,10 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    clicks inside the frame and relays nothing for them: with `base-uri 'none'`,
    an `srcdoc` frame otherwise resolves `#id` against its parent's URL.
    `origins` is the one kind-aware https-origin policy used by sanitization,
-   every author frame's CSP and render routing. A scripted frame additionally
+   every author frame's CSP and render routing. Converted Markdown, page thumbnails,
+   live composed-page views and their measuring and printable frames all carry
+   that policy. Cover-image renders also carry both `origins` and the host `assets`
+   seam. A scripted frame additionally
    applies script approvals. Its frame sandbox adds `allow-forms` so submit events reach
    author handlers, while `form-action 'none'` blocks real submissions. Refused-script
    frames omit `allow-forms`; no author frame receives `allow-same-origin`.

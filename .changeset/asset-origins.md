@@ -12,4 +12,8 @@ Breaking: replace `dependencyOrigins: [origin]` with `origins: [{ origin, kinds:
 
 A remote image in converted Markdown is kept only when its image origin is approved by `origins`; converter protocol allowances no longer bypass the origin policy.
 
+Cover-image rendering forwards `origins` and `assets`. Page thumbnails, live composed-page views, and both composed-page print frames carry `origins` into their author-frame CSP.
+
+Refused-script frames inherit `manifest-src 'none'`, `prefetch-src 'none'` and `child-src 'none'` from `default-src 'none'`.
+
 `srcset` candidates follow the same origin policy as `img src`.
