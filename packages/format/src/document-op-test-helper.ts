@@ -42,7 +42,7 @@ export const DOCUMENT_NODE_SAMPLES: Record<DocumentNodeType, Sample> = {
   parentPage: (seed) => ({ type: 'parentPage', id: `parent-${seed}`, name: 'body', geometry: {}, head: HEBREW, regions: { side: HEBREW } }),
   template: (seed) => ({ type: 'template', id: `template-${seed}`, name: 'body', html: HEBREW }),
   noteSeries: (seed) => ({ type: 'noteSeries', id: `notes-${seed}`, name: 'notes' }),
-  variable: (seed) => ({ type: 'variable', id: `variable-${seed}`, name: 'folio', valueType: 'folio' }),
+  variable: (seed) => ({ type: 'variable', id: `variable-${seed}`, name: 'folio', kind: 'folio' }),
   condition: (seed) => ({ type: 'condition', id: `condition-${seed}`, name: 'edition' }),
 }
 

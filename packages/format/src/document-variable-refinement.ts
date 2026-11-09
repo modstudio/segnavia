@@ -1,16 +1,23 @@
 import type { z } from 'zod'
+import { DOCUMENT_NODE_MODEL, type DocumentNodeType } from './document-node-model.ts'
+import { walkDocumentNodes } from './document-node-refinement.ts'
 import type { DocumentNode } from './document-nodes.ts'
 import type { VariableNode } from './document-nodes-book.ts'
 
-function contentHtml(nodes: DocumentNode[]): string[] {
-  return nodes.flatMap((node) => {
-    const own = [
-      'html' in node && typeof node.html === 'string' ? node.html : undefined,
-      node.type === 'page' && node.body && 'html' in node.body ? node.body.html : undefined,
-      node.type === 'page' ? Object.values(node.regions ?? {}) : [],
-    ].flatMap((value) => (typeof value === 'string' ? [value] : Array.isArray(value) ? value : []))
-    return 'children' in node ? [...own, ...contentHtml(node.children)] : own
+function htmlValues(node: { type: DocumentNodeType } & Record<string, unknown>): string[] {
+  return [...DOCUMENT_NODE_MODEL[node.type].content].flatMap((field) => {
+    const value = node[field]
+    if (typeof value === 'string') return [value]
+    if (!value || typeof value !== 'object' || Array.isArray(value) || 'kind' in value) return []
+    const values = Object.values(value)
+    return values.every((entry) => typeof entry === 'string') ? values : []
   })
+}
+
+function contentHtml(nodes: DocumentNode[]): string[] {
+  const result: string[] = []
+  walkDocumentNodes(nodes, (node) => result.push(...htmlValues(node as typeof node & Record<string, unknown>)))
+  return result
 }
 
 function dataVariableNames(html: string): string[] {
@@ -42,7 +49,9 @@ export function refineDocumentVariables(
     }
     declared.add(variable.name)
   })
-  const referenced = [...contentHtml(document.children), ...document.templates.map((template) => template.html)].flatMap(dataVariableNames)
+  const referenced = [...contentHtml(document.children), ...document.templates.flatMap((template) => htmlValues({ ...template, type: 'template' }))].flatMap(
+    dataVariableNames,
+  )
   for (const name of referenced) {
     if (declared.has(name)) continue
     ctx.addIssue({

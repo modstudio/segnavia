@@ -1,7 +1,7 @@
 import { fingerprintValue, type Measurements, type PaginateLine, type PaginateWindow, type PlanPage, type Plan as SavedPlan } from '@segnavia/format'
 import type { BookPlanNumbering } from './book-plan-folios.ts'
 import type { PaginateUnit } from './paginate-types.ts'
-import { type CarriedVariable, paginateVariables } from './paginate-variables.ts'
+import { resolveVariablesAcrossPages } from './paginate-variables.ts'
 import type { BookPlan } from './plan-book.ts'
 
 export type ReplayPlanResult = { ok: true; plan: BookPlan } | { ok: false; page: number; refusal: string }
@@ -186,6 +186,18 @@ function noteRefusal(page: number, id: string): ReplayPlanResult {
   }
 }
 
+function variableRefusal(page: number, name: string): ReplayPlanResult {
+  return {
+    ok: false,
+    page,
+    refusal: `page ${page} no longer matches the plan: variable ${JSON.stringify(name)} resolved differently; compute a new plan to clear this refusal`,
+  }
+}
+
+function firstDifferingVariable(saved: Record<string, string>, actual: Record<string, string>): string | undefined {
+  return [...new Set([...Object.keys(saved), ...Object.keys(actual)])].find((name) => saved[name] !== actual[name])
+}
+
 // The composer selects a page's content by its flow, so a saved page may name only a measured flow.
 function validateFlow(measurements: Measurements, page: PlanPage, pageNumber: number): ReplayPlanResult | undefined {
   if (!measurements.flows.some((flow) => flow.id === page.flow)) return fieldRefusal(pageNumber, 'flow', `names missing flow ${JSON.stringify(page.flow)}`)
@@ -258,22 +270,12 @@ function pageUnits(measurements: Measurements, page: PlanPage): PaginateUnit[] {
 
 function textVariablesForReplay(measurements: Measurements, pages: PlanPage[]): Array<Record<string, string>> {
   const declarations = measurements.variables.filter((variable) => variable.kind === 'text')
-  let carried = Object.create(null) as Record<string, CarriedVariable>
-  let previousFlow: string | undefined
-  return pages.map((page) => {
-    if (page.flow !== previousFlow) {
-      carried = Object.assign(Object.create(null), Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow'))) as Record<
-        string,
-        CarriedVariable
-      >
-    }
-    previousFlow = page.flow
-    const resolved = paginateVariables(pageUnits(measurements, page), carried, declarations)
-    carried = resolved.carried
+  const textVariables = resolveVariablesAcrossPages(pages, (page) => pageUnits(measurements, page), declarations)
+  return pages.map((page, index) => {
     const variables = { ...page.variables }
     for (const declaration of declarations) {
       delete variables[declaration.name]
-      const value = resolved.values[declaration.name]?.[declaration.pick]
+      const value = textVariables[index]?.[declaration.name]
       if (value) variables[declaration.name] = value
     }
     return variables
@@ -298,7 +300,10 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       validateWindows(measurements, page, pageNumber) ??
       validateNotes(measurements, page, pageNumber)
     if (invalid) return invalid
-    if (page.fingerprint !== pageFingerprint(measurements, { ...page, variables: actualVariables[index] ?? {} }, saved.pages, index)) {
+    const actual = actualVariables[index] ?? {}
+    if (page.fingerprint !== pageFingerprint(measurements, { ...page, variables: actual }, saved.pages, index)) {
+      const variable = firstDifferingVariable(page.variables, actual)
+      if (variable && page.fingerprint === pageFingerprint(measurements, page, saved.pages, index)) return variableRefusal(pageNumber, variable)
       return fingerprintRefusal(measurements, saved, page, pageNumber, index)
     }
   }
@@ -334,6 +339,8 @@ export function savedPlanScript(): string {
     pageRefusal,
     fieldRefusal,
     noteRefusal,
+    variableRefusal,
+    firstDifferingVariable,
     flowRemainders,
     noteRemainders,
     validateFlow,

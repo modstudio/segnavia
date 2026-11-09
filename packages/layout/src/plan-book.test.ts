@@ -60,12 +60,58 @@ describe('planBook', () => {
         { name: 'document-pages', kind: 'pages', of: 'document' },
         { name: 'record-pages', kind: 'pages', of: 'record' },
       ],
-      flows: [{ ...flow('record', 'chapter', [block('text', 'p', 1, 1, 6, 0)]), record: { index: 1, count: 1 } }],
+      flows: [
+        flow('front', 'front', [block('text', 'p', 1, 1, 1, 0)]),
+        flow('introduction', 'chapter', [block('text', 'p', 2, 1, 1, 0)]),
+        { ...flow('record', 'chapter', [block('text', 'p', 3, 1, 6, 0)]), record: { index: 1, count: 1 } },
+      ],
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
-    expect(result.ok && result.plan.pages.map((page) => page.variables)).toEqual([
-      { folio: '1', 'document-folio': '1', 'record-folio': '1', pages: '2', 'document-pages': '2', 'record-pages': '2' },
-      { folio: '2', 'document-folio': '2', 'record-folio': '2', pages: '2', 'document-pages': '2', 'record-pages': '2' },
+    expect(result.ok && result.plan.pages.filter((page) => page.flow === 'record').map((page) => page.variables)).toEqual([
+      { folio: '2', 'document-folio': '3', 'record-folio': '1', pages: '3', 'document-pages': '4', 'record-pages': '2' },
+      { folio: '3', 'document-folio': '4', 'record-folio': '2', pages: '3', 'document-pages': '4', 'record-pages': '2' },
     ])
+  })
+
+  test('counts a record opener blank in its folio and total without showing a value on the blank', () => {
+    const measurements = input({
+      settings,
+      variables: [
+        { name: 'record-folio', kind: 'folio', of: 'record' },
+        { name: 'record-pages', kind: 'pages', of: 'record' },
+      ],
+      flows: [
+        flow('first', 'chapter', [block('text', 'p', 1, 1, 1, 0)]),
+        { ...flow('record', 'chapter', [block('text', 'p', 2, 1, 1, 0)]), record: { index: 1, count: 1 } },
+      ],
+    })
+    const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
+    expect(result.ok && result.plan.pages.filter((page) => page.flow === 'record').map((page) => page.variables)).toEqual([
+      { 'record-pages': '2' },
+      { 'record-folio': '2', 'record-pages': '2' },
+    ])
+  })
+
+  test('selects start and last text values into the page variables', () => {
+    const measurements = input({
+      variables: [
+        { name: 'opening', kind: 'text', from: 'content', pick: 'start' },
+        { name: 'closing', kind: 'text', from: 'content', pick: 'last' },
+      ],
+      flows: [
+        flow('chapter', 'chapter', [
+          block('text', 'p', 1, 1, 3, 0, {
+            variables: [
+              { name: 'opening', value: 'First line', line: 0 },
+              { name: 'opening', value: 'Middle', line: 1 },
+              { name: 'closing', value: 'First line', line: 0 },
+              { name: 'closing', value: 'Middle', line: 1 },
+            ],
+          }),
+        ]),
+      ],
+    })
+    const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
+    expect(result.ok && result.plan.pages[0]?.variables).toEqual({ opening: 'First line', closing: 'Middle' })
   })
 })

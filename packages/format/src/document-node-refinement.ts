@@ -6,11 +6,11 @@ import { refineRecords } from './record-refinement.ts'
 type DocumentProfile = (typeof DOCUMENT_PROFILES)[DocumentKind]
 type Path = (string | number)[]
 
-function walk(nodes: DocumentNode[], visit: (node: DocumentNode, path: Path) => void, path: Path = ['children']): void {
+export function walkDocumentNodes(nodes: DocumentNode[], visit: (node: DocumentNode, path: Path) => void, path: Path = ['children']): void {
   nodes.forEach((node, index) => {
     const nodePath = [...path, index]
     visit(node, nodePath)
-    if ('children' in node) walk(node.children, visit, [...nodePath, 'children'])
+    if ('children' in node) walkDocumentNodes(node.children, visit, [...nodePath, 'children'])
   })
 }
 
@@ -42,7 +42,7 @@ export function refineDocumentNodes(
   profile: DocumentProfile,
   ctx: z.RefinementCtx,
 ): void {
-  walk(document.children, (node, path) => {
+  walkDocumentNodes(document.children, (node, path) => {
     if (!(profile.children as readonly string[]).includes(node.type)) {
       ctx.addIssue({ code: 'custom', path: [...path, 'type'], message: profileRefusal(node.type, document.kind, profile.children) })
     }

@@ -1770,8 +1770,9 @@ variables by declared name.
 pages, first and last block ids, breaks, folios, resolved variables, parent-page
 choices and fingerprints. It unifies saved pagination and forced break plans;
 a stale plan refuses and names the first page that no longer matches. Saved plan
-version 2 carries record-scoped and whole-document numbering; earlier saved
-plans must be recomputed. `Report`
+version 3 carries record-scoped and whole-document numbering and each page's
+resolved variables in its page fingerprint; a plan below version 3 must be
+recomputed. `Report`
 records bounded overflow, fit, font, count and progress facts. Strict mode
 turns report entries into refusals.
 

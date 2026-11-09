@@ -5,7 +5,7 @@ import { measuredExtentFits } from './paginate-measure.ts'
 import { paginateNotes } from './paginate-notes.ts'
 import { paginateSequence } from './paginate-sequence.ts'
 import type { PaginateBlock, PaginateBookInput, PaginateBookRefusal, PaginateBookResult, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
-import { type CarriedVariable, pageSetPoints, paginateVariables } from './paginate-variables.ts'
+import { pageSetPoints, paginateVariables, resolveVariablesAcrossPages } from './paginate-variables.ts'
 import { printedPageAt, selectBookParent } from './printed-pages.ts'
 
 export { paginateColumns } from './paginate-columns.ts'
@@ -13,46 +13,31 @@ export { paginateKeeps } from './paginate-keeps.ts'
 export { paginateMarks } from './paginate-marks.ts'
 export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
-export { paginateVariables } from './paginate-variables.ts'
+export { paginateVariables, resolveVariablesAcrossPages } from './paginate-variables.ts'
 
 export function paginateBook(input: PaginateBookInput): PaginateBookResult {
   function variablesForPages(result: PaginateBookResult): PaginateBookResult {
     const declarations = input.variables.filter((variable) => variable.kind === 'text')
-    let carried = Object.create(null) as Record<string, CarriedVariable>
-    let previousFlow: string | undefined
-    const pages = result.pages.map((page) => {
-      if (page.flow !== previousFlow) {
-        carried = Object.assign(Object.create(null), Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow'))) as Record<
-          string,
-          CarriedVariable
-        >
-      }
-      previousFlow = page.flow
-      if (page.blank) return { ...page, variables: {} }
-      const placed: PaginateUnit[] = []
-      for (const window of page.windows) {
-        const flow = input.flows.find((candidate) => candidate.id === window.flow)
-        if (!flow || flow.kind === 'fixed') continue
-        for (const block of flow.blocks) {
-          block.lines.forEach((line, index) => {
-            if (line.top >= window.start && line.bottom <= window.end) {
-              placed.push({ flowId: flow.id, block, index, top: line.top, bottom: line.bottom, refs: [] })
-            }
-          })
+    const variables = resolveVariablesAcrossPages(
+      result.pages,
+      (page) => {
+        const placed: PaginateUnit[] = []
+        for (const window of page.windows) {
+          const flow = input.flows.find((candidate) => candidate.id === window.flow)
+          if (!flow || flow.kind === 'fixed') continue
+          for (const block of flow.blocks) {
+            block.lines.forEach((line, index) => {
+              if (line.top >= window.start && line.bottom <= window.end) {
+                placed.push({ flowId: flow.id, block, index, top: line.top, bottom: line.bottom, refs: [] })
+              }
+            })
+          }
         }
-      }
-      const resolved = paginateVariables(placed, carried, declarations)
-      carried = resolved.carried
-      const variables = Object.fromEntries(
-        declarations.flatMap((declaration) => {
-          const picks = resolved.values[declaration.name]
-          const value = picks?.[declaration.pick]
-          return value ? [[declaration.name, value]] : []
-        }),
-      )
-      return { ...page, variables }
-    })
-    return { ...result, pages }
+        return placed
+      },
+      declarations,
+    )
+    return { ...result, pages: result.pages.map((page, index) => ({ ...page, variables: variables[index] ?? {} })) }
   }
   function used(textHeight: number, placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
     return paginateColumns(placed).height + paginateNotes({ op: 'space', notes: input.notes, geometry: { ...input.geometry, textHeight }, fragments })
@@ -169,6 +154,7 @@ export const PAGINATE_FUNCTIONS = [
   paginateMarks,
   pageSetPoints,
   paginateVariables,
+  resolveVariablesAcrossPages,
   paginateSequence,
   paginateBook,
 ]

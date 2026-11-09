@@ -52,3 +52,30 @@ export function paginateVariables(
   }
   return { values, carried: next }
 }
+
+export function resolveVariablesAcrossPages<Page extends { blank: boolean; flow: string }>(
+  pages: readonly Page[],
+  unitsForPage: (page: Page) => PaginateUnit[],
+  declarations: readonly TextVariable[],
+): Array<Record<string, string>> {
+  let carried = Object.create(null) as Record<string, CarriedVariable>
+  let previousFlow: string | undefined
+  return pages.map((page) => {
+    if (page.flow !== previousFlow) {
+      carried = Object.assign(Object.create(null), Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow'))) as Record<
+        string,
+        CarriedVariable
+      >
+    }
+    previousFlow = page.flow
+    if (page.blank) return {}
+    const resolved = paginateVariables(unitsForPage(page), carried, declarations)
+    carried = resolved.carried
+    return Object.fromEntries(
+      declarations.flatMap((declaration) => {
+        const value = resolved.values[declaration.name]?.[declaration.pick]
+        return value ? [[declaration.name, value]] : []
+      }),
+    )
+  })
+}

@@ -1,6 +1,6 @@
 import { type Measurements as FormatMeasurements, formatNumber, type Variable } from '@segnavia/format'
 import { type BookPlanDocumentNumbers, bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
-import { type BookPlanFolioResult, type BookPlanNumbering, bookPlanFolios } from './book-plan-folios.ts'
+import { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanSection, bookPlanFolios } from './book-plan-folios.ts'
 import { paginateBook } from './paginate-book.ts'
 import type { PaginateBookPage, PaginateBookRefusal } from './paginate-types.ts'
 
@@ -36,10 +36,12 @@ export function pagesWithNumberVariables(
   numbering: BookPlanNumbering,
   folios: BookPlanFolioResult,
   documents: BookPlanDocumentNumbers,
+  sections: readonly BookPlanSection[] = [],
 ): PaginateBookPage[] {
   const recordIndexes = new Map<string, number>()
+  const countedByFlow = new Map(sections.map((section) => [section.id, section.numbering?.counted !== false]))
   return pages.map((page, index) => {
-    if (!page.blank) recordIndexes.set(page.flow, (recordIndexes.get(page.flow) ?? 0) + 1)
+    if (countedByFlow.get(page.flow) !== false) recordIndexes.set(page.flow, (recordIndexes.get(page.flow) ?? 0) + 1)
     const resolved = { ...page.variables }
     for (const variable of variables) {
       if (variable.kind === 'text') continue
@@ -58,6 +60,6 @@ export function planBook(
   if (paginated.refusals.length > 0) return { ok: false, refusals: paginated.refusals }
   const numbered = bookPlanFolios(paginated.pages, numbering, measurements.flows)
   const documentNumbers = bookPlanDocumentNumbers(paginated.pages, numbering, measurements.flows)
-  const pages = pagesWithNumberVariables(paginated.pages, measurements.variables, numbering, numbered, documentNumbers)
+  const pages = pagesWithNumberVariables(paginated.pages, measurements.variables, numbering, numbered, documentNumbers, measurements.flows)
   return { ok: true, plan: { version: 3, pages, ...numbered, ...documentNumbers } }
 }

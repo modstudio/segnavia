@@ -78,8 +78,29 @@ describe('saved book plans', () => {
     expect(replayPlan(changed, saved, numbering)).toEqual({
       ok: false,
       page: 2,
-      refusal: 'page 2 no longer matches the plan: block paragraph laid out differently; compute a new plan to clear this refusal',
+      refusal: 'page 2 no longer matches the plan: variable "topic" resolved differently; compute a new plan to clear this refusal',
     })
+  })
+
+  test.each([
+    { from: 'content' as const, scope: undefined },
+    { from: 'section-title' as const, scope: 'flow' as const },
+  ])('round-trips a recto-opening blank after a carried $from variable', ({ from, scope }) => {
+    const measurements = input({
+      settings,
+      variables: [{ name: 'topic', kind: 'text', from, pick: 'start' }],
+      flows: [
+        flow('one', 'chapter', [
+          block('text', 'p', 1, 1, 11, 0, {
+            variables: [{ name: 'topic', value: 'Carried', line: 0, ...(scope === undefined ? {} : { scope }) }],
+          }),
+        ]),
+        flow('two', 'chapter', [block('text', 'p', 2, 1, 1, 0)]),
+      ],
+    })
+    const saved = savePlan(measurements, planned(measurements), numbering)
+    expect(saved.pages.find((page) => page.blank)?.variables).toEqual({})
+    expect(replayPlan(measurements, saved, numbering)).toMatchObject({ ok: true })
   })
 
   test('refuses a line appended after the final saved window', () => {
