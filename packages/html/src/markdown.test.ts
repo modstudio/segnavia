@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { bodyHtml, isGithubAlertBlock, markdownOutline, resolvePageHtml } from './markdown.ts'
+import { bodyHtml, isGithubAlertBlock, markdownHtml, markdownOutline, resolvePageHtml } from './markdown.ts'
 import { findActiveContent } from './sanitize.ts'
 
 describe('bodyHtml', () => {
@@ -109,6 +109,23 @@ describe('bodyHtml', () => {
     expect(html).toContain(`src="${approved}"`)
     expect(html).not.toContain(`src="${refused}"`)
     expect(findActiveContent(`<img src="${refused}">`, options)).toEqual([expect.stringContaining('origin https://outside.example')] as string[])
+  })
+
+  test('memoizes converted images by every iterable origin policy', () => {
+    const source = '![asset](https://images.example/asset.png)'
+    const approval = { origin: 'https://images.example', kinds: ['image'] as const }
+    const approvedFirst = { markdown: source }
+    expect(markdownHtml(approvedFirst, { origins: new Set([approval]) })).toContain('src="https://images.example/asset.png"')
+    expect(markdownHtml(approvedFirst, { origins: new Set() })).not.toContain('src="https://images.example/asset.png"')
+
+    const refusedFirst = { markdown: source }
+    expect(markdownHtml(refusedFirst, { origins: new Set() })).not.toContain('src="https://images.example/asset.png"')
+    expect(markdownHtml(refusedFirst, { origins: new Set([approval]) })).toContain('src="https://images.example/asset.png"')
+
+    const approvals = function* () {
+      yield approval
+    }
+    expect(markdownHtml({ markdown: source }, { origins: approvals() })).toContain('src="https://images.example/asset.png"')
   })
 
   test('adds only logical geometry for overflow on screen and print', () => {

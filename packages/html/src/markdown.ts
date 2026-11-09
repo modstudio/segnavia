@@ -259,15 +259,16 @@ function optionKey(options: BodyHtmlOptions): string {
 }
 
 function markdownResult(body: Extract<PageBody, { markdown: string }>, options: BodyHtmlOptions): MarkdownResult {
+  const resolvedOptions = { ...options, origins: options.origins ? [...options.origins] : undefined }
   let entries = memo.get(body)
   if (!entries) {
     entries = new Map()
     memo.set(body, entries)
   }
-  const key = optionKey(options)
+  const key = optionKey(resolvedOptions)
   const found = entries.get(key)
   if (found !== undefined) return found
-  const result = convert(body.markdown, options)
+  const result = convert(body.markdown, resolvedOptions)
   entries.set(key, result)
   return result
 }
