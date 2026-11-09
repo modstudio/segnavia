@@ -130,6 +130,28 @@ test('chooses placement widths from print, flowing, fixed, and paginated book vi
   ])
 })
 
+test('resolves a placed section at its named geometry width', async () => {
+  const widths: number[] = []
+  const book = parseBookFixture({
+    title: 'Placed landscape',
+    mode: 'paginated',
+    page: { paper: 'letter', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 15 } },
+    style: {
+      pageGeometries: {
+        wide: { paper: 'letter', orientation: 'landscape', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 15 } },
+      },
+    },
+    body: [{ kind: 'placed', pageGeometry: 'wide', placement: { kind: 'media', address: 'cover' } }],
+  })
+  await expandFrameBook(book, undefined, signal, {
+    resolve: async (_placement, context) => {
+      if (context.width !== undefined) widths.push(context.width)
+      return { kind: 'media', media: { format: 'png', size: { width: 20, height: 10 } }, src }
+    },
+  })
+  expect(widths).toEqual([paperPixels(279.4)])
+})
+
 test('placements introduced by motif expansion resolve afterward', async () => {
   const page = Page.parse({ html: '<div data-motif="hero"></div>', size: { width: 320, height: 200 } })
   const motifs = {

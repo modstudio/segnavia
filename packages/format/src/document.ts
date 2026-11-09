@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BookMode, BookPage, BookShape } from './book.ts'
+import { resolveBookPageGeometry } from './book-page-geometry.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
 import { DeckShape, deckTrim } from './deck.ts'
 import { documentBookProjectionForRefinement, documentSourcePath } from './document-book-items.ts'
@@ -9,6 +10,7 @@ import { DocumentMetadata } from './document-metadata.ts'
 import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LogicalMargin } from './margins.ts'
@@ -141,7 +143,11 @@ function refineSectionOpensPolicy(document: DocumentShapeValue, profile: Documen
   if (!(profile.children as readonly string[]).includes('section')) return
   const projection = documentBookProjectionForRefinement(document)
   if (!projection) return
-  const facts = bookSectionOpensFacts(projection.divisions).map((fact) => ({ ...fact, path: documentSourcePath(projection, fact.path) }))
+  const facts = bookSectionOpensFacts(projection.divisions).map((fact) => ({
+    ...fact,
+    path: documentSourcePath(projection, fact.path),
+    geometry: resolveBookPageGeometry(document, fact.pageGeometry),
+  }))
   for (const issue of sectionOpensIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
 }
 
@@ -318,6 +324,7 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   refineSectionNumberingPolicy(document, profile, ctx)
   refineSectionOpensPolicy(document, profile, ctx)
+  for (const issue of documentPageGeometryIssues(document)) ctx.addIssue({ code: 'custom', ...issue })
   refineRootFields(document, profile, ctx)
   refineDocumentNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)

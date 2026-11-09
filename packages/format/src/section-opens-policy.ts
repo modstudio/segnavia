@@ -1,3 +1,5 @@
+import type { ResolvedBookPageGeometry } from './book-page-geometry.ts'
+import { sameBookPageGeometry } from './book-page-geometry.ts'
 import type { BookOpens, BookSectionParents } from './book-section.ts'
 import type { SectionNumbering } from './folio.ts'
 
@@ -10,6 +12,8 @@ export interface SectionOpensFact {
   opens?: BookOpens
   numbering?: SectionNumbering
   parents?: BookSectionParents
+  pageGeometry?: string
+  geometry?: ResolvedBookPageGeometry
 }
 
 export interface SectionOpensIssue {
@@ -38,6 +42,13 @@ export function sectionOpensIssues(sections: readonly SectionOpensFact[]): Secti
       issues.push({
         path: [...section.path, 'opens'],
         message: `Section "${name}" (${section.id}) opens with continue but it or the preceding section has no flow to join; use another opens value to clear this refusal.`,
+      })
+    } else if (!sameBookPageGeometry(section.geometry, before.geometry)) {
+      const beforeName = before.geometry?.name ?? 'the preceding geometry'
+      const currentName = section.geometry?.name ?? section.pageGeometry ?? 'the section geometry'
+      issues.push({
+        path: [...section.path, 'opens'],
+        message: `Section "${name}" (${section.id}) opens with continue but its resolved page geometry ${JSON.stringify(currentName)} differs from the preceding section's ${JSON.stringify(beforeName)}; use the same geometry, or another opens value to clear this refusal.`,
       })
     }
     if (section.numbering !== undefined) {

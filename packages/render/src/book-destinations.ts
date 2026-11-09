@@ -60,6 +60,40 @@ function nameTree(document: PDFDocument, value: PDFObject | undefined, output: M
   if (kids instanceof PDFArray) for (let index = 0; index < kids.size(); index += 1) nameTree(document, kids.get(index), output)
 }
 
+function translateDestination(document: PDFDocument, value: PDFObject | undefined, translations: ReadonlyMap<string, { x: number; y: number }>): void {
+  let found = resolve(document, value)
+  if (found instanceof PDFDict) found = resolve(document, found.get(key('D')))
+  if (!(found instanceof PDFArray)) return
+  const reference = found.get(0)
+  if (!(reference instanceof PDFRef)) return
+  const translation = translations.get(reference.toString())
+  if (!translation) return
+  for (const [index, amount] of [translation.x, translation.y].entries()) {
+    const coordinate = resolve(document, found.get(index + 2))
+    if (coordinate instanceof PDFNumber) found.set(index + 2, PDFNumber.of(coordinate.asNumber() + amount))
+  }
+}
+
+function translateNameTree(document: PDFDocument, value: PDFObject | undefined, translations: ReadonlyMap<string, { x: number; y: number }>): void {
+  const dictionary = resolve(document, value)
+  if (!(dictionary instanceof PDFDict)) return
+  const names = resolve(document, dictionary.get(key('Names')))
+  if (names instanceof PDFArray) {
+    for (let index = 1; index < names.size(); index += 2) translateDestination(document, names.get(index), translations)
+  }
+  const kids = resolve(document, dictionary.get(key('Kids')))
+  if (kids instanceof PDFArray) {
+    for (let index = 0; index < kids.size(); index += 1) translateNameTree(document, kids.get(index), translations)
+  }
+}
+
+export function translateNamedDestinations(document: PDFDocument, translations: ReadonlyMap<string, { x: number; y: number }>): void {
+  const names = resolve(document, document.catalog.get(key('Names')))
+  if (names instanceof PDFDict) translateNameTree(document, names.get(key('Dests')), translations)
+  const direct = resolve(document, document.catalog.get(key('Dests')))
+  if (direct instanceof PDFDict) for (const [, value] of direct.entries()) translateDestination(document, value, translations)
+}
+
 export function namedDestinations(document: PDFDocument): Map<string, BookDestination> {
   const output = new Map<string, BookDestination>()
   const names = resolve(document, document.catalog.get(key('Names')))

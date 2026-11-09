@@ -287,7 +287,7 @@ within each kind.
 ### Declared but not yet supported
 
 Parsing refuses a non-empty `variables` collection, every `condition`
-or `record` node, section `headTemplate`, section `pageGeometry`, division `settings.numbering`, and
+or `record` node, section `headTemplate`, division `settings.numbering`, and
 parent-page `regions`. Division numbering uses the richer shared `Numbering`
 value, while the current Book carries only a number system. It also refuses `limits` on
 deck and board documents. Remove the named field or node to clear the refusal.
@@ -874,6 +874,8 @@ A paginated book without a page is refused. More than one contents entry is refu
 
 `bookPdf` prints a continuous book with a page setting, or a paginated book from the library's page plan. Continuous mode prints the body first to locate every destination, inserts blank pages when recto openings are enabled, and checks a second body print against that prediction. Each chapter except a `continue` section, and body page 1, then opens on a recto: the right-hand page of a left-to-right book and the left-hand page of a right-to-left book; in both directions it is an odd body page. It prints the front matter once with width-appropriate contents placeholders and again with its final front- and body-page numbers, refusing if a front destination moves. An odd front matter then receives a trailing blank. The printed-page planner selects the library's default recto, verso, opener or blank parent page for every physical page. Those parent pages carry the book margins and place the built-in `segnavia:running-head` and `segnavia:folio` motifs in their head and foot; opening and blank parents omit the running head, and blank parents omit the folio. A separate Chromium print renders and overlays that furniture layer, then the renderer joins front and body and rewrites contents and note links to explicit destinations before applying the standard effects, press and limit passes. A continuous print runs the frame's scripts when the book allows scripts, contains a diagram, or declares `--segnavia-keep-with` in its markup or stylesheets, so the bridge's keep pass applies the keeps before Chromium prints. Under `scripts: 'refuse'` the nonce CSP still admits only the library's own scripts.
 
+**Per-section paper.** A paginated book may print sections on different paper. `style.pageGeometries` declares named geometries, each with a paper, an orientation, margins and columns. A flowing, designed, templated or placed section chooses one with `pageGeometry`. A section without `pageGeometry` uses the book's `page`; the default is the absence of a name, never a reserved one. Each section is built, measured and paginated at its own geometry's text area. Its default parent pages take their margins from that geometry, and a placed asset or motif is resolved at that geometry's paper width. The whole book is still one composition and one print. Each geometry becomes a named `@page` size, every page carries its geometry's name, Chromium prints with `preferCSSPageSize`, and the renderer then corrects each PDF page to its own size. The trim and bleed boxes come from each page's own trim, plus the document-wide `print` bleed: press fields never vary by section. Folios continue across geometries, and recto and verso stay physical page parity. The page plan records a page's geometry only when it is named. A page at the book's own geometry therefore keeps the fingerprint it had before geometries existed, and a plan saved for a single-geometry book still replays. The paginated screen view shows every page at one shared scale, fitted to the largest page. In a spread the two pages meet at the spine and the shorter page is centered vertically. A book with one geometry shows exactly as before. Parsing refuses an unknown geometry name; `pageGeometry` in a continuous book, which has one screen flow and one paper; a `continue` section whose resolved geometry differs from its predecessor's; and a named parent whose text area does not fit its section's paper. An imposition whose pages have more than one geometry is refused at print time, naming the pair. Each refusal names what clears it.
+
 Page margins must leave a positive text area on every resolved parent page. A
 flowing section's column measure uses its shared parent text width, while text
 height follows each page's selected parent. Its galley image cap is the minimum
@@ -968,7 +970,7 @@ Two-sided imposition, crop marks and folds are built.
 After the browser prints a plain page (one without bleed or marks and without
 `preferCssPageSize`), a book, a page with bleed or marks, or an imposition
 piece, the renderer sets every page box to the exact size it asked for at
-origin 0: the paper, the bleed box, or the piece's paper. Chromium snaps printed paper dimensions to its own grid
+origin 0: the paper, the bleed box, or the piece's paper. A book page is set to its own section geometry's paper, or to that paper's bleed box; the refusal for a page that differs names the page and its geometry. Chromium snaps printed paper dimensions to its own grid
 regardless of the unit it is given, so the renderer moves the page content and
 link annotations with the box to keep the top edge fixed. The zero origin is
 required because a PDF embedder such as pdf-lib's ignores a MediaBox origin.
@@ -998,7 +1000,8 @@ same paper; putting several pages on one paper belongs to imposition.
 Every printable Document carries its press geometry in `print`. Its `bleed`,
 `safe`, `marks` and `markColor` fields apply to every printable kind. A page or
 printed page takes its trim and optional paper fields from `print`; a book keeps
-its trim in `page.paper`; a deck slide uses its slide size at CSS's 96 px/in;
+its trim in `page.paper`, and a section that names a page geometry takes that
+geometry's paper as its trim; a deck slide uses its slide size at CSS's 96 px/in;
 and a deck notes sheet uses `notesPaper`. Paper, orientation and margin are
 therefore refused in a deck or book `print`. Each PDF piece writes trim and
 bleed boxes and render-only crop marks. Browser printing keeps trim-size papers

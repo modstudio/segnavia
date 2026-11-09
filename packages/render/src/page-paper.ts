@@ -12,12 +12,13 @@ import {
 } from '@segnavia/format'
 import { PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
+import { translateNamedDestinations } from './book-destinations.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type PrintResult, printWithOverflow } from './overflow.ts'
 import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 import { drawCropMarks } from './pdf-marks.ts'
-import { pagePdfSize, setPdfPageSize } from './pdf-page-size.ts'
+import { pagePdfSize, setPdfPageSize, translatePdfAnnotations } from './pdf-page-size.ts'
 
 export function printCss(print: Print, direction: TextDirection): string {
   const properties = printProperties(print)
@@ -55,10 +56,31 @@ export async function addPressBoxes(
   sourceBox: 'bleed' | 'trim' = 'bleed',
 ): Promise<Uint8Array> {
   const document = await loadPdf(pdf)
-  const bleedBox = pdfBox(boxes.bleedBox, boxes.media.height)
-  const trimBox = pdfBox(boxes.trim, boxes.media.height)
+  return addDocumentPressBoxes(
+    document,
+    document.getPages().map(() => boxes),
+    markColor,
+    sourceBox,
+  )
+}
+
+async function addDocumentPressBoxes(
+  document: Awaited<ReturnType<typeof loadPdf>>,
+  boxesByPage: readonly PrintBoxes[],
+  markColor: MarkColor,
+  sourceBox: 'bleed' | 'trim',
+): Promise<Uint8Array> {
   const sources = document.getPages()
-  for (const source of sources) {
+  if (sources.length !== boxesByPage.length) {
+    throw new RenderRefusedError(
+      `The PDF has ${sources.length} pages where the press plan names ${boxesByPage.length}; compute a new plan to clear this refusal.`,
+    )
+  }
+  for (const [index, source] of sources.entries()) {
+    const boxes = boxesByPage[index]
+    if (!boxes) throw new RenderRefusedError(`The press plan has no geometry for page ${index + 1}; compute a new plan to clear this refusal.`)
+    const bleedBox = pdfBox(boxes.bleedBox, boxes.media.height)
+    const trimBox = pdfBox(boxes.trim, boxes.media.height)
     const content = await document.embedPage(source)
     const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
     const target = sourceBox === 'trim' ? trimBox : bleedBox
@@ -76,6 +98,47 @@ export async function addPressBoxes(
     )
   }
   for (let index = 0; index < sources.length; index++) document.removePage(0)
+  return document.save()
+}
+
+export async function addPressBoxesByPage(
+  pdf: Uint8Array,
+  boxesByPage: readonly PrintBoxes[],
+  markColor: MarkColor = 'black',
+  sourceBox: 'bleed' | 'trim' = 'bleed',
+): Promise<Uint8Array> {
+  const document = await loadPdf(pdf)
+  const pages = document.getPages()
+  if (pages.length !== boxesByPage.length) {
+    throw new RenderRefusedError(
+      `The PDF has ${pages.length} pages where the press plan names ${boxesByPage.length}; compute a new plan to clear this refusal.`,
+    )
+  }
+  const translations = new Map<string, { x: number; y: number }>()
+  for (const [index, page] of pages.entries()) {
+    const boxes = boxesByPage[index]
+    if (!boxes) throw new RenderRefusedError(`The press plan has no geometry for page ${index + 1}; compute a new plan to clear this refusal.`)
+    const target = sourceBox === 'trim' ? pdfBox(boxes.trim, boxes.media.height) : pdfBox(boxes.bleedBox, boxes.media.height)
+    const translation = { x: target.x, y: target.y }
+    page.translateContent(translation.x, translation.y)
+    translatePdfAnnotations(page.node.Annots(), translation.x, translation.y)
+    translations.set(page.ref.toString(), translation)
+    page.setMediaBox(0, 0, pt(boxes.media.width), pt(boxes.media.height))
+    page.node.delete(PDFName.of('CropBox'))
+    const bleedBox = pdfBox(boxes.bleedBox, boxes.media.height)
+    const trimBox = pdfBox(boxes.trim, boxes.media.height)
+    page.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
+    page.setTrimBox(trimBox.x, trimBox.y, trimBox.width, trimBox.height)
+    drawCropMarks(
+      page,
+      boxes.marks.map((mark) => ({
+        start: pdfPoint(mark.x1, mark.y1, boxes.media.height),
+        end: pdfPoint(mark.x2, mark.y2, boxes.media.height),
+      })),
+      markColor,
+    )
+  }
+  translateNamedDestinations(document, translations)
   return document.save()
 }
 

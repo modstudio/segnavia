@@ -31,6 +31,9 @@ export function documentSectionFields(section: Extract<DocumentNode, { type: 'se
     opens: section.opens,
     parents: section.parents,
     numbering: section.numbering,
+    pageGeometry: section.pageGeometry,
+    lang: section.lang,
+    dir: section.dir,
   })
 }
 

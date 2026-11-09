@@ -218,6 +218,14 @@ describe('bookDocument', () => {
         paper: { width: 148, height: 210 },
         margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
         columnGap: 4,
+        geometries: [
+          {
+            paper: { width: 148, height: 210 },
+            margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
+            columns: { count: 1, gap: 4 },
+            parents: [],
+          },
+        ],
         direction: 'rtl' as const,
         numbering: { frontMatter: 'roman-lower' as const, body: 'hebrew' as const },
         rectoOpenings: false,
@@ -267,6 +275,14 @@ describe('bookDocument', () => {
         paper: { width: 148, height: 210 },
         margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
         columnGap: 4,
+        geometries: [
+          {
+            paper: { width: 148, height: 210 },
+            margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 },
+            columns: { count: 1, gap: 4 },
+            parents: [],
+          },
+        ],
         direction: 'ltr' as const,
         numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
         rectoOpenings: false,

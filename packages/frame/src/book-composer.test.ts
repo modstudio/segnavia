@@ -3,6 +3,7 @@ import { SECTION_TITLE_MARK } from '@segnavia/format'
 import { bookDocument, parseBookFixture } from '@segnavia/html'
 import {
   appendMeasuredBlock,
+  COMPOSE_FAILURE_ATTRIBUTE,
   composerScript,
   decideBookMeasurement,
   flowSectionNumbering,
@@ -15,6 +16,19 @@ import {
   pageReferenceFolio,
   unmeasuredFlows,
 } from './composer.ts'
+
+test('wraps composer start-up exceptions in a bounded failure report', () => {
+  const script = composerScript('{}')
+  const declarations = script.indexOf('var readyImages=')
+  const start = script.indexOf('try{\nvar geometryByName=', declarations)
+  const geometry = script.indexOf('var configuredGeometries=config.geometries', start)
+  const report = script.lastIndexOf('catch(error){fail(error instanceof Error?error.message:String(error));}')
+
+  expect(start).toBeGreaterThan(declarations)
+  expect(geometry).toBeGreaterThan(start)
+  expect(report).toBeGreaterThan(geometry)
+  expect(script).toContain(`String(reason).slice(0,1024);document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}'`)
+})
 
 function startTagElement(tag: string): Pick<Element, 'getAttribute'> {
   return {

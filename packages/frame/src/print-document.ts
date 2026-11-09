@@ -12,6 +12,7 @@ import {
   type ImpositionInput,
   impose,
   type Limits,
+  mixedImpositionGeometryRefusal,
   type OriginApproval,
   type Page,
   PageWidths,
@@ -360,6 +361,8 @@ export function printablePageValuesDocument(pages: Page[], imposition: Impositio
 
 export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
+  const geometryRefusal = mixedImpositionGeometryRefusal(pages)
+  if (geometryRefusal) throw new RangeError(geometryRefusal)
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
   const imposed = impose(imposition, pages.length, sharedImpositionPress(pages))
   // The document writes no text and uses physical paper positions, so its

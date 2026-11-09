@@ -4,6 +4,7 @@ import {
   impose,
   impositionMarks,
   isPrintedPageIdentityImposition,
+  mixedImpositionGeometryRefusal,
   printPadding,
   printProperties,
   sharedImpositionPress,
@@ -108,6 +109,8 @@ export async function renderPagesPdf(pages: HtmlPage[], slots: PreparedSlots, op
     return output
   }
   const imposition = Imposition.parse(opts.imposition)
+  const geometryRefusal = mixedImpositionGeometryRefusal(pages)
+  if (geometryRefusal) throw new RenderRefusedError(geometryRefusal)
   if (opts.preferCssPageSize) {
     throw new RenderRefusedError(
       'Pages in an imposition take their size from its paper. Remove preferCssPageSize, or remove the imposition, to clear this refusal.',

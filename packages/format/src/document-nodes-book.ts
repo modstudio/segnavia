@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { BookRunningHeadSource } from './book.ts'
 import { BookOpens, BookSectionParents, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
+import { Direction } from './direction.ts'
 import { NodeId } from './document-nodes-common.ts'
 import { SectionNumbering } from './folio.ts'
 import { RequiredLogicalMargin } from './margins.ts'
@@ -16,6 +17,8 @@ export const SectionFields = {
   parents: BookSectionParents.optional(),
   headTemplate: z.string().optional(),
   pageGeometry: z.string().optional(),
+  lang: z.string().optional(),
+  dir: Direction.optional(),
 }
 
 export const ContentsNode = NodeId.extend({

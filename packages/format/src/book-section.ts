@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
+import { Direction } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
@@ -53,6 +54,9 @@ const sectionFields = {
   opens: BookOpens.optional(),
   parents: BookSectionParents.optional(),
   numbering: SectionNumbering.optional(),
+  pageGeometry: z.string().optional(),
+  lang: z.string().optional(),
+  dir: Direction.optional(),
 }
 
 const partFields = {
@@ -197,6 +201,7 @@ export function bookSectionOpensFacts(book: BookDivisions): SectionOpensFact[] {
     opens: entry.opens,
     ...('numbering' in entry ? { numbering: entry.numbering } : {}),
     parents: entry.parents,
+    ...('pageGeometry' in entry ? { pageGeometry: entry.pageGeometry } : {}),
   }))
 }
 

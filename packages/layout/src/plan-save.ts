@@ -5,9 +5,12 @@ import type { BookPlan } from './plan-book.ts'
 export type ReplayPlanResult = { ok: true; plan: BookPlan } | { ok: false; page: number; refusal: string }
 
 function withoutLineBoxes(measurements: Measurements) {
+  const { geometryParents: _geometryParents, pageGeometries: _pageGeometries, ...stable } = measurements
   return {
-    ...measurements,
-    flows: measurements.flows.map((flow) => (flow.kind === 'fixed' ? flow : { ...flow, blocks: flow.blocks.map(({ lines: _lines, ...block }) => block) })),
+    ...stable,
+    flows: measurements.flows.map(({ pageGeometry: _pageGeometry, ...flow }) =>
+      flow.kind === 'fixed' ? flow : { ...flow, blocks: flow.blocks.map(({ lines: _lines, ...block }) => block) },
+    ),
     notes: measurements.notes.map(({ lines: _lines, ...note }) => note),
   }
 }
@@ -96,11 +99,18 @@ function noteRemainders(measurements: Measurements, pages: Pick<PlanPage, 'notes
 
 function pageFingerprint(
   measurements: Measurements,
-  page: Pick<PlanPage, 'role' | 'blank' | 'windows' | 'notes'>,
+  page: Pick<PlanPage, 'role' | 'blank' | 'windows' | 'notes' | 'pageGeometry' | 'parent'>,
   pages: Pick<PlanPage, 'windows' | 'notes'>[],
   pageIndex: number,
 ): string {
   return fingerprintValue({
+    ...(page.pageGeometry === undefined
+      ? {}
+      : {
+          pageGeometry: page.pageGeometry,
+          paper: measurements.pageGeometries?.[page.pageGeometry],
+          parent: measurements.geometryParents?.[page.pageGeometry]?.[page.parent],
+        }),
     role: page.role,
     blank: page.blank,
     lines: consumedLines(measurements, page),
@@ -110,6 +120,18 @@ function pageFingerprint(
       notes: noteRemainders(measurements, pages, pageIndex),
     },
   })
+}
+
+function validatePageGeometry(measurements: Measurements, page: PlanPage, pageNumber: number): ReplayPlanResult | undefined {
+  const flow = measurements.flows.find((candidate) => candidate.id === page.flow)
+  const actual = flow?.pageGeometry
+  if (actual !== page.pageGeometry) {
+    return {
+      ok: false,
+      page: pageNumber,
+      refusal: `page ${pageNumber} no longer matches the plan: page geometry ${JSON.stringify(page.pageGeometry)} became ${JSON.stringify(actual)}; compute a new plan to clear this refusal`,
+    }
+  }
 }
 
 function savedPage(measurements: Measurements, pages: BookPlan['pages'], page: BookPlan['pages'][number], pageIndex: number): PlanPage {
@@ -224,6 +246,7 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
     const pageNumber = index + 1
     const invalid =
       validateFlow(measurements, page, pageNumber) ??
+      validatePageGeometry(measurements, page, pageNumber) ??
       validateStart(measurements, page, pageNumber) ??
       validateWindows(measurements, page, pageNumber) ??
       validateNotes(measurements, page, pageNumber)
@@ -255,6 +278,7 @@ export function savedPlanScript(): string {
     flowRemainders,
     noteRemainders,
     validateFlow,
+    validatePageGeometry,
     validateStart,
     validateWindows,
     validateNotes,

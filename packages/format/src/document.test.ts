@@ -321,11 +321,29 @@ describe('Document', () => {
   test('refuses declared fields that lowering does not yet support', () => {
     const values = [
       { type: 'document', kind: 'book', children: [{ type: 'section', headTemplate: 'running', children: [] }] },
-      { type: 'document', kind: 'book', children: [{ type: 'section', pageGeometry: 'wide', children: [] }] },
       { type: 'document', kind: 'book', children: [], parentPages: [{ type: 'parentPage', name: 'body', regions: { side: '<aside></aside>' } }] },
       { type: 'document', kind: 'book', children: [], variables: [{ type: 'variable', name: 'folio', valueType: 'folio' }] },
     ]
     for (const value of values) expect(() => Document.parse(value)).toThrow('is not yet supported; remove it to clear this refusal')
+  })
+
+  test('accepts a declared book section page geometry and refuses unknown or continuous use', () => {
+    const geometry = { paper: 'letter' as const, orientation: 'landscape' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }
+    const bookPage = { paper: 'letter' as const, orientation: 'portrait' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }
+    const base = {
+      type: 'document' as const,
+      kind: 'book' as const,
+      title: 'Book',
+      mode: 'paginated' as const,
+      page: bookPage,
+      style: { pageGeometries: { wide: geometry } },
+      children: [{ type: 'section' as const, title: 'Wide', pageGeometry: 'wide', children: [{ type: 'flow' as const, html: '<p>Text</p>' }] }],
+    }
+    expect(Document.parse(base).children[0]).toMatchObject({ pageGeometry: 'wide' })
+    expect(() => Document.parse({ ...base, children: [{ ...base.children[0], pageGeometry: 'missing' }] })).toThrow(
+      'declare it in style.pageGeometries, or remove pageGeometry',
+    )
+    expect(() => Document.parse({ ...base, mode: 'continuous' })).toThrow('use paginated layout, or remove pageGeometry')
   })
 
   test.each(['deck', 'book', 'printed', 'page', 'board'] as const)('accepts a brand name on a %s document', (kind) => {

@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { PDFArray, PDFDict, PDFDocument, PDFName, rgb } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
-import { pagePdfSize, pdfPageSizeCorrection, setPdfPageSize } from './pdf-page-size.ts'
+import { pagePdfSize, pdfPageSizeCorrection, setPdfPageSize, setPdfPageSizes } from './pdf-page-size.ts'
 
 test('expresses physical page dimensions as exact inches for Chromium', () => {
   expect(pagePdfSize({ width: 215.9, height: 279.4 })).toEqual({ width: '8.5in', height: '11in' })
@@ -99,4 +99,19 @@ test('corrects the page box, content and link annotation together', async () => 
     .map((value) => Number(value.toString()))
   expect(rectangle?.every((value, index) => Math.abs(value - ([10, 779.04, 30, 784.04][index] ?? Number.NaN)) < 1e-10)).toBe(true)
   expect(quadrilateral?.every((value, index) => Math.abs(value - ([10, 784.04, 30, 784.04, 10, 779.04, 30, 779.04][index] ?? Number.NaN)) < 1e-10)).toBe(true)
+})
+
+test('corrects each printed page against its own planned geometry', async () => {
+  const input = await PDFDocument.create()
+  input.addPage([612.48, 792.48])
+  input.addPage([792.48, 612.48])
+  const bytes = await setPdfPageSizes(await input.save(), [
+    { width: 215.9, height: 279.4 },
+    { width: 279.4, height: 215.9 },
+  ])
+  const output = await PDFDocument.load(bytes)
+  expect(output.getPages().map((page) => page.getMediaBox())).toEqual([
+    { x: 0, y: 0, width: 612, height: 792 },
+    { x: 0, y: 0, width: 792, height: 612 },
+  ])
 })

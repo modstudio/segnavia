@@ -16,7 +16,7 @@ export const DOCUMENT_PROFILES = {
     childForms: null,
     topology: 'book',
     pageFields: ['body', 'template', 'regions'],
-    sectionFields: ['title', 'contentsLabel', 'subtitle', 'contents', 'opens', 'numbering', 'parents', 'template'],
+    sectionFields: ['title', 'contentsLabel', 'subtitle', 'contents', 'opens', 'numbering', 'parents', 'pageGeometry', 'template'],
     sectionFieldRemedies: {},
     sectionChildren: null,
     numbering: 'book',
