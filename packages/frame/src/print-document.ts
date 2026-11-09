@@ -14,16 +14,16 @@ import {
   type Limits,
   type Page,
   PageWidths,
-  type PrintInput,
   type PressGeometryField,
+  type PrintInput,
   pageDirection,
   pagePlacementLayout,
   printPadding,
   printProperties,
   resolveDirection,
-  sharedImpositionPress,
   type Slide,
   type SlotsOptions,
+  sharedImpositionPress,
 } from '@segnavia/format'
 import {
   classifyMediaAnswer,

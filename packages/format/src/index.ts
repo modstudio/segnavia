@@ -113,8 +113,8 @@ export {
   Box,
   Cue,
   DECK_SIZE,
-  deckTrim,
   Deck,
+  deckTrim,
   exceedsLimits,
   ImageFit,
   Manifest,
@@ -228,8 +228,8 @@ export {
   type PageFit,
   type PagePlacementKind,
   type PagePlacementLayout,
-  pagePlacementLayout,
   type PiecePress,
+  pagePlacementLayout,
   sharedImpositionPress,
 } from './imposition.ts'
 export { PAPER_FIT_TOLERANCE_MM } from './imposition-fit.ts'
@@ -351,8 +351,8 @@ export { PaginatePageMarks, PaginatePageNote, PaginateWindow, Plan, PlanPage, ty
 export {
   MarkColor,
   PRESS_GEOMETRY_FIELDS,
-  type PressGeometryField,
   PressGeometry,
+  type PressGeometryField,
   type PressGeometryInput,
   Print,
   type PrintInput,

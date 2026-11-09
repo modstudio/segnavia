@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { pressBoxes, PressGeometry, sheetMm, usesPressLayout } from '@segnavia/format'
+import { PressGeometry, pressBoxes, sheetMm, usesPressLayout } from '@segnavia/format'
 import { parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import { type BookPdfAdapter, bookPageCss, renderBookPdf } from './book-pdf.ts'
@@ -52,7 +52,8 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
     html,
     slotMarks,
     print: async (source, book, slots, _options, part) => {
-      const trim = sheetMm(book.page!)
+      if (!book.page) throw new Error('test book needs page')
+      const trim = sheetMm(book.page)
       const sourceSize = book.print && usesPressLayout(book.print) ? pressBoxes(trim, book.print).bleedBox : trim
       const pdfSize = { width: (sourceSize.width * 72) / 25.4, height: (sourceSize.height * 72) / 25.4 }
       slotMarks.push({ part, marked: [...slots.marked] })

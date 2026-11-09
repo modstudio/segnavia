@@ -1,4 +1,13 @@
-import { Imposition, type ImpositionInput, impose, impositionMarks, isPrintedPageIdentityImposition, printPadding, printProperties, sharedImpositionPress } from '@segnavia/format'
+import {
+  Imposition,
+  type ImpositionInput,
+  impose,
+  impositionMarks,
+  isPrintedPageIdentityImposition,
+  printPadding,
+  printProperties,
+  sharedImpositionPress,
+} from '@segnavia/format'
 import type { HtmlPage, PreparedSlots } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'

@@ -13,10 +13,10 @@ import {
   type ImpositionInput,
   type Limits,
   limitRefusal,
+  PRESS_GEOMETRY_FIELDS,
   pageOrPrintedFromDocument,
   parseLimits,
   resolveBrand,
-  PRESS_GEOMETRY_FIELDS,
 } from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'

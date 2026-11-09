@@ -1,4 +1,4 @@
-import { type Deck, type Print, type PrintBoxes } from '@segnavia/format'
+import type { Deck, Print, PrintBoxes } from '@segnavia/format'
 import type { deckPressSettings, notesLayoutGeometry } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import type { PdfRectangle } from './pdf-geometry.ts'

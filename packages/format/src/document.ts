@@ -296,7 +296,9 @@ function refineProfileShape(document: DocumentShapeValue, profile: DocumentProfi
 function pressTrim(document: DocumentShapeValue, profile: DocumentProfile): { width: number; height: number } | undefined {
   if (profile.printTrimSource === 'bookPage') return document.page ? sheetMm(document.page) : undefined
   if (profile.printTrimSource !== 'deckSize') return undefined
-  return deckTrim(typeof document.size === 'object' && typeof document.size.width === 'number' ? document.size : undefined)
+  return deckTrim(
+    typeof document.size === 'object' && typeof document.size.width === 'number' && typeof document.size.height === 'number' ? document.size : undefined,
+  )
 }
 
 function refinePrint(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
