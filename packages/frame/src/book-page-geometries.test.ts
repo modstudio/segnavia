@@ -25,5 +25,5 @@ test('builds geometry-specific default parents and named page rules', () => {
   expect(geometries).toHaveLength(2)
   expect(geometries[1]).toMatchObject({ name: 'wide', pageName: 'segnavia-page-2', columnGap: 8 * (96 / 25.4) })
   expect(geometries[1]?.parents.find((parent) => parent.name === 'segnavia:recto')?.margin.inlineStart).toBe(30 * (96 / 25.4))
-  expect(composerPageRules(pagination, geometries)).toContain('@page segnavia-page-2{size:279.4mm 215.9mm;margin:0}')
+  expect(composerPageRules(geometries)).toContain('@page segnavia-page-2{size:279.4mm 215.9mm;margin:0}')
 })

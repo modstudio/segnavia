@@ -25,11 +25,7 @@ export function paginateSequence(
   }
 
   function pageHeight(flow: PaginateFlow, parent: string): number {
-    return input.geometryParents?.[geometryOf(flow)]?.[parent]?.height ?? input.parents[parent]?.height ?? 0
-  }
-
-  function geometryOf(flow: PaginateFlow): string {
-    return flow.pageGeometry ?? 'segnavia:default'
+    return (flow.pageGeometry === undefined ? undefined : input.geometryParents?.[flow.pageGeometry]?.[parent]?.height) ?? input.parents[parent]?.height ?? 0
   }
 
   function notesOnlyOpeningPage(page: PaginatePageFill, opener: boolean): boolean {
@@ -127,7 +123,7 @@ export function paginateSequence(
       parent: planned.parent,
       face: planned.face,
       side: planned.side,
-      pageGeometry: geometryOf(flow),
+      ...(flow.pageGeometry === undefined ? {} : { pageGeometry: flow.pageGeometry }),
     }
   }
 
@@ -159,7 +155,7 @@ export function paginateSequence(
       parent: planned.parent,
       face: planned.face,
       side: planned.side,
-      pageGeometry: geometryOf(flow),
+      ...(flow.pageGeometry === undefined ? {} : { pageGeometry: flow.pageGeometry }),
     }
   }
 
@@ -190,7 +186,7 @@ export function paginateSequence(
       parent: planned.parent,
       face: planned.face,
       side: planned.side,
-      pageGeometry: geometryOf(flow),
+      ...(flow.pageGeometry === undefined ? {} : { pageGeometry: flow.pageGeometry }),
     }
   }
 

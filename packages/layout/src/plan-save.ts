@@ -104,9 +104,13 @@ function pageFingerprint(
   pageIndex: number,
 ): string {
   return fingerprintValue({
-    pageGeometry: page.pageGeometry ?? 'segnavia:default',
-    paper: measurements.pageGeometries?.[page.pageGeometry ?? 'segnavia:default'],
-    parent: measurements.geometryParents?.[page.pageGeometry ?? 'segnavia:default']?.[page.parent] ?? measurements.parents[page.parent],
+    ...(page.pageGeometry === undefined
+      ? {}
+      : {
+          pageGeometry: page.pageGeometry,
+          paper: measurements.pageGeometries?.[page.pageGeometry],
+          parent: measurements.geometryParents?.[page.pageGeometry]?.[page.parent],
+        }),
     role: page.role,
     blank: page.blank,
     lines: consumedLines(measurements, page),
@@ -120,8 +124,8 @@ function pageFingerprint(
 
 function validatePageGeometry(measurements: Measurements, page: PlanPage, pageNumber: number): ReplayPlanResult | undefined {
   const flow = measurements.flows.find((candidate) => candidate.id === page.flow)
-  const actual = flow?.pageGeometry ?? 'segnavia:default'
-  if (actual !== (page.pageGeometry ?? 'segnavia:default')) {
+  const actual = flow?.pageGeometry
+  if (actual !== page.pageGeometry) {
     return {
       ok: false,
       page: pageNumber,

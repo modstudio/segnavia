@@ -1,35 +1,46 @@
 import type { BookPage, BookSectionEntry } from './book.ts'
 import { sheetMm } from './paper.ts'
+import { bookParentPages, type ParentPage, type ResolvedParentPage, resolveParentPages } from './printed-pages.ts'
 import type { PageGeometry, StyleSheet } from './style-sheet.ts'
 
-export const DEFAULT_PAGE_GEOMETRY = 'segnavia:default'
-
 export interface ResolvedBookPageGeometry {
-  name: string
+  name?: string
   paper: { width: number; height: number }
   margin: BookPage['margin']
   columns: { count: number; gap: number }
+  parents: ResolvedParentPage[]
 }
 
-function resolved(name: string, geometry: Pick<PageGeometry, 'paper' | 'orientation' | 'margin' | 'columns'>, defaultGap: number): ResolvedBookPageGeometry {
+function resolved(
+  name: string | undefined,
+  geometry: Pick<PageGeometry, 'paper' | 'orientation' | 'margin' | 'columns'>,
+  defaultGap: number,
+  customParents: ParentPage[],
+): ResolvedBookPageGeometry {
   return {
-    name,
+    ...(name === undefined ? {} : { name }),
     paper: sheetMm(geometry),
     margin: geometry.margin,
     columns: geometry.columns ?? { count: 1, gap: defaultGap },
+    parents: resolveParentPages([...bookParentPages(geometry.margin), ...customParents]),
   }
 }
 
 interface BookGeometrySource {
   page?: BookPage
   style?: StyleSheet
+  parentPages?: ParentPage[]
 }
 
 export function resolveBookPageGeometry(book: BookGeometrySource, name?: string): ResolvedBookPageGeometry | undefined {
   if (!book.page) return undefined
-  if (name === undefined || name === DEFAULT_PAGE_GEOMETRY) return resolved(DEFAULT_PAGE_GEOMETRY, book.page, book.page.columnGap)
+  if (name === undefined) return resolved(undefined, book.page, book.page.columnGap, book.parentPages ?? [])
   const geometry = book.style?.pageGeometries?.[name]
-  return geometry ? resolved(name, geometry, book.page.columnGap) : undefined
+  return geometry ? resolved(name, geometry, book.page.columnGap, book.parentPages ?? []) : undefined
+}
+
+export function bookPageName(index: number): string {
+  return `segnavia-page-${index + 1}`
 }
 
 export function sectionPageGeometry(book: BookGeometrySource, section: Pick<BookSectionEntry, 'entry'>): ResolvedBookPageGeometry | undefined {

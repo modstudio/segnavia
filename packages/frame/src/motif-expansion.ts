@@ -49,6 +49,7 @@ export interface ExpandedBook<T extends Book | BookView> {
 interface BookHtmlField {
   html: string
   furniture: boolean
+  pageGeometry?: string
   replace(html: string): void
 }
 
@@ -111,7 +112,10 @@ function entryShape(entry: BookItem): { entry: BookItem; fields: BookHtmlField[]
   }
   if (isDesignedSection(entry)) {
     const copy = { ...entry, pages: entry.pages.map((page) => ({ ...page })) }
-    return { entry: copy, fields: copy.pages.map((page) => ({ html: page.html, furniture: false, replace: (html) => (page.html = html) })) }
+    return {
+      entry: copy,
+      fields: copy.pages.map((page) => ({ html: page.html, furniture: false, pageGeometry: copy.pageGeometry, replace: (html) => (page.html = html) })),
+    }
   }
   if (isTemplatedSection(entry)) {
     const copy = { ...entry, pages: entry.pages.map((page) => ({ ...page, regions: { ...page.regions } })) }
@@ -121,6 +125,7 @@ function entryShape(entry: BookItem): { entry: BookItem; fields: BookHtmlField[]
         Object.keys(page.regions).map((name) => ({
           html: page.regions[name] as string,
           furniture: false,
+          pageGeometry: copy.pageGeometry,
           replace: (html: string) => (page.regions[name] = html),
         })),
       ),
@@ -128,7 +133,10 @@ function entryShape(entry: BookItem): { entry: BookItem; fields: BookHtmlField[]
   }
   if ('html' in entry) {
     const copy = { ...entry }
-    return { entry: copy, fields: [{ html: copy.html as string, furniture: false, replace: (html) => (copy.html = html) }] }
+    return {
+      entry: copy,
+      fields: [{ html: copy.html as string, furniture: false, ...('pageGeometry' in copy ? { pageGeometry: copy.pageGeometry } : {}), replace: (html) => (copy.html = html) }],
+    }
   }
   return { entry, fields: [] }
 }
@@ -238,7 +246,7 @@ async function resolveBookShape<T extends Book | BookView>(
         resolvePlacement: placements.resolve,
         report: placements.report,
         purpose,
-        width: bookPlacementWidth(shape.book, pageWidths),
+        width: bookPlacementWidth(shape.book, field.pageGeometry, pageWidths),
         signal,
       }),
     ),

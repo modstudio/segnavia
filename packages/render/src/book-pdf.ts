@@ -1,6 +1,7 @@
 import {
   type Book,
   bookPageGeometries,
+  bookPageName,
   bookParentPages,
   physicalMargins,
   pressBoxes,
@@ -345,7 +346,7 @@ export function bookPageCss(book: Book, marginLayer = false): string {
     return bookPageGeometries(book)
       .map((geometry, index) => {
         const source = book.print && usesPressLayout(book.print) ? pressBoxes(geometry.paper, book.print).bleedBox : geometry.paper
-        return `@page segnavia-page-${index + 1}{size:${source.width}mm ${source.height}mm;margin:${bleed}mm}`
+        return `@page ${bookPageName(index)}{size:${source.width}mm ${source.height}mm;margin:${bleed}mm}`
       })
       .join('')
   }

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { bookPageGeometries, sectionPageGeometry } from './book-page-geometry.ts'
+import { bookPageGeometries, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 import { parentPaperIssues } from './book-parent-geometry-policy.ts'
 import {
   BookChapterEntry,
@@ -18,17 +18,18 @@ import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
+import { pageGeometryIssues } from './document-page-geometry-policy.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Placement } from './placement.ts'
 import { PressGeometry } from './print.ts'
-import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
+import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
 
-export { bookPageGeometries, DEFAULT_PAGE_GEOMETRY, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
+export { bookPageGeometries, bookPageName, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export {
   BookChapterEntry,
   BookContents,
@@ -143,13 +144,13 @@ export const BookViewPagination = z.object({
   geometries: z
     .array(
       z.object({
-        name: z.string(),
+        name: z.string().optional(),
         paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
         margin: BookPage.shape.margin,
         columns: z.object({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
+        parents: z.array(ParentPage.omit({ basedOn: true }).extend({ margin: BookPage.shape.margin })),
       }),
-    )
-    .optional(),
+    ),
   direction: TextDirection,
   numbering: z.object({ frontMatter: NumberSystem, body: NumberSystem }),
   rectoOpenings: z.boolean(),
@@ -221,32 +222,20 @@ const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
 type ResolvedBookValue = z.infer<typeof ResolvedBook>
 
 function refineNamedPageGeometries(book: ResolvedBookValue, ctx: z.RefinementCtx): void {
-  for (const section of bookSections(book)) {
-    if (!('pageGeometry' in section.entry) || section.entry.pageGeometry === undefined) continue
-    const name = section.entry.pageGeometry
-    const label = section.entry.title ?? section.id
-    if (book.style?.pageGeometries?.[name] === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [...section.path, 'pageGeometry'],
-        message: `Section "${label}" (${section.id}) names unknown page geometry "${name}"; declare it in style.pageGeometries, or remove pageGeometry to clear this refusal.`,
-      })
-    }
-    if (book.mode === 'continuous') {
-      ctx.addIssue({
-        code: 'custom',
-        path: [...section.path, 'pageGeometry'],
-        message: `Section "${label}" (${section.id}) sets pageGeometry in a continuous book; use paginated layout, or remove pageGeometry to clear this refusal.`,
-      })
-    }
-  }
+  const declaredNames = Object.keys(book.style?.pageGeometries ?? {})
+  const facts = bookSections(book).flatMap((section) => {
+    if (!('pageGeometry' in section.entry) || section.entry.pageGeometry === undefined) return []
+    const title = section.entry.title ?? section.id
+    return [{ label: `${title} (${section.id})`, path: section.path, pageGeometry: section.entry.pageGeometry, declaredNames, mode: book.mode }]
+  })
+  for (const issue of pageGeometryIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
 }
 
 function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx): void {
   const page = book.page
   if (!page) return
   const trim = sheetMm(page)
-  const parents = resolveParentPages([...bookParentPages(page.margin), ...book.parentPages])
+  const parents = resolveBookPageGeometry(book)?.parents ?? []
   const defaults = new Set(bookParentPages(page.margin).map((parent) => parent.name))
   for (const parent of parents) {
     const area = textArea(parent, trim)
@@ -273,7 +262,7 @@ function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx)
     const { entry: flow, path } = section
     const geometry = sectionPageGeometry(book as Book, section)
     const sectionTrim = geometry?.paper ?? trim
-    const sectionParents = resolveParentPages([...(geometry ? bookParentPages(geometry.margin) : bookParentPages(page.margin)), ...book.parentPages])
+    const sectionParents = geometry?.parents ?? parents
     const byName = new Map(sectionParents.map((parent) => [parent.name, parent]))
     const names = flowingParentNames(flow.parents)
     const roles = Object.entries(names) as Array<[keyof typeof names, string]>

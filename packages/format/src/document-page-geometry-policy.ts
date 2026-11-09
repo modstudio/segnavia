@@ -13,30 +13,47 @@ export interface DocumentPageGeometryIssue {
   message: string
 }
 
+export interface PageGeometryFact {
+  label: string
+  path: (string | number)[]
+  pageGeometry: string
+  declaredNames: readonly string[]
+  mode?: string
+}
+
+export function pageGeometryIssues(facts: readonly PageGeometryFact[]): DocumentPageGeometryIssue[] {
+  return facts.flatMap((fact) => {
+    const issues: DocumentPageGeometryIssue[] = []
+    if (!fact.declaredNames.includes(fact.pageGeometry)) {
+      issues.push({
+        path: [...fact.path, 'pageGeometry'],
+        message: `Section "${fact.label}" names unknown page geometry "${fact.pageGeometry}"; declare it in style.pageGeometries, or remove pageGeometry to clear this refusal.`,
+      })
+    }
+    if (fact.mode === 'continuous') {
+      issues.push({
+        path: [...fact.path, 'pageGeometry'],
+        message: `Section "${fact.label}" sets pageGeometry in a continuous book; use paginated layout, or remove pageGeometry to clear this refusal.`,
+      })
+    }
+    return issues
+  })
+}
+
 export function documentPageGeometryIssues(document: DocumentPageGeometryFacts): DocumentPageGeometryIssue[] {
   if (document.kind !== 'book') return []
-  const issues: DocumentPageGeometryIssue[] = []
+  const facts: PageGeometryFact[] = []
+  const declaredNames = Object.keys(document.style?.pageGeometries ?? {})
   const visit = (nodes: DocumentNode[], path: (string | number)[]): void => {
     nodes.forEach((node, index) => {
       const nodePath = [...path, index]
       if (node.type === 'section' && node.pageGeometry !== undefined) {
         const label = node.title ?? node.id ?? nodePath.join('.')
-        if (document.style?.pageGeometries?.[node.pageGeometry] === undefined) {
-          issues.push({
-            path: [...nodePath, 'pageGeometry'],
-            message: `Section "${label}" names unknown page geometry "${node.pageGeometry}"; declare it in style.pageGeometries, or remove pageGeometry to clear this refusal.`,
-          })
-        }
-        if (document.mode === 'continuous') {
-          issues.push({
-            path: [...nodePath, 'pageGeometry'],
-            message: `Section "${label}" sets pageGeometry in a continuous book; use paginated layout, or remove pageGeometry to clear this refusal.`,
-          })
-        }
+        facts.push({ label, path: nodePath, pageGeometry: node.pageGeometry, declaredNames, mode: document.mode })
       }
       if ('children' in node) visit(node.children, [...nodePath, 'children'])
     })
   }
   visit(document.children, ['children'])
-  return issues
+  return pageGeometryIssues(facts)
 }

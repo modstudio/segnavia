@@ -103,22 +103,53 @@ describe('saved book plans', () => {
     })
   })
 
-  test('replays a single-geometry plan and names the first page whose section geometry changed', () => {
+  test('replays a plan saved with the default-page fingerprint shape', () => {
+    const measurements = input({ flows: [flow('legacy', 'chapter', [block('text', 'p', 1, 1, 2, 0, { id: 'paragraph' })])] })
+    const saved = SavedPlan.parse({
+      version: 1,
+      fingerprint: 'fnv1a64:7e19b82bbaa191e9',
+      breaks: [],
+      pages: [
+        {
+          kind: 'body',
+          number: 1,
+          sequence: 'body',
+          flow: 'legacy',
+          role: 'opener',
+          windows: [{ flow: 'legacy', start: 0, end: 20, top: 0, column: 0, columns: 1 }],
+          notes: [],
+          blank: false,
+          sectionOpening: true,
+          marks: {},
+          parent: 'segnavia:opener',
+          face: 'recto',
+          side: 'right',
+          start: { flow: 'legacy', block: 0, line: 0, id: 'paragraph' },
+          fingerprint: 'fnv1a64:2cb6c8cc1ba26ae1',
+        },
+      ],
+      folios: ['א'],
+      total: 'א',
+    })
+    expect(replayPlan(measurements, saved, numbering)).toMatchObject({ ok: true })
+  })
+
+  test('names the first page whose section geometry changed', () => {
     const measurements = input({
       flows: [flow('one', 'chapter', [block('text', 'p', 1, 1, 2, 0)]), { ...flow('two', 'chapter', [block('text', 'p', 2, 1, 2, 0)]), pageGeometry: 'wide' }],
-      pageGeometries: { 'segnavia:default': { width: 600, height: 800 }, wide: { width: 800, height: 600 } },
+      pageGeometries: { wide: { width: 800, height: 600 } },
     })
     const saved = savePlan(measurements, planned(measurements), numbering)
     expect(replayPlan(measurements, SavedPlan.parse(saved), numbering).ok).toBe(true)
     const changed = structuredClone(measurements)
     const second = changed.flows[1]
     if (!second) throw new Error('missing second flow')
-    second.pageGeometry = 'segnavia:default'
+    delete second.pageGeometry
     const secondPage = saved.pages.findIndex((page) => page.flow === 'two') + 1
     expect(replayPlan(changed, saved, numbering)).toEqual({
       ok: false,
       page: secondPage,
-      refusal: `page ${secondPage} no longer matches the plan: page geometry "wide" became "segnavia:default"; compute a new plan to clear this refusal`,
+      refusal: `page ${secondPage} no longer matches the plan: page geometry "wide" became undefined; compute a new plan to clear this refusal`,
     })
   })
 

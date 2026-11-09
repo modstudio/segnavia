@@ -37,9 +37,8 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     direction: pagination.direction,
     dir: view.dir,
     lang: view.lang,
-    geometry: { ...geometry, notesGap: 9 },
     geometries,
-    defaultPageGeometry: geometry.name,
+    notesGap: 9,
     orphans: pagination.orphans,
     widows: pagination.widows,
     rectoOpenings: pagination.rectoOpenings,
@@ -66,11 +65,11 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const baseCss =
-    composerPageRules(pagination, geometries) +
+    composerPageRules(geometries) +
     `:where(html,body){margin:0!important;padding:0!important}` +
     `:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}` +
     `:where([data-segnavia-galleys]){position:absolute;inset-block-start:0;inset-inline-start:0}` +
-    `:where([data-segnavia-pages]){inline-size:${pagination.paper.width}mm}` +
+    `:where([data-segnavia-pages]){inline-size:${Math.max(...pagination.geometries.map((item) => item.paper.width))}mm}` +
     `:where([${BOOK_PAGE_ATTRIBUTE}]:last-child){break-after:auto}` +
     GALLEY_PRINT_CSS +
     (options.fontCss ?? '')

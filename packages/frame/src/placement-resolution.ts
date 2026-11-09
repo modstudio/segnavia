@@ -1,11 +1,14 @@
-import { type Book, type BookView, FULL_PAGE_SIZE, type PageWidths, paperPixels, resolvePageWidth, sheetMm } from '@segnavia/format'
+import { type Book, type BookView, FULL_PAGE_SIZE, type PageWidths, paperPixels, resolveBookPageGeometry, resolvePageWidth, sheetMm } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { resolvePlacements } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 
-export function bookPlacementWidth(book: Book | BookView, pageWidths?: PageWidths): number {
-  if ('pagination' in book && book.pagination) return paperPixels(book.pagination.paper.width)
-  if ('page' in book && book.page) return paperPixels(sheetMm(book.page).width)
+export function bookPlacementWidth(book: Book | BookView, pageGeometry?: string, pageWidths?: PageWidths): number {
+  if ('pagination' in book && book.pagination) {
+    const geometry = pageGeometry === undefined ? book.pagination.geometries[0] : book.pagination.geometries.find((item) => item.name === pageGeometry)
+    return paperPixels(geometry?.paper.width ?? book.pagination.paper.width)
+  }
+  if ('page' in book && book.page) return paperPixels(resolveBookPageGeometry(book, pageGeometry)?.paper.width ?? sheetMm(book.page).width)
   return resolvePageWidth(FULL_PAGE_SIZE, pageWidths).viewportWidth
 }
 

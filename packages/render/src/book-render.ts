@@ -259,12 +259,18 @@ async function printBook(
       )
     return geometry.paper
   })
-  if (!book.print || !usesPressLayout(book.print)) output = { ...output, bytes: await setPdfPageSizes(output.bytes, trims) }
+  const pageSizeRemedy = (index: number) => {
+    const name = composedPlan?.pages[index]?.pageGeometry
+    const geometry = name === undefined ? 'the default geometry' : `geometry ${JSON.stringify(name)}`
+    return `Plan page ${index + 1} uses ${geometry}; check that geometry's paper or compute a new plan to clear this refusal.`
+  }
+  if (!book.print || !usesPressLayout(book.print)) output = { ...output, bytes: await setPdfPageSizes(output.bytes, trims, pageSizeRemedy) }
   else {
     const boxes = trims.map((trim) => pressBoxes(trim, book.print as NonNullable<Book['print']>))
     const sized = await setPdfPageSizes(
       output.bytes,
       boxes.map((item) => item.bleedBox),
+      pageSizeRemedy,
     )
     output = { ...output, bytes: await addPressBoxesByPage(sized, boxes, book.print.markColor) }
   }

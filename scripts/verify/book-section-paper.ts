@@ -1,7 +1,8 @@
 import { execFileSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { type DocumentInput, MM_PER_PT, PAPER_MM, pressBoxes } from '@segnavia/format'
+import { type DocumentInput, MM_PER_PT, PAPER_MM, pressBoxes, PX_PER_MM } from '@segnavia/format'
+import type { ResolvePlacement } from '@segnavia/html'
 import type { Renderer } from '@segnavia/render'
 import { PDFDocument } from 'pdf-lib'
 import { annotationDestinations, pdfOutlineItems } from './book-pdf-readback.ts'
@@ -10,7 +11,7 @@ import { compact, pagesText, pageWith } from './book-text.ts'
 type Check = (what: string, ok: boolean, detail?: string) => void
 
 const margin = { blockStart: 18, blockEnd: 18, inlineStart: 20, inlineEnd: 16 }
-const parents = { opener: 'section-opener', recto: 'section-recto', verso: 'section-verso' }
+const parents = { opener: 'section-opener', recto: 'section-recto', verso: 'section-verso', fixed: 'section-fixed' }
 const fixtureIds = () => {
   let id = 0
   return () => `section-paper-${++id}`
@@ -31,6 +32,18 @@ function fixture(hebrew: boolean): DocumentInput {
       },
     ],
   })
+  const landscape = {
+    type: 'section' as const,
+    title: hebrew ? 'שני' : 'Second',
+    pageGeometry: 'landscape',
+    lang: hebrew ? 'he' : 'en',
+    dir: hebrew ? ('rtl' as const) : ('ltr' as const),
+    parents,
+    children: [
+      { type: 'page' as const, body: { html: '<p>SECOND_ONE</p><img data-segnavia-media="landscape-asset" alt="landscape asset">' } },
+      { type: 'page' as const, body: { html: '<p>SECOND_TWO</p>' } },
+    ],
+  }
   return {
     type: 'document',
     kind: 'book',
@@ -60,6 +73,13 @@ function fixture(hebrew: boolean): DocumentInput {
         head: '<div>HEAD <span data-motif="segnavia:running-head"></span></div>',
         foot: '<div>FOLIO <span data-motif="segnavia:folio"></span></div>',
       },
+      {
+        type: 'parentPage',
+        name: parents.fixed,
+        basedOn: 'segnavia:blank',
+        head: '<div>HEAD <span data-motif="segnavia:running-head"></span></div>',
+        foot: '<div>FOLIO <span data-motif="segnavia:folio"></span></div>',
+      },
     ],
     children: [
       { type: 'division', name: 'front', children: [{ type: 'contents', id: 'paper-contents', title: hebrew ? 'תוכן' : 'Contents' }] },
@@ -68,7 +88,7 @@ function fixture(hebrew: boolean): DocumentInput {
         name: 'body',
         children: [
           section(hebrew ? 'ראשון' : 'First', 'FIRST'),
-          section(hebrew ? 'שני' : 'Second', 'SECOND', 'landscape'),
+          landscape,
           section(hebrew ? 'שלישי' : 'Third', 'THIRD'),
         ],
       },
@@ -99,14 +119,35 @@ export async function verifyBookSectionPaper(renderer: Renderer, work: string, c
   for (const hebrew of [false, true]) {
     const key = hebrew ? 'hebrew' : 'english'
     const input = fixture(hebrew)
-    const plan = await renderer.bookPlan(input, { css: 'body{font:14px/20px serif}p{margin:0 0 3mm}', newId: fixtureIds() })
-    const bytes = await renderer.bookPdf(input, { plan, effects: false, css: 'body{font:14px/20px serif}p{margin:0 0 3mm}', newId: fixtureIds() })
+    const widthsSeen: number[] = []
+    const resolvePlacement: ResolvePlacement = async (_placement, context) => {
+      if (context.width !== undefined) widthsSeen.push(context.width)
+        return {
+          kind: 'media' as const,
+          media: { format: 'png' as const, size: { width: 1, height: 1 } },
+          src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+        }
+    }
+    const placements = { resolve: resolvePlacement }
+    const plan = await renderer.bookPlan(input, { css: 'body{font:14px/20px serif}p{margin:0 0 3mm}', newId: fixtureIds(), placements })
+    const bytes = await renderer.bookPdf(input, {
+      plan,
+      effects: false,
+      css: 'body{font:14px/20px serif}p{margin:0 0 3mm}',
+      newId: fixtureIds(),
+      placements,
+    })
     const file = path.join(work, `book-section-paper-${key}.pdf`)
     writeFileSync(file, bytes)
     const pdf = await PDFDocument.load(bytes)
     const text = pagesText(file)
     const bboxes = bboxWords(file)
     const pages = pdf.getPages()
+    check(
+      `${key} landscape placed asset resolves at its section paper width`,
+      widthsSeen.length >= 2 && widthsSeen.every((width) => close(width, 279.4 * PX_PER_MM)),
+      `compared-widths=${widthsSeen.join(',')}, expected=${279.4 * PX_PER_MM}px`,
+    )
     const expected = plan.pages.map((page) =>
       page.pageGeometry === 'landscape' ? { width: PAPER_MM.letter.height, height: PAPER_MM.letter.width } : PAPER_MM.letter,
     )

@@ -78,7 +78,9 @@ export async function setPdfPageSize(pdf: Uint8Array, size: MillimeterPageSize, 
   )
 }
 
-async function setDocumentPageSizes(document: Awaited<ReturnType<typeof loadPdf>>, sizes: readonly MillimeterPageSize[], remedy?: string): Promise<Uint8Array> {
+type PageSizeRemedy = string | ((index: number) => string)
+
+async function setDocumentPageSizes(document: Awaited<ReturnType<typeof loadPdf>>, sizes: readonly MillimeterPageSize[], remedy?: PageSizeRemedy): Promise<Uint8Array> {
   if (document.getPageCount() !== sizes.length) {
     throw new RenderRefusedError(
       `Chromium printed ${document.getPageCount()} pages where the plan names ${sizes.length}; compute a new plan to clear this refusal.`,
@@ -88,7 +90,7 @@ async function setDocumentPageSizes(document: Awaited<ReturnType<typeof loadPdf>
     const size = sizes[index]
     if (!size) throw new RenderRefusedError(`The plan has no paper geometry for page ${index + 1}; compute a new plan to clear this refusal.`)
     const cropBox = page.node.CropBox()
-    const correction = pdfPageSizeCorrection(page.getMediaBox(), size, remedy)
+    const correction = pdfPageSizeCorrection(page.getMediaBox(), size, typeof remedy === 'function' ? remedy(index) : remedy)
     page.translateContent(correction.translation.x, correction.translation.y)
     translatePdfAnnotations(page.node.Annots(), correction.translation.x, correction.translation.y)
     // Keep the exact box at origin 0 because PDF embedders such as pdf-lib ignore a MediaBox origin.
@@ -100,6 +102,6 @@ async function setDocumentPageSizes(document: Awaited<ReturnType<typeof loadPdf>
   return document.save()
 }
 
-export async function setPdfPageSizes(pdf: Uint8Array, sizes: readonly MillimeterPageSize[], remedy?: string): Promise<Uint8Array> {
+export async function setPdfPageSizes(pdf: Uint8Array, sizes: readonly MillimeterPageSize[], remedy?: PageSizeRemedy): Promise<Uint8Array> {
   return setDocumentPageSizes(await loadPdf(pdf, { updateMetadata: false }), sizes, remedy)
 }
