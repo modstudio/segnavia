@@ -46,7 +46,7 @@ describe('book page geometry', () => {
     expect(result.error?.issues[0]?.message).toContain('use paginated layout, or remove pageGeometry')
   })
 
-  test('refuses a named parent whose text width differs from its section geometry', () => {
+  test('refuses a named parent whose text area does not fit its section paper', () => {
     const result = Book.safeParse(
       input({
         mode: 'paginated',
@@ -54,12 +54,13 @@ describe('book page geometry', () => {
         style: {
           pageGeometries: { wide: { paper: 'letter', orientation: 'landscape', margin: { blockStart: 10, blockEnd: 10, inlineStart: 20, inlineEnd: 20 } } },
         },
-        parentPages: [{ name: 'narrow', margin: { blockStart: 10, blockEnd: 10, inlineStart: 40, inlineEnd: 40 } }],
+        parentPages: [{ name: 'narrow', margin: { blockStart: 10, blockEnd: 10, inlineStart: 150, inlineEnd: 150 } }],
         chapters: [{ ...chapter, pageGeometry: 'wide', parents: { recto: 'narrow' } }],
       }),
     )
-    const issue = result.error?.issues.find((candidate) => candidate.message.includes('different text widths'))
+    const issue = result.error?.issues.find((candidate) => candidate.message.includes('does not fit'))
     expect(issue?.path).toEqual(['chapters', 0])
     expect(issue?.message).toContain('narrow')
+    expect(issue?.message).toContain('279.4mm by 215.9mm paper')
   })
 })

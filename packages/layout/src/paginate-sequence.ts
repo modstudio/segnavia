@@ -25,7 +25,7 @@ export function paginateSequence(
   }
 
   function pageHeight(flow: PaginateFlow, parent: string): number {
-    return input.geometryParents?.[flow.pageGeometry]?.[parent]?.height ?? input.parents[parent]?.height ?? 0
+    return input.geometryParents?.[geometryOf(flow)]?.[parent]?.height ?? input.parents[parent]?.height ?? 0
   }
 
   function geometryOf(flow: PaginateFlow): string {

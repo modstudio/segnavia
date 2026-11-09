@@ -11,11 +11,14 @@ type Check = (what: string, ok: boolean, detail?: string) => void
 
 const margin = { blockStart: 18, blockEnd: 18, inlineStart: 20, inlineEnd: 16 }
 const parents = { opener: 'section-opener', recto: 'section-recto', verso: 'section-verso' }
+const fixtureIds = () => {
+  let id = 0
+  return () => `section-paper-${++id}`
+}
 
 function fixture(hebrew: boolean): DocumentInput {
-  const section = (id: string, title: string, marker: string, pageGeometry?: string) => ({
+  const section = (title: string, marker: string, pageGeometry?: string) => ({
     type: 'section' as const,
-    id,
     title,
     ...(pageGeometry ? { pageGeometry } : {}),
     lang: hebrew ? 'he' : 'en',
@@ -64,9 +67,9 @@ function fixture(hebrew: boolean): DocumentInput {
         type: 'division',
         name: 'body',
         children: [
-          section('paper-one', hebrew ? 'ראשון' : 'First', 'FIRST'),
-          section('paper-two', hebrew ? 'שני' : 'Second', 'SECOND', 'landscape'),
-          section('paper-three', hebrew ? 'שלישי' : 'Third', 'THIRD'),
+          section(hebrew ? 'ראשון' : 'First', 'FIRST'),
+          section(hebrew ? 'שני' : 'Second', 'SECOND', 'landscape'),
+          section(hebrew ? 'שלישי' : 'Third', 'THIRD'),
         ],
       },
     ],
@@ -96,8 +99,8 @@ export async function verifyBookSectionPaper(renderer: Renderer, work: string, c
   for (const hebrew of [false, true]) {
     const key = hebrew ? 'hebrew' : 'english'
     const input = fixture(hebrew)
-    const plan = await renderer.bookPlan(input, { css: 'body{font:14px/20px serif}p{margin:0 0 3mm}' })
-    const bytes = await renderer.bookPdf(input, { plan, effects: false, css: 'body{font:14px/20px serif}p{margin:0 0 3mm}' })
+    const plan = await renderer.bookPlan(input, { css: 'body{font:14px/20px serif}p{margin:0 0 3mm}', newId: fixtureIds() })
+    const bytes = await renderer.bookPdf(input, { plan, effects: false, css: 'body{font:14px/20px serif}p{margin:0 0 3mm}', newId: fixtureIds() })
     const file = path.join(work, `book-section-paper-${key}.pdf`)
     writeFileSync(file, bytes)
     const pdf = await PDFDocument.load(bytes)

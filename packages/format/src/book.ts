@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { bookPageGeometries, sectionPageGeometry } from './book-page-geometry.ts'
+import { parentPaperIssues } from './book-parent-geometry-policy.ts'
 import {
   BookChapterEntry,
   BookItem,
@@ -280,21 +281,17 @@ function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx)
       const parent = byName.get(name)
       return parent ? [{ role, name, width: textArea(parent, sectionTrim).width }] : []
     })
-    const geometryWidth = sectionTrim.width - (geometry?.margin.inlineStart ?? page.margin.inlineStart) - (geometry?.margin.inlineEnd ?? page.margin.inlineEnd)
-    const mismatched = widths.find((candidate) => candidate.width !== geometryWidth)
-    if (mismatched) {
-      const label = flow.title ?? `flow ${index + 1}`
-      ctx.addIssue({
-        code: 'custom',
-        path,
-        message: `the ${label} flow has different text widths: parent page "${mismatched.name}" is ${mismatched.width}mm, but its page geometry is ${geometryWidth}mm; make both widths equal or remove that parent to clear this refusal`,
-      })
-      return
-    }
+    const label = flow.title ?? `flow ${index + 1}`
+    const namedParents = [...new Set(Object.values(flow.parents ?? {}))]
+    const fitFacts = namedParents.flatMap((name) => {
+      const parent = byName.get(name)
+      return parent ? [{ section: label, parent: name, path, paper: sectionTrim, textArea: textArea(parent, sectionTrim) }] : []
+    })
+    for (const issue of parentPaperIssues(fitFacts)) ctx.addIssue({ code: 'custom', ...issue })
+    if (fitFacts.some((fact) => fact.textArea.width <= 0 || fact.textArea.height <= 0)) return
     const first = widths[0]
     const different = widths.find((candidate) => candidate.width !== first?.width)
     if (!first || !different) return
-    const label = flow.title ?? `flow ${index + 1}`
     ctx.addIssue({
       code: 'custom',
       path,
