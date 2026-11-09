@@ -27,6 +27,19 @@ test('refuses source with resolve and host claims on the reserved root', () => {
   expect(() => slotsWithDay({ declarations: [{ key: 'asOf.date', label: 'Host date', type: 'text' }] }, day, undefined)).toThrow('reserved asOf context')
 })
 
+test('refuses copy fills with resolve before resolving the source', async () => {
+  let calls = 0
+  const options = {
+    fills: [{ fill: { id: 'copy', values: {} } }],
+    resolve: async () => {
+      calls++
+      return undefined
+    },
+  }
+  await expect(slotsForDay(options, day, new AbortController().signal)).rejects.toThrow('slots.fills and slots.resolve')
+  expect(calls).toBe(0)
+})
+
 test('a page without an as-of binding keeps the host slot-work path unchanged', () => {
   const resolved = slotsWithDay(undefined, day, undefined)
   expect(resolved).not.toHaveProperty('declarations')

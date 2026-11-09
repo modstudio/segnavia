@@ -41,3 +41,13 @@ test('render day resolution refuses an anchor the host cannot resolve', async ()
   const page = Page.parse({ html: '<p>Page</p>', asOf: { kind: 'anchor', anchor: 'missing' } })
   await expect(resolveRenderDayContexts([page], { moment: 0 }, signal)).rejects.toThrow('missing')
 })
+
+test('render day resolution refuses distinct days under slots.resolve', async () => {
+  const pages = [
+    Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }),
+    Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-10' } }),
+  ]
+  await expect(resolveRenderDayContexts(pages, { moment: 0, slots: { resolve: async () => undefined } }, signal)).rejects.toThrow(
+    'print or render each day separately',
+  )
+})

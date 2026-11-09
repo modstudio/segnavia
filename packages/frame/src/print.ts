@@ -315,6 +315,7 @@ export async function printPages(pagesInput: PageOrPrintedInput[], impositionInp
     hostZone: options.asOf?.zone,
     anchors: options.anchors,
     slots: options.slots,
+    refuseMixedResolvedDays: true,
     signal,
   })
   options.asOf?.report?.(contexts.days)

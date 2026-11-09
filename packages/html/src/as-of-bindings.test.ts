@@ -17,3 +17,8 @@ test('finds unquoted and entity-encoded day bindings through the parsed page', (
   expect(html).toContain('2026-11-14')
   expect(html).toContain('data-slot-value="person.name"')
 })
+
+test('leaves a scripted page without an as-of binding unchanged', () => {
+  const html = '<p id="result">waiting</p><script src="https://assets.example/page.js"></script>'
+  expect(fillAsOfBindings(html, { date: '2026-11-14', zone: 'UTC', kind: 'current' })).toBe(html)
+})

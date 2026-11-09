@@ -1,4 +1,5 @@
 import {
+  type AsOfDay,
   type Book,
   type FontFace,
   type FontFailure,
@@ -84,7 +85,7 @@ export async function prepareRenderedPageValue(
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
-  day?: import('@segnavia/format').AsOfDay,
+  day?: AsOfDay,
 ) {
   const page = resolvePageHtml(input)
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths, day)
@@ -97,7 +98,7 @@ async function prepareRenderedPrintedPageValue(
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   purpose: 'screen' | 'print',
-  day?: import('@segnavia/format').AsOfDay,
+  day?: AsOfDay,
 ) {
   const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options.placements, purpose, options.pageWidths, day)
   return preparedRender(expanded, options, signal)

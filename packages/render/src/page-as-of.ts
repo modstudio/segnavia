@@ -8,6 +8,7 @@ export async function resolveRenderDayContexts(pages: readonly Page[], options: 
     hostZone: options.asOf?.zone,
     anchors: options.anchors,
     slots: options.slots,
+    refuseMixedResolvedDays: true,
     signal,
   })
   options.asOf?.report?.(contexts.days)

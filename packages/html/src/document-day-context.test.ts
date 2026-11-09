@@ -65,3 +65,40 @@ test('resolves stored values once and fills once per distinct resulting day', as
   expect(slotCalls).toBe(2)
   expect(contexts.days.map((day) => day.date)).toEqual(['2026-11-09', '2026-11-10'])
 })
+
+test('refuses distinct days under one resolved source before resolving slots', async () => {
+  let slotCalls = 0
+  const pages = [
+    Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }),
+    Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-10' } }),
+  ]
+  const resolution = resolveDocumentDayContexts(pages, {
+    moment: 0,
+    slots: {
+      resolve: async () => {
+        slotCalls++
+        return undefined
+      },
+    },
+    refuseMixedResolvedDays: true,
+    signal: signal(),
+  })
+
+  await expect(resolution).rejects.toThrow('distinct as-of days "2026-11-09" (fixed, UTC), "2026-11-10" (fixed, UTC)')
+  await expect(resolution).rejects.toThrow('print or render each day separately')
+  expect(slotCalls).toBe(0)
+})
+
+test('allows distinct days when every page uses the same static source', async () => {
+  const source = { id: 'shared', values: { title: 'Bulletin' } }
+  const contexts = await resolveDocumentDayContexts(
+    [
+      Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }),
+      Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-10' } }),
+    ],
+    { moment: 0, slots: { source }, refuseMixedResolvedDays: true, signal: signal() },
+  )
+
+  expect(contexts.days.map(({ date }) => date)).toEqual(['2026-11-09', '2026-11-10'])
+  expect(contexts.pages.map(({ slots }) => slots.source)).toEqual([source, source])
+})

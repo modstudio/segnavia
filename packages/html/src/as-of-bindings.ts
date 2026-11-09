@@ -7,7 +7,7 @@ export function hasAsOfBinding(html: string): boolean {
 }
 
 export function fillAsOfBindings(html: string, day: AsOfDay | undefined): string {
-  if (!day) return html
+  if (!day || !hasAsOfBinding(html)) return html
   const roots = bindingPaths(html, 'slot')
     .map(bindingRoot)
     .filter((root) => root !== AS_OF_CONTEXT)

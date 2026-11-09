@@ -38,6 +38,9 @@ export function slotsOptionsRefusal(options: SlotsOptions | undefined): Error | 
   if (options?.source && options.resolve) {
     return new RangeError('slots.source and slots.resolve were both supplied; remove one of those options to clear this refusal.')
   }
+  if (options?.resolve && 'fills' in options && options.fills) {
+    return new RangeError('slots.fills and slots.resolve were both supplied; remove one of those options to clear this refusal.')
+  }
   const key = collision(options)
   return key
     ? new RangeError(`The host slot ${JSON.stringify(key)} claims the reserved asOf context; remove asOf from the slots options to clear this refusal.`)
@@ -62,6 +65,8 @@ export function slotsWithDay(options: SlotsOptions | undefined, day: AsOfDay, so
 }
 
 export async function slotsForDay(options: SlotsOptions | undefined, day: AsOfDay, signal: AbortSignal, bindDay = false): Promise<SlotsOptions> {
+  const refusal = slotsOptionsRefusal(options)
+  if (refusal) throw refusal
   const resolved = options?.resolve ? await options.resolve({ day, signal }) : options?.source
   signal.throwIfAborted()
   return slotsWithDay(options, day, resolved, bindDay)
