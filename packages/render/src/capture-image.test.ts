@@ -9,9 +9,12 @@ test('png capture refuses a screenshot over the byte limit', async () => {
     screenshot: async () => new Uint8Array(6),
   } as unknown as Tab
 
-  await expect(captureImage(tab, { format: 'png', limits: { bytes: 5 }, limitSetting: 'output.maxBytes' }, false)).rejects.toEqual(
-    new RenderRefusedError(limitRefusal('bytes', 6, 5, { setting: 'output.maxBytes' })),
-  )
+  const capture = captureImage(tab, { format: 'png', limits: { bytes: 5 }, limitSetting: 'output.maxBytes' }, false)
+  await expect(capture).rejects.toThrow(limitRefusal('bytes', 6, 5, { setting: 'output.maxBytes' }))
+  await expect(capture).rejects.toMatchObject({
+    exceeded: [{ measure: 'bytes', limit: 5, actual: 6, message: limitRefusal('bytes', 6, 5, { setting: 'output.maxBytes' }) }],
+  })
+  await expect(capture).rejects.toBeInstanceOf(RenderRefusedError)
 })
 
 test('WebP capture reports the last oversized attempt', async () => {
@@ -25,7 +28,10 @@ test('WebP capture reports the last oversized attempt', async () => {
     evaluate: async () => ({ x: 0, y: 0, width: 10, height: 10, scale: 1 }),
   } as unknown as Tab
 
-  await expect(captureImage(tab, { format: 'webp', quality: [90, 80, 70], limits: { bytes: 5 } }, false)).rejects.toEqual(
-    new RenderRefusedError(limitRefusal('bytes', 6, 5)),
-  )
+  const capture = captureImage(tab, { format: 'webp', quality: [90, 80, 70], limits: { bytes: 5 } }, false)
+  await expect(capture).rejects.toThrow(limitRefusal('bytes', 6, 5))
+  await expect(capture).rejects.toMatchObject({
+    exceeded: [{ measure: 'bytes', limit: 5, actual: 6, message: limitRefusal('bytes', 6, 5) }],
+  })
+  await expect(capture).rejects.toBeInstanceOf(RenderRefusedError)
 })

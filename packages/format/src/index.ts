@@ -115,6 +115,7 @@ export {
   Cue,
   DECK_SIZE,
   Deck,
+  deckLimitsExceeded,
   deckTrim,
   exceedsLimits,
   ImageFit,
@@ -248,24 +249,7 @@ export {
 export { Imposition, type ImpositionInput, MAX_IMPOSITION_CELLS } from './imposition-schema.ts'
 export { jsonSchemas } from './json-schemas.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
-export {
-  DEFAULT_LIMITS,
-  DEFAULT_PAGE_LIMIT,
-  type DocumentLimits,
-  fillLimitRefusal,
-  LIMIT_ACTUAL_PLACEHOLDER,
-  type LimitMeasure,
-  type LimitRefusalOptions,
-  type Limits,
-  type LocalFontLimitFace,
-  limitRefusal,
-  limitRefusalTemplate,
-  localFontLimitRefusal,
-  type PageLimitSource,
-  parseLimits,
-  type ResolvedLimits,
-  resolveLimits,
-} from './limits.ts'
+export * from './limit-exports.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export * from './measurements.ts'
 export {

@@ -160,7 +160,7 @@ describe('deck', () => {
   })
 })
 
-import { exceedsLimits, shotsUsed } from './index.ts'
+import { deckLimitsExceeded, exceedsLimits, shotsUsed } from './index.ts'
 
 describe('limits', () => {
   test('a deck over a host ceiling says which ceiling and by how much', () => {
@@ -175,6 +175,22 @@ describe('limits', () => {
       "The deck is 2 slides, above the slides limit of 1; raise the host's limits.slides, or reduce the content to clear this refusal.",
       "The slide for slide 1 is 4 UTF-8 bytes, above the slideBytes limit of 3; raise the host's limits.slideBytes, or reduce the content to clear this refusal.",
     ])
+    expect(deckLimitsExceeded(deck, { slides: 1, slideBytes: 3 })).toEqual([
+      {
+        measure: 'slides',
+        limit: 1,
+        actual: 2,
+        message: "The deck is 2 slides, above the slides limit of 1; raise the host's limits.slides, or reduce the content to clear this refusal.",
+      },
+      {
+        measure: 'slideBytes',
+        limit: 3,
+        actual: 4,
+        where: 'slide 1',
+        message:
+          "The slide for slide 1 is 4 UTF-8 bytes, above the slideBytes limit of 3; raise the host's limits.slideBytes, or reduce the content to clear this refusal.",
+      },
+    ])
   })
 
   test('a deck whose notes exceed the host ceiling is refused', () => {
@@ -188,6 +204,7 @@ describe('limits', () => {
     expect(exceedsLimits(deck, { notesBytes: 5 })).toEqual([
       "The slide notes for slide 2 is 8 UTF-8 bytes, above the notesBytes limit of 5; raise the host's limits.notesBytes, or reduce the content to clear this refusal.",
     ])
+    expect(deckLimitsExceeded(deck, { notesBytes: 5 })[0]).toMatchObject({ measure: 'notesBytes', limit: 5, actual: 8, where: 'slide 2' })
   })
 
   test('shots used lists embedded and referenced shots alike', () => {

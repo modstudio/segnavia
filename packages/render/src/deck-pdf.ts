@@ -7,7 +7,6 @@ import {
   impose,
   impositionMarks,
   type Limits,
-  limitRefusal,
   type OriginApproval,
   type Imposition as ParsedImposition,
   pagePlacementLayout,
@@ -37,7 +36,7 @@ import {
   htmlSlidePdfOptions,
   regularSlideDrawBox,
 } from './deck-paper.ts'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { type Assets, assetSetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
@@ -243,7 +242,7 @@ async function regularDeckPdf(
             const sheetsLimit = opts.limits?.sheets
             const pagination = await paginateRenderedNotes(tab, sheetsLimit)
             if (sheetsLimit !== undefined && pagination.exceeded) {
-              throw new RenderRefusedError(limitRefusal('sheets', pagination.sheets, sheetsLimit, { atLeast: true }))
+              throw new RenderLimitError('sheets', pagination.sheets, sheetsLimit, { atLeast: true })
             }
             pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
           }

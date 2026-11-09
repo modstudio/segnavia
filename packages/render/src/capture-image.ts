@@ -1,6 +1,6 @@
-import { type Limits, limitRefusal, parseLimits } from '@segnavia/format'
+import { type Limits, parseLimits } from '@segnavia/format'
 import type { Page as Tab } from 'playwright-core'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { ImageOptions } from './options.ts'
 
 // One image of what a tab shows. Shared with capture, so a shot and a
@@ -16,13 +16,13 @@ export async function captureImage(
   if (format !== 'webp') {
     const bytes = await tab.screenshot({ type: format, fullPage, ...(format === 'jpeg' ? { quality: options.quality?.[0] ?? 90 } : {}) })
     if (limits?.bytes !== undefined && bytes.byteLength > limits.bytes) {
-      throw new RenderRefusedError(limitRefusal('bytes', bytes.byteLength, limits.bytes, refusalOptions))
+      throw new RenderLimitError('bytes', bytes.byteLength, limits.bytes, refusalOptions)
     }
     return bytes
   }
   // Playwright offers no WebP; Chromium's own capture does, at a quality.
   const session = await tab.context().newCDPSession(tab)
-  let refusal: RenderRefusedError | undefined
+  let refusal: RenderLimitError | undefined
   try {
     const clip = await tab.evaluate((wholePage) => {
       const scale = devicePixelRatio
@@ -38,7 +38,7 @@ export async function captureImage(
       })
       const bytes = Buffer.from(data, 'base64')
       if (limits?.bytes === undefined || bytes.byteLength <= limits.bytes) return bytes
-      refusal = new RenderRefusedError(limitRefusal('bytes', bytes.byteLength, limits.bytes, refusalOptions))
+      refusal = new RenderLimitError('bytes', bytes.byteLength, limits.bytes, refusalOptions)
     }
   } finally {
     await session.detach()

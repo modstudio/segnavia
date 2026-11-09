@@ -8,11 +8,13 @@ import {
   type Deck,
   type DocumentInput,
   deckFromDocument,
-  exceedsLimits,
+  deckLimitsExceeded,
   Imposition,
   type ImpositionInput,
+  type LimitExceeded,
+  LimitExceededError,
   type Limits,
-  limitRefusal,
+  limitExceeded,
   PRESS_GEOMETRY_FIELDS,
   pageOrPrintedFromDocument,
   parseLimits,
@@ -40,7 +42,6 @@ import {
 } from './print-document.ts'
 import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
-import { pagesSheetsRefusal } from './print-limits.ts'
 import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
@@ -140,7 +141,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
     placePrintImages(win.document)
     const sheetsLimit = options.limits?.sheets
     const pagination = paginateNotes(win.document, sheetsLimit)
-    if (sheetsLimit !== undefined && pagination.exceeded) throw new RangeError(limitRefusal('sheets', pagination.sheets, sheetsLimit, { atLeast: true }))
+    if (sheetsLimit !== undefined && pagination.exceeded) throw new LimitExceededError('sheets', pagination.sheets, sheetsLimit, { atLeast: true })
     await waitForPaint(win.requestAnimationFrame.bind(win), Math.max(PAINT_FALLBACK_MS, deadlineAt - Date.now()))
     if (options.print) await options.print(win)
     else {
@@ -256,10 +257,14 @@ export function copiesPrint(copies: readonly PrintFrameOptions[]): PrintFrameOpt
   }
 }
 
+export function pagesSheetsExceeded(sheets: number | undefined, limits: Limits | undefined): LimitExceeded | undefined {
+  const limit = limits?.sheets
+  if (sheets !== undefined && limit !== undefined && sheets > limit) return limitExceeded('sheets', sheets, limit)
+}
+
 function refusePagesSheets(options: PrintFrameOptions): void {
-  if (options.sheets === undefined) return
-  const refusal = pagesSheetsRefusal(options.sheets, options.limits)
-  if (refusal) throw new RangeError(refusal)
+  const exceeded = pagesSheetsExceeded(options.sheets, options.limits)
+  if (exceeded) throw new LimitExceededError([exceeded])
 }
 
 export async function printDeck(input: DocumentInput, options: BrowserPrintOptions = {}): Promise<void> {
@@ -267,8 +272,8 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
   const document = parseDocument(input, { newId: options.newId })
   const deck = deckFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
   options = { ...options, limits: parseLimits(options.limits, 'host') }
-  const reasons = exceedsLimits(deck, options.limits ?? {})
-  if (reasons.length > 0) throw new RangeError(reasons.join('; '))
+  const exceeded = deckLimitsExceeded(deck, options.limits ?? {})
+  if (exceeded.length > 0) throw new LimitExceededError(exceeded as [(typeof exceeded)[number], ...typeof exceeded])
   const notesSheetFont = options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined
   const preparedOptions = { ...options, notesSheetFont }
   if (!options.slots?.fills) return printFrame(await preparedDeckValuePrint(deck, preparedOptions, signal))

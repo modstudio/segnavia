@@ -1,7 +1,7 @@
 import {
   type BrandSource,
   type Deck,
-  exceedsLimits,
+  deckLimitsExceeded,
   type FetchKind,
   type FontFace,
   type FontFailure,
@@ -16,7 +16,7 @@ import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
 import type { PressReport } from './press/types.ts'
 
@@ -141,8 +141,8 @@ export function copyLimits(limits: Limits | undefined, slots: SlotPrintOptions |
 }
 
 export function enforceDeckLimits(deck: Deck, limits: Limits | undefined): void {
-  const reasons = exceedsLimits(deck, limits ?? {})
-  if (reasons.length > 0) throw new RenderRefusedError(reasons.join('; '))
+  const exceeded = deckLimitsExceeded(deck, limits ?? {})
+  if (exceeded.length > 0) throw new RenderLimitError(exceeded as [(typeof exceeded)[number], ...typeof exceeded])
 }
 
 export const assetSetup = (options: RenderOptions): Pick<RenderOptions, 'origins' | 'assets' | 'assetBudget' | 'limits'> => ({

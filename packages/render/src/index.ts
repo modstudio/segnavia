@@ -53,7 +53,7 @@ export type { PreparedSlots, ResolvedPlacement, ResolvePlacement } from '@segnav
 export { captureImage } from './capture-image.ts'
 export { COVER_IMAGE_OMITTED, type CoverImageOptions, type CoverImagePlan, coverImagePlan } from './cover-image.ts'
 export type { EffectsReport } from './effects/types.ts'
-export { RendererUnavailableError, RenderRefusedError } from './errors.ts'
+export { RendererUnavailableError, RenderLimitError, RenderRefusedError } from './errors.ts'
 export { fontFaces } from './font-faces.ts'
 export type { LocalFontsOptions, LocalFontsReport } from './local-fonts.ts'
 export type {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import type { TextDirection } from '@segnavia/format'
-import { DEFAULT_PAGE_LIMIT, Imposition, limitRefusal, Page, PX_PER_MM } from '@segnavia/format'
+import { DEFAULT_PAGE_LIMIT, Imposition, type LimitExceededError, limitRefusal, Page, PX_PER_MM } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
@@ -75,9 +75,18 @@ describe('printedPagesPrintDocument', () => {
 
   test('refuses a measured count above the printed-page limit', async () => {
     fakeMeasurement((DEFAULT_PAGE_LIMIT + 1) * 279.4 * PX_PER_MM)
-    await expect(printedPagesPrintDocument([printed()], identity, { deadlineAt: Date.now() + 100 })).rejects.toThrow(
-      limitRefusal('pages', DEFAULT_PAGE_LIMIT + 1, DEFAULT_PAGE_LIMIT, { pagesSource: 'default' }),
-    )
+    const printing = printedPagesPrintDocument([printed()], identity, { deadlineAt: Date.now() + 100 })
+    await expect(printing).rejects.toThrow(limitRefusal('pages', DEFAULT_PAGE_LIMIT + 1, DEFAULT_PAGE_LIMIT, { pagesSource: 'default' }))
+    await expect(printing).rejects.toMatchObject({
+      exceeded: [
+        {
+          measure: 'pages',
+          limit: DEFAULT_PAGE_LIMIT,
+          actual: DEFAULT_PAGE_LIMIT + 1,
+          message: limitRefusal('pages', DEFAULT_PAGE_LIMIT + 1, DEFAULT_PAGE_LIMIT, { pagesSource: 'default' }),
+        },
+      ],
+    } satisfies Partial<LimitExceededError>)
   })
 
   test('uses a paper-sized viewport for LTR and RTL measuring and printable frames', async () => {

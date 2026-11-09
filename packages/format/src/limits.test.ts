@@ -1,7 +1,18 @@
 import { describe, expect, test } from 'bun:test'
 import { Book } from './book.ts'
 import { identifiedBookInput } from './book-test-helper.ts'
-import { DEFAULT_LIMITS, fillLimitRefusal, limitRefusal, limitRefusalTemplate, localFontLimitRefusal, parseLimits, resolveLimits } from './limits.ts'
+import {
+  DEFAULT_LIMITS,
+  fillLimitRefusal,
+  isLimitExceeded,
+  LimitExceededError,
+  limitRefusal,
+  limitRefusalTemplate,
+  localFontLimitExceeded,
+  localFontLimitRefusal,
+  parseLimits,
+  resolveLimits,
+} from './limits.ts'
 import { Page } from './page.ts'
 
 describe('resolveLimits', () => {
@@ -93,6 +104,38 @@ describe('limitRefusal', () => {
     )
   })
 
+  test.each([
+    ['pages', { pagesSource: 'host' as const }],
+    ['sheets', { atLeast: true }],
+    ['bytes', { setting: 'output.maxBytes' }],
+    ['slides', {}],
+    ['slideBytes', { where: 'slide 2' }],
+    ['notesBytes', { where: 'slide 3' }],
+    ['localFonts.count', { where: '"Second"' }],
+    ['localFonts.bytes', { where: '"Body"' }],
+  ] as const)('carries structured %s refusal facts without changing its message', (measure, options) => {
+    const error = new LimitExceededError(measure, 6, 5, options)
+    expect(error.message).toBe(limitRefusal(measure, 6, 5, options))
+    expect(error.exceeded).toEqual([
+      {
+        measure,
+        limit: 5,
+        actual: 6,
+        ...('where' in options ? { where: options.where } : {}),
+        message: limitRefusal(measure, 6, 5, options),
+      },
+    ])
+    expect(error).toBeInstanceOf(RangeError)
+    expect(isLimitExceeded(error)).toBe(true)
+  })
+
+  test('recognizes only errors with a non-empty structured refusal list', () => {
+    expect(isLimitExceeded(new Error('plain'))).toBe(false)
+    expect(isLimitExceeded(Object.assign(new Error('empty'), { exceeded: [] }))).toBe(false)
+    expect(isLimitExceeded(Object.assign(new Error('incomplete'), { exceeded: [{ measure: 'bytes', limit: 5 }] }))).toBe(false)
+    expect(isLimitExceeded(Object.assign(new Error('unknown'), { exceeded: [{ measure: 'other', limit: 5, actual: 6, message: 'unknown' }] }))).toBe(false)
+  })
+
   test('fills the shared template to the direct refusal', () => {
     const options = { pagesSource: 'host' as const }
     expect(fillLimitRefusal(limitRefusalTemplate('pages', 5, options), 6)).toBe(limitRefusal('pages', 6, 5, options))
@@ -113,5 +156,20 @@ describe('limitRefusal', () => {
         { count: 1, bytes: 7 },
       ),
     ).toBe(limitRefusal('localFonts.count', 2, 1, { where: '"Second"' }))
+    expect(
+      localFontLimitExceeded(
+        [
+          { family: 'First', bytes: 4 },
+          { family: 'Second', bytes: 4 },
+        ],
+        { count: 3, bytes: 7 },
+      ),
+    ).toEqual({
+      measure: 'localFonts.bytes',
+      limit: 7,
+      actual: 8,
+      where: '"Second"',
+      message: limitRefusal('localFonts.bytes', 8, 7, { where: '"Second"' }),
+    })
   })
 })

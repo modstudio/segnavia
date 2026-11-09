@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { AppFont, FontSource } from '@segnavia/format'
+import { type AppFont, type FontSource, isLimitExceeded } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { screenDeck } from '../screen-document.ts'
 
@@ -92,13 +92,13 @@ export async function verifyLongDeckNotes(renderer: Renderer, work: string, chec
       },
     })
     .then(
-      () => 'rendered',
-      (error: unknown) => `${error instanceof Error ? error.name : 'unknown'}: ${error instanceof Error ? error.message : String(error)}`,
+      () => undefined,
+      (error: unknown) => error,
     )
   check(
     'deckPdf refuses notes at limits.sheets before output',
-    limited.startsWith('RenderRefusedError:') && !reachedOutput,
-    `${limited}, output=${reachedOutput}`,
+    isLimitExceeded(limited) && limited.exceeded.some((entry) => entry.measure === 'sheets' && entry.limit === 2) && !reachedOutput,
+    `${limited instanceof Error ? `${limited.name}: ${limited.message}` : 'rendered'}, output=${reachedOutput}`,
   )
 
   const alefPath = path.resolve(import.meta.dirname, '../../fixtures/hebrew-notice/Alef-Regular.ttf')

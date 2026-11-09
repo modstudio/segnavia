@@ -1,3 +1,5 @@
+import { type LimitExceeded, LimitExceededError, type LimitMeasure, type LimitRefusalOptions } from '@segnavia/format'
+
 export class RendererUnavailableError extends Error {
   override name = 'RendererUnavailableError'
 }
@@ -23,4 +25,24 @@ export function browserExited(): RendererUnavailableError {
 // said it was ready, or a page that crashed. The message names which.
 export class RenderRefusedError extends Error {
   override name = 'RenderRefusedError'
+}
+export class RenderLimitError extends RenderRefusedError {
+  override name = 'RenderLimitError'
+  readonly exceeded: readonly LimitExceeded[]
+
+  constructor(measure: LimitMeasure, actual: number, limit: number, options?: LimitRefusalOptions)
+  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]], message?: string)
+  constructor(
+    measureOrExceeded: LimitMeasure | readonly [LimitExceeded, ...LimitExceeded[]],
+    actualOrMessage?: number | string,
+    limit?: number,
+    options: LimitRefusalOptions = {},
+  ) {
+    const structured =
+      typeof measureOrExceeded === 'string'
+        ? new LimitExceededError(measureOrExceeded, actualOrMessage as number, limit as number, options)
+        : new LimitExceededError(measureOrExceeded, actualOrMessage as string | undefined)
+    super(structured.message)
+    this.exceeded = structured.exceeded
+  }
 }

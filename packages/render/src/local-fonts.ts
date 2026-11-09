@@ -4,14 +4,14 @@ import {
   type FontReference,
   type LocalFacesInput,
   LocalFaceTransport,
-  localFontLimitRefusal,
+  localFontLimitExceeded,
   localFontReferences,
   type ResolvedFontFace,
   type ResolvedLimits,
   resolveFontFace,
 } from '@segnavia/format'
 import { base64ToBytes, bytesToBase64, fontFormat } from '@segnavia/html'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError, RenderRefusedError } from './errors.ts'
 
 export interface LocalFontsReport {
   fellBack: Array<{ family: string; fallback: string }>
@@ -69,7 +69,7 @@ function decodedFaces(options: LocalFontsOptions | undefined, limits: ResolvedLi
     throw new RenderRefusedError('The local faces transport is not an array; send an array of local faces to clear this refusal.')
   }
   const inputs: readonly unknown[] = supplied
-  const refusal = localFontLimitRefusal(
+  const exceeded = localFontLimitExceeded(
     inputs.map((input) => {
       const data = typeof input === 'object' && input !== null && 'data' in input ? (input as { data?: unknown }).data : undefined
       if (typeof data !== 'string') return { family: familyFrom(input), bytes: 0 }
@@ -78,13 +78,13 @@ function decodedFaces(options: LocalFontsOptions | undefined, limits: ResolvedLi
     }),
     limits,
   )
-  if (refusal) throw new RenderRefusedError(refusal)
+  if (exceeded) throw new RenderLimitError([exceeded])
   const faces = inputs.map(decodeFace)
-  const extractedRefusal = localFontLimitRefusal(
+  const extractedExceeded = localFontLimitExceeded(
     faces.map((face) => ({ family: face.family, bytes: face.data.length })),
     limits,
   )
-  if (extractedRefusal) throw new RenderRefusedError(extractedRefusal)
+  if (extractedExceeded) throw new RenderLimitError([extractedExceeded])
   return faces
 }
 

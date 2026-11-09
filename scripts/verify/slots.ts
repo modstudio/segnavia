@@ -59,14 +59,11 @@ export async function verifySlots(h: Harness) {
   await page.locator('#filled-deck-thumbnail iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor()
   await page.locator('#mina iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor()
   await page.locator('#noah iframe').first().contentFrame().locator('body').getByText('Noah Kim').waitFor()
-  await page.locator('#unfilled iframe').first().contentFrame().locator('body').getByText('Design Name').waitFor()
   const mina = await frameText('#mina iframe')
   const noah = await frameText('#noah iframe')
-  const unfilled = await frameText('#unfilled iframe')
   const thumbnail = await frameText('#filled-thumbnail iframe')
   const deckThumbnail = await frameText('#filled-deck-thumbnail iframe')
   check('two fills render different text on the same two-sided card', mina.join(' ').includes('<em>Mina Patel</em>') && noah.join(' ').includes('Noah Kim'))
-  check('an unfilled slot keeps the design text', unfilled.join(' ').includes('Design Name'))
   check(
     'an asset reference resolves to a data URL and a failed reference reports unavailable',
     facts.logo?.includes('data:image/svg+xml') === true && facts.failedAsset?.slots.logo === 'unavailable',

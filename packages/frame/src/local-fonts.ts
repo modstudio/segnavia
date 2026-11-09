@@ -5,7 +5,7 @@ import {
   type Limits,
   type LocalFacesInput,
   type LocalFontDeclaration,
-  localFontLimitRefusal,
+  localFontLimitExceeded,
   localFontReferences,
   parseLimits,
   resolveFontFace,
@@ -174,11 +174,11 @@ export function packLocalFaces(faces: readonly FontFace[], fonts: FontReferences
     if (!family) return []
     return [{ face, family }]
   })
-  const refusal = localFontLimitRefusal(
+  const exceeded = localFontLimitExceeded(
     selected.map(({ face, family }) => ({ family, bytes: face.data.byteLength })),
     resolveLimits(undefined, parseLimits(limits, 'host')).localFonts,
   )
-  if (refusal) throw new FontRefusedError(refusal)
+  if (exceeded) throw new FontRefusedError(exceeded.message, [exceeded])
   return selected.map(({ face, family }) => ({
     family,
     format: face.format,
