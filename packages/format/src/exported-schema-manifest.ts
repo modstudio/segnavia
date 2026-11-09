@@ -1,3 +1,4 @@
+import { AsOf, CalendarDate, Zone } from './as-of.ts'
 import { BoardCommand } from './board-commands.ts'
 import { BookView } from './book.ts'
 import { Cover } from './cover.ts'
@@ -15,6 +16,9 @@ import { PlacementShape } from './placement.ts'
 import { SlotDeclaration, SlotDeclarationInput } from './slots.ts'
 
 export const EXPORTED_SCHEMAS = {
+  calendarDate: CalendarDate,
+  zone: Zone,
+  asOf: AsOf,
   bookView: BookView,
   document: Document,
   documentOp: DocumentOp,

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AsOf } from './as-of.ts'
 import { PixelSize } from './deck.ts'
 import { Direction } from './direction.ts'
 import { DocumentLimitsValue } from './limits.ts'
@@ -52,6 +53,7 @@ const PageShape = z
     scripts: Scripts.default('refuse'),
     dir: Direction.optional(),
     lang: z.string().optional(),
+    asOf: AsOf.optional(),
     print: Print.optional(),
     printedPages: PrintedPages.optional(),
     limits: DocumentLimitsValue.optional(),

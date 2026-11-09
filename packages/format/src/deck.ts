@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { AsOf } from './as-of.ts'
 import { Direction, TextDirection } from './direction.ts'
 import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
@@ -142,6 +143,7 @@ export const DeckShape = z.object({
   captions: z.enum(['on', 'off', 'viewer']).optional(),
   slots: Slots.optional(),
   style: StyleSheet.optional(),
+  asOf: AsOf.optional(),
   print: PressGeometry.optional(),
   slides: z.array(Slide).min(1),
 })
