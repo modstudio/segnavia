@@ -1,8 +1,10 @@
 import { afterAll } from 'bun:test'
 
 export class ItemSettingsTestElement extends EventTarget {
+  readonly tagName: string
   children: ItemSettingsTestElement[] = []
   parentNode: ItemSettingsTestElement | null = null
+  activeElement: ItemSettingsTestElement | null = null
   dataset: Record<string, string> = {}
   part = new Set<string>()
   textContent = ''
@@ -14,6 +16,14 @@ export class ItemSettingsTestElement extends EventTarget {
   dir = ''
   checked = false
   accept = ''
+  selectionStart: number | null = null
+  selectionEnd: number | null = null
+  private attributes = new Map<string, string>()
+
+  constructor(tagName = 'div') {
+    super()
+    this.tagName = tagName.toUpperCase()
+  }
 
   get firstChild(): ItemSettingsTestElement | null {
     return this.children[0] ?? null
@@ -67,10 +77,34 @@ export class ItemSettingsTestElement extends EventTarget {
 
   focus() {
     ;(document as unknown as { activeElement: ItemSettingsTestElement }).activeElement = this
+    for (let ancestor = this.parentNode; ancestor; ancestor = ancestor.parentNode) ancestor.activeElement = this
   }
 
-  setAttribute() {}
-  removeAttribute() {}
+  contains(node: ItemSettingsTestElement): boolean {
+    return node === this || this.children.some((child) => child.contains(node))
+  }
+
+  querySelectorAll(selector: string): ItemSettingsTestElement[] {
+    const tag = selector.toUpperCase()
+    return this.children.flatMap((child) => [...(child.tagName === tag ? [child] : []), ...child.querySelectorAll(selector)])
+  }
+
+  setSelectionRange(start: number, end: number) {
+    this.selectionStart = start
+    this.selectionEnd = end
+  }
+
+  getAttribute(name: string) {
+    return this.attributes.get(name) ?? null
+  }
+
+  setAttribute(name: string, value: string) {
+    this.attributes.set(name, value)
+  }
+
+  removeAttribute(name: string) {
+    this.attributes.delete(name)
+  }
 }
 
 export function installItemSettingsTestDocument(): void {
@@ -91,6 +125,6 @@ export function installItemSettingsTestDocument(): void {
   Object.defineProperty(globalThis, 'document', {
     configurable: true,
     writable: true,
-    value: { createElement: () => new ItemSettingsTestElement(), documentElement: { style: {} }, activeElement: null },
+    value: { createElement: (tag: string) => new ItemSettingsTestElement(tag), documentElement: { style: {} }, activeElement: null },
   })
 }

@@ -124,6 +124,7 @@ export type ItemSettingsProps = ElementProps<SegnaviaItemSettings> & {
   source?: SegnaviaItemSettings['source']
   report?: SegnaviaItemSettings['report']
   labels?: Partial<ItemSettingsLabels>
+  /** Keep renderer functions at module scope or memoize them; a new function replaces and disposes its controls. */
   controls?: ItemSettingsControls
   onSegnaviaFillSelect?: CustomEventProp<string>
   onSegnaviaFillInput?: CustomEventProp<SegnaviaItemSettings['fills'][number]>

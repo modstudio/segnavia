@@ -10,6 +10,7 @@ export type {
   FillSwitcherView,
   ItemSettingsActionKind,
   ItemSettingsActionView,
+  ItemSettingsAssetView,
   ItemSettingsControlRenderer,
   ItemSettingsControls,
   ItemSettingsFieldView,

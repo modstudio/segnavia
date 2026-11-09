@@ -1,4 +1,5 @@
 import type { Fill, SlotDeclaration, SlotValue, TextDirection } from '@segnavia/format'
+import { fillLabel, selectedFill } from './item-settings-fills.ts'
 import type { ItemSettingsLabels } from './item-settings-labels.ts'
 import type { SlotFieldView } from './item-settings-values.ts'
 
@@ -13,6 +14,9 @@ export interface FillSwitcherView extends ControlView {
 }
 export interface ItemSettingsFieldView extends ControlView, SlotFieldView {
   declaration: SlotDeclaration
+}
+export interface ItemSettingsAssetView extends ItemSettingsFieldView {
+  canPickAsset: boolean
 }
 export interface ItemSettingsActionView extends ItemSettingsFieldView {
   action: ItemSettingsActionKind
@@ -41,11 +45,12 @@ export type ItemSettingsControlRenderer<View, Callbacks> = (view: View, callback
 export interface ItemSettingsControls {
   fillSwitcher?: ItemSettingsControlRenderer<FillSwitcherView, FillSwitcherCallbacks>
   field?: ItemSettingsControlRenderer<ItemSettingsFieldView, FieldControlCallbacks>
-  asset?: ItemSettingsControlRenderer<ItemSettingsFieldView, AssetControlCallbacks>
+  asset?: ItemSettingsControlRenderer<ItemSettingsAssetView, AssetControlCallbacks>
   action?: ItemSettingsControlRenderer<ItemSettingsActionView, ActionControlCallbacks>
 }
 
-function isolated(text: string): HTMLElement {
+// Library and label text sits in a <bdi>, so it takes its own direction while its block keeps the panel's alignment.
+export function isolated(text: string): HTMLElement {
   const bdi = document.createElement('bdi')
   bdi.textContent = text
   return bdi
@@ -84,12 +89,12 @@ export const nativeFillSwitcher: NonNullable<ItemSettingsControls['fillSwitcher'
       ...view.fills.map((fill) => {
         const option = document.createElement('option')
         option.value = fill.id
-        option.textContent = fill.label || fill.id
+        option.textContent = fillLabel(fill)
         return option
       }),
     )
     select.value = view.fill ?? ''
-    const current = view.fills.find((fill) => fill.id === view.fill)
+    const current = selectedFill(view.fills, view.fill)
     nameCaption.replaceChildren(isolated(view.labels.fillName))
     name.value = current?.label ?? ''
     name.disabled = current === undefined
@@ -122,7 +127,7 @@ export const nativeField: NonNullable<ItemSettingsControls['field']> = (initial,
   return { element: input, update, dispose() {} }
 }
 
-function nativeAssetControl(initial: ItemSettingsFieldView, callbacks: AssetControlCallbacks, canPick: boolean) {
+function nativeAssetControl(initial: ItemSettingsAssetView, callbacks: AssetControlCallbacks) {
   const root = document.createElement('div')
   const file = document.createElement('input')
   file.type = 'file'
@@ -136,27 +141,26 @@ function nativeAssetControl(initial: ItemSettingsFieldView, callbacks: AssetCont
   pick.part.add('asset-pick')
   pick.addEventListener('click', () => void callbacks.pickAsset())
   root.append(file)
-  const update = (view: ItemSettingsFieldView) => {
+  const update = (view: ItemSettingsAssetView) => {
     file.disabled = view.readOnly
     file.required = view.required
     file.setAttribute('aria-required', String(view.required))
     if (typeof view.value === 'object') {
       chosen.dataset.asset = view.value.asset
       chosen.replaceChildren(isolated(view.value.asset))
-      if (!chosen.isConnected) root.append(chosen)
+      if (chosen.parentNode !== root) root.insertBefore(chosen, pick.parentNode === root ? pick : null)
     } else chosen.remove()
-    if (canPick && !view.readOnly) {
+    if (view.canPickAsset && !view.readOnly) {
       pick.replaceChildren(isolated(view.labels.chooseAsset))
       pick.dir = 'auto'
-      if (!pick.isConnected) root.append(pick)
+      if (pick.parentNode !== root) root.append(pick)
     } else pick.remove()
   }
   update(initial)
   return { element: root, update, dispose() {} }
 }
 
-export const nativeAsset: NonNullable<ItemSettingsControls['asset']> = (initial, callbacks) => nativeAssetControl(initial, callbacks, true)
-export const nativeAssetWithoutPicker: NonNullable<ItemSettingsControls['asset']> = (initial, callbacks) => nativeAssetControl(initial, callbacks, false)
+export const nativeAsset: NonNullable<ItemSettingsControls['asset']> = nativeAssetControl
 
 export const nativeAction: NonNullable<ItemSettingsControls['action']> = (initial, callbacks) => {
   if (initial.action === 'design-only') {

@@ -1,17 +1,21 @@
 import type { SlotDeclaration, SlotState, SlotValue } from '@segnavia/format'
 import {
+  type AssetControlCallbacks,
+  type FieldControlCallbacks,
   type ItemSettingsActionKind,
   type ItemSettingsActionView,
+  type ItemSettingsAssetView,
   type ItemSettingsControlRenderer,
   type ItemSettingsControls,
   type ItemSettingsFieldView,
   type ItemSettingsRenderedControl,
+  isolated,
   nativeAction,
   nativeAsset,
-  nativeAssetWithoutPicker,
   nativeField,
   nativeFillSwitcher,
 } from './item-settings-controls.ts'
+import { selectedFill } from './item-settings-fills.ts'
 import type { ItemSettingsLabels } from './item-settings-labels.ts'
 import type { ItemSettingsSectionContext } from './item-settings-section.ts'
 import { type SlotFieldView, slotFieldView } from './item-settings-values.ts'
@@ -47,7 +51,7 @@ interface SlotMount {
   actions: HTMLElement
   feedback: HTMLElement[]
   kind: 'field' | 'asset'
-  main: MountedControl<ItemSettingsFieldView>
+  main: MountedControl<ItemSettingsFieldView | ItemSettingsAssetView>
   actionControls: Map<ItemSettingsActionKind, MountedControl<ItemSettingsActionView>>
 }
 
@@ -73,8 +77,9 @@ export class FieldsPanel {
     const retained = new Set<string>()
     for (const [index, declaration] of context.declarations.entries()) {
       retained.add(declaration.key)
-      const view = this.fieldView(declaration)
       const kind = declaration.type === 'image' ? 'asset' : 'field'
+      const fieldView = this.fieldView(declaration)
+      const view = kind === 'asset' ? { ...fieldView, canPickAsset: this.actions.pickAsset !== undefined } : fieldView
       let mount = this.slotControls.get(declaration.key)
       let created = false
       if (!mount || mount.kind !== kind) {
@@ -120,7 +125,7 @@ export class FieldsPanel {
   }
 
   private fieldView(declaration: SlotDeclaration): ItemSettingsFieldView {
-    const fill = this.context.fills.find((item) => item.id === this.context.fill)
+    const fill = selectedFill(this.context.fills, this.context.fill)
     return {
       ...slotFieldView(declaration, this.context.overrides, fill, this.context.source, this.context.report, this.actions.onDesignOnly !== undefined),
       declaration,
@@ -129,19 +134,15 @@ export class FieldsPanel {
     }
   }
 
-  private createSlot(declaration: SlotDeclaration, view: ItemSettingsFieldView, kind: 'field' | 'asset'): SlotMount {
+  private createSlot(declaration: SlotDeclaration, view: ItemSettingsFieldView | ItemSettingsAssetView, kind: 'field' | 'asset'): SlotMount {
     const field = document.createElement('div')
     field.part.add('slot')
     field.dataset.key = declaration.key
     const caption = document.createElement('span')
     const actions = document.createElement('div')
     actions.part.add('slot-actions')
-    const renderer = kind === 'asset' ? this.assetRenderer() : (this.controls.field ?? nativeField)
-    const callbacks =
-      kind === 'asset'
-        ? { onChange: (value: SlotValue | undefined) => this.actions.onChangeValue(declaration.key, value), pickAsset: () => this.pickAsset(declaration.key) }
-        : { onChange: (value: SlotValue | undefined) => this.actions.onChangeValue(declaration.key, value) }
-    const rendered = renderer(view, callbacks as never)
+    const renderer = this.slotRenderer(kind)
+    const rendered = renderer(view, this.slotCallbacks(declaration, kind) as never)
     rendered.element.dataset.slot = declaration.key
     field.append(caption, rendered.element, actions)
     return {
@@ -150,23 +151,19 @@ export class FieldsPanel {
       actions,
       feedback: [],
       kind,
-      main: { renderer: renderer as ItemSettingsControlRenderer<ItemSettingsFieldView, never>, control: rendered },
+      main: { renderer, control: rendered },
       actionControls: new Map(),
     }
   }
 
-  private updateSlot(mount: SlotMount, declaration: SlotDeclaration, view: ItemSettingsFieldView, updateExisting: boolean) {
-    const renderer = mount.kind === 'asset' ? this.assetRenderer() : (this.controls.field ?? nativeField)
+  private updateSlot(mount: SlotMount, declaration: SlotDeclaration, view: ItemSettingsFieldView | ItemSettingsAssetView, updateExisting: boolean) {
+    const renderer = this.slotRenderer(mount.kind)
     if (mount.main.renderer !== renderer) {
       mount.main.control.dispose()
-      const callbacks =
-        mount.kind === 'asset'
-          ? { onChange: (value: SlotValue | undefined) => this.actions.onChangeValue(declaration.key, value), pickAsset: () => this.pickAsset(declaration.key) }
-          : { onChange: (value: SlotValue | undefined) => this.actions.onChangeValue(declaration.key, value) }
-      const control = renderer(view, callbacks as never)
+      const control = renderer(view, this.slotCallbacks(declaration, mount.kind) as never)
       control.element.dataset.slot = declaration.key
       mount.main.control.element.replaceWith(control.element)
-      mount.main = { renderer: renderer as ItemSettingsControlRenderer<ItemSettingsFieldView, never>, control }
+      mount.main = { renderer, control }
     } else if (updateExisting) mount.main.control.update(view)
     mount.caption.replaceChildren(...this.caption(view))
     if (view.required) mount.caption.title = this.context.labels.required
@@ -212,8 +209,15 @@ export class FieldsPanel {
     else if (action === 'use-source') this.actions.onUseSource(key)
     else this.actions.onDesignOnly?.(key, enabled ?? false)
   }
-  private assetRenderer() {
-    return this.controls.asset ?? (this.actions.pickAsset ? nativeAsset : nativeAssetWithoutPicker)
+  private slotCallbacks(declaration: SlotDeclaration, kind: 'field' | 'asset'): FieldControlCallbacks | AssetControlCallbacks {
+    const onChange = (value: SlotValue | undefined) => this.actions.onChangeValue(declaration.key, value)
+    return kind === 'asset' ? { onChange, pickAsset: () => this.pickAsset(declaration.key) } : { onChange }
+  }
+  private slotRenderer(kind: 'field' | 'asset'): ItemSettingsControlRenderer<ItemSettingsFieldView | ItemSettingsAssetView, never> {
+    return (kind === 'asset' ? (this.controls.asset ?? nativeAsset) : (this.controls.field ?? nativeField)) as ItemSettingsControlRenderer<
+      ItemSettingsFieldView | ItemSettingsAssetView,
+      never
+    >
   }
   private async pickAsset(key: string) {
     const declaration = this.context.declarations.find((slot) => slot.key === key)
@@ -265,9 +269,4 @@ export function renderFields(
   const panel = new FieldsPanel(container)
   panel.update(context, actions, controls)
   return panel
-}
-function isolated(text: string): HTMLElement {
-  const bdi = document.createElement('bdi')
-  bdi.textContent = text
-  return bdi
 }

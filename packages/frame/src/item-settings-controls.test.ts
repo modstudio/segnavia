@@ -55,6 +55,7 @@ test('host renderers replace every control kind and receive working callbacks', 
   let fillCallbacks: FillSwitcherCallbacks | undefined
   let fieldCallbacks: FieldControlCallbacks | undefined
   let assetCallbacks: AssetControlCallbacks | undefined
+  let canPickAsset: boolean | undefined
   const actionCallbacks = new Map<string, ActionControlCallbacks>()
   const hostElements = new Map<string, ItemSettingsTestElement>()
   const controls: ItemSettingsControls = {
@@ -68,8 +69,9 @@ test('host renderers replace every control kind and receive working callbacks', 
       hostElements.set('field', element)
       return rendered(element, [])
     },
-    asset(_view, callbacks) {
+    asset(view, callbacks) {
       assetCallbacks = callbacks
+      canPickAsset = view.canPickAsset
       const element = new ItemSettingsTestElement()
       hostElements.set('asset', element)
       return rendered(element, [])
@@ -93,6 +95,7 @@ test('host renderers replace every control kind and receive working callbacks', 
 
   expect(hostElements.get('field')?.dataset.slot).toBe('name')
   expect(hostElements.get('asset')?.dataset.slot).toBe('picture')
+  expect(canPickAsset).toBeTrue()
   expect(hostElements.get('name:override')?.dataset).toEqual({ slot: 'name', action: 'override' })
 
   fillCallbacks?.onSelect('mina')
@@ -150,11 +153,20 @@ test('a keyed control is updated in place, keeps focus, and is disposed when its
   expect(updates).toEqual(['Next'])
   expect(document.activeElement).toBe(element as unknown as Element)
 
-  panel.update(second, actions([]), { field: () => rendered(new ItemSettingsTestElement(), []) })
+  const replacement: NonNullable<ItemSettingsControls['field']> = () => ({
+    element: new ItemSettingsTestElement() as unknown as HTMLElement,
+    update() {},
+    dispose: () => {
+      disposes += 1
+    },
+  })
+  const replacementControls = { field: replacement }
+  panel.update(second, actions([]), replacementControls)
   expect(disposes).toBe(1)
 
   second.declarations = second.declarations.filter((slot) => slot.key !== 'name')
-  panel.update(second, actions([]), { field: () => rendered(new ItemSettingsTestElement(), []) })
+  panel.update(second, actions([]), replacementControls)
+  expect(disposes).toBe(2)
 })
 
 test('default native controls expose every documented part', () => {
@@ -173,6 +185,31 @@ test('the default asset picker stays absent when the host supplies no picker', (
   new FieldsPanel(container as unknown as HTMLElement).update(context(), handlers)
   const parts = descendants(container).flatMap((element) => [...element.part])
   expect(parts).not.toContain('asset-pick')
+})
+
+test('the default asset control keeps file, chosen asset, picker order across value changes', () => {
+  const container = new ItemSettingsTestElement()
+  const panel = new FieldsPanel(container as unknown as HTMLElement)
+  const first = context()
+  panel.update(first, actions([]))
+  const file = descendants(container).find((element) => element.part.has('asset-file'))
+  const root = file?.parentNode
+  expect(root?.children.map((element) => (element.part.has('asset-file') ? 'file' : element.part.has('asset-pick') ? 'pick' : 'chosen'))).toEqual([
+    'file',
+    'chosen',
+    'pick',
+  ])
+
+  const cleared = context()
+  cleared.fills = [{ id: 'mina', values: {} }]
+  panel.update(cleared, actions([]))
+  panel.update(first, actions([]))
+
+  expect(root?.children.map((element) => (element.part.has('asset-file') ? 'file' : element.part.has('asset-pick') ? 'pick' : 'chosen'))).toEqual([
+    'file',
+    'chosen',
+    'pick',
+  ])
 })
 
 function descendants(element: ItemSettingsTestElement): ItemSettingsTestElement[] {

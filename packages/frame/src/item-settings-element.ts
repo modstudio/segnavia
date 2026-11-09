@@ -10,7 +10,7 @@ import {
 } from '@segnavia/format'
 import { upgradeProperties } from './element-properties.ts'
 import type { ItemSettingsController } from './item-settings-authoring.ts'
-import type { ItemSettingsControls } from './item-settings-controls.ts'
+import { type ItemSettingsControls, isolated } from './item-settings-controls.ts'
 import { type FieldsActions, type FieldsPanel, renderFields } from './item-settings-fields.ts'
 import {
   addFill,
@@ -34,6 +34,16 @@ import { overrideValue, slotFieldView } from './item-settings-values.ts'
 export { ITEM_SETTINGS_TAG } from './element-properties.ts'
 
 const FIELDS_ID = 'fields'
+
+interface SectionFocusSnapshot {
+  section: string
+  action?: string
+  part: string
+  tag: string
+  type: string
+  start: number | null
+  end: number | null
+}
 
 export class SegnaviaItemSettings extends HTMLElement {
   static observedAttributes = ['dir', 'lang']
@@ -178,6 +188,15 @@ export class SegnaviaItemSettings extends HTMLElement {
     this.render()
   }
 
+  disconnectedCallback() {
+    this.drawn = false
+    this.fieldsPanel?.dispose()
+    this.fieldsPanel = undefined
+    this.fieldsArticle?.remove()
+    this.fieldsArticle = undefined
+    this.fieldsTitle = undefined
+  }
+
   attributeChangedCallback() {
     if (this.drawn) this.render()
   }
@@ -288,11 +307,13 @@ export class SegnaviaItemSettings extends HTMLElement {
 
   private render() {
     if (!this.drawn) return
+    const focus = this.snapshotHostSectionFocus()
     const context = this.context()
     this.sectionsEl.dir = context.dir
     this.renderFieldsSection(context)
     for (const child of [...this.sectionsEl.children]) if (child !== this.fieldsArticle) child.remove()
     for (const section of this.hostSections) this.mountSection(section, context)
+    this.restoreHostSectionFocus(focus)
   }
 
   refresh() {
@@ -300,15 +321,7 @@ export class SegnaviaItemSettings extends HTMLElement {
   }
 
   private mountSection(section: ItemSettingsSection, context: ItemSettingsSectionContext) {
-    const article = document.createElement('section')
-    article.part.add('section')
-    article.dataset.section = section.id
-    const title = document.createElement('h2')
-    title.part.add('section-title')
-    title.append(isolated(section.label))
-    const body = document.createElement('div')
-    body.part.add('section-body')
-    article.append(title, body)
+    const { article, body } = this.sectionArticle(section.id, section.label)
     this.sectionsEl.append(article)
     section.render(body, context)
   }
@@ -323,14 +336,7 @@ export class SegnaviaItemSettings extends HTMLElement {
       return
     }
     if (!this.fieldsArticle) {
-      const article = document.createElement('section')
-      article.part.add('section')
-      article.dataset.section = FIELDS_ID
-      const title = document.createElement('h2')
-      title.part.add('section-title')
-      const body = document.createElement('div')
-      body.part.add('section-body')
-      article.append(title, body)
+      const { article, title, body } = this.sectionArticle(FIELDS_ID, this.words.fields)
       this.fieldsArticle = article
       this.fieldsTitle = title
       this.fieldsPanel = renderFields(body, context, this.fieldActions(), this.controlRenderers)
@@ -341,10 +347,49 @@ export class SegnaviaItemSettings extends HTMLElement {
     }
     this.fieldsTitle?.replaceChildren(isolated(this.words.fields))
   }
-}
 
-function isolated(text: string): HTMLElement {
-  const bdi = document.createElement('bdi')
-  bdi.textContent = text
-  return bdi
+  private sectionArticle(id: string, label: string) {
+    const article = document.createElement('section')
+    article.part.add('section')
+    article.dataset.section = id
+    const title = document.createElement('h2')
+    title.part.add('section-title')
+    title.append(isolated(label))
+    const body = document.createElement('div')
+    body.part.add('section-body')
+    article.append(title, body)
+    return { article, title, body }
+  }
+
+  private snapshotHostSectionFocus(): SectionFocusSnapshot | null {
+    const active = this.root.activeElement
+    if (!(active instanceof HTMLElement)) return null
+    const article = [...this.sectionsEl.children].find((child) => child !== this.fieldsArticle && child.contains(active)) as HTMLElement | undefined
+    const section = article?.dataset.section
+    if (!section) return null
+    const tag = active.tagName
+    const input = tag === 'INPUT'
+    return {
+      section,
+      action: active.dataset.action,
+      part: [...active.part].join(' '),
+      tag,
+      type: input || tag === 'SELECT' ? (active as HTMLInputElement | HTMLSelectElement).type : '',
+      start: input ? (active as HTMLInputElement).selectionStart : null,
+      end: input ? (active as HTMLInputElement).selectionEnd : null,
+    }
+  }
+
+  private restoreHostSectionFocus(snapshot: SectionFocusSnapshot | null) {
+    if (!snapshot) return
+    const article = [...this.sectionsEl.children].find((child) => (child as HTMLElement).dataset.section === snapshot.section)
+    const candidates = article?.querySelectorAll<HTMLElement>(snapshot.tag) ?? []
+    const match = [...candidates].find((node) => {
+      const type = snapshot.tag === 'INPUT' || snapshot.tag === 'SELECT' ? (node as HTMLInputElement | HTMLSelectElement).type : ''
+      return node.dataset.action === snapshot.action && [...node.part].join(' ') === snapshot.part && type === snapshot.type
+    })
+    match?.focus()
+    if (match && snapshot.tag === 'INPUT' && snapshot.start !== null)
+      (match as HTMLInputElement).setSelectionRange(snapshot.start, snapshot.end ?? snapshot.start)
+  }
 }
