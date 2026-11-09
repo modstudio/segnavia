@@ -16,6 +16,19 @@ test('a measured block accepts optional keep-together line runs', () => {
   ).toEqual([{ start: 0, end: 2 }])
 })
 
+test('a measured block accepts the start line of a nested tail keep', () => {
+  expect(
+    PaginateBlock.parse({
+      kind: 'text',
+      tag: 'section',
+      position: { chapter: 1, block: 2 },
+      lines: [{ top: 0, bottom: 10 }],
+      keepWithNext: true,
+      keepWithNextFrom: 0,
+    }).keepWithNextFrom,
+  ).toBe(0)
+})
+
 test('a measured block accepts forced breaks on either edge', () => {
   const block = PaginateBlock.parse({
     kind: 'text',

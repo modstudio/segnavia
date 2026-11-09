@@ -1,5 +1,6 @@
 import { KEEP_WITH_CUSTOM_PROPERTY } from '@segnavia/format'
 import { embedFunction, KEEP_WITH_VALUES } from '@segnavia/html'
+import { inlineLevelDisplay, outermostKeepValue } from './composer-measure.ts'
 import { keepGap } from './keep-gap.ts'
 
 type StyleReader = (element: Element) => CSSStyleDeclaration
@@ -11,13 +12,13 @@ type TextGap = { piece?: GapPiece; stop: boolean }
 export function outermostKeeps(elements: Element[], styleOf: StyleReader, acceptedValues: readonly string[], property: string): Element[] {
   return elements.filter((element) => {
     const value = styleOf(element).getPropertyValue(property).trim()
-    if (!acceptedValues.includes(value)) return false
-    return !element.parentElement || styleOf(element.parentElement).getPropertyValue(property).trim() !== value
+    const parentValue = element.parentElement ? styleOf(element.parentElement).getPropertyValue(property).trim() : ''
+    return outermostKeepValue(value, parentValue, acceptedValues)
   })
 }
 
 function inlineLevel(element: Element, styleOf: StyleReader): boolean {
-  return styleOf(element).display.split(' ')[0]?.startsWith('inline') === true
+  return inlineLevelDisplay(styleOf(element).display)
 }
 
 function containingBlock(element: Element, styleOf: StyleReader): Element | null {
@@ -172,6 +173,8 @@ export function applyKeepWith(
 export function keepPassScript(): string {
   const functions: Array<[string, { name: string; toString(): string }]> = [
     ['keepGap', keepGap],
+    ['outermostKeepValue', outermostKeepValue],
+    ['inlineLevelDisplay', inlineLevelDisplay],
     ['outermostKeeps', outermostKeeps],
     ['inlineLevel', inlineLevel],
     ['containingBlock', containingBlock],

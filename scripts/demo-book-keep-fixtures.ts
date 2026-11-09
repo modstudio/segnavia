@@ -22,6 +22,16 @@ const blockKeepProbe = (hebrew: boolean) => {
     <div style="block-size:150mm;break-inside:avoid"></div><p data-keep-block-previous-neighbor style="margin:0;line-height:12mm">${before}</p><div data-keep-block-previous style="margin:0;line-height:12mm;--segnavia-keep-with:previous">${previous}</div>`
 }
 
+const nestedKeepProbe = (hebrew: boolean) => {
+  const avoidFirst = hebrew ? 'שורה ראשונה שמורה' : 'NESTED AVOID FIRST'
+  const avoidLast = hebrew ? 'שורה שנייה שמורה' : 'NESTED AVOID LAST'
+  const speaker = hebrew ? 'רַבִּי מֵאִיר אוֹמֵר' : 'THE SPEAKER SAYS'
+  const speech = hebrew ? 'זוֹ הַתְּשׁוּבָה שֶׁלּוֹ' : 'THIS IS THE SPEECH'
+  const direction = hebrew ? ' dir="rtl"' : ''
+  return `<div style="break-before:page;block-size:160mm"></div><div data-nested-avoid-container${direction}><div style="break-inside:avoid;line-height:12mm"><span data-nested-avoid-first style="display:block">${avoidFirst}</span><span data-nested-avoid-last style="display:block">${avoidLast}</span></div></div>
+    <div style="break-before:page;block-size:160mm"></div><div data-nested-dialogue${direction}><div data-nested-speaker style="line-height:12mm;--segnavia-keep-with:next">${speaker}</div></div><p data-nested-speech style="margin:0;line-height:12mm">${speech}</p>`
+}
+
 export const keepBookFixture = (hebrew: boolean, mode: 'paginated' | 'continuous'): DocumentInput => ({
   type: 'document',
   kind: 'book',
@@ -38,7 +48,7 @@ export const keepBookFixture = (hebrew: boolean, mode: 'paginated' | 'continuous
         {
           type: 'section',
           title: hebrew ? 'שמירות' : 'Keeps',
-          children: [{ type: 'flow', html: `${keepProbe(hebrew)}${blockKeepProbe(hebrew)}` }],
+          children: [{ type: 'flow', html: `${keepProbe(hebrew)}${blockKeepProbe(hebrew)}${nestedKeepProbe(hebrew)}` }],
         },
       ],
     },

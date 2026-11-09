@@ -80,7 +80,13 @@ export function paginateKeeps(placed: PaginateUnit[], next: PaginateUnit | undef
 
   function rewindHeading(held: PaginateUnit[], last: PaginateUnit, following: PaginateUnit | undefined): PaginateUnit[] | undefined {
     const other = following && !sameBlock(following.block, last.block)
-    if (!last.block.keepWithNext || countOf(held, last.block) !== last.block.lines.length || !other) return undefined
+    if (!last.block.keepWithNext || !other) return undefined
+    if (last.block.keepWithNextFrom !== undefined) {
+      if (last.index !== last.block.lines.length - 1) return undefined
+      const keepWithNextFrom = last.block.keepWithNextFrom
+      return kept(held.filter((unit) => !sameBlock(unit.block, last.block) || unit.index < keepWithNextFrom))
+    }
+    if (countOf(held, last.block) !== last.block.lines.length) return undefined
     return kept(dropBlock(held, last.block))
   }
 

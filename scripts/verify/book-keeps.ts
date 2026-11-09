@@ -133,9 +133,15 @@ export async function verifyPaginatedBookKeeps(locator: FrameLocator, frame: Fra
     return {
       next: page('[data-keep-block-next]') === page('[data-keep-block-next-neighbor]'),
       previous: page('[data-keep-block-previous]') === page('[data-keep-block-previous-neighbor]'),
+      nestedAvoid: page('[data-nested-avoid-first]') === page('[data-nested-avoid-last]'),
+      nestedTail: page('[data-nested-speaker]') === page('[data-nested-speech]'),
     }
   })
-  check(`${label} block keeps share a page with their adjacent block`, keeps.next && keeps.previous, JSON.stringify(keeps))
+  check(
+    `${label} block and nested keeps stay whole and share a page with their adjacent block`,
+    keeps.next && keeps.previous && keeps.nestedAvoid && keeps.nestedTail,
+    JSON.stringify(keeps),
+  )
   const language = label.endsWith('-he') ? 'he' : 'en'
   verifyBookKeepPdf(path.join(SITE, `${label}.pdf`), language, check)
   verifyContinuousBookKeepPdf(path.join(SITE, `book-keeps-continuous-${language}.pdf`), language, check)

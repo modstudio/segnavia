@@ -1,5 +1,120 @@
 import { defaultParentRules, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
 
+export interface MeasuredKeepCandidate {
+  top: number
+  bottom: number
+  avoidInside: boolean
+  keepWithNext: boolean
+  keepWithPrevious: boolean
+}
+
+export interface MeasuredKeeps {
+  keepRuns: Array<{ start: number; end: number }>
+  keepWithNextFrom?: number
+  keepWithPrevious?: boolean
+}
+
+export interface MeasuredLineBox {
+  top: number
+  bottom: number
+}
+
+export interface KeepSignalValues {
+  breakInside: string
+  pageBreakInside: string
+  breakAfter: string
+  pageBreakAfter: string
+  breakBefore: string
+  pageBreakBefore: string
+  keepWith: string
+}
+
+export interface KeepSignals {
+  avoidInside: boolean
+  keepWithNext: boolean
+  keepWithPrevious: boolean
+}
+
+export function keepSignals(values: KeepSignalValues): KeepSignals {
+  return {
+    avoidInside: values.breakInside === 'avoid' || values.pageBreakInside === 'avoid',
+    keepWithNext: values.breakAfter === 'avoid' || values.pageBreakAfter === 'avoid' || values.keepWith === 'next',
+    keepWithPrevious: values.breakBefore === 'avoid' || values.pageBreakBefore === 'avoid' || values.keepWith === 'previous',
+  }
+}
+
+export function outermostKeepValue(value: string, parentValue: string, acceptedValues: readonly string[]): boolean {
+  return acceptedValues.includes(value) && value !== parentValue
+}
+
+export function descendantKeepSignals(values: KeepSignalValues, parentKeepWith: string): KeepSignals {
+  return keepSignals({
+    ...values,
+    keepWith: outermostKeepValue(values.keepWith, parentKeepWith, ['next', 'previous']) ? values.keepWith : '',
+  })
+}
+
+export function inlineLevelDisplay(display: string): boolean {
+  return display.split(' ')[0]?.startsWith('inline') === true
+}
+
+export function measuredBlockConstraints(display: string, orphans: number, widows: number): { orphans?: number; widows?: number } {
+  const blockContainers = ['block', 'flow-root', 'list-item', 'inline-block', 'table-cell', 'table-caption']
+  if (!blockContainers.includes(display)) return {}
+  return {
+    ...(Number.isFinite(orphans) && orphans > 0 ? { orphans } : {}),
+    ...(Number.isFinite(widows) && widows > 0 ? { widows } : {}),
+  }
+}
+
+export function measuredCandidateRun(
+  lines: readonly MeasuredLineBox[],
+  candidate: Pick<MeasuredKeepCandidate, 'top' | 'bottom'>,
+): { start: number; end: number } | undefined {
+  const indexes = lines.flatMap((line, index) => {
+    const middle = (line.top + line.bottom) / 2
+    return middle >= candidate.top - 0.5 && middle <= candidate.bottom + 0.5 ? [index] : []
+  })
+  const start = indexes[0]
+  const last = indexes.at(-1)
+  return start === undefined || last === undefined ? undefined : { start, end: last + 1 }
+}
+
+export function measuredCandidateKeeps(lines: readonly MeasuredLineBox[], candidate: MeasuredKeepCandidate): MeasuredKeeps {
+  const run = measuredCandidateRun(lines, candidate)
+  if (!run) return { keepRuns: [] }
+  const keepRuns: Array<{ start: number; end: number }> = []
+  if (candidate.avoidInside) keepRuns.push(run)
+  if (candidate.keepWithNext && run.end < lines.length) keepRuns.push({ start: run.start, end: run.end + 1 })
+  if (candidate.keepWithNext && run.end === lines.length && run.end - run.start > 1 && !candidate.avoidInside) keepRuns.push(run)
+  if (candidate.keepWithPrevious && run.start > 0) keepRuns.push({ start: run.start - 1, end: run.start + 1 })
+  return {
+    keepRuns,
+    ...(candidate.keepWithNext && run.end === lines.length ? { keepWithNextFrom: run.start } : {}),
+    ...(candidate.keepWithPrevious && run.start === 0 ? { keepWithPrevious: true } : {}),
+  }
+}
+
+export function measuredKeepRuns(lines: readonly MeasuredLineBox[], candidates: readonly MeasuredKeepCandidate[]): MeasuredKeeps {
+  const runsByRange = new Map<string, { start: number; end: number }>()
+  let keepWithNextFrom: number | undefined
+  let keepWithPrevious = false
+
+  for (const candidate of candidates) {
+    const measured = measuredCandidateKeeps(lines, candidate)
+    for (const run of measured.keepRuns) runsByRange.set(`${run.start}:${run.end}`, run)
+    if (measured.keepWithNextFrom !== undefined)
+      keepWithNextFrom = keepWithNextFrom === undefined ? measured.keepWithNextFrom : Math.min(keepWithNextFrom, measured.keepWithNextFrom)
+    if (measured.keepWithPrevious) keepWithPrevious = true
+  }
+
+  return {
+    keepRuns: [...runsByRange.values()],
+    ...(keepWithNextFrom === undefined ? {} : { keepWithNextFrom }),
+    ...(keepWithPrevious ? { keepWithPrevious } : {}),
+  }
+}
+
 export function flowTextArea(
   rules: ParentRules | undefined,
   areas: Record<string, TextArea>,
