@@ -944,7 +944,23 @@ drops empty parts, optionally collapses equal sides, and isolates every value in
 its own `bdi`; the separator uses the template direction. Every composer and
 server margin fill resolves the template for the page and passes it through the
 shared `fillRegion` path. Unknown templates, variables and record slots are
-refused while parsing.
+refused while parsing, as is a placement whose element is not closed.
+
+The library declares the variables `segnavia:section-title`, `segnavia:folio`
+and `segnavia:pages-total` and the templates `segnavia:running-head` and
+`segnavia:folio`, which the built-in parents place. A parsed book, document,
+printed page or book-view pagination holds only the author's declarations, so it
+re-parses to the same value; every consumer joins the library entries at the
+point of use through `withLibraryEntries`. An author name starting with
+`segnavia:` is refused, and so is every reserved motif key other than
+`segnavia:head-template` in parent head, foot or region HTML. A head-template
+placement anywhere else is refused with the remedy of moving it into a parent
+region.
+
+Document and record numbers have one rule, `bookVariablePageNumbers`: the plan
+and the server margin layer both count across the whole document, front matter
+included, in the body numbering system. A blank page counts toward the record
+that opens after it and shows no folio.
 
 ## Media and placement
 
