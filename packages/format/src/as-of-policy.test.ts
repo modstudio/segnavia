@@ -39,6 +39,14 @@ describe('as-of policy', () => {
       kind: 'day',
       day: { date: '2026-11-14', zone: 'Europe/London', kind: 'fixed' },
     })
+    expect(
+      resolveAsOfDay({ kind: 'anchor', anchor: 'coming-shabbos', zone: 'Europe/London' }, { moment: boundaryMoment, hostZone: 'America/New_York' }),
+    ).toEqual({
+      kind: 'anchor',
+      anchor: 'coming-shabbos',
+      today: '2026-11-14',
+      zone: 'Europe/London',
+    })
     expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment, hostZone: 'America/New_York' })).toEqual({
       kind: 'day',
       day: { date: '2026-11-13', zone: 'America/New_York', kind: 'current' },
