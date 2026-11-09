@@ -10,14 +10,22 @@ import {
   type OriginApproval,
   type Page,
   PX_PER_MM,
-  pageDirection,
   printedFromDocument,
   type ResolvedParentPage,
   resolveLimits,
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
-import { fragmentationCss, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import {
+  fragmentationCss,
+  type HtmlPage,
+  isPrintedHtmlPage,
+  type PrintedHtmlPage,
+  parseDocument,
+  printedPageDirection,
+  printedSectionFlows,
+  resolvePrintedPageHtml,
+} from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
@@ -42,7 +50,7 @@ interface Geometry {
   firstHeight: number
 }
 
-function geometry(page: HtmlPage, parents: ResolvedParentPage[], width: number, height: number): Geometry {
+function geometry(page: PrintedHtmlPage, parents: ResolvedParentPage[], width: number, height: number): Geometry {
   const printed = page.printedPages as NonNullable<Page['printedPages']>
   const byName = new Map(parents.map((parent) => [parent.name, parent]))
   const normal = byName.get(printed.rules.every) as ResolvedParentPage
@@ -127,11 +135,11 @@ function pageParts(html: string): { head: string; body: string } {
 export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1] & { newId?: () => string }): string {
   const document = parseDocument(input, { newId: options.newId })
   refuseNamedDocumentBrand(document, 'printedPageValueDocument')
-  return printedPageValueDocument(resolvePageHtml(printedFromDocument(document)), options)
+  return printedPageValueDocument(resolvePrintedPageHtml(printedFromDocument(document)), options)
 }
 
 export function printedPageValueDocument(
-  page: HtmlPage,
+  source: PrintedHtmlPage | Page | HtmlPage,
   options: {
     nonce: string
     baseCss?: string
@@ -150,12 +158,13 @@ export function printedPageValueDocument(
     origins?: Iterable<OriginApproval>
   },
 ): string {
+  const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)
   const measured = geometry(page, resolved, paper.width, paper.height)
-  const direction = pageDirection(page)
+  const direction = printedPageDirection(page)
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
   const parents = resolved.map((parent) => {
@@ -201,16 +210,24 @@ export function printedPageValueDocument(
     expectedCount: options.expectedCount ?? null,
     measure: options.measure ?? false,
     inlineOverflow: 'tile',
-    numbering,
+    numbering: { frontMatter: numbering, body: numbering },
     rules,
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
-  const parts = pageParts(page.html)
-  const flow = `<div data-segnavia-galleys><div data-segnavia-flow="printed-page" data-parent-opener="${parentNames.opener}" data-parent-recto="${parentNames.recto}" data-parent-verso="${parentNames.verso}">${parts.body}</div></div>`
-  const drawn = withDiagramScript(`${parts.head}${flow}`, options.nonce, options.diagramScript)
+  const sections = page.printedPages.sections
+  const parts = sections.map((section) => pageParts(section.html))
+  const implicit = sections.length === 1 && sections[0]?.implicit === true
+  const flows = implicit
+    ? `<div data-segnavia-flow="${sections[0]?.id}" data-parent-opener="${parentNames.opener}" data-parent-recto="${parentNames.recto}" data-parent-verso="${parentNames.verso}">${parts[0]?.body ?? ''}</div>`
+    : printedSectionFlows(
+        sections.map((section, index) => ({ ...section, html: parts[index]?.body ?? '' })),
+        { opener: parentNames.opener, recto: parentNames.recto, verso: parentNames.verso },
+      )
+  const flow = `<div data-segnavia-galleys>${flows}</div>`
+  const drawn = withDiagramScript(`${parts.map((part) => part.head).join('')}${flow}`, options.nonce, options.diagramScript)
   const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',

@@ -2,7 +2,8 @@ import { Board, type Board as BoardValue } from './board.ts'
 import { Book, type Book as BookValue } from './book.ts'
 import { Deck, type Deck as DeckValue } from './deck.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
-import { documentBookDivisions } from './document-book-items.ts'
+import { documentBookDivisions, documentSectionFields } from './document-book-items.ts'
+import { DOCUMENT_PROFILES } from './document-profile.ts'
 import { Page, type Page as PageValue } from './page.ts'
 import type { Brand } from './style-sheet.ts'
 
@@ -97,22 +98,34 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
   )
 }
 
+function printedSections(document: DocumentValue) {
+  return document.children.flatMap((node, index) => {
+    if (node.type !== 'section') return []
+    const flow = node.children[0]
+    if (flow?.type !== 'flow') throw new Error(DOCUMENT_PROFILES.printed.sectionChildren.message)
+    const fields = documentSectionFields(node, ['children', index])
+    return [defined({ id: fields.id, title: fields.title, opens: fields.opens, numbering: fields.numbering, html: flow.html })]
+  })
+}
+
 function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): PageValue {
   const child = document.children.find((node): node is Extract<ParsedNode, { type: 'page' }> => node.type === 'page')
-  if (!child?.body) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')
+  const sections = printed ? printedSections(document) : []
+  if (!child?.body && sections.length === 0) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')
   const printedPages = printed
     ? {
         parents: document.parentPages.map(parentPage),
         rules: document.rules,
         numbering: typeof document.numbering === 'string' ? document.numbering : undefined,
         fragmentation: document.fragmentation,
+        ...(sections.length > 0 ? { sections } : {}),
       }
     : undefined
   return Page.parse(
     defined({
-      id: child.id,
+      id: child?.id,
       brand,
-      body: child.body,
+      body: child?.body,
       size: document.size,
       print: document.print,
       limits: document.limits,

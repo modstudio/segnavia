@@ -8,14 +8,12 @@ import {
   isDesignedSection,
   isPart,
   isTemplatedSection,
-  type MotifSource,
   type PageWidths,
   PRINTED_PAGE_CONTEXT,
   resolveBrand,
 } from '@segnavia/format'
 import {
   documentLanguage,
-  type ExpandedMotifs,
   expandMotifs,
   type HtmlPage,
   hasHostMotifPlacement,
@@ -28,15 +26,20 @@ import {
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
 import type { BrandsOptions } from './brands.ts'
+import {
+  expandedPageParents,
+  expandPageMotifs,
+  type MotifsOptions,
+  motifSummary,
+  PARENT_MOTIF_SOURCE_REFUSAL,
+  pageMotifRefusal,
+  pageParentRegions,
+} from './page-motif-expansion.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 
-export interface MotifsOptions {
-  source: MotifSource
-  pins?: Record<string, string>
-  linkOrigins?: Iterable<string>
-  placed?(result: Pick<ExpandedMotifs, 'placed' | 'fonts' | 'unavailable'>): void
-}
 export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
+export type { MotifsOptions } from './page-motif-expansion.ts'
+export { type ExpandedPrintedFramePage, expandPrintedFramePage } from './printed-page-expansion.ts'
 export type PlacementsOptions = AssetPlacementsOptions
 export interface ExpandedFramePage {
   page: HtmlPage
@@ -63,11 +66,6 @@ interface MotifPolicy {
   libraryRefusal(html: string, furniture: boolean): string | undefined
 }
 
-const PAGE_MOTIF_POLICY: MotifPolicy = {
-  placement: (html) => hasMotifPlacement(html),
-  libraryRefusal: (html) => libraryMotifPlacementRefusal(html),
-}
-
 const BOOK_MOTIF_POLICY: MotifPolicy = {
   placement: (html, furniture) => (furniture ? hasHostMotifPlacement(html) : hasMotifPlacement(html)),
   libraryRefusal: (html, furniture) => (furniture ? undefined : libraryMotifPlacementRefusal(html)),
@@ -79,23 +77,13 @@ function motifSourceRefusal(fields: BookHtmlField[], policy: MotifPolicy): Motif
     if (refusal) return new MotifRefusedError(refusal)
   }
   if (fields.some((field) => field.furniture && policy.placement(field.html, field.furniture))) {
-    return new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
+    return new MotifRefusedError(PARENT_MOTIF_SOURCE_REFUSAL)
   }
   return undefined
 }
 
-function parentRegions(page: HtmlPage): Array<{ name: string; region: 'head' | 'foot'; html: string }> {
-  return (
-    page.printedPages?.parents.flatMap((parent) =>
-      (['head', 'foot'] as const).flatMap((region) => (parent[region] === undefined ? [] : [{ name: parent.name, region, html: parent[region] }])),
-    ) ?? []
-  )
-}
-
 export function framePageMotifRefusal(page: HtmlPage): MotifRefusedError | undefined {
-  const regions = parentRegions(page)
-  const fields = [{ html: page.html, furniture: false, replace() {} }, ...regions.map(({ html }) => ({ html, furniture: true, replace() {} }))]
-  return motifSourceRefusal(fields, PAGE_MOTIF_POLICY)
+  return pageMotifRefusal([page.html], pageParentRegions(page))
 }
 
 function entryShape(entry: BookItem): { entry: BookItem; fields: BookHtmlField[] } {
@@ -220,14 +208,6 @@ async function expandBookHtml(field: BookHtmlField, lang: string | undefined, sc
   })
 }
 
-function motifSummary(results: ExpandedMotifs[]) {
-  return {
-    placed: results.flatMap((result) => result.placed),
-    fonts: results.flatMap((result) => result.fonts),
-    unavailable: [...new Set(results.flatMap((result) => result.unavailable))],
-  }
-}
-
 async function expandBookShape<T extends Book | BookView>(shape: BookHtmlShape<T>, motifs: MotifsOptions, signal: AbortSignal): Promise<ExpandedBook<T>> {
   const results = await Promise.all(shape.fields.map((field) => expandBookHtml(field, shape.book.lang, shape.book.scripts, motifs, signal)))
   results.forEach((result, index) => {
@@ -314,57 +294,24 @@ export async function expandFramePage(
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
 ): Promise<ExpandedFramePage> {
-  const regions = parentRegions(page)
+  const regions = pageParentRegions(page)
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
     if (refusal) throw refusal
     return { page: await resolvePagePlacements(page, placements, purpose, signal, pageWidths), fonts: [] }
   }
   const lang = page.lang?.trim() || documentLanguage(page.html)
-  const result = await expandMotifs(page.html, {
-    source: motifs.source,
-    pins: motifs.pins,
-    lang,
-    scripts: page.scripts,
-    prefix: 'slot',
-    linkOrigins: motifs.linkOrigins,
-    signal,
-  })
-  const parentResults = new Map(
-    await Promise.all(
-      regions.map(
-        async ({ name, region, html }) =>
-          [
-            `${name}:${region}`,
-            await expandMotifs(html, {
-              source: motifs.source,
-              pins: motifs.pins,
-              lang,
-              scripts: page.scripts,
-              prefix: 'slot',
-              linkOrigins: motifs.linkOrigins,
-              signal,
-              deferPaths: [PRINTED_PAGE_CONTEXT],
-            }),
-          ] as const,
-      ),
-    ),
-  )
-  signal.throwIfAborted()
-  const summary = motifSummary([result, ...parentResults.values()])
-  motifs.placed?.(summary)
+  const { bodyResults, parentResults, fonts } = await expandPageMotifs(page, [{ html: page.html, lang }], regions, lang, motifs, signal)
+  const result = bodyResults[0]
+  if (!result) throw new Error('A page motif expansion produced no body result.')
   const printedPages = page.printedPages
     ? {
         ...page.printedPages,
-        parents: page.printedPages.parents.map((parent) => ({
-          ...parent,
-          ...(parent.head === undefined ? {} : { head: parentResults.get(`${parent.name}:head`)?.html ?? parent.head }),
-          ...(parent.foot === undefined ? {} : { foot: parentResults.get(`${parent.name}:foot`)?.html ?? parent.foot }),
-        })),
+        parents: expandedPageParents(page, parentResults),
       }
     : undefined
   const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
-  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths), fonts: summary.fonts }
+  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths), fonts }
 }
 
 export function expandFramePages(

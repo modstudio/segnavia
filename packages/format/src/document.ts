@@ -3,17 +3,18 @@ import { BookMode, BookPage, BookShape } from './book.ts'
 import { resolveBookPageGeometry } from './book-page-geometry.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
 import { DeckShape, deckTrim } from './deck.ts'
-import { documentBookProjectionForRefinement, documentSourcePath } from './document-book-items.ts'
+import { documentBookProjectionForRefinement, documentSourcePath, SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { DocumentMetadata } from './document-metadata.ts'
+import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LogicalMargin } from './margins.ts'
-import { divisionNumbering, NumberSystem } from './numbering.ts'
+import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { PressGeometry, Print, pressSafeAreaIssues } from './print.ts'
@@ -102,14 +103,6 @@ function visibleTitle(document: z.infer<typeof DocumentShape>): boolean {
   return document.metadata?.title !== undefined || document.title !== undefined
 }
 
-function walk(nodes: DocumentNodeValue[], visit: (node: DocumentNodeValue, path: (string | number)[]) => void, path: (string | number)[] = ['children']): void {
-  nodes.forEach((node, index) => {
-    const nodePath = [...path, index]
-    visit(node, nodePath)
-    if ('children' in node) walk(node.children, visit, [...nodePath, 'children'])
-  })
-}
-
 function documentNumberedSections(document: DocumentShapeValue): SectionNumberingFact[] {
   const sections: SectionNumberingFact[] = []
   const collect = (nodes: DocumentNodeValue[], division: 'front' | 'body' | 'end', path: (string | number)[]): void => {
@@ -127,21 +120,27 @@ function documentNumberedSections(document: DocumentShapeValue): SectionNumberin
   return sections
 }
 
-function refineSectionNumberingPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
-  if (document.kind !== 'book' || document.mode === undefined) return
-  const systems = divisionNumbering(document.settings?.lang, typeof document.numbering === 'object' ? document.numbering : undefined)
+function refineSectionNumberingPolicy(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
+  if (!(profile.children as readonly string[]).includes('section')) return
+  const defaultSystem = defaultPageNumbering(document.settings?.lang)
+  const systems =
+    profile.numbering === 'book'
+      ? divisionNumbering(document.settings?.lang, typeof document.numbering === 'object' ? document.numbering : undefined)
+      : {
+          frontMatter: typeof document.numbering === 'string' ? document.numbering : defaultSystem,
+          body: typeof document.numbering === 'string' ? document.numbering : defaultSystem,
+        }
   for (const issue of sectionNumberingIssues({
-    mode: document.mode,
+    mode: document.mode ?? 'paginated',
     systems,
     sections: documentNumberedSections(document),
-    printedPageRules: document.rules !== undefined,
   })) {
     ctx.addIssue({ code: 'custom', ...issue })
   }
 }
 
-function refineSectionOpensPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
-  if (document.kind !== 'book') return
+function refineSectionOpensPolicy(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
+  if (!(profile.children as readonly string[]).includes('section')) return
   const projection = documentBookProjectionForRefinement(document)
   if (!projection) return
   const facts = bookSectionOpensFacts(projection.divisions).map((fact) => ({
@@ -161,41 +160,6 @@ function refineRootFields(document: DocumentShapeValue, profile: DocumentProfile
       ctx.addIssue({ code: 'custom', path: [field], message: profileRefusal(field, document.kind, profile.fields, 'root field') })
     }
   }
-}
-
-function refinePageNode(
-  node: Extract<DocumentNodeValue, { type: 'page' }>,
-  path: (string | number)[],
-  document: DocumentShapeValue,
-  profile: DocumentProfile,
-  ctx: z.RefinementCtx,
-): void {
-  for (const field of ['body', 'template', 'regions'] as const) {
-    if (node[field] !== undefined && !(profile.pageFields as readonly string[]).includes(field)) {
-      ctx.addIssue({ code: 'custom', path: [...path, field], message: profileRefusal(field, document.kind, profile.pageFields, 'page field') })
-    }
-  }
-}
-
-function refineSectionNode(node: Extract<DocumentNodeValue, { type: 'section' }>, path: (string | number)[], ctx: z.RefinementCtx): void {
-  for (const field of ['headTemplate'] as const) {
-    if (node[field] !== undefined) {
-      ctx.addIssue({ code: 'custom', path: [...path, field], message: `section field ${field} is not yet supported; remove it to clear this refusal` })
-    }
-  }
-}
-
-function refineNodes(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
-  walk(document.children, (node, path) => {
-    if (!(profile.children as readonly string[]).includes(node.type)) {
-      ctx.addIssue({ code: 'custom', path: [...path, 'type'], message: profileRefusal(node.type, document.kind, profile.children) })
-    }
-    if (node.type === 'record') {
-      ctx.addIssue({ code: 'custom', path, message: `record ${node.name} is not yet supported; remove it to clear this refusal` })
-    }
-    if (node.type === 'page') refinePageNode(node, path, document, profile, ctx)
-    if (node.type === 'section') refineSectionNode(node, path, ctx)
-  })
 }
 
 function refineDefinitions(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
@@ -251,6 +215,13 @@ function refineRequirements(document: DocumentShapeValue, profile: DocumentProfi
 }
 
 function refineChildCount(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
+  if (profile.childForms) {
+    const matches = profile.childForms.forms.some((form) => {
+      if (document.children.some((node) => node.type !== form.node)) return false
+      return 'exact' in form ? document.children.length === form.exact : document.children.length >= form.min
+    })
+    if (!matches) ctx.addIssue({ code: 'custom', path: ['children'], message: profile.childForms.message })
+  }
   if (
     profile.childCount &&
     'exact' in profile.childCount &&
@@ -340,23 +311,36 @@ function refinePrint(document: DocumentShapeValue, profile: DocumentProfile, ctx
   if (trim) for (const message of pressSafeAreaIssues(print, trim)) ctx.addIssue({ code: 'custom', path: ['print', 'safe'], message })
 }
 
+export function defaultSectionContents(nodes: DocumentNodeValue[], enabled: boolean): DocumentNodeValue[] {
+  return nodes.map((node) => {
+    if (!('children' in node)) return node
+    const children = defaultSectionContents(node.children, enabled)
+    if (node.type === 'section' && enabled && node.contents === undefined) return { ...node, contents: SECTION_CONTENTS_DEFAULT, children }
+    return { ...node, children }
+  })
+}
+
 const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
-  refineSectionNumberingPolicy(document, ctx)
-  refineSectionOpensPolicy(document, ctx)
+  refineSectionNumberingPolicy(document, profile, ctx)
+  refineSectionOpensPolicy(document, profile, ctx)
   for (const issue of documentPageGeometryIssues(document)) ctx.addIssue({ code: 'custom', ...issue })
   refineRootFields(document, profile, ctx)
-  refineNodes(document, profile, ctx)
+  refineDocumentNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)
   refineUnsupportedDocumentFields(document, ctx)
   refineProfileShape(document, profile, ctx)
   refinePrint(document, profile, ctx)
 }).transform((document) => {
   const profile = DOCUMENT_PROFILES[document.kind]
+  const withSectionDefaults = {
+    ...document,
+    children: defaultSectionContents(document.children, (profile.sectionFields as readonly string[]).includes('contents')),
+  }
   const withScripts =
-    document.settings === undefined || !(profile.settings as readonly string[]).includes('scripts')
-      ? document
-      : { ...document, settings: { scripts: 'refuse' as const, ...document.settings } }
+    withSectionDefaults.settings === undefined || !(profile.settings as readonly string[]).includes('scripts')
+      ? withSectionDefaults
+      : { ...withSectionDefaults, settings: { scripts: 'refuse' as const, ...withSectionDefaults.settings } }
   if (!profile.canonicalChildren) return withScripts
   const children = profile.canonicalChildren.flatMap((type) => withScripts.children.filter((node) => node.type === type))
   return { ...withScripts, children }

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, isDesignedSection, isTemplatedSection, Page } from '@segnavia/format'
-import { parseBookFixture, RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
+import { parseBookFixture, RequiredSlotsRefusedError, resolvePrintedPageHtml, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
 import { renderPagePdf } from './page-render.ts'
 import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
@@ -127,6 +127,29 @@ test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor hos
   })
   const { value: filledDeckResult } = await filledDeck(deck, slots)
   expect(filledDeckResult.slides[0]?.content).toEqual({ kind: 'html', html: '<p dir="auto">Filled by host</p>' })
+})
+
+test('sectioned printed pages fill every section and refuse multiple copies', async () => {
+  const page = resolvePrintedPageHtml(
+    Page.parse({
+      scripts: 'refuse',
+      print: { paper: 'letter' },
+      slots: [{ key: 'name', label: 'Name', type: 'text' }],
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+        rules: { every: 'body' },
+        sections: [
+          { id: 'one', html: '<p data-slot-value="name">One</p>' },
+          { id: 'two', html: '<p data-slot-value="name">Two</p>' },
+        ],
+      },
+    }),
+  )
+  const fill = { fill: { id: 'host', values: { name: 'Ada' } } }
+  const { value, slots: prepared } = await filledPage(page, fill)
+  expect(value.printedPages.sections.map((section) => section.html)).toEqual(['<p dir="auto">Ada</p>', '<p dir="auto">Ada</p>'])
+  expect(prepared.frames).toHaveLength(2)
+  await expect(filledPage(page, { fills: [fill, fill] })).rejects.toThrow('Pass fill or source for a single copy')
 })
 
 test('filledDeck aligns slot measurement frames with non-HTML slides', async () => {

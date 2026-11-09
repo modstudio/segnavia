@@ -101,10 +101,15 @@ export {
   type HtmlPage,
   isDiagramFence,
   isGithubAlertBlock,
+  isPrintedHtmlPage,
   type MarkdownHeading,
   markdownHtml,
   markdownOutline,
+  type PrintedHtmlPage,
+  printedPageAuthorHtml,
+  printedPageDirection,
   resolvePageHtml,
+  resolvePrintedPageHtml,
 } from './markdown.ts'
 export {
   documentLanguage,
@@ -136,6 +141,7 @@ export {
   type ResolvePlacement,
   resolvePlacements,
 } from './placements.ts'
+export { printedSectionFlows } from './printed-section-flows.ts'
 export {
   assetOriginRefusals,
   findActiveContent,

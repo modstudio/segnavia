@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Page as PageSchema, PX_PER_MM, sheetMm } from '@segnavia/format'
-import { prepareSlotCollection, prepareSlots, resolvePageHtml, UnmeasuredSlotsRefusedError } from '@segnavia/html'
+import { prepareSlotCollection, prepareSlots, resolvePageHtml, resolvePrintedPageHtml, UnmeasuredSlotsRefusedError } from '@segnavia/html'
 import { PDFDocument } from 'pdf-lib'
 import type { Page as BrowserPage } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -8,6 +8,7 @@ import { renderPagesPdf } from './pages-pdf.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import { enforce } from './pdf-finish.ts'
 import { pt } from './pdf-geometry.ts'
+import { filledPages } from './slot-fill.ts'
 import { mergeCapturedSlotFit } from './slot-fit.ts'
 
 const Page = { parse: (input: unknown) => resolvePageHtml(PageSchema.parse(input)) }
@@ -91,6 +92,54 @@ test('pagesPdf gives each page only its own slot measurement marks', async () =>
   )
   expect(outcomes[0]).toBeInstanceOf(UnmeasuredSlotsRefusedError)
   expect(outcomes[1]).toBeUndefined()
+})
+
+test('pagesPdf keeps every input aligned with the slot frames its HTML produced', async () => {
+  const sectioned = resolvePrintedPageHtml(
+    PageSchema.parse({
+      scripts: 'refuse',
+      print: { paper: 'letter' },
+      slots: [{ key: 'section', label: 'Section', type: 'text', overflow: 'refuse' }],
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+        rules: { every: 'body' },
+        sections: [
+          { id: 'one', html: '<p data-slot-value="section">One</p>' },
+          { id: 'two', html: '<p data-slot-value="section">Two</p>' },
+        ],
+      },
+    }),
+  )
+  const plain = Page.parse({
+    html: '<p data-slot-value="plain">Plain</p>',
+    slots: [{ key: 'plain', label: 'Plain', type: 'text', overflow: 'refuse' }],
+  })
+  const { value, slots, frameGroups } = await filledPages([sectioned, plain], {
+    fill: { id: 'host', values: { section: 'Filled section', plain: 'Filled plain' } },
+  })
+  const seen: Array<{ frames: number; marked: string[] }> = []
+
+  await renderPagesPdf(
+    value,
+    slots,
+    {},
+    {
+      pagePdf: async (_page, documentSlots, _options, inputIndex) => {
+        seen[inputIndex] = { frames: documentSlots.frames.length, marked: [...documentSlots.marked.keys()] }
+        return { bytes: await cssPiece(100) }
+      },
+      piecePdf: async () => new Uint8Array(),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+    frameGroups,
+  )
+
+  expect(frameGroups).toEqual([[0, 1], [2]])
+  expect(seen).toEqual([
+    { frames: 2, marked: ['section'] },
+    { frames: 1, marked: ['plain'] },
+  ])
 })
 
 test('pagesPdf applies sheets to the joined output instead of each inner page', async () => {

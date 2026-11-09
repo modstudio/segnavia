@@ -1,7 +1,10 @@
 import { z } from 'zod'
+import { BookOpens } from './book-opens.ts'
+import { SectionNumbering } from './folio.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { BOOK_FURNITURE } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
+import { CONTINUE_OPENS_REMEDY } from './section-opens-policy.ts'
 
 export const PRINTED_PAGE_ROLES = ['every', 'first', 'recto', 'verso', 'last'] as const
 export type PrintedPageRole = (typeof PRINTED_PAGE_ROLES)[number]
@@ -50,6 +53,26 @@ export const PrintedPages = z.object({
   rules: PrintedPageRules,
   numbering: NumberSystem.optional(),
   fragmentation: Fragmentation.default('safe'),
+  sections: z
+    .array(
+      z.object({
+        id: z.string(),
+        title: z.string().optional(),
+        opens: BookOpens.optional(),
+        numbering: SectionNumbering.optional(),
+        html: z.string(),
+      }),
+    )
+    .min(1)
+    .superRefine((sections, ctx) => {
+      if (sections[0]?.opens !== 'continue') return
+      ctx.addIssue({
+        code: 'custom',
+        path: [0, 'opens'],
+        message: `The first printed section opens with continue but has no preceding flow; ${CONTINUE_OPENS_REMEDY}.`,
+      })
+    })
+    .optional(),
 })
 
 export type ParentPage = z.infer<typeof ParentPage>

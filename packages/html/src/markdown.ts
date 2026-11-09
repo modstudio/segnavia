@@ -1,4 +1,4 @@
-import { type Direction, type OriginApproval, type Page, type PageBody, resolveDirection } from '@segnavia/format'
+import { type Direction, type OriginApproval, type Page, type PageBody, pageDirection, resolveDirection, type TextDirection } from '@segnavia/format'
 import rehypeStringify from 'rehype-stringify'
 import remarkDirective from 'remark-directive'
 import remarkFrontmatter from 'remark-frontmatter'
@@ -294,10 +294,57 @@ export function markdownOutline(markdown: string | Extract<PageBody, { markdown:
 
 export type HtmlPage = Omit<Page, 'body'> & { html: string }
 
+type PrintedSection = NonNullable<NonNullable<Page['printedPages']>['sections']>[number]
+export type PrintedHtmlPage = Omit<Page, 'body' | 'printedPages'> & {
+  printedPages: Omit<NonNullable<Page['printedPages']>, 'sections'> & {
+    sections: Array<PrintedSection & { implicit?: true }>
+  }
+}
+
 export function resolvePageHtml(page: Page): HtmlPage {
   const { body, ...fields } = page
+  if (body === undefined) {
+    throw new Error(
+      'a sectioned printed page has no single body; compose it through printedPageValueDocument with resolvePrintedPageHtml to clear this refusal',
+    )
+  }
   if (!('html' in body)) {
     throw new Error('a parsed page needs stored HTML; pass its Document input through @segnavia/html parseDocument to clear this refusal')
   }
   return { ...fields, html: body.html }
+}
+
+export function resolvePrintedPageHtml(page: Page | HtmlPage): PrintedHtmlPage {
+  const printedPages = page.printedPages
+  if (!printedPages) throw new Error('a resolved printed page needs printedPages')
+  const sections = printedPages.sections
+  if (sections) {
+    const { body: _body, ...fields } = page as Page
+    return { ...fields, printedPages: { ...printedPages, sections } }
+  }
+  let html: string
+  if ('html' in page) html = page.html
+  else {
+    if (page.body === undefined || !('html' in page.body)) {
+      throw new Error('a parsed page needs stored HTML; pass its Document input through @segnavia/html parseDocument to clear this refusal')
+    }
+    html = page.body.html
+  }
+  const { body: _body, html: _html, ...fields } = page as Page & { html?: string }
+  return {
+    ...fields,
+    printedPages: { ...printedPages, sections: [{ id: 'printed-page', html, implicit: true }] },
+  }
+}
+
+export function isPrintedHtmlPage(page: Page | HtmlPage | PrintedHtmlPage): page is PrintedHtmlPage {
+  return 'printedPages' in page && page.printedPages?.sections !== undefined && !('html' in page)
+}
+
+export function printedPageAuthorHtml(page: HtmlPage | PrintedHtmlPage): string {
+  return isPrintedHtmlPage(page) ? page.printedPages.sections.map((section) => section.html).join('') : page.html
+}
+
+export function printedPageDirection(page: HtmlPage | PrintedHtmlPage): TextDirection {
+  return pageDirection({ ...page, html: printedPageAuthorHtml(page) })
 }

@@ -30,6 +30,7 @@ import {
 import {
   classifyMediaAnswer,
   type HtmlPage,
+  isPrintedHtmlPage,
   type PlacementsOptions,
   pageOrPrintedFromInput,
   parseDocument,
@@ -54,6 +55,12 @@ export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 export { htmlSlideDocument } from './slide-print-document.ts'
 
 export const SLIDES_READY_DEADLINE_MS = 4000
+export const SECTIONED_IMPOSITION_REFUSAL =
+  'Imposition shows one page per input and cannot show a sectioned printed document; show it with <segnavia-page> or print it with pagePdf to clear this refusal.'
+
+export function refuseSectionedImpositionPage(page: Page): void {
+  if (isPrintedHtmlPage(page)) throw new RangeError(SECTIONED_IMPOSITION_REFUSAL)
+}
 
 type MediaSlide = Extract<Slide['content'], { media: unknown }>
 type ImageSlide = Extract<Slide['content'], { kind: 'image' }>
@@ -343,7 +350,9 @@ function loweredPrintablePages(inputs: PageOrPrintedInput[], valueEntry: string)
   return inputs.map((input) => {
     const document = parseDocument(input)
     refuseNamedDocumentBrand(document, valueEntry)
-    return resolvePageHtml(pageOrPrintedFromInput(document))
+    const page = pageOrPrintedFromInput(document)
+    refuseSectionedImpositionPage(page)
+    return resolvePageHtml(page)
   })
 }
 
@@ -353,7 +362,10 @@ export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition:
 
 export function printablePageValuesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   return printableHtmlPagesDocument(
-    pages.map((page) => resolvePageHtml(page)),
+    pages.map((page) => {
+      refuseSectionedImpositionPage(page)
+      return resolvePageHtml(page)
+    }),
     imposition,
     options,
   )

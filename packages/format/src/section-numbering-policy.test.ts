@@ -8,19 +8,8 @@ test('refuses section numbering in continuous books with its remedy', () => {
     mode: 'continuous',
     systems: { frontMatter: 'roman-lower', body: 'arabic' },
     sections: [section],
-    printedPageRules: false,
   })
   expect(issues[0]?.message).toContain('use the paginated layout or remove numbering from section "Cover" to clear this refusal')
-})
-
-test('refuses section numbering with printed-page rules', () => {
-  const issues = sectionNumberingIssues({
-    mode: 'paginated',
-    systems: { frontMatter: 'roman-lower', body: 'arabic' },
-    sections: [section],
-    printedPageRules: true,
-  })
-  expect(issues[0]?.message).toContain('remove section numbering or the printed-page rules to clear this refusal')
 })
 
 test('refuses restart beyond the division number system range', () => {
@@ -28,7 +17,6 @@ test('refuses restart beyond the division number system range', () => {
     mode: 'paginated',
     systems: { frontMatter: 'roman-lower', body: 'hebrew' },
     sections: [{ ...section, division: 'body', numbering: { restart: 10_000 } }],
-    printedPageRules: false,
   })
   expect(issues[0]?.message).toContain('hebrew range 1 to 9999')
 })

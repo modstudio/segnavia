@@ -1,4 +1,4 @@
-import { computeFolios, type NumberSystem, type SectionNumbering, sequenceFolios } from '@segnavia/format'
+import { computeFolios, type NumberSystem, type SectionNumbering } from '@segnavia/format'
 
 export interface BookPlanPage {
   sequence: string
@@ -41,6 +41,13 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
     }),
   )
   const folios = computed.map((folio, index) => (pages[index]?.blank ? null : (folio?.text ?? null)))
-  const total = sequenceFolios(pages.length, numbering.body).at(-1)?.text ?? '0'
+  let lastCounted: string | undefined
+  let lastBody: string | undefined
+  computed.forEach((folio, index) => {
+    if (folio === null) return
+    lastCounted = folio.text
+    if (pages[index]?.sequence === 'body') lastBody = folio.text
+  })
+  const total = lastBody ?? lastCounted ?? '0'
   return { folios, total }
 }

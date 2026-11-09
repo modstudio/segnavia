@@ -322,7 +322,25 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
     const fixtures = (await page.evaluate(() => fetch('/parent-pages-print.json').then((response) => response.json()))) as {
       cases: Array<{ name: string; page: unknown }>
       motifs: Array<{ key: string }>
+      sectioned: unknown
     }
+    await page.evaluate(async (documentInput) => {
+      await customElements.whenDefined('segnavia-page')
+      const shown = document.createElement('segnavia-page') as HTMLElement & { page: unknown }
+      shown.id = 'sectioned-page'
+      shown.style.cssText = 'display:block;inline-size:800px;block-size:600px'
+      shown.page = documentInput
+      document.body.append(shown)
+    }, fixtures.sectioned)
+    const sectionedFrame = await page.locator('#sectioned-page iframe').contentFrame()
+    await sectionedFrame.locator('html[data-segnavia-composed]').waitFor({ state: 'attached' })
+    const shownPapers = await sectionedFrame.locator('[data-segnavia-printed-page]').count()
+    const sectionedPdf = pdfWords(path.join(ROOT, 'out', 'pages-sectioned.pdf'))
+    check(
+      'the sectioned printed document shows the same paper count in segnavia-page and its PDF',
+      sectionedPdf.length === 3 && shownPapers === sectionedPdf.length,
+      `shown=${shownPapers} pdf=${sectionedPdf.length}`,
+    )
     for (const fixture of fixtures.cases) {
       await page.goto(url)
       const html = await page

@@ -191,6 +191,38 @@ describe('printed pages in SegnaviaPage', () => {
     expect(failures).toEqual([[failure]])
   })
 
+  test('resolves font CSS and failures once across printed sections', async () => {
+    const { page, frame, errors } = loadingHarness()
+    const asked: string[] = []
+    Object.assign(page, {
+      fontOptions: {
+        source: {
+          font: async (name: string) => {
+            asked.push(name)
+            return {
+              family: 'Body Serif',
+              faces: [{ family: 'Body Serif', data: new Uint8Array([0]), format: 'truetype' as const }],
+            }
+          },
+        },
+      },
+    })
+    page.load({
+      ...printedDocument(),
+      style: { fonts: { body: { faces: [{}, { style: 'italic' as const }] } } },
+      children: [
+        { type: 'section', id: 'cover', children: [{ type: 'flow', html: '<p>Cover</p>' }] },
+        { type: 'section', id: 'body', children: [{ type: 'flow', html: '<p>Body</p>' }] },
+      ],
+    })
+    await new Promise((resolve) => setTimeout(resolve, 0))
+
+    expect(errors).toEqual([])
+    expect(asked).toEqual(['body'])
+    expect(frame().srcdoc.match(/@font-face\{font-family:"Body Serif"/g)).toHaveLength(1)
+    expect(frame().srcdoc.match(/"reason":"unsupplied"/g)).toHaveLength(1)
+  })
+
   test('reports slot filling and keeps composed papers unfilled', async () => {
     const slots = { fill: { id: 'held', values: { name: 'Filled' } } } satisfies SlotsOptions
     const { page, frame, errors } = loadingHarness(slots)

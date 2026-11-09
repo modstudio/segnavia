@@ -300,6 +300,49 @@ export const printedParentPageCases = [
   { name: 'mixed', page: parentPageMixed },
 ] as const
 
+export const printedSectionDocument: DocumentInput = {
+  type: 'document',
+  kind: 'printed',
+  settings: { lang: 'en' },
+  print: { paper: 'letter' },
+  parentPages: [
+    {
+      type: 'parentPage',
+      name: 'cover',
+      geometry: { margin: { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 } },
+    },
+    {
+      type: 'parentPage',
+      name: 'body',
+      geometry: { margin: { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 } },
+      foot: '<footer>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></footer>',
+    },
+  ],
+  rules: { every: 'body', first: 'cover' },
+  children: [
+    {
+      type: 'section',
+      id: 'cover',
+      title: 'Cover',
+      opens: 'any',
+      numbering: { counted: false },
+      children: [{ type: 'flow', html: '<div style="block-size:243.4mm;font:24px sans-serif">SECTIONED COVER</div>' }],
+    },
+    {
+      type: 'section',
+      id: 'body',
+      title: 'Body',
+      opens: 'any',
+      children: [
+        {
+          type: 'flow',
+          html: '<div style="block-size:243.4mm;font:18px sans-serif">SECTIONED BODY ONE</div><div style="block-size:243.4mm;font:18px sans-serif">SECTIONED BODY TWO</div>',
+        },
+      ],
+    },
+  ],
+}
+
 const imageWords = Array.from({ length: 220 }, (_, index) => `<span>ImageWord-${index + 1} </span>`)
 const unsizedImage = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="420"><rect width="240" height="420" fill="#ddd"/></svg>')
 

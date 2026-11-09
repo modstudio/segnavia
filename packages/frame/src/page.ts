@@ -194,7 +194,6 @@ export class SegnaviaPage extends PageElementAttributes {
   }
 
   private loadValue(page: Page) {
-    const resolvedPage = resolvePageHtml(page)
     this.hostServed = false
     const generation = this.releaseFrame()
     const controller = new AbortController()
@@ -221,9 +220,9 @@ export class SegnaviaPage extends PageElementAttributes {
     const write = (document: string) => {
       if (isCurrent()) this.writeDocument(iframe, document)
     }
-    if (resolvedPage.printedPages) {
+    if (page.printedPages) {
       this.composedFrame = { frame: iframe, generation }
-      loadPrintedPageFrame(resolvedPage, {
+      loadPrintedPageFrame(page, {
         motifs: this.motifOptions,
         placements: this.placementOptions,
         widths: this.widthOptions,
@@ -239,6 +238,7 @@ export class SegnaviaPage extends PageElementAttributes {
       this.fit()
       return
     }
+    const resolvedPage = resolvePageHtml(page)
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions && Object.keys(page.style?.fonts ?? {}).length === 0) {
       const motifRefusal = framePageMotifRefusal(resolvedPage)
       if (motifRefusal) {

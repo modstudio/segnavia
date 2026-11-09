@@ -33,7 +33,7 @@ describe('planBook', () => {
       plan: { pages: paginated.pages, ...folios },
     })
     expect(result.ok && result.plan.folios).toEqual([...expectedFolios])
-    expect(result.ok && result.plan.total).toBe(direction === 'ltr' ? '3' : 'ג')
+    expect(result.ok && result.plan.total).toBe(direction === 'ltr' ? '1' : 'א')
   })
 
   test('returns pagination refusals instead of a partial plan', () => {

@@ -1,10 +1,10 @@
-import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
-import type { HtmlPage } from '@segnavia/html'
-import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
+import type { OriginApproval, Page, PageWidths, SlotsOptions } from '@segnavia/format'
+import { type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
+import { expandPrintedFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { pageFontCss } from './page-fonts.ts'
 import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
-import { prepareExpandedPage } from './page-preparation.ts'
 import { fillsSlotValues } from './slot-render.ts'
 
 export const PRINTED_SLOT_REFUSAL =
@@ -26,17 +26,26 @@ export interface PrintedPageFrameOptions {
   failed(error: unknown): void
 }
 
-export function loadPrintedPageFrame(page: HtmlPage, options: PrintedPageFrameOptions): void {
+export function loadPrintedPageFrame(page: Page | HtmlPage, options: PrintedPageFrameOptions): void {
   if (fillsSlotValues(page.slots, options.slots)) options.failed(new Error(PRINTED_SLOT_REFUSAL))
-  void prepareExpandedPage(page, options.motifs, options.fonts, options.signal, options.placements, options.widths)
-    .then((shown) =>
+  const printed = resolvePrintedPageHtml(page)
+  void expandPrintedFramePage(printed, options.motifs, options.signal, options.placements, 'screen', options.widths)
+    .then(async (expanded) => {
+      const fonts = await pageFontCss(expanded.page, expanded.fonts, options.fonts, options.signal)
       loadPrintedPageDocument(
-        shown.page,
-        { baseCss: shown.css, css: options.css, csp: options.csp, origins: options.origins, screen: { spread: false }, fontFailures: shown.failures },
+        expanded.page,
+        {
+          baseCss: fonts.css,
+          css: options.css,
+          csp: options.csp,
+          origins: options.origins,
+          screen: { spread: false },
+          fontFailures: fonts.failures,
+        },
         options.loaded,
         options.failed,
-      ),
-    )
+      )
+    })
     .catch(options.failed)
 }
 

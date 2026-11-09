@@ -26,7 +26,7 @@ import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './m
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
-import { printablePaper } from './print-document.ts'
+import { printablePaper, refuseSectionedImpositionPage } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
@@ -173,7 +173,11 @@ export class SegnaviaPaper extends HTMLElement {
     // Parse both inputs before changing state, so a refusal leaves the shown
     // paper untouched.
     const documents = pageInputs.map((page) => parseDocument(page))
-    const pages = documents.map((page) => resolvePageHtml(pageOrPrintedFromDocument(page)))
+    const pages = documents.map((document) => {
+      const page = pageOrPrintedFromDocument(document)
+      refuseSectionedImpositionPage(page)
+      return resolvePageHtml(page)
+    })
     const imposition = Imposition.parse(impositionInput)
     this.loadValues(pages, imposition, documents)
   }
@@ -199,7 +203,13 @@ export class SegnaviaPaper extends HTMLElement {
   }
 
   [internalPaperPagesLoad](pageValues: Page[], imposition: Imposition): void {
-    this.loadValues(pageValues.map(resolvePageHtml), imposition)
+    this.loadValues(
+      pageValues.map((page) => {
+        refuseSectionedImpositionPage(page)
+        return resolvePageHtml(page)
+      }),
+      imposition,
+    )
   }
 
   private showPaper(value: number) {

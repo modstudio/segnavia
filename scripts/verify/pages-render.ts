@@ -21,6 +21,7 @@ import {
   twoSidedCardPages,
   twoSidedSequenceImposition,
 } from '../demo-page-fixtures.ts'
+import { verifySectionedRender } from './pages-sectioned-render.ts'
 import { rasterPdf, rasterMillimeters as rasterValue } from './pdf-raster.ts'
 import { darkestNear } from './pgm.ts'
 
@@ -105,6 +106,7 @@ function verifyParentDetails(output: string, check: Check): void {
 }
 
 export function verifyPagesRender(output: string, work: string, check: Check): void {
+  verifySectionedRender(output, check)
   const imposedInfo = (file: string) => execFileSync('pdfinfo', [path.join(output, file)], { encoding: 'utf8' })
   const english = parentText(output, 'english')
   const englishHead = english.filter((page) => page.includes('LETTERHEAD')).length
@@ -118,13 +120,11 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     english.length === 3 && englishHead === 1 && englishFeet.every(Boolean) && Boolean(englishBreaks) && keepWhole && widowsHonored,
     `pages=${english.length} head=${englishHead} feet=${englishFeet.join(',')} forced=${Boolean(englishBreaks)} keep=${keepWhole} widows=${widowCounts.join(',')}`,
   )
-
   verifyParentDetails(output, check)
   check(
     '30 labels fill one paper and a 31st label starts a second paper',
     /Pages:\s+1\b/.test(imposedInfo('pages-labels.pdf')) && /Pages:\s+2\b/.test(imposedInfo('pages-labels-31.pdf')),
   )
-
   const labelImposition = Imposition.parse(labelsImposition)
   const labelPlacements = impose(labelImposition, 30).placements
   const labelWords = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-labels.pdf'), '-'], { encoding: 'utf8' })
@@ -358,7 +358,6 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
 
   const limits = readFileSync(path.join(output, 'pages-limits.txt'), 'utf8')
   check('the imposed sheets ceiling counts PDF pages and names both counts', limits.includes('2 sheets') && limits.includes('sheets limit of 1'), limits)
-
   const letterFolded = impose(Imposition.parse(letterFoldImposition), letterFoldPages.length)
   const letterXml = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-letter-fold.pdf'), '-'], { encoding: 'utf8' })
   const letterPdfPages = [...letterXml.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')
