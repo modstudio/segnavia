@@ -231,6 +231,7 @@ export class SegnaviaPage extends PageElementAttributes {
         slots: this.slotOptions,
         css: this.css,
         csp: this.cspExtra || undefined,
+        origins: this.origins,
         signal: controller.signal,
         loaded: write,
         failed: report,
