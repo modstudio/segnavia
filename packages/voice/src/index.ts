@@ -1,6 +1,7 @@
 // Turns narration text into words with timings, and optionally audio. A
 // provider is the only part that knows a speech service; the cache keys a
-// result by provider, voice and text, so editing one slide's narration
+// result by provider, voice, text and, when given, voice settings, so audio
+// voiced under other settings is not reused and editing one slide's narration
 // re-synthesizes that slide and nothing else.
 
 import { createHash } from 'node:crypto'
@@ -22,8 +23,9 @@ export interface Speech {
 
 /**
  * Per-generation voice controls. Eleven v3 accepts `stability` and `style`;
- * Eleven v4 and v4 Turbo accept `stability` and `similarity_boost`; other
- * ElevenLabs text-to-speech models accept all five fields.
+ * Eleven v4 accepts `stability` and `similarity_boost`. ElevenLabs sets which
+ * fields each model accepts; it ignores or refuses fields a model does not
+ * accept. See the ElevenLabs model documentation for each model's support.
  */
 export interface VoiceSettings {
   stability?: number

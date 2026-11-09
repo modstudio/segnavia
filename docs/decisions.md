@@ -301,10 +301,12 @@ never shorter than its viewport.
 
 ## Voice
 
-**Synthesis is cached by content.** The cache key is provider, voice and
-text. Editing one slide re-voices that slide only, and playback is
-deterministic. A provider's identity includes its model and its pronunciation
-dictionaries, so changing either re-voices every slide it touches.
+**Synthesis is cached by content.** The cache key is provider, voice, text and,
+when given, the per-synthesis voice settings, so audio voiced under other
+settings is not reused. Editing one slide re-voices that slide only, and
+playback is deterministic. A provider's identity includes its model and its
+pronunciation dictionaries, so changing either re-voices every slide it
+touches.
 
 **A host owns one pronunciation lexicon, independent of the voice engine.**
 The lexicon is published as a native dictionary where the engine supports
