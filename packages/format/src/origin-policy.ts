@@ -13,7 +13,7 @@ const VERSIONED_SCRIPT_PATHS: Record<string, RegExp> = {
   'https://unpkg.com': /^\/(?:@[^/]+\/)?[^/@]+@(\d+\.\d+\.\d+)(?:\/|$)/,
   'https://cdnjs.cloudflare.com': /^\/ajax\/libs\/[^/]+\/(\d+\.\d+\.\d+)(?:\/|$)/,
   'https://cdn.tailwindcss.com': /^\/(\d+\.\d+\.\d+)(?:\/|$)/,
-  'https://code.jquery.com': /^\/jquery-(\d+\.\d+\.\d+)(?:\.min)?\.js$/,
+  'https://code.jquery.com': /^\/jquery-(\d+\.\d+\.\d+)(?:\.slim)?(?:\.min)?\.js$/,
 }
 
 export const DEFAULT_ORIGINS: readonly OriginApproval[] = [

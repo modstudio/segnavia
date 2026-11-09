@@ -37,4 +37,9 @@ describe('origin policy', () => {
       if (!decision.allowed) expect(decision.reason).toContain('exact x.y.z package version')
     }
   })
+
+  test('accepts pinned jQuery slim builds', () => {
+    expect(originDecision('https://code.jquery.com/jquery-3.7.1.slim.js', 'script', [], true).allowed).toBe(true)
+    expect(originDecision('https://code.jquery.com/jquery-3.7.1.slim.min.js', 'script', [], true).allowed).toBe(true)
+  })
 })
