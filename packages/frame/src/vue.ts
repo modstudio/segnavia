@@ -89,6 +89,7 @@ export interface FrameVueEventDetails {
   'segnavia-labels': unknown
   change: SegnaviaPaperPicker['value']
   'segnavia-fill-select': string
+  'segnavia-fill-input': SegnaviaItemSettings['fills'][number]
 }
 
 type Descriptor = (typeof ELEMENT_PROPERTIES)[keyof typeof ELEMENT_PROPERTIES]

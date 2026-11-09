@@ -79,6 +79,7 @@ const thumbnailEvents = reactEvents<ThumbnailProps>()(FRAME_ELEMENTS.thumbnail.e
 const paperPickerEvents = reactEvents<PaperPickerProps>()(FRAME_ELEMENTS.paperPicker.events, { change: 'onChange' })
 const itemSettingsEvents = reactEvents<ItemSettingsProps>()(FRAME_ELEMENTS.itemSettings.events, {
   'segnavia-fill-select': 'onSegnaviaFillSelect',
+  'segnavia-fill-input': 'onSegnaviaFillInput',
 })
 
 function element<E extends object, P extends object, Tag extends `segnavia-${string}`>(
