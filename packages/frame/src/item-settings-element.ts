@@ -1,4 +1,4 @@
-import { type Fill, resolveDirection, type SlotDeclaration, type SlotReport, type SlotValue, type TextDirection } from '@segnavia/format'
+import { type Fill, type FillValues, resolveDirection, type SlotDeclaration, type SlotReport, type SlotValue, type TextDirection } from '@segnavia/format'
 import { upgradeProperties } from './element-properties.ts'
 import type { ItemSettingsController } from './item-settings-authoring.ts'
 import { type FieldsActions, renderFields } from './item-settings-fields.ts'
@@ -6,6 +6,7 @@ import {
   addFill,
   cloneFill,
   cloneFills,
+  cloneFillValues,
   isProvisionalFillId,
   nextSelectedFillId,
   provisionalFillId,
@@ -13,11 +14,12 @@ import {
   renameFill,
   selectedFill,
   setFillValue,
+  setFillValuesValue,
 } from './item-settings-fills.ts'
 import { ENGLISH_ITEM_SETTINGS_LABELS, type ItemSettingsLabels, itemSettingsLabels } from './item-settings-labels.ts'
 import type { ItemSettingsSection, ItemSettingsSectionContext } from './item-settings-section.ts'
 import { ITEM_SETTINGS_CSS } from './item-settings-style.ts'
-import { overrideValue } from './item-settings-values.ts'
+import { overrideValue, slotFieldView } from './item-settings-values.ts'
 
 export { ITEM_SETTINGS_TAG } from './element-properties.ts'
 
@@ -42,6 +44,7 @@ export class SegnaviaItemSettings extends HTMLElement {
   private slotDeclarations: SlotDeclaration[] = []
   private fillList: Fill[] = []
   private selected: string | null = null
+  private designValues: FillValues = {}
   private sourceFill: Fill | undefined
   private slotReport: SlotReport | undefined
   private words: ItemSettingsLabels = ENGLISH_ITEM_SETTINGS_LABELS
@@ -84,6 +87,17 @@ export class SegnaviaItemSettings extends HTMLElement {
 
   set fill(value: string | null | undefined) {
     this.selected = value ?? null
+    this.render()
+  }
+
+  get overrides(): FillValues {
+    return cloneFillValues(this.designValues)
+  }
+
+  set overrides(value: FillValues | undefined) {
+    this.designValues = cloneFillValues(value ?? {})
+    const authoring = this.authoring
+    if (authoring) this.designValues = authoring.seedOverrides(this.designValues)
     this.render()
   }
 
@@ -160,6 +174,7 @@ export class SegnaviaItemSettings extends HTMLElement {
       declarations: this.slotDeclarations,
       fills: this.fillList,
       fill: this.selected,
+      overrides: this.designValues,
       source: this.sourceFill,
       report: this.slotReport,
       labels: this.words,
@@ -189,6 +204,7 @@ export class SegnaviaItemSettings extends HTMLElement {
       onRemoveFill: () => this.removeSelectedFill(),
       onRenameFill: (label) => this.renameSelected(label),
       onChangeValue: (key, value) => this.changeValue(key, value),
+      onDesignOnly: this.authoring?.canSaveOverrides ? (key, enabled) => this.toggleDesignOnly(key, enabled) : undefined,
       onOverride: (key) => this.changeValue(key, overrideValue(this.sourceFill, key)),
       onUseSource: (key) => this.changeValue(key, undefined),
     }
@@ -232,6 +248,10 @@ export class SegnaviaItemSettings extends HTMLElement {
   }
 
   private changeValue(key: string, value: SlotValue | undefined) {
+    if (this.designValues[key] !== undefined && this.designValues[key] !== '') {
+      this.changeDesignValue(key, value)
+      return
+    }
     if (this.selected === null) return
     this.fillList = setFillValue(this.fillList, this.selected, key, value)
     this.render()
@@ -240,6 +260,25 @@ export class SegnaviaItemSettings extends HTMLElement {
       this.emitInput(fill)
       this.authoring?.save(fill)
     }
+  }
+
+  private toggleDesignOnly(key: string, enabled: boolean) {
+    if (!this.authoring?.canSaveOverrides) return
+    if (!enabled) {
+      this.changeDesignValue(key, undefined)
+      return
+    }
+    const slot = this.slotDeclarations.find((declaration) => declaration.key === key)
+    if (!slot) return
+    const fill = selectedFill(this.fillList, this.selected)
+    const value = slotFieldView(slot, this.designValues, fill, this.sourceFill, this.slotReport).value
+    this.changeDesignValue(key, value)
+  }
+
+  private changeDesignValue(key: string, value: SlotValue | undefined) {
+    this.designValues = setFillValuesValue(this.designValues, key, value)
+    this.render()
+    this.authoring?.saveDesign(this.designValues)
   }
 
   private render() {

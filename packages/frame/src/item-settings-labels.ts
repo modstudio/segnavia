@@ -5,6 +5,7 @@ export interface ItemSettingsLabels {
   addFill: string
   removeFill: string
   newFill: string
+  designOnly: string
   override: string
   useSource: string
   chooseAsset: string
@@ -28,6 +29,7 @@ export const ENGLISH_ITEM_SETTINGS_LABELS: ItemSettingsLabels = {
   addFill: 'Add fill',
   removeFill: 'Remove fill',
   newFill: 'New fill',
+  designOnly: 'This design only',
   override: 'Override',
   useSource: 'Use source',
   chooseAsset: 'Choose asset',

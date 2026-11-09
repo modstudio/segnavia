@@ -34,7 +34,9 @@ test('slot fill policy refuses only fills with declarations for an item that run
   expect(slotFillRefusal('sandboxed', undefined, options)).toBeUndefined()
   expect(slotFillRefusal('sandboxed', undefined, { ...options, declarations })).toBeInstanceOf(SlotFillRefusedError)
   expect(slotFillRefusal('sandboxed', declarations, { source: { id: 'source', values: {} } })).toBeInstanceOf(SlotFillRefusedError)
+  expect(slotFillRefusal('sandboxed', declarations, { overrides: { name: 'Design name' } })).toBeInstanceOf(SlotFillRefusedError)
   expect(fillsSlotValues(declarations, options)).toBe(true)
+  expect(fillsSlotValues(declarations, { overrides: { name: 'Design name' } })).toBe(true)
   expect(fillsSlotValues(declarations, { report() {} })).toBe(false)
   expect(fillsSlotValues(declarations, { resolveAsset: async () => 'data:image/png;base64,AAAA' })).toBe(false)
 })
@@ -44,6 +46,7 @@ test('slot work includes every reason preparation must run', () => {
   expect(hasSlotWork(declarations, undefined)).toBe(true)
   expect(hasSlotWork(undefined, { declarations })).toBe(true)
   expect(hasSlotWork(undefined, { fill: { id: 'x', values: {} } })).toBe(true)
+  expect(hasSlotWork(undefined, { overrides: {} })).toBe(true)
   expect(hasSlotWork(undefined, { source: { id: 'source', values: {} } })).toBe(true)
   expect(hasSlotWork(undefined, { resolveAsset: async () => 'data:image/png;base64,AAAA' })).toBe(true)
   expect(hasSlotWork(undefined, { report() {} })).toBe(true)
@@ -90,6 +93,21 @@ test('hand values override source values and empty strings fall through each lay
     fill: 'overrides',
     slots: { name: 'filled', role: 'placeholder', email: 'invalid', site: 'filled' },
     origins: { name: 'hand', email: 'source', site: 'source' },
+  })
+})
+
+test('design values override the fill and are reported as their own origin', async () => {
+  const prepared = await prepareSlots(declarations.slice(0, 2), {
+    overrides: { name: 'Design name' },
+    fill: { id: 'fill', values: { name: 'Fill name', role: 'Fill role' } },
+    source: { id: 'source', values: { name: 'Source name', role: 'Source role' } },
+  })
+
+  expect(prepared.apply('<p data-slot-value="name"></p><p data-slot-value="role"></p>')).toContain('Design name')
+  expect(prepared.report).toEqual({
+    fill: 'fill',
+    slots: { name: 'filled', role: 'filled' },
+    origins: { name: 'design', role: 'hand' },
   })
 })
 

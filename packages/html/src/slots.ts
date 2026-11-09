@@ -1,5 +1,6 @@
 import {
   mergeSlotDeclarations,
+  resolveSlotValue,
   type Scripts,
   type SlotDeclaration,
   type SlotReport,
@@ -44,12 +45,14 @@ import { mergeSlotFitResults } from './slot-policy.ts'
 
 /** Whether an item needs slot preparation for declarations, filling, asset resolution or reporting. */
 export function hasSlotWork(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
-  return Boolean(declarations?.length || options?.declarations?.length || options?.fill || options?.source || options?.resolveAsset || options?.report)
+  return Boolean(
+    declarations?.length || options?.declarations?.length || options?.overrides || options?.fill || options?.source || options?.resolveAsset || options?.report,
+  )
 }
 
 /** Whether slot preparation would fill declared values. */
 export function fillsSlotValues(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
-  return Boolean((options?.fill || options?.source) && (declarations?.length || options.declarations?.length))
+  return Boolean((options?.overrides || options?.fill || options?.source) && (declarations?.length || options.declarations?.length))
 }
 
 /** Refuses exposing filled values to an item's own scripts. */
@@ -276,14 +279,6 @@ async function valueFor(
   return /^data:image\//i.test(resolved) ? { value: resolved, state: 'filled' } : { state: 'invalid' }
 }
 
-function layeredValue(key: string, options: SlotsOptions): { value?: SlotValue; origin?: 'hand' | 'source' } {
-  const hand = options.fill?.values[key]
-  if (hand !== undefined && hand !== '') return { value: hand, origin: 'hand' }
-  const source = options.source?.values[key]
-  if (source !== undefined && source !== '') return { value: source, origin: 'source' }
-  return {}
-}
-
 async function resolveSlots(declarations: readonly SlotDeclaration[], options: SlotsOptions, signal: AbortSignal): Promise<ResolvedSlots> {
   const data: Record<string, string> = {}
   const types: Record<string, SlotDeclaration['type']> = {}
@@ -294,7 +289,11 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
   await Promise.all(
     declarations.map(async (slot) => {
       types[slot.key] = slot.type
-      const selected = layeredValue(slot.key, options)
+      const selected = resolveSlotValue([
+        { name: 'design', value: options.overrides?.[slot.key] },
+        { name: 'hand', value: options.fill?.values[slot.key] },
+        { name: 'source', value: options.source?.values[slot.key] },
+      ])
       const resolved = await valueFor(slot, selected.value, resolveAsset)
       states[slot.key] = resolved.state
       if (selected.origin) origins[slot.key] = selected.origin

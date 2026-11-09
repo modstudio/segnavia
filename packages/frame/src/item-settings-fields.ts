@@ -27,6 +27,7 @@ export interface FieldsActions {
   onRemoveFill(): void
   onRenameFill(label: string): void
   onChangeValue(key: string, value: SlotValue | undefined): void
+  onDesignOnly?(key: string, enabled: boolean): void
   onOverride(key: string): void
   onUseSource(key: string): void
 }
@@ -39,7 +40,9 @@ export function renderFields(container: HTMLElement, context: ItemSettingsSectio
   const slots = document.createElement('div')
   slots.part.add('slots')
   for (const slot of context.declarations) {
-    slots.append(slotField(slot, slotFieldView(slot, fill, context.source, context.report), context, actions))
+    slots.append(
+      slotField(slot, slotFieldView(slot, context.overrides, fill, context.source, context.report, actions.onDesignOnly !== undefined), context, actions),
+    )
   }
   container.append(switcher, slots)
 }
@@ -174,6 +177,7 @@ function imageControl(slot: SlotDeclaration, view: SlotFieldView, labels: ItemSe
 function slotActions(view: SlotFieldView, labels: ItemSettingsLabels, actions: FieldsActions): HTMLElement {
   const row = document.createElement('div')
   row.part.add('slot-actions')
+  if (view.canDesignOnly) row.append(designOnlyToggle(view, labels, actions))
   if (view.canOverride) {
     const button = document.createElement('button')
     button.type = 'button'
@@ -193,6 +197,21 @@ function slotActions(view: SlotFieldView, labels: ItemSettingsLabels, actions: F
     row.append(button)
   }
   return row
+}
+
+function designOnlyToggle(view: SlotFieldView, labels: ItemSettingsLabels, actions: FieldsActions): HTMLLabelElement {
+  const label = document.createElement('label')
+  label.part.add('design-only')
+  label.dataset.designOnly = String(view.designOnly)
+  const input = document.createElement('input')
+  input.type = 'checkbox'
+  input.checked = view.designOnly
+  input.dataset.action = 'design-only'
+  input.addEventListener('change', () => actions.onDesignOnly?.(view.key, input.checked))
+  const caption = document.createElement('span')
+  caption.append(isolated(labels.designOnly))
+  label.append(input, caption)
+  return label
 }
 
 function slotWarnings(view: SlotFieldView, labels: ItemSettingsLabels): HTMLParagraphElement[] {

@@ -76,15 +76,19 @@ export interface SlotSource {
 
 export const SLOT_STATES = ['filled', 'placeholder', 'unavailable', 'invalid', 'fit', 'shrunk', 'overflowed'] as const
 export type SlotState = (typeof SLOT_STATES)[number]
+export const SLOT_ORIGINS = ['design', 'hand', 'source'] as const
+export type SlotOrigin = (typeof SLOT_ORIGINS)[number]
 
 export interface SlotReport {
   fill: string | null
   slots: Record<string, SlotState>
-  origins: Record<string, 'hand' | 'source'>
+  origins: Record<string, SlotOrigin>
 }
 
 export interface SlotsOptions {
-  /** The fill selected from a host data source; hand values override it per declared key. */
+  /** Values belonging only to this design; they override the selected fill per declared key. */
+  overrides?: FillValues
+  /** The fill selected from a host data source; fill values override it per declared key. */
   source?: Fill
   fill?: Fill
   declarations?: SlotDeclarationInput[]

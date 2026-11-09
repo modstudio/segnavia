@@ -120,6 +120,7 @@ export type ItemSettingsProps = ElementProps<SegnaviaItemSettings> & {
   declarations?: SegnaviaItemSettings['declarations']
   fills?: SegnaviaItemSettings['fills']
   fill?: SegnaviaItemSettings['fill']
+  overrides?: SegnaviaItemSettings['overrides']
   source?: SegnaviaItemSettings['source']
   report?: SegnaviaItemSettings['report']
   labels?: Partial<ItemSettingsLabels>

@@ -1,4 +1,4 @@
-import type { Fill, SlotDeclaration, SlotReport, SlotState, SlotValue } from '@segnavia/format'
+import { type Fill, type FillValues, resolveSlotValue, type SlotDeclaration, type SlotReport, type SlotState, type SlotValue } from '@segnavia/format'
 
 export type SlotWarning = 'missing' | 'overflowed' | 'shrunk'
 
@@ -12,16 +12,19 @@ export interface SlotFieldView {
   readOnly: boolean
   canOverride: boolean
   canUseSource: boolean
+  canDesignOnly: boolean
+  designOnly: boolean
   state: SlotState | undefined
   warnings: SlotWarning[]
 }
 
-function layeredValue(fill: Fill | undefined, source: Fill | undefined, key: string): { value?: SlotValue; origin?: 'hand' | 'source' } {
-  const hand = fill?.values[key]
-  if (hand !== undefined && hand !== '') return { value: hand, origin: 'hand' }
-  const fromSource = source?.values[key]
-  if (fromSource !== undefined && fromSource !== '') return { value: fromSource, origin: 'source' }
-  return {}
+function layeredValue(slot: SlotDeclaration, overrides: FillValues, fill: Fill | undefined, source: Fill | undefined) {
+  return resolveSlotValue([
+    { name: 'design', value: overrides[slot.key] },
+    { name: 'hand', value: fill?.values[slot.key] },
+    { name: 'source', value: source?.values[slot.key] },
+    { name: 'placeholder', value: slot.placeholder },
+  ])
 }
 
 function displayText(value: SlotValue | undefined): string {
@@ -42,15 +45,29 @@ export function slotWarnings(slot: SlotDeclaration, state: SlotState | undefined
   return warnings
 }
 
-export function slotFieldView(slot: SlotDeclaration, fill: Fill | undefined, source: Fill | undefined, report: SlotReport | undefined): SlotFieldView {
-  const layered = layeredValue(fill, source, slot.key)
+export function slotFieldView(
+  slot: SlotDeclaration,
+  overrides: FillValues,
+  fill: Fill | undefined,
+  source: Fill | undefined,
+  report: SlotReport | undefined,
+  canDesignOnly = false,
+): SlotFieldView {
+  const layered = layeredValue(slot, overrides, fill, source)
   const displayedFill = fill?.id ?? source?.id ?? null
   const currentReport = report?.fill === displayedFill ? report : undefined
   const state = currentReport !== undefined && Object.hasOwn(currentReport.slots, slot.key) ? currentReport.slots[slot.key] : undefined
   const origin = currentReport?.origins[slot.key] ?? layered.origin
   const value =
-    origin === 'source' ? (source?.values[slot.key] ?? layered.value) : origin === 'hand' ? (fill?.values[slot.key] ?? layered.value) : layered.value
+    origin === 'design'
+      ? (overrides[slot.key] ?? layered.value)
+      : origin === 'source'
+        ? (source?.values[slot.key] ?? layered.value)
+        : origin === 'hand'
+          ? (fill?.values[slot.key] ?? layered.value)
+          : layered.value
   const sourceHasValue = source?.values[slot.key] !== undefined && source.values[slot.key] !== ''
+  const designOnly = overrides[slot.key] !== undefined && overrides[slot.key] !== ''
   const readOnly = origin === 'source'
   return {
     key: slot.key,
@@ -62,6 +79,8 @@ export function slotFieldView(slot: SlotDeclaration, fill: Fill | undefined, sou
     readOnly,
     canOverride: readOnly && fill !== undefined,
     canUseSource: origin === 'hand' && sourceHasValue && fill !== undefined,
+    canDesignOnly,
+    designOnly,
     state,
     warnings: slotWarnings(slot, state, layered.value !== undefined),
   }
