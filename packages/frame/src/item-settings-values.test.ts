@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Fill, SlotDeclaration, SlotReport } from '@segnavia/format'
+import { type Fill, SLOT_STATES, type SlotDeclaration, type SlotReport } from '@segnavia/format'
 import { overrideValue, slotFieldView, slotWarnings } from './item-settings-values.ts'
 
 const name: SlotDeclaration = { key: 'name', label: 'Name', type: 'text', required: true }
@@ -41,5 +41,22 @@ describe('slot field view', () => {
   test('before any report, a required slot a layer supplies is not reported missing', () => {
     expect(slotFieldView(name, fill, source, undefined).warnings).toEqual([])
     expect(slotFieldView(name, fill, undefined, undefined).warnings).toEqual(['missing'])
+  })
+
+  test('maps every reported slot state when the report names the displayed fill', () => {
+    for (const state of SLOT_STATES) {
+      expect(slotFieldView(name, fill, source, { fill: 'mina', slots: { name: state }, origins: {} }).state).toBe(state)
+    }
+  })
+
+  test('ignores report state and warnings when the report names another fill', () => {
+    expect(slotFieldView(name, fill, undefined, { fill: 'noah', slots: { name: 'overflowed' }, origins: {} })).toMatchObject({
+      state: undefined,
+      warnings: ['missing'],
+    })
+  })
+
+  test('does not read a state through the report slots prototype', () => {
+    expect(slotFieldView({ ...name, key: '__proto__' }, fill, undefined, { fill: 'mina', slots: {}, origins: {} }).state).toBeUndefined()
   })
 })

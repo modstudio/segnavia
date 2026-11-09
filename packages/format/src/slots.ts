@@ -74,7 +74,8 @@ export interface SlotSource {
   list(options: { signal: AbortSignal }): Promise<Fill[]>
 }
 
-export type SlotState = 'filled' | 'placeholder' | 'unavailable' | 'invalid' | 'fit' | 'shrunk' | 'overflowed'
+export const SLOT_STATES = ['filled', 'placeholder', 'unavailable', 'invalid', 'fit', 'shrunk', 'overflowed'] as const
+export type SlotState = (typeof SLOT_STATES)[number]
 
 export interface SlotReport {
   fill: string | null

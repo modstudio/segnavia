@@ -12,6 +12,7 @@ export interface SlotFieldView {
   readOnly: boolean
   canOverride: boolean
   canUseSource: boolean
+  state: SlotState | undefined
   warnings: SlotWarning[]
 }
 
@@ -43,7 +44,10 @@ export function slotWarnings(slot: SlotDeclaration, state: SlotState | undefined
 
 export function slotFieldView(slot: SlotDeclaration, fill: Fill | undefined, source: Fill | undefined, report: SlotReport | undefined): SlotFieldView {
   const layered = layeredValue(fill, source, slot.key)
-  const origin = report?.origins[slot.key] ?? layered.origin
+  const displayedFill = fill?.id ?? source?.id ?? null
+  const currentReport = report?.fill === displayedFill ? report : undefined
+  const state = currentReport !== undefined && Object.hasOwn(currentReport.slots, slot.key) ? currentReport.slots[slot.key] : undefined
+  const origin = currentReport?.origins[slot.key] ?? layered.origin
   const value =
     origin === 'source' ? (source?.values[slot.key] ?? layered.value) : origin === 'hand' ? (fill?.values[slot.key] ?? layered.value) : layered.value
   const sourceHasValue = source?.values[slot.key] !== undefined && source.values[slot.key] !== ''
@@ -58,7 +62,8 @@ export function slotFieldView(slot: SlotDeclaration, fill: Fill | undefined, sou
     readOnly,
     canOverride: readOnly && fill !== undefined,
     canUseSource: origin === 'hand' && sourceHasValue && fill !== undefined,
-    warnings: slotWarnings(slot, report?.slots[slot.key], layered.value !== undefined),
+    state,
+    warnings: slotWarnings(slot, state, layered.value !== undefined),
   }
 }
 

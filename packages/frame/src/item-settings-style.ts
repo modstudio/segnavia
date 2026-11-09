@@ -16,6 +16,7 @@ export const ITEM_SETTINGS_CSS = `
 :where([part~="required"]){margin-inline-start:.25em}
 :where([part~="slot-actions"]){display:flex;flex-wrap:wrap;gap:var(--segnavia-gap-medium,.5rem)}
 :where([part~="slot-actions"] button){inline-size:auto}
+:where([part~="state"]){margin:0;unicode-bidi:isolate}
 :where([part~="warning"]){margin:0;color:var(--segnavia-item-settings-warning,currentColor);unicode-bidi:isolate}
 :where([data-section="slide"] [part~="section-body"]){display:grid;gap:var(--segnavia-gap-large,.75rem)}
 :where([data-section="slide"] p){margin:0;unicode-bidi:isolate}
