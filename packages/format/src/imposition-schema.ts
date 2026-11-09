@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { TextDirection } from './direction.ts'
 import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
-import { refuseOverflow, refuseSafe } from './imposition-fit.ts'
+import { refuseOverflow } from './imposition-fit.ts'
 import { PhysicalMargin } from './margins.ts'
 import { Orientation, Paper, PaperUnit, sheetMm, toMillimeters } from './paper.ts'
 import { MarkColor } from './print.ts'
@@ -13,6 +13,14 @@ const ImpositionGap = z.object({
 
 export const MAX_IMPOSITION_CELLS = 10_000
 
+function refineRemovedPiecePress(imposition: Record<string, unknown>, ctx: z.RefinementCtx): void {
+  for (const field of ['bleed', 'safe'] as const) {
+    if (imposition[field] !== undefined) {
+      ctx.addIssue({ code: 'custom', path: [field], message: `imposition.${field} was removed; set the Document's print.${field} to clear this refusal` })
+    }
+  }
+}
+
 export const Imposition = z
   .object({
     paper: Paper,
@@ -23,8 +31,6 @@ export const Imposition = z
     rows: z.number().int().positive().optional(),
     cell: z.object({ width: z.number().positive().optional(), height: z.number().positive() }),
     gap: ImpositionGap.default({ column: 0, row: 0 }),
-    bleed: z.number().nonnegative().default(0),
-    safe: z.number().nonnegative().default(0),
     fit: z.enum(['contain', 'cover']).default('contain'),
     fill: z.enum(['sequence', 'repeat']).default('sequence'),
     sides: z.enum(['one', 'two']).optional(),
@@ -36,8 +42,11 @@ export const Imposition = z
     cornerMarks: z.boolean().default(false),
     fold: z.enum(FOLD_KINDS).optional(),
     panels: z.array(z.number().positive()).optional(),
+    bleed: z.unknown().optional(),
+    safe: z.unknown().optional(),
   })
   .superRefine((imposition, ctx) => {
+    refineRemovedPiecePress(imposition, ctx)
     if (imposition.markColor === 'registration' && !imposition.marks) {
       ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
     }
@@ -88,12 +97,11 @@ export const Imposition = z
       imposition.margin.top + imposition.rows * imposition.cell.height + (imposition.rows - 1) * imposition.gap.row + imposition.margin.bottom,
     )
     refuseOverflow(ctx, paper, { width: gridWidth, height: gridHeight })
-    refuseSafe(ctx, mm(imposition.safe), { width: mm(imposition.cell.width), height: mm(imposition.cell.height) })
     const cells = imposition.columns * imposition.rows
     if (imposition.skip >= cells) {
       ctx.addIssue({ code: 'custom', path: ['skip'], message: `skip is ${imposition.skip}, but the grid has ${cells} cells; skip must be less than ${cells}` })
     }
   })
-  .transform(resolveImposition)
+  .transform(({ bleed: _bleed, safe: _safe, ...imposition }) => resolveImposition(imposition))
 export type Imposition = z.infer<typeof Imposition>
-export type ImpositionInput = z.input<typeof Imposition>
+export type ImpositionInput = z.input<typeof Imposition> & { bleed?: never; safe?: never }

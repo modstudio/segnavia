@@ -28,6 +28,7 @@ import { verifyOfflineRender } from './verify/offline-render.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
+import { verifyDocumentPressGeometry } from './verify/press-geometry.ts'
 import { verifyPressRender } from './verify/press-render.ts'
 import { verifyRenderContainment } from './verify/render-containment.ts'
 import { verifyScriptFaces } from './verify/script-faces.ts'
@@ -185,7 +186,6 @@ try {
     },
   )
   check("a right-to-left deck's notes keep the whole slide inside its thumbnail", overflow <= 1, `overflow=${overflow}px`)
-
   // Concurrency: four renders at once on a renderer that allows two.
   let running = 0
   let peak = 0
@@ -355,7 +355,7 @@ try {
   )
   check('a right-to-left note under a left-to-right deck takes its own direction', notesDirection === 'rtl', notesDirection)
   await verifyLongDeckNotes(renderer, work, check)
-
+  await verifyDocumentPressGeometry(renderer, work, check)
   const shots = path.join(work, 'shots')
   const run = await capture(
     { open: async () => ({}) },

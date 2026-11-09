@@ -12,13 +12,13 @@ something else.
 | **Cover** | A page with scripts refused and no bleed, safe area or marks, designed to represent an asset at thumbnail size. Its sheet follows its print setting and defaults to 160 × 100 mm when that setting is absent. |
 | **Designed cover** | An optional custom cover supplied by a host for an asset. A host-kept picture of that cover is preferred, followed by drawing its page live in a script-refusing frame; when the cover is absent, the asset keeps its existing cover or thumbnail behavior unchanged. |
 | **Bounded** | A `full` `<segnavia-page>` with `bounded` takes the box the host sizes and scrolls inside its own frame. Fixed and measured pages ignore it; composed papers always take that host-sized box regardless of `bounded`. |
-| **Print** | An optional setting on a page: a paper (named or custom, in mm, inches or points), an orientation, margins, bleed, safe area and marks. Used only when exporting to a standard printed size. Without it, a page exports at its own size. |
+| **Print** | The press geometry of every printable Document. Bleed, safe area and marks apply to pages, printed pages, deck slides, deck notes sheets and book pages. Paper, orientation and margin apply only when the kind's trim is a paper; a deck's trim is its slide and a book's trim is `page.paper`. |
 | **Named paper** | A trim preset: `letter`, `legal`, `tabloid`, `a0`–`a6`, `dl`, `half-letter`, `business-card-us`, `business-card-eu`, `business-card-square-us`, `business-card-slim-us`, `postcard-4x6`, `postcard-5x7`, `postcard-6x9`, `postcard-6x11`, `card-square-4in`, `rack-card-4x9`, `rack-card-3.5x8.5`, `poster-12x18`, `poster-16x20`, `poster-18x24` or `poster-24x36`. Names carry a size or region because printers use “standard”, “large” and “euro” for different sizes. |
-| **Trim** | The finished size of a printed page after cutting. It is the print setting's paper. |
+| **Trim** | The finished size of a printed piece after cutting: a page's paper, a book's `page.paper`, a deck's slide size or a notes sheet's `notesPaper`. |
 | **Bleed** | The distance a page's background continues past the trim, so a cut that drifts leaves no white edge. |
 | **Safe area** | The distance inside the trim that text keeps clear of. |
 | **Marks** | Crop marks drawn outside the bleed, showing where to cut. |
-| **Imposition** | How many pages are placed on one paper: the paper, a grid of cells, how the cells fill, and whether there are two sides. A label template is an imposition. |
+| **Imposition** | How many pages are placed on one paper: the paper, a grid of cells, how the cells fill, and whether there are two sides. Every piece shares one bleed and safe area because the paper has one cutting plan. A label template is an imposition. |
 | **Cell** | One place in an imposition's grid. It holds one page, shown at the cell's size. |
 | **Side** | The front or the back of a paper. The back is flipped on the long or the short edge. |
 | **Panel** | A cell of a folded piece, between two folds or a fold and an edge. |

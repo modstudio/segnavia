@@ -20,7 +20,6 @@ describe('printed-page identity imposition', () => {
     { columns: 2, cell: { width: 100, height: 279.4 } },
     { margin: { top: 1, right: 0, bottom: 0, left: 0 }, cell: { width: 215.9, height: 278.4 } },
     { gap: { column: 1, row: 0 } },
-    { bleed: 1 },
     { marks: true },
     { skip: 1, columns: 2, cell: { width: 100, height: 279.4 } },
     { sides: 'two' as const },
@@ -28,5 +27,9 @@ describe('printed-page identity imposition', () => {
     { orientation: 'landscape' as const, cell: { width: 279.4, height: 215.9 } },
   ])('refuses a non-identity setting %#', (change) => {
     expect(isPrintedPageIdentityImposition(print, Imposition.parse({ ...identity, ...change }))).toBe(false)
+  })
+
+  test('refuses the removed imposition bleed field', () => {
+    expect(() => Imposition.parse({ ...identity, bleed: 1 })).toThrow("Document's print.bleed")
   })
 })

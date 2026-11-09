@@ -20,7 +20,6 @@ export function isPrintedPageIdentityImposition(print: Print, imposition: Imposi
     Object.values(imposition.margin).every((value) => value === 0) &&
     imposition.gap.column === 0 &&
     imposition.gap.row === 0 &&
-    imposition.bleed === 0 &&
     imposition.marks === false &&
     imposition.cornerMarks === false &&
     imposition.fill === 'sequence' &&

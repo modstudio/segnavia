@@ -297,4 +297,23 @@ describe('Document', () => {
     expect(schemas).toHaveProperty('document')
     for (const legacy of ['deck', 'page', 'book', 'board']) expect(schemas).not.toHaveProperty(legacy)
   })
+
+  test('profiles accept only the print shape belonging to each trim', () => {
+    const deck = { type: 'document', kind: 'deck', title: 'Deck', children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '' } }] } as const
+    expect(Document.parse({ ...deck, print: { bleed: 3 } }).print?.bleed).toBe(3)
+    expect(() => Document.parse({ ...deck, print: { paper: 'a4' } })).toThrow("a deck's trim is its slide size")
+    expect(() => Document.parse({ ...deck, print: { safe: 100 } })).toThrow('safe must leave area inside the trim')
+    const book = {
+      type: 'document',
+      kind: 'book',
+      title: 'Book',
+      mode: 'continuous',
+      page: { paper: 'a4', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      children: [{ type: 'flow', html: '<p>Body</p>' }],
+    } as const
+    expect(() => Document.parse({ ...book, print: { paper: 'a4' } })).toThrow("a book's trim is page.paper")
+    expect(() => Document.parse({ type: 'document', kind: 'board', title: 'Board', settings: { dir: 'ltr' }, print: { bleed: 3 }, children: [] })).toThrow(
+      'a board has no printed piece to trim',
+    )
+  })
 })

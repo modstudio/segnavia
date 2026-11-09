@@ -1,4 +1,5 @@
 import { foldCellPages, foldPageCountMessage } from './fold.ts'
+import { refuseSafe } from './imposition-fit.ts'
 import type { Imposition } from './imposition-schema.ts'
 import { type Page, type PageWidths, resolvePageWidth } from './page.ts'
 import { type PaperBox, PX_PER_MM, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
@@ -74,7 +75,24 @@ function columnXMm(imposition: Imposition, column: number, widths: number[], pap
   return x
 }
 
-function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper']): ImpositionPlacement {
+export type PiecePress = { bleed?: number; safe?: number }
+
+export function sharedImpositionPress(pieces: readonly { print?: PiecePress }[]): PiecePress {
+  const first = { bleed: pieces[0]?.print?.bleed ?? 0, safe: pieces[0]?.print?.safe ?? 0 }
+  for (let index = 1; index < pieces.length; index++) {
+    const current = { bleed: pieces[index]?.print?.bleed ?? 0, safe: pieces[index]?.print?.safe ?? 0 }
+    for (const field of ['bleed', 'safe'] as const) {
+      if (current[field] !== first[field]) {
+        throw new RangeError(
+          `piece ${index + 1} has print.${field} ${current[field]}mm but piece 1 has ${first[field]}mm; pieces on one imposition share one bleed and one safe; give the pieces one print.${field}, or print them without imposition, to clear this refusal`,
+        )
+      }
+    }
+  }
+  return first
+}
+
+function placementAt(imposition: Imposition, paper: number, cell: number, page: number, paperSize: Imposed['paper'], press: PiecePress): ImpositionPlacement {
   const mm = (value: number) => toMillimeters(value, imposition.unit)
   const column = cell % imposition.columns
   const row = Math.floor(cell / imposition.columns)
@@ -86,7 +104,7 @@ function placementAt(imposition: Imposition, paper: number, cell: number, page: 
   const rowGap = mm(imposition.gap.row)
   const x = columnXMm(imposition, column, widths, paperSize.width)
   const y = mm(imposition.margin.top) + row * (cellHeight + rowGap)
-  const requested = mm(imposition.bleed)
+  const requested = press.bleed ?? 0
   const bleed = {
     top: Math.min(requested, row > 0 ? rowGap / 2 : y),
     right: Math.min(requested, physicalColumn < imposition.columns - 1 ? columnGap / 2 : Math.max(0, paperSize.width - x - cellWidth)),
@@ -106,7 +124,7 @@ function placementAt(imposition: Imposition, paper: number, cell: number, page: 
     bottom: roundMillimeters(bleed.bottom),
     left: roundMillimeters(bleed.left),
   }
-  const safe = mm(imposition.safe)
+  const safe = press.safe ?? 0
   return {
     page,
     paper,
@@ -185,7 +203,13 @@ function assignPieces(imposition: Imposition, pieces: number, papers: number): P
   return assignments
 }
 
-function expandAssignments(imposition: Imposition, assignments: PieceAssignment[], pageCount: number, paper: Imposed['paper']): ImpositionPlacement[] {
+function expandAssignments(
+  imposition: Imposition,
+  assignments: PieceAssignment[],
+  pageCount: number,
+  paper: Imposed['paper'],
+  press: PiecePress,
+): ImpositionPlacement[] {
   const placements: ImpositionPlacement[] = []
   let currentPaper = -1
   let fronts: ImpositionPlacement[] = []
@@ -201,7 +225,7 @@ function expandAssignments(imposition: Imposition, assignments: PieceAssignment[
       currentPaper = assignment.paper
     }
     const frontPage = imposition.sides === 'two' ? assignment.piece * 2 : assignment.piece
-    const front = placementAt(imposition, assignment.paper, assignment.cell, frontPage, paper)
+    const front = placementAt(imposition, assignment.paper, assignment.cell, frontPage, paper, press)
     fronts.push(front)
     if (imposition.sides === 'two' && frontPage + 1 < pageCount) backs.push(mirrorPlacement(front, paper, imposition.flip, frontPage + 1))
   }
@@ -209,7 +233,7 @@ function expandAssignments(imposition: Imposition, assignments: PieceAssignment[
   return placements
 }
 
-function imposeFold(imposition: Imposition, pageCount: number, paper: Imposed['paper']): Imposed {
+function imposeFold(imposition: Imposition, pageCount: number, paper: Imposed['paper'], press: PiecePress): Imposed {
   const fold = imposition.fold
   if (!fold) throw new Error('imposeFold requires a fold')
   const columns = imposition.columns
@@ -219,29 +243,36 @@ function imposeFold(imposition: Imposition, pageCount: number, paper: Imposed['p
   const backs: ImpositionPlacement[] = []
   for (const [cell, pages] of cells.entries()) {
     if (!pages) continue
-    const front = placementAt(imposition, 0, cell, pages.front, paper)
+    const front = placementAt(imposition, 0, cell, pages.front, paper, press)
     fronts.push(front)
     backs.push(mirrorPlacement(front, paper, imposition.flip, pages.back))
   }
   return { paper, papers: 1, sides: 2, placements: [...fronts, ...backs] }
 }
 
-export function gridPlacements(imposition: Imposition): { paper: Imposed['paper']; placements: ImpositionPlacement[] } {
+export function gridPlacements(imposition: Imposition, press: PiecePress = {}): { paper: Imposed['paper']; placements: ImpositionPlacement[] } {
   const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
   const cells = imposition.columns * imposition.rows
-  return { paper, placements: Array.from({ length: cells }, (_, cell) => placementAt(imposition, 0, cell, 0, paper)) }
+  return { paper, placements: Array.from({ length: cells }, (_, cell) => placementAt(imposition, 0, cell, 0, paper, press)) }
 }
 
-export function impose(imposition: Imposition, pageCount: number): Imposed {
+export function impose(imposition: Imposition, pageCount: number, press: PiecePress = {}): Imposed {
   if (!Number.isInteger(pageCount) || pageCount < 0) throw new RangeError(`pageCount must be a nonnegative integer; received ${String(pageCount)}`)
+  const safeIssues: string[] = []
+  const widths = columnWidthsMm(imposition)
+  refuseSafe({ addIssue: (issue) => safeIssues.push(issue.message) }, press.safe ?? 0, {
+    width: Math.min(...widths),
+    height: toMillimeters(imposition.cell.height, imposition.unit),
+  })
+  if (safeIssues.length > 0) throw new RangeError(safeIssues.join('; '))
   const paper = sheetMm({ paper: imposition.paper, orientation: imposition.orientation })
   const sides = imposition.sides === 'two' ? 2 : 1
-  if (imposition.fold) return imposeFold(imposition, pageCount, paper)
+  if (imposition.fold) return imposeFold(imposition, pageCount, paper, press)
   if (pageCount === 0) return { paper, papers: 0, sides, placements: [] }
   const cells = imposition.columns * imposition.rows
   const pieces = imposition.sides === 'two' ? Math.ceil(pageCount / 2) : pageCount
   const papers = imposition.fill === 'repeat' ? pieces : Math.ceil((pieces + imposition.skip) / cells)
-  const placements = expandAssignments(imposition, assignPieces(imposition, pieces, papers), pageCount, paper)
+  const placements = expandAssignments(imposition, assignPieces(imposition, pieces, papers), pageCount, paper, press)
   return { paper, papers, sides, placements }
 }
 

@@ -1,4 +1,4 @@
-import { type IssueCtx, PAPER_FIT_TOLERANCE_MM, refuseOverflow, refuseSafe } from './imposition-fit.ts'
+import { type IssueCtx, PAPER_FIT_TOLERANCE_MM, refuseOverflow } from './imposition-fit.ts'
 import type { Orientation, Paper, PaperUnit } from './paper.ts'
 import { fromMillimeters, roundMillimeters, sheetMm, toMillimeters } from './paper.ts'
 
@@ -28,8 +28,6 @@ export type FoldDraft = {
   orientation: Orientation
   unit: PaperUnit
   margin: Edges
-  bleed: number
-  safe: number
 }
 
 export function foldColumns(fold: FoldKind, panelCount = 0): number {
@@ -168,7 +166,6 @@ export function refineFold(draft: FoldDraft, ctx: IssueCtx): void {
   }
   const height = toMillimeters(draft.margin.top, draft.unit) + toMillimeters(draft.cell.height, draft.unit) + toMillimeters(draft.margin.bottom, draft.unit)
   refuseOverflow(ctx, paper, { height }, { height: { path: ['cell', 'height'], subject: 'the folded piece', remedy: FOLD_HEIGHT_REMEDY } })
-  refuseSafe(ctx, toMillimeters(draft.safe, draft.unit), { width: Math.min(...widths), height: toMillimeters(draft.cell.height, draft.unit) })
 }
 
 export function resolveImposition<T extends FoldDraft>(value: T): T & { columns: number; rows: number; sides: 'one' | 'two' } {

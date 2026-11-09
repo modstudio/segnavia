@@ -21,7 +21,7 @@ describe('printed page setup', () => {
       bleed: 3,
     })
     expect(printCss(print, 'ltr')).toBe(
-      ':root{--segnavia-bleed:3mm;--segnavia-safe:0mm}:where(html){box-sizing:border-box!important;position:relative!important;width:154mm!important;height:111mm!important;overflow:clip!important;padding:4mm 5mm 6mm 7mm}:where(body){position:absolute!important;inset:4mm 5mm 6mm 7mm!important;width:auto!important;height:auto!important}',
+      ':root{--segnavia-bleed:3mm;--segnavia-safe:0mm}:where(html){box-sizing:border-box!important;position:relative!important;width:154mm!important;height:111mm!important;overflow:clip!important;padding:4mm 5mm 6mm 7mm}:where(body){position:absolute!important;inset:4mm 5mm 6mm 7mm!important;width:auto!important;height:auto!important;margin:0!important}',
     )
   })
 
@@ -70,7 +70,7 @@ async function bleedSource(print: Print): Promise<Uint8Array> {
 
 test('a single page with registration marks stores Separation All and strokes with it', async () => {
   const print = Print.parse({ paper: { width: 100, height: 100, unit: 'mm' }, marks: true, markColor: 'registration' })
-  const bytes = await addPressBoxes(await bleedSource(print), print)
+  const bytes = await addPressBoxes(await bleedSource(print), printBoxes(print), print.markColor)
   const text = await pageContent(bytes)
   expect(text).toMatch(/\/All\s+CS/)
   expect(text).toMatch(/1\s+SCN/)
@@ -80,7 +80,7 @@ test('a single page with registration marks stores Separation All and strokes wi
 
 test('a single page with marks draws a crop mark at the mapped endpoints', async () => {
   const print = Print.parse({ paper: { width: 100, height: 100, unit: 'mm' }, marks: true })
-  const bytes = await addPressBoxes(await bleedSource(print), print)
+  const bytes = await addPressBoxes(await bleedSource(print), printBoxes(print), print.markColor)
   const boxes = printBoxes(print)
   const mark = boxes.marks[0]
   if (!mark) throw new Error('the print fixture has no crop mark')
@@ -89,4 +89,18 @@ test('a single page with marks draws a crop mark at the mapped endpoints', async
   expect(stroke.start.y).toBeCloseTo((boxes.media.height - mark.y1) / MM_PER_PT, 5)
   expect(stroke.end.x).toBeCloseTo(mark.x2 / MM_PER_PT, 5)
   expect(stroke.end.y).toBeCloseTo((boxes.media.height - mark.y2) / MM_PER_PT, 5)
+})
+
+test('press boxes are applied to every page', async () => {
+  const print = Print.parse({ paper: { width: 100, height: 100, unit: 'mm' }, bleed: 3, marks: true })
+  const source = await PDFDocument.create()
+  for (let index = 0; index < 3; index++) source.addPage([pt(106), pt(106)]).drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
+  const output = await PDFDocument.load(await addPressBoxes(await source.save(), printBoxes(print)))
+  expect(output.getPageCount()).toBe(3)
+  for (const page of output.getPages()) {
+    expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
+    expect(page.node.has(PDFName.of('TrimBox'))).toBe(true)
+    expect(page.getBleedBox()).toEqual({ x: pt(6), y: pt(6), width: pt(106), height: pt(106) })
+    expect(page.getTrimBox()).toEqual({ x: pt(9), y: pt(9), width: pt(100), height: pt(100) })
+  }
 })

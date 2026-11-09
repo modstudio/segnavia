@@ -15,6 +15,7 @@ import {
   type OriginApproval,
   type Page,
   PageWidths,
+  type PressGeometryField,
   type PrintInput,
   pageDirection,
   pagePlacementLayout,
@@ -23,6 +24,7 @@ import {
   resolveDirection,
   type Slide,
   type SlotsOptions,
+  sharedImpositionPress,
 } from '@segnavia/format'
 import {
   classifyMediaAnswer,
@@ -34,15 +36,19 @@ import {
   resolvePageHtml,
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
+import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
+import { imposedPaperBodies, imposedPaperDocument, placementBox } from './imposed-paper.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { htmlSlideDocument, PRINT_COLOR_CSS } from './slide-print-document.ts'
 import { annotationSvg, escapeHtml } from './svg.ts'
 
+export { deckNotesPrint, deckPressSettings, deckSheetGeometry } from './deck-press.ts'
+export { imposedPaperDocument, type PrintablePaperBody } from './imposed-paper.ts'
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 export { htmlSlideDocument } from './slide-print-document.ts'
 
@@ -104,7 +110,7 @@ export interface PrintOptions {
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
   // on paper with its notes underneath.
   layout?: 'slides' | 'notes'
-  notesPaper?: PrintInput
+  notesPaper?: Omit<PrintInput, PressGeometryField> & { [Field in PressGeometryField]?: never }
   imposition?: ImpositionInput
   // Document title for the print dialog and saved PDF. Defaults to the deck
   // title; an empty value omits the tag.
@@ -198,22 +204,28 @@ export function printableDeck(input: DocumentInput, options: PrintOptions & { no
   return printableDeckValue(deckFromDocument(document), options)
 }
 
-export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
+function printableSlideSheets(deck: Deck, options: PrintOptions, geometry: DeckSheetGeometry | undefined): string {
   const { width, height } = deck.size
+  const sheetWidth = geometry?.sheet.width ?? width
+  const sheetHeight = geometry?.sheet.height ?? height
+  const padding = geometry?.padding ?? 0
+  const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
+  return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${sheetWidth}px ${sheetHeight}px;margin:0}html,body{margin:0}${geometry?.active ? printProperties(geometry.print) : ''}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${sheetWidth}px;height:${sheetHeight}px;box-sizing:border-box;padding:${padding}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
+}
+
+export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
+  const press = deckPressSettings(deck, options)
   if (options.imposition) {
     return printableDeckValueDocument(deck, { ...options, imposition: options.imposition }).html
   }
-  if ((options.layout ?? 'slides') === 'slides') {
-    const sheets = deck.slides.map((slide) => `<section class="sheet">${slideBody(deck, slide, options)}</section>`)
-    return `<!doctype html><html><head><meta charset="utf-8">${documentTitle(deck, options)}<style>@page{size:${width}px ${height}px;margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.sheet{width:${width}px;height:${height}px;overflow:hidden;break-after:page}</style></head><body>${sheets.join('')}</body></html>`
-  }
+  if ((options.layout ?? 'slides') === 'slides') return printableSlideSheets(deck, options, press.sheet)
   if (options.notesFont !== undefined && options.notesSheetFont === undefined) {
     throw new FontRefusedError(
       `notes could not establish app font ${JSON.stringify(options.notesFont)}; print with printDeck or deckPdf, or resolve it with resolveNotesFontCss and pass the result, to clear this refusal.`,
     )
   }
   return notesDocument(deck, {
-    notesPaper: options.notesPaper,
+    notesPaper: press.notes,
     slideBody: (slide) => slideBody(deck, slide, options),
     title: options.title ?? deck.title,
     labels: options.labels,
@@ -238,38 +250,6 @@ export interface PrintablePagesDocument {
   imposed: Imposed
 }
 
-const mm = (value: number) => `${value}mm`
-
-export interface PrintablePaperBody {
-  body: string
-  side: 'front' | 'back'
-}
-
-export function imposedPaperDocument(paper: Imposed['paper'], rootAttributes: string, bodies: readonly PrintablePaperBody[], extraHead = ''): string {
-  const papers = bodies.map(({ body, side }) => `<section class="paper" data-side="${side}">${body}</section>`).join('')
-  return `<!doctype html><html${rootAttributes}><head><meta charset="utf-8">${extraHead}<style>@page{size:${mm(paper.width)} ${mm(paper.height)};margin:0}html,body{margin:0}*{print-color-adjust:exact;-webkit-print-color-adjust:exact}.paper{width:${mm(paper.width)};height:${mm(paper.height)};position:relative;overflow:hidden;break-after:page}</style></head><body>${papers}</body></html>`
-}
-
-function imposedPaperBodies(imposed: Imposed, placementBody: (paper: number, side: 'front' | 'back') => string): PrintablePaperBody[] {
-  return Array.from({ length: imposed.papers }, (_, paper) =>
-    (['front', 'back'] as const).slice(0, imposed.sides).map((side) => ({ body: placementBody(paper, side), side })),
-  ).flat()
-}
-
-function placementBox(
-  inner: (dimensions: string) => string,
-  placement: ReturnType<typeof impose>['placements'][number],
-  layout: ReturnType<typeof pagePlacementLayout>,
-  scale: number,
-): string {
-  const position = `left:${mm(layout.paper.x - placement.bleedBox.x)};top:${mm(layout.paper.y - placement.bleedBox.y)}`
-  const dimensions =
-    layout.kind === 'fluid'
-      ? 'width:100%;height:100%'
-      : `width:${layout.piece.width}px;height:${layout.piece.height}px;${position};transform:scale(${scale});transform-origin:0 0`
-  return `<div class="placement" style="position:absolute;left:${mm(placement.bleedBox.x)};top:${mm(placement.bleedBox.y)};width:${mm(placement.bleedBox.width)};height:${mm(placement.bleedBox.height)};overflow:hidden">${inner(dimensions)}</div>`
-}
-
 export interface PrintableDeckDocument {
   html: string
   imposed: Imposed
@@ -282,11 +262,12 @@ export function printableDeckDocument(input: DocumentInput, options: PrintOption
 }
 
 export function printableDeckValueDocument(deck: Deck, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
+  deckPressSettings(deck, options)
   if (options.layout === 'notes') {
     throw new RangeError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
   const imposition = Imposition.parse(options.imposition)
-  const imposed = impose(imposition, deck.slides.length)
+  const imposed = impose(imposition, deck.slides.length, deck.print)
   const placementBody = (paper: number, side: 'front' | 'back') =>
     imposed.placements
       .filter((placement) => placement.paper === paper && placement.side === side)
@@ -312,7 +293,7 @@ export function printableDeckValueDocument(deck: Deck, options: PrintOptions & {
 function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType<typeof impose>['placements'][number], options: PrintablePagesOptions): string {
   const fit = fitPage(page, placement, imposition.fit, options.pageWidths)
   const layout = pagePlacementLayout(page.size, placement, fit)
-  const properties = printProperties(imposition, imposition.unit)
+  const properties = page.print ? printProperties(page.print) : ''
   const padding = layout.inset ? printPadding(placement.bleed) : ''
   const nonce = options.nonce ?? newNonce()
   const srcdoc = frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
@@ -380,7 +361,7 @@ export function printablePageValuesDocument(pages: Page[], imposition: Impositio
 export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
   if (pages.length === 0) throw new RangeError('There is nothing to print. Pass at least one page to clear this refusal.')
   options = { ...options, pageWidths: options.pageWidths === undefined ? undefined : PageWidths.parse(options.pageWidths) }
-  const imposed = impose(imposition, pages.length)
+  const imposed = impose(imposition, pages.length, sharedImpositionPress(pages))
   // The document writes no text and uses physical paper positions, so its
   // direction is left to right; each page keeps its own direction in its frame.
   const bodies = imposedPaperBodies(imposed, (paper, side) => printablePaper(pages, imposition, imposed, paper, options, side))

@@ -47,8 +47,6 @@ test('printablePages names its own value counterpart in the brand refusal', () =
     cell: { width: 100, height: 100 },
     margin: { top: 0, right: 0, bottom: 0, left: 0 },
     gap: { column: 0, row: 0 },
-    bleed: 0,
-    safe: 0,
   })
   expect(() => printablePages([page], imposition)).toThrow(
     'Document names brand "house"; resolve it with resolveBrand, lower with that brand, and pass the lowered value to printablePageValues to clear this refusal.',

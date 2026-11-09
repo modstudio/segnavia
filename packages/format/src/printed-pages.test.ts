@@ -32,7 +32,6 @@ describe('Page printedPages', () => {
     [{ ...base, print: undefined }, 'add print.paper'],
     [{ ...base, scripts: 'sandboxed' }, 'deterministic cloned content'],
     [{ ...base, print: { ...base.print, margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } } }, 'remove print.margin'],
-    [{ ...base, print: { ...base.print, bleed: 1 } }, 'remove bleed and marks'],
     [{ ...base, printedPages: { ...base.printedPages, rules: { every: 'missing' } } }, 'add that parent page'],
     [{ ...base, printedPages: { ...base.printedPages, parents: [...base.printedPages.parents, base.printedPages.parents[0]] } }, 'unique name'],
     [

@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { PressGeometry, pressBoxes, sheetMm, usesPressLayout } from '@segnavia/format'
 import { parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import { type BookPdfAdapter, bookPageCss, renderBookPdf } from './book-pdf.ts'
@@ -26,10 +27,10 @@ test('maps asymmetric book margins to physical right and left pages independent 
   expect(bookPageCss(parseBookFixture({ ...input, title: 'ספר', dir: 'rtl' }))).toBe(expected)
 })
 
-async function printedPart(html: string, overrides: Record<string, number>, pages: number) {
+async function printedPart(html: string, overrides: Record<string, number>, pages: number, size = { width: 419.53, height: 595.28 }) {
   const document = await PDFDocument.create()
   const outputPages = Array.from({ length: pages }, () => {
-    const page = document.addPage([419.53, 595.28])
+    const page = document.addPage([size.width, size.height])
     page.drawRectangle({ x: 0, y: 0, width: 1, height: 1 })
     return page
   })
@@ -50,11 +51,15 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
   return {
     html,
     slotMarks,
-    print: async (source, _book, slots, _options, part) => {
+    print: async (source, book, slots, _options, part) => {
+      if (!book.page) throw new Error('test book needs page')
+      const trim = sheetMm(book.page)
+      const sourceSize = book.print && usesPressLayout(book.print) ? pressBoxes(trim, book.print).bleedBox : trim
+      const pdfSize = { width: (sourceSize.width * 72) / 25.4, height: (sourceSize.height * 72) / 25.4 }
       slotMarks.push({ part, marked: [...slots.marked] })
       if (part === 'margin') {
         return {
-          bytes: await printedPart('', {}, frontPages + bodyPages),
+          bytes: await printedPart('', {}, frontPages + bodyPages, pdfSize),
           overflow: { part, pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
         }
       }
@@ -65,7 +70,7 @@ function scriptedAdapter(destinationPage: (part: 'front' | 'body', print: number
       if (part === 'front') frontPages = pages
       else bodyPages = pages
       return {
-        bytes: await printedPart(source, { 'front-target': 1, 'body-target': targetPage }, pages),
+        bytes: await printedPart(source, { 'front-target': 1, 'body-target': targetPage }, pages, pdfSize),
         overflow: { part, pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
       }
     },
@@ -89,6 +94,32 @@ test('passes each book print only the slot marks for the fields in that part', a
   expect(adapter.slotMarks.filter(({ part }) => part === 'body').every(({ marked }) => Bun.deepEquals(marked, [['name', 1]]))).toBe(true)
   expect(adapter.slotMarks.filter(({ part }) => part === 'front').every(({ marked }) => Bun.deepEquals(marked, [['name', 1]]))).toBe(true)
   expect(adapter.slotMarks.filter(({ part }) => part === 'margin').map(({ marked }) => marked)).toEqual([[]])
+})
+
+test('book bleed pads the composed source and writes media and trim boxes on every page', async () => {
+  const plain = continuousBook('<p>Body</p>')
+  const pressed = { ...plain, print: PressGeometry.parse({ bleed: 3 }) }
+  expect(bookPageCss(pressed)).toContain('@page{size:154mm 216mm;margin-top:13mm;margin-bottom:13mm}')
+  const plainBytes = await renderBookPdf(
+    plain,
+    {},
+    scriptedAdapter(() => 1),
+  )
+  const pressedBytes = await renderBookPdf(
+    pressed,
+    {},
+    scriptedAdapter(() => 1),
+  )
+  const plainPdf = await PDFDocument.load(plainBytes)
+  const pressedPdf = await PDFDocument.load(pressedBytes)
+  expect(pressedPdf.getPageCount()).toBe(plainPdf.getPageCount())
+  for (const page of pressedPdf.getPages()) {
+    expect(page.node.has(PDFName.of('TrimBox'))).toBe(true)
+    expect(page.node.has(PDFName.of('BleedBox'))).toBe(true)
+    expect(page.getMediaBox()).toEqual(page.getBleedBox())
+    expect(page.getTrimBox().x).toBeCloseTo((3 * 72) / 25.4)
+    expect(page.getTrimBox().y).toBeCloseTo((3 * 72) / 25.4)
+  }
 })
 
 test('places FontSource CSS before book CSS in the printed document', async () => {

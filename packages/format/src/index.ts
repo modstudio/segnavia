@@ -114,6 +114,7 @@ export {
   Cue,
   DECK_SIZE,
   Deck,
+  deckTrim,
   exceedsLimits,
   ImageFit,
   Manifest,
@@ -226,7 +227,9 @@ export {
   type PageFit,
   type PagePlacementKind,
   type PagePlacementLayout,
+  type PiecePress,
   pagePlacementLayout,
+  sharedImpositionPress,
 } from './imposition.ts'
 export { PAPER_FIT_TOLERANCE_MM } from './imposition-fit.ts'
 export {
@@ -327,11 +330,13 @@ export {
   type PaperGroup,
   PaperSize,
   PaperUnit,
+  type PrintBoxes,
   PrintSetting,
   PrintSettingInput,
   PX_PER_MM,
   PX_PER_PT,
   paperPixels,
+  pressBoxes,
   printBoxes,
   printPadding,
   printProperties,
@@ -352,7 +357,16 @@ export {
 export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
 export { PlacementRefusedError } from './placement-refusal.ts'
 export { PaginatePageMarks, PaginatePageNote, PaginateWindow, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
-export { MarkColor, Print, type PrintInput } from './print.ts'
+export {
+  MarkColor,
+  PRESS_GEOMETRY_FIELDS,
+  PressGeometry,
+  type PressGeometryField,
+  type PressGeometryInput,
+  Print,
+  type PrintInput,
+  pressSafeAreaIssues,
+} from './print.ts'
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'
 export { Scripts } from './scripts.ts'

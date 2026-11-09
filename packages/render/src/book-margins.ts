@@ -1,9 +1,11 @@
-import { type Book, type ParentPage, resolveParentPages, sheetMm } from '@segnavia/format'
+import { type Book, type ParentPage, pressBoxes, resolveParentPages, sheetMm, usesPressLayout } from '@segnavia/format'
 import { type BookPrintedPagePlan, fillBookFurniture } from '@segnavia/html'
 
 export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: ParentPage[]): string {
   if (!book.page) return ''
   const size = sheetMm(book.page)
+  const bleed = book.print && usesPressLayout(book.print) ? book.print.bleed : 0
+  const source = book.print && usesPressLayout(book.print) ? pressBoxes(size, book.print).bleedBox : size
   const byName = new Map(resolveParentPages(parents).map((parent) => [parent.name, parent]))
   const geometry = pages
     .map((page, index) => {
@@ -21,7 +23,7 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
     })
     .join('')
   return (
-    `@page{size:${size.width}mm ${size.height}mm;margin:0}` +
+    `@page{size:${source.width}mm ${source.height}mm;margin:${bleed}mm}` +
     `:where(html,body){margin:0}` +
     `:where(.segnavia-margin-page){position:relative;inline-size:${size.width}mm;block-size:${size.height}mm;break-after:page;direction:ltr}` +
     `:where(.segnavia-running-head,.segnavia-folio){position:absolute;display:flex;align-items:center}` +

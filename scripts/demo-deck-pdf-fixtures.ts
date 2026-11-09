@@ -11,7 +11,6 @@ export const handoutImposition = {
   cell: { width: 90, height: 70 },
   margin: { top: 12, right: 12, bottom: 12, left: 12 },
   gap: { column: 8, row: 8 },
-  bleed: 0,
   fit: 'contain',
 } satisfies ImpositionInput
 
@@ -46,6 +45,10 @@ export function backgroundDeck(scripts: Scripts, image: string) {
       { type: 'slide', id: 'image', content: { kind: 'image', src: image, alt: 'The captured class list' }, notes: 'Image slide notes.' },
     ],
   })
+}
+
+export function backgroundNotesBleedDeck(scripts: Scripts, image: string) {
+  return Document.parse({ ...backgroundDeck(scripts, image), print: { bleed: 3 } })
 }
 
 export function handoutDeck(scripts: Scripts, image: string, shot: Shot) {

@@ -979,7 +979,9 @@ paper is refused rather than treated as a rounding difference.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
 `paper` is the trim, the finished size after cutting. The page lays out inside
-the trim. Its root background continues through the bleed, and
+the trim. A page's root background continues through the bleed. A book's
+bleed is part of its CSS page box, so an `@page` background paints it and a
+root background stops at the trim. In both,
 `--segnavia-bleed` and `--segnavia-safe` give author CSS the two distances, so
 a picture can run off the edge and text can stay clear of the cut. `marks`
 draws crop marks outside the bleed. `markColor` is `'black'` by default or
@@ -992,6 +994,15 @@ marks, a page is one printed piece; content that needs a second paper is
 refused. Without them, a page prints as before. A postcard face is one such
 page. `pagesPdf` can join several pieces in one PDF without putting them on the
 same paper; putting several pages on one paper belongs to imposition.
+
+Every printable Document carries its press geometry in `print`. Its `bleed`,
+`safe`, `marks` and `markColor` fields apply to every printable kind. A page or
+printed page takes its trim and optional paper fields from `print`; a book keeps
+its trim in `page.paper`; a deck slide uses its slide size at CSS's 96 px/in;
+and a deck notes sheet uses `notesPaper`. Paper, orientation and margin are
+therefore refused in a deck or book `print`. Each PDF piece writes trim and
+bleed boxes and render-only crop marks. Browser printing keeps trim-size papers
+and draws neither bleed nor marks.
 
 **Imposition marks.** `marks` on an `Imposition` defaults off. When enabled,
 `impositionMarks` returns crop-mark segments for each physical side and lists
@@ -1014,7 +1025,7 @@ render-only; browser `printPages` draws neither.
 
 **Imposition.** An `Imposition` places many pages on one paper. It holds a
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and
-gaps), a bleed for every cell, and how the cells fill: `sequence` puts one
+gaps), and how the cells fill: `sequence` puts one
 page in each cell in reading order, and `repeat` puts one page in every cell.
 Its lengths are in one unit named once: millimeters, inches or points (72 to
 the inch), so a host writes its stock's numbers as the maker gives them. A
@@ -1215,7 +1226,13 @@ A slide is a fixed page at the deck's size, so a deck prints through an
 imposition too. `printableDeck` builds the frame-based papers for browser
 printing, and `deckPdf` renders every slide at top level before composing the
 same placements, preserving backgrounds. A grid of two columns and three rows
-is a handout of six slides to a paper. The notes layout and an imposition do not
+is a handout of six slides to a paper. On an imposed render, the Document's
+`print.marks` and `print.markColor` are not drawn per piece; the paper uses the
+imposition's marks. Piece bleed and safe area still come from the Document's
+`print`. Every piece on one imposition must have the same `print.bleed` and
+`print.safe`, because one physical paper has one cutting plan; composition
+refuses the first piece that differs. The notes layout takes paper fields from `notesPaper` and press fields
+from the deck's `print`; it and an imposition do not
 combine, and `beforeOutput` is not called for an imposed deck because there is
 no single frame-based document on which to run it.
 

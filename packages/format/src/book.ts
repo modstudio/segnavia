@@ -20,6 +20,7 @@ import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.t
 import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { Placement } from './placement.ts'
+import { PressGeometry } from './print.ts'
 import { bookParentPages, Fragmentation, flowingParentNames, ParentPage, resolveParentPages, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { sectionNumberingIssues } from './section-numbering-policy.ts'
@@ -104,6 +105,7 @@ export const BookShape = z.object({
   templates: z.array(BookTemplate).default([]),
   slots: Slots.optional(),
   style: StyleSheet.optional(),
+  print: PressGeometry.optional(),
   numbering: z
     .object({
       frontMatter: NumberSystem.optional(),

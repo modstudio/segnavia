@@ -100,9 +100,9 @@ describe('impositionMarks', () => {
     for (const dir of ['ltr', 'rtl'] as const) {
       for (const gap of [0, 4]) {
         for (const bleed of [0, 1]) {
-          const imposition = markInput({ dir, gap: { column: gap, row: gap }, bleed })
-          const placements = impose(imposition, imposition.columns * imposition.rows).placements
-          for (const mark of impositionMarks(imposition)[0]?.marks ?? []) {
+          const imposition = markInput({ dir, gap: { column: gap, row: gap } })
+          const placements = impose(imposition, imposition.columns * imposition.rows, { bleed }).placements
+          for (const mark of impositionMarks(imposition, { bleed })[0]?.marks ?? []) {
             expect(placements.some(({ bleedBox }) => segmentIntersects(mark, bleedBox))).toBe(false)
           }
         }
