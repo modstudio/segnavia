@@ -52,8 +52,12 @@ export function slotsWithDay(options: SlotsOptions | undefined, day: AsOfDay, so
     ...options,
     resolve: undefined,
     source,
-    declarations: [...(options?.declarations ?? []), ...(bindDay ? declarations : [])],
-    overrides: { ...(options?.overrides ?? {}), ...(bindDay ? values : {}) },
+    ...(bindDay
+      ? {
+          declarations: [...(options?.declarations ?? []), ...declarations],
+          overrides: { ...(options?.overrides ?? {}), ...values },
+        }
+      : {}),
   }
 }
 
