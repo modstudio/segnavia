@@ -37,7 +37,6 @@ export const DOCUMENT_PROFILES = {
       'orphans',
       'widows',
       'fragmentation',
-      'runningHead',
       'parentRules',
       'limits',
       'asOf',

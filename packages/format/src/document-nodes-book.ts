@@ -20,7 +20,6 @@ export const SectionFields = {
   numbering: SectionNumbering.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
-  headTemplate: z.string().optional(),
   pageGeometry: z.string().optional(),
   lang: z.string().optional(),
   dir: Direction.optional(),

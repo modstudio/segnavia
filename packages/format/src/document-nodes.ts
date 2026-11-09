@@ -33,7 +33,6 @@ export interface PartNode {
   opens?: 'recto' | 'verso' | 'any'
   parentRules?: ParentRules
   parents?: unknown
-  runningHead?: string
   children: DocumentNode[]
 }
 
@@ -92,7 +91,6 @@ export const PartNodeFields = {
   opens: z.enum(['recto', 'verso', 'any']).optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
-  runningHead: z.string().optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
 export const PartNode = z.object(PartNodeFields) as z.ZodType<PartNode>

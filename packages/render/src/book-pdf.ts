@@ -121,7 +121,7 @@ function marginFactsFor(
   const variablesFor = (owner: (typeof starts)[number] | undefined, folio: string): Record<string, string> => {
     const resolved: Record<string, string> = {}
     for (const variable of variables) {
-      if (variable.kind === 'text' && variable.from === 'section-title' && owner?.section.runningHead) resolved[variable.name] = owner.section.runningHead
+      if (variable.kind === 'text' && variable.from === 'section-title' && owner?.section.title) resolved[variable.name] = owner.section.title
       if (variable.kind === 'record' && owner?.section.record)
         resolved[variable.name] = formatNumber(owner.section.record[variable.value], variable.system ?? 'arabic')
       if (variable.kind === 'folio') resolved[variable.name] = folio
@@ -140,7 +140,6 @@ function marginFactsFor(
       folio,
       variables: variablesFor(owner, folio),
       recordSlots: owner?.section.values ?? {},
-      ...(owner?.section.runningHead === undefined ? {} : { runningHead: owner.section.runningHead }),
     }
   })
 }

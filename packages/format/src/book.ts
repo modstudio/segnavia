@@ -16,7 +16,7 @@ import {
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { pageGeometryIssues } from './document-page-geometry-policy.ts'
-import { HeadTemplate, LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
+import { HeadTemplate, HeadTemplates } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
@@ -31,7 +31,7 @@ import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
-import { LIBRARY_VARIABLES, Variable } from './variable.ts'
+import { Variable, Variables } from './variable.ts'
 
 export { bookPageGeometries, bookPageName, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export {
@@ -62,7 +62,6 @@ export {
   PlacedSection,
   REGION_NAME,
   SECTION_BOUNDARY_CLASS,
-  SECTION_TITLE_MARK,
   TemplatedPage,
   TemplatedSection,
 } from './book-section.ts'
@@ -78,19 +77,6 @@ export const BookPage = z.object({
   columnGap: z.number().nonnegative().default(4),
 })
 export type BookPage = z.infer<typeof BookPage>
-
-export const BookRunningHeadSource = z.union([
-  z.literal('title'),
-  z.object({ mark: z.string().min(1), which: z.enum(['first', 'last']) }),
-  z.object({ part: z.string().regex(REGION_NAME) }),
-])
-export type BookRunningHeadSource = z.infer<typeof BookRunningHeadSource>
-
-export const BookRunningHead = z.object({
-  recto: BookRunningHeadSource.default('title'),
-  verso: BookRunningHeadSource.default('title'),
-})
-export type BookRunningHead = z.infer<typeof BookRunningHead>
 
 export const BookShape = z.object({
   brand: Brand.optional(),
@@ -110,8 +96,8 @@ export const BookShape = z.object({
   parentPages: z.array(ParentPage).default([]),
   parentRules: parentRules.optional(),
   templates: z.array(BookTemplate).default([]),
-  variables: z.array(Variable).default(LIBRARY_VARIABLES),
-  headTemplates: z.array(HeadTemplate).default(LIBRARY_HEAD_TEMPLATES),
+  variables: Variables,
+  headTemplates: HeadTemplates,
   slots: Slots.optional(),
   style: StyleSheet.optional(),
   asOf: AsOf.optional(),
@@ -140,7 +126,6 @@ export const BookShape = z.object({
   orphans: z.number().int().min(1).default(2),
   widows: z.number().int().min(1).default(2),
   fragmentation: Fragmentation.default('safe'),
-  runningHead: BookRunningHead.default({ recto: 'title', verso: 'title' }),
   contents: z.object({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
 
@@ -165,7 +150,6 @@ export const BookViewPagination = z.object({
   parents: z.array(ParentPage),
   endnotePlacement: z.enum(['book', 'chapter']),
   contents: z.object({ pageNumbers: z.boolean(), depth: z.number().int().min(1).max(6) }),
-  runningHead: BookRunningHead,
   variables: z.array(Variable).optional(),
   headTemplates: z.array(HeadTemplate).optional(),
   recordSlotsByFlow: z.record(z.string(), z.record(z.string(), z.string())).optional(),
@@ -353,7 +337,6 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     parents: [...bookParentPages(book.page.margin), ...book.parentPages],
     endnotePlacement: book.endnotes.placement,
     contents: book.contents,
-    runningHead: book.runningHead,
     variables: book.variables,
     headTemplates: book.headTemplates,
     recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),

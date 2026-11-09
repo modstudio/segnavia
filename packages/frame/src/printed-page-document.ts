@@ -101,7 +101,6 @@ export function printedPageValueDocument(
     widows: 2,
     rectoOpenings: false,
     endnotePlacement: 'chapter',
-    runningHead: {},
     variables: page.printedPages.variables,
     headTemplates: page.printedPages.headTemplates,
     recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.values ?? {}])),

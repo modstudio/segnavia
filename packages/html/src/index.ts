@@ -13,12 +13,10 @@ export type {
   PaginateFlow,
   PaginateFlowParents,
   PaginateLine,
-  PaginateMark,
   PaginateNote,
   PaginateNoteRef,
   PaginateNoteSeriesGeometry,
   PaginateOpens,
-  PaginatePageMarks,
   PaginatePageNote,
   PaginatePageRole,
   PaginateSequence,
@@ -68,7 +66,6 @@ export {
 export { PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_SELECTOR, PAGE_REFERENCE_VALUE, pageReferenceTarget } from './book/book-page-reference.ts'
 export { parseBookFixture } from './book/book-test-fixture.ts'
 export { bookView, bookViewFromHtml } from './book/book-view.ts'
-export { type BookFurnitureValues, embedFunction, fillBookFurniture, furnitureScript } from './book/furniture.ts'
 export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength } from './book/region-fit.ts'
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart, headingLabel } from './book/types.ts'
@@ -89,6 +86,7 @@ export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'
 export { fragmentationCss } from './fragmentation.ts'
+export { embedFunction } from './embed-function.ts'
 export { KEEP_WITH_VALUES } from './keep-with.ts'
 export type { LinkPolicy } from './link-policy.ts'
 export {

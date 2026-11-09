@@ -1,52 +1,5 @@
 import type { HeadTemplate } from '@segnavia/format'
-import {
-  type Plan,
-  PRINTED_PAGE_DOCUMENT_NUMBER_PATH,
-  PRINTED_PAGE_DOCUMENT_TOTAL_PATH,
-  PRINTED_PAGE_NUMBER_PATH,
-  PRINTED_PAGE_TOTAL_PATH,
-  RECORD_COUNT_PATH,
-  RECORD_INDEX_PATH,
-} from '@segnavia/format'
 import { resolveHeadTemplate } from '@segnavia/layout'
-
-export type ComposerFolioPlan = Pick<Plan, 'folios' | 'total' | 'documentFolios' | 'documentTotal' | 'recordTotals' | 'records'>
-
-export const COMPOSER_FURNITURE_PATHS = {
-  number: PRINTED_PAGE_NUMBER_PATH,
-  total: PRINTED_PAGE_TOTAL_PATH,
-  documentNumber: PRINTED_PAGE_DOCUMENT_NUMBER_PATH,
-  documentTotal: PRINTED_PAGE_DOCUMENT_TOTAL_PATH,
-  recordIndex: RECORD_INDEX_PATH,
-  recordCount: RECORD_COUNT_PATH,
-}
-
-export type ComposerFurniturePaths = typeof COMPOSER_FURNITURE_PATHS
-
-export function composerFurnitureValues(
-  plan: ComposerFolioPlan,
-  flow: string,
-  index: number,
-  paths: ComposerFurniturePaths,
-): Record<string, string | undefined> {
-  const record = plan.records[flow]
-  return {
-    [paths.number]: plan.folios[index] ?? undefined,
-    [paths.total]: plan.recordTotals[flow] ?? plan.total,
-    [paths.documentNumber]: plan.documentFolios[index] ?? undefined,
-    [paths.documentTotal]: plan.documentTotal,
-    [paths.recordIndex]: record?.index ?? '',
-    [paths.recordCount]: record?.count ?? '',
-  }
-}
-
-export interface FurnitureValues {
-  folio?: string
-  runningHead?: string
-  marks?: Record<string, { first: string; last: string }>
-  total?: string
-  heads?: Record<string, string>
-}
 
 export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {
   function attribute(attrs: string, name: string): string | undefined {
@@ -119,13 +72,12 @@ export function dressPlanPages<T>(
 export function fillFurniture(
   root: Element,
   html: string,
-  values: FurnitureValues,
+  heads: Record<string, string>,
+  slots: Record<string, string | undefined>,
   dir: string | undefined,
   lang: string | undefined,
-  slots: Record<string, string | undefined>,
-  fillMotifs: (source: string, values: FurnitureValues, dir?: string, lang?: string) => string,
 ): void {
-  root.innerHTML = fillMotifs(fillRegion(html, { heads: values.heads ?? {} }, dir, lang), values, dir, lang)
+  root.innerHTML = fillRegion(html, { heads }, dir, lang)
   const bindings = root.querySelectorAll('[data-slot-value]')
   for (const binding of bindings) {
     const path = binding.getAttribute('data-slot-value')

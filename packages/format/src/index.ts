@@ -355,7 +355,7 @@ export {
 } from './placement.ts'
 export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
 export { PlacementRefusedError } from './placement-refusal.ts'
-export { PaginatePageMarks, PaginatePageNote, PaginateWindow, PLAN_VERSION, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
+export { PaginatePageNote, PaginateWindow, PLAN_VERSION, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
 export {
   MarkColor,
   PRESS_GEOMETRY_FIELDS,

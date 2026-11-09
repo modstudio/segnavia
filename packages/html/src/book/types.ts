@@ -14,7 +14,6 @@ export interface BookSectionInfo {
   kind: 'front' | 'contents' | 'part' | 'chapter' | 'endnotes' | 'designed' | 'templated'
   division: 'front' | 'body' | 'end'
   title?: string
-  runningHead?: string
   opens?: BookOpens
   values?: Record<string, string>
   record?: { index: number; count: number }

@@ -1,13 +1,13 @@
 import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
 import { SectionNumbering } from './folio.ts'
-import { HeadTemplate, LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
+import { HeadTemplates } from './head-template.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { NumberSystem } from './numbering.ts'
 import { BOOK_PARENT_NAMES, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import { CONTINUE_OPENS_REMEDY } from './section-opens-policy.ts'
-import { LIBRARY_VARIABLES, Variable } from './variable.ts'
+import { Variables } from './variable.ts'
 
 export const Fragmentation = z.enum(['safe', 'none'])
 export type Fragmentation = z.infer<typeof Fragmentation>
@@ -21,8 +21,8 @@ export const ParentPage = z.object({
 })
 
 export const PrintedPages = z.object({
-  variables: z.array(Variable).default(LIBRARY_VARIABLES),
-  headTemplates: z.array(HeadTemplate).default(LIBRARY_HEAD_TEMPLATES),
+  variables: Variables,
+  headTemplates: HeadTemplates,
   parents: z.array(ParentPage).min(1),
   parentRules,
   rules: z.unknown().optional(),

@@ -4,11 +4,9 @@ import { Deck, type Deck as DeckValue } from './deck.ts'
 import { Document, type Document as DocumentValue } from './document.ts'
 import { documentBookDivisions, documentSectionFields } from './document-book-items.ts'
 import { DOCUMENT_PROFILES } from './document-profile.ts'
-import { LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
 import { Page, type Page as PageValue } from './page.ts'
 import { recordExpansion } from './record-expansion.ts'
 import type { Brand } from './style-sheet.ts'
-import { LIBRARY_VARIABLES } from './variable.ts'
 
 type ParsedNode = DocumentValue['children'][number]
 
@@ -99,8 +97,8 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       parentPages: document.parentPages.map(parentPage),
       parentRules: document.parentRules,
       templates: document.templates.map(template),
-      variables: [...LIBRARY_VARIABLES, ...document.variables.map(variable)],
-      headTemplates: [...LIBRARY_HEAD_TEMPLATES, ...document.headTemplates.map(headTemplate)],
+      variables: document.variables.map(variable),
+      headTemplates: document.headTemplates.map(headTemplate),
       notes: document.noteSeries.map(noteSeries),
       numbering: typeof document.numbering === 'object' ? document.numbering : undefined,
       footnotes: document.footnotes,
@@ -109,7 +107,6 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       orphans: document.orphans,
       widows: document.widows,
       fragmentation: document.fragmentation,
-      runningHead: document.runningHead,
       contents: contentsOptions(document),
     }),
   )
@@ -141,8 +138,8 @@ function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): Pa
         parentRules: document.parentRules,
         numbering: typeof document.numbering === 'string' ? document.numbering : undefined,
         fragmentation: document.fragmentation,
-        variables: [...LIBRARY_VARIABLES, ...document.variables.map(variable)],
-        headTemplates: [...LIBRARY_HEAD_TEMPLATES, ...document.headTemplates.map(headTemplate)],
+        variables: document.variables.map(variable),
+        headTemplates: document.headTemplates.map(headTemplate),
         ...(sections.length > 0 ? { sections } : {}),
       }
     : undefined

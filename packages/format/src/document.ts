@@ -61,7 +61,6 @@ export const DocumentShape = z.object({
   orphans: BookShape.shape.orphans.unwrap().optional(),
   widows: BookShape.shape.widows.unwrap().optional(),
   fragmentation: BookShape.shape.fragmentation.unwrap().optional(),
-  runningHead: BookShape.shape.runningHead.unwrap().optional(),
   parentRules: parentRules.optional(),
   rules: z.unknown().optional(),
   children: z.array(DocumentNode),

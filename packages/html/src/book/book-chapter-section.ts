@@ -10,15 +10,14 @@ export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: strin
   chapter = bindRecordValues(chapter)
   const { id } = chapter
   const document = parse(chapter.html)
-  const runningHead = chapter.runningHead ?? chapter.title
   return {
-    info: { id, kind: 'chapter', division, title: chapter.title, runningHead, opens: chapter.opens, values: recordValues, record },
+    info: { id, kind: 'chapter', division, title: chapter.title, opens: chapter.opens, values: recordValues, record },
     node: sectionNode(
       'chapter',
       id,
       document.children,
       build,
-      runningHead,
+      chapter.title,
       flowAttribs(
         chapter.opens,
         chapter.parentRules,

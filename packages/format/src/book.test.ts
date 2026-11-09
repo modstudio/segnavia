@@ -7,6 +7,17 @@ const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inl
 const input = (overrides: Record<string, unknown> = {}) => identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
+  test('keeps library definitions alongside authored definitions', () => {
+    const book = Book.parse(
+      input({
+        variables: [{ name: 'topic', kind: 'text', from: 'content' }],
+        headTemplates: [{ name: 'topic-head', parts: [{ variable: 'topic' }] }],
+      }),
+    )
+    expect(book.variables.map(({ name }) => name)).toEqual(['segnavia:section-title', 'segnavia:folio', 'segnavia:pages-total', 'topic'])
+    expect(book.headTemplates.map(({ name }) => name)).toEqual(['segnavia:running-head', 'segnavia:folio', 'topic-head'])
+  })
+
   test('accepts book placements from the table and refuses other asset kinds', () => {
     expect(Book.parse(input({ chapters: [{ kind: 'placed', placement: { kind: 'page', address: 'pages/one' } }] })).body[0]).toMatchObject({
       kind: 'placed',

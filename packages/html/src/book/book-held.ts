@@ -31,16 +31,15 @@ export function authoredSection(
   build: BookBuild,
 ): BuiltSection {
   const document = parse(section.html)
-  const runningHead = section.title
   const node = sectionNode(
     'front',
     id,
     document.children,
     build,
-    runningHead,
+    section.title,
     flowAttribs(section.opens, section.parentRules, languageAttribs(section), section.pageGeometry),
   )
-  return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead, opens: section.opens }, node }
+  return { info: { id, kind: 'front', division: 'front', title: section.title, opens: section.opens }, node }
 }
 
 export function numberingAttribs(numbering?: SectionNumbering): Record<string, string> {
@@ -76,14 +75,12 @@ export function sectionNode(
   id: string,
   children: ChildNode[] = [],
   build: BookBuild,
-  runningHead?: string,
+  title?: string,
   extra: Record<string, string> = {},
 ) {
   const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id, ...extra }
   if (build !== 'print') attribs['data-segnavia-flow'] = id
-  if (build === 'galley') {
-    if (runningHead !== undefined) attribs['data-running-head'] = runningHead
-  }
+  if (build === 'galley' && title !== undefined) attribs['data-segnavia-section-title'] = title
   return element('section', attribs, children)
 }
 
@@ -95,15 +92,14 @@ export function partSection(
   parts: Record<string, string>,
 ): BuiltSection {
   const children = entry.html === undefined ? [] : parse(entry.html).children
-  const runningHead = entry.runningHead ?? entry.title
   const extra = flowAttribs(entry.opens, entry.parentRules, {
     'data-segnavia-kind': 'part',
     'data-segnavia-parts': JSON.stringify(parts),
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   return {
-    info: { id, kind: 'part', division, title: entry.title, runningHead, opens: entry.opens },
-    node: sectionNode('part', id, children, build, runningHead, extra),
+    info: { id, kind: 'part', division, title: entry.title, opens: entry.opens },
+    node: sectionNode('part', id, children, build, entry.title, extra),
   }
 }
 
@@ -178,11 +174,10 @@ export function designedSection(
   if (entry.contents && entry.title !== undefined) {
     headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
   }
-  const runningHead = entry.title
   return {
     built: {
-      info: { id, kind, division, title: entry.title, runningHead, opens: entry.opens },
-      node: sectionNode(kind, id, holders, build, runningHead, extra),
+      info: { id, kind, division, title: entry.title, opens: entry.opens },
+      node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
     headings,
   }
@@ -329,11 +324,10 @@ export function templatedSection(
   if (entry.contents && entry.title !== undefined) {
     headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
   }
-  const runningHead = entry.title
   return {
     built: {
-      info: { id, kind, division, title: entry.title, runningHead, opens: entry.opens },
-      node: sectionNode(kind, id, holders, build, runningHead, extra),
+      info: { id, kind, division, title: entry.title, opens: entry.opens },
+      node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
     headings,
   }

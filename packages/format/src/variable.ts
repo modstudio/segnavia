@@ -28,3 +28,14 @@ export const LIBRARY_VARIABLES: Variable[] = [
   Variable.parse({ name: 'segnavia:folio', kind: 'folio' }),
   Variable.parse({ name: 'segnavia:pages-total', kind: 'pages' }),
 ]
+
+export const Variables = z
+  .array(Variable)
+  .default([])
+  .superRefine((variables, ctx) => {
+    variables.forEach((variable, index) => {
+      if (variable.name.startsWith('segnavia:'))
+        ctx.addIssue({ code: 'custom', path: [index, 'name'], message: `variable name ${JSON.stringify(variable.name)} is reserved for the library` })
+    })
+  })
+  .transform((variables) => [...LIBRARY_VARIABLES, ...variables])
