@@ -57,18 +57,6 @@ export async function verifySlots(h: Harness) {
   }
   await page.locator('#filled-thumbnail iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor({ state: 'attached' })
   await page.locator('#filled-deck-thumbnail iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor()
-  console.log(
-    'mina diagnostics',
-    await page.evaluate(() =>
-      [...document.querySelectorAll<HTMLElement>('#mina, #mina .segnavia-document__sheet, #mina segnavia-page, #mina iframe')].map((element) => ({
-        tag: element.tagName,
-        box: element.getBoundingClientRect().toJSON(),
-        display: getComputedStyle(element).display,
-        visibility: getComputedStyle(element).visibility,
-        transform: getComputedStyle(element).transform,
-      })),
-    ),
-  )
   await page.locator('#mina iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor()
   await page.locator('#noah iframe').first().contentFrame().locator('body').getByText('Noah Kim').waitFor()
   const mina = await frameText('#mina iframe')

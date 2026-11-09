@@ -108,4 +108,5 @@ test('a document collection pass writes the page day before applying host slots'
   const filled = documentViewer.filledHtml?.[0]
   expect(filled).toContain('Avi')
   expect(filled).toContain('2026-11-14')
+  expect(documentViewer.pageDayContexts[0]?.slots).toEqual({})
 })

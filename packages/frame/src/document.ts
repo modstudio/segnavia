@@ -249,20 +249,24 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     })
       .then(async (contexts) => {
         if (!isCurrent()) return
-        this.pageDayContexts = contexts.pages
         for (const day of contexts.days) this.dispatchEvent(new CustomEvent('asof', { detail: day }))
         if (this.motifOptions || this.slotOptions?.resolve) {
+          this.pageDayContexts = contexts.pages
           this.paintResolved(print)
           return
         }
-        this.paintResolved(print)
         const refusal = this.pageValues.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
         if (refusal) throw refusal
-        if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) return
+        if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
+          this.pageDayContexts = contexts.pages
+          this.paintResolved(print)
+          return
+        }
         const resolved = await prepareSlotCollection(declarations, this.slotOptions, controller.signal)
         if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
         this.resolvedSlots = resolved
         this.resolvedGeneration = generation
+        this.pageDayContexts = contexts.pages.map(({ day }) => ({ day, slots: {} }))
         this.filledHtml = this.pageValues.map((page, index) => resolved.apply(fillAsOfBindings(page.html, contexts.pages[index]?.day)))
         this.paintResolved(print)
       })
