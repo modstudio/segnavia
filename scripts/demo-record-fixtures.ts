@@ -2,19 +2,28 @@ import type { DocumentInput } from '@segnavia/format'
 
 const margin = { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 }
 const slot = (key: string, label: string) => ({ key, label, type: 'text' as const })
+const variableDefinitions = [
+  { type: 'variable' as const, name: 'record-index', kind: 'record' as const, value: 'index' as const },
+  { type: 'variable' as const, name: 'record-count', kind: 'record' as const, value: 'count' as const },
+  { type: 'variable' as const, name: 'record-pages', kind: 'pages' as const, of: 'record' as const },
+]
+const headTemplates = variableDefinitions.map(({ name }) => ({ type: 'headTemplate' as const, name, parts: [{ variable: name }] }))
+const placed = (name: string) => `<span data-motif="segnavia:head-template" data-motif-name="${name}"></span>`
 
 export const recordsTableDocument: DocumentInput = {
   type: 'document',
   kind: 'printed',
   settings: { lang: 'en' },
   print: { paper: 'letter' },
+  variables: variableDefinitions,
+  headTemplates,
   parentPages: [
     {
       type: 'parentPage',
       name: 'body',
       geometry: { margin },
-      head: '<header>Record <span data-slot-value="record.index"></span> of <span data-slot-value="record.count"></span></header>',
-      foot: '<footer>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></footer>',
+      head: `<header>Record ${placed('record-index')} of ${placed('record-count')}</header>`,
+      foot: `<footer>Page ${placed('segnavia:folio')} of ${placed('record-pages')}</footer>`,
     },
   ],
   parentRules: [{ parent: 'body' }],
@@ -49,13 +58,19 @@ export const hebrewRecordsDocument: DocumentInput = {
   settings: { lang: 'he', dir: 'rtl' },
   numbering: 'hebrew',
   print: { paper: 'letter' },
+  variables: [
+    { type: 'variable', name: 'record-index', kind: 'record', value: 'index', system: 'arabic' },
+    { type: 'variable', name: 'record-count', kind: 'record', value: 'count', system: 'arabic' },
+    { type: 'variable', name: 'record-pages', kind: 'pages', of: 'record' },
+  ],
+  headTemplates,
   parentPages: [
     {
       type: 'parentPage',
       name: 'body',
       geometry: { margin },
-      head: '<header>רשומה <span data-slot-value="record.index"></span> מתוך <span data-slot-value="record.count"></span></header>',
-      foot: '<footer>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span>; מסמך <span data-slot-value="printedPage.documentNumber"></span> מתוך <span data-slot-value="printedPage.documentTotal"></span></footer>',
+      head: `<header>רשומה ${placed('record-index')} מתוך ${placed('record-count')}</header>`,
+      foot: `<footer>עמוד ${placed('segnavia:folio')} מתוך ${placed('record-pages')}; מסמך ${placed('record-index')} מתוך ${placed('record-count')}</footer>`,
     },
   ],
   parentRules: [{ parent: 'body' }],

@@ -31,7 +31,6 @@ describe('bookView', () => {
           lang: 'he',
           page,
           rectoOpenings: true,
-          runningHead: { recto: { mark: 'siman', which: 'first' } },
         }),
       ),
     )
@@ -49,7 +48,6 @@ describe('bookView', () => {
       orphans: 2,
       widows: 2,
       endnotePlacement: 'book',
-      runningHead: { recto: { mark: 'siman', which: 'first' }, verso: 'title' },
     })
     expect(view.pagination?.parents.map((parent) => parent.name)).toEqual([
       BOOK_PARENT_NAMES.recto,

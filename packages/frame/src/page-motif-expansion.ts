@@ -3,7 +3,7 @@ import {
   type ExpandedMotifs,
   expandMotifs,
   type HtmlPage,
-  hasMotifPlacement,
+  hasHostMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
   type PrintedHtmlPage,
@@ -37,7 +37,7 @@ export function pageMotifRefusal(bodyHtml: readonly string[], regions: readonly 
     const refusal = libraryMotifPlacementRefusal(html)
     if (refusal) return new MotifRefusedError(refusal)
   }
-  if (regions.some((region) => hasMotifPlacement(region.html))) {
+  if (regions.some((region) => hasHostMotifPlacement(region.html))) {
     return new MotifRefusedError(PARENT_MOTIF_SOURCE_REFUSAL)
   }
   return undefined

@@ -1,7 +1,7 @@
 import type { ParentPage } from '@segnavia/format'
 
 const markHead = (edge: 'start' | 'end') =>
-  `<div class="haggadah-head"><span class="haggadah-kavana" data-motif="segnavia:mark" data-motif-name="kavana"></span><span class="haggadah-siman haggadah-siman-${edge}" data-motif="segnavia:mark" data-motif-name="siman"></span></div>`
+  `<div class="haggadah-head"><span class="haggadah-kavana" data-motif="segnavia:head-template" data-motif-name="kavana"></span><span class="haggadah-siman haggadah-siman-${edge}" data-motif="segnavia:head-template" data-motif-name="siman"></span></div>`
 
 export const markParents = { recto: 'haggadah-recto', verso: 'haggadah-verso' } as const
 
@@ -19,7 +19,7 @@ export function paginatedParents(footMotifKey?: string): ParentPage[] {
     {
       name: 'ornament-foot',
       basedOn: 'segnavia:blank',
-      foot: `<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:folio"></span><span aria-hidden="true"> ❧</span>${footMotifKey ? `<span data-motif="${footMotifKey}"></span>` : ''}</div>`,
+      foot: `<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span><span aria-hidden="true"> ❧</span>${footMotifKey ? `<span data-motif="${footMotifKey}"></span>` : ''}</div>`,
     },
   ]
 }

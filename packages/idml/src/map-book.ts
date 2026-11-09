@@ -173,10 +173,11 @@ export function modelToBook(
   const chapters = emitted.map(({ story, mapped: value }) => {
     const parentRules = chapterParents(story.id, model, storyPages, masters, report)
     const source = openers.html.get(story.id) ?? value.html
-    const document = parseDocument({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: source } }] }, { newId })
+    const deferred = source.replace(/\bdata-variable=/g, 'data-idml-variable=')
+    const document = parseDocument({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: deferred } }] }, { newId })
     const page = document.children[0]
-    const html = page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : source
-    return { story: story.id, title: story.id, html, ...(parentRules ? { parentRules } : {}) }
+    const identified = page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : deferred
+    return { story: story.id, title: story.id, html: identified.replace(/\bdata-idml-variable=/g, 'data-variable='), ...(parentRules ? { parentRules } : {}) }
   })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)

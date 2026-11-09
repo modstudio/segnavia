@@ -27,7 +27,7 @@ function longChapter(marker: string): string {
 }
 
 function fixture(): DocumentInput {
-  const foot = '<div class="numbering-folio">FOLIO[<span data-motif="segnavia:folio"></span>]</div>'
+  const foot = '<div class="numbering-folio">FOLIO[<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span>]</div>'
   const parentPages = (['opener', 'recto', 'verso', 'blank'] as const).map((role) => ({
     type: 'parentPage' as const,
     name: `folio-${role}`,

@@ -79,7 +79,10 @@ function motifElements(html: string): Element[] {
 }
 
 export function libraryMotifPlacementRefusal(html: string): string | undefined {
-  const placed = motifElements(html).find((element) => (element.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
+  const placed = motifElements(html).find((element) => {
+    const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
+    return key.startsWith(LIBRARY_MOTIF_PREFIX) && key !== 'segnavia:head-template'
+  })
   return placed ? refusal(placed, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key') : undefined
 }
 
@@ -88,7 +91,10 @@ export function hasMotifPlacement(html: string): boolean {
 }
 
 export function hasHostMotifPlacement(html: string): boolean {
-  return motifElements(html).some((element) => !(element.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
+  return motifElements(html).some((element) => {
+    const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
+    return key !== 'segnavia:head-template' && !key.startsWith(LIBRARY_MOTIF_PREFIX)
+  })
 }
 
 export function renderMotifPlacements(html: string, replacement: (key: string) => string | undefined): string {
@@ -274,7 +280,11 @@ async function expandNodes(nodes: ChildNode[], inheritedLang: string | undefined
   for (const node of [...nodes]) {
     state.options.signal.throwIfAborted()
     if (!isTag(node)) continue
-    if (Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE) && !(state.options.deferLibrary && (node.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX)))
+    if (
+      Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE) &&
+      node.attribs[MOTIF_ATTRIBUTE] !== 'segnavia:head-template' &&
+      !(state.options.deferLibrary && (node.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
+    )
       await expandPlacement(node, inheritedLang, stack, state)
     else await expandNodes(node.children, inheritedLang, stack, state)
   }

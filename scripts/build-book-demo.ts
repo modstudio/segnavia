@@ -32,7 +32,7 @@ const columnRun = (hebrew: boolean, lines: number, mark?: string) => {
   const words = hebrew
     ? 'בראשית ברא אלהים את השמים ואת הארץ והארץ היתה תהו ובהו '
     : 'The tide turned against the hull and the lanterns of the harbor receded into a thin gold line. '
-  const markSpan = mark ? `<span data-mark="${mark}">${hebrew ? 'סימן ב' : 'Mark B'}</span> ` : ''
+  const markSpan = mark ? `<span data-variable="${mark}">${hebrew ? 'סימן ב' : 'Mark B'}</span> ` : ''
   return `<p data-columns="2">${markSpan}${words.repeat(lines)}</p>`
 }
 const longNote = (hebrew: boolean) =>
@@ -46,7 +46,7 @@ function chapterOneHtml(hebrew: boolean, footnote = longNote(hebrew), probes = f
   const body = hebrew ? pointedRun.repeat(20) : 'The crew counted the miles by the creak of the mast. '.repeat(18)
   const pointed = hebrew ? ' data-pointed' : ''
   const end = hebrew ? 'מקור לפרק הראשון.' : 'The source for the first chapter.'
-  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-mark="kavana">${kavana}</span> <span data-mark="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#${pageReferenceTarget}" data-ref="page"></a>.</span></p>${probes ? keepProbe(hebrew) : ''}<p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#${pageReferenceTarget}" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
+  return `<h1>${title}</h1><script data-segnavia-author-script>document.documentElement.setAttribute('data-segnavia-author-script-ran','')</script><p><span data-variable="kavana">${kavana}</span> <span data-variable="siman">${mark}</span> ${opening}<span data-note="footnote">${footnote} ${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#${pageReferenceTarget}" data-ref="page"></a>.</span></p>${probes ? keepProbe(hebrew) : ''}<p>${hebrew ? 'ראו עמ׳ ' : 'See page '}<a href="#${pageReferenceTarget}" data-ref="page"></a>.</p><p${pointed}>${body}</p><p>${hebrew ? 'סוף הפרק.' : 'The chapter closes.'}<span data-note="endnote">${end}</span></p>`
 }
 function chapterTwoHtml(hebrew: boolean): string {
   const title = hebrew ? 'פרק שני' : 'Chapter Two'
@@ -116,6 +116,14 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
   page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, columnGap: 5 },
   rectoOpenings: true,
   endnotes: { placement: 'chapter' },
+  variables: [
+    { type: 'variable', name: 'kavana', kind: 'text', from: 'content', pick: 'first' },
+    { type: 'variable', name: 'siman', kind: 'text', from: 'content', pick: 'first' },
+  ],
+  headTemplates: [
+    { type: 'headTemplate', name: 'kavana', parts: [{ variable: 'kavana' }] },
+    { type: 'headTemplate', name: 'siman', parts: [{ variable: 'siman' }] },
+  ],
   parentPages: paginatedParents(BOOK_FOLIO_MOTIF_KEY).map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
   children: [
     {

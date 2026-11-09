@@ -253,11 +253,10 @@ document.
 | `orphans` | root `orphans` |
 | `widows` | root `widows` |
 | `fragmentation` | root `fragmentation` |
-| `runningHead` | root `runningHead` |
 | `contents.pageNumbers` | a `contents` node's `pageNumbers` |
 | `contents.depth` | a `contents` node's `depth` |
-| part `name`, `title`, `html`, `contents`, `opens`, `parentRules`, `runningHead`, `children` | a `part` node with the same fields and `type: 'part'` |
-| chapter `title`, `html`, `runningHead` | a `section` node holding a `flow` child; the flow holds `html` and `runningHead` |
+| part `name`, `title`, `html`, `contents`, `opens`, `parentRules`, `children` | a `part` node with the same fields and `type: 'part'` |
+| chapter `title`, `html` | a `section` node holding a `flow` child; the flow holds `html` |
 | section `title`, `contentsLabel`, `subtitle`, `contents`, `opens`, `parentRules` | the same fields on a `section` node |
 | designed section `pages[].html` | `section.children[]` page nodes with `body: { html }` |
 | templated section `template` | `section.template` |
@@ -289,7 +288,7 @@ within each kind.
 
 ### Declared but not yet supported
 
-Parsing refuses every `condition` node, section `headTemplate`, division `settings.numbering`, and
+Parsing refuses every `condition` node, division `settings.numbering`, and
 parent-page `regions`. Division numbering uses the richer shared `Numbering`
 value, while the current Book carries only a number system. It also refuses `limits` on
 deck and board documents. Remove the named field or node to clear the refusal.
@@ -308,13 +307,11 @@ into the template's `data-slot-value` elements before a host fill runs. Record
 templates cannot set parent pages, and records require paginated layout because
 their page numbers restart.
 
-Parent-page furniture may bind `record.index`, `record.count`,
-`printedPage.number`, `printedPage.total`, `printedPage.documentNumber` and
-`printedPage.documentTotal`. Record index and count use the body number system
-and are empty outside a record. Page number and total are scoped to the record
-flow on record pages; document number and total count the whole document, while
-blank and uncounted papers show no document number. Document number and total
-use the body number system on every paper, including front matter.
+Parent-page furniture is filled from declared variables through named head
+templates. `record` variables expose a record's `index` or `count`; they print
+Arabic digits unless the declaration names another number system. `folio` and
+`pages` variables select numbering, document or record scope. Record slot paths
+remain author data and do not expose plan-derived values.
 
 ### Markdown page bodies
 
@@ -699,7 +696,7 @@ retains the final override in every render view.
 | `readSelection()` | `<segnavia-page>`, `<segnavia-stage>` | The reader's current selection string and the document's `innerText` from a page or the stage's shown slide whose author scripts are refused. On a page, a read already posted to a document that slot filling replaces is cancelled, while a read still waiting is answered by the replacing document once it has loaded and reported ready. A stage read is refused during a pending turn and a pending read is cancelled when the shown slide changes. For a stage URL slide, resolved content declares `bridge: true` and `scripts: 'refuse'` to vouch that the host served it through `frameDocument` with author scripts refused. The bridge answers only a request from its parent. Both strings keep their document order without reordering for direction. |
 | `scrollToHeading()` | `<segnavia-page>` | Scrolls to an id returned by `markdownOutline(page.body)`, resolves false for an unknown id, and refuses host-served pages and pages whose author scripts run. |
 | `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, page `<segnavia-thumbnail>` views, live board page, paper and book items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Book section HTML expands motifs before its screen or PDF document is built; page and book parent-page furniture use the same printed-page context. Decks and slides do not expand motif placements. |
-| `Page.printedPages` | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds one page or one or more flowing sections. Its folios come from the section plan's counted and restart settings; printed-page rules choose only each page's parent, face and side, while role comes from the fill. A printed section's own `parentRules` replace the document list for that flow. Named parent pages supply inherited head and foot motif regions plus complete binding-relative logical margins: `blockStart`, `blockEnd`, `inlineStart` (the binding edge, not CSS inline-start) and `inlineEnd` (the outer edge). `physicalMargins` is the one mapper to physical edges from direction and recto/verso; a single-sided page is a recto. Press-sheet imposition instead has a separately named physical `{ top, right, bottom, left }` margin. Rules choose first, last, recto, verso or default furniture for each printed page. Each composed book page and printed page carries `data-segnavia-side` with `recto` or `verso`, independent of direction, for side-aware CSS. `fragmentation: 'safe'` (the default) uses zero-specificity rules to keep table rows, figures and images whole and a heading with what follows it; `'none'` leaves breaking to the content's own CSS. The frame composer measures and places content in its own paper-sized boxes and never reads the window size, so the same page composes to the same papers at any window size. Viewport units and width media queries in author CSS still resolve against the frame the host provides. The server renderer and browser `printPages` size that frame with `paperViewport`; a host preview that wants viewport-dependent author CSS to match the PDF sizes its frame the same way. Motif data remains host-expanded while the composer supplies the reserved formatted `printedPage.number` and `printedPage.total` context. Composition waits for fonts and images, and printing waits for the composer; a failure, an unready browser frame or more papers than the resolved `limits.pages` is refused. A frame composing printed pages reports the composer's refusal to its parent as one bounded `segnavia:compose-failure` report, at most 1024 characters, and never becomes ready. Browser print first measures the composed page count, then lays out one sandboxed frame per printed paper, each composing only its numbered paper. A page with printed pages must refuse scripts and carry print paper without bleed, marks or `print.margin`. Furniture taller than its region is reported as overflow. Printed pages accept only an identity imposition: one full-paper cell at the page's own paper, with no margins, gaps, bleed, marks, skip, fold or second side. |
+| `Page.printedPages` | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds one page or one or more flowing sections. Its folios come from the section plan's counted and restart settings; printed-page rules choose each page's parent, face and side. Named parent pages supply inherited head and foot regions plus binding-relative logical margins. The composer measures content in paper-sized boxes, resolves declared variables for each planned page, resolves named head templates, and fills every parent region through `fillRegion`. Each value is direction-isolated and no plan-derived value is exposed as a slot path. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. Printed pages accept only an identity imposition. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and the host's own CSP emitted as a second policy that is enforced independently and can only narrow the frame's policy. |
 | `alertLabels` | `<segnavia-page>`, `<segnavia-markdown-editor>` | Host overrides for the library-written GitHub alert labels in converted Markdown; locked editor views pass them to their nested page. |
 | `labels`, `frameTitle` | `<segnavia-player>`, `<segnavia-stage>` | The skin's words and the localized frame title. `defaultFrameTitle` supplies the English default, and the position is recomputed after a reorder. |
@@ -946,7 +943,13 @@ Each rendered tab receives a prepared-slots document view whose `marked` counts 
 
 `filledBook` returns `{ value, slots }`: the filled book and the prepared slots, which every print of that book receives explicitly. `filledPage`, `filledPages` and `filledDeck` return the same shape, and a deck records one frame of measurement marks per slide.
 
-Parent-page head and foot HTML can place a page mark independently of the running head with `data-motif="segnavia:mark"` and `data-motif-name`; `data-motif-which` chooses `first` or `last` and defaults to `first`. Only a paginated book fills this placement from the page plan's carried marks, so a page with no new value shows the last earlier value while a blank or a page before the first value shows nothing; a mark whose element sets `data-mark-scope="flow"`, as the section-title mark of a `continue` section does, is not carried into a later section's flow; a continuous book or a `Page` leaves it empty. The library writes an isolated `bdi` and resolves its direction from the book and the value. The HTML book reader refuses an empty name, an unknown field and a `which` value other than `first` or `last`. `BOOK_FURNITURE.region` records where the default parents place furniture; a mark is never default furniture, and an author places it in either the head or the foot.
+Parent-page head and foot HTML place `segnavia:head-template` with a
+`data-motif-name`. The template joins declared variable or record-slot parts,
+drops empty parts, optionally collapses equal sides, and isolates every value in
+its own `bdi`; the separator uses the template direction. Every composer and
+server margin fill resolves the template for the page and passes it through the
+shared `fillRegion` path. Unknown templates, variables and record slots are
+refused while parsing.
 
 ## Media and placement
 

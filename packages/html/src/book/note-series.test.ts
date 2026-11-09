@@ -112,7 +112,7 @@ describe('note series document', () => {
     )
     expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="rtl">פרק ראשון<\/p><p class="segnavia-note-sources"/)
     expect(result.html).toMatch(/<p class="segnavia-notes-scope" dir="ltr">Second Chapter<\/p><p class="segnavia-note-sources"/)
-    expect(scopeHeadings(result.html)).toEqual(['קצר', 'Short'])
+    expect(scopeHeadings(result.html)).toEqual(['פרק ראשון', 'Second Chapter'])
   })
 
   test('uses a part short title for its numbering run', () => {
