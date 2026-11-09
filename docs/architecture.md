@@ -605,7 +605,9 @@ without loading an element.
 
 Board labels share selection, drag and arrow nudges with items. A single
 selected label shows the `label-resize-handle` part on its inline-end edge by
-its own text direction; dragging it keeps the inline-start edge fixed.
+its own text direction; dragging it keeps the inline-start edge fixed, and
+double-clicking it removes the width so the label is unwrapped again, keeping
+the same edge.
 `describeBoard(board, shapes, options)` reads a board's structure for an agent
 without a browser: sections in board order with their members and auto-layout
 cells, loose items, labels, the board's title and direction, and the overlaps
