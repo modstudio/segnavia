@@ -45,10 +45,13 @@ const shapes: BoardShapes = {
 
 describe('board geometry', () => {
   test('keeps a label inline-start edge fixed when its width changes', () => {
-    const label = { id: 'label', text: 'Label', x: 100, y: 20, width: 80 }
-    expect(labelXForWidth(label, 'ltr', 120)).toBe(100)
-    expect(labelXForWidth(label, 'rtl', 120)).toBe(60)
-    expect(labelXForWidth({ ...label, width: undefined, size: { width: 50, height: 20 } }, 'rtl', 70)).toBe(80)
+    expect(labelXForWidth({ id: 'ltr', text: 'Label', x: 100, y: 20 }, 80, 120)).toBe(100)
+
+    const estimatedHebrew = { id: 'estimated-rtl', text: 'שלום', x: 100, y: 20 }
+    expect(labelXForWidth(estimatedHebrew, 32, 70)).toBe(62)
+
+    const authoredHebrew = { id: 'authored-rtl', text: 'תווית', x: 100, y: 20, width: 80 }
+    expect(labelXForWidth(authoredHebrew, authoredHebrew.width, 120)).toBe(60)
   })
 
   test('uses the supplied intrinsic aspect ratio for item height', () => {

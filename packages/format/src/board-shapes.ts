@@ -1,7 +1,6 @@
 import type { Board, BoardItem, BoardLabel } from './board.ts'
-import type { BoardShapes } from './board-geometry.ts'
+import { type BoardShapes, labelDirection } from './board-geometry.ts'
 import type { MeasuredSize, PixelSize } from './deck.ts'
-import { resolveDirection } from './direction.ts'
 import type { AssetKind } from './placement.ts'
 
 export type BoardItemFact =
@@ -64,8 +63,8 @@ function estimatedLabelShape(label: BoardLabel): MeasuredSize {
 }
 
 export function labelShape(label: BoardLabel, measureLabel?: BoardShapesOptions['measureLabel']): LabelShapeResult {
-  if (label.size) return { shape: { ...label.size, width: label.width ?? label.size.width }, source: 'stored' }
-  const measured = measureLabel?.(label.text, resolveDirection(undefined, undefined, label.text), label.width)
+  if (label.size && (label.width === undefined || label.size.width === label.width)) return { shape: label.size, source: 'stored' }
+  const measured = measureLabel?.(label.text, labelDirection(label), label.width)
   return measured
     ? { shape: { ...measured, width: label.width ?? measured.width }, source: 'measured' }
     : { shape: estimatedLabelShape(label), source: 'estimated' }

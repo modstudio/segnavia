@@ -5,8 +5,9 @@ import { AssetKind } from './placement.ts'
 
 const BoardKind = AssetKind
 
-// Board labels render at 16 board units, so one em is the smallest useful width that still fits a glyph.
-export const LABEL_MIN_WIDTH = 16
+// The board's minimum width is about one em: the smallest width that holds one glyph at the board's label text size, in board units.
+const BOARD_MIN_WIDTH = 16
+export const LABEL_MIN_WIDTH = BOARD_MIN_WIDTH
 
 export const BoardItem = z.object({
   id: z.string(),

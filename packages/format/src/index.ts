@@ -53,6 +53,7 @@ export {
   boardToScreen,
   itemAt,
   itemHeight,
+  labelDirection,
   labelXForWidth,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,

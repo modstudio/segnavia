@@ -64,7 +64,8 @@ function labelRemove(context: CommandContext, command: BoardCommandOf<'label-rem
 function labelSet(context: CommandContext, command: BoardCommandOf<'label-set'>): CommandResult {
   const current = resolveLabel(context.board, command.label)
   const textChanged = command.text !== undefined && command.text !== current.text
-  const width = command.width === null ? undefined : command.width === undefined ? current.width : Math.max(LABEL_MIN_WIDTH, command.width)
+  const clampedWidth = typeof command.width === 'number' ? Math.max(LABEL_MIN_WIDTH, command.width) : command.width
+  const width = clampedWidth === null ? undefined : clampedWidth === undefined ? current.width : clampedWidth
   const widthChanged = width !== current.width
   const { size: _storedSize, width: _storedWidth, ...withoutMeasurement } = current
   let label: BoardLabel =
@@ -73,7 +74,7 @@ function labelSet(context: CommandContext, command: BoardCommandOf<'label-set'>)
       : current
   let shapes = context.shapes
   const adjustments: BoardEditAdjustment[] = []
-  if (command.width !== undefined && command.width !== null && command.width < LABEL_MIN_WIDTH)
+  if (typeof command.width === 'number' && clampedWidth !== command.width)
     adjustments.push({
       command: context.command,
       kind: 'width-clamped',

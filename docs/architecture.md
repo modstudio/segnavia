@@ -587,8 +587,11 @@ render package's peer range, and the Chromium binary it launches through
 assets, labels and sections. It stores each item's width but not its height.
 A label's authored `width` is its wrap width: absent, its lines remain
 unwrapped; present, text wraps at that width and its height follows. Its
-measured `size` is separate and recomputed after text or width changes. The host supplies one
-`BoardItemFact` per item address, the browser may supply `measureLabel`, and
+measured `size` is separate, counts only for the width at which it was measured,
+and is recomputed after text or width changes. Parsing refuses a width below
+`LABEL_MIN_WIDTH` and names the label; `label-set` instead clamps it to that
+minimum. The host supplies one `BoardItemFact` per item address, the browser may
+supply `measureLabel(text, direction, width)`, which receives the authored width, and
 `boardShapes(board, facts, { measureLabel })` computes `{ shapes, provisional,
 estimated }`. A label's box comes through `labelShape`, from its stored size,
 then its measured size, then `BOARD_LABEL_ESTIMATE`. `provisionalShape` gives
@@ -746,7 +749,7 @@ Board sections default to auto layout. Their optional `cells` place each member 
 
 Boards use the board profile of `DocumentOp`, so items, labels, sections and every other document node share one operation model. Section membership uses anchored `setMember` operations and grid layout uses `setCells`; ordinary fields use `setFields`. `applyOps` keeps its fingerprint gate for host batches, while `rebaseOps` applies operations against their own priors and reports same-row conflicts. The element stores local forward and inverse operations for per-writer undo rather than snapshots.
 
-`BoardCommand` is a discriminated union of per-verb objects that further board verbs extend. Item placement targets a section with optional ordering anchors, a position beside an entity, free space, or a point; logical sides and resize anchors resolve through the board's direction. `item-add` finds its shape first in `options.facts[address]`, then from an existing item at the same address. Section, label and board verbs (`section-add`, `section-remove`, `section-set`, `label-add`, `label-remove`, `label-set`, `board-set`) place a section or label with a `PlacementTarget` (beside an entity, free space, or a point); with no target, a new section anchors at its members' top-start corner and a new label or empty section goes to the first free spot past the content. A label's size comes from the host's `options.measureLabel` when given, else from an estimate. `editBoard(document, commands, shapes, options)` takes a parsed board `Document`; another document kind is refused naming the kind. It applies a command batch atomically and names the command index, what could not be established, and what clears the refusal when no result can be produced. A successful result reports `changed` entities whose boxes differ, `adjustments` for decisions the caller did not state, the edited `document`, and a `batch` whose base fingerprints the input document and whose operations reproduce the edited document from that input.
+`BoardCommand` is a discriminated union of per-verb objects that further board verbs extend. Item placement targets a section with optional ordering anchors, a position beside an entity, free space, or a point; logical sides and resize anchors resolve through the board's direction. `item-add` finds its shape first in `options.facts[address]`, then from an existing item at the same address. Section, label and board verbs (`section-add`, `section-remove`, `section-set`, `label-add`, `label-remove`, `label-set`, `board-set`) place a section or label with a `PlacementTarget` (beside an entity, free space, or a point); with no target, a new section anchors at its members' top-start corner and a new label or empty section goes to the first free spot past the content. Label size and authored-width measurement follow the `Board` rules above. `editBoard(document, commands, shapes, options)` takes a parsed board `Document`; another document kind is refused naming the kind. It applies a command batch atomically and names the command index, what could not be established, and what clears the refusal when no result can be produced. A successful result reports `changed` entities whose boxes differ, `adjustments` for decisions the caller did not state, the edited `document`, and a `batch` whose base fingerprints the input document and whose operations reproduce the edited document from that input.
 
 ## Player surface
 

@@ -1,6 +1,6 @@
 import type { Board, BoardItem, BoardLabel } from './board.ts'
 import type { Box, MeasuredSize, Point } from './deck.ts'
-import type { TextDirection } from './direction.ts'
+import { resolveDirection, type TextDirection } from './direction.ts'
 
 export interface BoardShapes {
   items: Record<string, MeasuredSize>
@@ -55,10 +55,12 @@ export function labelRectangle(label: BoardLabel, shapes: BoardShapes): Box {
   return { x: label.x, y: label.y, width: shape.width, height: shape.height }
 }
 
-export function labelXForWidth(label: BoardLabel, direction: TextDirection, width: number): number {
-  if (direction === 'ltr') return label.x
-  const currentWidth = label.width ?? label.size?.width ?? width
-  return label.x + currentWidth - width
+export function labelDirection(label: BoardLabel): TextDirection {
+  return resolveDirection(undefined, undefined, label.text)
+}
+
+export function labelXForWidth(label: BoardLabel, currentWidth: number, width: number): number {
+  return labelDirection(label) === 'rtl' ? label.x + currentWidth - width : label.x
 }
 
 export function defaultGridColumns(count: number): number {

@@ -1,7 +1,7 @@
-import { Board, type BoardItem } from './board.ts'
+import { Board, type BoardItem, LABEL_MIN_WIDTH } from './board.ts'
 import type { Point } from './deck.ts'
 
-export const MIN_BOARD_ITEM_WIDTH = 16
+export const MIN_BOARD_ITEM_WIDTH = LABEL_MIN_WIDTH
 
 export type BoardItemAnchor = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 
