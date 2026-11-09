@@ -1,5 +1,4 @@
 import type { Fill, SlotDeclaration, SlotReport, SlotState, SlotValue } from '@segnavia/format'
-import type { ItemSettingsLabels } from './item-settings-labels.ts'
 
 export type SlotWarning = 'missing' | 'overflowed' | 'shrunk'
 
@@ -15,20 +14,6 @@ export interface SlotFieldView {
   canUseSource: boolean
   state: SlotState | undefined
   warnings: SlotWarning[]
-}
-
-const SLOT_STATE_LABEL_KEYS = {
-  filled: 'stateFilled',
-  placeholder: 'statePlaceholder',
-  unavailable: 'stateUnavailable',
-  invalid: 'stateInvalid',
-  fit: 'stateFit',
-  shrunk: 'stateShrunk',
-  overflowed: 'stateOverflowed',
-} as const satisfies Record<SlotState, string>
-
-export function slotStateLabel(state: SlotState, labels: ItemSettingsLabels): string {
-  return labels[SLOT_STATE_LABEL_KEYS[state]]
 }
 
 function layeredValue(fill: Fill | undefined, source: Fill | undefined, key: string): { value?: SlotValue; origin?: 'hand' | 'source' } {
@@ -59,7 +44,10 @@ export function slotWarnings(slot: SlotDeclaration, state: SlotState | undefined
 
 export function slotFieldView(slot: SlotDeclaration, fill: Fill | undefined, source: Fill | undefined, report: SlotReport | undefined): SlotFieldView {
   const layered = layeredValue(fill, source, slot.key)
-  const origin = report?.origins[slot.key] ?? layered.origin
+  const displayedFill = fill?.id ?? source?.id ?? null
+  const currentReport = report?.fill === displayedFill ? report : undefined
+  const state = currentReport !== undefined && Object.hasOwn(currentReport.slots, slot.key) ? currentReport.slots[slot.key] : undefined
+  const origin = currentReport?.origins[slot.key] ?? layered.origin
   const value =
     origin === 'source' ? (source?.values[slot.key] ?? layered.value) : origin === 'hand' ? (fill?.values[slot.key] ?? layered.value) : layered.value
   const sourceHasValue = source?.values[slot.key] !== undefined && source.values[slot.key] !== ''
@@ -74,8 +62,8 @@ export function slotFieldView(slot: SlotDeclaration, fill: Fill | undefined, sou
     readOnly,
     canOverride: readOnly && fill !== undefined,
     canUseSource: origin === 'hand' && sourceHasValue && fill !== undefined,
-    state: report?.slots[slot.key],
-    warnings: slotWarnings(slot, report?.slots[slot.key], layered.value !== undefined),
+    state,
+    warnings: slotWarnings(slot, state, layered.value !== undefined),
   }
 }
 

@@ -1,10 +1,24 @@
-import type { Fill, SlotDeclaration, SlotValue } from '@segnavia/format'
+import type { Fill, SlotDeclaration, SlotState, SlotValue } from '@segnavia/format'
 import { fillLabel, selectedFill } from './item-settings-fills.ts'
 import type { ItemSettingsLabels } from './item-settings-labels.ts'
 import type { ItemSettingsSectionContext } from './item-settings-section.ts'
-import { type SlotFieldView, slotFieldView, slotStateLabel } from './item-settings-values.ts'
+import { type SlotFieldView, slotFieldView } from './item-settings-values.ts'
 
 const INPUT_TYPE = { text: 'text', phone: 'tel', email: 'email', link: 'url', qr: 'url' } as const
+
+const SLOT_STATE_LABEL_KEYS = {
+  filled: 'stateFilled',
+  placeholder: 'statePlaceholder',
+  unavailable: 'stateUnavailable',
+  invalid: 'stateInvalid',
+  fit: 'stateFit',
+  shrunk: 'stateShrunk',
+  overflowed: 'stateOverflowed',
+} as const satisfies Record<SlotState, keyof ItemSettingsLabels>
+
+function slotStateLabel(state: SlotState, labels: ItemSettingsLabels): string {
+  return labels[SLOT_STATE_LABEL_KEYS[state]]
+}
 
 export interface FieldsActions {
   pickAsset?: (slot: SlotDeclaration) => Promise<SlotValue | undefined>

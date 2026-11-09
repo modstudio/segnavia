@@ -1,39 +1,8 @@
-import { afterAll, describe, expect, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 import type { Fill } from '@segnavia/format'
+import { installItemSettingsTestDocument } from './item-settings-test-document.test-helper.ts'
 
-class TestElement extends EventTarget {
-  children: TestElement[] = []
-  part = { add() {} }
-
-  attachShadow() {
-    return new TestElement()
-  }
-
-  append(...nodes: TestElement[]) {
-    this.children.push(...nodes)
-  }
-}
-
-// Both globals are process-wide under bun test, and a later file's helper may
-// already have installed its own document; put the previous ones back.
-const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
-const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
-afterAll(() => {
-  for (const [name, previous] of [
-    ['HTMLElement', previousHTMLElement],
-    ['document', previousDocument],
-  ] as const) {
-    if (previous) Object.defineProperty(globalThis, name, previous)
-    else Reflect.deleteProperty(globalThis, name)
-  }
-})
-
-Object.assign(globalThis, { HTMLElement: TestElement })
-Object.defineProperty(globalThis, 'document', {
-  configurable: true,
-  writable: true,
-  value: { createElement: () => new TestElement(), documentElement: { style: {} } },
-})
+installItemSettingsTestDocument()
 
 const { ItemSettingsController } = await import('./item-settings-authoring.ts')
 const { SegnaviaItemSettings } = await import('./item-settings-element.ts')

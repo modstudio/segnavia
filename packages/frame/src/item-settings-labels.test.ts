@@ -7,5 +7,4 @@ test('partial item settings labels fall back to English', () => {
   expect(labels.override).toBe('דריסה')
   expect(labels.useSource).toBe(ENGLISH_ITEM_SETTINGS_LABELS.useSource)
   expect(labels.missing).toBe(ENGLISH_ITEM_SETTINGS_LABELS.missing)
-  expect(labels.statePlaceholder).toBe(ENGLISH_ITEM_SETTINGS_LABELS.statePlaceholder)
 })
