@@ -8,7 +8,7 @@ type ShotContent = Extract<Slide['content'], { kind: 'shot' }>
 
 export type SlideRow = SlideFields & ({ kind: 'html'; html: string } | ShotContent)
 
-export type DeckFromSlidesOptions = Pick<DocumentInput, 'title' | 'size' | 'layout' | 'fit' | 'frame' | 'transition' | 'playback' | 'captions'> & {
+export type DeckFromSlidesOptions = Pick<DocumentInput, 'title' | 'size' | 'layout' | 'fit' | 'frame' | 'transition' | 'playback' | 'captions' | 'style'> & {
   settings?: DocumentInput['settings']
   data?: DocumentInput['data']
   omitNotes?: boolean
@@ -17,7 +17,7 @@ export type DeckFromSlidesOptions = Pick<DocumentInput, 'title' | 'size' | 'layo
 const optionalPrintAt = (printAtMs: number | undefined) => (printAtMs === undefined ? {} : { printAtMs })
 
 export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions) {
-  const { omitNotes = false, title, size, layout, fit, frame, transition, playback, captions, settings, data } = options
+  const { omitNotes = false, title, size, layout, fit, frame, transition, playback, captions, settings, style, data } = options
   const slides = rows.map(({ kind, ...row }) => {
     const { id, notes, narration, beforeMs, afterMs, holdMs, printAtMs } = row
     const common = {
@@ -54,6 +54,7 @@ export function deckFromSlides(rows: SlideRow[], options: DeckFromSlidesOptions)
     playback,
     captions,
     settings,
+    style,
     data,
     children: slides.map((slide) => ({ type: 'slide' as const, ...slide })),
   })
