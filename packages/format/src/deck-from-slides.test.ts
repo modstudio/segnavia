@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { deckFromSlides, type Narration, type Shot } from './index.ts'
+import { Document, deckFromDocument, deckFromSlides, type Narration, type Shot } from './index.ts'
 
 const shot: Shot = {
   key: 'cover',
@@ -66,6 +66,23 @@ describe('deckFromSlides', () => {
   test('can omit notes for a public projection', () => {
     const deck = deckFromSlides([{ id: 'intro', kind: 'html', html: '', notes: 'Private' }], { title: 'Public', omitNotes: true })
     expect(deck.children[0]).not.toHaveProperty('notes')
+  })
+
+  test('renders a style like the same directly parsed document', () => {
+    const style = {
+      tokens: { colors: { accent: '#663399' } },
+      css: ':where(h1){color:var(--segnavia-color-accent)}',
+    }
+    const fromSlides = deckFromSlides([{ id: 'intro', kind: 'html', html: '<h1>Hello</h1>' }], { title: 'Styled', style })
+    const direct = Document.parse({
+      type: 'document',
+      kind: 'deck',
+      title: 'Styled',
+      style,
+      children: [{ type: 'slide', id: 'intro', content: { kind: 'html', html: '<h1>Hello</h1>' } }],
+    })
+
+    expect(deckFromDocument(fromSlides)).toEqual(deckFromDocument(direct))
   })
 
   test('passes narration, shot and timing validation through Deck', () => {
