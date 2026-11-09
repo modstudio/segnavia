@@ -152,7 +152,7 @@ async function renderHtmlSlides(
       try {
         const bytes = await services.renderPdf(
           {
-            viewport: press.sheet ? { width: Math.round(press.sheet.width), height: Math.round(press.sheet.height) } : deck.size,
+            viewport: deckPrintableViewport(deck.size, undefined, press),
             // The nonce policy, rather than disabling JavaScript in Chromium,
             // refuses author code while leaving the print bridge running.
             scripts: true,
@@ -170,11 +170,8 @@ async function renderHtmlSlides(
             beforeOutput: (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
           },
           {
-            width: press.slides && press.boxes ? `${press.boxes.bleedBox.width}mm` : `${deck.size.width}px`,
-            height: press.slides && press.boxes ? `${press.boxes.bleedBox.height}mm` : `${deck.size.height}px`,
-            printBackground: true,
+            ...deckPrintablePdfOptions(press),
             pageRanges: '1',
-            margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
           },
           [index],
         )
@@ -216,7 +213,7 @@ async function regularDeckPdf(
   pressSettings: ReturnType<typeof deckPressSettings>,
   diagramScript?: string,
 ): Promise<Uint8Array> {
-  const press = deckPressContext(opts.layout, pressSettings)
+  const press = deckPressContext(pressSettings)
   const baseCss = services.fontFaces(opts)
   const slideBaseCss = containFixedPageOverflow(`${baseCss}${press.slides && press.print ? printCss(press.print, 'ltr') : ''}`)
   const notesGeometry = opts.layout === 'notes' ? notesLayoutGeometry(deck.size, pressSettings.notes) : undefined

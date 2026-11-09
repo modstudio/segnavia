@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { BookMode, BookPage, BookShape } from './book.ts'
-import { DeckShape } from './deck.ts'
+import { DeckShape, deckTrim } from './deck.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { DocumentMetadata } from './document-metadata.ts'
@@ -11,7 +11,7 @@ import { DocumentLimitsValue } from './limits.ts'
 import { LogicalMargin } from './margins.ts'
 import { divisionNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
-import { Orientation, Paper, PX_PER_MM, sheetMm } from './paper.ts'
+import { Orientation, Paper, sheetMm } from './paper.ts'
 import { PressGeometry, Print, pressSafeAreaIssues } from './print.ts'
 import { PrintedPageRules } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
@@ -296,10 +296,7 @@ function refineProfileShape(document: DocumentShapeValue, profile: DocumentProfi
 function pressTrim(document: DocumentShapeValue, profile: DocumentProfile): { width: number; height: number } | undefined {
   if (profile.printTrimSource === 'bookPage') return document.page ? sheetMm(document.page) : undefined
   if (profile.printTrimSource !== 'deckSize') return undefined
-  return {
-    width: (typeof document.size === 'object' && typeof document.size.width === 'number' ? document.size.width : 1280) / PX_PER_MM,
-    height: (typeof document.size === 'object' && typeof document.size.height === 'number' ? document.size.height : 720) / PX_PER_MM,
-  }
+  return deckTrim(typeof document.size === 'object' && typeof document.size.width === 'number' ? document.size : undefined)
 }
 
 function refinePrint(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {

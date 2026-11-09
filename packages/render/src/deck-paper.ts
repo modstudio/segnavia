@@ -1,4 +1,4 @@
-import { type Deck, type Print, type PrintBoxes, printBoxes, usesPressLayout } from '@segnavia/format'
+import { type Deck, type Print, type PrintBoxes } from '@segnavia/format'
 import type { deckPressSettings, notesLayoutGeometry } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import type { PdfRectangle } from './pdf-geometry.ts'
@@ -15,13 +15,14 @@ export interface DeckPressContext {
   slides: boolean
 }
 
-export function deckPressContext(layout: 'slides' | 'notes' | undefined, settings: ReturnType<typeof deckPressSettings>): DeckPressContext {
-  const print = layout === 'notes' ? settings.notes : settings.sheet?.print
-  if (!print) return { active: false, slides: false }
-  const boxes = layout === 'notes' ? printBoxes(print) : settings.sheet?.boxes
-  const active = layout === 'notes' ? usesPressLayout(print) : (settings.sheet?.active ?? false)
-  const slides = active && layout !== 'notes'
-  return { print, boxes, active, slides, sheet: slides ? settings.sheet?.sheet : undefined }
+export function deckPressContext(settings: ReturnType<typeof deckPressSettings>): DeckPressContext {
+  return {
+    print: settings.print,
+    boxes: settings.boxes,
+    active: settings.active,
+    slides: settings.slides,
+    sheet: settings.slides ? settings.sheet?.sheet : undefined,
+  }
 }
 
 export function deckPrintableViewport(size: Deck['size'], notes: ReturnType<typeof notesLayoutGeometry> | undefined, press: DeckPressContext) {

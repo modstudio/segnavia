@@ -7,6 +7,9 @@ export type MarkColor = z.infer<typeof MarkColor>
 
 // Paper exists only to export a page at a standard printed size. A page
 // without it exports at its own size. Margins are in millimeters.
+export const PRESS_GEOMETRY_FIELDS = ['bleed', 'safe', 'marks', 'markColor'] as const
+export type PressGeometryField = (typeof PRESS_GEOMETRY_FIELDS)[number]
+
 const pressGeometryFields = {
   bleed: z.number().nonnegative().default(0),
   safe: z.number().nonnegative().default(0),

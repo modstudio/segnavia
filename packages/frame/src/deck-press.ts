@@ -1,4 +1,15 @@
-import { type Deck, Print, type PrintBoxes, type PrintInput, PX_PER_MM, pressBoxes, usesPressLayout } from '@segnavia/format'
+import {
+  type Deck,
+  deckTrim,
+  PRESS_GEOMETRY_FIELDS,
+  Print,
+  type PrintBoxes,
+  type PrintInput,
+  PX_PER_MM,
+  pressBoxes,
+  printBoxes,
+  usesPressLayout,
+} from '@segnavia/format'
 import { NOTES_PAPER } from './notes-layout.ts'
 
 export interface DeckSheetGeometry {
@@ -17,24 +28,23 @@ interface DeckPressOptions {
   preferCssPageSize?: boolean
 }
 
-function invalidSetting(setting: 'notesPaper', field: PropertyKey, message: string): RangeError {
+function invalidSetting(field: PropertyKey, message: string): RangeError {
   return new RangeError(
-    `The ${setting} setting is invalid: ${String(field)} ${message}. Correct ${setting}.${String(field)}, or remove ${setting}, to clear this refusal.`,
+    `The notesPaper setting is invalid: ${String(field)} ${message}. Correct notesPaper.${String(field)}, or remove notesPaper, to clear this refusal.`,
   )
 }
 
-function parsePrint(setting: 'notesPaper', input: PrintInput): Print {
+function parsePrint(input: PrintInput): Print {
   const result = Print.safeParse(input)
   if (result.success) return result.data
   const issue = result.error.issues[0]
-  throw invalidSetting(setting, issue?.path.at(-1) ?? setting, issue?.message ?? 'is invalid')
+  throw invalidSetting(issue?.path.at(-1) ?? 'notesPaper', issue?.message ?? 'is invalid')
 }
 
 export function deckSheetGeometry(deck: Deck): DeckSheetGeometry | undefined {
   if (!deck.print) return undefined
   const { size, print } = deck
-  const width = size.width / PX_PER_MM
-  const height = size.height / PX_PER_MM
+  const { width, height } = deckTrim(size)
   const resolved = Print.parse({
     ...print,
     paper: { width: Math.min(width, height), height: Math.max(width, height), unit: 'mm' },
@@ -53,24 +63,41 @@ export function deckSheetGeometry(deck: Deck): DeckSheetGeometry | undefined {
 
 export function deckNotesPrint(notesPaper: PrintInput | undefined, deck: Deck): Print {
   const input = (notesPaper ?? NOTES_PAPER) as PrintInput & Record<string, unknown>
-  for (const field of ['bleed', 'safe', 'marks', 'markColor'] as const) {
+  for (const field of PRESS_GEOMETRY_FIELDS) {
     if (input[field] !== undefined) {
       throw new RangeError(`notesPaper.${field} belongs on the deck Document's print; remove notesPaper.${field} and set print.${field} to clear this refusal.`)
     }
   }
-  return parsePrint('notesPaper', { ...input, ...deck.print })
+  return parsePrint({ ...input, ...deck.print })
 }
 
-export function deckPressSettings(deck: Deck, options: DeckPressOptions): { sheet?: DeckSheetGeometry; notes?: Print } {
+export interface DeckPressSettings {
+  sheet?: DeckSheetGeometry
+  notes?: Print
+  print?: Print
+  boxes?: PrintBoxes
+  active: boolean
+  slides: boolean
+}
+
+export function deckPressSettings(deck: Deck, options: DeckPressOptions): DeckPressSettings {
   if (options.sheet !== undefined)
     throw new RangeError("PrintOptions.sheet was removed; put press geometry on the deck Document's print to clear this refusal.")
   const sheet = deckSheetGeometry(deck)
   const notes = options.layout === 'notes' ? deckNotesPrint(options.notesPaper, deck) : undefined
   const print = options.layout === 'notes' ? notes : sheet?.print
-  if (print && usesPressLayout(print) && options.preferCssPageSize) {
+  const active = print ? usesPressLayout(print) : false
+  if (active && options.preferCssPageSize) {
     throw new RangeError(
       "A deck with bleed or marks takes its size from the Document's print setting. Remove preferCssPageSize, or remove print.bleed and print.marks, to clear this refusal.",
     )
   }
-  return { sheet, notes }
+  return {
+    sheet,
+    notes,
+    print,
+    boxes: options.layout === 'notes' && notes ? printBoxes(notes) : sheet?.boxes,
+    active,
+    slides: active && options.layout !== 'notes',
+  }
 }

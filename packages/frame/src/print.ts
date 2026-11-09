@@ -16,6 +16,7 @@ import {
   pageOrPrintedFromDocument,
   parseLimits,
   resolveBrand,
+  PRESS_GEOMETRY_FIELDS,
 } from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
@@ -191,9 +192,10 @@ export async function preparedDeckValuePrint(
     const printable = printableDeckValueDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
     return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
+  const removedPressFields = Object.fromEntries(PRESS_GEOMETRY_FIELDS.map((field) => [field, undefined]))
   const browserOptions = {
     ...printOptions,
-    notesPaper: printOptions.notesPaper ? { ...printOptions.notesPaper, bleed: undefined, safe: undefined, marks: undefined, markColor: undefined } : undefined,
+    notesPaper: printOptions.notesPaper ? { ...printOptions.notesPaper, ...removedPressFields } : undefined,
   }
   return { ...resolvedDeck.size, html: printableDeckValue({ ...preparedDeck, print: undefined }, browserOptions), ...options, slots: resolvedSlots }
 }
@@ -264,7 +266,6 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
   const signal = new AbortController().signal
   const document = parseDocument(input, { newId: options.newId })
   const deck = deckFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
-  deckPressSettings(deck, options)
   options = { ...options, limits: parseLimits(options.limits, 'host') }
   const reasons = exceedsLimits(deck, options.limits ?? {})
   if (reasons.length > 0) throw new RangeError(reasons.join('; '))
