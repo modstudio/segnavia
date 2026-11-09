@@ -8,6 +8,7 @@ import {
   type FontManifest,
   type FontReference,
   type FontSource,
+  fontManifestReferences,
   fontManifestWithReferences,
   matchFaces,
   type Page,
@@ -20,7 +21,7 @@ export interface FontsOptions {
   local?: FontFace[]
 }
 
-export { fontManifestWithReferences }
+export { fontManifestReferences, fontManifestWithReferences }
 
 export interface ResolvedFonts {
   css: string
@@ -56,13 +57,6 @@ export function appNames(references: FontReference[]): string[] {
     names.push(name)
   }
   return names
-}
-
-export function fontManifestReferences(fonts: FontManifest | undefined, undeclared: readonly string[] = []): FontReference[] {
-  const references = Object.entries(fonts ?? {}).map(([name, declaration]) => ('local' in declaration ? declaration : { app: name }))
-  const declared = new Set(references.flatMap((reference) => ('app' in reference ? [reference.app] : [])))
-  for (const name of undeclared) if (!declared.has(name)) references.push({ app: name })
-  return references
 }
 
 export function refuseMissingFontSource(fonts: FontManifest, undeclared: readonly string[], place: string): void {

@@ -208,6 +208,7 @@ export {
   FontReference,
   FontReferenceInput,
   type FontSource,
+  fontManifestReferences,
   fontManifestWithReferences,
   HEBREW_UNICODE_RANGE,
   type LocalFacesInput,

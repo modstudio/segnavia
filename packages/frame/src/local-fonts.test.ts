@@ -78,6 +78,18 @@ function installed(fonts: StubFont[]): QueryLocalFonts {
 }
 
 describe('readLocalFonts', () => {
+  test('reads a font manifest', async () => {
+    const result = await readLocalFonts(
+      {
+        serif: { faces: [{}] },
+        local: { local: 'Some Local Face', fallback: 'serif' },
+      },
+      { signal },
+    )
+    expect(result.faces).toEqual([])
+    expect(result.unavailable).toEqual([{ family: 'Some Local Face', fallback: 'serif', reason: 'unsupported' }])
+  })
+
   test('reports unsupported with each declared fallback when the API is absent', async () => {
     const result = await readLocalFonts([{ app: 'serif' }, { local: 'Some Local Face', fallback: 'serif' }, { local: 'Other Face', fallback: 'heading' }], {
       signal,
@@ -197,6 +209,15 @@ describe('readLocalFonts', () => {
 })
 
 describe('packLocalFaces', () => {
+  test('packs a font manifest', () => {
+    expect(
+      packLocalFaces([{ family: 'Alef', data: truetype, format: 'truetype' }], {
+        serif: { faces: [{}] },
+        local: { local: 'Alef', fallback: 'serif' },
+      }),
+    ).toEqual([{ family: 'Alef', data: 'AAEAAA==', format: 'truetype' }])
+  })
+
   test.each([Number.NaN, Number.POSITIVE_INFINITY, -1, 1.5])('refuses invalid host limits %p at the packing edge', (bytes) => {
     expect(() => packLocalFaces([], [], { localFonts: { bytes } })).toThrow('limits.localFonts.bytes limit must be a non-negative safe integer')
   })

@@ -1,7 +1,9 @@
 import {
   type FontFace,
   FontFaceRefusedError,
+  type FontManifest,
   type FontReference,
+  fontManifestReferences,
   type Limits,
   type LocalFacesInput,
   localFontLimitRefusal,
@@ -136,8 +138,16 @@ async function installedFonts(signal: AbortSignal): Promise<{ fonts?: LocalFontD
   }
 }
 
-export async function readLocalFonts(references: readonly FontReference[], options: { signal: AbortSignal }): Promise<LocalFonts> {
-  const locals = localFontReferences(references)
+function isFontReferenceArray(declarations: readonly FontReference[] | FontManifest): declarations is readonly FontReference[] {
+  return Array.isArray(declarations)
+}
+
+function localReferences(declarations: readonly FontReference[] | FontManifest): Array<{ local: string; fallback: string }> {
+  return localFontReferences(isFontReferenceArray(declarations) ? declarations : fontManifestReferences(declarations))
+}
+
+export async function readLocalFonts(declarations: readonly FontReference[] | FontManifest, options: { signal: AbortSignal }): Promise<LocalFonts> {
+  const locals = localReferences(declarations)
   if (locals.length === 0) return { faces: [], unavailable: [] }
   const installed = await installedFonts(options.signal)
   if (installed.reason) return unavailable(locals, installed.reason)
@@ -163,10 +173,10 @@ export async function readLocalFonts(references: readonly FontReference[], optio
   return { faces, unavailable: unavailableFaces }
 }
 
-export function packLocalFaces(faces: readonly FontFace[], references: readonly FontReference[], limits?: Limits): LocalFacesInput {
+export function packLocalFaces(faces: readonly FontFace[], declarations: readonly FontReference[] | FontManifest, limits?: Limits): LocalFacesInput {
   const families = new Map<string, string>()
-  for (const reference of references) {
-    if ('local' in reference && !families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
+  for (const reference of localReferences(declarations)) {
+    if (!families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
   }
   const selected = faces.flatMap((face) => {
     const family = families.get(face.family.toLowerCase())
