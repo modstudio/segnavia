@@ -20,7 +20,7 @@ export const PaginatePageNote = z.object({
 })
 export type PaginatePageNote = z.infer<typeof PaginatePageNote>
 
-export const PaginatePageMarks = z.record(z.string(), z.object({ first: z.string(), last: z.string() }))
+export const PaginatePageMarks = z.record(z.string(), z.object({ first: z.string(), last: z.string(), scope: z.literal('flow').optional() }))
 export type PaginatePageMarks = z.infer<typeof PaginatePageMarks>
 
 const PlanPageStart = z.object({

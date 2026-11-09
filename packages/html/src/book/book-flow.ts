@@ -1,4 +1,4 @@
-import { type Book, bookSections, isPart, MAX_PART_DEPTH, PX_PER_MM, sheetMm } from '@segnavia/format'
+import { type Book, bookSections, isPart, MAX_PART_DEPTH, PX_PER_MM, SECTION_BOUNDARY_CLASS, sheetMm } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { fragmentationCss } from '../fragmentation.ts'
@@ -17,6 +17,7 @@ const DEEP_CONTENTS_INDENTS = Array.from({ length: MAX_PART_DEPTH }, (_, index) 
   .join('')
 const CONTENTS_PREFIX = `:where(.segnavia-contents-list){list-style:none;padding:0;margin:0}:where(.segnavia-contents-entry){display:flex}:where(.segnavia-contents-subtitle){display:block}:where(.segnavia-contents-page){margin-inline-start:auto}:where([data-ref="page"]){unicode-bidi:isolate}${CONTENTS_INDENTS}`
 const CONTENTS_SUFFIX = ':where(.segnavia-targets){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;clip-path:inset(50%)}'
+const SECTION_BOUNDARY = `:where(.${SECTION_BOUNDARY_CLASS}){display:block;block-size:0.01px;overflow:hidden;font-size:0;line-height:0;margin:0;padding:0;border:0}`
 const GALLEY_SUFFIX =
   ':where([data-segnavia-galleys]){position:relative}:where([data-segnavia-flow]){orphans:inherit;widows:inherit}:where([data-segnavia-kind="fixed"],[data-segnavia-kind="templated"],[data-segnavia-template]){display:none}:where([data-segnavia-notes-galley]){border-block-start:1px solid;padding-block-start:8px}:where([data-segnavia-note]){break-inside:avoid}:where([data-segnavia-galleys] img,[data-segnavia-window] img,[data-segnavia-page-note] img){display:block;max-block-size:var(--segnavia-text-height);max-inline-size:100%;block-size:auto;inline-size:auto}'
 
@@ -83,8 +84,8 @@ export function resolveBookBuild(book: Book, requested: BookBuild | undefined): 
 
 export function bookDocumentCss(book: Book, build: BookBuild): string {
   const fragmentation = fragmentationCss(book.fragmentation)
-  if (build === 'galley') return `${fragmentation}${contentsCss(book)}${GALLEY_SUFFIX}`
-  return `${fragmentation}${build === 'flow' ? flowCss(book) : printCss(book)}`
+  if (build === 'galley') return `${fragmentation}${contentsCss(book)}${SECTION_BOUNDARY}${GALLEY_SUFFIX}`
+  return `${fragmentation}${SECTION_BOUNDARY}${build === 'flow' ? flowCss(book) : printCss(book)}`
 }
 
 export function flowPageStyle(geometry: BookFlowPageGeometry, recto: boolean): string {
