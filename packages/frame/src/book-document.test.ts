@@ -110,7 +110,7 @@ describe('bookDocument', () => {
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
     const embedded = new Function(
-      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,resolveRegionHeads}`,
+      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads}`,
     )() as {
       resolveRegionHeads: (
         templates: { name: string; parts: { variable: string }[]; separator: string; dropEmpty: boolean; collapseEqual: boolean }[],
@@ -126,6 +126,12 @@ describe('bookDocument', () => {
       decideBookMeasurement: typeof decideBookMeasurement
       forcedPageBreak: typeof forcedPageBreak
       fillRegion: (html: string, values: { heads: Record<string, string> }) => string
+      fillFurniture: (
+        root: { innerHTML: string; querySelectorAll: () => never[] },
+        html: string,
+        heads: Record<string, string>,
+        slots: Record<string, string>,
+      ) => void
     }
     expect(
       embedded.flowTextArea(FLOWING_PARENT_RULES, {
@@ -144,6 +150,9 @@ describe('bookDocument', () => {
     expect(embedded.fillRegion(parent?.head ?? '', { heads: { 'segnavia:running-head': '<bdi>Chapter</bdi>' } })).toBe(
       '<div class="segnavia-running-head"><bdi>Chapter</bdi></div>',
     )
+    const root = { innerHTML: '', querySelectorAll: () => [] }
+    embedded.fillFurniture(root, parent?.head ?? '', { 'segnavia:running-head': '<bdi>Chapter</bdi>' }, {})
+    expect(root.innerHTML).toBe('<div class="segnavia-running-head"><bdi>Chapter</bdi></div>')
     const template = { name: 'head', parts: [{ variable: 'parasha' }, { variable: 'siman' }], separator: ' · ', dropEmpty: true, collapseEqual: false }
     expect(embedded.resolveRegionHeads([template], { parasha: 'בראשית', siman: 'Mark B' }, {}, 'rtl', 'he')).toEqual({
       head: '<bdi dir="rtl">בראשית</bdi><span dir="rtl"> · </span><bdi dir="rtl">Mark B</bdi>',

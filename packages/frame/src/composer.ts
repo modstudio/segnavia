@@ -25,9 +25,11 @@ import { COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
 import {
   dressPlanPages,
   fillFurniture,
+  fillRegion,
   fillRegionImplementation,
   markFurnitureOverflow,
   markRegionOverflow,
+  resolveRegionHeads,
   resolveRegionHeadsImplementation,
 } from './composer-dress.ts'
 import {
@@ -231,8 +233,10 @@ ${embedFunction('scanHeadTemplatePlacements', headTemplatePlacements)}
 var headTemplatePlacements=function(html){return scanHeadTemplatePlacements(html,MOTIF_ATTRIBUTE,HEAD_TEMPLATE_MOTIF,HEAD_TEMPLATE_NAME_ATTRIBUTE);};
 ${embedFunction('fillRegionImplementation', fillRegionImplementation)}
 var fillRegion=function(html,values,direction,lang){return fillRegionImplementation(html,values,headTemplatePlacements,MOTIF_ATTRIBUTE);};
+var ${fillRegion.name}=fillRegion;
 ${embedFunction('resolveRegionHeadsImplementation', resolveRegionHeadsImplementation)}
 var resolveRegionHeads=function(templates,variables,recordSlots,direction,lang){return resolveRegionHeadsImplementation(templates,variables,recordSlots,direction,lang,resolveHeadTemplate);};
+var ${resolveRegionHeads.name}=resolveRegionHeads;
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}
 ${embedFunction('markRegionOverflow', markRegionOverflow)}
 ${embedFunction('dressPlanPages', dressPlanPages)}
