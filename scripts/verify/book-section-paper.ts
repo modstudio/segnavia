@@ -193,12 +193,18 @@ export async function verifyBookSectionPaper(renderer: Renderer, work: string, c
         const trim = expected[pageNumber - 1]
         if (!trim) return false
         const words = page.words.filter((word) => word.text === 'HEAD' || word.text === 'FOLIO')
-        const left = 3 / MM_PER_PT + (planPage.side === 'right' ? margin.inlineStart : margin.inlineEnd) / MM_PER_PT
-        const right = 3 / MM_PER_PT + trim.width / MM_PER_PT - (planPage.side === 'right' ? margin.inlineEnd : margin.inlineStart) / MM_PER_PT
+        const recto = planPage.side === (hebrew ? 'left' : 'right')
+        const left = 3 / MM_PER_PT + (recto ? margin.inlineEnd : margin.inlineStart) / MM_PER_PT
+        const right = 3 / MM_PER_PT + trim.width / MM_PER_PT - (recto ? margin.inlineStart : margin.inlineEnd) / MM_PER_PT
+        const glyphOverhang = 2
         return (
           words.length >= 2 &&
           words.every(
-            (word) => word.xMin >= left - 1 && word.xMax <= right + 1 && word.yMin >= 3 / MM_PER_PT - 1 && word.yMax <= (trim.height + 3) / MM_PER_PT + 1,
+            (word) =>
+              word.xMin >= left - glyphOverhang &&
+              word.xMax <= right + glyphOverhang &&
+              word.yMin >= 3 / MM_PER_PT - glyphOverhang &&
+              word.yMax <= (trim.height + 3) / MM_PER_PT + glyphOverhang,
           )
         )
       })
