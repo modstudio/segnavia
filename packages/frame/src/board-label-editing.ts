@@ -14,6 +14,18 @@ export function committedLabelText(oldText: string, newText: string): string | u
   return newText !== oldText && newText.trim().length > 0 ? newText : undefined
 }
 
+export type LabelDoubleClickTarget = { kind: 'handle' | 'label'; id: string }
+
+export function labelDoubleClickTarget(
+  handleId: string | undefined,
+  labelId: string | undefined,
+  captured?: LabelDoubleClickTarget,
+): LabelDoubleClickTarget | undefined {
+  if (handleId) return { kind: 'handle', id: handleId }
+  if (labelId) return { kind: 'label', id: labelId }
+  return captured
+}
+
 export function labelResizeHandlePoint(label: Board['labels'][number], view: BoardView, shape: { width: number; height: number }): Point {
   const point = boardToScreen(view, label)
   return {

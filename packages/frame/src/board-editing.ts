@@ -37,7 +37,7 @@ import { renderLabelResizeHandle, renderResizeHandles } from './board-editing-ov
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
 import { boardPathElement } from './board-event-path.ts'
 import { BOARD_HISTORY_LIMIT } from './board-history.ts'
-import { withoutLabelWidth } from './board-label-editing.ts'
+import { type LabelDoubleClickTarget, labelDoubleClickTarget, withoutLabelWidth } from './board-label-editing.ts'
 import { BoardLabelEditor } from './board-label-editor.ts'
 import { boardLabels } from './labels.ts'
 
@@ -89,6 +89,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private invalidated: BoardEditQueueState['invalidated'] = null
   private readonly input: BoardEditingInput
   private readonly labelEditor: BoardLabelEditor
+  private doubleClickTarget: LabelDoubleClickTarget | undefined
   private stopped = false
 
   constructor(
@@ -224,6 +225,10 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   pointerDown(event: PointerEvent): boolean {
+    this.doubleClickTarget = labelDoubleClickTarget(
+      boardPathElement(event, 'labelResizeHandle')?.dataset.labelResizeHandle,
+      boardPathElement(event, 'boardLabel')?.dataset.boardLabel,
+    )
     return this.input.pointerDown(event)
   }
 
@@ -245,15 +250,19 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   private onKeyUp = (event: KeyboardEvent) => this.input.keyUp(event)
   private onDoubleClick = (event: MouseEvent) => {
-    const handleId = boardPathElement(event, 'labelResizeHandle')?.dataset.labelResizeHandle
-    if (handleId) {
-      const next = withoutLabelWidth(this.bridge.value(), handleId, this.bridge.shapes(), this.bridge.labelShape)
-      if (next) this.applyBoard(next, { kind: 'resize', ids: [handleId] })
+    const target = labelDoubleClickTarget(
+      boardPathElement(event, 'labelResizeHandle')?.dataset.labelResizeHandle,
+      boardPathElement(event, 'boardLabel')?.dataset.boardLabel,
+      this.doubleClickTarget,
+    )
+    this.doubleClickTarget = undefined
+    if (target?.kind === 'handle') {
+      const next = withoutLabelWidth(this.bridge.value(), target.id, this.bridge.shapes(), this.bridge.labelShape)
+      if (next) this.applyBoard(next, { kind: 'resize', ids: [target.id] })
       event.preventDefault()
       return
     }
-    const id = boardPathElement(event, 'boardLabel')?.dataset.boardLabel
-    if (id) this.labelEditor.open(id)
+    if (target?.kind === 'label') this.labelEditor.open(target.id)
   }
 
   private applyBoard(next: Board, edit: BoardEdit) {

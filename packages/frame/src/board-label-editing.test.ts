@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board, BoardLabel, BoardShapes, BoardView } from '@segnavia/format'
-import { committedLabelText, labelResizeHandlePoint } from './board-label-editing.ts'
+import { committedLabelText, labelDoubleClickTarget, labelResizeHandlePoint } from './board-label-editing.ts'
 
 const view: BoardView = { zoom: 2, pan: { x: 10, y: 20 }, viewport: { width: 800, height: 600 } }
 const shapes: BoardShapes = { items: { item: { width: 4, height: 3 } }, labels: { latin: { width: 80, height: 20 }, hebrew: { width: 70, height: 38 } } }
@@ -27,6 +27,16 @@ describe('label resize', () => {
 })
 
 describe('label text editing', () => {
+  test('uses the pointerdown label when pointer capture retargets double-click to the board', () => {
+    const captured = labelDoubleClickTarget(undefined, 'hebrew')
+    expect(labelDoubleClickTarget(undefined, undefined, captured)).toEqual({ kind: 'label', id: 'hebrew' })
+  })
+
+  test('keeps a resize handle distinct when pointer capture retargets double-click to the board', () => {
+    const captured = labelDoubleClickTarget('hebrew', 'hebrew')
+    expect(labelDoubleClickTarget(undefined, undefined, captured)).toEqual({ kind: 'handle', id: 'hebrew' })
+  })
+
   test.each([
     ['unchanged text', 'Old text', 'Old text', undefined],
     ['empty text', 'Old text', '', undefined],
