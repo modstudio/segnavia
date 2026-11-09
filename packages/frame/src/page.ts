@@ -1,5 +1,4 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; composed papers
-// fill the host-sized element and scroll inside it. Host-served HTML reports its height through the bridge.
+// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; composed papers fill the host-sized element and scroll inside it. Host-served HTML reports its height through the bridge.
 
 import {
   type AsOfDay,

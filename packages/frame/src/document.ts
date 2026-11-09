@@ -1,6 +1,5 @@
-// <segnavia-document>: shows an ordered run of designed pages on one paper
-// size. Sheets are mounted only near the viewport and never grow beyond their
-// natural size at the browser's 96 dpi.
+// <segnavia-document>: shows an ordered run of designed pages on one paper size.
+// Sheets are mounted only near the viewport and never grow beyond their natural size at the browser's 96 dpi.
 
 import {
   type Document,

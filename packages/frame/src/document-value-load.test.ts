@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import {
   internalDocumentPagesLoad,
   internalDocumentPagesRead,
+  internalPageDayLoad,
   internalPageLoad,
   internalPaperPagesLoad,
   internalThumbnailDeckLoad,
@@ -10,6 +11,7 @@ import {
 
 test('internal document value methods keep their identity across browser bundles', () => {
   expect(Symbol.keyFor(internalPageLoad)).toBe('@segnavia/frame/internal-page-load')
+  expect(Symbol.keyFor(internalPageDayLoad)).toBe('@segnavia/frame/internal-page-day-load')
   expect(Symbol.keyFor(internalThumbnailDeckLoad)).toBe('@segnavia/frame/internal-thumbnail-deck-load')
   expect(Symbol.keyFor(internalThumbnailPageLoad)).toBe('@segnavia/frame/internal-thumbnail-page-load')
   expect(Symbol.keyFor(internalDocumentPagesLoad)).toBe('@segnavia/frame/internal-document-pages-load')
