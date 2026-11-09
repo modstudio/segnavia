@@ -289,19 +289,25 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
   await hebrew.click()
   await h.page.keyboard.press('Enter')
   await editor.waitFor({ state: 'visible' })
+  const handleWhileEditing = await handle.count()
   const beforeLineBreak = await editor.inputValue()
   await h.page.keyboard.press('Enter')
   const lineBreak = await board.evaluate((element) => ({
     changes: (window as unknown as DemoWindow).boardChanges.length,
     selected: (element as BoardElement).selection,
   }))
-  h.check(
-    'Enter on a selected label opens its editor and Enter inside inserts a line without committing',
-    (await editor.inputValue()) === `${beforeLineBreak}\n` && lineBreak.changes === 0 && lineBreak.selected[0] === 'label-he',
-    JSON.stringify(lineBreak),
-  )
+  const editorText = await editor.inputValue()
   await h.page.keyboard.press('Escape')
-
+  await handle.waitFor({ state: 'visible' })
+  h.check(
+    'Enter opens the label editor without its resize handle, Enter inserts a line, and Escape restores the handle',
+    editorText === `${beforeLineBreak}\n` &&
+      lineBreak.changes === 0 &&
+      lineBreak.selected[0] === 'label-he' &&
+      handleWhileEditing === 0 &&
+      (await handle.count()) === 1,
+    JSON.stringify({ lineBreak, handleWhileEditing }),
+  )
   await reset()
   await hebrew.dblclick()
   await editor.waitFor({ state: 'visible' })

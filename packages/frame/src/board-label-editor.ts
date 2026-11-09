@@ -24,9 +24,14 @@ export class BoardLabelEditor {
     private readonly source: LabelEditorSource,
     private readonly labels: () => BoardLabels,
     private readonly change: (board: Board, kind: 'edit-label', id: string) => void,
+    private readonly stateChanged: () => void,
   ) {
     board.addEventListener('keydown', this.onBoardKeyDown)
     board.addEventListener('segnavia-board-view', this.refresh)
+  }
+
+  get active() {
+    return this.activeEditor !== null
   }
 
   detach() {
@@ -77,6 +82,7 @@ export class BoardLabelEditor {
       growing: false,
     }
     this.activeEditor = active
+    this.stateChanged()
     hiddenText.style.visibility = 'hidden'
     textarea.addEventListener('input', this.onInput)
     textarea.addEventListener('keydown', this.onEditorKeyDown)
@@ -119,6 +125,7 @@ export class BoardLabelEditor {
     this.activeEditor = null
     active.hiddenText.style.visibility = active.previousVisibility
     active.textarea.remove()
+    this.stateChanged()
     if (save) {
       const board = this.source.value()
       const currentText = board?.labels.find((label) => label.id === active.id)?.text

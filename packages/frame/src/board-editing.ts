@@ -114,6 +114,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
       this.bridge,
       () => boardLabels(board.labels),
       (next, kind, id) => this.applyBoard(next, { kind, ids: [id] }),
+      this.renderHandles,
     )
     board.addEventListener('segnavia-board-selection', this.renderHandles)
     board.addEventListener('segnavia-board-view', this.renderHandles)
@@ -357,7 +358,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private renderHandles = () => {
-    if (!this.enabled.resize || this.board.selection.length !== 1) {
+    if (this.labelEditor.active || !this.enabled.resize || this.board.selection.length !== 1) {
       renderResizeHandles(this.bridge.overlay, undefined, this.bridge.view(), undefined)
       renderLabelResizeHandle(this.bridge.overlay, undefined, this.bridge.view(), undefined, '')
       return
