@@ -35,9 +35,9 @@ import {
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderLabelResizeHandle, renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
-import { boardPathElement } from './board-event-path.ts'
 import { BOARD_HISTORY_LIMIT } from './board-history.ts'
-import { type LabelDoubleClickTarget, labelDoubleClickTarget, withoutLabelWidth } from './board-label-editing.ts'
+import { BoardLabelDoubleClick } from './board-label-double-click.ts'
+import { withoutLabelWidth } from './board-label-editing.ts'
 import { BoardLabelEditor } from './board-label-editor.ts'
 import { boardLabels } from './labels.ts'
 
@@ -89,7 +89,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private invalidated: BoardEditQueueState['invalidated'] = null
   private readonly input: BoardEditingInput
   private readonly labelEditor: BoardLabelEditor
-  private doubleClickTarget: LabelDoubleClickTarget | undefined
+  private readonly labelDoubleClick = new BoardLabelDoubleClick()
   private stopped = false
 
   constructor(
@@ -224,13 +224,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.applyTransition(transition, this.existingIds(entry.edit, boardFromDocument(transition.state.value)))
   }
 
-  pointerDown(event: PointerEvent): boolean {
-    this.doubleClickTarget = labelDoubleClickTarget(
-      boardPathElement(event, 'labelResizeHandle')?.dataset.labelResizeHandle,
-      boardPathElement(event, 'boardLabel')?.dataset.boardLabel,
-    )
-    return this.input.pointerDown(event)
-  }
+  pointerDown = (event: PointerEvent): boolean => (this.labelDoubleClick.capture(event), this.input.pointerDown(event))
 
   pointerMove(event: PointerEvent): boolean {
     return this.input.pointerMove(event)
@@ -250,12 +244,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   private onKeyUp = (event: KeyboardEvent) => this.input.keyUp(event)
   private onDoubleClick = (event: MouseEvent) => {
-    const target = labelDoubleClickTarget(
-      boardPathElement(event, 'labelResizeHandle')?.dataset.labelResizeHandle,
-      boardPathElement(event, 'boardLabel')?.dataset.boardLabel,
-      this.doubleClickTarget,
-    )
-    this.doubleClickTarget = undefined
+    const target = this.labelDoubleClick.resolve(event)
     if (target?.kind === 'handle') {
       const next = withoutLabelWidth(this.bridge.value(), target.id, this.bridge.shapes(), this.bridge.labelShape)
       if (next) this.applyBoard(next, { kind: 'resize', ids: [target.id] })
