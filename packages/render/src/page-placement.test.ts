@@ -20,6 +20,7 @@ test('render page preparation resolves placed media with the requested purpose',
     },
     undefined,
     new AbortController().signal,
+    { day: { date: '2026-11-14', zone: 'UTC', kind: 'current' }, slots: {} },
     'screen',
   )
   expect(prepared.page.html).toContain('src="data:image/png;base64,AA=="')

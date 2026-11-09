@@ -2,6 +2,7 @@ import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePage, expandPrintedFramePage } from '@segnavia/frame/motifs'
 import {
+  type EstablishedPageDay,
   fillPageAsOfBindings,
   isPrintedHtmlPage,
   type PreparedSlots,
@@ -30,9 +31,9 @@ import {
   assetSetup,
   copyLimits,
   enforceDeckLimits,
-  type ImageOptions,
   innerLimits,
   type OverflowEntry,
+  type PageImageOptions,
   parseRenderOptions,
   type RenderOptions,
 } from './options.ts'
@@ -75,6 +76,7 @@ export type {
   OverflowEntry,
   OverflowPart,
   OverflowReport,
+  PageImageOptions,
   ProofImageOptions,
   RenderOptions,
 } from './options.ts'
@@ -177,13 +179,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     )
   }
   async function renderPreparedPageImage(
-    prepared: Awaited<ReturnType<typeof prepareRenderedPage>> | Awaited<ReturnType<typeof prepareRenderedPageValue>>,
-    opts: ImageOptions,
+    prepared: Awaited<ReturnType<typeof prepareRenderedPage>>,
+    opts: PageImageOptions,
     deadline: RenderDeadline,
   ): Promise<Uint8Array> {
-    const established = 'established' in prepared ? prepared.established : undefined
-    const pageWithDay = fillPageAsOfBindings(prepared.page, established?.day)
-    const { value: page, slots } = await filledPage(pageWithDay, established?.slots ?? opts.slots, deadline.signal)
+    const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
+    const { value: page, slots } = await filledPage(pageWithDay, prepared.established.slots, deadline.signal)
     const pageHtml = printedPageAuthorHtml(page)
     const diagramScript = await resolveDiagramScript(pageHtml)
     const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
@@ -281,7 +282,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const plan = coverImagePlan(cover, opts)
       const options = parseRenderOptions(plan.options)
       return await withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, 'screen')
+        const contexts = await resolveRenderDayContexts([cover.page], options, deadline.signal)
+        const established = contexts.pages[0] as EstablishedPageDay
+        const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, established, 'screen')
         return renderPreparedPageImage(prepared, options, deadline)
       })
     },

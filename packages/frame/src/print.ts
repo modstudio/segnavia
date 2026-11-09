@@ -5,8 +5,6 @@
 // never reports cannot hold the dialog closed for ever.
 
 import {
-  type AnchorSource,
-  type AsOfDay,
   type Deck,
   type DocumentInput,
   deckFromDocument,
@@ -21,9 +19,8 @@ import {
   pageOrPrintedFromDocument,
   parseLimits,
   resolveBrand,
-  type Zone,
 } from '@segnavia/format'
-import { fillPageAsOfBindings, type HtmlPage, parseDocument, resolveDocumentDayContexts, resolvePageHtml } from '@segnavia/html'
+import { type AsOfInputs, fillPageAsOfBindings, type HtmlPage, parseDocument, resolveDayContextsFor, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { loadDiagramScript } from './diagram-document.ts'
@@ -288,10 +285,7 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
   return printFrame(copiesPrint(copies))
 }
 
-export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions {
-  moment?: number
-  anchors?: AnchorSource
-  asOf?: { zone?: Zone; report?: (days: AsOfDay[]) => void }
+export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions, AsOfInputs {
   slots?: SlotPrintOptions
   motifs?: MotifsOptions
   fonts?: FontsOptions
@@ -300,7 +294,6 @@ export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 's
 }
 
 export async function printPages(pagesInput: PageOrPrintedInput[], impositionInput: ImpositionInput, options: BrowserPagesPrintOptions = {}): Promise<void> {
-  if (options.moment !== undefined && !Number.isFinite(options.moment)) throw new RangeError('moment must be finite epoch milliseconds.')
   options = { ...options, limits: parseLimits(options.limits, 'host'), pageWidths: parsePageWidths(options.pageWidths) }
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
@@ -310,15 +303,7 @@ export async function printPages(pagesInput: PageOrPrintedInput[], impositionInp
       return pageOrPrintedFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
     }),
   )
-  const contexts = await resolveDocumentDayContexts(pageValues, {
-    moment: options.moment ?? Date.now(),
-    hostZone: options.asOf?.zone,
-    anchors: options.anchors,
-    slots: options.slots,
-    refuseMixedResolvedDays: true,
-    signal,
-  })
-  options.asOf?.report?.(contexts.days)
+  const contexts = await resolveDayContextsFor(pageValues, options, options.slots, signal)
   const pages = pageValues.map(resolvePageHtml)
   const expanded = await expandFramePages(
     pages,

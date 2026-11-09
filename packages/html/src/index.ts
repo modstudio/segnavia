@@ -87,9 +87,12 @@ export {
   documentCommandJsonSchema,
 } from './document-commands.ts'
 export {
+  type AsOfInputs,
   type DocumentDayContextOptions,
   type DocumentDayContexts,
   type EstablishedPageDay,
+  parseAsOfInputs,
+  resolveDayContextsFor,
   resolveDocumentDayContexts,
 } from './document-day-context.ts'
 export { type EditDocumentFailure, type EditDocumentResult, type EditDocumentSuccess, editDocument } from './edit-document.ts'

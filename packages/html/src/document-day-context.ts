@@ -1,5 +1,22 @@
-import { type AnchorSource, type AsOf, type AsOfDay, type Page, resolveDocumentDay, type SlotsOptions, type Zone } from '@segnavia/format'
+import { type AnchorSource, type AsOf, type AsOfDay, type Page, resolveDocumentDay, type SlotsOptions, Zone } from '@segnavia/format'
 import { slotsForDay } from './day-slots.ts'
+
+export interface AsOfInputs {
+  moment?: number
+  anchors?: AnchorSource
+  asOf?: { zone?: Zone; report?: (days: AsOfDay[]) => void }
+}
+
+export function parseAsOfInputs<T extends AsOfInputs>(inputs: T): T {
+  if (inputs.moment !== undefined && !Number.isFinite(inputs.moment)) throw new RangeError('moment must be finite epoch milliseconds.')
+  if (inputs.asOf?.zone !== undefined) {
+    const zone = Zone.safeParse(inputs.asOf.zone)
+    if (!zone.success) {
+      throw new RangeError(`asOf.zone must be a time zone accepted by Intl.DateTimeFormat; change ${JSON.stringify(inputs.asOf.zone)} to an accepted zone.`)
+    }
+  }
+  return inputs
+}
 
 export interface EstablishedPageDay {
   day: AsOfDay
@@ -75,4 +92,23 @@ export async function resolveDocumentDayContexts(pages: readonly Page[], options
   options.signal.throwIfAborted()
 
   return { pages: established, days }
+}
+
+export async function resolveDayContextsFor(
+  pages: readonly Page[],
+  inputs: AsOfInputs,
+  slots: SlotsOptions | undefined,
+  signal: AbortSignal,
+): Promise<DocumentDayContexts> {
+  const parsed = parseAsOfInputs(inputs)
+  const contexts = await resolveDocumentDayContexts(pages, {
+    moment: parsed.moment ?? Date.now(),
+    hostZone: parsed.asOf?.zone,
+    anchors: parsed.anchors,
+    slots,
+    refuseMixedResolvedDays: true,
+    signal,
+  })
+  parsed.asOf?.report?.(contexts.days)
+  return contexts
 }

@@ -39,7 +39,9 @@ test('render pages resolve a shared as-of and slots once and report the distinct
 
 test('render day resolution refuses an anchor the host cannot resolve', async () => {
   const page = Page.parse({ html: '<p>Page</p>', asOf: { kind: 'anchor', anchor: 'missing' } })
-  await expect(resolveRenderDayContexts([page], { moment: 0 }, signal)).rejects.toThrow('missing')
+  await expect(
+    resolveRenderDayContexts([page], { moment: 0, anchors: { choices: [{ name: 'offered', label: 'Offered' }], resolve: () => '2026-11-14' } }, signal),
+  ).rejects.toThrow('choose one of "offered"')
 })
 
 test('render day resolution refuses distinct days under slots.resolve', async () => {

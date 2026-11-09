@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Page, type SlotsOptions } from '@segnavia/format'
-import { resolveDocumentDayContexts } from './document-day-context.ts'
+import { parseAsOfInputs, resolveDayContextsFor, resolveDocumentDayContexts } from './document-day-context.ts'
 
 const signal = () => new AbortController().signal
 
@@ -95,4 +95,22 @@ test('allows distinct days when every page uses the same static source', async (
 
   expect(contexts.days.map(({ date }) => date)).toEqual(['2026-11-09', '2026-11-10'])
   expect(contexts.pages.map(({ slots }) => slots.source)).toEqual([source, source])
+})
+
+test('host as-of inputs refuse a non-finite moment and an invalid zone with remedies', () => {
+  expect(() => parseAsOfInputs({ moment: Number.NaN })).toThrow('moment must be finite epoch milliseconds')
+  expect(() => parseAsOfInputs({ asOf: { zone: 'Europe/Berlin ' as 'UTC' } })).toThrow(
+    'asOf.zone must be a time zone accepted by Intl.DateTimeFormat; change "Europe/Berlin " to an accepted zone',
+  )
+})
+
+test('the surface resolver reports the distinct days after resolving them', async () => {
+  const reports: unknown[] = []
+  const contexts = await resolveDayContextsFor(
+    [Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }), Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-10' } })],
+    { moment: 0, asOf: { report: (days) => reports.push(days) } },
+    undefined,
+    signal(),
+  )
+  expect(reports).toEqual([contexts.days])
 })

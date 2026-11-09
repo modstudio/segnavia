@@ -22,3 +22,18 @@ test('leaves a scripted page without an as-of binding unchanged', () => {
   const html = '<p id="result">waiting</p><script src="https://assets.example/page.js"></script>'
   expect(fillAsOfBindings(html, { date: '2026-11-14', zone: 'UTC', kind: 'current' })).toBe(html)
 })
+
+test.each(['style', 'xmp'])('refuses an as-of value binding on <%s>', (tag) => {
+  expect(() =>
+    fillAsOfBindings(`<${tag} data-slot-value="asOf.anchor"></${tag}>`, {
+      date: '2026-11-14',
+      zone: 'UTC',
+      kind: 'anchor',
+      anchor: '</style><script>globalThis.pwned=true</script>',
+    }),
+  ).toThrow(`uses a value binding on <${tag}>, whose content cannot be filled safely`)
+})
+
+test('fills an as-of value binding on a plain text element', () => {
+  expect(fillAsOfBindings('<p data-slot-value="asOf.date"></p>', { date: '2026-11-14', zone: 'UTC', kind: 'current' })).toBe('<p dir="auto">2026-11-14</p>')
+})

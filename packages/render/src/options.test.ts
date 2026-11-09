@@ -3,10 +3,6 @@ import { Deck, limitRefusal } from '@segnavia/format'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import { copyLimits, enforceDeckLimits, innerLimits, parseRenderOptions, type RenderOptions } from './options.ts'
 
-test('render options refuse a non-finite moment', () => {
-  expect(() => parseRenderOptions({ moment: Number.NaN })).toThrow('moment must be finite epoch milliseconds.')
-})
-
 test('inner renders keep page, local-font and asset limits', () => {
   expect(
     innerLimits({

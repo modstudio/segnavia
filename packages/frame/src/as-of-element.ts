@@ -1,9 +1,8 @@
-import type { AnchorSource, Zone } from '@segnavia/format'
+import type { Zone } from '@segnavia/format'
+import { type AsOfInputs, parseAsOfInputs } from '@segnavia/html'
 
-export interface AsOfElementProperties {
-  anchors: AnchorSource | undefined
+export interface AsOfElementProperties extends Pick<AsOfInputs, 'anchors' | 'moment'> {
   asOf: { zone?: Zone } | undefined
-  moment: number | undefined
 }
 
 interface AsOfElementHost {
@@ -11,7 +10,7 @@ interface AsOfElementHost {
 }
 
 interface AsOfElementState {
-  anchorOptions?: AnchorSource
+  anchorOptions?: AsOfInputs['anchors']
   asOfOptions?: { zone?: Zone }
   momentValue?: number
 }
@@ -23,7 +22,7 @@ const state = (element: object): AsOfElementState => {
   return held
 }
 
-export function captureAsOfLoad(element: object): { moment: number; hostZone?: Zone; anchors?: AnchorSource } {
+export function captureAsOfLoad(element: object): { moment: number; hostZone?: Zone; anchors?: AsOfInputs['anchors'] } {
   const held = state(element)
   return { moment: held.momentValue ?? Date.now(), hostZone: held.asOfOptions?.zone, anchors: held.anchorOptions }
 }
@@ -35,7 +34,7 @@ export function defineAsOfPropertyAccessors(prototype: object): void {
       get(this: object) {
         return state(this).anchorOptions
       },
-      set(this: AsOfElementHost, value: AnchorSource | undefined) {
+      set(this: AsOfElementHost, value: AsOfInputs['anchors']) {
         state(this).anchorOptions = value
         this.asOfInputsChanged()
       },
@@ -46,6 +45,7 @@ export function defineAsOfPropertyAccessors(prototype: object): void {
         return state(this).asOfOptions
       },
       set(this: AsOfElementHost, value: { zone?: Zone } | undefined) {
+        parseAsOfInputs({ asOf: value })
         state(this).asOfOptions = value
         this.asOfInputsChanged()
       },
@@ -56,7 +56,7 @@ export function defineAsOfPropertyAccessors(prototype: object): void {
         return state(this).momentValue
       },
       set(this: AsOfElementHost, value: number | undefined) {
-        if (value !== undefined && !Number.isFinite(value)) throw new RangeError('moment must be finite epoch milliseconds.')
+        parseAsOfInputs({ moment: value })
         state(this).momentValue = value
         this.asOfInputsChanged()
       },
