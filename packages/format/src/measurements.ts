@@ -41,7 +41,7 @@ const PaginateFlowBase = {
   parents: BookSectionParents.optional(),
   parts: z.record(z.string(), z.string()).optional(),
   numbering: SectionNumbering.optional(),
-  pageGeometry: z.string().default('segnavia:default'),
+  pageGeometry: z.string().optional(),
 }
 
 export const PaginateFlow = z.discriminatedUnion('kind', [

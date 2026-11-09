@@ -110,7 +110,7 @@ export async function verifyBookSectionPaper(renderer: Renderer, work: string, c
     const boxesOk = pages.every((page, index) => {
       const trim = expected[index]
       if (!trim) return false
-      const press = pressBoxes(trim, { bleed: 3, marks: false })
+      const press = pressBoxes(trim, { bleed: 3, safe: 0, marks: false })
       const media = page.getMediaBox()
       const trimBox = page.getTrimBox()
       const bleed = page.getBleedBox()

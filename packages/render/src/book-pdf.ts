@@ -1,4 +1,14 @@
-import { type Book, bookPageGeometries, bookParentPages, physicalMargins, pressBoxes, resolveDirection, sequenceFolios, sheetMm, usesPressLayout } from '@segnavia/format'
+import {
+  type Book,
+  bookPageGeometries,
+  bookParentPages,
+  physicalMargins,
+  pressBoxes,
+  resolveDirection,
+  sequenceFolios,
+  sheetMm,
+  usesPressLayout,
+} from '@segnavia/format'
 import type { PreparedSlots } from '@segnavia/html'
 import {
   type BookDocument,

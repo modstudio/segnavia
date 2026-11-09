@@ -55,7 +55,12 @@ export async function addPressBoxes(
   sourceBox: 'bleed' | 'trim' = 'bleed',
 ): Promise<Uint8Array> {
   const document = await loadPdf(pdf)
-  return addDocumentPressBoxes(document, document.getPages().map(() => boxes), markColor, sourceBox)
+  return addDocumentPressBoxes(
+    document,
+    document.getPages().map(() => boxes),
+    markColor,
+    sourceBox,
+  )
 }
 
 async function addDocumentPressBoxes(
@@ -66,7 +71,9 @@ async function addDocumentPressBoxes(
 ): Promise<Uint8Array> {
   const sources = document.getPages()
   if (sources.length !== boxesByPage.length) {
-    throw new RenderRefusedError(`The PDF has ${sources.length} pages where the press plan names ${boxesByPage.length}; compute a new plan to clear this refusal.`)
+    throw new RenderRefusedError(
+      `The PDF has ${sources.length} pages where the press plan names ${boxesByPage.length}; compute a new plan to clear this refusal.`,
+    )
   }
   for (const [index, source] of sources.entries()) {
     const boxes = boxesByPage[index]

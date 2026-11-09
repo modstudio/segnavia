@@ -71,16 +71,18 @@ function translateAnnotations(annotations: PDFArray | undefined, x: number, y: n
 
 export async function setPdfPageSize(pdf: Uint8Array, size: MillimeterPageSize, remedy?: string): Promise<Uint8Array> {
   const document = await loadPdf(pdf, { updateMetadata: false })
-  return setDocumentPageSizes(document, document.getPages().map(() => size), remedy)
+  return setDocumentPageSizes(
+    document,
+    document.getPages().map(() => size),
+    remedy,
+  )
 }
 
-async function setDocumentPageSizes(
-  document: Awaited<ReturnType<typeof loadPdf>>,
-  sizes: readonly MillimeterPageSize[],
-  remedy?: string,
-): Promise<Uint8Array> {
+async function setDocumentPageSizes(document: Awaited<ReturnType<typeof loadPdf>>, sizes: readonly MillimeterPageSize[], remedy?: string): Promise<Uint8Array> {
   if (document.getPageCount() !== sizes.length) {
-    throw new RenderRefusedError(`Chromium printed ${document.getPageCount()} pages where the plan names ${sizes.length}; compute a new plan to clear this refusal.`)
+    throw new RenderRefusedError(
+      `Chromium printed ${document.getPageCount()} pages where the plan names ${sizes.length}; compute a new plan to clear this refusal.`,
+    )
   }
   for (const [index, page] of document.getPages().entries()) {
     const size = sizes[index]

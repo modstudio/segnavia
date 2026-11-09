@@ -95,16 +95,11 @@ export function partSection(
 ): BuiltSection {
   const children = entry.html === undefined ? [] : parse(entry.html).children
   const runningHead = entry.runningHead ?? entry.title
-  const extra = flowAttribs(
-    entry.opens,
-    entry.parents,
-    {
-      'data-segnavia-kind': 'part',
-      'data-segnavia-parts': JSON.stringify(parts),
-      ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
-    },
-    entry.pageGeometry,
-  )
+  const extra = flowAttribs(entry.opens, entry.parents, {
+    'data-segnavia-kind': 'part',
+    'data-segnavia-parts': JSON.stringify(parts),
+    ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
+  })
   return {
     info: { id, kind: 'part', division, title: entry.title, runningHead, opens: entry.opens },
     node: sectionNode('part', id, children, build, runningHead, extra),
