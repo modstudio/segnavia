@@ -2,16 +2,26 @@ import type { BookDivisions, BookItem } from './book-section.ts'
 import type { DocumentNode } from './document-nodes.ts'
 
 type Division = 'front' | 'body' | 'end'
+type Path = (string | number)[]
+
+export interface DocumentBookProjection {
+  divisions: BookDivisions
+  sourcePaths: Map<string, Path>
+}
+
+function pathKey(path: Path): string {
+  return JSON.stringify(path)
+}
 
 function defined<T extends object>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as T
 }
 
-function nodeId(node: { id?: string; title?: string }, path: (string | number)[]): string {
+function nodeId(node: { id?: string; title?: string }, path: Path): string {
   return node.id ?? node.title ?? path.join('.')
 }
 
-function sectionFields(section: Extract<DocumentNode, { type: 'section' }>, path: (string | number)[]) {
+function sectionFields(section: Extract<DocumentNode, { type: 'section' }>, path: Path) {
   return defined({
     id: nodeId(section, path),
     title: section.title,
@@ -34,8 +44,8 @@ function placement(node: Extract<DocumentNode, { type: 'placed' }>) {
   return value
 }
 
-function sectionItem(section: Extract<DocumentNode, { type: 'section' }>, division: Division, path: (string | number)[]): BookItem {
-  const fields = sectionFields(section, path)
+function sectionItem(section: Extract<DocumentNode, { type: 'section' }>, division: Division, bookPath: Path): BookItem {
+  const fields = sectionFields(section, bookPath)
   const pages = section.children.filter((node): node is Extract<DocumentNode, { type: 'page' }> => node.type === 'page')
   if (pages.length > 0 && pages.every((page) => page.regions !== undefined)) {
     const template = section.template
@@ -58,9 +68,15 @@ function sectionItem(section: Extract<DocumentNode, { type: 'section' }>, divisi
   throw new Error('a section needs a flow, page or placed child; add one to clear this refusal')
 }
 
-function partItem(part: Extract<DocumentNode, { type: 'part' }>, division: Division, path: (string | number)[]): BookItem {
+function partItem(
+  part: Extract<DocumentNode, { type: 'part' }>,
+  division: Division,
+  sourcePath: Path,
+  bookPath: Path,
+  sourcePaths: Map<string, Path>,
+): BookItem {
   return defined({
-    id: nodeId(part, path),
+    id: nodeId(part, bookPath),
     name: part.name,
     title: part.title,
     html: part.html,
@@ -68,41 +84,64 @@ function partItem(part: Extract<DocumentNode, { type: 'part' }>, division: Divis
     opens: part.opens,
     parents: part.parents,
     runningHead: part.runningHead,
-    children: part.children.map((child, index) => bookItem(child, division, [...path, 'children', index])),
+    children: part.children.map((child, index) => bookItem(child, division, [...sourcePath, 'children', index], [...bookPath, 'children', index], sourcePaths)),
   }) as BookItem
 }
 
-function bookItem(node: DocumentNode, division: Division, path: (string | number)[]): BookItem {
-  if (node.type === 'part') return partItem(node, division, path)
-  if (node.type === 'section') return sectionItem(node, division, path)
+function bookItem(node: DocumentNode, division: Division, sourcePath: Path, bookPath: Path, sourcePaths: Map<string, Path>): BookItem {
+  sourcePaths.set(pathKey(bookPath), sourcePath)
+  if (node.type === 'part') return partItem(node, division, sourcePath, bookPath, sourcePaths)
+  if (node.type === 'section') return sectionItem(node, division, bookPath)
   if (node.type === 'contents')
     return defined({
-      id: nodeId(node, path),
+      id: nodeId(node, bookPath),
       kind: 'contents',
       title: node.title,
       opens: node.opens,
       parents: node.parents,
       numbering: node.numbering,
     }) as BookItem
-  if (node.type === 'flow') return defined({ id: nodeId(node, path), title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem
-  if (node.type === 'placed') return { id: nodeId(node, path), kind: 'placed', contents: true, placement: placement(node) }
+  if (node.type === 'flow') return defined({ id: nodeId(node, bookPath), title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem
+  if (node.type === 'placed') return { id: nodeId(node, bookPath), kind: 'placed', contents: true, placement: placement(node) }
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)
 }
 
-export function documentBookDivisions(document: { children: DocumentNode[] }): BookDivisions {
+export function documentBookProjection(document: { children: DocumentNode[] }): DocumentBookProjection {
+  const sourcePaths = new Map<string, Path>()
   const divisions = document.children.filter((node): node is Extract<DocumentNode, { type: 'division' }> => node.type === 'division')
   if (divisions.length === 0) {
-    return { frontMatter: [], body: document.children.map((node, index) => bookItem(node, 'body', ['body', index])), endMatter: [] }
+    const body = document.children.map((node, index) => bookItem(node, 'body', ['children', index], ['body', index], sourcePaths))
+    return { divisions: { frontMatter: [], body, endMatter: [] }, sourcePaths }
   }
-  const entries = (name: Division, key: 'frontMatter' | 'body' | 'endMatter') =>
-    divisions.filter((division) => division.name === name).flatMap((division) => division.children.map((node, index) => bookItem(node, name, [key, index])))
-  return { frontMatter: entries('front', 'frontMatter'), body: entries('body', 'body'), endMatter: entries('end', 'endMatter') }
+  const entries = (name: Division, key: 'frontMatter' | 'body' | 'endMatter') => {
+    const result: BookItem[] = []
+    document.children.forEach((node, divisionIndex) => {
+      if (node.type !== 'division' || node.name !== name) return
+      node.children.forEach((child, childIndex) => {
+        const index = result.length
+        result.push(bookItem(child, name, ['children', divisionIndex, 'children', childIndex], [key, index], sourcePaths))
+      })
+    })
+    return result
+  }
+  return {
+    divisions: { frontMatter: entries('front', 'frontMatter'), body: entries('body', 'body'), endMatter: entries('end', 'endMatter') },
+    sourcePaths,
+  }
 }
 
-export function documentBookDivisionsForRefinement(document: { children: DocumentNode[] }): BookDivisions | undefined {
+export function documentBookDivisions(document: { children: DocumentNode[] }): BookDivisions {
+  return documentBookProjection(document).divisions
+}
+
+export function documentBookProjectionForRefinement(document: { children: DocumentNode[] }): DocumentBookProjection | undefined {
   try {
-    return documentBookDivisions(document)
+    return documentBookProjection(document)
   } catch {
     return undefined
   }
+}
+
+export function documentSourcePath(projection: DocumentBookProjection, bookPath: Path): Path {
+  return projection.sourcePaths.get(pathKey(bookPath)) ?? bookPath
 }

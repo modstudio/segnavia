@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { BookMode, BookPage, BookShape } from './book.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
 import { DeckShape } from './deck.ts'
-import { documentBookDivisionsForRefinement } from './document-book-items.ts'
+import { documentBookProjectionForRefinement, documentSourcePath } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { DocumentMetadata } from './document-metadata.ts'
@@ -137,9 +137,10 @@ function refineSectionNumberingPolicy(document: DocumentShapeValue, ctx: z.Refin
 
 function refineSectionOpensPolicy(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
   if (document.kind !== 'book') return
-  const divisions = documentBookDivisionsForRefinement(document)
-  if (!divisions) return
-  for (const issue of sectionOpensIssues(bookSectionOpensFacts(divisions))) ctx.addIssue({ code: 'custom', ...issue })
+  const projection = documentBookProjectionForRefinement(document)
+  if (!projection) return
+  const facts = bookSectionOpensFacts(projection.divisions).map((fact) => ({ ...fact, path: documentSourcePath(projection, fact.path) }))
+  for (const issue of sectionOpensIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
 }
 
 type DocumentShapeValue = z.infer<typeof DocumentShape>

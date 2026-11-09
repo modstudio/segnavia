@@ -10,6 +10,7 @@ function boundary(section: BuiltSection): ReturnType<typeof element> {
     {
       class: SECTION_BOUNDARY_CLASS,
       'data-mark': SECTION_TITLE_MARK,
+      'data-mark-scope': 'flow',
       'data-segnavia-chapter': section.node.attribs['data-segnavia-chapter'] ?? '0',
       id: section.info.id,
     },

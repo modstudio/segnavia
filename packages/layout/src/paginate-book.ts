@@ -1,4 +1,3 @@
-import { SECTION_TITLE_MARK } from '@segnavia/format'
 import { paginateColumns } from './paginate-columns.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { paginateMarks } from './paginate-marks.ts'
@@ -14,7 +13,7 @@ export { paginateMarks } from './paginate-marks.ts'
 export { paginateNotes } from './paginate-notes.ts'
 export { paginateSequence } from './paginate-sequence.ts'
 
-function paginateBookWithSectionTitle(input: PaginateBookInput, sectionTitleMark: string, paginate: typeof paginateSequence): PaginateBookResult {
+export function paginateBook(input: PaginateBookInput): PaginateBookResult {
   function used(textHeight: number, placed: PaginateUnit[], fragments: PaginatePageNote[]): number {
     return paginateColumns(placed).height + paginateNotes({ op: 'space', notes: input.notes, geometry: { ...input.geometry, textHeight }, fragments })
   }
@@ -116,11 +115,7 @@ function paginateBookWithSectionTitle(input: PaginateBookInput, sectionTitleMark
     return { placed: forced.placed, fragments: forced.fragments, index: nextIndex + 1, pending: forced.pending }
   }
 
-  return paginate(input, fillPage, sectionTitleMark)
-}
-
-export function paginateBook(input: PaginateBookInput): PaginateBookResult {
-  return paginateBookWithSectionTitle(input, SECTION_TITLE_MARK, paginateSequence)
+  return paginateSequence(input, fillPage)
 }
 
 // Ordered for embedding: each function calls only the others by name.
@@ -133,16 +128,9 @@ export const PAGINATE_FUNCTIONS = [
   paginateKeeps,
   paginateMarks,
   paginateSequence,
-  paginateBookWithSectionTitle,
+  paginateBook,
 ]
 
 export function paginateScript(): string {
-  const functions = PAGINATE_FUNCTIONS.map((fn) => fn.toString())
-  const paginator = functions.at(-1) ?? ''
-  const embeddedName = /^function\s+([^ (]+)/.exec(paginator)?.[1]
-  const sequence = paginateSequence.toString()
-  const sequenceName = /^function\s+([^ (]+)/.exec(sequence)?.[1]
-  if (!embeddedName || !sequenceName) throw new Error('the embedded book paginator needs named functions')
-  const capturedAlias = paginateBook.name === 'paginateBook' ? '' : `\nvar ${paginateBook.name}=paginateBook;`
-  return `${functions.join('\n')}\nvar paginateBook=function(input){return ${embeddedName}(input,${JSON.stringify(SECTION_TITLE_MARK)},${sequenceName});};${capturedAlias}`
+  return `${PAGINATE_FUNCTIONS.map((fn) => fn.toString()).join('\n')}\nvar paginateBook=${paginateBook.name};`
 }

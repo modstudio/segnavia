@@ -18,7 +18,7 @@ test('joins a continuing section to its predecessor flow with a titled boundary'
   expect(result.sections.map((section) => section.id)).toEqual(['section-1', 'section-2'])
   expect(result.html.match(/data-segnavia-flow=/g)).toHaveLength(1)
   expect(result.html).toContain(
-    `<div class="${SECTION_BOUNDARY_CLASS}" data-mark="${SECTION_TITLE_MARK}" data-segnavia-chapter="2" id="section-2">Running Two</div>`,
+    `<div class="${SECTION_BOUNDARY_CLASS}" data-mark="${SECTION_TITLE_MARK}" data-mark-scope="flow" data-segnavia-chapter="2" id="section-2">Running Two</div>`,
   )
   expect(result.html).toContain(`First</p><div class="${SECTION_BOUNDARY_CLASS}"`)
   expect(result.html).toContain('id="section-2">Running Two</div><p')

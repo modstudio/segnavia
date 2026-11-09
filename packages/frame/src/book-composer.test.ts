@@ -148,7 +148,9 @@ describe('block keeps', () => {
         { title: 'Two', runningHead: 'Running Two', opens: 'continue', html: '<p>Second</p>' },
       ],
     })
-    expect(bookDocument(book).html).toContain(`data-mark="${SECTION_TITLE_MARK}" data-segnavia-chapter="2" id="section-2">Running Two</div>`)
+    expect(bookDocument(book).html).toContain(
+      `data-mark="${SECTION_TITLE_MARK}" data-mark-scope="flow" data-segnavia-chapter="2" id="section-2">Running Two</div>`,
+    )
   })
 
   test('a row with break-inside avoid produces its line run while empty CSS produces none', () => {

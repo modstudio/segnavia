@@ -18,7 +18,6 @@ import { type BookPrintedPagePlan, selectBookParent } from './printed-pages.ts'
 export function paginateSequence(
   input: PaginateBookInput,
   fillPage: (units: PaginateUnit[], index: number, pending: PaginatePageNote[], textHeight: number, textArea?: string) => PaginatePageFill,
-  sectionTitleMark: string,
 ): PaginateBookResult {
   function selected(flow: PaginateFlow, opening: boolean, blank: boolean, role: 'body' | 'fixed' | undefined, pageIndex: number, parents = flow.parents) {
     const fact = { blank, sectionOpening: opening, ...(role === undefined ? {} : { role }), ...(parents === undefined ? {} : { parents }) }
@@ -37,9 +36,7 @@ export function paginateSequence(
   }
 
   function marksForNewFlow(carried: PaginatePageMarks): PaginatePageMarks {
-    const scoped = Object.assign(emptyMarks(), carried)
-    delete scoped[sectionTitleMark]
-    return scoped
+    return Object.fromEntries(Object.entries(carried).filter(([, mark]) => mark.scope !== 'flow')) as PaginatePageMarks
   }
 
   function columnRefusal(block: PaginateBlock): PaginateBookRefusal | undefined {
