@@ -117,7 +117,10 @@ test('routes design-only edits to overrides and clearing the override reveals th
 
 describe('item settings host refreshes', () => {
   test('keeps a design draft and adopts a host override after its save settles', async () => {
-    const { element, controller } = setup(async () => {}, async () => {})
+    const { element, controller } = setup(
+      async () => {},
+      async () => {},
+    )
     toggleNameDesignOnly(element, true)
     typeName(element, 'Design draft')
 
