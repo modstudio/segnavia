@@ -20,6 +20,7 @@ format  ◄── html          (universal: browser and server)
 ```
 
 The types-only Vue opt-ins live in `frame` and `markdown-editor`; Vue itself is supplied by the consumer.
+Every published package includes its `CHANGELOG.md` alongside its built distribution and license.
 
 | Package entry | What it provides |
 |---|---|

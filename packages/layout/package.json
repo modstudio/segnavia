@@ -9,7 +9,8 @@
     "directory": "packages/layout"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "sideEffects": false,
   "engines": {
