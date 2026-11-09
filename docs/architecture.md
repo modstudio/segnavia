@@ -584,8 +584,10 @@ render package's peer range, and the Chromium binary it launches through
 `executablePath`.
 
 `Board` is the portable value for an unbounded collection of referenced
-assets, labels and sections. It stores each item's width but not its height,
-and each label may store its measured `size`. The host supplies one
+assets, labels and sections. It stores each item's width but not its height.
+A label's authored `width` is its wrap width: absent, its lines remain
+unwrapped; present, text wraps at that width and its height follows. Its
+measured `size` is separate and recomputed after text or width changes. The host supplies one
 `BoardItemFact` per item address, the browser may supply `measureLabel`, and
 `boardShapes(board, facts, { measureLabel })` computes `{ shapes, provisional,
 estimated }`. A label's box comes through `labelShape`, from its stored size,

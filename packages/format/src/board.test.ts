@@ -20,10 +20,16 @@ describe('Board', () => {
     expect(Board.parse(valid)).toEqual(valid)
   })
 
-  test('parses labels with and without a stored size', () => {
+  test('parses labels with and without an authored width or stored size', () => {
     const label = valid.labels[0] as (typeof valid.labels)[number]
-    const labels = [label, { ...label, id: 'measured', size: { width: 72.5, height: 19.25 } }]
+    const labels = [label, { ...label, id: 'wrapped', width: 80 }, { ...label, id: 'measured', size: { width: 72.5, height: 19.25 } }]
     expect(Board.parse({ ...valid, labels }).labels).toEqual(labels)
+  })
+
+  test('refuses a label width below the one-glyph minimum and names the label', () => {
+    const message = refusal({ ...valid, labels: [{ ...valid.labels[0], width: 15 }] })
+    expect(message).toContain('label "caption" width 15 is below the minimum 16')
+    expect(message).toContain('provide a width of at least 16')
   })
 
   test('keeps the first occurrence of a repeated stored section member', () => {

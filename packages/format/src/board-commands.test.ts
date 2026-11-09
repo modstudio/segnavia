@@ -29,7 +29,7 @@ describe('BoardCommand', () => {
       { type: 'section-set', section: { title: 'Pages' }, layout: 'manual' },
       { type: 'label-add', text: 'Note', target: { beside: { id: 'a' }, side: 'above' } },
       { type: 'label-remove', labels: [{ id: 'note' }] },
-      { type: 'label-set', label: { id: 'note' }, text: 'Changed' },
+      { type: 'label-set', label: { id: 'note' }, text: 'Changed', width: 120 },
       { type: 'board-set', direction: 'rtl' },
     ]
     for (const command of commands) expect(BoardCommand.safeParse(command).success).toBe(true)

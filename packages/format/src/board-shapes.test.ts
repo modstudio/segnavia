@@ -48,6 +48,25 @@ describe('boardShapes', () => {
     expect(result.estimated).toEqual(['estimated'])
   })
 
+  test('uses authored width for stored, measured and estimated shapes and estimates wrapped height', () => {
+    const measured: Array<[string, number | undefined]> = []
+    expect(labelShape({ id: 'stored', text: 'Stored', x: 0, y: 0, width: 32, size: { width: 80, height: 21 } })).toEqual({
+      shape: { width: 32, height: 21 },
+      source: 'stored',
+    })
+    expect(
+      labelShape({ id: 'measured', text: 'Measured', x: 0, y: 0, width: 48 }, (text, _direction, width) => {
+        measured.push([text, width])
+        return { width: 200, height: 38 }
+      }),
+    ).toEqual({ shape: { width: 48, height: 38 }, source: 'measured' })
+    expect(measured).toEqual([['Measured', 48]])
+    expect(labelShape({ id: 'estimated', text: 'abcdefgh\nijklmnop', x: 0, y: 0, width: 32 })).toEqual({
+      shape: { width: 32, height: 4 * BOARD_LABEL_ESTIMATE.height },
+      source: 'estimated',
+    })
+  })
+
   test('resolves each item kind and reports only missing facts as provisional', () => {
     const withItems: Board = {
       ...board,

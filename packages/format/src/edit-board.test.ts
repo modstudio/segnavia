@@ -80,6 +80,25 @@ describe('editBoard item commands', () => {
     expect(result.changed.every((entry) => entry.box)).toBe(true)
   })
 
+  test('applies item and label moves as one atomic batch', () => {
+    const before = board()
+    before.labels = [{ id: 'label', text: 'Label', x: 600, y: 100, size: { width: 40, height: 20 } }]
+    const input = documentForBoard(before)
+    const result = success(
+      editBoard(
+        before,
+        [
+          { type: 'item-move', items: [{ id: 'a' }], target: { at: { x: 20, y: 30 } } },
+          { type: 'label-set', label: { id: 'label' }, target: { at: { x: 120, y: 130 } } },
+        ],
+        { ...shapes, shapes: { ...shapes.shapes, labels: { label: { width: 40, height: 20 } } } },
+      ),
+    )
+    expect(result.board.items.find((entry) => entry.id === 'a')).toMatchObject({ x: 20, y: 30 })
+    expect(result.board.labels[0]).toMatchObject({ x: 120, y: 130 })
+    expect(boardFromDocument(applyOps(input, result.batch))).toEqual(result.board)
+  })
+
   test('arranges one named section into the requested grid', () => {
     const before = board()
     const section = before.sections[0]

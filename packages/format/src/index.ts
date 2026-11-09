@@ -1,7 +1,7 @@
 // The shapes every package agrees on. Hosts read and write these as JSON, so each is a Zod schema;
 // `jsonSchemas` generates JSON Schema for hosts that do not run TypeScript.
 
-export { Board, BoardItem, BoardLabel, BoardSection, GridCell } from './board.ts'
+export { Board, BoardItem, BoardLabel, BoardSection, GridCell, LABEL_MIN_WIDTH } from './board.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'
 export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
 export {
@@ -53,6 +53,7 @@ export {
   boardToScreen,
   itemAt,
   itemHeight,
+  labelXForWidth,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,
   revealView,

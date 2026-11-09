@@ -1,4 +1,4 @@
-import type { Board, BoardLabel } from './board.ts'
+import { type Board, type BoardLabel, LABEL_MIN_WIDTH } from './board.ts'
 import {
   type BoardCommandHandler,
   type CommandContext,
@@ -64,11 +64,23 @@ function labelRemove(context: CommandContext, command: BoardCommandOf<'label-rem
 function labelSet(context: CommandContext, command: BoardCommandOf<'label-set'>): CommandResult {
   const current = resolveLabel(context.board, command.label)
   const textChanged = command.text !== undefined && command.text !== current.text
-  const { size: _storedSize, ...withoutSize } = current
-  let label: BoardLabel = textChanged ? { ...withoutSize, text: command.text as string } : current
+  const width = command.width === null ? undefined : command.width === undefined ? current.width : Math.max(LABEL_MIN_WIDTH, command.width)
+  const widthChanged = width !== current.width
+  const { size: _storedSize, width: _storedWidth, ...withoutMeasurement } = current
+  let label: BoardLabel =
+    textChanged || widthChanged
+      ? { ...withoutMeasurement, ...(textChanged ? { text: command.text as string } : {}), ...(width === undefined ? {} : { width }) }
+      : current
   let shapes = context.shapes
   const adjustments: BoardEditAdjustment[] = []
-  if (textChanged) {
+  if (command.width !== undefined && command.width !== null && command.width < LABEL_MIN_WIDTH)
+    adjustments.push({
+      command: context.command,
+      kind: 'width-clamped',
+      id: current.id,
+      detail: `Clamped label "${current.id}" width to ${LABEL_MIN_WIDTH}.`,
+    })
+  if (textChanged || widthChanged) {
     const sized = sizedLabel(context, label)
     label = sized.label
     shapes = { ...shapes, labels: { ...shapes.labels, [label.id]: sized.shape } }
