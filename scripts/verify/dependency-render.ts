@@ -72,7 +72,7 @@ export async function verifyDependencyRender(
   const imageOrigin = 'https://images.example'
   const image = `${imageOrigin}/asset.png`
   const imagePage = screenPage(
-    { html: `<style>body{margin:0}<\/style><img src="${image}" style="width:40px;height:40px;image-rendering:pixelated">` },
+    { html: `<style>body{margin:0}</style><img src="${image}" style="width:40px;height:40px;image-rendering:pixelated">` },
     { size: { width: 400, height: 200 } },
   )
   const imageOptions = {

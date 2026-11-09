@@ -16,7 +16,7 @@ describe('sanitize', () => {
     expect(safeMarkdownUrl('href', 'https://outside.example/x', ['https://inside.example'])).toBe(false)
     expect(safeMarkdownUrl('href', 'https://inside.example/x', ['https://inside.example'])).toBe(true)
     expect(safeMarkdownUrl('href', 'https://exa mple.com/x', ['https://inside.example'])).toBe(false)
-    expect(safeMarkdownUrl('src', 'data:image/png;base64,AA==', ['https://inside.example'])).toBe(true)
+    expect(safeMarkdownUrl('src', 'data:image/png;base64,AA==', [{ origin: 'https://inside.example', kinds: ['image'] }])).toBe(true)
     expect(safeMarkdownUrl('href', 'javascript:alert(1)')).toBe(false)
   })
 

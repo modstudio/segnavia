@@ -54,5 +54,7 @@ test('parsed options materialize one-shot origin approvals', () => {
   function* origins() {
     yield { origin: 'https://images.example', kinds: ['image'] as const }
   }
-  expect(parseRenderOptions({ origins: origins() }).origins).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
+  const parsed = parseRenderOptions({ origins: origins() } as RenderOptions)
+  expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
+  expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
 })

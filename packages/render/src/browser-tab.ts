@@ -1,5 +1,14 @@
 import { Buffer } from 'node:buffer'
-import { type FetchKind, type FontFailure, type Limits, limitRefusal, type OriginApproval, originDecision, type ResolvedLimits, resolveLimits } from '@segnavia/format'
+import {
+  type FetchKind,
+  type FontFailure,
+  type Limits,
+  limitRefusal,
+  type OriginApproval,
+  originDecision,
+  type ResolvedLimits,
+  resolveLimits,
+} from '@segnavia/format'
 import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
 import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
@@ -62,7 +71,8 @@ export async function assetRouteDecision(
     const message = error instanceof Error ? error.message : String(error)
     return { action: 'abort', reason: `The host assets option rejected ${url}: ${message}; answer the approved asset to clear this refusal` }
   }
-  if (signal.aborted) return { action: 'abort', reason: `${url} answered after its asset request was aborted; settle assets before the render ends to clear this refusal` }
+  if (signal.aborted)
+    return { action: 'abort', reason: `${url} answered after its asset request was aborted; settle assets before the render ends to clear this refusal` }
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
 }
 

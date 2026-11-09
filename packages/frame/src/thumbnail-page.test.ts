@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Page, Print } from '@segnavia/format'
+import { type OriginApproval, Page, Print } from '@segnavia/format'
 import { frameDocument } from './bridge.ts'
 import { internalPageLoad } from './document-value-load.ts'
 
@@ -12,8 +12,10 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
   const pageElement = {
     part: { add() {} },
     style: {} as CSSStyleDeclaration,
+    origins: [] as Iterable<OriginApproval>,
     [internalPageLoad](page: Page) {
-      srcdoc = frameDocument(page.body.html, { scripts: 'refuse', nonce: 'test', origins: this.origins })
+      const html = 'html' in page.body ? page.body.html : ''
+      srcdoc = frameDocument(html, { scripts: 'refuse', nonce: 'test', origins: this.origins })
     },
   }
   Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class HTMLElement extends EventTarget {} })
