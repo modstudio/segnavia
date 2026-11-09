@@ -8,6 +8,7 @@ import {
   fontManifestWithReferences,
   HEBREW_UNICODE_RANGE,
   LocalFaceTransport,
+  localFontReferences,
   matchFaces,
   persistedFontManifestWithReferences,
   rangeSample,
@@ -56,6 +57,13 @@ describe('FontManifest', () => {
         ['caption', 'body'],
       ),
     ).toEqual([{ app: 'body' }, { local: 'Heading Sans', fallback: 'body' }, { app: 'caption' }])
+  })
+
+  test('selects local references from references, a manifest or no fonts', () => {
+    const local = { local: 'Heading Sans', fallback: 'body' }
+    expect(localFontReferences([{ app: 'body' }, local])).toEqual([local])
+    expect(localFontReferences({ body: { faces: [{}] }, heading: local })).toEqual([local])
+    expect(localFontReferences(undefined)).toEqual([])
   })
 
   test('converts references without overwriting declarations or colliding local keys', () => {

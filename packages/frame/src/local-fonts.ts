@@ -1,11 +1,10 @@
 import {
   type FontFace,
   FontFaceRefusedError,
-  type FontManifest,
-  type FontReference,
-  fontManifestReferences,
+  type FontReferencesSource,
   type Limits,
   type LocalFacesInput,
+  type LocalFontDeclaration,
   localFontLimitRefusal,
   localFontReferences,
   parseLimits,
@@ -58,7 +57,7 @@ const WEIGHT_NAMES: Record<string, number> = {
   heavy: 900,
 }
 
-function unavailable(locals: Array<{ local: string; fallback: string }>, reason: LocalFontUnavailableReason): LocalFonts {
+function unavailable(locals: LocalFontDeclaration[], reason: LocalFontUnavailableReason): LocalFonts {
   return { faces: [], unavailable: locals.map((ref) => ({ family: ref.local, fallback: ref.fallback, reason })) }
 }
 
@@ -138,26 +137,18 @@ async function installedFonts(signal: AbortSignal): Promise<{ fonts?: LocalFontD
   }
 }
 
-function isFontReferenceArray(declarations: readonly FontReference[] | FontManifest): declarations is readonly FontReference[] {
-  return Array.isArray(declarations)
-}
-
-function localReferences(declarations: readonly FontReference[] | FontManifest): Array<{ local: string; fallback: string }> {
-  return localFontReferences(isFontReferenceArray(declarations) ? declarations : fontManifestReferences(declarations))
-}
-
-export async function readLocalFonts(declarations: readonly FontReference[] | FontManifest, options: { signal: AbortSignal }): Promise<LocalFonts> {
-  const locals = localReferences(declarations)
+export async function readLocalFonts(fonts: FontReferencesSource, options: { signal: AbortSignal }): Promise<LocalFonts> {
+  const locals = localFontReferences(fonts)
   if (locals.length === 0) return { faces: [], unavailable: [] }
   const installed = await installedFonts(options.signal)
   if (installed.reason) return unavailable(locals, installed.reason)
-  const fonts = installed.fonts ?? []
+  const installedFontData = installed.fonts ?? []
   const faces: FontFace[] = []
   const present = new Set<string>()
   const unreadable = new Set<string>()
   for (const ref of locals) {
     if (present.has(ref.local) || unreadable.has(ref.local)) continue
-    const family = await facesForFamily(ref.local, fonts, options.signal)
+    const family = await facesForFamily(ref.local, installedFontData, options.signal)
     if (family.faces.length > 0) {
       faces.push(...family.faces)
       present.add(ref.local)
@@ -173,9 +164,9 @@ export async function readLocalFonts(declarations: readonly FontReference[] | Fo
   return { faces, unavailable: unavailableFaces }
 }
 
-export function packLocalFaces(faces: readonly FontFace[], declarations: readonly FontReference[] | FontManifest, limits?: Limits): LocalFacesInput {
+export function packLocalFaces(faces: readonly FontFace[], fonts: FontReferencesSource, limits?: Limits): LocalFacesInput {
   const families = new Map<string, string>()
-  for (const reference of localReferences(declarations)) {
+  for (const reference of localFontReferences(fonts)) {
     if (!families.has(reference.local.toLowerCase())) families.set(reference.local.toLowerCase(), reference.local)
   }
   const selected = faces.flatMap((face) => {

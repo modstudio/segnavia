@@ -121,13 +121,15 @@ const LocalFontShape = { local: z.string().min(1), fallback: AppFontName } as co
 
 export const FontReference = z.union([z.object(AppFontShape), z.object(LocalFontShape)])
 export type FontReference = z.infer<typeof FontReference>
+export type FontReferencesSource = readonly FontReference[] | FontManifest | undefined
 
 export const FontReferenceInput = z.union([z.strictObject(AppFontShape), z.strictObject(LocalFontShape)])
 export type FontReferenceInput = z.input<typeof FontReferenceInput>
 
-export function localFontReferences(references: readonly FontReference[]): Array<{ local: string; fallback: string }> {
+export function localFontReferences(fonts: FontReferencesSource): LocalFontDeclaration[] {
+  const references = Array.isArray(fonts) ? fonts : fontManifestReferences(fonts as FontManifest | undefined)
   const seen = new Set<string>()
-  const locals: Array<{ local: string; fallback: string }> = []
+  const locals: LocalFontDeclaration[] = []
   for (const reference of references) {
     if (!('local' in reference)) continue
     const key = JSON.stringify(reference)

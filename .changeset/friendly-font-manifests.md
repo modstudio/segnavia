@@ -3,4 +3,4 @@
 '@segnavia/frame': minor
 ---
 
-Export font manifest references from format and accept font manifests when reading or packing local fonts.
+Export font manifest reference helpers and accept references, an optional font manifest or no fonts when reading or packing local fonts.
