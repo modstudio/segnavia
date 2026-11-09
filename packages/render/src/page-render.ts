@@ -4,7 +4,7 @@ import type { HtmlPage, PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { dependencySetup, type RenderOptions } from './options.ts'
+import { assetSetup, type RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolvedPageDocument } from './page-document.ts'
@@ -42,7 +42,7 @@ export async function renderPagePdf(
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
-      ...dependencySetup(opts),
+      ...assetSetup(opts),
       ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
     },
     async (tab) => {
@@ -94,7 +94,7 @@ export function renderPiecePdf(
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
-      ...dependencySetup(opts),
+      ...assetSetup(opts),
     },
     (tab) =>
       pdfWithBackdropRasters(

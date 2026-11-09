@@ -1,4 +1,4 @@
-import type { PageWidths } from '@segnavia/format'
+import type { OriginApproval, PageWidths } from '@segnavia/format'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -9,9 +9,9 @@ const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElemen
 
 export abstract class BookSourcesElement extends HTMLElementBase {
   static {
-    defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['dependencyOrigins'])
+    defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['origins'])
   }
-  declare dependencyOrigins: Iterable<string>
+  declare origins: Iterable<OriginApproval>
   protected fontOptions: FontsOptions | undefined
   protected motifOptions: MotifsOptions | undefined
   protected placementOptions: PlacementsOptions | undefined

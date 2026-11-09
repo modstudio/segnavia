@@ -2,7 +2,17 @@
 // size. Sheets are mounted only near the viewport and never grow beyond their
 // natural size at the browser's 96 dpi.
 
-import { type Document, Page, type PageWidths, Print, type PrintInput, pageOrPrintedFromDocument, resolveBrand, type SlotsOptions } from '@segnavia/format'
+import {
+  type Document,
+  type OriginApproval,
+  Page,
+  type PageWidths,
+  Print,
+  type PrintInput,
+  pageOrPrintedFromDocument,
+  resolveBrand,
+  type SlotsOptions,
+} from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
@@ -23,11 +33,11 @@ const MOUNT_MARGIN = 600
 
 export class SegnaviaDocument extends HTMLElement {
   static {
-    defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['dependencyOrigins'])
+    defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['origins'])
   }
   private stylesheet = ''
   private extraCsp = ''
-  declare dependencyOrigins: Iterable<string>
+  declare origins: Iterable<OriginApproval>
   private sourceValues: Page[] = []
   private sourceDocuments: Document[] = []
   private pageValues: HtmlPage[] = []
@@ -316,7 +326,7 @@ export class SegnaviaDocument extends HTMLElement {
     if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
-    page.dependencyOrigins = this.dependencyOrigins
+    page.origins = this.origins
     page.part.add('page')
     sheet.append(page)
     page[internalPageLoad](

@@ -1,15 +1,22 @@
 import { describe, expect, test } from 'bun:test'
-import { classify, fill, findActiveContent, safeMarkdownUrl, sanitize } from './index.ts'
+import { assetOriginRefusals, classify, fill, findActiveContent, safeMarkdownUrl, sanitize } from './index.ts'
 
 const prefix = 'demo'
 
 describe('sanitize', () => {
+  test('asset preflight names unapproved markup and CSS image origins', () => {
+    const url = 'https://outside.example/image.png'
+    const findings = assetOriginRefusals(`<img src="${url}"><p style="background-image:url(${url})">x</p><style>p{mask:url(${url})}</style>`)
+    expect(findings).toHaveLength(3)
+    expect(findings.every((finding) => finding.includes(`${url} at origin https://outside.example is not approved for image`))).toBe(true)
+  })
+
   test('the markdown URL rule optionally restricts link origins', () => {
     expect(safeMarkdownUrl('href', 'mailto:editor@example.com')).toBe(true)
     expect(safeMarkdownUrl('href', 'https://outside.example/x', ['https://inside.example'])).toBe(false)
     expect(safeMarkdownUrl('href', 'https://inside.example/x', ['https://inside.example'])).toBe(true)
     expect(safeMarkdownUrl('href', 'https://exa mple.com/x', ['https://inside.example'])).toBe(false)
-    expect(safeMarkdownUrl('src', 'data:image/png;base64,AA==', ['https://inside.example'])).toBe(true)
+    expect(safeMarkdownUrl('src', 'data:image/png;base64,AA==', [{ origin: 'https://inside.example', kinds: ['image'] }])).toBe(true)
     expect(safeMarkdownUrl('href', 'javascript:alert(1)')).toBe(false)
   })
 
@@ -40,7 +47,7 @@ describe('sanitize', () => {
 
   test('links decides authored hrefs when a converter policy is also supplied', () => {
     const converterPolicy = {
-      urls: { linkProtocols: ['https:'], imageProtocols: [], linkFragments: true, dataImages: false },
+      urls: { linkProtocols: ['https:'], linkFragments: true, dataImages: false },
       inertControls: [],
     }
     expect(sanitize('<a href="mailto:a@b.c">m</a>', { links: { protocols: ['https:', 'mailto:'] }, converterPolicy })).toBe('<a href="mailto:a@b.c">m</a>')
@@ -55,6 +62,23 @@ describe('sanitize', () => {
   test('an image may only be inline data, in src and in style alike', () => {
     expect(sanitize('<img src="https://x.example/a.png"><div style="background:url(https://x.example/b.png)"></div>')).toBe('<img><div></div>')
     expect(sanitize('<img src="data:image/png;base64,AA==">')).toBe('<img src="data:image/png;base64,AA==">')
+  })
+
+  test('a refused-script page keeps only images approved for the image kind and names a refused origin', () => {
+    const approved = 'https://images.example/approved.png'
+    const refused = 'https://outside.example/refused.png'
+    const options = { origins: [{ origin: 'https://images.example', kinds: ['image'] as const }] }
+    const html = `<img src="${approved}"><img src="${refused}">`
+    expect(sanitize(html, options)).toBe(`<img src="${approved}"><img>`)
+    expect(findActiveContent(html, options)).toEqual([expect.stringContaining(`${refused} at origin https://outside.example`)] as string[])
+  })
+
+  test('materializes one-shot origin approvals for every sanitized image', () => {
+    function* origins() {
+      yield { origin: 'https://images.example', kinds: ['image'] as const }
+    }
+    const html = '<img src="https://images.example/a.png"><img src="https://images.example/b.png">'
+    expect(sanitize(html, { origins: origins() })).toBe(html)
   })
 
   test('a style element removes only the rule or declaration that fetches content', () => {
@@ -142,22 +166,22 @@ describe('sanitize', () => {
   test('scripted pages keep only approved pinned dependencies and both sanitizer paths agree', () => {
     const pinned = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.js'
     const ranged = 'https://cdn.jsdelivr.net/npm/chart.js@^4/dist/chart.js'
-    const options = { keepScripts: true, dependencyOrigins: ['https://cdn.jsdelivr.net'] }
+    const options = { keepScripts: true, origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] as const }] }
     const html = `<script src="${pinned}" integrity="sha384-ok"></script><script src="${ranged}"></script><script src="https://evil.example/a@1.2.3.js"></script>`
     const findings = findActiveContent(html, options)
     expect(findings).toHaveLength(2)
     expect(findings[0]).toContain('exact x.y.z package version')
-    expect(findings[1]).toContain('dependencyOrigins')
+    expect(findings[1]).toContain('origins')
     const cleaned = sanitize(html, options)
     expect(cleaned).toContain(`src="${pinned}" integrity="sha384-ok"`)
     expect(cleaned).not.toContain(ranged)
     expect(cleaned).not.toContain('evil.example')
     expect(findActiveContent(cleaned, options)).toEqual([])
-    expect(sanitize(`<script src="${pinned}"></script>`, { keepScripts: true })).toBe('<script></script>')
+    expect(sanitize(`<script src="${pinned}"></script>`, { keepScripts: true })).toContain(`src="${pinned}"`)
   })
 
   test('scripted dependency policy keeps stylesheets, imports, and font files but drops preconnect', () => {
-    const options = { keepScripts: true, dependencyOrigins: ['https://fonts.googleapis.com', 'https://fonts.gstatic.com'] }
+    const options = { keepScripts: true }
     const html =
       '<link rel="preconnect" href="https://fonts.gstatic.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter"><style>@import url(https://fonts.googleapis.com/css2?family=Inter);@font-face{font-family:Inter;src:url(https://fonts.gstatic.com/s/inter/v1/font.woff2)}</style>'
     const cleaned = sanitize(html, options)
@@ -170,7 +194,7 @@ describe('sanitize', () => {
 
   test('keeps an approved import condition', () => {
     const css = '@import url(https://fonts.googleapis.com/css2?family=Inter) print;'
-    const cleaned = sanitize(`<style>${css}</style>`, { keepScripts: true, dependencyOrigins: ['https://fonts.googleapis.com'] })
+    const cleaned = sanitize(`<style>${css}</style>`)
     expect(cleaned).toContain(css)
   })
 

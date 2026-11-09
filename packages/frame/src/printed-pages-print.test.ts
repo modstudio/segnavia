@@ -26,8 +26,9 @@ afterEach(() => {
   else Reflect.deleteProperty(globalThis, 'document')
 })
 
-function fakeMeasurement(height: number): Array<{ cssText: string }> {
+function fakeMeasurement(height: number): { styles: Array<{ cssText: string }>; documents: string[] } {
   const styles: Array<{ cssText: string }> = []
+  const documents: string[] = []
   const messages = new EventTarget() as EventTarget & Pick<Window, 'setTimeout' | 'clearTimeout'>
   messages.setTimeout = globalThis.setTimeout.bind(globalThis) as Window['setTimeout']
   messages.clearTimeout = globalThis.clearTimeout.bind(globalThis) as Window['clearTimeout']
@@ -45,12 +46,20 @@ function fakeMeasurement(height: number): Array<{ cssText: string }> {
     createElement: () => {
       const style = { cssText: '' }
       styles.push(style)
-      return { contentWindow: {}, remove: () => {}, setAttribute: () => {}, style, srcdoc: '' }
+      return {
+        contentWindow: {},
+        remove: () => {},
+        setAttribute: () => {},
+        style,
+        set srcdoc(value: string) {
+          documents.push(value)
+        },
+      }
     },
   }
   Object.defineProperty(globalThis, 'window', { configurable: true, value: messages })
   Object.defineProperty(globalThis, 'document', { configurable: true, value: document })
-  return styles
+  return { styles, documents }
 }
 
 describe('printedPagesPrintDocument', () => {
@@ -69,7 +78,7 @@ describe('printedPagesPrintDocument', () => {
   })
 
   test('uses a paper-sized viewport for LTR and RTL measuring and printable frames', async () => {
-    const styles = fakeMeasurement(279.4 * PX_PER_MM)
+    const { styles } = fakeMeasurement(279.4 * PX_PER_MM)
     const width = Math.ceil(215.9 * PX_PER_MM - 1e-9)
     const height = Math.ceil(279.4 * PX_PER_MM - 1e-9)
     const result = await printedPagesPrintDocument([printed('ltr'), printed('rtl')], identity, { deadlineAt: Date.now() + 100 })
@@ -82,5 +91,15 @@ describe('printedPagesPrintDocument', () => {
     expect(result.sheets).toBe(2)
     expect(result.html).not.toContain('width:431.8mm')
     expect(result.html).not.toContain('margin-left:')
+  })
+
+  test('carries approved image origins into measuring and composed frames', async () => {
+    const { documents } = fakeMeasurement(279.4 * PX_PER_MM)
+    const origins = [{ origin: 'https://images.example', kinds: ['image'] as const }]
+    const result = await printedPagesPrintDocument([printed()], identity, { deadlineAt: Date.now() + 100, origins })
+
+    expect(documents).toHaveLength(1)
+    expect(documents[0]).toMatch(/img-src [^;]*https:\/\/images\.example/)
+    expect(result.html).toMatch(/img-src [^;]*https:\/\/images\.example/)
   })
 })

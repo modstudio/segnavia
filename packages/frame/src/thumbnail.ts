@@ -27,8 +27,9 @@ import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
+import { ThumbnailProperties } from './thumbnail-properties.ts'
 
-export class SegnaviaThumbnail extends HTMLElement {
+export class SegnaviaThumbnail extends ThumbnailProperties {
   private margin = 400
   private value: Deck | null = null
   private deckDocument: Document | null = null
@@ -38,7 +39,6 @@ export class SegnaviaThumbnail extends HTMLElement {
   private slideIndex = 0
   private slideResolver: ControllerOptions['resolveSlide']
   private baseUrl: string | undefined
-  private stylesheet = ''
   private controller: DeckController | null = null
   private observer: IntersectionObserver | null = null
   private resize = new ResizeObserver(() => this.measure())
@@ -128,13 +128,7 @@ export class SegnaviaThumbnail extends HTMLElement {
     this.slideResolver = value
     this.changed()
   }
-  /** The host stylesheet an HTML slide is drawn with, as the stage's `css`. */
-  get css(): string {
-    return this.stylesheet
-  }
-
-  set css(value: string) {
-    this.stylesheet = value
+  protected thumbnailPropertiesChanged() {
     this.changed()
   }
 
@@ -299,7 +293,7 @@ export class SegnaviaThumbnail extends HTMLElement {
       await controller.loadDeckValue(deck, this.baseUrl)
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-      const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet)
+      const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css)
       authored.part.add('canvas')
       this.viewport.append(authored)
       this.measure()
@@ -314,7 +308,7 @@ export class SegnaviaThumbnail extends HTMLElement {
       try {
         const slots = await prepareSlots(deck.slots, this.slotOptions, slotPreparation.signal)
         if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.stylesheet, slots)
+        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, slots)
         filled.part.add('canvas')
         this.viewport.replaceChildren(filled)
         this.measure()
@@ -391,7 +385,8 @@ export class SegnaviaThumbnail extends HTMLElement {
       pageWidths: this.widthOptions,
       fonts: this.fontOptions,
       slots: this.slotOptions,
-      css: this.stylesheet,
+      origins: this.origins,
+      css: this.css,
     })
   }
 }

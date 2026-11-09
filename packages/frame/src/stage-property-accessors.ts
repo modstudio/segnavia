@@ -1,3 +1,4 @@
+import type { OriginApproval } from '@segnavia/format'
 import type { BrandsOptions } from './brands.ts'
 import { defineElementPropertyAccessors, defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
@@ -6,7 +7,7 @@ export interface StagePropertyValues {
   // Styles applied inside every slide, such as a host's house style.
   css: string
   cspExtra: string
-  dependencyOrigins: Iterable<string>
+  origins: Iterable<OriginApproval>
   bridgeReadyTimeoutMs: number
   frameTitle: FrameTitle
   brands: BrandsOptions | undefined

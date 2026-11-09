@@ -1,4 +1,4 @@
-import { type Deck, type Folio, firstStrongDirection, type PixelSize, type Slide } from '@segnavia/format'
+import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type PixelSize, type Slide } from '@segnavia/format'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -11,7 +11,7 @@ const canvasLayouts = new WeakMap<HTMLElement, (size: PixelSize) => void>()
 interface StageCanvasOptions {
   css: string
   csp: string
-  dependencyOrigins?: Iterable<string>
+  origins?: Iterable<OriginApproval>
   frameTitle: FrameTitle
   loaded: () => void
   slots?: PreparedSlots
@@ -31,7 +31,7 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       sheets: frameStyleSheets(deck.style, deck.brand),
       css: options.css,
       csp: options.csp || undefined,
-      dependencyOrigins: options.dependencyOrigins,
+      origins: options.origins,
       reportHeight: false,
       bridge: options.bridge,
     })

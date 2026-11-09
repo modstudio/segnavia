@@ -1,4 +1,4 @@
-import type { Page, PageWidths, Print, SlotsOptions } from '@segnavia/format'
+import type { OriginApproval, Page, PageWidths, Print, SlotsOptions } from '@segnavia/format'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { internalPageLoad } from './document-value-load.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -12,6 +12,7 @@ interface ThumbnailPageOptions {
   pageWidths?: PageWidths
   fonts?: FontsOptions
   slots?: SlotsOptions
+  origins?: Iterable<OriginApproval>
   css: string
 }
 
@@ -33,6 +34,7 @@ export function mountThumbnailPage(viewport: HTMLElement, source: Page | null, p
   page.pageWidths = options.pageWidths
   page.fonts = options.fonts
   page.slots = options.slots
+  page.origins = options.origins ?? []
   page.css = options.css
   page.cspExtra = ''
   page.part.add('canvas')

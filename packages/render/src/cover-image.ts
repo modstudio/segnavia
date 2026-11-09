@@ -3,7 +3,7 @@ import { RenderRefusedError } from './errors.ts'
 import type { ImageOptions } from './options.ts'
 import { pageViewport } from './page-viewport.ts'
 
-export const COVER_IMAGE_OMITTED = ['dependencies', 'dependencyOrigins', 'format', 'proof', 'scale', 'width'] as const
+export const COVER_IMAGE_OMITTED = ['format', 'proof', 'scale', 'width'] as const
 type CoverImageOmitted = (typeof COVER_IMAGE_OMITTED)[number]
 
 export interface CoverImageOptions extends Omit<ImageOptions, CoverImageOmitted> {

@@ -1,3 +1,4 @@
+import type { OriginApproval } from '@segnavia/format'
 import type { FrameReadinessOptions } from './frame-entry.ts'
 import type { FrameTitle } from './frame-title.ts'
 import type { PreparedSlots } from './slot-render.ts'
@@ -7,7 +8,7 @@ export interface PoolOptions extends FrameReadinessOptions {
   neighbors: boolean
   css: string
   csp: string
-  dependencyOrigins?: Iterable<string>
+  origins?: Iterable<OriginApproval>
   frameTitle: FrameTitle
   transition?: HostTransition
   reducedMotion: boolean

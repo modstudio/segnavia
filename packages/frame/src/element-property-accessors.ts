@@ -1,3 +1,5 @@
+import type { OriginApproval } from '@segnavia/format'
+
 export function defineElementPropertyAccessors<T extends object>(prototype: object, defaults: () => T): void {
   const values = new WeakMap<object, T>()
   const valueFor = (element: object) => {
@@ -15,7 +17,7 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
         return valueFor(this)[name]
       },
       set(this: object, value: T[typeof name]) {
-        valueFor(this)[name] = value
+        valueFor(this)[name] = (name === 'origins' && value !== undefined ? [...(value as Iterable<unknown>)] : value) as T[typeof name]
       },
     })
   }
@@ -24,15 +26,15 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
 interface StylesheetPropertyValues {
   css: string
   cspExtra: string
-  dependencyOrigins: Iterable<string>
+  origins: Iterable<OriginApproval>
 }
 
 export function defineStylesheetPropertyAccessors(
   prototype: object,
-  properties: readonly (keyof StylesheetPropertyValues)[] = ['css', 'cspExtra', 'dependencyOrigins'],
+  properties: readonly (keyof StylesheetPropertyValues)[] = ['css', 'cspExtra', 'origins'],
 ): void {
   defineElementPropertyAccessors(prototype, () => {
-    const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', dependencyOrigins: [] }
+    const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', origins: [] }
     return Object.fromEntries(properties.map((name) => [name, defaults[name]])) as Partial<StylesheetPropertyValues>
   })
 }

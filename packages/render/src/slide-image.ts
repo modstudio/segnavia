@@ -7,7 +7,7 @@ import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDeckFonts } from './deck-pdf.ts'
 import { fontFaces } from './font-faces.ts'
-import { dependencySetup, type ImageOptions } from './options.ts'
+import { assetSetup, type ImageOptions } from './options.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
@@ -36,7 +36,7 @@ export async function renderSlideImage(
   const diagramScript = await services.diagramScript(slideHtml)
   const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false)
   const css = `${resolvedFonts.fontCss}${fontFaces(opts.fonts)}${opts.css ?? ''}`
-  const html = printableDeckValue(single, { inline: opts.inline, css, dependencyOrigins: opts.dependencyOrigins, diagramScript })
+  const html = printableDeckValue(single, { inline: opts.inline, css, origins: opts.origins, diagramScript })
   return services.withTab(
     {
       viewport: deck.size,
@@ -48,7 +48,7 @@ export async function renderSlideImage(
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
-      ...dependencySetup(opts),
+      ...assetSetup(opts),
       ...fontLoadSetup(resolvedFonts.fontFailures, opts.fontLoad?.report),
     },
     async (tab) => {
