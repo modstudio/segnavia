@@ -17,7 +17,7 @@ import {
   resolveParentPages,
   sheetMm,
 } from '@segnavia/format'
-import { fragmentationCss, type PrintedHtmlPage, parseDocument, printedSectionFlows, resolvePrintedPageHtml } from '@segnavia/html'
+import { fragmentationCss, type PrintedHtmlPage, parseDocument, printedPageAuthorHtml, printedSectionFlows, resolvePrintedPageHtml } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
@@ -156,7 +156,7 @@ export function printedPageValueDocument(
   const paper = sheetMm(page.print)
   const resolved = resolveParentPages(page.printedPages.parents)
   const measured = geometry(page, resolved, paper.width, paper.height)
-  const direction = pageDirection({ ...page, html: page.printedPages.sections.map((section) => section.html).join('') })
+  const direction = pageDirection({ ...page, html: printedPageAuthorHtml(page) })
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
   const parents = resolved.map((parent) => {

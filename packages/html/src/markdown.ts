@@ -329,3 +329,7 @@ export function resolvePrintedPageHtml(page: Page | HtmlPage): PrintedHtmlPage {
     printedPages: { ...printedPages, sections: [{ id: 'printed-page', html, implicit: true }] },
   }
 }
+
+export function printedPageAuthorHtml(page: HtmlPage | PrintedHtmlPage): string {
+  return 'html' in page ? page.html : page.printedPages.sections.map((section) => section.html).join('')
+}

@@ -1,10 +1,10 @@
 import type { OriginApproval, Page, PageWidths, SlotsOptions } from '@segnavia/format'
-import { type HtmlPage, type PrintedHtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
-import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
+import { type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
+import { expandPrintedFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'
+import { pageFontCss } from './page-fonts.ts'
 import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
-import { prepareExpandedPage } from './page-preparation.ts'
 import { fillsSlotValues } from './slot-render.ts'
 
 export const PRINTED_SLOT_REFUSAL =
@@ -29,31 +29,18 @@ export interface PrintedPageFrameOptions {
 export function loadPrintedPageFrame(page: Page | HtmlPage, options: PrintedPageFrameOptions): void {
   if (fillsSlotValues(page.slots, options.slots)) options.failed(new Error(PRINTED_SLOT_REFUSAL))
   const printed = resolvePrintedPageHtml(page)
-  const sectionPages = printed.printedPages.sections.map((section) => ({ ...printed, html: section.html }) as HtmlPage)
-  void Promise.all(
-    sectionPages.map((section) => prepareExpandedPage(section, options.motifs, options.fonts, options.signal, options.placements, options.widths)),
-  )
-    .then((shown) => {
-      const first = shown[0]
-      if (!first) throw new Error('a printed page needs at least one section')
-      const { html: _html, ...fields } = first.page
-      const resolved: PrintedHtmlPage = {
-        ...fields,
-        printedPages: {
-          ...printed.printedPages,
-          ...first.page.printedPages,
-          sections: printed.printedPages.sections.map((section, index) => ({ ...section, html: shown[index]?.page.html ?? section.html })),
-        },
-      }
+  void expandPrintedFramePage(printed, options.motifs, options.signal, options.placements, 'screen', options.widths)
+    .then(async (expanded) => {
+      const fonts = await pageFontCss(expanded.page, expanded.fonts, options.fonts, options.signal)
       loadPrintedPageDocument(
-        resolved,
+        expanded.page,
         {
-          baseCss: shown.map((entry) => entry.css).join(''),
+          baseCss: fonts.css,
           css: options.css,
           csp: options.csp,
           origins: options.origins,
           screen: { spread: false },
-          fontFailures: shown.flatMap((entry) => entry.failures),
+          fontFailures: fonts.failures,
         },
         options.loaded,
         options.failed,

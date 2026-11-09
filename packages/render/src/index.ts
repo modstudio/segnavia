@@ -1,7 +1,7 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { expandFrameBookValue, expandFramePages } from '@segnavia/frame/motifs'
-import { type PreparedSlots, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { type PreparedSlots, parseDocument, printedPageAuthorHtml, resolvePageHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { parseBookPdfOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
@@ -173,7 +173,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     deadline: RenderDeadline,
   ): Promise<Uint8Array> {
     const { value: page, slots } = await filledPage(prepared.page, opts.slots, deadline.signal)
-    const pageHtml = 'html' in page ? page.html : page.printedPages.sections.map((section) => section.html).join('')
+    const pageHtml = printedPageAuthorHtml(page)
     const diagramScript = await resolveDiagramScript(pageHtml)
     const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
     return withTab(
@@ -235,7 +235,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'print')
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const { value: page, slots } = await filledPage(prepared.page, copySlots, deadline.signal)
-          const diagramScript = await resolveDiagramScript('html' in page ? page.html : page.printedPages.sections.map((section) => section.html).join(''))
+          const diagramScript = await resolveDiagramScript(printedPageAuthorHtml(page))
           const printed = await renderPagePdf(
             page,
             slots,

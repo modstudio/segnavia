@@ -308,12 +308,17 @@ export const printedSectionDocument: DocumentInput = {
   parentPages: [
     {
       type: 'parentPage',
+      name: 'cover',
+      geometry: { margin: { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 } },
+    },
+    {
+      type: 'parentPage',
       name: 'body',
       geometry: { margin: { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 } },
       foot: '<footer>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></footer>',
     },
   ],
-  rules: { every: 'body' },
+  rules: { every: 'body', first: 'cover' },
   children: [
     {
       type: 'section',

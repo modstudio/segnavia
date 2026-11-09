@@ -22,6 +22,7 @@ import {
   hasMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
+  type PrintedHtmlPage,
   parseDocument,
   resolvePlacements,
 } from '@segnavia/html'
@@ -29,6 +30,7 @@ import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
 import type { BrandsOptions } from './brands.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
+import { mergeExpandedPrintedPage } from './printed-page-expansion.ts'
 
 export interface MotifsOptions {
   source: MotifSource
@@ -40,6 +42,10 @@ export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export type PlacementsOptions = AssetPlacementsOptions
 export interface ExpandedFramePage {
   page: HtmlPage
+  fonts: FontReference[]
+}
+export interface ExpandedPrintedFramePage {
+  page: PrintedHtmlPage
   fonts: FontReference[]
 }
 export interface ExpandedBook<T extends Book | BookView> {
@@ -365,6 +371,20 @@ export async function expandFramePage(
     : undefined
   const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
   return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths), fonts: summary.fonts }
+}
+
+export async function expandPrintedFramePage(
+  page: PrintedHtmlPage,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  placements?: PlacementsOptions,
+  purpose: 'screen' | 'print' = 'screen',
+  pageWidths?: PageWidths,
+): Promise<ExpandedPrintedFramePage> {
+  const expanded = await Promise.all(
+    page.printedPages.sections.map((section) => expandFramePage({ ...page, html: section.html }, motifs, signal, placements, purpose, pageWidths)),
+  )
+  return mergeExpandedPrintedPage(page, expanded)
 }
 
 export function expandFramePages(

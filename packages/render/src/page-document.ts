@@ -16,7 +16,7 @@ import {
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
-import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
+import { expandFramePage, expandPrintedFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import { FontCssRefusedError, type HtmlPage, type PrintedHtmlPage, parseDocument, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -85,7 +85,7 @@ async function prepareRenderedPrintedPageValue(
   signal: AbortSignal,
   purpose: 'screen' | 'print',
 ) {
-  const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options, purpose)
+  const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options.placements, purpose, options.pageWidths)
   return preparedRender(expanded, options, signal)
 }
 
@@ -101,34 +101,6 @@ async function preparedRender<T extends HtmlPage | PrintedHtmlPage>(
   const resolved = await fontCssForRender(resolveRenderFontReferences(manifest, undeclared, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
   return { page: expanded.page, options, fontCss: resolved.css, fontFailures: resolved.failures }
-}
-
-async function expandPrintedFramePage(
-  page: PrintedHtmlPage,
-  motifs: MotifsOptions | undefined,
-  signal: AbortSignal,
-  options: RenderOptions,
-  purpose: 'screen' | 'print',
-): Promise<{ page: PrintedHtmlPage; fonts: FontReference[] }> {
-  const expanded = await Promise.all(
-    page.printedPages.sections.map((section) =>
-      expandFramePage({ ...page, html: section.html }, motifs, signal, options.placements, purpose, options.pageWidths),
-    ),
-  )
-  const first = expanded[0]
-  if (!first) throw new Error('a printed page needs at least one section')
-  const { html: _html, ...fields } = first.page
-  return {
-    page: {
-      ...fields,
-      printedPages: {
-        ...page.printedPages,
-        ...first.page.printedPages,
-        sections: page.printedPages.sections.map((section, index) => ({ ...section, html: expanded[index]?.page.html ?? section.html })),
-      },
-    },
-    fonts: expanded.flatMap((entry) => entry.fonts),
-  }
 }
 
 export async function prepareRenderedPages(

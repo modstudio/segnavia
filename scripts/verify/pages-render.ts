@@ -112,7 +112,8 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     'a sectioned printed document has an uncounted cover and two numbered body papers',
     sectioned.length === 3 &&
       sectioned[0]?.includes('SECTIONED COVER') === true &&
-      sectioned[0]?.includes('Page of 2') === true &&
+      sectioned[0]?.includes('Page') === false &&
+      sectioned[0]?.includes('of') === false &&
       sectioned[1]?.includes('Page 1 of 2') === true &&
       sectioned[2]?.includes('Page 2 of 2') === true,
     sectioned.map((text, index) => `${index + 1}:${text.replace(/\s+/g, ' ').trim()}`).join(' | '),
@@ -368,7 +369,6 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
 
   const limits = readFileSync(path.join(output, 'pages-limits.txt'), 'utf8')
   check('the imposed sheets ceiling counts PDF pages and names both counts', limits.includes('2 sheets') && limits.includes('sheets limit of 1'), limits)
-
   const letterFolded = impose(Imposition.parse(letterFoldImposition), letterFoldPages.length)
   const letterXml = execFileSync('pdftotext', ['-bbox', path.join(output, 'pages-letter-fold.pdf'), '-'], { encoding: 'utf8' })
   const letterPdfPages = [...letterXml.matchAll(/<page\b[^>]*>([\s\S]*?)<\/page>/g)].map((match) => match[1] ?? '')

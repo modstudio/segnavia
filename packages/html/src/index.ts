@@ -105,6 +105,7 @@ export {
   markdownHtml,
   markdownOutline,
   type PrintedHtmlPage,
+  printedPageAuthorHtml,
   resolvePageHtml,
   resolvePrintedPageHtml,
 } from './markdown.ts'
