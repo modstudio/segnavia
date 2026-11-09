@@ -1,6 +1,7 @@
 import {
   type Board,
   type BoardItem,
+  type BoardLabel,
   type BoardItemAnchor,
   type BoardShapes,
   type BoardView,
@@ -13,6 +14,7 @@ import {
   resizeItem,
   screenToBoard,
 } from '@segnavia/format'
+import { labelResizeHandlePoint } from './board-label-editing.ts'
 
 const anchors: Record<string, BoardItemAnchor> = {
   'top-left': 'bottom-right',
@@ -86,4 +88,25 @@ export function renderResizeHandles(overlay: HTMLElement, item: BoardItem | unde
     handle.style.top = `${point.y + (corner.startsWith('bottom') ? height : 0)}px`
     overlay.append(handle)
   }
+}
+
+export function renderLabelResizeHandle(
+  overlay: HTMLElement,
+  label: BoardLabel | undefined,
+  view: BoardView,
+  shape: { width: number; height: number } | undefined,
+  name: string,
+) {
+  overlay.querySelector('[part~="label-resize-handle"]')?.remove()
+  if (!label || !shape) return
+  const point = labelResizeHandlePoint(label, view, shape)
+  const handle = document.createElement('button')
+  handle.type = 'button'
+  handle.part.add('label-resize-handle')
+  handle.dataset.labelResizeHandle = label.id
+  handle.dir = 'auto'
+  handle.setAttribute('aria-label', name)
+  handle.style.left = `${point.x}px`
+  handle.style.top = `${point.y}px`
+  overlay.append(handle)
 }

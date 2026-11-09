@@ -33,9 +33,10 @@ import {
   undoBoardEdit,
 } from './board-edit-policy.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
-import { renderResizeHandles } from './board-editing-overlay.ts'
+import { renderLabelResizeHandle, renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
 import { BOARD_HISTORY_LIMIT } from './board-history.ts'
+import { boardLabels } from './labels.ts'
 
 export const DEFAULT_BOARD_ITEM_WIDTH = 320
 export { BOARD_HISTORY_LIMIT }
@@ -106,6 +107,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     board.addEventListener('segnavia-board-selection', this.renderHandles)
     board.addEventListener('segnavia-board-view', this.renderHandles)
     board.addEventListener('keyup', this.onKeyUp)
+    board.addEventListener('dblclick', this.onDoubleClick)
     this.renderHandles()
     queueMicrotask(() => this.settleInitial())
   }
@@ -124,6 +126,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.board.removeEventListener('segnavia-board-selection', this.renderHandles)
     this.board.removeEventListener('segnavia-board-view', this.renderHandles)
     this.board.removeEventListener('keyup', this.onKeyUp)
+    this.board.removeEventListener('dblclick', this.onDoubleClick)
     if (this.state) this.applyTransition(detachBoardEditing(this.state))
     this.bridge.detach()
     if (!this.state?.jobs.length) this.bridge.release()
@@ -231,6 +234,20 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.input.keyUp(event)
   }
 
+  private onDoubleClick = (event: MouseEvent) => {
+    const handle = event.composedPath().find(
+      (target): target is HTMLElement => target instanceof HTMLElement && target.dataset.labelResizeHandle !== undefined,
+    )
+    const id = handle?.dataset.labelResizeHandle
+    const current = this.state ? boardFromDocument(this.state.value) : null
+    const label = current?.labels.find((entry) => entry.id === id)
+    if (!current || !label || label.width === undefined) return
+    const { width: _width, size: _size, ...unwrapped } = label
+    const next = { ...current, labels: current.labels.map((entry) => (entry.id === label.id ? unwrapped : entry)) }
+    this.applyBoard(next, { kind: 'resize', ids: [label.id] })
+    event.preventDefault()
+  }
+
   private applyBoard(next: Board, edit: BoardEdit) {
     if (!this.state) return
     this.applyTransition(applyBoardEdit(this.state, diffDocuments(this.state.value, this.bridge.document(next)), edit))
@@ -332,16 +349,21 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private renderHandles = () => {
     if (!this.enabled.resize || this.board.selection.length !== 1) {
       renderResizeHandles(this.bridge.overlay, undefined, this.bridge.view(), undefined)
+      renderLabelResizeHandle(this.bridge.overlay, undefined, this.bridge.view(), undefined, '')
       return
     }
-    const item = this.bridge.value()?.items.find((entry) => entry.id === this.board.selection[0])
+    const value = this.bridge.value()
+    const item = value?.items.find((entry) => entry.id === this.board.selection[0])
     const shape = item ? this.bridge.shapes().items[item.id] : undefined
     renderResizeHandles(this.bridge.overlay, item, this.bridge.view(), shape)
+    const label = value?.labels.find((entry) => entry.id === this.board.selection[0])
+    const labelShape = label ? this.bridge.shapes().labels[label.id] : undefined
+    renderLabelResizeHandle(this.bridge.overlay, label, this.bridge.view(), labelShape, boardLabels(this.board.labels).labelResize)
   }
 
   private existingIds(edit: BoardEdit, value: Board): string[] {
     const ids = edit.kind === 'undo' || edit.kind === 'redo' ? this.existingIds(edit.edit, value) : edit.ids
-    const present = new Set(value.items.map((item) => item.id))
+    const present = new Set([...value.items, ...value.labels].map((node) => node.id))
     return ids.filter((id) => present.has(id))
   }
 

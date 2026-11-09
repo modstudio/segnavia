@@ -61,7 +61,7 @@ export class BoardPointerInput {
     const actionStarted = this.actionPointers.delete(event.pointerId)
     if (actionStarted || this.gestures.dragged || this.actionButton(event)) return
     const titleItem = this.callbacks.item(titleId)
-    this.callbacks.select(titleItem?.id ?? this.callbacks.itemAt(event)?.id ?? null, event.shiftKey)
+    this.callbacks.select(titleItem?.id ?? this.labelNode(event)?.dataset.boardLabel ?? this.callbacks.itemAt(event)?.id ?? null, event.shiftKey || event.metaKey || event.ctrlKey)
   }
 
   private onPointerDown = (event: PointerEvent) => {
@@ -69,7 +69,8 @@ export class BoardPointerInput {
       this.actionPointers.add(event.pointerId)
       return
     }
-    if (event.button === 0) this.callbacks.focus(this.itemNode(event)?.dataset.boardItem ?? this.titleNode(event)?.dataset.boardTitle)
+    if (event.button === 0)
+      this.callbacks.focus(this.itemNode(event)?.dataset.boardItem ?? this.titleNode(event)?.dataset.boardTitle ?? this.labelNode(event)?.dataset.boardLabel)
     if (this.delegate?.pointerDown(event)) {
       this.delegatedPointers.add(event.pointerId)
       return
@@ -92,7 +93,8 @@ export class BoardPointerInput {
   }
 
   private onDoubleClick = (event: MouseEvent) => {
-    if (this.gestures.dragged || this.actionButton(event)) return
+    if (this.gestures.dragged || this.actionButton(event) || this.labelResizeHandle(event)) return
+    if (this.labelNode(event)) return
     const item = this.callbacks.itemAt(event)
     if (item) this.callbacks.open(item)
   }
@@ -125,7 +127,15 @@ export class BoardPointerInput {
     return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardTitle))
   }
 
+  private labelNode(event: Event): HTMLElement | undefined {
+    return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardLabel))
+  }
+
   private actionButton(event: Event): HTMLButtonElement | undefined {
     return event.composedPath().find((target): target is HTMLButtonElement => target instanceof HTMLButtonElement && Boolean(target.dataset.boardItemAction))
+  }
+
+  private labelResizeHandle(event: Event): HTMLElement | undefined {
+    return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && target.dataset.labelResizeHandle !== undefined)
   }
 }

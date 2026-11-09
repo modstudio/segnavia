@@ -29,7 +29,7 @@ import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy
 import * as boardPolicy from './board-policy.ts'
 import type { ResolveBoardItem } from './board-resolutions.ts'
 import { focusAfterReveal, revealTarget } from './board-reveal.ts'
-import { BoardSelection, selectBoardItem } from './board-selection.ts'
+import { BoardSelection, selectBoardNode } from './board-selection.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import { internalBoardValue } from './board-value.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -45,6 +45,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private nameProvider: BoardItemNames | undefined
   private shapes: BoardShapes = { items: {}, labels: {} }
   private items = new Map<string, BoardItem>()
+  private labelsById = new Map<string, Board['labels'][number]>()
   private readonly painter = new BoardPainter()
   private motifOptions: MotifsOptions | undefined
   private placementOptions: PlacementsOptions | undefined
@@ -53,7 +54,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private readonly root = this.attachShadow({ mode: 'open' })
   private readonly surface = document.createElement('div')
   private editingHostValue: BoardEditingHostValue | null = null
-  private readonly decorations = new BoardDecorations(this.surface)
+  private readonly decorations = new BoardDecorations(this.surface, (node, id) => this.selectionState.mount(node, id))
   private readonly titles = new BoardItemTitles()
   private readonly chrome = new BoardChrome(
     this.titles,
@@ -65,7 +66,8 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private readonly selectionState = new BoardSelection(
     this,
     () => this.items,
-    () => this.mounts.nodes,
+    () => this.labelsById,
+    () => new Map([...this.mounts.nodes, ...this.decorations.nodes]),
   )
   private readonly mounts = new BoardMounts(
     this.surface,
@@ -90,10 +92,10 @@ export class SegnaviaBoard extends BoardDocumentElement {
     itemAt: (event) => (this.value ? itemAt(this.value, this.shapes, screenToBoard(this.currentView, this.gestures.local(event))) : undefined),
     select: (id, toggle) => {
       if (!id) this.selectionState.selection = []
-      else this.selectionState.selection = selectBoardItem(this.selectionState.selection, id, toggle)
+      else this.selectionState.selection = selectBoardNode(this.selectionState.selection, id, toggle)
     },
     selectAll: () => {
-      this.selectionState.selection = this.value?.items.map((item) => item.id) ?? []
+      this.selectionState.selection = this.value ? [...this.value.items, ...this.value.labels].map((node) => node.id) : []
     },
     open: (item) => this.dispatchEvent(boardEvent('segnavia-board-open', { item })),
     boardKey: (event) =>
@@ -141,6 +143,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
     const previous = this.value
     this.value = input
     this.items = new Map(this.value?.items.map((item) => [item.id, item]) ?? [])
+    this.labelsById = new Map(this.value?.labels.map((label) => [label.id, label]) ?? [])
     this.selectionState.reconcile()
     if (this.pendingReveal && !this.items.has(this.pendingReveal.id)) this.pendingReveal = undefined
     this.resolutions.keep(this.value?.items ?? [])

@@ -50,10 +50,12 @@ export interface PlayerLabels {
 
 export interface BoardLabels {
   itemAction: (label: string, name: string) => string
+  labelResize: string
 }
 
 export const ENGLISH_BOARD_LABELS: BoardLabels = {
   itemAction: (label, name) => `${label} ${name}`,
+  labelResize: 'Resize label',
 }
 
 export function boardLabels(labels: Partial<BoardLabels>): BoardLabels {
