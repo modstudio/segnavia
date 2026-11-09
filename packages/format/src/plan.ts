@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { DEFAULT_LIMITS, type Limits } from './limits.ts'
 
-export const PLAN_VERSION = 4 as const
+export const PLAN_VERSION = 5 as const
 
 export const PaginateWindow = z.object({
   flow: z.string(),

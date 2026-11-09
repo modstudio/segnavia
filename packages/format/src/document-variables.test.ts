@@ -39,3 +39,40 @@ test('parses typed variables and refuses invalid names and references with remed
     /variable name.*segnavia:topic.*is reserved for the library; rename it without the segnavia: prefix to clear this refusal/,
   )
 })
+
+test('validates head template placements and parts at parse', () => {
+  const base = {
+    type: 'document' as const,
+    kind: 'printed' as const,
+    parentRules: [{ parent: 'body' }],
+    print: { paper: 'a4' },
+    children: [{ type: 'page' as const, body: { html: '<p>Body</p>' } }],
+  }
+  expect(() =>
+    Document.parse({
+      ...base,
+      parentPages: [{ type: 'parentPage', name: 'body', head: '<span data-motif="segnavia:head-template" data-motif-name="missing"></span>' }],
+    }),
+  ).toThrow(/placement names undeclared template.*missing/)
+  expect(() =>
+    Document.parse({
+      ...base,
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      headTemplates: [{ type: 'headTemplate', name: 'head', parts: [{ variable: 'missing' }] }],
+    }),
+  ).toThrow(/undeclared variable.*missing/)
+  expect(() =>
+    Document.parse({
+      ...base,
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      headTemplates: [{ type: 'headTemplate', name: 'head', parts: [{ record: 'missing' }] }],
+    }),
+  ).toThrow(/undeclared record slot.*missing/)
+  expect(() =>
+    Document.parse({
+      ...base,
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      variables: [{ type: 'variable', name: 'record-index', kind: 'record', value: 'position' }],
+    }),
+  ).toThrow(/index|count/)
+})

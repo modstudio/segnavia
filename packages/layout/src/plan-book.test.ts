@@ -32,7 +32,7 @@ describe('planBook', () => {
     const result = planBook(measurements, { frontMatter, body })
     expect(result).toEqual({
       ok: true,
-      plan: { version: 4, pages: paginated.pages, ...folios, ...documentNumbers },
+      plan: { version: 5, pages: paginated.pages, ...folios, ...documentNumbers },
     })
     expect(result.ok && result.plan.folios).toEqual([...expectedFolios])
     expect(result.ok && result.plan.total).toBe(direction === 'ltr' ? '1' : 'א')
@@ -71,6 +71,18 @@ describe('planBook', () => {
       { folio: '2', 'document-folio': '3', 'record-folio': '1', pages: '3', 'document-pages': '4', 'record-pages': '2' },
       { folio: '3', 'document-folio': '4', 'record-folio': '2', pages: '3', 'document-pages': '4', 'record-pages': '2' },
     ])
+  })
+
+  test('formats record variables in arabic by default and in a named number system', () => {
+    const measurements = input({
+      variables: [
+        { name: 'index', kind: 'record', value: 'index' },
+        { name: 'count', kind: 'record', value: 'count', system: 'hebrew' },
+      ],
+      flows: [{ ...flow('record', 'chapter', [block('text', 'p', 1, 1, 1, 0)]), record: { index: 3, count: 10 } }],
+    })
+    const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'hebrew' })
+    expect(result.ok && result.plan.pages[0]?.variables).toMatchObject({ index: '3', count: 'י' })
   })
 
   test('counts a record opener blank in its folio and total without showing a value on the blank', () => {

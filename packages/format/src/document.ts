@@ -11,7 +11,7 @@ import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } 
 import { DocumentMetadata } from './document-metadata.ts'
 import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
-import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { ConditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
@@ -69,10 +69,11 @@ export const DocumentShape = z.object({
   templates: z.array(TemplateNode).default([]),
   noteSeries: z.array(NoteSeriesNode).default([]),
   variables: z.array(VariableNode).default([]),
+  headTemplates: z.array(HeadTemplateNode).default([]),
   conditions: z.array(ConditionNode).default([]),
 })
 
-export const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const
+export const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'headTemplates', 'conditions'] as const
 const structuralFields = new Set(['type', 'id', 'kind', 'children', ...definitionCollections])
 
 function refineSettings(document: z.infer<typeof DocumentShape>, profile: (typeof DOCUMENT_PROFILES)[DocumentKind], ctx: z.RefinementCtx): void {

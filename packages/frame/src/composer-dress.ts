@@ -1,3 +1,4 @@
+import type { HeadTemplate } from '@segnavia/format'
 import {
   type Plan,
   PRINTED_PAGE_DOCUMENT_NUMBER_PATH,
@@ -7,6 +8,7 @@ import {
   RECORD_COUNT_PATH,
   RECORD_INDEX_PATH,
 } from '@segnavia/format'
+import { resolveHeadTemplate } from '@segnavia/layout'
 
 export type ComposerFolioPlan = Pick<Plan, 'folios' | 'total' | 'documentFolios' | 'documentTotal' | 'recordTotals' | 'records'>
 
@@ -43,6 +45,37 @@ export interface FurnitureValues {
   runningHead?: string
   marks?: Record<string, { first: string; last: string }>
   total?: string
+  heads?: Record<string, string>
+}
+
+export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {
+  function attribute(attrs: string, name: string): string | undefined {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const found = new RegExp(`\\s${escaped}\\s*=\\s*(?:(["'])([^"']*)\\1|([^\\s>]+))`, 'i').exec(attrs)
+    return found?.[2] ?? found?.[3]
+  }
+  return html.replace(
+    /<([a-zA-Z][\w:-]*)([^>]*?)\sdata-motif\s*=\s*(?:(["'])segnavia:head-template\3|segnavia:head-template)([^>]*)>([\s\S]*?)<\/\1>/gi,
+    (_match, tag, before, _quote, after) => {
+      const attrs = `${before}${after}`
+      const name = attribute(attrs, 'data-motif-name')
+      const value = name === undefined ? undefined : values.heads[name]
+      if (!value) return ''
+      const outputAttrs = attrs.replace(/\sdata-motif(?:-[\w-]+)?\s*=\s*(?:(["'])([^"']*)\1|[^\s>]+)/gi, '')
+      return `<${tag}${outputAttrs}>${value}</${tag}>`
+    },
+  )
+}
+
+export function resolveRegionHeads(
+  templates: readonly HeadTemplate[],
+  variables: Readonly<Record<string, string>>,
+  recordSlots: Readonly<Record<string, string | undefined>>,
+  direction?: string,
+  lang?: string,
+): Record<string, string> {
+  const declared = direction === 'ltr' || direction === 'rtl' || direction === 'auto' ? direction : undefined
+  return Object.fromEntries(templates.map((template) => [template.name, resolveHeadTemplate(template, variables, recordSlots, declared, lang)]))
 }
 
 export interface RegionExcess {
@@ -92,7 +125,7 @@ export function fillFurniture(
   slots: Record<string, string | undefined>,
   fillMotifs: (source: string, values: FurnitureValues, dir?: string, lang?: string) => string,
 ): void {
-  root.innerHTML = fillMotifs(html, values, dir, lang)
+  root.innerHTML = fillMotifs(fillRegion(html, { heads: values.heads ?? {} }, dir, lang), values, dir, lang)
   const bindings = root.querySelectorAll('[data-slot-value]')
   for (const binding of bindings) {
     const path = binding.getAttribute('data-slot-value')

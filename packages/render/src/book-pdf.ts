@@ -3,6 +3,7 @@ import {
   bookPageGeometries,
   bookPageName,
   bookParentPages,
+  formatNumber,
   physicalMargins,
   pressBoxes,
   resolveDirection,
@@ -108,6 +109,7 @@ function marginFactsFor(
   pages: number,
   blanks: Set<number>,
   system: Book['numbering']['body'],
+  variables: Book['variables'],
 ): BookPageFacts[] {
   const folios = sequenceFolios(pages, system)
   const starts = sections
@@ -116,14 +118,27 @@ function marginFactsFor(
       return page === undefined ? [] : [{ page, section }]
     })
     .sort((left, right) => left.page - right.page)
+  const variablesFor = (owner: (typeof starts)[number] | undefined, folio: string): Record<string, string> => {
+    const resolved: Record<string, string> = {}
+    for (const variable of variables) {
+      if (variable.kind === 'text' && variable.from === 'section-title' && owner?.section.runningHead) resolved[variable.name] = owner.section.runningHead
+      if (variable.kind === 'record' && owner?.section.record) resolved[variable.name] = formatNumber(owner.section.record[variable.value], variable.system ?? 'arabic')
+      if (variable.kind === 'folio') resolved[variable.name] = folio
+      if (variable.kind === 'pages') resolved[variable.name] = folioTextAt(folios, pages)
+    }
+    return resolved
+  }
   return Array.from({ length: pages }, (_, index): BookPageFacts => {
     const page = index + 1
     if (blanks.has(page)) return { blank: true, sectionOpening: false }
     const owner = starts.filter((start) => start.page <= page).at(-1)
+    const folio = folioTextAt(folios, page)
     return {
       blank: false,
       sectionOpening: owner?.page === page,
-      folio: folioTextAt(folios, page),
+      folio,
+      variables: variablesFor(owner, folio),
+      recordSlots: owner?.section.values ?? {},
       ...(owner?.section.runningHead === undefined ? {} : { runningHead: owner.section.runningHead }),
     }
   })
@@ -308,13 +323,21 @@ export async function renderBookPdf(input: Book, options: BookPdfOptions, adapte
   const bodyBlankPages = new Set(printedBody.blankBefore.map((id) => (printedBody.part.destinations.get(id)?.page ?? 1) - 1))
   const frontBlankPages = new Set<number>(printedFront.trailingBlank ? [front.pages] : [])
   const marginFacts = [
-    ...marginFactsFor(sectionsFor(printedBody.document.sections, 'front'), front.destinations, front.pages, frontBlankPages, book.numbering.frontMatter),
+    ...marginFactsFor(
+      sectionsFor(printedBody.document.sections, 'front'),
+      front.destinations,
+      front.pages,
+      frontBlankPages,
+      book.numbering.frontMatter,
+      book.variables,
+    ),
     ...marginFactsFor(
       sectionsFor(printedBody.document.sections, 'body'),
       printedBody.part.destinations,
       printedBody.part.pages,
       bodyBlankPages,
       book.numbering.body,
+      book.variables,
     ),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)

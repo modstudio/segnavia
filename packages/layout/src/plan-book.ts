@@ -16,10 +16,15 @@ export function numberVariableValue(
   page: PaginateBookPage,
   index: number,
   recordIndex: number,
+  record: { index: number; count: number } | undefined,
   numbering: BookPlanNumbering,
   folios: BookPlanFolioResult,
   documents: BookPlanDocumentNumbers,
 ): string {
+  if (variable.kind === 'record') {
+    const value = record?.[variable.value]
+    return value === undefined ? '' : formatNumber(value, variable.system ?? 'arabic')
+  }
   if (variable.kind === 'folio') {
     if (variable.of === 'numbering') return folios.folios[index] ?? ''
     if (variable.of === 'document') return documents.documentFolios[index] ?? ''
@@ -40,12 +45,13 @@ export function pagesWithNumberVariables(
 ): PaginateBookPage[] {
   const recordIndexes = new Map<string, number>()
   const countedByFlow = new Map(sections.map((section) => [section.id, section.numbering?.counted !== false]))
+  const recordsByFlow = new Map(sections.flatMap((section) => (section.record ? [[section.id, section.record] as const] : [])))
   return pages.map((page, index) => {
     if (countedByFlow.get(page.flow) !== false) recordIndexes.set(page.flow, (recordIndexes.get(page.flow) ?? 0) + 1)
     const resolved = { ...page.variables }
     for (const variable of variables) {
       if (variable.kind === 'text') continue
-      const value = numberVariableValue(variable, page, index, recordIndexes.get(page.flow) ?? 0, numbering, folios, documents)
+      const value = numberVariableValue(variable, page, index, recordIndexes.get(page.flow) ?? 0, recordsByFlow.get(page.flow), numbering, folios, documents)
       if (value) resolved[variable.name] = value
     }
     return { ...page, variables: resolved }

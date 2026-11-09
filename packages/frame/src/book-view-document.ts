@@ -36,6 +36,8 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     endnotePlacement: pagination.endnotePlacement,
     runningHead: pagination.runningHead,
     variables: pagination.variables ?? [],
+    headTemplates: pagination.headTemplates ?? [],
+    recordSlotsByFlow: pagination.recordSlotsByFlow ?? {},
     numbering: pagination.numbering,
     limit: limits.pages,
     limitRefusal: {

@@ -16,6 +16,12 @@ export const PRINTED_PAGE_FOLIO_PATH = `${PRINTED_PAGE_CONTEXT}.folio`
 export const PRINTED_PAGE_RUNNING_HEAD_PATH = `${PRINTED_PAGE_CONTEXT}.runningHead`
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
 export const BOOK_FURNITURE = [
+  {
+    key: 'segnavia:head-template',
+    className: 'segnavia-head-template',
+    region: 'head',
+    fields: [{ key: 'name', required: true }],
+  },
   { key: 'segnavia:folio', path: PRINTED_PAGE_FOLIO_PATH, value: 'folio', className: 'segnavia-folio', region: 'foot', fields: [] },
   {
     key: 'segnavia:running-head',

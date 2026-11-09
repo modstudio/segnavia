@@ -1,7 +1,12 @@
 import { expect, test } from 'bun:test'
 import { PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH } from '@segnavia/format'
 import { fillBookFurniture } from '@segnavia/html'
-import { fillFurniture, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
+import { fillFurniture, fillRegion, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
+
+test('fills named head templates and removes an empty placement', () => {
+  const html = '<div data-motif="segnavia:head-template" data-motif-name="head"></div><i data-motif="segnavia:head-template" data-motif-name="empty"></i>'
+  expect(fillRegion(html, { heads: { head: '<bdi dir="rtl">פרשה</bdi>', empty: '' } }, 'rtl', 'he')).toBe('<div><bdi dir="rtl">פרשה</bdi></div>')
+})
 
 test('fills a right-to-left Hebrew motif and a printed-page slot in one pass', () => {
   const slot = {

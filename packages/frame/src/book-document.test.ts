@@ -61,7 +61,7 @@ describe('bookDocument', () => {
 
   test('carries saved plans and breaks in config without closing the composer script', () => {
     const plan = {
-      version: 4 as const,
+      version: 5 as const,
       fingerprint: '</script><script>unsafe()</script>',
       breaks: ['middle'],
       pages: [],

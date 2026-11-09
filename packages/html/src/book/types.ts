@@ -16,6 +16,8 @@ export interface BookSectionInfo {
   title?: string
   runningHead?: string
   opens?: BookOpens
+  values?: Record<string, string>
+  record?: { index: number; count: number }
 }
 
 export type BookPrintPart = 'front' | 'body'

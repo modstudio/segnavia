@@ -7,9 +7,11 @@ import { paginateScript } from './paginate-book.ts'
 import { numberVariableValue, pagesWithNumberVariables, planBookScript } from './plan-book.ts'
 import { savedPlanScript } from './plan-save.ts'
 import { planPrintedPages } from './printed-pages.ts'
+import { headTemplateScript } from './head-template.ts'
 
 export function layoutScript(): string {
   return `${paginateScript()}
+${headTemplateScript()}
 ${fingerprintScript()}
 ${savedPlanScript()}
 ${measurementsWithBreaks.toString()}

@@ -16,6 +16,7 @@ import {
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { Direction, resolveDirection, TextDirection } from './direction.ts'
 import { pageGeometryIssues } from './document-page-geometry-policy.ts'
+import { HeadTemplate } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
@@ -110,6 +111,7 @@ export const BookShape = z.object({
   parentRules: parentRules.optional(),
   templates: z.array(BookTemplate).default([]),
   variables: z.array(Variable).default([]),
+  headTemplates: z.array(HeadTemplate).default([]),
   slots: Slots.optional(),
   style: StyleSheet.optional(),
   asOf: AsOf.optional(),
@@ -165,6 +167,8 @@ export const BookViewPagination = z.object({
   contents: z.object({ pageNumbers: z.boolean(), depth: z.number().int().min(1).max(6) }),
   runningHead: BookRunningHead,
   variables: z.array(Variable).optional(),
+  headTemplates: z.array(HeadTemplate).optional(),
+  recordSlotsByFlow: z.record(z.string(), z.record(z.string(), z.string())).optional(),
 })
 export type BookViewPagination = z.infer<typeof BookViewPagination>
 
@@ -351,5 +355,7 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     contents: book.contents,
     runningHead: book.runningHead,
     variables: book.variables,
+    headTemplates: book.headTemplates,
+    recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => entry.values ? [[entry.id, entry.values]] : [])),
   }
 }

@@ -3,10 +3,13 @@ import { BookOpens, BookTemplate, ContentsLabel, Subtitle } from './book-section
 import { Direction } from './direction.ts'
 import { NodeId } from './document-nodes-common.ts'
 import { SectionNumbering } from './folio.ts'
+import { HeadTemplate } from './head-template.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
 import { parentRules } from './parent-rules.ts'
-import { NumberVariable, TextVariable } from './variable.ts'
+import { NumberVariable, RecordVariable, TextVariable } from './variable.ts'
+
+export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTemplate'), id: z.string().optional() })
 
 export const SectionFields = {
   title: z.string().optional(),
@@ -49,16 +52,18 @@ export const NoteSeriesNode = NoteSeries.extend({ type: z.literal('noteSeries'),
 export const VariableNode = z.discriminatedUnion('kind', [
   TextVariable.extend({ type: z.literal('variable'), id: z.string().optional() }),
   NumberVariable.extend({ type: z.literal('variable'), id: z.string().optional() }),
+  RecordVariable.extend({ type: z.literal('variable'), id: z.string().optional() }),
 ])
 
 export const ConditionNode = NodeId.extend({ type: z.literal('condition'), name: z.string() })
 
-export const DocumentDefinitionNode = z.union([ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, ConditionNode])
+export const DocumentDefinitionNode = z.union([ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, HeadTemplateNode, ConditionNode])
 
 export type ContentsNode = z.infer<typeof ContentsNode>
 export type ParentPageNode = z.infer<typeof ParentPageNode>
 export type TemplateNode = z.infer<typeof TemplateNode>
 export type NoteSeriesNode = z.infer<typeof NoteSeriesNode>
 export type VariableNode = z.infer<typeof VariableNode>
+export type HeadTemplateNode = z.infer<typeof HeadTemplateNode>
 export type ConditionNode = z.infer<typeof ConditionNode>
 export type DocumentDefinitionNode = z.infer<typeof DocumentDefinitionNode>

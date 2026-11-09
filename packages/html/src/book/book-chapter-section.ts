@@ -5,12 +5,14 @@ import { type BuiltSection, flowAttribs, languageAttribs, recordAttribs, section
 import type { BookBuild } from './types.ts'
 
 export function chapterSection(chapter: Omit<Chapter, 'title'> & { title?: string }, index: number, division: BookDivision, build: BookBuild): BuiltSection {
+  const recordValues = chapter.values
+  const record = chapter.record
   chapter = bindRecordValues(chapter)
   const { id } = chapter
   const document = parse(chapter.html)
   const runningHead = chapter.runningHead ?? chapter.title
   return {
-    info: { id, kind: 'chapter', division, title: chapter.title, runningHead, opens: chapter.opens },
+    info: { id, kind: 'chapter', division, title: chapter.title, runningHead, opens: chapter.opens, values: recordValues, record },
     node: sectionNode(
       'chapter',
       id,

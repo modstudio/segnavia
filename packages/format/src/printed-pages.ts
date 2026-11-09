@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
 import { SectionNumbering } from './folio.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
-import { BOOK_FURNITURE } from './motif.ts'
+import { HeadTemplate } from './head-template.ts'
 import { NumberSystem } from './numbering.ts'
 import { BOOK_PARENT_NAMES, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
@@ -22,6 +22,7 @@ export const ParentPage = z.object({
 
 export const PrintedPages = z.object({
   variables: z.array(Variable).default([]),
+  headTemplates: z.array(HeadTemplate).default([]),
   parents: z.array(ParentPage).min(1),
   parentRules,
   rules: z.unknown().optional(),
@@ -59,17 +60,12 @@ export type PrintedPages = z.infer<typeof PrintedPages>
 
 export { BOOK_PARENT_NAMES } from './parent-rules.ts'
 
-function furniture(region: 'head' | 'foot'): string {
-  return BOOK_FURNITURE.filter((item) => item.region === region)
-    .filter((item) => item.fields.every((field) => !('required' in field) || !field.required))
-    .map((item) => `<div class="${item.className}" data-motif="${item.key}"></div>`)
-    .join('')
-}
-
 export function bookParentPages(margin: LogicalMargin): ParentPage[] {
   const held = () => ({ ...margin })
-  const head = furniture('head')
-  const foot = furniture('foot')
+  const placement = (name: string, className: string) =>
+    `<div class="${className}" data-motif="segnavia:head-template" data-motif-name="${name}"></div>`
+  const head = placement('segnavia:running-head', 'segnavia-running-head')
+  const foot = placement('segnavia:folio', 'segnavia-folio')
   return [
     { name: BOOK_PARENT_NAMES.recto, margin: held(), head, foot },
     { name: BOOK_PARENT_NAMES.verso, margin: held(), head, foot },

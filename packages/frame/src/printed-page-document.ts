@@ -103,6 +103,8 @@ export function printedPageValueDocument(
     endnotePlacement: 'chapter',
     runningHead: {},
     variables: page.printedPages.variables,
+    headTemplates: page.printedPages.headTemplates,
+    recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.values ?? {}])),
     pageMarker: 'data-segnavia-printed-page',
     pageAttributes: ['data-segnavia-page-view'],
     refusalSubject: 'The printed page',

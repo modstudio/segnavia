@@ -11,7 +11,20 @@ export const NumberVariable = z.object({
   kind: z.enum(['folio', 'pages']),
   of: z.enum(['numbering', 'document', 'record']).default('numbering'),
 })
-export const Variable = z.discriminatedUnion('kind', [TextVariable, NumberVariable])
+export const RecordVariable = z.object({
+  name: z.string().min(1),
+  kind: z.literal('record'),
+  value: z.enum(['index', 'count']),
+  system: z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew']).optional(),
+})
+export const Variable = z.discriminatedUnion('kind', [TextVariable, NumberVariable, RecordVariable])
 
 export type Variable = z.infer<typeof Variable>
 export type TextVariable = z.infer<typeof TextVariable>
+export type RecordVariable = z.infer<typeof RecordVariable>
+
+export const LIBRARY_VARIABLES: Variable[] = [
+  Variable.parse({ name: 'segnavia:section-title', kind: 'text', from: 'section-title', pick: 'first' }),
+  Variable.parse({ name: 'segnavia:folio', kind: 'folio' }),
+  Variable.parse({ name: 'segnavia:pages-total', kind: 'pages' }),
+]

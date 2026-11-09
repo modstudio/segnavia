@@ -1,4 +1,5 @@
 import { type Book, type ParentPage, pressBoxes, resolveParentPages, sheetMm, usesPressLayout } from '@segnavia/format'
+import { fillRegion, resolveRegionHeads } from '@segnavia/frame/composer'
 import { type BookPrintedPagePlan, fillBookFurniture } from '@segnavia/html'
 
 export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: ParentPage[]): string {
@@ -32,7 +33,8 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
 }
 
 function furniture(book: Book, html: string, page: BookPrintedPagePlan): string {
-  return fillBookFurniture(html, { folio: page.folio, runningHead: page.runningHead }, book.dir, book.lang)
+  const heads = resolveRegionHeads(book.headTemplates, page.variables, page.recordSlots, book.dir, book.lang)
+  return fillBookFurniture(fillRegion(html, { heads }, book.dir, book.lang), { folio: page.folio, runningHead: page.runningHead }, book.dir, book.lang)
 }
 
 export function marginDocument(book: Book, pages: BookPrintedPagePlan[], parents: ParentPage[]): string {

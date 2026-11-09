@@ -24,7 +24,7 @@ function page(): PlanValue['pages'][number] {
 
 function plan(): PlanValue {
   return {
-    version: 4,
+    version: 5,
     fingerprint: 'fnv1a64:0000000000000000',
     breaks: [],
     pages: [page()],
