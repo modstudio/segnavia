@@ -141,6 +141,10 @@ export class SegnaviaItemSettings extends HTMLElement {
     this.dispatchEvent(new CustomEvent<string>('segnavia-fill-select', { detail: id, bubbles: true, composed: true }))
   }
 
+  private emitInput(fill: Fill) {
+    this.dispatchEvent(new CustomEvent<Fill>('segnavia-fill-input', { detail: cloneFill(fill), bubbles: true, composed: true }))
+  }
+
   connectedCallback() {
     this.drawn = true
     this.render()
@@ -220,7 +224,10 @@ export class SegnaviaItemSettings extends HTMLElement {
     this.fillList = renameFill(this.fillList, this.selected, label)
     this.render()
     const fill = selectedFill(this.fillList, this.selected)
-    if (fill) this.authoring?.save(fill)
+    if (fill) {
+      this.emitInput(fill)
+      this.authoring?.save(fill)
+    }
   }
 
   private changeValue(key: string, value: SlotValue | undefined) {
@@ -228,7 +235,10 @@ export class SegnaviaItemSettings extends HTMLElement {
     this.fillList = setFillValue(this.fillList, this.selected, key, value)
     this.render()
     const fill = selectedFill(this.fillList, this.selected)
-    if (fill) this.authoring?.save(fill)
+    if (fill) {
+      this.emitInput(fill)
+      this.authoring?.save(fill)
+    }
   }
 
   private render() {

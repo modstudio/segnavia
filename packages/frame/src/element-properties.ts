@@ -114,7 +114,7 @@ export const ELEMENT_PROPERTIES = {
   fullscreen: descriptor(STYLED_ELEMENTS.fullscreen, [...controlProperties, 'targetElement'], []),
   rail: descriptor(STYLED_ELEMENTS.rail, [...controlProperties, 'mountMargin'], []),
   paperPicker: descriptor(STYLED_ELEMENTS.paperPicker, ['value', 'labels'], ['change']),
-  itemSettings: descriptor(ITEM_SETTINGS_TAG, ['declarations', 'fills', 'fill', 'source', 'report', 'labels'], ['segnavia-fill-select']),
+  itemSettings: descriptor(ITEM_SETTINGS_TAG, ['declarations', 'fills', 'fill', 'source', 'report', 'labels'], ['segnavia-fill-select', 'segnavia-fill-input']),
 } as const
 
 export const ELEMENT_PROPERTY_DESCRIPTORS: readonly ElementPropertyTable[] = Object.values(ELEMENT_PROPERTIES)

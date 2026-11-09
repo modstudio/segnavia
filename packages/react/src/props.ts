@@ -124,6 +124,7 @@ export type ItemSettingsProps = ElementProps<SegnaviaItemSettings> & {
   report?: SegnaviaItemSettings['report']
   labels?: Partial<ItemSettingsLabels>
   onSegnaviaFillSelect?: CustomEventProp<string>
+  onSegnaviaFillInput?: CustomEventProp<SegnaviaItemSettings['fills'][number]>
 }
 
 export interface PageProps extends ElementProps<SegnaviaPage> {
