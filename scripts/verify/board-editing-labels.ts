@@ -24,7 +24,7 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
       const state = window as unknown as DemoWindow
       const next = structuredClone(source)
       next.direction = 'rtl'
-      next.items = next.items.map((item) => (item.id === 'page' ? { ...item, x: 700, y: 0, width: 180 } : item))
+      next.items = next.items.map((item, index) => (item.id === 'page' ? { ...item, x: 700, y: 0, width: 180 } : { ...item, x: 1_200 + index * 400, y: 0 }))
       next.labels = [
         { id: 'label', text: 'Latin label', x: 150, y: 260, width: 110 },
         { id: 'label-he', text: 'אוסף מקומי ארוך עם מילים רבות שנשברות לשורות', x: 430, y: 260, width: 140 },

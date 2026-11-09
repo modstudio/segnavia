@@ -220,7 +220,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
     this.nameProvider = value
     this.names.update(this.value?.items ?? [], value)
   }
-
   itemName(id: string): string {
     return this.names.name(this.items.get(id), this.items.get(id) ? this.resolutions.value((this.items.get(id) as BoardItem).address) : undefined)
   }
