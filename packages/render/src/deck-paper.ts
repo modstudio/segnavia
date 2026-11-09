@@ -44,6 +44,16 @@ export function deckPrintablePdfOptions(press: DeckPressContext): Parameters<Tab
   }
 }
 
+export function htmlSlidePdfOptions(size: Deck['size'], press: DeckPressContext): Parameters<Tab['pdf']>[0] {
+  if (press.active && press.boxes) return deckPrintablePdfOptions(press)
+  return {
+    width: `${size.width}px`,
+    height: `${size.height}px`,
+    printBackground: true,
+    margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+  }
+}
+
 export function regularSlideDrawBox(
   size: Deck['size'],
   notes: ReturnType<typeof notesLayoutGeometry> | undefined,

@@ -68,6 +68,40 @@ test('plain deck sheets have no press boxes', async () => {
   }
 })
 
+test('HTML slides print at the deck size or the press bleed box', async () => {
+  const slideOptions: Array<Parameters<Tab['pdf']>[0]> = []
+  const recordingServices = {
+    ...services,
+    renderPdf: async (setup: { html: string }, pdf: Parameters<Tab['pdf']>[0]) => {
+      if (setup.html.includes('<p>HTML</p>')) slideOptions.push(pdf)
+      return requestedPdf(setup.html, pdf)
+    },
+  }
+
+  await renderDeckPdf(deck, {}, recordingServices)
+  await renderDeckPdf(bleedDeck, {}, recordingServices)
+
+  const boxes = deckPressSettings(bleedDeck, {}).boxes
+  expect(boxes).toBeDefined()
+  expect(slideOptions).toEqual([
+    {
+      width: '400px',
+      height: '200px',
+      printBackground: true,
+      margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' },
+      pageRanges: '1',
+    },
+    {
+      width: `${boxes?.bleedBox.width}mm`,
+      height: `${boxes?.bleedBox.height}mm`,
+      preferCSSPageSize: false,
+      printBackground: true,
+      margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+      pageRanges: '1',
+    },
+  ])
+})
+
 test('deck print composes notes against the bleed-box sheet and offsets the slide by bleed', async () => {
   const viewports: Array<{ width: number; height: number }> = []
   const bytes = await renderDeckPdf(

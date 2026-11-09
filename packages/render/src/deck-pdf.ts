@@ -32,6 +32,7 @@ import {
   deckPressContext,
   deckPrintablePdfOptions,
   deckPrintableViewport,
+  htmlSlidePdfOptions,
   regularSlideDrawBox,
 } from './deck-paper.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -170,7 +171,7 @@ async function renderHtmlSlides(
             beforeOutput: (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
           },
           {
-            ...deckPrintablePdfOptions(press),
+            ...htmlSlidePdfOptions(deck.size, press),
             pageRanges: '1',
           },
           [index],
