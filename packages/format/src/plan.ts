@@ -45,6 +45,7 @@ export const PlanPage = z
     runningHead: z.string().optional(),
     parts: z.record(z.string(), z.string()).optional(),
     marks: PaginatePageMarks.optional(),
+    variables: z.record(z.string(), z.string()).default({}),
     parent: z.string(),
     pageGeometry: z.string().optional(),
     face: z.enum(['recto', 'verso']),
@@ -66,7 +67,7 @@ export const PlanPage = z
 export type PlanPage = z.infer<typeof PlanPage>
 
 const PlanShape = z.object({
-  version: z.literal(2, { error: 'version must be 2; compute a new plan to clear this refusal' }),
+  version: z.literal(3, { error: 'version must be 3; compute a new plan to clear this refusal' }),
   fingerprint: z.string(),
   breaks: z.array(z.string()),
   pages: z.array(PlanPage),

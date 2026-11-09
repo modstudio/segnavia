@@ -47,6 +47,11 @@ function noteSeries(node: DocumentValue['noteSeries'][number]) {
   return value
 }
 
+function variable(node: DocumentValue['variables'][number]) {
+  const { type: _type, id: _id, ...value } = node
+  return value
+}
+
 function contentsOptions(document: DocumentValue) {
   let contents: Extract<ParsedNode, { type: 'contents' }> | undefined
   const find = (nodes: ParsedNode[]): void => {
@@ -85,6 +90,7 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       ...loweredDivisions,
       parentPages: document.parentPages.map(parentPage),
       templates: document.templates.map(template),
+      variables: document.variables.map(variable),
       notes: document.noteSeries.map(noteSeries),
       numbering: typeof document.numbering === 'object' ? document.numbering : undefined,
       footnotes: document.footnotes,
@@ -125,6 +131,7 @@ function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): Pa
         rules: document.rules,
         numbering: typeof document.numbering === 'string' ? document.numbering : undefined,
         fragmentation: document.fragmentation,
+        variables: document.variables.map(variable),
         ...(sections.length > 0 ? { sections } : {}),
       }
     : undefined

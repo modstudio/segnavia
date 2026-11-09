@@ -32,7 +32,7 @@ describe('saved book plans', () => {
     expect(replayed).toEqual({
       ok: true,
       plan: {
-        version: 2,
+        version: 3,
         pages: saved.pages,
         folios: saved.folios,
         total: saved.total,
@@ -59,6 +59,30 @@ describe('saved book plans', () => {
       ok: false,
       page: 2,
       refusal: 'page 2 no longer matches the plan: block שָׁלוֹם laid out differently; compute a new plan to clear this refusal',
+    })
+  })
+
+  test('refuses the page whose saved variable value changed', () => {
+    const measurements = input({
+      variables: [{ name: 'topic', kind: 'text', from: 'content', pick: 'first' }],
+      flows: [
+        flow('chapter', 'chapter', [
+          block('text', 'p', 1, 1, 12, 0, { id: 'paragraph', variables: [{ name: 'topic', value: 'Before', line: 6 }] }),
+        ]),
+      ],
+    })
+    const saved = savePlan(measurements, planned(measurements), numbering)
+    const changed = structuredClone(measurements)
+    const chapter = changed.flows[0]
+    if (!chapter || chapter.kind === 'fixed') throw new Error('missing flowing fixture')
+    const setPoint = chapter.blocks[0]?.variables?.[0]
+    if (!setPoint) throw new Error('missing variable fixture')
+    setPoint.value = 'After'
+
+    expect(replayPlan(changed, saved, numbering)).toEqual({
+      ok: false,
+      page: 2,
+      refusal: 'page 2 no longer matches the plan: block paragraph laid out differently; compute a new plan to clear this refusal',
     })
   })
 
@@ -118,8 +142,8 @@ describe('saved book plans', () => {
   test('replays a plan saved with the default-page fingerprint shape', () => {
     const measurements = input({ flows: [flow('legacy', 'chapter', [block('text', 'p', 1, 1, 2, 0, { id: 'paragraph' })])] })
     const saved = SavedPlan.parse({
-      version: 2,
-      fingerprint: 'fnv1a64:7e19b82bbaa191e9',
+      version: 3,
+      fingerprint: 'fnv1a64:12fd4cd7dfb3778a',
       breaks: [],
       pages: [
         {
@@ -133,11 +157,12 @@ describe('saved book plans', () => {
           blank: false,
           sectionOpening: true,
           marks: {},
+          variables: {},
           parent: 'segnavia:opener',
           face: 'recto',
           side: 'right',
           start: { flow: 'legacy', block: 0, line: 0, id: 'paragraph' },
-          fingerprint: 'fnv1a64:2cb6c8cc1ba26ae1',
+          fingerprint: 'fnv1a64:39011ba41d86eca8',
         },
       ],
       folios: ['א'],

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Variable } from './variable.ts'
 import { BookOpens } from './book-opens.ts'
 import { SectionNumbering } from './folio.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
@@ -50,6 +51,7 @@ export const PrintedPageRules = z
   }))
 
 export const PrintedPages = z.object({
+  variables: z.array(Variable).default([]),
   parents: z.array(ParentPage).min(1),
   rules: PrintedPageRules,
   numbering: NumberSystem.optional(),

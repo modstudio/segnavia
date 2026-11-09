@@ -10,6 +10,7 @@ import type {
   PaginateNoteSeriesGeometry as FormatPaginateNoteSeriesGeometry,
   PaginatePageMarks as FormatPaginatePageMarks,
   PaginatePageNote as FormatPaginatePageNote,
+  TextVariable,
   PaginateWindow as FormatPaginateWindow,
   Measurements,
   PlanPage as SavedPlanPage,
@@ -35,6 +36,7 @@ export type PaginateBookInput = Measurements
 export type PaginateWindow = FormatPaginateWindow
 export type PaginatePageNote = FormatPaginatePageNote
 export type PaginatePageMarks = FormatPaginatePageMarks
+export type PaginateTextVariable = TextVariable
 export type PaginateBookPage = Omit<SavedPlanPage, 'start' | 'fingerprint'>
 
 // A refusal names the block it could not place, or the flow or note when no block is at fault.

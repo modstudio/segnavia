@@ -286,8 +286,7 @@ within each kind.
 
 ### Declared but not yet supported
 
-Parsing refuses a non-empty `variables` collection, every `condition`
-node, section `headTemplate`, division `settings.numbering`, and
+Parsing refuses every `condition` node, section `headTemplate`, division `settings.numbering`, and
 parent-page `regions`. Division numbering uses the richer shared `Numbering`
 value, while the current Book carries only a number system. It also refuses `limits` on
 deck and board documents. Remove the named field or node to clear the refusal.

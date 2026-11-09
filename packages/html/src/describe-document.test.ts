@@ -23,6 +23,7 @@ function page(number: number, face: PlanPage['face'], side: PlanPage['side'], st
     role: number === 1 ? 'opener' : 'body',
     windows: [],
     notes: [],
+    variables: {},
     blank: false,
     sectionOpening: number === 1,
     parent: number === 1 ? 'segnavia:opener' : `segnavia:${face}`,
@@ -34,7 +35,7 @@ function page(number: number, face: PlanPage['face'], side: PlanPage['side'], st
 }
 
 const plan = (pages: PlanPage[]): Plan => ({
-  version: 2,
+  version: 3,
   fingerprint: 'fnv1a64:plan',
   breaks: ['chapter-two'],
   pages,

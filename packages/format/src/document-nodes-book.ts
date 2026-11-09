@@ -1,11 +1,11 @@
 import { z } from 'zod'
-import { BookRunningHeadSource } from './book.ts'
 import { BookOpens, BookSectionParents, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
 import { Direction } from './direction.ts'
 import { NodeId } from './document-nodes-common.ts'
 import { SectionNumbering } from './folio.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
+import { NumberVariable, TextVariable } from './variable.ts'
 
 export const SectionFields = {
   title: z.string().optional(),
@@ -43,12 +43,10 @@ export const ParentPageNode = NodeId.extend({
 export const TemplateNode = BookTemplate.extend({ type: z.literal('template'), id: z.string().optional() })
 export const NoteSeriesNode = NoteSeries.extend({ type: z.literal('noteSeries'), id: z.string().optional() })
 
-export const VariableNode = NodeId.extend({
-  type: z.literal('variable'),
-  name: z.string().min(1),
-  valueType: z.enum(['text', 'folio', 'pages', 'date', 'meta']),
-  from: BookRunningHeadSource.optional(),
-})
+export const VariableNode = z.discriminatedUnion('kind', [
+  TextVariable.extend({ type: z.literal('variable'), id: z.string().optional() }),
+  NumberVariable.extend({ type: z.literal('variable'), id: z.string().optional() }),
+])
 
 export const ConditionNode = NodeId.extend({ type: z.literal('condition'), name: z.string() })
 

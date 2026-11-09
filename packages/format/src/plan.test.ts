@@ -10,6 +10,7 @@ function page(): PlanValue['pages'][number] {
     role: 'opener',
     windows: [{ flow: 'chapter', start: 0, end: 10, top: 0, column: 0, columns: 1 }],
     notes: [],
+    variables: {},
     blank: false,
     sectionOpening: true,
     marks: {},
@@ -23,7 +24,7 @@ function page(): PlanValue['pages'][number] {
 
 function plan(): PlanValue {
   return {
-    version: 2,
+    version: 3,
     fingerprint: 'fnv1a64:0000000000000000',
     breaks: [],
     pages: [page()],

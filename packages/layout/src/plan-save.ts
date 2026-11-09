@@ -1,6 +1,8 @@
 import { fingerprintValue, type Measurements, type PaginateLine, type PaginateWindow, type PlanPage, type Plan as SavedPlan } from '@segnavia/format'
 import type { BookPlanNumbering } from './book-plan-folios.ts'
 import type { BookPlan } from './plan-book.ts'
+import { type CarriedVariable, paginateVariables } from './paginate-variables.ts'
+import type { PaginateUnit } from './paginate-types.ts'
 
 export type ReplayPlanResult = { ok: true; plan: BookPlan } | { ok: false; page: number; refusal: string }
 
@@ -9,7 +11,7 @@ function withoutLineBoxes(measurements: Measurements) {
   return {
     ...stable,
     flows: measurements.flows.map(({ pageGeometry: _pageGeometry, ...flow }) =>
-      flow.kind === 'fixed' ? flow : { ...flow, blocks: flow.blocks.map(({ lines: _lines, ...block }) => block) },
+      flow.kind === 'fixed' ? flow : { ...flow, blocks: flow.blocks.map(({ lines: _lines, variables: _variables, ...block }) => block) },
     ),
     notes: measurements.notes.map(({ lines: _lines, ...note }) => note),
   }
@@ -99,7 +101,7 @@ function noteRemainders(measurements: Measurements, pages: Pick<PlanPage, 'notes
 
 function pageFingerprint(
   measurements: Measurements,
-  page: Pick<PlanPage, 'role' | 'blank' | 'windows' | 'notes' | 'pageGeometry' | 'parent'>,
+  page: Pick<PlanPage, 'role' | 'blank' | 'windows' | 'notes' | 'pageGeometry' | 'parent' | 'variables'>,
   pages: Pick<PlanPage, 'windows' | 'notes'>[],
   pageIndex: number,
 ): string {
@@ -113,6 +115,7 @@ function pageFingerprint(
         }),
     role: page.role,
     blank: page.blank,
+    variables: page.variables,
     lines: consumedLines(measurements, page),
     notes: consumedNotes(measurements, page),
     remainder: {
@@ -141,7 +144,7 @@ function savedPage(measurements: Measurements, pages: BookPlan['pages'], page: B
 
 export function savePlan(measurements: Measurements, plan: BookPlan, numbering: BookPlanNumbering): SavedPlan {
   return {
-    version: 2,
+    version: 3,
     fingerprint: inputFingerprint(measurements, numbering),
     breaks: breaksOf(measurements),
     pages: plan.pages.map((page, pageIndex) => savedPage(measurements, plan.pages, page, pageIndex)),
@@ -246,6 +249,9 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       refusal: "the plan's inputs changed (settings, geometry, breaks or block order); compute a new plan to clear this refusal",
     }
   }
+  const declarations = measurements.variables.filter((variable) => variable.kind === 'text')
+  let carried = Object.create(null) as Record<string, CarriedVariable>
+  let previousFlow: string | undefined
   for (const [index, page] of saved.pages.entries()) {
     const pageNumber = index + 1
     const invalid =
@@ -255,14 +261,41 @@ export function replayPlan(measurements: Measurements, saved: SavedPlan, numberi
       validateWindows(measurements, page, pageNumber) ??
       validateNotes(measurements, page, pageNumber)
     if (invalid) return invalid
-    if (page.fingerprint !== pageFingerprint(measurements, page, saved.pages, index)) {
+    if (page.flow !== previousFlow) {
+      carried = Object.assign(
+        Object.create(null),
+        Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow')),
+      ) as Record<string, CarriedVariable>
+    }
+    previousFlow = page.flow
+    const placed: PaginateUnit[] = []
+    if (!page.blank) {
+      for (const window of page.windows) {
+        const flow = flowingFlow(measurements, window.flow)
+        if (!flow) continue
+        for (const block of flow.blocks) {
+          block.lines.forEach((line, lineIndex) => {
+            if (lineInWindow(line, window)) placed.push({ flowId: flow.id, block, index: lineIndex, top: line.top, bottom: line.bottom, refs: [] })
+          })
+        }
+      }
+    }
+    const resolved = paginateVariables(placed, carried, declarations)
+    carried = resolved.carried
+    const actualVariables = { ...page.variables }
+    for (const declaration of declarations) {
+      delete actualVariables[declaration.name]
+      const value = resolved.values[declaration.name]?.[declaration.pick]
+      if (value) actualVariables[declaration.name] = value
+    }
+    if (page.fingerprint !== pageFingerprint(measurements, { ...page, variables: actualVariables }, saved.pages, index)) {
       return fingerprintRefusal(measurements, saved, page, pageNumber, index)
     }
   }
   return {
     ok: true,
     plan: {
-      version: 2,
+      version: 3,
       pages: saved.pages,
       folios: saved.folios,
       total: saved.total,

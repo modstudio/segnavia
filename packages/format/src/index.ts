@@ -146,6 +146,8 @@ export {
   textDirection,
 } from './direction.ts'
 export { Document, type DocumentInput, type DocumentKind, type DocumentParseOptions } from './document.ts'
+export { VariableNode } from './document-nodes-book.ts'
+export { NumberVariable, TextVariable, Variable } from './variable.ts'
 export { applyOps } from './document-apply.ts'
 export { diffDocuments } from './document-diff.ts'
 export { fingerprintDocument, fingerprintScript, fingerprintValue, requireParsedDocument } from './document-fingerprint.ts'
@@ -268,6 +270,7 @@ export {
   PaginateFlow,
   PaginateLine,
   PaginateMark,
+  PaginateVariable,
   PaginateNote,
   PaginateNoteRef,
   PaginateNoteSeriesGeometry,

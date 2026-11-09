@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { DocumentShape, definitionCollections } from './document.ts'
 import { DivisionNodeFields, type DocumentNode, PartNodeFields, SectionNodeFields } from './document-nodes.ts'
-import { ConditionNode, ContentsNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { ConditionNode, ContentsNode, NoteSeriesNode, ParentPageNode, TemplateNode } from './document-nodes-book.ts'
 import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, RecordNode, SlideNode } from './document-nodes-common.ts'
 import type { DocumentLocation } from './document-op.ts'
 
@@ -44,6 +44,11 @@ const boardSectionModel = (): NodeModel => {
   return { ...result, settable: new Set([...result.settable].filter((field) => field !== 'items' && field !== 'cells')) }
 }
 
+const variableModel = (): NodeModel => {
+  const fields = new Set(['type', 'id', 'name', 'kind', 'from', 'pick', 'of'])
+  return { fields, content: new Set(), settable: new Set(['name', 'kind', 'from', 'pick', 'of']), children: false, collection: 'variables' }
+}
+
 export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> = {
   division: model(z.object(DivisionNodeFields)),
   part: model(z.object(PartNodeFields), ['html']),
@@ -60,7 +65,7 @@ export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> 
   parentPage: model(ParentPageNode, ['head', 'foot', 'regions'], 'parentPages'),
   template: model(TemplateNode, ['html'], 'templates'),
   noteSeries: model(NoteSeriesNode, [], 'noteSeries'),
-  variable: model(VariableNode, [], 'variables'),
+  variable: variableModel(),
   condition: model(ConditionNode, [], 'conditions'),
 }
 
