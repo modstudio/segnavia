@@ -119,6 +119,7 @@ export function parseRenderOptions<T extends RenderOptions>(options: T): T {
   }
   return {
     ...options,
+    origins: options.origins === undefined ? undefined : [...options.origins],
     assetBudget: { bytes: 0 },
     limits: parseLimits(options.limits, 'host'),
     ...(options.pageWidths === undefined ? {} : { pageWidths: PageWidths.parse(options.pageWidths) }),

@@ -57,6 +57,10 @@ export interface SanitizeOptions {
   converterPolicy?: ConverterPolicy
 }
 
+function materializeOrigins(options: SanitizeOptions): SanitizeOptions {
+  return options.origins === undefined ? options : { ...options, origins: [...options.origins] }
+}
+
 export interface UrlPolicy {
   linkProtocols: readonly string[]
   linkFragments: boolean
@@ -260,6 +264,7 @@ function assetCss(source: string, declarations: boolean, options: SanitizeOption
 
 /** Asset-policy refusals still visible in authored markup before frame CSP enforcement. */
 export function assetOriginRefusals(html: string, options: SanitizeOptions = {}): string[] {
+  options = materializeOrigins(options)
   const found: string[] = []
   for (const element of elements(parse(html).children)) {
     if (element.name.toLowerCase() === 'style') found.push(...assetCss(styleText(element), false, options).refusals)
@@ -287,6 +292,7 @@ function styleFindings(element: Element, options: SanitizeOptions): string[] {
 // What the rule would remove, named, so a host can refuse a write with the
 // reason rather than store a page that silently prints differently.
 export function findActiveContent(html: string, options: SanitizeOptions = {}): string[] {
+  options = materializeOrigins(options)
   const links = sanitizeLinkPolicy(options)
   const refused = refusedSet(options)
   const keepScripts = options.keepScripts ?? false
@@ -329,6 +335,7 @@ function sanitizeLinkPolicy(options: SanitizeOptions): ResolvedLinkPolicy {
 }
 
 export function sanitize(html: string, options: SanitizeOptions = {}): string {
+  options = materializeOrigins(options)
   const links = sanitizeLinkPolicy(options)
   const refused = refusedSet(options)
   const keepScripts = options.keepScripts ?? false

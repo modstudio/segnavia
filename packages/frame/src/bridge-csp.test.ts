@@ -58,6 +58,16 @@ const scripted = {
 }
 
 describe('frame content security policy', () => {
+  test('materializes one-shot approvals before reading every fetch kind', () => {
+    function* oneShotOrigins() {
+      yield* origins
+    }
+    const actual = cspDirectives(frameDocument('<p>frame</p>', { scripts: 'refuse', nonce: 'known', origins: oneShotOrigins() }))
+    expect(actual['style-src']).toContain('https://css.example')
+    expect(actual['font-src']).toContain('https://font.example')
+    expect(actual['img-src']).toContain('https://img.example')
+  })
+
   test.each([
     ['refuse', refused],
     ['sandboxed', scripted],

@@ -50,3 +50,10 @@ test('parsed options own one asset budget that copies preserve', () => {
   expect(options.assetBudget).toEqual({ bytes: 0 })
   expect({ ...options }.assetBudget).toBe(options.assetBudget)
 })
+
+test('parsed options materialize one-shot origin approvals', () => {
+  function* origins() {
+    yield { origin: 'https://images.example', kinds: ['image'] as const }
+  }
+  expect(parseRenderOptions({ origins: origins() }).origins).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
+})

@@ -17,7 +17,7 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
         return valueFor(this)[name]
       },
       set(this: object, value: T[typeof name]) {
-        valueFor(this)[name] = value
+        valueFor(this)[name] = (name === 'origins' && value !== undefined ? [...(value as Iterable<unknown>)] : value) as T[typeof name]
       },
     })
   }

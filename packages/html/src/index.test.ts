@@ -73,6 +73,14 @@ describe('sanitize', () => {
     expect(findActiveContent(html, options)).toEqual([expect.stringContaining(`${refused} at origin https://outside.example`)] as string[])
   })
 
+  test('materializes one-shot origin approvals for every sanitized image', () => {
+    function* origins() {
+      yield { origin: 'https://images.example', kinds: ['image'] as const }
+    }
+    const html = '<img src="https://images.example/a.png"><img src="https://images.example/b.png">'
+    expect(sanitize(html, { origins: origins() })).toBe(html)
+  })
+
   test('a style element removes only the rule or declaration that fetches content', () => {
     const unsafe = '<style>@IMPORT url(data:image/png;base64,AA==)</style>'
     const external = '<style>p{background:url(https://example.com/b.png)}</style>'

@@ -302,10 +302,11 @@ function rootAttributes(tag: string | undefined, options: Pick<FrameOptions, 'di
 // author adds can only narrow this one: browsers enforce every policy present.
 export function frameDocument(html: string, options: FrameOptions): string {
   const scripts: Scripts = options.scripts === 'sandboxed' ? 'sandboxed' : 'refuse'
+  const origins = options.origins === undefined ? undefined : [...options.origins]
   const bridge = options.bridge !== false
   const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
   const sources = (kind: FetchKind) => {
-    const values = [...approvedOrigins(options.origins, kind, scripts === 'sandboxed')].sort()
+    const values = [...approvedOrigins(origins, kind, scripts === 'sandboxed')].sort()
     return values.length ? ` ${values.join(' ')}` : ''
   }
   const scriptDirectives = scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[scripts](sources('script'))

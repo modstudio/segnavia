@@ -50,7 +50,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   private placementOptions: AssetPlacementsOptions | undefined
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
-  private originOptions: Iterable<OriginApproval> = []
+  private originOptions: readonly OriginApproval[] = []
   private brandOptions: BrandsOptions | undefined
   private brandResolution: AbortController | undefined
   private designedCoverInput: DesignedCover | undefined
@@ -145,7 +145,7 @@ export class SegnaviaThumbnail extends HTMLElement {
   }
 
   set origins(value: Iterable<OriginApproval>) {
-    this.originOptions = value
+    this.originOptions = [...value]
     this.changed()
   }
 
