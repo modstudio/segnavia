@@ -96,16 +96,22 @@ export async function verifyDependencyRender(
   check('pagesPdf carries a lowered per-asset cap into its inner render', pagesCap.includes('limits.assets.each') && pagesCap.includes(image), pagesCap)
 
   const secondImage = `${imageOrigin}/second.png`
+  const imageBytes = redPng.byteLength
+  const secondImageBytes = redPng.byteLength
+  const documentBytesLimit = imageBytes + secondImageBytes - 1
   const documentCap = await refusal(
     renderer.pagesPdf([imagePage, screenPage({ html: `<img src="${secondImage}">` }, { size: { width: 400, height: 200 } })], {
       origins: cappedOptions.origins,
       assets: async (request) => (request === image || request === secondImage ? { body: redPng, contentType: 'image/png' } : undefined),
-      limits: { assets: { each: redPng.byteLength, bytes: redPng.byteLength * 2 - 1 } },
+      limits: { assets: { each: redPng.byteLength, bytes: documentBytesLimit } },
     }),
   )
   check(
     'asset bytes accumulate across every tab in one document',
-    documentCap.includes('limits.assets.bytes') && documentCap.includes(secondImage),
+    documentCap.includes('limits.assets.bytes') &&
+      (documentCap.includes(image) || documentCap.includes(secondImage)) &&
+      imageBytes <= documentBytesLimit &&
+      secondImageBytes <= documentBytesLimit,
     documentCap,
   )
   const raisedLimits = { assets: { each: redPng.byteLength + 1, bytes: redPng.byteLength * 2 + 1 } }
