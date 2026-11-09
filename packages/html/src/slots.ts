@@ -3,6 +3,7 @@ import {
   resolveSlotValue,
   type Scripts,
   type SlotDeclaration,
+  type SlotOrigin,
   type SlotReport,
   type SlotState,
   SlotsInput,
@@ -52,7 +53,8 @@ export function hasSlotWork(declarations: readonly SlotDeclaration[] | undefined
 
 /** Whether slot preparation would fill declared values. */
 export function fillsSlotValues(declarations: readonly SlotDeclaration[] | undefined, options: SlotsOptions | undefined): boolean {
-  return Boolean((options?.overrides || options?.fill || options?.source) && (declarations?.length || options.declarations?.length))
+  const hasOverrides = Object.keys(options?.overrides ?? {}).length > 0
+  return Boolean((hasOverrides || options?.fill || options?.source) && (declarations?.length || options?.declarations?.length))
 }
 
 /** Refuses exposing filled values to an item's own scripts. */
@@ -289,7 +291,7 @@ async function resolveSlots(declarations: readonly SlotDeclaration[], options: S
   await Promise.all(
     declarations.map(async (slot) => {
       types[slot.key] = slot.type
-      const selected = resolveSlotValue([
+      const selected = resolveSlotValue<SlotOrigin>([
         { name: 'design', value: options.overrides?.[slot.key] },
         { name: 'hand', value: options.fill?.values[slot.key] },
         { name: 'source', value: options.source?.values[slot.key] },

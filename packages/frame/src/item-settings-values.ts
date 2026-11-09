@@ -1,4 +1,14 @@
-import { type Fill, type FillValues, resolveSlotValue, type SlotDeclaration, type SlotReport, type SlotState, type SlotValue } from '@segnavia/format'
+import {
+  type Fill,
+  type FillValues,
+  hasSlotValue,
+  resolveSlotValue,
+  type SlotDeclaration,
+  type SlotOrigin,
+  type SlotReport,
+  type SlotState,
+  type SlotValue,
+} from '@segnavia/format'
 
 export type SlotWarning = 'missing' | 'overflowed' | 'shrunk'
 
@@ -19,11 +29,10 @@ export interface SlotFieldView {
 }
 
 function layeredValue(slot: SlotDeclaration, overrides: FillValues, fill: Fill | undefined, source: Fill | undefined) {
-  return resolveSlotValue([
+  return resolveSlotValue<SlotOrigin>([
     { name: 'design', value: overrides[slot.key] },
     { name: 'hand', value: fill?.values[slot.key] },
     { name: 'source', value: source?.values[slot.key] },
-    { name: 'placeholder', value: slot.placeholder },
   ])
 }
 
@@ -66,8 +75,8 @@ export function slotFieldView(
         : origin === 'hand'
           ? (fill?.values[slot.key] ?? layered.value)
           : layered.value
-  const sourceHasValue = source?.values[slot.key] !== undefined && source.values[slot.key] !== ''
-  const designOnly = overrides[slot.key] !== undefined && overrides[slot.key] !== ''
+  const sourceHasValue = hasSlotValue(source?.values[slot.key])
+  const designOnly = hasSlotValue(overrides[slot.key])
   const readOnly = origin === 'source'
   return {
     key: slot.key,
@@ -88,5 +97,5 @@ export function slotFieldView(
 
 export function overrideValue(source: Fill | undefined, key: string): SlotValue | undefined {
   const value = source?.values[key]
-  return value === undefined || value === '' ? undefined : value
+  return hasSlotValue(value) ? value : undefined
 }

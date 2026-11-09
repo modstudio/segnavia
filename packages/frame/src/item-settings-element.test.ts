@@ -115,6 +115,23 @@ test('routes design-only edits to overrides and clearing the override reveals th
   expect(overrides).toEqual([{ name: 'Design Mina' }, {}])
 })
 
+test('routes an edit to the fill when an override is present but cannot be saved', async () => {
+  const fills: Fill[] = []
+  const { element, controller } = setup(async (fill) => {
+    fills.push(fill)
+  })
+  element.overrides = { name: 'Design Mina' }
+  const inputs: Fill[] = []
+  element.addEventListener('segnavia-fill-input', (event) => inputs.push((event as CustomEvent<Fill>).detail))
+
+  typeName(element, 'Fill Mina')
+  await controller.flush()
+
+  expect(fills).toEqual([{ id: 'mina', values: { name: 'Fill Mina' } }])
+  expect(inputs).toEqual([{ id: 'mina', values: { name: 'Fill Mina' } }])
+  expect(element.overrides).toEqual({ name: 'Design Mina' })
+})
+
 describe('item settings host refreshes', () => {
   test('keeps a design draft and adopts a host override after its save settles', async () => {
     const { element, controller } = setup(

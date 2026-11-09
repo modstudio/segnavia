@@ -1,19 +1,24 @@
 import { expect, test } from 'bun:test'
-import { resolveSlotValue } from './slot-values.ts'
+import { hasSlotValue, resolveSlotValue } from './slot-values.ts'
 import type { SlotValue } from './slots.ts'
 
-test('resolves the first non-empty design, fill, source or placeholder layer', () => {
-  const layers = (design?: SlotValue, fill?: SlotValue, source?: SlotValue, placeholder?: SlotValue) =>
+test('resolves the first non-empty design, hand or source layer', () => {
+  const layers = (design?: SlotValue, hand?: SlotValue, source?: SlotValue) =>
     resolveSlotValue([
       { name: 'design', value: design },
-      { name: 'fill', value: fill },
+      { name: 'hand', value: hand },
       { name: 'source', value: source },
-      { name: 'placeholder', value: placeholder },
     ])
 
-  expect(layers('Design', 'Fill', 'Source', 'Placeholder')).toEqual({ value: 'Design', origin: 'design' })
-  expect(layers('', 'Fill', 'Source', 'Placeholder')).toEqual({ value: 'Fill', origin: 'fill' })
-  expect(layers(undefined, '', 'Source', 'Placeholder')).toEqual({ value: 'Source', origin: 'source' })
-  expect(layers(undefined, undefined, '', 'Placeholder')).toEqual({ value: 'Placeholder', origin: 'placeholder' })
+  expect(layers('Design', 'Fill', 'Source')).toEqual({ value: 'Design', origin: 'design' })
+  expect(layers('', 'Fill', 'Source')).toEqual({ value: 'Fill', origin: 'hand' })
+  expect(layers(undefined, '', 'Source')).toEqual({ value: 'Source', origin: 'source' })
   expect(layers()).toEqual({})
+})
+
+test('a slot value is present unless it is undefined or an empty string', () => {
+  expect(hasSlotValue(undefined)).toBeFalse()
+  expect(hasSlotValue('')).toBeFalse()
+  expect(hasSlotValue('Value')).toBeTrue()
+  expect(hasSlotValue({ asset: 'asset-id' })).toBeTrue()
 })

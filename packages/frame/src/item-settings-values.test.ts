@@ -54,6 +54,11 @@ describe('slot field view', () => {
     expect(slotFieldView(name, {}, fill, undefined, undefined).warnings).toEqual(['missing'])
   })
 
+  test('a placeholder is display fallback rather than a supplied panel value', () => {
+    const placeholder = { ...name, placeholder: 'Your name' }
+    expect(slotFieldView(placeholder, {}, fill, undefined, undefined)).toMatchObject({ value: undefined, text: '', warnings: ['missing'] })
+  })
+
   test('maps every reported slot state when the report names the displayed fill', () => {
     for (const state of SLOT_STATES) {
       expect(slotFieldView(name, {}, fill, source, { fill: 'mina', slots: { name: state }, origins: {} }).state).toBe(state)

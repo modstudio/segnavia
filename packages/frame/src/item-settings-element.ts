@@ -1,4 +1,13 @@
-import { type Fill, type FillValues, resolveDirection, type SlotDeclaration, type SlotReport, type SlotValue, type TextDirection } from '@segnavia/format'
+import {
+  type Fill,
+  type FillValues,
+  hasSlotValue,
+  resolveDirection,
+  type SlotDeclaration,
+  type SlotReport,
+  type SlotValue,
+  type TextDirection,
+} from '@segnavia/format'
 import { upgradeProperties } from './element-properties.ts'
 import type { ItemSettingsController } from './item-settings-authoring.ts'
 import { type FieldsActions, renderFields } from './item-settings-fields.ts'
@@ -248,7 +257,7 @@ export class SegnaviaItemSettings extends HTMLElement {
   }
 
   private changeValue(key: string, value: SlotValue | undefined) {
-    if (this.designValues[key] !== undefined && this.designValues[key] !== '') {
+    if (this.authoring?.canSaveOverrides && hasSlotValue(this.designValues[key])) {
       this.changeDesignValue(key, value)
       return
     }
