@@ -112,7 +112,7 @@ export function verifyPagesRender(output: string, work: string, check: Check): v
     'a sectioned printed document has an uncounted cover and two numbered body papers',
     sectioned.length === 3 &&
       sectioned[0]?.includes('SECTIONED COVER') === true &&
-      !sectioned[0]?.includes('Page') &&
+      sectioned[0]?.includes('Page of 2') === true &&
       sectioned[1]?.includes('Page 1 of 2') === true &&
       sectioned[2]?.includes('Page 2 of 2') === true,
     sectioned.map((text, index) => `${index + 1}:${text.replace(/\s+/g, ' ').trim()}`).join(' | '),

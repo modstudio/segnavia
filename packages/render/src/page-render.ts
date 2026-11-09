@@ -1,6 +1,6 @@
 import { type FontFailure, pageDirection } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
-import type { HtmlPage, PreparedSlots } from '@segnavia/html'
+import type { HtmlPage, PreparedSlots, PrintedHtmlPage } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
@@ -20,7 +20,7 @@ interface PageRenderServices {
 }
 
 export async function renderPagePdf(
-  page: HtmlPage,
+  page: HtmlPage | PrintedHtmlPage,
   slots: PreparedSlots,
   opts: RenderOptions,
   services: PageRenderServices,
@@ -38,7 +38,11 @@ export async function renderPagePdf(
       scripts: true,
       slots,
       html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures),
-      readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
+      readiness: renderReadiness(
+        page.scripts,
+        hasDiagram('html' in page ? page.html : page.printedPages.sections.map((section) => section.html).join('')),
+        opts.waitForPageReady !== false,
+      ),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
@@ -49,7 +53,13 @@ export async function renderPagePdf(
       await awaitPrintedPageComposition(tab, page)
       const captures = await prepareBackdropRasters(tab, opts.effects)
       if (page.print) {
-        const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, pageDirection(page))
+        const printed = await printPage(
+          tab,
+          page.print,
+          opts.preferCssPageSize,
+          inputIndex,
+          pageDirection({ ...page, html: 'html' in page ? page.html : page.printedPages.sections.map((section) => section.html).join('') }),
+        )
         return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
       }
       const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null

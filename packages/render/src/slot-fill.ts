@@ -13,6 +13,7 @@ import {
   type HtmlPage,
   hasSlotWork,
   type PreparedSlots,
+  type PrintedHtmlPage,
   prepareSlotCollection,
   prepareSlots,
   requiredSlotRefusal,
@@ -26,11 +27,37 @@ function refuseRequired(prepared: PreparedSlots): void {
   if (refusal) throw refusal
 }
 
-export async function filledPage(
+export function filledPage(
+  input: PrintedHtmlPage,
+  slots: SlotPrintOptions | undefined,
+  signal?: AbortSignal,
+): Promise<{ value: PrintedHtmlPage; slots: PreparedSlots }>
+export function filledPage(
   input: Page | HtmlPage,
   slots: SlotPrintOptions | undefined,
   signal?: AbortSignal,
-): Promise<{ value: HtmlPage; slots: PreparedSlots }> {
+): Promise<{ value: HtmlPage; slots: PreparedSlots }>
+export function filledPage(
+  input: Page | HtmlPage | PrintedHtmlPage,
+  slots: SlotPrintOptions | undefined,
+  signal?: AbortSignal,
+): Promise<{ value: HtmlPage | PrintedHtmlPage; slots: PreparedSlots }>
+export async function filledPage(
+  input: Page | HtmlPage | PrintedHtmlPage,
+  slots: SlotPrintOptions | undefined,
+  signal?: AbortSignal,
+): Promise<{ value: HtmlPage | PrintedHtmlPage; slots: PreparedSlots }> {
+  if (!('html' in input) && !('body' in input)) {
+    assertSingleSlotCopy(slots)
+    const refusal = slotFillRefusal(input.scripts, input.slots, slots)
+    if (refusal) throw refusal
+    const prepared = await prepareSlots(input.slots, slots, signal)
+    refuseRequired(prepared)
+    const sections = hasSlotWork(input.slots, slots)
+      ? input.printedPages.sections.map((section) => ({ ...section, html: prepared.apply(section.html) }))
+      : input.printedPages.sections
+    return { value: { ...input, printedPages: { ...input.printedPages, sections } }, slots: prepared }
+  }
   const page = 'html' in input ? input : resolvePageHtml(input)
   assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(page.scripts, page.slots, slots)

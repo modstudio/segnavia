@@ -17,7 +17,7 @@ import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } fro
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { FontCssRefusedError, type HtmlPage, type PrintedHtmlPage, parseDocument, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
@@ -60,7 +60,10 @@ export async function prepareRenderedPage(
 ) {
   const document = parseDocument(input, { newId: options.newId })
   const brand = await resolveRenderBrand(document, options.brandSource, signal)
-  return prepareRenderedPageValue(pageOrPrintedFromDocument(document, brand), options, motifs, signal, purpose)
+  const page = pageOrPrintedFromDocument(document, brand)
+  return page.printedPages?.sections
+    ? prepareRenderedPrintedPageValue(page, options, motifs, signal, purpose)
+    : prepareRenderedPageValue(page, options, motifs, signal, purpose)
 }
 
 export async function prepareRenderedPageValue(
@@ -72,6 +75,25 @@ export async function prepareRenderedPageValue(
 ) {
   const page = resolvePageHtml(input)
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
+  return preparedRender(expanded, options, signal)
+}
+
+async function prepareRenderedPrintedPageValue(
+  input: Page,
+  options: RenderOptions,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  purpose: 'screen' | 'print',
+) {
+  const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options, purpose)
+  return preparedRender(expanded, options, signal)
+}
+
+async function preparedRender<T extends HtmlPage | PrintedHtmlPage>(
+  expanded: { page: T; fonts: FontReference[] },
+  options: RenderOptions,
+  signal: AbortSignal,
+) {
   const { manifest, undeclared } = fontManifestWithReferences(expanded.page.style?.fonts, expanded.fonts)
   const resolvedReferences = fontManifestReferences(manifest, undeclared)
   const local = localFontsForRender(options.localFonts, resolvedReferences, resolveLimits(undefined, options.limits).localFonts)
@@ -79,6 +101,34 @@ export async function prepareRenderedPageValue(
   const resolved = await fontCssForRender(resolveRenderFontReferences(manifest, undeclared, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
   return { page: expanded.page, options, fontCss: resolved.css, fontFailures: resolved.failures }
+}
+
+async function expandPrintedFramePage(
+  page: PrintedHtmlPage,
+  motifs: MotifsOptions | undefined,
+  signal: AbortSignal,
+  options: RenderOptions,
+  purpose: 'screen' | 'print',
+): Promise<{ page: PrintedHtmlPage; fonts: FontReference[] }> {
+  const expanded = await Promise.all(
+    page.printedPages.sections.map((section) =>
+      expandFramePage({ ...page, html: section.html }, motifs, signal, options.placements, purpose, options.pageWidths),
+    ),
+  )
+  const first = expanded[0]
+  if (!first) throw new Error('a printed page needs at least one section')
+  const { html: _html, ...fields } = first.page
+  return {
+    page: {
+      ...fields,
+      printedPages: {
+        ...page.printedPages,
+        ...first.page.printedPages,
+        sections: page.printedPages.sections.map((section, index) => ({ ...section, html: expanded[index]?.page.html ?? section.html })),
+      },
+    },
+    fonts: expanded.flatMap((entry) => entry.fonts),
+  }
 }
 
 export async function prepareRenderedPages(

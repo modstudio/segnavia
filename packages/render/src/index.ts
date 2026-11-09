@@ -173,7 +173,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     deadline: RenderDeadline,
   ): Promise<Uint8Array> {
     const { value: page, slots } = await filledPage(prepared.page, opts.slots, deadline.signal)
-    const diagramScript = await resolveDiagramScript(page.html)
+    const pageHtml = 'html' in page ? page.html : page.printedPages.sections.map((section) => section.html).join('')
+    const diagramScript = await resolveDiagramScript(pageHtml)
     const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
     return withTab(
       {
@@ -182,7 +183,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         slots,
         scale: opts.scale,
         html: renderedPageDocument(page, prepared.options, false, diagramScript, prepared.fontCss, prepared.fontFailures),
-        readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
+        readiness: renderReadiness(page.scripts, hasDiagram(pageHtml), opts.waitForPageReady !== false),
         boundMs: opts.boundMs,
         deadline,
         beforeOutput: opts.beforeOutput,
@@ -234,7 +235,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'print')
         const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
           const { value: page, slots } = await filledPage(prepared.page, copySlots, deadline.signal)
-          const diagramScript = await resolveDiagramScript(page.html)
+          const diagramScript = await resolveDiagramScript('html' in page ? page.html : page.printedPages.sections.map((section) => section.html).join(''))
           const printed = await renderPagePdf(
             page,
             slots,
