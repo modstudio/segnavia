@@ -1,9 +1,13 @@
 import { z } from 'zod'
 
 const SingleWord = z.string().min(1).regex(/^\S+$/u)
+const Phrase = z
+  .string()
+  .min(1)
+  .regex(/^\S+(?: \S+)*$/u)
 
 export const PronunciationEntry = z.object({
-  term: SingleWord,
+  term: Phrase,
   say: SingleWord,
   ipa: z.string().optional(),
 })

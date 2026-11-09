@@ -52,22 +52,44 @@ describe('ElevenLabs lexicon publishing', () => {
     })
   })
 
-  test('updates a dictionary by replacing every rule and uses aliases when phonemes are disabled', async () => {
-    let request: { url: string; body: unknown } | undefined
+  test('updates a dictionary with phrase aliases, request options, and a normalized locator', async () => {
+    const controller = new AbortController()
+    let request: { url: string; body: unknown; signal: AbortSignal | null | undefined } | undefined
     globalThis.fetch = (async (url: string, init: RequestInit) => {
-      request = { url, body: JSON.parse(String(init.body)) }
+      request = { url, body: JSON.parse(String(init.body)), signal: init.signal }
       return Response.json({ id: 'dictionary-a', version_id: 'version-b' })
     }) as typeof fetch
-    await publishElevenLabsLexicon({
+    const dictionary = await publishElevenLabsLexicon({
       apiKey: () => 'secret',
       dictionaryId: 'dictionary-a',
       name: 'Shared words',
-      lexicon: { entries: [{ term: 'route', say: 'root', ipa: 'ɹuːt' }] },
+      caseSensitive: false,
+      signal: controller.signal,
+      lexicon: { entries: [{ term: 'יום טוב', say: 'יוםטוב', ipa: 'jom tov' }] },
     })
+    expect(dictionary).toEqual({ id: 'dictionary-a', versionId: 'version-b' })
     expect(request).toEqual({
       url: 'https://api.elevenlabs.io/v1/pronunciation-dictionaries/dictionary-a/set-rules',
-      body: { rules: [{ type: 'alias', string_to_replace: 'route', alias: 'root', case_sensitive: true, word_boundaries: true }] },
+      signal: controller.signal,
+      body: { rules: [{ type: 'alias', string_to_replace: 'יום טוב', alias: 'יוםטוב', case_sensitive: false, word_boundaries: true }] },
     })
+  })
+
+  test('rejects when the request signal is aborted', async () => {
+    const controller = new AbortController()
+    controller.abort(new DOMException('Publishing cancelled', 'AbortError'))
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      if (init.signal?.aborted) throw init.signal.reason
+      return Response.json({ id: 'dictionary-a', version_id: 'version-a' })
+    }) as typeof fetch
+
+    const publishing = publishElevenLabsLexicon({
+      apiKey: () => 'secret',
+      name: 'Shared words',
+      signal: controller.signal,
+      lexicon: { entries: [{ term: 'Yom Tov', say: 'YomTov' }] },
+    })
+    await expect(publishing).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   test('an empty lexicon creates nothing but can clear an existing dictionary', async () => {

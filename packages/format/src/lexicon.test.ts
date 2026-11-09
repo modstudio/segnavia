@@ -2,25 +2,30 @@ import { describe, expect, test } from 'bun:test'
 import { jsonSchemas, Lexicon, lexiconVersion } from './index.ts'
 
 describe('pronunciation lexicon', () => {
-  test('accepts entries with an optional exact IPA spelling', () => {
+  test('accepts phrase terms and entries with an optional exact IPA spelling', () => {
     expect(
       Lexicon.parse({
         entries: [
           { term: 'route', say: 'root', ipa: 'ɹuːt' },
           { term: 'SQL', say: 'sequel' },
+          { term: 'יום טוב', say: 'יוםטוב' },
         ],
       }),
     ).toEqual({
       entries: [
         { term: 'route', say: 'root', ipa: 'ɹuːt' },
         { term: 'SQL', say: 'sequel' },
+        { term: 'יום טוב', say: 'יוםטוב' },
       ],
     })
   })
 
   test.each([
     [{ entries: [{ term: '', say: 'word' }] }, 'empty term'],
-    [{ entries: [{ term: 'two words', say: 'word' }] }, 'term with whitespace'],
+    [{ entries: [{ term: 'two  words', say: 'word' }] }, 'term with repeated spaces'],
+    [{ entries: [{ term: ' two words', say: 'word' }] }, 'term with a leading space'],
+    [{ entries: [{ term: 'two words ', say: 'word' }] }, 'term with a trailing space'],
+    [{ entries: [{ term: 'two\twords', say: 'word' }] }, 'term with non-space whitespace'],
     [{ entries: [{ term: 'word', say: '' }] }, 'empty respelling'],
     [{ entries: [{ term: 'word', say: 'two words' }] }, 'respelling with whitespace'],
     [
