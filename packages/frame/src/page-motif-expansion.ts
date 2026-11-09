@@ -9,6 +9,8 @@ import {
   type PrintedHtmlPage,
 } from '@segnavia/html'
 
+export const PARENT_MOTIF_SOURCE_REFUSAL = 'A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.'
+
 export interface MotifsOptions {
   source: MotifSource
   pins?: Record<string, string>
@@ -36,12 +38,12 @@ export function pageMotifRefusal(bodyHtml: readonly string[], regions: readonly 
     if (refusal) return new MotifRefusedError(refusal)
   }
   if (regions.some((region) => hasMotifPlacement(region.html))) {
-    return new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
+    return new MotifRefusedError(PARENT_MOTIF_SOURCE_REFUSAL)
   }
   return undefined
 }
 
-function motifSummary(results: ExpandedMotifs[]) {
+export function motifSummary(results: ExpandedMotifs[]) {
   return {
     placed: results.flatMap((result) => result.placed),
     fonts: results.flatMap((result) => result.fonts),

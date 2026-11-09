@@ -14,7 +14,6 @@ import {
 } from '@segnavia/format'
 import {
   documentLanguage,
-  type ExpandedMotifs,
   expandMotifs,
   type HtmlPage,
   hasHostMotifPlacement,
@@ -27,7 +26,15 @@ import {
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { resolveBookEntries } from './book-entry-resolution.ts'
 import type { BrandsOptions } from './brands.ts'
-import { expandedPageParents, expandPageMotifs, type MotifsOptions, pageMotifRefusal, pageParentRegions } from './page-motif-expansion.ts'
+import {
+  expandedPageParents,
+  expandPageMotifs,
+  type MotifsOptions,
+  motifSummary,
+  PARENT_MOTIF_SOURCE_REFUSAL,
+  pageMotifRefusal,
+  pageParentRegions,
+} from './page-motif-expansion.ts'
 import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
 
 export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
@@ -70,7 +77,7 @@ function motifSourceRefusal(fields: BookHtmlField[], policy: MotifPolicy): Motif
     if (refusal) return new MotifRefusedError(refusal)
   }
   if (fields.some((field) => field.furniture && policy.placement(field.html, field.furniture))) {
-    return new MotifRefusedError('A parent-page motif placement could not establish its motif source; provide motifs.source to clear this refusal.')
+    return new MotifRefusedError(PARENT_MOTIF_SOURCE_REFUSAL)
   }
   return undefined
 }
@@ -199,14 +206,6 @@ async function expandBookHtml(field: BookHtmlField, lang: string | undefined, sc
     signal,
     ...deferred,
   })
-}
-
-function motifSummary(results: ExpandedMotifs[]) {
-  return {
-    placed: results.flatMap((result) => result.placed),
-    fonts: results.flatMap((result) => result.fonts),
-    unavailable: [...new Set(results.flatMap((result) => result.unavailable))],
-  }
 }
 
 async function expandBookShape<T extends Book | BookView>(shape: BookHtmlShape<T>, motifs: MotifsOptions, signal: AbortSignal): Promise<ExpandedBook<T>> {

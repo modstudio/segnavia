@@ -150,7 +150,7 @@ export async function renderPagesPdf(
     return output
   }
   if (!pages.every((page): page is HtmlPage => !isPrintedHtmlPage(page))) {
-    throw new RenderRefusedError('Sectioned printed pages require unchanged printed-page imposition.')
+    throw new RenderRefusedError('A sectioned printed page could not be imposed with other pages; print without imposition to clear this refusal.')
   }
   return services.finish(await composedPdf(pages, slots, imposition, opts, services, frameGroups), opts)
 }
