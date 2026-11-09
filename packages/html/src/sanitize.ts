@@ -39,6 +39,8 @@ const DATA_IMAGE_SRCSET = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:;[^,]*)?
 const SRCSET_WIDTH = /^[1-9]\d*w$/
 const SRCSET_DENSITY = /^(?:\d+(?:\.\d*)?|\.\d+)x$/
 const SRCSET_CANDIDATE = /\s*((?:data:[^,\s]*,[^,\s]*)|[^,\s]+)(?:\s+([^\s,]+))?\s*(?:,|$)/iy
+const ASSET_MARKER = 'data:image/segnavia-asset-'
+const ASSET_MARKER_PATTERN = new RegExp(`${ASSET_MARKER}(\\d+),x`, 'g')
 
 export interface SanitizeOptions {
   // Protocols, origins and fragments a link may use. Overrides linkOrigins.
@@ -242,7 +244,7 @@ function assetCss(source: string, declarations: boolean, options: SanitizeOption
       return url
     }
     const index = restores.push(url) - 1
-    return `data:image/segnavia-dependency-${index},x`
+    return `${ASSET_MARKER}${index},x`
   }
   let marker = 'segnavia-held-import'
   while (source.includes(marker)) marker += '-x'
@@ -256,7 +258,7 @@ function assetCss(source: string, declarations: boolean, options: SanitizeOption
   protectedCss = protectedCss.replace(/@font-face\s*\{[^}]*\}/gi, (block) => block.replace(/https:\/\/[^\s"')]+/gi, (url) => hold(url, 'font')))
   protectedCss = protectedCss.replace(/https:\/\/[^\s"')]+/gi, (url) => hold(url, 'image'))
   const result = sanitizeCss(protectedCss, declarations, options.dataFonts ?? false)
-  const restore = (value: string) => value.replace(/data:image\/segnavia-dependency-(\d+),x/g, (_, index: string) => restores[Number(index)] ?? '')
+  const restore = (value: string) => value.replace(ASSET_MARKER_PATTERN, (_, index: string) => restores[Number(index)] ?? '')
   let css = restore(result.css)
   for (const [index, rule] of imports.entries()) css = css.replace(`.${marker}-${index}{}`, rule)
   return { css, removed: result.removed.map(restore), refusals }
