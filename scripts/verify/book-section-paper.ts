@@ -32,16 +32,16 @@ function fixture(hebrew: boolean): DocumentInput {
       },
     ],
   })
-  const landscape = {
+  const designedLandscape = {
     type: 'section' as const,
-    title: hebrew ? 'שני' : 'Second',
+    title: hebrew ? 'מעוצב' : 'Designed',
     pageGeometry: 'landscape',
     lang: hebrew ? 'he' : 'en',
     dir: hebrew ? ('rtl' as const) : ('ltr' as const),
     parents,
     children: [
-      { type: 'page' as const, body: { html: '<p>SECOND_ONE</p><img data-segnavia-media="landscape-asset" alt="landscape asset">' } },
-      { type: 'page' as const, body: { html: '<p>SECOND_TWO</p>' } },
+      { type: 'page' as const, body: { html: '<p>DESIGNED_ONE</p><img data-segnavia-media="landscape-asset" alt="landscape asset">' } },
+      { type: 'page' as const, body: { html: '<p>DESIGNED_TWO</p>' } },
     ],
   }
   return {
@@ -86,7 +86,12 @@ function fixture(hebrew: boolean): DocumentInput {
       {
         type: 'division',
         name: 'body',
-        children: [section(hebrew ? 'ראשון' : 'First', 'FIRST'), landscape, section(hebrew ? 'שלישי' : 'Third', 'THIRD')],
+        children: [
+          section(hebrew ? 'ראשון' : 'First', 'FIRST'),
+          section(hebrew ? 'שני' : 'Second', 'SECOND', 'landscape'),
+          designedLandscape,
+          section(hebrew ? 'שלישי' : 'Third', 'THIRD'),
+        ],
       },
     ],
   }
@@ -168,36 +173,61 @@ export async function verifyBookSectionPaper(renderer: Renderer, work: string, c
       boxesOk && pages.length === plan.pages.length,
       `compared=${pages.length}, planned=${plan.pages.length}, geometries=${plan.pages.map((page) => page.pageGeometry).join(',')}`,
     )
-    const markers = ['FIRST_ONE', 'FIRST_TWO', 'SECOND_ONE', 'SECOND_TWO', 'THIRD_ONE', 'THIRD_TWO']
+    const sectionMarkers = [
+      ['FIRST_ONE', 'FIRST_TWO'],
+      ['SECOND_ONE', 'SECOND_TWO'],
+      ['DESIGNED_ONE', 'DESIGNED_TWO'],
+      ['THIRD_ONE', 'THIRD_TWO'],
+    ]
+    const markers = sectionMarkers.flat()
     const markerPages = markers.map((marker) => pageWith(text, marker))
+    const sectionOpeningPages = plan.pages
+      .map((page, index) => ({ page, pageNumber: index + 1 }))
+      .filter(({ page }) => page.sequence === 'body' && page.sectionOpening && !page.blank)
+    const sectionFlows = sectionOpeningPages.map(({ page }) => page.flow)
+    const markerFlowsOk = sectionMarkers.every((section, sectionIndex) =>
+      section.every((marker) => plan.pages[pageWith(text, marker) - 1]?.flow === sectionFlows[sectionIndex]),
+    )
     const foliosOk = markerPages.every((page) => page > 0 && compact(text[page - 1] ?? '').includes(compact(plan.folios[page - 1] ?? '')))
     check(
-      `${key} folios continue across portrait-landscape-portrait sections and match the plan`,
-      foliosOk && markerPages.every((page, index) => index === 0 || page >= (markerPages[index - 1] ?? 0)),
-      `markers=${markerPages.join(',')}, folios=${markerPages.map((page) => plan.folios[page - 1]).join(',')}`,
+      `${key} folios continue across all four sections and match the plan`,
+      foliosOk &&
+        markerFlowsOk &&
+        markerPages.every((page, index) => index === 0 || page >= (markerPages[index - 1] ?? 0)) &&
+        sectionOpeningPages.length === sectionMarkers.length,
+      `compared marker pages=${markerPages.join(',')} to plan flows=${sectionFlows.join(',')} and folios=${markerPages
+        .map((page) => plan.folios[page - 1])
+        .join(',')}`,
     )
     const outlines = pdfOutlineItems(pdf)
-    const sectionStarts = ['FIRST_ONE', 'SECOND_ONE', 'THIRD_ONE'].map((marker) => pageWith(text, marker))
+    const sectionStarts = sectionOpeningPages.map(({ pageNumber }) => pageNumber)
     const destinations = annotationDestinations(pdf)
     check(
-      `${key} contents links and outline destinations land on the three section opening pages`,
+      `${key} contents links and outline destinations land on all four planned section opening pages`,
       sectionStarts.every((page) => destinations.includes(page)) && sectionStarts.every((page) => outlines.some((outline) => outline.page === page)),
-      `starts=${sectionStarts.join(',')}, links=${destinations.join(',')}, outline=${outlines.map((item) => item.page).join(',')}`,
+      `compared planned starts=${sectionStarts.join(',')} to links=${destinations.join(',')} and outline=${outlines.map((item) => item.page).join(',')}`,
     )
-    const furnitureOk = markerPages
-      .filter((_, index) => index % 2 === 1)
-      .every((pageNumber) => {
+    const furniturePages = [
+      plan.pages.findIndex((page) => page.pageGeometry === undefined && page.face === 'recto' && page.role === 'body') + 1,
+      plan.pages.findIndex((page) => page.pageGeometry === 'landscape' && page.face === 'recto' && page.role === 'body') + 1,
+      plan.pages.findIndex((page) => page.pageGeometry === 'landscape' && page.face === 'verso' && page.role === 'body') + 1,
+    ].filter((page, index, selected) => page > 0 && selected.indexOf(page) === index)
+    const furnitureOk =
+      furniturePages.length >= 2 &&
+      furniturePages.every((pageNumber) => {
         const page = bboxes[pageNumber - 1]
         const planPage = plan.pages[pageNumber - 1]
         if (!page || !planPage) return false
         const trim = expected[pageNumber - 1]
         if (!trim) return false
         const words = page.words.filter((word) => word.text === 'HEAD' || word.text === 'FOLIO')
-        const recto = planPage.side === (hebrew ? 'left' : 'right')
+        const recto = planPage.face === 'recto'
+        const expectedSide = recto === hebrew ? 'left' : 'right'
         const left = 3 / MM_PER_PT + (recto ? margin.inlineEnd : margin.inlineStart) / MM_PER_PT
         const right = 3 / MM_PER_PT + trim.width / MM_PER_PT - (recto ? margin.inlineStart : margin.inlineEnd) / MM_PER_PT
         const glyphOverhang = 2
         return (
+          planPage.side === expectedSide &&
           words.length >= 2 &&
           words.every(
             (word) =>
@@ -209,12 +239,11 @@ export async function verifyBookSectionPaper(renderer: Renderer, work: string, c
         )
       })
     check(
-      `${key} running heads and folios stay inside each page's own text area on physical ${hebrew ? 'RTL' : 'LTR'} sides`,
+      `${key} running heads and folios on flowing landscape, portrait recto and landscape recto pages stay inside each page's own text area`,
       furnitureOk,
-      `compared-pages=${markerPages.filter((_, index) => index % 2 === 1).join(',')}, sides=${markerPages
-        .filter((_, index) => index % 2 === 1)
-        .map((page) => plan.pages[page - 1]?.side)
-        .join(',')}`,
+      `compared plan pages=${furniturePages.join(',')}, geometries=${furniturePages
+        .map((page) => plan.pages[page - 1]?.pageGeometry ?? 'default')
+        .join(',')}, physical ${hebrew ? 'RTL' : 'LTR'} sides=${furniturePages.map((page) => plan.pages[page - 1]?.side).join(',')}`,
     )
   }
 }
