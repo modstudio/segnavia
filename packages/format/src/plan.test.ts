@@ -54,5 +54,6 @@ describe('Plan', () => {
       /pages.0.windows.0.end.*before its start.*clear this refusal/,
     )
     expect(() => Plan.parse({ ...plan(), folios: [] })).toThrow(/folios.*pages.*compute a new plan to clear this refusal/)
+    expect(() => Plan.parse({ ...plan(), documentFolios: [] })).toThrow(/documentFolios.*pages.*compute a new plan to clear this refusal/)
   })
 })
