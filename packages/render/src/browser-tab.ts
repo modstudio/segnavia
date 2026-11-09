@@ -55,7 +55,14 @@ export async function assetRouteDecision(
   if (!kind) return { action: 'abort', reason: `${url} uses unsupported fetching; no asset kind can approve it` }
   const policy = originDecision(url, kind, origins, scripts)
   if (!policy.allowed) return { action: 'abort', reason: policy.reason }
-  const answer = await lookup?.(url, { kind, signal })
+  let answer: AssetAnswer | undefined
+  try {
+    answer = await lookup?.(url, { kind, signal })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    return { action: 'abort', reason: `The host assets option rejected ${url}: ${message}; answer the approved asset to clear this refusal` }
+  }
+  if (signal.aborted) return { action: 'abort', reason: `${url} answered after its asset request was aborted; settle assets before the render ends to clear this refusal` }
   return answer ? { action: 'fulfill', ...answer } : { action: 'missing', url }
 }
 

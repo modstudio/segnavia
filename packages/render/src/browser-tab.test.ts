@@ -23,6 +23,34 @@ describe('asset route decision', () => {
     })
     expect(lookups).toBe(0)
   })
+
+  test('turns rejected and late asset answers into refusals', async () => {
+    expect(
+      await assetRouteDecision(
+        url,
+        'script',
+        origins,
+        async () => {
+          throw new Error('storage unavailable')
+        },
+        new AbortController().signal,
+      ),
+    ).toEqual({ action: 'abort', reason: expect.stringContaining(`${url}: storage unavailable`) })
+
+    const controller = new AbortController()
+    expect(
+      await assetRouteDecision(
+        url,
+        'script',
+        origins,
+        async () => {
+          controller.abort()
+          return answer
+        },
+        controller.signal,
+      ),
+    ).toEqual({ action: 'abort', reason: expect.stringContaining(`${url} answered after its asset request was aborted`) })
+  })
 })
 
 test('Playwright resource types map only the four approved asset kinds', () => {
