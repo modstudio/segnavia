@@ -26,7 +26,7 @@ export const DEFAULT_ORIGINS: readonly OriginApproval[] = [
   { origin: 'https://code.jquery.com', kinds: ['script'] },
 ]
 
-export function originSet(values: Iterable<string> | undefined, bare = false): Set<string> {
+function readOrigins(values: Iterable<string> | undefined, bare: boolean): Set<string> {
   const result = new Set<string>()
   for (const value of values ?? []) {
     try {
@@ -37,12 +37,20 @@ export function originSet(values: Iterable<string> | undefined, bare = false): S
   return result
 }
 
+export function originSet(values: Iterable<string> | undefined): Set<string> {
+  return readOrigins(values, false)
+}
+
+function strictOriginSet(values: Iterable<string> | undefined): Set<string> {
+  return readOrigins(values, true)
+}
+
 export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
   const result = new Set<string>()
   if (kind === 'script' && !scripts) return result
   for (const approval of [...DEFAULT_ORIGINS, ...(approvals ?? [])]) {
     if (!approval.kinds.includes(kind)) continue
-    const origins = originSet([approval.origin], true)
+    const origins = strictOriginSet([approval.origin])
     for (const origin of origins) result.add(origin)
   }
   return result
