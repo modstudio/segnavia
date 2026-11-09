@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { DEFAULT_LIMITS, type LocalFacesInput, type ResolvedLimits } from '@segnavia/format'
 import { bytesToBase64 } from '@segnavia/html'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import { type LocalFontsOptions, localFontsForRender as renderLocalFonts } from './local-fonts.ts'
 
 const truetype = 'AAEAAA=='
@@ -109,6 +109,18 @@ describe('local fonts for a render', () => {
         bytes: 1,
       }),
     ).toThrow('above the localFonts.bytes limit of 1')
+    try {
+      localFontsForRender({ faces }, [], { count: 1, bytes: DEFAULT_LIMITS.localFonts.bytes })
+    } catch (error) {
+      expect(error).toBeInstanceOf(RenderLimitError)
+      expect((error as RenderLimitError).exceeded).toMatchObject([{ measure: 'localFonts.count', limit: 1, actual: 2, where: '"Second"' }])
+    }
+    try {
+      localFontsForRender({ faces: faces.slice(0, 1) }, [], { count: DEFAULT_LIMITS.localFonts.count, bytes: 3 })
+    } catch (error) {
+      expect(error).toBeInstanceOf(RenderLimitError)
+      expect((error as RenderLimitError).exceeded).toMatchObject([{ measure: 'localFonts.bytes', limit: 3, actual: 4, where: '"First"' }])
+    }
   })
 
   test('accepts 18 faces and shares default overflow refusals with frame packing', () => {

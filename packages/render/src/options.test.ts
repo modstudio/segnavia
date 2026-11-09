@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Deck, limitRefusal } from '@segnavia/format'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import { copyLimits, enforceDeckLimits, innerLimits, parseRenderOptions, type RenderOptions } from './options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
@@ -29,7 +29,7 @@ test('a lone slot copy keeps every limit, and joined copies keep only the inner 
   expect(copyLimits(limits, { fills: [{}, {}] })).toEqual({ pages: 2, assets: { each: 5 } })
 })
 
-test('render deck limits refuse before rendering', () => {
+test('render deck limits refuse before rendering with every exceeded measure', () => {
   const deck = Deck.parse({
     title: 'Deck',
     size: { width: 400, height: 300 },
@@ -38,7 +38,23 @@ test('render deck limits refuse before rendering', () => {
       { id: 'two', content: { kind: 'html', html: '<p>Two</p>' } },
     ],
   })
-  expect(() => enforceDeckLimits(deck, { slides: 1 })).toThrow(new RenderRefusedError(limitRefusal('slides', 2, 1)))
+  const work = () => enforceDeckLimits(deck, { slides: 1, slideBytes: 5 })
+  expect(work).toThrow(RenderRefusedError)
+  expect(work).toThrow(
+    `${limitRefusal('slides', 2, 1)}; ${limitRefusal('slideBytes', 10, 5, { where: 'slide 1' })}; ${limitRefusal('slideBytes', 10, 5, {
+      where: 'slide 2',
+    })}`,
+  )
+  try {
+    work()
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderLimitError)
+    expect((error as RenderLimitError).exceeded).toMatchObject([
+      { measure: 'slides', limit: 1, actual: 2 },
+      { measure: 'slideBytes', limit: 5, actual: 10, where: 'slide 1' },
+      { measure: 'slideBytes', limit: 5, actual: 10, where: 'slide 2' },
+    ])
+  }
 })
 
 test('removed render local-font limits name its replacement', () => {

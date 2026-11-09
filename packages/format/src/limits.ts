@@ -200,6 +200,14 @@ export interface LimitRefusalOptions {
   atLeast?: boolean
 }
 
+export interface LimitExceeded {
+  measure: LimitMeasure
+  limit: number
+  actual: number
+  where?: string
+  message: string
+}
+
 export const LIMIT_ACTUAL_PLACEHOLDER = '{{limit.actual}}'
 
 function clearingAction(measure: LimitMeasure, options: LimitRefusalOptions): string {
@@ -218,6 +226,49 @@ export function limitRefusal(measure: LimitMeasure, actual: number, limit: numbe
   return refusal(measure, actual, limit, options)
 }
 
+function exceeded(measure: LimitMeasure, actual: number, limit: number, options: LimitRefusalOptions = {}): LimitExceeded {
+  return {
+    measure,
+    limit,
+    actual,
+    ...(options.where === undefined ? {} : { where: options.where }),
+    message: limitRefusal(measure, actual, limit, options),
+  }
+}
+
+export class LimitExceededError extends RangeError {
+  override name = 'LimitExceededError'
+  readonly exceeded: readonly LimitExceeded[]
+
+  constructor(measure: LimitMeasure, actual: number, limit: number, options?: LimitRefusalOptions)
+  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]])
+  constructor(
+    measureOrExceeded: LimitMeasure | readonly [LimitExceeded, ...LimitExceeded[]],
+    actual?: number,
+    limit?: number,
+    options: LimitRefusalOptions = {},
+  ) {
+    const entries = typeof measureOrExceeded === 'string' ? [exceeded(measureOrExceeded, actual as number, limit as number, options)] : measureOrExceeded
+    super(entries.map(({ message }) => message).join('; '))
+    this.exceeded = entries
+  }
+}
+
+export function isLimitExceeded(error: unknown): error is Error & { exceeded: readonly LimitExceeded[] } {
+  if (!(error instanceof Error) || !('exceeded' in error) || !Array.isArray(error.exceeded) || error.exceeded.length === 0) return false
+  return error.exceeded.every(
+    (entry) =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof entry.measure === 'string' &&
+      Object.hasOwn(TEXT, entry.measure) &&
+      typeof entry.limit === 'number' &&
+      typeof entry.actual === 'number' &&
+      typeof entry.message === 'string' &&
+      (entry.where === undefined || typeof entry.where === 'string'),
+  )
+}
+
 export function limitRefusalTemplate(measure: LimitMeasure, limit: number, options: LimitRefusalOptions = {}): string {
   return refusal(measure, LIMIT_ACTUAL_PLACEHOLDER, limit, options)
 }
@@ -231,12 +282,18 @@ export interface LocalFontLimitFace {
   bytes: number
 }
 
-export function localFontLimitRefusal(faces: readonly LocalFontLimitFace[], limits: ResolvedLimits['localFonts']): string | undefined {
-  if (faces.length > limits.count)
-    return limitRefusal('localFonts.count', faces.length, limits.count, { where: JSON.stringify(faces[limits.count]?.family ?? 'unknown family') })
+export function localFontLimitExceeded(faces: readonly LocalFontLimitFace[], limits: ResolvedLimits['localFonts']): LimitExceeded | undefined {
+  if (faces.length > limits.count) {
+    const options = { where: JSON.stringify(faces[limits.count]?.family ?? 'unknown family') }
+    return exceeded('localFonts.count', faces.length, limits.count, options)
+  }
   let bytes = 0
   for (const face of faces) {
     bytes += face.bytes
-    if (bytes > limits.bytes) return limitRefusal('localFonts.bytes', bytes, limits.bytes, { where: JSON.stringify(face.family) })
+    if (bytes > limits.bytes) return exceeded('localFonts.bytes', bytes, limits.bytes, { where: JSON.stringify(face.family) })
   }
+}
+
+export function localFontLimitRefusal(faces: readonly LocalFontLimitFace[], limits: ResolvedLimits['localFonts']): string | undefined {
+  return localFontLimitExceeded(faces, limits)?.message
 }

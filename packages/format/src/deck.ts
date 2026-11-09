@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { Direction, TextDirection } from './direction.ts'
 import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
-import { type Limits, limitRefusal } from './limits.ts'
+import { type LimitExceeded, type Limits, limitRefusal } from './limits.ts'
 import { PX_PER_MM } from './paper.ts'
 import { Placement, PlacementShape } from './placement.ts'
 import { PressGeometry } from './print.ts'
@@ -203,19 +203,44 @@ export type Manifest = z.infer<typeof Manifest>
 
 // A host's own ceilings, checked where it accepts a deck. Returns the reasons
 // a deck exceeds them; an empty list means it fits.
-export function exceedsLimits(deck: Deck, limits: Limits): string[] {
-  const reasons: string[] = []
+export function deckLimitsExceeded(deck: Deck, limits: Limits): LimitExceeded[] {
+  const exceeded: LimitExceeded[] = []
   const bytes = (text: string) => new TextEncoder().encode(text).length
   if (limits.slides !== undefined && deck.slides.length > limits.slides) {
-    reasons.push(limitRefusal('slides', deck.slides.length, limits.slides))
+    exceeded.push({
+      measure: 'slides',
+      limit: limits.slides,
+      actual: deck.slides.length,
+      message: limitRefusal('slides', deck.slides.length, limits.slides),
+    })
   }
   deck.slides.forEach((slide, index) => {
     if (limits.slideBytes !== undefined && 'kind' in slide.content && slide.content.kind === 'html' && bytes(slide.content.html) > limits.slideBytes) {
-      reasons.push(limitRefusal('slideBytes', bytes(slide.content.html), limits.slideBytes, { where: `slide ${index + 1}` }))
+      const actual = bytes(slide.content.html)
+      const where = `slide ${index + 1}`
+      exceeded.push({
+        measure: 'slideBytes',
+        limit: limits.slideBytes,
+        actual,
+        where,
+        message: limitRefusal('slideBytes', actual, limits.slideBytes, { where }),
+      })
     }
     if (limits.notesBytes !== undefined && slide.notes && bytes(slide.notes) > limits.notesBytes) {
-      reasons.push(limitRefusal('notesBytes', bytes(slide.notes), limits.notesBytes, { where: `slide ${index + 1}` }))
+      const actual = bytes(slide.notes)
+      const where = `slide ${index + 1}`
+      exceeded.push({
+        measure: 'notesBytes',
+        limit: limits.notesBytes,
+        actual,
+        where,
+        message: limitRefusal('notesBytes', actual, limits.notesBytes, { where }),
+      })
     }
   })
-  return reasons
+  return exceeded
+}
+
+export function exceedsLimits(deck: Deck, limits: Limits): string[] {
+  return deckLimitsExceeded(deck, limits).map(({ message }) => message)
 }

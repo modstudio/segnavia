@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import type { AppFont, FontSource } from '@segnavia/format'
-import { Page } from '@segnavia/format'
+import { type AppFont, type FontSource, LimitExceededError, Page } from '@segnavia/format'
 import { packLocalFaces, readLocalFonts } from './local-fonts.ts'
 import { FontRefusedError, resolvePageFonts } from './page-fonts.ts'
 
@@ -252,7 +251,7 @@ describe('packLocalFaces', () => {
         Array.from({ length: 65 }, () => face),
         [{ local: 'Local Family', fallback: 'serif' }],
       ),
-    ).toThrow(FontRefusedError)
+    ).toThrow(LimitExceededError)
     expect(() =>
       packLocalFaces(
         Array.from({ length: 65 }, () => face),
@@ -262,5 +261,10 @@ describe('packLocalFaces', () => {
     expect(() => packLocalFaces([face], [{ local: 'Local Family', fallback: 'serif' }], { localFonts: { bytes: 3 } })).toThrow(
       'above the localFonts.bytes limit of 3',
     )
+    try {
+      packLocalFaces([face], [{ local: 'Local Family', fallback: 'serif' }], { localFonts: { bytes: 3 } })
+    } catch (error) {
+      expect((error as LimitExceededError).exceeded).toMatchObject([{ measure: 'localFonts.bytes', limit: 3, actual: 4, where: '"Local Family"' }])
+    }
   })
 })

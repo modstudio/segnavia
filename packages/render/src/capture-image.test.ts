@@ -1,8 +1,7 @@
 import { expect, test } from 'bun:test'
-import { limitRefusal } from '@segnavia/format'
 import type { Page as Tab } from 'playwright-core'
 import { captureImage } from './capture-image.ts'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError } from './errors.ts'
 
 test('png capture refuses a screenshot over the byte limit', async () => {
   const tab = {
@@ -10,7 +9,7 @@ test('png capture refuses a screenshot over the byte limit', async () => {
   } as unknown as Tab
 
   await expect(captureImage(tab, { format: 'png', limits: { bytes: 5 }, limitSetting: 'output.maxBytes' }, false)).rejects.toEqual(
-    new RenderRefusedError(limitRefusal('bytes', 6, 5, { setting: 'output.maxBytes' })),
+    new RenderLimitError('bytes', 6, 5, { setting: 'output.maxBytes' }),
   )
 })
 
@@ -25,7 +24,5 @@ test('WebP capture reports the last oversized attempt', async () => {
     evaluate: async () => ({ x: 0, y: 0, width: 10, height: 10, scale: 1 }),
   } as unknown as Tab
 
-  await expect(captureImage(tab, { format: 'webp', quality: [90, 80, 70], limits: { bytes: 5 } }, false)).rejects.toEqual(
-    new RenderRefusedError(limitRefusal('bytes', 6, 5)),
-  )
+  await expect(captureImage(tab, { format: 'webp', quality: [90, 80, 70], limits: { bytes: 5 } }, false)).rejects.toEqual(new RenderLimitError('bytes', 6, 5))
 })

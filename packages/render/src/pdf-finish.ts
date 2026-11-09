@@ -1,6 +1,6 @@
-import { type Limits, limitRefusal } from '@segnavia/format'
+import type { Limits } from '@segnavia/format'
 import { rewriteEffectsPdf } from './effects/adapter.ts'
-import { RenderRefusedError } from './errors.ts'
+import { RenderLimitError } from './errors.ts'
 import type { RenderOptions } from './options.ts'
 import { loadPdf } from './pdf-load.ts'
 import { rewritePressPdf } from './press/adapter.ts'
@@ -14,18 +14,17 @@ async function sheets(pdf: Uint8Array): Promise<number> {
 
 export async function enforce(pdf: Uint8Array, limits: Limits | undefined): Promise<Uint8Array> {
   if (limits?.bytes !== undefined && pdf.byteLength > limits.bytes) {
-    throw new RenderRefusedError(limitRefusal('bytes', pdf.byteLength, limits.bytes))
+    throw new RenderLimitError('bytes', pdf.byteLength, limits.bytes)
   }
   if (limits?.sheets !== undefined) {
     const count = await sheets(pdf)
-    if (count > limits.sheets) throw new RenderRefusedError(limitRefusal('sheets', count, limits.sheets))
+    if (count > limits.sheets) throw new RenderLimitError('sheets', count, limits.sheets)
   }
   return pdf
 }
 
 export async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>, decodeJpeg?: JpegDecoder): Promise<Uint8Array> {
-  if (options.limits?.bytes !== undefined && pdf.byteLength > options.limits.bytes)
-    throw new RenderRefusedError(limitRefusal('bytes', pdf.byteLength, options.limits.bytes))
+  if (options.limits?.bytes !== undefined && pdf.byteLength > options.limits.bytes) throw new RenderLimitError('bytes', pdf.byteLength, options.limits.bytes)
   let output = pdf
   if (options.effects !== false) {
     const rewritten = await rewriteEffectsPdf(output)

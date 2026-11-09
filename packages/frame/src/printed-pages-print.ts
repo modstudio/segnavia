@@ -2,7 +2,7 @@ import {
   type Imposition,
   impose,
   isPrintedPageIdentityImposition,
-  limitRefusal,
+  LimitExceededError,
   mixedImpositionGeometryRefusal,
   PX_PER_MM,
   paperViewport,
@@ -61,7 +61,7 @@ function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, dead
       const count = Math.round(message.height / (paper.height * PX_PER_MM))
       const limits = resolveLimits(page.limits, options.limits)
       if (count > limits.pages) {
-        finish(new RangeError(limitRefusal('pages', count, limits.pages, { pagesSource: limits.pagesSource })))
+        finish(new LimitExceededError('pages', count, limits.pages, { pagesSource: limits.pagesSource }))
         return
       }
       finish(count)
