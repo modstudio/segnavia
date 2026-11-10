@@ -120,12 +120,14 @@ function pagePaint(file: string): PagePaint {
 
 function hasTop(paint: PagePaint | undefined): boolean {
   if (!paint || paint.firstGray === undefined) return false
-  return paint.bands.some((band) => band.end < paint.firstGray && band.end - band.start >= 5)
+  const firstGray = paint.firstGray
+  return paint.bands.some((band) => band.end < firstGray && band.end - band.start >= 5)
 }
 
 function hasBottom(paint: PagePaint | undefined): boolean {
   if (!paint || paint.lastGray === undefined) return false
-  return paint.bands.some((band) => band.start > paint.lastGray && band.end - band.start >= 5)
+  const lastGray = paint.lastGray
+  return paint.bands.some((band) => band.start > lastGray && band.end - band.start >= 5)
 }
 
 function detail(pages: PagePaint[]): string {

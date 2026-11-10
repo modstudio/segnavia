@@ -18,26 +18,25 @@ import {
 } from './composer-measure.ts'
 
 export function embeddedComposerMeasureFunctions(): string {
-  const functions = [
-    keepSignals,
-    outermostKeepValue,
-    descendantKeepSignals,
-    inlineLevelDisplay,
-    measuredBlockConstraints,
-    measuredCandidateRun,
-    measuredCandidateKeeps,
-    measuredKeepRuns,
-    backgroundPaints,
-    shadowParts,
-    parseBoxShadows,
-    decorationEdges,
-    applyBoxDecorations,
-    forcedPageBreak,
-    composerLayoutReady,
-    sizeFlowGalley,
-    tableRowLines,
-    measureLineBoxes,
-    measurementRefusal,
-  ]
-  return functions.map((fn) => embedFunction(fn.name, fn)).join('\n')
+  return [
+    embedFunction('keepSignals', keepSignals),
+    embedFunction('outermostKeepValue', outermostKeepValue),
+    embedFunction('descendantKeepSignals', descendantKeepSignals),
+    embedFunction('inlineLevelDisplay', inlineLevelDisplay),
+    embedFunction('measuredBlockConstraints', measuredBlockConstraints),
+    embedFunction('measuredCandidateRun', measuredCandidateRun),
+    embedFunction('measuredCandidateKeeps', measuredCandidateKeeps),
+    embedFunction('measuredKeepRuns', measuredKeepRuns),
+    embedFunction('backgroundPaints', backgroundPaints),
+    embedFunction('shadowParts', shadowParts),
+    embedFunction('parseBoxShadows', parseBoxShadows),
+    embedFunction('decorationEdges', decorationEdges),
+    embedFunction('applyBoxDecorations', applyBoxDecorations),
+    embedFunction('forcedPageBreak', forcedPageBreak),
+    embedFunction('composerLayoutReady', composerLayoutReady),
+    embedFunction('sizeFlowGalley', sizeFlowGalley),
+    embedFunction('tableRowLines', tableRowLines),
+    embedFunction('measureLineBoxes', measureLineBoxes),
+    embedFunction('measurementRefusal', measurementRefusal),
+  ].join('\n')
 }
