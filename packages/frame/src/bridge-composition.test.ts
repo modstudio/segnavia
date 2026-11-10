@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { PREFLIGHT_PRESETS } from '@segnavia/format'
 import { bridgeForHost, COMPOSE_FAILURE_TEXT_LIMIT, MESSAGE, messageFrom } from './bridge.ts'
 
-function compositionBridge(failureAttribute?: string, reportHeight = false, progressAttribute?: string) {
+function compositionBridge(failureAttribute?: string, reportHeight = false, progressAttribute?: string, progressCallback?: string, installCallback = true) {
   const attributes = new Map<string, string>()
   const messages: unknown[] = []
   let height = 0
@@ -42,6 +42,7 @@ function compositionBridge(failureAttribute?: string, reportHeight = false, prog
       observe() {}
     },
   }
+  if (progressCallback && installCallback) Object.assign(window, { [progressCallback]: (progress: unknown) => messages.push({ callback: progress }) })
   Function(
     'document',
     'parent',
@@ -49,7 +50,7 @@ function compositionBridge(failureAttribute?: string, reportHeight = false, prog
     'MutationObserver',
     'ResizeObserver',
     'setTimeout',
-    bridgeForHost({ reportHeight, readyAfterAttribute: 'data-done', failureAttribute, progressAttribute }),
+    bridgeForHost({ reportHeight, readyAfterAttribute: 'data-done', failureAttribute, progressAttribute, progressCallback }),
   )(document, { postMessage: (message: unknown) => messages.push(message) }, window, MutationObserver, window.ResizeObserver, (callback: () => void) =>
     timers.push(callback),
   )
@@ -137,6 +138,18 @@ describe('composed frame bridge', () => {
     ])
   })
 
+  test('calls an installed progress binding and ignores a missing one', () => {
+    const installed = compositionBridge(undefined, false, 'data-progress', 'reportProgress')
+    installed.attributes.set('data-progress', '2/5')
+    installed.changed()
+    expect(installed.messages).toContainEqual({ callback: { pages: 2, total: 5 } })
+
+    const missing = compositionBridge(undefined, false, 'data-progress', 'missingProgress', false)
+    missing.attributes.set('data-progress', '2/5')
+    expect(() => missing.changed()).not.toThrow()
+    expect(missing.messages.at(-1)).toEqual({ type: MESSAGE.composeProgress, pages: 2, total: 5 })
+  })
+
   test('re-bounds compose progress from the frame source', () => {
     const source = {} as Window
     const frame = { contentWindow: source } as HTMLIFrameElement
@@ -152,6 +165,7 @@ describe('composed frame bridge', () => {
       { pages: 10_001, total: 10_001 },
       { pages: 6, total: 5 },
       { pages: '3', total: 5 },
+      { pages: 3 },
     ]) {
       expect(messageFrom(event({ type: MESSAGE.composeProgress, ...progress }), frame)).toBeNull()
     }

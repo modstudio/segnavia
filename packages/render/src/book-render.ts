@@ -1,6 +1,7 @@
 import {
   type Book,
   bookPageGeometries,
+  type ComposeProgress,
   type FontFailure,
   KEEP_WITH_CUSTOM_PROPERTY,
   type Limits,
@@ -37,7 +38,7 @@ import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
 import { awaitPreflightReport } from './preflight.ts'
-import { RENDER_PROGRESS_BINDING } from './progress.ts'
+import { renderProgressDocumentOptions } from './progress.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import type { BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
@@ -66,7 +67,7 @@ interface TabSetup {
   limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
-  progressReport?: (progress: { pages: number; total: number }) => void
+  progressReport?: (progress: ComposeProgress) => void
 }
 
 export interface BrowserBookDependencies {
@@ -227,8 +228,7 @@ async function printBook(
       breaks: renderOptions.breaks,
       profile: renderOptions.preflight?.profile,
       preflightSeed: renderOptions.preflight?.seed,
-      progress: renderOptions.progress !== undefined,
-      progressCallback: renderOptions.progress ? RENDER_PROGRESS_BINDING : undefined,
+      ...renderProgressDocumentOptions(renderOptions.progress),
     }),
   )
   const setup: TabSetup = paginated
@@ -330,8 +330,7 @@ export async function renderBrowserBookPlan(
       origins: options.origins,
       limits: options.limits,
       breaks: options.breaks,
-      progress: options.progress !== undefined,
-      progressCallback: options.progress ? RENDER_PROGRESS_BINDING : undefined,
+      ...renderProgressDocumentOptions(options.progress),
     }),
   )
   return withTab(

@@ -11,7 +11,7 @@ import {
 } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PreparedSlots, type PrintedHtmlPage } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
-import { type ComposedRenderOptions, innerLimits, parseRenderOptions } from './options.ts'
+import { type ComposedRenderOptions, innerLimits, parseRenderOptions, refuseMultiCompositionProgress } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
@@ -97,6 +97,7 @@ export async function renderPagesPdf(
   frameGroups: ReadonlyArray<readonly number[]> = pages.map((_, index) => [index]),
 ): Promise<Uint8Array> {
   opts = parseRenderOptions(opts)
+  refuseMultiCompositionProgress(opts, 'pagesPdf', true)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {
     const rendered = await Promise.all(

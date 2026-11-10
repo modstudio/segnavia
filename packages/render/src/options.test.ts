@@ -1,7 +1,15 @@
 import { expect, test } from 'bun:test'
 import { Deck, limitRefusal } from '@segnavia/format'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
-import { copyLimits, enforceDeckLimits, innerLimits, parseComposedRenderOptions, parseRenderOptions, type RenderOptions } from './options.ts'
+import {
+  copyLimits,
+  enforceDeckLimits,
+  innerLimits,
+  parseComposedRenderOptions,
+  parseRenderOptions,
+  type RenderOptions,
+  refuseMultiCompositionProgress,
+} from './options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
   expect(
@@ -73,6 +81,21 @@ test('parsed options materialize one-shot origin approvals', () => {
   const parsed = parseRenderOptions({ origins: origins() } as RenderOptions)
   expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
   expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
+})
+
+test('progress is normalized to one report function at the option edge', () => {
+  const report = () => {}
+  expect(parseRenderOptions({ progress: { report } }).progress).toEqual({ report })
+  expect(parseRenderOptions({}).progress).toBeUndefined()
+  expect(() => parseRenderOptions({ progress: {} } as never)).toThrow('The progress option needs a report function')
+})
+
+test('progress refuses render calls that would compose more than one document', () => {
+  const progress = { report: () => {} }
+  expect(() => refuseMultiCompositionProgress({ progress }, 'pagePdf', false)).not.toThrow()
+  expect(() => refuseMultiCompositionProgress({ progress }, 'pagePdf', true)).toThrow(
+    'The progress option is reported per single composition; pagePdf would compose multiple documents. Remove progress and call pagePdf once per page',
+  )
 })
 
 test('invalid preflight profiles refuse at the option edge', () => {

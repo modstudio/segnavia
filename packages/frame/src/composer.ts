@@ -270,7 +270,7 @@ export function composerScript(configJson: string): string {
   const script = `(function(){
 var composeStarted=performance.now();
 var fail=function(reason){var text=String(reason).slice(0,${COMPOSE_FAILURE_TEXT_LIMIT});document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}',text||'book composition failed without a reported reason');};
-var progressHighWater=0;var reportComposeProgress=function(value){if(!config.progress)return;var progress=boundComposeProgress(value);if(!progress)return;var next=reduceProgressHighWater(progressHighWater,progress);if(!next)return;progressHighWater=next.pages;document.documentElement.setAttribute('${COMPOSE_PROGRESS_ATTRIBUTE}',next.pages+'/'+(next.total===undefined?'':next.total));};
+var progressHighWater;var reportComposeProgress=function(value){if(!config.progress)return;var progress=boundComposeProgress(value);if(!progress)return;var next=reduceProgressHighWater(progressHighWater,progress);if(!next)return;progressHighWater=next;document.documentElement.setAttribute('${COMPOSE_PROGRESS_ATTRIBUTE}',next.pages+'/'+next.total);};
 var config=${configJson};
 var preflightEntries=[],preflightFits=[];
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};
@@ -377,7 +377,7 @@ else{plan=planConverged();if(!plan)return;var saveContinuation=measurementContin
 var setComposedHeight=function(pages){var height=0;for(var i=0;i<pages.length;i++)height+=geometryFor(pages[i].pageGeometry).paperHeight;var value=height+'px';document.documentElement.style.blockSize=value;document.body.style.blockSize=value;};
 var preparePlan=function(source){var prepared=applyPrintedRules(tileInlinePlan(source));planFolios=prepared;if(prepared.pages.length>config.limit){fail(config.limitRefusal.template.split(config.limitRefusal.placeholder).join(String(prepared.pages.length)));if(config.measure){setComposedHeight(prepared.pages);document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');}return null;}if(config.expectedCount!==null&&config.expectedCount!==undefined&&prepared.pages.length!==config.expectedCount){fail('the composed page count changed from '+config.expectedCount+' to '+prepared.pages.length+' between measurement and paper composition; wait for the page layout to settle or shorten the content to clear this refusal');return null;}return prepared;};
 var prepared=preparePlan(plan);if(!prepared)return;
-if(config.measure){var progressTotal=config.only===null||config.only===undefined?prepared.pages.length:1;reportComposeProgress({pages:progressTotal,total:progressTotal});setComposedHeight(prepared.pages);document.documentElement.setAttribute('${COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');return;}
+if(config.measure){setComposedHeight(prepared.pages);document.documentElement.setAttribute('${COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');return;}
 var composed=await compose(prepared,input.geometry.noteSeries||[]);
 if(document.documentElement.hasAttribute('${COMPOSE_FAILURE_ATTRIBUTE}'))return;
 var settlement=settleHeldNoteViews();

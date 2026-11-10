@@ -1,5 +1,6 @@
 import {
   type BrandSource,
+  type ComposeProgress,
   type Deck,
   deckLimitsExceeded,
   type FetchKind,
@@ -16,10 +17,11 @@ import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import type { AsOfInputs, SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
-import { RenderLimitError } from './errors.ts'
+import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
 import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
+import type { RenderProgressOptions } from './progress.ts'
 
 export type Font = FontFace
 
@@ -84,7 +86,7 @@ export interface RenderOptions {
   fontSource?: FontSource
   brandSource?: BrandSource
   fontLoad?: { report?: (report: { failures: FontFailure[] }) => void }
-  progress?: { report: (progress: { pages: number; total: number }) => void }
+  progress?: RenderProgressOptions
   localFonts?: LocalFontsOptions
   limits?: Limits
   boundMs?: number
@@ -125,7 +127,7 @@ export interface RenderOptions {
   }
 }
 
-export function parseRenderOptions<T extends RenderOptions>(options: T): T {
+export function parseRenderOptions<T extends RenderOptions>(options: T): Omit<T, 'progress'> & RenderOptions {
   if (typeof options.localFonts === 'object' && options.localFonts !== null && 'limits' in options.localFonts) {
     parseLimits({ localFonts: { limits: options.localFonts.limits } }, 'host')
   }
@@ -134,8 +136,18 @@ export function parseRenderOptions<T extends RenderOptions>(options: T): T {
     origins: options.origins === undefined ? undefined : [...options.origins],
     assetBudget: { bytes: 0 },
     limits: parseLimits(options.limits, 'host'),
+    progress: parseRenderProgress(options.progress),
     ...(options.pageWidths === undefined ? {} : { pageWidths: PageWidths.parse(options.pageWidths) }),
   }
+}
+
+function parseRenderProgress(value: unknown): RenderProgressOptions | undefined {
+  if (value === undefined) return undefined
+  const report = value && typeof value === 'object' && !Array.isArray(value) ? (value as { report?: unknown }).report : undefined
+  if (typeof report !== 'function') {
+    throw new RenderRefusedError('The progress option needs a report function; pass progress: { report(progress) {} }, or omit progress to clear this refusal.')
+  }
+  return { report: report as (progress: ComposeProgress) => void }
 }
 
 export function innerLimits(limits: Limits | undefined): Limits | undefined {
@@ -145,6 +157,13 @@ export function innerLimits(limits: Limits | undefined): Limits | undefined {
     ...(limits.localFonts === undefined ? {} : { localFonts: limits.localFonts }),
     ...(limits.assets === undefined ? {} : { assets: limits.assets }),
   }
+}
+
+export function refuseMultiCompositionProgress(options: Pick<RenderOptions, 'progress'>, call: 'pagePdf' | 'pagesPdf', multiple: boolean): void {
+  if (!options.progress || !multiple) return
+  throw new RenderRefusedError(
+    `The progress option is reported per single composition; ${call} would compose multiple documents. Remove progress and call pagePdf once per page to clear this refusal.`,
+  )
 }
 
 /** Slot printing renders one copy per fill; a lone copy is the whole output, so it carries the whole output's limits. */
@@ -181,12 +200,12 @@ export type ComposedRenderInput = RenderOptions & { preflight?: RenderPreflightO
 
 export type ComposedRenderOptions = RenderOptions & { preflight?: ComposedPreflight }
 
-export type ParsedComposedRenderOptions<T extends ComposedRenderInput> = Omit<T, 'preflight'> & ComposedRenderOptions
+export type ParsedComposedRenderOptions<T extends ComposedRenderInput> = Omit<T, 'preflight' | 'progress'> & ComposedRenderOptions
 
 export function parseComposedRenderOptions<T extends ComposedRenderInput>(options: T): ParsedComposedRenderOptions<T> {
   const parsed = parseRenderOptions(options)
   const preflight = resolveRenderPreflight(options.preflight)
-  return { ...parsed, ...(preflight === undefined ? {} : { preflight }) }
+  return { ...parsed, ...(preflight === undefined ? {} : { preflight }) } as ParsedComposedRenderOptions<T>
 }
 
 export type PageRenderOptions = ComposedRenderInput & AsOfInputs

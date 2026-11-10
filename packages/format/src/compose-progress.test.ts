@@ -2,8 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { boundComposeProgress, COMPOSE_PROGRESS_PAGES_LIMIT } from './compose-progress.ts'
 
 describe('compose progress bound', () => {
-  test('accepts bounded integer progress with an optional total', () => {
-    expect(boundComposeProgress({ pages: 0 })).toEqual({ pages: 0 })
+  test('accepts bounded integer progress with its required total', () => {
     expect(boundComposeProgress({ pages: COMPOSE_PROGRESS_PAGES_LIMIT, total: COMPOSE_PROGRESS_PAGES_LIMIT })).toEqual({
       pages: COMPOSE_PROGRESS_PAGES_LIMIT,
       total: COMPOSE_PROGRESS_PAGES_LIMIT,
@@ -11,6 +10,7 @@ describe('compose progress bound', () => {
   })
 
   test.each([
+    ['missing total', { pages: 0 }],
     ['negative pages', { pages: -1 }],
     ['fractional pages', { pages: 1.5 }],
     ['over-limit pages', { pages: COMPOSE_PROGRESS_PAGES_LIMIT + 1 }],

@@ -41,6 +41,24 @@ test('pagesPdf refuses an empty collection with the action that clears it', asyn
   await expect(render).rejects.toThrow(new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.'))
 })
 
+test('pagesPdf refuses progress because the report is scoped to one composition', async () => {
+  const page = Page.parse({ html: '<p>Card</p>' })
+  const render = renderPagesPdf(
+    [page],
+    preparedSlots,
+    { progress: { report: () => {} } },
+    {
+      pagePdf: async () => ({ bytes: new Uint8Array() }),
+      piecePdf: async () => new Uint8Array(),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  await expect(render).rejects.toThrow(
+    'The progress option is reported per single composition; pagesPdf would compose multiple documents. Remove progress and call pagePdf once per page',
+  )
+})
+
 test('pagesPdf renders the page objects with a document view of the prepared slots', async () => {
   const page = Page.parse({ html: '<p>Card</p>', size: { width: 336, height: 192 } })
   const seen: unknown[] = []

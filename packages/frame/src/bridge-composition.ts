@@ -1,10 +1,6 @@
-export interface CompositionWaitOptions {
-  readyAfterAttribute?: string
-  failureAttribute?: string
-  progressAttribute?: string
-  progressCallback?: string
-  reportHeight?: boolean
-}
+import type { FrameOptions } from './bridge.ts'
+
+export type CompositionWaitOptions = Pick<FrameOptions, 'readyAfterAttribute' | 'failureAttribute' | 'progressAttribute' | 'progressCallback' | 'reportHeight'>
 
 function scriptJson(value: unknown): string {
   return JSON.stringify(value)
@@ -13,12 +9,19 @@ function scriptJson(value: unknown): string {
     .replace(/\u2029/g, '\\u2029')
 }
 
-export function compositionWait(options: CompositionWaitOptions, messages: { composeFailure: string; composeProgress: string }, failureLimit: number): string {
+export function compositionWait(
+  options: CompositionWaitOptions,
+  messages: { composeFailure: string; composeProgress: string },
+  failureLimit: number,
+  progressLimit: number,
+): string {
   if (!options.readyAfterAttribute) return 'null'
   const report = options.reportHeight === false ? '' : 'report();'
-  const progressCallback = options.progressCallback ? `window[${scriptJson(options.progressCallback)}]({pages:pages,total:total});` : ''
+  const progressCallback = options.progressCallback
+    ? `var callback=window[${scriptJson(options.progressCallback)}];if(typeof callback==='function')callback({pages:pages,total:total});`
+    : ''
   const progress = options.progressAttribute
-    ? `var progressName=${scriptJson(options.progressAttribute)};var postedProgress;var progress=function(){var value=root.getAttribute(progressName)||'';if(value===postedProgress)return;var parts=value.split('/');var pages=Number(parts[0]),total=Number(parts[1]);if(parts.length!==2||!Number.isInteger(pages)||!Number.isInteger(total)||pages<0||total<0||pages>10000||total>10000||pages>total)return;post({type:'${messages.composeProgress}',pages:pages,total:total});${progressCallback}postedProgress=value;};progress();`
+    ? `var progressName=${scriptJson(options.progressAttribute)};var postedProgress;var progress=function(){var value=root.getAttribute(progressName)||'';if(value===postedProgress)return;var parts=value.split('/');var pages=Number(parts[0]),total=Number(parts[1]);if(parts.length!==2||!Number.isInteger(pages)||!Number.isInteger(total)||pages<0||total<0||pages>${progressLimit}||total>${progressLimit}||pages>total)return;post({type:'${messages.composeProgress}',pages:pages,total:total});${progressCallback}postedProgress=value;};progress();`
     : ''
   const failure = options.failureAttribute
     ? `var failureName=${scriptJson(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${failureLimit})text=text.slice(0,${failureLimit - 1})+'…';post({type:'${messages.composeFailure}',text:text});return true;};if(failed())return;`

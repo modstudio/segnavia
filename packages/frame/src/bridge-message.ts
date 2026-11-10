@@ -1,9 +1,16 @@
-import { boundComposeProgress, boundPreflightReport, type FontFailure, type PreflightProfile, type PreflightReport } from '@segnavia/format'
+import {
+  boundComposeProgress,
+  boundPreflightReport,
+  type ComposeProgress,
+  type FontFailure,
+  type PreflightProfile,
+  type PreflightReport,
+} from '@segnavia/format'
 import { boundedFontReportMessage } from './font-load.ts'
 
 export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
 
-export interface FrameMessage {
+interface FrameMessageFields {
   type: string
   key?: string
   text?: string
@@ -13,9 +20,9 @@ export interface FrameMessage {
   slots?: Record<string, SlotFitState>
   failures?: FontFailure[]
   report?: PreflightReport
-  pages?: number
-  total?: number
 }
+
+export type FrameMessage = FrameMessageFields & ({ pages?: never; total?: never } | ComposeProgress)
 
 export function dispatchComposeProgress(target: EventTarget, message: FrameMessage | null): boolean {
   if (message?.pages === undefined || message.total === undefined) return false

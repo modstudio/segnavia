@@ -24,6 +24,7 @@ import {
   parseComposedRenderOptions,
   parseRenderOptions,
   type RenderOptions,
+  refuseMultiCompositionProgress,
 } from './options.ts'
 import { printWithOverflow } from './overflow.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
@@ -212,6 +213,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
     async pagePdf(input, opts = {}) {
       const parsedOptions = parsePagePdfOptions(opts ?? {})
+      refuseMultiCompositionProgress(parsedOptions, 'pagePdf', (parsedOptions.slots?.fills?.length ?? 1) > 1)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
@@ -261,6 +263,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async pagesPdf(inputs, opts = {}) {
       const parsedOptions = parsePagePdfOptions(opts ?? {})
+      refuseMultiCompositionProgress(parsedOptions, 'pagesPdf', true)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const parsed = await Promise.all(
           inputs.map(async (input) => {

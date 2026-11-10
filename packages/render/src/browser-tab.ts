@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import {
+  type ComposeProgress,
   type FetchKind,
   type FontFailure,
   type LimitExceeded,
@@ -34,7 +35,7 @@ export interface BrowserTabSetup {
   limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
-  progressReport?: (progress: { pages: number; total: number }) => void
+  progressReport?: (progress: ComposeProgress) => void
 }
 
 export type TabRunner = <T>(

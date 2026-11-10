@@ -93,6 +93,18 @@ test('publishes preflight before refusing or marking composition complete', () =
   expect(composed).toBeGreaterThan(refusal)
 })
 
+test('keeps one progress high-water across the note-overlap repair composition', () => {
+  const script = composerScript('{}')
+  const highWater = script.indexOf('var progressHighWater;')
+  const compose = script.indexOf('var compose=async function')
+  const repair = script.indexOf('composed=await compose(prepared,input.geometry.noteSeries||[])', compose + 1)
+  expect(highWater).toBeGreaterThan(0)
+  expect(script.indexOf('var progressHighWater;', highWater + 1)).toBe(-1)
+  expect(compose).toBeGreaterThan(highWater)
+  expect(script.indexOf('dressPlanPages(plan,config.only,reportComposeProgress', compose)).toBeGreaterThan(compose)
+  expect(repair).toBeGreaterThan(compose)
+})
+
 function startTagElement(tag: string): Pick<Element, 'getAttribute'> {
   return {
     getAttribute(name: string) {
