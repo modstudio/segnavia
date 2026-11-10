@@ -91,6 +91,40 @@ test('validates head template placements and parts at parse', () => {
   ).toThrow(/index|count/)
 })
 
+test('part-title variables name an existing document part', () => {
+  const base = {
+    type: 'document' as const,
+    kind: 'book' as const,
+    title: 'Book',
+    mode: 'continuous' as const,
+    children: [
+      {
+        type: 'part' as const,
+        name: 'gate',
+        children: [{ type: 'section' as const, title: 'Section', children: [{ type: 'flow' as const, html: '<p>Body</p>' }] }],
+      },
+    ],
+  }
+  expect(
+    Document.parse({
+      ...base,
+      variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'part-title', part: 'gate' }],
+    }).variables,
+  ).toMatchObject([{ name: 'part', kind: 'text', from: 'part-title', part: 'gate', pick: 'first' }])
+  expect(() =>
+    Document.parse({
+      ...base,
+      variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'part-title', part: 'missing' }],
+    }),
+  ).toThrow(/part-title variable.*part.*names unknown part.*missing.*name an existing part or remove the variable to clear this refusal/)
+  expect(() =>
+    Document.parse({ ...base, variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'part-title' }] }),
+  ).toThrow(/part/)
+  expect(() =>
+    Document.parse({ ...base, variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'content', part: 'gate' }] }),
+  ).toThrow(/Invalid input/)
+})
+
 test('a document-lowered book stores authored definitions and re-parses after JSON', () => {
   const document = Document.parse({
     type: 'document',

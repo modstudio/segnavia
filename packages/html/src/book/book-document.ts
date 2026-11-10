@@ -133,7 +133,7 @@ function notesSection(
     ...run.paragraphs,
   ])
   return {
-    info: { id, kind: 'endnotes', division: notes.targetId === 'book' ? 'body' : notes.division, title: notes.series.title },
+    info: { id, kind: 'endnotes', division: notes.targetId === 'book' ? 'body' : notes.division, title: notes.series.title, parts },
     node: sectionNode('endnotes', id, [notesHeading(book, notes), ...runs], build, title, {
       ...flowAttribs(opens, book.parentRules),
       ...(parts ? { 'data-segnavia-parts': JSON.stringify(parts) } : {}),
@@ -160,7 +160,9 @@ function decorateSection(sectionEntry: BookSectionEntry, build: DocumentBuild): 
   const section = build.sections.at(-1)
   if (!section) return
   if (sectionEntry.ancestry.length > 0) {
-    section.node.attribs['data-segnavia-parts'] = JSON.stringify(partNames(sectionEntry.ancestry))
+    const parts = partNames(sectionEntry.ancestry)
+    section.node.attribs['data-segnavia-parts'] = JSON.stringify(parts)
+    section.info.parts = parts
   }
   attachPendingPartHeadings(build, sectionEntry, section.info.id)
 }

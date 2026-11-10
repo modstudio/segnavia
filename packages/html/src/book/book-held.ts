@@ -94,7 +94,7 @@ export function partSection(
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   return {
-    info: { id, kind: 'part', division, title: entry.title, opens: entry.opens },
+    info: { id, kind: 'part', division, title: entry.title, opens: entry.opens, parts },
     node: sectionNode('part', id, children, build, entry.title, extra),
   }
 }

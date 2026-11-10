@@ -19,6 +19,7 @@ export interface BookSectionInfo {
   opens?: BookOpens
   values?: Record<string, string>
   record?: { index: number; count: number }
+  parts?: Record<string, string>
   numbering?: SectionNumbering
 }
 

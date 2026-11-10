@@ -37,12 +37,15 @@ export function refineDocumentVariables(
     headTemplates: Array<Omit<HeadTemplateNode, 'type'> | HeadTemplateNode>
     parentPages: Array<{ head?: string; foot?: string; regions?: Record<string, string> }>
     children?: DocumentNode[]
+    partNames?: string[]
     templates?: Array<Omit<TemplateNode, 'type'> | TemplateNode>
     recordSlotNames?: string[]
   },
   ctx: z.RefinementCtx,
 ): void {
   const declared = new Set(withLibraryEntries(LIBRARY_VARIABLES, document.variables).map((variable) => variable.name))
+  const parts = new Set(document.partNames ?? [])
+  if (document.children) walkDocumentNodes(document.children, (node) => node.type === 'part' && parts.add(node.name))
   const authoredVariables = new Set<string>()
   document.variables.forEach((variable, index) => {
     if (authoredVariables.has(variable.name)) {
@@ -50,6 +53,13 @@ export function refineDocumentVariables(
         code: 'custom',
         path: ['variables', index, 'name'],
         message: `variable name ${JSON.stringify(variable.name)} is declared more than once; keep one declaration or rename one to clear this refusal`,
+      })
+    }
+    if (variable.kind === 'text' && variable.from === 'part-title' && (document.children !== undefined || document.partNames !== undefined) && !parts.has(variable.part)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['variables', index, 'part'],
+        message: `part-title variable ${JSON.stringify(variable.name)} names unknown part ${JSON.stringify(variable.part)}; name an existing part or remove the variable to clear this refusal`,
       })
     }
     authoredVariables.add(variable.name)

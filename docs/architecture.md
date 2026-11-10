@@ -892,7 +892,7 @@ direction:
 not a host-authored input. Hosts author and parse a book `Document`; frame and
 render consume the lowered `Book`, whose section ids are already required.
 
-A `Book` is either continuous, where the screen is one scrolling flow, or paginated, where a page size and complete logical margins are required. Its reading tree has `frontMatter`, `body` and `endMatter` divisions, and each division may contain sections or recursive named parts up to six levels deep. A part may provide a title and an opening page; a title-only part points its contents and outline destination at the first section in its subtree. One canonical flattening carries division, tree path, depth and enclosing part facts to validation and rendering. Flowing sections carry HTML, while designed sections carry full-paper pages and templated sections fill named `data-region` elements. The Book declares slots, typed variables and named head templates. Content sets variables with `data-variable`; section-title, folio, page-total and record variables come from page facts. Parent-page head, foot and region HTML place a head template by name. Every composer and server-margin path resolves that template from the page's variable map and record slots through `fillRegion`. Host motifs remain available in book HTML, but reserved library placements are refused in content; head-template placements are legal only in parent-page furniture. A counted blank contributes to totals without showing a folio, while an uncounted page does not.
+A `Book` is either continuous, where the screen is one scrolling flow, or paginated, where a page size and complete logical margins are required. Its reading tree has `frontMatter`, `body` and `endMatter` divisions, and each division may contain sections or recursive named parts up to six levels deep. A part may provide a title and an opening page; a title-only part points its contents and outline destination at the first section in its subtree. One canonical flattening carries division, tree path, depth and enclosing part facts to validation and rendering. Flowing sections carry HTML, while designed sections carry full-paper pages and templated sections fill named `data-region` elements. The Book declares slots, typed variables and named head templates. Content sets variables with `data-variable`; section-title, named enclosing part-title, folio, page-total and record variables come from page facts. Parent-page head, foot and region HTML place a head template by name. Every composer and server-margin path resolves that template from the page's variable map and record slots through `fillRegion`. Host motifs remain available in book HTML, but reserved library placements are refused in content; head-template placements are legal only in parent-page furniture. A counted blank contributes to totals without showing a folio, while an uncounted page does not.
 
 A section's non-empty `contentsLabel` replaces its title in the contents entry and PDF bookmark, while its non-empty `subtitle` appears beneath that entry only. Each entry string resolves through `entryDirection`: its own first strong letter takes precedence, with the book direction and language as fallback.
 
@@ -906,7 +906,7 @@ The transform computes a numbering scope and a placement target from each series
 
 An authored note may have an id. A later `<a data-note-ref="id">` becomes another call carrying the original marker and linking to the one body; it is marked `data-segnavia-note-repeat`, and pagination does not measure it as another page-note call. A reference without an earlier authored note is refused. The composer finds first calls through `.segnavia-note-ref > a` and admits only targets in the page-note galley, so the measurement has no dependency on a default series name.
 
-A paginated book without a page is refused. More than one contents entry is refused. Front matter and the body cannot use the same numbering system, and page margins must leave a text area. Orphans and widows default to two lines; a block may override them through CSS. `fragmentation: 'safe'` adds zero-specificity keep rules, while `'none'` leaves breaking to authored CSS. Column blocks declare `data-columns` from 2 to 4 and take their gap from `page.columnGap`. Head templates name variable and record-slot parts. Content variables choose `start`, `first` or `last`; section-title variables remain scoped to their section; folio and page-total variables choose numbering, document or record scope. The plan carries one resolved variable map per page, and every furniture path fills templates from that map. `data-region` names and fit lengths are validated at the parse edge. `bookDocument` builds the ordered sections, generated contents and note bodies as one pure HTML transform, and paginated mode lays page-note bodies out in per-series galleys.
+A paginated book without a page is refused. More than one contents entry is refused. Front matter and the body cannot use the same numbering system, and page margins must leave a text area. Orphans and widows default to two lines; a block may override them through CSS. `fragmentation: 'safe'` adds zero-specificity keep rules, while `'none'` leaves breaking to authored CSS. Column blocks declare `data-columns` from 2 to 4 and take their gap from `page.columnGap`. Head templates name variable and record-slot parts. Content variables choose `start`, `first` or `last`; section-title and part-title variables remain scoped to their flow; folio and page-total variables choose numbering, document or record scope. A part-title variable names a part and reads the nearest enclosing part of that name, including the part's own opening pages, or resolves empty outside it. The plan carries one resolved variable map per page, and every furniture path fills templates from that map. `data-region` names and fit lengths are validated at the parse edge. `bookDocument` builds the ordered sections, generated contents and note bodies as one pure HTML transform, and paginated mode lays page-note bodies out in per-series galleys.
 
 `bookPdf` prints a continuous book with a page setting, or a paginated book from the library's page plan. Continuous mode prints the body first to locate every destination, inserts blank pages when recto openings are enabled, and checks a second body print against that prediction. Front matter is reprinted with its final front- and body-page numbers, and an odd front matter receives a trailing blank. The page planner selects the default recto, verso, opener or blank parent for each physical page. Those parents place the library's section-title and folio head templates in their regions; opener and blank parents omit the title template, and blank parents omit the folio template. A separate Chromium print renders and overlays that furniture layer, then the renderer joins front and body and rewrites contents and note links to explicit destinations before applying effects, press and limit passes.
 
@@ -956,6 +956,12 @@ point of use through `withLibraryEntries`. An author name starting with
 `segnavia:head-template` in parent head, foot or region HTML. A head-template
 placement anywhere else is refused with the remedy of moving it into a parent
 region.
+
+An authored text variable with `from: 'part-title'` names a part through its
+required `part` field. It resolves to the nearest enclosing part of that name,
+is set once at the start of each flow, and resolves empty when that flow is
+outside the part. Parsing refuses a part name that the document does not
+declare.
 
 Document and record numbers have one rule, `bookVariablePageNumbers`: the plan
 and the server margin layer both count across the whole document, front matter
@@ -1830,11 +1836,11 @@ sandbox policy sanitizes or refuses it. Styles are referenced by class and
 variables by declared name.
 
 A variable is declared by name in `Document.variables` and typed by its
-`kind`. A `text` variable takes its value `from` the content or from section
-titles, and its `pick` chooses, per page, the value in force at the page's
+`kind`. A `text` variable takes its value `from` the content, from section
+titles or from the title of a named enclosing part, and its `pick` chooses, per page, the value in force at the page's
 first line (`start`), the first value set on the page (`first`, the default)
 or the last (`last`); a page that sets none takes the value carried from
-earlier pages. A section-title value is carried only within its flow. A
+earlier pages. Section-title and part-title values are carried only within their flow. A
 `folio` or `pages` variable is the page's folio or the page total, counted
 `of` the division numbering, the whole document or the page's record. Content
 refers to a variable with `data-variable`; `Document.parse` refuses an

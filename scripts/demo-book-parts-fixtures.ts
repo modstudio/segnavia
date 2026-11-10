@@ -27,6 +27,22 @@ export function partsFixture(hebrew: boolean): DocumentInput {
     settings: { lang: hebrew ? 'he' : 'en' },
     page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
     rectoOpenings: true,
+    variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'part-title', part: 'part' }],
+    headTemplates: [{ type: 'headTemplate', name: 'part', parts: [{ variable: 'part' }] }],
+    parentPages: [
+      {
+        type: 'parentPage',
+        name: 'part-recto',
+        basedOn: 'segnavia:recto',
+        head: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="part"></div>',
+      },
+    ],
+    parentRules: [
+      { when: { blank: true }, parent: 'segnavia:blank' },
+      { when: { position: 'sectionFirst' }, parent: 'segnavia:opener' },
+      { when: { face: 'verso' }, parent: 'segnavia:verso' },
+      { parent: 'part-recto' },
+    ],
     children: [
       {
         type: 'division',

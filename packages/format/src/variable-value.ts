@@ -11,10 +11,13 @@ export interface VariablePageFacts {
   recordFolio?: string
   recordTotal?: string
   sectionTitle?: string
+  partTitles?: Record<string, string>
 }
 
 export function textVariableValue(variable: Extract<Variable, { kind: 'text' }>, facts: VariablePageFacts): string {
-  return variable.from === 'section-title' ? (facts.sectionTitle ?? '') : ''
+  if (variable.from === 'section-title') return facts.sectionTitle ?? ''
+  if (variable.from === 'part-title') return facts.partTitles?.[variable.part] ?? ''
+  return ''
 }
 
 export function variableValue(variable: Variable, facts: VariablePageFacts): string {

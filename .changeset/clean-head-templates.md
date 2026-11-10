@@ -9,6 +9,8 @@
 
 Fill running furniture from named head templates and variables, and remove marks, running-head sources, and printed-page furniture paths.
 
+A text variable can read a named enclosing part's title, replacing `runningHead: { part }`.
+
 Breaking for hosts:
 
 - A parsed value's `variables` and `headTemplates` hold only the author's declarations. Join the library entries with `withLibraryEntries` where you need the full set.

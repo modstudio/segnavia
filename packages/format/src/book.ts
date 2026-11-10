@@ -10,6 +10,7 @@ import {
   bookSectionOpensFacts,
   bookSections,
   flowingSection,
+  isPart,
   isPlacedSection,
 } from './book-section.ts'
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
@@ -226,6 +227,10 @@ const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
 
 type ResolvedBookValue = z.infer<typeof ResolvedBook>
 
+function declaredPartNames(items: ResolvedBookValue['body']): string[] {
+  return items.flatMap((item) => (isPart(item) ? [item.name, ...declaredPartNames(item.children)] : []))
+}
+
 function refineNamedPageGeometries(book: ResolvedBookValue, ctx: z.RefinementCtx): void {
   const declaredNames = Object.keys(book.style?.pageGeometries ?? {})
   const facts = bookSections(book).flatMap((section) => {
@@ -300,6 +305,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       headTemplates: book.headTemplates,
       parentPages: book.parentPages,
       templates: book.templates,
+      partNames: declaredPartNames([...book.frontMatter, ...book.body, ...book.endMatter]),
       recordSlotNames: bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? Object.keys(entry.values) : [])),
     },
     ctx,

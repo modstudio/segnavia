@@ -11,6 +11,7 @@ import {
   noteSettlementOverlapsBody,
   noteStackTops,
   pageReferenceFolio,
+  partTitleValues,
   unmeasuredFlows,
 } from './composer.ts'
 
@@ -154,6 +155,18 @@ describe('block keeps', () => {
       ],
     })
     expect(bookDocument(book).html).toContain('data-segnavia-section-title="Two" data-segnavia-chapter="2" id="section-2">Two</div>')
+  })
+
+  test('part-title variables set and clear the first line of each flow', () => {
+    const variables = [
+      { name: 'part', kind: 'text' as const, from: 'part-title' as const, part: 'part', pick: 'first' as const },
+      { name: 'topic', kind: 'text' as const, from: 'content' as const, pick: 'first' as const },
+    ]
+    expect(partTitleValues(variables, { part: 'Opening Part' })).toEqual([
+      { name: 'part', value: 'Opening Part', line: 0, scope: 'flow' },
+    ])
+    expect(partTitleValues(variables, {})).toEqual([{ name: 'part', value: '', line: 0, scope: 'flow' }])
+    expect(composerScript('{}')).toContain('flowStarted?partTitleValues(config.variables||[],parts):[]')
   })
 
   test('takes the page marker from config', () => {

@@ -35,6 +35,8 @@ test('book parts build openings, title-only levels, ancestry and end matter in r
     { id: 'section-5', text: 'After', level: 1, depth: 1 },
   ])
   expect(result.html).toContain('data-segnavia-parts="{&quot;part&quot;:&quot;Outer&quot;,&quot;gate&quot;:&quot;Inner&quot;}"')
+  expect(result.sections.find(({ id }) => id === 'outer-part')?.parts).toEqual({ part: 'Outer' })
+  expect(result.sections.find(({ id }) => id === 'section-3')?.parts).toEqual({ part: 'Outer', gate: 'Inner' })
   expect(result.html).not.toMatch(/id="inner-part"/)
   expect(result.html).toContain(':where(.segnavia-part,.segnavia-chapter,.segnavia-endnotes,.segnavia-blank){break-before:page}')
   expect(result.html).toContain('data-level="12"]){padding-inline-start:11em}')
@@ -76,5 +78,7 @@ test("a part opening's pages carry the part itself and its title", () => {
     mode: 'continuous',
     body: [{ name: 'part', title: 'Part', html: '<p>Opening</p>' }],
   })
-  expect(bookDocument(book).html).toContain('data-segnavia-parts="{&quot;part&quot;:&quot;Part&quot;}"')
+  const result = bookDocument(book)
+  expect(result.html).toContain('data-segnavia-parts="{&quot;part&quot;:&quot;Part&quot;}"')
+  expect(result.sections[0]?.parts).toEqual({ part: 'Part' })
 })

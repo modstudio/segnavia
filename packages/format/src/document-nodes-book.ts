@@ -7,7 +7,7 @@ import { HeadTemplate } from './head-template.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
 import { parentRules } from './parent-rules.ts'
-import { NumberVariable, RecordVariable, TextVariable } from './variable.ts'
+import { Variable } from './variable.ts'
 
 export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTemplate'), id: z.string().optional() })
 
@@ -48,11 +48,9 @@ export const ParentPageNode = NodeId.extend({
 export const TemplateNode = BookTemplate.extend({ type: z.literal('template'), id: z.string().optional() })
 export const NoteSeriesNode = NoteSeries.extend({ type: z.literal('noteSeries'), id: z.string().optional() })
 
-export const VariableNode = z.discriminatedUnion('kind', [
-  TextVariable.extend({ type: z.literal('variable'), id: z.string().optional() }),
-  NumberVariable.extend({ type: z.literal('variable'), id: z.string().optional() }),
-  RecordVariable.extend({ type: z.literal('variable'), id: z.string().optional() }),
-])
+const VariableNodeFields = { type: z.literal('variable'), id: z.string().optional() }
+
+export const VariableNode = z.object(VariableNodeFields).and(Variable)
 
 export const ConditionNode = NodeId.extend({ type: z.literal('condition'), name: z.string() })
 

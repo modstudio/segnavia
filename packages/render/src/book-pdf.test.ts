@@ -51,6 +51,22 @@ test('counts a blank inside a record the same way as the page plan', () => {
   ])
 })
 
+test('resolves a named enclosing part title only inside that part', () => {
+  const sections = [
+    { id: 'inside', kind: 'chapter' as const, division: 'body' as const, title: 'Inside', parts: { part: 'Part One' } },
+    { id: 'outside', kind: 'chapter' as const, division: 'body' as const, title: 'Outside' },
+  ]
+  const destinations = new Map([
+    ['inside', { page: 1, x: 0, y: 0 }],
+    ['outside', { page: 2, x: 0, y: 0 }],
+  ])
+  const facts = marginFactsFor(sections, destinations, 2, new Set(), 'arabic', [
+    { name: 'part', kind: 'text', from: 'part-title', part: 'part', pick: 'first' },
+  ])
+  expect(facts[0]?.variables?.part).toBe('Part One')
+  expect(facts[1]?.variables?.part).toBeUndefined()
+})
+
 test('maps asymmetric book margins to physical right and left pages independent of text direction', () => {
   const expected =
     '@page{size:148mm 210mm;margin-top:10mm;margin-bottom:11mm}@page :right{margin-left:30mm;margin-right:5mm}@page :left{margin-left:5mm;margin-right:30mm}'
