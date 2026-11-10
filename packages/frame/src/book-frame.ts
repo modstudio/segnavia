@@ -7,7 +7,14 @@ import { bookLabel } from './labels.ts'
 
 export function bookFrame(
   view: BookView,
-  options: { css?: string; spread?: boolean; layout?: BookLayout; origins?: Iterable<OriginApproval>; diagramScript?: string; profile?: PreflightProfileInput } = {},
+  options: {
+    css?: string
+    spread?: boolean
+    layout?: BookLayout
+    origins?: Iterable<OriginApproval>
+    diagramScript?: string
+    profile?: PreflightProfileInput
+  } = {},
 ): { title: string; srcdoc: string; scripts: Scripts } {
   const { css, spread = false, layout = 'pages', origins = [], diagramScript, profile } = options
   const title = view.title ?? bookLabel(view.lang)

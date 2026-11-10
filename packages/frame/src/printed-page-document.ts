@@ -119,7 +119,7 @@ export function printedPageValueDocument(
     numbering: { frontMatter: numbering, body: numbering },
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
-    ...(options.profile?.['region-overset'] === 'off' && options.profile['furniture-overset'] === 'off' ? {} : { preflight: options.profile }),
+    ...(options.profile && Object.values(options.profile).some((severity) => severity !== 'off') ? { preflight: options.profile } : {}),
     ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')

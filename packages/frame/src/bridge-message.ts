@@ -19,6 +19,22 @@ export function dispatchFontFailures(target: EventTarget, message: FrameMessage 
   if (message?.failures) target.dispatchEvent(new CustomEvent('fontfailure', { detail: { failures: message.failures }, bubbles: true, composed: true }))
 }
 
+export function dispatchPreflight(target: EventTarget, message: FrameMessage | null): boolean {
+  if (message?.type !== 'segnavia:preflight' || !message.report) return false
+  target.dispatchEvent(new CustomEvent('preflight', { detail: message.report }))
+  return true
+}
+
+function preflightMessage(data: Record<string, unknown>, type: string, profile: PreflightProfile): FrameMessage | null {
+  if (data.type !== type || !('report' in data)) return null
+  const report = data.report as { issues?: unknown; facts?: unknown } | undefined
+  return { type, report: boundPreflightReport({ entries: report?.issues, facts: report?.facts }, profile) }
+}
+
+function bookPlaceMessage(data: Record<string, unknown>, type: string): FrameMessage | null {
+  return data.type === type && typeof data.key === 'string' && data.key.length <= 256 ? { type, key: data.key } : null
+}
+
 interface MessageTypes {
   key: string
   bookPlace: string
@@ -54,11 +70,10 @@ export function messageFromFrames(
   const data = event.data
   if (!data || typeof data !== 'object') return null
   if (data.type === types.key && typeof data.key === 'string' && relayedKeys.includes(data.key)) return { type: types.key, key: data.key }
-  if (data.type === types.bookPlace && typeof data.key === 'string' && data.key.length <= 256) return { type: types.bookPlace, key: data.key }
-  if (data.type === types.preflight && 'report' in data) {
-    const report = (data as { report?: { issues?: unknown; facts?: unknown } }).report
-    return { type: types.preflight, report: boundPreflightReport({ entries: report?.issues, facts: report?.facts }, preflightProfile) }
-  }
+  const place = bookPlaceMessage(data as Record<string, unknown>, types.bookPlace)
+  if (place) return place
+  const preflight = preflightMessage(data as Record<string, unknown>, types.preflight, preflightProfile)
+  if (preflight) return preflight
   const bounded = boundedFontReportMessage(data, types, composeFailureLimit)
   if (bounded) return bounded
   if (data.type === types.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: types.height, height: data.height }

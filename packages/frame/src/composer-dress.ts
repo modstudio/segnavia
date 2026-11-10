@@ -1,10 +1,10 @@
 import {
   type Plan,
-  type PreflightEntry,
   PRINTED_PAGE_DOCUMENT_NUMBER_PATH,
   PRINTED_PAGE_DOCUMENT_TOTAL_PATH,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_TOTAL_PATH,
+  type PreflightEntry,
   RECORD_COUNT_PATH,
   RECORD_INDEX_PATH,
 } from '@segnavia/format'

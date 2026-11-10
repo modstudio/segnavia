@@ -150,6 +150,17 @@ describe('book element input', () => {
       { css: '.font-marker{font-family:Held}', spread: true },
     )
     expect(rendered.srcdoc).toContain('"presentation":{"spread":true,"reportPlace":true}')
+    expect(rendered.srcdoc).toContain('"region-overset":"warning"')
+    expect(bookFrame({ html: '<main data-segnavia-galleys></main>', scripts: 'refuse', pagination }, { profile: 'off' }).srcdoc).not.toContain('"preflight"')
+    expect(
+      bookFrame(
+        { html: '<main data-segnavia-galleys></main>', scripts: 'refuse', pagination },
+        { profile: { 'region-overset': 'off', 'furniture-overset': 'off' } },
+      ).srcdoc,
+    ).toContain('"preflight"')
+    expect(bookFrame({ html: '<main data-segnavia-galleys></main>', scripts: 'refuse', pagination }, { profile: 'strict' }).srcdoc).toContain(
+      '"region-overset":"error"',
+    )
     expect(rendered.srcdoc.indexOf('.font-marker')).toBeLessThan(rendered.srcdoc.indexOf('.lead{color:purple}'))
   })
 

@@ -1,4 +1,12 @@
-import { type AsOfDay, type OriginApproval, type Page, type PageWidths, type PreflightProfileInput, resolvePreflightProfile, type SlotsOptions } from '@segnavia/format'
+import {
+  type AsOfDay,
+  type OriginApproval,
+  type Page,
+  type PageWidths,
+  type PreflightProfileInput,
+  resolvePreflightProfile,
+  type SlotsOptions,
+} from '@segnavia/format'
 import { fillPageAsOfBindings, type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
 import { expandPrintedFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'

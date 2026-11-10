@@ -1,4 +1,4 @@
-import type { OriginApproval, PageWidths } from '@segnavia/format'
+import { type OriginApproval, type PageWidths, type PreflightProfileInput, resolvePreflightProfile } from '@segnavia/format'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -16,6 +16,17 @@ export abstract class BookSourcesElement extends HTMLElementBase {
   protected motifOptions: MotifsOptions | undefined
   protected placementOptions: PlacementsOptions | undefined
   protected widthOptions: PageWidths | undefined
+  protected profileInput: PreflightProfileInput = 'default'
+
+  get profile(): PreflightProfileInput {
+    return this.profileInput
+  }
+
+  set profile(value: PreflightProfileInput) {
+    resolvePreflightProfile(value)
+    this.profileInput = value
+    this.sourcesChanged()
+  }
 
   get spread(): boolean {
     return this.hasAttribute('spread')

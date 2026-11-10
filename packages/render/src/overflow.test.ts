@@ -1,12 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  CHROMIUM_MAX_SHRINK,
-  clippedHorizontalBox,
-  horizontalOverflow,
-  regionFitMinContribution,
-  type ScaleMeasurement,
-  solveScale,
-} from './overflow.ts'
+import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, horizontalOverflow, regionFitMinContribution, type ScaleMeasurement, solveScale } from './overflow.ts'
 
 test('a fit-min mark names the template, the region and the value, not a region locator', () => {
   expect(regionFitMinContribution('lesson:lesson-text:80pt')).toEqual({

@@ -1,11 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  boundPreflightReport,
-  PREFLIGHT_ISSUES_PER_CHECK,
-  PREFLIGHT_PRESETS,
-  preflightRefusal,
-  resolvePreflightProfile,
-} from './preflight.ts'
+import { boundPreflightReport, PREFLIGHT_ISSUES_PER_CHECK, PREFLIGHT_PRESETS, preflightRefusal, resolvePreflightProfile } from './preflight.ts'
 
 const facts = { pageCount: 1, pages: [{ folio: '1', first: 'a', last: 'z' }], fits: [{ group: 'sidebar', size: '9px' }] }
 const entry = (check: 'region-overset' | 'furniture-overset', subject = 'body') => ({ check, subject, message: `Shorten ${subject} to clear it.` })
@@ -21,7 +15,10 @@ describe('preflight profiles', () => {
 describe('boundPreflightReport', () => {
   test('applies severities, drops off checks, sorts errors first and derives status', () => {
     const profile = resolvePreflightProfile({ 'region-overset': 'warning', 'furniture-overset': 'error', 'slot-overset': 'off' })
-    const report = boundPreflightReport({ entries: [entry('region-overset'), entry('furniture-overset', 'head'), { ...entry('region-overset'), check: 'slot-overset' }], facts }, profile)
+    const report = boundPreflightReport(
+      { entries: [entry('region-overset'), entry('furniture-overset', 'head'), { ...entry('region-overset'), check: 'slot-overset' }], facts },
+      profile,
+    )
     expect(report.status).toBe('errors')
     expect(report.issues.map(({ id, severity }) => ({ id, severity }))).toEqual([
       { id: 'furniture-overset:head', severity: 'error' },

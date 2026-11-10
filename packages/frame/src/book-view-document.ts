@@ -59,7 +59,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     measure: false,
     savedPlans: true,
     fontLoads: declaredFontLoads(fonts),
-    ...(options.profile?.['region-overset'] === 'off' && options.profile['furniture-overset'] === 'off' ? {} : { preflight: options.profile }),
+    ...(options.profile && Object.values(options.profile).some((severity) => severity !== 'off') ? { preflight: options.profile } : {}),
     ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),

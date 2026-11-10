@@ -1,5 +1,3 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; composed papers fill the host-sized element and scroll inside it. Host-served HTML reports its height through the bridge.
-
 import {
   type AsOfDay,
   type Document,
@@ -9,15 +7,15 @@ import {
   Page,
   type PageWidths,
   type PreflightProfileInput,
-  resolvePreflightProfile,
   resolveAsOfDay,
   resolveDocumentDayResult,
+  resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
 import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
 import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -379,10 +377,7 @@ export class SegnaviaPage extends PageAsOfElement {
       releaseReadyPageRequests(this.pageRequests)
     }
     const page = this.pageValue
-    if (message?.type === MESSAGE.preflight && message.report && samePageFrame(currentFrame, this.composedFrame)) {
-      this.dispatchEvent(new CustomEvent('preflight', { detail: message.report }))
-      return
-    }
+    if (samePageFrame(currentFrame, this.composedFrame) && dispatchPreflight(this, message)) return
     const composeFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, currentFrame, this.composedFrame)
     if (composeFailure) {
       dispatchPageFailure(this, composeFailure, true)

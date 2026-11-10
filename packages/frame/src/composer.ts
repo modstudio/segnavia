@@ -1,4 +1,4 @@
-import { boundPreflightReport, type Folio, preflightRefusal, resolveDirection, SECTION_BOUNDARY_CLASS, SECTION_TITLE_MARK, textHoldingParentRules } from '@segnavia/format'
+import { type Folio, resolveDirection, SECTION_BOUNDARY_CLASS, SECTION_TITLE_MARK, textHoldingParentRules } from '@segnavia/format'
 import {
   ABSOLUTE_PX,
   embedFunction,
@@ -41,6 +41,7 @@ import {
   sizeFlowGalley,
   tableRowLines,
 } from './composer-measure.ts'
+import { embeddedPreflightFunctions } from './composer-preflight.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
 import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
@@ -221,8 +222,7 @@ ${embedFunction('composerFurnitureValues', composerFurnitureValues)}
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}
 ${embedFunction('markRegionOverflow', markRegionOverflow)}
 ${embedFunction('dressPlanPages', dressPlanPages)}
-${embedFunction('boundPreflightReport', boundPreflightReport)}
-${embedFunction('preflightRefusal', preflightRefusal)}
+${embeddedPreflightFunctions()}
 ${embedFunction('decideLayoutSettle', decideLayoutSettle)}
 ${embeddedBookPresentationFunctions()}`
 }
