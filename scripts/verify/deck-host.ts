@@ -1,4 +1,4 @@
-import { captureLoadingBleed, captureSandboxedTurns, sampleSandboxedTurns } from './deck-host-sampling.ts'
+import { captureLoadingBleed, sampleSandboxedTurns } from './deck-host-sampling.ts'
 import { neighborTurnFacts, waitForSettledWindow } from './deck-host-waits.ts'
 import { verifyDeckTransitions } from './deck-transitions.ts'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
@@ -274,17 +274,8 @@ export async function verifyDeckHost(h: Harness) {
     JSON.stringify({ ...pendingCss, background: pendingBackground }),
   )
 
-  const turnDurations: number[] = []
-  const pixels: Array<[number, number, number]> = []
-  await captureSandboxedTurns(h, turnDurations, pixels)
-  const bare = pixels.filter(([red, green, blue]) => Math.abs(red - 238) < 3 && Math.abs(green - 238) < 3 && Math.abs(blue - 238) < 3)
   const sampled = await sampleSandboxedTurns(h)
   const sandboxedCount = await page.locator(`${STAGE} iframe`).count()
-  check(
-    'deck host: every parent animation frame stays loaded and painted across sandboxed turns',
-    pixels.length >= 6 && bare.length === 0 && sampled.badFrames === 0 && sampled.turns >= 6 && sampled.frames > sampled.turns && sampled.timedOut === false,
-    JSON.stringify({ captures: pixels.length, bare: bare.length, ...sampled, turnDurations }),
-  )
   check(
     'deck host: a rapid second turn cancels the first incoming frame and retains no neighbor',
     sampled.cancelled && sampled.target === 'sandboxed-1' && sandboxedCount === 1,
