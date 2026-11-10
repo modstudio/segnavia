@@ -131,6 +131,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/composer-measure.ts',
       'src/composer-dress.ts',
       'src/composer-preflight.ts',
+      'src/composer-regions.ts',
       'src/composer.ts',
       'src/book-presentation.ts',
       'src/book-document.ts',

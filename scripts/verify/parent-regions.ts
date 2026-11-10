@@ -65,11 +65,7 @@ export const parentRegionPrintedFixture: DocumentInput = {
     { type: 'parentPage', name: names.left, geometry: { margin }, regions: regions('LEFT') },
     { type: 'parentPage', name: names.right, geometry: { margin }, regions: regions('RIGHT') },
   ],
-  parentRules: [
-    { when: { position: 'documentFirst' }, parent: names.first },
-    { when: { face: 'verso' }, parent: names.left },
-    { parent: names.right },
-  ],
+  parentRules: [{ when: { position: 'documentFirst' }, parent: names.first }, { when: { face: 'verso' }, parent: names.left }, { parent: names.right }],
   children: [{ type: 'page', body: { html: `<p>${'printed words '.repeat(900)}</p>` } }],
 }
 

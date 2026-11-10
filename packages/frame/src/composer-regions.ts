@@ -29,12 +29,13 @@ export function placeParentRegions(
     lang?: string,
   ) => Record<string, string>,
   fill: (root: Element, html: string, heads: Record<string, string>, slots: Record<string, string | undefined>, dir?: string, lang?: string) => void,
+  create: (tag: string) => HTMLElement,
 ): void {
   const slots = config.recordSlotsByFlow?.[page.flow] ?? {}
   const heads = headsFor(config.headTemplates ?? [], page.variables ?? {}, slots, config.dir, config.lang)
   for (const [name, region] of Object.entries(parent.regions)) {
     const box = boxFor(region.edge, parent.margin, parent.textArea, { direction: config.direction, face: page.face })
-    const held = document.createElement('div')
+    const held = create('div')
     held.setAttribute('data-segnavia-region', name)
     held.setAttribute('data-segnavia-edge', region.edge)
     held.setAttribute('data-segnavia-parent', parent.name)

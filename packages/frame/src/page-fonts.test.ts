@@ -100,7 +100,7 @@ describe('expandFramePage fonts', () => {
             {
               name: 'body',
               margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
-              foot: '<footer data-motif="foot"></footer>',
+              regions: { foot: { edge: 'blockEnd', html: '<footer data-motif="foot"></footer>' } },
             },
           ],
           parentRules: [{ parent: 'body' }],
