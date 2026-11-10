@@ -41,12 +41,13 @@ export const WELL_FORMED_ICC_PROFILE = 'a well-formed ICC profile'
 
 export class ProfileUnsupportedError extends Error {
   override name = 'ProfileUnsupportedError'
+  readonly found: string
+  readonly supported: string
 
-  constructor(
-    readonly found: string,
-    readonly supported: string,
-  ) {
+  constructor(found: string, supported: string) {
     super(`ICC profile has unsupported ${found}; supported: ${supported}`)
+    this.found = found
+    this.supported = supported
   }
 }
 

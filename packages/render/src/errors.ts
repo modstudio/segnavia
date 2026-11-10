@@ -50,14 +50,15 @@ export class RenderLimitError extends RenderRefusedError {
 
 export class RenderOversetError extends RenderRefusedError {
   override name = 'RenderOversetError'
+  readonly page: number
+  readonly papers: number
 
-  constructor(
-    readonly page: number,
-    readonly papers: number,
-  ) {
+  constructor(page: number, papers: number) {
     super(
       `A page with bleed or marks is one printed piece, but page ${page + 1} needs ${papers} papers. Shorten the content, or remove the bleed and marks, to clear this refusal.`,
     )
+    this.page = page
+    this.papers = papers
   }
 }
 
@@ -70,13 +71,15 @@ const PROFILE_CLEARS: Record<ColorProfileUse, string> = {
 
 export class RenderColorProfileError extends RenderRefusedError {
   override name = 'RenderColorProfileError'
+  readonly profile: ColorProfileUse
+  readonly found: string
+  readonly supported: string
 
-  constructor(
-    readonly profile: ColorProfileUse,
-    readonly found: string,
-    readonly supported: string,
-  ) {
+  constructor(profile: ColorProfileUse, found: string, supported: string) {
     super(`The ${profile} profile has unsupported ${found}; supported: ${supported}. Supply ${PROFILE_CLEARS[profile]} to clear this refusal.`)
+    this.profile = profile
+    this.found = found
+    this.supported = supported
   }
 }
 
