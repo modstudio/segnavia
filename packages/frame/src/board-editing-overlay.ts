@@ -1,5 +1,6 @@
 import {
   type Board,
+  type BoardCommand,
   type BoardItem,
   type BoardItemAnchor,
   type BoardLabel,
@@ -20,6 +21,22 @@ const anchors: Record<string, BoardItemAnchor> = {
   'top-right': 'bottom-left',
   'bottom-left': 'top-right',
   'bottom-right': 'top-left',
+}
+
+export function resizeReleaseCommand(board: Board, id: string, corner: string): BoardCommand | undefined {
+  const item = board.items.find((entry) => entry.id === id)
+  const anchor = anchors[corner]
+  if (!item || !anchor) return undefined
+  const logical =
+    board.direction === 'ltr'
+      ? { 'top-left': 'top-start', 'top-right': 'top-end', 'bottom-left': 'bottom-start', 'bottom-right': 'bottom-end' }
+      : { 'top-left': 'top-end', 'top-right': 'top-start', 'bottom-left': 'bottom-end', 'bottom-right': 'bottom-start' }
+  return {
+    type: 'item-resize',
+    item: { id },
+    width: item.width,
+    anchor: logical[anchor] as NonNullable<Extract<BoardCommand, { type: 'item-resize' }>['anchor']>,
+  }
 }
 
 export function resizedAtPointer(board: Board, id: string, corner: string, point: Point, view: BoardView, shape: { width: number; height: number }): Board {

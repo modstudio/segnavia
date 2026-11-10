@@ -1,22 +1,20 @@
 import {
   assignMembership,
   type Board,
+  type BoardCommand,
   boardNodesInRectangle,
   fitTouchedSections,
   gridDropTarget,
-  insertIntoGrid,
   makeRoom,
   moveBoardNodes,
   moveSection,
   type Point,
-  removeFromGrid,
   resizeLabel,
   screenToBoard,
-  settleBoard,
 } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
 import type { BoardEdit } from './board-editing.ts'
-import { placeMarquee, renderDropMarker, resizedAtPointer } from './board-editing-overlay.ts'
+import { placeMarquee, renderDropMarker, resizedAtPointer, resizeReleaseCommand } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardPointerDelegate } from './board-editing-seam.ts'
 import { boardPathElement } from './board-event-path.ts'
 import { selectBoardNode } from './board-selection.ts'
@@ -45,9 +43,20 @@ interface Callbacks {
   bridge(): BoardEditingBridge
   live(value: Board): void
   commit(before: Board, after: Board, edit: BoardEdit): void
+  command(before: Board, commands: BoardCommand[], edit: BoardEdit): void
   remove(): void
   undo(): void
   redo(): void
+}
+
+export function boardNodeMoveCommands(before: Board, after: Board, ids: readonly string[], itemTarget: Point): BoardCommand[] {
+  const itemIds = ids.filter((id) => before.items.some((item) => item.id === id))
+  const commands: BoardCommand[] = itemIds.length ? [{ type: 'item-move', items: itemIds.map((id) => ({ id })), target: { at: itemTarget } }] : []
+  for (const id of ids) {
+    const label = after.labels.find((entry) => entry.id === id)
+    if (label) commands.push({ type: 'label-set', label: { id }, target: { at: { x: label.x, y: label.y } } })
+  }
+  return commands
 }
 
 export class BoardEditingInput implements BoardPointerDelegate {
@@ -187,26 +196,27 @@ export class BoardEditingInput implements BoardPointerDelegate {
     const bridge = this.callbacks.bridge()
     if (gesture.kind === 'move' && this.enabled.move) {
       const point = bridge.local(event)
-      const delta = { x: (point.x - gesture.start.x) / bridge.view().zoom, y: (point.y - gesture.start.y) / bridge.view().zoom }
-      const moved = moveBoardNodes(gesture.before, gesture.ids, delta)
-      const itemIds = gesture.ids.filter((id) => gesture.before.items.some((item) => item.id === id))
       const release = screenToBoard(bridge.view(), point)
-      const withoutGridPlacement = removeFromGrid(moved, bridge.shapes(), itemIds)
-      const assigned = assignMembership(withoutGridPlacement, bridge.shapes(), itemIds, release, gesture.before.sections)
-      const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => itemIds.includes(id)))
-      const drop = target?.layout === 'manual' ? undefined : target ? gridDropTarget(gesture.before, bridge.shapes(), target.id, release) : undefined
-      const placed = target && target.layout !== 'manual' && drop ? insertIntoGrid(moved, bridge.shapes(), target.id, itemIds, drop) : assigned
-      this.callbacks.commit(gesture.before, settleBoard(gesture.before, placed, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
+      const commands = boardNodeMoveCommands(gesture.before, next, gesture.ids, release)
+      if (commands.length) this.callbacks.command(gesture.before, commands, { kind: 'move', ids: gesture.ids })
     } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
+      // BoardCommand has no target that can place a section rectangle.
       this.callbacks.commit(gesture.before, makeRoom(next, bridge.shapes(), [gesture.sectionId]), {
         kind: 'move-section',
         ids: [gesture.sectionId, ...members],
       })
     } else if (gesture.kind === 'resize') {
-      this.callbacks.commit(gesture.before, settleBoard(gesture.before, next, bridge.shapes(), [gesture.id]), { kind: 'resize', ids: [gesture.id] })
+      const command = resizeReleaseCommand(next, gesture.id, gesture.corner)
+      if (command) this.callbacks.command(gesture.before, [command], { kind: 'resize', ids: [gesture.id] })
     } else if (gesture.kind === 'label-resize') {
-      this.callbacks.commit(gesture.before, next, { kind: 'resize', ids: [gesture.id] })
+      const label = next.labels.find((entry) => entry.id === gesture.id)
+      if (label?.width !== undefined)
+        this.callbacks.command(
+          gesture.before,
+          [{ type: 'label-set', label: { id: gesture.id }, width: label.width, target: { at: { x: label.x, y: label.y } } }],
+          { kind: 'resize', ids: [gesture.id] },
+        )
     }
   }
 
@@ -256,10 +266,9 @@ export class BoardEditingInput implements BoardPointerDelegate {
       const movable = this.board.selection.filter((id) => !current.sections.some((section) => section.layout !== 'manual' && section.items.includes(id)))
       if (movable.length === 0) return true
       const moved = moveBoardNodes(current, movable, delta)
-      this.callbacks.commit(current, settleBoard(current, moved, this.callbacks.bridge().shapes(), movable), {
-        kind: 'move',
-        ids: movable,
-      })
+      const first = moved.items.find((item) => movable.includes(item.id))
+      const commands = boardNodeMoveCommands(current, moved, movable, first ?? { x: 0, y: 0 })
+      if (commands.length) this.callbacks.command(current, commands, { kind: 'move', ids: movable })
     }
     return true
   }
