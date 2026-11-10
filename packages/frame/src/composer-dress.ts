@@ -9,7 +9,7 @@ import {
 } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
 import { type PaginateBookPage, type PaginateFlow, pageBlockRange, resolveHeadTemplate } from '@segnavia/layout'
-import { composeProgressTotal, decideProgressYield } from './composer-progress.ts'
+import { decideProgressYield } from './composer-progress.ts'
 
 interface ProgressPages {
   setAttribute(name: string, value: string): void
@@ -23,21 +23,24 @@ export async function dressPlanPagesImplementation<T, P extends ProgressPages>(
   createPages: () => P,
   now: () => number,
   yieldTask: () => Promise<void>,
+  progressEnabled = true,
 ): Promise<P> {
   const pages = createPages()
   pages.setAttribute('data-segnavia-pages', '')
-  const total = composeProgressTotal(plan.pages, only)
+  const selected = plan.pages.flatMap((page, index) => (page && (only === null || only === undefined || only === index + 1) ? [{ page, index }] : []))
+  const total = selected.length
+  if (!progressEnabled) {
+    for (const entry of selected) place(pages, entry.page, entry.index)
+    return pages
+  }
   let dressed = 0
   let yieldedAt = now()
   if (total === 0) {
     const progress = boundComposeProgress({ pages: 0, total: 0 })
     if (progress) report(progress)
   }
-  for (let index = 0; index < plan.pages.length; index += 1) {
-    if (only !== null && only !== undefined && only !== index + 1) continue
-    const page = plan.pages[index]
-    if (!page) continue
-    place(pages, page, index)
+  for (const entry of selected) {
+    place(pages, entry.page, entry.index)
     dressed += 1
     const last = dressed === total
     const current = now()
@@ -50,9 +53,9 @@ export async function dressPlanPagesImplementation<T, P extends ProgressPages>(
   return pages
 }
 
-export function embeddedDressPlanPagesFunctions(): string {
+export function embeddedDressPlanPagesFunctions(yieldTaskName: string): string {
   return `${embedFunction('dressPlanPagesImplementation', dressPlanPagesImplementation)}
-var dressPlanPages=function(plan,only,report,place){return dressPlanPagesImplementation(plan,only,report,place,function(){return document.createElement('div');},function(){return performance.now();},progressMacrotask);};`
+var dressPlanPages=function(plan,only,report,place){return dressPlanPagesImplementation(plan,only,report,place,function(){return document.createElement('div');},function(){return performance.now();},${yieldTaskName},config.progress);};`
 }
 
 export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {

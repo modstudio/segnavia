@@ -358,6 +358,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async slideImage(input, index, opts = {}) {
       opts = parseRenderOptions(opts)
+      refuseProgressUnlessOneComposition(opts, 0)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
         enforceDeckLimits(deck, opts.limits)

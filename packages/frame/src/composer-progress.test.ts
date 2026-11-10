@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { dressPlanPagesImplementation } from './composer-dress.ts'
-import { COMPOSE_PROGRESS_YIELD_MS, composeProgressTotal, decideProgressYield, reduceProgressHighWater } from './composer-progress.ts'
+import { dressPlanPagesImplementation, embeddedDressPlanPagesFunctions } from './composer-dress.ts'
+import { COMPOSE_PROGRESS_YIELD_MS, decideProgressYield, reduceProgressHighWater } from './composer-progress.ts'
 
 describe('compose progress policy', () => {
   test('yields after the work interval and always on the last page', () => {
@@ -54,14 +54,6 @@ describe('compose progress policy', () => {
     )
     expect(reports).toEqual([...expected])
     expect(reports.at(-1)).toEqual({ pages: second.length, total: second.length })
-  })
-
-  test('counts one selected page and every page otherwise', () => {
-    const pages = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
-    expect(composeProgressTotal(pages, undefined)).toBe(7)
-    expect(composeProgressTotal(pages, null)).toBe(7)
-    expect(composeProgressTotal(pages, 4)).toBe(1)
-    expect(composeProgressTotal(pages, 8)).toBe(0)
   })
 
   test('reports rising progress through a multi-page dress', async () => {
@@ -130,6 +122,35 @@ describe('compose progress policy', () => {
     )
     expect(reports).toBe(1)
     expect(yields).toBe(reports)
+  })
+
+  test('places every selected page without reporting or yielding when progress is off', async () => {
+    const placed: number[] = []
+    let reports = 0
+    let yields = 0
+    await dressPlanPagesImplementation(
+      { pages: ['a', 'b', 'c'] },
+      undefined,
+      () => {
+        reports += 1
+      },
+      (_pages, _page, index) => placed.push(index),
+      () => ({ setAttribute: () => {} }),
+      () => 0,
+      async () => {
+        yields += 1
+      },
+      false,
+    )
+    expect(placed).toEqual([0, 1, 2])
+    expect(reports).toBe(0)
+    expect(yields).toBe(0)
+  })
+
+  test('names the injected yield dependency in the standalone dress embed', () => {
+    const embedded = embeddedDressPlanPagesFunctions('injectedYieldTask')
+    expect(embedded).toContain('function(){return performance.now();},injectedYieldTask,config.progress)')
+    expect(embedded).not.toContain('progressMacrotask')
   })
 
   test('catches an off-by-one only filter by placing the third page as index 2', async () => {

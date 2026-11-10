@@ -41,6 +41,17 @@ describe('bookDocument', () => {
     expect(bookDocument(book, { nonce: 'held' })).not.toContain('"preflight"')
   })
 
+  test('wires book compose progress into the bridge only when enabled', () => {
+    const enabled = bookDocument(book, { nonce: 'held', progress: true, progressCallback: 'reportBookProgress' })
+    const disabled = bookDocument(book, { nonce: 'held', progress: false, progressCallback: 'reportBookProgress' })
+    expect(enabled).toContain('var progressName="data-segnavia-compose-progress"')
+    expect(enabled).toContain('var callback=window["reportBookProgress"]')
+    expect(enabled).toContain('attributeFilter:[name,failureName,progressName]')
+    expect(disabled).not.toContain('var progressName="data-segnavia-compose-progress"')
+    expect(disabled).not.toContain('var callback=window["reportBookProgress"]')
+    expect(disabled).not.toContain('attributeFilter:[name,failureName,progressName]')
+  })
+
   test('carries a lowered brand into flow and paginated view sheets', () => {
     const document = Document.parse({
       type: 'document',

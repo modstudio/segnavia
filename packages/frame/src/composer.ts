@@ -258,7 +258,7 @@ var resolveRegionHeads=function(templates,variables,recordSlots,direction,lang){
 var ${resolveRegionHeads.name}=resolveRegionHeads;
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}
 ${embedFunction('markRegionOverflow', markRegionOverflow)}
-${embeddedComposerProgressFunctions()}${embeddedDressPlanPagesFunctions()}${embeddedPreflightFunctions()}
+${embeddedComposerProgressFunctions()}${embeddedDressPlanPagesFunctions('progressMacrotask')}${embeddedPreflightFunctions()}
 ${embedFunction('decideLayoutSettle', decideLayoutSettle)}
 ${embeddedBookPresentationFunctions()}`
 }

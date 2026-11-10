@@ -104,6 +104,13 @@ test('renders without a composer refuse progress while printed composition remai
     children: [{ type: 'page', body: { html: '<p>Plain page</p>' } }],
   }
   const refusal = 'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.'
+  const deck: import('@segnavia/format').DocumentInput = {
+    type: 'document',
+    kind: 'deck',
+    title: 'Deck',
+    size: { width: 200, height: 100 },
+    children: [{ type: 'slide', content: { kind: 'html', html: '<p>Slide</p>' } }],
+  }
   const calls = [
     () => renderer.pagePdf(page, { progress }),
     () => renderer.pageImage(page, { progress }),
@@ -126,19 +133,35 @@ test('renders without a composer refuse progress while printed composition remai
         },
         { progress },
       ),
-    () =>
-      renderer.deckPdf(
-        {
-          type: 'document',
-          kind: 'deck',
-          title: 'Deck',
-          size: { width: 200, height: 100 },
-          children: [{ type: 'slide', content: { kind: 'html', html: '<p>Slide</p>' } }],
-        },
-        { progress },
-      ),
+    () => renderer.deckPdf(deck, { progress }),
+    () => renderer.slideImage(deck, 0, { progress }),
   ]
   for (const call of calls) await expect(call()).rejects.toThrow(refusal)
+  expect(documents).toHaveLength(0)
+  await renderer.close()
+})
+
+test('pagesPdf refuses progress once for its several printed compositions', async () => {
+  documents.length = 0
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const printed: import('@segnavia/format').DocumentInput = {
+    type: 'document',
+    kind: 'printed',
+    print: { paper: 'letter' },
+    parentPages: [
+      {
+        type: 'parentPage',
+        name: 'body',
+        geometry: { margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      },
+    ],
+    parentRules: [{ parent: 'body' }],
+    children: [{ type: 'page', body: { html: '<p>Printed page</p>' } }],
+  }
+  await expect(renderer.pagesPdf([printed, printed], { progress: { report: () => {} } })).rejects.toThrow(
+    'The progress option is reported per single composition; this render runs 2 compositions. Omit progress and render one paginated book or printed page at a time',
+  )
   expect(documents).toHaveLength(0)
   await renderer.close()
 })
