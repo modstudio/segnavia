@@ -1,4 +1,4 @@
-import { type Color3, checked, clamp } from './types.ts'
+import { type Color3, checked, clamp, ProfileUnsupportedError } from './types.ts'
 
 export interface Samples {
   length: number
@@ -6,7 +6,7 @@ export interface Samples {
 }
 
 export function interpolate(table: Samples, value: number): number {
-  if (table.length === 0) throw new Error('ICC interpolation table is empty')
+  if (table.length === 0) throw new ProfileUnsupportedError('ICC interpolation table is empty', 'a well-formed ICC profile')
   const position = clamp(value) * (table.length - 1)
   const low = Math.floor(position)
   const lower = table.get(low)

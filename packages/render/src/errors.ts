@@ -46,3 +46,32 @@ export class RenderLimitError extends RenderRefusedError {
     this.exceeded = structured.exceeded
   }
 }
+
+export class RenderOversetError extends RenderRefusedError {
+  override name = 'RenderOversetError'
+
+  constructor(
+    readonly page: number,
+    readonly papers: number,
+  ) {
+    super(
+      `A page with bleed or marks is one printed piece, but page ${page + 1} needs ${papers} papers. Shorten the content, or remove the bleed and marks, to clear this refusal.`,
+    )
+  }
+}
+
+export type ColorProfileUse = 'press' | 'proof'
+
+export class RenderColorProfileError extends RenderRefusedError {
+  override name = 'RenderColorProfileError'
+
+  constructor(
+    readonly profile: ColorProfileUse,
+    readonly found: string,
+    readonly supported: string,
+  ) {
+    super(
+      `The ${profile} profile has unsupported ${found}; supported: ${supported}. Supply ${profile === 'press' ? 'a valid ICC' : 'a valid CMYK'} output profile to clear this refusal.`,
+    )
+  }
+}

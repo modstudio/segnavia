@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { MM_PER_PT, Print, printBoxes } from '@segnavia/format'
 import { PDFDocument, PDFName } from 'pdf-lib'
-import { RenderRefusedError } from './errors.ts'
-import { addPressBoxes, assertPrintOptions, pressContentPlacement, printCss } from './page-paper.ts'
+import { RenderOversetError, RenderRefusedError } from './errors.ts'
+import { addPressBoxes, assertPrintOptions, oversetRefusal, pressContentPlacement, printCss } from './page-paper.ts'
 import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
@@ -39,6 +39,12 @@ describe('printed page setup', () => {
     expect(() => assertPrintOptions(Print.parse({ paper: 'a4', marks: true }), true)).toThrow(RenderRefusedError)
     expect(() => assertPrintOptions(Print.parse({ paper: 'a4', marks: true }), true)).toThrow('Remove preferCssPageSize, or remove the bleed and marks')
     expect(() => assertPrintOptions(Print.parse({ paper: 'a4' }), true)).not.toThrow()
+  })
+
+  test('a press page refuses only when Chromium prints it onto multiple papers', () => {
+    expect(oversetRefusal(3, 1)).toBeUndefined()
+    expect(oversetRefusal(3, 2)).toEqual(new RenderOversetError(3, 2))
+    expect(oversetRefusal(3, 2)).toMatchObject({ page: 3, papers: 2 })
   })
 
   test('the Chromium page keeps its top edge when its rounded height differs from the bleed box', () => {

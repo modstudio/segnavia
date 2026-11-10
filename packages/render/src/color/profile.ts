@@ -1,7 +1,7 @@
 import { fixed, need, signature, type TagBounds, u32 } from './binary.ts'
 import { destinationBlackPoint, detectSourceBlackPoint } from './black-point.ts'
 import { grayTables, matrixTables, parseMab, parseMft, type TagRecord } from './tables.ts'
-import { type ChannelCount, type ColorTable, checked, type Profile, REVERSE_LUT, refuse } from './types.ts'
+import { type ChannelCount, type ColorTable, checked, type Profile, ProfileUnsupportedError, REVERSE_LUT, refuse } from './types.ts'
 
 // Every parsed table is backed by the profile bytes, so this ceiling also bounds table memory.
 export const MAX_PROFILE_BYTES = 32 * 1024 * 1024
@@ -54,7 +54,7 @@ function table(bytes: Uint8Array, view: DataView, all: Records, names: string[],
   const name = names.find((candidate) => all[candidate])
   if (!name) refuse(`missing ${names.join('/')} tag`, names.join(' or '))
   const record = all[name]
-  if (!record) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
+  if (!record) throw new ProfileUnsupportedError(`ICC profile is missing ${name} after its tag set was validated`, 'a well-formed ICC profile')
   return recordTable(bytes, view, record, inputs, outputs)
 }
 
@@ -62,7 +62,7 @@ function optionalTable(bytes: Uint8Array, view: DataView, all: Records, names: s
   const name = names.find((candidate) => all[candidate])
   if (!name) return undefined
   const record = all[name]
-  if (!record) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
+  if (!record) throw new ProfileUnsupportedError(`ICC profile is missing ${name} after its tag set was validated`, 'a well-formed ICC profile')
   return recordTable(bytes, view, record, inputs, outputs)
 }
 
@@ -86,7 +86,7 @@ export function readProfile(bytes: Uint8Array): Profile {
   const gamutRecord = all.gamt,
     gamut = gamutRecord ? recordTable(bytes, view, gamutRecord, 3, 1) : undefined
   const white = all.wtpt
-  if (!white) throw new Error('ICC profile is missing wtpt after its tag set was validated')
+  if (!white) throw new ProfileUnsupportedError('ICC profile is missing wtpt after its tag set was validated', 'a well-formed ICC profile')
   need(white.offset, 20, white)
   const whitePoint: [number, number, number] = [
     fixed(view, white.offset + 8, white),

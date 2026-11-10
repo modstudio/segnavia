@@ -1,7 +1,7 @@
 import { align4, fixed, need, signature, type TagBounds, u16, u32 } from './binary.ts'
 import { interpolate, linearGrid, matrixInput, multilinear, type Samples, tetrahedral4 } from './interpolation.ts'
 import { invert3, matrix3 } from './spaces.ts'
-import { type ChannelCount, type ColorTable, type Curve, checked, clamp, type Matrix3, REVERSE_LUT, refuse } from './types.ts'
+import { type ChannelCount, type ColorTable, type Curve, checked, clamp, type Matrix3, ProfileUnsupportedError, REVERSE_LUT, refuse } from './types.ts'
 
 export interface TagRecord extends TagBounds {
   offset: number
@@ -14,7 +14,8 @@ function packed(bytes: Uint8Array, view: DataView, offset: number, length: numbe
   return {
     length,
     get(index) {
-      if (!Number.isInteger(index) || index < 0 || index >= length) throw new Error(`${bounds.name} sample index ${index} is outside length ${length}`)
+      if (!Number.isInteger(index) || index < 0 || index >= length)
+        throw new ProfileUnsupportedError(`${bounds.name} sample index ${index} is outside length ${length}`, 'a well-formed ICC profile')
       return width === 1 ? checked(bytes, offset + index, `${bounds.name} samples`) / 255 : u16(view, offset + index * 2, bounds) / 65_535
     },
   }
@@ -255,7 +256,7 @@ export function matrixTables(bytes: Uint8Array, view: DataView, records: Record<
   if (!names.every((name) => records[name])) return undefined
   const record = (name: string) => {
     const found = records[name]
-    if (!found) throw new Error(`ICC profile is missing ${name} after its tag set was validated`)
+    if (!found) throw new ProfileUnsupportedError(`ICC profile is missing ${name} after its tag set was validated`, 'a well-formed ICC profile')
     return found
   }
   for (const name of names.slice(0, 3)) if (record(name).type !== 'XYZ ') refuse(`${name} tag type ${record(name).type}`, 'XYZ ')
