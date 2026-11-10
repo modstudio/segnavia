@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
-import { type Plan, StyleSheet } from '@segnavia/format'
+import { type Plan, PREFLIGHT_PRESETS, StyleSheet } from '@segnavia/format'
+import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
 import { frameStyleSheets } from '@segnavia/frame/bridge'
 import { parseBookFixture } from '@segnavia/html'
 import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName } from 'pdf-lib'
-import { continuousBookNeedsScripts, lastBookPlanText, renderBrowserBookPdf, renderBrowserBookPlan, usesKeepWith } from './book-render.ts'
+import { awaitBookComposition, continuousBookNeedsScripts, lastBookPlanText, renderBrowserBookPdf, renderBrowserBookPlan, usesKeepWith } from './book-render.ts'
 import { RenderRefusedError } from './errors.ts'
 
 function planPage(number: number): Plan['pages'][number] {
@@ -24,6 +25,23 @@ function planPage(number: number): Plan['pages'][number] {
     fingerprint: `page-${number}`,
   }
 }
+
+test('book composition reports the bounded preflight once before refusing its error', async () => {
+  const reports: unknown[] = []
+  const message = 'Shorten region body to clear it.'
+  const attribute = JSON.stringify({
+    issues: [{ check: 'region-overset', subject: 'x'.repeat(300), message }],
+    facts: { pageCount: 1, pages: [{ folio: '1' }], fits: [] },
+  })
+  const tab = {
+    waitForFunction: async () => {},
+    evaluate: async (_function: unknown, name: unknown) => (name === PREFLIGHT_ATTRIBUTE ? attribute : null),
+  } as never
+
+  await expect(awaitBookComposition(tab, { profile: PREFLIGHT_PRESETS.strict, seed: [], report: (report) => reports.push(report) })).rejects.toThrow(message)
+  expect(reports).toHaveLength(1)
+  expect((reports[0] as { issues: Array<{ subject: string }> }).issues[0]?.subject).toHaveLength(256)
+})
 
 test('enables the continuous print bridge only when markup or a stylesheet declares a keep', () => {
   expect(usesKeepWith('<span style="--segnavia-keep-with:next">1</span> word')).toBe(true)

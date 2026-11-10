@@ -13,6 +13,10 @@ const page = Page.parse({
   },
 })
 
+test('omits preflight config without a profile', () => {
+  expect(printedPageValueDocument(resolvePageHtml(page), { nonce: 'held' })).not.toContain('"preflight"')
+})
+
 test('keeps an unsupplied declared face out of the preflight seed', () => {
   const styled = Page.parse({ ...page, style: { fonts: { body: { faces: [{}] } } } })
   const html = printedPageValueDocument(resolvePageHtml(styled), {

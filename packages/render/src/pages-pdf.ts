@@ -11,8 +11,7 @@ import {
 } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PreparedSlots, type PrintedHtmlPage } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
-import type { RenderOptions } from './index.ts'
-import { innerLimits, parseRenderOptions } from './options.ts'
+import { type ComposedRenderOptions, innerLimits, parseRenderOptions } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
@@ -20,13 +19,13 @@ import { joinPdfs } from './pdf-join.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { slotsForDocument } from './slot-document.ts'
 
-export type PagesPdfOptions = RenderOptions & { imposition?: ImpositionInput }
+export type PagesPdfOptions = ComposedRenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
-  pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: RenderOptions, inputIndex: number): Promise<PrintResult>
-  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: RenderOptions): Promise<Uint8Array>
-  fontFaces(options: RenderOptions): string
-  finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
+  pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number): Promise<PrintResult>
+  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions): Promise<Uint8Array>
+  fontFaces(options: ComposedRenderOptions): string
+  finish(pdf: Uint8Array, options: Pick<ComposedRenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
 }
 
 function namePageError(error: unknown, page: number): never {

@@ -2,7 +2,16 @@ import type { CoverInput, DocumentInput, DocumentMetadata, ImpositionInput, Page
 import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { PrintOptions } from '@segnavia/frame/print-document'
 import type { CoverImageOptions } from './cover-image.ts'
-import type { ImageOptions, PageImageOptions, PageRenderOptions, ProofImageOptions, RenderOptions } from './options.ts'
+import type {
+  ComposedRenderInput,
+  ImageOptions,
+  PageImageOptions,
+  PageRenderOptions,
+  ParsedComposedRenderOptions,
+  ParsedPageRenderOptions,
+  ProofImageOptions,
+  RenderOptions,
+} from './options.ts'
 
 export const RENDER_BOUND_MS = 60_000
 export const PAGE_READY_BOUND_MS = 10_000
@@ -19,7 +28,9 @@ export interface RendererOptions {
 }
 
 export type PagePdfOptions = PageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata }
-export type BookPdfOptions = RenderOptions & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[] }
+export type ParsedPagePdfOptions = ParsedPageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata }
+export type BookPdfOptions = ComposedRenderInput & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[] }
+export type ParsedBookPdfOptions = ParsedComposedRenderOptions<BookPdfOptions>
 export type BookPlanOptions = RenderOptions & { motifs?: MotifsOptions; breaks?: string[] }
 export interface Renderer {
   bookPdf(book: DocumentInput, options?: BookPdfOptions): Promise<Uint8Array>

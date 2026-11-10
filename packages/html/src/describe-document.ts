@@ -8,6 +8,7 @@ import {
   type OperationNode,
   Plan,
   type PlanPage,
+  type PreflightReport,
   resolveLimits,
 } from '@segnavia/format'
 import { type BlockViewEntry, blockView } from './block-view.ts'
@@ -16,6 +17,7 @@ export interface DescribeDocumentOptions {
   detail?: 'concise' | 'full'
   limits?: Limits
   plan?: Plan
+  preflight?: PreflightReport
 }
 
 interface DocumentDescriptionPlanPage {
@@ -51,6 +53,7 @@ export interface DocumentDescription {
     inheritance: 'none'
   }
   plan?: DocumentDescriptionPlan
+  preflight?: PreflightReport
 }
 
 function locationValue(parent: DocumentLocation, index: number): DocumentDescriptionNode['location'] {
@@ -124,5 +127,6 @@ export function describeDocument(document: Document, options: DescribeDocumentOp
             })),
           },
         }),
+    ...(options.preflight === undefined ? {} : { preflight: options.preflight }),
   }
 }

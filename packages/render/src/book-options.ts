@@ -1,10 +1,10 @@
 import { Plan } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
-import { parseRenderOptions } from './options.ts'
-import type { BookPdfOptions } from './renderer.ts'
+import { parseComposedRenderOptions } from './options.ts'
+import type { BookPdfOptions, ParsedBookPdfOptions } from './renderer.ts'
 
-export function parseBookPdfOptions(options: BookPdfOptions): BookPdfOptions {
-  const parsed = parseRenderOptions(options)
+export function parseBookPdfOptions(options: BookPdfOptions): ParsedBookPdfOptions {
+  const parsed = parseComposedRenderOptions(options)
   if (parsed.plan === undefined) return parsed
   try {
     return { ...parsed, plan: Plan.parse(parsed.plan, { limits: parsed.limits }) }

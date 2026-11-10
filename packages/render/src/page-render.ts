@@ -1,10 +1,9 @@
 import type { FontFailure } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
-import type { Page as Tab } from 'playwright-core'
-import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
+import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { assetSetup, type RenderOptions } from './options.ts'
+import { assetSetup, type ComposedRenderOptions, type RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolvedPageDocument } from './page-document.ts'
@@ -16,13 +15,13 @@ import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
 
 interface PageRenderServices {
-  withTab<T>(setup: BrowserTabSetup & { boundMs?: number; deadline?: RenderDeadline; slots?: PreparedSlots }, body: (tab: Tab) => Promise<T>): Promise<T>
+  withTab: TabRunner
 }
 
 export async function renderPagePdf(
   page: HtmlPage | PrintedHtmlPage,
   slots: PreparedSlots,
-  opts: RenderOptions,
+  opts: ComposedRenderOptions,
   services: PageRenderServices,
   inputIndex?: number,
   deadline?: RenderDeadline,
@@ -46,7 +45,7 @@ export async function renderPagePdf(
       ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
     },
     async (tab) => {
-      await awaitPrintedPageComposition(tab, page)
+      await awaitPrintedPageComposition(tab, page, opts.preflight)
       const captures = await prepareBackdropRasters(tab, opts.effects)
       if (page.print) {
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page))

@@ -1,8 +1,8 @@
 import { DocumentMetadata } from '@segnavia/format'
-import { parseRenderOptions } from './options.ts'
-import type { PagePdfOptions } from './renderer.ts'
+import { parseComposedRenderOptions } from './options.ts'
+import type { PagePdfOptions, ParsedPagePdfOptions } from './renderer.ts'
 
-export function parsePagePdfOptions(options: PagePdfOptions): PagePdfOptions {
-  const parsed = parseRenderOptions(options)
+export function parsePagePdfOptions(options: PagePdfOptions): ParsedPagePdfOptions {
+  const parsed = parseComposedRenderOptions(options)
   return parsed.metadata === undefined ? parsed : { ...parsed, metadata: DocumentMetadata.parse(parsed.metadata) }
 }

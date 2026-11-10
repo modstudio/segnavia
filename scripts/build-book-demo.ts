@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { BOOK_PARENT_NAMES, bookFromDocument, type DocumentInput } from '@segnavia/format'
+import { BOOK_PARENT_NAMES, bookFromDocument, type DocumentInput, PREFLIGHT_PRESETS } from '@segnavia/format'
 import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { bookView, parseDocument } from '@segnavia/html'
@@ -330,7 +330,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       : `${workbookCss}:where(html){font:16px/1.5 Georgia,serif}`
     writeFileSync(
       path.join(site, hebrew ? 'book-workbook-he.html' : 'book-workbook-en.html'),
-      paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull }),
+      paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull, profile: PREFLIGHT_PRESETS.default }),
     )
   }
   writeFileSync(

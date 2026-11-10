@@ -6,6 +6,8 @@ import {
   type Limits,
   type OriginApproval,
   Plan,
+  type PreflightEntry,
+  type PreflightProfile,
   PX_PER_MM,
   pressBoxes,
   resolveBookPageGeometry,
@@ -34,16 +36,18 @@ import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
+import { awaitPreflightReport } from './preflight.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
-import type { BookPdfOptions, BookPlanOptions } from './renderer.ts'
+import type { BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
-export async function awaitBookComposition(tab: Tab): Promise<void> {
+export async function awaitBookComposition(tab: Tab, preflight?: ParsedBookPdfOptions['preflight']): Promise<void> {
   await tab.waitForFunction(({ composed, failed }) => document.documentElement.hasAttribute(composed) || document.documentElement.hasAttribute(failed), {
     composed: BOOK_COMPOSED_ATTRIBUTE,
     failed: BOOK_FAILURE_ATTRIBUTE,
   })
+  await awaitPreflightReport(tab, preflight)
   const failure = await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), BOOK_FAILURE_ATTRIBUTE)
   if (failure) throw new RenderRefusedError(failure)
 }
@@ -116,6 +120,8 @@ function bookSrcdoc(
     limits?: Limits
     plan?: SavedPlan
     breaks?: string[]
+    profile?: PreflightProfile
+    preflightSeed?: PreflightEntry[]
   },
 ): string {
   const nonce = newNonce()
@@ -129,6 +135,8 @@ function bookSrcdoc(
       limits: options.limits,
       plan: options.plan,
       breaks: options.breaks ?? options.plan?.breaks,
+      profile: options.profile,
+      preflightSeed: options.preflightSeed,
     })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
@@ -186,7 +194,7 @@ async function printBook(
   html: string,
   book: Book,
   slots: PreparedSlots,
-  renderOptions: BookPdfOptions,
+  renderOptions: ParsedBookPdfOptions,
   part: BookOverflowPart,
   layerCss: string,
   resolvedFontCss: string,
@@ -210,6 +218,8 @@ async function printBook(
       limits: renderOptions.limits,
       plan: renderOptions.plan,
       breaks: renderOptions.breaks,
+      profile: renderOptions.preflight?.profile,
+      preflightSeed: renderOptions.preflight?.seed,
     }),
   )
   const setup: TabSetup = paginated
@@ -217,7 +227,7 @@ async function printBook(
         ...paginatedBookTabSetup(book, srcdoc, slots, renderOptions),
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
         beforeOutput: async (tab) => {
-          await awaitBookComposition(tab)
+          await awaitBookComposition(tab, renderOptions.preflight)
           composedPlan = renderOptions.plan ?? (await composedPlanFromTab(tab, renderOptions.limits))
           await renderOptions.beforeOutput?.(tab)
         },
@@ -279,7 +289,7 @@ async function printBook(
   return { ...output, bytes: await document.save() }
 }
 
-export function renderBrowserBookPdf(book: Book, options: BookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export function renderBrowserBookPdf(book: Book, options: ParsedBookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }

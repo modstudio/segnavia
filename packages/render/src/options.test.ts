@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Deck, limitRefusal } from '@segnavia/format'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
-import { copyLimits, enforceDeckLimits, innerLimits, parseRenderOptions, type RenderOptions } from './options.ts'
+import { copyLimits, enforceDeckLimits, innerLimits, parseComposedRenderOptions, parseRenderOptions, type RenderOptions } from './options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
   expect(
@@ -73,4 +73,11 @@ test('parsed options materialize one-shot origin approvals', () => {
   const parsed = parseRenderOptions({ origins: origins() } as RenderOptions)
   expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
   expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
+})
+
+test('invalid preflight profiles refuse at the option edge', () => {
+  expect(() => parseComposedRenderOptions({ preflight: { profile: 'unknown' as never } })).toThrow(RenderRefusedError)
+  expect(() => parseComposedRenderOptions({ preflight: { profile: 'unknown' as never } })).toThrow(
+    'Preflight preset "unknown" is unknown; use "default", "strict", or "off" to clear this refusal.',
+  )
 })

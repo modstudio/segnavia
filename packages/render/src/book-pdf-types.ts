@@ -3,10 +3,10 @@ import type { PreparedSlots } from '@segnavia/html'
 import type { BookDestination } from './book-destinations.ts'
 import type { OverflowEntry, RenderOptions } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
-import type { BookPdfOptions } from './renderer.ts'
+import type { ParsedBookPdfOptions } from './renderer.ts'
 
 export interface BookPdfAdapter {
-  print(html: string, book: Book, slots: PreparedSlots, options: BookPdfOptions, part: BookOverflowPart, css?: string): Promise<PrintResult<true>>
+  print(html: string, book: Book, slots: PreparedSlots, options: ParsedBookPdfOptions, part: BookOverflowPart, css?: string): Promise<PrintResult<true>>
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
 }
 
