@@ -17,6 +17,7 @@ import {
   checkHostNames,
   checkImports,
   checkManifest,
+  checkRandomUuidSource,
   checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
@@ -141,7 +142,13 @@ function structural(names: string[]): Finding[] {
       else findings.push(...checkImports(file, workspace, all), ...checkVueImports(file))
       findings.push(...checkHostNames(file, names))
     }
-    findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkChromiumEnvironmentRead(file), ...checkCeiling(file))
+    findings.push(
+      ...checkComments(file),
+      ...checkTypeScriptSuppressions(file),
+      ...checkChromiumEnvironmentRead(file),
+      ...checkRandomUuidSource(file),
+      ...checkCeiling(file),
+    )
   }
   for (const relative of testFiles()) {
     const text = readFileSync(path.join(ROOT, relative), 'utf8')

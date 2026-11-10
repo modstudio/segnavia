@@ -149,6 +149,17 @@ describe('Cover', () => {
 })
 
 describe('cover digest', () => {
+  test('refuses without crypto.subtle and names the secure-context remedy', async () => {
+    const material = coverDigestMaterial(cover(), { stamp: 'renderer' })
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto')
+    Object.defineProperty(globalThis, 'crypto', { configurable: true, value: { randomUUID: globalThis.crypto.randomUUID.bind(globalThis.crypto) } })
+    const digest = digestCoverMaterial(material)
+    if (descriptor) Object.defineProperty(globalThis, 'crypto', descriptor)
+    await expect(digest).rejects.toThrow(
+      'SHA-256 needs crypto.subtle, which a browser exposes only in a secure context; call coverDigest on a server or over https.',
+    )
+  })
+
   test('an input has the digest of its parsed cover material', async () => {
     const input = coverInput()
     const parsed = Cover.parse(input)

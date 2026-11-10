@@ -4,6 +4,8 @@
 import { BUN_SUPPORTED_PACKAGES, FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 
+export { checkRandomUuidSource } from './random-uuid-source.ts'
+
 export interface SourceFile {
   path: string
   text: string

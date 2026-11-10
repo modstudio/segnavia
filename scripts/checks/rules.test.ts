@@ -8,6 +8,7 @@ import {
   checkHostNames,
   checkImports,
   checkManifest,
+  checkRandomUuidSource,
   checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
@@ -247,6 +248,20 @@ describe('writing rules', () => {
     const belowComment = { ...direct, text: `/*\n one\n two\n*/\nconst browser = process.env.${CHROMIUM_ENVIRONMENT_VARIABLE}` }
     expect(checkChromiumEnvironmentRead(belowComment)[0]?.path).toBe('scripts/example.ts:5')
     expect(checkChromiumEnvironmentRead({ ...direct, path: CHROMIUM_PATH_MODULE })).toEqual([])
+  })
+
+  test('package sources use the shared id source', () => {
+    const direct = { path: 'packages/frame/src/example.ts', text: 'const id = crypto.randomUUID()', imports: [] }
+    expect(checkRandomUuidSource(direct)).toEqual([
+      {
+        rule: 'random-uuid-source',
+        path: 'packages/frame/src/example.ts:1',
+        message: 'calls randomUUID directly; use defaultNewId from @segnavia/format so ids work outside a secure context.',
+      },
+    ])
+    expect(checkRandomUuidSource({ ...direct, path: 'packages/format/src/document-identity.ts' })).toEqual([])
+    expect(checkRandomUuidSource({ ...direct, path: 'packages/frame/src/example.test.ts' })).toEqual([])
+    expect(checkRandomUuidSource({ ...direct, text: '// crypto.randomUUID()' })).toEqual([])
   })
 
   test('a comment telling history is caught; the same words in a string are not', () => {
