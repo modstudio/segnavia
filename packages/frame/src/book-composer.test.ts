@@ -162,9 +162,7 @@ describe('block keeps', () => {
       { name: 'part', kind: 'text' as const, from: 'part-title' as const, part: 'part', pick: 'first' as const },
       { name: 'topic', kind: 'text' as const, from: 'content' as const, pick: 'first' as const },
     ]
-    expect(partTitleValues(variables, { part: 'Opening Part' })).toEqual([
-      { name: 'part', value: 'Opening Part', line: 0, scope: 'flow' },
-    ])
+    expect(partTitleValues(variables, { part: 'Opening Part' })).toEqual([{ name: 'part', value: 'Opening Part', line: 0, scope: 'flow' }])
     expect(partTitleValues(variables, {})).toEqual([{ name: 'part', value: '', line: 0, scope: 'flow' }])
     expect(composerScript('{}')).toContain('flowStarted?partTitleValues(config.variables||[],parts):[]')
   })

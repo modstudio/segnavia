@@ -117,12 +117,10 @@ test('part-title variables name an existing document part', () => {
       variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'part-title', part: 'missing' }],
     }),
   ).toThrow(/part-title variable.*part.*names unknown part.*missing.*name an existing part or remove the variable to clear this refusal/)
-  expect(() =>
-    Document.parse({ ...base, variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'part-title' }] }),
-  ).toThrow(/part/)
-  expect(() =>
-    Document.parse({ ...base, variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'content', part: 'gate' }] }),
-  ).toThrow(/Invalid input/)
+  expect(() => Document.parse({ ...base, variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'part-title' }] })).toThrow(/part/)
+  expect(() => Document.parse({ ...base, variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'content', part: 'gate' }] })).toThrow(
+    /Invalid input/,
+  )
 })
 
 test('a document-lowered book stores authored definitions and re-parses after JSON', () => {

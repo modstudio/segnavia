@@ -6,7 +6,7 @@ import type { HeadTemplateNode, TemplateNode, VariableNode } from './document-no
 import { LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
 import { withLibraryEntries } from './library-names.ts'
 import { headTemplatePlacements } from './motif.ts'
-import { LIBRARY_VARIABLES } from './variable.ts'
+import { LIBRARY_VARIABLES, type Variable } from './variable.ts'
 
 function htmlValues(node: { type: DocumentNodeType } & Record<string, unknown>): string[] {
   return [...DOCUMENT_NODE_MODEL[node.type].content].flatMap((field) => {
@@ -33,7 +33,7 @@ function dataVariableNames(html: string): string[] {
 
 export function refineDocumentVariables(
   document: {
-    variables: Array<Omit<VariableNode, 'type'> | VariableNode>
+    variables: Array<Variable | VariableNode>
     headTemplates: Array<Omit<HeadTemplateNode, 'type'> | HeadTemplateNode>
     parentPages: Array<{ head?: string; foot?: string; regions?: Record<string, string> }>
     children?: DocumentNode[]
@@ -55,11 +55,16 @@ export function refineDocumentVariables(
         message: `variable name ${JSON.stringify(variable.name)} is declared more than once; keep one declaration or rename one to clear this refusal`,
       })
     }
-    if (variable.kind === 'text' && variable.from === 'part-title' && (document.children !== undefined || document.partNames !== undefined) && !parts.has(variable.part)) {
+    const textVariable = variable.kind === 'text' ? (variable as Extract<Variable, { kind: 'text' }>) : undefined
+    if (
+      textVariable?.from === 'part-title' &&
+      (document.children !== undefined || document.partNames !== undefined) &&
+      !parts.has(textVariable.part)
+    ) {
       ctx.addIssue({
         code: 'custom',
         path: ['variables', index, 'part'],
-        message: `part-title variable ${JSON.stringify(variable.name)} names unknown part ${JSON.stringify(variable.part)}; name an existing part or remove the variable to clear this refusal`,
+        message: `part-title variable ${JSON.stringify(variable.name)} names unknown part ${JSON.stringify(textVariable.part)}; name an existing part or remove the variable to clear this refusal`,
       })
     }
     authoredVariables.add(variable.name)

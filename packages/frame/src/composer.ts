@@ -81,10 +81,13 @@ export function flowSectionNumbering(element: Pick<Element, 'getAttribute'>): { 
 
 export function partTitleValues(variables: readonly Variable[], parts: Record<string, string>): PaginateVariable[] {
   var values: PaginateVariable[] = []
-  for (var index = 0; index < variables.length; index += 1) {
-    var variable = variables[index]
-    if (!variable || variable.kind !== 'text' || variable.from !== 'part-title') continue
-    var value = parts[variable.part]
+  var index: number
+  var variable: Variable | undefined
+  var value: string | undefined
+  for (index = 0; index < variables.length; index += 1) {
+    variable = variables[index]
+    if (variable === undefined || variable.kind !== 'text' || variable.from !== 'part-title') continue
+    value = parts[variable.part]
     values.push({ name: variable.name, value: value === undefined ? '' : value, line: 0, scope: 'flow' })
   }
   return values
