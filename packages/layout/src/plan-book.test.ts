@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { bookPlanFolios } from './book-plan-folios.ts'
+import { resolveHeadTemplate } from './head-template.ts'
 import { block, flow, input, settings } from './paginate-book.test-helper.ts'
 import { paginateBook } from './paginate-book.ts'
 import { planBook } from './plan-book.ts'
@@ -110,6 +111,60 @@ describe('planBook', () => {
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'hebrew' })
     expect(result.ok && result.plan.pages[0]?.variables).toMatchObject({ index: '3', count: 'י' })
+  })
+
+  test('resolves document metadata variables identically on every page', () => {
+    const measurements = input({
+      document: { lang: 'en', metadata: { title: 'The Book', authors: ['Ada', 'Ben'], extra: { edition: 'Second' } } },
+      variables: [
+        { name: 'title', kind: 'meta', field: 'title' },
+        { name: 'authors', kind: 'meta', field: 'authors' },
+        { name: 'edition', kind: 'meta', field: 'edition' },
+      ],
+      flows: [flow('chapter', 'chapter', [block('text', 'p', 1, 1, 6, 0)])],
+    })
+    const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
+    expect(result.ok && result.plan.pages.map(({ variables }) => variables)).toEqual([
+      expect.objectContaining({ title: 'The Book', authors: 'Ada and Ben', edition: 'Second' }),
+      expect.objectContaining({ title: 'The Book', authors: 'Ada and Ben', edition: 'Second' }),
+    ])
+  })
+
+  test.each([
+    { lang: 'en', title: 'The Book of Tides', section: 'Beginning', titleDir: 'ltr', sectionDir: 'ltr' },
+    { lang: 'he', title: 'ספר ההפלגה', section: 'התחלה', titleDir: 'rtl', sectionDir: 'rtl' },
+  ])('carries the book and section titles into $lang heads with their own directions', ({ lang, title, section, titleDir, sectionDir }) => {
+    const measurements = input({
+      document: { lang, metadata: { title } },
+      variables: [
+        { name: 'book-title', kind: 'meta', field: 'title' },
+        { name: 'section-title', kind: 'text', from: 'section-title', pick: 'first' },
+      ],
+      flows: [
+        flow('chapter', 'chapter', [block('heading', 'h1', 1, 1, 1, 0, { variables: [{ name: 'section-title', value: section, line: 0, scope: 'flow' }] })]),
+      ],
+    })
+    const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
+    if (!result.ok) throw new Error(result.refusals[0]?.message)
+    const values = result.plan.pages[0]?.variables ?? {}
+    expect(
+      resolveHeadTemplate(
+        { name: 'book', parts: [{ variable: 'book-title' }], separator: '', dropEmpty: true, collapseEqual: true },
+        values,
+        {},
+        undefined,
+        lang,
+      ),
+    ).toBe(`<bdi dir="${titleDir}">${title}</bdi>`)
+    expect(
+      resolveHeadTemplate(
+        { name: 'section', parts: [{ variable: 'section-title' }], separator: '', dropEmpty: true, collapseEqual: true },
+        values,
+        {},
+        undefined,
+        lang,
+      ),
+    ).toBe(`<bdi dir="${sectionDir}">${section}</bdi>`)
   })
 
   test('counts a record opener blank in its folio and total without showing a value on the blank', () => {

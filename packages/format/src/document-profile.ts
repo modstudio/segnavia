@@ -7,7 +7,7 @@ export const DOCUMENT_PROFILES = {
     definitions: ['parentPages', 'templates', 'noteSeries', 'variables', 'headTemplates', 'conditions'],
     settingsDir: ['ltr', 'rtl', 'auto'],
     settings: ['scripts', 'dir', 'lang'],
-    metadata: ['title', 'authors', 'subject'],
+    metadata: ['title', 'authors', 'subject', 'extra'],
     style: ['tokens', 'textStyles', 'pageGeometries', 'motifs', 'fonts', 'css'],
     required: ['title', 'mode'],
     requiredWhen: { field: 'page', when: ['mode', 'paginated'] },

@@ -3,6 +3,7 @@ import {
   bookPageGeometries,
   bookPageName,
   bookParentPages,
+  bookVariableDocumentFacts,
   physicalMargins,
   pressBoxes,
   resolveDirection,
@@ -285,17 +286,36 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   const bodyVariablePages = marginVariablePagesFor(bodySections, printedBody.part.destinations, printedBody.part.pages, bodyBlankPages)
   if (printedFront.trailingBlank && bodyVariablePages[0]) frontVariablePages[frontVariablePages.length - 1] = { ...bodyVariablePages[0], blank: true }
   const documentPages = [...frontVariablePages, ...bodyVariablePages]
+  const documentFacts = bookVariableDocumentFacts(book)
   const marginFacts = [
-    ...marginFactsFor(frontSections, front.destinations, front.pages, frontBlankPages, book.numbering.frontMatter, book.variables, {
-      pages: documentPages,
-      offset: 0,
-      system: book.numbering.body,
-    }),
-    ...marginFactsFor(bodySections, printedBody.part.destinations, printedBody.part.pages, bodyBlankPages, book.numbering.body, book.variables, {
-      pages: documentPages,
-      offset: front.pages,
-      system: book.numbering.body,
-    }),
+    ...marginFactsFor(
+      frontSections,
+      front.destinations,
+      front.pages,
+      frontBlankPages,
+      book.numbering.frontMatter,
+      book.variables,
+      {
+        pages: documentPages,
+        offset: 0,
+        system: book.numbering.body,
+      },
+      documentFacts,
+    ),
+    ...marginFactsFor(
+      bodySections,
+      printedBody.part.destinations,
+      printedBody.part.pages,
+      bodyBlankPages,
+      book.numbering.body,
+      book.variables,
+      {
+        pages: documentPages,
+        offset: front.pages,
+        system: book.numbering.body,
+      },
+      documentFacts,
+    ),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)
   const plan = planBookPages(marginFacts, direction)

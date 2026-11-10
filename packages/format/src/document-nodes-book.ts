@@ -7,7 +7,7 @@ import { HeadTemplate } from './head-template.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
 import { parentRules } from './parent-rules.ts'
-import { ContentTextVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
+import { ContentTextVariable, MetaVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
 
 export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTemplate'), id: z.string().optional() })
 
@@ -60,6 +60,7 @@ export const VariableNode = z.discriminatedUnion('kind', [
   TextVariableNode,
   NumberVariable.extend(VariableNodeFields),
   RecordVariable.extend(VariableNodeFields),
+  MetaVariable.extend(VariableNodeFields),
 ])
 
 export const ConditionNode = NodeId.extend({ type: z.literal('condition'), name: z.string() })

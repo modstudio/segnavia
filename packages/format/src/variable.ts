@@ -23,7 +23,8 @@ export const RecordVariable = z.object({
   value: z.enum(['index', 'count']),
   system: z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew']).optional(),
 })
-export const Variable = z.union([TextVariable, NumberVariable, RecordVariable])
+export const MetaVariable = z.object({ name: z.string().min(1), kind: z.literal('meta'), field: z.string().min(1) })
+export const Variable = z.union([TextVariable, NumberVariable, RecordVariable, MetaVariable])
 
 export type Variable = z.infer<typeof Variable>
 export type TextVariable = z.infer<typeof TextVariable>

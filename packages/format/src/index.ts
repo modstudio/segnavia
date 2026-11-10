@@ -298,5 +298,12 @@ export {
 } from './style-sheet.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
-export { LIBRARY_VARIABLES, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
-export { textVariableValue, type VariablePageFacts, variableValue } from './variable-value.ts'
+export { LIBRARY_VARIABLES, MetaVariable, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
+export {
+  bookVariableDocumentFacts,
+  STANDARD_META_FIELD_READERS,
+  type StandardMetaField,
+  VariableDocumentFacts,
+  variableReadsDocumentFacts,
+} from './variable-document-facts.ts'
+export { metaVariableValue, textVariableValue, type VariablePageFacts, variableValue } from './variable-value.ts'

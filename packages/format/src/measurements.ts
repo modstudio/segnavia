@@ -5,6 +5,7 @@ import { SectionNumbering } from './folio.ts'
 import { parentRules } from './parent-rules.ts'
 import { RecordFacts } from './record-facts.ts'
 import { Variable } from './variable.ts'
+import { VariableDocumentFacts } from './variable-document-facts.ts'
 
 export const PaginateLine = z.object({ top: z.number(), bottom: z.number() })
 export type PaginateLine = z.infer<typeof PaginateLine>
@@ -70,6 +71,7 @@ export type PaginateNoteSeriesGeometry = z.infer<typeof PaginateNoteSeriesGeomet
 
 export const Measurements = z.object({
   variables: z.array(Variable).default([]),
+  document: VariableDocumentFacts.optional(),
   flows: z.array(PaginateFlow),
   notes: z.array(PaginateNote),
   geometry: z.object({ notesGap: z.number(), noteSeries: z.array(PaginateNoteSeriesGeometry).optional() }),

@@ -327,7 +327,7 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   refineDocumentNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)
   refineUnsupportedDocumentFields(document, ctx)
-  refineDocumentVariables(document, ctx)
+  refineDocumentVariables({ ...document, lang: document.settings?.lang }, ctx)
   refineProfileShape(document, profile, ctx)
   refinePrint(document, profile, ctx)
 }).transform((document) => {

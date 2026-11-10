@@ -11,6 +11,7 @@ import { verifyNoteSeries } from './book-note-series.ts'
 import { verifyPaginatedPageReferences } from './book-page-reference-screen.ts'
 import { verifyPartsBooks } from './book-parts.ts'
 import { verifyPlacedMediaBook } from './book-placed-media.ts'
+import { verifyBookTitleHeads } from './book-title-heads.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
@@ -97,6 +98,7 @@ export async function verifyBooks(h: Harness) {
   await verifyPaginatedBooks(h)
   await verifyKeepBooks(h)
   await verifyPartsBooks(h)
+  await verifyBookTitleHeads(h)
   await verifyPaginatedBookElements(h, BOOK_BRIDGE_MESSAGES)
   await verifyWorkbooks(h)
   await verifyNoteSeries(h)

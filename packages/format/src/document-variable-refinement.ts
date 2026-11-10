@@ -3,10 +3,23 @@ import { DOCUMENT_NODE_MODEL, type DocumentNodeType } from './document-node-mode
 import { walkDocumentNodes } from './document-node-refinement.ts'
 import type { DocumentNode } from './document-nodes.ts'
 import type { HeadTemplateNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { DOCUMENT_PROFILES, type DocumentKind } from './document-profile.ts'
 import { LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
 import { withLibraryEntries } from './library-names.ts'
+import { metadataExtraKeyAllowed } from './metadata-extra-key.ts'
 import { headTemplatePlacements } from './motif.ts'
 import { LIBRARY_VARIABLES, type Variable } from './variable.ts'
+import { STANDARD_META_FIELD_READERS } from './variable-document-facts.ts'
+
+function intlAcceptsLanguage(lang: string | undefined): boolean {
+  if (lang === undefined) return true
+  try {
+    Intl.getCanonicalLocales(lang)
+    return true
+  } catch {
+    return false
+  }
+}
 
 function htmlValues(node: { type: DocumentNodeType } & Record<string, unknown>): string[] {
   return [...DOCUMENT_NODE_MODEL[node.type].content].flatMap((field) => {
@@ -40,6 +53,9 @@ export function refineDocumentVariables(
     partNames?: string[]
     templates?: Array<Omit<TemplateNode, 'type'> | TemplateNode>
     recordSlotNames?: string[]
+    metadata?: { extra?: Record<string, string> }
+    kind?: DocumentKind
+    lang?: string
   },
   ctx: z.RefinementCtx,
 ): void {
@@ -47,6 +63,13 @@ export function refineDocumentVariables(
   const parts = new Set(document.partNames ?? [])
   if (document.children) walkDocumentNodes(document.children, (node) => node.type === 'part' && parts.add(node.name))
   const authoredVariables = new Set<string>()
+  const readsDocumentFacts = document.variables.some((variable) => variable.kind === 'meta')
+  if (readsDocumentFacts && !intlAcceptsLanguage(document.lang))
+    ctx.addIssue({
+      code: 'custom',
+      path: ['settings', 'lang'],
+      message: `document language tag ${JSON.stringify(document.lang)} is not accepted by Intl; set a valid BCP 47 lang to clear this refusal`,
+    })
   document.variables.forEach((variable, index) => {
     if (authoredVariables.has(variable.name)) {
       ctx.addIssue({
@@ -61,6 +84,26 @@ export function refineDocumentVariables(
         code: 'custom',
         path: ['variables', index, 'part'],
         message: `part-title variable ${JSON.stringify(variable.name)} names unknown part ${JSON.stringify(textVariable.part)}; name an existing part or remove the variable to clear this refusal`,
+      })
+    }
+    if (variable.kind === 'meta' && document.kind && DOCUMENT_PROFILES[document.kind].metadata.length === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['variables', index],
+        message: `meta variable ${JSON.stringify(variable.name)} cannot read metadata because a ${document.kind} document has no metadata; remove the variable or use a book document to clear this refusal`,
+      })
+    } else if (
+      variable.kind === 'meta' &&
+      !Object.hasOwn(STANDARD_META_FIELD_READERS, variable.field) &&
+      !Object.hasOwn(document.metadata?.extra ?? {}, variable.field)
+    ) {
+      const remedy = metadataExtraKeyAllowed(variable.field)
+        ? `declare metadata.extra.${variable.field}`
+        : 'use title, subject, or authors, choose a metadata.extra key accepted by DocumentMetadata, or remove the variable'
+      ctx.addIssue({
+        code: 'custom',
+        path: ['variables', index, 'field'],
+        message: `meta variable ${JSON.stringify(variable.name)} names unknown metadata field ${JSON.stringify(variable.field)}; ${remedy} to clear this refusal`,
       })
     }
     authoredVariables.add(variable.name)

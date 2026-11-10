@@ -1862,8 +1862,13 @@ first line (`start`), the first value set on the page (`first`, the default)
 or the last (`last`); a page that sets none takes the value carried from
 earlier pages. Section-title and part-title values are carried only within their flow. A
 `folio` or `pages` variable is the page's folio or the page total, counted
-`of` the division numbering, the whole document or the page's record. Content
-refers to a variable with `data-variable`; `Document.parse` refuses an
+`of` the division numbering, the whole document or the page's record. `meta`
+variables read `title`, `subject`, a locale-joined
+`authors` list or a key declared in `metadata.extra`; document parsing refuses
+an undeclared metadata key, a `meta` variable in a document kind that carries
+no metadata (a printed document), and a document `lang` that `Intl` rejects
+while a `meta` variable needs it. These document values are identical on every page.
+Content refers to a variable with `data-variable`; `Document.parse` refuses an
 undeclared reference, a repeated name and a name under the reserved
 `segnavia:` prefix. The plan resolves every declared variable for each page
 into `PlanPage.variables`, and a blank page carries none and leaves the

@@ -15,6 +15,7 @@ import { noteSeriesFixture, twoPageSeriesFixture, twoPageSeriesRelayoutCss } fro
 import { chapterParentRules, haggadahHeadCss, markParents, paginatedParents, variableHeadParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
+import { writeTitleHeadDemo } from './demo-book-title-head-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
 export const fixtureIds = () => {
@@ -339,6 +340,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-parts-en" sandbox="allow-scripts" src="book-parts-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-parts-he" sandbox="allow-scripts" src="book-parts-he.html"></iframe></section></main></body></html>`,
   )
+  writeTitleHeadDemo(site, hebrewFace)
   writeFileSync(
     path.join(site, 'book-paginated.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated books</title><style>

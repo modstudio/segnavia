@@ -4,6 +4,7 @@ import {
   LIBRARY_VARIABLES,
   PLAN_VERSION,
   type Variable,
+  type VariableDocumentFacts,
   variableValue,
   withLibraryEntries,
 } from '@segnavia/format'
@@ -27,6 +28,7 @@ export function numberVariableValue(
   record: { index: number; count: number } | undefined,
   folios: BookPlanFolioResult,
   documents: BookPlanDocumentNumbers,
+  document: VariableDocumentFacts,
 ): string {
   return variableValue(variable, {
     folio: folios.folios[index],
@@ -37,6 +39,7 @@ export function numberVariableValue(
     recordCount: record?.count,
     recordFolio: recordFolio ?? '',
     recordTotal: documents.recordTotals[page.flow],
+    document,
   })
 }
 
@@ -47,6 +50,7 @@ export function pagesWithNumberVariables(
   folios: BookPlanFolioResult,
   documents: BookPlanDocumentNumbers,
   sections: readonly BookPlanSection[] = [],
+  document: VariableDocumentFacts = {},
 ): PaginateBookPage[] {
   const countedByFlow = new Map(sections.map((section) => [section.id, section.numbering?.counted !== false]))
   const recordsByFlow = new Map(sections.flatMap((section) => (section.record ? [[section.id, section.record] as const] : [])))
@@ -63,7 +67,16 @@ export function pagesWithNumberVariables(
     const resolved = { ...page.variables }
     for (const variable of variables) {
       if (variable.kind === 'text') continue
-      const value = numberVariableValue(variable, page, index, numberPages.recordFolios[index] ?? null, recordsByFlow.get(page.flow), folios, documents)
+      const value = numberVariableValue(
+        variable,
+        page,
+        index,
+        numberPages.recordFolios[index] ?? null,
+        recordsByFlow.get(page.flow),
+        folios,
+        documents,
+        document,
+      )
       if (value) resolved[variable.name] = value
     }
     return { ...page, variables: resolved }
@@ -79,7 +92,15 @@ function planBookWithVersion(
   if (paginated.refusals.length > 0) return { ok: false, refusals: paginated.refusals }
   const numbered = bookPlanFolios(paginated.pages, numbering, measurements.flows)
   const documentNumbers = bookPlanDocumentNumbers(paginated.pages, numbering, measurements.flows)
-  const pages = pagesWithNumberVariables(paginated.pages, measurements.variables, numbering, numbered, documentNumbers, measurements.flows)
+  const pages = pagesWithNumberVariables(
+    paginated.pages,
+    measurements.variables,
+    numbering,
+    numbered,
+    documentNumbers,
+    measurements.flows,
+    measurements.document,
+  )
   return { ok: true, plan: { version, pages, ...numbered, ...documentNumbers } }
 }
 

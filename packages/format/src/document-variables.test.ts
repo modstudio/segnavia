@@ -133,6 +133,58 @@ test('content variable node schema excludes part', () => {
   expect(content?.properties?.part).toEqual({ not: {} })
 })
 
+test('parses declared metadata variables and refuses invalid declarations with remedies', () => {
+  const base = {
+    type: 'document' as const,
+    kind: 'book' as const,
+    metadata: { title: 'Book', extra: { edition: 'Second' } },
+    mode: 'continuous' as const,
+    children: [{ type: 'flow' as const, title: 'Section', html: '<p>Body</p>' }],
+  }
+  expect(
+    Document.parse({
+      ...base,
+      variables: [{ type: 'variable', name: 'edition', kind: 'meta', field: 'edition' }],
+    }).variables,
+  ).toMatchObject([{ kind: 'meta', field: 'edition' }])
+  expect(() =>
+    Document.parse({
+      ...base,
+      variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }],
+    }),
+  ).toThrow()
+  expect(() => Document.parse({ ...base, variables: [{ type: 'variable', name: 'missing', kind: 'meta', field: 'missing' }] })).toThrow(
+    /unknown metadata field.*missing.*declare metadata.extra.missing to clear this refusal/,
+  )
+  for (const field of ['lang', 'Title']) {
+    expect(() => Document.parse({ ...base, variables: [{ type: 'variable', name: 'reserved', kind: 'meta', field }] })).toThrow(
+      new RegExp(`unknown metadata field.*${field}.*choose a metadata.extra key accepted by DocumentMetadata, or remove the variable.*clear this refusal`),
+    )
+  }
+  expect(() =>
+    Document.parse({
+      ...base,
+      settings: { lang: 'en-US-x' },
+      variables: [{ type: 'variable', name: 'title', kind: 'meta', field: 'title' }],
+    }),
+  ).toThrow(/language tag.*en-US-x.*valid BCP 47 lang to clear this refusal/)
+  expect(() => Document.parse({ ...base, settings: { lang: 'he_IL' } })).not.toThrow()
+})
+
+test('refuses metadata variables for printed documents that have no metadata', () => {
+  expect(() =>
+    Document.parse({
+      type: 'document',
+      kind: 'printed',
+      print: { paper: 'a4' },
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      parentRules: [{ parent: 'body' }],
+      variables: [{ type: 'variable', name: 'title', kind: 'meta', field: 'title' }],
+      children: [{ type: 'page', body: { html: '<p>Body</p>' } }],
+    }),
+  ).toThrow(/printed document has no metadata.*remove the variable or use a book document to clear this refusal/)
+})
+
 test('a document-lowered book stores authored definitions and re-parses after JSON', () => {
   const document = Document.parse({
     type: 'document',

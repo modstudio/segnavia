@@ -1,5 +1,6 @@
 import { formatNumber } from './numbering.ts'
 import type { Variable } from './variable.ts'
+import { STANDARD_META_FIELD_READERS, type StandardMetaField, type VariableDocumentFacts } from './variable-document-facts.ts'
 
 export interface VariablePageFacts {
   folio?: string | null
@@ -12,6 +13,7 @@ export interface VariablePageFacts {
   recordTotal?: string
   sectionTitle?: string
   partTitles?: Record<string, string>
+  document?: VariableDocumentFacts
 }
 
 export function textVariableValue(variable: Extract<Variable, { kind: 'text' }>, facts: VariablePageFacts): string {
@@ -22,8 +24,17 @@ export function textVariableValue(variable: Extract<Variable, { kind: 'text' }>,
   return ''
 }
 
+export function metaVariableValue(variable: Extract<Variable, { kind: 'meta' }>, document: VariableDocumentFacts | undefined): string {
+  const metadata = document?.metadata
+  if (!metadata) return ''
+  if (Object.hasOwn(STANDARD_META_FIELD_READERS, variable.field))
+    return STANDARD_META_FIELD_READERS[variable.field as StandardMetaField](metadata, document.lang)
+  return metadata.extra?.[variable.field] ?? ''
+}
+
 export function variableValue(variable: Variable, facts: VariablePageFacts): string {
   if (variable.kind === 'text') return textVariableValue(variable, facts)
+  if (variable.kind === 'meta') return metaVariableValue(variable, facts.document)
   if (variable.kind === 'record') {
     const value = variable.value === 'index' ? facts.recordIndex : facts.recordCount
     return value === undefined ? '' : formatNumber(value, variable.system ?? 'arabic')
