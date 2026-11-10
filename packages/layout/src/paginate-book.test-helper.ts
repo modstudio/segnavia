@@ -36,7 +36,6 @@ export function input(overrides: InputOverrides): PaginateBookInput {
   const area = { width: 100, height: geometry.textHeight }
   return {
     variables: [],
-    document: { metadata: {} },
     notes: [],
     geometry: { notesGap: geometry.notesGap, ...(geometry.noteSeries ? { noteSeries: geometry.noteSeries } : {}) },
     parents: Object.fromEntries(Object.values(BOOK_PARENT_NAMES).map((name) => [name, area])),

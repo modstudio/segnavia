@@ -67,6 +67,28 @@ test('resolves a named enclosing part title only inside that part', () => {
   expect(facts[1]?.variables?.part).toBeUndefined()
 })
 
+test('resolves date and metadata variables in the continuous margin plan', () => {
+  const sections = [{ id: 'chapter', kind: 'chapter' as const, division: 'body' as const, title: 'One' }]
+  const destinations = new Map([['chapter', { page: 1, x: 0, y: 0 }]])
+  const facts = marginFactsFor(
+    sections,
+    destinations,
+    2,
+    new Set(),
+    'arabic',
+    [
+      { name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' },
+      { name: 'title', kind: 'meta', field: 'title' },
+    ],
+    undefined,
+    { lang: 'he', metadata: { title: 'ספר' } },
+  )
+  expect(facts.map(({ variables }) => variables)).toEqual([
+    expect.objectContaining({ date: 'י״ד באדר ב׳ תשפ״ד', title: 'ספר' }),
+    expect.objectContaining({ date: 'י״ד באדר ב׳ תשפ״ד', title: 'ספר' }),
+  ])
+})
+
 test('maps asymmetric book margins to physical right and left pages independent of text direction', () => {
   const expected =
     '@page{size:148mm 210mm;margin-top:10mm;margin-bottom:11mm}@page :right{margin-left:30mm;margin-right:5mm}@page :left{margin-left:5mm;margin-right:30mm}'

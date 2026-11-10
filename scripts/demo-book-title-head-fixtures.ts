@@ -1,7 +1,6 @@
 import { BOOK_PARENT_NAMES, type DocumentInput } from '@segnavia/format'
 
-const placement = (name: string) =>
-  `<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="${name}"></div>`
+const placement = (name: string) => `<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="${name}"></div>`
 
 export function titleHeadFixture(hebrew: boolean): DocumentInput {
   const bookTitle = hebrew ? 'ספר ההפלגה' : 'The Book of Tides'
@@ -26,11 +25,7 @@ export function titleHeadFixture(hebrew: boolean): DocumentInput {
       { type: 'parentPage', name: 'title-recto', basedOn: BOOK_PARENT_NAMES.recto, head: placement('book-title') },
       { type: 'parentPage', name: 'title-verso', basedOn: BOOK_PARENT_NAMES.verso, head: placement('section-title') },
     ],
-    parentRules: [
-      { when: { blank: true }, parent: BOOK_PARENT_NAMES.blank },
-      { when: { face: 'verso' }, parent: 'title-verso' },
-      { parent: 'title-recto' },
-    ],
+    parentRules: [{ when: { blank: true }, parent: BOOK_PARENT_NAMES.blank }, { when: { face: 'verso' }, parent: 'title-verso' }, { parent: 'title-recto' }],
     children: [
       {
         type: 'section',

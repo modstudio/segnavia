@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { bookPlanFolios } from './book-plan-folios.ts'
+import { resolveHeadTemplate } from './head-template.ts'
 import { block, flow, input, settings } from './paginate-book.test-helper.ts'
 import { paginateBook } from './paginate-book.ts'
 import { planBook } from './plan-book.ts'
-import { resolveHeadTemplate } from './head-template.ts'
 
 describe('planBook', () => {
   test.each([
@@ -142,20 +142,30 @@ describe('planBook', () => {
         { name: 'section-title', kind: 'text', from: 'section-title', pick: 'first' },
       ],
       flows: [
-        flow('chapter', 'chapter', [
-          block('heading', 'h1', 1, 1, 1, 0, { variables: [{ name: 'section-title', value: section, line: 0, scope: 'flow' }] }),
-        ]),
+        flow('chapter', 'chapter', [block('heading', 'h1', 1, 1, 1, 0, { variables: [{ name: 'section-title', value: section, line: 0, scope: 'flow' }] })]),
       ],
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
     if (!result.ok) throw new Error(result.refusals[0]?.message)
     const values = result.plan.pages[0]?.variables ?? {}
-    expect(resolveHeadTemplate({ name: 'book', parts: [{ variable: 'book-title' }], separator: '', dropEmpty: true, collapseEqual: true }, values, {}, undefined, lang)).toBe(
-      `<bdi dir="${titleDir}">${title}</bdi>`,
-    )
-    expect(resolveHeadTemplate({ name: 'section', parts: [{ variable: 'section-title' }], separator: '', dropEmpty: true, collapseEqual: true }, values, {}, undefined, lang)).toBe(
-      `<bdi dir="${sectionDir}">${section}</bdi>`,
-    )
+    expect(
+      resolveHeadTemplate(
+        { name: 'book', parts: [{ variable: 'book-title' }], separator: '', dropEmpty: true, collapseEqual: true },
+        values,
+        {},
+        undefined,
+        lang,
+      ),
+    ).toBe(`<bdi dir="${titleDir}">${title}</bdi>`)
+    expect(
+      resolveHeadTemplate(
+        { name: 'section', parts: [{ variable: 'section-title' }], separator: '', dropEmpty: true, collapseEqual: true },
+        values,
+        {},
+        undefined,
+        lang,
+      ),
+    ).toBe(`<bdi dir="${sectionDir}">${section}</bdi>`)
   })
 
   test('counts a record opener blank in its folio and total without showing a value on the blank', () => {

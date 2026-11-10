@@ -159,9 +159,14 @@ export const BookViewPagination = z
     document: z
       .object({
         lang: z.string().optional(),
-        metadata: z.object({ title: z.string().optional(), subject: z.string().optional(), authors: z.array(z.string()).optional(), extra: z.record(z.string(), z.string()).optional() }),
+        metadata: z.object({
+          title: z.string().optional(),
+          subject: z.string().optional(),
+          authors: z.array(z.string()).optional(),
+          extra: z.record(z.string(), z.string()).optional(),
+        }),
       })
-      .default({ metadata: {} }),
+      .optional(),
   })
   .superRefine((pagination, ctx) =>
     refineDocumentVariables(
@@ -170,7 +175,7 @@ export const BookViewPagination = z
         headTemplates: pagination.headTemplates,
         parentPages: pagination.parents,
         recordSlotNames: Object.values(pagination.recordSlotsByFlow ?? {}).flatMap((slots) => Object.keys(slots)),
-        metadata: pagination.document.metadata,
+        metadata: pagination.document?.metadata,
       },
       ctx,
     ),
@@ -377,6 +382,8 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     variables: book.variables,
     headTemplates: book.headTemplates,
     recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),
-    document: { lang: book.lang, metadata: { title: book.title, subject: book.subject, authors: book.authors, extra: book.extra } },
+    ...(book.variables.some((variable) => variable.kind === 'date' || variable.kind === 'meta')
+      ? { document: { lang: book.lang, metadata: { title: book.title, subject: book.subject, authors: book.authors, extra: book.extra } } }
+      : {}),
   }
 }

@@ -1,9 +1,9 @@
 import {
   bookVariablePageNumbers,
+  dateVariableValue,
   fingerprintScript,
   folioScript,
   LIBRARY_VARIABLES,
-  dateVariableValue,
   metaVariableValue,
   textVariableValue,
   variableValue,

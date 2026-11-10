@@ -30,7 +30,11 @@ export function textVariableValue(variable: Extract<Variable, { kind: 'text' }>,
 
 export function dateVariableValue(variable: Extract<Variable, { kind: 'date' }>, document: VariableDocumentFacts | undefined): string {
   const lang = document?.lang
-  const formatter = new Intl.DateTimeFormat(lang, { calendar: variable.calendar === 'gregorian' ? 'gregory' : 'hebrew', dateStyle: variable.format, timeZone: 'UTC' })
+  const formatter = new Intl.DateTimeFormat(lang, {
+    calendar: variable.calendar === 'gregorian' ? 'gregory' : 'hebrew',
+    dateStyle: variable.format,
+    timeZone: 'UTC',
+  })
   const date = new Date(`${variable.date}T00:00:00Z`)
   if (variable.calendar !== 'hebrew' || !isHebrew(lang)) return formatter.format(date)
   return formatter

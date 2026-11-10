@@ -16,9 +16,7 @@ describe('date variables', () => {
   })
 
   test('keeps Intl digits for a Hebrew-calendar date in an English document', () => {
-    expect(variableValue({ name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }, facts('en'))).toMatch(
-      /14 Adar II 5784/,
-    )
+    expect(variableValue({ name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }, facts('en'))).toMatch(/14 Adar II 5784/)
   })
 })
 

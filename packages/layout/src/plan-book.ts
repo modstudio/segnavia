@@ -67,7 +67,16 @@ export function pagesWithNumberVariables(
     const resolved = { ...page.variables }
     for (const variable of variables) {
       if (variable.kind === 'text') continue
-      const value = numberVariableValue(variable, page, index, numberPages.recordFolios[index] ?? null, recordsByFlow.get(page.flow), folios, documents, document)
+      const value = numberVariableValue(
+        variable,
+        page,
+        index,
+        numberPages.recordFolios[index] ?? null,
+        recordsByFlow.get(page.flow),
+        folios,
+        documents,
+        document,
+      )
       if (value) resolved[variable.name] = value
     }
     return { ...page, variables: resolved }
@@ -83,7 +92,15 @@ function planBookWithVersion(
   if (paginated.refusals.length > 0) return { ok: false, refusals: paginated.refusals }
   const numbered = bookPlanFolios(paginated.pages, numbering, measurements.flows)
   const documentNumbers = bookPlanDocumentNumbers(paginated.pages, numbering, measurements.flows)
-  const pages = pagesWithNumberVariables(paginated.pages, measurements.variables, numbering, numbered, documentNumbers, measurements.flows, measurements.document)
+  const pages = pagesWithNumberVariables(
+    paginated.pages,
+    measurements.variables,
+    numbering,
+    numbered,
+    documentNumbers,
+    measurements.flows,
+    measurements.document,
+  )
   return { ok: true, plan: { version, pages, ...numbered, ...documentNumbers } }
 }
 
