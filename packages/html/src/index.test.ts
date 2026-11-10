@@ -77,12 +77,14 @@ describe('sanitize', () => {
       a{background:url(images/a.png)}
       @font-face{src:url("fonts/my font.woff2")}
       @import "my theme.css";
+      @import url(themes/print.css);
       b{background:url(blob:https://outside.example/a.png)}
     </style>`
     expect(assetOriginRefusals(html).map(({ url, kind }) => ({ url, kind }))).toEqual([
       { url: 'images/a.png', kind: 'image' },
       { url: 'fonts/my font.woff2', kind: 'font' },
       { url: 'my theme.css', kind: 'style' },
+      { url: 'themes/print.css', kind: 'style' },
       { url: 'blob:https://outside.example/a.png', kind: 'image' },
     ])
   })
