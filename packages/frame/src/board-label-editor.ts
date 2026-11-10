@@ -6,7 +6,7 @@ import { boardPathElement } from './board-event-path.ts'
 import { committedLabelText } from './board-label-editing.ts'
 import type { BoardLabels } from './labels.ts'
 
-type LabelEditorSource = Pick<BoardEditingBridge, 'value' | 'view' | 'shapes' | 'labelTextNode' | 'document'>
+type LabelEditorSource = Pick<BoardEditingBridge, 'value' | 'view' | 'shapes' | 'computedShapes' | 'facts' | 'measureLabel' | 'labelTextNode' | 'document'>
 
 interface ActiveEditor {
   id: string
@@ -133,7 +133,7 @@ export class BoardLabelEditor {
       const text = currentText === undefined ? undefined : committedLabelText(currentText, active.textarea.value)
       if (text !== undefined) {
         if (board) {
-          const result = editBoardFromFrame(this.source.document(board), [{ type: 'label-set', label: { id: active.id }, text }], this.source.shapes())
+          const result = editBoardFromFrame(this.source.document(board), [{ type: 'label-set', label: { id: active.id }, text }], this.source)
           if (result.ok) this.change(result.board, 'edit-label', active.id)
           else
             this.board.dispatchEvent(

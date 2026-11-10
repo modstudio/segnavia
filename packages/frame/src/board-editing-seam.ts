@@ -1,4 +1,4 @@
-import type { Board, BoardLabel, BoardShapes, BoardView, Document, MeasuredSize, Point } from '@segnavia/format'
+import type { Board, BoardItemFact, BoardLabel, BoardShapes, BoardView, ComputedBoardShapes, Document, MeasuredSize, Point } from '@segnavia/format'
 
 export interface BoardPointerDelegate {
   pointerDown(event: PointerEvent): boolean
@@ -13,6 +13,10 @@ export interface BoardEditingBridge {
   value(): Board | null
   view(): BoardView
   shapes(): BoardShapes
+  computedShapes(): ComputedBoardShapes
+  facts(): Readonly<Record<string, BoardItemFact>>
+  measureLabel(text: string, direction: Board['direction'], width: number | undefined): MeasuredSize | undefined
+  measuredLabelSizes(): Record<string, MeasuredSize>
   labelShape(label: BoardLabel): MeasuredSize
   labelTextNode(id: string): HTMLElement | undefined
   document(board: Board): Document
@@ -36,6 +40,10 @@ interface BridgeParts {
   value(): Board | null
   view(): BoardView
   shapes(): BoardShapes
+  computedShapes(): ComputedBoardShapes
+  facts(): Readonly<Record<string, BoardItemFact>>
+  measureLabel(text: string, direction: Board['direction'], width: number | undefined): MeasuredSize | undefined
+  measuredLabelSizes(): Record<string, MeasuredSize>
   labelShape(label: BoardLabel): MeasuredSize
   labelTextNode(id: string): HTMLElement | undefined
   document(board: Board): Document
@@ -56,6 +64,10 @@ export function createBoardEditingBridge(parts: BridgeParts): BoardEditingBridge
     value: parts.value,
     view: parts.view,
     shapes: parts.shapes,
+    computedShapes: parts.computedShapes,
+    facts: parts.facts,
+    measureLabel: parts.measureLabel,
+    measuredLabelSizes: parts.measuredLabelSizes,
     labelShape: parts.labelShape,
     labelTextNode: parts.labelTextNode,
     document: parts.document,

@@ -10,7 +10,6 @@ import {
   type Document,
   type DocumentBatch,
   type DocumentOp,
-  diffDocuments,
   fingerprintDocument,
   type Point,
   provisionalShape,
@@ -20,29 +19,36 @@ import {
 import type { SegnaviaBoard } from './board.ts'
 import {
   adoptHostBoard,
-  applyBoardEdit,
   applyRemoteBoardEdit,
   type BoardEditQueueState,
   type BoardEditTransition,
   boardEditQueue,
   boardEditRefusal,
   detachBoardEditing,
-  redoBoardEdit,
   rejectBoardEdit,
   resolveBoardEdit,
-  undoBoardEdit,
 } from './board-edit-policy.ts'
-import { editBoardFromFrame } from './board-editing-command.ts'
+import { applyBoardOps, editBoardFromFrame } from './board-editing-command.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderLabelResizeHandle, renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
+import {
+  applyBoardTransition,
+  applyEditingTransition,
+  commitLiveTransition,
+  initialBoardSettlement,
+  redoTransition,
+  undoTransition,
+} from './board-editing-transition.ts'
 import type { AddBoardItemInput, BoardEdit, BoardEditing, BoardEditingOptions } from './board-editing-types.ts'
 import { BOARD_HISTORY_LIMIT } from './board-history.ts'
 import { BoardLabelDoubleClick } from './board-label-double-click.ts'
 import { withoutLabelWidth } from './board-label-editing.ts'
 import { BoardLabelEditor } from './board-label-editor.ts'
+import { copyComputedBoardShapes } from './board-shape-cache.ts'
 import { boardLabels } from './labels.ts'
 
+export type { ComputedBoardShapes } from '@segnavia/format'
 export type { AddBoardItemInput, BoardChange, BoardEdit, BoardEditing, BoardEditingOptions } from './board-editing-types.ts'
 export { BOARD_HISTORY_LIMIT, DEFAULT_BOARD_ITEM_WIDTH }
 
@@ -99,7 +105,6 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   get canRedo() {
     return (this.state?.redo.length ?? 0) > 0
   }
-
   detach() {
     if (this.stopped) return
     this.stopped = true
@@ -163,9 +168,22 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   apply(ops: readonly DocumentOp[], label: string) {
     if (!this.state) return
-    const transition = applyBoardEdit(this.state, ops, { kind: 'apply', label, ids: [] })
-    this.refuseConflicts(transition.conflicts)
+    const transition = applyBoardOps(this.state, ops, label, this.bridge.measureLabel, this.bridge.document)
+    if (transition.conflicts?.length) return this.refuseConflicts(transition.conflicts)
     this.applyTransition(transition)
+  }
+
+  command(commands: BoardCommand[], label: string) {
+    const document = this.state?.value
+    if (!document)
+      return { ok: false as const, refusal: 'Board command refused: the board has no document. Set a board before running commands. Nothing was changed.' }
+    const result = editBoardFromFrame(document, commands, this.bridge)
+    if (result.ok) this.applyBoard(result.board, { kind: 'command', label, ids: result.changed.map((entity) => entity.id) })
+    return result
+  }
+
+  shapes() {
+    return copyComputedBoardShapes(this.bridge.computedShapes())
   }
 
   applyRemote(batch: DocumentBatch) {
@@ -177,36 +195,34 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   undo() {
     if (!this.state) return
-    const entry = this.state.undo.at(-1)
-    if (!entry) return
+    const result = undoTransition(this.state)
+    if (!result) return
     this.board.focus()
-    const transition = undoBoardEdit(this.state)
-    this.applyTransition(transition, this.existingIds(entry.edit, boardFromDocument(transition.state.value)))
+    this.applyTransition(result.transition, result.selection)
   }
 
   redo() {
     if (!this.state) return
-    const entry = this.state.redo.at(-1)
-    if (!entry) return
+    const result = redoTransition(this.state)
+    if (!result) return
     this.board.focus()
-    const transition = redoBoardEdit(this.state)
-    this.applyTransition(transition, this.existingIds(entry.edit, boardFromDocument(transition.state.value)))
+    this.applyTransition(result.transition, result.selection)
   }
 
-  pointerDown = (event: PointerEvent): boolean => (this.labelDoubleClick.capture(event), this.input.pointerDown(event))
+  pointerDown = (event: PointerEvent): boolean => {
+    this.labelDoubleClick.capture(event)
+    return this.input.pointerDown(event)
+  }
 
   pointerMove(event: PointerEvent): boolean {
     return this.input.pointerMove(event)
   }
-
   pointerUp(event: PointerEvent): boolean {
     return this.input.pointerUp(event)
   }
-
   pointerCancel(event: PointerEvent): boolean {
     return this.input.pointerCancel(event)
   }
-
   keyDown(event: KeyboardEvent): boolean {
     return this.input.keyDown(event)
   }
@@ -224,25 +240,23 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     if (target?.kind === 'label') this.labelEditor.open(target.id)
   }
 
-  private applyBoard(next: Board, edit: BoardEdit) {
+  private applyBoard(next: Board, edit: BoardEdit, recorded = true) {
     if (!this.state) return
-    this.applyTransition(applyBoardEdit(this.state, diffDocuments(this.state.value, this.bridge.document(next)), edit))
+    this.applyTransition(applyBoardTransition(this.state, this.bridge, next, edit, recorded))
   }
 
   private commitLive(before: Board, next: Board, edit: BoardEdit) {
-    this.bridge.setOptimistic(before)
-    if (this.state) this.state = { ...this.state, value: this.bridge.document(before) }
-    this.applyBoard(next, edit)
+    if (this.state) this.applyTransition(commitLiveTransition(this.state, this.bridge, before, next, edit))
   }
 
   private applyCommands(current: Board, commands: BoardCommand[], edit: BoardEdit) {
-    const result = editBoardFromFrame(this.bridge.document(current), commands, this.bridge.shapes())
+    const result = editBoardFromFrame(this.bridge.document(current), commands, this.bridge)
     if (result.ok) this.applyBoard(result.board, edit)
     else this.dispatchError(edit, result.refusal)
   }
 
   private commitCommands(before: Board, commands: BoardCommand[], edit: BoardEdit) {
-    const result = editBoardFromFrame(this.bridge.document(before), commands, this.bridge.shapes())
+    const result = editBoardFromFrame(this.bridge.document(before), commands, this.bridge)
     if (result.ok) this.commitLive(before, result.board, edit)
     else {
       this.bridge.setOptimistic(before)
@@ -252,22 +266,24 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private applyTransition(transition: BoardEditTransition, selection?: readonly string[]) {
-    this.state = transition.state
-    this.nextId = this.state.nextId
-    this.invalidated = this.state.invalidated
-    for (const job of this.state.jobs) if (!this.aborts.has(job.id)) this.aborts.set(job.id, new AbortController())
-    for (const id of transition.effects.abort) {
-      this.aborts.get(id)?.abort()
-      this.aborts.delete(id)
-    }
-    if (transition.effects.show) this.bridge.setOptimistic(boardFromDocument(transition.effects.show))
-    if (selection) this.board.selection = selection
-    if (transition.effects.historyChanged) this.notifyHistory()
-    if (transition.effects.error)
-      this.board.dispatchEvent(new CustomEvent('segnavia-board-edit-error', { detail: transition.effects.error, bubbles: true, composed: true }))
-    this.renderHandles()
-    this.labelEditor.refresh()
-    if (transition.effects.run) void this.run(transition.effects.run.id)
+    applyEditingTransition(
+      {
+        board: this.board,
+        bridge: this.bridge,
+        aborts: this.aborts,
+        setState: (state) => {
+          this.state = state
+          this.nextId = state.nextId
+          this.invalidated = state.invalidated
+        },
+        render: this.renderHandles,
+        refreshLabelEditor: this.labelEditor.refresh,
+        notifyHistory: () => this.notifyHistory(),
+        run: (id) => void this.run(id),
+      },
+      transition,
+      selection,
+    )
   }
 
   private async run(id: number) {
@@ -333,12 +349,8 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const document = this.state?.value
     if (!document || this.stopped) return
     const current = boardFromDocument(document)
-    const measured = this.board.measuredLabelSizes()
-    const labels = current.labels.map((label) => (label.size || !measured[label.id] ? label : { ...label, size: measured[label.id] }))
-    const sized = labels.some((label, index) => label !== current.labels[index]) ? { ...current, labels } : current
-    const ids = current.sections.map((section) => section.id)
-    const settled = settleBoard(current, sized, this.bridge.shapes(), ids)
-    if (JSON.stringify(settled) !== JSON.stringify(current)) this.applyBoard(settled, { kind: 'settle', ids })
+    const settled = initialBoardSettlement(current, this.bridge.measuredLabelSizes(), this.bridge.shapes())
+    if (settled) this.applyBoard(settled, { kind: 'settle', ids: current.sections.map((section) => section.id) }, false)
   }
 
   private renderHandles = () => {
@@ -354,12 +366,6 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const label = value?.labels.find((entry) => entry.id === this.board.selection[0])
     const labelShape = label ? this.bridge.shapes().labels[label.id] : undefined
     renderLabelResizeHandle(this.bridge.overlay, label, this.bridge.view(), labelShape, boardLabels(this.board.labels).labelResize)
-  }
-
-  private existingIds(edit: BoardEdit, value: Board): string[] {
-    const ids = edit.kind === 'undo' || edit.kind === 'redo' ? this.existingIds(edit.edit, value) : edit.ids
-    const present = new Set([...value.items, ...value.labels].map((node) => node.id))
-    return ids.filter((id) => present.has(id))
   }
 
   private notifyHistory() {

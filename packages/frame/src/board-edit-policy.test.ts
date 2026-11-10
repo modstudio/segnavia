@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'bun:test'
-import { type Document, type DocumentOp, Document as DocumentSchema, diffDocuments, fingerprintDocument } from '@segnavia/format'
+import {
+  type Board,
+  boardFromDocument,
+  boardShapes,
+  type Document,
+  type DocumentOp,
+  Document as DocumentSchema,
+  diffDocuments,
+  documentFromBoard,
+  fingerprintDocument,
+} from '@segnavia/format'
 import {
   adoptHostBoard,
   applyBoardEdit,
@@ -11,6 +21,7 @@ import {
   resolveBoardEdit,
   undoBoardEdit,
 } from './board-edit-policy.ts'
+import { applyBoardOps, editBoardFromFrame, prepareBoardApply } from './board-editing-command.ts'
 
 const value = (x: number, title = 'Board'): Document =>
   DocumentSchema.parse({
@@ -24,6 +35,11 @@ const value = (x: number, title = 'Board'): Document =>
 
 const edit = { kind: 'move' as const, ids: ['one'] }
 const apply = (state: ReturnType<typeof boardEditQueue>, after: Document) => applyBoardEdit(state, diffDocuments(state.value, after), edit)
+const labelBoard = (title: string, labels: Board['labels'] = []): Document =>
+  documentFromBoard(
+    { title, direction: 'ltr', items: [], labels, sections: [] },
+    DocumentSchema.parse({ type: 'document', id: 'labels', kind: 'board', title, settings: { dir: 'ltr' }, children: [] }),
+  )
 
 describe('board edit queue policy', () => {
   test('queues optimistic ops and rolls rejection back', () => {
@@ -49,6 +65,55 @@ describe('board edit queue policy', () => {
     expect(transition.state.value).toEqual(remote)
     expect(transition.state.undo).toHaveLength(1)
     expect(transition.effects.run).toBeUndefined()
+  })
+
+  test('an unrecorded local edit is queued but rebased out of undo history', () => {
+    const applied = resolveBoardEdit(apply(boardEditQueue(value(0)), value(1)).state, 1).state
+    const settled = applyBoardEdit(applied, diffDocuments(value(1), value(1, 'Settled')), { kind: 'settle', ids: [] }, { recorded: false })
+    expect(settled.state.value).toEqual(value(1, 'Settled'))
+    expect(settled.state.jobs).toHaveLength(1)
+    expect(settled.state.undo).toHaveLength(1)
+    const undone = undoBoardEdit(resolveBoardEdit(settled.state, 2).state)
+    expect(undone.state.value).toEqual(value(0, 'Settled'))
+  })
+
+  test('one undo removes a command-added label and its measurement while preserving attach settlement', () => {
+    const initial = labelBoard('Initial')
+    const settled = applyBoardEdit(boardEditQueue(initial), diffDocuments(initial, labelBoard('Settled')), { kind: 'settle', ids: [] }, { recorded: false })
+    const afterSettle = resolveBoardEdit(settled.state, 1).state
+    const board = boardFromDocument(afterSettle.value)
+    const result = editBoardFromFrame(afterSettle.value, [{ type: 'label-add', id: 'label', text: 'New' }], {
+      computedShapes: () => boardShapes(board, {}),
+      facts: () => ({}),
+      measureLabel: () => ({ width: 48, height: 20 }),
+    })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const commandDocument = documentFromBoard(result.board, afterSettle.value)
+    const command = applyBoardEdit(afterSettle, diffDocuments(afterSettle.value, commandDocument), { kind: 'command', label: 'add label', ids: ['label'] })
+    expect(command.state.undo).toHaveLength(1)
+    expect(command.state.value.children.find((node) => node.id === 'label')).toMatchObject({ size: { width: 48, height: 20 } })
+    const undone = undoBoardEdit(resolveBoardEdit(command.state, 2).state)
+    expect(undone.state.undo).toHaveLength(0)
+    expect(undone.state.value.title).toBe('Settled')
+    expect(undone.state.value.children.some((node) => node.id === 'label')).toBe(false)
+  })
+
+  test('host apply records an unsized label-add and its measured size as one entry', () => {
+    const before = labelBoard('Board')
+    const added = labelBoard('Board', [{ id: 'label', text: 'New', x: 10, y: 20 }])
+    const prepared = prepareBoardApply(
+      before,
+      diffDocuments(before, added),
+      () => ({ width: 48, height: 20 }),
+      (board) => documentFromBoard(board, added),
+    )
+    const transition = applyBoardEdit(boardEditQueue(before), prepared.applied, { kind: 'apply', label: 'add label', ids: [] })
+    expect(transition.state.undo).toHaveLength(1)
+    expect(transition.state.jobs[0]?.ops).toContainEqual(
+      expect.objectContaining({ type: 'setFields', id: 'label', fields: { size: { width: 48, height: 20 } } }),
+    )
+    expect(transition.state.value.children.find((node) => node.id === 'label')).toMatchObject({ size: { width: 48, height: 20 } })
   })
 
   test('whole-document host adoption uses the remote path', () => {
@@ -97,6 +162,31 @@ describe('board edit queue policy', () => {
     )
     expect(applied.state).toBe(current)
     expect(remote.state).toBe(current)
+  })
+
+  test('host apply refuses a partly conflicting batch without changing document or queues', () => {
+    const initial = value(1, 'Current')
+    const state = boardEditQueue(initial)
+    const valid = diffDocuments(initial, value(1, 'Remote'))
+    const conflicting = diffDocuments(value(0), value(2)).filter((op) => op.type === 'setFields' && op.id === 'one')
+    const mixed = [...valid, ...conflicting]
+    const transition = applyBoardOps(
+      state,
+      mixed,
+      'mixed batch',
+      () => undefined,
+      (board) => documentFromBoard(board, initial),
+    )
+
+    expect(boardEditRefusal(transition.conflicts ?? [])).toBe(
+      'Board edit refused conflicting operations: setFields node one field x. Rebuild the batch against the current board.',
+    )
+    expect(transition.state).toBe(state)
+    expect(transition.state.value).toBe(initial)
+    expect(transition.state.jobs).toEqual([])
+    expect(transition.state.undo).toEqual([])
+    expect(transition.state.redo).toEqual([])
+    expect(transition.effects).toEqual({ abort: [], historyChanged: false })
   })
 
   test('conflict refusals name setFields nodes and fields', () => {

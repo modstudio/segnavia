@@ -1,4 +1,21 @@
-import { type Board, type BoardCommand, type BoardEditResult, type BoardItemAnchor, type BoardShapes, type Document, editBoard } from '@segnavia/format'
+import {
+  type Board,
+  type BoardCommand,
+  type BoardEditResult,
+  type BoardItemAnchor,
+  type BoardShapesOptions,
+  boardFromDocument,
+  type Document,
+  type DocumentOp,
+  diffDocuments,
+  editBoard,
+  labelShape,
+  rebaseOps,
+} from '@segnavia/format'
+import { applyBoardEdit, type BoardEditQueueState, type BoardEditTransition } from './board-edit-policy.ts'
+import type { BoardEditingBridge } from './board-editing-seam.ts'
+import type { BoardEdit } from './board-editing-types.ts'
+import { sizeMeasuredLabels } from './board-label-sizing.ts'
 
 export const resizeAnchors: Record<string, BoardItemAnchor> = {
   'top-left': 'bottom-right',
@@ -7,8 +24,47 @@ export const resizeAnchors: Record<string, BoardItemAnchor> = {
   'bottom-right': 'top-left',
 }
 
-export function editBoardFromFrame(document: Document, commands: BoardCommand[], shapes: BoardShapes): BoardEditResult {
-  return editBoard(document, commands, { shapes, provisional: [], estimated: [] })
+export function prepareBoardApply(
+  before: Document,
+  ops: readonly DocumentOp[],
+  measureLabel: NonNullable<BoardShapesOptions['measureLabel']>,
+  document: (board: Board) => Document,
+): ReturnType<typeof rebaseOps> {
+  const rebased = rebaseOps(before, ops)
+  if (rebased.conflicts.length > 0) return rebased
+  const previous = new Map(boardFromDocument(before).labels.map((label) => [label.id, label]))
+  const board = boardFromDocument(rebased.document)
+  const candidates = board.labels.map((label) => {
+    const old = previous.get(label.id)
+    const sizeChanged = old && (old.size?.width !== label.size?.width || old.size?.height !== label.size?.height)
+    return old && (old.text !== label.text || old.width !== label.width) && !sizeChanged ? { ...label, size: undefined } : label
+  })
+  const labels = sizeMeasuredLabels(candidates, (label) => labelShape(label, measureLabel))
+  const measured = labels.some((label, index) => label !== board.labels[index]) ? document({ ...board, labels }) : rebased.document
+  return { ...rebased, document: measured, applied: [...rebased.applied, ...diffDocuments(rebased.document, measured)] }
+}
+
+export function applyBoardOps(
+  state: BoardEditQueueState,
+  ops: readonly DocumentOp[],
+  label: string,
+  measureLabel: NonNullable<BoardShapesOptions['measureLabel']>,
+  document: (board: Board) => Document,
+): BoardEditTransition {
+  const prepared = prepareBoardApply(state.value, ops, measureLabel, document)
+  const edit: BoardEdit = { kind: 'apply', label, ids: [] }
+  if (prepared.conflicts.length > 0) {
+    return { state, effects: { abort: [], historyChanged: false }, conflicts: prepared.conflicts }
+  }
+  return applyBoardEdit(state, prepared.applied, edit)
+}
+
+export function editBoardFromFrame(
+  document: Document,
+  commands: BoardCommand[],
+  geometry: Pick<BoardEditingBridge, 'computedShapes' | 'facts' | 'measureLabel'>,
+): BoardEditResult {
+  return editBoard(document, commands, geometry.computedShapes(), { facts: geometry.facts(), measureLabel: geometry.measureLabel })
 }
 
 export function resizeReleaseCommand(board: Board, id: string, corner: string): BoardCommand | undefined {

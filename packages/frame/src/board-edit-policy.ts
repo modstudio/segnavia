@@ -37,6 +37,10 @@ export interface BoardEditTransition {
   conflicts?: readonly DocumentOp[]
 }
 
+export interface ApplyBoardEditOptions {
+  recorded?: boolean
+}
+
 const availability = (state: BoardHistory<BoardEdit>): string => `${state.undo.length > 0}:${state.redo.length > 0}`
 const unchanged = (state: BoardEditQueueState): BoardEditTransition => ({ state, effects: { abort: [], historyChanged: false } })
 const remoteBase = (state: BoardEditQueueState): Document => state.jobs[0]?.before ?? state.value
@@ -84,11 +88,17 @@ function enqueue(
   }
 }
 
-export function applyBoardEdit(state: BoardEditQueueState, ops: readonly DocumentOp[], edit: BoardEdit): BoardEditTransition {
+export function applyBoardEdit(
+  state: BoardEditQueueState,
+  ops: readonly DocumentOp[],
+  edit: BoardEdit,
+  options: ApplyBoardEditOptions = {},
+): BoardEditTransition {
   const result = rebaseOps(state.value, ops)
   if (result.conflicts.length > 0) return { ...unchanged(state), conflicts: result.conflicts }
   const entry: BoardHistoryEntry<BoardEdit> = { ops: result.applied, inverse: invertOps(result.applied), edit }
-  return enqueue(state, result.document, result.applied, edit, appendBoardHistory(state, entry))
+  const history = options.recorded === false ? rebaseBoardHistory(result.document, state) : appendBoardHistory(state, entry)
+  return enqueue(state, result.document, result.applied, edit, history)
 }
 
 export function undoBoardEdit(state: BoardEditQueueState): BoardEditTransition {
