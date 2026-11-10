@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { BookView, isChapter, PAGE_WIDTHS, Page, paperPixels, PREFLIGHT_PRESETS, resolvePreflightProfile, sheetMm } from '@segnavia/format'
+import { BookView, isChapter, PAGE_WIDTHS, Page, PREFLIGHT_PRESETS, paperPixels, resolvePreflightProfile, sheetMm } from '@segnavia/format'
 import { bookDocument, parseBookFixture, resolvePageHtml } from '@segnavia/html'
 import { expandFrameBookValue as expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
 

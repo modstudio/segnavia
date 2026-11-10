@@ -143,47 +143,48 @@ function hasTopLevelComma(source: string, list: CssToken[], start: number, close
   return false
 }
 
-export function cssPreflightFindings(source: string, list: CssToken[] = cssTokens(source)): CssPreflightFinding[] {
+function definedCustomProperties(list: CssToken[]): Set<string> {
   const definitions = new Set<string>()
   for (let at = 0; at < list.length - 1; at++) {
     const token = list[at]
     if (token?.kind === 'word' && token.value.startsWith('--') && list[at + 1]?.value === ':') definitions.add(token.value)
   }
-  const findings: CssPreflightFinding[] = []
-  const seen = new Set<string>()
-  const add = (check: CssPreflightFinding['check'], subject: string) => {
-    const key = `${check}:${subject}`
-    if (!seen.has(key)) {
-      seen.add(key)
-      findings.push({ check, subject })
-    }
+  return definitions
+}
+
+function invalidVariable(source: string, list: CssToken[], at: number, definitions: Set<string>): string | undefined {
+  const token = list[at]
+  if (token?.kind !== 'function' || token.value !== 'var') return undefined
+  const close = matchingClose(list, at)
+  const name = list[at + 1]
+  if (name?.kind !== 'word' || !name.value.startsWith('--')) return undefined
+  return hasTopLevelComma(source, list, at + 1, close) || definitions.has(name.value) ? undefined : name.value
+}
+
+function networkUrl(list: CssToken[], at: number): string | undefined {
+  const token = list[at]
+  if (token?.kind === 'url') return !DATA_IMAGE.test(token.value) && !DATA_FONT.test(token.value) ? token.value : undefined
+  if (token?.kind === 'function' && token.value === 'url') {
+    const value = list[at + 1]
+    if (!value || (value.kind !== 'string' && value.kind !== 'word')) return undefined
+    const normalized = normalizedUrl(value.value, false)
+    return normalized && !DATA_IMAGE.test(normalized) && !DATA_FONT.test(normalized) ? normalized : undefined
   }
+  if (token?.kind !== 'at' || token.value !== 'import' || list[at + 1]?.kind !== 'string') return undefined
+  const normalized = normalizedUrl(list[at + 1]?.value ?? '', false)
+  return normalized && !DATA_IMAGE.test(normalized) ? normalized : undefined
+}
+
+export function cssPreflightFindings(source: string, list: CssToken[] = cssTokens(source)): CssPreflightFinding[] {
+  const definitions = definedCustomProperties(list)
+  const findings = new Map<string, CssPreflightFinding>()
   for (let at = 0; at < list.length; at++) {
-    const token = list[at]
-    if (token?.kind === 'function' && token.value === 'var') {
-      const close = matchingClose(list, at)
-      const name = list[at + 1]
-      if (name?.kind === 'word' && name.value.startsWith('--') && !hasTopLevelComma(source, list, at + 1, close) && !definitions.has(name.value)) {
-        add('css-var-invalid', name.value)
-      }
-    }
-    if (token?.kind === 'url' && !DATA_IMAGE.test(token.value) && !DATA_FONT.test(token.value)) add('css-url-network', token.value)
-    if (token?.kind === 'function' && token.value === 'url') {
-      const value = list[at + 1]
-      if (value && (value.kind === 'string' || value.kind === 'word')) {
-        const normalized = normalizedUrl(value.value, false)
-        if (normalized && !DATA_IMAGE.test(normalized) && !DATA_FONT.test(normalized)) add('css-url-network', normalized)
-      }
-    }
-    if (token?.kind === 'at' && token.value === 'import') {
-      const value = list[at + 1]
-      if (value?.kind === 'string') {
-        const normalized = normalizedUrl(value.value, false)
-        if (normalized && !DATA_IMAGE.test(normalized)) add('css-url-network', normalized)
-      }
-    }
+    const variable = invalidVariable(source, list, at, definitions)
+    if (variable) findings.set(`css-var-invalid:${variable}`, { check: 'css-var-invalid', subject: variable })
+    const url = networkUrl(list, at)
+    if (url) findings.set(`css-url-network:${url}`, { check: 'css-url-network', subject: url })
   }
-  return findings
+  return [...findings.values()]
 }
 
 function unsafeImageSet(list: CssToken[], start: number, close: number): boolean {

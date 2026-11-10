@@ -1,5 +1,5 @@
 import type { PreflightEntry, PreflightProfile, StyleSheet } from '@segnavia/format'
-import { compileStyleSheet, type CssPreflightFinding } from '@segnavia/html'
+import { type CssPreflightFinding, compileStyleSheet } from '@segnavia/html'
 
 // Blocks without an explicit direction read from their first strong letter,
 // while :where() keeps the library default at zero specificity.

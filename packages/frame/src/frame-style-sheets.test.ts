@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { boundPreflightReport, PREFLIGHT_PRESETS, preflightRefusal, resolvePreflightProfile, StyleSheet, type PreflightEntry } from '@segnavia/format'
+import { boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal, resolvePreflightProfile, StyleSheet } from '@segnavia/format'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 
 test('carries enabled CSS findings into warnings and strict refusals', () => {

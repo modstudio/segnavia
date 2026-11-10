@@ -8,7 +8,7 @@ import { BookSourcesElement } from './book-sources.ts'
 import { dispatchFontFailures, dispatchPreflight, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 import { upgradeProperties } from './element-properties.ts'
-
+import { fontMissingEntries } from './font-load.ts'
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
   private currentView: BookView | null = null
@@ -25,7 +25,6 @@ export class SegnaviaBook extends BookSourcesElement {
   private layoutHandoff: { from: BookLayout; to: BookLayout; timer: ReturnType<typeof setTimeout> } | null = null
   private resolvedFontCss: string | undefined
   private preflightSeed: PreflightEntry[] = []
-  private fontFailures: FontFailure[] = []
   private diagramDrawing = { script: undefined as string | undefined, settled: false }
   private reflectingLayout = false
   private loadGeneration = 0
@@ -36,13 +35,11 @@ export class SegnaviaBook extends BookSourcesElement {
     super()
     upgradeProperties(this)
   }
-
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     window.addEventListener('message', this.onMessage)
     if (this.currentView) this.mount()
   }
-
   disconnectedCallback() {
     window.removeEventListener('message', this.onMessage)
     this.readyLayouts.clear()
@@ -252,7 +249,6 @@ export class SegnaviaBook extends BookSourcesElement {
       diagramScript: this.diagramDrawing.script,
       profile: this.profileInput,
       preflightSeed: this.preflightSeed,
-      fontFailures: this.fontFailures,
     })
   }
 
@@ -264,12 +260,12 @@ export class SegnaviaBook extends BookSourcesElement {
     return frame
   }
 
-  private mountFrames(view: BookView, css: string | undefined, fontFailures: FontFailure[] = []) {
+  private mountFrames(view: BookView, css: string | undefined, fontFailures: FontFailure[] = [], preflight: PreflightEntry[] = []) {
     const layout = this.currentLayout
     this.dropFrame()
     this.preparedView = view
     this.resolvedFontCss = css
-    this.fontFailures = fontFailures
+    this.preflightSeed = resolvePreflightProfile(this.profileInput)['font-missing'] === 'off' ? preflight : preflight.concat(fontMissingEntries(fontFailures))
     if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
       this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script })))
@@ -321,8 +317,7 @@ export class SegnaviaBook extends BookSourcesElement {
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions) {
       try {
         const prepared = prepareBookViewWithoutSources(view)
-        this.preflightSeed = prepared.preflight
-        this.mountFrames(prepared.view, prepared.css, prepared.failures)
+        this.mountFrames(prepared.view, prepared.css, prepared.failures, prepared.preflight)
       } catch (reason) {
         this.preparedView = null
         bookElement.reportBookError(this, reason)
@@ -337,8 +332,7 @@ export class SegnaviaBook extends BookSourcesElement {
     void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions, profile)
       .then((result) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.preflightSeed = result.preflight
-        this.mountFrames(result.view, result.css, result.failures)
+        this.mountFrames(result.view, result.css, result.failures, result.preflight)
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return

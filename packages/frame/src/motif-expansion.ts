@@ -247,7 +247,7 @@ async function resolveBookShape<T extends Book | BookView>(
   resolved.forEach((html, index) => {
     shape.fields[index]?.replace(html)
   })
-  return { book: shape.book, fonts: expanded.fonts, preflight: expanded.preflight ?? [] }
+  return { book: shape.book, fonts: expanded.fonts, preflight: expanded.preflight ?? [] } as ExpandedBook<T>
 }
 
 export async function expandFrameBook(
@@ -261,7 +261,15 @@ export async function expandFrameBook(
   profile?: PreflightProfile,
 ): Promise<ExpandedBook<Book>> {
   const document = parseDocument(input)
-  return expandFrameBookValue(bookFromDocument(document, await resolveBrand(document, brands?.source, signal)), motifs, signal, placements, purpose, pageWidths, profile)
+  return expandFrameBookValue(
+    bookFromDocument(document, await resolveBrand(document, brands?.source, signal)),
+    motifs,
+    signal,
+    placements,
+    purpose,
+    pageWidths,
+    profile,
+  )
 }
 
 export async function expandFrameBookValue(
@@ -327,7 +335,11 @@ export async function expandFramePage(
       }
     : undefined
   const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
-  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths, day, preflight), fonts, preflight: preflight?.entries ?? [] }
+  return {
+    page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths, day, preflight),
+    fonts,
+    preflight: preflight?.entries ?? [],
+  }
 }
 
 export function expandFramePages(

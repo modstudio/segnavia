@@ -27,29 +27,37 @@ export function appendSlotOversetEntries(slots: Record<string, string>, entries:
   }
 }
 
-export function markFurnitureInvalidVariables(root: Element, entries: Array<{ check: string; subject: string; message: string }>, computed: typeof getComputedStyle): void {
+function inlineVarHasFallback(style: string, start: number): boolean {
+  let depth = 1
+  for (let at = start; at < style.length && depth > 0; at++) {
+    const character = style[at]
+    if (character === '(') depth++
+    else if (character === ')') depth--
+    else if (character === ',' && depth === 1) return true
+  }
+  return false
+}
+
+function inlineVariablesWithoutFallback(style: string): string[] {
+  const found: string[] = []
+  for (const match of style.matchAll(/var\(\s*(--[\w-]+)/gi)) {
+    const subject = match[1]
+    if (subject && !inlineVarHasFallback(style, (match.index ?? 0) + match[0].length)) found.push(subject)
+  }
+  return found
+}
+
+export function markFurnitureInvalidVariables(
+  root: Element,
+  entries: Array<{ check: string; subject: string; message: string }>,
+  computed: typeof getComputedStyle,
+): void {
   const elements = root.querySelectorAll('[data-segnavia-head] [style],[data-segnavia-foot] [style]')
   for (const element of elements) {
-    const style = element.getAttribute('style') ?? ''
-    const pattern = /var\(\s*(--[\w-]+)/gi
-    for (const match of style.matchAll(pattern)) {
-      const subject = match[1]
-      if (!subject) continue
-      let depth = 1
-      let fallback = false
-      for (let at = (match.index ?? 0) + match[0].length; at < style.length && depth > 0; at++) {
-        const character = style[at]
-        if (character === '(') depth++
-        else if (character === ')') depth--
-        else if (character === ',' && depth === 1) fallback = true
-      }
-      if (fallback || computed(element).getPropertyValue(subject).trim() !== '') continue
+    for (const subject of inlineVariablesWithoutFallback(element.getAttribute('style') ?? '')) {
+      if (computed(element).getPropertyValue(subject).trim() !== '') continue
       if (entries.some((entry) => entry.check === 'css-var-invalid' && entry.subject === subject)) continue
-      entries.push({
-        check: 'css-var-invalid',
-        subject,
-        message: `Custom property ${subject} is invalid; define it or add a var() fallback to clear it.`,
-      })
+      entries.push({ check: 'css-var-invalid', subject, message: `Custom property ${subject} is invalid; define it or add a var() fallback to clear it.` })
     }
   }
 }
@@ -62,6 +70,8 @@ ${embedFunction('preflightRefusal', preflightRefusal)}
 ${embedFunction('pageBlockRange', pageBlockRange)}
 ${embedFunction('preflightPageFacts', preflightPageFacts)}
 ${embedFunction('appendSlotOversetEntries', appendSlotOversetEntries)}
+${embedFunction('inlineVarHasFallback', inlineVarHasFallback)}
+${embedFunction('inlineVariablesWithoutFallback', inlineVariablesWithoutFallback)}
 ${embedFunction('markFurnitureInvalidVariables', markFurnitureInvalidVariables)}
 ${embedFunction('fontMissingEntries', fontMissingEntries)}
 var publishPreflight=function(plan,flows){if(!config.preflight)return true;var pageFacts=preflightPageFacts(plan.pages,planFolios.folios,flows);var report=boundPreflightReport({entries:preflightEntries,facts:{pageCount:plan.pages.length,pages:pageFacts,fits:preflightFits}},config.preflight);var json=JSON.stringify(report);document.documentElement.setAttribute('${PREFLIGHT_ATTRIBUTE}',json);window.parent.postMessage({type:'${MESSAGE.preflight}',report:report},'*');var refusal=preflightRefusal(report);if(refusal){fail(refusal);return false;}return true;};

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { DocumentInput, Media } from '@segnavia/format'
-import { placementMissingEntry, placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
 import { boundPreflightReport, PREFLIGHT_PRESETS, preflightRefusal } from '@segnavia/format'
+import { placementMissingEntry, placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
 
 const signal = new AbortController().signal
 const media = (alt?: Media['alt']): Media => ({ format: 'png', size: { width: 20, height: 10 }, ...(alt ? { alt } : {}) })

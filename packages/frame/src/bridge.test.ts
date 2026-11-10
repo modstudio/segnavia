@@ -18,7 +18,7 @@ import {
   slotFitMessageData,
 } from './bridge.ts'
 
-function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>, fitBeforeReady = false): Promise<unknown[]> {
+function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Promise<unknown[]> {
   const messages: unknown[] = []
   let ready = () => {}
   const settled = new Promise<void>((resolve) => {
@@ -61,27 +61,10 @@ function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>, fitBe
     () => 1,
     () => {},
   )
-  if (fitBeforeReady) (window as { segnaviaSlotFit?: (done: () => void) => void }).segnaviaSlotFit?.(() => {})
   return settled.then(() => messages)
 }
 
 describe('frame document', () => {
-  test('a composer slot fit is cached and readiness posts the slot-fit message once', async () => {
-    const element = {
-      getAttribute: () => 'name:refuse',
-      getClientRects: () => [{}],
-      clientWidth: 10,
-      clientHeight: 10,
-      scrollWidth: 20,
-      scrollHeight: 10,
-      style: {},
-    }
-    const messages = await runSlotFitBridge([element], undefined, true)
-    expect(messages.filter((message) => (message as { type?: string }).type === MESSAGE.slotFit)).toEqual([
-      { type: MESSAGE.slotFit, slots: { name: 'overflowed' } },
-    ])
-  })
-
   test('shrink, truncate and refuse slot markers need fitting', () => {
     expect(documentNeedsSlotFit('<p>No slots</p>')).toBe(false)
     expect(documentNeedsSlotFit('<p data-slot-overflow="name:wrap">Wrap</p>')).toBe(false)

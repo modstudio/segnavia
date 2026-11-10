@@ -1,4 +1,13 @@
-import { type BookView, type FontFailure, type OriginApproval, type PreflightEntry, type PreflightProfileInput, resolveDirection, resolvePreflightProfile, type Scripts } from '@segnavia/format'
+import {
+  type BookView,
+  type FontFailure,
+  type OriginApproval,
+  type PreflightEntry,
+  type PreflightProfileInput,
+  resolveDirection,
+  resolvePreflightProfile,
+  type Scripts,
+} from '@segnavia/format'
 import type { BookLayout } from './book-presentation.ts'
 import { flowViewDocument, paginatedViewDocument } from './book-view-document.ts'
 import { frameDocument, frameStyleSheets, newNonce } from './bridge.ts'

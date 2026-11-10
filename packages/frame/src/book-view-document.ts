@@ -84,9 +84,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     measure: false,
     savedPlans: true,
     fontLoads: declaredFontLoads(fonts),
-    ...(options.profile && preflightEnabled(options.profile)
-      ? { preflight: options.profile, preflightSeed }
-      : {}),
+    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),

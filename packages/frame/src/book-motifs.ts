@@ -24,7 +24,8 @@ export async function prepareBookView(
     const refusal = bookViewMotifRefusal(view)
     if (refusal) throw refusal
   }
-  const expanded = motifs || placements ? await expandFrameBookView(view, motifs, signal, placements, pageWidths, profile) : { book: view, fonts: [], preflight: [] }
+  const expanded =
+    motifs || placements ? await expandFrameBookView(view, motifs, signal, placements, pageWidths, profile) : { book: view, fonts: [], preflight: [] }
   const { css, failures } = await expandedBookFontCss(expanded, fonts, signal)
   return { view: expanded.book, css, failures, preflight: expanded.preflight ?? [] }
 }

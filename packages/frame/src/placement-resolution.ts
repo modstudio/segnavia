@@ -12,7 +12,7 @@ import {
   sheetMm,
 } from '@segnavia/format'
 import type { HtmlPage, PrintedHtmlPage } from '@segnavia/html'
-import { placementMissingEntry, type PlacementReport, resolvePlacements } from '@segnavia/html'
+import { type PlacementReport, placementMissingEntry, resolvePlacements } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 
 export interface PlacementPreflight {
@@ -49,7 +49,14 @@ export function resolvePagePlacementHtml(
 ): Promise<string> {
   if (!placements) return Promise.resolve(html)
   const width = page.print ? paperPixels(sheetMm(page.print).width) : resolvePageWidth(page.size, pageWidths).viewportWidth
-  return resolvePlacements(html, { resolvePlacement: placements.resolve, report: placementReportWithPreflight(placements.report, preflight), purpose, width, signal, day })
+  return resolvePlacements(html, {
+    resolvePlacement: placements.resolve,
+    report: placementReportWithPreflight(placements.report, preflight),
+    purpose,
+    width,
+    signal,
+    day,
+  })
 }
 
 export async function resolvePagePlacements(
@@ -100,8 +107,12 @@ async function resolveParentPlacements(
   return Promise.all(
     (page.printedPages?.parents ?? []).map(async (parent) => ({
       ...parent,
-      ...(parent.head === undefined ? {} : { head: await resolvePagePlacementHtml(page, parent.head, placements, purpose, signal, pageWidths, day, preflight) }),
-      ...(parent.foot === undefined ? {} : { foot: await resolvePagePlacementHtml(page, parent.foot, placements, purpose, signal, pageWidths, day, preflight) }),
+      ...(parent.head === undefined
+        ? {}
+        : { head: await resolvePagePlacementHtml(page, parent.head, placements, purpose, signal, pageWidths, day, preflight) }),
+      ...(parent.foot === undefined
+        ? {}
+        : { foot: await resolvePagePlacementHtml(page, parent.foot, placements, purpose, signal, pageWidths, day, preflight) }),
     })),
   )
 }

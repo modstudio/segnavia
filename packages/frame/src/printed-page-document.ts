@@ -134,9 +134,7 @@ export function printedPageValueDocument(
     numbering: { frontMatter: numbering, body: numbering },
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
-    ...(options.profile && preflightEnabled(options.profile)
-      ? { preflight: options.profile, preflightSeed }
-      : {}),
+    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')

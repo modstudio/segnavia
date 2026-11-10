@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { boundPreflightReport, PREFLIGHT_PRESETS, preflightRefusal } from '@segnavia/format'
 import {
   declaredFontLoads,
   FONT_FAILURE_ATTRIBUTE,
@@ -9,7 +10,6 @@ import {
   fontMissingEntries,
   loadDeclaredFonts,
 } from './font-load.ts'
-import { boundPreflightReport, PREFLIGHT_PRESETS, preflightRefusal } from '@segnavia/format'
 
 describe('font load', () => {
   test('turns a missing face into warning and strict refusal text with its distinguishing face', () => {

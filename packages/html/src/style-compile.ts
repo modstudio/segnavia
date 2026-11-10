@@ -12,9 +12,9 @@ import {
   type TextStyleTokenGroup,
 } from '@segnavia/format'
 import { sanitizeBookCss } from './book-css.ts'
-import type { CssPreflightFinding } from './sanitize-css.ts'
 import { quoteFamily } from './css-family.ts'
 import { cssTokens } from './css-tokens.ts'
+import type { CssPreflightFinding } from './sanitize-css.ts'
 
 const LAYER_ORDER = '@layer segnavia.base, segnavia.brand, segnavia.document, segnavia.author;'
 const DEFAULT_BASE_CSS = ''

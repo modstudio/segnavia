@@ -28,7 +28,11 @@ export async function expandPrintedFramePage(
       regions,
     )
     if (refusal) throw refusal
-    return { page: await resolvePrintedPagePlacements(page, placements, purpose, signal, pageWidths, day, preflight), fonts: [], preflight: preflight?.entries ?? [] }
+    return {
+      page: await resolvePrintedPagePlacements(page, placements, purpose, signal, pageWidths, day, preflight),
+      fonts: [],
+      preflight: preflight?.entries ?? [],
+    }
   }
   const parentLang = page.lang?.trim() || documentLanguage(page.printedPages.sections.map((section) => section.html).join(''))
   const { bodyResults, parentResults, fonts } = await expandPageMotifs(
@@ -48,5 +52,9 @@ export async function expandPrintedFramePage(
       parents: expandedPageParents(page, parentResults),
     },
   }
-  return { page: await resolvePrintedPagePlacements(expandedPage, placements, purpose, signal, pageWidths, day, preflight), fonts, preflight: preflight?.entries ?? [] }
+  return {
+    page: await resolvePrintedPagePlacements(expandedPage, placements, purpose, signal, pageWidths, day, preflight),
+    fonts,
+    preflight: preflight?.entries ?? [],
+  }
 }
