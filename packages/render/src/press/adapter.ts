@@ -1,9 +1,9 @@
 import { deflateSync } from 'node:zlib'
 import { PDFDict, type PDFDocument, PDFHexString, PDFName, type PDFObject, type PDFRawStream, PDFRef, PDFString } from 'pdf-lib'
 import { readProfile } from '../color/profile.ts'
-import { type Color, type Color3, type Profile, ProfileUnsupportedError } from '../color/types.ts'
+import type { Color, Color3, Profile } from '../color/types.ts'
 import { GENERATED_EFFECT_IMAGE_KEY } from '../effects/types.ts'
-import { RenderColorProfileError, RenderRefusedError } from '../errors.ts'
+import { colorProfileRefusal, RenderColorProfileError, RenderRefusedError } from '../errors.ts'
 import { loadPdf } from '../pdf-load.ts'
 import { cachedPressColor, DEFAULT_NEUTRAL_TOLERANCE, destinationColor, newlySnapsToNeutral, pdfMaskLuminosity, pressDestination } from './color-policy.ts'
 import { type ContentColorSpaces, emptyContentColorSpaces, rewriteContent } from './content.ts'
@@ -372,7 +372,7 @@ export async function rewritePressPdf(
   try {
     const profile = readProfile(profileBytes)
     if (profile.colorSpace !== 'CMYK' && profile.colorSpace !== 'GRAY')
-      throw new RenderColorProfileError('press', `press profile color space ${profile.colorSpace}`, 'CMYK or GRAY')
+      throw new RenderColorProfileError('press', `color space ${profile.colorSpace.trim()}`, 'CMYK or GRAY')
     const document = await loadPdf(bytes, { updateMetadata: false })
     const destination = pressDestination(profile)
     const counts = rewritePressDocument(document, profile, tolerance, destination === 'gray' || images === 'convert')
@@ -387,8 +387,9 @@ export async function rewritePressPdf(
     report.convertedImages = convertedImages
     return { bytes: output, report }
   } catch (error) {
-    if (error instanceof RenderRefusedError) throw error
-    if (error instanceof ProfileUnsupportedError) throw new RenderColorProfileError('press', error.found, error.supported)
-    throw new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')
+    throw (
+      colorProfileRefusal('press', error) ??
+      new RenderRefusedError('The PDF has unsupported malformed structure; supported: a valid PDF produced by the renderer.')
+    )
   }
 }

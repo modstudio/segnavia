@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { Page as Tab } from 'playwright-core'
 import { buildPressProfile } from './color/profile-fixture.test-helper.ts'
+import { WELL_FORMED_ICC_PROFILE } from './color/types.ts'
 import { RenderColorProfileError, RenderRefusedError } from './errors.ts'
 import { MAX_PROOF_IMAGE_BYTES, MAX_PROOF_IMAGE_PIXELS, proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 
@@ -15,6 +16,19 @@ test('image proof gives a malformed profile engine facts in a structured refusal
     expect(error).toBeInstanceOf(RenderColorProfileError)
     expect(error).toBeInstanceOf(RenderRefusedError)
     expect(error).toMatchObject({ profile: 'proof', found: 'truncated profile tag', supported: 'profile tag structure contained within its declared size' })
+  }
+})
+
+test('image proof maps an unexpected profile parser error to a structured refusal', async () => {
+  const profile = buildPressProfile('mft1')
+  const buffer = profile.buffer as ArrayBuffer
+  structuredClone(buffer, { transfer: [buffer] })
+  try {
+    await proofRasterImage(unusedTab, Uint8Array.of(), { profile })
+    throw new Error('Expected the detached proof profile to be refused')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderColorProfileError)
+    expect(error).toMatchObject({ profile: 'proof', found: 'malformed structure', supported: WELL_FORMED_ICC_PROFILE })
   }
 })
 

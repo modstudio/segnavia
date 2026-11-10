@@ -1,4 +1,5 @@
 import { type LimitExceeded, LimitExceededError, type LimitMeasure, type LimitRefusalOptions } from '@segnavia/format'
+import { ProfileUnsupportedError } from './color/types.ts'
 
 export class RendererUnavailableError extends Error {
   override name = 'RendererUnavailableError'
@@ -62,6 +63,11 @@ export class RenderOversetError extends RenderRefusedError {
 
 export type ColorProfileUse = 'press' | 'proof'
 
+const PROFILE_CLEARS: Record<ColorProfileUse, string> = {
+  press: 'a valid ICC output profile',
+  proof: 'a valid CMYK output profile',
+}
+
 export class RenderColorProfileError extends RenderRefusedError {
   override name = 'RenderColorProfileError'
 
@@ -70,8 +76,12 @@ export class RenderColorProfileError extends RenderRefusedError {
     readonly found: string,
     readonly supported: string,
   ) {
-    super(
-      `The ${profile} profile has unsupported ${found}; supported: ${supported}. Supply ${profile === 'press' ? 'a valid ICC' : 'a valid CMYK'} output profile to clear this refusal.`,
-    )
+    super(`The ${profile} profile has unsupported ${found}; supported: ${supported}. Supply ${PROFILE_CLEARS[profile]} to clear this refusal.`)
   }
+}
+
+export function colorProfileRefusal(use: ColorProfileUse, error: unknown): RenderRefusedError | undefined {
+  if (error instanceof RenderRefusedError) return error
+  if (error instanceof ProfileUnsupportedError) return new RenderColorProfileError(use, error.found, error.supported)
+  return undefined
 }

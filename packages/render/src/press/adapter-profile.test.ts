@@ -28,7 +28,10 @@ test('refuses a non-CMYK press profile', async () => {
     throw new Error('Expected the press profile to be refused')
   } catch (error) {
     expect(error).toBeInstanceOf(RenderColorProfileError)
-    expect(error).toMatchObject({ profile: 'press', found: 'press profile color space RGB ', supported: 'CMYK or GRAY' })
+    expect(error).toMatchObject({ profile: 'press', found: 'color space RGB', supported: 'CMYK or GRAY' })
+    expect((error as Error).message).toBe(
+      'The press profile has unsupported color space RGB; supported: CMYK or GRAY. Supply a valid ICC output profile to clear this refusal.',
+    )
   }
 })
 

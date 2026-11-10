@@ -43,7 +43,7 @@ describe('printed page setup', () => {
 
   test('a press page refuses only when Chromium prints it onto multiple papers', () => {
     expect(oversetRefusal(3, 1)).toBeUndefined()
-    expect(oversetRefusal(3, 2)).toEqual(new RenderOversetError(3, 2))
+    expect(oversetRefusal(3, 2)).toBeInstanceOf(RenderOversetError)
     expect(oversetRefusal(3, 2)).toMatchObject({ page: 3, papers: 2 })
   })
 

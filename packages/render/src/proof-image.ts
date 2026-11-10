@@ -1,8 +1,8 @@
 import type { Page as Tab } from 'playwright-core'
 import { readProfile } from './color/profile.ts'
 import { buildProofTable } from './color/proof.ts'
-import { ProfileUnsupportedError, type ProofTable } from './color/types.ts'
-import { RenderColorProfileError, RenderRefusedError } from './errors.ts'
+import { type ProofTable, WELL_FORMED_ICC_PROFILE } from './color/types.ts'
+import { colorProfileRefusal, RenderColorProfileError, RenderRefusedError } from './errors.ts'
 import type { ImageOptions, ProofImageOptions } from './options.ts'
 import { proofRgba } from './proof-image-transform.ts'
 
@@ -22,9 +22,7 @@ function proofTable(bytes: Uint8Array): ProofTable {
     tables.set(bytes, table)
     return table
   } catch (error) {
-    if (error instanceof RenderRefusedError) throw error
-    if (error instanceof ProfileUnsupportedError) throw new RenderColorProfileError('proof', error.found, error.supported)
-    throw error
+    throw colorProfileRefusal('proof', error) ?? new RenderColorProfileError('proof', 'malformed structure', WELL_FORMED_ICC_PROFILE)
   }
 }
 
