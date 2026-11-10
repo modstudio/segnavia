@@ -1,6 +1,7 @@
 import type { BoardItem } from '@segnavia/format'
 import type { BoardPointerDelegate } from './board-editing-seam.ts'
 import { boardPathElement } from './board-event-path.ts'
+import type { BoardFocusStop } from './board-focus.ts'
 import type { BoardGestures } from './board-gestures.ts'
 
 interface BoardPointerCallbacks {
@@ -12,7 +13,7 @@ interface BoardPointerCallbacks {
   boardKey: (event: KeyboardEvent) => void
   action: (action: string, item: BoardItem) => void
   focus: (id?: string) => void
-  focusByTab: (id: string | undefined, backwards: boolean) => boolean
+  focusByTab: (current: BoardFocusStop | undefined, backwards: boolean) => boolean
 }
 
 export class BoardPointerInput {
@@ -115,8 +116,7 @@ export class BoardPointerInput {
 
   private onKeyDown = (event: KeyboardEvent) => {
     if (event.key === 'Tab') {
-      const id = this.itemNode(event)?.dataset.boardItem ?? this.sectionTitleNode(event)?.dataset.boardSectionTitle ?? this.labelNode(event)?.dataset.boardLabel
-      if (this.callbacks.focusByTab(id, event.shiftKey)) event.preventDefault()
+      if (this.callbacks.focusByTab(this.focusStop(event), event.shiftKey)) event.preventDefault()
       return
     }
     if (this.delegate?.keyDown(event)) return
@@ -156,5 +156,13 @@ export class BoardPointerInput {
 
   private actionButton(event: Event): HTMLButtonElement | undefined {
     return event.composedPath().find((target): target is HTMLButtonElement => target instanceof HTMLButtonElement && Boolean(target.dataset.boardItemAction))
+  }
+
+  private focusStop(event: Event): BoardFocusStop | undefined {
+    const action = this.actionButton(event)
+    const actionIndex = Number(action?.dataset.boardItemActionIndex)
+    if (action?.dataset.boardItemAction && Number.isInteger(actionIndex)) return { id: action.dataset.boardItemAction, action: actionIndex }
+    const id = this.itemNode(event)?.dataset.boardItem ?? this.sectionTitleNode(event)?.dataset.boardSectionTitle ?? this.labelNode(event)?.dataset.boardLabel
+    return id ? { id } : undefined
   }
 }

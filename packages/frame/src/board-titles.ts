@@ -66,16 +66,21 @@ export class BoardItemTitles {
     name.dir = resolveDirection(undefined, undefined, text)
     const actionArea = document.createElement('span')
     actionArea.part.add('item-actions')
-    for (const action of actionsForKind(actions, item.kind)) actionArea.append(this.action(action, item, text, labels))
+    for (const [index, action] of actionsForKind(actions, item.kind).entries()) actionArea.append(this.action(action, item, text, labels, index))
     container.append(icon, name, actionArea)
   }
 
-  private action(action: BoardItemAction, item: BoardItem, name: string, labels: BoardLabels): HTMLButtonElement {
+  actionNodes(id: string): readonly HTMLButtonElement[] {
+    return [...(this.titles.get(id)?.querySelectorAll<HTMLButtonElement>('[data-board-item-action]') ?? [])]
+  }
+
+  private action(action: BoardItemAction, item: BoardItem, name: string, labels: BoardLabels, index: number): HTMLButtonElement {
     const button = document.createElement('button')
     button.type = 'button'
     button.part.add('item-action')
     button.dataset.action = action.id
     button.dataset.boardItemAction = item.id
+    button.dataset.boardItemActionIndex = String(index)
     button.setAttribute('aria-label', labels.itemAction(action.label, name))
     const icon = action.icon?.()
     if (icon) button.append(icon)

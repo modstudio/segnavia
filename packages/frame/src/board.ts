@@ -3,7 +3,6 @@ import {
   type BoardItem,
   type BoardView,
   boardBounds,
-  boardFocusOrder,
   itemAt,
   itemHeight,
   resolvedShape,
@@ -18,6 +17,7 @@ import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
 import { type BoardEditingBridge, type BoardEditingHostValue, type BoardPointerDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
 import { BoardViewEventDispatcher, boardEvent } from './board-events.ts'
+import { focusBoardByTab } from './board-focus.ts'
 import { BoardFrameInputsElement } from './board-frame-inputs.ts'
 import { BoardGestures } from './board-gestures.ts'
 import { BoardPointerInput } from './board-input.ts'
@@ -103,7 +103,17 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       ),
     action: (action, item) => this.dispatchEvent(boardEvent('segnavia-board-item-action', { action, item })),
     focus: (id) => (id ? (this.mounts.nodes.get(id) ?? this.decorations.focusNode(id))?.focus() : this.focus()),
-    focusByTab: (id, backwards) => this.focusByTab(id, backwards),
+    focusByTab: (current, backwards) =>
+      focusBoardByTab(
+        this.value,
+        this.shapeCache.value.shapes,
+        this.clientWidth > 96 && this.clientHeight > 96,
+        current,
+        backwards,
+        (id) => this.mounts.nodes.get(id) ?? this.decorations.focusNode(id),
+        (id) => this.titles.actionNodes(id),
+        (id) => this.revealItem(id, true),
+      ),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
   constructor() {
@@ -288,16 +298,6 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this.setView(revealView(target.bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
     if (item) this.pendingReveal = { id: item.id, height: target.bounds.height }
     if (focus) focusAfterReveal(() => (item ? this.mounts.nodes.get(item.id) : this.decorations.focusNode(id))?.focus())
-    return true
-  }
-
-  private focusByTab(id: string | undefined, backwards: boolean): boolean {
-    if (!this.value) return false
-    const order = boardFocusOrder(this.value, this.shapeCache.value.shapes)
-    const index = id ? order.indexOf(id) : backwards ? order.length : -1
-    const next = order[index + (backwards ? -1 : 1)]
-    if (!next) return false
-    ;(this.mounts.nodes.get(next) ?? this.decorations.focusNode(next))?.focus()
     return true
   }
 
