@@ -57,6 +57,7 @@ export const ELEMENT_PROPERTIES = {
       'placements',
       'pageWidths',
       'fonts',
+      'origins',
       'brands',
       'view',
       'kindIcon',

@@ -1,21 +1,17 @@
 import type { SlotsOptions } from '@segnavia/format'
-import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
+import type { BoardFrameInputs } from './board-frame-inputs.ts'
 import { coverImage } from './cover-element.ts'
 import type { CoverPresentation } from './designed-cover-policy.ts'
 import { loadPageValue } from './document-value-load.ts'
 import { fitDesignedCover } from './fit.ts'
-import type { MotifsOptions } from './motif-expansion.ts'
 import type { MountedElement } from './mounted-element.ts'
 import { createPageElement } from './page.ts'
-import type { FontsOptions } from './page-fonts.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 
 export function mountDesignedCover(
   presentation: Exclude<CoverPresentation, { kind: 'fallback' }>,
   failed: (error: unknown) => void,
-  motifs?: MotifsOptions,
-  fonts?: FontsOptions,
-  placements?: PlacementsOptions,
+  inputs: BoardFrameInputs,
   slots?: SlotsOptions,
 ): MountedElement {
   if (presentation.kind === 'picture') {
@@ -33,9 +29,11 @@ export function mountDesignedCover(
   sheet.style.flex = 'none'
   sheet.style.transformOrigin = 'center'
   const page = createPageElement()
-  page.motifs = motifs
-  page.fonts = fonts
-  page.placements = placements
+  page.motifs = inputs.motifs
+  page.fonts = inputs.fonts
+  page.placements = inputs.placements
+  page.pageWidths = inputs.pageWidths
+  page.origins = inputs.origins
   page.slots = slots
   page.style.inlineSize = `${projection.box.width}px`
   page.style.blockSize = `${projection.box.height}px`

@@ -93,6 +93,7 @@ test('the table covers every public frame element and safe event name', () => {
     for (const name of events) expect(name).not.toMatch(/(?:once|passive|capture)$/i)
   }
   expect(ELEMENT_PROPERTIES.board.properties).toContain('selected')
+  expect(ELEMENT_PROPERTIES.board.properties).toContain('origins')
   expect(ELEMENT_PROPERTIES.page.properties).toContain('profile')
   expect(ELEMENT_PROPERTIES.book.properties).toContain('profile')
 })

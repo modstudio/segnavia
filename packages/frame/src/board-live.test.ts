@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { Deck, Page } from '@segnavia/format'
+import { Deck, type OriginApproval, Page } from '@segnavia/format'
 
 test('passes board motif and placement sources to a live book before its view', async () => {
   const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
@@ -22,6 +22,7 @@ test('passes board motif and placement sources to a live book before its view', 
   const placements = {
     resolve: async () => ({ kind: 'media' as const, media: { format: 'png' as const, size: { width: 20, height: 10 } }, src }),
   }
+  const origins: readonly OriginApproval[] = [{ origin: 'https://images.example', kinds: ['image'] }]
   try {
     const live = liveBoardItem(
       {
@@ -59,15 +60,13 @@ test('passes board motif and placement sources to a live book before its view', 
         },
       },
       () => {},
-      motifs,
-      undefined,
-      placements,
-      { standard: 900 },
+      { motifs, placements, pageWidths: { standard: 900 }, origins },
     )
     const book = live.element as InstanceType<typeof import('./book.ts')['SegnaviaBook']>
     expect(book.motifs).toBe(motifs)
     expect(book.placements).toBe(placements)
     expect(book.pageWidths).toEqual({ standard: 900 })
+    expect(book.origins).toEqual(origins)
     if (!book.view || !book.motifs) throw new Error('the live board book did not receive its view and sources')
     const expanded = await expandFrameBookView(book.view, book.motifs, new AbortController().signal, book.placements)
     expect(expanded.book.pagination?.parents[0]?.regions.foot?.html).toContain('data-board-book-motif')

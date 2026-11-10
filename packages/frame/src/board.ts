@@ -16,16 +16,15 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { BoardItemAction, BoardItemKind } from './board-actions.ts'
 import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
-import { BoardDocumentElement } from './board-document-element.ts'
 import { type BoardEditingBridge, type BoardEditingHostValue, type BoardPointerDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
 import { BoardViewEventDispatcher, boardEvent } from './board-events.ts'
+import { BoardFrameInputsElement } from './board-frame-inputs.ts'
 import { BoardGestures } from './board-gestures.ts'
 import { BoardPointerInput } from './board-input.ts'
 import { BoardMounts } from './board-mounts.ts'
 import { type BoardItemNames, BoardNames } from './board-names.ts'
 import { BoardPainter } from './board-painter.ts'
 import { placeBoardItem } from './board-placement.ts'
-import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import * as boardPolicy from './board-policy.ts'
 import type { ResolveBoardItem } from './board-resolutions.ts'
 import { focusAfterReveal, revealTarget } from './board-reveal.ts'
@@ -34,9 +33,7 @@ import { BoardItemTitles } from './board-titles.ts'
 import { internalBoardValue } from './board-value.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { BoardLabels } from './labels.ts'
-import type { MotifsOptions } from './motif-expansion.ts'
-import type { FontsOptions } from './page-fonts.ts'
-export class SegnaviaBoard extends BoardDocumentElement {
+export class SegnaviaBoard extends BoardFrameInputsElement {
   private value: Board | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
   private viewWasSet = false
@@ -46,8 +43,6 @@ export class SegnaviaBoard extends BoardDocumentElement {
   private shapes: BoardShapes = { items: {}, labels: {} }
   private items = new Map<string, BoardItem>()
   private readonly painter = new BoardPainter()
-  private motifOptions: MotifsOptions | undefined
-  private placementOptions: PlacementsOptions | undefined
   private readonly viewEvents = new BoardViewEventDispatcher(this)
   private pendingReveal: { id: string; height: number } | undefined
   private readonly root = this.attachShadow({ mode: 'open' })
@@ -115,19 +110,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
     this.surface.dir = 'ltr'
     this.root.append(this.surface)
   }
-  set motifs(value: MotifsOptions | undefined) {
-    this.motifOptions = value
-    this.render()
-  }
-  set placements(value: PlacementsOptions | undefined) {
-    this.placementOptions = value
-    this.render()
-  }
-  set pageWidths(value: Parameters<BoardPainter['setPageWidths']>[0]) {
-    if (this.painter.setPageWidths(value)) this.render()
-  }
-  set fonts(value: FontsOptions | undefined) {
-    this.painter.fonts = value
+  protected frameInputsChanged() {
     this.render()
   }
   protected brandsChanged() {
@@ -360,7 +343,7 @@ export class SegnaviaBoard extends BoardDocumentElement {
     node.setAttribute('aria-label', name || item.kind)
     this.chrome.render(item)
     const tier = boardPolicy.boardTier(item.width * this.currentView.zoom, this.threshold)
-    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.motifOptions, this.painter.fonts, this.placementOptions)
+    this.painter.paint(node, item, resolved, tier, (error) => this.fail(item, error), this.frameInputs)
   }
 
   private resolve(item: BoardItem) {
