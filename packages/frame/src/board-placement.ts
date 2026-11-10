@@ -11,8 +11,8 @@ export function placeBoardNode(node: HTMLElement, view: BoardView, placement: Bo
   const point = boardToScreen(view, placement)
   node.style.insetInlineStart = `${point.x}px`
   node.style.insetBlockStart = `${point.y}px`
-  if (placement.width !== undefined) node.style.inlineSize = `${placement.width * view.zoom}px`
-  if (placement.height !== undefined) node.style.blockSize = `${placement.height * view.zoom}px`
+  node.style.inlineSize = placement.width === undefined ? '' : `${placement.width * view.zoom}px`
+  node.style.blockSize = placement.height === undefined ? '' : `${placement.height * view.zoom}px`
 }
 
 export function placeBoardItem(
