@@ -77,9 +77,10 @@ interface ReadableApproval {
   pathname?: string
 }
 
-function readablePathname(value: string): string | undefined {
-  if (!value.startsWith('/') || /[?#;,\\]/.test(value) || /%(?:2e|2f|5c)/i.test(value)) return undefined
-  if (value.split('/').some((segment) => segment === '.' || segment === '..')) return undefined
+const READABLE_PATHNAME = /^\/(?:[A-Za-z0-9._~!$&'()*+=:@/-]|%[0-9A-Fa-f]{2})*$/
+
+function readablePathname(value: string, origin: string): string | undefined {
+  if (!READABLE_PATHNAME.test(value) || /%(?:2e|2f|5c)/i.test(value) || new URL(value, origin).pathname !== value) return undefined
   return value === '/' ? value : value.replace(/\/+$/, '')
 }
 
@@ -92,7 +93,7 @@ function readableApprovals(approvals: Iterable<OriginApproval> | undefined): Rea
       result.push({ origin, kinds: approval.kinds })
       continue
     }
-    const pathname = readablePathname(approval.pathname)
+    const pathname = readablePathname(approval.pathname, origin)
     if (pathname) result.push({ origin, kinds: approval.kinds, pathname })
   }
   return result

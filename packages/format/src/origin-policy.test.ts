@@ -54,6 +54,12 @@ describe('origin policy', () => {
     }
   })
 
+  test.each(['/x https://evil.example', '/x"https://evil.example', '/café', '/100%'])('unreadable path prefix %s approves no CSP source', (pathname) => {
+    const approvals = [{ origin: 'https://assets.example', kinds: ['image'] as const, pathname }]
+    expect([...approvedSources(approvals, 'image', false)]).toEqual([])
+    expect(originDecision('https://assets.example/x.png', 'image', approvals, false).allowed).toBe(false)
+  })
+
   test('path refusals name the URL, prefixes, and clearing approval', () => {
     const decision = originDecision(
       'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css',

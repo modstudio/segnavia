@@ -83,6 +83,20 @@ describe('frame content security policy', () => {
     }
   })
 
+  test.each(['/x https://evil.example', '/x"https://evil.example', '/café', '/100%'])(
+    'omits unreadable image path prefix %s from the frame CSP',
+    (pathname) => {
+      const actual = cspDirectives(
+        frameDocument('<p>frame</p>', {
+          scripts: 'refuse',
+          nonce: 'known',
+          origins: [{ origin: 'https://assets.example', kinds: ['image'], pathname }],
+        }),
+      )
+      expect(actual['img-src']).toEqual(['data:', 'blob:'])
+    },
+  )
+
   test.each([
     ['refuse', refused],
     ['sandboxed', scripted],
