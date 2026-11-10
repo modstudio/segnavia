@@ -1,6 +1,7 @@
 import {
   assignMembership,
   type Board,
+  type BoardCommand,
   boardNodesInRectangle,
   fitTouchedSections,
   gridDropTarget,
@@ -15,9 +16,10 @@ import {
   settleBoard,
 } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
-import type { BoardEdit } from './board-editing.ts'
+import { labelResizeReleaseCommand, resizeReleaseCommand } from './board-editing-command.ts'
 import { placeMarquee, renderDropMarker, resizedAtPointer } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardPointerDelegate } from './board-editing-seam.ts'
+import type { BoardEdit } from './board-editing-types.ts'
 import { boardPathElement } from './board-event-path.ts'
 import { selectBoardNode } from './board-selection.ts'
 
@@ -45,6 +47,7 @@ interface Callbacks {
   bridge(): BoardEditingBridge
   live(value: Board): void
   commit(before: Board, after: Board, edit: BoardEdit): void
+  command(before: Board, commands: BoardCommand[], edit: BoardEdit): void
   remove(): void
   undo(): void
   redo(): void
@@ -196,18 +199,25 @@ export class BoardEditingInput implements BoardPointerDelegate {
       const target = [...assigned.sections].reverse().find((section) => section.items.some((id) => itemIds.includes(id)))
       const drop = target?.layout === 'manual' ? undefined : target ? gridDropTarget(gesture.before, bridge.shapes(), target.id, release) : undefined
       const placed = target && target.layout !== 'manual' && drop ? insertIntoGrid(moved, bridge.shapes(), target.id, itemIds, drop) : assigned
+      // item-move's point target cannot keep the drag offset apart from the drop point.
       this.callbacks.commit(gesture.before, settleBoard(gesture.before, placed, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
     } else if (gesture.kind === 'section' && gesture.sectionId) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
+      // BoardCommand has no target that can place a section rectangle.
       this.callbacks.commit(gesture.before, makeRoom(next, bridge.shapes(), [gesture.sectionId]), {
         kind: 'move-section',
         ids: [gesture.sectionId, ...members],
       })
     } else if (gesture.kind === 'resize') {
-      this.callbacks.commit(gesture.before, settleBoard(gesture.before, next, bridge.shapes(), [gesture.id]), { kind: 'resize', ids: [gesture.id] })
+      this.finishCommand(gesture.before, resizeReleaseCommand(next, gesture.id, gesture.corner), { kind: 'resize', ids: [gesture.id] })
     } else if (gesture.kind === 'label-resize') {
-      this.callbacks.commit(gesture.before, next, { kind: 'resize', ids: [gesture.id] })
+      this.finishCommand(gesture.before, labelResizeReleaseCommand(next, gesture.id), { kind: 'resize', ids: [gesture.id] })
     }
+  }
+
+  private finishCommand(before: Board, command: BoardCommand | undefined, edit: BoardEdit) {
+    if (command) this.callbacks.command(before, [command], edit)
+    else this.callbacks.live(before)
   }
 
   pointerCancel(event: PointerEvent): boolean {
@@ -256,6 +266,7 @@ export class BoardEditingInput implements BoardPointerDelegate {
       const movable = this.board.selection.filter((id) => !current.sections.some((section) => section.layout !== 'manual' && section.items.includes(id)))
       if (movable.length === 0) return true
       const moved = moveBoardNodes(current, movable, delta)
+      // item-move cannot nudge without reassigning membership.
       this.callbacks.commit(current, settleBoard(current, moved, this.callbacks.bridge().shapes(), movable), {
         kind: 'move',
         ids: movable,

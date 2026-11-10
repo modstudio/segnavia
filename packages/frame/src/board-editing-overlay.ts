@@ -1,7 +1,6 @@
 import {
   type Board,
   type BoardItem,
-  type BoardItemAnchor,
   type BoardLabel,
   type BoardShapes,
   type BoardView,
@@ -13,18 +12,12 @@ import {
   resizeItem,
   screenToBoard,
 } from '@segnavia/format'
+import { resizeAnchors } from './board-editing-command.ts'
 import { labelResizeHandlePoint } from './board-label-editing.ts'
-
-const anchors: Record<string, BoardItemAnchor> = {
-  'top-left': 'bottom-right',
-  'top-right': 'bottom-left',
-  'bottom-left': 'top-right',
-  'bottom-right': 'top-left',
-}
 
 export function resizedAtPointer(board: Board, id: string, corner: string, point: Point, view: BoardView, shape: { width: number; height: number }): Board {
   const item = board.items.find((entry) => entry.id === id)
-  const anchor = anchors[corner]
+  const anchor = resizeAnchors[corner]
   if (!item || !anchor) return board
   const boardPoint = screenToBoard(view, point)
   const width = corner.endsWith('right') ? boardPoint.x - item.x : item.x + item.width - boardPoint.x
