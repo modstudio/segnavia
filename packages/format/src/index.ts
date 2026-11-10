@@ -155,6 +155,7 @@ export {
   pagePlacementLayout,
   sharedImpositionPress,
 } from './imposition.ts'
+export { type ImpositionSideBoxes, impositionBoxes } from './imposition-boxes.ts'
 export { PAPER_FIT_TOLERANCE_MM } from './imposition-fit.ts'
 export { mixedImpositionGeometryRefusal } from './imposition-geometry-policy.ts'
 export {

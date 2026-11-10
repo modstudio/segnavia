@@ -2,6 +2,7 @@ import {
   Imposition,
   type ImpositionInput,
   impose,
+  impositionBoxes,
   impositionMarks,
   isPrintedPageIdentityImposition,
   mixedImpositionGeometryRefusal,
@@ -46,6 +47,7 @@ async function composedPdf(
 ): Promise<Uint8Array> {
   const press = sharedImpositionPress(pages)
   const imposed = impose(imposition, pages.length, press)
+  const boxes = impositionBoxes(imposition, press)
   const marks = impositionMarks(imposition, press)
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
@@ -83,6 +85,7 @@ async function composedPdf(
       bytes,
       placements: group.placements,
     })),
+    boxes,
     marks,
     imposition.markColor,
   )

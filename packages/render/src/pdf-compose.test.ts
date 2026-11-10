@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Buffer } from 'node:buffer'
 import { deflateSync } from 'node:zlib'
-import { FOLD_DASH_OFF_MM, FOLD_DASH_ON_MM, Imposition, impose, impositionMarks, MM_PER_PT, Page } from '@segnavia/format'
+import { FOLD_DASH_OFF_MM, FOLD_DASH_ON_MM, Imposition, impose, impositionBoxes, impositionMarks, MM_PER_PT, Page } from '@segnavia/format'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
 import { groupPieces } from './pages-imposition.ts'
@@ -52,6 +52,7 @@ async function imposedBytes(markColor: 'black' | 'registration'): Promise<Uint8A
       bytes: pieceBytes,
       placements: group.placements,
     })),
+    impositionBoxes(imposition),
     impositionMarks(imposition),
     markColor,
   )
@@ -108,6 +109,7 @@ test('a folded imposition with registration marks strokes dashed fold marks in S
       bytes: pieceBytes,
       placements: group.placements,
     })),
+    impositionBoxes(imposition),
     impositionMarks(imposition),
     'registration',
   )
