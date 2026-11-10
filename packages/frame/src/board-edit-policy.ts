@@ -1,5 +1,5 @@
 import { applyOps, type Document, type DocumentBatch, type DocumentOp, diffDocuments, fingerprintDocument, invertOps, rebaseOps } from '@segnavia/format'
-import type { BoardEdit } from './board-editing.ts'
+import type { BoardEdit } from './board-editing-types.ts'
 import {
   appendBoardHistory,
   type BoardHistory,

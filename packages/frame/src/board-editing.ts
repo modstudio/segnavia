@@ -36,48 +36,16 @@ import { editBoardFromFrame } from './board-editing-command.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderLabelResizeHandle, renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
+import type { AddBoardItemInput, BoardEdit, BoardEditing, BoardEditingOptions } from './board-editing-types.ts'
 import { BOARD_HISTORY_LIMIT } from './board-history.ts'
 import { BoardLabelDoubleClick } from './board-label-double-click.ts'
 import { withoutLabelWidth } from './board-label-editing.ts'
 import { BoardLabelEditor } from './board-label-editor.ts'
 import { boardLabels } from './labels.ts'
 
+export type { AddBoardItemInput, BoardChange, BoardEdit, BoardEditing, BoardEditingOptions } from './board-editing-types.ts'
 export { BOARD_HISTORY_LIMIT, DEFAULT_BOARD_ITEM_WIDTH }
 
-type EditKind = 'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'move-section' | 'settle' | 'edit-label'
-type DirectBoardEdit = { [Kind in EditKind]: { kind: Kind; ids: string[] } }[EditKind]
-type HostBoardEdit = { kind: 'apply'; label: string; ids: string[] }
-type HistoryBoardEdit = { [Kind in 'undo' | 'redo']: { kind: Kind; edit: BoardEdit } }['undo' | 'redo']
-export type BoardEdit = DirectBoardEdit | HostBoardEdit | HistoryBoardEdit
-export interface BoardChange {
-  board: Document
-  before: Document
-  batch: DocumentBatch
-  edit: BoardEdit
-  signal: AbortSignal
-}
-export interface AddBoardItemInput {
-  kind: BoardItem['kind']
-  address: string
-  width?: number
-}
-export interface BoardEditingOptions {
-  change(change: BoardChange): Promise<void>
-  editors?: Partial<Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>>
-  defaultWidth?: Partial<Record<BoardItem['kind'], number>>
-}
-export interface BoardEditing {
-  detach(): void
-  add(input: AddBoardItemInput, at?: Point): string | undefined
-  remove(ids?: readonly string[]): void
-  arrange(options: ArrangeOptions): void
-  apply(ops: readonly DocumentOp[], label: string): void
-  applyRemote(batch: DocumentBatch): void
-  undo(): void
-  redo(): void
-  readonly canUndo: boolean
-  readonly canRedo: boolean
-}
 class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>
   private bridge: BoardEditingBridge
@@ -124,12 +92,14 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.renderHandles()
     queueMicrotask(() => this.settleInitial())
   }
+
   get canUndo() {
     return (this.state?.undo.length ?? 0) > 0
   }
   get canRedo() {
     return (this.state?.redo.length ?? 0) > 0
   }
+
   detach() {
     if (this.stopped) return
     this.stopped = true
@@ -143,6 +113,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.bridge.detach()
     if (!this.state?.jobs.length) this.bridge.release()
   }
+
   add(input: AddBoardItemInput, at?: Point): string | undefined {
     const current = this.state ? boardFromDocument(this.state.value) : null
     if (!this.enabled.add || !current) return undefined
@@ -163,6 +134,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.board.selection = [item.id]
     return item.id
   }
+
   remove(ids: readonly string[] = this.board.selection) {
     const current = this.state ? boardFromDocument(this.state.value) : null
     const existing = ids.filter((id) => current?.items.some((item) => item.id === id))
@@ -171,6 +143,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.applyCommands(current, [{ type: 'item-remove', items: existing.map((id) => ({ id })) }], { kind: 'remove', ids: existing })
     this.board.focus()
   }
+
   arrange(options: ArrangeOptions) {
     const current = this.state ? boardFromDocument(this.state.value) : null
     if (!this.enabled.arrange || !current) return
@@ -187,18 +160,21 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
       { kind: 'arrange', ids },
     )
   }
+
   apply(ops: readonly DocumentOp[], label: string) {
     if (!this.state) return
     const transition = applyBoardEdit(this.state, ops, { kind: 'apply', label, ids: [] })
     this.refuseConflicts(transition.conflicts)
     this.applyTransition(transition)
   }
+
   applyRemote(batch: DocumentBatch) {
     if (!this.state) return
     const transition = applyRemoteBoardEdit(this.state, batch)
     this.refuseConflicts(transition.conflicts)
     this.applyTransition(transition)
   }
+
   undo() {
     if (!this.state) return
     const entry = this.state.undo.at(-1)
@@ -207,6 +183,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const transition = undoBoardEdit(this.state)
     this.applyTransition(transition, this.existingIds(entry.edit, boardFromDocument(transition.state.value)))
   }
+
   redo() {
     if (!this.state) return
     const entry = this.state.redo.at(-1)
@@ -215,7 +192,9 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const transition = redoBoardEdit(this.state)
     this.applyTransition(transition, this.existingIds(entry.edit, boardFromDocument(transition.state.value)))
   }
+
   pointerDown = (event: PointerEvent): boolean => (this.labelDoubleClick.capture(event), this.input.pointerDown(event))
+
   pointerMove(event: PointerEvent): boolean {
     return this.input.pointerMove(event)
   }
@@ -227,10 +206,13 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   pointerCancel(event: PointerEvent): boolean {
     return this.input.pointerCancel(event)
   }
+
   keyDown(event: KeyboardEvent): boolean {
     return this.input.keyDown(event)
   }
+
   private onKeyUp = (event: KeyboardEvent) => this.input.keyUp(event)
+
   private onDoubleClick = (event: MouseEvent) => {
     const target = this.labelDoubleClick.resolve(event)
     if (target?.kind === 'handle') {
@@ -241,10 +223,12 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     }
     if (target?.kind === 'label') this.labelEditor.open(target.id)
   }
+
   private applyBoard(next: Board, edit: BoardEdit) {
     if (!this.state) return
     this.applyTransition(applyBoardEdit(this.state, diffDocuments(this.state.value, this.bridge.document(next)), edit))
   }
+
   private commitLive(before: Board, next: Board, edit: BoardEdit) {
     this.bridge.setOptimistic(before)
     if (this.state) this.state = { ...this.state, value: this.bridge.document(before) }

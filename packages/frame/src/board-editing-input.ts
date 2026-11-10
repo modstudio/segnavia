@@ -16,9 +16,9 @@ import {
   settleBoard,
 } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
-import type { BoardEdit } from './board-editing.ts'
 import { placeMarquee, renderDropMarker, resizedAtPointer, resizeReleaseCommand } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardPointerDelegate } from './board-editing-seam.ts'
+import type { BoardEdit } from './board-editing-types.ts'
 import { boardPathElement } from './board-event-path.ts'
 import { selectBoardNode } from './board-selection.ts'
 
@@ -208,17 +208,20 @@ export class BoardEditingInput implements BoardPointerDelegate {
         ids: [gesture.sectionId, ...members],
       })
     } else if (gesture.kind === 'resize') {
-      const command = resizeReleaseCommand(next, gesture.id, gesture.corner)
-      if (command) this.callbacks.command(gesture.before, [command], { kind: 'resize', ids: [gesture.id] })
+      this.finishCommand(gesture.before, resizeReleaseCommand(next, gesture.id, gesture.corner), { kind: 'resize', ids: [gesture.id] })
     } else if (gesture.kind === 'label-resize') {
       const label = next.labels.find((entry) => entry.id === gesture.id)
-      if (label?.width !== undefined)
-        this.callbacks.command(
-          gesture.before,
-          [{ type: 'label-set', label: { id: gesture.id }, width: label.width, target: { at: { x: label.x, y: label.y } } }],
-          { kind: 'resize', ids: [gesture.id] },
-        )
+      const command: BoardCommand | undefined =
+        label?.width === undefined
+          ? undefined
+          : { type: 'label-set', label: { id: gesture.id }, width: label.width, target: { at: { x: label.x, y: label.y } } }
+      this.finishCommand(gesture.before, command, { kind: 'resize', ids: [gesture.id] })
     }
+  }
+
+  private finishCommand(before: Board, command: BoardCommand | undefined, edit: BoardEdit) {
+    if (command) this.callbacks.command(before, [command], edit)
+    else this.callbacks.live(before)
   }
 
   pointerCancel(event: PointerEvent): boolean {
