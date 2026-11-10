@@ -19,7 +19,6 @@ import {
 import type { SegnaviaBoard } from './board.ts'
 import {
   adoptHostBoard,
-  applyBoardEdit,
   applyRemoteBoardEdit,
   type BoardEditQueueState,
   type BoardEditTransition,
@@ -29,7 +28,7 @@ import {
   rejectBoardEdit,
   resolveBoardEdit,
 } from './board-edit-policy.ts'
-import { editBoardFromFrame, prepareBoardApply } from './board-editing-command.ts'
+import { applyBoardOps, editBoardFromFrame } from './board-editing-command.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderLabelResizeHandle, renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
@@ -53,7 +52,7 @@ export type { ComputedBoardShapes } from '@segnavia/format'
 export type { AddBoardItemInput, BoardChange, BoardEdit, BoardEditing, BoardEditingOptions } from './board-editing-types.ts'
 export { BOARD_HISTORY_LIMIT, DEFAULT_BOARD_ITEM_WIDTH }
 
-export class BoardEditingController implements BoardEditing, BoardPointerDelegate {
+class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>
   private bridge: BoardEditingBridge
   private state: BoardEditQueueState | null
@@ -169,12 +168,8 @@ export class BoardEditingController implements BoardEditing, BoardPointerDelegat
 
   apply(ops: readonly DocumentOp[], label: string) {
     if (!this.state) return
-    const prepared = prepareBoardApply(this.state.value, ops, this.bridge.measureLabel, this.bridge.document)
-    if (prepared.conflicts.length > 0) {
-      this.refuseConflicts(prepared.conflicts)
-      return
-    }
-    const transition = applyBoardEdit(this.state, prepared.applied, { kind: 'apply', label, ids: [] })
+    const transition = applyBoardOps(this.state, ops, label, this.bridge.measureLabel, this.bridge.document)
+    if (transition.conflicts?.length) return this.refuseConflicts(transition.conflicts)
     this.applyTransition(transition)
   }
 

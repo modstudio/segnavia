@@ -21,8 +21,7 @@ import {
   resolveBoardEdit,
   undoBoardEdit,
 } from './board-edit-policy.ts'
-import { BoardEditingController } from './board-editing.ts'
-import { editBoardFromFrame, prepareBoardApply } from './board-editing-command.ts'
+import { applyBoardOps, editBoardFromFrame, prepareBoardApply } from './board-editing-command.ts'
 
 const value = (x: number, title = 'Board'): Document =>
   DocumentSchema.parse({
@@ -165,34 +164,29 @@ describe('board edit queue policy', () => {
     expect(remote.state).toBe(current)
   })
 
-  test('controller apply refuses a partly conflicting batch without changing document or queues', () => {
+  test('host apply refuses a partly conflicting batch without changing document or queues', () => {
     const initial = value(1, 'Current')
     const state = boardEditQueue(initial)
-    const controller = Object.create(BoardEditingController.prototype) as BoardEditingController
-    const internals = controller as unknown as {
-      state: typeof state
-      bridge: {
-        measureLabel: () => undefined
-        document: (board: Board) => Document
-      }
-    }
-    internals.state = state
-    internals.bridge = {
-      measureLabel: () => undefined,
-      document: (board) => documentFromBoard(board, initial),
-    }
     const valid = diffDocuments(initial, value(1, 'Remote'))
     const conflicting = diffDocuments(value(0), value(2)).filter((op) => op.type === 'setFields' && op.id === 'one')
     const mixed = [...valid, ...conflicting]
+    const transition = applyBoardOps(
+      state,
+      mixed,
+      'mixed batch',
+      () => undefined,
+      (board) => documentFromBoard(board, initial),
+    )
 
-    expect(() => controller.apply(mixed, 'mixed batch')).toThrow(
+    expect(boardEditRefusal(transition.conflicts ?? [])).toBe(
       'Board edit refused conflicting operations: setFields node one field x. Rebuild the batch against the current board.',
     )
-    expect(internals.state).toBe(state)
-    expect(internals.state.value).toBe(initial)
-    expect(internals.state.jobs).toEqual([])
-    expect(internals.state.undo).toEqual([])
-    expect(internals.state.redo).toEqual([])
+    expect(transition.state).toBe(state)
+    expect(transition.state.value).toBe(initial)
+    expect(transition.state.jobs).toEqual([])
+    expect(transition.state.undo).toEqual([])
+    expect(transition.state.redo).toEqual([])
+    expect(transition.effects).toEqual({ abort: [], historyChanged: false })
   })
 
   test('conflict refusals name setFields nodes and fields', () => {

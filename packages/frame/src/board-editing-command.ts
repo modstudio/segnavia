@@ -12,7 +12,9 @@ import {
   labelShape,
   rebaseOps,
 } from '@segnavia/format'
+import { applyBoardEdit, type BoardEditQueueState, type BoardEditTransition } from './board-edit-policy.ts'
 import type { BoardEditingBridge } from './board-editing-seam.ts'
+import type { BoardEdit } from './board-editing-types.ts'
 import { sizeMeasuredLabels } from './board-label-sizing.ts'
 
 export const resizeAnchors: Record<string, BoardItemAnchor> = {
@@ -40,6 +42,21 @@ export function prepareBoardApply(
   const labels = sizeMeasuredLabels(candidates, (label) => labelShape(label, measureLabel))
   const measured = labels.some((label, index) => label !== board.labels[index]) ? document({ ...board, labels }) : rebased.document
   return { ...rebased, document: measured, applied: [...rebased.applied, ...diffDocuments(rebased.document, measured)] }
+}
+
+export function applyBoardOps(
+  state: BoardEditQueueState,
+  ops: readonly DocumentOp[],
+  label: string,
+  measureLabel: NonNullable<BoardShapesOptions['measureLabel']>,
+  document: (board: Board) => Document,
+): BoardEditTransition {
+  const prepared = prepareBoardApply(state.value, ops, measureLabel, document)
+  const edit: BoardEdit = { kind: 'apply', label, ids: [] }
+  if (prepared.conflicts.length > 0) {
+    return { state, effects: { abort: [], historyChanged: false }, conflicts: prepared.conflicts }
+  }
+  return applyBoardEdit(state, prepared.applied, edit)
 }
 
 export function editBoardFromFrame(
