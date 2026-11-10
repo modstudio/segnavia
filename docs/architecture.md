@@ -1863,6 +1863,13 @@ or the last (`last`); a page that sets none takes the value carried from
 earlier pages. Section-title and part-title values are carried only within their flow. A
 `folio` or `pages` variable is the page's folio or the page total, counted
 `of` the division numbering, the whole document or the page's record. Content
+Date variables carry a real ISO date and format it as `long` or `short` with a
+Gregorian or Hebrew calendar in the document language. Hebrew-calendar dates
+in Hebrew use printed Hebrew day and year numerals while retaining Intl's month
+and literal text. Metadata variables read `title`, `subject`, a locale-joined
+`authors` list or a key declared in `metadata.extra`; document parsing refuses
+an undeclared metadata key. These document values are identical on every page.
+Content
 refers to a variable with `data-variable`; `Document.parse` refuses an
 undeclared reference, a repeated name and a name under the reserved
 `segnavia:` prefix. The plan resolves every declared variable for each page

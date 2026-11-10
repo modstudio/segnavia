@@ -4,6 +4,7 @@ import {
   bookVariablePageNumbers,
   LIBRARY_VARIABLES,
   sequenceFolios,
+  type VariableDocumentFacts,
   variableValue,
   withLibraryEntries,
 } from '@segnavia/format'
@@ -64,6 +65,7 @@ export function marginFactsFor(
   system: Book['numbering']['body'],
   variables: Book['variables'],
   document: MarginDocumentContext = { pages: marginVariablePagesFor(sections, destinations, pages, blanks), offset: 0, system },
+  facts: VariableDocumentFacts = {},
 ): BookPageFacts[] {
   const folios = sequenceFolios(pages, system)
   const owners = marginPageOwners(sections, destinations, pages, blanks)
@@ -83,6 +85,7 @@ export function marginFactsFor(
         recordTotal: owner ? numbers.recordTotals[owner.section.id] : undefined,
         sectionTitle: owner?.section.title,
         partTitles: owner?.section.parts,
+        document: facts,
       })
       if (value) resolved[variable.name] = value
     }

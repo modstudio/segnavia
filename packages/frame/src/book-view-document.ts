@@ -67,6 +67,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     rectoOpenings: pagination.rectoOpenings,
     endnotePlacement: pagination.endnotePlacement,
     variables: withLibraryEntries(LIBRARY_VARIABLES, pagination.variables),
+    document: pagination.document,
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, pagination.headTemplates),
     recordSlotsByFlow: pagination.recordSlotsByFlow ?? {},
     numbering: pagination.numbering,

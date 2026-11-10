@@ -290,12 +290,12 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
       pages: documentPages,
       offset: 0,
       system: book.numbering.body,
-    }),
+    }, { lang: book.lang, metadata: { title: book.title, subject: book.subject, authors: book.authors, extra: book.extra } }),
     ...marginFactsFor(bodySections, printedBody.part.destinations, printedBody.part.pages, bodyBlankPages, book.numbering.body, book.variables, {
       pages: documentPages,
       offset: front.pages,
       system: book.numbering.body,
-    }),
+    }, { lang: book.lang, metadata: { title: book.title, subject: book.subject, authors: book.authors, extra: book.extra } }),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)
   const plan = planBookPages(marginFacts, direction)

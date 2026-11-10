@@ -70,6 +70,12 @@ export type PaginateNoteSeriesGeometry = z.infer<typeof PaginateNoteSeriesGeomet
 
 export const Measurements = z.object({
   variables: z.array(Variable).default([]),
+  document: z
+    .object({
+      lang: z.string().optional(),
+      metadata: z.object({ title: z.string().optional(), subject: z.string().optional(), authors: z.array(z.string()).optional(), extra: z.record(z.string(), z.string()).optional() }),
+    })
+    .default({ metadata: {} }),
   flows: z.array(PaginateFlow),
   notes: z.array(PaginateNote),
   geometry: z.object({ notesGap: z.number(), noteSeries: z.array(PaginateNoteSeriesGeometry).optional() }),

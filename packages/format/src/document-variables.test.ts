@@ -133,6 +133,37 @@ test('content variable node schema excludes part', () => {
   expect(content?.properties?.part).toEqual({ not: {} })
 })
 
+test('parses date and declared metadata variables and refuses invalid declarations with remedies', () => {
+  const base = {
+    type: 'document' as const,
+    kind: 'book' as const,
+    metadata: { title: 'Book', extra: { edition: 'Second' } },
+    mode: 'continuous' as const,
+    children: [{ type: 'flow' as const, title: 'Section', html: '<p>Body</p>' }],
+  }
+  expect(
+    Document.parse({
+      ...base,
+      variables: [
+        { type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' },
+        { type: 'variable', name: 'edition', kind: 'meta', field: 'edition' },
+      ],
+    }).variables,
+  ).toMatchObject([{ kind: 'date' }, { kind: 'meta', field: 'edition' }])
+  expect(() =>
+    Document.parse({ ...base, variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'julian', format: 'long' }] }),
+  ).toThrow(/unknown date calendar.*gregorian or hebrew.*clear this refusal/)
+  expect(() =>
+    Document.parse({ ...base, variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'medium' }] }),
+  ).toThrow(/unknown date format.*long or short.*clear this refusal/)
+  expect(() =>
+    Document.parse({ ...base, variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2023-02-29', calendar: 'gregorian', format: 'long' }] }),
+  ).toThrow(/not a real ISO YYYY-MM-DD date.*provide a real date to clear this refusal/)
+  expect(() => Document.parse({ ...base, variables: [{ type: 'variable', name: 'missing', kind: 'meta', field: 'missing' }] })).toThrow(
+    /unknown metadata field.*missing.*declare metadata.extra.missing to clear this refusal/,
+  )
+})
+
 test('a document-lowered book stores authored definitions and re-parses after JSON', () => {
   const document = Document.parse({
     type: 'document',

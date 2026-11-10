@@ -40,6 +40,7 @@ export function refineDocumentVariables(
     partNames?: string[]
     templates?: Array<Omit<TemplateNode, 'type'> | TemplateNode>
     recordSlotNames?: string[]
+    metadata?: { extra?: Record<string, string> }
   },
   ctx: z.RefinementCtx,
 ): void {
@@ -61,6 +62,17 @@ export function refineDocumentVariables(
         code: 'custom',
         path: ['variables', index, 'part'],
         message: `part-title variable ${JSON.stringify(variable.name)} names unknown part ${JSON.stringify(textVariable.part)}; name an existing part or remove the variable to clear this refusal`,
+      })
+    }
+    if (
+      variable.kind === 'meta' &&
+      !['title', 'subject', 'authors'].includes(variable.field) &&
+      !Object.hasOwn(document.metadata?.extra ?? {}, variable.field)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['variables', index, 'field'],
+        message: `meta variable ${JSON.stringify(variable.name)} names unknown metadata field ${JSON.stringify(variable.field)}; use title, subject, authors, or declare metadata.extra.${variable.field} to clear this refusal`,
       })
     }
     authoredVariables.add(variable.name)

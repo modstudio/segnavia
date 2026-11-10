@@ -85,6 +85,7 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       brand,
       authors: metadata?.authors,
       subject: metadata?.subject,
+      extra: metadata?.extra,
       limits: document.limits,
       mode: document.mode,
       page: document.page,

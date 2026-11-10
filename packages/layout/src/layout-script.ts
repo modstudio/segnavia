@@ -3,6 +3,8 @@ import {
   fingerprintScript,
   folioScript,
   LIBRARY_VARIABLES,
+  dateVariableValue,
+  metaVariableValue,
   textVariableValue,
   variableValue,
   withLibraryEntries,
@@ -33,6 +35,8 @@ ${bookVariablePageNumbers.toString()}
 ${bookPlanDocumentNumbers.toString()}
 var bookPlanDocumentNumbers=${bookPlanDocumentNumbers.name};
 ${textVariableValue.toString()}
+${dateVariableValue.toString()}
+${metaVariableValue.toString()}
 ${variableValue.toString()}
 ${withLibraryEntries.toString()}
 var withLibraryEntries=${withLibraryEntries.name};

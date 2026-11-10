@@ -112,6 +112,19 @@ function hebrewBelowThousand(value: number): string {
   return `${hundreds}${hundredsLetter}${tens[Math.floor(remainder / 10)]}${ones[remainder % 10]}`
 }
 
+function punctuatedHebrew(letters: string): string {
+  return letters.length === 1 ? `${letters}׳` : `${letters.slice(0, -1)}״${letters.slice(-1)}`
+}
+
+export function formatHebrewNumeral(value: number, omitThousands = false): string {
+  positiveInteger(value)
+  inRange(value, 9999, 'hebrew')
+  const thousands = Math.floor(value / 1000)
+  const rest = value % 1000
+  const heldThousands = omitThousands || thousands === 0 ? '' : `${hebrewBelowThousand(thousands)}׳`
+  return `${heldThousands}${rest === 0 ? '' : punctuatedHebrew(hebrewBelowThousand(rest))}`
+}
+
 function hebrew(value: number): string {
   const ones = ['', 'א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז', 'ח', 'ט'] as const
   const thousands = Math.floor(value / 1000)
@@ -132,7 +145,7 @@ export function formatNumber(value: number, system: NumberSystem): string {
 }
 
 export function numberingScript(): string {
-  const functions = [positiveInteger, inRange, roman, hebrewBelowThousand, hebrew, formatNumber]
+  const functions = [isHebrew, positiveInteger, inRange, roman, hebrewBelowThousand, punctuatedHebrew, formatHebrewNumeral, hebrew, formatNumber]
   return `${functions.map((fn) => fn.toString()).join('\n')}\nvar formatNumber=${formatNumber.name};`
 }
 

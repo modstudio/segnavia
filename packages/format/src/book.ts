@@ -84,6 +84,7 @@ export const BookShape = z.object({
   title: z.string(),
   authors: z.array(z.string()).optional(),
   subject: z.string().optional(),
+  extra: z.record(z.string(), z.string()).optional(),
   mode: BookMode,
   limits: DocumentLimitsValue.optional(),
   page: BookPage.optional(),
@@ -155,6 +156,12 @@ export const BookViewPagination = z
     variables: Variables,
     headTemplates: HeadTemplates,
     recordSlotsByFlow: z.record(z.string(), z.record(z.string(), z.string())).optional(),
+    document: z
+      .object({
+        lang: z.string().optional(),
+        metadata: z.object({ title: z.string().optional(), subject: z.string().optional(), authors: z.array(z.string()).optional(), extra: z.record(z.string(), z.string()).optional() }),
+      })
+      .default({ metadata: {} }),
   })
   .superRefine((pagination, ctx) =>
     refineDocumentVariables(
@@ -163,6 +170,7 @@ export const BookViewPagination = z
         headTemplates: pagination.headTemplates,
         parentPages: pagination.parents,
         recordSlotNames: Object.values(pagination.recordSlotsByFlow ?? {}).flatMap((slots) => Object.keys(slots)),
+        metadata: pagination.document.metadata,
       },
       ctx,
     ),
@@ -307,6 +315,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       templates: book.templates,
       partNames: declaredPartNames([...book.frontMatter, ...book.body, ...book.endMatter]),
       recordSlotNames: bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? Object.keys(entry.values) : [])),
+      metadata: { extra: book.extra },
     },
     ctx,
   )
@@ -368,5 +377,6 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     variables: book.variables,
     headTemplates: book.headTemplates,
     recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),
+    document: { lang: book.lang, metadata: { title: book.title, subject: book.subject, authors: book.authors, extra: book.extra } },
   }
 }
