@@ -5,6 +5,7 @@ import {
   bookParentPages,
   type boundPreflightReport,
   computeFolios,
+  type cssVarInvalidMessage,
   Document,
   PREFLIGHT_PRESETS,
   type preflightRefusal,
@@ -122,7 +123,7 @@ describe('bookDocument', () => {
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
     const embedded = new Function(
-      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal,appendSlotOversetEntries,inlineVarHasFallback,inlineVariablesWithoutFallback,markFurnitureInvalidVariables,fontMissingEntries}`,
+      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal,cssVarInvalidMessage,appendSlotOversetEntries,inlineVarHasFallback,inlineVariablesWithoutFallback,markFurnitureInvalidVariables,fontMissingEntries}`,
     )() as {
       resolveRegionHeads: (
         templates: { name: string; parts: { variable: string }[]; separator: string; dropEmpty: boolean; collapseEqual: boolean }[],
@@ -141,6 +142,7 @@ describe('bookDocument', () => {
       preflightPageFacts: typeof preflightPageFacts
       boundPreflightReport: typeof boundPreflightReport
       preflightRefusal: typeof preflightRefusal
+      cssVarInvalidMessage: typeof cssVarInvalidMessage
       appendSlotOversetEntries: (slots: Record<string, string>, entries: unknown[]) => void
       inlineVarHasFallback: (style: string, start: number) => boolean
       inlineVariablesWithoutFallback: (style: string) => string[]

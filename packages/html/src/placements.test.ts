@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
 import type { DocumentInput, Media } from '@segnavia/format'
-import { boundPreflightReport, PREFLIGHT_PRESETS, preflightRefusal } from '@segnavia/format'
 import { placementMissingEntry, placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
 
 const signal = new AbortController().signal
@@ -33,15 +32,6 @@ describe('placementPlan', () => {
 })
 
 describe('resolvePlacements', () => {
-  test('turns a missing placement into warning and strict refusal text', () => {
-    const entry = placementMissingEntry({ address: 'cover', page: undefined, reason: 'missing' })
-    const facts = { pageCount: 0, pages: [], fits: [] }
-    expect(boundPreflightReport({ entries: [entry], facts }, PREFLIGHT_PRESETS.default).issues[0]?.subject).toBe('cover')
-    expect(preflightRefusal(boundPreflightReport({ entries: [entry], facts }, PREFLIGHT_PRESETS.strict))).toBe(
-      'Placement cover is missing; supply a resolvable placement to clear it.',
-    )
-  })
-
   test('reports a non-media answer as invalid and draws the placeholder', async () => {
     const reports: unknown[] = []
     const output = await resolvePlacements('<img data-segnavia-media="a">', {
@@ -53,6 +43,12 @@ describe('resolvePlacements', () => {
     })
     expect(output).toContain('data-segnavia-placement="missing"')
     expect(reports).toEqual([{ address: 'a', page: undefined, reason: 'invalid', message: 'resolved page, not media' }])
+  })
+
+  test('uses a failed resolver diagnostic in the preflight remedy', () => {
+    expect(placementMissingEntry({ address: 'cover', page: undefined, reason: 'failed', message: 'asset service timed out' }).message).toBe(
+      "Placement cover could not be resolved: asset service timed out; fix the placement's resolver answer to clear it.",
+    )
   })
   test('keeps documents without placements byte-identical', async () => {
     const html = "<IMG src='data:image/png,x'>\n<p>held</p>"

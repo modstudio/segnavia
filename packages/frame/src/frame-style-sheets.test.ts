@@ -18,3 +18,16 @@ test('carries enabled CSS findings into warnings and strict refusals', () => {
   frameStyleSheets(sheet, undefined, '', { profile: resolvePreflightProfile({ 'css-var-invalid': 'off' }), entries: selective })
   expect(selective.map((entry) => entry.check)).toEqual(['css-url-network'])
 })
+
+test('resolves custom property definitions across every composed sheet', () => {
+  const entries: PreflightEntry[] = []
+  const document = StyleSheet.parse({ css: 'p{color:var(--segnavia-font-body);background:var(--brand);border-color:var(--missing)}' })
+  const brand = StyleSheet.parse({ css: ':root{--brand:blue}' })
+  frameStyleSheets(document, brand, ':root{--segnavia-font-body:Body}', { profile: PREFLIGHT_PRESETS.default, entries })
+  expect(entries.filter((entry) => entry.check === 'css-var-invalid').map((entry) => entry.subject)).toEqual(['--missing'])
+})
+
+test('does not collect CSS findings without a preflight sink', () => {
+  const sheet = StyleSheet.parse({ css: 'p{color:var(--missing)}' })
+  expect(frameStyleSheets(sheet, undefined).join('')).toContain('p{color:var(--missing)}')
+})

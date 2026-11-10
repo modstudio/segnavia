@@ -1,4 +1,4 @@
-import type { PreflightEntry, PreflightProfile, StyleSheet } from '@segnavia/format'
+import { cssVarInvalidMessage, type PreflightEntry, type PreflightProfile, type StyleSheet } from '@segnavia/format'
 import { type CssPreflightFinding, compileStyleSheet } from '@segnavia/html'
 
 // Blocks without an explicit direction read from their first strong letter,
@@ -18,7 +18,7 @@ export function cssPreflightEntries(findings: readonly CssPreflightFinding[]): P
     ...finding,
     message:
       finding.check === 'css-var-invalid'
-        ? `Custom property ${finding.subject} is invalid; define it or add a var() fallback to clear it.`
+        ? cssVarInvalidMessage(finding.subject)
         : `CSS URL ${finding.subject} requires the network; replace it with an embedded or supplied asset to clear it.`,
   }))
 }
@@ -29,9 +29,9 @@ export function frameStyleSheets(
   baseCss = '',
   preflight?: { profile: PreflightProfile; entries: PreflightEntry[] },
 ): string[] {
-  const findings: CssPreflightFinding[] = []
+  const findings: CssPreflightFinding[] | undefined = preflight ? [] : undefined
   const compiled = compileStyleSheet({ brand, document: document ?? {}, baseCss: `${BLOCK_DIRECTION_CSS}${baseCss}`, preflight: findings })
   if (!compiled.ok) throw new StyleSheetRefusedError(compiled.refusal)
-  if (preflight) preflight.entries.push(...cssPreflightEntries(findings).filter((entry) => preflight.profile[entry.check] !== 'off'))
+  if (preflight && findings) preflight.entries.push(...cssPreflightEntries(findings).filter((entry) => preflight.profile[entry.check] !== 'off'))
   return compiled.sheets
 }

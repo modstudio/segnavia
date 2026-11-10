@@ -42,7 +42,7 @@ test('a composer slot fit is cached and readiness posts the slot-fit message onc
     'MutationObserver',
     'setTimeout',
     'clearTimeout',
-    bridgeForHost({ reportHeight: false }),
+    bridgeForHost({ reportHeight: false, bridgeForHost: true }),
   )(
     document,
     parent,
@@ -56,4 +56,8 @@ test('a composer slot fit is cached and readiness posts the slot-fit message onc
   expect(messages.filter((message) => (message as { type?: string }).type === MESSAGE.slotFit)).toEqual([
     { type: MESSAGE.slotFit, slots: { name: 'overflowed' } },
   ])
+})
+
+test('a non-composed bridge does not expose composer slot fit', () => {
+  expect(bridgeForHost({ reportHeight: false })).not.toContain('window.segnaviaSlotFit')
 })

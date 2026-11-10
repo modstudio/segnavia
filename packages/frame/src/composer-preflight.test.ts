@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { boundPreflightReport, PREFLIGHT_PRESETS, preflightRefusal } from '@segnavia/format'
+import { boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal } from '@segnavia/format'
 import { composerScript } from './composer.ts'
 import { appendSlotOversetEntries, embeddedPreflightFunctions, markFurnitureInvalidVariables } from './composer-preflight.ts'
 
@@ -36,7 +36,7 @@ test('waits for slot fit before publishing its one report', () => {
 })
 
 test('slot overset names its subject and remedy under warning and strict profiles', () => {
-  const entries: Array<{ check: string; subject: string; message: string }> = []
+  const entries: PreflightEntry[] = []
   appendSlotOversetEntries({ title: 'overflowed', body: 'fit' }, entries)
   const facts = { pageCount: 0, pages: [], fits: [] }
   expect(boundPreflightReport({ entries, facts }, PREFLIGHT_PRESETS.default).issues[0]).toMatchObject({
@@ -55,13 +55,13 @@ test('checks only no-fallback inline furniture variables and skips computed styl
     { getAttribute: () => 'color:var(--defined)', id: 'defined' },
     { getAttribute: () => 'color:var(--fallback, red)', id: 'fallback' },
   ]
-  const entries: Array<{ check: string; subject: string; message: string }> = []
+  const entries: PreflightEntry[] = [{ check: 'css-var-invalid', subject: '--missing', message: 'Scanner already found --missing.' }]
   let calls = 0
   markFurnitureInvalidVariables({ querySelectorAll: () => elements } as unknown as Element, entries, ((element: { id: string }) => {
     calls++
     return { getPropertyValue: () => (element.id === 'defined' ? 'blue' : '') }
   }) as unknown as typeof getComputedStyle)
-  expect(entries.map((entry) => entry.subject)).toEqual(['--missing'])
+  expect(entries.filter((entry) => entry.subject === '--missing')).toHaveLength(1)
   expect(calls).toBe(2)
   expect(composerScript('{}')).toContain("if(config.preflight['css-var-invalid']!=='off')markFurnitureInvalidVariables")
 })

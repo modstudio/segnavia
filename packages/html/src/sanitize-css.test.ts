@@ -14,6 +14,19 @@ describe('CSS sanitizer', () => {
     expect(cssPreflightFindings('p{color:var(--missing)}')).toEqual([{ check: 'css-var-invalid', subject: '--missing' }])
   })
 
+  test('finds every fetching construct but not same-document fragments', () => {
+    expect(
+      cssPreflightFindings(
+        'p{background:image-set("https://example.test/a.png" 1x);content:src("https://example.test/b.woff2");cursor:-webkit-image-set("https://example.test/c.png" 1x)}',
+      ),
+    ).toEqual([
+      { check: 'css-url-network', subject: 'https://example.test/a.png' },
+      { check: 'css-url-network', subject: 'https://example.test/b.woff2' },
+      { check: 'css-url-network', subject: 'https://example.test/c.png' },
+    ])
+    expect(cssPreflightFindings('p{background:url(#f)}')).toEqual([])
+  })
+
   test('removes only fetching declarations and rules', () => {
     expect(rules('a{color:red;background:url(https://example.test/a.png)}b{color:blue}')).toEqual({ css: 'a{color:red;}b{color:blue}', removed: ['url()'] })
     expect(declarations('color:red;background:image-set("https://example.test/a.png" 1x);font-weight:bold')).toEqual({

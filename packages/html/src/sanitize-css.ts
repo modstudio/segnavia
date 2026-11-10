@@ -1,3 +1,4 @@
+import { cssNetworkUrls, FETCH_AT_KEYWORD_SET, FETCH_AT_KEYWORDS, FETCH_FUNCTION_SET, FETCH_FUNCTIONS } from './css-preflight-network.ts'
 import { type CssToken, cssEscape, cssTokens } from './css-tokens.ts'
 import { KEEP_WITH_VALUES } from './keep-with.ts'
 
@@ -14,11 +15,7 @@ export interface CssPreflightFinding {
 const DATA_IMAGE = /^data:image\//i
 const DATA_FONT = /^data:(?:font\/[^;,]+|application\/(?:x-)?font-[^;,]+)(?:[;,])/i
 const DECLARATION_AT_RULES = new Set(['counter-style', 'font-face', 'font-palette-values', 'page', 'property'])
-const FETCH_FUNCTIONS = ['url', 'src', 'image-set', '-webkit-image-set'] as const
-const FETCH_AT_KEYWORDS = ['import'] as const
 const FETCH_CONSTRUCT = new RegExp(`@(?:${FETCH_AT_KEYWORDS.join('|')})|(?:${FETCH_FUNCTIONS.join('|')})\\(`, 'gi')
-const FETCH_FUNCTION_SET = new Set<string>(FETCH_FUNCTIONS)
-const FETCH_AT_KEYWORD_SET = new Set<string>(FETCH_AT_KEYWORDS)
 
 function normalizedUrl(value: string, decodeEscapes = true): string {
   let normalized = ''
@@ -143,7 +140,7 @@ function hasTopLevelComma(source: string, list: CssToken[], start: number, close
   return false
 }
 
-function definedCustomProperties(list: CssToken[]): Set<string> {
+function definedCustomProperties(list: readonly CssToken[]): Set<string> {
   const definitions = new Set<string>()
   for (let at = 0; at < list.length - 1; at++) {
     const token = list[at]
@@ -152,7 +149,11 @@ function definedCustomProperties(list: CssToken[]): Set<string> {
   return definitions
 }
 
-function invalidVariable(source: string, list: CssToken[], at: number, definitions: Set<string>): string | undefined {
+export function cssCustomPropertyDefinitions(source: string): Set<string> {
+  return definedCustomProperties(cssTokens(source))
+}
+
+function invalidVariable(source: string, list: CssToken[], at: number, definitions: ReadonlySet<string>): string | undefined {
   const token = list[at]
   if (token?.kind !== 'function' || token.value !== 'var') return undefined
   const close = matchingClose(list, at)
@@ -161,28 +162,16 @@ function invalidVariable(source: string, list: CssToken[], at: number, definitio
   return hasTopLevelComma(source, list, at + 1, close) || definitions.has(name.value) ? undefined : name.value
 }
 
-function networkUrl(list: CssToken[], at: number): string | undefined {
-  const token = list[at]
-  if (token?.kind === 'url') return !DATA_IMAGE.test(token.value) && !DATA_FONT.test(token.value) ? token.value : undefined
-  if (token?.kind === 'function' && token.value === 'url') {
-    const value = list[at + 1]
-    if (!value || (value.kind !== 'string' && value.kind !== 'word')) return undefined
-    const normalized = normalizedUrl(value.value, false)
-    return normalized && !DATA_IMAGE.test(normalized) && !DATA_FONT.test(normalized) ? normalized : undefined
-  }
-  if (token?.kind !== 'at' || token.value !== 'import' || list[at + 1]?.kind !== 'string') return undefined
-  const normalized = normalizedUrl(list[at + 1]?.value ?? '', false)
-  return normalized && !DATA_IMAGE.test(normalized) ? normalized : undefined
-}
-
-export function cssPreflightFindings(source: string, list: CssToken[] = cssTokens(source)): CssPreflightFinding[] {
-  const definitions = definedCustomProperties(list)
+export function cssPreflightFindings(
+  source: string,
+  list: CssToken[] = cssTokens(source),
+  definitions: ReadonlySet<string> = definedCustomProperties(list),
+): CssPreflightFinding[] {
   const findings = new Map<string, CssPreflightFinding>()
   for (let at = 0; at < list.length; at++) {
     const variable = invalidVariable(source, list, at, definitions)
     if (variable) findings.set(`css-var-invalid:${variable}`, { check: 'css-var-invalid', subject: variable })
-    const url = networkUrl(list, at)
-    if (url) findings.set(`css-url-network:${url}`, { check: 'css-url-network', subject: url })
+    for (const url of cssNetworkUrls(list, at)) findings.set(`css-url-network:${url}`, { check: 'css-url-network', subject: url })
   }
   return [...findings.values()]
 }
@@ -388,9 +377,15 @@ function cleanDeclarations(source: string, list: CssToken[], start: number, end:
   return output + source.slice(character, rangeEnd)
 }
 
-export function sanitizeCss(source: string, declarations: boolean, dataFonts: boolean, preflight?: CssPreflightFinding[]): CssSanitizeResult {
+export function sanitizeCss(
+  source: string,
+  declarations: boolean,
+  dataFonts: boolean,
+  preflight?: CssPreflightFinding[],
+  definitions?: ReadonlySet<string>,
+): CssSanitizeResult {
   const list = cssTokens(source)
-  preflight?.push(...cssPreflightFindings(source, list))
+  preflight?.push(...cssPreflightFindings(source, list, definitions))
   const removed: string[] = []
   const css = declarations ? cleanDeclarations(source, list, 0, list.length, dataFonts, removed) : cleanRules(source, list, 0, list.length, dataFonts, removed)
   const auditRemoved = lexicalFindings(css, dataFonts)

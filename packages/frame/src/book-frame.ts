@@ -1,6 +1,5 @@
 import {
   type BookView,
-  type FontFailure,
   type OriginApproval,
   type PreflightEntry,
   type PreflightProfileInput,
@@ -24,10 +23,9 @@ export function bookFrame(
     diagramScript?: string
     profile?: PreflightProfileInput
     preflightSeed?: PreflightEntry[]
-    fontFailures?: FontFailure[]
   } = {},
 ): { title: string; srcdoc: string; scripts: Scripts } {
-  const { css, spread = false, layout = 'pages', origins = [], diagramScript, profile, preflightSeed, fontFailures } = options
+  const { css, spread = false, layout = 'pages', origins = [], diagramScript, profile, preflightSeed } = options
   const title = view.title ?? bookLabel(view.lang)
   if (view.pagination) {
     return {
@@ -43,7 +41,6 @@ export function bookFrame(
               diagramScript,
               profile: resolvePreflightProfile(profile),
               preflightSeed,
-              fontFailures,
             }),
     }
   }

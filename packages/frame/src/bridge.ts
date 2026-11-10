@@ -88,6 +88,8 @@ export interface FrameOptions {
   nonce: string
   // A document that has no library work to run can omit the bridge entirely.
   bridge?: boolean
+  // Exposes the non-posting slot-fit measurement hook used by a document composer.
+  bridgeForHost?: boolean
   dir?: Direction
   lang?: string
   title?: string
@@ -206,6 +208,7 @@ Object.defineProperty(window,'localStorage',{configurable:true,value:storage()})
     ? `Promise.resolve([]);var composerFontFailures=function(){try{var value=JSON.parse(document.documentElement.getAttribute('${FONT_FAILURE_ATTRIBUTE}')||'[]');return Array.isArray(value)?value:[];}catch(error){return [];}}`
     : `${declaredFontLoadExpression('declarations')}.then(reportFontFailures)`
   const reportComposerFontFailures = options.readyAfterAttribute ? 'reportFontFailures(composerFontFailures());' : ''
+  const composerSlotFit = options.bridgeForHost ? 'window.segnaviaSlotFit=function(done){slotFit(done,false);};' : ''
   return `(function(){
 ${storage}
 ${keepPassScript()}
@@ -241,7 +244,7 @@ else if(mode==='shrink'){var size=parseFloat(element.style.fontSize);if(!isFinit
 else if(mode==='refuse'){state=fits(element)?'fit':'overflowed';}else{continue;}record(key,state);slotFitElements.push(element);}
 if(unlaid&&slotFitTries<40){slotFitTries++;var retry=function(){slotFit(done,postResult);};if(!window.requestAnimationFrame){setTimeout(retry,50);return;}var finished=false;var finish=function(){if(finished)return;finished=true;retry();};var fallback=setTimeout(finish,50);window.requestAnimationFrame(function(){clearTimeout(fallback);finish();});return;}
 if(postResult!==false&&!slotFitPosted){slotFitPosted=true;post({type:'${MESSAGE.slotFit}',slots:slots});}if(done)done(slots);};
-window.segnaviaSlotFit=function(done){slotFit(done,true);};
+${composerSlotFit}
 document.addEventListener('keydown',function(e){var letter=e.key==='m'||e.key==='c'||e.key==='f';if(keys.indexOf(e.key)!==-1&&(!letter||!editable(e.target))){post({type:'${MESSAGE.key}',key:e.key});}});
 window.addEventListener('click',function(e){
 if(e.defaultPrevented||e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;

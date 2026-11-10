@@ -8,7 +8,6 @@ import { BookSourcesElement } from './book-sources.ts'
 import { dispatchFontFailures, dispatchPreflight, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 import { upgradeProperties } from './element-properties.ts'
-import { fontMissingEntries } from './font-load.ts'
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
   private currentView: BookView | null = null
@@ -265,7 +264,7 @@ export class SegnaviaBook extends BookSourcesElement {
     this.dropFrame()
     this.preparedView = view
     this.resolvedFontCss = css
-    this.preflightSeed = resolvePreflightProfile(this.profileInput)['font-missing'] === 'off' ? preflight : preflight.concat(fontMissingEntries(fontFailures))
+    this.preflightSeed = preflight
     if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
       this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script })))

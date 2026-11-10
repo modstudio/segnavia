@@ -14,6 +14,7 @@ import {
 describe('font load', () => {
   test('turns a missing face into warning and strict refusal text with its distinguishing face', () => {
     const entries = fontMissingEntries([{ font: 'body', family: 'Body', weight: 700, style: 'italic', reason: 'unsupplied' }])
+    expect(entries).toHaveLength(1)
     const facts = { pageCount: 0, pages: [], fits: [] }
     expect(boundPreflightReport({ entries, facts }, PREFLIGHT_PRESETS.default).issues[0]?.subject).toBe('Body (weight 700, italic)')
     expect(preflightRefusal(boundPreflightReport({ entries, facts }, PREFLIGHT_PRESETS.strict))).toBe(

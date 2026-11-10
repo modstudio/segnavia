@@ -18,7 +18,7 @@ import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBook
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { withDiagramScript } from './diagram-document.ts'
-import { declaredFontLoads, fontMissingEntries } from './font-load.ts'
+import { declaredFontLoads } from './font-load.ts'
 
 export interface PaginatedDocumentOptions {
   nonce: string
@@ -32,7 +32,6 @@ export interface PaginatedDocumentOptions {
   breaks?: string[]
   profile?: PreflightProfile
   preflightSeed?: PreflightEntry[]
-  fontFailures?: import('@segnavia/format').FontFailure[]
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
@@ -51,7 +50,6 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     GALLEY_PRINT_CSS +
     (options.fontCss ?? '')
   const preflightSeed = [...(options.preflightSeed ?? [])]
-  if (options.profile?.['font-missing'] !== 'off') preflightSeed.push(...fontMissingEntries(options.fontFailures ?? []))
   const sheets = frameStyleSheets(
     view.style,
     view.brand,
@@ -103,6 +101,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     reportHeight: false,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
+    bridgeForHost: true,
     printBackground: options.printBackground,
   })
 }

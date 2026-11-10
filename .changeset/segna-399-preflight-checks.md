@@ -3,4 +3,4 @@
 '@segnavia/frame': minor
 ---
 
-Add preflight checks for missing fonts and placements, overset slots, invalid custom properties, and network CSS URLs to composed books and printed pages.
+Add deduplicated preflight checks for in-frame missing fonts, reasoned missing placements, overset slots, invalid custom properties across composed styles, and fetching CSS constructs to composed books and printed pages.

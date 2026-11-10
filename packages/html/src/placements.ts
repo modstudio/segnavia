@@ -49,10 +49,14 @@ export type PlacementReport = (entry: {
 
 export function placementMissingEntry(entry: Parameters<PlacementReport>[0]): PreflightEntry {
   const subject = entry.address ?? (entry.page === undefined ? 'unknown' : String(entry.page))
+  const message =
+    entry.reason === 'missing' || entry.reason === 'refused-src'
+      ? `Placement ${subject} is missing; supply a resolvable placement to clear it.`
+      : `Placement ${subject} could not be resolved: ${entry.message ?? entry.reason}; fix the placement's resolver answer to clear it.`
   return {
     check: 'placement-missing',
     subject,
-    message: `Placement ${subject} is missing; supply a resolvable placement to clear it.`,
+    message,
   }
 }
 
