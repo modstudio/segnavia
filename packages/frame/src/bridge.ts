@@ -7,7 +7,17 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import { approvedOrigins, type Direction, type FetchKind, type FontFailure, type FontManifest, type OriginApproval, type Scripts } from '@segnavia/format'
+import {
+  approvedOrigins,
+  type Direction,
+  type FetchKind,
+  type FontFailure,
+  type FontManifest,
+  type OriginApproval,
+  PREFLIGHT_PRESETS,
+  type PreflightProfile,
+  type Scripts,
+} from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
@@ -17,7 +27,8 @@ import { keepPassScript } from './keep-pass.ts'
 import { escapeHtml } from './svg.ts'
 
 export type { SlotFitState } from './bridge-message.ts'
-export { dispatchFontFailures } from './bridge-message.ts'
+export { dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
+export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type SelectionMessage, selectionMessage } from './bridge-selection.ts'
 export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
 
@@ -38,9 +49,9 @@ export const MESSAGE = {
   bookPlace: 'segnavia:book-place',
   composeFailure: 'segnavia:compose-failure',
   fontFailures: 'segnavia:font-failures',
+  preflight: 'segnavia:preflight',
 } as const
 
-export const SELECTION_TEXT_LIMIT = 1_000_000
 export const HEADING_ID_LIMIT = 256
 export const COMPOSE_FAILURE_TEXT_LIMIT = 1024
 
@@ -360,30 +371,12 @@ export function bridgeForHost(options: Omit<FrameOptions, 'scripts' | 'nonce'> =
 
 // Our frame is identified by the window a message came from, which a page
 // cannot forge. `origin` is "null" for every sandboxed frame and proves nothing.
-export function messageFrom(event: MessageEvent, frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null): FrameMessage | null {
-  return messageFromFrames(event, frame, MESSAGE, RELAYED_KEYS, COMPOSE_FAILURE_TEXT_LIMIT)
-}
-
-export interface PageSelection {
-  text: string
-  pageText: string
-}
-
-export type SelectionMessage = { selection: PageSelection } | { oversize: true }
-
-export function selectionMessage(event: MessageEvent, frame: HTMLIFrameElement | null, id: number): SelectionMessage | null {
-  if (event.source !== frame?.contentWindow) return null
-  const data = event.data as { type?: unknown; id?: unknown; text?: unknown; pageText?: unknown }
-  if (data?.type !== MESSAGE.selection || data.id !== id || typeof data.text !== 'string' || typeof data.pageText !== 'string') return null
-  if (data.text.length > SELECTION_TEXT_LIMIT || data.pageText.length > SELECTION_TEXT_LIMIT) return { oversize: true }
-  return { selection: { text: data.text, pageText: data.pageText } }
-}
-
-export function headingMessage(event: MessageEvent, frame: HTMLIFrameElement | null, id: number): number | null | undefined {
-  if (event.source !== frame?.contentWindow) return undefined
-  const data = event.data as { type?: unknown; id?: unknown; top?: unknown }
-  if (data?.type !== MESSAGE.heading || data.id !== id || (data.top !== null && (typeof data.top !== 'number' || !Number.isFinite(data.top)))) return undefined
-  return data.top
+export function messageFrom(
+  event: MessageEvent,
+  frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
+  preflightProfile: PreflightProfile = PREFLIGHT_PRESETS.default,
+): FrameMessage | null {
+  return messageFromFrames(event, frame, MESSAGE, RELAYED_KEYS, COMPOSE_FAILURE_TEXT_LIMIT, preflightProfile)
 }
 
 /** Validates the narrow slot-fit payload before a host accepts page measurements. */

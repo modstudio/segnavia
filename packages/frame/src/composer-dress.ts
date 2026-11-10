@@ -1,5 +1,5 @@
-import { type HeadTemplate, headTemplatePlacements, MOTIF_ATTRIBUTE } from '@segnavia/format'
-import { resolveHeadTemplate } from '@segnavia/layout'
+import { type HeadTemplate, headTemplatePlacements, MOTIF_ATTRIBUTE, type PreflightEntry, type PreflightPageFacts } from '@segnavia/format'
+import { type PaginateBookPage, type PaginateFlow, pageBlockRange, resolveHeadTemplate } from '@segnavia/layout'
 
 export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {
   return fillRegionImplementation(html, values, headTemplatePlacements, MOTIF_ATTRIBUTE)
@@ -56,21 +56,50 @@ export interface RegionExcess {
   inline: number
 }
 
-export function markFurnitureOverflow(region: HTMLElement, page: Element): void {
+export function preflightPageFacts(
+  pages: readonly PaginateBookPage[],
+  folios: readonly (string | null)[],
+  flows: readonly PaginateFlow[],
+): PreflightPageFacts[] {
+  return pages.map((page, index) => {
+    const range = pageBlockRange(flows, page)
+    const first = range.first?.id
+    const last = range.last?.id
+    return { folio: folios[index] ?? '', ...(first ? { first } : {}), ...(last ? { last } : {}) }
+  })
+}
+
+export function markFurnitureOverflow(region: HTMLElement, page: Element, entries: PreflightEntry[]): void {
   const excess = region.scrollHeight - region.clientHeight
   if (excess <= 0.5) return
   const kind = region.hasAttribute('data-segnavia-head') ? 'head' : 'foot'
-  page.setAttribute('data-segnavia-furniture-overflow', `${region.getAttribute('data-segnavia-parent') ?? ''}:${kind}:${excess}`)
+  const parent = region.getAttribute('data-segnavia-parent') ?? ''
+  const subject = `${parent}:${kind}`
+  if (entries.some((entry) => entry.check === 'furniture-overset' && entry.subject === subject)) return
+  entries.push({
+    check: 'furniture-overset',
+    subject,
+    message: `Parent page ${parent} ${kind} furniture is overset; shorten its content or enlarge the ${kind} region to clear it.`,
+    location: { folio: page.getAttribute('data-segnavia-folio') ?? '' },
+  })
 }
 
-export function markRegionOverflow(root: Element, folio: string, excessOf: (element: Element) => RegionExcess): void {
+export function markRegionOverflow(root: Element, folio: string, excessOf: (element: Element) => RegionExcess, entries: PreflightEntry[]): void {
+  const template = root.getAttribute('data-template') ?? ''
   const regions = root.querySelectorAll('[data-region]')
   for (const region of regions) {
     const name = region.getAttribute('data-region')
     if (!name) continue
     const excess = excessOf(region)
     if (excess.block <= 0.5 && excess.inline <= 0.5) continue
-    region.setAttribute('data-segnavia-region-overflow', `${folio}:${name}:${Math.max(excess.block, excess.inline)}`)
+    const subject = `${template}:${name}`
+    if (entries.some((entry) => entry.check === 'region-overset' && entry.subject === subject)) continue
+    entries.push({
+      check: 'region-overset',
+      subject,
+      message: `Template ${template} region ${name} is overset; shorten its content, enlarge the region, or lower its fit minimum to clear it.`,
+      location: { folio },
+    })
   }
 }
 

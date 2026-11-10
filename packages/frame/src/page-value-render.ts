@@ -1,4 +1,4 @@
-import { type AsOfDay, type Page, type PageWidths, pageDirection, printProperties, type SlotsOptions } from '@segnavia/format'
+import { type AsOfDay, type Page, type PageWidths, type PreflightProfileInput, pageDirection, printProperties, type SlotsOptions } from '@segnavia/format'
 import { type HtmlPage, resolvePageHtml, slotsWithDay } from '@segnavia/html'
 import { frameStyleSheets } from './bridge.ts'
 import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
@@ -17,6 +17,7 @@ export interface PageValueRenderOptions {
   css: string
   csp?: string
   origins: Iterable<import('@segnavia/format').OriginApproval>
+  profile?: PreflightProfileInput
 }
 
 export interface PageValueRenderHandlers {

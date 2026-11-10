@@ -1,5 +1,3 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; composed papers fill the host-sized element and scroll inside it. Host-served HTML reports its height through the bridge.
-
 import {
   type AsOfDay,
   type Document,
@@ -8,14 +6,16 @@ import {
   FULL_PAGE_SIZE,
   Page,
   type PageWidths,
+  type PreflightProfileInput,
   resolveAsOfDay,
   resolveDocumentDayResult,
+  resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
 import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
 import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -60,6 +60,7 @@ export class SegnaviaPage extends PageAsOfElement {
   private loadedDocument: number | undefined
   private frameReady = false
   private pageRequests = createPageRequestState()
+  private profileInput: PreflightProfileInput = 'default'
   constructor() {
     super()
     upgradeProperties(this)
@@ -115,6 +116,14 @@ export class SegnaviaPage extends PageAsOfElement {
 
   set fonts(value: FontsOptions | undefined) {
     this.fontOptions = value
+    if (this.pageValue) this.loadValue(this.pageValue)
+  }
+  get profile(): PreflightProfileInput {
+    return this.profileInput
+  }
+  set profile(value: PreflightProfileInput) {
+    resolvePreflightProfile(value)
+    this.profileInput = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
@@ -255,6 +264,7 @@ export class SegnaviaPage extends PageAsOfElement {
           css: this.css,
           csp: this.cspExtra || undefined,
           origins: this.origins,
+          profile: this.profileInput,
         },
         { show, report, write, composed: (identity) => (this.composedFrame = identity), fit: () => this.fit() },
       )
@@ -359,7 +369,7 @@ export class SegnaviaPage extends PageAsOfElement {
 
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
-    const message = messageFrom(event, frame)
+    const message = messageFrom(event, frame, resolvePreflightProfile(this.profileInput))
     const currentFrame = { frame, generation: this.loadGeneration }
     dispatchFontFailures(this, message)
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
@@ -367,6 +377,7 @@ export class SegnaviaPage extends PageAsOfElement {
       releaseReadyPageRequests(this.pageRequests)
     }
     const page = this.pageValue
+    if (samePageFrame(currentFrame, this.composedFrame) && dispatchPreflight(this, message)) return
     const composeFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, currentFrame, this.composedFrame)
     if (composeFailure) {
       dispatchPageFailure(this, composeFailure, true)

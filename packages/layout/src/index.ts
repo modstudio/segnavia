@@ -3,6 +3,7 @@ export { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanPage, ty
 export { type ConvergedLayout, convergeLayout, type LayoutStep, type LayoutWarning } from './converge-layout.ts'
 export { resolveHeadTemplate } from './head-template.ts'
 export { layoutScript } from './layout-script.ts'
+export { pageBlockRange } from './page-block-range.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './paginate-book.ts'
 export type { PaginateTarget, PaginateTargetPage } from './paginate-target.ts'
 export { heldPageNumber, openerPageIndex, pageIndexForTarget, windowPageIndex } from './paginate-target.ts'

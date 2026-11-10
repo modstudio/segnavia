@@ -79,13 +79,11 @@ export async function verifyBooks(h: Harness) {
     check(`${id} footnote marker brings its note into view`, await inBookView(h, frame, '#segnavia-fn-1-1'))
     await clickBookAnchor(h, frame, '#segnavia-fn-1-1 a')
     check(`${id} footnote back-link returns to its marker`, await inBookView(h, frame, '#segnavia-fnref-1-1'))
-
     await clickBookAnchor(h, frame, '#segnavia-enref-1')
     const endnote = await inBookView(h, frame, '#segnavia-en-1')
     const endSection = await inBookView(h, frame, '#segnavia-endnotes')
     check(`${id} endnote marker reaches the endnotes section`, endnote && endSection)
   }
-
   const direction = await page.frameLocator('#book-he iframe').locator('html').getAttribute('dir')
   check('the Hebrew continuous book root is right to left', direction === 'rtl', String(direction))
   const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
@@ -94,7 +92,6 @@ export async function verifyBooks(h: Harness) {
     messages.every((kind) => BOOK_BRIDGE_MESSAGES.has(kind)),
     messages.join(','),
   )
-
   await verifyPaginatedBookMotifs(h)
   await verifyPaginatedBooks(h)
   await verifyKeepBooks(h)
@@ -319,9 +316,6 @@ async function verifyWorkbooks(h: Harness) {
     const report = await frame.evaluate((flowId) => {
       const pages = Array.from(document.querySelectorAll(`[data-segnavia-book-page][data-segnavia-flow="${flowId}"]`))
       const templates = pages.map((paper) => paper.querySelector('[data-template]')?.getAttribute('data-template') ?? '')
-      const overflow = Array.from(document.querySelectorAll('[data-segnavia-region-overflow]')).map((node) =>
-        node.getAttribute('data-segnavia-region-overflow'),
-      )
       const school = document.body.textContent ?? ''
       const tableDir = Array.from(document.querySelectorAll('[data-segnavia-book-page] [data-region="table"]')).map((node) => getComputedStyle(node).direction)
       const contents = Array.from(document.querySelectorAll('.segnavia-contents-page[href^="#"]')).map((node) => {
@@ -333,7 +327,6 @@ async function verifyWorkbooks(h: Harness) {
         failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
         pages: pages.length,
         templates,
-        overflow,
         school,
         tableDir,
         contents,
@@ -347,11 +340,6 @@ async function verifyWorkbooks(h: Harness) {
       report.templates.includes('lesson') && report.templates.includes('lesson-alt'),
       report.templates.join(','),
     )
-    check(
-      `${id} an overfull reading-text region is marked by page and name`,
-      report.overflow.some((mark) => mark?.includes(':reading-text:')),
-      JSON.stringify(report.overflow),
-    )
     check(`${id} templated pages carry folios`, report.bodyFolio)
     const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === flowId)
     check(
@@ -364,10 +352,9 @@ async function verifyWorkbooks(h: Harness) {
     check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
     const fit = await frame.evaluate(() => {
       const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
-      if (!el) return { size: 0, overflow: 'missing', elements: -1 }
+      if (!el) return { size: 0, elements: -1 }
       return {
         size: Number.parseFloat(getComputedStyle(el).fontSize),
-        overflow: el.getAttribute('data-segnavia-region-overflow'),
         elements: el.childElementCount,
       }
     })
@@ -375,7 +362,7 @@ async function verifyWorkbooks(h: Harness) {
     const maxPx = 75 * PX_PER_PT
     check(
       `${id} a region of bare overflowing text fits between min and max`,
-      fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow,
+      fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5,
       JSON.stringify(fit),
     )
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())

@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { fillFurniture, fillRegion, markFurnitureOverflow, markRegionOverflow, resolveRegionHeads } from './composer-dress.ts'
+import { fillFurniture, fillRegion, markFurnitureOverflow, markRegionOverflow, preflightPageFacts, resolveRegionHeads } from './composer-dress.ts'
 
 test('fills named head templates and removes an empty placement', () => {
   const html = '<div data-motif="segnavia:head-template" data-motif-name="head"></div><i data-motif="segnavia:head-template" data-motif-name="empty"></i>'
@@ -92,26 +92,71 @@ test('removes an undefined record binding', () => {
   expect(slot.removed).toBeTrue()
 })
 
-test('keeps furniture and template-region overflow as separate page facts', () => {
-  const attributes = new Map<string, string>()
-  const page = { setAttribute: (name: string, value: string) => attributes.set(name, value) } as unknown as Element
+test('collects furniture and template-region overset as separate preflight entries', () => {
+  const entries: import('@segnavia/format').PreflightEntry[] = []
+  const page = { getAttribute: (name: string) => (name === 'data-segnavia-folio' ? 'iv' : null) } as unknown as Element
   const head = {
     scrollHeight: 31,
     clientHeight: 20,
     hasAttribute: (name: string) => name === 'data-segnavia-head',
     getAttribute: (name: string) => (name === 'data-segnavia-parent' ? 'body' : null),
   } as unknown as HTMLElement
-  markFurnitureOverflow(head, page)
-  expect(attributes.get('data-segnavia-furniture-overflow')).toBe('body:head:11')
-  expect(attributes.has('data-segnavia-region-overflow')).toBeFalse()
+  markFurnitureOverflow(head, page, entries)
+  expect(entries[0]).toMatchObject({ check: 'furniture-overset', subject: 'body:head', location: { folio: 'iv' } })
+  expect(entries[0]?.message).toEndWith('to clear it.')
 
-  attributes.clear()
   const region = {
     getAttribute: (name: string) => (name === 'data-region' ? 'sidebar' : null),
-    setAttribute: (name: string, value: string) => attributes.set(name, value),
   } as unknown as HTMLElement
-  const root = { querySelectorAll: () => [region] } as unknown as Element
-  markRegionOverflow(root, 'iv', () => ({ block: 11, inline: 0 }))
-  expect(attributes.get('data-segnavia-region-overflow')).toBe('iv:sidebar:11')
-  expect(attributes.has('data-segnavia-furniture-overflow')).toBeFalse()
+  const root = { querySelectorAll: () => [region], getAttribute: (name: string) => (name === 'data-template' ? 'lesson' : null) } as unknown as Element
+  markRegionOverflow(root, 'iv', () => ({ block: 11, inline: 0 }), entries)
+  expect(entries[1]).toMatchObject({ check: 'region-overset', subject: 'lesson:sidebar', location: { folio: 'iv' } })
+  expect(entries[1]?.message).toEndWith('to clear it.')
+})
+
+test('reports the first and last block on each page without walking composed pages', () => {
+  const pages = [
+    { flow: 'split', windows: [{ flow: 'split', start: 0, end: 20 }] },
+    { flow: 'split', windows: [{ flow: 'split', start: 20, end: 40 }] },
+    { flow: 'break', windows: [{ flow: 'break', start: 0, end: 10 }] },
+    { flow: 'break', windows: [{ flow: 'break', start: 10, end: 20 }] },
+    { flow: 'blank', windows: [] },
+    { flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] },
+    { flow: 'appendix', windows: [{ flow: 'appendix', start: 0, end: 10 }] },
+    { flow: 'fixed', windows: [{ flow: 'fixed', start: 0, end: 10 }] },
+  ]
+  const line = (top: number, bottom: number) => ({ top, bottom })
+  const flows = [
+    {
+      id: 'split',
+      kind: 'chapter',
+      blocks: [
+        { id: 'first', lines: [line(0, 10)] },
+        { id: 'split', lines: [line(10, 20), line(20, 30)] },
+        { id: 'last', lines: [line(30, 40)] },
+      ],
+    },
+    {
+      id: 'break',
+      kind: 'chapter',
+      blocks: [
+        { id: 'before-break', lines: [line(0, 10)] },
+        { id: 'after-break', lines: [line(10, 20)] },
+      ],
+    },
+    { id: 'chapter', kind: 'chapter', blocks: [{ id: 'chapter-only', lines: [line(0, 10)] }] },
+    { id: 'appendix', kind: 'chapter', blocks: [{ id: 'appendix-only', lines: [line(0, 10)] }] },
+    { id: 'fixed', kind: 'fixed', pages: 1 },
+  ]
+
+  expect(preflightPageFacts(pages as never, ['1', '2', '3', '4', null, '5', '6', '7'], flows as never)).toEqual([
+    { folio: '1', first: 'first', last: 'split' },
+    { folio: '2', first: 'split', last: 'last' },
+    { folio: '3', first: 'before-break', last: 'before-break' },
+    { folio: '4', first: 'after-break', last: 'after-break' },
+    { folio: '' },
+    { folio: '5', first: 'chapter-only', last: 'chapter-only' },
+    { folio: '6', first: 'appendix-only', last: 'appendix-only' },
+    { folio: '7' },
+  ])
 })

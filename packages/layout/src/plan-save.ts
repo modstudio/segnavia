@@ -8,6 +8,7 @@ import {
   type Plan as SavedPlan,
 } from '@segnavia/format'
 import type { BookPlanNumbering } from './book-plan-folios.ts'
+import { pageBlockRange } from './page-block-range.ts'
 import type { PaginateUnit } from './paginate-types.ts'
 import { resolveVariablesAcrossPages } from './paginate-variables.ts'
 import type { BookPlan } from './plan-book.ts'
@@ -35,27 +36,17 @@ function inputFingerprint(measurements: Measurements, numbering: BookPlanNumberi
   return fingerprintValue({ measurements: withoutLineBoxes(measurements), numbering })
 }
 
+function lineInWindow(line: PaginateLine, window: PaginateWindow): boolean {
+  return line.top >= window.start && line.bottom <= window.end
+}
+
 function flowingFlow(measurements: Measurements, id: string) {
   const flow = measurements.flows.find((candidate) => candidate.id === id)
   return flow?.kind === 'fixed' ? undefined : flow
 }
 
-function lineInWindow(line: PaginateLine, window: PaginateWindow): boolean {
-  return line.top >= window.start && line.bottom <= window.end
-}
-
 function startOf(measurements: Measurements, page: Pick<PlanPage, 'windows'>): PlanPage['start'] {
-  const first = page.windows[0]
-  if (!first) return undefined
-  const flow = flowingFlow(measurements, first.flow)
-  if (!flow) return undefined
-  for (const [blockIndex, block] of flow.blocks.entries()) {
-    const line = block.lines.findIndex((candidate) => candidate.top >= first.start)
-    if (line >= 0 && block.lines[line] !== undefined && lineInWindow(block.lines[line], first)) {
-      return { flow: flow.id, block: blockIndex, line, ...(block.id === undefined ? {} : { id: block.id }) }
-    }
-  }
-  return undefined
+  return pageBlockRange(measurements.flows, page).first
 }
 
 function consumedLines(measurements: Measurements, page: Pick<PlanPage, 'windows'>) {
@@ -346,6 +337,7 @@ export function savedPlanScript(): string {
     inputFingerprint,
     flowingFlow,
     lineInWindow,
+    pageBlockRange,
     startOf,
     consumedLines,
     consumedNotes,
@@ -372,6 +364,7 @@ export function savedPlanScript(): string {
   ]
   return `${functions.map((fn) => fn.toString()).join('\n')}
 var lineInWindow=${lineInWindow.name};
+var pageBlockRange=${pageBlockRange.name};
 var savePlanImplementation=${savePlanWithVersion.name};
 var savePlan=function(measurements,plan,numbering){return savePlanImplementation(measurements,plan,numbering,${PLAN_VERSION});};
 var replayPlanImplementation=${replayPlanWithVersion.name};

@@ -13,6 +13,7 @@ import {
   type Page,
   type ParentRules,
   PX_PER_MM,
+  preflightEnabled,
   printedFromDocument,
   resolveLimits,
   resolveParentPages,
@@ -74,6 +75,7 @@ export function printedPageValueDocument(
     limits?: Limits
     fontFailures?: FontFailure[]
     origins?: Iterable<OriginApproval>
+    profile?: import('@segnavia/format').PreflightProfile
   },
 ): string {
   const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
@@ -122,6 +124,7 @@ export function printedPageValueDocument(
     numbering: { frontMatter: numbering, body: numbering },
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
+    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile } : {}),
     ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')

@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 import { bookDocument, parseBookFixture } from '@segnavia/html'
+import { MESSAGE } from './bridge.ts'
 import {
   appendMeasuredBlock,
   COMPOSE_FAILURE_ATTRIBUTE,
+  COMPOSED_ATTRIBUTE,
   composerScript,
   decideBookMeasurement,
   flowSectionNumbering,
@@ -14,6 +16,37 @@ import {
   partTitleValues,
   unmeasuredFlows,
 } from './composer.ts'
+import { embeddedPreflightFunctions, PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
+
+test('publishes preflight from the embedded functions alone, given the measured flows', () => {
+  const posted: unknown[] = []
+  const attributes: Record<string, string> = {}
+  const failures: string[] = []
+  const publish = new Function(
+    'config',
+    'planFolios',
+    'preflightEntries',
+    'preflightFits',
+    'fail',
+    'window',
+    'document',
+    `${embeddedPreflightFunctions()};return publishPreflight`,
+  )(
+    { preflight: { 'region-overset': 'error' } },
+    { folios: ['1'] },
+    [{ check: 'region-overset', subject: 'body:main', message: 'shorten it' }],
+    [],
+    (reason: string) => failures.push(reason),
+    { parent: { postMessage: (message: unknown) => posted.push(message) } },
+    { documentElement: { setAttribute: (name: string, value: string) => (attributes[name] = value) } },
+  ) as (plan: unknown, flows: unknown) => boolean
+  const flows = [{ id: 'chapter', kind: 'chapter', blocks: [{ id: 'held', lines: [{ top: 0, bottom: 10 }] }] }]
+
+  expect(publish({ pages: [{ flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] }] }, flows)).toBe(false)
+  expect(JSON.parse(attributes[PREFLIGHT_ATTRIBUTE] ?? '{}').facts.pages).toEqual([{ folio: '1', first: 'held', last: 'held' }])
+  expect(posted).toHaveLength(1)
+  expect(failures).toEqual(['shorten it'])
+})
 
 test('wraps composer start-up exceptions in a bounded failure report', () => {
   const script = composerScript('{}')
@@ -26,6 +59,24 @@ test('wraps composer start-up exceptions in a bounded failure report', () => {
   expect(geometry).toBeGreaterThan(start)
   expect(report).toBeGreaterThan(geometry)
   expect(script).toContain(`String(reason).slice(0,1024);document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}'`)
+})
+
+test('collects overset entries only when preflight is enabled', () => {
+  const script = composerScript('{}')
+  expect(script).toContain("if(config.preflight){var furnitureRegions=pages.querySelectorAll('[data-segnavia-head],[data-segnavia-foot]')")
+  expect(script).toContain("if(config.preflight){var paper=filled[t].closest('['+config.pageMarker+']');markRegionOverflow")
+})
+
+test('publishes preflight before refusing or marking composition complete', () => {
+  const script = composerScript('{}')
+  const publish = script.indexOf(`setAttribute('${PREFLIGHT_ATTRIBUTE}',json)`)
+  const post = script.indexOf(`postMessage({type:'${MESSAGE.preflight}',report:report}`, publish)
+  const refusal = script.indexOf('var refusal=preflightRefusal(report)', post)
+  const composed = script.lastIndexOf(`setAttribute('${COMPOSED_ATTRIBUTE}','')`)
+  expect(publish).toBeGreaterThan(0)
+  expect(post).toBeGreaterThan(publish)
+  expect(refusal).toBeGreaterThan(post)
+  expect(composed).toBeGreaterThan(refusal)
 })
 
 function startTagElement(tag: string): Pick<Element, 'getAttribute'> {

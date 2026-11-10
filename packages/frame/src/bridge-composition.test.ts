@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { PREFLIGHT_PRESETS } from '@segnavia/format'
 import { bridgeForHost, COMPOSE_FAILURE_TEXT_LIMIT, MESSAGE, messageFrom } from './bridge.ts'
 
 function compositionBridge(failureAttribute?: string, reportHeight = false) {
@@ -114,5 +115,31 @@ describe('composed frame bridge', () => {
     expect(messageFrom(event({ type: MESSAGE.composeFailure, text: '' }), frame)).toBeNull()
     expect(messageFrom(event({ type: MESSAGE.composeFailure, text: 1 }), frame)).toBeNull()
     expect(messageFrom(event({ type: MESSAGE.composeFailure, text: 'refused' }, {} as Window), frame)).toBeNull()
+  })
+
+  test('accepts and re-bounds preflight only from the frame source', () => {
+    const source = {} as Window
+    const frame = { contentWindow: source } as HTMLIFrameElement
+    const issues = Array.from({ length: 70 }, (_, index) => ({
+      check: 'region-overset',
+      subject: `${index}${'x'.repeat(300)}`,
+      message: 'shorten it',
+      severity: 'error',
+      id: 'forged',
+    }))
+    const data = { type: MESSAGE.preflight, report: { issues, omitted: { 'region-overset': 4, unknown: 10 }, facts: { pageCount: 1, pages: [], fits: [] } } }
+    const accepted = messageFrom({ source, data } as MessageEvent, frame, PREFLIGHT_PRESETS.default)
+    expect(accepted?.report?.issues).toHaveLength(64)
+    expect(accepted?.report?.issues[0]?.severity).toBe('warning')
+    expect(accepted?.report?.issues[0]?.subject).toHaveLength(256)
+    expect(accepted?.report?.issues[0]?.id).toBe(`region-overset:0${'x'.repeat(255)}`)
+    expect(accepted?.report?.omitted).toEqual({ 'region-overset': 10 })
+    expect(messageFrom({ source: {} as Window, data } as MessageEvent, frame)).toBeNull()
+  })
+
+  test('refuses an over-bound book place key', () => {
+    const source = {} as Window
+    const frame = { contentWindow: source } as HTMLIFrameElement
+    expect(messageFrom({ source, data: { type: MESSAGE.bookPlace, key: 'x'.repeat(257) } } as MessageEvent, frame)).toBeNull()
   })
 })

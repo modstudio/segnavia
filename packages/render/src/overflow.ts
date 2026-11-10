@@ -154,17 +154,10 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
         }
         return { locator: locator(element), box: { left: box.left, right: box.right }, clips }
       })
-    const furniture = [...document.querySelectorAll('[data-segnavia-furniture-overflow]')].map((element) => {
-      const [parent, region, excess] = (element.getAttribute('data-segnavia-furniture-overflow') ?? '').split(':')
-      return { locator: `parent page ${parent} ${region}`, excess: Number(excess) || 0 }
-    })
-    const regions = [...document.querySelectorAll('[data-segnavia-region-overflow]')].map(
-      (element) => element.getAttribute('data-segnavia-region-overflow') ?? '',
-    )
     const fitMins = [...document.querySelectorAll('[data-segnavia-region-fit-min]')].map(
       (element) => element.getAttribute('data-segnavia-region-fit-min') ?? '',
     )
-    return { extent, endOverflow, extentClipped, rtl, elements, furniture, regions, fitMins }
+    return { extent, endOverflow, extentClipped, rtl, elements, fitMins }
   })
   const contributions: OverflowContribution[] = []
   let clippedStart = 0
@@ -178,15 +171,6 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
     if ((overflow.clippedStart > 0 || overflow.clippedEnd > 0) && contributions.length < 20) {
       contributions.push({ locator: element.locator, clippedStart: overflow.clippedStart, clippedEnd: overflow.clippedEnd })
     }
-  }
-  for (const furniture of measured.furniture ?? []) {
-    clippedEnd = Math.max(clippedEnd, furniture.excess)
-    if (contributions.length < 20) contributions.push({ locator: furniture.locator, clippedStart: 0, clippedEnd: furniture.excess })
-  }
-  for (const attribute of measured.regions ?? []) {
-    const region = regionOverflowContribution(attribute)
-    clippedEnd = Math.max(clippedEnd, region.clippedEnd)
-    if (contributions.length < 20) contributions.push(region)
   }
   for (const attribute of measured.fitMins ?? []) {
     const fitMin = regionFitMinContribution(attribute)
@@ -207,11 +191,6 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
 
 function overflowEntry(measured: MeasuredOverflow, scale: number, part: OverflowPart, inputIndex?: number): OverflowEntry {
   return { part, ...(inputIndex === undefined ? {} : { inputIndex }), ...measured.overflow, scale }
-}
-
-export function regionOverflowContribution(attribute: string): OverflowContribution {
-  const [folio, name, excess] = attribute.split(':')
-  return { locator: `page ${folio} region ${name}`, clippedStart: 0, clippedEnd: Number(excess) || 0 }
 }
 
 export function regionFitMinContribution(attribute: string): OverflowContribution {

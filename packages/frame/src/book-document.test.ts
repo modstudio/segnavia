@@ -1,12 +1,24 @@
 import { describe, expect, test } from 'bun:test'
-import { BOOK_PARENT_NAMES, bookFromDocument, bookParentPages, computeFolios, Document, resolveDirection, StyleSheet } from '@segnavia/format'
+import {
+  BOOK_PARENT_NAMES,
+  bookFromDocument,
+  bookParentPages,
+  type boundPreflightReport,
+  computeFolios,
+  Document,
+  PREFLIGHT_PRESETS,
+  type preflightRefusal,
+  resolveDirection,
+  StyleSheet,
+} from '@segnavia/format'
 import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectParent, windowPageIndex } from '@segnavia/html'
-import { FLOWING_PARENT_RULES, layoutScript } from '@segnavia/layout'
+import { FLOWING_PARENT_RULES, layoutScript, type pageBlockRange } from '@segnavia/layout'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
 import { MESSAGE } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE as BOOK_FAILURE_ATTRIBUTE, decideBookMeasurement, flowTextArea, pixelPhaseOffset, type unmeasuredFlows } from './composer.ts'
+import type { preflightPageFacts } from './composer-dress.ts'
 import type { forcedPageBreak } from './composer-measure.ts'
 
 const book = parseBookFixture({
@@ -110,7 +122,7 @@ describe('bookDocument', () => {
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
     const embedded = new Function(
-      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads}`,
+      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal}`,
     )() as {
       resolveRegionHeads: (
         templates: { name: string; parts: { variable: string }[]; separator: string; dropEmpty: boolean; collapseEqual: boolean }[],
@@ -125,6 +137,10 @@ describe('bookDocument', () => {
       unmeasuredFlows: typeof unmeasuredFlows
       decideBookMeasurement: typeof decideBookMeasurement
       forcedPageBreak: typeof forcedPageBreak
+      pageBlockRange: typeof pageBlockRange
+      preflightPageFacts: typeof preflightPageFacts
+      boundPreflightReport: typeof boundPreflightReport
+      preflightRefusal: typeof preflightRefusal
       fillRegion: (html: string, values: { heads: Record<string, string> }) => string
       fillFurniture: (
         root: { innerHTML: string; querySelectorAll: () => never[] },
@@ -146,6 +162,15 @@ describe('bookDocument', () => {
     expect(embedded.unmeasuredFlows(flows)).toEqual(['chapter-1'])
     expect(embedded.decideBookMeasurement({ hasLayout: true, flows, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
     expect(embedded.forcedPageBreak('recto')).toBe(true)
+    const measuredFlows = [{ id: 'chapter', kind: 'chapter', blocks: [{ id: 'held', lines: [{ top: 0, bottom: 10 }] }] }]
+    const pages = [{ flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] }]
+    expect(embedded.pageBlockRange(measuredFlows as never, pages[0] as never).first?.id).toBe('held')
+    expect(embedded.preflightPageFacts(pages as never, ['1'], measuredFlows as never)).toEqual([{ folio: '1', first: 'held', last: 'held' }])
+    const report = embedded.boundPreflightReport(
+      { entries: [{ check: 'region-overset', subject: 'held', message: 'shorten it' }], facts: { pageCount: 1, pages: [], fits: [] } },
+      PREFLIGHT_PRESETS.strict,
+    )
+    expect(embedded.preflightRefusal(report)).toBe('shorten it')
     const parent = bookParentPages({ blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 })[0]
     expect(embedded.fillRegion(parent?.head ?? '', { heads: { 'segnavia:running-head': '<bdi>Chapter</bdi>' } })).toBe(
       '<div class="segnavia-running-head"><bdi>Chapter</bdi></div>',
