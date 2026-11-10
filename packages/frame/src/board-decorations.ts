@@ -1,9 +1,10 @@
-import { type Board, type BoardItemFact, type BoardShapes, type BoardView, boardShapes, labelShape, resolveDirection } from '@segnavia/format'
+import { type Board, type BoardItemFact, type BoardView, boardShapes, type ComputedBoardShapes, labelShape, resolveDirection } from '@segnavia/format'
 import { placeBoardNode } from './board-placement.ts'
 
 export class BoardDecorations {
   private readonly sectionNodes = new Map<string, HTMLElement>()
   private readonly labelNodes = new Map<string, HTMLElement>()
+  private measuringNode: HTMLElement | undefined
   private dropTargetId: string | undefined
 
   constructor(
@@ -54,22 +55,37 @@ export class BoardDecorations {
     this.labelNodes.clear()
   }
 
+  disconnect() {
+    this.clear()
+    this.measuringNode?.remove()
+    this.measuringNode = undefined
+  }
+
   measureLabel(text: string, direction: Board['direction'], authoredWidth: number | undefined, viewZoom: number) {
-    const node = [...this.labelNodes.values()].find((entry) => {
+    const mounted = [...this.labelNodes.values()].find((entry) => {
       const content = entry.querySelector<HTMLElement>('[data-board-label-text]')
       return content?.textContent === text && content.dir === direction
     })
-    if (!node) return undefined
+    const node = mounted ?? this.measureNode()
     const content = node.querySelector<HTMLElement>('[data-board-label-text]') as HTMLElement
+    const previousText = content.textContent
+    const previousDirection = content.dir
     const previous = { display: content.style.display, whiteSpace: content.style.whiteSpace, inlineSize: content.style.inlineSize }
     const previousNodeInlineSize = node.style.inlineSize
+    const previousFontSize = node.style.fontSize
+    content.textContent = text
+    content.dir = direction
     content.style.display = authoredWidth === undefined ? '' : 'block'
     content.style.whiteSpace = authoredWidth === undefined ? 'pre' : 'pre-wrap'
     content.style.inlineSize = authoredWidth === undefined ? '' : `${authoredWidth * viewZoom}px`
     node.style.inlineSize = authoredWidth === undefined ? '' : `${authoredWidth * viewZoom}px`
+    node.style.fontSize = `${16 * viewZoom}px`
     const rectangle = node.getBoundingClientRect()
+    content.textContent = previousText
+    content.dir = previousDirection
     Object.assign(content.style, previous)
     node.style.inlineSize = previousNodeInlineSize
+    node.style.fontSize = previousFontSize
     return rectangle.width > 0 && rectangle.height > 0 ? { width: rectangle.width / viewZoom, height: rectangle.height / viewZoom } : undefined
   }
 
@@ -86,8 +102,8 @@ export class BoardDecorations {
     )
   }
 
-  shapes(board: Board, facts: Readonly<Record<string, BoardItemFact>>, zoom: number): BoardShapes {
-    return boardShapes(board, facts, { measureLabel: (text, direction, width) => this.measureLabel(text, direction, width, zoom) }).shapes
+  shapes(board: Board, facts: Readonly<Record<string, BoardItemFact>>, zoom: number): ComputedBoardShapes {
+    return boardShapes(board, facts, { measureLabel: (text, direction, width) => this.measureLabel(text, direction, width, zoom) })
   }
 
   setDropTarget(id?: string) {
@@ -132,6 +148,24 @@ export class BoardDecorations {
     node.append(text)
     this.labelNodes.set(id, node)
     this.mounted(node, id)
+    this.insert(node)
+    return node
+  }
+
+  private measureNode(): HTMLElement {
+    if (this.measuringNode) return this.measuringNode
+    const node = document.createElement('div')
+    node.dataset.decoration = ''
+    node.dataset.boardLabelMeasure = ''
+    node.part.add('label')
+    node.style.insetInlineStart = '-100000px'
+    node.style.insetBlockStart = '0'
+    node.style.visibility = 'hidden'
+    node.style.pointerEvents = 'none'
+    const text = document.createElement('span')
+    text.dataset.boardLabelText = ''
+    node.append(text)
+    this.measuringNode = node
     this.insert(node)
     return node
   }

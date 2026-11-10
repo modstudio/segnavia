@@ -1,7 +1,6 @@
 import {
   type Board,
   type BoardItem,
-  type BoardShapes,
   type BoardView,
   boardBounds,
   itemAt,
@@ -29,6 +28,7 @@ import * as boardPolicy from './board-policy.ts'
 import type { ResolveBoardItem } from './board-resolutions.ts'
 import { focusAfterReveal, revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardNode } from './board-selection.ts'
+import { BoardShapeCache } from './board-shape-cache.ts'
 import { BoardItemTitles } from './board-titles.ts'
 import { internalBoardValue } from './board-value.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -40,7 +40,6 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   private initialFitDone = false
   private threshold = 240
   private nameProvider: BoardItemNames | undefined
-  private shapes: BoardShapes = { items: {}, labels: {} }
   private items = new Map<string, BoardItem>()
   private readonly painter = new BoardPainter()
   private readonly viewEvents = new BoardViewEventDispatcher(this)
@@ -49,6 +48,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   private readonly surface = document.createElement('div')
   private editingHostValue: BoardEditingHostValue | null = null
   private readonly decorations = new BoardDecorations(this.surface, (node, id) => this.selectionState.mount(node, id))
+  private readonly shapeCache = new BoardShapeCache(this.decorations)
   private readonly titles = new BoardItemTitles()
   private readonly chrome = new BoardChrome(
     this.titles,
@@ -83,7 +83,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   )
   private readonly input = new BoardPointerInput(this, this.gestures, {
     item: (id) => (id ? this.items.get(id) : undefined),
-    itemAt: (event) => (this.value ? itemAt(this.value, this.shapes, screenToBoard(this.currentView, this.gestures.local(event))) : undefined),
+    itemAt: (event) => (this.value ? itemAt(this.value, this.shapeCache.value.shapes, screenToBoard(this.currentView, this.gestures.local(event))) : undefined),
     select: (id, toggle) => {
       if (!id) this.selectionState.selection = []
       else this.selectionState.selection = selectBoardNode(this.selectionState.selection, id, toggle)
@@ -128,7 +128,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this.selectionState.reconcile()
     if (this.pendingReveal && !this.items.has(this.pendingReveal.id)) this.pendingReveal = undefined
     this.resolutions.keep(this.value?.items ?? [])
-    if (!this.value) this.shapes = { items: {}, labels: {} }
+    if (!this.value) this.shapeCache.clear()
     if (this.value) this.dir = this.value.direction
     this.names.update(this.value?.items ?? [], this.nameProvider)
     this.mounts.reconcile(previous, this.value)
@@ -205,9 +205,6 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   itemName(id: string): string {
     return this.names.name(this.items.get(id), this.items.get(id) ? this.resolutions.value((this.items.get(id) as BoardItem).address) : undefined)
   }
-  measuredLabelSizes(): Record<string, { width: number; height: number }> {
-    return this.decorations.measureMissingLabels(this.value?.labels ?? [], this.currentView.zoom)
-  }
   [boardEditing](delegate: BoardPointerDelegate, hostValue: BoardEditingHostValue): BoardEditingBridge {
     if (this.input.delegate || this.editingHostValue)
       throw new Error('board editing is already attached or settling; wait for it before attaching another editor')
@@ -218,7 +215,11 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       surface: this.surface,
       value: () => this.value,
       view: () => this.currentView,
-      shapes: () => this.shapes,
+      shapes: () => this.shapeCache.value.shapes,
+      computedShapes: () => this.shapeCache.value,
+      facts: () => boardPolicy.boardShapeFacts(this.value?.items ?? [], (address) => this.resolutions.value(address)),
+      measureLabel: (text, direction, width) => this.decorations.measureLabel(text, direction, width, this.currentView.zoom),
+      measuredLabelSizes: () => this.decorations.measureMissingLabels(this.value?.labels ?? [], this.currentView.zoom),
       labelShape: (label) => this.decorations.labelShape(label, this.currentView.zoom),
       labelTextNode: (id) => this.decorations.labelTextNode(id),
       document: (board) => this.documentWithBoard(board),
@@ -247,13 +248,14 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this.resize.disconnect()
     this.input.disconnect()
     this.mounts.clear()
+    this.decorations.disconnect()
   }
 
   fitAll() {
     this.pendingReveal = undefined
     const board = this.value
     if (!board || this.clientWidth <= 96 || this.clientHeight <= 96) return
-    const bounds = boardBounds(board, this.shapes)
+    const bounds = boardBounds(board, this.shapeCache.value.shapes)
     if (!(bounds.width > 0 && bounds.height > 0)) return
     this.setView(zoomToFit(bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
   }
@@ -276,7 +278,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   }
 
   private revealItem(id: string, focus: boolean): boolean {
-    const target = this.value && this.clientWidth > 96 && this.clientHeight > 96 ? revealTarget(this.value, this.shapes.items, id) : undefined
+    const target = this.value && this.clientWidth > 96 && this.clientHeight > 96 ? revealTarget(this.value, this.shapeCache.value.shapes.items, id) : undefined
     if (!target) return false
     const item = target.item
     this.pendingReveal = undefined
@@ -315,14 +317,16 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       return
     }
     this.decorations.render(board, this.currentView)
-    this.shapes = this.decorations.shapes(board, this.shapeFacts(), this.currentView.zoom)
+    this.shapeCache.update(board, (address) => this.resolutions.value(address), this.currentView.zoom)
     const half = new Set(
-      visibleItems(board, this.shapes, this.currentView, Math.max(this.currentView.viewport.width, this.currentView.viewport.height) / 2).map(
+      visibleItems(board, this.shapeCache.value.shapes, this.currentView, Math.max(this.currentView.viewport.width, this.currentView.viewport.height) / 2).map(
         (item) => item.id,
       ),
     )
     const full = new Set(
-      visibleItems(board, this.shapes, this.currentView, Math.max(this.currentView.viewport.width, this.currentView.viewport.height)).map((item) => item.id),
+      visibleItems(board, this.shapeCache.value.shapes, this.currentView, Math.max(this.currentView.viewport.width, this.currentView.viewport.height)).map(
+        (item) => item.id,
+      ),
     )
     for (const item of board.items) {
       const mounted = this.mounts.nodes.has(item.id)
@@ -331,7 +335,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
         continue
       }
       const node = this.mounts.nodes.get(item.id) ?? this.mounts.mount(item)
-      placeBoardItem(node, this.currentView, item, this.shapes.items[item.id], this.titles)
+      placeBoardItem(node, this.currentView, item, this.shapeCache.value.shapes.items[item.id], this.titles)
       this.paintItem(node, item)
       this.resolve(item)
     }
@@ -360,17 +364,13 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
           pendingItem ? itemHeight(pendingItem, shape) : 0,
         )
         if (refit && resolvedId) {
-          this.shapes = this.value ? this.decorations.shapes(this.value, this.shapeFacts(), this.currentView.zoom) : { items: {}, labels: {} }
+          if (this.value) this.shapeCache.update(this.value, (address) => this.resolutions.value(address), this.currentView.zoom)
           this.revealItem(resolvedId, false)
         } else this.render()
         if (resolved.title) this.dispatchEvent(boardEvent('segnavia-board-names'))
       },
       (failedItem, error) => this.fail(failedItem, error),
     )
-  }
-
-  private shapeFacts() {
-    return boardPolicy.boardShapeFacts(this.value?.items ?? [], (address) => this.resolutions.value(address))
   }
 
   private fail(item: BoardItem, error: unknown) {

@@ -1,4 +1,16 @@
-import { type Board, type BoardCommand, type BoardEditResult, type BoardItemAnchor, type BoardShapes, type Document, editBoard } from '@segnavia/format'
+import {
+  type Board,
+  type BoardCommand,
+  type BoardEditResult,
+  type BoardItemAnchor,
+  type BoardItemFact,
+  type BoardShapesOptions,
+  boardFromDocument,
+  type ComputedBoardShapes,
+  type Document,
+  editBoard,
+  labelShape,
+} from '@segnavia/format'
 
 export const resizeAnchors: Record<string, BoardItemAnchor> = {
   'top-left': 'bottom-right',
@@ -7,8 +19,30 @@ export const resizeAnchors: Record<string, BoardItemAnchor> = {
   'bottom-right': 'top-left',
 }
 
-export function editBoardFromFrame(document: Document, commands: BoardCommand[], shapes: BoardShapes): BoardEditResult {
-  return editBoard(document, commands, { shapes, provisional: [], estimated: [] })
+export function measureAddedLabels(
+  before: Document,
+  after: Document,
+  measureLabel: NonNullable<BoardShapesOptions['measureLabel']>,
+  document: (board: Board) => Document,
+): Document {
+  const present = new Set(boardFromDocument(before).labels.map((label) => label.id))
+  const board = boardFromDocument(after)
+  const labels = board.labels.map((label) => {
+    if (present.has(label.id) || label.size) return label
+    const measured = labelShape(label, measureLabel)
+    return measured.source === 'measured' ? { ...label, size: measured.shape } : label
+  })
+  return labels.some((label, index) => label !== board.labels[index]) ? document({ ...board, labels }) : after
+}
+
+export function editBoardFromFrame(
+  document: Document,
+  commands: BoardCommand[],
+  shapes: ComputedBoardShapes,
+  facts: Readonly<Record<string, BoardItemFact>>,
+  measureLabel: NonNullable<BoardShapesOptions['measureLabel']>,
+): BoardEditResult {
+  return editBoard(document, commands, shapes, { facts, measureLabel })
 }
 
 export function resizeReleaseCommand(board: Board, id: string, corner: string): BoardCommand | undefined {

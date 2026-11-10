@@ -51,6 +51,16 @@ describe('board edit queue policy', () => {
     expect(transition.effects.run).toBeUndefined()
   })
 
+  test('an unrecorded local edit is queued but rebased out of undo history', () => {
+    const applied = resolveBoardEdit(apply(boardEditQueue(value(0)), value(1)).state, 1).state
+    const settled = applyBoardEdit(applied, diffDocuments(value(1), value(1, 'Settled')), { kind: 'settle', ids: [] }, { recorded: false })
+    expect(settled.state.value).toEqual(value(1, 'Settled'))
+    expect(settled.state.jobs).toHaveLength(1)
+    expect(settled.state.undo).toHaveLength(1)
+    const undone = undoBoardEdit(resolveBoardEdit(settled.state, 2).state)
+    expect(undone.state.value).toEqual(value(0, 'Settled'))
+  })
+
   test('whole-document host adoption uses the remote path', () => {
     const applied = resolveBoardEdit(apply(boardEditQueue(value(0)), value(1)).state, 1).state
     const adopted = adoptHostBoard(applied, value(1, 'Host'))
