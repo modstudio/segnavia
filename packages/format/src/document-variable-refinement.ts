@@ -63,7 +63,7 @@ export function refineDocumentVariables(
   const parts = new Set(document.partNames ?? [])
   if (document.children) walkDocumentNodes(document.children, (node) => node.type === 'part' && parts.add(node.name))
   const authoredVariables = new Set<string>()
-  const readsDocumentFacts = document.variables.some((variable) => variable.kind === 'date' || variable.kind === 'meta')
+  const readsDocumentFacts = document.variables.some((variable) => variable.kind === 'meta')
   if (readsDocumentFacts && !intlAcceptsLanguage(document.lang))
     ctx.addIssue({
       code: 'custom',

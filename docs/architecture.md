@@ -1862,16 +1862,10 @@ first line (`start`), the first value set on the page (`first`, the default)
 or the last (`last`); a page that sets none takes the value carried from
 earlier pages. Section-title and part-title values are carried only within their flow. A
 `folio` or `pages` variable is the page's folio or the page total, counted
-`of` the division numbering, the whole document or the page's record. A `date`
-variable carries a real ISO date and formats it as `long` or `short` with a
-Gregorian or Hebrew calendar in the document language. Hebrew-calendar dates
-in Hebrew use library-owned month names and printed Hebrew day and year numerals.
-Date strings are resolved once outside the frame and carried as document facts,
-so composing-runtime locale data cannot change them. Every public document and
-render builder declares the optional `formatDate` seam; without it the library's
-pure formatter is used, while a host may supply another formatter. `meta` variables read `title`, `subject`, a locale-joined
+`of` the division numbering, the whole document or the page's record. `meta`
+variables read `title`, `subject`, a locale-joined
 `authors` list or a key declared in `metadata.extra`; document parsing refuses
-an undeclared metadata key. Date and metadata document values are identical on every page.
+an undeclared metadata key. These document values are identical on every page.
 Content refers to a variable with `data-variable`; `Document.parse` refuses an
 undeclared reference, a repeated name and a name under the reserved
 `segnavia:` prefix. The plan resolves every declared variable for each page

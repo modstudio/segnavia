@@ -9,10 +9,10 @@ export async function verifyBookTitleHeads(h: Harness): Promise<void> {
     const report = await frame.evaluate(() => {
       const bookHead = document.querySelector('.title-head-book-title')
       const sectionHead = document.querySelector('.title-head-section-title')
-      const bookParts = Array.from(bookHead?.querySelectorAll('bdi') ?? []).map((part) => ({ text: part.textContent ?? '', dir: part.getAttribute('dir') }))
+      const bookPart = bookHead?.querySelector('bdi')
       const sectionPart = sectionHead?.querySelector('bdi')
       return {
-        bookParts,
+        book: { text: bookPart?.textContent ?? '', dir: bookPart?.getAttribute('dir') },
         section: { text: sectionPart?.textContent ?? '', dir: sectionPart?.getAttribute('dir') },
       }
     })
@@ -20,19 +20,11 @@ export async function verifyBookTitleHeads(h: Harness): Promise<void> {
       language === 'he' ? { title: 'ספר ההפלגה', section: 'התחלה', dir: 'rtl' } : { title: 'The Book of Tides', section: 'Beginning', dir: 'ltr' }
     h.check(
       `${id} shows the book title and section title in opposite heads with resolved directions`,
-      report.bookParts[0]?.text === expected.title &&
-        report.bookParts[0]?.dir === expected.dir &&
+      report.book.text === expected.title &&
+        report.book.dir === expected.dir &&
         report.section.text === expected.section &&
         report.section.dir === expected.dir,
       JSON.stringify(report),
     )
-    if (language === 'he') {
-      const date = report.bookParts[1]
-      h.check(
-        `${id} formats the Hebrew-calendar date with Hebrew-letter numerals in Chromium`,
-        Boolean(date?.text.includes('י״ד') && date.text.includes('תשפ״ד') && !/[0-9]/.test(date.text)),
-        JSON.stringify(date),
-      )
-    }
   }
 }

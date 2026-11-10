@@ -113,11 +113,10 @@ describe('planBook', () => {
     expect(result.ok && result.plan.pages[0]?.variables).toMatchObject({ index: '3', count: 'י' })
   })
 
-  test('resolves document date and metadata variables identically on every page', () => {
+  test('resolves document metadata variables identically on every page', () => {
     const measurements = input({
       document: { lang: 'en', metadata: { title: 'The Book', authors: ['Ada', 'Ben'], extra: { edition: 'Second' } } },
       variables: [
-        { name: 'date', kind: 'date', date: '2024-03-24', calendar: 'gregorian', format: 'long' },
         { name: 'title', kind: 'meta', field: 'title' },
         { name: 'authors', kind: 'meta', field: 'authors' },
         { name: 'edition', kind: 'meta', field: 'edition' },
@@ -126,8 +125,8 @@ describe('planBook', () => {
     })
     const result = planBook(measurements, { frontMatter: 'roman-lower', body: 'arabic' })
     expect(result.ok && result.plan.pages.map(({ variables }) => variables)).toEqual([
-      expect.objectContaining({ date: 'March 24, 2024', title: 'The Book', authors: 'Ada and Ben', edition: 'Second' }),
-      expect.objectContaining({ date: 'March 24, 2024', title: 'The Book', authors: 'Ada and Ben', edition: 'Second' }),
+      expect.objectContaining({ title: 'The Book', authors: 'Ada and Ben', edition: 'Second' }),
+      expect.objectContaining({ title: 'The Book', authors: 'Ada and Ben', edition: 'Second' }),
     ])
   })
 

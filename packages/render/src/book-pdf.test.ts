@@ -67,7 +67,7 @@ test('resolves a named enclosing part title only inside that part', () => {
   expect(facts[1]?.variables?.part).toBeUndefined()
 })
 
-test('resolves date and metadata variables in the continuous margin plan', () => {
+test('resolves metadata variables in the continuous margin plan', () => {
   const sections = [{ id: 'chapter', kind: 'chapter' as const, division: 'body' as const, title: 'One' }]
   const destinations = new Map([['chapter', { page: 1, x: 0, y: 0 }]])
   const facts = marginFactsFor(
@@ -76,16 +76,13 @@ test('resolves date and metadata variables in the continuous margin plan', () =>
     2,
     new Set(),
     'arabic',
-    [
-      { name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' },
-      { name: 'title', kind: 'meta', field: 'title' },
-    ],
+    [{ name: 'title', kind: 'meta', field: 'title' }],
     undefined,
     { lang: 'he', metadata: { title: 'ספר' } },
   )
   expect(facts.map(({ variables }) => variables)).toEqual([
-    expect.objectContaining({ date: 'י״ד באדר ב׳ תשפ״ד', title: 'ספר' }),
-    expect.objectContaining({ date: 'י״ד באדר ב׳ תשפ״ד', title: 'ספר' }),
+    expect.objectContaining({ title: 'ספר' }),
+    expect.objectContaining({ title: 'ספר' }),
   ])
 })
 

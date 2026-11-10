@@ -21,10 +21,9 @@ export function titleHeadFixture(hebrew: boolean): DocumentInput {
     variables: [
       { type: 'variable', name: 'book-title', kind: 'meta', field: 'title' },
       { type: 'variable', name: 'section-title', kind: 'text', from: 'section-title' },
-      { type: 'variable', name: 'hebrew-date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' },
     ],
     headTemplates: [
-      { type: 'headTemplate', name: 'book-title', parts: [{ variable: 'book-title' }, { variable: 'hebrew-date' }], separator: ' · ' },
+      { type: 'headTemplate', name: 'book-title', parts: [{ variable: 'book-title' }] },
       { type: 'headTemplate', name: 'section-title', parts: [{ variable: 'section-title' }] },
     ],
     parentPages: [

@@ -133,7 +133,7 @@ test('content variable node schema excludes part', () => {
   expect(content?.properties?.part).toEqual({ not: {} })
 })
 
-test('parses date and declared metadata variables and refuses invalid declarations with remedies', () => {
+test('parses declared metadata variables and refuses invalid declarations with remedies', () => {
   const base = {
     type: 'document' as const,
     kind: 'book' as const,
@@ -144,21 +144,15 @@ test('parses date and declared metadata variables and refuses invalid declaratio
   expect(
     Document.parse({
       ...base,
-      variables: [
-        { type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' },
-        { type: 'variable', name: 'edition', kind: 'meta', field: 'edition' },
-      ],
+      variables: [{ type: 'variable', name: 'edition', kind: 'meta', field: 'edition' }],
     }).variables,
-  ).toMatchObject([{ kind: 'date' }, { kind: 'meta', field: 'edition' }])
+  ).toMatchObject([{ kind: 'meta', field: 'edition' }])
   expect(() =>
-    Document.parse({ ...base, variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'julian', format: 'long' }] }),
-  ).toThrow(/unknown date calendar.*gregorian or hebrew.*clear this refusal/)
-  expect(() =>
-    Document.parse({ ...base, variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'medium' }] }),
-  ).toThrow(/unknown date format.*long or short.*clear this refusal/)
-  expect(() =>
-    Document.parse({ ...base, variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2023-02-29', calendar: 'gregorian', format: 'long' }] }),
-  ).toThrow(/not a real ISO YYYY-MM-DD date.*provide a real date to clear this refusal/)
+    Document.parse({
+      ...base,
+      variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }],
+    }),
+  ).toThrow()
   expect(() => Document.parse({ ...base, variables: [{ type: 'variable', name: 'missing', kind: 'meta', field: 'missing' }] })).toThrow(
     /unknown metadata field.*missing.*declare metadata.extra.missing to clear this refusal/,
   )
@@ -167,13 +161,6 @@ test('parses date and declared metadata variables and refuses invalid declaratio
       new RegExp(`unknown metadata field.*${field}.*choose a metadata.extra key accepted by DocumentMetadata, or remove the variable.*clear this refusal`),
     )
   }
-  expect(() =>
-    Document.parse({
-      ...base,
-      settings: { lang: 'he_IL' },
-      variables: [{ type: 'variable', name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }],
-    }),
-  ).toThrow(/language tag.*he_IL.*valid BCP 47 lang to clear this refusal/)
   expect(() =>
     Document.parse({
       ...base,

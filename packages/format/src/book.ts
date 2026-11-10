@@ -19,7 +19,6 @@ import { pageGeometryIssues } from './document-page-geometry-policy.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { HeadTemplates } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
-import type { DateFormatter } from './date-format.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
@@ -359,7 +358,7 @@ const DepthCheckedBook = z.preprocess((value, ctx) => {
 export const Book = DepthCheckedBook.transform(({ bodyKey: _bodyKey, ...book }) => book)
 export type Book = z.infer<typeof Book>
 
-export function resolveBookPagination(book: Book, formatDate?: DateFormatter): BookViewPagination | undefined {
+export function resolveBookPagination(book: Book): BookViewPagination | undefined {
   if (book.mode !== 'paginated' || !book.page) return undefined
   return {
     paper: sheetMm(book.page),
@@ -377,6 +376,6 @@ export function resolveBookPagination(book: Book, formatDate?: DateFormatter): B
     variables: book.variables,
     headTemplates: book.headTemplates,
     recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),
-    ...(book.variables.some(variableReadsDocumentFacts) ? { document: bookVariableDocumentFacts(book, formatDate) } : {}),
+    ...(book.variables.some(variableReadsDocumentFacts) ? { document: bookVariableDocumentFacts(book) } : {}),
   }
 }

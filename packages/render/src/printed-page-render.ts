@@ -33,7 +33,6 @@ export function renderedPageDocument(
       origins: options.origins,
       profile: options.preflight?.profile,
       preflightSeed: options.preflight?.seed,
-      formatDate: options.formatDate,
     })
   } catch (error) {
     if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)

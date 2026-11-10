@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { CalendarDate } from './as-of.ts'
 import { refineLibraryNames } from './library-names.ts'
 
 export const TextVariableBase = {
@@ -24,18 +23,8 @@ export const RecordVariable = z.object({
   value: z.enum(['index', 'count']),
   system: z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew']).optional(),
 })
-export const DateVariable = z.object({
-  name: z.string().min(1),
-  kind: z.literal('date'),
-  date: z.string().superRefine((date, ctx) => {
-    if (!CalendarDate.safeParse(date).success)
-      ctx.addIssue({ code: 'custom', message: `date ${JSON.stringify(date)} is not a real ISO YYYY-MM-DD date; provide a real date to clear this refusal` })
-  }),
-  calendar: z.enum(['gregorian', 'hebrew'], { error: 'unknown date calendar; use gregorian or hebrew to clear this refusal' }),
-  format: z.enum(['long', 'short'], { error: 'unknown date format; use long or short to clear this refusal' }),
-})
 export const MetaVariable = z.object({ name: z.string().min(1), kind: z.literal('meta'), field: z.string().min(1) })
-export const Variable = z.union([TextVariable, NumberVariable, RecordVariable, DateVariable, MetaVariable])
+export const Variable = z.union([TextVariable, NumberVariable, RecordVariable, MetaVariable])
 
 export type Variable = z.infer<typeof Variable>
 export type TextVariable = z.infer<typeof TextVariable>

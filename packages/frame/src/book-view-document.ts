@@ -1,7 +1,6 @@
 import {
   type BookView,
   type BookViewPagination,
-  type DateFormatter,
   LIBRARY_HEAD_TEMPLATES,
   LIBRARY_VARIABLES,
   LIMIT_ACTUAL_PLACEHOLDER,
@@ -12,9 +11,7 @@ import {
   type PreflightProfile,
   preflightEnabled,
   resolveLimits,
-  resolveDateVariables,
   withLibraryEntries,
-  variableReadsDocumentFacts,
 } from '@segnavia/format'
 import { composerPageGeometries, composerPageRules } from './book-page-geometries.ts'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
@@ -35,7 +32,6 @@ export interface PaginatedDocumentOptions {
   breaks?: string[]
   profile?: PreflightProfile
   preflightSeed?: PreflightEntry[]
-  formatDate?: DateFormatter
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
@@ -60,9 +56,6 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     baseCss,
     options.profile && preflightEnabled(options.profile) ? { profile: options.profile, entries: preflightSeed } : undefined,
   )
-  const document = !pagination.variables.some(variableReadsDocumentFacts)
-    ? undefined
-    : { ...pagination.document, lang: pagination.document?.lang ?? view.lang, dates: resolveDateVariables(pagination.variables, view.lang, options.formatDate) }
   const config = {
     direction: pagination.direction,
     dir: view.dir,
@@ -74,7 +67,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     rectoOpenings: pagination.rectoOpenings,
     endnotePlacement: pagination.endnotePlacement,
     variables: withLibraryEntries(LIBRARY_VARIABLES, pagination.variables),
-    ...(document === undefined ? {} : { document }),
+    ...(pagination.document === undefined ? {} : { document: pagination.document }),
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, pagination.headTemplates),
     recordSlotsByFlow: pagination.recordSlotsByFlow ?? {},
     numbering: pagination.numbering,

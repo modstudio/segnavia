@@ -3,7 +3,6 @@ import {
   DocumentMetadata,
   type DocumentMetadata as DocumentMetadataValue,
   defaultPageNumbering,
-  type DateFormatter,
   type FontFailure,
   LIBRARY_HEAD_TEMPLATES,
   LIBRARY_VARIABLES,
@@ -17,11 +16,9 @@ import {
   preflightEnabled,
   printedFromDocument,
   resolveLimits,
-  resolveDateVariables,
   resolveParentPages,
   sheetMm,
   textArea,
-  variableReadsDocumentFacts,
   withLibraryEntries,
 } from '@segnavia/format'
 import {
@@ -84,7 +81,6 @@ export function printedPageValueDocument(
     origins?: Iterable<OriginApproval>
     profile?: import('@segnavia/format').PreflightProfile
     preflightSeed?: import('@segnavia/format').PreflightEntry[]
-    formatDate?: DateFormatter
   },
 ): string {
   const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
@@ -124,9 +120,6 @@ export function printedPageValueDocument(
     rectoOpenings: false,
     endnotePlacement: 'chapter',
     variables: withLibraryEntries(LIBRARY_VARIABLES, page.printedPages.variables),
-    ...(page.printedPages.variables?.some(variableReadsDocumentFacts)
-      ? { document: { lang: page.lang, dates: resolveDateVariables(page.printedPages.variables ?? [], page.lang, options.formatDate) } }
-      : {}),
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, page.printedPages.headTemplates),
     recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.values ?? {}])),
     pageMarker: 'data-segnavia-printed-page',

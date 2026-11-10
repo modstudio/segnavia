@@ -298,7 +298,7 @@ export {
 } from './style-sheet.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
-export { DateVariable, LIBRARY_VARIABLES, MetaVariable, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
+export { LIBRARY_VARIABLES, MetaVariable, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
 export {
   bookVariableDocumentFacts,
   STANDARD_META_FIELD_READERS,
@@ -307,10 +307,3 @@ export {
   variableReadsDocumentFacts,
 } from './variable-document-facts.ts'
 export { metaVariableValue, textVariableValue, type VariablePageFacts, variableValue } from './variable-value.ts'
-export {
-  HEBREW_MONTHS,
-  libraryFormatDate,
-  resolveDateVariables,
-  type DateFormatter,
-  type DateFormatRequest,
-} from './date-format.ts'

@@ -89,13 +89,11 @@ describe('bookDocument', () => {
   })
 
   test('carries document facts for document-reading variables and omits them otherwise', () => {
-    const dateBook = parseBookFixture({
+    const metaBook = parseBookFixture({
       ...book,
-      variables: [{ name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }],
+      variables: [{ name: 'title', kind: 'meta', field: 'title' }],
     })
-    expect(bookDocument(dateBook, { nonce: 'held', formatDate: () => 'host date' })).toContain(
-      '"document":{"lang":"he","metadata":{"title":"Book"},"dates":{"date":"host date"}}',
-    )
+    expect(bookDocument(metaBook, { nonce: 'held' })).toContain('"document":{"lang":"he","metadata":{"title":"Book"}}')
     expect(bookDocument(book, { nonce: 'held' })).not.toContain('"document":')
   })
 

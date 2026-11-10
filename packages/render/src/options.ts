@@ -74,7 +74,6 @@ export interface MarksReport {
 }
 
 export interface RenderOptions {
-  formatDate?: import('@segnavia/format').DateFormatter
   newId?: () => string
   origins?: Iterable<OriginApproval>
   assets?: Assets

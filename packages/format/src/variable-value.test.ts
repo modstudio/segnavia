@@ -1,15 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { variableValue } from './variable-value.ts'
 
-describe('date variables', () => {
-  test('reads a resolved date by its own variable name', () => {
-    const variable = { name: 'today', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' } as const
-    const base = { numberingTotal: '', documentTotal: '' }
-    expect(variableValue(variable, { ...base, document: { dates: { today: 'י״ד באדר ב׳ תשפ״ד' } } })).toBe('י״ד באדר ב׳ תשפ״ד')
-    expect(variableValue(variable, { ...base, document: { dates: Object.create({ today: 'inherited' }) } })).toBe('')
-  })
-})
-
 test('part-title variables ignore inherited names', () => {
   expect(
     variableValue(

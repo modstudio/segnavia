@@ -34,10 +34,6 @@ export function metaVariableValue(variable: Extract<Variable, { kind: 'meta' }>,
 
 export function variableValue(variable: Variable, facts: VariablePageFacts): string {
   if (variable.kind === 'text') return textVariableValue(variable, facts)
-  if (variable.kind === 'date') {
-    const dates = facts.document?.dates
-    return dates !== undefined && Object.hasOwn(dates, variable.name) ? (dates[variable.name] ?? '') : ''
-  }
   if (variable.kind === 'meta') return metaVariableValue(variable, facts.document)
   if (variable.kind === 'record') {
     const value = variable.value === 'index' ? facts.recordIndex : facts.recordCount
