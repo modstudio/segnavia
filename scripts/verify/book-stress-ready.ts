@@ -1,9 +1,36 @@
-import type { FrameLocator } from 'playwright-core'
+import type { FrameLocator, Page } from 'playwright-core'
 
 // The slowest measured 439-page composition took 413 ms (headless_shell 1194); the bound leaves
 // headroom for slower CI machines while still failing a repagination that grows out of proportion.
 export const REPAGINATE_BOUND_MS = 5_000
 export const LARGE_BOOK_WAIT_MS = 20_000
+
+export interface CollectedComposeProgress {
+  id: string
+  pages: number
+  total: number
+}
+
+export async function installComposeProgressCollector(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const reports: CollectedComposeProgress[] = []
+    ;(window as unknown as { __composeProgress: CollectedComposeProgress[] }).__composeProgress = reports
+    document.addEventListener('composeprogress', (event) => {
+      const target = event.target as HTMLElement | null
+      const detail = (event as CustomEvent).detail as { pages?: unknown; total?: unknown }
+      if (target?.id && typeof detail.pages === 'number' && typeof detail.total === 'number') {
+        reports.push({ id: target.id, pages: detail.pages, total: detail.total })
+      }
+    })
+  })
+}
+
+export async function collectedComposeProgress(page: Page, id: string): Promise<CollectedComposeProgress[]> {
+  return page.evaluate((target) => {
+    const reports = (window as unknown as { __composeProgress?: CollectedComposeProgress[] }).__composeProgress ?? []
+    return reports.filter((report) => report.id === target)
+  }, id)
+}
 
 export async function waitForLargeBook(frame: FrameLocator, expectedPages: number): Promise<void> {
   const deadline = Date.now() + LARGE_BOOK_WAIT_MS

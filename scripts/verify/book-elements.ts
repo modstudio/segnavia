@@ -4,7 +4,13 @@ import { verifyComposeFailure } from './book-compose-failure.ts'
 import { verifyHiddenBookElements } from './book-hidden-elements.ts'
 import { verifyBookLayoutSwitching, verifyNonceAuthorizedAuthorScripts } from './book-layout-elements.ts'
 import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
-import { LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
+import {
+  collectedComposeProgress,
+  installComposeProgressCollector,
+  LARGE_BOOK_WAIT_MS,
+  REPAGINATE_BOUND_MS,
+  waitForLargeBook,
+} from './book-stress-ready.ts'
 import { pagesText } from './book-text.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
@@ -85,6 +91,16 @@ async function verifyLargeBookComposition(check: Harness['check'], stressPage: P
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
       ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
     }))
+    const progress = await collectedComposeProgress(stressPage, `book-large-${language}`)
+    const progressPages = progress.map((entry) => entry.pages)
+    check(
+      `book-large-${language} reports monotonic compose progress through its final page`,
+      progress.length > 1 &&
+        progress.every((entry) => entry.total === expectedPages) &&
+        progressPages.every((pages, index) => index === 0 || pages >= (progressPages[index - 1] ?? 0)) &&
+        progressPages.at(-1) === expectedPages,
+      JSON.stringify({ expectedPages, progress }),
+    )
     screenPages[language] = await frame.locator('html').evaluate(screenPageNotes)
     const geometry = await frame.locator('html').evaluate(inspectNoteViewGeometry)
     check(
@@ -211,6 +227,7 @@ export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: Re
     ?.newContext({ viewport: { width: 1280, height: 816 } })
   if (!stressContext) throw new Error('The browser could not open an isolated large-book context.')
   const stressPage = await stressContext.newPage()
+  await installComposeProgressCollector(stressPage)
   await stressPage.goto(h.url('book-paginated-large.html'))
   await verifyLargeBookComposition(check, stressPage)
   await stressContext.close()

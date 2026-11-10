@@ -249,7 +249,7 @@ describe('printedPageDocument', () => {
     expect(measuring).toContain('ResizeObserver')
     expect(second).toContain('"only":2')
     expect(second).not.toContain('ResizeObserver')
-    expect(second).toContain('attributeFilter:[name,failureName]')
+    expect(second).toContain('attributeFilter:[name,failureName,progressName]')
   })
 
   test('settles furniture resources and fonts before marking composition complete', () => {
