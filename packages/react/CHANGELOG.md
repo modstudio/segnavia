@@ -1,5 +1,32 @@
 # @segnavia/react
 
+## 0.53.0
+
+### Minor Changes
+
+- 370e995: Let slot values and the Fields panel use per-design overrides ahead of shared fills.
+- 6b4d309: Resolve a document's as-of day once for page and document previews, browser printing, and page rendering; pass it to host content seams; and expose it to bindings, reports, and element events.
+- c775264: Let hosts render every Fields panel control through keyed control renderers.
+
+### Patch Changes
+
+- 56bb43a: Include each package's changelog in its published tarball.
+- 7cade3b: Emit each item settings fill edit before its debounced save.
+- Updated dependencies [370e995]
+- Updated dependencies [3d69490]
+- Updated dependencies [b44a38d]
+- Updated dependencies [56bb43a]
+- Updated dependencies [7f5ed55]
+- Updated dependencies [7cade3b]
+- Updated dependencies [358b110]
+- Updated dependencies [252b705]
+- Updated dependencies [6b4d309]
+- Updated dependencies [c202b83]
+- Updated dependencies [25f56a9]
+- Updated dependencies [1bd389b]
+- Updated dependencies [c775264]
+  - @segnavia/frame@0.53.0
+
 ## 0.52.0
 
 ### Patch Changes

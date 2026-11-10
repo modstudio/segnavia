@@ -1,5 +1,54 @@
 # @segnavia/idml
 
+## 0.53.0
+
+### Minor Changes
+
+- 252b705: Select each page's parent page by an ordered list of rules.
+
+  `parentRules` is a list of `{ when?, parent }` on a document, section, template
+  or part. A rule's `when` may name a position (`documentFirst`, `documentLast`,
+  `sectionFirst` or `sectionLast`), a face (`recto` or `verso`) or `blank`. The
+  first rule whose stated conditions all match wins, and the last rule is the
+  unconditional default. A section's list replaces the template's, the
+  template's replaces the book's, and the book's replaces the built-in lists for
+  flowing, templated and designed pages. Printed documents take a list on the
+  document and on each section. Selection runs while pages fill, then again over
+  the finished pages, and a parent change that would alter the text area is
+  refused.
+
+  Breaking: `parentRules` replaces the per-role `parents` on book sections,
+  parts and templates, and `rules` on printed pages. Each old field is refused
+  with a remedy naming `parentRules`. Parsing refuses a host parent page named
+  under the reserved `segnavia:` namespace (base a new name on the built-in
+  instead), a `when` with no condition, a default rule that is not last, a rule
+  naming an unknown parent, and `parentRules` on a template used by a record.
+  `Measurements.parentNames` is removed. Saved plan version 4 includes each
+  page's parent page in its fingerprint; recompute saved plans made with an
+  earlier version.
+
+### Patch Changes
+
+- 56bb43a: Include each package's changelog in its published tarball.
+- Updated dependencies [370e995]
+- Updated dependencies [b44a38d]
+- Updated dependencies [d90ef76]
+- Updated dependencies [30bd6b7]
+- Updated dependencies [56bb43a]
+- Updated dependencies [b5cde83]
+- Updated dependencies [7f5ed55]
+- Updated dependencies [41c3b46]
+- Updated dependencies [1bd389b]
+- Updated dependencies [358b110]
+- Updated dependencies [8f3c1be]
+- Updated dependencies [252b705]
+- Updated dependencies [6b4d309]
+- Updated dependencies [25f56a9]
+- Updated dependencies [dfbbb55]
+- Updated dependencies [b157cf9]
+  - @segnavia/format@0.53.0
+  - @segnavia/html@0.53.0
+
 ## 0.52.0
 
 ### Patch Changes

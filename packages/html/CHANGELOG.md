@@ -1,5 +1,66 @@
 # @segnavia/html
 
+## 0.53.0
+
+### Minor Changes
+
+- 370e995: Let slot values and the Fields panel use per-design overrides ahead of shared fills.
+- 41c3b46: Change the default note-symbol sequence to `* § ‖ ¶`. This is a breaking
+  0.x change for books that use `marker: 'symbols'`; restore dagger marks with
+  `marker: { symbols: ['*', '†', '‡', '§'] }`.
+
+  A note series may now provide its own repeating `{ symbols: [...] }` sequence
+  or use `{ mark: '⁂' }` to give every note the same fixed, unnumbered mark.
+  Used series are refused when their repeated marks can overlap, including when
+  a symbol-like mark uses only the characters of a used number system.
+
+- 8f3c1be: Head collected endnote groups by their numbering scope instead of their placement. Notes collected at the back of the book or a part that restart per chapter or part now print one heading per run. A series numbered through the book prints none, including when it is placed per chapter or per part. A heading uses the scope's short title (`runningHead`) before its full title.
+- 252b705: Select each page's parent page by an ordered list of rules.
+
+  `parentRules` is a list of `{ when?, parent }` on a document, section, template
+  or part. A rule's `when` may name a position (`documentFirst`, `documentLast`,
+  `sectionFirst` or `sectionLast`), a face (`recto` or `verso`) or `blank`. The
+  first rule whose stated conditions all match wins, and the last rule is the
+  unconditional default. A section's list replaces the template's, the
+  template's replaces the book's, and the book's replaces the built-in lists for
+  flowing, templated and designed pages. Printed documents take a list on the
+  document and on each section. Selection runs while pages fill, then again over
+  the finished pages, and a parent change that would alter the text area is
+  refused.
+
+  Breaking: `parentRules` replaces the per-role `parents` on book sections,
+  parts and templates, and `rules` on printed pages. Each old field is refused
+  with a remedy naming `parentRules`. Parsing refuses a host parent page named
+  under the reserved `segnavia:` namespace (base a new name on the built-in
+  instead), a `when` with no condition, a default rule that is not last, a rule
+  naming an unknown parent, and `parentRules` on a template used by a record.
+  `Measurements.parentNames` is removed. Saved plan version 4 includes each
+  page's parent page in its fingerprint; recompute saved plans made with an
+  earlier version.
+
+- 6b4d309: Resolve a document's as-of day once for page and document previews, browser printing, and page rendering; pass it to host content seams; and expose it to bindings, reports, and element events.
+
+### Patch Changes
+
+- 56bb43a: Include each package's changelog in its published tarball.
+- Updated dependencies [370e995]
+- Updated dependencies [b44a38d]
+- Updated dependencies [d90ef76]
+- Updated dependencies [30bd6b7]
+- Updated dependencies [56bb43a]
+- Updated dependencies [b5cde83]
+- Updated dependencies [7f5ed55]
+- Updated dependencies [41c3b46]
+- Updated dependencies [1bd389b]
+- Updated dependencies [358b110]
+- Updated dependencies [252b705]
+- Updated dependencies [6b4d309]
+- Updated dependencies [25f56a9]
+- Updated dependencies [dfbbb55]
+- Updated dependencies [b157cf9]
+  - @segnavia/format@0.53.0
+  - @segnavia/layout@0.53.0
+
 ## 0.52.0
 
 ### Patch Changes
