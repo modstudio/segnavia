@@ -14,6 +14,58 @@ test('frame page preparation resolves placed media into the document HTML', asyn
   expect((await expandFramePage(resolvePageHtml(page), undefined, signal, placements)).page.html).toContain(`src="${src}"`)
 })
 
+test('frame page preparation passes the established day to placements', async () => {
+  const page = Page.parse({ html: '<img data-segnavia-media="cover">', size: { width: 320, height: 200 } })
+  const day = { date: '2026-11-14', zone: 'UTC', kind: 'fixed' as const }
+  let received: unknown
+  await expandFramePage(
+    resolvePageHtml(page),
+    undefined,
+    signal,
+    {
+      resolve: async (_placement, context) => {
+        received = context.day
+        return undefined
+      },
+    },
+    'screen',
+    undefined,
+    day,
+  )
+  expect(received).toEqual(day)
+})
+
+test('frame page preparation passes the established day to motif data', async () => {
+  const page = Page.parse({ html: '<div data-motif="dated"></div>', size: { width: 320, height: 200 } })
+  const day = { date: '2026-11-14', zone: 'UTC', kind: 'fixed' as const }
+  let received: unknown
+  await expandFramePage(
+    resolvePageHtml(page),
+    {
+      source: {
+        motif: async () => ({
+          key: 'dated',
+          revision: '1',
+          label: 'Dated',
+          fields: [],
+          fonts: [],
+          versions: [{ lang: 'en', html: '<span data-slot-value="title"></span>' }],
+        }),
+        data: async (_placement, context) => {
+          received = context.day
+          return { title: 'Today' }
+        },
+      },
+    },
+    signal,
+    undefined,
+    'screen',
+    undefined,
+    day,
+  )
+  expect(received).toEqual(day)
+})
+
 test('frame book preparation resolves placed media into the document HTML', async () => {
   const view = BookView.parse({ html: '<main><img data-segnavia-media="cover"></main>' })
   expect((await expandFrameBookView(view, undefined, signal, placements)).book.html).toContain(`src="${src}"`)

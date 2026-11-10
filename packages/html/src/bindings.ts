@@ -104,8 +104,12 @@ function registerHrefOrigin(policy: ResolvedLinkPolicy, tag: string, attribute: 
 // Bindings name data, so a page using them runs no script of its own: a
 // scripted page with bindings is refused rather than half-filled.
 export function hasBindings(html: string, prefix: string): boolean {
-  const names = new Set(Object.values(bindingNames(prefix)))
-  return elements(parse(html).children).some((element) => Object.keys(element.attribs).some((name) => names.has(name)))
+  return bindingPaths(html, prefix).length > 0
+}
+
+export function bindingPaths(html: string, prefix: string): string[] {
+  const names = Object.values(bindingNames(prefix))
+  return elements(parse(html).children).flatMap((element) => names.flatMap((name) => (element.attribs[name] === undefined ? [] : [element.attribs[name]])))
 }
 
 export function fill(html: string, options: FillOptions): Filled {

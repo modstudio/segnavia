@@ -1,5 +1,64 @@
 # @segnavia/format
 
+## 0.53.0
+
+### Minor Changes
+
+- 370e995: Let slot values and the Fields panel use per-design overrides ahead of shared fills.
+- b44a38d: Expose structured measure, limit and actual values when a host limit refuses format, frame or render output.
+- d90ef76: Accept the stored `CoverInput` in `coverDigest`, matching the renderer's
+  `coverImage` input. This breaking 0.x change refuses a parsed `Cover` in
+  `coverDigest`; holders of one can pass `coverDigestMaterial(cover, options)` to
+  `digestCoverMaterial`.
+- 30bd6b7: Let documents declare the calendar day their data is for and resolve its time zone in one place.
+- b5cde83: Allow multi-word lexicon terms while preserving script captions, and let ElevenLabs dictionary publishing safely control case sensitivity and cancellation.
+- 7f5ed55: Export font manifest reference helpers and accept references, an optional font manifest or no fonts when reading or packing local fonts.
+- 41c3b46: Change the default note-symbol sequence to `* § ‖ ¶`. This is a breaking
+  0.x change for books that use `marker: 'symbols'`; restore dagger marks with
+  `marker: { symbols: ['*', '†', '‡', '§'] }`.
+
+  A note series may now provide its own repeating `{ symbols: [...] }` sequence
+  or use `{ mark: '⁂' }` to give every note the same fixed, unnumbered mark.
+  Used series are refused when their repeated marks can overlap, including when
+  a symbol-like mark uses only the characters of a used number system.
+
+- 1bd389b: Expose board-node movement, label resizing, and node marquee geometry for browser and server callers.
+- 252b705: Select each page's parent page by an ordered list of rules.
+
+  `parentRules` is a list of `{ when?, parent }` on a document, section, template
+  or part. A rule's `when` may name a position (`documentFirst`, `documentLast`,
+  `sectionFirst` or `sectionLast`), a face (`recto` or `verso`) or `blank`. The
+  first rule whose stated conditions all match wins, and the last rule is the
+  unconditional default. A section's list replaces the template's, the
+  template's replaces the book's, and the book's replaces the built-in lists for
+  flowing, templated and designed pages. Printed documents take a list on the
+  document and on each section. Selection runs while pages fill, then again over
+  the finished pages, and a parent change that would alter the text area is
+  refused.
+
+  Breaking: `parentRules` replaces the per-role `parents` on book sections,
+  parts and templates, and `rules` on printed pages. Each old field is refused
+  with a remedy naming `parentRules`. Parsing refuses a host parent page named
+  under the reserved `segnavia:` namespace (base a new name on the built-in
+  instead), a `when` with no condition, a default rule that is not last, a rule
+  naming an unknown parent, and `parentRules` on a template used by a record.
+  `Measurements.parentNames` is removed. Saved plan version 4 includes each
+  page's parent page in its fingerprint; recompute saved plans made with an
+  earlier version.
+
+- 6b4d309: Resolve a document's as-of day once for page and document previews, browser printing, and page rendering; pass it to host content seams; and expose it to bindings, reports, and element events.
+- dfbbb55: Let `deckFromSlides` carry a style sheet into the deck document it builds.
+- b157cf9: Give board labels an authored wrap width, width-aware measurement, and logical resize anchoring.
+
+### Patch Changes
+
+- 56bb43a: Include each package's changelog in its published tarball.
+- 358b110: Paginated books now honor keeps on nested blocks. A list item or other
+  block inside a container that sets `break-inside: avoid` is no longer split
+  across pages. A nested heading or speaker kept with the next element moves
+  with the block that follows its container instead of ending a page alone.
+- 25f56a9: Show every reported slot state in the item settings Fields panel.
+
 ## 0.52.0
 
 ### Minor Changes

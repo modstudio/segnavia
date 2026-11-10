@@ -1,5 +1,41 @@
 # @segnavia/render
 
+## 0.53.0
+
+### Minor Changes
+
+- b44a38d: Expose structured measure, limit and actual values when a host limit refuses format, frame or render output.
+- 6b4d309: Resolve a document's as-of day once for page and document previews, browser printing, and page rendering; pass it to host content seams; and expose it to bindings, reports, and element events.
+
+### Patch Changes
+
+- 56bb43a: Include each package's changelog in its published tarball.
+- f145c93: Document how `beforeOutput` hooks run code under each page script policy.
+- Updated dependencies [370e995]
+- Updated dependencies [3d69490]
+- Updated dependencies [b44a38d]
+- Updated dependencies [d90ef76]
+- Updated dependencies [30bd6b7]
+- Updated dependencies [56bb43a]
+- Updated dependencies [b5cde83]
+- Updated dependencies [7f5ed55]
+- Updated dependencies [7cade3b]
+- Updated dependencies [41c3b46]
+- Updated dependencies [1bd389b]
+- Updated dependencies [358b110]
+- Updated dependencies [8f3c1be]
+- Updated dependencies [252b705]
+- Updated dependencies [6b4d309]
+- Updated dependencies [c202b83]
+- Updated dependencies [25f56a9]
+- Updated dependencies [1bd389b]
+- Updated dependencies [dfbbb55]
+- Updated dependencies [c775264]
+- Updated dependencies [b157cf9]
+  - @segnavia/format@0.53.0
+  - @segnavia/html@0.53.0
+  - @segnavia/frame@0.53.0
+
 ## 0.52.0
 
 ### Patch Changes

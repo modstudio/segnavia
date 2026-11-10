@@ -1,4 +1,4 @@
-import { type MotifSource, RECORD_CONTEXT } from '@segnavia/format'
+import { AS_OF_CONTEXT, type AsOfDay, type MotifSource, RECORD_CONTEXT } from '@segnavia/format'
 import {
   type ExpandedMotifs,
   expandMotifs,
@@ -62,6 +62,7 @@ export async function expandPageMotifs(
   parentLang: string | undefined,
   motifs: MotifsOptions,
   signal: AbortSignal,
+  day?: AsOfDay,
 ) {
   const expand = (html: string, lang: string | undefined, furniture: boolean) =>
     expandMotifs(html, {
@@ -72,7 +73,8 @@ export async function expandPageMotifs(
       prefix: 'slot',
       linkOrigins: motifs.linkOrigins,
       signal,
-      ...(furniture ? { deferPaths: [RECORD_CONTEXT] } : {}),
+      day,
+      deferPaths: furniture ? [RECORD_CONTEXT, AS_OF_CONTEXT] : [AS_OF_CONTEXT],
     })
   const bodyResults = await Promise.all(bodies.map((body) => expand(body.html, body.lang, false)))
   const parentResults = new Map(

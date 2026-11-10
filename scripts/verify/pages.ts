@@ -1,7 +1,7 @@
 // Pages: fluid and growing heights through the bridge, refused scripts,
 // direction and language, block direction, and a page the host serves.
 
-import { PAGE_DEMO_PAGES, PRINTED_PAGE_DEMO_PAGES } from '../build-page-demo.ts'
+import { AS_OF_DEMO_DATE, AS_OF_DEMO_MOMENT, PAGE_DEMO_PAGES, PRINTED_PAGE_DEMO_PAGES } from '../build-page-demo.ts'
 import type { Harness } from './harness.ts'
 
 // A fixed sheet keeps its own height, so #fixed never reports a measurement.
@@ -105,6 +105,18 @@ export async function verifyPages(h: Harness) {
   const heights = await page.evaluate(() => ['#fluid', '#rtl'].map((id) => Number((document.querySelector(id) as HTMLElement).dataset.height ?? 0)))
   const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages.join(','))
   check('a fluid page reports its content height through the bridge', (heights[0] ?? 0) > 300, `height=${heights[0]} messages=${messages}`)
+  const asOf = await page.evaluate(async (moment) => {
+    const element = document.querySelector('#as-of') as HTMLElement & { moment?: number }
+    const event = new Promise<string>((resolve) => element.addEventListener('asof', (value) => resolve((value as CustomEvent).detail.date), { once: true }))
+    element.moment = moment
+    return event
+  }, AS_OF_DEMO_MOMENT)
+  const asOfText = await page.frameLocator('#as-of iframe').locator('body').textContent()
+  check(
+    'the as-of demo binds and reports its deterministic day',
+    asOf === AS_OF_DEMO_DATE && asOfText?.includes(AS_OF_DEMO_DATE) === true,
+    `${asOf} ${asOfText}`,
+  )
   const background = await page
     .frameLocator('#fluid iframe')
     .locator('body')

@@ -62,6 +62,9 @@ const imposition = { paper: { unit: 'mm' as const, width: 210, height: 297 }, co
 
 test('printPages resolves placements before building the browser print document', async () => {
   let written = ''
+  let anchorCalls = 0
+  let slotCalls = 0
+  const reports: unknown[] = []
   const printWindow = new EventTarget() as EventTarget & {
     document: { open(): void; write(html: string): void; close(): void; querySelectorAll(): unknown[]; fonts: { ready: Promise<void> } }
     setTimeout: typeof setTimeout
@@ -86,12 +89,34 @@ test('printPages resolves placements before building the browser print document'
   Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => host, body: { append() {} } } })
   try {
     const src = 'data:image/png;base64,AA=='
-    await printPages([pageDocument('<img data-segnavia-media="cover">')], imposition, {
+    const dayPage = {
+      ...pageDocument('<p>Data as of <time data-slot-value="asOf.date"></time><img data-segnavia-media="cover">'),
+      asOf: { kind: 'anchor' as const, anchor: 'week' },
+    }
+    await printPages([dayPage, dayPage], imposition, {
+      moment: Date.parse('2026-11-14T12:00:00Z'),
+      anchors: {
+        choices: [{ name: 'week', label: 'Week' }],
+        resolve: async () => {
+          anchorCalls++
+          return '2026-11-09'
+        },
+      },
+      slots: {
+        resolve: async () => {
+          slotCalls++
+          return { id: 'week', values: {} }
+        },
+      },
+      asOf: { report: (days) => reports.push(days) },
       placements: { resolve: async () => ({ kind: 'media', media: { format: 'png', size: { width: 20, height: 10 } }, src }) },
       print: () => {},
     })
     expect(written).toContain(src)
+    expect(written).toContain('2026-11-09')
     expect(written).not.toContain('data-segnavia-media')
+    expect({ anchorCalls, slotCalls }).toEqual({ anchorCalls: 1, slotCalls: 1 })
+    expect(reports).toEqual([[{ date: '2026-11-09', zone: 'UTC', kind: 'anchor', anchor: 'week' }]])
   } finally {
     if (previous) Object.defineProperty(globalThis, 'document', previous)
     else Reflect.deleteProperty(globalThis, 'document')

@@ -20,7 +20,7 @@ import {
   parseLimits,
   resolveBrand,
 } from '@segnavia/format'
-import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { type AsOfInputs, fillPageAsOfBindings, type HtmlPage, parseDocument, resolveDayContextsFor, resolvePageHtml } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { loadDiagramScript } from './diagram-document.ts'
@@ -285,7 +285,7 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
   return printFrame(copiesPrint(copies))
 }
 
-export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions {
+export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions, AsOfInputs {
   slots?: SlotPrintOptions
   motifs?: MotifsOptions
   fonts?: FontsOptions
@@ -297,16 +297,33 @@ export async function printPages(pagesInput: PageOrPrintedInput[], impositionInp
   options = { ...options, limits: parseLimits(options.limits, 'host'), pageWidths: parsePageWidths(options.pageWidths) }
   const deadlineAt = Date.now() + (options.deadlineMs ?? SLIDES_READY_DEADLINE_MS)
   const signal = new AbortController().signal
-  const pages = await Promise.all(
+  const pageValues = await Promise.all(
     pagesInput.map(async (input) => {
       const document = parseDocument(input)
-      return resolvePageHtml(pageOrPrintedFromDocument(document, await resolveBrand(document, options.brands?.source, signal)))
+      return pageOrPrintedFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
     }),
   )
-  const expanded = await expandFramePages(pages, options.motifs, signal, options.placements, 'print', options.pageWidths)
+  const contexts = await resolveDayContextsFor(pageValues, options, options.slots, signal)
+  const pages = pageValues.map(resolvePageHtml)
+  const expanded = await expandFramePages(
+    pages,
+    options.motifs,
+    signal,
+    options.placements,
+    'print',
+    options.pageWidths,
+    contexts.pages.map(({ day }) => day),
+  )
   const { css: fontCss } = await expandedPagesFontCss(expanded, options.fonts, signal)
-  const expandedPages = expanded.map((item) => item.page)
-  const preparedOptions = { ...options, motifs: undefined, fonts: undefined, css: `${fontCss}${options.css ?? ''}`, deadlineAt }
+  const expandedPages = expanded.map((item, index) => fillPageAsOfBindings(item.page, contexts.pages[index]?.day))
+  const preparedOptions = {
+    ...options,
+    slots: contexts.pages[0]?.slots,
+    motifs: undefined,
+    fonts: undefined,
+    css: `${fontCss}${options.css ?? ''}`,
+    deadlineAt,
+  }
   if (!options.slots?.fills) {
     const prepared = await preparedPagesPrint(expandedPages, impositionInput, preparedOptions)
     refusePagesSheets(prepared)

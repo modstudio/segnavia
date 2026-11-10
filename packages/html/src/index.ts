@@ -41,8 +41,9 @@ export {
   selectParent,
   windowPageIndex,
 } from '@segnavia/layout'
+export { fillAsOfBindings, hasAsOfBinding } from './as-of-bindings.ts'
 export { base64ToBytes, bytesToBase64 } from './base64.ts'
-export { BINDINGS, bindingNames, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
+export { BINDINGS, bindingNames, bindingPaths, bindingRoot, type Filled, type FillOptions, fill, hasBindings } from './bindings.ts'
 export { BLOCK_CONTEXT, type BlockKind, blockContextAllowed } from './block-context.ts'
 export type { ContentAddress } from './block-fragments.ts'
 export {
@@ -71,6 +72,7 @@ export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPri
 export { bookPrintPart, headingLabel } from './book/types.ts'
 export { sanitizeBookCss } from './book-css.ts'
 export { type BrandSpecimenOptions, brandSpecimen } from './brand-specimen.ts'
+export { asOfValues, slotsForDay, slotsOptionsRefusal, slotsWithDay } from './day-slots.ts'
 export { type DescribeDocumentOptions, type DocumentDescription, type DocumentDescriptionNode, describeDocument } from './describe-document.ts'
 export { BLOCK_ELEMENTS, type ParseDocumentOptions, pageOrPrintedFromInput, parseDocument } from './document.ts'
 export type { EditDocumentOptions } from './document-command-core.ts'
@@ -81,6 +83,15 @@ export {
   DocumentCommandLocation,
   documentCommandJsonSchema,
 } from './document-commands.ts'
+export {
+  type AsOfInputs,
+  type DocumentDayContextOptions,
+  type DocumentDayContexts,
+  type EstablishedPageDay,
+  parseAsOfInputs,
+  resolveDayContextsFor,
+  resolveDocumentDayContexts,
+} from './document-day-context.ts'
 export { type EditDocumentFailure, type EditDocumentResult, type EditDocumentSuccess, editDocument } from './edit-document.ts'
 export { embedFunction } from './embed-function.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
@@ -121,6 +132,7 @@ export {
   type PlacedMotif,
   renderMotifPlacements,
 } from './motifs.ts'
+export { fillPageAsOfBindings } from './page-as-of.ts'
 export {
   classifyMediaAnswer,
   type MediaAnswer,

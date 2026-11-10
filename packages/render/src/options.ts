@@ -13,7 +13,7 @@ import {
   parseLimits,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
-import type { SlotPrintOptions } from '@segnavia/html'
+import type { AsOfInputs, SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { RenderLimitError } from './errors.ts'
@@ -170,6 +170,10 @@ export interface ImageOptions extends RenderOptions {
   scale?: number
   width?: number
 }
+
+export interface PageImageOptions extends ImageOptions, AsOfInputs {}
+
+export type PageRenderOptions = RenderOptions & AsOfInputs
 
 export interface ProofImageOptions {
   profile: Uint8Array

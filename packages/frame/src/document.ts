@@ -1,6 +1,5 @@
-// <segnavia-document>: shows an ordered run of designed pages on one paper
-// size. Sheets are mounted only near the viewport and never grow beyond their
-// natural size at the browser's 96 dpi.
+// <segnavia-document>: shows an ordered run of designed pages on one paper size.
+// Sheets are mounted only near the viewport and never grow beyond their natural size at the browser's 96 dpi.
 
 import {
   type Document,
@@ -13,11 +12,13 @@ import {
   resolveBrand,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { type EstablishedPageDay, fillAsOfBindings, type HtmlPage, parseDocument, resolveDocumentDayContexts, resolvePageHtml } from '@segnavia/html'
+import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
-import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageLoad } from './document-value-load.ts'
+import { DocumentAsOfElement } from './document-as-of-element.ts'
+import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageDayLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -31,7 +32,7 @@ import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal
 
 const MOUNT_MARGIN = 600
 
-export class SegnaviaDocument extends HTMLElement {
+export class SegnaviaDocument extends DocumentAsOfElement {
   static {
     defineStylesheetPropertyAccessors(SegnaviaDocument.prototype, ['origins'])
   }
@@ -58,6 +59,7 @@ export class SegnaviaDocument extends HTMLElement {
   private filledHtml: string[] | undefined
   private resolvedSlots: PreparedSlots | undefined
   private resolvedGeneration = 0
+  private pageDayContexts: EstablishedPageDay[] = []
 
   constructor() {
     super()
@@ -89,6 +91,10 @@ export class SegnaviaDocument extends HTMLElement {
 
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
+    this.paint()
+  }
+
+  protected asOfInputsChanged(): void {
     this.paint()
   }
 
@@ -203,7 +209,6 @@ export class SegnaviaDocument extends HTMLElement {
   [internalDocumentPagesRead](): Page[] {
     return this.sourceValues
   }
-
   /** Installs the optional authoring rail without making it part of the viewer entry. */
   setAuthoringRail(rail: HTMLElement | null): void {
     this.authoringRail = rail
@@ -218,9 +223,11 @@ export class SegnaviaDocument extends HTMLElement {
     this.cancelSlotPreparation()
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
+    const asOfLoad = captureAsOfLoad(this)
     this.filledHtml = undefined
     this.resolvedSlots = undefined
     this.resolvedGeneration = 0
+    this.pageDayContexts = []
     this.observer?.disconnect()
     this.observer = null
     this.pageObserver?.disconnect()
@@ -230,21 +237,35 @@ export class SegnaviaDocument extends HTMLElement {
     const print = this.printValue
     if (!this.isConnected || !print || this.pageValues.length === 0) return
     this.paintResolved(print)
-    if (this.motifOptions) return
-    const refusal = this.pageValues.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
-    if (refusal) {
-      this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
-      return
-    }
-    if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) return
     const controller = new AbortController()
     this.slotPreparation = controller
-    void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
-      .then((resolved) => {
+    const isCurrent = () => this.isConnected && !controller.signal.aborted && generation === this.slotGeneration
+    void resolveDocumentDayContexts(this.sourceValues, {
+      ...asOfLoad,
+      slots: this.slotOptions,
+      signal: controller.signal,
+    })
+      .then(async (contexts) => {
+        if (!isCurrent()) return
+        for (const day of contexts.days) this.dispatchEvent(new CustomEvent('asof', { detail: day }))
+        if (this.motifOptions || this.slotOptions?.resolve) {
+          this.pageDayContexts = contexts.pages
+          this.paintResolved(print)
+          return
+        }
+        const refusal = this.pageValues.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
+        if (refusal) throw refusal
+        if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
+          this.pageDayContexts = contexts.pages
+          this.paintResolved(print)
+          return
+        }
+        const resolved = await prepareSlotCollection(declarations, this.slotOptions, controller.signal)
         if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration) return
         this.resolvedSlots = resolved
         this.resolvedGeneration = generation
-        this.filledHtml = this.pageValues.map((page) => resolved.apply(page.html))
+        this.pageDayContexts = contexts.pages.map(({ day }) => ({ day, slots: {} }))
+        this.filledHtml = this.pageValues.map((page, index) => resolved.apply(fillAsOfBindings(page.html, contexts.pages[index]?.day)))
         this.paintResolved(print)
       })
       .catch((error) => {
@@ -309,13 +330,13 @@ export class SegnaviaDocument extends HTMLElement {
     )
     for (const item of list.querySelectorAll<HTMLElement>('.segnavia-document__item')) this.pageObserver.observe(item)
   }
-
   private mount(sheet: HTMLElement) {
     if (sheet.firstElementChild) return
     const index = Number(sheet.dataset.page)
     const source = this.pageValues[index]
+    const context = this.pageDayContexts[index]
     const print = this.printValue
-    if (!source || !print) return
+    if (!source || !context || !print) return
     const projection = projectPageOnPaper(source, print)
     const page = createPageElement()
     page.motifs = this.motifOptions
@@ -323,32 +344,29 @@ export class SegnaviaDocument extends HTMLElement {
     page.pageWidths = this.widthOptions
     page.fonts = this.fontOptions
     page.brands = this.brandOptions
-    if (this.motifOptions) page.slots = this.slotOptions
     page.css = this.stylesheet
     page.cspExtra = this.extraCsp
     page.origins = this.origins
     page.part.add('page')
     sheet.append(page)
-    page[internalPageLoad](
+    page[internalPageDayLoad](
       Page.parse({
         ...projection.page,
         printedPages: undefined,
         slots: this.resolvedSlots ? [] : projection.page.slots,
         html: this.filledHtml?.[index] ?? source.html,
       }),
+      context,
     )
   }
-
   private onMessage = (event: MessageEvent) => {
     if (!this.resolvedSlots || this.resolvedGeneration !== this.slotGeneration) return
     mergeOwnedSlotFit(event, this.querySelectorAll('iframe'), this.resolvedSlots)
   }
-
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
   }
-
   private resolveDocuments(documents: Document[]) {
     this.brandResolution?.abort()
     const controller = new AbortController()
@@ -373,7 +391,6 @@ export class SegnaviaDocument extends HTMLElement {
         this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
       })
   }
-
   private changed() {
     this.dispatchEvent(new CustomEvent('segnavia-document-change'))
   }

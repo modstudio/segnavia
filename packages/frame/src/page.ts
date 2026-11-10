@@ -1,41 +1,42 @@
-// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; composed papers
-// fill the host-sized element and scroll inside it. Host-served HTML reports its height through the bridge.
+// <segnavia-page> shows a page in a sandboxed frame. Full pages grow; fixed pages scale to fit; composed papers fill the host-sized element and scroll inside it. Host-served HTML reports its height through the bridge.
 
 import {
+  type AsOfDay,
   type Document,
   type DocumentInput,
   type FontFailure,
   FULL_PAGE_SIZE,
   Page,
   type PageWidths,
-  pageDirection,
-  printProperties,
+  resolveAsOfDay,
+  resolveDocumentDayResult,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type AlertLabels, type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
+import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { dispatchFontFailures, frameStyleSheets, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
-import { internalPageLoad } from './document-value-load.ts'
+import { dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
-import { framePageMotifRefusal, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
+import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
+import { PageAsOfElement } from './page-as-of-element.ts'
 import { loadBrandedPage } from './page-brand.ts'
-import { loadPageDocument, loadShownPageDocument } from './page-document-loading.ts'
-import { PageElementAttributes } from './page-element-attributes.ts'
+import { loadShownPageDocument } from './page-document-loading.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
 import { scrollPageToHeading } from './page-heading.ts'
-import { prepareShownPage } from './page-preparation.ts'
-import { loadPrintedPageFrame, printedPageComposeFailure, printedPageRequestRefusal } from './page-printed.ts'
+import { printedPageComposeFailure, printedPageRequestRefusal } from './page-printed.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
+import { renderPageValue } from './page-value-render.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import type { PreparedSlots } from './slot-render.ts'
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
-export class SegnaviaPage extends PageElementAttributes {
+export class SegnaviaPage extends PageAsOfElement {
   static observedAttributes = ['src', 'bounded', 'label']
   private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageInput: DocumentInput | unknown
@@ -90,6 +91,10 @@ export class SegnaviaPage extends PageElementAttributes {
   }
   set placements(value: PlacementsOptions | undefined) {
     this.placementOptions = value
+    if (this.pageValue) this.loadValue(this.pageValue)
+  }
+
+  protected asOfInputsChanged(): void {
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
@@ -192,8 +197,14 @@ export class SegnaviaPage extends PageElementAttributes {
     this.documentValue = null
     this.loadValue(page)
   }
-
-  private loadValue(page: Page) {
+  [internalPageDayLoad](page: Page, established: EstablishedPageDay) {
+    this.brandResolution?.abort()
+    this.brandResolution = undefined
+    this.pageInput = undefined
+    this.documentValue = null
+    this.loadValue(page, established)
+  }
+  private loadValue(page: Page, established?: EstablishedPageDay) {
     this.hostServed = false
     const generation = this.releaseFrame()
     const controller = new AbortController()
@@ -220,67 +231,45 @@ export class SegnaviaPage extends PageElementAttributes {
     const write = (document: string) => {
       if (isCurrent()) this.writeDocument(iframe, document)
     }
-    if (page.printedPages) {
-      this.composedFrame = { frame: iframe, generation }
-      loadPrintedPageFrame(page, {
-        motifs: this.motifOptions,
-        placements: this.placementOptions,
-        widths: this.widthOptions,
-        fonts: this.fontOptions,
-        slots: this.slotOptions,
-        css: this.css,
-        csp: this.cspExtra || undefined,
-        origins: this.origins,
-        signal: controller.signal,
-        loaded: write,
-        failed: report,
-      })
-      this.fit()
-      return
+    const { moment, hostZone, anchors } = captureAsOfLoad(this)
+    const facts = {
+      moment,
+      hostZone,
+      anchors,
+      signal: controller.signal,
     }
-    const resolvedPage = resolvePageHtml(page)
-    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && Object.keys(page.style?.fonts ?? {}).length === 0) {
-      const motifRefusal = framePageMotifRefusal(resolvedPage)
-      if (motifRefusal) {
-        report(motifRefusal)
-        this.fit()
-        return
-      }
-      let sheets: string[]
-      try {
-        sheets = frameStyleSheets(page.style, page.brand, page.print ? printProperties(page.print) : '')
-      } catch (error) {
-        report(error)
-        this.fit()
-        return
-      }
-      loadPageDocument(
-        resolvedPage,
+    const render = (day: AsOfDay, slots: SlotsOptions) => {
+      if (!isCurrent()) return
+      if (!established) this.dispatchEvent(new CustomEvent('asof', { detail: day }))
+      renderPageValue(
+        page,
+        day,
+        slots,
+        controller.signal,
+        { frame: iframe, generation },
         {
-          scripts: page.scripts,
-          dir: pageDirection(resolvedPage),
-          lang: page.lang,
-          sheets,
+          motifs: this.motifOptions,
+          placements: this.placementOptions,
+          widths: this.widthOptions,
+          fonts: this.fontOptions,
           css: this.css,
           csp: this.cspExtra || undefined,
           origins: this.origins,
-          relayKeys: false,
         },
-        write,
-        report,
+        { show, report, write, composed: (identity) => (this.composedFrame = identity), fit: () => this.fit() },
       )
-      const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, this.slotOptions)
-      if (refusal) report(refusal)
-      else if (hasSlotWork(resolvedPage.slots, this.slotOptions))
-        void prepareSlots(resolvedPage.slots, this.slotOptions, controller.signal)
-          .then((resolved) => show(resolvedPage, resolved))
-          .catch(report)
-      this.fit()
-      return
     }
-    void prepareShownPage(resolvedPage, this.motifOptions, this.slotOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
-      .then(({ page: shownPage, resolved, css, failures }) => show(shownPage, resolved, css, failures))
-      .catch(report)
+    const policy = resolveAsOfDay(page.asOf, facts)
+    if (established) {
+      render(established.day, established.slots)
+    } else if (policy.kind === 'day' && !this.slotOptions?.resolve) {
+      render(policy.day, { ...this.slotOptions, resolve: undefined, source: this.slotOptions?.source })
+    } else {
+      void resolveDocumentDayResult(policy, facts)
+        .then(async (day) => ({ day, slots: await slotsForDay(this.slotOptions, day, controller.signal) }))
+        .then(({ day, slots }) => render(day, slots))
+        .catch(report)
+    }
     this.fit()
   }
 

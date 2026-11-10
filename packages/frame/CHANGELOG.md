@@ -1,5 +1,70 @@
 # @segnavia/frame
 
+## 0.53.0
+
+### Minor Changes
+
+- 370e995: Let slot values and the Fields panel use per-design overrides ahead of shared fills.
+- 3d69490: Edit board label text in place with one undoable change.
+- b44a38d: Expose structured measure, limit and actual values when a host limit refuses format, frame or render output.
+- 7f5ed55: Export font manifest reference helpers and accept references, an optional font manifest or no fonts when reading or packing local fonts.
+- 252b705: Select each page's parent page by an ordered list of rules.
+
+  `parentRules` is a list of `{ when?, parent }` on a document, section, template
+  or part. A rule's `when` may name a position (`documentFirst`, `documentLast`,
+  `sectionFirst` or `sectionLast`), a face (`recto` or `verso`) or `blank`. The
+  first rule whose stated conditions all match wins, and the last rule is the
+  unconditional default. A section's list replaces the template's, the
+  template's replaces the book's, and the book's replaces the built-in lists for
+  flowing, templated and designed pages. Printed documents take a list on the
+  document and on each section. Selection runs while pages fill, then again over
+  the finished pages, and a parent change that would alter the text area is
+  refused.
+
+  Breaking: `parentRules` replaces the per-role `parents` on book sections,
+  parts and templates, and `rules` on printed pages. Each old field is refused
+  with a remedy naming `parentRules`. Parsing refuses a host parent page named
+  under the reserved `segnavia:` namespace (base a new name on the built-in
+  instead), a `when` with no condition, a default rule that is not last, a rule
+  naming an unknown parent, and `parentRules` on a template used by a record.
+  `Measurements.parentNames` is removed. Saved plan version 4 includes each
+  page's parent page in its fingerprint; recompute saved plans made with an
+  earlier version.
+
+- 6b4d309: Resolve a document's as-of day once for page and document previews, browser printing, and page rendering; pass it to host content seams; and expose it to bindings, reports, and element events.
+- 25f56a9: Show every reported slot state in the item settings Fields panel.
+- 1bd389b: Select, move, nudge, wrap, and resize board labels alongside board items.
+- c775264: Let hosts render every Fields panel control through keyed control renderers.
+
+### Patch Changes
+
+- 56bb43a: Include each package's changelog in its published tarball.
+- 7cade3b: Emit each item settings fill edit before its debounced save.
+- 358b110: Paginated books now honor keeps on nested blocks. A list item or other
+  block inside a container that sets `break-inside: avoid` is no longer split
+  across pages. A nested heading or speaker kept with the next element moves
+  with the block that follows its container instead of ending a page alone.
+- c202b83: Let hosts style the item-settings panel's type, spacing, controls, and focus ring with custom properties.
+- Updated dependencies [370e995]
+- Updated dependencies [b44a38d]
+- Updated dependencies [d90ef76]
+- Updated dependencies [30bd6b7]
+- Updated dependencies [56bb43a]
+- Updated dependencies [b5cde83]
+- Updated dependencies [7f5ed55]
+- Updated dependencies [41c3b46]
+- Updated dependencies [1bd389b]
+- Updated dependencies [358b110]
+- Updated dependencies [8f3c1be]
+- Updated dependencies [252b705]
+- Updated dependencies [6b4d309]
+- Updated dependencies [25f56a9]
+- Updated dependencies [dfbbb55]
+- Updated dependencies [b157cf9]
+  - @segnavia/format@0.53.0
+  - @segnavia/html@0.53.0
+  - @segnavia/layout@0.53.0
+
 ## 0.52.0
 
 ### Minor Changes

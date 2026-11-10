@@ -1,4 +1,4 @@
-import { type DocumentInput, type Media, mediaTextDirection, Placement, type Placement as PlacementValue } from '@segnavia/format'
+import { type AsOfDay, type DocumentInput, type Media, mediaTextDirection, Placement, type Placement as PlacementValue } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
 
@@ -8,7 +8,7 @@ const [MEDIA_ATTRIBUTE, PAGE_ATTRIBUTE, BOX_ATTRIBUTE, CROP_ATTRIBUTE] = PLACEME
 export type ResolvedPlacement = { kind: 'media'; media: Media; src: string } | { kind: 'page'; page: DocumentInput }
 export type ResolvePlacement<R extends { kind: string } = ResolvedPlacement> = (
   placement: PlacementValue,
-  context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal },
+  context: { purpose: 'screen' | 'print'; width?: number; signal: AbortSignal; day?: AsOfDay },
 ) => Promise<R | undefined>
 
 export interface PlacementPlanEntry {
@@ -189,7 +189,14 @@ function abortable<T>(work: () => Promise<T>, signal: AbortSignal): Promise<T> {
 
 export async function resolvePlacements<R extends { kind: string }>(
   html: string,
-  options: { resolvePlacement: ResolvePlacement<R>; purpose: 'screen' | 'print'; width: number; signal: AbortSignal; report?: PlacementReport },
+  options: {
+    resolvePlacement: ResolvePlacement<R>
+    purpose: 'screen' | 'print'
+    width: number
+    signal: AbortSignal
+    day?: AsOfDay
+    report?: PlacementReport
+  },
 ): Promise<string> {
   const document = parse(html)
   const found = elements(document.children)
@@ -212,6 +219,7 @@ export async function resolvePlacements<R extends { kind: string }>(
               purpose: options.purpose,
               width: entry.width ?? options.width,
               signal: options.signal,
+              day: options.day,
             }),
           options.signal,
         )

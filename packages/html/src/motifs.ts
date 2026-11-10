@@ -1,4 +1,6 @@
 import {
+  AS_OF_CONTEXT,
+  type AsOfDay,
   chooseMotifVersion,
   type FontReference,
   HEAD_TEMPLATE_MOTIF,
@@ -29,6 +31,7 @@ export interface ExpandMotifsOptions {
   linkOrigins?: Iterable<string>
   dataFonts?: boolean
   signal: AbortSignal
+  day?: AsOfDay
   deferPaths?: Iterable<string>
   deferLibrary?: boolean
 }
@@ -174,11 +177,11 @@ function needsHostData(html: string, options: ExpandMotifsOptions): boolean {
 }
 
 async function fillVersion(html: string, placement: MotifPlacement, element: Element, state: ExpansionState): Promise<string | undefined> {
-  const data = await state.options.source.data?.(placement, { signal: state.options.signal })
+  const data = await state.options.source.data?.(placement, { signal: state.options.signal, day: state.options.day })
   state.options.signal.throwIfAborted()
   if (data) {
     const deferred = new Set(state.options.deferPaths ?? [])
-    for (const context of [RECORD_CONTEXT]) {
+    for (const context of [RECORD_CONTEXT, AS_OF_CONTEXT]) {
       if (!deferred.has(context) || !Object.hasOwn(data, context)) continue
       refuse(state, element, `the reserved ${context} context because host data contains that key`, `remove ${context} from MotifSource.data`)
       return undefined

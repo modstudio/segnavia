@@ -1,10 +1,15 @@
 import { z } from 'zod'
+import type { AsOfDay } from './as-of.ts'
 import { TextDirection } from './direction.ts'
 import { FontReference, FontReferenceInput } from './fonts.ts'
 import { SlotKey } from './slots.ts'
 
 export const MOTIF_ATTRIBUTE = 'data-motif'
 export const RECORD_CONTEXT = 'record'
+export const AS_OF_CONTEXT = 'asOf'
+export const AS_OF_DATE_PATH = `${AS_OF_CONTEXT}.date`
+export const AS_OF_ZONE_PATH = `${AS_OF_CONTEXT}.zone`
+export const AS_OF_ANCHOR_PATH = `${AS_OF_CONTEXT}.anchor`
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
 export const motifFieldAttribute = (key: string) => `${MOTIF_ATTRIBUTE}-${key}`
 export const HEAD_TEMPLATE_MOTIF = 'segnavia:head-template'
@@ -168,7 +173,7 @@ export interface MotifPlacement {
 
 export interface MotifSource {
   motif(key: string, options: { revision?: string; signal: AbortSignal }): Promise<Motif | undefined>
-  data?(placement: MotifPlacement, options: { signal: AbortSignal }): Promise<Record<string, unknown>>
+  data?(placement: MotifPlacement, options: { signal: AbortSignal; day?: AsOfDay }): Promise<Record<string, unknown>>
 }
 
 export type MotifVersionChoice = { ok: true; version: MotifVersion; index: number } | { ok: false; reason: string }

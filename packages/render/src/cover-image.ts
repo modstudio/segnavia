@@ -1,19 +1,19 @@
 import type { Cover } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
-import type { ImageOptions } from './options.ts'
+import type { PageImageOptions } from './options.ts'
 import { pageViewport } from './page-viewport.ts'
 
 export const COVER_IMAGE_OMITTED = ['format', 'proof', 'scale', 'width'] as const
 type CoverImageOmitted = (typeof COVER_IMAGE_OMITTED)[number]
 
-export interface CoverImageOptions extends Omit<ImageOptions, CoverImageOmitted> {
+export interface CoverImageOptions extends Omit<PageImageOptions, CoverImageOmitted> {
   width: number
   format?: 'webp' | 'png'
 }
 
 export interface CoverImagePlan {
   height: number
-  options: ImageOptions
+  options: PageImageOptions
 }
 
 export function coverImagePlan(cover: Cover, options: CoverImageOptions | null | undefined): CoverImagePlan {

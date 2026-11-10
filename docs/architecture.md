@@ -626,6 +626,24 @@ Installed hosts resolve package exports to `dist`. Repository commands pass
 the `@segnavia/source` export condition, also configured for TypeScript, so
 Bun and Node resolve workspace imports directly to `src` while developing.
 
+### As-of: the day a document's data is for
+
+A stored page, book or deck may say what day its data is for: a `fixed` date,
+`current` (the day of the moment it is shown), or an `anchor` that the host
+resolves to a date. The day is a calendar date in a zone, never an instant. Its
+zone comes from the record, then the host's `asOf.zone`, then UTC, and never
+from the machine. The page and document preview surfaces, browser page print
+and server page render take a `moment`: now by default, or a stated moment for
+a replay. They resolve the day once at their load edge and pass it to the
+host's `anchors.resolve`, `slots.resolve`, `MotifSource.data` and
+`placements.resolve`. The day is bindable under the reserved slot root `asOf`;
+the elements report it in an `asof` event, while `printPages`, `pagePdf`,
+`pagesPdf`, `pageImage` and `coverImage` report it through `asOf.report`. A
+print or render whose pages resolve to distinct days under `slots.resolve` is
+refused so each day can be produced separately. An anchor the host cannot
+resolve refuses, naming the anchor. Book and deck surfaces do not take the
+moment yet.
+
 ## The seams
 
 The library declares every seam, and hosts implement them. Nothing in the
@@ -690,6 +708,7 @@ retains the final override in every render view.
 | `addNavigationGuard` | `DeckController` | Register a load and cross-slide navigation guard. Guards are awaited in registration order; the returned function removes that guard. A rejection takes the controller's `error` path. Seek policy refuses a locked target before consulting guards. |
 | `readSelection()` | `<segnavia-page>`, `<segnavia-stage>` | The reader's current selection string and the document's `innerText` from a page or the stage's shown slide whose author scripts are refused. On a page, a read already posted to a document that slot filling replaces is cancelled, while a read still waiting is answered by the replacing document once it has loaded and reported ready. A stage read is refused during a pending turn and a pending read is cancelled when the shown slide changes. For a stage URL slide, resolved content declares `bridge: true` and `scripts: 'refuse'` to vouch that the host served it through `frameDocument` with author scripts refused. The bridge answers only a request from its parent. Both strings keep their document order without reordering for direction. |
 | `scrollToHeading()` | `<segnavia-page>` | Scrolls to an id returned by `markdownOutline(page.body)`, resolves false for an unknown id, and refuses host-served pages and pages whose author scripts run. |
+| `AnchorSource`, `anchors`; `slots.resolve` | `<segnavia-page>`, `<segnavia-document>`, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `coverImage` | The host offers named anchors and resolves one from the surface moment, current calendar day and zone. The slots resolver receives the one established `AsOfDay` and returns the fill for that preview, print or render load. Missing, unoffered, null and invalid anchor answers refuse with the anchor and requested day. |
 | `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, page `<segnavia-thumbnail>` views, live board page, paper and book items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Book section HTML expands motifs before its screen or PDF document is built; page and book parent-page furniture use the same printed-page context. Decks and slides do not expand motif placements. |
 | Printed document | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds one page or one or more flowing sections. Its folios come from the section plan's counted and restart settings; parent rules choose each page's parent, face and side. Named parent pages supply inherited head and foot regions plus binding-relative logical margins. The composer measures content in paper-sized boxes, resolves declared variables and named head templates for each planned page, and fills every parent region through `fillRegion`. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and the host's own CSP emitted as a second policy that is enforced independently and can only narrow the frame's policy. |
