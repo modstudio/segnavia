@@ -314,7 +314,7 @@ export class SegnaviaRail extends SegnaviaControl {
         if (!preview.isConnected || controller.state.deck?.slides[index]?.id !== slide.id) return
         if (Number(preview.dataset.generation ?? '0') !== generation) return
         // The authoring print moment asks each preview whether its slide animates.
-        const canvas = thumbnailCanvas(controller, deck, slide, index, content, '', undefined, true)
+        const canvas = thumbnailCanvas(controller, deck, slide, index, content, '', undefined, undefined, true)
         preview.append(canvas)
         this.measure()
       })

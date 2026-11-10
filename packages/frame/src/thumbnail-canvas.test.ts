@@ -13,11 +13,11 @@ afterAll(() => restoreDocument())
 
 const controller = { url: (src: string) => src } as DeckController
 
-function htmlThumbnail(html: string, slots?: PreparedSlots, reportsAnimation = false) {
+function htmlThumbnail(html: string, slots?: PreparedSlots, reportsAnimation = false, origins?: Parameters<typeof thumbnailCanvas>[7]) {
   const deck = Deck.parse({ title: 'Thumbnail', slides: [{ id: 'one', content: { kind: 'html', html } }] })
   const slide = deck.slides[0]
   if (!slide) throw new Error('Expected a slide.')
-  return thumbnailCanvas(controller, deck, slide, 0, slide.content as ResolvedContent, '', slots, reportsAnimation).querySelector('iframe')
+  return thumbnailCanvas(controller, deck, slide, 0, slide.content as ResolvedContent, '', slots, origins, reportsAnimation).querySelector('iframe')
 }
 
 describe('thumbnail geometry and resolution identity', () => {
@@ -58,5 +58,15 @@ describe('thumbnail geometry and resolution identity', () => {
     expect(frame?.srcdoc).toContain('<script nonce="')
     expect(frame?.srcdoc).toContain("script-src 'nonce-")
     expect(frame?.getAttribute('sandbox')).toBe('allow-scripts')
+  })
+
+  test('passes approved image origins to the slide frame CSP', () => {
+    const frame = htmlThumbnail('<img src="https://images.example/a.png">', undefined, false, [{ origin: 'https://images.example', kinds: ['image'] }])
+    expect(frame?.srcdoc).toMatch(/img-src [^;]*https:\/\/images\.example/)
+  })
+
+  test('uses only the default origins when no approvals are supplied', () => {
+    const frame = htmlThumbnail('<p>Plain</p>')
+    expect(frame?.srcdoc).toMatch(/(?:^|; )img-src data: blob:(?:;|&quot;|")/)
   })
 })

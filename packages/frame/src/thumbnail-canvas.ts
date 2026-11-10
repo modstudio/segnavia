@@ -1,4 +1,4 @@
-import type { Deck, Slide } from '@segnavia/format'
+import type { Deck, OriginApproval, Slide } from '@segnavia/format'
 import { documentNeedsSlotFit } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
@@ -18,6 +18,7 @@ export function thumbnailCanvas(
   content: ResolvedContent,
   css = '',
   slots?: PreparedSlots,
+  origins?: Iterable<OriginApproval>,
   // A caller that inspects the slide's animation through its frame needs the bridge to answer.
   reportsAnimation = false,
 ): HTMLElement {
@@ -26,6 +27,7 @@ export function thumbnailCanvas(
   const canvas = stageCanvas(controller, { ...deck, scripts: 'refuse' }, slide, content, {
     css,
     csp: '',
+    origins,
     frameTitle: defaultFrameTitle,
     loaded: () => {},
     slots,

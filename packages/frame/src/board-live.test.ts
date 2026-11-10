@@ -1,9 +1,40 @@
 import { expect, test } from 'bun:test'
-import { Deck, Page } from '@segnavia/format'
+import { Deck, type OriginApproval, Page } from '@segnavia/format'
+
+class TestElement extends EventTarget {
+  className = ''
+  dataset: Record<string, string> = {}
+  part = { add() {} }
+  style: Record<string, string> = {}
+  private attributes = new Map<string, string>()
+  append() {}
+  attachShadow() {
+    return { append() {} }
+  }
+  getAttribute(name: string) {
+    return this.attributes.get(name) ?? null
+  }
+  hasAttribute(name: string) {
+    return this.attributes.has(name)
+  }
+  removeAttribute(name: string) {
+    this.attributes.delete(name)
+  }
+  replaceChildren() {}
+  setAttribute(name: string, value: string) {
+    this.attributes.set(name, value)
+  }
+  toggleAttribute(name: string, force?: boolean) {
+    const present = force ?? !this.attributes.has(name)
+    if (present) this.attributes.set(name, '')
+    else this.attributes.delete(name)
+    return present
+  }
+}
 
 test('passes board motif and placement sources to a live book before its view', async () => {
   const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
-  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class extends EventTarget {} })
+  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: TestElement })
   const { liveBoardItem } = await import('./board-live.ts')
   const { expandFrameBookView } = await import('./motif-expansion.ts')
   const motifs = {
@@ -22,6 +53,7 @@ test('passes board motif and placement sources to a live book before its view', 
   const placements = {
     resolve: async () => ({ kind: 'media' as const, media: { format: 'png' as const, size: { width: 20, height: 10 } }, src }),
   }
+  const origins: readonly OriginApproval[] = [{ origin: 'https://images.example', kinds: ['image'] }]
   try {
     const live = liveBoardItem(
       {
@@ -59,15 +91,13 @@ test('passes board motif and placement sources to a live book before its view', 
         },
       },
       () => {},
-      motifs,
-      undefined,
-      placements,
-      { standard: 900 },
+      { motifs, placements, pageWidths: { standard: 900 }, origins },
     )
     const book = live.element as InstanceType<typeof import('./book.ts')['SegnaviaBook']>
     expect(book.motifs).toBe(motifs)
     expect(book.placements).toBe(placements)
     expect(book.pageWidths).toEqual({ standard: 900 })
+    expect(book.origins).toEqual(origins)
     if (!book.view || !book.motifs) throw new Error('the live board book did not receive its view and sources')
     const expanded = await expandFrameBookView(book.view, book.motifs, new AbortController().signal, book.placements)
     expect(expanded.book.pagination?.parents[0]?.regions.foot?.html).toContain('data-board-book-motif')
@@ -78,9 +108,91 @@ test('passes board motif and placement sources to a live book before its view', 
   }
 })
 
+test('passes board origins to live page, paper and deck elements', async () => {
+  const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  const previousCustomElements = Object.getOwnPropertyDescriptor(globalThis, 'customElements')
+  const previousResizeObserver = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver')
+  const definitions = new Map<string, new () => TestElement>()
+  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: TestElement })
+  Object.defineProperty(globalThis, 'customElements', {
+    configurable: true,
+    value: {
+      define: (name: string, ElementConstructor: new () => TestElement) => definitions.set(name, ElementConstructor),
+      get: (name: string) => definitions.get(name),
+    },
+  })
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement: (name: string) => {
+        const Constructor = definitions.get(name)
+        return Constructor ? new Constructor() : new TestElement()
+      },
+    },
+  })
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    value: class {
+      disconnect() {}
+      observe() {}
+    },
+  })
+  try {
+    const { liveBoardItem } = await import('./board-live.ts')
+    const { SegnaviaPage } = await import('./page.ts')
+    const { SegnaviaPaper } = await import('./paper.ts')
+    const { SegnaviaThumbnail } = await import('./thumbnail.ts')
+    const { internalPageLoad, internalPaperPagesLoad, internalThumbnailDeckLoad } = await import('./document-value-load.ts')
+    const attachShadow = Object.getOwnPropertyDescriptor(SegnaviaThumbnail.prototype, 'attachShadow')
+    const pageLoad = Reflect.get(SegnaviaPage.prototype, internalPageLoad)
+    const paperLoad = Reflect.get(SegnaviaPaper.prototype, internalPaperPagesLoad)
+    const deckLoad = Reflect.get(SegnaviaThumbnail.prototype, internalThumbnailDeckLoad)
+    Object.defineProperty(SegnaviaThumbnail.prototype, 'attachShadow', { configurable: true, value: () => ({ append() {} }) })
+    Reflect.set(SegnaviaPage.prototype, internalPageLoad, () => {})
+    Reflect.set(SegnaviaPaper.prototype, internalPaperPagesLoad, () => {})
+    Reflect.set(SegnaviaThumbnail.prototype, internalThumbnailDeckLoad, () => {})
+    const origins: readonly OriginApproval[] = [{ origin: 'https://images.example', kinds: ['image'] }]
+    const inputs = { origins }
+    const page = Page.parse({ html: '<p>Page</p>', size: { width: 320, height: 200 } })
+    const deck = Deck.parse({ title: 'Deck', slides: [{ id: 'one', content: { kind: 'html', html: '' } }] })
+    const imposition = {
+      paper: 'letter' as const,
+      orientation: 'portrait' as const,
+      columns: 1,
+      rows: 1,
+      cell: { width: 100, height: 100 },
+    }
+    try {
+      const livePage = liveBoardItem({ kind: 'page', page, size: { width: 320, height: 200 } }, () => {}, inputs)
+      const livePaper = liveBoardItem({ kind: 'paper', pages: [page], imposition, size: { width: 320, height: 200 } }, () => {}, inputs)
+      const liveDeck = liveBoardItem({ kind: 'deck', deck }, () => {}, inputs)
+      expect((livePage.element as InstanceType<typeof SegnaviaPage>).origins).toEqual(origins)
+      expect((livePaper.element as InstanceType<typeof SegnaviaPaper>).origins).toEqual(origins)
+      expect((liveDeck.element as InstanceType<typeof SegnaviaThumbnail>).origins).toEqual(origins)
+    } finally {
+      Reflect.set(SegnaviaPage.prototype, internalPageLoad, pageLoad)
+      Reflect.set(SegnaviaPaper.prototype, internalPaperPagesLoad, paperLoad)
+      Reflect.set(SegnaviaThumbnail.prototype, internalThumbnailDeckLoad, deckLoad)
+      if (attachShadow) Object.defineProperty(SegnaviaThumbnail.prototype, 'attachShadow', attachShadow)
+      else Reflect.deleteProperty(SegnaviaThumbnail.prototype, 'attachShadow')
+    }
+  } finally {
+    for (const [name, descriptor] of [
+      ['HTMLElement', previousHTMLElement],
+      ['document', previousDocument],
+      ['customElements', previousCustomElements],
+      ['ResizeObserver', previousResizeObserver],
+    ] as const) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+      else Reflect.deleteProperty(globalThis, name)
+    }
+  }
+})
+
 test('routes deck, page and paper values through their internal load seams', async () => {
   const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
-  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class extends EventTarget {} })
+  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: TestElement })
   try {
     const { loadLiveDeck, loadLivePage, loadLivePaper } = await import('./board-live.ts')
     const { internalPageLoad, internalPaperPagesLoad, internalThumbnailDeckLoad } = await import('./document-value-load.ts')

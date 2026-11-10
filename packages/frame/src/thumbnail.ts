@@ -12,6 +12,7 @@ import {
 } from '@segnavia/format'
 import { parseDocument } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
+import type { BoardFrameInputs } from './board-frame-inputs.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { type ControllerOptions, DeckController } from './controller.ts'
@@ -263,9 +264,13 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
         mountDesignedCover(
           selected,
           (error) => this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true })),
-          sources.motifs,
-          sources.fonts,
-          sources.placements,
+          {
+            motifs: sources.motifs,
+            fonts: sources.fonts,
+            placements: sources.placements,
+            pageWidths: this.widthOptions,
+            origins: [...this.origins],
+          } satisfies BoardFrameInputs,
           sources.slots,
         ),
       )
@@ -293,7 +298,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
       await controller.loadDeckValue(deck, this.baseUrl)
       const content = await controller.contentFor(this.slideIndex)
       if (!this.isConnected || !this.near || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-      const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css)
+      const authored = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, undefined, this.origins)
       authored.part.add('canvas')
       this.viewport.append(authored)
       this.measure()
@@ -308,7 +313,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
       try {
         const slots = await prepareSlots(deck.slots, this.slotOptions, slotPreparation.signal)
         if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, slots)
+        const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, slots, this.origins)
         filled.part.add('canvas')
         this.viewport.replaceChildren(filled)
         this.measure()
