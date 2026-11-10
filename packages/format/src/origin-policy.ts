@@ -4,9 +4,10 @@ export const FETCH_KINDS = ['script', 'style', 'font', 'image'] as const satisfi
 export interface OriginApproval {
   origin: string
   kinds: readonly FetchKind[]
+  pathname?: string
 }
 
-export type AssetRefusalReason = 'not-absolute' | 'unapproved-origin' | 'unversioned-script' | 'scripts-off' | 'unreadable-srcset'
+export type AssetRefusalReason = 'not-absolute' | 'unapproved-origin' | 'outside-approved-path' | 'unversioned-script' | 'scripts-off' | 'unreadable-srcset'
 
 export interface AssetRefusal {
   url: string
@@ -70,15 +71,78 @@ function strictOriginSet(values: Iterable<string> | undefined): Set<string> {
   return readOrigins(values, true)
 }
 
-export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
-  const result = new Set<string>()
-  if (kind === 'script' && !scripts) return result
+interface ReadableApproval {
+  origin: string
+  kinds: readonly FetchKind[]
+  pathname?: string
+}
+
+function readablePathname(value: string): string | undefined {
+  if (!value.startsWith('/') || /[?#;,\\]/.test(value) || /%(?:2e|2f|5c)/i.test(value)) return undefined
+  if (value.split('/').some((segment) => segment === '.' || segment === '..')) return undefined
+  return value === '/' ? value : value.replace(/\/+$/, '')
+}
+
+function readableApprovals(approvals: Iterable<OriginApproval> | undefined): ReadableApproval[] {
+  const result: ReadableApproval[] = []
   for (const approval of [...DEFAULT_ORIGINS, ...(approvals ?? [])]) {
-    if (!approval.kinds.includes(kind)) continue
-    const origins = strictOriginSet([approval.origin])
-    for (const origin of origins) result.add(origin)
+    const origin = [...strictOriginSet([approval.origin])][0]
+    if (!origin) continue
+    if (approval.pathname === undefined) {
+      result.push({ origin, kinds: approval.kinds })
+      continue
+    }
+    const pathname = readablePathname(approval.pathname)
+    if (pathname) result.push({ origin, kinds: approval.kinds, pathname })
   }
   return result
+}
+
+function approvalsFor(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): ReadableApproval[] {
+  if (kind === 'script' && !scripts) return []
+  return readableApprovals(approvals).filter((approval) => approval.kinds.includes(kind))
+}
+
+export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
+  return new Set(approvalsFor(approvals, kind, scripts).map((approval) => approval.origin))
+}
+
+export function approvedSources(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
+  const result = new Set<string>()
+  for (const approval of approvalsFor(approvals, kind, scripts)) {
+    if (approval.pathname === undefined) {
+      result.add(approval.origin)
+      continue
+    }
+    if (approval.pathname === '/') {
+      result.add(approval.origin)
+      continue
+    }
+    const source = `${approval.origin}${approval.pathname}`
+    result.add(source)
+    result.add(`${source}/`)
+  }
+  return result
+}
+
+function pathRefusal(value: string, url: URL, origin: string, kind: FetchKind, candidates: ReadableApproval[]): AssetRefusal | undefined {
+  if (candidates.some((approval) => approval.pathname === undefined)) return undefined
+  const prefixes = candidates.flatMap((approval) => (approval.pathname === undefined ? [] : [approval.pathname]))
+  const separator = url.pathname.match(/%(?:2f|5c)/i)?.[0]
+  const matches = prefixes.some((prefix) => url.pathname === prefix || url.pathname.startsWith(prefix === '/' ? '/' : `${prefix}/`))
+  if (!separator && matches) return undefined
+  return {
+    url: value,
+    origin,
+    kind,
+    reason: 'outside-approved-path',
+    message: separator
+      ? `${url.href} contains encoded path separator ${separator}`
+      : `${url.href} is outside the approved ${kind} path prefixes at ${origin}: ${prefixes.map((prefix) => JSON.stringify(prefix)).join(', ')}`,
+    advice: separator
+      ? 'use literal path separators instead of encoded separators to clear this refusal'
+      : `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}], pathname: ${JSON.stringify(url.pathname)} } to origins to clear this refusal`,
+  }
 }
 
 export function originDecision(value: string, kind: FetchKind, approvals: Iterable<OriginApproval> | undefined, scripts: boolean): OriginDecision {
@@ -98,7 +162,8 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
     }
   }
   const origin = authoredOrigin(url)
-  if (!origin || url.protocol !== 'https:' || !approvedOrigins(approvals, kind, scripts).has(origin)) {
+  const candidates = origin ? approvalsFor(approvals, kind, scripts).filter((approval) => approval.origin === origin) : []
+  if (!origin || url.protocol !== 'https:' || candidates.length === 0) {
     return {
       allowed: false,
       refusal: {
@@ -113,6 +178,8 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
       },
     }
   }
+  const outsidePath = pathRefusal(value, url, origin, kind, candidates)
+  if (outsidePath) return { allowed: false, refusal: outsidePath }
   const shape = kind === 'script' ? VERSIONED_SCRIPT_PATHS[origin] : undefined
   if (shape && !shape.test(url.pathname)) {
     return {

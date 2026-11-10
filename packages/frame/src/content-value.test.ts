@@ -29,6 +29,15 @@ describe('resolved content values', () => {
     ).toBe(false)
   })
 
+  test('changes the reuse key when an approved path prefix changes', () => {
+    const value = (pathname: string) =>
+      comparableContent({ kind: 'html', html: '<p>same</p>' }, (path) => path, 'refuse', '', '', [
+        { origin: 'https://cdn.example', kinds: ['style'], pathname },
+      ])
+    expect(sameContent(value('/one'), value('/one/'))).toBe(true)
+    expect(sameContent(value('/one'), value('/two'))).toBe(false)
+  })
+
   test('compares external content by its absolute address', () => {
     const from = (base: string) => (path: string) => new URL(path, base).href
     const relative = { kind: 'url' as const, src: 'slide.html' }

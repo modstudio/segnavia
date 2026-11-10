@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { authoredOrigin, DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-policy.ts'
+import { approvedSources, authoredOrigin, DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-policy.ts'
 
 describe('origin policy', () => {
   test('opaque URLs do not report the serialized null origin', () => {
@@ -27,6 +27,76 @@ describe('origin policy', () => {
     expect(originDecision('https://assets.example/a.png', 'image', approvals, true).allowed).toBe(true)
     expect(originDecision('https://assets.example/a.js', 'script', approvals, true).allowed).toBe(false)
     expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'style', approvals, true).allowed).toBe(true)
+  })
+
+  test('path approvals match whole segments after URL parsing and combine', () => {
+    const approvals: OriginApproval[] = [
+      { origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font'], pathname: '/fontsource/' },
+      { origin: 'https://cdn.jsdelivr.net', kinds: ['style'], pathname: '/npm/approved' },
+    ]
+    expect(originDecision('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.woff2', 'font', approvals, true).allowed).toBe(true)
+    expect(originDecision('https://cdn.jsdelivr.net/fontsourcex/a', 'font', approvals, true).allowed).toBe(false)
+    expect(originDecision('https://cdn.jsdelivr.net/fontsource/../npm/a', 'font', approvals, true).allowed).toBe(false)
+    expect(originDecision('https://cdn.jsdelivr.net/fontsource/%2e%2e/npm/a', 'font', approvals, true).allowed).toBe(false)
+    expect(originDecision('https://cdn.jsdelivr.net/npm/approved/x.css', 'style', approvals, true).allowed).toBe(true)
+  })
+
+  test('refuses encoded separators and unreadable prefixes', () => {
+    const approval = { origin: 'https://assets.example', kinds: ['image'] as const, pathname: '/approved' }
+    const separator = originDecision('https://assets.example/approved%2Fx.png', 'image', [approval], true)
+    expect(separator.allowed).toBe(false)
+    if (!separator.allowed) {
+      expect(separator.refusal.reason).toBe('outside-approved-path')
+      expect(separator.refusal.message).toContain('%2F')
+    }
+    for (const pathname of ['approved', '/a?b', '/a#b', '/a;b', '/a,b', '/a\\b', '/a/./b', '/a/../b', '/a/%2E/b', '/a/%2f/b', '/a/%5C/b']) {
+      expect(originDecision('https://assets.example/a/b.png', 'image', [{ ...approval, pathname }], true).allowed).toBe(false)
+    }
+  })
+
+  test('path refusals name the URL, prefixes, and clearing approval', () => {
+    const decision = originDecision(
+      'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css',
+      'style',
+      [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style'], pathname: '/fontsource' }],
+      true,
+    )
+    expect(decision).toEqual({
+      allowed: false,
+      refusal: {
+        url: 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css',
+        origin: 'https://cdn.jsdelivr.net',
+        kind: 'style',
+        reason: 'outside-approved-path',
+        message: 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css is outside the approved style path prefixes at https://cdn.jsdelivr.net: "/fontsource"',
+        advice: 'add { origin: "https://cdn.jsdelivr.net", kinds: ["style"], pathname: "/npm/x@1.2.3/x.css" } to origins to clear this refusal',
+      },
+    })
+  })
+
+  test('CSP sources carry both exact and descendant path forms', () => {
+    const approvals: OriginApproval[] = [
+      { origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font'], pathname: '/fontsource/' },
+      { origin: 'https://assets.example', kinds: ['image'] },
+    ]
+    expect([...approvedSources(approvals, 'style', true)]).toEqual([
+      'https://fonts.googleapis.com',
+      'https://cdn.jsdelivr.net/fontsource',
+      'https://cdn.jsdelivr.net/fontsource/',
+    ])
+    expect([...approvedSources(approvals, 'font', true)]).toEqual([
+      'https://fonts.gstatic.com',
+      'https://cdn.jsdelivr.net/fontsource',
+      'https://cdn.jsdelivr.net/fontsource/',
+    ])
+    expect([...approvedSources(approvals, 'image', true)]).toEqual(['https://assets.example'])
+  })
+
+  test('prefixed scripts still require exact versions', () => {
+    const approvals: OriginApproval[] = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'], pathname: '/npm' }]
+    const decision = originDecision('https://cdn.jsdelivr.net/npm/example/index.js', 'script', approvals, true)
+    expect(decision.allowed).toBe(false)
+    if (!decision.allowed) expect(decision.refusal.reason).toBe('unversioned-script')
   })
 
   test('all default script CDNs require exact versions', () => {

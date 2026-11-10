@@ -32,6 +32,19 @@ describe('sanitize', () => {
     expect(sanitize(html, options)).toBe(`<style>p{background:url(${approved});color:red}</style>`)
   })
 
+  test('asset preflight and sanitizing enforce approved path prefixes', () => {
+    const allowed = 'https://cdn.jsdelivr.net/fontsource/fonts/inter.woff2'
+    const refused = 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css'
+    const options = {
+      origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font', 'image'] as const, pathname: '/fontsource' }],
+    }
+    const html = `<style>@font-face{src:url(${allowed})}@import "${refused}";</style>`
+    expect(assetOriginRefusals(html, options)).toEqual([expect.objectContaining({ url: refused, kind: 'style', reason: 'outside-approved-path' })])
+    expect(sanitize(html, options)).toBe(`<style>@font-face{src:url(${allowed})}</style>`)
+    expect(safeMarkdownUrl('src', 'https://cdn.jsdelivr.net/fontsource/image.png', options.origins)).toBe(true)
+    expect(safeMarkdownUrl('src', 'https://cdn.jsdelivr.net/npm/image.png', options.origins)).toBe(false)
+  })
+
   test('asset preflight reports scripts-off and relative CSS values as written', () => {
     const script = 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.js'
     const findings = assetOriginRefusals(
