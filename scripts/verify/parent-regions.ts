@@ -55,18 +55,20 @@ export function parentRegionBookFixture(hebrew: boolean): DocumentInput {
   }
 }
 
-export const parentRegionPrintedFixture: DocumentInput = {
-  type: 'document',
-  kind: 'printed',
-  settings: { lang: 'en' },
-  print: { paper: 'a5' },
-  parentPages: [
-    { type: 'parentPage', name: names.first, geometry: { margin }, regions: regions('FIRST', true) },
-    { type: 'parentPage', name: names.left, geometry: { margin }, regions: regions('LEFT') },
-    { type: 'parentPage', name: names.right, geometry: { margin }, regions: regions('RIGHT') },
-  ],
-  parentRules: [{ when: { position: 'documentFirst' }, parent: names.first }, { when: { face: 'verso' }, parent: names.left }, { parent: names.right }],
-  children: [{ type: 'page', body: { html: `<p>${'printed words '.repeat(900)}</p>` } }],
+export function parentRegionPrintedFixture(hebrew: boolean): DocumentInput {
+  return {
+    type: 'document',
+    kind: 'printed',
+    settings: { lang: hebrew ? 'he' : 'en', dir: hebrew ? 'rtl' : 'ltr' },
+    print: { paper: 'a5' },
+    parentPages: [
+      { type: 'parentPage', name: names.first, geometry: { margin }, regions: regions('FIRST', true) },
+      { type: 'parentPage', name: names.left, geometry: { margin }, regions: regions('LEFT') },
+      { type: 'parentPage', name: names.right, geometry: { margin }, regions: regions('RIGHT') },
+    ],
+    parentRules: [{ when: { position: 'documentFirst' }, parent: names.first }, { when: { face: 'verso' }, parent: names.left }, { parent: names.right }],
+    children: [{ type: 'page', body: { html: `<p>${'printed words '.repeat(900)}</p>` } }],
+  }
 }
 
 function pageWords(file: string) {
@@ -98,6 +100,30 @@ export async function verifyParentRegions(renderer: Renderer, work: string, chec
       `${label} first, left, right and blank parents carry their marker text`,
       ['FIRST', 'LEFT', 'RIGHT', 'BLANK'].every((marker) => text.includes(`OUTER_${marker}`)) && text.includes('HOST_HEAD'),
       text,
+    )
+
+    id = 0
+    const printedBytes = await renderer.pagePdf(parentRegionPrintedFixture(hebrew), {
+      css: 'body{font:14px/20px serif}p{margin:0}',
+      newId: () => `printed-parent-region-${label}-${++id}`,
+    })
+    const printedFile = path.join(work, `printed-parent-regions-${label}.pdf`)
+    writeFileSync(printedFile, printedBytes)
+    const printedPages = pageWords(printedFile)
+    const printedMarkers = printedPages.flatMap((page, index) =>
+      page.words.filter((word) => word.text.startsWith('OUTER_')).map((word) => ({ page: index, x: word.x, width: page.width, text: word.text })),
+    )
+    const printedMirrored = printedMarkers.every((marker) => (hebrew ? marker.page % 2 === 1 : marker.page % 2 === 0) === marker.x > marker.width / 2)
+    const printedText = printedPages.flatMap((page) => page.words.map((word) => word.text)).join(' ')
+    check(
+      `${label} printed parent regions occupy the outer edge on recto and verso`,
+      printedMarkers.length === printedPages.length && printedMirrored,
+      JSON.stringify(printedMarkers),
+    )
+    check(
+      `${label} printed first, left and right parents carry their marker text and host head`,
+      ['FIRST', 'LEFT', 'RIGHT'].every((marker) => printedText.includes(`OUTER_${marker}`)) && printedText.includes('HOST_HEAD'),
+      printedText,
     )
   }
 }

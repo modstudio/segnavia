@@ -41,7 +41,7 @@ export function placeParentRegions(
     held.setAttribute('data-segnavia-parent', parent.name)
     held.setAttribute('dir', 'auto')
     if (config.lang) held.setAttribute('lang', config.lang)
-    held.style.cssText = `position:absolute;overflow:hidden;inset-block-start:${box.top}px;inset-inline-start:${box.left}px;inline-size:${box.width}px;block-size:${box.height}px`
+    held.style.cssText = `position:absolute;overflow:hidden;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px`
     fill(held, region.html, heads, slots, config.dir, config.lang)
     paper.append(held)
   }

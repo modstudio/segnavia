@@ -26,6 +26,24 @@ describe('regionBox', () => {
   ] as const)('places %s %s %s', (direction, face, edge, expected) => {
     expect(regionBox(edge, margin, area, { direction, face })).toEqual(expected)
   })
+
+  test.each([
+    ['ltr', 'recto', 'inlineStart', 0],
+    ['ltr', 'recto', 'inlineEnd', 120],
+    ['ltr', 'verso', 'inlineStart', 120],
+    ['ltr', 'verso', 'inlineEnd', 0],
+    ['rtl', 'recto', 'inlineStart', 120],
+    ['rtl', 'recto', 'inlineEnd', 0],
+    ['rtl', 'verso', 'inlineStart', 0],
+    ['rtl', 'verso', 'inlineEnd', 120],
+  ] as const)('places equal %s %s %s margins by face and direction', (direction, face, edge, left) => {
+    expect(regionBox(edge, { ...margin, inlineStart: 20, inlineEnd: 20 }, area, { direction, face })).toEqual({
+      top: 10,
+      left,
+      width: 20,
+      height: 200,
+    })
+  })
 })
 
 const facts = {

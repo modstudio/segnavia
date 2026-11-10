@@ -4,7 +4,6 @@ import {
   FLOWING_PARENT_RULES,
   type LogicalMargin,
   type ParentRules,
-  physicalMargins,
   type RegionEdge,
   TEMPLATED_PARENT_RULES,
   type TextArea,
@@ -29,15 +28,14 @@ export interface RegionBox {
 }
 
 export function regionBox(edge: RegionEdge, margin: LogicalMargin, textArea: TextArea, side: { direction: TextDirection; face: 'recto' | 'verso' }): RegionBox {
-  const physical = physicalMargins(margin, side.direction, side.face)
-  if (edge === 'blockStart') return { top: 0, left: physical.left, width: textArea.width, height: physical.top }
-  if (edge === 'blockEnd') return { top: physical.top + textArea.height, left: physical.left, width: textArea.width, height: physical.bottom }
+  const startOnLeft = (side.direction === 'ltr') === (side.face === 'recto')
+  const left = startOnLeft ? margin.inlineStart : margin.inlineEnd
+  if (edge === 'blockStart') return { top: 0, left, width: textArea.width, height: margin.blockStart }
+  if (edge === 'blockEnd') return { top: margin.blockStart + textArea.height, left, width: textArea.width, height: margin.blockEnd }
   if (edge === 'inlineStart') {
-    const bindingLeft = physical.left === margin.inlineStart
-    return { top: physical.top, left: bindingLeft ? 0 : physical.left + textArea.width, width: margin.inlineStart, height: textArea.height }
+    return { top: margin.blockStart, left: startOnLeft ? 0 : left + textArea.width, width: margin.inlineStart, height: textArea.height }
   }
-  const outerLeft = physical.left === margin.inlineEnd
-  return { top: physical.top, left: outerLeft ? 0 : physical.left + textArea.width, width: margin.inlineEnd, height: textArea.height }
+  return { top: margin.blockStart, left: startOnLeft ? left + textArea.width : 0, width: margin.inlineEnd, height: textArea.height }
 }
 
 export { DESIGNED_PARENT_RULES, defaultParentRules, FLOWING_PARENT_RULES, TEMPLATED_PARENT_RULES }

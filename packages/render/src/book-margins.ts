@@ -30,7 +30,7 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
       return Object.entries(parent.regions)
         .map(([name, region]) => {
           const box = regionBox(region.edge, parent.margin, area, { direction, face: page.face })
-          return `:where(${selector} [data-segnavia-region="${name}"]){inset-block-start:${box.top}mm;inset-inline-start:${box.left}mm;inline-size:${box.width}mm;block-size:${box.height}mm}`
+          return `:where(${selector} [data-segnavia-region="${name}"]){top:${box.top}mm;left:${box.left}mm;width:${box.width}mm;height:${box.height}mm}`
         })
         .join('')
     })
