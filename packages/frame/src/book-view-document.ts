@@ -38,6 +38,7 @@ export interface PaginatedDocumentOptions {
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
+  const progress = options.progress !== false
   const fonts = view.style?.fonts
   const limits = resolveLimits(view.limits, options.limits)
   const geometries = composerPageGeometries(pagination)
@@ -88,7 +89,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     fontLoads: declaredFontLoads(fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
-    progress: options.progress !== false,
+    progress,
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
   }
@@ -106,7 +107,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     reportHeight: false,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
-    progressAttribute: options.progress === false ? undefined : COMPOSE_PROGRESS_ATTRIBUTE,
+    progressAttribute: progress ? COMPOSE_PROGRESS_ATTRIBUTE : undefined,
     progressCallback: options.progressCallback,
     bridgeForHost: true,
     printBackground: options.printBackground,

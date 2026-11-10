@@ -166,6 +166,13 @@ export function refuseMultiCompositionProgress(options: Pick<RenderOptions, 'pro
   )
 }
 
+export function refuseProgressWithoutComposition(options: Pick<RenderOptions, 'progress'>, composesExactlyOneDocument: boolean): void {
+  if (!options.progress || composesExactlyOneDocument) return
+  throw new RenderRefusedError(
+    'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
+  )
+}
+
 /** Slot printing renders one copy per fill; a lone copy is the whole output, so it carries the whole output's limits. */
 export function copyLimits(limits: Limits | undefined, slots: SlotPrintOptions | undefined): Limits | undefined {
   return (slots?.fills?.length ?? 1) === 1 ? limits : innerLimits(limits)

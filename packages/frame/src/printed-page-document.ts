@@ -87,6 +87,7 @@ export function printedPageValueDocument(
   },
 ): string {
   const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
+  const progress = options.progress !== false
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
   const paper = sheetMm(page.print)
@@ -142,7 +143,7 @@ export function printedPageValueDocument(
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: options.screen } : {}),
-    progress: options.progress !== false,
+    progress,
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const sections = page.printedPages.sections
@@ -170,7 +171,7 @@ export function printedPageValueDocument(
     reportHeight: options.measure === true,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
-    progressAttribute: options.progress === false ? undefined : COMPOSE_PROGRESS_ATTRIBUTE,
+    progressAttribute: progress ? COMPOSE_PROGRESS_ATTRIBUTE : undefined,
     progressCallback: options.progressCallback,
     bridgeForHost: true,
     printBackground: options.printBackground,

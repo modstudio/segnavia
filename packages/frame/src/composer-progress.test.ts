@@ -1,11 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  COMPOSE_PROGRESS_YIELD_MS,
-  composeProgressTotal,
-  decideProgressYield,
-  dressPlanPagesImplementation,
-  reduceProgressHighWater,
-} from './composer-progress.ts'
+import { dressPlanPagesImplementation } from './composer-dress.ts'
+import { COMPOSE_PROGRESS_YIELD_MS, composeProgressTotal, decideProgressYield, reduceProgressHighWater } from './composer-progress.ts'
 
 describe('compose progress policy', () => {
   test('yields after the work interval and always on the last page', () => {
@@ -62,19 +57,22 @@ describe('compose progress policy', () => {
   })
 
   test('counts one selected page and every page otherwise', () => {
-    expect(composeProgressTotal(7, undefined)).toBe(7)
-    expect(composeProgressTotal(7, null)).toBe(7)
-    expect(composeProgressTotal(7, 4)).toBe(1)
+    const pages = ['a', 'b', 'c', 'd', 'e', 'f', 'g']
+    expect(composeProgressTotal(pages, undefined)).toBe(7)
+    expect(composeProgressTotal(pages, null)).toBe(7)
+    expect(composeProgressTotal(pages, 4)).toBe(1)
+    expect(composeProgressTotal(pages, 8)).toBe(0)
   })
 
-  test('catches omitted reports: 30 ms pages cross the 50 ms policy at 2, 4, and 6', async () => {
+  test('reports rising progress through a multi-page dress', async () => {
     const placed: number[] = []
     const reports: Array<{ pages: number; total: number }> = []
     const reportsAtYield: number[] = []
     let time = 0
+    const step = Math.ceil(COMPOSE_PROGRESS_YIELD_MS / 2)
     const now = () => {
       const current = time
-      time += 30
+      time += step
       return current
     }
     await dressPlanPagesImplementation(
@@ -89,14 +87,29 @@ describe('compose progress policy', () => {
       now,
       async () => {},
     )
-    expect(COMPOSE_PROGRESS_YIELD_MS).toBe(50)
-    expect(reportsAtYield).toEqual([2, 4, 6])
-    expect(reports).toEqual([
-      { pages: 2, total: 6 },
-      { pages: 4, total: 6 },
-      { pages: 6, total: 6 },
-    ])
+    expect(reportsAtYield.length).toBeGreaterThan(1)
+    expect(reports.every((progress, index) => index === 0 || progress.pages > (reports[index - 1]?.pages ?? 0))).toBe(true)
+    expect(reports.at(-1)).toEqual({ pages: 6, total: 6 })
     expect(placed).toEqual([0, 1, 2, 3, 4, 5])
+  })
+
+  test.each([
+    { name: 'a missing plan entry', pages: ['a', undefined, 'c'], only: undefined, placed: [0, 2], final: { pages: 2, total: 2 } },
+    { name: 'an out-of-range selection', pages: ['a', 'b'], only: 3, placed: [], final: { pages: 0, total: 0 } },
+  ])('ends at the count actually dressed for $name', async ({ pages, only, placed: expectedPlaced, final }) => {
+    const placed: number[] = []
+    const reports: Array<{ pages: number; total: number }> = []
+    await dressPlanPagesImplementation(
+      { pages },
+      only,
+      (progress) => reports.push(progress),
+      (_pages, _page, index) => placed.push(index),
+      () => ({ setAttribute: () => {} }),
+      () => 0,
+      async () => {},
+    )
+    expect(placed).toEqual([...expectedPlaced])
+    expect(reports.at(-1)).toEqual(final)
   })
 
   test('catches yielding without a report by pairing every report and task yield', async () => {

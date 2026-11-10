@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import type { Browser, Route } from 'playwright-core'
 import { assetLimitRefusal, assetRouteDecision, browserContextOptions, fetchKind, mergedFontFailures, renderInBrowserTab } from './browser-tab.ts'
 import { RenderLimitError } from './errors.ts'
+import { RENDER_PROGRESS_BINDING } from './progress.ts'
 
 describe('asset route decision', () => {
   const origins = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'] as const }]
@@ -65,6 +66,37 @@ test('browser contexts are offline and block service workers', () => {
     offline: true,
     serviceWorkers: 'block',
   })
+})
+
+test('the browser tab exposes and re-bounds the progress reporter only when supplied', async () => {
+  const exposed = new Map<string, (value: unknown) => void>()
+  const page = {
+    on: () => {},
+    exposeFunction: async (name: string, callback: (value: unknown) => void) => {
+      exposed.set(name, callback)
+    },
+    setContent: async () => {},
+    evaluate: async () => true,
+  }
+  const context = {
+    route: async () => {},
+    routeWebSocket: async () => {},
+    newPage: async () => page,
+    close: async () => {},
+  }
+  const browser = { newContext: async () => context } as unknown as Browser
+  const setup = { viewport: { width: 100, height: 100 }, scripts: true, html: '<p>progress</p>', readiness: { author: false, diagrams: false } }
+  const state = { settled: () => false, opened: () => {}, crashed: () => {} }
+  await renderInBrowserTab(browser, setup, undefined, state, async () => undefined)
+  expect(exposed.has(RENDER_PROGRESS_BINDING)).toBe(false)
+
+  const reports: unknown[] = []
+  await renderInBrowserTab(browser, { ...setup, progressReport: (progress) => reports.push(progress) }, undefined, state, async () => undefined)
+  const report = exposed.get(RENDER_PROGRESS_BINDING)
+  expect(report).toBeFunction()
+  report?.({ pages: 2, total: 5 })
+  report?.({ pages: 6, total: 5 })
+  expect(reports).toEqual([{ pages: 2, total: 5 }])
 })
 
 test('asset caps name the address, byte count, limit and host option, and raised caps admit the answer', () => {

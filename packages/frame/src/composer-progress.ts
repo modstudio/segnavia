@@ -20,43 +20,9 @@ export function reduceProgressHighWater(highWater: ComposeProgress | undefined, 
   return progress
 }
 
-export function composeProgressTotal(pageCount: number, only: number | null | undefined): number {
-  return only === null || only === undefined ? pageCount : 1
-}
-
-interface ProgressPages {
-  setAttribute(name: string, value: string): void
-}
-
-export async function dressPlanPagesImplementation<T, P extends ProgressPages>(
-  plan: { pages: T[] },
-  only: number | null | undefined,
-  report: (progress: ComposeProgress) => void,
-  place: (pages: P, page: T, index: number) => void,
-  createPages: () => P,
-  now: () => number,
-  yieldTask: () => Promise<void>,
-): Promise<P> {
-  const pages = createPages()
-  pages.setAttribute('data-segnavia-pages', '')
-  const total = composeProgressTotal(plan.pages.length, only)
-  let dressed = 0
-  let yieldedAt = now()
-  for (let index = 0; index < plan.pages.length; index += 1) {
-    if (only !== null && only !== undefined && only !== index + 1) continue
-    const page = plan.pages[index]
-    if (!page) continue
-    place(pages, page, index)
-    dressed += 1
-    const last = dressed === total
-    const current = now()
-    if (!decideProgressYield({ sinceYieldMs: current - yieldedAt, last })) continue
-    const progress = boundComposeProgress({ pages: dressed, total })
-    if (progress) report(progress)
-    await yieldTask()
-    yieldedAt = now()
-  }
-  return pages
+export function composeProgressTotal<T>(pages: readonly T[], only: number | null | undefined): number {
+  if (only !== null && only !== undefined) return pages[only - 1] ? 1 : 0
+  return pages.reduce((total, page) => total + (page ? 1 : 0), 0)
 }
 
 export function embeddedComposerProgressFunctions(): string {
@@ -65,7 +31,5 @@ ${embedFunction('boundComposeProgress', boundComposeProgress)}
 ${embedFunction('decideProgressYield', decideProgressYield)}
 ${embedFunction('reduceProgressHighWater', reduceProgressHighWater)}
 ${embedFunction('composeProgressTotal', composeProgressTotal)}
-var progressMacrotask=function(){var yielding=globalThis.scheduler&&globalThis.scheduler.yield;if(yielding)return yielding.call(globalThis.scheduler);return new Promise(function(resolve){var channel=new MessageChannel();channel.port1.onmessage=function(){channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(undefined);});};
-${embedFunction('dressPlanPagesImplementation', dressPlanPagesImplementation)}
-var dressPlanPages=function(plan,only,report,place){return dressPlanPagesImplementation(plan,only,report,place,function(){return document.createElement('div');},function(){return performance.now();},progressMacrotask);};`
+var progressMacrotask=function(){var yielding=globalThis.scheduler&&globalThis.scheduler.yield;if(yielding)return yielding.call(globalThis.scheduler);return new Promise(function(resolve){var channel=new MessageChannel();channel.port1.onmessage=function(){channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(undefined);});};`
 }

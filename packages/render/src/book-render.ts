@@ -32,7 +32,7 @@ import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
-import { type Assets, assetSetup, type RenderOptions } from './options.ts'
+import { type Assets, assetSetup, type RenderOptions, refuseProgressWithoutComposition } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
@@ -298,7 +298,14 @@ async function printBook(
   return { ...output, bytes: await document.save() }
 }
 
-export function renderBrowserBookPdf(book: Book, options: ParsedBookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export async function renderBrowserBookPdf(
+  book: Book,
+  options: ParsedBookPdfOptions,
+  fontCss: string,
+  dependencies: BrowserBookDependencies,
+): Promise<Uint8Array> {
+  const composesExactlyOneDocument = book.mode === 'paginated'
+  refuseProgressWithoutComposition(options, composesExactlyOneDocument)
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }

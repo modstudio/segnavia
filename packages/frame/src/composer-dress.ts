@@ -1,5 +1,59 @@
-import { type HeadTemplate, headTemplatePlacements, MOTIF_ATTRIBUTE, type PreflightEntry, type PreflightPageFacts } from '@segnavia/format'
+import {
+  boundComposeProgress,
+  type ComposeProgress,
+  type HeadTemplate,
+  headTemplatePlacements,
+  MOTIF_ATTRIBUTE,
+  type PreflightEntry,
+  type PreflightPageFacts,
+} from '@segnavia/format'
+import { embedFunction } from '@segnavia/html'
 import { type PaginateBookPage, type PaginateFlow, pageBlockRange, resolveHeadTemplate } from '@segnavia/layout'
+import { composeProgressTotal, decideProgressYield } from './composer-progress.ts'
+
+interface ProgressPages {
+  setAttribute(name: string, value: string): void
+}
+
+export async function dressPlanPagesImplementation<T, P extends ProgressPages>(
+  plan: { pages: readonly T[] },
+  only: number | null | undefined,
+  report: (progress: ComposeProgress) => void,
+  place: (pages: P, page: T, index: number) => void,
+  createPages: () => P,
+  now: () => number,
+  yieldTask: () => Promise<void>,
+): Promise<P> {
+  const pages = createPages()
+  pages.setAttribute('data-segnavia-pages', '')
+  const total = composeProgressTotal(plan.pages, only)
+  let dressed = 0
+  let yieldedAt = now()
+  if (total === 0) {
+    const progress = boundComposeProgress({ pages: 0, total: 0 })
+    if (progress) report(progress)
+  }
+  for (let index = 0; index < plan.pages.length; index += 1) {
+    if (only !== null && only !== undefined && only !== index + 1) continue
+    const page = plan.pages[index]
+    if (!page) continue
+    place(pages, page, index)
+    dressed += 1
+    const last = dressed === total
+    const current = now()
+    if (!decideProgressYield({ sinceYieldMs: current - yieldedAt, last })) continue
+    const progress = boundComposeProgress({ pages: dressed, total })
+    if (progress) report(progress)
+    await yieldTask()
+    yieldedAt = now()
+  }
+  return pages
+}
+
+export function embeddedDressPlanPagesFunctions(): string {
+  return `${embedFunction('dressPlanPagesImplementation', dressPlanPagesImplementation)}
+var dressPlanPages=function(plan,only,report,place){return dressPlanPagesImplementation(plan,only,report,place,function(){return document.createElement('div');},function(){return performance.now();},progressMacrotask);};`
+}
 
 export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {
   return fillRegionImplementation(html, values, headTemplatePlacements, MOTIF_ATTRIBUTE)

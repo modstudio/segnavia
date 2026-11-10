@@ -58,7 +58,7 @@ export const MESSAGE = {
 export const HEADING_ID_LIMIT = 256
 export const COMPOSE_FAILURE_TEXT_LIMIT = 1024
 
-function scriptJson(value: unknown): string {
+export function scriptJson(value: unknown): string {
   return JSON.stringify(value)
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')

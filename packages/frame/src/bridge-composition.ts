@@ -1,13 +1,8 @@
-import type { FrameOptions } from './bridge.ts'
+import { boundComposeProgress } from '@segnavia/format'
+import { embedFunction } from '@segnavia/html'
+import { type FrameOptions, scriptJson } from './bridge.ts'
 
 export type CompositionWaitOptions = Pick<FrameOptions, 'readyAfterAttribute' | 'failureAttribute' | 'progressAttribute' | 'progressCallback' | 'reportHeight'>
-
-function scriptJson(value: unknown): string {
-  return JSON.stringify(value)
-    .replace(/</g, '\\u003c')
-    .replace(/\u2028/g, '\\u2028')
-    .replace(/\u2029/g, '\\u2029')
-}
 
 export function compositionWait(
   options: CompositionWaitOptions,
@@ -21,7 +16,7 @@ export function compositionWait(
     ? `var callback=window[${scriptJson(options.progressCallback)}];if(typeof callback==='function')callback({pages:pages,total:total});`
     : ''
   const progress = options.progressAttribute
-    ? `var progressName=${scriptJson(options.progressAttribute)};var postedProgress;var progress=function(){var value=root.getAttribute(progressName)||'';if(value===postedProgress)return;var parts=value.split('/');var pages=Number(parts[0]),total=Number(parts[1]);if(parts.length!==2||!Number.isInteger(pages)||!Number.isInteger(total)||pages<0||total<0||pages>${progressLimit}||total>${progressLimit}||pages>total)return;post({type:'${messages.composeProgress}',pages:pages,total:total});${progressCallback}postedProgress=value;};progress();`
+    ? `var COMPOSE_PROGRESS_PAGES_LIMIT=${progressLimit};${embedFunction('boundComposeProgress', boundComposeProgress)}var progressName=${scriptJson(options.progressAttribute)};var postedProgress;var progress=function(){var value=root.getAttribute(progressName)||'';if(value===postedProgress)return;var parts=value.split('/');var bounded=boundComposeProgress({pages:Number(parts[0]),total:Number(parts[1])});if(parts.length!==2||!bounded)return;var pages=bounded.pages,total=bounded.total;post({type:'${messages.composeProgress}',pages:pages,total:total});${progressCallback}postedProgress=value;};progress();`
     : ''
   const failure = options.failureAttribute
     ? `var failureName=${scriptJson(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${failureLimit})text=text.slice(0,${failureLimit - 1})+'…';post({type:'${messages.composeFailure}',text:text});return true;};if(failed())return;`

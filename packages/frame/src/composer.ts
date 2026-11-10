@@ -25,6 +25,7 @@ import { layoutScript, regionBox } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
 import {
+  embeddedDressPlanPagesFunctions,
   fillFurniture,
   fillRegion,
   fillRegionImplementation,
@@ -258,7 +259,7 @@ var ${resolveRegionHeads.name}=resolveRegionHeads;
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}
 ${embedFunction('markRegionOverflow', markRegionOverflow)}
 ${embeddedComposerProgressFunctions()}
-${embeddedPreflightFunctions()}
+${embeddedDressPlanPagesFunctions()}${embeddedPreflightFunctions()}
 ${embedFunction('decideLayoutSettle', decideLayoutSettle)}
 ${embeddedBookPresentationFunctions()}`
 }
@@ -270,7 +271,7 @@ export function composerScript(configJson: string): string {
   const script = `(function(){
 var composeStarted=performance.now();
 var fail=function(reason){var text=String(reason).slice(0,${COMPOSE_FAILURE_TEXT_LIMIT});document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}',text||'book composition failed without a reported reason');};
-var progressHighWater;var reportComposeProgress=function(value){if(!config.progress)return;var progress=boundComposeProgress(value);if(!progress)return;var next=reduceProgressHighWater(progressHighWater,progress);if(!next)return;progressHighWater=next;document.documentElement.setAttribute('${COMPOSE_PROGRESS_ATTRIBUTE}',next.pages+'/'+next.total);};
+var progressHighWater;var reportComposeProgress=function(progress){if(!config.progress)return;var next=reduceProgressHighWater(progressHighWater,progress);if(!next)return;progressHighWater=next;document.documentElement.setAttribute('${COMPOSE_PROGRESS_ATTRIBUTE}',next.pages+'/'+next.total);};
 var config=${configJson};
 var preflightEntries=[],preflightFits=[];
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};

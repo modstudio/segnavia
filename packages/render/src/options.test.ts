@@ -9,6 +9,7 @@ import {
   parseRenderOptions,
   type RenderOptions,
   refuseMultiCompositionProgress,
+  refuseProgressWithoutComposition,
 } from './options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
@@ -95,6 +96,14 @@ test('progress refuses render calls that would compose more than one document', 
   expect(() => refuseMultiCompositionProgress({ progress }, 'pagePdf', false)).not.toThrow()
   expect(() => refuseMultiCompositionProgress({ progress }, 'pagePdf', true)).toThrow(
     'The progress option is reported per single composition; pagePdf would compose multiple documents. Remove progress and call pagePdf once per page',
+  )
+})
+
+test('progress is accepted only when one document runs a composer', () => {
+  const progress = { report: () => {} }
+  expect(() => refuseProgressWithoutComposition({ progress }, true)).not.toThrow()
+  expect(() => refuseProgressWithoutComposition({ progress }, false)).toThrow(
+    'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
   )
 })
 
