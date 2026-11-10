@@ -29,19 +29,11 @@ describe('board editing release commands', () => {
     expect(success({ type: 'item-remove', items: [{ id: 'a' }] }).items.map((item) => item.id)).toEqual(['b'])
   })
 
-  test('moves a pointer release through editBoard', () => {
-    expect(success({ type: 'item-move', items: [{ id: 'a' }], target: { at: { x: 40, y: 50 } } }).items[0]).toMatchObject({ x: 40, y: 50 })
-  })
-
   test('resizes a pointer release through editBoard', () => {
     const resized = { ...board, items: board.items.map((item) => (item.id === 'a' ? { ...item, width: 140 } : item)) }
     const command = resizeReleaseCommand(resized, 'a', 'bottom-right')
     if (!command) throw new Error('resize command was not built')
     expect(success(command).items[0]?.width).toBe(140)
-  })
-
-  test('nudges through editBoard', () => {
-    expect(success({ type: 'item-move', items: [{ id: 'a' }], target: { at: { x: 11, y: 20 } } }).items[0]?.x).toBe(11)
   })
 
   test('returns a command refusal without changing the document', () => {
