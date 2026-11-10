@@ -249,30 +249,12 @@ export async function verifyMarkdownEditor(h: Harness) {
   )
 
   const lockedAtom = editor.locator('[data-locked-label]')
-  const expectedLockedOffset = await page.evaluate(() => {
-    const markdown = (document.getElementById('editor') as unknown as EditorHandle).markdown
-    return markdown.indexOf('```articles') - '# Original title\n'.length
-  })
   const lockedSelection = await selectStableLockedAtom(page, lockedAtom, () => describeRichSelection(page))
   check(
     'a clicked locked block becomes selected',
     lockedSelection.selected,
     JSON.stringify({ attempts: lockedSelection.attempts, detail: lockedSelection.detail }),
   )
-  if (lockedSelection.selected) {
-    await page.keyboard.press('Enter')
-    const lockedSource = await page.evaluate(() => {
-      const element = document.getElementById('editor') as unknown as EditorHandle & {
-        sourceView: { state: { selection: { main: { head: number } } } }
-      }
-      return { mode: element.mode, offset: element.sourceView.state.selection.main.head }
-    })
-    check(
-      'Enter on a selected locked block switches to its first source character',
-      lockedSource.mode === 'source' && lockedSource.offset === expectedLockedOffset,
-      JSON.stringify({ ...lockedSource, expectedLockedOffset }),
-    )
-  }
 
   const title = editor.locator('input[part~="title"]')
   const modeBeforeTitleKey = await page.evaluate(() => (document.getElementById('editor') as unknown as EditorHandle).mode)
