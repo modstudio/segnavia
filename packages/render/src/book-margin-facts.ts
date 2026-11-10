@@ -2,7 +2,10 @@ import {
   type Book,
   type BookVariableNumberPage,
   bookVariablePageNumbers,
+  effectiveParentRules,
+  FLOWING_PARENT_RULES,
   LIBRARY_VARIABLES,
+  type ParentRules,
   sequenceFolios,
   type VariableDocumentFacts,
   variableValue,
@@ -66,6 +69,7 @@ export function marginFactsFor(
   variables: Book['variables'],
   document: MarginDocumentContext = { pages: marginVariablePagesFor(sections, destinations, pages, blanks), offset: 0, system },
   documentFacts: VariableDocumentFacts = {},
+  bookRules?: ParentRules,
 ): BookPageFacts[] {
   const folios = sequenceFolios(pages, system)
   const owners = marginPageOwners(sections, destinations, pages, blanks)
@@ -100,7 +104,7 @@ export function marginFactsFor(
       blank: false,
       sectionOpening: owner?.page === page,
       folio,
-      parentRules: owner?.section.parentRules,
+      parentRules: effectiveParentRules(owner?.section.parentRules, bookRules, FLOWING_PARENT_RULES),
       variables: variablesFor(owner, index, folio),
       recordSlots: owner?.section.values ?? {},
     }

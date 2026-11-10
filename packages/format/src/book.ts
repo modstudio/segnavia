@@ -23,7 +23,7 @@ import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
-import { FLOWING_PARENT_RULES, parentRules, textHoldingParentRules } from './parent-rules.ts'
+import { effectiveParentRules, FLOWING_PARENT_RULES, parentRules, textHoldingParentRules } from './parent-rules.ts'
 import { Placement } from './placement.ts'
 import { PressGeometry } from './print.ts'
 import { bookParentPages, bookParents, Fragmentation, ParentPage, textArea } from './printed-pages.ts'
@@ -279,7 +279,7 @@ function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx)
     const sectionTrim = geometry?.paper ?? trim
     const sectionParents = geometry?.parents ?? parents
     const byName = new Map(sectionParents.map((parent) => [parent.name, parent]))
-    const rules = flow.parentRules ?? book.parentRules ?? FLOWING_PARENT_RULES
+    const rules = effectiveParentRules(flow.parentRules, book.parentRules, FLOWING_PARENT_RULES)
     const names = [...new Set(textHoldingParentRules(rules).map((rule) => rule.parent))]
     const widths = names.flatMap((name) => {
       const parent = byName.get(name)

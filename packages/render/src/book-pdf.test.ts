@@ -31,6 +31,22 @@ test('continuous margin facts select a host parent from the owning section rules
   expect(planBookPages(facts, 'ltr')[0]?.parent).toBe('host')
 })
 
+test("continuous margin facts fall back to the book's parent rules", () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'continuous',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    parentPages: [{ type: 'parentPage', name: 'host', basedOn: 'segnavia:recto' }],
+    parentRules: [{ parent: 'host' }],
+    chapters: [{ id: 'body-section', title: 'One', html: '<p>Text</p>' }],
+  })
+  const sections = [{ id: 'body-section', kind: 'chapter' as const, division: 'body' as const, title: 'One' }]
+  const destinations = new Map([['body-section', { page: 1, x: 0, y: 0 }]])
+  const facts = marginFactsFor(sections, destinations, 1, new Set(), 'arabic', [], undefined, undefined, book.parentRules)
+
+  expect(planBookPages(facts, 'ltr')[0]?.parent).toBe('host')
+})
+
 test('resolves record-page totals and document folios for the margin plan', () => {
   const sections = [{ id: 'record', kind: 'chapter' as const, division: 'body' as const, title: 'Record', record: { index: 2, count: 5 } }]
   const destinations = new Map([['record', { page: 2, x: 0, y: 0 }]])

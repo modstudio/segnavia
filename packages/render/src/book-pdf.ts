@@ -301,6 +301,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
         system: book.numbering.body,
       },
       documentFacts,
+      book.parentRules,
     ),
     ...marginFactsFor(
       bodySections,
@@ -315,6 +316,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
         system: book.numbering.body,
       },
       documentFacts,
+      book.parentRules,
     ),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)
