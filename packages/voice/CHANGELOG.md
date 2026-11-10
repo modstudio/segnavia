@@ -1,5 +1,32 @@
 # @segnavia/voice
 
+## 0.53.0
+
+### Minor Changes
+
+- b5cde83: Allow multi-word lexicon terms while preserving script captions, and let ElevenLabs dictionary publishing safely control case sensitivity and cancellation.
+- 36bb93c: Pass per-synthesis voice settings through the voice provider seam and apply them to ElevenLabs generations.
+
+### Patch Changes
+
+- 56bb43a: Include each package's changelog in its published tarball.
+- Updated dependencies [370e995]
+- Updated dependencies [b44a38d]
+- Updated dependencies [d90ef76]
+- Updated dependencies [30bd6b7]
+- Updated dependencies [56bb43a]
+- Updated dependencies [b5cde83]
+- Updated dependencies [7f5ed55]
+- Updated dependencies [41c3b46]
+- Updated dependencies [1bd389b]
+- Updated dependencies [358b110]
+- Updated dependencies [252b705]
+- Updated dependencies [6b4d309]
+- Updated dependencies [25f56a9]
+- Updated dependencies [dfbbb55]
+- Updated dependencies [b157cf9]
+  - @segnavia/format@0.53.0
+
 ## 0.52.0
 
 ### Patch Changes
