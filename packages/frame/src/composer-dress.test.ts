@@ -92,8 +92,23 @@ test('reports the first and last block on each page without walking composed pag
   ]
   const line = (top: number, bottom: number) => ({ top, bottom })
   const flows = [
-    { id: 'split', kind: 'chapter', blocks: [{ id: 'first', lines: [line(0, 10)] }, { id: 'split', lines: [line(10, 20), line(20, 30)] }, { id: 'last', lines: [line(30, 40)] }] },
-    { id: 'break', kind: 'chapter', blocks: [{ id: 'before-break', lines: [line(0, 10)] }, { id: 'after-break', lines: [line(10, 20)] }] },
+    {
+      id: 'split',
+      kind: 'chapter',
+      blocks: [
+        { id: 'first', lines: [line(0, 10)] },
+        { id: 'split', lines: [line(10, 20), line(20, 30)] },
+        { id: 'last', lines: [line(30, 40)] },
+      ],
+    },
+    {
+      id: 'break',
+      kind: 'chapter',
+      blocks: [
+        { id: 'before-break', lines: [line(0, 10)] },
+        { id: 'after-break', lines: [line(10, 20)] },
+      ],
+    },
     { id: 'chapter', kind: 'chapter', blocks: [{ id: 'chapter-only', lines: [line(0, 10)] }] },
     { id: 'appendix', kind: 'chapter', blocks: [{ id: 'appendix-only', lines: [line(0, 10)] }] },
     { id: 'fixed', kind: 'fixed', pages: 1 },

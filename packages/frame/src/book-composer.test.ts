@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import { SECTION_TITLE_MARK } from '@segnavia/format'
 import { bookDocument, parseBookFixture } from '@segnavia/html'
+import { MESSAGE } from './bridge.ts'
 import {
   appendMeasuredBlock,
   COMPOSE_FAILURE_ATTRIBUTE,
   COMPOSED_ATTRIBUTE,
-  PREFLIGHT_ATTRIBUTE,
   composerScript,
   decideBookMeasurement,
   flowSectionNumbering,
@@ -13,10 +13,10 @@ import {
   noteFragmentExtent,
   noteSettlementOverlapsBody,
   noteStackTops,
+  PREFLIGHT_ATTRIBUTE,
   pageReferenceFolio,
   unmeasuredFlows,
 } from './composer.ts'
-import { MESSAGE } from './bridge.ts'
 
 test('wraps composer start-up exceptions in a bounded failure report', () => {
   const script = composerScript('{}')

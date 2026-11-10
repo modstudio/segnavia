@@ -62,12 +62,15 @@ describe('boundPreflightReport', () => {
   test('bounds scanning and carries only bounded known omission counts', () => {
     const scanLimit = PREFLIGHT_ISSUES_PER_CHECK * PREFLIGHT_CHECKS.length * 4
     let reads = 0
-    const entries = new Proxy(Array.from({ length: scanLimit + 20 }, () => entry('region-overset')), {
-      get(target, property, receiver) {
-        if (typeof property === 'string' && /^\d+$/.test(property)) reads++
-        return Reflect.get(target, property, receiver)
+    const entries = new Proxy(
+      Array.from({ length: scanLimit + 20 }, () => entry('region-overset')),
+      {
+        get(target, property, receiver) {
+          if (typeof property === 'string' && /^\d+$/.test(property)) reads++
+          return Reflect.get(target, property, receiver)
+        },
       },
-    })
+    )
     const report = boundPreflightReport(
       {
         entries,

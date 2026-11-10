@@ -1,25 +1,25 @@
 import { describe, expect, test } from 'bun:test'
 import {
   BOOK_PARENT_NAMES,
-  boundPreflightReport,
   bookFromDocument,
+  type boundPreflightReport,
   computeFolios,
   Document,
+  PREFLIGHT_PRESETS,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_TOTAL_PATH,
-  PREFLIGHT_PRESETS,
-  preflightRefusal,
+  type preflightRefusal,
   resolveDirection,
   StyleSheet,
 } from '@segnavia/format'
 import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectParent, windowPageIndex } from '@segnavia/html'
-import { FLOWING_PARENT_RULES, layoutScript, pageBlockRange } from '@segnavia/layout'
+import { FLOWING_PARENT_RULES, layoutScript, type pageBlockRange } from '@segnavia/layout'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
-import { preflightPageFacts } from './composer-dress.ts'
 import { MESSAGE } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE as BOOK_FAILURE_ATTRIBUTE, decideBookMeasurement, flowTextArea, pixelPhaseOffset, type unmeasuredFlows } from './composer.ts'
+import type { preflightPageFacts } from './composer-dress.ts'
 import type { forcedPageBreak } from './composer-measure.ts'
 
 const book = parseBookFixture({

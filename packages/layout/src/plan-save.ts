@@ -8,6 +8,7 @@ import {
   type Plan as SavedPlan,
 } from '@segnavia/format'
 import type { BookPlanNumbering } from './book-plan-folios.ts'
+import { pageBlockRange } from './page-block-range.ts'
 import type { PaginateUnit } from './paginate-types.ts'
 import { resolveVariablesAcrossPages } from './paginate-variables.ts'
 import type { BookPlan } from './plan-book.ts'
@@ -37,36 +38,6 @@ function inputFingerprint(measurements: Measurements, numbering: BookPlanNumberi
 
 function lineInWindow(line: PaginateLine, window: PaginateWindow): boolean {
   return line.top >= window.start && line.bottom <= window.end
-}
-
-export function pageBlockRange(flows: Measurements['flows'], page: Pick<PlanPage, 'windows'>): { first?: PlanPage['start']; last?: PlanPage['start'] } {
-  const heldLineInWindow = (line: PaginateLine, window: PaginateWindow): boolean => line.top >= window.start && line.bottom <= window.end
-  const blockInWindow = (window: PaginateWindow, fromEnd: boolean): PlanPage['start'] => {
-    const flow = flows.find((candidate) => candidate.id === window.flow)
-    if (!flow || flow.kind === 'fixed') return undefined
-    const blockIndexes = flow.blocks.map((_, index) => index)
-    if (fromEnd) blockIndexes.reverse()
-    for (const blockIndex of blockIndexes) {
-      const block = flow.blocks[blockIndex]
-      if (!block) continue
-      const lineIndexes = block.lines.map((_, index) => index)
-      if (fromEnd) lineIndexes.reverse()
-      const line = lineIndexes.find((index) => block.lines[index] !== undefined && heldLineInWindow(block.lines[index], window))
-      if (line !== undefined) return { flow: flow.id, block: blockIndex, line, ...(block.id === undefined ? {} : { id: block.id }) }
-    }
-    return undefined
-  }
-  const starts = page.windows.flatMap((window) => {
-    const start = blockInWindow(window, false)
-    return start === undefined ? [] : [start]
-  })
-  const ends = page.windows.flatMap((window) => {
-    const end = blockInWindow(window, true)
-    return end === undefined ? [] : [end]
-  })
-  const first = starts[0]
-  const last = ends.at(-1)
-  return { ...(first === undefined ? {} : { first }), ...(last === undefined ? {} : { last }) }
 }
 
 function flowingFlow(measurements: Measurements, id: string) {
@@ -366,6 +337,7 @@ export function savedPlanScript(): string {
     inputFingerprint,
     flowingFlow,
     lineInWindow,
+    pageBlockRange,
     startOf,
     consumedLines,
     consumedNotes,
@@ -392,6 +364,7 @@ export function savedPlanScript(): string {
   ]
   return `${functions.map((fn) => fn.toString()).join('\n')}
 var lineInWindow=${lineInWindow.name};
+var pageBlockRange=${pageBlockRange.name};
 var savePlanImplementation=${savePlanWithVersion.name};
 var savePlan=function(measurements,plan,numbering){return savePlanImplementation(measurements,plan,numbering,${PLAN_VERSION});};
 var replayPlanImplementation=${replayPlanWithVersion.name};

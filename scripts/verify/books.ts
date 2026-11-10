@@ -79,13 +79,11 @@ export async function verifyBooks(h: Harness) {
     check(`${id} footnote marker brings its note into view`, await inBookView(h, frame, '#segnavia-fn-1-1'))
     await clickBookAnchor(h, frame, '#segnavia-fn-1-1 a')
     check(`${id} footnote back-link returns to its marker`, await inBookView(h, frame, '#segnavia-fnref-1-1'))
-
     await clickBookAnchor(h, frame, '#segnavia-enref-1')
     const endnote = await inBookView(h, frame, '#segnavia-en-1')
     const endSection = await inBookView(h, frame, '#segnavia-endnotes')
     check(`${id} endnote marker reaches the endnotes section`, endnote && endSection)
   }
-
   const direction = await page.frameLocator('#book-he iframe').locator('html').getAttribute('dir')
   check('the Hebrew continuous book root is right to left', direction === 'rtl', String(direction))
   const messages = await page.evaluate(() => (window as unknown as { __messages: string[] }).__messages)
@@ -94,7 +92,6 @@ export async function verifyBooks(h: Harness) {
     messages.every((kind) => BOOK_BRIDGE_MESSAGES.has(kind)),
     messages.join(','),
   )
-
   await verifyPaginatedBookMotifs(h)
   await verifyPaginatedBooks(h)
   await verifyKeepBooks(h)
@@ -319,9 +316,9 @@ async function verifyWorkbooks(h: Harness) {
     const report = await frame.evaluate((flowId) => {
       const pages = Array.from(document.querySelectorAll(`[data-segnavia-book-page][data-segnavia-flow="${flowId}"]`))
       const templates = pages.map((paper) => paper.querySelector('[data-template]')?.getAttribute('data-template') ?? '')
-      const preflight = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as
-        | { issues?: Array<{ check?: string; subject?: string }> }
-        | null
+      const preflight = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as {
+        issues?: Array<{ check?: string; subject?: string }>
+      } | null
       const school = document.body.textContent ?? ''
       const tableDir = Array.from(document.querySelectorAll('[data-segnavia-book-page] [data-region="table"]')).map((node) => getComputedStyle(node).direction)
       const contents = Array.from(document.querySelectorAll('.segnavia-contents-page[href^="#"]')).map((node) => {
@@ -365,9 +362,9 @@ async function verifyWorkbooks(h: Harness) {
     const fit = await frame.evaluate(() => {
       const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
       if (!el) return { size: 0, overset: true, elements: -1 }
-      const preflight = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as
-        | { issues?: Array<{ check?: string; subject?: string }> }
-        | null
+      const preflight = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as {
+        issues?: Array<{ check?: string; subject?: string }>
+      } | null
       return {
         size: Number.parseFloat(getComputedStyle(el).fontSize),
         overset: preflight?.issues?.some((issue) => issue.check === 'region-overset' && issue.subject?.endsWith(':lesson-text')) ?? false,
