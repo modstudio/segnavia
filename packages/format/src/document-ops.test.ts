@@ -217,6 +217,50 @@ describe('document diff insertion ordering', () => {
   })
 })
 
+describe('document diff sibling removal ordering', () => {
+  const positions: Record<string, number> = { a: 0, b: 100, c: 200 }
+  const item = (id: string) => ({ type: 'item' as const, id, kind: 'media' as const, address: `asset-${id}`, x: positions[id], y: 0, width: 100 })
+  const board = (ids: string[]) =>
+    Document.parse({
+      type: 'document',
+      id: 'board-1',
+      kind: 'board',
+      title: 'Board',
+      settings: { dir: 'ltr' },
+      children: ids.map(item),
+    })
+
+  test('removing the first of three siblings emits no moves', () => {
+    const before = board(['a', 'b', 'c'])
+    const after = board(['b', 'c'])
+    const ops = diffDocuments(before, after)
+    expect(ops).toMatchObject([{ type: 'remove', id: 'a' }])
+    expect(ops).toHaveLength(1)
+    expect(applyOps(before, batch(before, ops))).toEqual(after)
+  })
+
+  test('removing the middle of three siblings emits no moves', () => {
+    const before = board(['a', 'b', 'c'])
+    const after = board(['a', 'c'])
+    const ops = diffDocuments(before, after)
+    expect(ops).toMatchObject([{ type: 'remove', id: 'b' }])
+    expect(ops).toHaveLength(1)
+    expect(applyOps(before, batch(before, ops))).toEqual(after)
+  })
+
+  test('removing a sibling while reordering the survivors emits one move', () => {
+    const before = board(['a', 'b', 'c'])
+    const after = board(['c', 'a'])
+    const ops = diffDocuments(before, after)
+    expect(ops).toMatchObject([
+      { type: 'move', id: 'c' },
+      { type: 'remove', id: 'b' },
+    ])
+    expect(ops).toHaveLength(2)
+    expect(applyOps(before, batch(before, ops))).toEqual(after)
+  })
+})
+
 test('the schema-derived candidate generator covers every currently parseable modeled type', () => {
   const candidates = generatedCandidateDocuments(73)
   const covered = new Set(candidates.flatMap((document) => [...sampledNodeTypes(document)]))

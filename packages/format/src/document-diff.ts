@@ -35,21 +35,27 @@ function insertMissing(working: Doc, target: Doc, known: ReadonlySet<string>, op
   }
 }
 
-function reconcileOrder(working: Doc, target: Doc, ops: DocumentOp[]): void {
+function reconcileOrder(working: Doc, target: Doc, surviving: ReadonlySet<string>, ops: DocumentOp[]): void {
   for (const desired of entries(target)) {
     const current = locate(working, desired.node.id)
     if (!current) throw new Error(`diffDocuments refused: node "${desired.node.id}" could not be placed`)
-    if (sameValue(current.parent, desired.parent) && current.index === desired.index) continue
+    const here = container(working, current.parent).filter((peer) => surviving.has(peer.id))
+    if (sameValue(current.parent, desired.parent) && here.indexOf(current.node) === desired.index) continue
+    const priorParent = current.parent
+    const priorIndex = current.index
+    container(working, priorParent).splice(priorIndex, 1)
+    const peers = container(working, desired.parent)
+    const previous = desired.index === 0 ? undefined : peers.filter((peer) => surviving.has(peer.id))[desired.index - 1]
+    const index = previous === undefined ? 0 : peers.indexOf(previous) + 1
     ops.push({
       type: 'move',
       id: desired.node.id,
       parent: desired.parent,
-      index: desired.index,
-      priorParent: current.parent,
-      priorIndex: current.index,
+      index,
+      priorParent,
+      priorIndex,
     })
-    container(working, current.parent).splice(current.index, 1)
-    container(working, desired.parent).splice(desired.index, 0, current.node)
+    peers.splice(index, 0, current.node)
   }
 }
 
@@ -156,7 +162,7 @@ export function diffDocuments(left: DocumentValue, right: DocumentValue): Docume
   const ops: DocumentOp[] = []
   const working = structuredClone(before)
   insertMissing(working, after, beforeIds, ops)
-  reconcileOrder(working, after, ops)
+  reconcileOrder(working, after, afterIds, ops)
   const root = change(before, after, DOCUMENT_ROOT_FIELDS)
   if (hasChange(root)) ops.push({ type: 'setFields', id: before.id, ...root })
   setChanges(before, after, common, ops)
