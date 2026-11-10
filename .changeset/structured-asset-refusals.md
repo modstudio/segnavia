@@ -10,3 +10,4 @@ Breaking for hosts:
 
 - `assetOriginRefusals` returns `AssetRefusal[]` instead of `string[]`. Read `refusal.message` for the human reason and `refusal.advice` for what clears it.
 - The refused branch from `originDecision` is `{ allowed: false, refusal }` instead of `{ allowed: false, reason }`. Read `refusal.message` and `refusal.advice` instead of parsing `reason`.
+- A render now refuses a relative or protocol-relative `url()` or `@import` in author CSS.

@@ -273,13 +273,13 @@ function assetCss(source: string, declarations: boolean, options: SanitizeOption
   protectedCss = protectedCss.replace(/@font-face\s*\{[^}]*\}/gi, (block) => block.replace(/https:\/\/[^\s"')]+/gi, (url) => hold(url, 'font')))
   protectedCss = protectedCss.replace(/@font-face\s*\{[^}]*\}/gi, (block) =>
     block.replace(CSS_URL, (expression, _quote: string, url: string) => {
-      if (/^data:/i.test(url) || url.startsWith(ASSET_MARKER) || url.startsWith(REFUSED_ASSET_MARKER)) return expression
+      if (/^data:/i.test(url) || url.startsWith('#') || url.startsWith(ASSET_MARKER) || url.startsWith(REFUSED_ASSET_MARKER)) return expression
       return expression.replace(url, hold(url, 'font'))
     }),
   )
   protectedCss = protectedCss.replace(/https:\/\/[^\s"')]+/gi, (url) => hold(url, 'image'))
   protectedCss = protectedCss.replace(CSS_URL, (expression, _quote: string, url: string) => {
-    if (/^data:/i.test(url) || url.startsWith(ASSET_MARKER) || url.startsWith(REFUSED_ASSET_MARKER)) return expression
+    if (/^data:/i.test(url) || url.startsWith('#') || url.startsWith(ASSET_MARKER) || url.startsWith(REFUSED_ASSET_MARKER)) return expression
     return expression.replace(url, hold(url, 'image'))
   })
   const result = sanitizeCss(protectedCss, declarations, options.dataFonts ?? false)

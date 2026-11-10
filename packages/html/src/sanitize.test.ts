@@ -95,3 +95,8 @@ describe('srcset image origins', () => {
     expect(sanitize('<img srcset="">', options)).toBe('<img>')
   })
 })
+
+test('CSS fragment references do not name asset fetches', () => {
+  const html = '<style>.a{fill:url(#grad);clip-path:url("#clip")}</style><svg><rect style="fill:url(#g2)"/></svg>'
+  expect(assetOriginRefusals(html)).toEqual([])
+})
