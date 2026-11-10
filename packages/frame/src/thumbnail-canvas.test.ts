@@ -67,7 +67,6 @@ describe('thumbnail geometry and resolution identity', () => {
 
   test('uses only the default origins when no approvals are supplied', () => {
     const frame = htmlThumbnail('<p>Plain</p>')
-    expect(frame?.srcdoc).not.toContain('https://images.example')
-    expect(frame?.srcdoc).toContain('https://fonts.googleapis.com')
+    expect(frame?.srcdoc).toMatch(/(?:^|; )img-src data: blob:(?:;|&quot;|")/)
   })
 })

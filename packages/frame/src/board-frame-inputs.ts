@@ -13,6 +13,22 @@ export interface BoardFrameInputs {
   origins: readonly OriginApproval[]
 }
 
+export interface FrameInputsTarget {
+  motifs: MotifsOptions | undefined
+  fonts: FontsOptions | undefined
+  placements: PlacementsOptions | undefined
+  pageWidths: PageWidths | undefined
+  origins: Iterable<OriginApproval>
+}
+
+export function applyFrameInputs(target: FrameInputsTarget, inputs: BoardFrameInputs): void {
+  target.motifs = inputs.motifs
+  target.fonts = inputs.fonts
+  target.placements = inputs.placements
+  target.pageWidths = inputs.pageWidths
+  target.origins = inputs.origins
+}
+
 export abstract class BoardFrameInputsElement extends BoardDocumentElement {
   protected frameInputs: BoardFrameInputs = { origins: [] }
 
@@ -37,8 +53,8 @@ export abstract class BoardFrameInputsElement extends BoardDocumentElement {
   get origins(): Iterable<OriginApproval> {
     return this.frameInputs.origins
   }
-  set origins(value: Iterable<OriginApproval>) {
-    this.frameInputs = { ...this.frameInputs, origins: [...value] }
+  set origins(value: Iterable<OriginApproval> | undefined) {
+    this.frameInputs = { ...this.frameInputs, origins: value === undefined ? [] : [...value] }
     this.frameInputsChanged()
   }
 

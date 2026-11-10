@@ -1,5 +1,5 @@
 import { Imposition, Page } from '@segnavia/format'
-import type { BoardFrameInputs } from './board-frame-inputs.ts'
+import { applyFrameInputs, type BoardFrameInputs } from './board-frame-inputs.ts'
 import type { CheckedResolvedBoardItem } from './board-policy.ts'
 import { SegnaviaBook } from './book.ts'
 import { coverImage } from './cover-element.ts'
@@ -63,11 +63,7 @@ export function liveBoardItem(
     }
     thumbnail.addEventListener('segnavia-thumbnail-error', onError)
     thumbnail.resolveSlide = resolved.resolveSlide
-    thumbnail.motifs = inputs.motifs
-    thumbnail.fonts = inputs.fonts
-    thumbnail.placements = inputs.placements
-    thumbnail.pageWidths = inputs.pageWidths
-    thumbnail.origins = inputs.origins
+    applyFrameInputs(thumbnail, inputs)
     thumbnail.base = resolved.base
     thumbnail.index = 0
     loadLiveDeck(thumbnail, resolved.deck)
@@ -76,22 +72,14 @@ export function liveBoardItem(
   if (resolved.kind === 'page') {
     const page = createPageElement()
     const dispose = listenForError(page, failed)
-    page.motifs = inputs.motifs
-    page.fonts = inputs.fonts
-    page.placements = inputs.placements
-    page.pageWidths = inputs.pageWidths
-    page.origins = inputs.origins
+    applyFrameInputs(page, inputs)
     loadLivePage(page, resolved.page)
     return { element: page, dispose }
   }
   if (resolved.kind === 'paper') {
     const paper = new SegnaviaPaper()
     const dispose = listenForError(paper, failed)
-    paper.motifs = inputs.motifs
-    paper.fonts = inputs.fonts
-    paper.placements = inputs.placements
-    paper.pageWidths = inputs.pageWidths
-    paper.origins = inputs.origins
+    applyFrameInputs(paper, inputs)
     loadLivePaper(paper, resolved.pages, Imposition.parse(resolved.imposition))
     return { element: paper, dispose }
   }
@@ -105,11 +93,7 @@ export function liveBoardItem(
     else failed(error)
   }
   book.addEventListener('error', onError)
-  book.motifs = inputs.motifs
-  book.fonts = inputs.fonts
-  book.placements = inputs.placements
-  book.pageWidths = inputs.pageWidths
-  book.origins = inputs.origins
+  applyFrameInputs(book, inputs)
   book.view = { ...resolved.view, scripts: 'refuse' }
   mounting = false
   if (loadError !== undefined) throw loadError

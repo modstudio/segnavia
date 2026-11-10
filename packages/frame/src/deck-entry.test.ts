@@ -126,6 +126,7 @@ test('the deck entry defines only deck elements and thumbnails define pages on d
     motifOptions: undefined,
     fontOptions: undefined,
     placementOptions: undefined,
+    origins: [],
     slotOptions: undefined,
     dispatchEvent() {},
   }

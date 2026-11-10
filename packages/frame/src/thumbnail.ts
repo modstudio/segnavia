@@ -269,7 +269,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
             fonts: sources.fonts,
             placements: sources.placements,
             pageWidths: this.widthOptions,
-            origins: [...(this.origins ?? [])],
+            origins: [...this.origins],
           } satisfies BoardFrameInputs,
           sources.slots,
         ),

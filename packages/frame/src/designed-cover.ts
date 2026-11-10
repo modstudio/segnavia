@@ -1,5 +1,5 @@
 import type { SlotsOptions } from '@segnavia/format'
-import type { BoardFrameInputs } from './board-frame-inputs.ts'
+import { applyFrameInputs, type BoardFrameInputs } from './board-frame-inputs.ts'
 import { coverImage } from './cover-element.ts'
 import type { CoverPresentation } from './designed-cover-policy.ts'
 import { loadPageValue } from './document-value-load.ts'
@@ -29,11 +29,7 @@ export function mountDesignedCover(
   sheet.style.flex = 'none'
   sheet.style.transformOrigin = 'center'
   const page = createPageElement()
-  page.motifs = inputs.motifs
-  page.fonts = inputs.fonts
-  page.placements = inputs.placements
-  page.pageWidths = inputs.pageWidths
-  page.origins = inputs.origins
+  applyFrameInputs(page, inputs)
   page.slots = slots
   page.style.inlineSize = `${projection.box.width}px`
   page.style.blockSize = `${projection.box.height}px`
