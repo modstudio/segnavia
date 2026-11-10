@@ -386,7 +386,7 @@ if(settlement==='failed')return;
 if(settlement==='overlap'){fail('settled page note lines move the note stack into the planned body; shorten the page notes or body so their settled line boxes do not overlap');return;}
 if(config.savedPlans&&!config.plan)saved=savePlan(input,plan,config.numbering);
 if(saved)publishPlan(saved);
-return Promise.all([document.fonts?document.fonts.ready:Promise.resolve(),readyImages(composed)]).then(function(){var finalSettlement=settleHeldNoteViews();if(finalSettlement==='failed')return;if(finalSettlement==='overlap'){fail('settled page note lines move the note stack into the planned body; shorten the page notes or body so their settled line boxes do not overlap');return;}presentScreen(composed,prepared.pages.length);if(!publishPreflight(prepared))return;document.documentElement.setAttribute('${COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');});
+return Promise.all([document.fonts?document.fonts.ready:Promise.resolve(),readyImages(composed)]).then(function(){var finalSettlement=settleHeldNoteViews();if(finalSettlement==='failed')return;if(finalSettlement==='overlap'){fail('settled page note lines move the note stack into the planned body; shorten the page notes or body so their settled line boxes do not overlap');return;}presentScreen(composed,prepared.pages.length);if(!publishPreflight(prepared,input.flows))return;document.documentElement.setAttribute('${COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');});
 }catch(error){fail(error instanceof Error?error.message:String(error));}
 };
 return composeWhenMeasurable();

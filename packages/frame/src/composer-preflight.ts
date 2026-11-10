@@ -26,5 +26,5 @@ var boundPreflightReport=function(input,profile){return boundPreflightReportImpl
 ${embedFunction('preflightRefusal', preflightRefusal)}
 ${embedFunction('pageBlockRange', pageBlockRange)}
 ${embedFunction('preflightPageFacts', preflightPageFacts)}
-var publishPreflight=function(plan){if(!config.preflight)return true;var pageFacts=preflightPageFacts(plan.pages,planFolios.folios,input.flows);var report=boundPreflightReport({entries:preflightEntries,facts:{pageCount:plan.pages.length,pages:pageFacts,fits:preflightFits}},config.preflight);var json=JSON.stringify(report);document.documentElement.setAttribute('${PREFLIGHT_ATTRIBUTE}',json);window.parent.postMessage({type:'${MESSAGE.preflight}',report:report},'*');var refusal=preflightRefusal(report);if(refusal){fail(refusal);return false;}return true;};`
+var publishPreflight=function(plan,flows){if(!config.preflight)return true;var pageFacts=preflightPageFacts(plan.pages,planFolios.folios,flows);var report=boundPreflightReport({entries:preflightEntries,facts:{pageCount:plan.pages.length,pages:pageFacts,fits:preflightFits}},config.preflight);var json=JSON.stringify(report);document.documentElement.setAttribute('${PREFLIGHT_ATTRIBUTE}',json);window.parent.postMessage({type:'${MESSAGE.preflight}',report:report},'*');var refusal=preflightRefusal(report);if(refusal){fail(refusal);return false;}return true;};`
 }

@@ -16,7 +16,37 @@ import {
   partTitleValues,
   unmeasuredFlows,
 } from './composer.ts'
-import { PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
+import { embeddedPreflightFunctions, PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
+
+test('publishes preflight from the embedded functions alone, given the measured flows', () => {
+  const posted: unknown[] = []
+  const attributes: Record<string, string> = {}
+  const failures: string[] = []
+  const publish = new Function(
+    'config',
+    'planFolios',
+    'preflightEntries',
+    'preflightFits',
+    'fail',
+    'window',
+    'document',
+    `${embeddedPreflightFunctions()};return publishPreflight`,
+  )(
+    { preflight: { 'region-overset': 'error' } },
+    { folios: ['1'] },
+    [{ check: 'region-overset', subject: 'body:main', message: 'shorten it' }],
+    [],
+    (reason: string) => failures.push(reason),
+    { parent: { postMessage: (message: unknown) => posted.push(message) } },
+    { documentElement: { setAttribute: (name: string, value: string) => (attributes[name] = value) } },
+  ) as (plan: unknown, flows: unknown) => boolean
+  const flows = [{ id: 'chapter', kind: 'chapter', blocks: [{ id: 'held', lines: [{ top: 0, bottom: 10 }] }] }]
+
+  expect(publish({ pages: [{ flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] }] }, flows)).toBe(false)
+  expect(JSON.parse(attributes[PREFLIGHT_ATTRIBUTE] ?? '{}').facts.pages).toEqual([{ folio: '1', first: 'held', last: 'held' }])
+  expect(posted).toHaveLength(1)
+  expect(failures).toEqual(['shorten it'])
+})
 
 test('wraps composer start-up exceptions in a bounded failure report', () => {
   const script = composerScript('{}')
