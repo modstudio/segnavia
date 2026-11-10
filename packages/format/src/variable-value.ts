@@ -1,4 +1,4 @@
-import { formatHebrewNumeral, formatNumber, isHebrew } from './numbering.ts'
+import { formatNumber } from './numbering.ts'
 import type { Variable } from './variable.ts'
 import { STANDARD_META_FIELD_READERS, type StandardMetaField, type VariableDocumentFacts } from './variable-document-facts.ts'
 
@@ -24,28 +24,6 @@ export function textVariableValue(variable: Extract<Variable, { kind: 'text' }>,
   return ''
 }
 
-export function dateVariableValue(variable: Extract<Variable, { kind: 'date' }>, document: VariableDocumentFacts | undefined): string {
-  const lang = document?.lang
-  const formatter = new Intl.DateTimeFormat(lang, {
-    calendar: variable.calendar === 'gregorian' ? 'gregory' : 'hebrew',
-    dateStyle: variable.format,
-    timeZone: 'UTC',
-  })
-  const date = new Date(`${variable.date}T00:00:00Z`)
-  if (variable.calendar !== 'hebrew' || !isHebrew(lang)) return formatter.format(date)
-  return formatter
-    .formatToParts(date)
-    .map((part) => {
-      return hebrewDatePartValue(part)
-    })
-    .join('')
-}
-
-export function hebrewDatePartValue(part: { type: string; value: string }): string {
-  if ((part.type !== 'day' && part.type !== 'year') || !/^[0-9]+$/.test(part.value)) return part.value
-  return formatHebrewNumeral(Number(part.value), part.type === 'year')
-}
-
 export function metaVariableValue(variable: Extract<Variable, { kind: 'meta' }>, document: VariableDocumentFacts | undefined): string {
   const metadata = document?.metadata
   if (!metadata) return ''
@@ -56,7 +34,10 @@ export function metaVariableValue(variable: Extract<Variable, { kind: 'meta' }>,
 
 export function variableValue(variable: Variable, facts: VariablePageFacts): string {
   if (variable.kind === 'text') return textVariableValue(variable, facts)
-  if (variable.kind === 'date') return dateVariableValue(variable, facts.document)
+  if (variable.kind === 'date') {
+    const dates = facts.document?.dates
+    return dates !== undefined && Object.hasOwn(dates, variable.name) ? (dates[variable.name] ?? '') : ''
+  }
   if (variable.kind === 'meta') return metaVariableValue(variable, facts.document)
   if (variable.kind === 'record') {
     const value = variable.value === 'index' ? facts.recordIndex : facts.recordCount

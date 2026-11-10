@@ -1,9 +1,7 @@
 import {
   bookVariablePageNumbers,
-  dateVariableValue,
   fingerprintScript,
   folioScript,
-  hebrewDatePartValue,
   LIBRARY_VARIABLES,
   metaVariableValue,
   STANDARD_META_FIELD_READERS,
@@ -37,8 +35,6 @@ ${bookVariablePageNumbers.toString()}
 ${bookPlanDocumentNumbers.toString()}
 var bookPlanDocumentNumbers=${bookPlanDocumentNumbers.name};
 ${textVariableValue.toString()}
-${hebrewDatePartValue.toString()}
-${dateVariableValue.toString()}
 var STANDARD_META_FIELD_READERS={${Object.entries(STANDARD_META_FIELD_READERS)
     .map(([field, reader]) => `${JSON.stringify(field)}:${reader.toString()}`)
     .join(',')}};

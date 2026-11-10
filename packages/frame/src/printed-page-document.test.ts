@@ -172,7 +172,9 @@ describe('printedPageDocument', () => {
         variables: [{ name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }],
       },
     })
-    expect(printedPageValueDocument(resolvePrintedPageHtml(dated), { nonce: 'held' })).toContain('"document":{"lang":"he"}')
+    expect(printedPageValueDocument(resolvePrintedPageHtml(dated), { nonce: 'held', formatDate: () => 'host date' })).toContain(
+      '"document":{"lang":"he","dates":{"date":"host date"}}',
+    )
   })
 
   test('adds a one-column screen presentation without a book place reporter', () => {

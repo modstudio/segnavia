@@ -286,7 +286,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   const bodyVariablePages = marginVariablePagesFor(bodySections, printedBody.part.destinations, printedBody.part.pages, bodyBlankPages)
   if (printedFront.trailingBlank && bodyVariablePages[0]) frontVariablePages[frontVariablePages.length - 1] = { ...bodyVariablePages[0], blank: true }
   const documentPages = [...frontVariablePages, ...bodyVariablePages]
-  const documentFacts = bookVariableDocumentFacts(book)
+  const documentFacts = bookVariableDocumentFacts(book, options.formatDate)
   const marginFacts = [
     ...marginFactsFor(
       frontSections,

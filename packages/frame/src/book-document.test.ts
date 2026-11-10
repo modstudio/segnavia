@@ -93,7 +93,9 @@ describe('bookDocument', () => {
       ...book,
       variables: [{ name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }],
     })
-    expect(bookDocument(dateBook, { nonce: 'held' })).toContain('"document":{"lang":"he","metadata":{"title":"Book"}}')
+    expect(bookDocument(dateBook, { nonce: 'held', formatDate: () => 'host date' })).toContain(
+      '"document":{"lang":"he","metadata":{"title":"Book"},"dates":{"date":"host date"}}',
+    )
     expect(bookDocument(book, { nonce: 'held' })).not.toContain('"document":')
   })
 

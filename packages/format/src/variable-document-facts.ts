@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import { type DateFormatter, resolveDateVariables } from './date-format.ts'
+import type { Variable } from './variable.ts'
 
 export const VariableDocumentMetadata = z.object({
   title: z.string().optional(),
@@ -10,6 +12,7 @@ export const VariableDocumentMetadata = z.object({
 export const VariableDocumentFacts = z.object({
   lang: z.string().optional(),
   metadata: VariableDocumentMetadata.optional(),
+  dates: z.record(z.string(), z.string()).optional(),
 })
 export type VariableDocumentFacts = z.infer<typeof VariableDocumentFacts>
 
@@ -33,6 +36,11 @@ export function bookVariableDocumentFacts(book: {
   subject?: string
   authors?: string[]
   extra?: Record<string, string>
-}): VariableDocumentFacts {
-  return { lang: book.lang, metadata: { title: book.title, subject: book.subject, authors: book.authors, extra: book.extra } }
+  variables: readonly Variable[]
+}, formatDate?: DateFormatter): VariableDocumentFacts {
+  return {
+    lang: book.lang,
+    metadata: { title: book.title, subject: book.subject, authors: book.authors, extra: book.extra },
+    dates: resolveDateVariables(book.variables, book.lang, formatDate),
+  }
 }

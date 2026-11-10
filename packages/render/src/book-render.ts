@@ -122,6 +122,7 @@ function bookSrcdoc(
     breaks?: string[]
     profile?: PreflightProfile
     preflightSeed?: PreflightEntry[]
+    formatDate?: RenderOptions['formatDate']
   },
 ): string {
   const nonce = newNonce()
@@ -137,6 +138,7 @@ function bookSrcdoc(
       breaks: options.breaks ?? options.plan?.breaks,
       profile: options.profile,
       preflightSeed: options.preflightSeed,
+      formatDate: options.formatDate,
     })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
@@ -220,6 +222,7 @@ async function printBook(
       breaks: renderOptions.breaks,
       profile: renderOptions.preflight?.profile,
       preflightSeed: renderOptions.preflight?.seed,
+      formatDate: renderOptions.formatDate,
     }),
   )
   const setup: TabSetup = paginated
@@ -321,6 +324,7 @@ export async function renderBrowserBookPlan(
       origins: options.origins,
       limits: options.limits,
       breaks: options.breaks,
+      formatDate: options.formatDate,
     }),
   )
   return withTab(

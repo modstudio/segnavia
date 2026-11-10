@@ -306,4 +306,11 @@ export {
   VariableDocumentFacts,
   variableReadsDocumentFacts,
 } from './variable-document-facts.ts'
-export { dateVariableValue, hebrewDatePartValue, metaVariableValue, textVariableValue, type VariablePageFacts, variableValue } from './variable-value.ts'
+export { metaVariableValue, textVariableValue, type VariablePageFacts, variableValue } from './variable-value.ts'
+export {
+  HEBREW_MONTHS,
+  libraryFormatDate,
+  resolveDateVariables,
+  type DateFormatter,
+  type DateFormatRequest,
+} from './date-format.ts'
