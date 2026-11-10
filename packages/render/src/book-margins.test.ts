@@ -37,6 +37,7 @@ test('fills catalogued furniture by its parsed motif key and uses its resolved p
   expect(html).toContain('<div class="segnavia-folio"><bdi dir="ltr">7</bdi></div>')
   expect(css).toContain('[data-segnavia-region="head"]){top:0mm;left:23mm;width:101mm;height:21mm')
   expect(css).toContain('[data-segnavia-region="foot"]){top:188mm;left:23mm;width:101mm;height:22mm')
+  expect(css).toContain('.segnavia-folio){justify-content:flex-end')
   expect(html).not.toContain('data-motif')
 })
 
@@ -57,4 +58,6 @@ test('places asymmetric binding margins on the physical spine edges of an RTL bo
   const css = marginCss(book, pages, parents)
   expect(css).toContain('.segnavia-margin-page:nth-of-type(1) [data-segnavia-region="head"]){top:0mm;left:5mm;width:113mm;height:10mm')
   expect(css).toContain('.segnavia-margin-page:nth-of-type(2) [data-segnavia-region="head"]){top:0mm;left:30mm;width:113mm;height:10mm')
+  expect(css).toContain('.segnavia-margin-page:nth-of-type(1) .segnavia-folio){justify-content:flex-start')
+  expect(css).toContain('.segnavia-margin-page:nth-of-type(2) .segnavia-folio){justify-content:flex-end')
 })

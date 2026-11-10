@@ -12,7 +12,7 @@ const names = { first: 'fixture-first', left: 'fixture-left', right: 'fixture-ri
 function regions(marker: string, head = false) {
   return {
     ...(head ? { head: { edge: 'blockStart' as const, html: `<div>HOST_HEAD ${marker}</div>` } } : {}),
-    side: { edge: 'inlineEnd' as const, html: `<div dir="ltr">OUTER_${marker}</div>` },
+    side: { edge: 'inlineEnd' as const, html: `<div dir="ltr" style="font-size:7px">OUTER_${marker}</div>` },
   }
 }
 

@@ -27,12 +27,14 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
       if (!parent) throw new Error(`The book margin plan names unknown parent page "${page.parent}".`)
       const selector = `.segnavia-margin-page:nth-of-type(${index + 1})`
       const area = textArea(parent, size)
-      return Object.entries(parent.regions)
+      const regions = Object.entries(parent.regions)
         .map(([name, region]) => {
           const box = regionBox(region.edge, parent.margin, area, { direction, face: page.face })
           return `:where(${selector} [data-segnavia-region="${name}"]){top:${box.top}mm;left:${box.left}mm;width:${box.width}mm;height:${box.height}mm}`
         })
         .join('')
+      const furniture = `:where(${selector} .segnavia-running-head,${selector} .segnavia-folio){justify-content:${page.side === 'left' ? 'flex-start' : 'flex-end'}}`
+      return regions + furniture
     })
     .join('')
   return (
@@ -40,6 +42,7 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
     `:where(html,body){margin:0}` +
     `:where(.segnavia-margin-page){position:relative;inline-size:${size.width}mm;block-size:${size.height}mm;break-after:page;direction:ltr}` +
     `:where([data-segnavia-region]){position:absolute;overflow:hidden}` +
+    `:where(.segnavia-running-head,.segnavia-folio){display:flex;align-items:center;inline-size:100%;block-size:100%}` +
     geometry
   )
 }
