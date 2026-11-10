@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board, BoardLabel, BoardShapes, BoardView } from '@segnavia/format'
-import { committedLabelText, labelDoubleClickTarget, labelResizeHandlePoint } from './board-label-editing.ts'
+import { BoardDecorations } from './board-decorations.ts'
+import { committedLabelText, labelDoubleClickTarget, labelResizeHandlePoint, withoutLabelWidth } from './board-label-editing.ts'
 
 const view: BoardView = { zoom: 2, pan: { x: 10, y: 20 }, viewport: { width: 800, height: 600 } }
 const shapes: BoardShapes = { items: { item: { width: 4, height: 3 } }, labels: { latin: { width: 80, height: 20 }, hebrew: { width: 70, height: 38 } } }
@@ -45,5 +46,35 @@ describe('label text editing', () => {
     ['changed Hebrew text', 'עברית', 'עברית חדשה', 'עברית חדשה'],
   ])('%s', (_name, oldText, newText, expected) => {
     expect(committedLabelText(oldText, newText)).toBe(expected)
+  })
+
+  test.each([
+    ['ltr', 'Natural label', 100],
+    ['rtl', 'תווית טבעית', 60],
+  ] as const)('unwraps a %s label from its natural width', (direction, text, expectedX) => {
+    const naturalSize = { width: 120, height: 20 }
+    const content = { textContent: text, dir: direction, style: { display: 'block', whiteSpace: 'pre-wrap', inlineSize: '80px' } }
+    const node = {
+      style: { inlineSize: '80px' },
+      querySelector: () => content,
+      getBoundingClientRect: () => ({ width: node.style.inlineSize === '' ? naturalSize.width : 80, height: naturalSize.height }),
+    }
+    const decorations = new BoardDecorations({} as HTMLElement, () => {})
+    const labelNodes = (decorations as unknown as { labelNodes: Map<string, HTMLElement> }).labelNodes
+    labelNodes.set('label', node as unknown as HTMLElement)
+    const board: Board = {
+      title: 'Board',
+      direction,
+      items: [],
+      labels: [{ id: 'label', text, x: 100, y: 40, width: 80, size: { width: 80, height: 20 } }],
+      sections: [],
+    }
+    const unwrapped = withoutLabelWidth(board, 'label', { items: {}, labels: { label: { width: 80, height: 20 } } }, (label) =>
+      decorations.labelShape(label, 1),
+    )
+
+    expect(unwrapped?.labels[0]?.x).toBe(expectedX)
+    expect(decorations.labelShape(unwrapped?.labels[0] as BoardLabel, 1)).toEqual(naturalSize)
+    expect(node.style.inlineSize).toBe('80px')
   })
 })

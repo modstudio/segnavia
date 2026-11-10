@@ -62,11 +62,14 @@ export class BoardDecorations {
     if (!node) return undefined
     const content = node.querySelector<HTMLElement>('[data-board-label-text]') as HTMLElement
     const previous = { display: content.style.display, whiteSpace: content.style.whiteSpace, inlineSize: content.style.inlineSize }
+    const previousNodeInlineSize = node.style.inlineSize
     content.style.display = authoredWidth === undefined ? '' : 'block'
     content.style.whiteSpace = authoredWidth === undefined ? 'pre' : 'pre-wrap'
     content.style.inlineSize = authoredWidth === undefined ? '' : `${authoredWidth * viewZoom}px`
+    node.style.inlineSize = authoredWidth === undefined ? '' : `${authoredWidth * viewZoom}px`
     const rectangle = node.getBoundingClientRect()
     Object.assign(content.style, previous)
+    node.style.inlineSize = previousNodeInlineSize
     return rectangle.width > 0 && rectangle.height > 0 ? { width: rectangle.width / viewZoom, height: rectangle.height / viewZoom } : undefined
   }
 
