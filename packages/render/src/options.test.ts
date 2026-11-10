@@ -5,11 +5,11 @@ import {
   copyLimits,
   enforceDeckLimits,
   innerLimits,
+  pageCompositionCount,
   parseComposedRenderOptions,
   parseRenderOptions,
   type RenderOptions,
-  refuseMultiCompositionProgress,
-  refuseProgressWithoutComposition,
+  refuseProgressUnlessOneComposition,
 } from './options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
@@ -91,20 +91,22 @@ test('progress is normalized to one report function at the option edge', () => {
   expect(() => parseRenderOptions({ progress: {} } as never)).toThrow('The progress option needs a report function')
 })
 
-test('progress refuses render calls that would compose more than one document', () => {
+test('progress is accepted only when a render runs one composition', () => {
   const progress = { report: () => {} }
-  expect(() => refuseMultiCompositionProgress({ progress }, 'pagePdf', false)).not.toThrow()
-  expect(() => refuseMultiCompositionProgress({ progress }, 'pagePdf', true)).toThrow(
-    'The progress option is reported per single composition; pagePdf would compose multiple documents. Remove progress and call pagePdf once per page',
+  expect(() => refuseProgressUnlessOneComposition({ progress }, 1)).not.toThrow()
+  expect(() => refuseProgressUnlessOneComposition({ progress }, 2)).toThrow(
+    'The progress option is reported per single composition; this render runs 2 compositions. Omit progress and render one paginated book or printed page at a time',
+  )
+  expect(() => refuseProgressUnlessOneComposition({ progress }, 0)).toThrow(
+    'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
   )
 })
 
-test('progress is accepted only when one document runs a composer', () => {
-  const progress = { report: () => {} }
-  expect(() => refuseProgressWithoutComposition({ progress }, true)).not.toThrow()
-  expect(() => refuseProgressWithoutComposition({ progress }, false)).toThrow(
-    'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
-  )
+test('page composition count includes only printed pages and their output copies', () => {
+  const plain = { html: '', size: { width: 100, height: 100 } }
+  const printed = { ...plain, printedPages: { parents: [], parentRules: [] } }
+  expect(pageCompositionCount([plain, printed] as never)).toBe(1)
+  expect(pageCompositionCount([printed] as never, { fills: [{}, {}] })).toBe(2)
 })
 
 test('invalid preflight profiles refuse at the option edge', () => {

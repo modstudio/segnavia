@@ -42,9 +42,13 @@ test('pagesPdf refuses an empty collection with the action that clears it', asyn
 })
 
 test('pagesPdf refuses progress because the report is scoped to one composition', async () => {
-  const page = Page.parse({ html: '<p>Card</p>' })
+  const page = Page.parse({
+    html: '<p>Card</p>',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+  })
   const render = renderPagesPdf(
-    [page],
+    [page, page],
     preparedSlots,
     { progress: { report: () => {} } },
     {
@@ -55,7 +59,7 @@ test('pagesPdf refuses progress because the report is scoped to one composition'
     },
   )
   await expect(render).rejects.toThrow(
-    'The progress option is reported per single composition; pagesPdf would compose multiple documents. Remove progress and call pagePdf once per page',
+    'The progress option is reported per single composition; this render runs 2 compositions. Omit progress and render one paginated book or printed page at a time',
   )
 })
 

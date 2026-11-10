@@ -10,11 +10,12 @@ import {
   type Limits,
   type OmittedImpositionMark,
   type OriginApproval,
+  type Page,
   PageWidths,
   parseLimits,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
-import type { AsOfInputs, SlotPrintOptions } from '@segnavia/html'
+import { type AsOfInputs, type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, type SlotPrintOptions } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
@@ -159,17 +160,20 @@ export function innerLimits(limits: Limits | undefined): Limits | undefined {
   }
 }
 
-export function refuseMultiCompositionProgress(options: Pick<RenderOptions, 'progress'>, call: 'pagePdf' | 'pagesPdf', multiple: boolean): void {
-  if (!options.progress || !multiple) return
-  throw new RenderRefusedError(
-    `The progress option is reported per single composition; ${call} would compose multiple documents. Remove progress and call pagePdf once per page to clear this refusal.`,
-  )
+export function pageCompositionCount(pages: readonly (Page | HtmlPage | PrintedHtmlPage)[], slots?: Pick<SlotPrintOptions, 'fills'>): number {
+  const copies = slots?.fills?.length ?? 1
+  return pages.filter((page) => isPrintedHtmlPage(page) || page.printedPages !== undefined).length * copies
 }
 
-export function refuseProgressWithoutComposition(options: Pick<RenderOptions, 'progress'>, composesExactlyOneDocument: boolean): void {
-  if (!options.progress || composesExactlyOneDocument) return
+export function refuseProgressUnlessOneComposition(options: Pick<RenderOptions, 'progress'>, compositions: number): void {
+  if (!options.progress || compositions === 1) return
+  if (compositions === 0) {
+    throw new RenderRefusedError(
+      'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
+    )
+  }
   throw new RenderRefusedError(
-    'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
+    `The progress option is reported per single composition; this render runs ${compositions} compositions. Omit progress and render one paginated book or printed page at a time to clear this refusal.`,
   )
 }
 
