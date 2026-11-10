@@ -23,7 +23,6 @@ import {
   type EstablishedPageDay,
   FontCssRefusedError,
   type HtmlPage,
-  isPrintedHtmlPage,
   type PrintedHtmlPage,
   parseDocument,
   resolvePageHtml,
@@ -96,13 +95,13 @@ export async function prepareRenderedPageValue(
 }
 
 export function expandRenderedPageValue(
-  page: HtmlPage | PrintedHtmlPage,
+  page: Page,
   options: ComposedRenderOptions & { motifs?: MotifsOptions },
   signal: AbortSignal,
   day: AsOfDay | undefined,
   purpose: 'screen' | 'print',
 ) {
-  return isPrintedHtmlPage(page)
+  return page.printedPages?.sections
     ? expandPrintedFramePage(
         resolvePrintedPageHtml(page),
         options.motifs,

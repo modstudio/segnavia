@@ -7,7 +7,7 @@ import {
   preflightRefusal,
   resolvePreflightProfile,
 } from '@segnavia/format'
-import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/composer'
+import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
 
