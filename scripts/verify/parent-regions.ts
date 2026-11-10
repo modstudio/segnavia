@@ -75,8 +75,32 @@ function pageWords(file: string) {
   const xml = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
   return [...xml.matchAll(/<page width="([\d.]+)"[^>]*>([\s\S]*?)<\/page>/g)].map((page) => ({
     width: Number(page[1]),
-    words: [...(page[2] ?? '').matchAll(/<word xMin="([\d.]+)"[^>]*>([^<]+)<\/word>/g)].map((word) => ({ x: Number(word[1]), text: word[2] ?? '' })),
+    words: [...(page[2] ?? '').matchAll(/<word xMin="([\d.]+)"[^>]*xMax="([\d.]+)"[^>]*>([^<]+)<\/word>/g)].map((word) => ({
+      x: Number(word[1]),
+      xMax: Number(word[2]),
+      text: word[3] ?? '',
+    })),
   }))
+}
+
+function hebrewHeadFixture(): DocumentInput {
+  const left = 'hebrew-head-left'
+  const right = 'hebrew-head-right'
+  const head = { edge: 'blockStart' as const, html: '<div class="segnavia-running-head">כותרת</div>' }
+  return {
+    type: 'document',
+    kind: 'book',
+    title: 'כותרת חיצונית',
+    mode: 'paginated',
+    settings: { lang: 'he', dir: 'rtl' },
+    page: { paper: 'a5', margin },
+    parentPages: [
+      { type: 'parentPage', name: left, basedOn: 'segnavia:verso', regions: { head } },
+      { type: 'parentPage', name: right, basedOn: 'segnavia:recto', regions: { head } },
+    ],
+    parentRules: [{ when: { face: 'verso' }, parent: left }, { parent: right }],
+    children: [{ type: 'section', title: 'ראשון', children: [{ type: 'flow', html: `<p>${'מילים בעמוד '.repeat(900)}</p>` }] }],
+  }
 }
 
 export async function verifyParentRegions(renderer: Renderer, work: string, check: Check): Promise<void> {
@@ -126,4 +150,22 @@ export async function verifyParentRegions(renderer: Renderer, work: string, chec
       printedText,
     )
   }
+
+  let id = 0
+  const hebrewHeadBytes = await renderer.bookPdf(hebrewHeadFixture(), {
+    css: 'body{font:14px/20px serif}p{margin:0}',
+    newId: () => `hebrew-head-${++id}`,
+  })
+  const hebrewHeadFile = path.join(work, 'parent-regions-Hebrew-head.pdf')
+  writeFileSync(hebrewHeadFile, hebrewHeadBytes)
+  const hebrewHeadPages = pageWords(hebrewHeadFile)
+  const hebrewHeads = hebrewHeadPages.flatMap((page, index) =>
+    page.words.filter((word) => word.text === 'כותרת').map((word) => ({ page: index, x: word.x, xMax: word.xMax, width: page.width })),
+  )
+  const physicallyOuter = hebrewHeads.every((head) => (head.page % 2 === 0 ? head.x < head.width - head.xMax : head.width - head.xMax < head.x))
+  check(
+    'bare Hebrew running heads stay at the physical outer edge on left and right pages',
+    hebrewHeads.length === hebrewHeadPages.length && hebrewHeads.length >= 2 && physicallyOuter,
+    JSON.stringify(hebrewHeads),
+  )
 }

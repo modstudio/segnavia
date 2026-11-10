@@ -41,6 +41,7 @@ export const CONTENT_FIELD_SHAPES: Readonly<Record<DocumentNodeType, FieldShapes
 }
 
 interface FragmentAccessor {
+  keyed: boolean
   read: (value: unknown, key?: string) => string | undefined
   write: (value: unknown, html: string, key?: string) => unknown
 }
@@ -50,14 +51,17 @@ const object = (value: unknown): Record<string, unknown> | undefined =>
 
 const FRAGMENT_ACCESSORS: Readonly<Record<FragmentShape, FragmentAccessor>> = {
   htmlString: {
+    keyed: false,
     read: (value, key) => (key === undefined && typeof value === 'string' ? value : undefined),
     write: (_value, html) => html,
   },
   pageBody: {
+    keyed: false,
     read: (value, key) => (key === undefined && typeof object(value)?.html === 'string' ? (object(value)?.html as string) : undefined),
     write: (value, html) => ({ ...object(value), html }),
   },
   slideContent: {
+    keyed: false,
     read: (value, key) => {
       const held = object(value)
       return key === undefined && held?.kind === 'html' && typeof held.html === 'string' ? held.html : undefined
@@ -65,10 +69,12 @@ const FRAGMENT_ACCESSORS: Readonly<Record<FragmentShape, FragmentAccessor>> = {
     write: (value, html) => ({ ...object(value), html }),
   },
   record: {
+    keyed: true,
     read: (value, key) => (key !== undefined && typeof object(value)?.[key] === 'string' ? (object(value)?.[key] as string) : undefined),
     write: (value, html, key) => ({ ...object(value), [key as string]: html }),
   },
   regionRecord: {
+    keyed: true,
     read: (value, key) => {
       if (key === undefined) return undefined
       const region = object(value)?.[key]
@@ -80,6 +86,7 @@ const FRAGMENT_ACCESSORS: Readonly<Record<FragmentShape, FragmentAccessor>> = {
     },
   },
   text: {
+    keyed: false,
     read: () => undefined,
     write: (value) => value,
   },
@@ -116,9 +123,13 @@ export function contentFieldShape(type: DocumentNodeType, field: string): Fragme
   return shape
 }
 
+export function fragmentShapeTakesKey(shape: FragmentShape): boolean {
+  return FRAGMENT_ACCESSORS[shape].keyed
+}
+
 function fieldFragments(node: HeldNode, field: string, shape: Exclude<FragmentShape, 'text'>): ContentFragment[] {
   const content = node[field]
-  const keys = shape === 'record' || shape === 'regionRecord' ? Object.keys(object(content) ?? {}) : [undefined]
+  const keys = fragmentShapeTakesKey(shape) ? Object.keys(object(content) ?? {}) : [undefined]
   return keys.flatMap((key) => {
     const html = FRAGMENT_ACCESSORS[shape].read(content, key)
     return html === undefined ? [] : [{ address: { node: node.id, field, ...(key === undefined ? {} : { key }) }, html, node, content, shape }]

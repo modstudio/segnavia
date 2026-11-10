@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from './index.ts'
-import { BOOK_PARENT_NAMES, bookParentPages, ParentPage, PrintedPages, resolveParentPages } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, bookParentPages, bookParents, ParentPage, PrintedPages, resolveParentPages } from './printed-pages.ts'
 
 const base = {
   html: '<p>body</p>',
@@ -188,5 +188,16 @@ describe('bookParentPages', () => {
       head: { edge: 'blockEnd', html: 'child head' },
       side: { edge: 'inlineEnd', html: 'base side' },
     })
+  })
+
+  test('puts host parents after the built-ins so they can shadow one by name', () => {
+    const margin = { blockStart: 15, blockEnd: 16, inlineStart: 20, inlineEnd: 12 }
+    const parents = bookParents(margin, [
+      { name: 'host', regions: {} },
+      { name: BOOK_PARENT_NAMES.recto, regions: { mark: { edge: 'blockStart', html: 'host recto' } } },
+    ])
+
+    expect(parents.slice(-2).map((parent) => parent.name)).toEqual(['host', BOOK_PARENT_NAMES.recto])
+    expect(parents.at(-1)?.regions).toEqual({ mark: { edge: 'blockStart', html: 'host recto' } })
   })
 })

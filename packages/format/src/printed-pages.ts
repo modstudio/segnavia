@@ -83,6 +83,10 @@ export function bookParentPages(margin: LogicalMargin): ParentPage[] {
   ]
 }
 
+export function bookParents(margin: LogicalMargin, parents: readonly ParentPage[]): ParentPage[] {
+  return [...bookParentPages(margin), ...parents]
+}
+
 export interface ResolvedParentPage {
   name: string
   margin: LogicalMargin

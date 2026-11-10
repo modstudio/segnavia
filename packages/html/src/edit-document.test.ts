@@ -17,6 +17,24 @@ const page = () =>
     children: [{ type: 'page', id: 'page', body: { html: '<p data-segnavia-id="p">Body</p>' } }],
   })
 
+const bookWithParentRegion = () =>
+  parseDocument({
+    type: 'document',
+    id: 'book',
+    kind: 'book',
+    metadata: { title: 'Book' },
+    mode: 'continuous',
+    children: [],
+    parentPages: [
+      {
+        type: 'parentPage',
+        id: 'parent',
+        name: 'body',
+        regions: { head: { edge: 'blockStart', html: '<p data-segnavia-id="old-head">Old</p>' } },
+      },
+    ],
+  })
+
 function expectComposes(input: Document, result: ReturnType<typeof editDocument>): asserts result is Extract<typeof result, { ok: true }> {
   expect(result.ok).toBe(true)
   if (!result.ok) throw new Error(result.refusal)
@@ -108,6 +126,51 @@ describe('editDocument command handlers', () => {
     expectComposes(input, result)
     expect(result.document.children[0]).toMatchObject({ body: { html: '<p data-segnavia-id="new-value">Native</p>' } })
     expect(result.added).toEqual({ 0: ['new-value'] })
+  })
+
+  test('sets keyed parent region HTML and keeps its edge', () => {
+    const input = bookWithParentRegion()
+    const result = editDocument(
+      input,
+      [{ type: 'setContent', content: { node: { id: 'parent' }, field: 'regions', key: 'head' }, html: '<p>New</p>' }],
+      { newId: () => 'new-head' },
+    )
+    expectComposes(input, result)
+    expect(result.document.parentPages[0]?.regions.head).toEqual({ edge: 'blockStart', html: '<p data-segnavia-id="new-head">New</p>' })
+  })
+
+  test('sets a keyed native parent region value and keeps its edge', () => {
+    const input = bookWithParentRegion()
+    const result = editDocument(
+      input,
+      [
+        {
+          type: 'setContent',
+          content: { node: { id: 'parent' }, field: 'regions', key: 'head' },
+          value: { edge: 'inlineEnd', html: '<p>Native</p>' },
+        },
+      ],
+      { newId: () => 'native-head' },
+    )
+    expectComposes(input, result)
+    expect(result.document.parentPages[0]?.regions.head).toEqual({ edge: 'blockStart', html: '<p data-segnavia-id="native-head">Native</p>' })
+  })
+
+  test('identifies the region blocks of an added parent page', () => {
+    const input = bookWithParentRegion()
+    const result = editDocument(
+      input,
+      [
+        {
+          type: 'add',
+          node: { type: 'parentPage', id: 'added-parent', name: 'added', regions: { head: { edge: 'blockStart', html: '<p>Added</p>' } } },
+          at: { collection: 'parentPages' },
+        },
+      ],
+      { newId: () => 'added-head' },
+    )
+    expectComposes(input, result)
+    expect(result.document.parentPages[1]?.regions.head).toEqual({ edge: 'blockStart', html: '<p data-segnavia-id="added-head">Added</p>' })
   })
 
   test('moves a node and composes and inverts', () => {
@@ -263,6 +326,25 @@ describe('editDocument refusals', () => {
     expect(editDocument(page(), [{ type: 'setContent', content: { node: { id: 'page' }, field: 'regions' }, html: '<p>Region</p>' }])).toEqual({
       ok: false,
       refusal: 'document command 0 (setContent) refused: record content field "regions" requires a key; supply the record key. Nothing was changed.',
+    })
+  })
+
+  test('requires a key for a parent region record content field', () => {
+    expect(editDocument(bookWithParentRegion(), [{ type: 'setContent', content: { node: { id: 'parent' }, field: 'regions' }, html: '<p>Region</p>' }])).toEqual({
+      ok: false,
+      refusal: 'document command 0 (setContent) refused: record content field "regions" requires a key; supply the record key. Nothing was changed.',
+    })
+  })
+
+  test('refuses an unknown parent region key', () => {
+    expect(
+      editDocument(bookWithParentRegion(), [
+        { type: 'setContent', content: { node: { id: 'parent' }, field: 'regions', key: 'missing' }, html: '<p>Region</p>' },
+      ]),
+    ).toEqual({
+      ok: false,
+      refusal:
+        'document command 0 (setContent) refused: region "missing" is not present in content field "regions"; add it with its edge through set on "regions". Nothing was changed.',
     })
   })
 

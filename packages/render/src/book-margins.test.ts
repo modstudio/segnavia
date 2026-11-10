@@ -61,3 +61,18 @@ test('places asymmetric binding margins on the physical spine edges of an RTL bo
   expect(css).toContain('.segnavia-margin-page:nth-of-type(1) .segnavia-folio){justify-content:flex-start')
   expect(css).toContain('.segnavia-margin-page:nth-of-type(2) .segnavia-folio){justify-content:flex-end')
 })
+
+test('escapes a parent name as one margin-document attribute', () => {
+  const book = parseBookFixture({
+    title: 'A Book',
+    mode: 'continuous',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 11, inlineStart: 12, inlineEnd: 13 } },
+    chapters: [{ title: 'One', html: '<p>Text</p>' }],
+  })
+  const parent = { name: 'a"b<c', regions: { head: { edge: 'blockStart' as const, html: '<p>Head</p>' } } }
+  const pages: BookPrintedPagePlan[] = [{ index: 0, role: 'recto', parent: parent.name, face: 'recto', side: 'right', folio: '1' }]
+
+  const html = marginDocument(book, pages, [parent])
+  expect(html).toContain('data-segnavia-parent="a&quot;b&lt;c"')
+  expect(html.match(/data-segnavia-parent=/g)).toHaveLength(1)
+})

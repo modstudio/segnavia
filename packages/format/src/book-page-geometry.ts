@@ -1,6 +1,6 @@
 import type { BookPage, BookSectionEntry } from './book.ts'
 import { sheetMm } from './paper.ts'
-import { bookParentPages, type ParentPage, resolveParentPages } from './printed-pages.ts'
+import { bookParents, type ParentPage, resolveParentPages } from './printed-pages.ts'
 import type { PageGeometry, StyleSheet } from './style-sheet.ts'
 
 export interface ResolvedBookPageGeometry {
@@ -22,7 +22,7 @@ function resolved(
     paper: sheetMm(geometry),
     margin: geometry.margin,
     columns: geometry.columns ?? { count: 1, gap: defaultGap },
-    parents: resolveParentPages([...bookParentPages(geometry.margin), ...customParents]).map(({ name: parentName, margin }) => ({ name: parentName, margin })),
+    parents: resolveParentPages(bookParents(geometry.margin, customParents)).map(({ name: parentName, margin }) => ({ name: parentName, margin })),
   }
 }
 

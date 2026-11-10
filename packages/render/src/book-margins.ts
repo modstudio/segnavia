@@ -58,6 +58,10 @@ function furniture(book: Book, html: string, page: BookPrintedPagePlan): string 
   return fillRegion(html, { heads }, book.dir, book.lang)
 }
 
+function attribute(value: string): string {
+  return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
 export function marginDocument(book: Book, pages: BookPrintedPagePlan[], parents: ParentPage[]): string {
   const byName = new Map(resolveParentPages(parents).map((parent) => [parent.name, parent]))
   return pages
@@ -67,10 +71,10 @@ export function marginDocument(book: Book, pages: BookPrintedPagePlan[], parents
       const regions = Object.entries(parent.regions)
         .map(
           ([name, region]) =>
-            `<div data-segnavia-region="${name}" data-segnavia-edge="${region.edge}" data-segnavia-parent="${parent.name}" dir="auto">${furniture(book, region.html, page)}</div>`,
+            `<div data-segnavia-region="${attribute(name)}" data-segnavia-edge="${attribute(region.edge)}" data-segnavia-parent="${attribute(parent.name)}" dir="auto">${furniture(book, region.html, page)}</div>`,
         )
         .join('')
-      return `<div class="segnavia-margin-page" data-side="${page.side}" data-segnavia-side="${page.face}">${regions}</div>`
+      return `<div class="segnavia-margin-page" data-side="${attribute(page.side)}" data-segnavia-side="${attribute(page.face)}">${regions}</div>`
     })
     .join('')
 }
