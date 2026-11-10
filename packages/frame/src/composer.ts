@@ -53,7 +53,7 @@ import {
   tableRowLines,
 } from './composer-measure.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
-import { COMPOSE_PROGRESS_ATTRIBUTE, embeddedComposerProgressFunctions } from './composer-progress.ts'
+import { embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { placeParentRegions } from './composer-regions.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
@@ -258,8 +258,7 @@ var resolveRegionHeads=function(templates,variables,recordSlots,direction,lang){
 var ${resolveRegionHeads.name}=resolveRegionHeads;
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}
 ${embedFunction('markRegionOverflow', markRegionOverflow)}
-${embeddedComposerProgressFunctions()}
-${embeddedDressPlanPagesFunctions()}${embeddedPreflightFunctions()}
+${embeddedComposerProgressFunctions()}${embeddedDressPlanPagesFunctions()}${embeddedPreflightFunctions()}
 ${embedFunction('decideLayoutSettle', decideLayoutSettle)}
 ${embeddedBookPresentationFunctions()}`
 }
@@ -271,7 +270,6 @@ export function composerScript(configJson: string): string {
   const script = `(function(){
 var composeStarted=performance.now();
 var fail=function(reason){var text=String(reason).slice(0,${COMPOSE_FAILURE_TEXT_LIMIT});document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}',text||'book composition failed without a reported reason');};
-var progressHighWater;var reportComposeProgress=function(progress){if(!config.progress)return;var next=reduceProgressHighWater(progressHighWater,progress);if(!next)return;progressHighWater=next;document.documentElement.setAttribute('${COMPOSE_PROGRESS_ATTRIBUTE}',next.pages+'/'+next.total);};
 var config=${configJson};
 var preflightEntries=[],preflightFits=[];
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};
