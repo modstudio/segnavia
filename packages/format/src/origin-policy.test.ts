@@ -16,6 +16,19 @@ describe('origin policy', () => {
     expect(originDecision('https://example.com/image.png', 'image', [], true).allowed).toBe(false)
   })
 
+  test('default image origins are image-only', () => {
+    const urls = [
+      'https://api.iconify.design/mdi/home.svg',
+      'https://images.unsplash.com/photo-example',
+      'https://plus.unsplash.com/premium_photo-example',
+      'https://images.pexels.com/photos/1/example.jpeg',
+    ]
+    for (const url of urls) {
+      expect(originDecision(url, 'image', [], true).allowed).toBe(true)
+      for (const kind of ['style', 'font', 'script'] as const) expect(originDecision(url, kind, [], true).allowed).toBe(false)
+    }
+  })
+
   test('script approvals exist only for scripted frames', () => {
     const url = 'https://cdn.jsdelivr.net/npm/example@1.2.3/index.js'
     expect(originDecision(url, 'script', undefined, true).allowed).toBe(true)

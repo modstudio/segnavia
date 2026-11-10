@@ -67,6 +67,8 @@ describe('thumbnail geometry and resolution identity', () => {
 
   test('uses only the default origins when no approvals are supplied', () => {
     const frame = htmlThumbnail('<p>Plain</p>')
-    expect(frame?.srcdoc).toMatch(/(?:^|; )img-src data: blob:(?:;|&quot;|")/)
+    expect(frame?.srcdoc).toMatch(
+      /(?:^|; )img-src data: blob: https:\/\/api\.iconify\.design https:\/\/images\.pexels\.com https:\/\/images\.unsplash\.com https:\/\/plus\.unsplash\.com(?:;|&quot;|")/,
+    )
   })
 })
