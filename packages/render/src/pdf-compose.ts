@@ -1,8 +1,8 @@
-import type { Imposed, ImpositionSideMarks, MarkColor } from '@segnavia/format'
+import type { Imposed, ImpositionSideBoxes, ImpositionSideMarks, MarkColor } from '@segnavia/format'
 import { clip, endPath, PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
 import type { PiecePlacement } from './pages-imposition.ts'
 import { placementPdfGeometry } from './pages-imposition.ts'
-import { type PdfRectangle, pdfPoint, pt } from './pdf-geometry.ts'
+import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
 import { drawCropMarks } from './pdf-marks.ts'
 
@@ -26,6 +26,11 @@ export interface ImposedPdfPiece {
   placements: PiecePlacement[]
 }
 
+export interface ImposedPdfSide {
+  boxes: ImpositionSideBoxes
+  marks?: ImpositionSideMarks
+}
+
 function drawImposedSide(
   output: PDFDocument,
   imposed: Imposed,
@@ -33,10 +38,15 @@ function drawImposedSide(
   pieces: ImposedPdfPiece[],
   paperIndex: number,
   side: 'front' | 'back',
+  boxes: ImpositionSideBoxes,
   marks: ImpositionSideMarks | undefined,
   markColor: MarkColor,
 ): void {
   const paper = output.addPage([pt(imposed.paper.width), pt(imposed.paper.height)])
+  const trim = pdfBox(boxes.trim, imposed.paper.height)
+  const bleedBox = pdfBox(boxes.bleedBox, imposed.paper.height)
+  paper.setTrimBox(trim.x, trim.y, trim.width, trim.height)
+  paper.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
   for (const piece of pieces) {
     const image = embedded.get(piece.key)
     if (!image) throw new Error(`${piece.name} was not embedded.`)
@@ -57,22 +67,13 @@ function drawImposedSide(
   )
 }
 
-export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiece[], marks: ImpositionSideMarks[], markColor: MarkColor): Promise<Uint8Array> {
+export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiece[], sides: ImposedPdfSide[], markColor: MarkColor): Promise<Uint8Array> {
   const output = await PDFDocument.create()
   const embedded = new Map<string, PDFEmbeddedPage>()
   for (const piece of pieces) embedded.set(piece.key, await embedOnePage(output, piece.bytes, piece.name))
   for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {
-    for (const side of (['front', 'back'] as const).slice(0, imposed.sides)) {
-      drawImposedSide(
-        output,
-        imposed,
-        embedded,
-        pieces,
-        paperIndex,
-        side,
-        marks.find((entry) => entry.side === side),
-        markColor,
-      )
+    for (const { boxes, marks } of sides) {
+      drawImposedSide(output, imposed, embedded, pieces, paperIndex, boxes.side, boxes, marks, markColor)
     }
   }
   return output.save()

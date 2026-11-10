@@ -2,9 +2,12 @@ import {
   Imposition,
   type ImpositionInput,
   impose,
+  impositionBoxes,
   impositionMarks,
   isPrintedPageIdentityImposition,
   mixedImpositionGeometryRefusal,
+  type Print,
+  printBoxes,
   printPadding,
   printProperties,
   sharedImpositionPress,
@@ -15,7 +18,9 @@ import { type ComposedRenderOptions, innerLimits, parseRenderOptions } from './o
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
+import { pdfBox } from './pdf-geometry.ts'
 import { joinPdfs } from './pdf-join.ts'
+import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { slotsForDocument } from './slot-document.ts'
 
@@ -36,6 +41,18 @@ function namePageError(error: unknown, page: number): never {
   throw new Error(`Page at index ${page} could not be rendered: ${String(error)}`)
 }
 
+async function declarePrintedPageBoxes(pdf: Uint8Array, print: Print): Promise<Uint8Array> {
+  const document = await loadPdf(pdf)
+  const boxes = printBoxes(print)
+  const trim = pdfBox(boxes.trim, boxes.media.height)
+  const bleed = pdfBox(boxes.bleedBox, boxes.media.height)
+  for (const page of document.getPages()) {
+    page.setTrimBox(trim.x, trim.y, trim.width, trim.height)
+    page.setBleedBox(bleed.x, bleed.y, bleed.width, bleed.height)
+  }
+  return document.save()
+}
+
 async function composedPdf(
   pages: HtmlPage[],
   slots: PreparedSlots,
@@ -46,7 +63,9 @@ async function composedPdf(
 ): Promise<Uint8Array> {
   const press = sharedImpositionPress(pages)
   const imposed = impose(imposition, pages.length, press)
+  const boxes = impositionBoxes(imposition, press)
   const marks = impositionMarks(imposition, press)
+  const sides = boxes.map((sideBoxes) => ({ boxes: sideBoxes, marks: marks.find((entry) => entry.side === sideBoxes.side) }))
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const groups = groupPieces(pages, imposed, imposition.fit, opts.pageWidths)
   const baseCss = services.fontFaces(opts)
@@ -83,7 +102,7 @@ async function composedPdf(
       bytes,
       placements: group.placements,
     })),
-    marks,
+    sides,
     imposition.markColor,
   )
 }
@@ -141,7 +160,8 @@ export async function renderPagesPdf(
           inputIndex,
         )
         if (rendered.overflow) overflow.push(rendered.overflow)
-        return rendered.bytes
+        if (!page.print) throw new Error('An identity-imposed printed page has no print geometry.')
+        return declarePrintedPageBoxes(rendered.bytes, page.print)
       }),
     )
     const output = await services.finish(await joinPdfs(parts), opts)

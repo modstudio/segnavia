@@ -200,6 +200,19 @@ export interface PaperBox {
   height: number
 }
 
+export function unionBoxes(boxes: PaperBox[]): PaperBox {
+  const left = Math.min(...boxes.map((box) => box.x))
+  const top = Math.min(...boxes.map((box) => box.y))
+  const right = Math.max(...boxes.map((box) => box.x + box.width))
+  const bottom = Math.max(...boxes.map((box) => box.y + box.height))
+  return {
+    x: roundMillimeters(left),
+    y: roundMillimeters(top),
+    width: roundMillimeters(right - left),
+    height: roundMillimeters(bottom - top),
+  }
+}
+
 export interface MarkSegment {
   x1: number
   y1: number

@@ -5,6 +5,7 @@ import {
   type ImageFit,
   Imposition,
   impose,
+  impositionBoxes,
   impositionMarks,
   type Limits,
   type OriginApproval,
@@ -273,7 +274,9 @@ async function imposedDeckPdf(
 ): Promise<Uint8Array> {
   const baseCss = containFixedPageOverflow(services.fontFaces(opts))
   const imposed = impose(imposition, deck.slides.length, deck.print)
+  const boxes = impositionBoxes(imposition, deck.print)
   const marks = impositionMarks(imposition, deck.print)
+  const sides = boxes.map((sideBoxes) => ({ boxes: sideBoxes, marks: marks.find((entry) => entry.side === sideBoxes.side) }))
   const fontFailures = services.fontFailures ?? []
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const rendered = await Promise.all(
@@ -335,7 +338,7 @@ async function imposedDeckPdf(
     bytes: item.bytes,
     placements: placements.get(item.index) ?? [],
   }))
-  return services.finish(await composeImposedPdf(imposed, pieces, marks, imposition.markColor), opts)
+  return services.finish(await composeImposedPdf(imposed, pieces, sides, imposition.markColor), opts)
 }
 
 export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
