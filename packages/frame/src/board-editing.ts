@@ -29,7 +29,7 @@ import {
   rejectBoardEdit,
   resolveBoardEdit,
 } from './board-edit-policy.ts'
-import { editBoardFromFrame, measureAddedLabels } from './board-editing-command.ts'
+import { editBoardFromFrame, prepareBoardApply } from './board-editing-command.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import { renderLabelResizeHandle, renderResizeHandles } from './board-editing-overlay.ts'
 import { type BoardEditingBridge, type BoardEditingHost, type BoardPointerDelegate, boardEditing } from './board-editing-seam.ts'
@@ -46,6 +46,7 @@ import { BOARD_HISTORY_LIMIT } from './board-history.ts'
 import { BoardLabelDoubleClick } from './board-label-double-click.ts'
 import { withoutLabelWidth } from './board-label-editing.ts'
 import { BoardLabelEditor } from './board-label-editor.ts'
+import { copyComputedBoardShapes } from './board-shape-cache.ts'
 import { boardLabels } from './labels.ts'
 
 export type { ComputedBoardShapes } from '@segnavia/format'
@@ -168,15 +169,9 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   apply(ops: readonly DocumentOp[], label: string) {
     if (!this.state) return
-    const transition = applyBoardEdit(
-      this.state,
-      ops,
-      { kind: 'apply', label, ids: [] },
-      {
-        amend: (document) => measureAddedLabels(this.state?.value ?? document, document, this.bridge.measureLabel, this.bridge.document),
-      },
-    )
-    this.refuseConflicts(transition.conflicts)
+    const prepared = prepareBoardApply(this.state.value, ops, this.bridge.measureLabel, this.bridge.document)
+    this.refuseConflicts(prepared.conflicts)
+    const transition = applyBoardEdit(this.state, prepared.applied, { kind: 'apply', label, ids: [] })
     this.applyTransition(transition)
   }
 
@@ -184,13 +179,13 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const document = this.state?.value
     if (!document)
       return { ok: false as const, refusal: 'Board command refused: the board has no document. Set a board before running commands. Nothing was changed.' }
-    const result = editBoardFromFrame(document, commands, this.bridge.computedShapes(), this.bridge.facts(), this.bridge.measureLabel)
+    const result = editBoardFromFrame(document, commands, this.bridge)
     if (result.ok) this.applyBoard(result.board, { kind: 'command', label, ids: result.changed.map((entity) => entity.id) })
     return result
   }
 
   shapes() {
-    return this.bridge.computedShapes()
+    return copyComputedBoardShapes(this.bridge.computedShapes())
   }
 
   applyRemote(batch: DocumentBatch) {
@@ -257,13 +252,13 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private applyCommands(current: Board, commands: BoardCommand[], edit: BoardEdit) {
-    const result = editBoardFromFrame(this.bridge.document(current), commands, this.bridge.computedShapes(), this.bridge.facts(), this.bridge.measureLabel)
+    const result = editBoardFromFrame(this.bridge.document(current), commands, this.bridge)
     if (result.ok) this.applyBoard(result.board, edit)
     else this.dispatchError(edit, result.refusal)
   }
 
   private commitCommands(before: Board, commands: BoardCommand[], edit: BoardEdit) {
-    const result = editBoardFromFrame(this.bridge.document(before), commands, this.bridge.computedShapes(), this.bridge.facts(), this.bridge.measureLabel)
+    const result = editBoardFromFrame(this.bridge.document(before), commands, this.bridge)
     if (result.ok) this.commitLive(before, result.board, edit)
     else {
       this.bridge.setOptimistic(before)

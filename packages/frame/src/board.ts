@@ -217,7 +217,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       view: () => this.currentView,
       shapes: () => this.shapeCache.value.shapes,
       computedShapes: () => this.shapeCache.value,
-      facts: () => boardPolicy.boardShapeFacts(this.value?.items ?? [], (address) => this.resolutions.value(address)),
+      facts: () => this.shapeCache.facts,
       measureLabel: (text, direction, width) => this.decorations.measureLabel(text, direction, width, this.currentView.zoom),
       measuredLabelSizes: () => this.decorations.measureMissingLabels(this.value?.labels ?? [], this.currentView.zoom),
       labelShape: (label) => this.decorations.labelShape(label, this.currentView.zoom),

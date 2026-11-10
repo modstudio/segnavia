@@ -3,6 +3,7 @@ import type { SegnaviaBoard } from './board.ts'
 import { applyBoardEdit, type BoardEditQueueState, type BoardEditTransition, redoBoardEdit, undoBoardEdit } from './board-edit-policy.ts'
 import type { BoardEditingBridge } from './board-editing-seam.ts'
 import type { BoardEdit } from './board-editing-types.ts'
+import { sizeMeasuredLabels } from './board-label-sizing.ts'
 
 export function applyBoardTransition(state: BoardEditQueueState, bridge: BoardEditingBridge, next: Board, edit: BoardEdit, recorded = true) {
   return applyBoardEdit(state, diffDocuments(state.value, bridge.document(next)), edit, { recorded })
@@ -38,7 +39,10 @@ export function initialBoardSettlement(
   measured: Readonly<Record<string, { width: number; height: number }>>,
   shapes: BoardShapes,
 ): Board | undefined {
-  const labels = board.labels.map((label) => (label.size || !measured[label.id] ? label : { ...label, size: measured[label.id] }))
+  const labels = sizeMeasuredLabels(board.labels, (label) => {
+    const size = measured[label.id]
+    return size ? { shape: size, source: 'measured' } : undefined
+  })
   const sized = labels.some((label, index) => label !== board.labels[index]) ? { ...board, labels } : board
   const settled = settleBoard(
     board,

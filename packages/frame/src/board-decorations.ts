@@ -1,4 +1,5 @@
 import { type Board, type BoardItemFact, type BoardView, boardShapes, type ComputedBoardShapes, labelShape, resolveDirection } from '@segnavia/format'
+import { sizeMeasuredLabels } from './board-label-sizing.ts'
 import { placeBoardNode } from './board-placement.ts'
 
 export class BoardDecorations {
@@ -94,12 +95,8 @@ export class BoardDecorations {
   }
 
   measureMissingLabels(labels: Board['labels'], zoom: number): Record<string, { width: number; height: number }> {
-    return Object.fromEntries(
-      labels.flatMap((label) => {
-        const result = labelShape(label, (text, direction, width) => this.measureLabel(text, direction, width, zoom))
-        return result.source === 'measured' ? [[label.id, result.shape]] : []
-      }),
-    )
+    const sized = sizeMeasuredLabels(labels, (label) => labelShape(label, (text, direction, width) => this.measureLabel(text, direction, width, zoom)))
+    return Object.fromEntries(sized.flatMap((label, index) => (label === labels[index] || !label.size ? [] : [[label.id, label.size]])))
   }
 
   shapes(board: Board, facts: Readonly<Record<string, BoardItemFact>>, zoom: number): ComputedBoardShapes {

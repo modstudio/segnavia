@@ -133,13 +133,7 @@ export class BoardLabelEditor {
       const text = currentText === undefined ? undefined : committedLabelText(currentText, active.textarea.value)
       if (text !== undefined) {
         if (board) {
-          const result = editBoardFromFrame(
-            this.source.document(board),
-            [{ type: 'label-set', label: { id: active.id }, text }],
-            this.source.computedShapes(),
-            this.source.facts(),
-            this.source.measureLabel,
-          )
+          const result = editBoardFromFrame(this.source.document(board), [{ type: 'label-set', label: { id: active.id }, text }], this.source)
           if (result.ok) this.change(result.board, 'edit-label', active.id)
           else
             this.board.dispatchEvent(

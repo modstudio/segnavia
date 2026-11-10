@@ -38,7 +38,6 @@ export interface BoardEditTransition {
 }
 
 export interface ApplyBoardEditOptions {
-  amend?(document: Document): Document
   recorded?: boolean
 }
 
@@ -97,11 +96,9 @@ export function applyBoardEdit(
 ): BoardEditTransition {
   const result = rebaseOps(state.value, ops)
   if (result.conflicts.length > 0) return { ...unchanged(state), conflicts: result.conflicts }
-  const document = options.amend?.(result.document) ?? result.document
-  const applied = options.amend ? diffDocuments(state.value, document) : result.applied
-  const entry: BoardHistoryEntry<BoardEdit> = { ops: applied, inverse: invertOps(applied), edit }
-  const history = options.recorded === false ? rebaseBoardHistory(document, state) : appendBoardHistory(state, entry)
-  return enqueue(state, document, applied, edit, history)
+  const entry: BoardHistoryEntry<BoardEdit> = { ops: result.applied, inverse: invertOps(result.applied), edit }
+  const history = options.recorded === false ? rebaseBoardHistory(result.document, state) : appendBoardHistory(state, entry)
+  return enqueue(state, result.document, result.applied, edit, history)
 }
 
 export function undoBoardEdit(state: BoardEditQueueState): BoardEditTransition {
