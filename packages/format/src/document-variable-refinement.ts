@@ -56,11 +56,7 @@ export function refineDocumentVariables(
       })
     }
     const textVariable = variable.kind === 'text' ? (variable as Extract<Variable, { kind: 'text' }>) : undefined
-    if (
-      textVariable?.from === 'part-title' &&
-      (document.children !== undefined || document.partNames !== undefined) &&
-      !parts.has(textVariable.part)
-    ) {
+    if (textVariable?.from === 'part-title' && (document.children !== undefined || document.partNames !== undefined) && !parts.has(textVariable.part)) {
       ctx.addIssue({
         code: 'custom',
         path: ['variables', index, 'part'],
