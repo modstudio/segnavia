@@ -17,6 +17,19 @@ export interface AssetRefusal {
   advice: string
 }
 
+export function assetRefusalText(refusal: AssetRefusal): string {
+  return `${refusal.message}; ${refusal.advice}`
+}
+
+export function authoredOrigin(value: string | URL): string | undefined {
+  try {
+    const origin = (typeof value === 'string' ? new URL(value) : value).origin.toLowerCase()
+    return origin === 'null' ? undefined : origin
+  } catch {
+    return undefined
+  }
+}
+
 export type OriginDecision = { allowed: true; origin: string } | { allowed: false; refusal: AssetRefusal }
 
 const VERSIONED_SCRIPT_PATHS: Record<string, RegExp> = {
@@ -42,7 +55,8 @@ function readOrigins(values: Iterable<string> | undefined, bare: boolean): Set<s
   for (const value of values ?? []) {
     try {
       const url = new URL(value)
-      if (url.protocol === 'https:' && (!bare || (url.pathname === '/' && !url.search && !url.hash))) result.add(url.origin.toLowerCase())
+      const origin = authoredOrigin(url)
+      if (origin && url.protocol === 'https:' && (!bare || (url.pathname === '/' && !url.search && !url.hash))) result.add(origin)
     } catch {}
   }
   return result
@@ -83,17 +97,19 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
       },
     }
   }
-  const origin = url.origin.toLowerCase()
-  if (url.protocol !== 'https:' || !approvedOrigins(approvals, kind, scripts).has(origin)) {
+  const origin = authoredOrigin(url)
+  if (!origin || url.protocol !== 'https:' || !approvedOrigins(approvals, kind, scripts).has(origin)) {
     return {
       allowed: false,
       refusal: {
         url: value,
-        origin,
+        ...(origin === undefined ? {} : { origin }),
         kind,
         reason: 'unapproved-origin',
-        message: `${url.href} at origin ${origin} is not approved for ${kind}`,
-        advice: `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,
+        message: origin ? `${url.href} at origin ${origin} is not approved for ${kind}` : `${url.href} has no origin approved for ${kind}`,
+        advice: origin
+          ? `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`
+          : 'use an absolute https URL at an approved origin to clear this refusal',
       },
     }
   }

@@ -1,14 +1,7 @@
-import type { AssetRefusal } from '@segnavia/format'
-
-export function assetRefusalText(refusal: AssetRefusal): string {
-  return `${refusal.message}; ${refusal.advice}`
-}
+import { type AssetRefusal, authoredOrigin, type OriginApproval, originDecision } from '@segnavia/format'
 
 export function scriptsOffRefusal(value: string): AssetRefusal {
-  let origin: string | undefined
-  try {
-    origin = new URL(value).origin.toLowerCase()
-  } catch {}
+  const origin = authoredOrigin(value)
   return {
     url: value,
     ...(origin === undefined ? {} : { origin }),
@@ -17,4 +10,29 @@ export function scriptsOffRefusal(value: string): AssetRefusal {
     message: `${value} is refused because scripts are off`,
     advice: 'enable scripts to clear this refusal',
   }
+}
+
+export function srcsetAssetRefusal(
+  value: string,
+  candidates: readonly string[] | undefined,
+  dataImage: boolean,
+  options: { origins?: Iterable<OriginApproval>; keepScripts?: boolean },
+  safeImage: (candidate: string) => boolean,
+): AssetRefusal | '' {
+  if (!candidates) {
+    if (dataImage) return ''
+    return {
+      url: value,
+      kind: 'image',
+      reason: 'unreadable-srcset',
+      message: 'srcset could not establish a readable candidate list',
+      advice: 'use a valid srcset candidate list or a supported data-image srcset to clear this refusal',
+    }
+  }
+  for (const candidate of candidates) {
+    if (safeImage(candidate)) continue
+    const decision = originDecision(candidate, 'image', options.origins, options.keepScripts === true)
+    if (!decision.allowed) return decision.refusal
+  }
+  return ''
 }

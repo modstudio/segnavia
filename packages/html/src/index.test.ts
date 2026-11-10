@@ -70,6 +70,30 @@ describe('sanitize', () => {
     ])
   })
 
+  test('asset preflight reads real CSS fetches once in document order', () => {
+    const html = `<style>
+      /* url(comment.png) @import "comment theme.css"; */
+      a::before{content:"url(string.png)"}
+      a{background:url(images/a.png)}
+      @font-face{src:url("fonts/my font.woff2")}
+      @import "my theme.css";
+      b{background:url(blob:https://outside.example/a.png)}
+    </style>`
+    expect(assetOriginRefusals(html).map(({ url, kind }) => ({ url, kind }))).toEqual([
+      { url: 'images/a.png', kind: 'image' },
+      { url: 'fonts/my font.woff2', kind: 'font' },
+      { url: 'my theme.css', kind: 'style' },
+      { url: 'blob:https://outside.example/a.png', kind: 'image' },
+    ])
+  })
+
+  test('asset preflight scans an unterminated url run in linear time', () => {
+    const html = `<style>${'url('.repeat(50_000)}</style>`
+    const started = performance.now()
+    expect(assetOriginRefusals(html)).toEqual([])
+    expect(performance.now() - started).toBeLessThan(1_000)
+  })
+
   test('the markdown URL rule optionally restricts link origins', () => {
     expect(safeMarkdownUrl('href', 'mailto:editor@example.com')).toBe(true)
     expect(safeMarkdownUrl('href', 'https://outside.example/x', ['https://inside.example'])).toBe(false)

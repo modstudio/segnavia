@@ -189,6 +189,8 @@ export {
   type AssetRefusal,
   type AssetRefusalReason,
   approvedOrigins,
+  assetRefusalText,
+  authoredOrigin,
   DEFAULT_ORIGINS,
   FETCH_KINDS,
   type FetchKind,

@@ -100,3 +100,20 @@ test('CSS fragment references do not name asset fetches', () => {
   const html = '<style>.a{fill:url(#grad);clip-path:url("#clip")}</style><svg><rect style="fill:url(#g2)"/></svg>'
   expect(assetOriginRefusals(html)).toEqual([])
 })
+
+test('an author refusal-marker literal survives sanitizing unchanged', () => {
+  const html = '<style>.a::after{content:"segnavia-refused-asset-0"}</style>'
+  expect(sanitize(html)).toBe(html)
+})
+
+test('an opaque script source refusal has no origin', () => {
+  expect(assetOriginRefusals('<script src="data:text/javascript,alert(1)"></script>')).toEqual([
+    {
+      url: 'data:text/javascript,alert(1)',
+      kind: 'script',
+      reason: 'scripts-off',
+      message: 'data:text/javascript,alert(1) is refused because scripts are off',
+      advice: 'enable scripts to clear this refusal',
+    },
+  ])
+})

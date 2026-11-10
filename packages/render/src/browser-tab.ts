@@ -1,6 +1,7 @@
 import { Buffer } from 'node:buffer'
 import {
   type AssetRefusal,
+  assetRefusalText,
   type ComposeProgress,
   type FetchKind,
   type FontFailure,
@@ -60,10 +61,6 @@ export type AssetRouteDecision =
 
 export function mergedFontFailures(initial: readonly FontFailure[], attribute: string | null): FontFailure[] {
   return [...initial, ...fontFailuresAttribute(attribute)]
-}
-
-function assetRefusalText(refusal: AssetRefusal): string {
-  return `${refusal.message}; ${refusal.advice}`
 }
 
 function assetRefusalKey(refusal: AssetRefusal): string {

@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
-import { DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-policy.ts'
+import { authoredOrigin, DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-policy.ts'
 
 describe('origin policy', () => {
+  test('opaque URLs do not report the serialized null origin', () => {
+    expect(authoredOrigin('data:text/plain,x')).toBeUndefined()
+    const decision = originDecision('data:image/png,x', 'image', [], false)
+    expect(decision.allowed).toBe(false)
+    if (!decision.allowed) expect(decision.refusal.origin).toBeUndefined()
+  })
+
   test('defaults approve only their declared fetch kinds', () => {
     expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'style', [], true).allowed).toBe(true)
     expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'script', [], true).allowed).toBe(false)
