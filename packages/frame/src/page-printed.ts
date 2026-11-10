@@ -1,4 +1,4 @@
-import type { AsOfDay, OriginApproval, Page, PageWidths, SlotsOptions } from '@segnavia/format'
+import { type AsOfDay, type OriginApproval, type Page, type PageWidths, type PreflightProfileInput, resolvePreflightProfile, type SlotsOptions } from '@segnavia/format'
 import { fillPageAsOfBindings, type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
 import { expandPrintedFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
@@ -21,6 +21,7 @@ export interface PrintedPageFrameOptions {
   css?: string
   csp?: string
   origins?: Iterable<OriginApproval>
+  profile?: PreflightProfileInput
   signal: AbortSignal
   day?: AsOfDay
   loaded(document: string): void
@@ -43,6 +44,7 @@ export function loadPrintedPageFrame(page: Page | HtmlPage, options: PrintedPage
           origins: options.origins,
           screen: { spread: false },
           fontFailures: fonts.failures,
+          profile: resolvePreflightProfile(options.profile),
         },
         options.loaded,
         options.failed,

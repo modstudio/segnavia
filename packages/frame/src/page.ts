@@ -8,6 +8,8 @@ import {
   FULL_PAGE_SIZE,
   Page,
   type PageWidths,
+  type PreflightProfileInput,
+  resolvePreflightProfile,
   resolveAsOfDay,
   resolveDocumentDayResult,
   type SlotsOptions,
@@ -60,6 +62,7 @@ export class SegnaviaPage extends PageAsOfElement {
   private loadedDocument: number | undefined
   private frameReady = false
   private pageRequests = createPageRequestState()
+  private profileInput: PreflightProfileInput = 'default'
   constructor() {
     super()
     upgradeProperties(this)
@@ -115,6 +118,14 @@ export class SegnaviaPage extends PageAsOfElement {
 
   set fonts(value: FontsOptions | undefined) {
     this.fontOptions = value
+    if (this.pageValue) this.loadValue(this.pageValue)
+  }
+  get profile(): PreflightProfileInput {
+    return this.profileInput
+  }
+  set profile(value: PreflightProfileInput) {
+    resolvePreflightProfile(value)
+    this.profileInput = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
 
@@ -255,6 +266,7 @@ export class SegnaviaPage extends PageAsOfElement {
           css: this.css,
           csp: this.cspExtra || undefined,
           origins: this.origins,
+          profile: this.profileInput,
         },
         { show, report, write, composed: (identity) => (this.composedFrame = identity), fit: () => this.fit() },
       )
@@ -359,7 +371,7 @@ export class SegnaviaPage extends PageAsOfElement {
 
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
-    const message = messageFrom(event, frame)
+    const message = messageFrom(event, frame, resolvePreflightProfile(this.profileInput))
     const currentFrame = { frame, generation: this.loadGeneration }
     dispatchFontFailures(this, message)
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
@@ -367,6 +379,10 @@ export class SegnaviaPage extends PageAsOfElement {
       releaseReadyPageRequests(this.pageRequests)
     }
     const page = this.pageValue
+    if (message?.type === MESSAGE.preflight && message.report && samePageFrame(currentFrame, this.composedFrame)) {
+      this.dispatchEvent(new CustomEvent('preflight', { detail: message.report }))
+      return
+    }
     const composeFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, currentFrame, this.composedFrame)
     if (composeFailure) {
       dispatchPageFailure(this, composeFailure, true)

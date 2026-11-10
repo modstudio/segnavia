@@ -1,4 +1,4 @@
-import { BookView, type BookViewInput, type FontFailure, type Scripts } from '@segnavia/format'
+import { BookView, type BookViewInput, type FontFailure, type PreflightProfileInput, resolvePreflightProfile, type Scripts } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import * as bookElement from './book-element-support.ts'
 import { bookFrame } from './book-frame.ts'
@@ -30,6 +30,7 @@ export class SegnaviaBook extends BookSourcesElement {
   private loadController: AbortController | null = null
   private sourceLoadController: AbortController | null = null
   private latestInput: 'src' | 'view' | null = null
+  private profileInput: PreflightProfileInput = 'default'
   constructor() {
     super()
     upgradeProperties(this)
@@ -105,6 +106,14 @@ export class SegnaviaBook extends BookSourcesElement {
 
   set layout(value: BookLayout) {
     this.setAttribute('layout', value)
+  }
+  get profile(): PreflightProfileInput {
+    return this.profileInput
+  }
+  set profile(value: PreflightProfileInput) {
+    resolvePreflightProfile(value)
+    this.profileInput = value
+    if (this.currentView) this.mount()
   }
   protected sourcesChanged() {
     if (!this.currentView) return
@@ -251,6 +260,7 @@ export class SegnaviaBook extends BookSourcesElement {
         layout,
         origins: this.origins,
         diagramScript: this.diagramDrawing.script,
+        profile: this.profileInput,
       }),
       layout,
     )
@@ -265,18 +275,36 @@ export class SegnaviaBook extends BookSourcesElement {
     this.resolvedFontCss = css
     if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
-      this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script })))
+      this.replaceChildren(
+        this.mountFrame(
+          bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script, profile: this.profileInput }),
+        ),
+      )
       return
     }
     const pages = this.mountFrame(
-      bookFrame(view, { css, spread: this.spread, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script }),
+      bookFrame(view, {
+        css,
+        spread: this.spread,
+        layout: 'pages',
+        origins: this.origins,
+        diagramScript: this.diagramDrawing.script,
+        profile: this.profileInput,
+      }),
       'pages',
     )
     const frames = [pages]
     if (layout === 'flow' && view.flow)
       frames.push(
         this.mountFrame(
-          bookFrame(view, { css, spread: this.spread, layout: 'flow', origins: this.origins, diagramScript: this.diagramDrawing.script }),
+          bookFrame(view, {
+            css,
+            spread: this.spread,
+            layout: 'flow',
+            origins: this.origins,
+            diagramScript: this.diagramDrawing.script,
+            profile: this.profileInput,
+          }),
           'flow',
         ),
       )
@@ -351,12 +379,17 @@ export class SegnaviaBook extends BookSourcesElement {
 
   private onMessage = (event: MessageEvent) => {
     const frames = Array.from(this.querySelectorAll<HTMLIFrameElement>('iframe'))
-    const frame = frames.find((held) => messageFrom(event, held))
+    const profile = resolvePreflightProfile(this.profileInput)
+    const frame = frames.find((held) => messageFrom(event, held, profile))
     if (!frame) return
-    const message = messageFrom(event, frame)
+    const message = messageFrom(event, frame, profile)
     if (!message) return
     const layout = frame.dataset.segnaviaBookLayout as BookLayout | undefined
     if (bookElement.handleBookFontFailures(this, message, frame.dataset.segnaviaBookGeneration, String(this.loadGeneration))) return
+    if (message.type === MESSAGE.preflight && message.report) {
+      this.dispatchEvent(new CustomEvent('preflight', { detail: message.report }))
+      return
+    }
     if (message.type === MESSAGE.composeFailure && frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)) return
     const failureState: bookElement.BookComposeFailureState = {
       failed: this.failedLayouts,

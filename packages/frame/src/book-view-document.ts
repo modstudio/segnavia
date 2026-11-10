@@ -1,4 +1,13 @@
-import { type BookView, type BookViewPagination, LIMIT_ACTUAL_PLACEHOLDER, type Limits, limitRefusalTemplate, type Plan, resolveLimits } from '@segnavia/format'
+import {
+  type BookView,
+  type BookViewPagination,
+  LIMIT_ACTUAL_PLACEHOLDER,
+  type Limits,
+  limitRefusalTemplate,
+  type Plan,
+  type PreflightProfile,
+  resolveLimits,
+} from '@segnavia/format'
 import { composerPageGeometries, composerPageRules } from './book-page-geometries.ts'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
@@ -16,6 +25,7 @@ export interface PaginatedDocumentOptions {
   limits?: Limits
   plan?: Plan
   breaks?: string[]
+  profile?: PreflightProfile
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
@@ -49,6 +59,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     measure: false,
     savedPlans: true,
     fontLoads: declaredFontLoads(fonts),
+    ...(options.profile?.['region-overset'] === 'off' && options.profile['furniture-overset'] === 'off' ? {} : { preflight: options.profile }),
     ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),

@@ -4,23 +4,9 @@ import {
   clippedHorizontalBox,
   horizontalOverflow,
   regionFitMinContribution,
-  regionOverflowContribution,
   type ScaleMeasurement,
   solveScale,
 } from './overflow.ts'
-
-test('a region overflow mark becomes a page-and-region locator with its excess', () => {
-  expect(regionOverflowContribution('12:reading-text:48')).toEqual({
-    locator: 'page 12 region reading-text',
-    clippedStart: 0,
-    clippedEnd: 48,
-  })
-  expect(regionOverflowContribution('ג:table:3.5')).toEqual({
-    locator: 'page ג region table',
-    clippedStart: 0,
-    clippedEnd: 3.5,
-  })
-})
 
 test('a fit-min mark names the template, the region and the value, not a region locator', () => {
   expect(regionFitMinContribution('lesson:lesson-text:80pt')).toEqual({
@@ -33,7 +19,6 @@ test('a fit-min mark names the template, the region and the value, not a region 
     clippedStart: 0,
     clippedEnd: 0,
   })
-  expect(regionOverflowContribution('12:reading-text:48').locator).not.toBe(regionFitMinContribution('12:reading-text:48').locator)
 })
 
 test('ancestor clip boxes limit the visible horizontal contribution', () => {

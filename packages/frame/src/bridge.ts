@@ -7,7 +7,17 @@
 //
 // Pure string building, so the browser and a server produce the same bytes.
 
-import { approvedOrigins, type Direction, type FetchKind, type FontFailure, type FontManifest, type OriginApproval, type Scripts } from '@segnavia/format'
+import {
+  approvedOrigins,
+  type Direction,
+  type FetchKind,
+  type FontFailure,
+  type FontManifest,
+  type OriginApproval,
+  PREFLIGHT_PRESETS,
+  type PreflightProfile,
+  type Scripts,
+} from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
@@ -38,6 +48,7 @@ export const MESSAGE = {
   bookPlace: 'segnavia:book-place',
   composeFailure: 'segnavia:compose-failure',
   fontFailures: 'segnavia:font-failures',
+  preflight: 'segnavia:preflight',
 } as const
 
 export const SELECTION_TEXT_LIMIT = 1_000_000
@@ -360,8 +371,12 @@ export function bridgeForHost(options: Omit<FrameOptions, 'scripts' | 'nonce'> =
 
 // Our frame is identified by the window a message came from, which a page
 // cannot forge. `origin` is "null" for every sandboxed frame and proves nothing.
-export function messageFrom(event: MessageEvent, frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null): FrameMessage | null {
-  return messageFromFrames(event, frame, MESSAGE, RELAYED_KEYS, COMPOSE_FAILURE_TEXT_LIMIT)
+export function messageFrom(
+  event: MessageEvent,
+  frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
+  preflightProfile: PreflightProfile = PREFLIGHT_PRESETS.default,
+): FrameMessage | null {
+  return messageFromFrames(event, frame, MESSAGE, RELAYED_KEYS, COMPOSE_FAILURE_TEXT_LIMIT, preflightProfile)
 }
 
 export interface PageSelection {

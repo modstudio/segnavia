@@ -57,26 +57,22 @@ test('removes an undefined furniture binding', () => {
   expect(slot.removed).toBeTrue()
 })
 
-test('keeps furniture and template-region overflow as separate page facts', () => {
-  const attributes = new Map<string, string>()
-  const page = { setAttribute: (name: string, value: string) => attributes.set(name, value) } as unknown as Element
+test('collects furniture and template-region overset as separate preflight entries', () => {
+  const entries: import('@segnavia/format').PreflightEntry[] = []
+  const page = { getAttribute: (name: string) => (name === 'data-segnavia-folio' ? 'iv' : null) } as unknown as Element
   const head = {
     scrollHeight: 31,
     clientHeight: 20,
     hasAttribute: (name: string) => name === 'data-segnavia-head',
     getAttribute: (name: string) => (name === 'data-segnavia-parent' ? 'body' : null),
   } as unknown as HTMLElement
-  markFurnitureOverflow(head, page)
-  expect(attributes.get('data-segnavia-furniture-overflow')).toBe('body:head:11')
-  expect(attributes.has('data-segnavia-region-overflow')).toBeFalse()
+  markFurnitureOverflow(head, page, entries)
+  expect(entries[0]).toMatchObject({ check: 'furniture-overset', subject: 'body:head', location: { folio: 'iv' } })
 
-  attributes.clear()
   const region = {
     getAttribute: (name: string) => (name === 'data-region' ? 'sidebar' : null),
-    setAttribute: (name: string, value: string) => attributes.set(name, value),
   } as unknown as HTMLElement
-  const root = { querySelectorAll: () => [region] } as unknown as Element
-  markRegionOverflow(root, 'iv', () => ({ block: 11, inline: 0 }))
-  expect(attributes.get('data-segnavia-region-overflow')).toBe('iv:sidebar:11')
-  expect(attributes.has('data-segnavia-furniture-overflow')).toBeFalse()
+  const root = { querySelectorAll: () => [region], getAttribute: (name: string) => (name === 'data-template' ? 'lesson' : null) } as unknown as Element
+  markRegionOverflow(root, 'iv', () => ({ block: 11, inline: 0 }), entries)
+  expect(entries[1]).toMatchObject({ check: 'region-overset', subject: 'lesson:sidebar', location: { folio: 'iv' } })
 })

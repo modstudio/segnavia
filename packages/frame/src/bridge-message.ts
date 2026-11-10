@@ -1,4 +1,4 @@
-import type { FontFailure } from '@segnavia/format'
+import { boundPreflightReport, type FontFailure, type PreflightProfile, type PreflightReport } from '@segnavia/format'
 import { boundedFontReportMessage } from './font-load.ts'
 
 export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
@@ -12,6 +12,7 @@ export interface FrameMessage {
   lengthMs?: number | null
   slots?: Record<string, SlotFitState>
   failures?: FontFailure[]
+  report?: PreflightReport
 }
 
 export function dispatchFontFailures(target: EventTarget, message: FrameMessage | null): void {
@@ -23,6 +24,7 @@ interface MessageTypes {
   bookPlace: string
   composeFailure: string
   fontFailures: string
+  preflight: string
   height: string
   ready: string
   slotFit: string
@@ -45,13 +47,18 @@ export function messageFromFrames(
   types: MessageTypes,
   relayedKeys: readonly string[],
   composeFailureLimit: number,
+  preflightProfile: PreflightProfile,
 ): FrameMessage | null {
   const frames = frame && Symbol.iterator in Object(frame) ? [...(frame as Iterable<HTMLIFrameElement>)] : frame ? [frame as HTMLIFrameElement] : []
   if (!frames.some((candidate) => event.source === candidate.contentWindow)) return null
   const data = event.data
   if (!data || typeof data !== 'object') return null
   if (data.type === types.key && typeof data.key === 'string' && relayedKeys.includes(data.key)) return { type: types.key, key: data.key }
-  if (data.type === types.bookPlace && typeof data.key === 'string') return { type: types.bookPlace, key: data.key }
+  if (data.type === types.bookPlace && typeof data.key === 'string' && data.key.length <= 256) return { type: types.bookPlace, key: data.key }
+  if (data.type === types.preflight && 'report' in data) {
+    const report = (data as { report?: { issues?: unknown; facts?: unknown } }).report
+    return { type: types.preflight, report: boundPreflightReport({ entries: report?.issues, facts: report?.facts }, preflightProfile) }
+  }
   const bounded = boundedFontReportMessage(data, types, composeFailureLimit)
   if (bounded) return bounded
   if (data.type === types.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: types.height, height: data.height }
