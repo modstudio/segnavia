@@ -67,23 +67,13 @@ describe('board editing release commands', () => {
     expect(result.adjustments).toContainEqual(expect.objectContaining({ kind: 'measured-label', id: 'label' }))
   })
 
-  test('prepares an unsized label-add with its measurement in the same operation list', () => {
-    const before = document({ ...board, items: [], labels: [] })
-    const added = document({ ...board, items: [], labels: [{ id: 'label', text: 'New', x: 10, y: 20 }] })
-    const prepared = prepareBoardApply(
-      before,
-      diffDocuments(before, added),
-      () => ({ width: 48, height: 20 }),
-      (value) => documentFromBoard(value, added),
-    )
-    expect(prepared.document.children.find((node) => node.id === 'label')).toMatchObject({ size: { width: 48, height: 20 } })
-    expect(prepared.applied).toContainEqual(expect.objectContaining({ type: 'setFields', id: 'label', fields: { size: { width: 48, height: 20 } } }))
-  })
-
-  test('remeasures an existing label when host operations change its text or width', () => {
+  test.each([
+    ['text', { text: 'Changed' }, { text: 'Changed', width: 80 }, { width: 80, height: 44 }],
+    ['width', { width: 60 }, { text: 'Old', width: 60 }, { width: 60, height: 44 }],
+  ])('remeasures an existing label when host operations change only its %s', (_term, change, measured, size) => {
     const original = { id: 'label', text: 'Old', x: 10, y: 20, width: 80, size: { width: 80, height: 20 } }
     const before = document({ ...board, items: [], labels: [original] })
-    const after = document({ ...board, items: [], labels: [{ ...original, text: 'Changed', width: 60 }] })
+    const after = document({ ...board, items: [], labels: [{ ...original, ...change }] })
     const calls: Array<{ text: string; width: number | undefined }> = []
     const prepared = prepareBoardApply(
       before,
@@ -94,8 +84,8 @@ describe('board editing release commands', () => {
       },
       (value) => documentFromBoard(value, after),
     )
-    expect(calls).toEqual([{ text: 'Changed', width: 60 }])
-    expect(prepared.document.children.find((node) => node.id === 'label')).toMatchObject({ size: { width: 60, height: 44 } })
+    expect(calls).toEqual([measured])
+    expect(prepared.document.children.find((node) => node.id === 'label')).toMatchObject({ size })
   })
 
   test('keeps a host-provided replacement size when the same operations change a label', () => {
