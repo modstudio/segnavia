@@ -76,12 +76,15 @@ class CssAssetScanner {
   private readonly blocks: boolean[] = []
   private readonly importUrls = new Set<number>()
   private pendingFontFace = false
+  private readonly source: string
+  private readonly tokens: readonly CssToken[]
+  private readonly semicolons: readonly (number | undefined)[]
 
-  constructor(
-    private readonly source: string,
-    private readonly tokens: readonly CssToken[],
-    private readonly semicolons: readonly (number | undefined)[],
-  ) {}
+  constructor(source: string, tokens: readonly CssToken[], semicolons: readonly (number | undefined)[]) {
+    this.source = source
+    this.tokens = tokens
+    this.semicolons = semicolons
+  }
 
   scan(): CssAssetReference[] {
     for (let at = 0; at < this.tokens.length; at++) this.read(at)
