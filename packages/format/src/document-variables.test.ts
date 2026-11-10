@@ -125,7 +125,7 @@ test('part-title variables name an existing document part', () => {
   )
 })
 
-test('content variable node schema excludes part (mutation: shared optional part field)', () => {
+test('content variable node schema excludes part', () => {
   const schema = z.toJSONSchema(VariableNode, { io: 'input' }) as {
     oneOf?: Array<{ oneOf?: Array<{ properties?: Record<string, unknown> }> }>
   }

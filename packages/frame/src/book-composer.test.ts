@@ -167,7 +167,7 @@ describe('block keeps', () => {
     expect(composerScript('{}')).toContain('flowStarted?partTitleValues(config.variables||[],parts):[]')
   })
 
-  test('part-title variables ignore inherited names (mutation: direct bracket lookup)', () => {
+  test('part-title variables ignore inherited names', () => {
     const variables = [{ name: 'part', kind: 'text' as const, from: 'part-title' as const, part: 'constructor', pick: 'first' as const }]
     expect(partTitleValues(variables, {})).toEqual([{ name: 'part', value: '', line: 0, scope: 'flow' }])
   })
