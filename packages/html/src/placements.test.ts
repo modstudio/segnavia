@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { DocumentInput, Media } from '@segnavia/format'
-import { placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
+import { placementMissingEntry, placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
+import { boundPreflightReport, PREFLIGHT_PRESETS, preflightRefusal } from '@segnavia/format'
 
 const signal = new AbortController().signal
 const media = (alt?: Media['alt']): Media => ({ format: 'png', size: { width: 20, height: 10 }, ...(alt ? { alt } : {}) })
@@ -32,6 +33,15 @@ describe('placementPlan', () => {
 })
 
 describe('resolvePlacements', () => {
+  test('turns a missing placement into warning and strict refusal text', () => {
+    const entry = placementMissingEntry({ address: 'cover', page: undefined, reason: 'missing' })
+    const facts = { pageCount: 0, pages: [], fits: [] }
+    expect(boundPreflightReport({ entries: [entry], facts }, PREFLIGHT_PRESETS.default).issues[0]?.subject).toBe('cover')
+    expect(preflightRefusal(boundPreflightReport({ entries: [entry], facts }, PREFLIGHT_PRESETS.strict))).toBe(
+      'Placement cover is missing; supply a resolvable placement to clear it.',
+    )
+  })
+
   test('reports a non-media answer as invalid and draws the placeholder', async () => {
     const reports: unknown[] = []
     const output = await resolvePlacements('<img data-segnavia-media="a">', {

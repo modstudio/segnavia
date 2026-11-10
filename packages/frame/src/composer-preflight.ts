@@ -16,8 +16,43 @@ import { embedFunction } from '@segnavia/html'
 import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { preflightPageFacts } from './composer-dress.ts'
+import { fontMissingEntries } from './font-load.ts'
 
 export const PREFLIGHT_ATTRIBUTE = 'data-segnavia-preflight'
+
+export function appendSlotOversetEntries(slots: Record<string, string>, entries: Array<{ check: string; subject: string; message: string }>): void {
+  for (const [key, state] of Object.entries(slots)) {
+    if (state !== 'overflowed' || entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)) continue
+    entries.push({ check: 'slot-overset', subject: key, message: `Slot ${key} is overset; shorten its value or enlarge the slot to clear it.` })
+  }
+}
+
+export function markFurnitureInvalidVariables(root: Element, entries: Array<{ check: string; subject: string; message: string }>, computed: typeof getComputedStyle): void {
+  const elements = root.querySelectorAll('[data-segnavia-head] [style],[data-segnavia-foot] [style]')
+  for (const element of elements) {
+    const style = element.getAttribute('style') ?? ''
+    const pattern = /var\(\s*(--[\w-]+)/gi
+    for (const match of style.matchAll(pattern)) {
+      const subject = match[1]
+      if (!subject) continue
+      let depth = 1
+      let fallback = false
+      for (let at = (match.index ?? 0) + match[0].length; at < style.length && depth > 0; at++) {
+        const character = style[at]
+        if (character === '(') depth++
+        else if (character === ')') depth--
+        else if (character === ',' && depth === 1) fallback = true
+      }
+      if (fallback || computed(element).getPropertyValue(subject).trim() !== '') continue
+      if (entries.some((entry) => entry.check === 'css-var-invalid' && entry.subject === subject)) continue
+      entries.push({
+        check: 'css-var-invalid',
+        subject,
+        message: `Custom property ${subject} is invalid; define it or add a var() fallback to clear it.`,
+      })
+    }
+  }
+}
 
 export function embeddedPreflightFunctions(): string {
   return `var PREFLIGHT_CHECKS=${JSON.stringify(PREFLIGHT_CHECKS)},PREFLIGHT_ISSUES_PER_CHECK=${PREFLIGHT_ISSUES_PER_CHECK},PREFLIGHT_SUBJECT_LIMIT=${PREFLIGHT_SUBJECT_LIMIT},PREFLIGHT_MESSAGE_LIMIT=${PREFLIGHT_MESSAGE_LIMIT},PREFLIGHT_FOLIO_LIMIT=${PREFLIGHT_FOLIO_LIMIT},PREFLIGHT_BLOCK_LIMIT=${PREFLIGHT_BLOCK_LIMIT},PREFLIGHT_PAGES_LIMIT=${PREFLIGHT_PAGES_LIMIT},PREFLIGHT_FITS_LIMIT=${PREFLIGHT_FITS_LIMIT},PREFLIGHT_FIT_GROUP_LIMIT=${PREFLIGHT_FIT_GROUP_LIMIT},PREFLIGHT_FIT_SIZE_LIMIT=${PREFLIGHT_FIT_SIZE_LIMIT};
@@ -26,5 +61,9 @@ var boundPreflightReport=function(input,profile){return boundPreflightReportImpl
 ${embedFunction('preflightRefusal', preflightRefusal)}
 ${embedFunction('pageBlockRange', pageBlockRange)}
 ${embedFunction('preflightPageFacts', preflightPageFacts)}
-var publishPreflight=function(plan,flows){if(!config.preflight)return true;var pageFacts=preflightPageFacts(plan.pages,planFolios.folios,flows);var report=boundPreflightReport({entries:preflightEntries,facts:{pageCount:plan.pages.length,pages:pageFacts,fits:preflightFits}},config.preflight);var json=JSON.stringify(report);document.documentElement.setAttribute('${PREFLIGHT_ATTRIBUTE}',json);window.parent.postMessage({type:'${MESSAGE.preflight}',report:report},'*');var refusal=preflightRefusal(report);if(refusal){fail(refusal);return false;}return true;};`
+${embedFunction('appendSlotOversetEntries', appendSlotOversetEntries)}
+${embedFunction('markFurnitureInvalidVariables', markFurnitureInvalidVariables)}
+${embedFunction('fontMissingEntries', fontMissingEntries)}
+var publishPreflight=function(plan,flows){if(!config.preflight)return true;var pageFacts=preflightPageFacts(plan.pages,planFolios.folios,flows);var report=boundPreflightReport({entries:preflightEntries,facts:{pageCount:plan.pages.length,pages:pageFacts,fits:preflightFits}},config.preflight);var json=JSON.stringify(report);document.documentElement.setAttribute('${PREFLIGHT_ATTRIBUTE}',json);window.parent.postMessage({type:'${MESSAGE.preflight}',report:report},'*');var refusal=preflightRefusal(report);if(refusal){fail(refusal);return false;}return true;};
+var completePreflight=function(plan,flows,done){var publish=function(){if(publishPreflight(plan,flows))done();};if(config.preflight&&config.preflight['slot-overset']!=='off'&&typeof window.segnaviaSlotFit==='function'){window.segnaviaSlotFit(function(slots){appendSlotOversetEntries(slots||{},preflightEntries);publish();});return;}publish();};`
 }

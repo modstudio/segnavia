@@ -1,4 +1,4 @@
-import { type AsOfDay, type DocumentInput, type Media, mediaTextDirection, Placement, type Placement as PlacementValue } from '@segnavia/format'
+import { type AsOfDay, type DocumentInput, type Media, mediaTextDirection, Placement, type Placement as PlacementValue, type PreflightEntry } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
 
@@ -38,6 +38,15 @@ export type PlacementReport = (entry: {
   reason: 'missing' | 'refused-src' | 'invalid' | 'failed'
   message?: string
 }) => void
+
+export function placementMissingEntry(entry: Parameters<PlacementReport>[0]): PreflightEntry {
+  const subject = entry.address ?? (entry.page === undefined ? 'unknown' : String(entry.page))
+  return {
+    check: 'placement-missing',
+    subject,
+    message: `Placement ${subject} is missing; supply a resolvable placement to clear it.`,
+  }
+}
 
 export interface PlacementsOptions<R extends { kind: string } = ResolvedPlacement> {
   resolve: ResolvePlacement<R>

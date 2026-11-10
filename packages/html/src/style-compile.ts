@@ -12,6 +12,7 @@ import {
   type TextStyleTokenGroup,
 } from '@segnavia/format'
 import { sanitizeBookCss } from './book-css.ts'
+import type { CssPreflightFinding } from './sanitize-css.ts'
 import { quoteFamily } from './css-family.ts'
 import { cssTokens } from './css-tokens.ts'
 
@@ -22,6 +23,7 @@ export interface CompileStyleSheetOptions {
   brand?: StyleSheet
   document: StyleSheet
   baseCss?: string
+  preflight?: CssPreflightFinding[]
 }
 
 export type CompileStyleSheetResult =
@@ -131,10 +133,10 @@ export function compileStyleSheet(options: CompileStyleSheetOptions): CompileSty
   const merged = mergeStyleSheets(options.brand, options.document)
   if (!merged.ok) return merged
   const { sheet } = merged
-  const brandCss = balanceBlocks(sanitizeBookCss(sheet.css.brand).css)
+  const brandCss = balanceBlocks(sanitizeBookCss(sheet.css.brand, options.preflight).css)
   const brandTypedCss = `${tokensCss(sheet, 'brand')}${textStylesCss(sheet, 'brand')}`
   const documentCss = `${tokensCss(sheet, 'document')}${textStylesCss(sheet, 'document')}`
-  const authorCss = balanceBlocks(sanitizeBookCss(sheet.css.document).css)
+  const authorCss = balanceBlocks(sanitizeBookCss(sheet.css.document, options.preflight).css)
   const sheets = [
     `${LAYER_ORDER}${layer('base', options.baseCss ?? DEFAULT_BASE_CSS)}${layer('brand', brandTypedCss)}`,
     ...(brandCss === '' ? [] : [layer('brand', brandCss)]),

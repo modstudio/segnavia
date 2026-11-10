@@ -71,6 +71,7 @@ export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength } 
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart, headingLabel } from './book/types.ts'
 export { sanitizeBookCss } from './book-css.ts'
+export { type CssPreflightFinding, cssPreflightFindings } from './sanitize-css.ts'
 export { type BrandSpecimenOptions, brandSpecimen } from './brand-specimen.ts'
 export { asOfValues, slotsForDay, slotsOptionsRefusal, slotsWithDay } from './day-slots.ts'
 export { type DescribeDocumentOptions, type DocumentDescription, type DocumentDescriptionNode, describeDocument } from './describe-document.ts'
@@ -141,6 +142,7 @@ export {
   type PlacementPlanEntry,
   type PlacementRefusal,
   type PlacementReport,
+  placementMissingEntry,
   type PlacementsOptions,
   placementCropEdges,
   placementPlaceholderSource,

@@ -6,6 +6,11 @@ export interface CssSanitizeResult {
   removed: string[]
 }
 
+export interface CssPreflightFinding {
+  check: 'css-var-invalid' | 'css-url-network'
+  subject: string
+}
+
 const DATA_IMAGE = /^data:image\//i
 const DATA_FONT = /^data:(?:font\/[^;,]+|application\/(?:x-)?font-[^;,]+)(?:[;,])/i
 const DECLARATION_AT_RULES = new Set(['counter-style', 'font-face', 'font-palette-values', 'page', 'property'])
@@ -125,6 +130,60 @@ function matchingClose(list: CssToken[], open: number, limit = list.length): num
     if (list[at]?.kind === 'close' && --depth === 0) return at
   }
   return limit
+}
+
+function hasTopLevelComma(source: string, list: CssToken[], start: number, close: number): boolean {
+  let depth = 0
+  for (let at = start; at < close; at++) {
+    const token = list[at]
+    if (token?.kind === 'function' || token?.kind === 'open') depth++
+    else if (token?.kind === 'close') depth--
+    else if (depth === 0 && source.slice(token?.start, token?.end) === ',') return true
+  }
+  return false
+}
+
+export function cssPreflightFindings(source: string, list: CssToken[] = cssTokens(source)): CssPreflightFinding[] {
+  const definitions = new Set<string>()
+  for (let at = 0; at < list.length - 1; at++) {
+    const token = list[at]
+    if (token?.kind === 'word' && token.value.startsWith('--') && list[at + 1]?.value === ':') definitions.add(token.value)
+  }
+  const findings: CssPreflightFinding[] = []
+  const seen = new Set<string>()
+  const add = (check: CssPreflightFinding['check'], subject: string) => {
+    const key = `${check}:${subject}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      findings.push({ check, subject })
+    }
+  }
+  for (let at = 0; at < list.length; at++) {
+    const token = list[at]
+    if (token?.kind === 'function' && token.value === 'var') {
+      const close = matchingClose(list, at)
+      const name = list[at + 1]
+      if (name?.kind === 'word' && name.value.startsWith('--') && !hasTopLevelComma(source, list, at + 1, close) && !definitions.has(name.value)) {
+        add('css-var-invalid', name.value)
+      }
+    }
+    if (token?.kind === 'url' && !DATA_IMAGE.test(token.value) && !DATA_FONT.test(token.value)) add('css-url-network', token.value)
+    if (token?.kind === 'function' && token.value === 'url') {
+      const value = list[at + 1]
+      if (value && (value.kind === 'string' || value.kind === 'word')) {
+        const normalized = normalizedUrl(value.value, false)
+        if (normalized && !DATA_IMAGE.test(normalized) && !DATA_FONT.test(normalized)) add('css-url-network', normalized)
+      }
+    }
+    if (token?.kind === 'at' && token.value === 'import') {
+      const value = list[at + 1]
+      if (value?.kind === 'string') {
+        const normalized = normalizedUrl(value.value, false)
+        if (normalized && !DATA_IMAGE.test(normalized)) add('css-url-network', normalized)
+      }
+    }
+  }
+  return findings
 }
 
 function unsafeImageSet(list: CssToken[], start: number, close: number): boolean {
@@ -328,8 +387,9 @@ function cleanDeclarations(source: string, list: CssToken[], start: number, end:
   return output + source.slice(character, rangeEnd)
 }
 
-export function sanitizeCss(source: string, declarations: boolean, dataFonts: boolean): CssSanitizeResult {
+export function sanitizeCss(source: string, declarations: boolean, dataFonts: boolean, preflight?: CssPreflightFinding[]): CssSanitizeResult {
   const list = cssTokens(source)
+  preflight?.push(...cssPreflightFindings(source, list))
   const removed: string[] = []
   const css = declarations ? cleanDeclarations(source, list, 0, list.length, dataFonts, removed) : cleanRules(source, list, 0, list.length, dataFonts, removed)
   const auditRemoved = lexicalFindings(css, dataFonts)

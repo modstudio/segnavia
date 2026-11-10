@@ -1,4 +1,4 @@
-import { BookView, type BookViewInput, type FontFailure, resolvePreflightProfile, type Scripts } from '@segnavia/format'
+import { BookView, type BookViewInput, type FontFailure, type PreflightEntry, resolvePreflightProfile, type Scripts } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import * as bookElement from './book-element-support.ts'
 import { bookFrame } from './book-frame.ts'
@@ -24,6 +24,8 @@ export class SegnaviaBook extends BookSourcesElement {
   private layoutFallbacks = new Map<BookLayout, BookLayout>()
   private layoutHandoff: { from: BookLayout; to: BookLayout; timer: ReturnType<typeof setTimeout> } | null = null
   private resolvedFontCss: string | undefined
+  private preflightSeed: PreflightEntry[] = []
+  private fontFailures: FontFailure[] = []
   private diagramDrawing = { script: undefined as string | undefined, settled: false }
   private reflectingLayout = false
   private loadGeneration = 0
@@ -249,6 +251,8 @@ export class SegnaviaBook extends BookSourcesElement {
       origins: this.origins,
       diagramScript: this.diagramDrawing.script,
       profile: this.profileInput,
+      preflightSeed: this.preflightSeed,
+      fontFailures: this.fontFailures,
     })
   }
 
@@ -265,6 +269,7 @@ export class SegnaviaBook extends BookSourcesElement {
     this.dropFrame()
     this.preparedView = view
     this.resolvedFontCss = css
+    this.fontFailures = fontFailures
     if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
       this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script })))
@@ -316,6 +321,7 @@ export class SegnaviaBook extends BookSourcesElement {
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions) {
       try {
         const prepared = prepareBookViewWithoutSources(view)
+        this.preflightSeed = prepared.preflight
         this.mountFrames(prepared.view, prepared.css, prepared.failures)
       } catch (reason) {
         this.preparedView = null
@@ -327,9 +333,11 @@ export class SegnaviaBook extends BookSourcesElement {
     this.loadController?.abort()
     const controller = new AbortController()
     this.loadController = controller
-    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
+    const profile = resolvePreflightProfile(this.profileInput)
+    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions, profile)
       .then((result) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
+        this.preflightSeed = result.preflight
         this.mountFrames(result.view, result.css, result.failures)
       })
       .catch((reason) => {

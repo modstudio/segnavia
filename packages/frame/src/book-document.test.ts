@@ -122,7 +122,7 @@ describe('bookDocument', () => {
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
     const embedded = new Function(
-      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal}`,
+      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal,appendSlotOversetEntries,markFurnitureInvalidVariables,fontMissingEntries}`,
     )() as {
       resolveRegionHeads: (
         templates: { name: string; parts: { variable: string }[]; separator: string; dropEmpty: boolean; collapseEqual: boolean }[],
@@ -141,6 +141,9 @@ describe('bookDocument', () => {
       preflightPageFacts: typeof preflightPageFacts
       boundPreflightReport: typeof boundPreflightReport
       preflightRefusal: typeof preflightRefusal
+      appendSlotOversetEntries: (slots: Record<string, string>, entries: unknown[]) => void
+      markFurnitureInvalidVariables: (root: Element, entries: unknown[], computed: typeof getComputedStyle) => void
+      fontMissingEntries: (failures: unknown[]) => unknown[]
       fillRegion: (html: string, values: { heads: Record<string, string> }) => string
       fillFurniture: (
         root: { innerHTML: string; querySelectorAll: () => never[] },

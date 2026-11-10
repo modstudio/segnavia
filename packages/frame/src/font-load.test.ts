@@ -6,10 +6,21 @@ import {
   FONT_FAILURE_LIMIT,
   fontFailuresAttribute,
   fontFailuresData,
+  fontMissingEntries,
   loadDeclaredFonts,
 } from './font-load.ts'
+import { boundPreflightReport, PREFLIGHT_PRESETS, preflightRefusal } from '@segnavia/format'
 
 describe('font load', () => {
+  test('turns a missing face into warning and strict refusal text with its distinguishing face', () => {
+    const entries = fontMissingEntries([{ font: 'body', family: 'Body', weight: 700, style: 'italic', reason: 'unsupplied' }])
+    const facts = { pageCount: 0, pages: [], fits: [] }
+    expect(boundPreflightReport({ entries, facts }, PREFLIGHT_PRESETS.default).issues[0]?.subject).toBe('Body (weight 700, italic)')
+    expect(preflightRefusal(boundPreflightReport({ entries, facts }, PREFLIGHT_PRESETS.strict))).toBe(
+      'Font face Body (weight 700, italic) is missing; supply and load that face to clear it.',
+    )
+  })
+
   test('loads each matching face with its range sample and reports missing and errored faces', async () => {
     const samples: string[] = []
     const regular = {
