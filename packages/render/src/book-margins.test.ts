@@ -33,6 +33,7 @@ test('fills catalogued furniture by its parsed motif key and uses its resolved p
   const html = marginDocument(book, pages, parents)
   const css = marginCss(book, pages, parents)
   expect(html).toContain('data-segnavia-side="recto"')
+  expect(html).not.toMatch(/data-segnavia-region=[^>]+\sdir=/)
   expect(html).toContain('<div class="segnavia-running-head"><bdi dir="ltr">Heading</bdi></div>')
   expect(html).toContain('<div class="segnavia-folio"><bdi dir="ltr">7</bdi></div>')
   expect(css).toContain('[data-segnavia-region="head"]){top:0mm;left:23mm;width:101mm;height:21mm')

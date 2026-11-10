@@ -39,7 +39,6 @@ export function placeParentRegions(
     held.setAttribute('data-segnavia-region', name)
     held.setAttribute('data-segnavia-edge', region.edge)
     held.setAttribute('data-segnavia-parent', parent.name)
-    held.setAttribute('dir', 'auto')
     if (config.lang) held.setAttribute('lang', config.lang)
     held.style.cssText = `position:absolute;overflow:hidden;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px`
     fill(held, region.html, heads, slots, config.dir, config.lang)

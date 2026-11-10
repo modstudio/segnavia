@@ -31,4 +31,5 @@ test('places an RTL block-start region with physical coordinates', () => {
   expect(appended).toEqual([held])
   expect(held.style.cssText).toBe('position:absolute;overflow:hidden;top:0px;left:40px;width:100px;height:10px')
   expect(attributes.get('data-segnavia-edge')).toBe('blockStart')
+  expect(attributes.has('dir')).toBe(false)
 })

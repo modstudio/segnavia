@@ -71,7 +71,7 @@ export function marginDocument(book: Book, pages: BookPrintedPagePlan[], parents
       const regions = Object.entries(parent.regions)
         .map(
           ([name, region]) =>
-            `<div data-segnavia-region="${attribute(name)}" data-segnavia-edge="${attribute(region.edge)}" data-segnavia-parent="${attribute(parent.name)}" dir="auto">${furniture(book, region.html, page)}</div>`,
+            `<div data-segnavia-region="${attribute(name)}" data-segnavia-edge="${attribute(region.edge)}" data-segnavia-parent="${attribute(parent.name)}">${furniture(book, region.html, page)}</div>`,
         )
         .join('')
       return `<div class="segnavia-margin-page" data-side="${attribute(page.side)}" data-segnavia-side="${attribute(page.face)}">${regions}</div>`
