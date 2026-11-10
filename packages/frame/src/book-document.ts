@@ -26,7 +26,10 @@ export function bookViewDocument(view: BookView, options: PaginatedDocumentOptio
 
 export function bookDocument(
   input: DocumentInput,
-  options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'printBackground' | 'diagramScript' | 'limits' | 'plan' | 'breaks'>,
+  options: Pick<
+    PaginatedDocumentOptions,
+    'nonce' | 'fontCss' | 'css' | 'printBackground' | 'diagramScript' | 'limits' | 'plan' | 'breaks' | 'profile' | 'preflightSeed'
+  >,
 ): string {
   const document = parseDocument(input)
   refuseNamedDocumentBrand(document, 'bookValueDocument')
@@ -35,7 +38,10 @@ export function bookDocument(
 
 export function bookValueDocument(
   book: Book,
-  options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'printBackground' | 'diagramScript' | 'limits' | 'plan' | 'breaks'>,
+  options: Pick<
+    PaginatedDocumentOptions,
+    'nonce' | 'fontCss' | 'css' | 'printBackground' | 'diagramScript' | 'limits' | 'plan' | 'breaks' | 'profile' | 'preflightSeed'
+  >,
 ): string {
   if (book.mode !== 'paginated' || !book.page) {
     throw new PaginatedBookRefusedError('A paginated book document needs mode paginated and page; set both to clear this refusal.')

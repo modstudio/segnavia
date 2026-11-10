@@ -75,3 +75,22 @@ describe('describeDocument saved plan', () => {
     expect(() => describeDocument(document(), { plan: invalid as Plan })).toThrow('pages.0.face')
   })
 })
+
+test('includes a supplied preflight report unchanged and otherwise omits the section', () => {
+  const preflight = {
+    status: 'warnings' as const,
+    issues: [
+      {
+        id: 'region-overset:body',
+        check: 'region-overset' as const,
+        severity: 'warning' as const,
+        subject: 'body',
+        message: 'Shorten body.',
+      },
+    ],
+    omitted: {},
+    facts: { pageCount: 1, pages: [{ folio: '1' }], fits: [] },
+  }
+  expect(describeDocument(document(), { preflight }).preflight).toBe(preflight)
+  expect(describeDocument(document())).not.toHaveProperty('preflight')
+})

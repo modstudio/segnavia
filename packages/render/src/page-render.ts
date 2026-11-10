@@ -1,16 +1,17 @@
-import type { FontFailure } from '@segnavia/format'
+import type { FontFailure, PreflightEntry } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
-import { assetSetup, type RenderOptions } from './options.ts'
+import { assetSetup, type ComposedRenderOptions, type RenderOptions } from './options.ts'
 import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolvedPageDocument } from './page-document.ts'
 import { assertPrintOptions, printPage } from './page-paper.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
+import { renderPreflightProfile } from './preflight.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
@@ -22,13 +23,14 @@ interface PageRenderServices {
 export async function renderPagePdf(
   page: HtmlPage | PrintedHtmlPage,
   slots: PreparedSlots,
-  opts: RenderOptions,
+  opts: ComposedRenderOptions,
   services: PageRenderServices,
   inputIndex?: number,
   deadline?: RenderDeadline,
   diagramScript?: string,
   fontCss = '',
   fontFailures: FontFailure[] = [],
+  preflightSeed: PreflightEntry[] = [],
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
   const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
@@ -37,7 +39,7 @@ export async function renderPagePdf(
       viewport,
       scripts: true,
       slots,
-      html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures),
+      html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures, preflightSeed),
       readiness: renderReadiness(page.scripts, hasDiagram(printedPageAuthorHtml(page)), opts.waitForPageReady !== false),
       boundMs: opts.boundMs,
       deadline,
@@ -46,7 +48,8 @@ export async function renderPagePdf(
       ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
     },
     async (tab) => {
-      await awaitPrintedPageComposition(tab, page)
+      const profile = renderPreflightProfile(opts.preflight)
+      await awaitPrintedPageComposition(tab, page, profile ? { profile, report: opts.preflight?.report } : undefined)
       const captures = await prepareBackdropRasters(tab, opts.effects)
       if (page.print) {
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page))

@@ -31,6 +31,17 @@ const book = parseBookFixture({
 })
 
 describe('bookDocument', () => {
+  test('puts the print preflight profile and seed into composer config only when supplied', () => {
+    const configured = bookDocument(book, {
+      nonce: 'held',
+      profile: PREFLIGHT_PRESETS.strict,
+      preflightSeed: [{ check: 'placement-missing', subject: 'cover', message: 'Supply cover.' }],
+    })
+    expect(configured).toContain('"preflight":{"region-overset":"error"')
+    expect(configured).toContain('"preflightSeed":[{"check":"placement-missing","subject":"cover","message":"Supply cover."}]')
+    expect(bookDocument(book, { nonce: 'held' })).not.toContain('"preflight"')
+  })
+
   test('carries a lowered brand into flow and paginated view sheets', () => {
     const document = Document.parse({
       type: 'document',

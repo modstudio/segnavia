@@ -18,6 +18,7 @@ import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { RenderLimitError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
+import type { RenderPreflightOptions } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
 
 export type Font = FontFace
@@ -173,7 +174,9 @@ export interface ImageOptions extends RenderOptions {
 
 export interface PageImageOptions extends ImageOptions, AsOfInputs {}
 
-export type PageRenderOptions = RenderOptions & AsOfInputs
+export type ComposedRenderOptions = RenderOptions & { preflight?: RenderPreflightOptions }
+
+export type PageRenderOptions = ComposedRenderOptions & AsOfInputs
 
 export interface ProofImageOptions {
   profile: Uint8Array

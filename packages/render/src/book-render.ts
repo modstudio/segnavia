@@ -6,6 +6,9 @@ import {
   type Limits,
   type OriginApproval,
   Plan,
+  type PreflightEntry,
+  type PreflightProfile,
+  type PreflightReport,
   PX_PER_MM,
   pressBoxes,
   resolveBookPageGeometry,
@@ -34,16 +37,21 @@ import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
+import { handlePreflightAttribute, renderPreflightProfile } from './preflight.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import type { BookPdfOptions, BookPlanOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
-export async function awaitBookComposition(tab: Tab): Promise<void> {
+export async function awaitBookComposition(tab: Tab, preflight?: { profile: PreflightProfile; report?: (report: PreflightReport) => void }): Promise<void> {
   await tab.waitForFunction(({ composed, failed }) => document.documentElement.hasAttribute(composed) || document.documentElement.hasAttribute(failed), {
     composed: BOOK_COMPOSED_ATTRIBUTE,
     failed: BOOK_FAILURE_ATTRIBUTE,
   })
+  if (preflight) {
+    const attribute = await tab.evaluate(() => document.documentElement.getAttribute('data-segnavia-preflight'))
+    handlePreflightAttribute(attribute, preflight.profile, preflight.report)
+  }
   const failure = await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), BOOK_FAILURE_ATTRIBUTE)
   if (failure) throw new RenderRefusedError(failure)
 }
@@ -68,6 +76,7 @@ export interface BrowserBookDependencies {
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
   fontFailures?: FontFailure[]
+  preflightSeed?: PreflightEntry[]
 }
 
 // A chapter can author its own plan carrier, so the composer's published one is the last.
@@ -116,6 +125,8 @@ function bookSrcdoc(
     limits?: Limits
     plan?: SavedPlan
     breaks?: string[]
+    profile?: PreflightProfile
+    preflightSeed?: PreflightEntry[]
   },
 ): string {
   const nonce = newNonce()
@@ -129,6 +140,8 @@ function bookSrcdoc(
       limits: options.limits,
       plan: options.plan,
       breaks: options.breaks ?? options.plan?.breaks,
+      profile: options.profile,
+      preflightSeed: options.preflightSeed,
     })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
@@ -210,6 +223,8 @@ async function printBook(
       limits: renderOptions.limits,
       plan: renderOptions.plan,
       breaks: renderOptions.breaks,
+      profile: renderPreflightProfile(renderOptions.preflight),
+      preflightSeed: dependencies.preflightSeed,
     }),
   )
   const setup: TabSetup = paginated
@@ -217,7 +232,8 @@ async function printBook(
         ...paginatedBookTabSetup(book, srcdoc, slots, renderOptions),
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
         beforeOutput: async (tab) => {
-          await awaitBookComposition(tab)
+          const profile = renderPreflightProfile(renderOptions.preflight)
+          await awaitBookComposition(tab, profile ? { profile, report: renderOptions.preflight?.report } : undefined)
           composedPlan = renderOptions.plan ?? (await composedPlanFromTab(tab, renderOptions.limits))
           await renderOptions.beforeOutput?.(tab)
         },

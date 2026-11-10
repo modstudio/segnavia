@@ -8,6 +8,7 @@ import {
   fontManifestWithReferences,
   type Page,
   type PageOrPrintedInput,
+  type PreflightEntry,
   pageDirection,
   pageOrPrintedFromDocument,
   resolveLimits,
@@ -30,10 +31,11 @@ import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
-import type { PageRenderOptions, RenderOptions } from './options.ts'
+import type { ComposedRenderOptions, PageRenderOptions, RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
 import { printCss } from './page-paper.ts'
+import { renderPreflightProfile } from './preflight.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export async function fontCssForRender<T>(work: Promise<T>): Promise<T> {
@@ -80,32 +82,50 @@ export async function prepareRenderedPage(
 
 export async function prepareRenderedPageValue(
   input: Page,
-  options: RenderOptions,
+  options: ComposedRenderOptions,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   established: EstablishedPageDay,
   purpose: 'screen' | 'print' = 'print',
 ) {
   const page = resolvePageHtml(input)
-  const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths, established.day)
+  const expanded = await expandFramePage(
+    page,
+    motifs,
+    signal,
+    options.placements,
+    purpose,
+    options.pageWidths,
+    established.day,
+    renderPreflightProfile(options.preflight),
+  )
   return preparedRender(expanded, options, signal, established)
 }
 
 async function prepareRenderedPrintedPageValue(
   input: Page,
-  options: RenderOptions,
+  options: ComposedRenderOptions,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   established: EstablishedPageDay,
   purpose: 'screen' | 'print',
 ) {
-  const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options.placements, purpose, options.pageWidths, established.day)
+  const expanded = await expandPrintedFramePage(
+    resolvePrintedPageHtml(input),
+    motifs,
+    signal,
+    options.placements,
+    purpose,
+    options.pageWidths,
+    established.day,
+    renderPreflightProfile(options.preflight),
+  )
   return preparedRender(expanded, options, signal, established)
 }
 
 async function preparedRender<T extends HtmlPage | PrintedHtmlPage>(
-  expanded: { page: T; fonts: FontReference[] },
-  options: RenderOptions,
+  expanded: { page: T; fonts: FontReference[]; preflight?: PreflightEntry[] },
+  options: ComposedRenderOptions,
   signal: AbortSignal,
   established: EstablishedPageDay,
 ) {
@@ -115,12 +135,12 @@ async function preparedRender<T extends HtmlPage | PrintedHtmlPage>(
   const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'
   const resolved = await fontCssForRender(resolveRenderFontReferences(manifest, undeclared, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
-  return { page: expanded.page, options, fontCss: resolved.css, fontFailures: resolved.failures, established }
+  return { page: expanded.page, options, fontCss: resolved.css, fontFailures: resolved.failures, preflightSeed: expanded.preflight ?? [], established }
 }
 
 export async function prepareRenderedPages(
   expanded: ReadonlyArray<{ page: Pick<Page, 'style'>; fonts: FontReference[] }>,
-  options: RenderOptions,
+  options: ComposedRenderOptions,
   signal: AbortSignal,
 ): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
   let declarations: FontManifest = {}
