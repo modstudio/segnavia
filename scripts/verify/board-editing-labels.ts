@@ -171,7 +171,7 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
   await board.evaluate((element) => ((element as BoardElement).selection = ['label']))
   const latin = board.locator('[data-board-label="label"]')
   const latinBox = await latin.boundingBox()
-  const latinHandle = await handle.boundingBox()
+  const latinHandle = await handle.waitFor({ state: 'visible' }).then(() => handle.boundingBox())
   h.check(
     'an LTR label on an RTL board puts its resize handle on the right',
     Boolean(latinBox && latinHandle && Math.abs(latinHandle.x + latinHandle.width / 2 - latinBox.x - latinBox.width) < 1),
