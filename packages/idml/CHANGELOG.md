@@ -1,5 +1,31 @@
 # @segnavia/idml
 
+## 0.54.0
+
+### Minor Changes
+
+- 24c5777: Fill running furniture from named head templates and variables, and remove marks, running-head sources, and printed-page furniture paths.
+
+  A text variable can read a named enclosing part's title, replacing `runningHead: { part }`.
+
+  Breaking for hosts:
+
+  - A parsed value's `variables` and `headTemplates` hold only the author's declarations. Join the library entries with `withLibraryEntries` where you need the full set.
+  - An author variable or head-template name starting with `segnavia:` is refused.
+  - An unclosed head-template placement, and any reserved motif key other than `segnavia:head-template` in parent head or foot HTML, are refused.
+  - `PLAN_VERSION` is 5, so a saved version-4 plan is refused; plan the book again.
+  - Variables of `of: 'document'` count across front matter and body in the body numbering system.
+
+### Patch Changes
+
+- Updated dependencies [24c5777]
+- Updated dependencies [c2e0bbb]
+- Updated dependencies [a98274d]
+- Updated dependencies [9fb55dd]
+- Updated dependencies [dd8cf59]
+  - @segnavia/format@0.54.0
+  - @segnavia/html@0.54.0
+
 ## 0.53.0
 
 ### Minor Changes

@@ -1,5 +1,27 @@
 # @segnavia/format
 
+## 0.54.0
+
+### Minor Changes
+
+- 24c5777: Fill running furniture from named head templates and variables, and remove marks, running-head sources, and printed-page furniture paths.
+
+  A text variable can read a named enclosing part's title, replacing `runningHead: { part }`.
+
+  Breaking for hosts:
+
+  - A parsed value's `variables` and `headTemplates` hold only the author's declarations. Join the library entries with `withLibraryEntries` where you need the full set.
+  - An author variable or head-template name starting with `segnavia:` is refused.
+  - An unclosed head-template placement, and any reserved motif key other than `segnavia:head-template` in parent head or foot HTML, are refused.
+  - `PLAN_VERSION` is 5, so a saved version-4 plan is refused; plan the book again.
+  - Variables of `of: 'document'` count across front matter and body in the body numbering system.
+
+- c2e0bbb: Add document metadata variables for page furniture, including locale-aware author lists and book-title heads.
+- a98274d: Add deduplicated preflight checks for in-frame missing fonts, reasoned missing placements, overset slots, invalid custom properties across composed styles, and fetching CSS constructs to composed books and printed pages.
+- 9fb55dd: Add bounded preflight profiles, issues and layout facts for composed books and printed pages. Browser book and page elements now emit live `preflight` reports, and strict profiles refuse overset regions or furniture.
+
+  Breaking on 0.x: preflight replaces the `data-segnavia-region-overflow` and `data-segnavia-furniture-overflow` attributes. Render's `OverflowReport` no longer carries region or furniture entries; composed renders can report server-side preflight through their render options.
+
 ## 0.53.0
 
 ### Minor Changes
