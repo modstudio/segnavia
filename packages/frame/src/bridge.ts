@@ -19,6 +19,7 @@ import {
   type Scripts,
 } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
+import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
@@ -129,24 +130,6 @@ export interface FrameOptions {
 // scripted mode admits form events, and no author frame receives same-origin.
 export function frameSandbox(scripts: Scripts | undefined): string {
   return scripts === 'sandboxed' ? 'allow-scripts allow-forms' : 'allow-scripts'
-}
-
-function compositionWait(options: FrameOptions): string {
-  if (!options.readyAfterAttribute) return 'null'
-  const report = options.reportHeight === false ? '' : 'report();'
-  const progressCallback = options.progressCallback ? `window[${scriptJson(options.progressCallback)}]({pages:pages,total:total});` : ''
-  const progress = options.progressAttribute
-    ? `var progressName=${scriptJson(options.progressAttribute)};var progress=function(){var parts=(root.getAttribute(progressName)||'').split('/');var pages=Number(parts[0]),total=Number(parts[1]);if(parts.length!==2||!Number.isInteger(pages)||!Number.isInteger(total)||pages<0||total<0||pages>10000||total>10000||pages>total)return;post({type:'${MESSAGE.composeProgress}',pages:pages,total:total});${progressCallback}};progress();`
-    : ''
-  const failure = options.failureAttribute
-    ? `var failureName=${scriptJson(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${COMPOSE_FAILURE_TEXT_LIMIT})text=text.slice(0,${COMPOSE_FAILURE_TEXT_LIMIT - 1})+'…';post({type:'${MESSAGE.composeFailure}',text:text});return true;};if(failed())return;`
-    : ''
-  const settle = options.failureAttribute ? 'settled=true;' : ''
-  const fail = options.failureAttribute ? 'if(failed()){observer.disconnect();return;}' : ''
-  const failureFilter = options.failureAttribute ? ',failureName' : ''
-  const progressFilter = options.progressAttribute ? ',progressName' : ''
-  const progressReport = options.progressAttribute ? 'progress();' : ''
-  return `new Promise(function(resolve){var root=document.documentElement;var name=${scriptJson(options.readyAfterAttribute)};${progress}${failure}if(root.hasAttribute(name)){${settle}${report}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){${progressReport}${fail}if(root.hasAttribute(name)){observer.disconnect();${settle}${report}resolve();}}).observe(root,{attributes:true,attributeFilter:[name${failureFilter}${progressFilter}]});})`
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -282,7 +265,7 @@ function ready(){animationReport();${options.printBackground ? 'printBackground(
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};
 var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return failures;};
-var composed=${compositionWait(options)};var fontLoads=${fontLoads};var diagrams=${DIAGRAM_READY_EXPR};
+var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT)};var fontLoads=${fontLoads};var diagrams=${DIAGRAM_READY_EXPR};
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`

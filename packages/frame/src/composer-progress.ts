@@ -19,32 +19,25 @@ export function reduceProgressHighWater(highWater: number, progress: ComposeProg
   return progress
 }
 
-export function progressMacrotask(): Promise<void> {
-  const yielding = (globalThis as { scheduler?: { yield?: () => Promise<void> } }).scheduler?.yield
-  if (yielding) return yielding.call((globalThis as { scheduler?: unknown }).scheduler)
-  return new Promise((resolve) => {
-    const channel = new MessageChannel()
-    channel.port1.onmessage = () => {
-      channel.port1.close()
-      channel.port2.close()
-      resolve()
-    }
-    channel.port2.postMessage(undefined)
-  })
+interface ProgressPages {
+  setAttribute(name: string, value: string): void
 }
 
-export async function dressPlanPages<T>(
+export async function dressPlanPagesImplementation<T, P extends ProgressPages>(
   plan: { pages: T[] },
   only: number | null | undefined,
   report: (progress: ComposeProgress) => void,
-  place: (pages: HTMLElement, page: T, index: number) => void,
-): Promise<HTMLElement> {
-  const pages = document.createElement('div')
+  place: (pages: P, page: T, index: number) => void,
+  createPages: () => P,
+  now: () => number,
+  yieldTask: () => Promise<void>,
+): Promise<P> {
+  const pages = createPages()
   pages.setAttribute('data-segnavia-pages', '')
   const total = only === null || only === undefined ? plan.pages.length : 1
   let dressed = 0
   let dressedSinceYield = 0
-  let yieldedAt = performance.now()
+  let yieldedAt = now()
   for (let index = 0; index < plan.pages.length; index += 1) {
     if (only !== null && only !== undefined && only !== index + 1) continue
     const page = plan.pages[index]
@@ -53,13 +46,13 @@ export async function dressPlanPages<T>(
     dressed += 1
     dressedSinceYield += 1
     const last = dressed === total
-    const now = performance.now()
-    if (!decideProgressYield({ dressedSinceYield, sinceYieldMs: now - yieldedAt, last })) continue
+    const current = now()
+    if (!decideProgressYield({ dressedSinceYield, sinceYieldMs: current - yieldedAt, last })) continue
     const progress = boundComposeProgress({ pages: dressed, total })
     if (progress) report(progress)
-    await progressMacrotask()
+    await yieldTask()
     dressedSinceYield = 0
-    yieldedAt = performance.now()
+    yieldedAt = now()
   }
   return pages
 }
@@ -69,6 +62,7 @@ export function embeddedComposerProgressFunctions(): string {
 ${embedFunction('boundComposeProgress', boundComposeProgress)}
 ${embedFunction('decideProgressYield', decideProgressYield)}
 ${embedFunction('reduceProgressHighWater', reduceProgressHighWater)}
-${embedFunction('progressMacrotask', progressMacrotask)}
-${embedFunction('dressPlanPages', dressPlanPages)}`
+var progressMacrotask=function(){var yielding=globalThis.scheduler&&globalThis.scheduler.yield;if(yielding)return yielding.call(globalThis.scheduler);return new Promise(function(resolve){var channel=new MessageChannel();channel.port1.onmessage=function(){channel.port1.close();channel.port2.close();resolve();};channel.port2.postMessage(undefined);});};
+${embedFunction('dressPlanPagesImplementation', dressPlanPagesImplementation)}
+var dressPlanPages=function(plan,only,report,place){return dressPlanPagesImplementation(plan,only,report,place,function(){return document.createElement('div');},function(){return performance.now();},progressMacrotask);};`
 }

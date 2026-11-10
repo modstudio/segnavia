@@ -15,7 +15,7 @@ import {
 import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
 import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -27,6 +27,7 @@ import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
+import { dispatchCurrentPageProgress } from './page-frame-progress.ts'
 import { scrollPageToHeading } from './page-heading.ts'
 import { printedPageComposeFailure, printedPageRequestRefusal } from './page-printed.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
@@ -346,7 +347,6 @@ export class SegnaviaPage extends PageAsOfElement {
     this.frameReady = false
     this.loadedDocument = undefined
   }
-
   private writeDocument(iframe: HTMLIFrameElement, srcdoc: string) {
     const written = ++this.documentWrites
     this.resetDocumentReadiness()
@@ -359,7 +359,6 @@ export class SegnaviaPage extends PageAsOfElement {
     )
     iframe.srcdoc = srcdoc
   }
-
   private fit() {
     const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
@@ -372,10 +371,7 @@ export class SegnaviaPage extends PageAsOfElement {
     const message = messageFrom(event, frame, resolvePreflightProfile(this.profileInput))
     const currentFrame = { frame, generation: this.loadGeneration }
     dispatchFontFailures(this, message)
-    if (message?.type === MESSAGE.composeProgress) {
-      if (samePageFrame(currentFrame, this.composedFrame) || samePageFrame(currentFrame, this.slotFrame)) dispatchComposeProgress(this, message)
-      return
-    }
+    if (dispatchCurrentPageProgress(this, message, currentFrame, this.composedFrame, this.slotFrame)) return
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
       this.frameReady = true
       releaseReadyPageRequests(this.pageRequests)

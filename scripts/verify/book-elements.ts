@@ -4,13 +4,7 @@ import { verifyComposeFailure } from './book-compose-failure.ts'
 import { verifyHiddenBookElements } from './book-hidden-elements.ts'
 import { verifyBookLayoutSwitching, verifyNonceAuthorizedAuthorScripts } from './book-layout-elements.ts'
 import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
-import {
-  collectedComposeProgress,
-  installComposeProgressCollector,
-  LARGE_BOOK_WAIT_MS,
-  REPAGINATE_BOUND_MS,
-  waitForLargeBook,
-} from './book-stress-ready.ts'
+import { collectedComposeProgress, installComposeProgressCollector, LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { pagesText } from './book-text.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
@@ -133,7 +127,10 @@ function hasPaginationRelayData(messages: Array<{ data: unknown }>): boolean {
   const timingData = /(?:timing|duration|elapsed|length).*ms$/i
   return messages.some(
     ({ data }) =>
-      data && typeof data === 'object' && Object.entries(data).some(([key, value]) => paginationData.test(key) || (timingData.test(key) && value !== null)),
+      data &&
+      typeof data === 'object' &&
+      (data as { type?: unknown }).type !== 'segnavia:compose-progress' &&
+      Object.entries(data).some(([key, value]) => paginationData.test(key) || (timingData.test(key) && value !== null)),
   )
 }
 

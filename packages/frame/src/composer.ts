@@ -33,7 +33,6 @@ import {
   resolveRegionHeads,
   resolveRegionHeadsImplementation,
 } from './composer-dress.ts'
-import { COMPOSE_PROGRESS_ATTRIBUTE, embeddedComposerProgressFunctions } from './composer-progress.ts'
 import {
   composerLayoutReady,
   descendantKeepSignals,
@@ -53,6 +52,7 @@ import {
   tableRowLines,
 } from './composer-measure.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
+import { COMPOSE_PROGRESS_ATTRIBUTE, embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { placeParentRegions } from './composer-regions.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'

@@ -2,10 +2,11 @@ import { BookView, type BookViewInput, type FontFailure, type PreflightEntry, re
 import { ensureBaseStyle } from './base-style.ts'
 import * as bookElement from './book-element-support.ts'
 import { bookFrame } from './book-frame.ts'
+import { dispatchBookFrameReport } from './book-frame-report.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { BookSourcesElement } from './book-sources.ts'
-import { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
+import { dispatchFontFailures, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 import { upgradeProperties } from './element-properties.ts'
 export class SegnaviaBook extends BookSourcesElement {
@@ -343,11 +344,6 @@ export class SegnaviaBook extends BookSourcesElement {
       })
   }
 
-  private dispatchCurrentPreflight(message: Parameters<typeof dispatchPreflight>[1], frame: HTMLIFrameElement, layout: BookLayout | undefined): boolean {
-    if (layout !== 'pages' || frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)) return false
-    return dispatchPreflight(this, message)
-  }
-
   private onMessage = (event: MessageEvent) => {
     const frames = Array.from(this.querySelectorAll<HTMLIFrameElement>('iframe'))
     const profile = resolvePreflightProfile(this.profileInput)
@@ -356,13 +352,7 @@ export class SegnaviaBook extends BookSourcesElement {
     const message = messageFrom(event, frame, profile)
     if (!message) return
     const layout = frame.dataset.segnaviaBookLayout as BookLayout | undefined
-    if (bookElement.handleBookFontFailures(this, message, frame.dataset.segnaviaBookGeneration, String(this.loadGeneration))) return
-    if (message.type === MESSAGE.composeProgress) {
-      if (layout === 'pages' && frame.dataset.segnaviaBookGeneration === String(this.loadGeneration)) dispatchComposeProgress(this, message)
-      return
-    }
-    if (this.dispatchCurrentPreflight(message, frame, layout)) return
-    if (message.type === MESSAGE.composeFailure && frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)) return
+    if (dispatchBookFrameReport(this, message, frame, layout, String(this.loadGeneration))) return
     const failureState: bookElement.BookComposeFailureState = {
       failed: this.failedLayouts,
       ready: this.readyLayouts,

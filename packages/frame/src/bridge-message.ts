@@ -66,6 +66,20 @@ export function slotFitMessageData(data: unknown, slotFit = 'segnavia:slot-fit')
   return { type: slotFit, slots: Object.fromEntries(entries) as Record<string, SlotFitState> }
 }
 
+function presentationMessage(data: Record<string, unknown>, types: MessageTypes): FrameMessage | null {
+  if (data.type === types.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: types.height, height: data.height }
+  if (data.type === types.ready) return { type: types.ready }
+  const fit = slotFitMessageData(data, types.slotFit)
+  if (fit) return fit
+  if (
+    data.type === types.animation &&
+    typeof data.animated === 'boolean' &&
+    (data.lengthMs === null || (typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) && data.lengthMs >= 0))
+  )
+    return { type: types.animation, animated: data.animated, lengthMs: data.lengthMs }
+  return null
+}
+
 export function messageFromFrames(
   event: MessageEvent,
   frame: HTMLIFrameElement | Iterable<HTMLIFrameElement> | null,
@@ -89,15 +103,5 @@ export function messageFromFrames(
   }
   const bounded = boundedFontReportMessage(data, types, composeFailureLimit)
   if (bounded) return bounded
-  if (data.type === types.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: types.height, height: data.height }
-  if (data.type === types.ready) return { type: types.ready }
-  const fit = slotFitMessageData(data, types.slotFit)
-  if (fit) return fit
-  if (
-    data.type === types.animation &&
-    typeof data.animated === 'boolean' &&
-    (data.lengthMs === null || (typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) && data.lengthMs >= 0))
-  )
-    return { type: types.animation, animated: data.animated, lengthMs: data.lengthMs }
-  return null
+  return presentationMessage(data as Record<string, unknown>, types)
 }

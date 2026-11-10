@@ -29,7 +29,18 @@ export function bookDocument(
   input: DocumentInput,
   options: Pick<
     PaginatedDocumentOptions,
-    'nonce' | 'fontCss' | 'css' | 'printBackground' | 'diagramScript' | 'limits' | 'plan' | 'breaks' | 'profile' | 'preflightSeed'
+    | 'nonce'
+    | 'fontCss'
+    | 'css'
+    | 'printBackground'
+    | 'diagramScript'
+    | 'limits'
+    | 'plan'
+    | 'breaks'
+    | 'profile'
+    | 'preflightSeed'
+    | 'progress'
+    | 'progressCallback'
   >,
 ): string {
   const document = parseDocument(input)
@@ -41,7 +52,18 @@ export function bookValueDocument(
   book: Book,
   options: Pick<
     PaginatedDocumentOptions,
-    'nonce' | 'fontCss' | 'css' | 'printBackground' | 'diagramScript' | 'limits' | 'plan' | 'breaks' | 'profile' | 'preflightSeed'
+    | 'nonce'
+    | 'fontCss'
+    | 'css'
+    | 'printBackground'
+    | 'diagramScript'
+    | 'limits'
+    | 'plan'
+    | 'breaks'
+    | 'profile'
+    | 'preflightSeed'
+    | 'progress'
+    | 'progressCallback'
   >,
 ): string {
   if (book.mode !== 'paginated' || !book.page) {

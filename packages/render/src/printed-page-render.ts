@@ -8,8 +8,8 @@ import { fontFaces } from './font-faces.ts'
 import type { ComposedRenderOptions } from './options.ts'
 import { renderPageValueDocument } from './page-document.ts'
 import { awaitPreflightReport, type ComposedPreflight } from './preflight.ts'
-import { RENDER_READY_BINDING } from './render-readiness.ts'
 import { RENDER_PROGRESS_BINDING } from './progress.ts'
+import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export function renderedPageDocument(
   page: HtmlPage | PrintedHtmlPage,
