@@ -9,6 +9,7 @@
 
 import {
   approvedOrigins,
+  COMPOSE_PROGRESS_PAGES_LIMIT,
   type Direction,
   type FetchKind,
   type FontFailure,
@@ -19,6 +20,7 @@ import {
   type Scripts,
 } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
+import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
@@ -27,7 +29,7 @@ import { keepPassScript } from './keep-pass.ts'
 import { escapeHtml } from './svg.ts'
 
 export type { SlotFitState } from './bridge-message.ts'
-export { dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
+export { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
 export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type SelectionMessage, selectionMessage } from './bridge-selection.ts'
 export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
@@ -48,6 +50,7 @@ export const MESSAGE = {
   bookLayout: 'segnavia:book-layout',
   bookPlace: 'segnavia:book-place',
   composeFailure: 'segnavia:compose-failure',
+  composeProgress: 'segnavia:compose-progress',
   fontFailures: 'segnavia:font-failures',
   preflight: 'segnavia:preflight',
 } as const
@@ -55,7 +58,7 @@ export const MESSAGE = {
 export const HEADING_ID_LIMIT = 256
 export const COMPOSE_FAILURE_TEXT_LIMIT = 1024
 
-function scriptJson(value: unknown): string {
+export function scriptJson(value: unknown): string {
   return JSON.stringify(value)
     .replace(/</g, '\\u003c')
     .replace(/\u2028/g, '\\u2028')
@@ -109,6 +112,10 @@ export interface FrameOptions {
   readyAfterAttribute?: string
   // Reports a document composer's refusal instead of ready.
   failureAttribute?: string
+  // Reports bounded composition progress while waiting for the terminal attribute.
+  progressAttribute?: string
+  // Calls a host binding with the same bounded progress report.
+  progressCallback?: string
   // Set only for a print document, to freeze its animations and let authored
   // code draw the frame that will be printed.
   printAtMs?: number
@@ -124,18 +131,6 @@ export interface FrameOptions {
 // scripted mode admits form events, and no author frame receives same-origin.
 export function frameSandbox(scripts: Scripts | undefined): string {
   return scripts === 'sandboxed' ? 'allow-scripts allow-forms' : 'allow-scripts'
-}
-
-function compositionWait(options: FrameOptions): string {
-  if (!options.readyAfterAttribute) return 'null'
-  const report = options.reportHeight === false ? '' : 'report();'
-  const failure = options.failureAttribute
-    ? `var failureName=${scriptJson(options.failureAttribute)};var settled=false;var failed=function(){if(settled)return true;if(!root.hasAttribute(failureName))return false;settled=true;var text=root.getAttribute(failureName)||'';if(text.length>${COMPOSE_FAILURE_TEXT_LIMIT})text=text.slice(0,${COMPOSE_FAILURE_TEXT_LIMIT - 1})+'…';post({type:'${MESSAGE.composeFailure}',text:text});return true;};if(failed())return;`
-    : ''
-  const settle = options.failureAttribute ? 'settled=true;' : ''
-  const fail = options.failureAttribute ? 'if(failed()){observer.disconnect();return;}' : ''
-  const failureFilter = options.failureAttribute ? ',failureName' : ''
-  return `new Promise(function(resolve){var root=document.documentElement;var name=${scriptJson(options.readyAfterAttribute)};${failure}if(root.hasAttribute(name)){${settle}${report}resolve();return;}if(!window.MutationObserver)return;new MutationObserver(function(records,observer){${fail}if(root.hasAttribute(name)){observer.disconnect();${settle}${report}resolve();}}).observe(root,{attributes:true,attributeFilter:[name${failureFilter}]});})`
 }
 
 // The bridge is written to run in old engines too: it is the one script that
@@ -271,7 +266,7 @@ function ready(){animationReport();${options.printBackground ? 'printBackground(
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};
 var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return failures;};
-var composed=${compositionWait(options)};var fontLoads=${fontLoads};var diagrams=${DIAGRAM_READY_EXPR};
+var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var fontLoads=${fontLoads};var diagrams=${DIAGRAM_READY_EXPR};
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`

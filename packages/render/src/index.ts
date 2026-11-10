@@ -21,9 +21,11 @@ import {
   enforceDeckLimits,
   innerLimits,
   type OverflowEntry,
+  pageCompositionCount,
   parseComposedRenderOptions,
   parseRenderOptions,
   type RenderOptions,
+  refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { printWithOverflow } from './overflow.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
@@ -215,6 +217,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
+        refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page], parsedOptions.slots))
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
           const effectiveSlots = parsedOptions.slots?.fills ? copySlots : prepared.established.slots
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
@@ -243,6 +246,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const parsedOptions = parseComposedRenderOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'screen')
+        refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page]))
         return renderPreparedPageImage(prepared, parsedOptions, deadline, withTab)
       })
     },
@@ -255,6 +259,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const contexts = await resolveRenderDayContexts([cover.page], options, deadline.signal)
         const established = contexts.pages[0] as EstablishedPageDay
         const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, established, 'screen')
+        refuseProgressUnlessOneComposition(options, pageCompositionCount([prepared.page]))
         return renderPreparedPageImage(prepared, options, deadline, withTab)
       })
     },
@@ -270,6 +275,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             return page
           }),
         )
+        refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount(parsed, parsedOptions.slots))
         const contexts = await resolveRenderDayContexts(parsed, parsedOptions, deadline.signal)
         const expanded = await Promise.all(
           parsed.map((page, index) => {
@@ -313,6 +319,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async deckPdf(input, opts = {}) {
       opts = parseRenderOptions(opts)
+      refuseProgressUnlessOneComposition(opts, 0)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
         enforceDeckLimits(deck, opts.limits)
@@ -351,6 +358,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async slideImage(input, index, opts = {}) {
       opts = parseRenderOptions(opts)
+      refuseProgressUnlessOneComposition(opts, 0)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
         enforceDeckLimits(deck, opts.limits)

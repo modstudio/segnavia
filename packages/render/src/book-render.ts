@@ -1,6 +1,7 @@
 import {
   type Book,
   bookPageGeometries,
+  type ComposeProgress,
   type FontFailure,
   KEEP_WITH_CUSTOM_PROPERTY,
   type Limits,
@@ -31,12 +32,13 @@ import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
-import { type Assets, assetSetup, type RenderOptions } from './options.ts'
+import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
 import { awaitPreflightReport } from './preflight.ts'
+import { renderProgressDocumentOptions } from './progress.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import type { BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
@@ -65,6 +67,7 @@ interface TabSetup {
   limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
+  progressReport?: (progress: ComposeProgress) => void
 }
 
 export interface BrowserBookDependencies {
@@ -122,6 +125,8 @@ function bookSrcdoc(
     breaks?: string[]
     profile?: PreflightProfile
     preflightSeed?: PreflightEntry[]
+    progress?: boolean
+    progressCallback?: string
   },
 ): string {
   const nonce = newNonce()
@@ -137,6 +142,8 @@ function bookSrcdoc(
       breaks: options.breaks ?? options.plan?.breaks,
       profile: options.profile,
       preflightSeed: options.preflightSeed,
+      progress: options.progress,
+      progressCallback: options.progressCallback,
     })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
@@ -169,6 +176,7 @@ function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, o
     readiness: renderReadiness('refuse', false, false),
     boundMs: options.boundMs,
     ...assetSetup(options),
+    progressReport: options.progress?.report,
   }
 }
 
@@ -220,6 +228,7 @@ async function printBook(
       breaks: renderOptions.breaks,
       profile: renderOptions.preflight?.profile,
       preflightSeed: renderOptions.preflight?.seed,
+      ...renderProgressDocumentOptions(renderOptions.progress),
     }),
   )
   const setup: TabSetup = paginated
@@ -289,7 +298,13 @@ async function printBook(
   return { ...output, bytes: await document.save() }
 }
 
-export function renderBrowserBookPdf(book: Book, options: ParsedBookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export async function renderBrowserBookPdf(
+  book: Book,
+  options: ParsedBookPdfOptions,
+  fontCss: string,
+  dependencies: BrowserBookDependencies,
+): Promise<Uint8Array> {
+  refuseProgressUnlessOneComposition(options, book.mode === 'paginated' ? 1 : 0)
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
@@ -321,6 +336,7 @@ export async function renderBrowserBookPlan(
       origins: options.origins,
       limits: options.limits,
       breaks: options.breaks,
+      ...renderProgressDocumentOptions(options.progress),
     }),
   )
   return withTab(

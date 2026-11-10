@@ -8,6 +8,7 @@ import { fontFaces } from './font-faces.ts'
 import type { ComposedRenderOptions } from './options.ts'
 import { renderPageValueDocument } from './page-document.ts'
 import { awaitPreflightReport, type ComposedPreflight } from './preflight.ts'
+import { renderProgressDocumentOptions } from './progress.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export function renderedPageDocument(
@@ -33,6 +34,7 @@ export function renderedPageDocument(
       origins: options.origins,
       profile: options.preflight?.profile,
       preflightSeed: options.preflight?.seed,
+      ...renderProgressDocumentOptions(options.progress),
     })
   } catch (error) {
     if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)

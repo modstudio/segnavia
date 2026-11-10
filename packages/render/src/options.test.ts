@@ -1,7 +1,16 @@
 import { expect, test } from 'bun:test'
 import { Deck, limitRefusal } from '@segnavia/format'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
-import { copyLimits, enforceDeckLimits, innerLimits, parseComposedRenderOptions, parseRenderOptions, type RenderOptions } from './options.ts'
+import {
+  copyLimits,
+  enforceDeckLimits,
+  innerLimits,
+  pageCompositionCount,
+  parseComposedRenderOptions,
+  parseRenderOptions,
+  type RenderOptions,
+  refuseProgressUnlessOneComposition,
+} from './options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
   expect(
@@ -73,6 +82,31 @@ test('parsed options materialize one-shot origin approvals', () => {
   const parsed = parseRenderOptions({ origins: origins() } as RenderOptions)
   expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
   expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
+})
+
+test('progress is normalized to one report function at the option edge', () => {
+  const report = () => {}
+  expect(parseRenderOptions({ progress: { report } }).progress).toEqual({ report })
+  expect(parseRenderOptions({}).progress).toBeUndefined()
+  expect(() => parseRenderOptions({ progress: {} } as never)).toThrow('The progress option needs a report function')
+})
+
+test('progress is accepted only when a render runs one composition', () => {
+  const progress = { report: () => {} }
+  expect(() => refuseProgressUnlessOneComposition({ progress }, 1)).not.toThrow()
+  expect(() => refuseProgressUnlessOneComposition({ progress }, 2)).toThrow(
+    'The progress option is reported per single composition; this render runs 2 compositions. Omit progress and render one paginated book or printed page at a time',
+  )
+  expect(() => refuseProgressUnlessOneComposition({ progress }, 0)).toThrow(
+    'The progress option is reported by a paginated book or a printed page; this render runs no composer. Omit progress to clear this refusal.',
+  )
+})
+
+test('page composition count includes only printed pages and their output copies', () => {
+  const plain = { html: '', size: { width: 100, height: 100 } }
+  const printed = { ...plain, printedPages: { parents: [], parentRules: [] } }
+  expect(pageCompositionCount([plain, printed] as never)).toBe(1)
+  expect(pageCompositionCount([printed] as never, { fills: [{}, {}] })).toBe(2)
 })
 
 test('invalid preflight profiles refuse at the option edge', () => {

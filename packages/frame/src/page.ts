@@ -27,6 +27,7 @@ import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
+import { dispatchCurrentPageProgress } from './page-frame-progress.ts'
 import { scrollPageToHeading } from './page-heading.ts'
 import { printedPageComposeFailure, printedPageRequestRefusal } from './page-printed.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
@@ -346,7 +347,6 @@ export class SegnaviaPage extends PageAsOfElement {
     this.frameReady = false
     this.loadedDocument = undefined
   }
-
   private writeDocument(iframe: HTMLIFrameElement, srcdoc: string) {
     const written = ++this.documentWrites
     this.resetDocumentReadiness()
@@ -359,7 +359,6 @@ export class SegnaviaPage extends PageAsOfElement {
     )
     iframe.srcdoc = srcdoc
   }
-
   private fit() {
     const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
@@ -372,6 +371,7 @@ export class SegnaviaPage extends PageAsOfElement {
     const message = messageFrom(event, frame, resolvePreflightProfile(this.profileInput))
     const currentFrame = { frame, generation: this.loadGeneration }
     dispatchFontFailures(this, message)
+    if (dispatchCurrentPageProgress(this, message, currentFrame, this.composedFrame, this.slotFrame)) return
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
       this.frameReady = true
       releaseReadyPageRequests(this.pageRequests)

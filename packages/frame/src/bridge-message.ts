@@ -1,9 +1,16 @@
-import { boundPreflightReport, type FontFailure, type PreflightProfile, type PreflightReport } from '@segnavia/format'
+import {
+  boundComposeProgress,
+  boundPreflightReport,
+  type ComposeProgress,
+  type FontFailure,
+  type PreflightProfile,
+  type PreflightReport,
+} from '@segnavia/format'
 import { boundedFontReportMessage } from './font-load.ts'
 
 export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
 
-export interface FrameMessage {
+interface FrameMessageFields {
   type: string
   key?: string
   text?: string
@@ -13,6 +20,14 @@ export interface FrameMessage {
   slots?: Record<string, SlotFitState>
   failures?: FontFailure[]
   report?: PreflightReport
+}
+
+export type FrameMessage = FrameMessageFields & ({ pages?: never; total?: never } | ComposeProgress)
+
+export function dispatchComposeProgress(target: EventTarget, message: FrameMessage | null): boolean {
+  if (message?.pages === undefined || message.total === undefined) return false
+  target.dispatchEvent(new CustomEvent('composeprogress', { detail: { pages: message.pages, total: message.total }, bubbles: true, composed: true }))
+  return true
 }
 
 export function dispatchFontFailures(target: EventTarget, message: FrameMessage | null): void {
@@ -39,6 +54,7 @@ interface MessageTypes {
   key: string
   bookPlace: string
   composeFailure: string
+  composeProgress: string
   fontFailures: string
   preflight: string
   height: string
@@ -55,6 +71,20 @@ export function slotFitMessageData(data: unknown, slotFit = 'segnavia:slot-fit')
   const valid = new Set<unknown>(['fit', 'shrunk', 'overflowed'])
   if (entries.length > 200 || entries.some(([key, state]) => typeof key !== 'string' || !valid.has(state))) return null
   return { type: slotFit, slots: Object.fromEntries(entries) as Record<string, SlotFitState> }
+}
+
+function presentationMessage(data: Record<string, unknown>, types: MessageTypes): FrameMessage | null {
+  if (data.type === types.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: types.height, height: data.height }
+  if (data.type === types.ready) return { type: types.ready }
+  const fit = slotFitMessageData(data, types.slotFit)
+  if (fit) return fit
+  if (
+    data.type === types.animation &&
+    typeof data.animated === 'boolean' &&
+    (data.lengthMs === null || (typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) && data.lengthMs >= 0))
+  )
+    return { type: types.animation, animated: data.animated, lengthMs: data.lengthMs }
+  return null
 }
 
 export function messageFromFrames(
@@ -74,17 +104,11 @@ export function messageFromFrames(
   if (place) return place
   const preflight = preflightMessage(data as Record<string, unknown>, types.preflight, preflightProfile)
   if (preflight) return preflight
+  if (data.type === types.composeProgress) {
+    const progress = boundComposeProgress(data)
+    if (progress) return { type: types.composeProgress, ...progress }
+  }
   const bounded = boundedFontReportMessage(data, types, composeFailureLimit)
   if (bounded) return bounded
-  if (data.type === types.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: types.height, height: data.height }
-  if (data.type === types.ready) return { type: types.ready }
-  const fit = slotFitMessageData(data, types.slotFit)
-  if (fit) return fit
-  if (
-    data.type === types.animation &&
-    typeof data.animated === 'boolean' &&
-    (data.lengthMs === null || (typeof data.lengthMs === 'number' && Number.isFinite(data.lengthMs) && data.lengthMs >= 0))
-  )
-    return { type: types.animation, animated: data.animated, lengthMs: data.lengthMs }
-  return null
+  return presentationMessage(data as Record<string, unknown>, types)
 }

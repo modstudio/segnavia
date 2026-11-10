@@ -93,6 +93,18 @@ test('publishes preflight before refusing or marking composition complete', () =
   expect(composed).toBeGreaterThan(refusal)
 })
 
+test('keeps one progress high-water across the note-overlap repair composition', () => {
+  const script = composerScript('{}')
+  const highWater = script.indexOf('var progressHighWater;')
+  const compose = script.indexOf('var compose=async function')
+  const repair = script.indexOf('composed=await compose(prepared,input.geometry.noteSeries||[])', compose + 1)
+  expect(highWater).toBeGreaterThan(0)
+  expect(script.indexOf('var progressHighWater;', highWater + 1)).toBe(-1)
+  expect(compose).toBeGreaterThan(highWater)
+  expect(script.indexOf('dressPlanPages(plan,config.only,reportComposeProgress', compose)).toBeGreaterThan(compose)
+  expect(repair).toBeGreaterThan(compose)
+})
+
 function startTagElement(tag: string): Pick<Element, 'getAttribute'> {
   return {
     getAttribute(name: string) {
@@ -264,7 +276,7 @@ describe('block keeps', () => {
     const fontLoads = script.indexOf('var fontLoads=loaded.then', loaded)
     const fontsReady = script.indexOf('var fontsReady=fontLoads.then(function(){return document.fonts?document.fonts.ready:undefined;})', fontLoads)
     const wait = script.indexOf('Promise.all([loaded,', fontsReady)
-    const compose = script.indexOf('var composeWhenMeasurable=function()', wait)
+    const compose = script.indexOf('var composeWhenMeasurable=async function()', wait)
     expect(script).toContain('loadDeclaredFonts')
     expect(script).toContain("'data-segnavia-font-failures',64,256")
     expect(loaded).toBeGreaterThan(-1)
@@ -282,7 +294,7 @@ describe('block keeps', () => {
     const remeasure = script.indexOf('input=measureInput();var repaired=planConverged()', overlap)
     const remove = script.indexOf('composed.remove()', remeasure)
     const secondMeasure = script.indexOf('input=measureInput();plan=repaired;prepared=preparePlan(plan)', remove)
-    const compose = script.indexOf('composed=compose(prepared,input.geometry.noteSeries||[])', remove)
+    const compose = script.indexOf('composed=await compose(prepared,input.geometry.noteSeries||[])', remove)
     expect(convergence).toBeGreaterThan(-1)
     expect(preparation).toBeGreaterThan(convergence)
     expect(overlap).toBeGreaterThan(-1)

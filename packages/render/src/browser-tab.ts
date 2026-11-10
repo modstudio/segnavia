@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import {
+  type ComposeProgress,
   type FetchKind,
   type FontFailure,
   type LimitExceeded,
@@ -15,6 +16,7 @@ import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
+import { RENDER_PROGRESS_BINDING, reportRenderProgress } from './progress.ts'
 import { type RenderDeadline, withinBound } from './render-deadline.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, waitsForReadiness } from './render-readiness.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
@@ -33,6 +35,7 @@ export interface BrowserTabSetup {
   limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
+  progressReport?: (progress: ComposeProgress) => void
 }
 
 export type TabRunner = <T>(
@@ -183,6 +186,9 @@ export async function renderInBrowserTab<T>(
       diagramsReady = true
       resolveDiagrams?.()
     })
+  }
+  if (setup.progressReport) {
+    await tab.exposeFunction(RENDER_PROGRESS_BINDING, (progress: unknown) => reportRenderProgress(progress, setup.progressReport))
   }
   await tab.setContent(setup.html, { waitUntil: 'load' })
   const refuseMissing = () => {

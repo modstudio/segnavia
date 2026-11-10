@@ -43,6 +43,28 @@ describe('book layout lifecycle', () => {
     expect(seen).toEqual([report])
   })
 
+  test('compose progress dispatches only from the current paginated frame', () => {
+    const { book, frames } = reflectedBookElement()
+    book.view = switchableBookView()
+    const frame = frames[0]
+    if (!frame) throw new Error('the book frame was not mounted')
+    const seen: unknown[] = []
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'composeprogress') seen.push((event as CustomEvent).detail)
+      return true
+    }) as typeof book.dispatchEvent
+    const onMessage = (book as unknown as { onMessage(event: MessageEvent): void }).onMessage
+    const generation = String((book as unknown as { loadGeneration: number }).loadGeneration)
+    const progress = { source: frame.contentWindow, data: { type: MESSAGE.composeProgress, pages: 2, total: 5 } } as MessageEvent
+    frame.dataset.segnaviaBookGeneration = '-1'
+    onMessage(progress)
+    frame.dataset.segnaviaBookGeneration = generation
+    onMessage(progress)
+    frame.dataset.segnaviaBookLayout = 'flow'
+    onMessage(progress)
+    expect(seen).toEqual([{ pages: 2, total: 5 }])
+  })
+
   test('a reloaded frame keeps its intrinsic layout and detach clears readiness', () => {
     const { book, frames } = reflectedBookElement()
     const messages: unknown[] = []

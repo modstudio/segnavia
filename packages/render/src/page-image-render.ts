@@ -34,6 +34,7 @@ export async function renderPreparedPageImage(
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
+      progressReport: opts.progress?.report,
       ...assetSetup(opts),
       ...fontLoadSetup(prepared.fontFailures, opts.fontLoad?.report),
     },
