@@ -186,7 +186,11 @@ export {
 export * from './motif.ts'
 export * from './numbering.ts'
 export {
+  type AssetRefusal,
+  type AssetRefusalReason,
   approvedOrigins,
+  assetRefusalText,
+  authoredOrigin,
   DEFAULT_ORIGINS,
   FETCH_KINDS,
   type FetchKind,

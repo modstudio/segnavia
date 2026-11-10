@@ -1,5 +1,7 @@
 import { Buffer } from 'node:buffer'
 import {
+  type AssetRefusal,
+  assetRefusalText,
   type ComposeProgress,
   type FetchKind,
   type FontFailure,
@@ -61,6 +63,18 @@ export function mergedFontFailures(initial: readonly FontFailure[], attribute: s
   return [...initial, ...fontFailuresAttribute(attribute)]
 }
 
+function assetRefusalKey(refusal: AssetRefusal): string {
+  return JSON.stringify([refusal.url, refusal.kind, refusal.reason])
+}
+
+export function markupAssetRefusal(html: string, options: Pick<BrowserTabSetup, 'scripts' | 'origins'>): string | undefined {
+  // The refused-script frame's nonce CSP prevents author script fetches.
+  const refusals = assetOriginRefusals(html, { keepScripts: options.scripts, origins: options.origins }).filter((refusal) => refusal.reason !== 'scripts-off')
+  if (refusals.length === 0) return undefined
+  const unique = new Map(refusals.map((refusal) => [assetRefusalKey(refusal), refusal]))
+  return [...unique.values()].map(assetRefusalText).join('; ')
+}
+
 export async function assetRouteDecision(
   url: string,
   kind: FetchKind | undefined,
@@ -72,7 +86,7 @@ export async function assetRouteDecision(
   if (url.startsWith('data:') || url === 'about:blank') return { action: 'continue' }
   if (!kind) return { action: 'abort', reason: `${url} uses unsupported fetching; no asset kind can approve it` }
   const policy = originDecision(url, kind, origins, scripts)
-  if (!policy.allowed) return { action: 'abort', reason: policy.reason }
+  if (!policy.allowed) return { action: 'abort', reason: assetRefusalText(policy.refusal) }
   let answer: AssetAnswer | undefined
   try {
     answer = await lookup?.(url, { kind, signal })
@@ -120,8 +134,8 @@ export async function renderInBrowserTab<T>(
   state: { settled(): boolean; opened(context: BrowserContext): void; crashed(): void },
   body: (tab: Tab) => Promise<T>,
 ): Promise<T> {
-  const markupRefusals = assetOriginRefusals(setup.html, { keepScripts: setup.scripts, origins: setup.origins })
-  if (markupRefusals.length > 0) throw new RenderRefusedError([...new Set(markupRefusals)].join('; '))
+  const markupRefusal = markupAssetRefusal(setup.html, setup)
+  if (markupRefusal) throw new RenderRefusedError(markupRefusal)
   const context = await browser.newContext(browserContextOptions(setup))
   state.opened(context)
   if (state.settled()) {

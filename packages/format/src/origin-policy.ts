@@ -6,7 +6,31 @@ export interface OriginApproval {
   kinds: readonly FetchKind[]
 }
 
-export type OriginDecision = { allowed: true; origin: string } | { allowed: false; reason: string }
+export type AssetRefusalReason = 'not-absolute' | 'unapproved-origin' | 'unversioned-script' | 'scripts-off' | 'unreadable-srcset'
+
+export interface AssetRefusal {
+  url: string
+  origin?: string
+  kind: FetchKind
+  reason: AssetRefusalReason
+  message: string
+  advice: string
+}
+
+export function assetRefusalText(refusal: AssetRefusal): string {
+  return `${refusal.message}; ${refusal.advice}`
+}
+
+export function authoredOrigin(value: string | URL): string | undefined {
+  try {
+    const origin = (typeof value === 'string' ? new URL(value) : value).origin.toLowerCase()
+    return origin === 'null' ? undefined : origin
+  } catch {
+    return undefined
+  }
+}
+
+export type OriginDecision = { allowed: true; origin: string } | { allowed: false; refusal: AssetRefusal }
 
 const VERSIONED_SCRIPT_PATHS: Record<string, RegExp> = {
   'https://cdn.jsdelivr.net': /^\/npm\/(?:@[^/]+\/)?[^/@]+@(\d+\.\d+\.\d+)(?:\/|$)/,
@@ -31,7 +55,8 @@ function readOrigins(values: Iterable<string> | undefined, bare: boolean): Set<s
   for (const value of values ?? []) {
     try {
       const url = new URL(value)
-      if (url.protocol === 'https:' && (!bare || (url.pathname === '/' && !url.search && !url.hash))) result.add(url.origin.toLowerCase())
+      const origin = authoredOrigin(url)
+      if (origin && url.protocol === 'https:' && (!bare || (url.pathname === '/' && !url.search && !url.hash))) result.add(origin)
     } catch {}
   }
   return result
@@ -61,18 +86,46 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
   try {
     url = new URL(value)
   } catch {
-    return { allowed: false, reason: `${JSON.stringify(value)} is not an absolute https URL; an absolute URL at an approved origin clears this refusal` }
-  }
-  const origin = url.origin.toLowerCase()
-  if (url.protocol !== 'https:' || !approvedOrigins(approvals, kind, scripts).has(origin)) {
     return {
       allowed: false,
-      reason: `${url.href} at origin ${origin} is not approved for ${kind}; add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,
+      refusal: {
+        url: value,
+        kind,
+        reason: 'not-absolute',
+        message: `${JSON.stringify(value)} is not an absolute https URL`,
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+    }
+  }
+  const origin = authoredOrigin(url)
+  if (!origin || url.protocol !== 'https:' || !approvedOrigins(approvals, kind, scripts).has(origin)) {
+    return {
+      allowed: false,
+      refusal: {
+        url: value,
+        ...(origin === undefined ? {} : { origin }),
+        kind,
+        reason: 'unapproved-origin',
+        message: origin ? `${url.href} at origin ${origin} is not approved for ${kind}` : `${url.href} has no origin approved for ${kind}`,
+        advice: origin
+          ? `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`
+          : 'use an absolute https URL at an approved origin to clear this refusal',
+      },
     }
   }
   const shape = kind === 'script' ? VERSIONED_SCRIPT_PATHS[origin] : undefined
   if (shape && !shape.test(url.pathname)) {
-    return { allowed: false, reason: `${url.href} does not name an exact x.y.z package version; use an exact version to clear this refusal` }
+    return {
+      allowed: false,
+      refusal: {
+        url: value,
+        origin,
+        kind,
+        reason: 'unversioned-script',
+        message: `${url.href} does not name an exact x.y.z package version`,
+        advice: 'use an exact version to clear this refusal',
+      },
+    }
   }
   return { allowed: true, origin }
 }

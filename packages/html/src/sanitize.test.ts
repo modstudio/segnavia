@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { findActiveContent, safeImageSource, sanitize } from './sanitize.ts'
+import { assetOriginRefusals, findActiveContent, safeImageSource, sanitize } from './sanitize.ts'
 
 const fetches =
   '<svg><image href="https://outside.example/a.png"/><use xlink:href="https://outside.example/s.svg#x"/><filter><feImage href="https://outside.example/f.png"/></filter></svg>'
@@ -75,6 +75,15 @@ describe('srcset image origins', () => {
     expect(findActiveContent(html, options)).toEqual([
       'img[srcset] srcset could not establish a readable candidate list; use a valid srcset candidate list or a supported data-image srcset to clear this refusal',
     ])
+    expect(assetOriginRefusals(html, options)).toEqual([
+      {
+        url: 'https://outside.example/a.png 3q',
+        kind: 'image',
+        reason: 'unreadable-srcset',
+        message: 'srcset could not establish a readable candidate list',
+        advice: 'use a valid srcset candidate list or a supported data-image srcset to clear this refusal',
+      },
+    ])
   })
 
   test('removes an approved srcset candidate with two descriptors', () => {
@@ -85,4 +94,26 @@ describe('srcset image origins', () => {
   test('removes an empty srcset as before', () => {
     expect(sanitize('<img srcset="">', options)).toBe('<img>')
   })
+})
+
+test('CSS fragment references do not name asset fetches', () => {
+  const html = '<style>.a{fill:url(#grad);clip-path:url("#clip")}</style><svg><rect style="fill:url(#g2)"/></svg>'
+  expect(assetOriginRefusals(html)).toEqual([])
+})
+
+test('an author refusal-marker literal survives sanitizing unchanged', () => {
+  const html = '<style>.a::after{content:"segnavia-refused-asset-0"}</style>'
+  expect(sanitize(html)).toBe(html)
+})
+
+test('an opaque script source refusal has no origin', () => {
+  expect(assetOriginRefusals('<script src="data:text/javascript,alert(1)"></script>')).toEqual([
+    {
+      url: 'data:text/javascript,alert(1)',
+      kind: 'script',
+      reason: 'scripts-off',
+      message: 'data:text/javascript,alert(1) is refused because scripts are off',
+      advice: 'enable scripts to clear this refusal',
+    },
+  ])
 })

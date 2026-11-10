@@ -8,7 +8,92 @@ describe('sanitize', () => {
     const url = 'https://outside.example/image.png'
     const findings = assetOriginRefusals(`<img src="${url}"><p style="background-image:url(${url})">x</p><style>p{mask:url(${url})}</style>`)
     expect(findings).toHaveLength(3)
-    expect(findings.every((finding) => finding.includes(`${url} at origin https://outside.example is not approved for image`))).toBe(true)
+    expect(findings.every((finding) => finding.message === `${url} at origin https://outside.example is not approved for image`)).toBe(true)
+    expect(findings[0]).toEqual({
+      url,
+      origin: 'https://outside.example',
+      kind: 'image',
+      reason: 'unapproved-origin',
+      message: `${url} at origin https://outside.example is not approved for image`,
+      advice: 'add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+    })
+  })
+
+  test('asset preflight reports each CSS reference once and leaves sanitizing unchanged', () => {
+    const approved = 'https://images.example/kept.png'
+    const font = 'https://outside.example/font.woff2'
+    const imported = 'https://outside.example/theme.css'
+    const html = `<style>@import "${imported}";@font-face{font-family:x;src:url(${font})}p{background:url(${approved});color:red}</style>`
+    const options = { origins: [{ origin: 'https://images.example', kinds: ['image'] as const }] }
+    expect(assetOriginRefusals(html, options).map(({ url, kind }) => ({ url, kind }))).toEqual([
+      { url: imported, kind: 'style' },
+      { url: font, kind: 'font' },
+    ])
+    expect(sanitize(html, options)).toBe(`<style>p{background:url(${approved});color:red}</style>`)
+  })
+
+  test('asset preflight reports scripts-off and relative CSS values as written', () => {
+    const script = 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.js'
+    const findings = assetOriginRefusals(
+      `<script src="${script}"></script><style>@import "theme.css";a{background:url(images/a.png)}b{mask:url(//cdn.example/a.png)}</style>`,
+    )
+    expect(findings).toEqual([
+      {
+        url: script,
+        origin: 'https://cdn.jsdelivr.net',
+        kind: 'script',
+        reason: 'scripts-off',
+        message: `${script} is refused because scripts are off`,
+        advice: 'enable scripts to clear this refusal',
+      },
+      {
+        url: 'theme.css',
+        kind: 'style',
+        reason: 'not-absolute',
+        message: '"theme.css" is not an absolute https URL',
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+      {
+        url: 'images/a.png',
+        kind: 'image',
+        reason: 'not-absolute',
+        message: '"images/a.png" is not an absolute https URL',
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+      {
+        url: '//cdn.example/a.png',
+        kind: 'image',
+        reason: 'not-absolute',
+        message: '"//cdn.example/a.png" is not an absolute https URL',
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+    ])
+  })
+
+  test('asset preflight reads real CSS fetches once in document order', () => {
+    const html = `<style>
+      /* url(comment.png) @import "comment theme.css"; */
+      a::before{content:"url(string.png)"}
+      a{background:url(images/a.png)}
+      @font-face{src:url("fonts/my font.woff2")}
+      @import "my theme.css";
+      @import url(themes/print.css);
+      b{background:url(blob:https://outside.example/a.png)}
+    </style>`
+    expect(assetOriginRefusals(html).map(({ url, kind }) => ({ url, kind }))).toEqual([
+      { url: 'images/a.png', kind: 'image' },
+      { url: 'fonts/my font.woff2', kind: 'font' },
+      { url: 'my theme.css', kind: 'style' },
+      { url: 'themes/print.css', kind: 'style' },
+      { url: 'blob:https://outside.example/a.png', kind: 'image' },
+    ])
+  })
+
+  test('asset preflight scans an unterminated url run in linear time', () => {
+    const html = `<style>${'url('.repeat(50_000)}</style>`
+    const started = performance.now()
+    expect(assetOriginRefusals(html)).toEqual([])
+    expect(performance.now() - started).toBeLessThan(1_000)
   })
 
   test('the markdown URL rule optionally restricts link origins', () => {

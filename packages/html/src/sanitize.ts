@@ -2,13 +2,14 @@
 // in a document that a viewer renders and a renderer prints. One rule for
 // both, so a preview never shows what the printed copy refuses.
 
-import { type FetchKind, type OriginApproval, originDecision, originSet } from '@segnavia/format'
+import { type AssetRefusal, assetRefusalText, type FetchKind, type OriginApproval, originDecision, originSet } from '@segnavia/format'
 import render from 'dom-serializer'
 import { type ChildNode, type Document, type Element, isTag } from 'domhandler'
 import { parseDocument } from 'htmlparser2'
+import { assetCss } from './asset-css.ts'
+import { scriptsOffRefusal, srcsetAssetRefusal } from './asset-refusal.ts'
 import { defaultLinkPolicy, LINK_ELEMENTS, type LinkPolicy, linkAllowed, type ResolvedLinkPolicy, resolveLinkPolicy, urlParserText } from './link-policy.ts'
 import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
-import { sanitizeCss } from './sanitize-css.ts'
 
 // Elements that reach outside the document, embed another one, or submit.
 const REFUSED = {
@@ -39,8 +40,6 @@ const DATA_IMAGE_SRCSET = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:;[^,]*)?
 const SRCSET_WIDTH = /^[1-9]\d*w$/
 const SRCSET_DENSITY = /^(?:\d+(?:\.\d*)?|\.\d+)x$/
 const SRCSET_CANDIDATE = /\s*((?:data:[^,\s]*,[^,\s]*)|[^,\s]+)(?:\s+([^\s,]+))?\s*(?:,|$)/iy
-const ASSET_MARKER = 'data:image/segnavia-asset-'
-const ASSET_MARKER_PATTERN = new RegExp(`${ASSET_MARKER}(\\d+),x`, 'g')
 
 export interface SanitizeOptions {
   // Protocols, origins and fragments a link may use. Overrides linkOrigins.
@@ -131,20 +130,6 @@ function srcsetCandidates(value: string): string[] | undefined {
   return candidates.length > 0 ? candidates : undefined
 }
 
-function srcsetAssetRefusal(value: string, options: SanitizeOptions): string {
-  const candidates = srcsetCandidates(value)
-  if (!candidates) {
-    if (DATA_IMAGE_SRCSET.test(normalizeUrl(value))) return ''
-    return 'srcset could not establish a readable candidate list; use a valid srcset candidate list or a supported data-image srcset to clear this refusal'
-  }
-  for (const candidate of candidates) {
-    if (safeImageSource(candidate)) continue
-    const decision = originDecision(candidate, 'image', options.origins, options.keepScripts === true)
-    if (!decision.allowed) return decision.reason
-  }
-  return ''
-}
-
 export function hrefAllowed(tag: string, value: string, links: ResolvedLinkPolicy | undefined): boolean {
   if (LINK_ELEMENTS.has(tag)) return links !== undefined && linkAllowed(value, links)
   const normalized = normalizeUrl(value)
@@ -197,24 +182,27 @@ function refusedElement(element: Element, refused: ReadonlySet<string>, options:
   return name === 'meta' && Object.keys(element.attribs).some((attribute) => attribute.toLowerCase() === 'http-equiv')
 }
 
-function assetAttribute(element: Element, attribute: string, value: string, options: SanitizeOptions): string | undefined {
+function assetAttribute(element: Element, attribute: string, value: string, options: SanitizeOptions): AssetRefusal | '' | undefined {
   const tag = element.name.toLowerCase()
   let kind: FetchKind | undefined
-  if (options.keepScripts && tag === 'script' && attribute === 'src') kind = 'script'
-  else if (tag === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && attribute === 'href') kind = 'style'
+  if (tag === 'script' && attribute === 'src') {
+    if (!options.keepScripts) return scriptsOffRefusal(value)
+    kind = 'script'
+  } else if (tag === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet' && attribute === 'href') kind = 'style'
   else if (tag === 'img' && attribute === 'src') kind = 'image'
-  else if ((tag === 'img' || (tag === 'source' && insidePicture(element))) && attribute === 'srcset') return srcsetAssetRefusal(value, options)
+  else if ((tag === 'img' || (tag === 'source' && insidePicture(element))) && attribute === 'srcset')
+    return srcsetAssetRefusal(value, srcsetCandidates(value), DATA_IMAGE_SRCSET.test(normalizeUrl(value)), options, safeImageSource)
   if (!kind) return undefined
   if (kind === 'image' && safeImageSource(value)) return ''
   const decision = originDecision(value, kind, options.origins, options.keepScripts === true)
-  return decision.allowed ? '' : decision.reason
+  return decision.allowed ? '' : decision.refusal
 }
 
 function refusedAttribute(element: Element, name: string, value: string, links: ResolvedLinkPolicy, options: SanitizeOptions): string | undefined {
   const attribute = name.toLowerCase()
   if (attribute.startsWith('on')) return options.keepScripts ? undefined : ''
   const asset = assetAttribute(element, attribute, value, options)
-  if (asset !== undefined) return asset || undefined
+  if (asset !== undefined) return asset ? assetRefusalText(asset) : undefined
   return REFUSED_ATTRIBUTES.has(attribute) ||
     (URL_ATTRIBUTES.has(attribute) && !safeUrl(element.name.toLowerCase(), attribute, value, links, options.converterPolicy?.urls))
     ? ''
@@ -234,45 +222,15 @@ function styleText(element: Element): string {
   return element.children.map((child) => ('data' in child ? child.data : '')).join('')
 }
 
-function assetCss(source: string, declarations: boolean, options: SanitizeOptions): ReturnType<typeof sanitizeCss> & { refusals: string[] } {
-  const restores: string[] = []
-  const refusals: string[] = []
-  const hold = (url: string, kind: FetchKind) => {
-    const decision = originDecision(url, kind, options.origins, options.keepScripts === true)
-    if (!decision.allowed) {
-      refusals.push(decision.reason)
-      return url
-    }
-    const index = restores.push(url) - 1
-    return `${ASSET_MARKER}${index},x`
-  }
-  let marker = 'segnavia-held-import'
-  while (source.includes(marker)) marker += '-x'
-  const imports: string[] = []
-  let protectedCss = source.replace(/@import\s+(?:url\(\s*)?["']?(https:\/\/[^\s"')]+)["']?\s*\)?[^;]*;/gi, (rule, url: string) => {
-    const held = hold(url, 'style')
-    if (held === url) return rule
-    const index = imports.push(rule) - 1
-    return `.${marker}-${index}{}`
-  })
-  protectedCss = protectedCss.replace(/@font-face\s*\{[^}]*\}/gi, (block) => block.replace(/https:\/\/[^\s"')]+/gi, (url) => hold(url, 'font')))
-  protectedCss = protectedCss.replace(/https:\/\/[^\s"')]+/gi, (url) => hold(url, 'image'))
-  const result = sanitizeCss(protectedCss, declarations, options.dataFonts ?? false)
-  const restore = (value: string) => value.replace(ASSET_MARKER_PATTERN, (_, index: string) => restores[Number(index)] ?? '')
-  let css = restore(result.css)
-  for (const [index, rule] of imports.entries()) css = css.replace(`.${marker}-${index}{}`, rule)
-  return { css, removed: result.removed.map(restore), refusals }
-}
-
 /** Asset-policy refusals still visible in authored markup before frame CSP enforcement. */
-export function assetOriginRefusals(html: string, options: SanitizeOptions = {}): string[] {
+export function assetOriginRefusals(html: string, options: SanitizeOptions = {}): AssetRefusal[] {
   options = materializeOrigins(options)
-  const found: string[] = []
+  const found: AssetRefusal[] = []
   for (const element of elements(parse(html).children)) {
     if (element.name.toLowerCase() === 'style') found.push(...assetCss(styleText(element), false, options).refusals)
     for (const [name, value] of Object.entries(element.attribs)) {
-      const reason = assetAttribute(element, name.toLowerCase(), value, options)
-      if (reason) found.push(reason)
+      const refusal = assetAttribute(element, name.toLowerCase(), value, options)
+      if (refusal) found.push(refusal)
       if (name.toLowerCase() === 'style') found.push(...assetCss(value, true, options).refusals)
     }
   }

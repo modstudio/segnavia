@@ -1,6 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import type { Browser, Route } from 'playwright-core'
-import { assetLimitRefusal, assetRouteDecision, browserContextOptions, fetchKind, mergedFontFailures, renderInBrowserTab } from './browser-tab.ts'
+import {
+  assetLimitRefusal,
+  assetRouteDecision,
+  browserContextOptions,
+  fetchKind,
+  markupAssetRefusal,
+  mergedFontFailures,
+  renderInBrowserTab,
+} from './browser-tab.ts'
 import { RenderLimitError } from './errors.ts'
 import { RENDER_PROGRESS_BINDING } from './progress.ts'
 
@@ -66,6 +74,13 @@ test('browser contexts are offline and block service workers', () => {
     offline: true,
     serviceWorkers: 'block',
   })
+})
+
+test('markup preflight ignores scripts-off sources and refuses unapproved images', () => {
+  expect(markupAssetRefusal('<script src="https://cdn.jsdelivr.net/npm/x@1.2.3/x.js"></script>', { scripts: false })).toBeUndefined()
+  expect(markupAssetRefusal('<img src="https://outside.example/a.png">', { scripts: false })).toBe(
+    'https://outside.example/a.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+  )
 })
 
 test('the browser tab exposes and re-bounds the progress reporter only when supplied', async () => {
