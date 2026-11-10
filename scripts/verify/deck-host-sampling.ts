@@ -1,4 +1,3 @@
-import { inflateSync } from 'node:zlib'
 import { BOUNDED_WAIT_MS, type Harness } from './harness.ts'
 import { decodePng } from './png-pixels.ts'
 
@@ -45,26 +44,6 @@ export async function captureLoadingBleed(h: Harness, dir: 'ltr' | 'rtl'): Promi
     if (differs) differingPixels++
   }
   return { dir, maxDifference, differingPixels, pixels: reference.width * reference.height }
-}
-
-export async function captureSandboxedTurns(h: Harness, durations: number[], pixels: Array<[number, number, number]>) {
-  for (const [index, id] of [
-    [1, 'sandboxed-2'],
-    [2, 'sandboxed-3'],
-  ] as const) {
-    const started = performance.now()
-    await h.page.evaluate((target) => {
-      const host = (window as unknown as { __deckHost: { controller: { go(index: number): Promise<void> } } }).__deckHost
-      void host.controller.go(target)
-    }, index)
-    let active = ''
-    while (active !== id) {
-      pixels.push(await stageCenterPixel(h))
-      active = (await h.page.locator(`${STAGE} [data-active]`).getAttribute('data-slide-id')) ?? ''
-    }
-    durations.push(performance.now() - started)
-    pixels.push(await stageCenterPixel(h), await stageCenterPixel(h))
-  }
 }
 
 interface SampledTurns {
@@ -153,23 +132,4 @@ export async function sampleSandboxedTurns(h: Harness): Promise<SampledTurns> {
       timedOut: !completed,
     }
   }, BOUNDED_WAIT_MS)
-}
-
-async function stageCenterPixel(h: Harness): Promise<[number, number, number]> {
-  const box = await h.page.locator(STAGE).boundingBox()
-  if (!box) throw new Error('The deck stage has no box.')
-  return screenshotPixel(await h.page.screenshot({ clip: { x: box.x + box.width / 2, y: box.y + box.height / 2, width: 1, height: 1 } }))
-}
-
-function screenshotPixel(png: Uint8Array): [number, number, number] {
-  let offset = 8
-  const compressed: Uint8Array[] = []
-  while (offset < png.length) {
-    const length = new DataView(png.buffer, png.byteOffset + offset, 4).getUint32(0)
-    const type = new TextDecoder().decode(png.subarray(offset + 4, offset + 8))
-    if (type === 'IDAT') compressed.push(png.subarray(offset + 8, offset + 8 + length))
-    offset += length + 12
-  }
-  const row = inflateSync(Buffer.concat(compressed))
-  return [row[1] ?? 0, row[2] ?? 0, row[3] ?? 0]
 }
