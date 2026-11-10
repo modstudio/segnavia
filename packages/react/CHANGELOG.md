@@ -1,5 +1,16 @@
 # @segnavia/react
 
+## 0.54.0
+
+### Patch Changes
+
+- Updated dependencies [24c5777]
+- Updated dependencies [c2e0bbb]
+- Updated dependencies [a98274d]
+- Updated dependencies [9fb55dd]
+- Updated dependencies [dd8cf59]
+  - @segnavia/frame@0.54.0
+
 ## 0.53.0
 
 ### Minor Changes
