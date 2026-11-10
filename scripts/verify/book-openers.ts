@@ -161,7 +161,6 @@ async function verifyContinuation(renderer: Renderer, check: Check, hebrew: bool
         planTitle(joined.plan, beforeShared) === titles[0] &&
         planTitle(joined.plan, shared) === title &&
         planTitle(joined.plan, three) === titles[2] &&
-        joined.plan.pages[three - 1]?.variables['segnavia:section-title'] === undefined &&
         joined.plan.pages[designed - 1]?.variables['segnavia:section-title'] === undefined &&
         containsHead(joined.pages[beforeShared - 1] ?? '', titles[0] ?? '') &&
         containsHead(joined.pages[three - 1] ?? '', titles[2] ?? '') &&

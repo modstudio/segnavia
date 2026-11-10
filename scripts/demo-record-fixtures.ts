@@ -62,15 +62,20 @@ export const hebrewRecordsDocument: DocumentInput = {
     { type: 'variable', name: 'record-index', kind: 'record', value: 'index', system: 'arabic' },
     { type: 'variable', name: 'record-count', kind: 'record', value: 'count', system: 'arabic' },
     { type: 'variable', name: 'record-pages', kind: 'pages', of: 'record' },
+    { type: 'variable', name: 'document-page', kind: 'folio', of: 'document' },
+    { type: 'variable', name: 'document-pages', kind: 'pages', of: 'document' },
   ],
-  headTemplates,
+  headTemplates: [
+    ...headTemplates,
+    ...['document-page', 'document-pages'].map((name) => ({ type: 'headTemplate' as const, name, parts: [{ variable: name }] })),
+  ],
   parentPages: [
     {
       type: 'parentPage',
       name: 'body',
       geometry: { margin },
       head: `<header>רשומה ${placed('record-index')} מתוך ${placed('record-count')}</header>`,
-      foot: `<footer>עמוד ${placed('segnavia:folio')} מתוך ${placed('record-pages')}; מסמך ${placed('record-index')} מתוך ${placed('record-count')}</footer>`,
+      foot: `<footer>עמוד ${placed('segnavia:folio')} מתוך ${placed('record-pages')}; מסמך ${placed('document-page')} מתוך ${placed('document-pages')}</footer>`,
     },
   ],
   parentRules: [{ parent: 'body' }],
