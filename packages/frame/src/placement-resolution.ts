@@ -107,12 +107,14 @@ async function resolveParentPlacements(
   return Promise.all(
     (page.printedPages?.parents ?? []).map(async (parent) => ({
       ...parent,
-      ...(parent.head === undefined
-        ? {}
-        : { head: await resolvePagePlacementHtml(page, parent.head, placements, purpose, signal, pageWidths, day, preflight) }),
-      ...(parent.foot === undefined
-        ? {}
-        : { foot: await resolvePagePlacementHtml(page, parent.foot, placements, purpose, signal, pageWidths, day, preflight) }),
+      regions: Object.fromEntries(
+        await Promise.all(
+          Object.entries(parent.regions).map(async ([name, region]) => [
+            name,
+            { ...region, html: await resolvePagePlacementHtml(page, region.html, placements, purpose, signal, pageWidths, day, preflight) },
+          ]),
+        ),
+      ),
     })),
   )
 }

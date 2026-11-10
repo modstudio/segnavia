@@ -313,9 +313,16 @@ describe('Document', () => {
     ).toThrow('page field regions is not allowed in a printed document')
   })
 
-  test('refuses declared fields that lowering does not yet support', () => {
-    const values = [{ type: 'document', kind: 'book', children: [], parentPages: [{ type: 'parentPage', name: 'body', regions: { side: '<aside></aside>' } }] }]
-    for (const value of values) expect(() => Document.parse(value)).toThrow('is not yet supported; remove it to clear this refusal')
+  test('accepts parent-page regions', () => {
+    const value = {
+      type: 'document',
+      kind: 'book',
+      title: 'Regions',
+      mode: 'continuous',
+      children: [],
+      parentPages: [{ type: 'parentPage', name: 'body', regions: { side: { edge: 'inlineEnd', html: '<aside></aside>' } } }],
+    }
+    expect(Document.parse(value).parentPages[0]?.regions.side).toEqual({ edge: 'inlineEnd', html: '<aside></aside>' })
   })
 
   test('accepts a declared book section page geometry and refuses unknown or continuous use', () => {

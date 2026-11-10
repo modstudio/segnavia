@@ -22,8 +22,10 @@ const page = Page.parse({
       {
         name: 'body',
         margin: { blockStart: 20, blockEnd: 20, inlineStart: 15, inlineEnd: 10 },
-        head: '<i>Inherited</i>',
-        foot: '<b data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></b>',
+        regions: {
+          head: { edge: 'blockStart', html: '<i>Inherited</i>' },
+          foot: { edge: 'blockEnd', html: '<b data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></b>' },
+        },
       },
       { name: 'first', basedOn: 'body', margin: { blockStart: 30, blockEnd: 20, inlineStart: 15, inlineEnd: 10 } },
     ],
@@ -325,7 +327,13 @@ describe('printedPageDocument', () => {
       ...page,
       printedPages: {
         ...page.printedPages,
-        parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', foot: '<footer data-motif="folio"></footer>' }],
+        parents: [
+          {
+            ...(page.printedPages?.parents[0] as object),
+            name: 'body',
+            regions: { foot: { edge: 'blockEnd', html: '<footer data-motif="folio"></footer>' } },
+          },
+        ],
         parentRules: [{ parent: 'body' }],
       },
     })
@@ -350,7 +358,13 @@ describe('printedPageDocument', () => {
       lang: undefined,
       printedPages: {
         ...page.printedPages,
-        parents: [{ ...(page.printedPages?.parents[0] as object), name: 'body', head: '<header data-motif="bilingual"></header>' }],
+        parents: [
+          {
+            ...(page.printedPages?.parents[0] as object),
+            name: 'body',
+            regions: { head: { edge: 'blockStart', html: '<header data-motif="bilingual"></header>' } },
+          },
+        ],
         parentRules: [{ parent: 'body' }],
       },
     })
@@ -368,6 +382,6 @@ describe('printedPageDocument', () => {
       }),
     }
     const expanded = await expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)
-    expect(expanded.page.printedPages?.parents[0]?.head).toContain('<span>עברית</span>')
+    expect(expanded.page.printedPages?.parents[0]?.regions.head?.html).toContain('<span>עברית</span>')
   })
 })

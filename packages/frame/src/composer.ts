@@ -53,22 +53,19 @@ import {
   tableRowLines,
 } from './composer-measure.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
+import { placeParentRegions } from './composer-regions.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
 import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
 import { applyPrintedParentRules } from './printed-parent-selection.ts'
-import { placeParentRegions } from './composer-regions.ts'
-
 export const COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const COMPOSED_MS_ATTRIBUTE = 'data-segnavia-composed-ms'
 export const COMPOSE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
 export const GALLEY_PRINT_CSS = '@media print{:where([data-segnavia-galley-source]){display:none!important}}'
-// A valid book normally establishes its line boxes in one layout frame. One second admits
-// throttled or deferred browser layout while still reporting a bounded measurement failure.
+// A valid book normally establishes its line boxes in one layout frame. One second admits throttled or deferred browser layout while still reporting a bounded measurement failure.
 export const BOOK_MEASUREMENT_WAIT_MS = 1_000
 export const WINDOW_EDGE_INSET_PX = 0.25
 export { fillRegion, resolveRegionHeads } from './composer-dress.ts'
-
 export interface ScreenPresentation {
   spread: boolean
   reportPlace?: boolean

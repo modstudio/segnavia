@@ -50,7 +50,7 @@ function inlineVariablesWithoutFallback(style: string): string[] {
 }
 
 export function markFurnitureInvalidVariables(root: Element, entries: PreflightEntry[], computed: typeof getComputedStyle): void {
-  const elements = root.querySelectorAll('[data-segnavia-head] [style],[data-segnavia-foot] [style]')
+  const elements = root.querySelectorAll('[data-segnavia-region] [style]')
   for (const element of elements) {
     for (const subject of inlineVariablesWithoutFallback(element.getAttribute('style') ?? '')) {
       if (computed(element).getPropertyValue(subject).trim() !== '') continue

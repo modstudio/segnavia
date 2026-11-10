@@ -2,8 +2,8 @@ import {
   DESIGNED_PARENT_RULES,
   defaultParentRules,
   FLOWING_PARENT_RULES,
-  type ParentRules,
   type LogicalMargin,
+  type ParentRules,
   physicalMargins,
   type RegionEdge,
   TEMPLATED_PARENT_RULES,
@@ -28,12 +28,7 @@ export interface RegionBox {
   height: number
 }
 
-export function regionBox(
-  edge: RegionEdge,
-  margin: LogicalMargin,
-  textArea: TextArea,
-  side: { direction: TextDirection; face: 'recto' | 'verso' },
-): RegionBox {
+export function regionBox(edge: RegionEdge, margin: LogicalMargin, textArea: TextArea, side: { direction: TextDirection; face: 'recto' | 'verso' }): RegionBox {
   const physical = physicalMargins(margin, side.direction, side.face)
   if (edge === 'blockStart') return { top: 0, left: physical.left, width: textArea.width, height: physical.top }
   if (edge === 'blockEnd') return { top: physical.top + textArea.height, left: physical.left, width: textArea.width, height: physical.bottom }

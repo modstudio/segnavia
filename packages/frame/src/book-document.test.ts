@@ -198,11 +198,11 @@ describe('bookDocument', () => {
     )
     expect(embedded.preflightRefusal(report)).toBe('shorten it')
     const parent = bookParentPages({ blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 })[0]
-    expect(embedded.fillRegion(parent?.head ?? '', { heads: { 'segnavia:running-head': '<bdi>Chapter</bdi>' } })).toBe(
+    expect(embedded.fillRegion(parent?.regions.head?.html ?? '', { heads: { 'segnavia:running-head': '<bdi>Chapter</bdi>' } })).toBe(
       '<div class="segnavia-running-head"><bdi>Chapter</bdi></div>',
     )
     const root = { innerHTML: '', querySelectorAll: () => [] }
-    embedded.fillFurniture(root, parent?.head ?? '', { 'segnavia:running-head': '<bdi>Chapter</bdi>' }, {})
+    embedded.fillFurniture(root, parent?.regions.head?.html ?? '', { 'segnavia:running-head': '<bdi>Chapter</bdi>' }, {})
     expect(root.innerHTML).toBe('<div class="segnavia-running-head"><bdi>Chapter</bdi></div>')
     const template = { name: 'head', parts: [{ variable: 'parasha' }, { variable: 'siman' }], separator: ' · ', dropEmpty: true, collapseEqual: false }
     expect(embedded.resolveRegionHeads([template], { parasha: 'בראשית', siman: 'Mark B' }, {}, 'rtl', 'he')).toEqual({

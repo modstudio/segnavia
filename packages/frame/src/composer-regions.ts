@@ -1,5 +1,5 @@
 import type { HeadTemplate, ResolvedParentPage, TextDirection } from '@segnavia/format'
-import { regionBox } from '@segnavia/layout'
+import type { regionBox } from '@segnavia/layout'
 
 interface RegionPage {
   face: 'recto' | 'verso'

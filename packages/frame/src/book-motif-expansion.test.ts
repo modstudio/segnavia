@@ -77,7 +77,11 @@ test('matches page missing-source behavior for body and parent-page placements',
   expect(framePageMotifRefusal(resolvePageHtml(bodyPage))).toBeUndefined()
   expect((await expandFrameBook(bodyBook, undefined, signal)).book.body[0]).toMatchObject({ html: expect.stringContaining('<p data-motif="held"') })
 
-  const parent = { name: 'held', head: '<header data-motif="running"></header>', margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } }
+  const parent = {
+    name: 'held',
+    regions: { head: { edge: 'blockStart' as const, html: '<header data-motif="running"></header>' } },
+    margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 },
+  }
   const parentBook = parseBookFixture({ title: 'Parent', mode: 'continuous', parentPages: [parent], chapters: [{ title: 'One', html: '<p></p>' }] })
   const parentPage = Page.parse({ html: '<p></p>', print: { paper: 'a4' }, printedPages: { parents: [parent], parentRules: [{ parent: 'held' }] } })
   expect(bookMotifRefusal(parentBook)?.message).toBe(framePageMotifRefusal(resolvePageHtml(parentPage))?.message)
@@ -93,19 +97,29 @@ test('preserves library furniture motifs while expanding host motifs around them
     parentPages: [
       {
         name: 'held',
-        head: '<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span><span data-motif="ornament"></span>',
+        regions: {
+          head: {
+            edge: 'blockStart',
+            html: '<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span><span data-motif="ornament"></span>',
+          },
+        },
         margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 },
       },
     ],
     chapters: [{ title: 'One', html: '<p></p>' }],
   })
   const expanded = await expandFrameBook(book, { source }, signal)
-  expect(expanded.book.parentPages[0]?.head).toContain('data-motif="segnavia:head-template"')
-  expect(expanded.book.parentPages[0]?.head).toContain('class="expanded-ornament"')
+  expect(expanded.book.parentPages[0]?.regions.head?.html).toContain('data-motif="segnavia:head-template"')
+  expect(expanded.book.parentPages[0]?.regions.head?.html).toContain('class="expanded-ornament"')
 
   const libraryOnly = parseBookFixture({
     ...book,
-    parentPages: [{ ...book.parentPages[0], head: '<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span>' }],
+    parentPages: [
+      {
+        ...book.parentPages[0],
+        regions: { head: { edge: 'blockStart', html: '<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span>' } },
+      },
+    ],
   })
   expect(bookMotifRefusal(libraryOnly)).toBeUndefined()
 })
@@ -117,7 +131,7 @@ test('refuses non-head-template library motifs in parent furniture', () => {
     parentPages: [
       {
         name: 'held',
-        head: '<div data-motif="segnavia:folio"></div>',
+        regions: { head: { edge: 'blockStart', html: '<div data-motif="segnavia:folio"></div>' } },
         margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 },
       },
     ],

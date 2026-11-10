@@ -68,29 +68,37 @@ function fixture(hebrew: boolean): DocumentInput {
         type: 'parentPage',
         name: parents.opener,
         basedOn: 'segnavia:opener',
-        head: '',
-        foot: '<div>FOLIO <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></div>',
+        regions: {
+          head: { edge: 'blockStart', html: '' },
+          foot: { edge: 'blockEnd', html: '<div>FOLIO <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></div>' },
+        },
       },
       {
         type: 'parentPage',
         name: parents.recto,
         basedOn: 'segnavia:recto',
-        head: '<div>HEAD <span data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></span></div>',
-        foot: '<div>FOLIO <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></div>',
+        regions: {
+          head: { edge: 'blockStart', html: '<div>HEAD <span data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></span></div>' },
+          foot: { edge: 'blockEnd', html: '<div>FOLIO <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></div>' },
+        },
       },
       {
         type: 'parentPage',
         name: parents.verso,
         basedOn: 'segnavia:verso',
-        head: '<div>HEAD <span data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></span></div>',
-        foot: '<div>FOLIO <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></div>',
+        regions: {
+          head: { edge: 'blockStart', html: '<div>HEAD <span data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></span></div>' },
+          foot: { edge: 'blockEnd', html: '<div>FOLIO <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></div>' },
+        },
       },
       {
         type: 'parentPage',
         name: parents.fixed,
         basedOn: 'segnavia:blank',
-        head: '<div>HEAD <span data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></span></div>',
-        foot: '<div>FOLIO <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></div>',
+        regions: {
+          head: { edge: 'blockStart', html: '<div>HEAD <span data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></span></div>' },
+          foot: { edge: 'blockEnd', html: '<div>FOLIO <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></div>' },
+        },
       },
     ],
     children: [

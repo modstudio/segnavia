@@ -223,7 +223,7 @@ describe('book', () => {
       input({
         mode: 'paginated',
         page,
-        parentPages: [{ name: 'ornament', basedOn: 'segnavia:blank', foot: '<div>❧</div>' }],
+        parentPages: [{ name: 'ornament', basedOn: 'segnavia:blank', regions: { foot: { edge: 'blockEnd', html: '<div>❧</div>' } } }],
         chapters: [designed, chapter],
       }),
     )
@@ -275,7 +275,7 @@ describe('book', () => {
         input({
           mode: 'paginated',
           page,
-          parentPages: [{ name: 'ornament', basedOn: 'segnavia:blank', foot: '<div>❧</div>' }],
+          parentPages: [{ name: 'ornament', basedOn: 'segnavia:blank', regions: { foot: { edge: 'blockEnd', html: '<div>❧</div>' } } }],
         }),
       ),
     )

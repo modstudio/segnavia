@@ -1,0 +1,107 @@
+import { execFileSync } from 'node:child_process'
+import { writeFileSync } from 'node:fs'
+import path from 'node:path'
+import type { DocumentInput } from '@segnavia/format'
+import type { Renderer } from '@segnavia/render'
+
+type Check = (what: string, ok: boolean, detail?: string) => void
+
+const margin = { blockStart: 18, blockEnd: 18, inlineStart: 20, inlineEnd: 16 }
+const names = { first: 'fixture-first', left: 'fixture-left', right: 'fixture-right', blank: 'fixture-blank' }
+
+function regions(marker: string, head = false) {
+  return {
+    ...(head ? { head: { edge: 'blockStart' as const, html: `<div>HOST_HEAD ${marker}</div>` } } : {}),
+    side: { edge: 'inlineEnd' as const, html: `<div dir="ltr">OUTER_${marker}</div>` },
+  }
+}
+
+export function parentRegionBookFixture(hebrew: boolean): DocumentInput {
+  const rules = [
+    { when: { blank: true as const }, parent: names.blank },
+    { when: { position: 'documentFirst' as const }, parent: names.first },
+    { when: { face: 'verso' as const }, parent: names.left },
+    { parent: names.right },
+  ]
+  return {
+    type: 'document',
+    kind: 'book',
+    title: hebrew ? 'אזורי עמוד אב' : 'Parent regions',
+    mode: 'paginated',
+    settings: { lang: hebrew ? 'he' : 'en', dir: hebrew ? 'rtl' : 'ltr' },
+    page: { paper: 'a5', margin },
+    rectoOpenings: true,
+    parentPages: [
+      { type: 'parentPage', name: names.first, basedOn: 'segnavia:recto', regions: regions('FIRST', true) },
+      { type: 'parentPage', name: names.left, basedOn: 'segnavia:verso', regions: regions('LEFT') },
+      { type: 'parentPage', name: names.right, basedOn: 'segnavia:recto', regions: regions('RIGHT') },
+      { type: 'parentPage', name: names.blank, basedOn: 'segnavia:blank', regions: regions('BLANK') },
+    ],
+    parentRules: rules,
+    children: [
+      {
+        type: 'section',
+        title: hebrew ? 'ראשון' : 'First',
+        parentRules: rules,
+        children: [{ type: 'flow', html: `<p>${'page words '.repeat(900)}</p>` }],
+      },
+      {
+        type: 'section',
+        title: hebrew ? 'שני' : 'Second',
+        parentRules: rules,
+        children: [{ type: 'flow', html: '<p>final page</p>' }],
+      },
+    ],
+  }
+}
+
+export const parentRegionPrintedFixture: DocumentInput = {
+  type: 'document',
+  kind: 'printed',
+  settings: { lang: 'en' },
+  print: { paper: 'a5' },
+  parentPages: [
+    { type: 'parentPage', name: names.first, geometry: { margin }, regions: regions('FIRST', true) },
+    { type: 'parentPage', name: names.left, geometry: { margin }, regions: regions('LEFT') },
+    { type: 'parentPage', name: names.right, geometry: { margin }, regions: regions('RIGHT') },
+  ],
+  parentRules: [
+    { when: { position: 'documentFirst' }, parent: names.first },
+    { when: { face: 'verso' }, parent: names.left },
+    { parent: names.right },
+  ],
+  children: [{ type: 'page', body: { html: `<p>${'printed words '.repeat(900)}</p>` } }],
+}
+
+function pageWords(file: string) {
+  const xml = execFileSync('pdftotext', ['-bbox', file, '-'], { encoding: 'utf8' })
+  return [...xml.matchAll(/<page width="([\d.]+)"[^>]*>([\s\S]*?)<\/page>/g)].map((page) => ({
+    width: Number(page[1]),
+    words: [...(page[2] ?? '').matchAll(/<word xMin="([\d.]+)"[^>]*>([^<]+)<\/word>/g)].map((word) => ({ x: Number(word[1]), text: word[2] ?? '' })),
+  }))
+}
+
+export async function verifyParentRegions(renderer: Renderer, work: string, check: Check): Promise<void> {
+  for (const hebrew of [false, true]) {
+    const label = hebrew ? 'Hebrew' : 'English'
+    let id = 0
+    const bytes = await renderer.bookPdf(parentRegionBookFixture(hebrew), {
+      css: 'body{font:14px/20px serif}p{margin:0}',
+      newId: () => `parent-region-${label}-${++id}`,
+    })
+    const file = path.join(work, `parent-regions-${label}.pdf`)
+    writeFileSync(file, bytes)
+    const pages = pageWords(file)
+    const markers = pages.flatMap((page, index) =>
+      page.words.filter((word) => word.text.startsWith('OUTER_')).map((word) => ({ page: index, x: word.x, width: page.width, text: word.text })),
+    )
+    const mirrored = markers.every((marker) => (hebrew ? marker.page % 2 === 1 : marker.page % 2 === 0) === marker.x > marker.width / 2)
+    const text = pages.flatMap((page) => page.words.map((word) => word.text)).join(' ')
+    check(`${label} parent regions occupy the outer edge on recto and verso`, markers.length === pages.length && mirrored, JSON.stringify(markers))
+    check(
+      `${label} first, left, right and blank parents carry their marker text`,
+      ['FIRST', 'LEFT', 'RIGHT', 'BLANK'].every((marker) => text.includes(`OUTER_${marker}`)) && text.includes('HOST_HEAD'),
+      text,
+    )
+  }
+}

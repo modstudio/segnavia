@@ -12,8 +12,7 @@ export function fillPageAsOfBindings<T extends HtmlPage | PrintedHtmlPage>(page:
       sections: page.printedPages.sections.map((section) => ({ ...section, html: fillAsOfBindings(section.html, day) })),
       parents: page.printedPages.parents.map((parent) => ({
         ...parent,
-        ...(parent.head === undefined ? {} : { head: fillAsOfBindings(parent.head, day) }),
-        ...(parent.foot === undefined ? {} : { foot: fillAsOfBindings(parent.foot, day) }),
+        regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: fillAsOfBindings(region.html, day) }])),
       })),
     },
   } as T

@@ -30,12 +30,12 @@ test('blockView addresses page regions and parent-page HTML fields', () => {
         children: [{ type: 'page', id: 'page', regions: { main: '<p data-segnavia-id="region">Region</p>' } }],
       },
     ],
-    parentPages: [{ type: 'parentPage', id: 'parent', name: 'parent', head: '<p data-segnavia-id="head">Head</p>' }],
+    parentPages: [{ type: 'parentPage', id: 'parent', name: 'parent', regions: { head: { edge: 'blockStart', html: '<p data-segnavia-id="head">Head</p>' } } }],
     templates: [{ type: 'template', id: 'template', name: 'template', html: '<p data-segnavia-id="template-block">Template</p>' }],
   })
   expect(blockView(document).map(({ id, address }) => ({ id, address }))).toEqual([
     { id: 'region', address: { node: 'page', field: 'regions', key: 'main' } },
-    { id: 'head', address: { node: 'parent', field: 'head' } },
+    { id: 'head', address: { node: 'parent', field: 'regions', key: 'head' } },
     { id: 'template-block', address: { node: 'template', field: 'html' } },
   ])
 })

@@ -49,7 +49,7 @@ export function inspectPaginatedMargins(): PaginatedMarginReport {
     if (!fits) outside += 1
     details.push(`${index}:${start.toFixed(2)}/${end.toFixed(2)}/${top.toFixed(2)}/${bottom.toFixed(2)}`)
   }
-  const strips = pages.flatMap((page) => Array.from(page.querySelectorAll('[data-segnavia-head], [data-segnavia-foot]')))
+  const strips = pages.flatMap((page) => Array.from(page.querySelectorAll('[data-segnavia-region]')))
   const matches = strips.every((strip) => {
     const text = strip.closest('[data-segnavia-book-page]')?.querySelector('[data-segnavia-text]')
     return Boolean(text && Math.abs(strip.getBoundingClientRect().width - text.getBoundingClientRect().width) < 0.5)

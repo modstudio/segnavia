@@ -168,11 +168,11 @@ test('maps RTL master heads, chapter parents, variables, unmapped items, and no-
   const book = modelToBook(model, report)
   expect(book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-haggadah-recto', 'idml-h-haggadah-verso', 'idml-none'])
   expect(book.parentPages[0]?.margin).toMatchObject({ inlineStart: 13 * (25.4 / 72), inlineEnd: 12 * (25.4 / 72) })
-  expect(book.parentPages[0]?.head).toContain('data-motif="segnavia:head-template" data-motif-name="idml:Siman:last"')
+  expect(book.parentPages[0]?.regions.head?.html).toContain('data-motif="segnavia:head-template" data-motif-name="idml:Siman:last"')
   expect(book.variables.map((item) => item.name)).toContain('Siman')
   expect(book.headTemplates.map((item) => item.name)).toContain('idml:Siman:last')
-  expect(book.parentPages[0]?.head).toContain('class="idml-master-frame-1"')
-  expect(book.parentPages[0]?.head).toContain('class="idml-c-mark idml-o-2"')
+  expect(book.parentPages[0]?.regions.head?.html).toContain('class="idml-master-frame-1"')
+  expect(book.parentPages[0]?.regions.head?.html).toContain('class="idml-c-mark idml-o-2"')
   expect(book.style?.css).toContain(
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:13.052778mm;inline-size:7.055556mm;inset-block-start:0.705556mm;block-size:1.763889mm}',
   )
@@ -255,8 +255,8 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
   }
   const book = modelToBook(model)
   expect(book.parentPages).toHaveLength(1)
-  expect(book.parentPages[0]?.foot).toContain('data-motif="segnavia:head-template" data-motif-name="segnavia:folio"')
-  expect(book.parentPages[0]?.foot).toContain('class="idml-master-frame-1"')
+  expect(book.parentPages[0]?.regions.foot?.html).toContain('data-motif="segnavia:head-template" data-motif-name="segnavia:folio"')
+  expect(book.parentPages[0]?.regions.foot?.html).toContain('class="idml-master-frame-1"')
   expect(book.style?.css).toContain(
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:8.819444mm;inline-size:3.527778mm;inset-block-start:0.705556mm;block-size:1.763889mm}',
   )
@@ -345,9 +345,9 @@ test('reports extra master pages and unknown applied masters by location', () =>
 })
 
 test('refuses active content found only in a master head', () => {
-  expect(() => refuseActiveBookHtml([{ html: '<p>safe</p>' }], [{ name: 'unsafe', head: '<script>unsafe</script>' }])).toThrow(
-    'the imported Book contains active content',
-  )
+  expect(() =>
+    refuseActiveBookHtml([{ html: '<p>safe</p>' }], [{ name: 'unsafe', regions: { head: { edge: 'blockStart', html: '<script>unsafe</script>' } } }]),
+  ).toThrow('the imported Book contains active content')
 })
 
 test('reports a mixed-master chapter as structured data and breaks ties by page order', () => {

@@ -14,7 +14,7 @@ export interface ContentAddress {
   key?: string
 }
 
-export type FragmentShape = 'htmlString' | 'pageBody' | 'slideContent' | 'record' | 'text'
+export type FragmentShape = 'htmlString' | 'pageBody' | 'slideContent' | 'record' | 'regionRecord' | 'text'
 
 type HeldNode = Record<string, unknown> & { id: string; type: string }
 type FieldShapes = Readonly<Record<string, FragmentShape>>
@@ -32,7 +32,7 @@ export const CONTENT_FIELD_SHAPES: Readonly<Record<DocumentNodeType, FieldShapes
   item: {},
   label: {},
   boardSection: {},
-  parentPage: { head: 'htmlString', foot: 'htmlString', regions: 'record' },
+  parentPage: { regions: 'regionRecord' },
   template: { html: 'htmlString' },
   noteSeries: {},
   variable: {},
@@ -67,6 +67,17 @@ const FRAGMENT_ACCESSORS: Readonly<Record<FragmentShape, FragmentAccessor>> = {
   record: {
     read: (value, key) => (key !== undefined && typeof object(value)?.[key] === 'string' ? (object(value)?.[key] as string) : undefined),
     write: (value, html, key) => ({ ...object(value), [key as string]: html }),
+  },
+  regionRecord: {
+    read: (value, key) => {
+      if (key === undefined) return undefined
+      const region = object(value)?.[key]
+      return typeof object(region)?.html === 'string' ? (object(region)?.html as string) : undefined
+    },
+    write: (value, html, key) => {
+      if (key === undefined) return value
+      return { ...object(value), [key]: { ...object(object(value)?.[key]), html } }
+    },
   },
   text: {
     read: () => undefined,
@@ -107,7 +118,7 @@ export function contentFieldShape(type: DocumentNodeType, field: string): Fragme
 
 function fieldFragments(node: HeldNode, field: string, shape: Exclude<FragmentShape, 'text'>): ContentFragment[] {
   const content = node[field]
-  const keys = shape === 'record' ? Object.keys(object(content) ?? {}) : [undefined]
+  const keys = shape === 'record' || shape === 'regionRecord' ? Object.keys(object(content) ?? {}) : [undefined]
   return keys.flatMap((key) => {
     const html = FRAGMENT_ACCESSORS[shape].read(content, key)
     return html === undefined ? [] : [{ address: { node: node.id, field, ...(key === undefined ? {} : { key }) }, html, node, content, shape }]

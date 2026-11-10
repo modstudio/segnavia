@@ -16,8 +16,10 @@ const parentRules = [
   { parent: parents.recto },
 ] as const
 const furniture = {
-  head: '<div>HEAD[<span data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></span>]</div>',
-  foot: '<div>FOLIO[<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span>]</div>',
+  regions: {
+    head: { edge: 'blockStart' as const, html: '<div>HEAD[<span data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></span>]</div>' },
+    foot: { edge: 'blockEnd' as const, html: '<div>FOLIO[<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span>]</div>' },
+  },
 }
 
 function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {

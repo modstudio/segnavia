@@ -28,6 +28,21 @@ describe('Page printedPages', () => {
     expect(PrintedPages.safeParse({ ...base.printedPages, fragmentation: 'always' }).success).toBe(false)
   })
 
+  test('refuses invalid parent-region names and edges with their accepted forms', () => {
+    expect(() =>
+      PrintedPages.parse({
+        ...base.printedPages,
+        parents: [{ name: 'body', regions: { 'side region': { edge: 'inlineEnd', html: '' } } }],
+      }),
+    ).toThrow('a parent-page region name must use a letter followed by letters, digits, hyphens or underscores')
+    expect(() =>
+      PrintedPages.parse({
+        ...base.printedPages,
+        parents: [{ name: 'body', regions: { side: { edge: 'outside', html: '' } } }],
+      }),
+    ).toThrow('a parent-page region edge must be blockStart, blockEnd, inlineStart or inlineEnd')
+  })
+
   test('stores authored definitions and round-trips through JSON', () => {
     const printed = PrintedPages.parse({
       ...base.printedPages,
@@ -129,20 +144,28 @@ describe('bookParentPages', () => {
       {
         name: BOOK_PARENT_NAMES.recto,
         regions: {
-          head: { edge: 'blockStart', html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>' },
+          head: {
+            edge: 'blockStart',
+            html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>',
+          },
           foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' },
         },
       },
       {
         name: BOOK_PARENT_NAMES.verso,
         regions: {
-          head: { edge: 'blockStart', html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>' },
+          head: {
+            edge: 'blockStart',
+            html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>',
+          },
           foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' },
         },
       },
       {
         name: BOOK_PARENT_NAMES.opener,
-        regions: { foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' } },
+        regions: {
+          foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' },
+        },
       },
       { name: BOOK_PARENT_NAMES.blank, regions: {} },
     ])

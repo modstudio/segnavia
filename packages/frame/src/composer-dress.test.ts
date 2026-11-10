@@ -98,8 +98,7 @@ test('collects furniture and template-region overset as separate preflight entri
   const head = {
     scrollHeight: 31,
     clientHeight: 20,
-    hasAttribute: (name: string) => name === 'data-segnavia-head',
-    getAttribute: (name: string) => (name === 'data-segnavia-parent' ? 'body' : null),
+    getAttribute: (name: string) => (name === 'data-segnavia-parent' ? 'body' : name === 'data-segnavia-region' ? 'head' : null),
   } as unknown as HTMLElement
   markFurnitureOverflow(head, page, entries)
   expect(entries[0]).toMatchObject({ check: 'furniture-overset', subject: 'body:head', location: { folio: 'iv' } })
