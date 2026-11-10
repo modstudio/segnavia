@@ -1,5 +1,5 @@
-import type { TextDirection } from '@segnavia/format'
-import { BOOK_FURNITURE, MOTIF_ATTRIBUTE, motifFieldAttribute, resolveDirection } from '@segnavia/format'
+import type { HeadTemplate, TextDirection, TextVariable } from '@segnavia/format'
+import { headTemplatePlacement, resolveDirection } from '@segnavia/format'
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN } from '@segnavia/html'
 import serialize from 'dom-serializer'
 import { Element, Text } from 'domhandler'
@@ -34,6 +34,8 @@ export interface StoryHtmlInput {
 export interface StoryHtmlResult {
   html: string
   gutter?: number
+  variables: TextVariable[]
+  headTemplates: HeadTemplate[]
 }
 
 export interface StoryHtmlOptions {
@@ -112,10 +114,6 @@ function matchedVariable(character: IdmlTextNode | undefined, variables: IdmlTex
   return variables.find((variable) => variable.appliedCharacterStyle === style)
 }
 
-const folioFurniture = BOOK_FURNITURE.find((item) => item.key.endsWith(':folio'))
-const markFurniture = BOOK_FURNITURE.find((item) => item.key.endsWith(':mark'))
-const markWhich = markFurniture?.fields.find((field) => field.key === 'which')
-
 function furnitureClass(token: Token, styles: StyleMapper, direction: TextDirection): string | undefined {
   const characterAttributes = rangeAttributes(token.character)
   const characterStyle = characterAttributes.AppliedCharacterStyle
@@ -126,15 +124,11 @@ function furnitureClass(token: Token, styles: StyleMapper, direction: TextDirect
 }
 
 function markNode(variable: IdmlTextVariable, className: string | undefined): Element | undefined {
-  if (!markFurniture) return undefined
-  const last = markWhich && 'choices' in markWhich ? markWhich.choices.find((choice) => choice === 'last') : undefined
-  const fallback = markWhich && 'default' in markWhich ? markWhich.default : undefined
+  const pick = variable.searchStrategy === 'LastOnPage' ? 'last' : 'first'
   return new Element(
     'span',
     {
-      [MOTIF_ATTRIBUTE]: markFurniture.key,
-      [motifFieldAttribute('name')]: variable.name,
-      [motifFieldAttribute('which')]: variable.searchStrategy === 'LastOnPage' ? (last ?? fallback ?? '') : (fallback ?? ''),
+      ...headTemplatePlacement(`idml:${variable.name}:${pick}`),
       ...(className ? { class: className } : {}),
     },
     [],
@@ -151,8 +145,8 @@ function furnitureNode(
 ): Element | undefined {
   const className = furnitureClass(token, styles, direction)
   if (token.kind === 'processing-instruction') {
-    if (master && /\bACE\s+18\b/.test(token.text ?? '') && folioFurniture) {
-      return new Element('span', { [MOTIF_ATTRIBUTE]: folioFurniture.key, ...(className ? { class: className } : {}) }, [])
+    if (master && /\bACE\s+18\b/.test(token.text ?? '')) {
+      return new Element('span', { ...headTemplatePlacement('segnavia:folio'), ...(className ? { class: className } : {}) }, [])
     }
     report.add(report.unsupportedSpecialCharacters, token.text ?? 'processing instruction', token.location)
     return undefined
@@ -180,7 +174,7 @@ function paragraphChildren(
       const variable = master ? undefined : matchedVariable(token.character, variables)
       if (variable) {
         if (marked?.variable.id !== variable.id) {
-          marked = { variable, node: new Element('span', { 'data-mark': variable.name }, []) }
+          marked = { variable, node: new Element('span', { 'data-variable': variable.name }, []) }
           children.push(marked.node)
         }
         marked.node.children.push(...contentNodes(token, styles, direction))
@@ -343,7 +337,7 @@ export function storyHtml(
 ): StoryHtmlResult {
   if (!story.root) {
     const empty = new Element(options.inlineParagraphs ? 'span' : 'p', options.inlineParagraphs ? { style: 'display:block' } : {}, [new Element('br', {}, [])])
-    return { html: serialize(empty, { xmlMode: false, encodeEntities: 'utf8' }) }
+    return { html: serialize(empty, { xmlMode: false, encodeEntities: 'utf8' }), variables: [], headTemplates: [] }
   }
   const paragraphs: Element[] = []
   const paragraphRanges: IdmlTextNode[] = []
@@ -359,5 +353,34 @@ export function storyHtml(
       new Element(options.inlineParagraphs ? 'span' : 'p', options.inlineParagraphs ? { style: 'display:block' } : {}, [new Element('br', {}, [])]),
     )
   }
-  return { html: serialize(paragraphs, { xmlMode: false, encodeEntities: 'utf8' }), ...(story.frame ? { gutter: story.frame.gutter } : {}) }
+  const used = (story.textVariables ?? []).filter((variable) =>
+    paragraphs.some((paragraph) => serialize(paragraph).includes(`data-variable="${variable.name}"`)),
+  )
+  const placed = story.master
+    ? (story.textVariables ?? []).filter((variable) => paragraphs.some((paragraph) => serialize(paragraph).includes(`idml:${variable.name}:`)))
+    : []
+  return {
+    html: serialize(paragraphs, { xmlMode: false, encodeEntities: 'utf8' }),
+    ...(story.frame ? { gutter: story.frame.gutter } : {}),
+    variables: [
+      ...new Map(
+        [...used, ...placed].map((variable) => [
+          variable.name,
+          {
+            name: variable.name,
+            kind: 'text' as const,
+            from: 'content' as const,
+            pick: variable.searchStrategy === 'LastOnPage' ? ('last' as const) : ('first' as const),
+          },
+        ]),
+      ).values(),
+    ],
+    headTemplates: placed.map((variable) => ({
+      name: `idml:${variable.name}:${variable.searchStrategy === 'LastOnPage' ? 'last' : 'first'}`,
+      parts: [{ variable: variable.name }],
+      separator: '',
+      dropEmpty: true,
+      collapseEqual: true,
+    })),
+  }
 }

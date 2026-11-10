@@ -314,10 +314,7 @@ describe('Document', () => {
   })
 
   test('refuses declared fields that lowering does not yet support', () => {
-    const values = [
-      { type: 'document', kind: 'book', children: [{ type: 'section', headTemplate: 'running', children: [] }] },
-      { type: 'document', kind: 'book', children: [], parentPages: [{ type: 'parentPage', name: 'body', regions: { side: '<aside></aside>' } }] },
-    ]
+    const values = [{ type: 'document', kind: 'book', children: [], parentPages: [{ type: 'parentPage', name: 'body', regions: { side: '<aside></aside>' } }] }]
     for (const value of values) expect(() => Document.parse(value)).toThrow('is not yet supported; remove it to clear this refusal')
   })
 

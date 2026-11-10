@@ -47,7 +47,7 @@ describe('bookSections', () => {
       { division: 'body', ancestry: [], depth: 0, path: ['body', 0], id: 'first-part', title: 'First' },
       {
         division: 'body',
-        ancestry: [{ name: 'part', title: 'First', runningHead: undefined, id: 'first-part' }],
+        ancestry: [{ name: 'part', title: 'First', id: 'first-part' }],
         depth: 1,
         path: ['body', 0, 'children', 0],
         id: 'inner-part',
@@ -56,8 +56,8 @@ describe('bookSections', () => {
       {
         division: 'body',
         ancestry: [
-          { name: 'part', title: 'First', runningHead: undefined, id: 'first-part' },
-          { name: 'gate', title: 'Inner', runningHead: undefined, id: 'inner-part' },
+          { name: 'part', title: 'First', id: 'first-part' },
+          { name: 'gate', title: 'Inner', id: 'inner-part' },
         ],
         depth: 2,
         path: ['body', 0, 'children', 0, 'children', 0],
@@ -66,7 +66,7 @@ describe('bookSections', () => {
       },
       {
         division: 'body',
-        ancestry: [{ name: 'part', title: 'First', runningHead: undefined, id: 'first-part' }],
+        ancestry: [{ name: 'part', title: 'First', id: 'first-part' }],
         depth: 1,
         path: ['body', 0, 'children', 1],
         id: 'two',
@@ -75,7 +75,7 @@ describe('bookSections', () => {
       { division: 'end', ancestry: [], depth: 0, path: ['endMatter', 0], id: 'appendix-part', title: 'Appendix' },
       {
         division: 'end',
-        ancestry: [{ name: 'appendix', title: 'Appendix', runningHead: undefined, id: 'appendix-part' }],
+        ancestry: [{ name: 'appendix', title: 'Appendix', id: 'appendix-part' }],
         depth: 1,
         path: ['endMatter', 0, 'children', 0],
         id: 'appendix-a',

@@ -1,16 +1,15 @@
-import { SECTION_BOUNDARY_CLASS, SECTION_TITLE_MARK } from '@segnavia/format'
+import { SECTION_BOUNDARY_CLASS } from '@segnavia/format'
 import { cloneNode } from 'domhandler'
 import type { BuiltSection } from './book-held.ts'
 import { element, text } from './dom.ts'
 
 function boundary(section: BuiltSection): ReturnType<typeof element> {
-  const title = section.info.runningHead ?? ''
+  const title = section.info.title ?? ''
   return element(
     'div',
     {
       class: SECTION_BOUNDARY_CLASS,
-      'data-mark': SECTION_TITLE_MARK,
-      'data-mark-scope': 'flow',
+      'data-segnavia-section-title': title,
       'data-segnavia-chapter': section.node.attribs['data-segnavia-chapter'] ?? '0',
       id: section.info.id,
     },

@@ -1,48 +1,54 @@
-import {
-  type Plan,
-  PRINTED_PAGE_DOCUMENT_NUMBER_PATH,
-  PRINTED_PAGE_DOCUMENT_TOTAL_PATH,
-  PRINTED_PAGE_NUMBER_PATH,
-  PRINTED_PAGE_TOTAL_PATH,
-  RECORD_COUNT_PATH,
-  RECORD_INDEX_PATH,
-} from '@segnavia/format'
+import { type HeadTemplate, headTemplatePlacements, MOTIF_ATTRIBUTE } from '@segnavia/format'
+import { resolveHeadTemplate } from '@segnavia/layout'
 
-export type ComposerFolioPlan = Pick<Plan, 'folios' | 'total' | 'documentFolios' | 'documentTotal' | 'recordTotals' | 'records'>
-
-export const COMPOSER_FURNITURE_PATHS = {
-  number: PRINTED_PAGE_NUMBER_PATH,
-  total: PRINTED_PAGE_TOTAL_PATH,
-  documentNumber: PRINTED_PAGE_DOCUMENT_NUMBER_PATH,
-  documentTotal: PRINTED_PAGE_DOCUMENT_TOTAL_PATH,
-  recordIndex: RECORD_INDEX_PATH,
-  recordCount: RECORD_COUNT_PATH,
+export function fillRegion(html: string, values: { heads: Record<string, string> }, _direction?: string, _lang?: string): string {
+  return fillRegionImplementation(html, values, headTemplatePlacements, MOTIF_ATTRIBUTE)
 }
 
-export type ComposerFurniturePaths = typeof COMPOSER_FURNITURE_PATHS
-
-export function composerFurnitureValues(
-  plan: ComposerFolioPlan,
-  flow: string,
-  index: number,
-  paths: ComposerFurniturePaths,
-): Record<string, string | undefined> {
-  const record = plan.records[flow]
-  return {
-    [paths.number]: plan.folios[index] ?? undefined,
-    [paths.total]: plan.recordTotals[flow] ?? plan.total,
-    [paths.documentNumber]: plan.documentFolios[index] ?? undefined,
-    [paths.documentTotal]: plan.documentTotal,
-    [paths.recordIndex]: record?.index ?? '',
-    [paths.recordCount]: record?.count ?? '',
+export function fillRegionImplementation(
+  html: string,
+  values: { heads: Record<string, string> },
+  placementsIn: typeof headTemplatePlacements,
+  motifAttribute: string,
+): string {
+  const placements = placementsIn(html).filter(
+    (placement, index, all) => !all.some((container, other) => other !== index && container.start < placement.start && container.end >= placement.end),
+  )
+  let output = html
+  for (const placement of [...placements].reverse()) {
+    const value = Object.hasOwn(values.heads, placement.name) ? values.heads[placement.name] : undefined
+    if (!placement.bounded) {
+      output = `${output.slice(0, placement.start)}${output.slice(placement.openEnd)}`
+      continue
+    }
+    const opening = html.slice(placement.start, placement.openEnd)
+    const cleaned = opening.replace(new RegExp(`\\s${motifAttribute}(?:-[\\w-]+)?\\s*=\\s*(?:(["'])([^"']*)\\1|[^\\s>]+)`, 'gi'), '').replace(/\/\s*>$/, '>')
+    const replacement = value ? `${cleaned}${value}</${placement.tag}>` : ''
+    output = `${output.slice(0, placement.start)}${replacement}${output.slice(placement.end)}`
   }
+  return output
 }
 
-export interface FurnitureValues {
-  folio?: string
-  runningHead?: string
-  marks?: Record<string, { first: string; last: string }>
-  total?: string
+export function resolveRegionHeads(
+  templates: readonly HeadTemplate[],
+  variables: Readonly<Record<string, string>>,
+  recordSlots: Readonly<Record<string, string | undefined>>,
+  direction?: string,
+  lang?: string,
+): Record<string, string> {
+  return resolveRegionHeadsImplementation(templates, variables, recordSlots, direction, lang, resolveHeadTemplate)
+}
+
+export function resolveRegionHeadsImplementation(
+  templates: readonly HeadTemplate[],
+  variables: Readonly<Record<string, string>>,
+  recordSlots: Readonly<Record<string, string | undefined>>,
+  direction: string | undefined,
+  lang: string | undefined,
+  resolve: typeof resolveHeadTemplate,
+): Record<string, string> {
+  const declared = direction === 'ltr' || direction === 'rtl' || direction === 'auto' ? direction : undefined
+  return Object.fromEntries(templates.map((template) => [template.name, resolve(template, variables, recordSlots, declared, lang)]))
 }
 
 export interface RegionExcess {
@@ -86,18 +92,19 @@ export function dressPlanPages<T>(
 export function fillFurniture(
   root: Element,
   html: string,
-  values: FurnitureValues,
+  heads: Record<string, string>,
+  slots: Record<string, string | undefined>,
   dir: string | undefined,
   lang: string | undefined,
-  slots: Record<string, string | undefined>,
-  fillMotifs: (source: string, values: FurnitureValues, dir?: string, lang?: string) => string,
 ): void {
-  root.innerHTML = fillMotifs(html, values, dir, lang)
+  root.innerHTML = fillRegion(html, { heads }, dir, lang)
   const bindings = root.querySelectorAll('[data-slot-value]')
   for (const binding of bindings) {
     const path = binding.getAttribute('data-slot-value')
-    if (!path || !Object.hasOwn(slots, path)) continue
-    const value = slots[path]
+    if (!path?.startsWith('record.')) continue
+    const key = path.slice('record.'.length)
+    if (!Object.hasOwn(slots, key)) continue
+    const value = slots[key]
     if (value === undefined) {
       binding.remove()
       continue

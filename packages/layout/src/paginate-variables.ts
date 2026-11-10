@@ -1,10 +1,5 @@
-import type { TextVariable } from '@segnavia/format'
+import type { PaginateVariable, TextVariable } from '@segnavia/format'
 import type { PaginateUnit } from './paginate-types.ts'
-
-export interface CarriedVariable {
-  value: string
-  scope?: 'flow'
-}
 
 export interface PaginateVariableValues {
   start: string
@@ -12,20 +7,14 @@ export interface PaginateVariableValues {
   last: string
 }
 
-interface PageSetPoint {
-  value: string
-  firstLine: boolean
-  scope?: 'flow'
-}
-
-export function pageSetPoints(placed: PaginateUnit[]): Record<string, PageSetPoint[]> {
-  const setOnPage = Object.create(null) as Record<string, PageSetPoint[]>
+export function pageSetPoints(placed: PaginateUnit[]): Record<string, Array<PaginateVariable & { firstLine: boolean }>> {
+  const setOnPage = Object.create(null) as Record<string, Array<PaginateVariable & { firstLine: boolean }>>
   const firstUnit = placed[0]
   for (const unit of placed) {
     for (const setPoint of unit.block.variables ?? []) {
       if (setPoint.line !== unit.index) continue
       const values = setOnPage[setPoint.name] ?? []
-      values.push({ value: setPoint.value, firstLine: unit === firstUnit, ...(setPoint.scope === undefined ? {} : { scope: setPoint.scope }) })
+      values.push({ ...setPoint, firstLine: unit === firstUnit })
       setOnPage[setPoint.name] = values
     }
   }
@@ -34,12 +23,12 @@ export function pageSetPoints(placed: PaginateUnit[]): Record<string, PageSetPoi
 
 export function paginateVariables(
   placed: PaginateUnit[],
-  carried: Record<string, CarriedVariable>,
+  carried: Record<string, Pick<PaginateVariable, 'value' | 'scope'>>,
   declarations: readonly TextVariable[],
-): { values: Record<string, PaginateVariableValues>; carried: Record<string, CarriedVariable> } {
+): { values: Record<string, PaginateVariableValues>; carried: Record<string, Pick<PaginateVariable, 'value' | 'scope'>> } {
   const setOnPage = pageSetPoints(placed)
   const values = Object.create(null) as Record<string, PaginateVariableValues>
-  const next = Object.assign(Object.create(null), carried) as Record<string, CarriedVariable>
+  const next = Object.assign(Object.create(null), carried) as Record<string, Pick<PaginateVariable, 'value' | 'scope'>>
   for (const declaration of declarations) {
     const onPage = setOnPage[declaration.name] ?? []
     const carriedValue = carried[declaration.name]?.value ?? ''
@@ -58,13 +47,13 @@ export function resolveVariablesAcrossPages<Page extends { blank: boolean; flow:
   unitsForPage: (page: Page) => PaginateUnit[],
   declarations: readonly TextVariable[],
 ): Array<Record<string, string>> {
-  let carried = Object.create(null) as Record<string, CarriedVariable>
+  let carried = Object.create(null) as Record<string, Pick<PaginateVariable, 'value' | 'scope'>>
   let previousFlow: string | undefined
   return pages.map((page) => {
     if (page.flow !== previousFlow) {
       carried = Object.assign(Object.create(null), Object.fromEntries(Object.entries(carried).filter(([, value]) => value.scope !== 'flow'))) as Record<
         string,
-        CarriedVariable
+        Pick<PaginateVariable, 'value' | 'scope'>
       >
     }
     previousFlow = page.flow

@@ -83,7 +83,7 @@ test('maps left binding, asymmetric margins, and non-facing pages', () => {
   expect(book.page?.margin.inlineEnd).toBeCloseTo(40 * (25.4 / 72))
 })
 
-test('maps RTL master heads, chapter parents, marks, unmapped items, and no-master pages', () => {
+test('maps RTL master heads, chapter parents, variables, unmapped items, and no-master pages', () => {
   const variable = {
     id: 'var',
     name: 'Siman',
@@ -168,7 +168,9 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
   const book = modelToBook(model, report)
   expect(book.parentPages.map((parent) => parent.name)).toEqual(['idml-h-haggadah-recto', 'idml-h-haggadah-verso', 'idml-none'])
   expect(book.parentPages[0]?.margin).toMatchObject({ inlineStart: 13 * (25.4 / 72), inlineEnd: 12 * (25.4 / 72) })
-  expect(book.parentPages[0]?.head).toContain('data-motif="segnavia:mark" data-motif-name="Siman" data-motif-which="last"')
+  expect(book.parentPages[0]?.head).toContain('data-motif="segnavia:head-template" data-motif-name="idml:Siman:last"')
+  expect(book.variables.map((item) => item.name)).toContain('Siman')
+  expect(book.headTemplates.map((item) => item.name)).toContain('idml:Siman:last')
   expect(book.parentPages[0]?.head).toContain('class="idml-master-frame-1"')
   expect(book.parentPages[0]?.head).toContain('class="idml-c-mark idml-o-2"')
   expect(book.style?.css).toContain(
@@ -181,7 +183,7 @@ test('maps RTL master heads, chapter parents, marks, unmapped items, and no-mast
     ':where(.idml-master-frame-3){position:absolute;inset-inline-start:9.525mm;inline-size:7.055556mm;inset-block-start:1.058333mm;block-size:1.763889mm}',
   )
   const firstHtml = book.body[0] && 'html' in book.body[0] ? book.body[0].html : ''
-  expect(firstHtml).toContain('<span data-mark="Siman"><span class="idml-c-mark">Whole </span>')
+  expect(firstHtml).toContain('<span data-variable="Siman"><span class="idml-c-mark">Whole </span>')
   expect(firstHtml).toContain('>run</span></span>')
   expect(book.body[0]?.parentRules).toEqual([
     { when: { blank: true }, parent: 'segnavia:blank' },
@@ -253,7 +255,7 @@ test('maps a single-page LTR master folio foot to both chapter sides', () => {
   }
   const book = modelToBook(model)
   expect(book.parentPages).toHaveLength(1)
-  expect(book.parentPages[0]?.foot).toContain('data-motif="segnavia:folio"')
+  expect(book.parentPages[0]?.foot).toContain('data-motif="segnavia:head-template" data-motif-name="segnavia:folio"')
   expect(book.parentPages[0]?.foot).toContain('class="idml-master-frame-1"')
   expect(book.style?.css).toContain(
     ':where(.idml-master-frame-1){position:absolute;inset-inline-start:8.819444mm;inline-size:3.527778mm;inset-block-start:0.705556mm;block-size:1.763889mm}',

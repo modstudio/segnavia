@@ -1,13 +1,14 @@
 import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
 import { SectionNumbering } from './folio.ts'
+import { HeadTemplates } from './head-template.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
-import { BOOK_FURNITURE } from './motif.ts'
+import { headTemplatePlacement } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 import { BOOK_PARENT_NAMES, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import { CONTINUE_OPENS_REMEDY } from './section-opens-policy.ts'
-import { Variable } from './variable.ts'
+import { Variables } from './variable.ts'
 
 export const Fragmentation = z.enum(['safe', 'none'])
 export type Fragmentation = z.infer<typeof Fragmentation>
@@ -21,7 +22,8 @@ export const ParentPage = z.object({
 })
 
 export const PrintedPages = z.object({
-  variables: z.array(Variable).default([]),
+  variables: Variables,
+  headTemplates: HeadTemplates,
   parents: z.array(ParentPage).min(1),
   parentRules,
   rules: z.unknown().optional(),
@@ -59,17 +61,16 @@ export type PrintedPages = z.infer<typeof PrintedPages>
 
 export { BOOK_PARENT_NAMES } from './parent-rules.ts'
 
-function furniture(region: 'head' | 'foot'): string {
-  return BOOK_FURNITURE.filter((item) => item.region === region)
-    .filter((item) => item.fields.every((field) => !('required' in field) || !field.required))
-    .map((item) => `<div class="${item.className}" data-motif="${item.key}"></div>`)
-    .join('')
-}
-
 export function bookParentPages(margin: LogicalMargin): ParentPage[] {
   const held = () => ({ ...margin })
-  const head = furniture('head')
-  const foot = furniture('foot')
+  const placement = (name: string, className: string) => {
+    const attributes = Object.entries(headTemplatePlacement(name))
+      .map(([key, value]) => `${key}="${value}"`)
+      .join(' ')
+    return `<div class="${className}" ${attributes}></div>`
+  }
+  const head = placement('segnavia:running-head', 'segnavia-running-head')
+  const foot = placement('segnavia:folio', 'segnavia-folio')
   return [
     { name: BOOK_PARENT_NAMES.recto, margin: held(), head, foot },
     { name: BOOK_PARENT_NAMES.verso, margin: held(), head, foot },

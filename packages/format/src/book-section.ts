@@ -11,7 +11,6 @@ import { Slots } from './slots.ts'
 
 export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
-export const SECTION_TITLE_MARK = 'segnavia:section-title'
 const PartOpens = z.enum(['recto', 'verso', 'any'])
 
 export const DesignedPage = z.object({ html: z.string() })
@@ -68,7 +67,6 @@ const partFields = {
   opens: PartOpens.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
-  runningHead: z.string().optional(),
 }
 
 export const DesignedSection = z.object({
@@ -111,10 +109,7 @@ const flowingFront = BookSection.extend({ kind: z.literal('front').optional() })
 export const BookFrontMatterEntry = z.discriminatedUnion('kind', [DesignedSection, TemplatedSection, BookContents, PlacedSection, flowingFront])
 export type BookFrontMatterEntry = z.infer<typeof BookFrontMatterEntry>
 
-export const Chapter = BookSection.omit({ contents: true }).extend({
-  title: z.string(),
-  runningHead: z.string().optional(),
-})
+export const Chapter = BookSection.omit({ contents: true }).extend({ title: z.string() })
 export type Chapter = z.infer<typeof Chapter>
 
 const flowingChapter = Chapter.extend({ kind: z.literal('chapter').optional() })
@@ -134,7 +129,7 @@ export const BookItem: z.ZodType<BookItem> = z.lazy(() => z.union([Part, BookFro
 export type BookDivision = 'front' | 'body' | 'end'
 
 interface BookSectionLocation {
-  ancestry: Array<{ name: string; title?: string; runningHead?: string; id: string }>
+  ancestry: Array<{ name: string; title?: string; id: string }>
   depth: number
   path: (string | number)[]
 }
@@ -164,7 +159,7 @@ export function bookSections(book: BookDivisions): BookSectionEntry[] {
       }
       const id = entry.id
       if (entry.html !== undefined || entry.title !== undefined) sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
-      walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, runningHead: entry.runningHead, id }])
+      walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, id }])
     })
   }
   walk(book.frontMatter, 'front', ['frontMatter'], [])

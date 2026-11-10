@@ -3,11 +3,9 @@ import type {
   PaginateBlock as FormatPaginateBlock,
   PaginateFlow as FormatPaginateFlow,
   PaginateLine as FormatPaginateLine,
-  PaginateMark as FormatPaginateMark,
   PaginateNote as FormatPaginateNote,
   PaginateNoteRef as FormatPaginateNoteRef,
   PaginateNoteSeriesGeometry as FormatPaginateNoteSeriesGeometry,
-  PaginatePageMarks as FormatPaginatePageMarks,
   PaginatePageNote as FormatPaginatePageNote,
   PaginateWindow as FormatPaginateWindow,
   Measurements,
@@ -21,7 +19,6 @@ export type PaginatePageRole = SavedPlanPage['role']
 
 export type PaginateLine = FormatPaginateLine
 export type PaginateNoteRef = FormatPaginateNoteRef
-export type PaginateMark = FormatPaginateMark
 export type PaginateBlock = FormatPaginateBlock
 
 export type PaginateFlowParents = NonNullable<FormatPaginateFlow['parentRules']>
@@ -34,7 +31,6 @@ export type PaginateNoteSeriesGeometry = FormatPaginateNoteSeriesGeometry
 export type PaginateBookInput = Measurements
 export type PaginateWindow = FormatPaginateWindow
 export type PaginatePageNote = FormatPaginatePageNote
-export type PaginatePageMarks = FormatPaginatePageMarks
 export type PaginateTextVariable = TextVariable
 export type PaginateBookPage = Omit<SavedPlanPage, 'start' | 'fingerprint'>
 

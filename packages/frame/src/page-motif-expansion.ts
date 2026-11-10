@@ -1,9 +1,9 @@
-import { AS_OF_CONTEXT, type AsOfDay, type MotifSource, PRINTED_PAGE_CONTEXT, RECORD_CONTEXT } from '@segnavia/format'
+import { AS_OF_CONTEXT, type AsOfDay, type MotifSource, RECORD_CONTEXT } from '@segnavia/format'
 import {
   type ExpandedMotifs,
   expandMotifs,
   type HtmlPage,
-  hasMotifPlacement,
+  hasHostMotifPlacement,
   libraryMotifPlacementRefusal,
   MotifRefusedError,
   type PrintedHtmlPage,
@@ -33,11 +33,15 @@ export function pageParentRegions(page: HtmlPage | PrintedHtmlPage): ParentRegio
 }
 
 export function pageMotifRefusal(bodyHtml: readonly string[], regions: readonly ParentRegion[]): MotifRefusedError | undefined {
-  for (const html of [...bodyHtml, ...regions.map((region) => region.html)]) {
+  for (const html of bodyHtml) {
     const refusal = libraryMotifPlacementRefusal(html)
     if (refusal) return new MotifRefusedError(refusal)
   }
-  if (regions.some((region) => hasMotifPlacement(region.html))) {
+  for (const html of regions.map((region) => region.html)) {
+    const refusal = libraryMotifPlacementRefusal(html, true)
+    if (refusal) return new MotifRefusedError(refusal)
+  }
+  if (regions.some((region) => hasHostMotifPlacement(region.html))) {
     return new MotifRefusedError(PARENT_MOTIF_SOURCE_REFUSAL)
   }
   return undefined
@@ -70,7 +74,7 @@ export async function expandPageMotifs(
       linkOrigins: motifs.linkOrigins,
       signal,
       day,
-      deferPaths: furniture ? [PRINTED_PAGE_CONTEXT, RECORD_CONTEXT, AS_OF_CONTEXT] : [AS_OF_CONTEXT],
+      deferPaths: furniture ? [RECORD_CONTEXT, AS_OF_CONTEXT] : [AS_OF_CONTEXT],
     })
   const bodyResults = await Promise.all(bodies.map((body) => expand(body.html, body.lang, false)))
   const parentResults = new Map(

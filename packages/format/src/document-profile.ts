@@ -4,7 +4,7 @@ export const DOCUMENT_PROFILES = {
     printTrim: "a book's trim is page.paper",
     printTrimSource: 'bookPage',
     children: ['division', 'part', 'section', 'flow', 'page', 'placed', 'contents', 'record'],
-    definitions: ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'],
+    definitions: ['parentPages', 'templates', 'noteSeries', 'variables', 'headTemplates', 'conditions'],
     settingsDir: ['ltr', 'rtl', 'auto'],
     settings: ['scripts', 'dir', 'lang'],
     metadata: ['title', 'authors', 'subject'],
@@ -37,7 +37,6 @@ export const DOCUMENT_PROFILES = {
       'orphans',
       'widows',
       'fragmentation',
-      'runningHead',
       'parentRules',
       'limits',
       'asOf',
@@ -49,7 +48,7 @@ export const DOCUMENT_PROFILES = {
     printTrim: "a printed page's trim is its paper",
     printTrimSource: 'print',
     children: ['page', 'section', 'flow', 'record'],
-    definitions: ['parentPages', 'templates', 'variables', 'conditions'],
+    definitions: ['parentPages', 'templates', 'variables', 'headTemplates', 'conditions'],
     settingsDir: ['ltr', 'rtl', 'auto'],
     settings: ['scripts', 'dir', 'lang'],
     metadata: [],
@@ -73,7 +72,6 @@ export const DOCUMENT_PROFILES = {
       contentsLabel:
         'section field contentsLabel is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
       subtitle: 'section field subtitle is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
-      headTemplate: 'section field headTemplate is not allowed in a printed document; remove it to clear this refusal',
       pageGeometry:
         'section field pageGeometry is not allowed in a printed document; remove it because printed sections share the document paper to clear this refusal',
       template: 'section field template is not allowed in a printed document; remove it to clear this refusal',

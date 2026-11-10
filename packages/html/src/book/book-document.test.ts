@@ -23,11 +23,11 @@ describe('book document', () => {
       }),
     )
     const result = bookDocument(book)
-    expect(result.sections).toEqual([
-      { id: 'section-1', kind: 'front', division: 'front', title: 'Preface', runningHead: 'Preface' },
-      { id: 'section-2', kind: 'contents', division: 'front', title: 'Contents', runningHead: 'Contents' },
-      { id: 'section-3', kind: 'chapter', division: 'body', title: 'One', runningHead: 'One' },
-      { id: 'segnavia-endnotes', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'Notes' },
+    expect(result.sections).toMatchObject([
+      { id: 'section-1', kind: 'front', division: 'front', title: 'Preface' },
+      { id: 'section-2', kind: 'contents', division: 'front', title: 'Contents' },
+      { id: 'section-3', kind: 'chapter', division: 'body', title: 'One' },
+      { id: 'segnavia-endnotes', kind: 'endnotes', division: 'body', title: 'Notes' },
     ])
     expect([...result.html.matchAll(/<section[^>]+id="([^"]+)"/g)].map((match) => match[1])).toEqual(result.sections.map((section) => section.id))
   })
@@ -118,7 +118,7 @@ describe('book document', () => {
     ])
   })
 
-  test("places each chapter's endnotes as its last section, opening on either side with the chapter running head", () => {
+  test("places each chapter's endnotes as its last section, opening on either side with the chapter title", () => {
     const result = bookDocument(
       parseBookFixture(
         input({
@@ -126,24 +126,24 @@ describe('book document', () => {
           page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
           endnotes: { placement: 'chapter' },
           chapters: [
-            { title: 'One', runningHead: 'I', html: '<p>A<span data-note="endnote">first</span></p>' },
+            { title: 'One', html: '<p>A<span data-note="endnote">first</span></p>' },
             chapter('Two', '<p>B<span data-note="endnote">second</span></p>'),
           ],
         }),
       ),
     )
     expect(result.issues).toEqual([])
-    expect(result.sections).toEqual([
-      { id: 'section-1', kind: 'chapter', division: 'body', title: 'One', runningHead: 'I' },
-      { id: 'segnavia-endnotes-section-1', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'I' },
-      { id: 'section-2', kind: 'chapter', division: 'body', title: 'Two', runningHead: 'Two' },
-      { id: 'segnavia-endnotes-section-2', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'Two' },
+    expect(result.sections).toMatchObject([
+      { id: 'section-1', kind: 'chapter', division: 'body', title: 'One' },
+      { id: 'segnavia-endnotes-section-1', kind: 'endnotes', division: 'body', title: 'Notes' },
+      { id: 'section-2', kind: 'chapter', division: 'body', title: 'Two' },
+      { id: 'segnavia-endnotes-section-2', kind: 'endnotes', division: 'body', title: 'Notes' },
     ])
     const first = sectionOpen(result.html, 'segnavia-endnotes-section-1')
     const second = sectionOpen(result.html, 'segnavia-endnotes-section-2')
     expect([first, second]).toEqual([
-      expect.stringMatching(/data-opens="any".*data-segnavia-chapter="1".*data-running-head="I"/),
-      expect.stringMatching(/data-opens="any".*data-segnavia-chapter="2".*data-running-head="Two"/),
+      expect.stringMatching(/data-opens="any".*data-segnavia-chapter="1".*data-segnavia-section-title="One"/),
+      expect.stringMatching(/data-opens="any".*data-segnavia-chapter="2".*data-segnavia-section-title="Two"/),
     ])
     expect(result.html).toContain('id="segnavia-en-1"')
     expect(result.html).toContain('id="segnavia-en-2"')
@@ -166,15 +166,15 @@ describe('book document', () => {
         }),
       ),
     )
-    expect(result.sections).toEqual([
-      { id: 'section-1', kind: 'designed', division: 'body', title: 'Spread', runningHead: 'Spread' },
-      { id: 'segnavia-endnotes-section-1', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'Spread' },
-      { id: 'section-2', kind: 'chapter', division: 'body', title: 'One', runningHead: 'One' },
-      { id: 'segnavia-endnotes-section-2', kind: 'endnotes', division: 'body', title: 'Notes', runningHead: 'One' },
+    expect(result.sections).toMatchObject([
+      { id: 'section-1', kind: 'designed', division: 'body', title: 'Spread' },
+      { id: 'segnavia-endnotes-section-1', kind: 'endnotes', division: 'body', title: 'Notes' },
+      { id: 'section-2', kind: 'chapter', division: 'body', title: 'One' },
+      { id: 'segnavia-endnotes-section-2', kind: 'endnotes', division: 'body', title: 'Notes' },
     ])
     const tag = sectionOpen(result.html, 'segnavia-endnotes-section-1')
     expect(tag).toContain('data-opens="any"')
-    expect(tag).toContain('data-running-head="Spread"')
+    expect(tag).toContain('data-segnavia-section-title="Spread"')
     expect(result.html).toContain('id="segnavia-en-1"')
     expect(result.html).toContain('id="segnavia-en-2"')
   })
@@ -352,11 +352,6 @@ describe('book document', () => {
     expect(bookDocument(book).issues).toEqual([
       'template "lesson" marks region "reading text" which is not an HTML name token; use a letter followed by letters, digits, hyphens or underscores to clear this refusal',
     ])
-  })
-
-  test('reports parent mark placement issues', () => {
-    const book = parseBookFixture(input({ parentPages: [{ name: 'body', head: '<span data-motif="segnavia:mark"></span>' }] }))
-    expect(bookDocument(book).issues[0]).toContain('mark has an empty name')
   })
 
   test('refuses a page that fills a region its template does not declare', () => {

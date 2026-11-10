@@ -23,8 +23,8 @@ const BOOK_FOLIO_MOTIF: Motif = {
   label: 'Book printed-page folio',
   fields: [],
   versions: [
-    { lang: 'en', html: '<strong data-book-demo-folio>PRINTED <span data-slot-value="printedPage.number"></span></strong>' },
-    { lang: 'he', html: '<strong data-book-demo-folio>PRINTED <span data-slot-value="printedPage.number"></span></strong>' },
+    { lang: 'en', html: '<strong data-book-demo-folio>PRINTED <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></strong>' },
+    { lang: 'he', html: '<strong data-book-demo-folio>PRINTED <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span></strong>' },
   ],
   fonts: [],
 }

@@ -26,7 +26,6 @@ import {
   collectHeadings,
   designedSection,
   flowAttribs,
-  markPlacementIssues,
   numberingAttribs,
   sectionHeading,
   sectionNode,
@@ -47,7 +46,7 @@ function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'p
   const title = entry.title
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
   return {
-    info: { id, kind: 'contents', division: 'front', title, runningHead: title, opens: entry.opens },
+    info: { id, kind: 'contents', division: 'front', title, opens: entry.opens },
     node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parentRules, numberingAttribs(entry.numbering))),
   }
 }
@@ -123,7 +122,7 @@ function notesSection(
   notes: CollectedNotes,
   build: BookBuild,
   id: string,
-  runningHead: string | undefined,
+  title: string | undefined,
   parts?: Record<string, string>,
   opens?: string,
 ): BuiltSection {
@@ -134,8 +133,8 @@ function notesSection(
     ...run.paragraphs,
   ])
   return {
-    info: { id, kind: 'endnotes', division: notes.targetId === 'book' ? 'body' : notes.division, title: notes.series.title, runningHead },
-    node: sectionNode('endnotes', id, [notesHeading(book, notes), ...runs], build, runningHead, {
+    info: { id, kind: 'endnotes', division: notes.targetId === 'book' ? 'body' : notes.division, title: notes.series.title, parts },
+    node: sectionNode('endnotes', id, [notesHeading(book, notes), ...runs], build, title, {
       ...flowAttribs(opens, book.parentRules),
       ...(parts ? { 'data-segnavia-parts': JSON.stringify(parts) } : {}),
       ...(notes.series.placement === 'chapter' && notes.chapter > 0 ? { 'data-segnavia-chapter': String(notes.chapter) } : {}),
@@ -161,23 +160,23 @@ function decorateSection(sectionEntry: BookSectionEntry, build: DocumentBuild): 
   const section = build.sections.at(-1)
   if (!section) return
   if (sectionEntry.ancestry.length > 0) {
-    section.node.attribs['data-segnavia-parts'] = JSON.stringify(partNames(sectionEntry.ancestry))
+    const parts = partNames(sectionEntry.ancestry)
+    section.node.attribs['data-segnavia-parts'] = JSON.stringify(parts)
+    section.info.parts = parts
   }
   attachPendingPartHeadings(build, sectionEntry, section.info.id)
 }
 
 function noteContext(sectionEntry: BookSectionEntry, targetId: string, chapter: number, title: string | undefined, build: DocumentBuild): NoteSectionContext {
   const ancestry = sectionEntry.ancestry.at(-1)
-  const runningHead = 'runningHead' in sectionEntry.entry ? sectionEntry.entry.runningHead : undefined
   for (const part of sectionEntry.ancestry) build.partTargets.set(part.id, targetId)
   return {
     chapter,
     title,
-    runningHead,
     division: sectionEntry.division,
     targetId,
     ...(chapter === 0 && sectionEntry.division !== 'front' ? { placementKey: targetId.replace(/^segnavia-/, '') } : {}),
-    ...(ancestry ? { part: { id: ancestry.id, title: ancestry.title, runningHead: ancestry.runningHead } } : {}),
+    ...(ancestry ? { part: { id: ancestry.id, title: ancestry.title } } : {}),
   }
 }
 
@@ -287,7 +286,7 @@ function insertCollectedSections(book: Book, build: DocumentBuild): void {
         notes,
         build.build,
         collectedSectionId(notes),
-        owner?.info.runningHead,
+        owner?.info.title,
         parts ? (JSON.parse(parts) as Record<string, string>) : undefined,
         'any',
       ),
@@ -373,7 +372,6 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
       ...(buildIssue ? [buildIssue] : []),
       ...noteMarkerIssues(book.notes, notes.used),
       ...notes.issues,
-      ...markPlacementIssues(book.parentPages),
       ...templateRegionIssues(book.templates),
       ...issues,
       ...duplicateIdIssues(sections, headings),

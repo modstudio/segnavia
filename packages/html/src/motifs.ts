@@ -3,13 +3,13 @@ import {
   type AsOfDay,
   chooseMotifVersion,
   type FontReference,
+  HEAD_TEMPLATE_MOTIF,
   LIBRARY_MOTIF_PREFIX,
   MOTIF_ATTRIBUTE,
   type Motif,
   type MotifPlacement,
   type MotifSource,
   motifFieldAttribute,
-  PRINTED_PAGE_CONTEXT,
   RECORD_CONTEXT,
   resolveDirection,
   type Scripts,
@@ -82,9 +82,16 @@ function motifElements(html: string): Element[] {
   return elements(parse(html).children).filter((element) => Object.hasOwn(element.attribs, MOTIF_ATTRIBUTE))
 }
 
-export function libraryMotifPlacementRefusal(html: string): string | undefined {
-  const placed = motifElements(html).find((element) => (element.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
-  return placed ? refusal(placed, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key') : undefined
+export function libraryMotifPlacementRefusal(html: string, allowHeadTemplate = false): string | undefined {
+  const placed = motifElements(html).find((element) => {
+    const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
+    return key.startsWith(LIBRARY_MOTIF_PREFIX) && (!allowHeadTemplate || key !== HEAD_TEMPLATE_MOTIF)
+  })
+  if (!placed) return undefined
+  if (placed.attribs[MOTIF_ATTRIBUTE] === HEAD_TEMPLATE_MOTIF) {
+    return refusal(placed, 'a head-template placement outside parent head, foot or region HTML', 'move it into a parent head, foot or region')
+  }
+  return refusal(placed, `a host motif key because "${LIBRARY_MOTIF_PREFIX}" is reserved for library motifs`, 'rename the motif key')
 }
 
 export function hasMotifPlacement(html: string): boolean {
@@ -92,7 +99,10 @@ export function hasMotifPlacement(html: string): boolean {
 }
 
 export function hasHostMotifPlacement(html: string): boolean {
-  return motifElements(html).some((element) => !(element.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
+  return motifElements(html).some((element) => {
+    const key = element.attribs[MOTIF_ATTRIBUTE] ?? ''
+    return key !== HEAD_TEMPLATE_MOTIF && !key.startsWith(LIBRARY_MOTIF_PREFIX)
+  })
 }
 
 export function renderMotifPlacements(html: string, replacement: (key: string) => string | undefined): string {
@@ -171,7 +181,7 @@ async function fillVersion(html: string, placement: MotifPlacement, element: Ele
   state.options.signal.throwIfAborted()
   if (data) {
     const deferred = new Set(state.options.deferPaths ?? [])
-    for (const context of [PRINTED_PAGE_CONTEXT, RECORD_CONTEXT, AS_OF_CONTEXT]) {
+    for (const context of [RECORD_CONTEXT, AS_OF_CONTEXT]) {
       if (!deferred.has(context) || !Object.hasOwn(data, context)) continue
       refuse(state, element, `the reserved ${context} context because host data contains that key`, `remove ${context} from MotifSource.data`)
       return undefined
@@ -278,7 +288,11 @@ async function expandNodes(nodes: ChildNode[], inheritedLang: string | undefined
   for (const node of [...nodes]) {
     state.options.signal.throwIfAborted()
     if (!isTag(node)) continue
-    if (Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE) && !(state.options.deferLibrary && (node.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX)))
+    if (
+      Object.hasOwn(node.attribs, MOTIF_ATTRIBUTE) &&
+      node.attribs[MOTIF_ATTRIBUTE] !== HEAD_TEMPLATE_MOTIF &&
+      !(state.options.deferLibrary && (node.attribs[MOTIF_ATTRIBUTE] ?? '').startsWith(LIBRARY_MOTIF_PREFIX))
+    )
       await expandPlacement(node, inheritedLang, stack, state)
     else await expandNodes(node.children, inheritedLang, stack, state)
   }

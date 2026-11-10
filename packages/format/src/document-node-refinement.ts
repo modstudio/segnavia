@@ -23,18 +23,7 @@ function refinePage(node: Extract<DocumentNode, { type: 'page' }>, path: Path, k
   }
 }
 
-const SECTION_FIELDS = [
-  'title',
-  'contentsLabel',
-  'subtitle',
-  'contents',
-  'opens',
-  'numbering',
-  'parentRules',
-  'headTemplate',
-  'pageGeometry',
-  'template',
-] as const
+const SECTION_FIELDS = ['title', 'contentsLabel', 'subtitle', 'contents', 'opens', 'numbering', 'parentRules', 'pageGeometry', 'template'] as const
 
 function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: Path, profile: DocumentProfile, ctx: z.RefinementCtx): void {
   if (node.parents !== undefined) {

@@ -1,13 +1,9 @@
 import type { ParentRules } from '@segnavia/format'
 import {
-  BOOK_FURNITURE,
   type Book,
   type BookSection,
   type BookTemplate,
   type DesignedSection,
-  MOTIF_ATTRIBUTE,
-  motifFieldAttribute,
-  type ParentPage,
   REGION_NAME,
   type RecordFacts,
   type SectionNumbering,
@@ -31,16 +27,15 @@ export function authoredSection(
   build: BookBuild,
 ): BuiltSection {
   const document = parse(section.html)
-  const runningHead = section.title
   const node = sectionNode(
     'front',
     id,
     document.children,
     build,
-    runningHead,
+    section.title,
     flowAttribs(section.opens, section.parentRules, languageAttribs(section), section.pageGeometry),
   )
-  return { info: { id, kind: 'front', division: 'front', title: section.title, runningHead, opens: section.opens }, node }
+  return { info: { id, kind: 'front', division: 'front', title: section.title, opens: section.opens, numbering: section.numbering }, node }
 }
 
 export function numberingAttribs(numbering?: SectionNumbering): Record<string, string> {
@@ -76,14 +71,12 @@ export function sectionNode(
   id: string,
   children: ChildNode[] = [],
   build: BookBuild,
-  runningHead?: string,
+  title?: string,
   extra: Record<string, string> = {},
 ) {
   const attribs: Record<string, string> = { class: `segnavia-section segnavia-${kind}`, id, ...extra }
   if (build !== 'print') attribs['data-segnavia-flow'] = id
-  if (build === 'galley') {
-    if (runningHead !== undefined) attribs['data-running-head'] = runningHead
-  }
+  if (build === 'galley' && title !== undefined) attribs['data-segnavia-section-title'] = title
   return element('section', attribs, children)
 }
 
@@ -95,15 +88,14 @@ export function partSection(
   parts: Record<string, string>,
 ): BuiltSection {
   const children = entry.html === undefined ? [] : parse(entry.html).children
-  const runningHead = entry.runningHead ?? entry.title
   const extra = flowAttribs(entry.opens, entry.parentRules, {
     'data-segnavia-kind': 'part',
     'data-segnavia-parts': JSON.stringify(parts),
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   return {
-    info: { id, kind: 'part', division, title: entry.title, runningHead, opens: entry.opens },
-    node: sectionNode('part', id, children, build, runningHead, extra),
+    info: { id, kind: 'part', division, title: entry.title, opens: entry.opens, parts },
+    node: sectionNode('part', id, children, build, entry.title, extra),
   }
 }
 
@@ -178,11 +170,10 @@ export function designedSection(
   if (entry.contents && entry.title !== undefined) {
     headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
   }
-  const runningHead = entry.title
   return {
     built: {
-      info: { id, kind, division, title: entry.title, runningHead, opens: entry.opens },
-      node: sectionNode(kind, id, holders, build, runningHead, extra),
+      info: { id, kind, division, title: entry.title, opens: entry.opens, numbering: entry.numbering },
+      node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
     headings,
   }
@@ -215,47 +206,6 @@ function templatedPageRegionFitIssues(entry: TemplatedSection, id: string): stri
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) =>
     Object.values(page.regions).flatMap((html) => namedRegionFitIssues(`section ${label} page ${index + 1}`, templateRegionElements(html))),
-  )
-}
-
-const markFurniture = BOOK_FURNITURE.find((item) => item.key === 'segnavia:mark') as Extract<(typeof BOOK_FURNITURE)[number], { key: 'segnavia:mark' }>
-const markFields = new Set(markFurniture.fields.map((field) => motifFieldAttribute(field.key)))
-const allowedMarkFields = markFurniture.fields.map((field) => field.key).join(' and ')
-
-function markNodeIssues(parent: ParentPage, node: Element): string[] {
-  if (node.attribs[MOTIF_ATTRIBUTE] !== markFurniture.key) return []
-  const issues = Object.keys(node.attribs)
-    .filter((attribute) => attribute.startsWith(`${MOTIF_ATTRIBUTE}-`) && !markFields.has(attribute))
-    .map((attribute) => {
-      const field = attribute.slice(`${MOTIF_ATTRIBUTE}-`.length)
-      return `parent page "${parent.name}" mark has unknown field "${field}"; use only ${allowedMarkFields} to clear this refusal`
-    })
-  for (const field of markFurniture.fields) {
-    const attribute = motifFieldAttribute(field.key)
-    const supplied = node.attribs[attribute]
-    const value = supplied ?? ('default' in field ? field.default : undefined)
-    if ('required' in field && field.required && (value === undefined || value.trim() === '')) {
-      issues.push(
-        `parent page "${parent.name}" mark has an empty ${field.key}; set a non-empty ${attribute} on the segnavia:mark placement to clear this refusal`,
-      )
-    }
-    if ('choices' in field && value !== undefined) {
-      const choices: readonly string[] = field.choices
-      if (!choices.includes(value)) {
-        issues.push(`parent page "${parent.name}" mark has unknown ${field.key} value "${value}"; use ${choices.join(' or ')} to clear this refusal`)
-      }
-    }
-  }
-  return issues
-}
-
-export function markPlacementIssues(parents: ParentPage[]): string[] {
-  return parents.flatMap((parent) =>
-    (['head', 'foot'] as const).flatMap((region) => {
-      const html = parent[region]
-      if (html === undefined) return []
-      return elements(parse(html).children).flatMap((node) => markNodeIssues(parent, node))
-    }),
   )
 }
 
@@ -329,11 +279,10 @@ export function templatedSection(
   if (entry.contents && entry.title !== undefined) {
     headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
   }
-  const runningHead = entry.title
   return {
     built: {
-      info: { id, kind, division, title: entry.title, runningHead, opens: entry.opens },
-      node: sectionNode(kind, id, holders, build, runningHead, extra),
+      info: { id, kind, division, title: entry.title, opens: entry.opens, numbering: entry.numbering },
+      node: sectionNode(kind, id, holders, build, entry.title, extra),
     },
     headings,
   }

@@ -43,6 +43,7 @@ export const DOCUMENT_NODE_SAMPLES: Record<DocumentNodeType, Sample> = {
   template: (seed) => ({ type: 'template', id: `template-${seed}`, name: 'body', html: HEBREW }),
   noteSeries: (seed) => ({ type: 'noteSeries', id: `notes-${seed}`, name: 'notes' }),
   variable: (seed) => ({ type: 'variable', id: `variable-${seed}`, name: 'folio', kind: 'folio' }),
+  headTemplate: (seed) => ({ type: 'headTemplate', id: `head-template-${seed}`, name: `head-${seed}`, parts: [{ variable: 'folio' }] }),
   condition: (seed) => ({ type: 'condition', id: `condition-${seed}`, name: 'edition' }),
 }
 

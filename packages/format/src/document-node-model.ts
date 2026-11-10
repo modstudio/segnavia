@@ -1,18 +1,18 @@
 import { z } from 'zod'
 import { DivisionNodeFields, type DocumentNode, PartNodeFields, SectionNodeFields } from './document-nodes.ts'
-import { ConditionNode, ContentsNode, NoteSeriesNode, ParentPageNode, TemplateNode } from './document-nodes-book.ts'
+import { ConditionNode, ContentsNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode } from './document-nodes-book.ts'
 import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, RecordNode, SlideNode } from './document-nodes-common.ts'
-import { NumberVariable, TextVariable } from './variable.ts'
+import { ContentTextVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
 
 type ObjectSchema = z.ZodObject<z.ZodRawShape>
-export type DocumentNodeType = DocumentNode['type'] | 'parentPage' | 'template' | 'noteSeries' | 'variable' | 'condition'
+export type DocumentNodeType = DocumentNode['type'] | 'parentPage' | 'template' | 'noteSeries' | 'variable' | 'headTemplate' | 'condition'
 
 export interface NodeModel {
   fields: ReadonlySet<string>
   content: ReadonlySet<string>
   settable: ReadonlySet<string>
   children: boolean
-  collection?: 'parentPages' | 'templates' | 'noteSeries' | 'variables' | 'conditions'
+  collection?: 'parentPages' | 'templates' | 'noteSeries' | 'variables' | 'headTemplates' | 'conditions'
 }
 
 const schemaFields = (schema: ObjectSchema): string[] => schema.keyof().options
@@ -36,7 +36,15 @@ const boardSectionModel = (): NodeModel => {
 }
 
 const variableModel = (): NodeModel => {
-  const fields = new Set([...schemaFields(TextVariable), ...schemaFields(NumberVariable), 'type', 'id'])
+  const fields = new Set([
+    ...schemaFields(ContentTextVariable),
+    ...schemaFields(SectionTitleTextVariable),
+    ...schemaFields(PartTitleTextVariable),
+    ...schemaFields(NumberVariable),
+    ...schemaFields(RecordVariable),
+    'type',
+    'id',
+  ])
   return modelFields(fields, [], 'variables')
 }
 
@@ -57,6 +65,7 @@ export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> 
   template: model(TemplateNode, ['html'], 'templates'),
   noteSeries: model(NoteSeriesNode, [], 'noteSeries'),
   variable: variableModel(),
+  headTemplate: model(HeadTemplateNode, [], 'headTemplates'),
   condition: model(ConditionNode, [], 'conditions'),
 }
 

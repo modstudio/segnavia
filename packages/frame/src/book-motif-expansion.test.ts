@@ -93,21 +93,37 @@ test('preserves library furniture motifs while expanding host motifs around them
     parentPages: [
       {
         name: 'held',
-        head: '<span data-motif="segnavia:folio"></span><span data-motif="ornament"></span>',
+        head: '<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span><span data-motif="ornament"></span>',
         margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 },
       },
     ],
     chapters: [{ title: 'One', html: '<p></p>' }],
   })
   const expanded = await expandFrameBook(book, { source }, signal)
-  expect(expanded.book.parentPages[0]?.head).toContain('data-motif="segnavia:folio"')
+  expect(expanded.book.parentPages[0]?.head).toContain('data-motif="segnavia:head-template"')
   expect(expanded.book.parentPages[0]?.head).toContain('class="expanded-ornament"')
 
   const libraryOnly = parseBookFixture({
     ...book,
-    parentPages: [{ ...book.parentPages[0], head: '<span data-motif="segnavia:folio"></span>' }],
+    parentPages: [{ ...book.parentPages[0], head: '<span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span>' }],
   })
   expect(bookMotifRefusal(libraryOnly)).toBeUndefined()
+})
+
+test('refuses non-head-template library motifs in parent furniture', () => {
+  const book = parseBookFixture({
+    title: 'Reserved furniture',
+    mode: 'continuous',
+    parentPages: [
+      {
+        name: 'held',
+        head: '<div data-motif="segnavia:folio"></div>',
+        margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 },
+      },
+    ],
+    chapters: [{ title: 'One', html: '<p></p>' }],
+  })
+  expect(bookMotifRefusal(book)?.message).toContain('"segnavia:" is reserved for library motifs; rename the motif key')
 })
 
 test('refuses library motifs in chapter and designed-page bodies without a source like a page does', async () => {

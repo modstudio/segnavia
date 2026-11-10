@@ -55,6 +55,26 @@ describe('paginateVariables', () => {
     expect(values.last?.last).toBe('Last')
   })
 
+  test('a Hebrew parasha uses first while start carries into a continuation', () => {
+    const definitions = [
+      { name: 'parasha-first', kind: 'text' as const, from: 'content' as const, pick: 'first' as const },
+      { name: 'parasha-start', kind: 'text' as const, from: 'content' as const, pick: 'start' as const },
+    ]
+    const opening = paginateVariables(
+      [
+        unit(0, [
+          { name: 'parasha-first', value: 'בראשית' },
+          { name: 'parasha-start', value: 'בראשית' },
+        ]),
+      ],
+      {},
+      definitions,
+    )
+    const continuation = paginateVariables([unit(1)], opening.carried, definitions)
+    expect(opening.values['parasha-first']?.first).toBe('בראשית')
+    expect(continuation.values['parasha-start']?.start).toBe('בראשית')
+  })
+
   test('nothing set and nothing carried gives empty values', () => {
     expect(paginateVariables([unit(0)], {}, declarations).values).toMatchObject({
       start: { start: '', first: '', last: '' },
@@ -75,5 +95,26 @@ describe('paginateVariables', () => {
     )
     expect(result.pages.filter((page) => page.flow === 'one').map((page) => page.variables.title)).toEqual(['One', 'One'])
     expect(result.pages.find((page) => page.flow === 'two')?.variables.title).toBeUndefined()
+  })
+
+  test('prototype-shaped variable names remain own properties', () => {
+    const definitions = [
+      { name: '__proto__', kind: 'text' as const, from: 'content' as const, pick: 'first' as const },
+      { name: 'constructor', kind: 'text' as const, from: 'content' as const, pick: 'last' as const },
+    ]
+    const values = paginateVariables(
+      [
+        unit(0, [
+          { name: '__proto__', value: 'first' },
+          { name: 'constructor', value: 'last' },
+        ]),
+      ],
+      {},
+      definitions,
+    ).values
+    expect(Object.hasOwn(Object.prototype, 'first')).toBeFalse()
+    expect(Object.hasOwn(Object.prototype, 'last')).toBeFalse()
+    expect(Object.getOwnPropertyDescriptor(values, '__proto__')?.value.first).toBe('first')
+    expect(Object.getOwnPropertyDescriptor(values, 'constructor')?.value.last).toBe('last')
   })
 })

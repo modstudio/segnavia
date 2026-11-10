@@ -5,43 +5,77 @@ import { FontReference, FontReferenceInput } from './fonts.ts'
 import { SlotKey } from './slots.ts'
 
 export const MOTIF_ATTRIBUTE = 'data-motif'
-export const PRINTED_PAGE_CONTEXT = 'printedPage'
 export const RECORD_CONTEXT = 'record'
 export const AS_OF_CONTEXT = 'asOf'
 export const AS_OF_DATE_PATH = `${AS_OF_CONTEXT}.date`
 export const AS_OF_ZONE_PATH = `${AS_OF_CONTEXT}.zone`
 export const AS_OF_ANCHOR_PATH = `${AS_OF_CONTEXT}.anchor`
-export const PRINTED_PAGE_NUMBER_PATH = `${PRINTED_PAGE_CONTEXT}.number`
-export const PRINTED_PAGE_TOTAL_PATH = `${PRINTED_PAGE_CONTEXT}.total`
-export const PRINTED_PAGE_DOCUMENT_NUMBER_PATH = `${PRINTED_PAGE_CONTEXT}.documentNumber`
-export const PRINTED_PAGE_DOCUMENT_TOTAL_PATH = `${PRINTED_PAGE_CONTEXT}.documentTotal`
-export const RECORD_INDEX_PATH = `${RECORD_CONTEXT}.index`
-export const RECORD_COUNT_PATH = `${RECORD_CONTEXT}.count`
-export const PRINTED_PAGE_FOLIO_PATH = `${PRINTED_PAGE_CONTEXT}.folio`
-export const PRINTED_PAGE_RUNNING_HEAD_PATH = `${PRINTED_PAGE_CONTEXT}.runningHead`
 export const LIBRARY_MOTIF_PREFIX = 'segnavia:'
-export const BOOK_FURNITURE = [
-  { key: 'segnavia:folio', path: PRINTED_PAGE_FOLIO_PATH, value: 'folio', className: 'segnavia-folio', region: 'foot', fields: [] },
-  {
-    key: 'segnavia:running-head',
-    path: PRINTED_PAGE_RUNNING_HEAD_PATH,
-    value: 'runningHead',
-    className: 'segnavia-running-head',
-    region: 'head',
-    fields: [],
-  },
-  {
-    key: 'segnavia:mark',
-    className: 'segnavia-mark',
-    region: 'head',
-    fields: [
-      { key: 'name', required: true },
-      { key: 'which', choices: ['first', 'last'], default: 'first' },
-    ],
-  },
-] as const
-export type BookFurniture = (typeof BOOK_FURNITURE)[number]
 export const motifFieldAttribute = (key: string) => `${MOTIF_ATTRIBUTE}-${key}`
+export const HEAD_TEMPLATE_MOTIF = 'segnavia:head-template'
+export const HEAD_TEMPLATE_NAME_ATTRIBUTE = motifFieldAttribute('name')
+
+export const headTemplatePlacement = (name: string): Record<string, string> => ({
+  [MOTIF_ATTRIBUTE]: HEAD_TEMPLATE_MOTIF,
+  [HEAD_TEMPLATE_NAME_ATTRIBUTE]: name,
+})
+
+export interface HeadTemplatePlacement {
+  start: number
+  end: number
+  openEnd: number
+  tag: string
+  name: string
+  selfClosing: boolean
+  bounded: boolean
+}
+
+export function headTemplatePlacements(
+  html: string,
+  motifAttribute = MOTIF_ATTRIBUTE,
+  motif = HEAD_TEMPLATE_MOTIF,
+  nameAttribute = HEAD_TEMPLATE_NAME_ATTRIBUTE,
+): HeadTemplatePlacement[] {
+  const attribute = (markup: string, name: string): string | undefined => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const match = new RegExp(`\\b${escaped}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(markup)
+    return match?.[1] ?? match?.[2] ?? match?.[3]
+  }
+  const placementEnd = (tags: RegExpMatchArray[], index: number, tag: string, openEnd: number): number | undefined => {
+    let depth = 1
+    for (let cursor = index + 1; cursor < tags.length; cursor += 1) {
+      const candidate = tags[cursor]
+      if (!candidate || (candidate[1] ?? '').toLowerCase() !== tag.toLowerCase()) continue
+      if (candidate[0].startsWith('</')) depth -= 1
+      else if (!/\/\s*>$/.test(candidate[0])) depth += 1
+      if (depth === 0) return (candidate.index ?? 0) + candidate[0].length
+    }
+    return openEnd === 0 ? openEnd : undefined
+  }
+  const tags = [...html.matchAll(/<\/?([a-zA-Z][\w:-]*)([^>]*)>/g)]
+  const placements: HeadTemplatePlacement[] = []
+  for (let index = 0; index < tags.length; index += 1) {
+    const token = tags[index]
+    if (!token) continue
+    const markup = token[0]
+    if (markup.startsWith('</') || attribute(markup, motifAttribute) !== motif) continue
+    const start = token.index ?? 0
+    const openEnd = start + markup.length
+    const tag = token[1] ?? ''
+    const selfClosing = /\/\s*>$/.test(markup)
+    const closeEnd = selfClosing ? openEnd : placementEnd(tags, index, tag, openEnd)
+    placements.push({
+      start,
+      end: closeEnd ?? openEnd,
+      openEnd,
+      tag,
+      name: attribute(markup, nameAttribute) ?? '',
+      selfClosing,
+      bounded: closeEnd !== undefined,
+    })
+  }
+  return placements
+}
 
 const uniqueChoices = (field: { choices?: string[]; default?: string }, ctx: z.RefinementCtx) => {
   if (field.choices && new Set(field.choices).size !== field.choices.length) {

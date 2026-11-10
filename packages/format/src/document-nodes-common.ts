@@ -12,7 +12,6 @@ export const FlowNode = NodeId.extend({
   type: z.literal('flow'),
   html: z.string(),
   title: z.string().optional(),
-  runningHead: z.string().optional(),
 })
 
 export const PageNode = NodeId.extend({

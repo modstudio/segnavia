@@ -11,10 +11,11 @@ import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } 
 import { DocumentMetadata } from './document-metadata.ts'
 import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
-import { ConditionNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { ConditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
+import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LogicalMargin } from './margins.ts'
 import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numbering.ts'
@@ -61,18 +62,24 @@ export const DocumentShape = z.object({
   orphans: BookShape.shape.orphans.unwrap().optional(),
   widows: BookShape.shape.widows.unwrap().optional(),
   fragmentation: BookShape.shape.fragmentation.unwrap().optional(),
-  runningHead: BookShape.shape.runningHead.unwrap().optional(),
   parentRules: parentRules.optional(),
   rules: z.unknown().optional(),
   children: z.array(DocumentNode),
   parentPages: z.array(ParentPageNode).default([]),
   templates: z.array(TemplateNode).default([]),
   noteSeries: z.array(NoteSeriesNode).default([]),
-  variables: z.array(VariableNode).default([]),
+  variables: z
+    .array(VariableNode)
+    .default([])
+    .superRefine((variables, ctx) => refineLibraryNames('variable', variables, ctx)),
+  headTemplates: z
+    .array(HeadTemplateNode)
+    .default([])
+    .superRefine((templates, ctx) => refineLibraryNames('head template', templates, ctx)),
   conditions: z.array(ConditionNode).default([]),
 })
 
-export const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'conditions'] as const
+export const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'headTemplates', 'conditions'] as const
 const structuralFields = new Set(['type', 'id', 'kind', 'children', ...definitionCollections])
 
 function refineSettings(document: z.infer<typeof DocumentShape>, profile: (typeof DOCUMENT_PROFILES)[DocumentKind], ctx: z.RefinementCtx): void {

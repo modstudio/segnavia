@@ -123,8 +123,10 @@ export function modelToBook(
   const stories = orderedStories(model, anchoredOnly)
   const storyById = new Map(model.stories.map((story) => [story.id, story]))
   const frameByLocation = new Map((model.anchoredFrames ?? []).map((frame) => [frame.location, frame]))
-  const renderStory = (story: IdmlStory, depth = 0, ancestors = new Set([story.id]), master = false): StoryHtmlResult =>
-    storyHtml({ ...story, textVariables: matchedVariables, master }, styles, report, bookDirection, bookLanguage, {
+  const usedVariables = new Map<string, StoryHtmlResult['variables'][number]>()
+  const usedHeadTemplates = new Map<string, StoryHtmlResult['headTemplates'][number]>()
+  const renderStory = (story: IdmlStory, depth = 0, ancestors = new Set([story.id]), master = false): StoryHtmlResult => {
+    const result = storyHtml({ ...story, textVariables: matchedVariables, master }, styles, report, bookDirection, bookLanguage, {
       tableStyles,
       inlineParagraphs: depth > 0,
       anchored: (location, direction): string | undefined => {
@@ -153,6 +155,10 @@ export function modelToBook(
         return `<span class="idml-anchored" style="${style}">${html}</span>`
       },
     })
+    for (const variable of result.variables) usedVariables.set(variable.name, variable)
+    for (const template of result.headTemplates) usedHeadTemplates.set(template.name, template)
+    return result
+  }
   const masters = mapMasters(model, matchedVariables, styles, report, (story) => renderStory(story, 0, new Set([story.id]), true))
   const mapped = stories.map((story) => ({ story, mapped: renderStory(story) }))
   const openers = mapOpeners(model, mapped, storyPages, masters, report, options.asset, conversion?.openerPlan)
@@ -167,10 +173,11 @@ export function modelToBook(
   const chapters = emitted.map(({ story, mapped: value }) => {
     const parentRules = chapterParents(story.id, model, storyPages, masters, report)
     const source = openers.html.get(story.id) ?? value.html
-    const document = parseDocument({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: source } }] }, { newId })
+    const deferred = source.replace(/\bdata-variable=/g, 'data-idml-variable=')
+    const document = parseDocument({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: deferred } }] }, { newId })
     const page = document.children[0]
-    const html = page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : source
-    return { story: story.id, title: story.id, html, ...(parentRules ? { parentRules } : {}) }
+    const identified = page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : deferred
+    return { story: story.id, title: story.id, html: identified.replace(/\bdata-idml-variable=/g, 'data-variable='), ...(parentRules ? { parentRules } : {}) }
   })
   if (chapters.length === 0) throw refusal('the IDML has no stories', 'add at least one Story')
   refuseActiveBookHtml(chapters, masters.parents)
@@ -191,6 +198,8 @@ export function modelToBook(
     style: importedStyle(css, bookFonts),
     rectoOpenings: openingPolicy.rectoOpenings,
     parentPages: masters.parents,
+    variables: [...usedVariables.values()],
+    headTemplates: [...usedHeadTemplates.values()],
     body,
   })
 }

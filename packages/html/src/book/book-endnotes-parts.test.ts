@@ -22,6 +22,7 @@ test("chapter endnotes carry their owning chapter's part and division", () => {
     }),
   )
   expect(result.sections.find((section) => section.id === 'segnavia-endnotes-section-2')?.division).toBe('body')
+  expect(result.sections.find((section) => section.id === 'segnavia-endnotes-section-2')?.parts).toEqual({ part: 'Part One' })
   expect(sectionOpen(result.html, 'segnavia-endnotes-section-2')).toContain('data-segnavia-parts="{&quot;part&quot;:&quot;Part One&quot;}"')
 })
 

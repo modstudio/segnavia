@@ -78,14 +78,14 @@ describe('paginateBook opening sides', () => {
     const pages = paginateBook(
       input({
         settings: { ...settings, rectoOpenings: false },
-        flows: [{ id: 'lesson', kind: 'fixed', pages: 2, role: 'body', opens: 'any', runningHead: 'Lesson' }],
+        flows: [{ id: 'lesson', kind: 'fixed', pages: 2, role: 'body', opens: 'any' }],
       }),
     ).pages
     expect(sides(pages)).toEqual([
       { flow: 'lesson', role: 'body', number: 1, blank: false, opener: true },
       { flow: 'lesson', role: 'body', number: 2, blank: false, opener: false },
     ])
-    expect(pages[0]).toMatchObject({ role: 'body', sectionOpening: true, runningHead: 'Lesson' })
+    expect(pages[0]).toMatchObject({ role: 'body', sectionOpening: true })
   })
 
   test('the default is recto when rectoOpenings is on and any otherwise', () => {
@@ -123,7 +123,7 @@ describe('paginateBook opening sides', () => {
     ])
   })
 
-  test('chapter endnotes start on a new page, open on either side, and take the chapter running head', () => {
+  test('chapter endnotes start on a new page and open on either side', () => {
     const pages = paginateBook(
       input({
         settings,
@@ -140,14 +140,13 @@ describe('paginateBook opening sides', () => {
         role: page.role,
         blank: page.blank,
         opener: page.sectionOpening,
-        head: page.runningHead,
       })),
     ).toEqual([
-      { flow: 'c1', role: 'opener', blank: false, opener: true, head: undefined },
-      { flow: 'c1-notes', role: 'opener', blank: false, opener: true, head: undefined },
-      { flow: 'c1-notes', role: 'body', blank: false, opener: false, head: 'One' },
-      { flow: 'c2', role: 'blank', blank: true, opener: false, head: undefined },
-      { flow: 'c2', role: 'opener', blank: false, opener: true, head: undefined },
+      { flow: 'c1', role: 'opener', blank: false, opener: true },
+      { flow: 'c1-notes', role: 'opener', blank: false, opener: true },
+      { flow: 'c1-notes', role: 'body', blank: false, opener: false },
+      { flow: 'c2', role: 'blank', blank: true, opener: false },
+      { flow: 'c2', role: 'opener', blank: false, opener: true },
     ])
   })
 

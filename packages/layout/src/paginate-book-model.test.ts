@@ -156,20 +156,6 @@ describe('paginateBook model', () => {
     expect(result.pages.map((page) => page.windows)).toEqual([[win('c1', 0, 50, 0)], [win('c1', 50, 80, 0)]])
   })
 
-  test('marks first and last on a page, and carried to a page with none', () => {
-    const paragraph = block('text', 'p', 1, 1, 12, 0, {
-      marks: [
-        { name: 'siman', value: 'A', line: 0 },
-        { name: 'siman', value: 'B', line: 4 },
-        { name: 'kavana', value: 'K', line: 2 },
-      ],
-    })
-    const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [paragraph])] })).pages
-    expect(pages[0]?.marks).toEqual({ siman: { first: 'A', last: 'B' }, kavana: { first: 'K', last: 'K' } })
-    expect(pages[1]?.marks).toEqual({ siman: { first: 'B', last: 'B' }, kavana: { first: 'K', last: 'K' } })
-    expect(pages[2]?.marks).toEqual({ siman: { first: 'B', last: 'B' }, kavana: { first: 'K', last: 'K' } })
-  })
-
   test('a fixed flow occupies whole pages and opens on a recto', () => {
     const pages = paginateBook(
       input({
@@ -197,21 +183,6 @@ describe('paginateBook model', () => {
       { role: 'body', flow: 'c1', sequence: 'body' },
       { role: 'body', flow: 'c1', sequence: 'body' },
     ])
-  })
-
-  test('blanks carry no marks', () => {
-    const pages = paginateBook(
-      input({
-        settings,
-        flows: [
-          flow('c1', 'chapter', [block('text', 'p', 1, 1, 3, 0, { marks: [{ name: 'siman', value: 'A', line: 0 }] })]),
-          flow('c2', 'chapter', [block('text', 'p', 2, 1, 3, 0)]),
-        ],
-      }),
-    ).pages
-    expect(pages[1]?.blank).toBe(true)
-    expect(pages[1]?.marks).toBeUndefined()
-    expect(pages[2]?.marks).toEqual({ siman: { first: 'A', last: 'A' } })
   })
 
   test('galley gaps between blocks survive on the page', () => {
@@ -269,31 +240,6 @@ describe('paginateBook model', () => {
       { role: 'blank', sequence: 'front', flow: 'toc', number: 6, kind: 'blank' },
       { role: 'opener', sequence: 'body', flow: 'c1', number: 1, kind: 'body' },
     ])
-  })
-
-  test('marks named __proto__ and constructor leave Object.prototype untouched', () => {
-    const beforeLast = Object.getOwnPropertyDescriptor(Object.prototype, 'last')
-    const beforeFirst = Object.getOwnPropertyDescriptor(Object.prototype, 'first')
-    const pages = paginateBook(
-      input({
-        flows: [
-          flow('c1', 'chapter', [
-            block('text', 'p', 1, 1, 2, 0, {
-              marks: [
-                { name: '__proto__', value: 'P', line: 0 },
-                { name: 'constructor', value: 'C', line: 1 },
-              ],
-            }),
-          ]),
-        ],
-      }),
-    ).pages
-    expect(Object.getOwnPropertyDescriptor(Object.prototype, 'last')).toEqual(beforeLast)
-    expect(Object.getOwnPropertyDescriptor(Object.prototype, 'first')).toEqual(beforeFirst)
-    expect(Object.prototype).not.toHaveProperty('last')
-    const marks = pages[0]?.marks
-    expect(marks ? Object.getOwnPropertyDescriptor(marks, '__proto__')?.value : undefined).toEqual({ first: 'P', last: 'P' })
-    expect(marks ? Object.getOwnPropertyDescriptor(marks, 'constructor')?.value : undefined).toEqual({ first: 'C', last: 'C' })
   })
 
   test('a block with more than 12 columns is refused by name', () => {

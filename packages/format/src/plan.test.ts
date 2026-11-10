@@ -13,7 +13,6 @@ function page(): PlanValue['pages'][number] {
     variables: {},
     blank: false,
     sectionOpening: true,
-    marks: {},
     parent: 'segnavia:opener',
     face: 'recto',
     side: 'right',
@@ -24,7 +23,7 @@ function page(): PlanValue['pages'][number] {
 
 function plan(): PlanValue {
   return {
-    version: 4,
+    version: 5,
     fingerprint: 'fnv1a64:0000000000000000',
     breaks: [],
     pages: [page()],

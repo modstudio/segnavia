@@ -1,6 +1,5 @@
 // The shapes every package agrees on. Hosts read and write these as JSON, so each is a Zod schema;
 // `jsonSchemas` generates JSON Schema for hosts that do not run TypeScript.
-
 export { AsOf, type AsOfDay, CalendarDate, Zone } from './as-of.ts'
 export {
   type AsOfFacts,
@@ -10,106 +9,7 @@ export {
   calendarDate,
   resolveAsOfDay,
 } from './as-of-policy.ts'
-export { Board, BoardItem, BoardLabel, BoardSection, GridCell, LABEL_MIN_WIDTH } from './board.ts'
-export type { BoardCommandOptions } from './board-command-core.ts'
-export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
-export {
-  BoardCommand,
-  type BoardCommandOf,
-  BoardEntityRef,
-  BoardItemRef,
-  BoardSectionRef,
-  BoardTarget,
-  PlacementTarget,
-} from './board-commands.ts'
-export {
-  type BoardDescription,
-  type BoardDescriptionCell,
-  type BoardDescriptionEntity,
-  type BoardDescriptionEntityKind,
-  type BoardDescriptionItem,
-  type BoardDescriptionLabel,
-  type BoardDescriptionMember,
-  type BoardDescriptionOverlap,
-  type BoardDescriptionSection,
-  type DescribeBoardOptions,
-  describeBoard,
-} from './board-describe.ts'
-export {
-  addItem,
-  type BoardItemAnchor,
-  MIN_BOARD_ITEM_WIDTH,
-  moveBoardNodes,
-  moveItems,
-  moveSection,
-  removeItems,
-  resizeItem,
-  resizeLabel,
-  withLabelWidth,
-} from './board-edit.ts'
-export type {
-  BoardChangedEntity,
-  BoardChangedKind,
-  BoardEditAdjustment,
-  BoardEditAdjustmentKind,
-  BoardEditFailure,
-  BoardEditResult,
-  BoardEditSuccess,
-} from './board-edit-result.ts'
-export {
-  type ArrangeOptions,
-  arrange,
-  type BoardShapes,
-  type BoardView,
-  boardBounds,
-  boardNodesInRectangle,
-  boardToScreen,
-  itemAt,
-  itemHeight,
-  labelDirection,
-  labelXForWidth,
-  MAX_BOARD_ZOOM,
-  MIN_BOARD_ZOOM,
-  revealView,
-  screenToBoard,
-  visibleItems,
-  type ZoomBounds,
-  zoomAt,
-  zoomToFit,
-} from './board-geometry.ts'
-export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
-export {
-  deriveSectionCells,
-  type GridDropTarget,
-  gridDropMarkerBox,
-  gridDropTarget,
-  insertIntoGrid,
-  layoutSection,
-  removeFromGrid,
-} from './board-section-grid.ts'
-export {
-  assignMembership,
-  fitSection,
-  fitTouchedSections,
-  MAKE_ROOM_LIMIT,
-  makeRoom,
-  SECTION_GAP,
-  SECTION_MIN_SIZE,
-  SECTION_PADDING,
-  SECTION_TITLE_ROOM,
-  settleBoard,
-} from './board-sections.ts'
-export {
-  BOARD_LABEL_ESTIMATE,
-  type BoardItemFact,
-  type BoardShapesOptions,
-  boardShapes,
-  type ComputedBoardShapes,
-  type LabelShapeResult,
-  labelShape,
-  provisionalShape,
-  resolvedShape,
-} from './board-shapes.ts'
+export * from './board-exports.ts'
 export * from './book-exports.ts'
 export { type BrandSource, resolveBrand } from './brand.ts'
 export {
@@ -182,7 +82,7 @@ export {
 } from './document-lowering.ts'
 export * from './document-metadata.ts'
 export { DocumentNodeInput } from './document-node-input.ts'
-export { VariableNode } from './document-nodes-book.ts'
+export { HeadTemplateNode, VariableNode } from './document-nodes-book.ts'
 export { DocumentBatch, DocumentCollection, DocumentLocation, DocumentOp } from './document-op.ts'
 export {
   DOCUMENT_NODE_MODEL,
@@ -239,6 +139,7 @@ export {
   persistedFontManifestWithReferences,
   rangeSample,
 } from './fonts.ts'
+export { HeadTemplate, HeadTemplatePart, LIBRARY_HEAD_TEMPLATES } from './head-template.ts'
 export {
   fitPage,
   type Imposed,
@@ -265,6 +166,7 @@ export {
 export { Imposition, type ImpositionInput, MAX_IMPOSITION_CELLS } from './imposition-schema.ts'
 export { jsonSchemas } from './json-schemas.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
+export { withLibraryEntries } from './library-names.ts'
 export * from './limit-exports.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export * from './measurements.ts'
@@ -354,7 +256,7 @@ export {
 } from './placement.ts'
 export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from './placement-cycle.ts'
 export { PlacementRefusedError } from './placement-refusal.ts'
-export { PaginatePageMarks, PaginatePageNote, PaginateWindow, PLAN_VERSION, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
+export { PaginatePageNote, PaginateWindow, PLAN_VERSION, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
 export {
   MarkColor,
   PRESS_GEOMETRY_FIELDS,
@@ -395,4 +297,5 @@ export {
 } from './style-sheet.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
-export { NumberVariable, TextVariable, Variable } from './variable.ts'
+export { LIBRARY_VARIABLES, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
+export { textVariableValue, type VariablePageFacts, variableValue } from './variable-value.ts'

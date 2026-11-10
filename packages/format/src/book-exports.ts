@@ -9,8 +9,6 @@ export {
   BookMode,
   BookOpens,
   BookPage,
-  BookRunningHead,
-  BookRunningHeadSource,
   BookSection,
   type BookSectionEntry,
   BookTemplate,
@@ -39,11 +37,15 @@ export {
   resolveBookPageGeometry,
   resolveBookPagination,
   SECTION_BOUNDARY_CLASS,
-  SECTION_TITLE_MARK,
   sectionPageGeometry,
   TemplatedPage,
   TemplatedSection,
 } from './book.ts'
+export {
+  type BookVariableNumberPage,
+  type BookVariablePageNumbers,
+  bookVariablePageNumbers,
+} from './book-variable-page-numbers.ts'
 export {
   NoteNumbering,
   NotePlacement,

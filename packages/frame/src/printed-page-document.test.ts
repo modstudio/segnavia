@@ -23,7 +23,7 @@ const page = Page.parse({
         name: 'body',
         margin: { blockStart: 20, blockEnd: 20, inlineStart: 15, inlineEnd: 10 },
         head: '<i>Inherited</i>',
-        foot: '<b data-slot-value="printedPage.number"></b>',
+        foot: '<b data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></b>',
       },
       { name: 'first', basedOn: 'body', margin: { blockStart: 30, blockEnd: 20, inlineStart: 15, inlineEnd: 10 } },
     ],
@@ -114,7 +114,7 @@ describe('printedPageDocument', () => {
     const html = printedPageValueDocument(resolvePrintedPageHtml(sectioned), { nonce: 'held' })
     expect(html.match(/<div data-segnavia-flow=/g)).toHaveLength(1)
     expect(html).toContain('class="segnavia-section-boundary"')
-    expect(html).toContain('data-mark="segnavia:section-title"')
+    expect(html).toContain('data-segnavia-section-title="Two"')
     expect(html).toContain('id="two">Two</div><p>Two</p>')
   })
 
@@ -151,7 +151,7 @@ describe('printedPageDocument', () => {
     const html = printedPageDocument(page, { nonce: 'held' })
     expect(html.match(/<script nonce="held">/g)?.length).toBeGreaterThanOrEqual(1)
     expect(html).toContain('"numbering":{"frontMatter":"hebrew","body":"hebrew"}')
-    expect(html).toContain('data-slot-value=\\"printedPage.number\\"')
+    expect(html).toContain('data-motif-name=\\"segnavia:folio\\"')
     expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
     expect(COMPOSER_SCRIPT).toContain(layoutScript())
     expect(COMPOSER_SCRIPT).toContain(computeFolios.toString())
@@ -320,7 +320,7 @@ describe('printedPageDocument', () => {
     expect(() => printedPageDocument(changed, { nonce: 'held' })).toThrow(remedy)
   })
 
-  test('refuses host data that collides with the composer page context', async () => {
+  test('refuses host data that collides with the composer record context', async () => {
     const placed = Page.parse({
       ...page,
       printedPages: {
@@ -336,11 +336,11 @@ describe('printedPageDocument', () => {
         label: 'Folio',
         fields: [],
         fonts: [],
-        versions: [{ lang: 'he', html: '<span data-slot-value="printedPage.number"></span>' }],
+        versions: [{ lang: 'he', html: '<span data-slot-value="record.name"></span>' }],
       }),
-      data: async () => ({ printedPage: { number: 'host' } }),
+      data: async () => ({ record: { name: 'host' } }),
     }
-    await expect(expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)).rejects.toThrow('remove printedPage from MotifSource.data')
+    await expect(expandFramePage(resolvePageHtml(placed), { source }, new AbortController().signal)).rejects.toThrow('remove record from MotifSource.data')
   })
 
   test('uses the page document language for a motif in a parent region', async () => {

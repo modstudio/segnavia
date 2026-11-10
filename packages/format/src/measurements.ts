@@ -12,9 +12,6 @@ export type PaginateLine = z.infer<typeof PaginateLine>
 export const PaginateNoteRef = z.object({ note: z.string(), line: z.number() })
 export type PaginateNoteRef = z.infer<typeof PaginateNoteRef>
 
-export const PaginateMark = z.object({ name: z.string(), value: z.string(), line: z.number(), scope: z.literal('flow').optional() })
-export type PaginateMark = z.infer<typeof PaginateMark>
-
 export const PaginateVariable = z.object({ name: z.string(), value: z.string(), line: z.number(), scope: z.literal('flow').optional() })
 export type PaginateVariable = z.infer<typeof PaginateVariable>
 
@@ -35,7 +32,6 @@ export const PaginateBlock = z.object({
   keepRuns: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() })).optional(),
   headerHeight: z.number().optional(),
   footnoteRefs: z.array(PaginateNoteRef).optional(),
-  marks: z.array(PaginateMark).optional(),
   variables: z.array(PaginateVariable).optional(),
 })
 export type PaginateBlock = z.infer<typeof PaginateBlock>
@@ -43,10 +39,8 @@ export type PaginateBlock = z.infer<typeof PaginateBlock>
 const PaginateFlowBase = {
   id: z.string(),
   sequence: z.enum(['front', 'body']).optional(),
-  runningHead: z.string().optional(),
   opens: BookOpens.optional(),
   parentRules: parentRules.optional(),
-  parts: z.record(z.string(), z.string()).optional(),
   numbering: SectionNumbering.optional(),
   record: RecordFacts.optional(),
   pageGeometry: z.string().optional(),

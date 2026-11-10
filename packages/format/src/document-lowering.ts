@@ -52,6 +52,11 @@ function variable(node: DocumentValue['variables'][number]) {
   return value
 }
 
+function headTemplate(node: DocumentValue['headTemplates'][number]) {
+  const { type: _type, id: _id, ...value } = node
+  return value
+}
+
 function contentsOptions(document: DocumentValue) {
   let contents: Extract<ParsedNode, { type: 'contents' }> | undefined
   const find = (nodes: ParsedNode[]): void => {
@@ -93,6 +98,7 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       parentRules: document.parentRules,
       templates: document.templates.map(template),
       variables: document.variables.map(variable),
+      headTemplates: document.headTemplates.map(headTemplate),
       notes: document.noteSeries.map(noteSeries),
       numbering: typeof document.numbering === 'object' ? document.numbering : undefined,
       footnotes: document.footnotes,
@@ -101,7 +107,6 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       orphans: document.orphans,
       widows: document.widows,
       fragmentation: document.fragmentation,
-      runningHead: document.runningHead,
       contents: contentsOptions(document),
     }),
   )
@@ -134,6 +139,7 @@ function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): Pa
         numbering: typeof document.numbering === 'string' ? document.numbering : undefined,
         fragmentation: document.fragmentation,
         variables: document.variables.map(variable),
+        headTemplates: document.headTemplates.map(headTemplate),
         ...(sections.length > 0 ? { sections } : {}),
       }
     : undefined

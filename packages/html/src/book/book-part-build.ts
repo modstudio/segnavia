@@ -5,7 +5,7 @@ import { partSection } from './book-held.ts'
 type PartFact = BookSectionEntry['ancestry'][number]
 
 export function partNames(ancestry: PartFact[], own?: PartFact): Record<string, string> {
-  return Object.fromEntries([...ancestry, ...(own ? [own] : [])].map((part) => [part.name, part.runningHead ?? part.title ?? '']))
+  return Object.fromEntries([...ancestry, ...(own ? [own] : [])].map((part) => [part.name, part.title ?? '']))
 }
 
 export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bookRules?: ParentRules): boolean {
@@ -13,7 +13,7 @@ export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bo
   if (!isPart(entry)) return false
   const id = sectionEntry.id ?? ''
   if (entry.html !== undefined) {
-    const parts = partNames(sectionEntry.ancestry, { name: entry.name, title: entry.title, runningHead: entry.runningHead, id })
+    const parts = partNames(sectionEntry.ancestry, { name: entry.name, title: entry.title, id })
     build.sections.push(partSection({ ...entry, parentRules: entry.parentRules ?? bookRules }, id, sectionEntry.division, build.build, parts))
     attachPendingPartHeadings(build, sectionEntry, id)
   }
