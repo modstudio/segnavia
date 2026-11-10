@@ -13,6 +13,7 @@ export const BOOK_BRIDGE_MESSAGES = new Set([
   'segnavia:slot-fit',
   'segnavia:book-place',
   'segnavia:compose-failure',
+  'segnavia:preflight',
 ])
 
 async function inlineKeepReport(frame: FrameLocator) {
