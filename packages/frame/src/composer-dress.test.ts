@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH } from '@segnavia/format'
 import { fillBookFurniture } from '@segnavia/html'
-import { fillFurniture, markFurnitureOverflow, markRegionOverflow } from './composer-dress.ts'
+import { fillFurniture, markFurnitureOverflow, markRegionOverflow, preflightPageFacts } from './composer-dress.ts'
 
 test('fills a right-to-left Hebrew motif and a printed-page slot in one pass', () => {
   const slot = {
@@ -68,6 +68,7 @@ test('collects furniture and template-region overset as separate preflight entri
   } as unknown as HTMLElement
   markFurnitureOverflow(head, page, entries)
   expect(entries[0]).toMatchObject({ check: 'furniture-overset', subject: 'body:head', location: { folio: 'iv' } })
+  expect(entries[0]?.message).toEndWith('to clear it.')
 
   const region = {
     getAttribute: (name: string) => (name === 'data-region' ? 'sidebar' : null),
@@ -75,4 +76,18 @@ test('collects furniture and template-region overset as separate preflight entri
   const root = { querySelectorAll: () => [region], getAttribute: (name: string) => (name === 'data-template' ? 'lesson' : null) } as unknown as Element
   markRegionOverflow(root, 'iv', () => ({ block: 11, inline: 0 }), entries)
   expect(entries[1]).toMatchObject({ check: 'region-overset', subject: 'lesson:sidebar', location: { folio: 'iv' } })
+  expect(entries[1]?.message).toEndWith('to clear it.')
+})
+
+test('reports the first and last block on each page without walking composed pages', () => {
+  const pages = [
+    { flow: 'chapter', start: { flow: 'chapter', block: 0, line: 0, id: 'first' } },
+    { flow: 'chapter', start: { flow: 'chapter', block: 1, line: 2, id: 'split' } },
+  ]
+  const flows = [{ id: 'chapter', kind: 'chapter', blocks: [{ id: 'first' }, { id: 'split' }, { id: 'last' }] }]
+
+  expect(preflightPageFacts(pages, ['1', '2'], flows)).toEqual([
+    { folio: '1', first: 'first', last: 'split' },
+    { folio: '2', first: 'split', last: 'last' },
+  ])
 })

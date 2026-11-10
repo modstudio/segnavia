@@ -151,7 +151,7 @@ export function boundPreflightReport(input: { readonly entries: unknown; readonl
     if (!issue) continue
     const check = issue.check
     counts[check] = (counts[check] ?? 0) + 1
-    if ((counts[check] ?? 0) > 64) {
+    if ((counts[check] ?? 0) > PREFLIGHT_ISSUES_PER_CHECK) {
       omitted[check] = (omitted[check] ?? 0) + 1
       continue
     }

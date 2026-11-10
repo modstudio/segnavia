@@ -28,6 +28,12 @@ test('wraps composer start-up exceptions in a bounded failure report', () => {
   expect(script).toContain(`String(reason).slice(0,1024);document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}'`)
 })
 
+test('collects overset entries only when preflight is enabled', () => {
+  const script = composerScript('{}')
+  expect(script).toContain("if(config.preflight){var furnitureRegions=pages.querySelectorAll('[data-segnavia-head],[data-segnavia-foot]')")
+  expect(script).toContain("if(config.preflight){var paper=filled[t].closest('['+config.pageMarker+']');markRegionOverflow")
+})
+
 function startTagElement(tag: string): Pick<Element, 'getAttribute'> {
   return {
     getAttribute(name: string) {

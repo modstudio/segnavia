@@ -20,8 +20,8 @@ export function dispatchFontFailures(target: EventTarget, message: FrameMessage 
 }
 
 export function dispatchPreflight(target: EventTarget, message: FrameMessage | null): boolean {
-  if (message?.type !== 'segnavia:preflight' || !message.report) return false
-  target.dispatchEvent(new CustomEvent('preflight', { detail: message.report }))
+  if (!message?.report) return false
+  target.dispatchEvent(new CustomEvent('preflight', { detail: message.report, bubbles: true, composed: true }))
   return true
 }
 

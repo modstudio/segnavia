@@ -51,6 +51,34 @@ export interface RegionExcess {
   inline: number
 }
 
+interface PreflightPlanPage {
+  flow: string
+  start?: { flow: string; block: number; line: number; id?: string }
+}
+
+interface PreflightMeasurementFlow {
+  id: string
+  kind: string
+  blocks?: readonly { id?: string }[]
+}
+
+export function preflightPageFacts(
+  pages: readonly PreflightPlanPage[],
+  folios: readonly (string | null)[],
+  flows: readonly PreflightMeasurementFlow[],
+): Array<{ folio: string; first?: string; last?: string }> {
+  return pages.map((page, index) => {
+    const first = page.start?.id
+    const flow = flows.find((candidate) => candidate.id === (page.start?.flow ?? page.flow))
+    const blocks = flow?.kind === 'fixed' ? undefined : flow?.blocks
+    const next = pages[index + 1]?.start
+    let lastIndex = (blocks?.length ?? 0) - 1
+    if (next && next.flow === flow?.id) lastIndex = next.line > 0 ? next.block : next.block - 1
+    const last = blocks?.[lastIndex]?.id
+    return { folio: folios[index] ?? '', ...(first ? { first } : {}), ...(last ? { last } : {}) }
+  })
+}
+
 export function markFurnitureOverflow(region: HTMLElement, page: Element, entries: PreflightEntry[]): void {
   const excess = region.scrollHeight - region.clientHeight
   if (excess <= 0.5) return
@@ -61,7 +89,7 @@ export function markFurnitureOverflow(region: HTMLElement, page: Element, entrie
   entries.push({
     check: 'furniture-overset',
     subject,
-    message: `Parent page ${parent} ${kind} furniture is overset; shorten its content or enlarge the ${kind} region to clear this refusal.`,
+    message: `Parent page ${parent} ${kind} furniture is overset; shorten its content or enlarge the ${kind} region to clear it.`,
     location: { folio: page.getAttribute('data-segnavia-folio') ?? '' },
   })
 }
@@ -79,7 +107,7 @@ export function markRegionOverflow(root: Element, folio: string, excessOf: (elem
     entries.push({
       check: 'region-overset',
       subject,
-      message: `Template ${template} region ${name} is overset; shorten its content, enlarge the region, or lower its fit minimum to clear this refusal.`,
+      message: `Template ${template} region ${name} is overset; shorten its content, enlarge the region, or lower its fit minimum to clear it.`,
       location: { folio },
     })
   }
