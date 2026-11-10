@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from './index.ts'
-import { BOOK_PARENT_NAMES, bookParentPages, PrintedPages } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, bookParentPages, PrintedPages, resolveParentPages } from './printed-pages.ts'
 
 const base = {
   html: '<p>body</p>',
@@ -125,24 +125,38 @@ describe('bookParentPages', () => {
     const margin = { blockStart: 15, blockEnd: 16, inlineStart: 20, inlineEnd: 12 }
     const parents = bookParentPages(margin)
 
-    expect(parents.map(({ name, head, foot }) => ({ name, head, foot }))).toEqual([
+    expect(parents.map(({ name, regions }) => ({ name, regions }))).toEqual([
       {
         name: BOOK_PARENT_NAMES.recto,
-        head: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>',
-        foot: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>',
+        regions: {
+          head: { edge: 'blockStart', html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>' },
+          foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' },
+        },
       },
       {
         name: BOOK_PARENT_NAMES.verso,
-        head: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>',
-        foot: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>',
+        regions: {
+          head: { edge: 'blockStart', html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>' },
+          foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' },
+        },
       },
       {
         name: BOOK_PARENT_NAMES.opener,
-        head: undefined,
-        foot: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>',
+        regions: { foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' } },
       },
-      { name: BOOK_PARENT_NAMES.blank, head: undefined, foot: undefined },
+      { name: BOOK_PARENT_NAMES.blank, regions: {} },
     ])
     expect(parents.every((parent) => parent.margin !== margin && parent.margin?.blockStart === margin.blockStart)).toBe(true)
+  })
+
+  test('merges inherited regions by name', () => {
+    const resolved = resolveParentPages([
+      { name: 'base', regions: { head: { edge: 'blockStart', html: 'base head' }, side: { edge: 'inlineEnd', html: 'base side' } } },
+      { name: 'child', basedOn: 'base', regions: { head: { edge: 'blockEnd', html: 'child head' } } },
+    ])
+    expect(resolved[1]?.regions).toEqual({
+      head: { edge: 'blockEnd', html: 'child head' },
+      side: { edge: 'inlineEnd', html: 'base side' },
+    })
   })
 })

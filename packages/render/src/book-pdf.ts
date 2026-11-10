@@ -319,7 +319,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)
   const plan = planBookPages(marginFacts, direction)
-  const parents = bookParentPages(book.page.margin)
+  const parents = [...bookParentPages(book.page.margin), ...book.parentPages]
   const margin = await adapter.print(marginDocument(book, plan, parents), book, slotsForDocument(slots, []), options, 'margin', marginCss(book, plan, parents))
   const output = await finishBookPdf(book, await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes), options, adapter)
   options.overflow?.report?.({

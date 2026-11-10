@@ -61,7 +61,7 @@ export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> 
   item: model(BoardItemNode),
   label: model(LabelNode),
   boardSection: boardSectionModel(),
-  parentPage: model(ParentPageNode, ['head', 'foot', 'regions'], 'parentPages'),
+  parentPage: model(ParentPageNode, ['regions'], 'parentPages'),
   template: model(TemplateNode, ['html'], 'templates'),
   noteSeries: model(NoteSeriesNode, [], 'noteSeries'),
   variable: variableModel(),

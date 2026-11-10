@@ -6,6 +6,7 @@ import { SectionNumbering } from './folio.ts'
 import { HeadTemplate } from './head-template.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
+import { ParentRegions } from './parent-regions.ts'
 import { parentRules } from './parent-rules.ts'
 import { ContentTextVariable, MetaVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
 
@@ -41,9 +42,7 @@ export const ParentPageNode = NodeId.extend({
   name: z.string().min(1),
   basedOn: z.string().min(1).optional(),
   geometry: z.object({ margin: RequiredLogicalMargin.optional() }).default({}),
-  head: z.string().optional(),
-  foot: z.string().optional(),
-  regions: z.record(z.string(), z.string()).optional(),
+  regions: ParentRegions.default({}),
 })
 export const TemplateNode = BookTemplate.extend({ type: z.literal('template'), id: z.string().optional() })
 export const NoteSeriesNode = NoteSeries.extend({ type: z.literal('noteSeries'), id: z.string().optional() })

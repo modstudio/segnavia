@@ -13,7 +13,10 @@ test('fills catalogued furniture by its parsed motif key and uses its resolved p
   const parents = bookParentPages(book.page?.margin ?? { blockStart: 0, blockEnd: 0, inlineStart: 0, inlineEnd: 0 })
   const recto = parents.find((parent) => parent.name === BOOK_PARENT_NAMES.recto)
   if (!recto) throw new Error('Expected the built-in recto parent page.')
-  recto.head = '<div class="segnavia-running-head" DATA-MOTIF=segnavia:head-template data-motif-name="segnavia:running-head"></div>'
+  recto.regions.head = {
+    edge: 'blockStart',
+    html: '<div class="segnavia-running-head" DATA-MOTIF=segnavia:head-template data-motif-name="segnavia:running-head"></div>',
+  }
   recto.margin = { blockStart: 21, blockEnd: 22, inlineStart: 23, inlineEnd: 24 }
   const pages: BookPrintedPagePlan[] = [
     {
@@ -32,8 +35,8 @@ test('fills catalogued furniture by its parsed motif key and uses its resolved p
   expect(html).toContain('data-segnavia-side="recto"')
   expect(html).toContain('<div class="segnavia-running-head"><bdi dir="ltr">Heading</bdi></div>')
   expect(html).toContain('<div class="segnavia-folio"><bdi dir="ltr">7</bdi></div>')
-  expect(css).toContain('block-size:21mm;inset-inline-start:23mm;inset-inline-end:24mm')
-  expect(css).toContain('block-size:22mm;inset-inline-start:23mm;inset-inline-end:24mm')
+  expect(css).toContain('[data-segnavia-region="head"]){inset-block-start:0mm;inset-inline-start:23mm;inline-size:101mm;block-size:21mm')
+  expect(css).toContain('[data-segnavia-region="foot"]){inset-block-start:188mm;inset-inline-start:23mm;inline-size:101mm;block-size:22mm')
   expect(html).not.toContain('data-motif')
 })
 
@@ -53,9 +56,9 @@ test('places asymmetric binding margins on the physical spine edges of an RTL bo
 
   const css = marginCss(book, pages, parents)
   expect(css).toContain(
-    '.segnavia-margin-page:nth-of-type(1) .segnavia-running-head){inset-block-start:0;block-size:10mm;inset-inline-start:5mm;inset-inline-end:30mm;justify-content:flex-start',
+    '.segnavia-margin-page:nth-of-type(1) [data-segnavia-region="head"]){inset-block-start:0mm;inset-inline-start:5mm;inline-size:113mm;block-size:10mm',
   )
   expect(css).toContain(
-    '.segnavia-margin-page:nth-of-type(2) .segnavia-running-head){inset-block-start:0;block-size:10mm;inset-inline-start:30mm;inset-inline-end:5mm;justify-content:flex-end',
+    '.segnavia-margin-page:nth-of-type(2) [data-segnavia-region="head"]){inset-block-start:0mm;inset-inline-start:30mm;inline-size:113mm;block-size:10mm',
   )
 })

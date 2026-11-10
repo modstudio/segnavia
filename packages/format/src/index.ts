@@ -270,6 +270,7 @@ export {
 } from './print.ts'
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'
+export * from './parent-regions.ts'
 export { RecordFacts, RecordValues } from './record-facts.ts'
 export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'

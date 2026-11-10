@@ -5,6 +5,7 @@ import { SectionNumbering } from './folio.ts'
 import { type ParentRules, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { PlacementShape } from './placement.ts'
 import { BOOK_PARENT_NAMES, type ParentPage, parentListIssues } from './printed-pages.ts'
+import { REGION_NAME } from './parent-regions.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import type { SectionOpensFact } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
@@ -16,7 +17,7 @@ const PartOpens = z.enum(['recto', 'verso', 'any'])
 export const DesignedPage = z.object({ html: z.string() })
 export type DesignedPage = z.infer<typeof DesignedPage>
 
-export const REGION_NAME = /^[A-Za-z][\w-]*$/
+export { REGION_NAME } from './parent-regions.ts'
 export const MAX_PART_DEPTH = 6
 
 export const TemplatedPage = z.object({

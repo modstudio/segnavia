@@ -1,0 +1,47 @@
+import type { HeadTemplate, ResolvedParentPage, TextDirection } from '@segnavia/format'
+import { regionBox } from '@segnavia/layout'
+
+interface RegionPage {
+  face: 'recto' | 'verso'
+  flow: string
+  variables?: Record<string, string>
+}
+
+interface RegionConfig {
+  direction: TextDirection
+  dir?: string
+  lang?: string
+  headTemplates?: readonly HeadTemplate[]
+  recordSlotsByFlow?: Record<string, Record<string, string | undefined>>
+}
+
+export function placeParentRegions(
+  paper: HTMLElement,
+  parent: ResolvedParentPage & { textArea: { width: number; height: number } },
+  page: RegionPage,
+  config: RegionConfig,
+  boxFor: typeof regionBox,
+  headsFor: (
+    templates: readonly HeadTemplate[],
+    variables: Readonly<Record<string, string>>,
+    slots: Readonly<Record<string, string | undefined>>,
+    direction?: string,
+    lang?: string,
+  ) => Record<string, string>,
+  fill: (root: Element, html: string, heads: Record<string, string>, slots: Record<string, string | undefined>, dir?: string, lang?: string) => void,
+): void {
+  const slots = config.recordSlotsByFlow?.[page.flow] ?? {}
+  const heads = headsFor(config.headTemplates ?? [], page.variables ?? {}, slots, config.dir, config.lang)
+  for (const [name, region] of Object.entries(parent.regions)) {
+    const box = boxFor(region.edge, parent.margin, parent.textArea, { direction: config.direction, face: page.face })
+    const held = document.createElement('div')
+    held.setAttribute('data-segnavia-region', name)
+    held.setAttribute('data-segnavia-edge', region.edge)
+    held.setAttribute('data-segnavia-parent', parent.name)
+    held.setAttribute('dir', 'auto')
+    if (config.lang) held.setAttribute('lang', config.lang)
+    held.style.cssText = `position:absolute;overflow:hidden;inset-block-start:${box.top}px;inset-inline-start:${box.left}px;inline-size:${box.width}px;block-size:${box.height}px`
+    fill(held, region.html, heads, slots, config.dir, config.lang)
+    paper.append(held)
+  }
+}

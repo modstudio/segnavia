@@ -33,7 +33,7 @@ function defined<T extends object>(value: T): T {
 }
 
 function parentPage(node: DocumentValue['parentPages'][number]) {
-  const { type: _type, id: _id, geometry, regions: _regions, ...value } = node
+  const { type: _type, id: _id, geometry, ...value } = node
   return defined({ ...value, margin: geometry.margin })
 }
 

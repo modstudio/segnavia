@@ -6,6 +6,7 @@ import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { headTemplatePlacement } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
 import { BOOK_PARENT_NAMES, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
+import { ParentRegions } from './parent-regions.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
 import { CONTINUE_OPENS_REMEDY } from './section-opens-policy.ts'
 import { Variables } from './variable.ts'
@@ -17,8 +18,7 @@ export const ParentPage = z.object({
   name: z.string().min(1),
   basedOn: z.string().min(1).optional(),
   margin: RequiredLogicalMargin.optional(),
-  head: z.string().optional(),
-  foot: z.string().optional(),
+  regions: ParentRegions.default({}),
 })
 
 export const PrintedPages = z.object({
@@ -71,19 +71,20 @@ export function bookParentPages(margin: LogicalMargin): ParentPage[] {
   }
   const head = placement('segnavia:running-head', 'segnavia-running-head')
   const foot = placement('segnavia:folio', 'segnavia-folio')
+  const headRegion = { edge: 'blockStart' as const, html: head }
+  const footRegion = { edge: 'blockEnd' as const, html: foot }
   return [
-    { name: BOOK_PARENT_NAMES.recto, margin: held(), head, foot },
-    { name: BOOK_PARENT_NAMES.verso, margin: held(), head, foot },
-    { name: BOOK_PARENT_NAMES.opener, margin: held(), foot },
-    { name: BOOK_PARENT_NAMES.blank, margin: held() },
+    { name: BOOK_PARENT_NAMES.recto, margin: held(), regions: { head: headRegion, foot: footRegion } },
+    { name: BOOK_PARENT_NAMES.verso, margin: held(), regions: { head: headRegion, foot: footRegion } },
+    { name: BOOK_PARENT_NAMES.opener, margin: held(), regions: { foot: footRegion } },
+    { name: BOOK_PARENT_NAMES.blank, margin: held(), regions: {} },
   ]
 }
 
 export interface ResolvedParentPage {
   name: string
   margin: LogicalMargin
-  head: string
-  foot: string
+  regions: ParentPage['regions']
 }
 
 export interface TextArea {
@@ -111,8 +112,7 @@ export function resolveParentPages(parents: ParentPage[]): ResolvedParentPage[] 
     const result = {
       name: parent.name,
       margin: parent.margin ?? base?.margin ?? ZERO_PARENT_MARGIN,
-      head: parent.head ?? base?.head ?? '',
-      foot: parent.foot ?? base?.foot ?? '',
+      regions: { ...(base?.regions ?? {}), ...parent.regions },
     }
     resolved.set(parent.name, result)
     return result
