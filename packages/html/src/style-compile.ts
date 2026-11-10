@@ -135,9 +135,9 @@ export function compileStyleSheet(options: CompileStyleSheetOptions): CompileSty
   const { sheet } = merged
   const brandTypedCss = `${tokensCss(sheet, 'brand')}${textStylesCss(sheet, 'brand')}`
   const documentCss = `${tokensCss(sheet, 'document')}${textStylesCss(sheet, 'document')}`
-  const definitions = cssCustomPropertyDefinitions(
-    `${options.baseCss ?? DEFAULT_BASE_CSS}${brandTypedCss}${sheet.css.brand ?? ''}${documentCss}${sheet.css.document ?? ''}`,
-  )
+  const definitions = options.preflight
+    ? cssCustomPropertyDefinitions(`${options.baseCss ?? DEFAULT_BASE_CSS}${brandTypedCss}${sheet.css.brand ?? ''}${documentCss}${sheet.css.document ?? ''}`)
+    : undefined
   const brandCss = balanceBlocks(sanitizeBookCss(sheet.css.brand, options.preflight, definitions).css)
   const authorCss = balanceBlocks(sanitizeBookCss(sheet.css.document, options.preflight, definitions).css)
   const sheets = [
