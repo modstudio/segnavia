@@ -14,6 +14,7 @@ import {
 import { sanitizeBookCss } from './book-css.ts'
 import { quoteFamily } from './css-family.ts'
 import { cssTokens } from './css-tokens.ts'
+import { type CssPreflightFinding, cssCustomPropertyDefinitions } from './sanitize-css.ts'
 
 const LAYER_ORDER = '@layer segnavia.base, segnavia.brand, segnavia.document, segnavia.author;'
 const DEFAULT_BASE_CSS = ''
@@ -22,6 +23,7 @@ export interface CompileStyleSheetOptions {
   brand?: StyleSheet
   document: StyleSheet
   baseCss?: string
+  preflight?: CssPreflightFinding[]
 }
 
 export type CompileStyleSheetResult =
@@ -131,10 +133,13 @@ export function compileStyleSheet(options: CompileStyleSheetOptions): CompileSty
   const merged = mergeStyleSheets(options.brand, options.document)
   if (!merged.ok) return merged
   const { sheet } = merged
-  const brandCss = balanceBlocks(sanitizeBookCss(sheet.css.brand).css)
   const brandTypedCss = `${tokensCss(sheet, 'brand')}${textStylesCss(sheet, 'brand')}`
   const documentCss = `${tokensCss(sheet, 'document')}${textStylesCss(sheet, 'document')}`
-  const authorCss = balanceBlocks(sanitizeBookCss(sheet.css.document).css)
+  const definitions = options.preflight
+    ? cssCustomPropertyDefinitions(`${options.baseCss ?? DEFAULT_BASE_CSS}${brandTypedCss}${sheet.css.brand ?? ''}${documentCss}${sheet.css.document ?? ''}`)
+    : undefined
+  const brandCss = balanceBlocks(sanitizeBookCss(sheet.css.brand, options.preflight, definitions).css)
+  const authorCss = balanceBlocks(sanitizeBookCss(sheet.css.document, options.preflight, definitions).css)
   const sheets = [
     `${LAYER_ORDER}${layer('base', options.baseCss ?? DEFAULT_BASE_CSS)}${layer('brand', brandTypedCss)}`,
     ...(brandCss === '' ? [] : [layer('brand', brandCss)]),

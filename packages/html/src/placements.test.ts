@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { DocumentInput, Media } from '@segnavia/format'
-import { placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
+import { placementMissingEntry, placementPlan, type ResolvePlacement, resolvePlacements } from './placements.ts'
 
 const signal = new AbortController().signal
 const media = (alt?: Media['alt']): Media => ({ format: 'png', size: { width: 20, height: 10 }, ...(alt ? { alt } : {}) })
@@ -43,6 +43,12 @@ describe('resolvePlacements', () => {
     })
     expect(output).toContain('data-segnavia-placement="missing"')
     expect(reports).toEqual([{ address: 'a', page: undefined, reason: 'invalid', message: 'resolved page, not media' }])
+  })
+
+  test('uses a failed resolver diagnostic in the preflight remedy', () => {
+    expect(placementMissingEntry({ address: 'cover', page: undefined, reason: 'failed', message: 'asset service timed out' }).message).toBe(
+      "Placement cover could not be resolved: asset service timed out; fix the placement's resolver answer to clear it.",
+    )
   })
   test('keeps documents without placements byte-identical', async () => {
     const html = "<IMG src='data:image/png,x'>\n<p>held</p>"

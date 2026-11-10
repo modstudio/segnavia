@@ -1,10 +1,32 @@
 import { describe, expect, test } from 'bun:test'
-import { lexicalFindings, sanitizeCss } from './sanitize-css.ts'
+import { cssPreflightFindings, lexicalFindings, sanitizeCss } from './sanitize-css.ts'
 
 const rules = (source: string, dataFonts = false) => sanitizeCss(source, false, dataFonts)
 const declarations = (source: string, dataFonts = false) => sanitizeCss(source, true, dataFonts)
 
 describe('CSS sanitizer', () => {
+  test('finds network URLs and only undefined no-fallback variables in the single token scan', () => {
+    expect(cssPreflightFindings(':root{--defined:red}p{color:var(--defined);border:var(--fallback,1px) solid}')).toEqual([])
+    expect(cssPreflightFindings('p{color:var(--outer,var(--nested));background:url("https://example.test/a.png")}')).toEqual([
+      { check: 'css-var-invalid', subject: '--nested' },
+      { check: 'css-url-network', subject: 'https://example.test/a.png' },
+    ])
+    expect(cssPreflightFindings('p{color:var(--missing)}')).toEqual([{ check: 'css-var-invalid', subject: '--missing' }])
+  })
+
+  test('finds every fetching construct but not same-document fragments', () => {
+    expect(
+      cssPreflightFindings(
+        'p{background:image-set("https://example.test/a.png" 1x);content:src("https://example.test/b.woff2");cursor:-webkit-image-set("https://example.test/c.png" 1x)}',
+      ),
+    ).toEqual([
+      { check: 'css-url-network', subject: 'https://example.test/a.png' },
+      { check: 'css-url-network', subject: 'https://example.test/b.woff2' },
+      { check: 'css-url-network', subject: 'https://example.test/c.png' },
+    ])
+    expect(cssPreflightFindings('p{background:url(#f)}')).toEqual([])
+  })
+
   test('removes only fetching declarations and rules', () => {
     expect(rules('a{color:red;background:url(https://example.test/a.png)}b{color:blue}')).toEqual({ css: 'a{color:red;}b{color:blue}', removed: ['url()'] })
     expect(declarations('color:red;background:image-set("https://example.test/a.png" 1x);font-weight:bold')).toEqual({

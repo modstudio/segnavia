@@ -1,4 +1,4 @@
-import { BookView, type BookViewInput, type FontFailure, resolvePreflightProfile, type Scripts } from '@segnavia/format'
+import { BookView, type BookViewInput, type FontFailure, type PreflightEntry, resolvePreflightProfile, type Scripts } from '@segnavia/format'
 import { ensureBaseStyle } from './base-style.ts'
 import * as bookElement from './book-element-support.ts'
 import { bookFrame } from './book-frame.ts'
@@ -8,7 +8,6 @@ import { BookSourcesElement } from './book-sources.ts'
 import { dispatchFontFailures, dispatchPreflight, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 import { upgradeProperties } from './element-properties.ts'
-
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
   private currentView: BookView | null = null
@@ -24,6 +23,7 @@ export class SegnaviaBook extends BookSourcesElement {
   private layoutFallbacks = new Map<BookLayout, BookLayout>()
   private layoutHandoff: { from: BookLayout; to: BookLayout; timer: ReturnType<typeof setTimeout> } | null = null
   private resolvedFontCss: string | undefined
+  private preflightSeed: PreflightEntry[] = []
   private diagramDrawing = { script: undefined as string | undefined, settled: false }
   private reflectingLayout = false
   private loadGeneration = 0
@@ -34,13 +34,11 @@ export class SegnaviaBook extends BookSourcesElement {
     super()
     upgradeProperties(this)
   }
-
   connectedCallback() {
     if (!this.hasAttribute('unstyled')) ensureBaseStyle(this)
     window.addEventListener('message', this.onMessage)
     if (this.currentView) this.mount()
   }
-
   disconnectedCallback() {
     window.removeEventListener('message', this.onMessage)
     this.readyLayouts.clear()
@@ -249,6 +247,7 @@ export class SegnaviaBook extends BookSourcesElement {
       origins: this.origins,
       diagramScript: this.diagramDrawing.script,
       profile: this.profileInput,
+      preflightSeed: this.preflightSeed,
     })
   }
 
@@ -260,11 +259,12 @@ export class SegnaviaBook extends BookSourcesElement {
     return frame
   }
 
-  private mountFrames(view: BookView, css: string | undefined, fontFailures: FontFailure[] = []) {
+  private mountFrames(view: BookView, css: string | undefined, fontFailures: FontFailure[] = [], preflight: PreflightEntry[] = []) {
     const layout = this.currentLayout
     this.dropFrame()
     this.preparedView = view
     this.resolvedFontCss = css
+    this.preflightSeed = preflight
     if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
       this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script })))
@@ -316,7 +316,7 @@ export class SegnaviaBook extends BookSourcesElement {
     if (!this.motifOptions && !this.fontOptions && !this.placementOptions) {
       try {
         const prepared = prepareBookViewWithoutSources(view)
-        this.mountFrames(prepared.view, prepared.css, prepared.failures)
+        this.mountFrames(prepared.view, prepared.css, prepared.failures, prepared.preflight)
       } catch (reason) {
         this.preparedView = null
         bookElement.reportBookError(this, reason)
@@ -327,10 +327,11 @@ export class SegnaviaBook extends BookSourcesElement {
     this.loadController?.abort()
     const controller = new AbortController()
     this.loadController = controller
-    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions)
+    const profile = resolvePreflightProfile(this.profileInput)
+    void prepareBookView(view, this.motifOptions, this.fontOptions, controller.signal, this.placementOptions, this.widthOptions, profile)
       .then((result) => {
         if (generation !== this.loadGeneration || !this.isConnected) return
-        this.mountFrames(result.view, result.css, result.failures)
+        this.mountFrames(result.view, result.css, result.failures, result.preflight)
       })
       .catch((reason) => {
         if (generation !== this.loadGeneration || !this.isConnected || controller.signal.aborted) return

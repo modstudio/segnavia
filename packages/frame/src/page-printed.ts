@@ -39,7 +39,8 @@ export interface PrintedPageFrameOptions {
 export function loadPrintedPageFrame(page: Page | HtmlPage, options: PrintedPageFrameOptions): void {
   if (fillsSlotValues(page.slots, options.slots)) options.failed(new Error(PRINTED_SLOT_REFUSAL))
   const printed = resolvePrintedPageHtml(page)
-  void expandPrintedFramePage(printed, options.motifs, options.signal, options.placements, 'screen', options.widths, options.day)
+  const profile = resolvePreflightProfile(options.profile)
+  void expandPrintedFramePage(printed, options.motifs, options.signal, options.placements, 'screen', options.widths, options.day, profile)
     .then(async (expanded) => {
       expanded.page = fillPageAsOfBindings(expanded.page, options.day)
       const fonts = await pageFontCss(expanded.page, expanded.fonts, options.fonts, options.signal)
@@ -52,7 +53,8 @@ export function loadPrintedPageFrame(page: Page | HtmlPage, options: PrintedPage
           origins: options.origins,
           screen: { spread: false },
           fontFailures: fonts.failures,
-          profile: resolvePreflightProfile(options.profile),
+          profile,
+          preflightSeed: expanded.preflight,
         },
         options.loaded,
         options.failed,

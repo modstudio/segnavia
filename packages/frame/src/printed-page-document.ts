@@ -76,6 +76,7 @@ export function printedPageValueDocument(
     fontFailures?: FontFailure[]
     origins?: Iterable<OriginApproval>
     profile?: import('@segnavia/format').PreflightProfile
+    preflightSeed?: import('@segnavia/format').PreflightEntry[]
   },
 ): string {
   const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
@@ -96,6 +97,14 @@ export function printedPageValueDocument(
     }
   })
   const parentRules: ParentRules = page.printedPages.parentRules
+  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
+  const preflightSeed = [...(options.preflightSeed ?? [])]
+  const sheets = frameStyleSheets(
+    page.style,
+    page.brand,
+    baseCss,
+    options.profile && preflightEnabled(options.profile) ? { profile: options.profile, entries: preflightSeed } : undefined,
+  )
   const config = {
     direction,
     dir: page.dir,
@@ -124,11 +133,10 @@ export function printedPageValueDocument(
     numbering: { frontMatter: numbering, body: numbering },
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
-    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile } : {}),
+    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const sections = page.printedPages.sections
   const parts = sections.map((section) => pageParts(section.html))
   const implicit = sections.length === 1 && sections[0]?.implicit === true
@@ -147,13 +155,14 @@ export function printedPageValueDocument(
     dir: direction,
     lang: page.lang,
     title: metadata?.title,
-    sheets: frameStyleSheets(page.style, page.brand, baseCss),
+    sheets,
     css: options.css,
     csp: options.csp,
     relayKeys: false,
     reportHeight: options.measure === true,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
+    bridgeForHost: true,
     printBackground: options.printBackground,
     readyCallback: options.readyCallback,
     fontFailures: options.fontFailures,

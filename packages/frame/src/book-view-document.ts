@@ -7,6 +7,7 @@ import {
   type Limits,
   limitRefusalTemplate,
   type Plan,
+  type PreflightEntry,
   type PreflightProfile,
   preflightEnabled,
   resolveLimits,
@@ -30,6 +31,7 @@ export interface PaginatedDocumentOptions {
   plan?: Plan
   breaks?: string[]
   profile?: PreflightProfile
+  preflightSeed?: PreflightEntry[]
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
@@ -38,6 +40,22 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
   const geometries = composerPageGeometries(pagination)
   const geometry = geometries[0]
   if (!geometry) throw new Error('A paginated book needs a default page geometry.')
+  const baseCss =
+    composerPageRules(geometries) +
+    `:where(html,body){margin:0!important;padding:0!important}` +
+    `:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}` +
+    `:where([data-segnavia-galleys]){position:absolute;inset-block-start:0;inset-inline-start:0}` +
+    `:where([data-segnavia-pages]){inline-size:${Math.max(...pagination.geometries.map((item) => item.paper.width))}mm}` +
+    `:where([${BOOK_PAGE_ATTRIBUTE}]:last-child){break-after:auto}` +
+    GALLEY_PRINT_CSS +
+    (options.fontCss ?? '')
+  const preflightSeed = [...(options.preflightSeed ?? [])]
+  const sheets = frameStyleSheets(
+    view.style,
+    view.brand,
+    baseCss,
+    options.profile && preflightEnabled(options.profile) ? { profile: options.profile, entries: preflightSeed } : undefined,
+  )
   const config = {
     direction: pagination.direction,
     dir: view.dir,
@@ -64,21 +82,12 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     measure: false,
     savedPlans: true,
     fontLoads: declaredFontLoads(fonts),
-    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile } : {}),
+    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const baseCss =
-    composerPageRules(geometries) +
-    `:where(html,body){margin:0!important;padding:0!important}` +
-    `:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}` +
-    `:where([data-segnavia-galleys]){position:absolute;inset-block-start:0;inset-inline-start:0}` +
-    `:where([data-segnavia-pages]){inline-size:${Math.max(...pagination.geometries.map((item) => item.paper.width))}mm}` +
-    `:where([${BOOK_PAGE_ATTRIBUTE}]:last-child){break-after:auto}` +
-    GALLEY_PRINT_CSS +
-    (options.fontCss ?? '')
   const drawn = withDiagramScript(view.html, options.nonce, options.diagramScript)
   const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
@@ -86,12 +95,13 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     nonce: options.nonce,
     dir: pagination.direction,
     lang: view.lang,
-    sheets: frameStyleSheets(view.style, view.brand, baseCss),
+    sheets,
     css: options.css,
     relayKeys: false,
     reportHeight: false,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
+    bridgeForHost: true,
     printBackground: options.printBackground,
   })
 }

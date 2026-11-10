@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { BookView, isChapter, PAGE_WIDTHS, Page, paperPixels, sheetMm } from '@segnavia/format'
+import { BookView, isChapter, PAGE_WIDTHS, Page, PREFLIGHT_PRESETS, paperPixels, resolvePreflightProfile, sheetMm } from '@segnavia/format'
 import { bookDocument, parseBookFixture, resolvePageHtml } from '@segnavia/html'
 import { expandFrameBookValue as expandFrameBook, expandFrameBookView, expandFramePage } from './motif-expansion.ts'
 
@@ -8,6 +8,27 @@ const src = 'data:image/png;base64,AA=='
 const placements = {
   resolve: async () => ({ kind: 'media' as const, media: { format: 'png' as const, size: { width: 20, height: 10 } }, src }),
 }
+
+test('collects a missing placement only while its preflight check is enabled', async () => {
+  const page = resolvePageHtml(Page.parse({ html: '<img data-segnavia-media="cover">' }))
+  const warned = await expandFramePage(page, undefined, signal, { resolve: async () => undefined }, 'screen', undefined, undefined, PREFLIGHT_PRESETS.default)
+  expect(warned.preflight).toEqual([
+    { check: 'placement-missing', subject: 'cover', message: 'Placement cover is missing; supply a resolvable placement to clear it.' },
+  ])
+  const reports: unknown[] = []
+  const off = await expandFramePage(
+    page,
+    undefined,
+    signal,
+    { resolve: async () => undefined, report: (entry) => reports.push(entry) },
+    'screen',
+    undefined,
+    undefined,
+    resolvePreflightProfile({ 'placement-missing': 'off' }),
+  )
+  expect(off.preflight).toEqual([])
+  expect(reports).toHaveLength(1)
+})
 
 test('frame page preparation resolves placed media into the document HTML', async () => {
   const page = Page.parse({ html: '<img data-segnavia-media="cover">', size: { width: 320, height: 200 } })

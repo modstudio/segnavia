@@ -64,6 +64,10 @@ export interface PreflightEntry {
   readonly location?: PreflightLocation
 }
 
+export function cssVarInvalidMessage(subject: string): string {
+  return `Custom property ${subject} is invalid; define it or add a var() fallback to clear it.`
+}
+
 export type PreflightIssue = PreflightEntry & { readonly id: string; readonly severity: 'warning' | 'error' }
 export interface PreflightPageFacts {
   readonly folio: string
@@ -185,18 +189,21 @@ export function boundPreflightReport(
     omitted[check] = Math.min((omitted[check] ?? 0) + 1, omittedLimit)
   }
   const issues: (PreflightIssue & { order: number })[] = []
+  const ids = new Set<string>()
   const scanLimit = limits.issuesPerCheck * limits.checks.length * 4
-  for (let order = 0; order < Math.min(entries.length, scanLimit); order += 1) {
-    const issue = boundedPreflightEntry(entries[order], order)
-    if (!issue) continue
+  const addIssue = (value: unknown, order: number): void => {
+    const issue = boundedPreflightEntry(value, order)
+    if (!issue || ids.has(issue.id)) return
+    ids.add(issue.id)
     const check = issue.check
     counts[check] = (counts[check] ?? 0) + 1
     if ((counts[check] ?? 0) > limits.issuesPerCheck) {
       addOmitted(check)
-      continue
+      return
     }
     issues.push(issue)
   }
+  for (let order = 0; order < Math.min(entries.length, scanLimit); order += 1) addIssue(entries[order], order)
   issues.sort((a, b) => {
     const severity = Number(b.severity === 'error') - Number(a.severity === 'error')
     if (severity) return severity

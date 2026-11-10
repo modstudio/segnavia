@@ -143,6 +143,7 @@ export {
   type PlacementReport,
   type PlacementsOptions,
   placementCropEdges,
+  placementMissingEntry,
   placementPlaceholderSource,
   placementPlan,
   type ResolvedPlacement,
@@ -161,6 +162,7 @@ export {
   sanitize,
   type UrlPolicy,
 } from './sanitize.ts'
+export { type CssPreflightFinding, cssPreflightFindings } from './sanitize-css.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

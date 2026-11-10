@@ -59,6 +59,13 @@ describe('boundPreflightReport', () => {
     expect(report.issues[0]?.id).toBe(`region-overset:0${'s'.repeat(255)}`)
   })
 
+  test('keeps one issue per id without counting duplicates as omitted', () => {
+    const duplicate = entry('region-overset')
+    const report = boundPreflightReport({ entries: [duplicate, duplicate], facts }, PREFLIGHT_PRESETS.default)
+    expect(report.issues).toHaveLength(1)
+    expect(report.omitted).toEqual({})
+  })
+
   test('bounds scanning and carries only bounded known omission counts', () => {
     const scanLimit = PREFLIGHT_ISSUES_PER_CHECK * PREFLIGHT_CHECKS.length * 4
     let reads = 0
@@ -80,7 +87,7 @@ describe('boundPreflightReport', () => {
       PREFLIGHT_PRESETS.default,
     )
     expect(reads).toBe(scanLimit)
-    expect(report.omitted).toEqual({ 'region-overset': 10_000, 'furniture-overset': 3 })
+    expect(report.omitted).toEqual({ 'region-overset': 9_999, 'furniture-overset': 3 })
     expect(report.facts.pageCount).toBe(PREFLIGHT_PAGES_LIMIT)
   })
 

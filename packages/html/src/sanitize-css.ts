@@ -1,3 +1,4 @@
+import { cssNetworkUrls, FETCH_AT_KEYWORD_SET, FETCH_AT_KEYWORDS, FETCH_FUNCTION_SET, FETCH_FUNCTIONS } from './css-preflight-network.ts'
 import { type CssToken, cssEscape, cssTokens } from './css-tokens.ts'
 import { KEEP_WITH_VALUES } from './keep-with.ts'
 
@@ -6,14 +7,15 @@ export interface CssSanitizeResult {
   removed: string[]
 }
 
+export interface CssPreflightFinding {
+  check: 'css-var-invalid' | 'css-url-network'
+  subject: string
+}
+
 const DATA_IMAGE = /^data:image\//i
 const DATA_FONT = /^data:(?:font\/[^;,]+|application\/(?:x-)?font-[^;,]+)(?:[;,])/i
 const DECLARATION_AT_RULES = new Set(['counter-style', 'font-face', 'font-palette-values', 'page', 'property'])
-const FETCH_FUNCTIONS = ['url', 'src', 'image-set', '-webkit-image-set'] as const
-const FETCH_AT_KEYWORDS = ['import'] as const
 const FETCH_CONSTRUCT = new RegExp(`@(?:${FETCH_AT_KEYWORDS.join('|')})|(?:${FETCH_FUNCTIONS.join('|')})\\(`, 'gi')
-const FETCH_FUNCTION_SET = new Set<string>(FETCH_FUNCTIONS)
-const FETCH_AT_KEYWORD_SET = new Set<string>(FETCH_AT_KEYWORDS)
 
 function normalizedUrl(value: string, decodeEscapes = true): string {
   let normalized = ''
@@ -125,6 +127,53 @@ function matchingClose(list: CssToken[], open: number, limit = list.length): num
     if (list[at]?.kind === 'close' && --depth === 0) return at
   }
   return limit
+}
+
+function hasTopLevelComma(source: string, list: CssToken[], start: number, close: number): boolean {
+  let depth = 0
+  for (let at = start; at < close; at++) {
+    const token = list[at]
+    if (token?.kind === 'function' || token?.kind === 'open') depth++
+    else if (token?.kind === 'close') depth--
+    else if (depth === 0 && source.slice(token?.start, token?.end) === ',') return true
+  }
+  return false
+}
+
+function definedCustomProperties(list: readonly CssToken[]): Set<string> {
+  const definitions = new Set<string>()
+  for (let at = 0; at < list.length - 1; at++) {
+    const token = list[at]
+    if (token?.kind === 'word' && token.value.startsWith('--') && list[at + 1]?.value === ':') definitions.add(token.value)
+  }
+  return definitions
+}
+
+export function cssCustomPropertyDefinitions(source: string): Set<string> {
+  return definedCustomProperties(cssTokens(source))
+}
+
+function invalidVariable(source: string, list: CssToken[], at: number, definitions: ReadonlySet<string>): string | undefined {
+  const token = list[at]
+  if (token?.kind !== 'function' || token.value !== 'var') return undefined
+  const close = matchingClose(list, at)
+  const name = list[at + 1]
+  if (name?.kind !== 'word' || !name.value.startsWith('--')) return undefined
+  return hasTopLevelComma(source, list, at + 1, close) || definitions.has(name.value) ? undefined : name.value
+}
+
+export function cssPreflightFindings(
+  source: string,
+  list: CssToken[] = cssTokens(source),
+  definitions: ReadonlySet<string> = definedCustomProperties(list),
+): CssPreflightFinding[] {
+  const findings = new Map<string, CssPreflightFinding>()
+  for (let at = 0; at < list.length; at++) {
+    const variable = invalidVariable(source, list, at, definitions)
+    if (variable) findings.set(`css-var-invalid:${variable}`, { check: 'css-var-invalid', subject: variable })
+    for (const url of cssNetworkUrls(list, at)) findings.set(`css-url-network:${url}`, { check: 'css-url-network', subject: url })
+  }
+  return [...findings.values()]
 }
 
 function unsafeImageSet(list: CssToken[], start: number, close: number): boolean {
@@ -328,8 +377,15 @@ function cleanDeclarations(source: string, list: CssToken[], start: number, end:
   return output + source.slice(character, rangeEnd)
 }
 
-export function sanitizeCss(source: string, declarations: boolean, dataFonts: boolean): CssSanitizeResult {
+export function sanitizeCss(
+  source: string,
+  declarations: boolean,
+  dataFonts: boolean,
+  preflight?: CssPreflightFinding[],
+  definitions?: ReadonlySet<string>,
+): CssSanitizeResult {
   const list = cssTokens(source)
+  preflight?.push(...cssPreflightFindings(source, list, definitions))
   const removed: string[] = []
   const css = declarations ? cleanDeclarations(source, list, 0, list.length, dataFonts, removed) : cleanRules(source, list, 0, list.length, dataFonts, removed)
   const auditRemoved = lexicalFindings(css, dataFonts)

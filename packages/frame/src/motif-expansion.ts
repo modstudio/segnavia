@@ -10,6 +10,8 @@ import {
   isPart,
   isTemplatedSection,
   type PageWidths,
+  type PreflightEntry,
+  type PreflightProfile,
   RECORD_CONTEXT,
   resolveBrand,
 } from '@segnavia/format'
@@ -36,7 +38,7 @@ import {
   pageMotifRefusal,
   pageParentRegions,
 } from './page-motif-expansion.ts'
-import { bookPlacementWidth, resolvePagePlacements } from './placement-resolution.ts'
+import { bookPlacementWidth, type PlacementPreflight, placementReportWithPreflight, resolvePagePlacements } from './placement-resolution.ts'
 
 export type { ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
 export type { MotifsOptions } from './page-motif-expansion.ts'
@@ -45,10 +47,12 @@ export type PlacementsOptions = AssetPlacementsOptions
 export interface ExpandedFramePage {
   page: HtmlPage
   fonts: FontReference[]
+  preflight?: PreflightEntry[]
 }
 export interface ExpandedBook<T extends Book | BookView> {
   book: T
   fonts: FontReference[]
+  preflight?: PreflightEntry[]
 }
 interface BookHtmlField {
   html: string
@@ -225,6 +229,7 @@ async function resolveBookShape<T extends Book | BookView>(
   purpose: 'screen' | 'print',
   signal: AbortSignal,
   pageWidths?: PageWidths,
+  preflight?: PlacementPreflight,
 ): Promise<ExpandedBook<T>> {
   if (!placements) return expanded
   const shape = 'frontMatter' in expanded.book ? bookShape(expanded.book as Book) : viewShape(expanded.book as BookView)
@@ -232,7 +237,7 @@ async function resolveBookShape<T extends Book | BookView>(
     shape.fields.map((field) =>
       resolvePlacements(field.html, {
         resolvePlacement: placements.resolve,
-        report: placements.report,
+        report: placementReportWithPreflight(placements.report, preflight),
         purpose,
         width: bookPlacementWidth(shape.book, field.pageGeometry, pageWidths),
         signal,
@@ -242,7 +247,7 @@ async function resolveBookShape<T extends Book | BookView>(
   resolved.forEach((html, index) => {
     shape.fields[index]?.replace(html)
   })
-  return { book: shape.book, fonts: expanded.fonts } as ExpandedBook<T>
+  return { book: shape.book, fonts: expanded.fonts, preflight: expanded.preflight ?? [] } as ExpandedBook<T>
 }
 
 export async function expandFrameBook(
@@ -253,9 +258,18 @@ export async function expandFrameBook(
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
   brands?: BrandsOptions,
+  profile?: PreflightProfile,
 ): Promise<ExpandedBook<Book>> {
   const document = parseDocument(input)
-  return expandFrameBookValue(bookFromDocument(document, await resolveBrand(document, brands?.source, signal)), motifs, signal, placements, purpose, pageWidths)
+  return expandFrameBookValue(
+    bookFromDocument(document, await resolveBrand(document, brands?.source, signal)),
+    motifs,
+    signal,
+    placements,
+    purpose,
+    pageWidths,
+    profile,
+  )
 }
 
 export async function expandFrameBookValue(
@@ -265,15 +279,19 @@ export async function expandFrameBookValue(
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
+  profile?: PreflightProfile,
 ): Promise<ExpandedBook<Book>> {
-  const entriesResolved = await resolveBookEntries(book, placements, purpose, signal)
+  const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
+  const placementOptions = placements ? { ...placements, report: placementReportWithPreflight(placements.report, preflight) } : placements
+  const entriesResolved = await resolveBookEntries(book, placementOptions, purpose, signal)
   const shape = bookShape(entriesResolved)
   if (!motifs) {
     const refusal = motifSourceRefusal(shape.fields, BOOK_MOTIF_POLICY)
     if (refusal) throw refusal
-    return resolveBookShape({ book: entriesResolved, fonts: [] }, placements, purpose, signal, pageWidths)
+    return resolveBookShape({ book: entriesResolved, fonts: [], preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, preflight)
   }
-  return resolveBookShape(await expandBookShape(shape, motifs, signal), placements, purpose, signal, pageWidths)
+  const expanded = await expandBookShape(shape, motifs, signal)
+  return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, preflight)
 }
 
 export async function expandFrameBookView(
@@ -282,9 +300,11 @@ export async function expandFrameBookView(
   signal: AbortSignal,
   placements?: PlacementsOptions,
   pageWidths?: PageWidths,
+  profile?: PreflightProfile,
 ): Promise<ExpandedBook<BookView>> {
+  const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
   const expanded = motifs ? await expandBookShape(viewShape(view), motifs, signal) : { book: view, fonts: [] }
-  return resolveBookShape(expanded, placements, 'screen', signal, pageWidths)
+  return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, 'screen', signal, pageWidths, preflight)
 }
 
 export async function expandFramePage(
@@ -295,12 +315,14 @@ export async function expandFramePage(
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
   day?: AsOfDay,
+  profile?: PreflightProfile,
 ): Promise<ExpandedFramePage> {
+  const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
   const regions = pageParentRegions(page)
   if (!motifs) {
     const refusal = framePageMotifRefusal(page)
     if (refusal) throw refusal
-    return { page: await resolvePagePlacements(page, placements, purpose, signal, pageWidths, day), fonts: [] }
+    return { page: await resolvePagePlacements(page, placements, purpose, signal, pageWidths, day, preflight), fonts: [], preflight: preflight?.entries ?? [] }
   }
   const lang = page.lang?.trim() || documentLanguage(page.html)
   const { bodyResults, parentResults, fonts } = await expandPageMotifs(page, [{ html: page.html, lang }], regions, lang, motifs, signal, day)
@@ -313,7 +335,11 @@ export async function expandFramePage(
       }
     : undefined
   const expandedPage = { ...page, html: result.html, ...(printedPages ? { printedPages } : {}) }
-  return { page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths, day), fonts }
+  return {
+    page: await resolvePagePlacements(expandedPage, placements, purpose, signal, pageWidths, day, preflight),
+    fonts,
+    preflight: preflight?.entries ?? [],
+  }
 }
 
 export function expandFramePages(
