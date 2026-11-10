@@ -6,7 +6,18 @@ export interface OriginApproval {
   kinds: readonly FetchKind[]
 }
 
-export type OriginDecision = { allowed: true; origin: string } | { allowed: false; reason: string }
+export type AssetRefusalReason = 'not-absolute' | 'unapproved-origin' | 'unversioned-script' | 'scripts-off' | 'unreadable-srcset'
+
+export interface AssetRefusal {
+  url: string
+  origin?: string
+  kind: FetchKind
+  reason: AssetRefusalReason
+  message: string
+  advice: string
+}
+
+export type OriginDecision = { allowed: true; origin: string } | { allowed: false; refusal: AssetRefusal }
 
 const VERSIONED_SCRIPT_PATHS: Record<string, RegExp> = {
   'https://cdn.jsdelivr.net': /^\/npm\/(?:@[^/]+\/)?[^/@]+@(\d+\.\d+\.\d+)(?:\/|$)/,
@@ -61,18 +72,44 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
   try {
     url = new URL(value)
   } catch {
-    return { allowed: false, reason: `${JSON.stringify(value)} is not an absolute https URL; an absolute URL at an approved origin clears this refusal` }
+    return {
+      allowed: false,
+      refusal: {
+        url: value,
+        kind,
+        reason: 'not-absolute',
+        message: `${JSON.stringify(value)} is not an absolute https URL`,
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+    }
   }
   const origin = url.origin.toLowerCase()
   if (url.protocol !== 'https:' || !approvedOrigins(approvals, kind, scripts).has(origin)) {
     return {
       allowed: false,
-      reason: `${url.href} at origin ${origin} is not approved for ${kind}; add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,
+      refusal: {
+        url: value,
+        origin,
+        kind,
+        reason: 'unapproved-origin',
+        message: `${url.href} at origin ${origin} is not approved for ${kind}`,
+        advice: `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,
+      },
     }
   }
   const shape = kind === 'script' ? VERSIONED_SCRIPT_PATHS[origin] : undefined
   if (shape && !shape.test(url.pathname)) {
-    return { allowed: false, reason: `${url.href} does not name an exact x.y.z package version; use an exact version to clear this refusal` }
+    return {
+      allowed: false,
+      refusal: {
+        url: value,
+        origin,
+        kind,
+        reason: 'unversioned-script',
+        message: `${url.href} does not name an exact x.y.z package version`,
+        advice: 'use an exact version to clear this refusal',
+      },
+    }
   }
   return { allowed: true, origin }
 }

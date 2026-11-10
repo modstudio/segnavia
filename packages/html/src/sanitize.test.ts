@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { findActiveContent, safeImageSource, sanitize } from './sanitize.ts'
+import { assetOriginRefusals, findActiveContent, safeImageSource, sanitize } from './sanitize.ts'
 
 const fetches =
   '<svg><image href="https://outside.example/a.png"/><use xlink:href="https://outside.example/s.svg#x"/><filter><feImage href="https://outside.example/f.png"/></filter></svg>'
@@ -74,6 +74,15 @@ describe('srcset image origins', () => {
     expect(sanitize(html, options)).toBe('<img>')
     expect(findActiveContent(html, options)).toEqual([
       'img[srcset] srcset could not establish a readable candidate list; use a valid srcset candidate list or a supported data-image srcset to clear this refusal',
+    ])
+    expect(assetOriginRefusals(html, options)).toEqual([
+      {
+        url: 'https://outside.example/a.png 3q',
+        kind: 'image',
+        reason: 'unreadable-srcset',
+        message: 'srcset could not establish a readable candidate list',
+        advice: 'use a valid srcset candidate list or a supported data-image srcset to clear this refusal',
+      },
     ])
   })
 

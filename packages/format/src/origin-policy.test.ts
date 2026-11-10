@@ -34,12 +34,47 @@ describe('origin policy', () => {
       expect(originDecision(pinned, 'script', [], true).allowed).toBe(true)
       const decision = originDecision(unpinned, 'script', DEFAULT_ORIGINS, true)
       expect(decision.allowed).toBe(false)
-      if (!decision.allowed) expect(decision.reason).toContain('exact x.y.z package version')
+      if (!decision.allowed) expect(decision.refusal.message).toContain('exact x.y.z package version')
     }
   })
 
   test('accepts pinned jQuery slim builds', () => {
     expect(originDecision('https://code.jquery.com/jquery-3.7.1.slim.js', 'script', [], true).allowed).toBe(true)
     expect(originDecision('https://code.jquery.com/jquery-3.7.1.slim.min.js', 'script', [], true).allowed).toBe(true)
+  })
+
+  test('keeps refusal codes, messages, and clearing advice separate', () => {
+    expect(originDecision('images/a.png', 'image', [], false)).toEqual({
+      allowed: false,
+      refusal: {
+        url: 'images/a.png',
+        kind: 'image',
+        reason: 'not-absolute',
+        message: '"images/a.png" is not an absolute https URL',
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+    })
+    expect(originDecision('https://outside.example/a.png', 'image', [], false)).toEqual({
+      allowed: false,
+      refusal: {
+        url: 'https://outside.example/a.png',
+        origin: 'https://outside.example',
+        kind: 'image',
+        reason: 'unapproved-origin',
+        message: 'https://outside.example/a.png at origin https://outside.example is not approved for image',
+        advice: 'add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+      },
+    })
+    expect(originDecision('https://cdn.jsdelivr.net/npm/example/index.js', 'script', [], true)).toEqual({
+      allowed: false,
+      refusal: {
+        url: 'https://cdn.jsdelivr.net/npm/example/index.js',
+        origin: 'https://cdn.jsdelivr.net',
+        kind: 'script',
+        reason: 'unversioned-script',
+        message: 'https://cdn.jsdelivr.net/npm/example/index.js does not name an exact x.y.z package version',
+        advice: 'use an exact version to clear this refusal',
+      },
+    })
   })
 })

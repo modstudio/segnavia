@@ -1,5 +1,6 @@
 import { Buffer } from 'node:buffer'
 import {
+  type AssetRefusal,
   type ComposeProgress,
   type FetchKind,
   type FontFailure,
@@ -61,6 +62,14 @@ export function mergedFontFailures(initial: readonly FontFailure[], attribute: s
   return [...initial, ...fontFailuresAttribute(attribute)]
 }
 
+function assetRefusalText(refusal: AssetRefusal): string {
+  return `${refusal.message}; ${refusal.advice}`
+}
+
+function assetRefusalKey(refusal: AssetRefusal): string {
+  return JSON.stringify([refusal.url, refusal.kind, refusal.reason])
+}
+
 export async function assetRouteDecision(
   url: string,
   kind: FetchKind | undefined,
@@ -72,7 +81,7 @@ export async function assetRouteDecision(
   if (url.startsWith('data:') || url === 'about:blank') return { action: 'continue' }
   if (!kind) return { action: 'abort', reason: `${url} uses unsupported fetching; no asset kind can approve it` }
   const policy = originDecision(url, kind, origins, scripts)
-  if (!policy.allowed) return { action: 'abort', reason: policy.reason }
+  if (!policy.allowed) return { action: 'abort', reason: assetRefusalText(policy.refusal) }
   let answer: AssetAnswer | undefined
   try {
     answer = await lookup?.(url, { kind, signal })
@@ -121,7 +130,10 @@ export async function renderInBrowserTab<T>(
   body: (tab: Tab) => Promise<T>,
 ): Promise<T> {
   const markupRefusals = assetOriginRefusals(setup.html, { keepScripts: setup.scripts, origins: setup.origins })
-  if (markupRefusals.length > 0) throw new RenderRefusedError([...new Set(markupRefusals)].join('; '))
+  if (markupRefusals.length > 0) {
+    const unique = new Map(markupRefusals.map((refusal) => [assetRefusalKey(refusal), refusal]))
+    throw new RenderRefusedError([...unique.values()].map(assetRefusalText).join('; '))
+  }
   const context = await browser.newContext(browserContextOptions(setup))
   state.opened(context)
   if (state.settled()) {

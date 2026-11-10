@@ -8,7 +8,66 @@ describe('sanitize', () => {
     const url = 'https://outside.example/image.png'
     const findings = assetOriginRefusals(`<img src="${url}"><p style="background-image:url(${url})">x</p><style>p{mask:url(${url})}</style>`)
     expect(findings).toHaveLength(3)
-    expect(findings.every((finding) => finding.includes(`${url} at origin https://outside.example is not approved for image`))).toBe(true)
+    expect(findings.every((finding) => finding.message === `${url} at origin https://outside.example is not approved for image`)).toBe(true)
+    expect(findings[0]).toEqual({
+      url,
+      origin: 'https://outside.example',
+      kind: 'image',
+      reason: 'unapproved-origin',
+      message: `${url} at origin https://outside.example is not approved for image`,
+      advice: 'add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+    })
+  })
+
+  test('asset preflight reports each CSS reference once and leaves sanitizing unchanged', () => {
+    const approved = 'https://images.example/kept.png'
+    const font = 'https://outside.example/font.woff2'
+    const imported = 'https://outside.example/theme.css'
+    const html = `<style>@import "${imported}";@font-face{font-family:x;src:url(${font})}p{background:url(${approved});color:red}</style>`
+    const options = { origins: [{ origin: 'https://images.example', kinds: ['image'] as const }] }
+    expect(assetOriginRefusals(html, options).map(({ url, kind }) => ({ url, kind }))).toEqual([
+      { url: imported, kind: 'style' },
+      { url: font, kind: 'font' },
+    ])
+    expect(sanitize(html, options)).toBe(`<style>p{background:url(${approved});color:red}</style>`)
+  })
+
+  test('asset preflight reports scripts-off and relative CSS values as written', () => {
+    const script = 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.js'
+    const findings = assetOriginRefusals(
+      `<script src="${script}"></script><style>@import "theme.css";a{background:url(images/a.png)}b{mask:url(//cdn.example/a.png)}</style>`,
+    )
+    expect(findings).toEqual([
+      {
+        url: script,
+        origin: 'https://cdn.jsdelivr.net',
+        kind: 'script',
+        reason: 'scripts-off',
+        message: `${script} is refused because scripts are off`,
+        advice: 'enable scripts to clear this refusal',
+      },
+      {
+        url: 'theme.css',
+        kind: 'style',
+        reason: 'not-absolute',
+        message: '"theme.css" is not an absolute https URL',
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+      {
+        url: 'images/a.png',
+        kind: 'image',
+        reason: 'not-absolute',
+        message: '"images/a.png" is not an absolute https URL',
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+      {
+        url: '//cdn.example/a.png',
+        kind: 'image',
+        reason: 'not-absolute',
+        message: '"//cdn.example/a.png" is not an absolute https URL',
+        advice: 'an absolute URL at an approved origin clears this refusal',
+      },
+    ])
   })
 
   test('the markdown URL rule optionally restricts link origins', () => {
