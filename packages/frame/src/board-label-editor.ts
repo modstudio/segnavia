@@ -1,5 +1,6 @@
-import { type Board, type BoardLabel, boardToScreen, editBoard } from '@segnavia/format'
+import { type Board, type BoardLabel, boardToScreen } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
+import { editBoardFromFrame } from './board-editing-command.ts'
 import type { BoardEditingBridge } from './board-editing-seam.ts'
 import { boardPathElement } from './board-event-path.ts'
 import { committedLabelText } from './board-label-editing.ts'
@@ -132,11 +133,7 @@ export class BoardLabelEditor {
       const text = currentText === undefined ? undefined : committedLabelText(currentText, active.textarea.value)
       if (text !== undefined) {
         if (board) {
-          const result = editBoard(this.source.document(board), [{ type: 'label-set', label: { id: active.id }, text }], {
-            shapes: this.source.shapes(),
-            provisional: [],
-            estimated: [],
-          })
+          const result = editBoardFromFrame(this.source.document(board), [{ type: 'label-set', label: { id: active.id }, text }], this.source.shapes())
           if (result.ok) this.change(result.board, 'edit-label', active.id)
           else
             this.board.dispatchEvent(
