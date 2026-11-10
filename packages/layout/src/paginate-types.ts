@@ -51,9 +51,11 @@ export interface PaginateUnit {
   index: number
   top: number
   bottom: number
+  decorationTop?: number
+  decorationBottom?: number
   refs: string[]
-  prevBottom?: number
-  nextTop?: number
+  previousExtentEnd?: number
+  nextExtentStart?: number
 }
 
 export interface PaginatePageFill {

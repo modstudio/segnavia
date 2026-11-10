@@ -1,3 +1,4 @@
+import { unitExtent } from './paginate-extent.ts'
 import type { PaginateBlock, PaginateUnit, PaginateWindow } from './paginate-types.ts'
 
 export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWindow[]; height: number; headerRepeat: number } {
@@ -18,16 +19,19 @@ export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWind
   }
 
   function lineHeight(unit: PaginateUnit): number {
-    return unit.bottom - unit.top
+    const extent = unitExtent(unit)
+    return extent.end - extent.start
   }
 
   // Clip at the line-box midpoint so pointed Hebrew's marks are not cut.
   function edgeStart(unit: PaginateUnit): number {
-    return unit.prevBottom === undefined ? unit.top : (unit.top + unit.prevBottom) / 2
+    const start = unitExtent(unit).start
+    return unit.previousExtentEnd === undefined ? start : (start + unit.previousExtentEnd) / 2
   }
 
   function edgeEnd(unit: PaginateUnit): number {
-    return unit.nextTop === undefined ? unit.bottom : (unit.bottom + unit.nextTop) / 2
+    const end = unitExtent(unit).end
+    return unit.nextExtentStart === undefined ? end : (end + unit.nextExtentStart) / 2
   }
 
   const headerRepeat = headerFor()
@@ -39,7 +43,7 @@ export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWind
   function beginY(index: number): number {
     const unit = placed[index]
     if (!unit || cursorBottom === undefined || cursorGalley === undefined) return 0
-    return cursorBottom + (unit.top - cursorGalley)
+    return cursorBottom + (unitExtent(unit).start - cursorGalley)
   }
 
   function stack(from: number, to: number, startY: number): { tallest: number; lastBottom: number } {
@@ -50,7 +54,7 @@ export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWind
       const unit = placed[index]
       const previous = index > from ? placed[index - 1] : undefined
       if (!unit) break
-      if (previous) y += lineHeight(previous) + (unit.top - previous.bottom)
+      if (previous) y += lineHeight(previous) + (unitExtent(unit).start - unitExtent(previous).end)
       lastBottom = y + lineHeight(unit)
       if (lastBottom > tallest) tallest = lastBottom
     }
@@ -66,7 +70,7 @@ export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWind
       flow: first.flowId,
       start,
       end: edgeEnd(last),
-      top: startY - (first.top - start) + headerRepeat,
+      top: startY - (unitExtent(first).start - start) + headerRepeat,
       column,
       columns,
     })
@@ -74,7 +78,7 @@ export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWind
 
   function remember(bottom: number, last: PaginateUnit | undefined): void {
     cursorBottom = bottom
-    if (last) cursorGalley = last.bottom
+    if (last) cursorGalley = unitExtent(last).end
   }
 
   function raise(height: number): void {
