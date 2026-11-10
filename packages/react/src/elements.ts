@@ -102,7 +102,7 @@ export const ELEMENTS = {
   }),
   page: element<SegnaviaPage, PageProps, typeof FRAME_ELEMENTS.page.tag>({
     ...FRAME_ELEMENTS.page,
-    events: reactEvents<PageProps>()(FRAME_ELEMENTS.page.events, { asof: 'onAsof' }),
+    events: reactEvents<PageProps>()(FRAME_ELEMENTS.page.events, { asof: 'onAsof', ready: 'onReady' }),
   }),
   book: element<SegnaviaBook, BookProps, typeof FRAME_ELEMENTS.book.tag>({
     ...FRAME_ELEMENTS.book,

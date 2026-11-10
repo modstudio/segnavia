@@ -71,6 +71,7 @@ type ElementClasses = {
 
 export interface FrameVueEventDetails {
   asof: AsOfDay
+  ready: undefined
   'segnavia-controller': unknown
   'segnavia-fit': FittedSize
   'segnavia-frame-mount': StageFrameDetail
