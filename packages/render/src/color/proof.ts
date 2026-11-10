@@ -1,6 +1,6 @@
 import { proofLinear } from './engine.ts'
 import { linearToSrgb } from './spaces.ts'
-import { type Color3, clamp, type Profile, type ProofTable, refuse } from './types.ts'
+import { type Color3, clamp, type Profile, type ProofTable, refuse, WELL_FORMED_ICC_PROFILE } from './types.ts'
 
 export function buildProofTable(profile: Profile, size = 65): ProofTable {
   if (!Number.isInteger(size) || size < 2 || size > 256) refuse(`proof table grid size ${size}`, 'an integer from 2 through 256')
@@ -20,7 +20,8 @@ export function buildProofTable(profile: Profile, size = 65): ProofTable {
 
 function tetrahedral(data: Float32Array, base: number, gs: number, rs: number, r: number, g: number, b: number, channel: number): number {
   const last = base + rs + gs + 3 + channel
-  if (base < 0 || channel < 0 || channel > 2 || last >= data.length) throw new Error(`proof table interpolation index ${last} is outside length ${data.length}`)
+  if (base < 0 || channel < 0 || channel > 2 || last >= data.length)
+    refuse(`proof table interpolation index ${last} outside length ${data.length}`, WELL_FORMED_ICC_PROFILE)
   // The range check above establishes that every corner lies inside the packed table.
   const c = data[base + channel] ?? 0,
     cr = data[base + rs + channel] ?? 0,

@@ -37,13 +37,27 @@ export interface ProofTable {
   byteCoordinates: Float32Array
 }
 
+export const WELL_FORMED_ICC_PROFILE = 'a well-formed ICC profile'
+
+export class ProfileUnsupportedError extends Error {
+  override name = 'ProfileUnsupportedError'
+  readonly found: string
+  readonly supported: string
+
+  constructor(found: string, supported: string) {
+    super(`ICC profile has unsupported ${found}; supported: ${supported}`)
+    this.found = found
+    this.supported = supported
+  }
+}
+
 export function refuse(found: string, supported: string): never {
-  throw new Error(`ICC profile has unsupported ${found}; supported: ${supported}`)
+  throw new ProfileUnsupportedError(found, supported)
 }
 
 export function checked<T>(values: ArrayLike<T>, index: number, structure: string): T {
   const value = values[index]
-  if (value === undefined) throw new Error(`${structure} index ${index} is outside length ${values.length}`)
+  if (value === undefined) refuse(`${structure} index ${index} outside length ${values.length}`, WELL_FORMED_ICC_PROFILE)
   return value
 }
 

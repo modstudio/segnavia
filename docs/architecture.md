@@ -1743,7 +1743,7 @@ caps that heap at `DEFAULT_JS_HEAP_MB` megabytes (`jsHeapMb` to change it). A cr
 refused as `RenderRefusedError`. If the browser process exits, in-flight
 renders fail as `RendererUnavailableError` as soon as it exits, without waiting
 for the render bound, and the next render relaunches it.
-A render after `close()` is refused.
+A render after `close()` is refused. A press-layout page printed onto more than one paper is refused as `RenderOversetError`, carrying its zero-based input `page` and printed `papers`; an unusable press or proof ICC profile is refused as `RenderColorProfileError`, carrying its `profile` use plus the `found` and `supported` facts. Both remain `RenderRefusedError`s so a host can read those facts without parsing their messages.
 
 ## Data the host keeps
 

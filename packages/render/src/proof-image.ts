@@ -1,8 +1,8 @@
 import type { Page as Tab } from 'playwright-core'
 import { readProfile } from './color/profile.ts'
 import { buildProofTable } from './color/proof.ts'
-import type { ProofTable } from './color/types.ts'
-import { RenderRefusedError } from './errors.ts'
+import { type ProofTable, WELL_FORMED_ICC_PROFILE } from './color/types.ts'
+import { colorProfileRefusal, RenderColorProfileError, RenderRefusedError } from './errors.ts'
 import type { ImageOptions, ProofImageOptions } from './options.ts'
 import { proofRgba } from './proof-image-transform.ts'
 
@@ -14,19 +14,16 @@ const tables = new WeakMap<Uint8Array, ProofTable>()
 function proofTable(bytes: Uint8Array): ProofTable {
   const cached = tables.get(bytes)
   if (cached) return cached
-  let profile: ReturnType<typeof readProfile>
   try {
-    profile = readProfile(bytes)
-  } catch {
-    throw new RenderRefusedError('The proof profile is malformed; supply a valid CMYK output profile to clear this refusal.')
+    const profile = readProfile(bytes)
+    if (profile.profileClass !== 'prtr' || profile.colorSpace !== 'CMYK')
+      throw new RenderColorProfileError('proof', `class ${profile.profileClass}, color space ${profile.colorSpace.trim()}`, 'a CMYK output (prtr) profile')
+    const table = buildProofTable(profile)
+    tables.set(bytes, table)
+    return table
+  } catch (error) {
+    throw colorProfileRefusal('proof', error) ?? new RenderColorProfileError('proof', 'malformed structure', WELL_FORMED_ICC_PROFILE)
   }
-  if (profile.profileClass !== 'prtr' || profile.colorSpace !== 'CMYK')
-    throw new RenderRefusedError(
-      `The proof profile is not a CMYK output profile (class ${profile.profileClass}, color space ${profile.colorSpace.trim()}); supply a CMYK output profile to clear this refusal.`,
-    )
-  const table = buildProofTable(profile)
-  tables.set(bytes, table)
-  return table
 }
 
 function mimeOf(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 'image/webp' {

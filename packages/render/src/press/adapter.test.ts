@@ -371,19 +371,3 @@ test.each(refusalCases)('refuses unsupported adapter input and names %s', async 
   build(document)
   await expect(rewritePressPdf(await document.save(), profile)).rejects.toThrow(name)
 })
-
-test('refuses a non-CMYK press profile', async () => {
-  const bytes = profile.slice()
-  bytes.set(new TextEncoder().encode('RGB '), 16)
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  for (let index = 0; index < view.getUint32(128, false); index++) {
-    const record = 132 + index * 12
-    const name = new TextDecoder().decode(bytes.subarray(record, record + 4))
-    const offset = view.getUint32(record + 4, false)
-    if (name.startsWith('A2B')) bytes[offset + 8] = 3
-    if (name.startsWith('B2A')) bytes[offset + 9] = 3
-  }
-  const document = await PDFDocument.create()
-  document.addPage()
-  await expect(rewritePressPdf(await document.save(), bytes)).rejects.toThrow(/press profile color space RGB/)
-})

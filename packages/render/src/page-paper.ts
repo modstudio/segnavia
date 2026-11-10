@@ -13,7 +13,7 @@ import {
 import { PDFName } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { translateNamedDestinations } from './book-destinations.ts'
-import { RenderRefusedError } from './errors.ts'
+import { RenderOversetError, RenderRefusedError } from './errors.ts'
 import { type PrintResult, printWithOverflow } from './overflow.ts'
 import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
 import { loadPdf } from './pdf-load.ts'
@@ -151,6 +151,10 @@ export function pressContentPlacement(source: { width: number; height: number },
   }
 }
 
+export function oversetRefusal(page: number, papers: number): RenderOversetError | undefined {
+  return papers > 1 ? new RenderOversetError(page, papers) : undefined
+}
+
 export async function printPage(
   tab: Tab,
   print: Print,
@@ -196,10 +200,7 @@ export async function printPage(
     'A page with bleed or marks prints at its bleed box, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
   )
   const papers = (await loadPdf(bytes)).getPageCount()
-  if (papers > 1) {
-    throw new RenderRefusedError(
-      `A page with bleed or marks is one printed piece, but the content needs ${papers} papers. Shorten the content, or remove the bleed and marks.`,
-    )
-  }
+  const overset = oversetRefusal(inputIndex ?? 0, papers)
+  if (overset) throw overset
   return { bytes: await addPressBoxes(bytes, boxes, print.markColor), overflow: printed.overflow }
 }

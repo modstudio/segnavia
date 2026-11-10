@@ -1,16 +1,57 @@
 import { expect, test } from 'bun:test'
 import type { Page as Tab } from 'playwright-core'
-import { buildGrayProfile, buildPressProfile } from './color/profile-fixture.test-helper.ts'
-import { RenderRefusedError } from './errors.ts'
+import { buildPressProfile } from './color/profile-fixture.test-helper.ts'
+import { WELL_FORMED_ICC_PROFILE } from './color/types.ts'
+import { RenderColorProfileError, RenderRefusedError } from './errors.ts'
 import { MAX_PROOF_IMAGE_BYTES, MAX_PROOF_IMAGE_PIXELS, proofCapturedImage, proofCaptureOptions, proofRasterImage } from './proof-image.ts'
 
 const unusedTab = {} as Tab
 const pngSignature = Uint8Array.of(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)
 
-test('image proof refuses a profile that is not a CMYK output profile', async () => {
-  await expect(proofRasterImage(unusedTab, Uint8Array.of(), { profile: buildGrayProfile('mft1') })).rejects.toThrow(
-    'The proof profile is not a CMYK output profile',
-  )
+test('image proof gives a malformed profile engine facts in a structured refusal', async () => {
+  try {
+    await proofRasterImage(unusedTab, Uint8Array.of(), { profile: Uint8Array.of() })
+    throw new Error('Expected the proof profile to be refused')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderColorProfileError)
+    expect(error).toBeInstanceOf(RenderRefusedError)
+    expect(error).toMatchObject({ profile: 'proof', found: 'truncated profile tag', supported: 'profile tag structure contained within its declared size' })
+  }
+})
+
+test('image proof maps an unexpected profile parser error to a structured refusal', async () => {
+  const profile = buildPressProfile('mft1')
+  const buffer = profile.buffer as ArrayBuffer
+  structuredClone(buffer, { transfer: [buffer] })
+  try {
+    await proofRasterImage(unusedTab, Uint8Array.of(), { profile })
+    throw new Error('Expected the detached proof profile to be refused')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderColorProfileError)
+    expect(error).toMatchObject({ profile: 'proof', found: 'malformed structure', supported: WELL_FORMED_ICC_PROFILE })
+  }
+})
+
+test('image proof gives an RGB monitor profile class and color space in a structured refusal', async () => {
+  const profile = buildPressProfile('mft1')
+  profile.set(new TextEncoder().encode('mntr'), 12)
+  profile.set(new TextEncoder().encode('RGB '), 16)
+  const view = new DataView(profile.buffer, profile.byteOffset, profile.byteLength)
+  for (let index = 0; index < view.getUint32(128, false); index++) {
+    const record = 132 + index * 12
+    const name = new TextDecoder().decode(profile.subarray(record, record + 4))
+    const offset = view.getUint32(record + 4, false)
+    if (name.startsWith('A2B')) profile[offset + 8] = 3
+    if (name.startsWith('B2A')) profile[offset + 9] = 3
+  }
+  try {
+    await proofRasterImage(unusedTab, Uint8Array.of(), { profile })
+    throw new Error('Expected the proof profile to be refused')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderColorProfileError)
+    expect(error).toBeInstanceOf(RenderRefusedError)
+    expect(error).toMatchObject({ profile: 'proof', found: 'class mntr, color space RGB', supported: 'a CMYK output (prtr) profile' })
+  }
 })
 
 test('image proof names its encoded byte ceiling and how to clear it', async () => {

@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
 import { Document, MM_PER_PT, pageFromDocument, printBoxes } from '@segnavia/format'
-import { captureImage, openRenderer, RenderRefusedError } from '@segnavia/render'
+import { captureImage, openRenderer, RenderOversetError, RenderRefusedError } from '@segnavia/render'
 import { chromiumPath } from './chromium-path.ts'
 import { postcardPage } from './demo-page-fixtures.ts'
 import { screenDeck, screenPage } from './screen-document.ts'
@@ -287,20 +287,23 @@ try {
   })
   check('a page image exposes its print bleed and safe area', imageProperties === '3mm 5mm', imageProperties)
 
-  const tooTall = await refusal(
-    renderer.pagePdf(
+  const tooTall = await renderer
+    .pagePdf(
       screenPage(
         { html: '<div style="height:400mm">Too tall for one printed piece.</div>' },
         {
           print: { paper: { width: 148, height: 105, unit: 'mm' }, orientation: 'landscape', bleed: 3 },
         },
       ),
-    ),
-  )
+    )
+    .then(
+      () => undefined,
+      (error: unknown) => error,
+    )
   check(
     'a page with bleed whose content needs another paper is refused',
-    /^refused: A page with bleed or marks is one printed piece, but the content needs \d+ papers\./.test(tooTall),
-    tooTall,
+    tooTall instanceof RenderOversetError && tooTall.page === 0 && tooTall.papers > 1,
+    tooTall instanceof RenderOversetError ? `${tooTall.name}: ${tooTall.message} (page ${tooTall.page}, papers ${tooTall.papers})` : String(tooTall),
   )
   const slide = await renderer.slideImage(
     screenDeck([{ type: 'slide', id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }], {
