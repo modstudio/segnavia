@@ -324,6 +324,7 @@ export function expandFramePages(
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
+  days?: readonly (AsOfDay | undefined)[],
 ): Promise<ExpandedFramePage[]> {
-  return Promise.all(pages.map((page) => expandFramePage(page, motifs, signal, placements, purpose, pageWidths)))
+  return Promise.all(pages.map((page, index) => expandFramePage(page, motifs, signal, placements, purpose, pageWidths, days?.[index])))
 }

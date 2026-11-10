@@ -82,7 +82,7 @@ const UNENCODED_TEXT_ELEMENTS = new Set(['style', 'script', 'xmp', 'iframe', 'no
 // Void elements have no content to fill: a value bound to one would serialize after it.
 const VOID_ELEMENTS = new Set(['area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input', 'link', 'meta', 'source', 'track', 'wbr'])
 
-function refusesValueBinding(tag: string): boolean {
+export function refusesValueBinding(tag: string): boolean {
   return UNENCODED_TEXT_ELEMENTS.has(tag) || VOID_ELEMENTS.has(tag)
 }
 

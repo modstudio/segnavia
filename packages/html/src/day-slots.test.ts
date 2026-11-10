@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { AsOfDay, SlotsOptions } from '@segnavia/format'
 import { slotsForDay, slotsWithDay } from './day-slots.ts'
-import { hasSlotWork, prepareSlots } from './slot-render.ts'
+import { hasSlotWork, prepareSlots } from './slots.ts'
 
 const day: AsOfDay = { date: '2026-11-14', zone: 'America/New_York', kind: 'anchor', anchor: 'shabbos' }
 
@@ -25,6 +25,19 @@ test('resolves slots once with the established day and binds the reserved contex
 test('refuses source with resolve and host claims on the reserved root', () => {
   expect(() => slotsWithDay({ source: { id: 'held', values: {} }, resolve: async () => undefined }, day, undefined)).toThrow('slots.source and slots.resolve')
   expect(() => slotsWithDay({ declarations: [{ key: 'asOf.date', label: 'Host date', type: 'text' }] }, day, undefined)).toThrow('reserved asOf context')
+})
+
+test('refuses copy fills with resolve before resolving the source', async () => {
+  let calls = 0
+  const options = {
+    fills: [{ fill: { id: 'copy', values: {} } }],
+    resolve: async () => {
+      calls++
+      return undefined
+    },
+  }
+  await expect(slotsForDay(options, day, new AbortController().signal)).rejects.toThrow('slots.fills and slots.resolve')
+  expect(calls).toBe(0)
 })
 
 test('a page without an as-of binding keeps the host slot-work path unchanged', () => {

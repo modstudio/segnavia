@@ -1,7 +1,5 @@
 import type { AsOfDay, FontFailure, PageWidths, SlotsOptions } from '@segnavia/format'
-import type { HtmlPage } from '@segnavia/html'
-import { hasAsOfBinding } from './as-of-bindings.ts'
-import { slotsWithDay } from './day-slots.ts'
+import { type HtmlPage, hasAsOfBinding, slotsWithDay } from '@segnavia/html'
 import { type ExpandedFramePage, expandFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { type FontsOptions, pageFontCss } from './page-fonts.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'

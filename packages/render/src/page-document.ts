@@ -17,13 +17,22 @@ import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } fro
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
 import { expandFramePage, expandPrintedFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
-import { FontCssRefusedError, type HtmlPage, type PrintedHtmlPage, parseDocument, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
+import {
+  type EstablishedPageDay,
+  FontCssRefusedError,
+  type HtmlPage,
+  type PrintedHtmlPage,
+  parseDocument,
+  resolvePageHtml,
+  resolvePrintedPageHtml,
+} from '@segnavia/html'
 import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
-import type { RenderOptions } from './options.ts'
+import type { PageRenderOptions, RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
+import { resolveRenderDayContexts } from './page-as-of.ts'
 import { printCss } from './page-paper.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
 
@@ -53,7 +62,7 @@ async function resolveRenderFontReferences(
 
 export async function prepareRenderedPage(
   input: PageOrPrintedInput,
-  options: RenderOptions,
+  options: PageRenderOptions,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
@@ -61,9 +70,12 @@ export async function prepareRenderedPage(
   const document = parseDocument(input, { newId: options.newId })
   const brand = await resolveRenderBrand(document, options.brandSource, signal)
   const page = pageOrPrintedFromDocument(document, brand)
-  return page.printedPages?.sections
-    ? prepareRenderedPrintedPageValue(page, options, motifs, signal, purpose)
-    : prepareRenderedPageValue(page, options, motifs, signal, purpose)
+  const contexts = await resolveRenderDayContexts([page], options, signal)
+  const established = contexts.pages[0] as EstablishedPageDay
+  const prepared = page.printedPages?.sections
+    ? await prepareRenderedPrintedPageValue(page, options, motifs, signal, established, purpose)
+    : await prepareRenderedPageValue(page, options, motifs, signal, established, purpose)
+  return prepared
 }
 
 export async function prepareRenderedPageValue(
@@ -71,11 +83,12 @@ export async function prepareRenderedPageValue(
   options: RenderOptions,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
+  established: EstablishedPageDay,
   purpose: 'screen' | 'print' = 'print',
 ) {
   const page = resolvePageHtml(input)
-  const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths)
-  return preparedRender(expanded, options, signal)
+  const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths, established.day)
+  return preparedRender(expanded, options, signal, established)
 }
 
 async function prepareRenderedPrintedPageValue(
@@ -83,16 +96,18 @@ async function prepareRenderedPrintedPageValue(
   options: RenderOptions,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
+  established: EstablishedPageDay,
   purpose: 'screen' | 'print',
 ) {
-  const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options.placements, purpose, options.pageWidths)
-  return preparedRender(expanded, options, signal)
+  const expanded = await expandPrintedFramePage(resolvePrintedPageHtml(input), motifs, signal, options.placements, purpose, options.pageWidths, established.day)
+  return preparedRender(expanded, options, signal, established)
 }
 
 async function preparedRender<T extends HtmlPage | PrintedHtmlPage>(
   expanded: { page: T; fonts: FontReference[] },
   options: RenderOptions,
   signal: AbortSignal,
+  established: EstablishedPageDay,
 ) {
   const { manifest, undeclared } = fontManifestWithReferences(expanded.page.style?.fonts, expanded.fonts)
   const resolvedReferences = fontManifestReferences(manifest, undeclared)
@@ -100,7 +115,7 @@ async function preparedRender<T extends HtmlPage | PrintedHtmlPage>(
   const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'
   const resolved = await fontCssForRender(resolveRenderFontReferences(manifest, undeclared, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
-  return { page: expanded.page, options, fontCss: resolved.css, fontFailures: resolved.failures }
+  return { page: expanded.page, options, fontCss: resolved.css, fontFailures: resolved.failures, established }
 }
 
 export async function prepareRenderedPages(

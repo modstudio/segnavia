@@ -12,14 +12,12 @@ import {
   resolveBrand,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
-import { fillAsOfBindings } from './as-of-bindings.ts'
+import { type EstablishedPageDay, fillAsOfBindings, type HtmlPage, parseDocument, resolveDocumentDayContexts, resolvePageHtml } from '@segnavia/html'
 import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { DocumentAsOfElement } from './document-as-of-element.ts'
-import { type EstablishedPageDay, resolveDocumentDayContexts } from './document-day-context.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageDayLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'

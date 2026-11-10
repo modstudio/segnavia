@@ -15,6 +15,7 @@ const source: FontSource = {
   font: async (name) => ({ serif, heading })[name],
 }
 const signal = new AbortController().signal
+const established = { day: { date: '2026-11-14' as const, zone: 'UTC' as const, kind: 'current' as const }, slots: {} }
 const letterhead = {
   key: 'letterhead',
   revision: '1',
@@ -37,7 +38,13 @@ describe('prepareRenderedPageValue', () => {
       style: { fonts: { serif: { faces: [{}] } } },
       lang: 'en',
     })
-    const prepared = await prepareRenderedPageValue(page, { fontSource: source, css: 'p{color:red}' }, { source: { motif: async () => letterhead } }, signal)
+    const prepared = await prepareRenderedPageValue(
+      page,
+      { fontSource: source, css: 'p{color:red}' },
+      { source: { motif: async () => letterhead } },
+      signal,
+      established,
+    )
     expect(prepared.fontCss).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
     expect(prepared.fontCss).toContain('@font-face{font-family:"Heading Sans";src:url(data:font/ttf;base64,AA==) format("truetype")')
     expect(prepared.fontCss).toContain('--segnavia-font-serif:"Body Serif",serif')
@@ -48,8 +55,8 @@ describe('prepareRenderedPageValue', () => {
 
   test('prepareRenderedPageValue converts a missing FontSource into RenderRefusedError', async () => {
     const page = Page.parse({ html: '<p></p>', style: { fonts: { serif: { faces: [{}] } } } })
-    await expect(prepareRenderedPageValue(page, {}, undefined, signal)).rejects.toThrow(RenderRefusedError)
-    await expect(prepareRenderedPageValue(page, {}, undefined, signal)).rejects.toThrow(
+    await expect(prepareRenderedPageValue(page, {}, undefined, signal, established)).rejects.toThrow(RenderRefusedError)
+    await expect(prepareRenderedPageValue(page, {}, undefined, signal, established)).rejects.toThrow(
       'page could not establish app font "serif"; supply a FontSource to clear this refusal.',
     )
   })
@@ -60,21 +67,21 @@ describe('prepareRenderedPageValue', () => {
     const bad: FontSource = {
       font: async () => ({ family, faces: [{ family, data, format: 'truetype' }] }),
     }
-    await expect(prepareRenderedPageValue(page, { fontSource: bad }, undefined, signal)).rejects.toThrow(RenderRefusedError)
-    await expect(prepareRenderedPageValue(page, { fontSource: bad }, undefined, signal)).rejects.toThrow(
+    await expect(prepareRenderedPageValue(page, { fontSource: bad }, undefined, signal, established)).rejects.toThrow(RenderRefusedError)
+    await expect(prepareRenderedPageValue(page, { fontSource: bad }, undefined, signal, established)).rejects.toThrow(
       `The family ${JSON.stringify(family)} contains a control character; remove control characters from the family name to clear this refusal.`,
     )
   })
 
   test('reports an unknown name without refusing', async () => {
     const page = Page.parse({ html: '<p></p>', style: { fonts: { missing: { faces: [{}] } } } })
-    const prepared = await prepareRenderedPageValue(page, { fontSource: source }, undefined, signal)
+    const prepared = await prepareRenderedPageValue(page, { fontSource: source }, undefined, signal, established)
     expect(prepared.fontFailures).toEqual([{ font: 'missing', family: 'missing', reason: 'unsupplied' }])
   })
 
   test('refuses a local font fallback when no FontSource is supplied', async () => {
     const page = Page.parse({ html: '<p></p>', style: { fonts: { local: { local: 'Some Local Face', fallback: 'serif' } } } })
-    await expect(prepareRenderedPageValue(page, {}, undefined, signal)).rejects.toThrow(
+    await expect(prepareRenderedPageValue(page, {}, undefined, signal, established)).rejects.toThrow(
       'page could not establish app font "serif"; supply a FontSource to clear this refusal.',
     )
   })
@@ -97,6 +104,7 @@ describe('prepareRenderedPageValue', () => {
       },
       undefined,
       signal,
+      established,
     )
     expect(prepared.fontCss).toContain('@font-face{font-family:"Local Family"')
     expect(prepared.fontCss).toContain('--segnavia-font-serif:"Body Serif",serif')
