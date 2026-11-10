@@ -16,7 +16,7 @@ export function commitLiveTransition(state: BoardEditQueueState, bridge: BoardEd
 
 function existingIds(edit: BoardEdit, value: Board): string[] {
   const ids = edit.kind === 'undo' || edit.kind === 'redo' ? existingIds(edit.edit, value) : edit.ids
-  const present = new Set([...value.items, ...value.labels].map((node) => node.id))
+  const present = new Set([...value.items, ...value.labels, ...value.sections].map((node) => node.id))
   return ids.filter((id) => present.has(id))
 }
 

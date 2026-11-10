@@ -36,7 +36,7 @@ type Gesture =
       shift?: boolean
       dragged: boolean
     }
-  | { kind: 'section'; pointerId: number; start: Point; before: Board; ids: string[]; sectionId: string; dragged: boolean }
+  | { kind: 'section'; pointerId: number; start: Point; before: Board; sectionId: string; base: readonly string[]; shift: boolean; dragged: boolean }
   | { kind: 'marquee'; pointerId: number; start: Point; before: Board; base: readonly string[]; shift: boolean; node: HTMLElement; dragged: boolean }
   | { kind: 'resize'; pointerId: number; start: Point; before: Board; id: string; corner: string; dragged: boolean }
   | { kind: 'label-resize'; pointerId: number; start: Point; before: Board; id: string; currentWidth: number; dragged: boolean }
@@ -93,9 +93,16 @@ export class BoardEditingInput implements BoardPointerDelegate {
     }
     const sectionId = boardPathElement(event, 'boardSectionTitle')?.dataset.boardSectionTitle
     if (sectionId)
-      return this.enabled.move
-        ? { kind: 'section', pointerId: event.pointerId, start: bridge.local(event), before: current, ids: [], sectionId, dragged: false }
-        : { kind: 'noop', pointerId: event.pointerId, start: bridge.local(event), before: current, dragged: false }
+      return {
+        kind: 'section',
+        pointerId: event.pointerId,
+        start: bridge.local(event),
+        before: current,
+        sectionId,
+        base: [...this.board.selection],
+        shift: event.shiftKey,
+        dragged: false,
+      }
     const nodeId =
       boardPathElement(event, 'boardItem')?.dataset.boardItem ??
       boardPathElement(event, 'boardTitle')?.dataset.boardTitle ??
@@ -150,7 +157,7 @@ export class BoardEditingInput implements BoardPointerDelegate {
       bridge.setDropTarget(target?.id)
       const drop = target?.layout === 'manual' ? undefined : target ? gridDropTarget(gesture.before, bridge.shapes(), target.id, boardPoint) : undefined
       renderDropMarker(bridge.overlay, gesture.before, target?.id, drop, bridge.view(), bridge.shapes())
-    } else if (gesture.kind === 'section' && gesture.sectionId) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
+    } else if (gesture.kind === 'section' && gesture.sectionId && this.enabled.move) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
     else if (gesture.kind === 'marquee') this.updateMarquee(gesture, point)
     else if (gesture.kind === 'label-resize') {
       const edge = screenToBoard(bridge.view(), point).x
@@ -176,6 +183,7 @@ export class BoardEditingInput implements BoardPointerDelegate {
       gesture.node.remove()
       if (!gesture.dragged) this.board.selection = []
     } else if (!gesture.dragged && gesture.kind === 'move') this.finishClick(gesture)
+    else if (!gesture.dragged && gesture.kind === 'section') this.board.selection = selectBoardNode(gesture.base, gesture.sectionId, gesture.shift)
     else if (gesture.dragged && gesture.kind !== 'noop') this.finishEdit(gesture, event)
     return true
   }
@@ -201,7 +209,7 @@ export class BoardEditingInput implements BoardPointerDelegate {
       const placed = target && target.layout !== 'manual' && drop ? insertIntoGrid(moved, bridge.shapes(), target.id, itemIds, drop) : assigned
       // item-move's point target cannot keep the drag offset apart from the drop point.
       this.callbacks.commit(gesture.before, settleBoard(gesture.before, placed, bridge.shapes(), gesture.ids), { kind: 'move', ids: gesture.ids })
-    } else if (gesture.kind === 'section' && gesture.sectionId) {
+    } else if (gesture.kind === 'section' && gesture.sectionId && this.enabled.move) {
       const members = gesture.before.sections.find((entry) => entry.id === gesture.sectionId)?.items ?? []
       // BoardCommand has no target that can place a section rectangle.
       this.callbacks.commit(gesture.before, makeRoom(next, bridge.shapes(), [gesture.sectionId]), {
@@ -263,13 +271,25 @@ export class BoardEditingInput implements BoardPointerDelegate {
     }
     const current = this.callbacks.current()
     if (current) {
-      const movable = this.board.selection.filter((id) => !current.sections.some((section) => section.layout !== 'manual' && section.items.includes(id)))
-      if (movable.length === 0) return true
-      const moved = moveBoardNodes(current, movable, delta)
+      const selectedSections = current.sections.filter((section) => this.board.selection.includes(section.id))
+      const sectionMembers = new Set(selectedSections.flatMap((section) => section.items))
+      const movable = this.board.selection.filter(
+        (id) =>
+          !current.sections.some((section) => section.layout !== 'manual' && section.items.includes(id)) &&
+          !current.sections.some((section) => section.id === id),
+      )
+      if (movable.length === 0 && selectedSections.length === 0) return true
+      let moved = current
+      for (const section of selectedSections) moved = moveSection(moved, section.id, delta)
+      moved = moveBoardNodes(
+        moved,
+        movable.filter((id) => !sectionMembers.has(id)),
+        delta,
+      )
       // item-move cannot nudge without reassigning membership.
-      this.callbacks.commit(current, settleBoard(current, moved, this.callbacks.bridge().shapes(), movable), {
-        kind: 'move',
-        ids: movable,
+      this.callbacks.commit(current, settleBoard(current, moved, this.callbacks.bridge().shapes(), [...movable, ...sectionMembers]), {
+        kind: selectedSections.length ? 'move-section' : 'move',
+        ids: [...selectedSections.map((section) => section.id), ...movable, ...sectionMembers],
       })
     }
     return true

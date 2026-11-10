@@ -45,6 +45,7 @@ import { BOARD_HISTORY_LIMIT } from './board-history.ts'
 import { BoardLabelDoubleClick } from './board-label-double-click.ts'
 import { withoutLabelWidth } from './board-label-editing.ts'
 import { BoardLabelEditor } from './board-label-editor.ts'
+import { boardRemoval } from './board-removal.ts'
 import { copyComputedBoardShapes } from './board-shape-cache.ts'
 import { boardLabels } from './labels.ts'
 
@@ -142,10 +143,10 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   remove(ids: readonly string[] = this.board.selection) {
     const current = this.state ? boardFromDocument(this.state.value) : null
-    const existing = ids.filter((id) => current?.items.some((item) => item.id === id))
-    if (!this.enabled.remove || !current || existing.length === 0) return
-    this.board.selection = this.board.selection.filter((id) => !existing.includes(id))
-    this.applyCommands(current, [{ type: 'item-remove', items: existing.map((id) => ({ id })) }], { kind: 'remove', ids: existing })
+    const removal = current ? boardRemoval(current, ids) : undefined
+    if (!this.enabled.remove || !current || !removal) return
+    this.board.selection = removal.selection
+    this.applyCommands(current, removal.commands, { kind: 'remove', ids: removal.removed })
     this.board.focus()
   }
 

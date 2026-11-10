@@ -44,6 +44,7 @@ export type {
   BoardEditResult,
   BoardEditSuccess,
 } from './board-edit-result.ts'
+export { boardFocusOrder } from './board-focus-order.ts'
 export {
   type ArrangeOptions,
   arrange,
@@ -55,6 +56,7 @@ export {
   itemAt,
   itemHeight,
   labelDirection,
+  labelRectangle,
   labelXForWidth,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,

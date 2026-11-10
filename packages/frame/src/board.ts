@@ -3,6 +3,7 @@ import {
   type BoardItem,
   type BoardView,
   boardBounds,
+  boardFocusOrder,
   itemAt,
   itemHeight,
   resolvedShape,
@@ -61,6 +62,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this,
     () => this.items,
     () => new Map(this.value?.labels.map((label) => [label.id, label]) ?? []),
+    () => new Map(this.value?.sections.map((section) => [section.id, section]) ?? []),
     () => new Map([...this.mounts.nodes, ...this.decorations.nodes]),
   )
   private readonly mounts = new BoardMounts(
@@ -89,7 +91,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       else this.selectionState.selection = selectBoardNode(this.selectionState.selection, id, toggle)
     },
     selectAll: () => {
-      this.selectionState.selection = this.value ? [...this.value.items, ...this.value.labels].map((node) => node.id) : []
+      this.selectionState.selection = this.value ? [...this.value.items, ...this.value.labels, ...this.value.sections].map((node) => node.id) : []
     },
     open: (item) => this.dispatchEvent(boardEvent('segnavia-board-open', { item })),
     boardKey: (event) =>
@@ -100,7 +102,8 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
         (view) => this.setView(view),
       ),
     action: (action, item) => this.dispatchEvent(boardEvent('segnavia-board-item-action', { action, item })),
-    focus: (id) => (id && this.mounts.nodes.get(id) ? this.mounts.nodes.get(id)?.focus() : this.focus()),
+    focus: (id) => (id ? (this.mounts.nodes.get(id) ?? this.decorations.focusNode(id))?.focus() : this.focus()),
+    focusByTab: (id, backwards) => this.focusByTab(id, backwards),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
   constructor() {
@@ -278,13 +281,23 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   }
 
   private revealItem(id: string, focus: boolean): boolean {
-    const target = this.value && this.clientWidth > 96 && this.clientHeight > 96 ? revealTarget(this.value, this.shapeCache.value.shapes.items, id) : undefined
+    const target = this.value && this.clientWidth > 96 && this.clientHeight > 96 ? revealTarget(this.value, this.shapeCache.value.shapes, id) : undefined
     if (!target) return false
     const item = target.item
     this.pendingReveal = undefined
     this.setView(revealView(target.bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
     if (item) this.pendingReveal = { id: item.id, height: target.bounds.height }
-    if (item && focus) focusAfterReveal(() => this.mounts.nodes.get(item.id)?.focus())
+    if (focus) focusAfterReveal(() => (item ? this.mounts.nodes.get(item.id) : this.decorations.focusNode(id))?.focus())
+    return true
+  }
+
+  private focusByTab(id: string | undefined, backwards: boolean): boolean {
+    if (!this.value) return false
+    const order = boardFocusOrder(this.value, this.shapeCache.value.shapes)
+    const index = id ? order.indexOf(id) : backwards ? order.length : -1
+    const next = order[index + (backwards ? -1 : 1)]
+    if (!next) return false
+    ;(this.mounts.nodes.get(next) ?? this.decorations.focusNode(next))?.focus()
     return true
   }
 

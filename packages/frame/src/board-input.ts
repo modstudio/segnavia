@@ -12,6 +12,7 @@ interface BoardPointerCallbacks {
   boardKey: (event: KeyboardEvent) => void
   action: (action: string, item: BoardItem) => void
   focus: (id?: string) => void
+  focusByTab: (id: string | undefined, backwards: boolean) => boolean
 }
 
 export class BoardPointerInput {
@@ -62,7 +63,14 @@ export class BoardPointerInput {
     const actionStarted = this.actionPointers.delete(event.pointerId)
     if (actionStarted || this.gestures.dragged || this.actionButton(event)) return
     const titleItem = this.callbacks.item(titleId)
-    this.callbacks.select(titleItem?.id ?? this.labelNode(event)?.dataset.boardLabel ?? this.callbacks.itemAt(event)?.id ?? null, event.shiftKey)
+    this.callbacks.select(
+      titleItem?.id ??
+        this.sectionTitleNode(event)?.dataset.boardSectionTitle ??
+        this.labelNode(event)?.dataset.boardLabel ??
+        this.callbacks.itemAt(event)?.id ??
+        null,
+      event.shiftKey,
+    )
   }
 
   private onPointerDown = (event: PointerEvent) => {
@@ -71,7 +79,12 @@ export class BoardPointerInput {
       return
     }
     if (event.button === 0)
-      this.callbacks.focus(this.itemNode(event)?.dataset.boardItem ?? this.titleNode(event)?.dataset.boardTitle ?? this.labelNode(event)?.dataset.boardLabel)
+      this.callbacks.focus(
+        this.itemNode(event)?.dataset.boardItem ??
+          this.titleNode(event)?.dataset.boardTitle ??
+          this.sectionTitleNode(event)?.dataset.boardSectionTitle ??
+          this.labelNode(event)?.dataset.boardLabel,
+      )
     if (this.delegate?.pointerDown(event)) {
       this.delegatedPointers.add(event.pointerId)
       return
@@ -101,6 +114,11 @@ export class BoardPointerInput {
   }
 
   private onKeyDown = (event: KeyboardEvent) => {
+    if (event.key === 'Tab') {
+      const id = this.itemNode(event)?.dataset.boardItem ?? this.sectionTitleNode(event)?.dataset.boardSectionTitle ?? this.labelNode(event)?.dataset.boardLabel
+      if (this.callbacks.focusByTab(id, event.shiftKey)) event.preventDefault()
+      return
+    }
     if (this.delegate?.keyDown(event)) return
     const item = this.callbacks.item(this.itemNode(event)?.dataset.boardItem)
     if (event.key === 'Enter' && item) this.callbacks.open(item)
@@ -126,6 +144,10 @@ export class BoardPointerInput {
 
   private titleNode(event: Event): HTMLElement | undefined {
     return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardTitle))
+  }
+
+  private sectionTitleNode(event: Event): HTMLElement | undefined {
+    return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardSectionTitle))
   }
 
   private labelNode(event: Event): HTMLElement | undefined {
