@@ -240,13 +240,13 @@ const parentPages: { parents: NonNullable<Parameters<typeof printedDocument>[0][
     {
       name: 'body',
       margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
-      foot: '<footer data-motif="printed-foot"></footer>',
+      regions: { foot: { edge: 'blockEnd', html: '<footer data-motif="printed-foot"></footer>' } },
     },
     {
       name: 'first',
       basedOn: 'body',
       margin: { blockStart: 30, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
-      head: '<header data-motif="printed-head"></header>',
+      regions: { head: { edge: 'blockStart', html: '<header data-motif="printed-head"></header>' } },
     },
   ],
   parentRules: [{ when: { position: 'documentFirst' }, parent: 'first' }, { parent: 'body' }],
@@ -260,8 +260,7 @@ function printedDocument(input: {
     name: string
     basedOn?: string
     margin: { blockStart: number; blockEnd: number; inlineStart: number; inlineEnd: number }
-    head?: string
-    foot?: string
+    regions?: Record<string, { edge: 'blockStart' | 'blockEnd' | 'inlineStart' | 'inlineEnd'; html: string }>
   }>
   parentRules?: ParentRules
 }): DocumentInput {
@@ -325,7 +324,12 @@ export const printedSectionDocument: DocumentInput = {
       type: 'parentPage',
       name: 'body',
       geometry: { margin: { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 } },
-      foot: '<footer>Page <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span> of <span data-motif="segnavia:head-template" data-motif-name="page-total"></span></footer>',
+      regions: {
+        foot: {
+          edge: 'blockEnd',
+          html: '<footer>Page <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span> of <span data-motif="segnavia:head-template" data-motif-name="page-total"></span></footer>',
+        },
+      },
     },
   ],
   parentRules: [{ when: { position: 'documentFirst' }, parent: 'cover' }, { parent: 'body' }],
@@ -373,7 +377,7 @@ export const parentPageFurnitureOverflow: DocumentInput = printedDocument({
     {
       name: 'body',
       margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
-      head: '<div style="block-size:200px">Too-tall furniture</div>',
+      regions: { head: { edge: 'blockStart', html: '<div style="block-size:200px">Too-tall furniture</div>' } },
     },
   ],
   parentRules: [{ parent: 'body' }],

@@ -28,6 +28,7 @@ import { verifyOfflineRender } from './verify/offline-render.ts'
 import { verifyPageAsOfRender } from './verify/page-as-of-render.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
+import { verifyParentRegions } from './verify/parent-regions.ts'
 import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
 import { verifyDocumentPressGeometry } from './verify/press-geometry.ts'
 import { verifyPressRender } from './verify/press-render.ts'
@@ -273,6 +274,7 @@ try {
   verifyDeckRender(output, work, check)
   await verifyPressRender(renderer, work, check)
   await verifyBookRender(renderer, work, check)
+  await verifyParentRegions(renderer, work, check)
 
   let imageProperties = ''
   await renderer.pageImage(postcardPage, {

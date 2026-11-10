@@ -246,8 +246,8 @@ test('page parent furniture resolves placed media before document building', asy
   const page = Page.parse({ html: '<main>Body</main>', size: { width: 320, height: 200 } })
   const withParent = {
     ...page,
-    printedPages: { parents: [{ name: 'body', head: '<img data-segnavia-media="cover">' }] },
+    printedPages: { parents: [{ name: 'body', regions: { head: { edge: 'blockStart', html: '<img data-segnavia-media="cover">' } } }] },
   } as unknown as Page
   const resolved = await expandFramePage(resolvePageHtml(withParent), undefined, signal, placements)
-  expect(resolved.page.printedPages?.parents[0]?.head).toContain(`src="${src}"`)
+  expect(resolved.page.printedPages?.parents[0]?.regions.head?.html).toContain(`src="${src}"`)
 })

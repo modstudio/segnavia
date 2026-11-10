@@ -62,6 +62,10 @@ export function defaultParentRules(kind: string, role?: 'body' | 'fixed'): Paren
   return FLOWING_PARENT_RULES
 }
 
+export function effectiveParentRules(sectionRules: ParentRules | undefined, bookRules: ParentRules | undefined, fallback: ParentRules): ParentRules {
+  return sectionRules ?? bookRules ?? fallback
+}
+
 export function textHoldingParentRules(rules: ParentRules): ParentRules {
   return rules.filter((rule) => rule.when?.blank !== true)
 }

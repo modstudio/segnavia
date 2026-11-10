@@ -60,7 +60,7 @@ function importedStyle(css: string, references: FontReference[]): SegnaviaBook['
 }
 
 export function refuseActiveBookHtml(chapters: { html: string }[], parents: ParentPage[]): void {
-  const html = [...chapters.map((chapter) => chapter.html), ...parents.flatMap((parent) => [parent.head ?? '', parent.foot ?? ''])].join('')
+  const html = [...chapters.map((chapter) => chapter.html), ...parents.flatMap((parent) => Object.values(parent.regions).map((region) => region.html))].join('')
   const active = findActiveContent(html)
   if (active.length > 0) throw refusal(`the imported Book contains active content (${active.join(', ')})`, 'remove that active content')
 }

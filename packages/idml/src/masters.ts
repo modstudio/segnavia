@@ -55,8 +55,10 @@ function buildParent(
     name: parentName(master, role),
     ...(base ? { basedOn: parentName(base, role) } : {}),
     margin: logicalMargin(page.margin, pageSide(page, role, context.rtl)),
-    ...(head ? { head } : {}),
-    ...(foot ? { foot } : {}),
+    regions: {
+      ...(head ? { head: { edge: 'blockStart' as const, html: head } } : {}),
+      ...(foot ? { foot: { edge: 'blockEnd' as const, html: foot } } : {}),
+    },
   }
 }
 
@@ -150,7 +152,7 @@ export function mapMasters(
   }
   const parents = buildParents(masters, byId, context)
   if (model.spreads.some((spread) => spread.pages.some((page) => !page.appliedMaster || page.appliedMaster === IDML_NONE_MASTER))) {
-    parents.push({ name: 'idml-none', basedOn: BOOK_PARENT_NAMES.blank })
+    parents.push({ name: 'idml-none', basedOn: BOOK_PARENT_NAMES.blank, regions: {} })
   }
   for (const story of model.masterStoryIds) if (!mappedStories.has(story)) report.add(report.unsupportedElements, 'master story', story)
   const parentFor = (masterId: string | undefined, role: 'recto' | 'verso', location: string): string => {

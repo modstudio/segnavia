@@ -5,7 +5,6 @@ interface UnsupportedDocumentFields {
   rules?: unknown
   templates: readonly { parents?: unknown }[]
   conditions: readonly { name: string }[]
-  parentPages: readonly { regions?: unknown }[]
 }
 
 export function refineUnsupportedDocumentFields(document: UnsupportedDocumentFields, ctx: z.RefinementCtx): void {
@@ -19,14 +18,5 @@ export function refineUnsupportedDocumentFields(document: UnsupportedDocumentFie
   })
   document.conditions.forEach((condition, index) => {
     ctx.addIssue({ code: 'custom', path: ['conditions', index], message: `condition ${condition.name} is not yet supported; remove it to clear this refusal` })
-  })
-  document.parentPages.forEach((parent, index) => {
-    if (parent.regions !== undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['parentPages', index, 'regions'],
-        message: 'parentPage field regions is not yet supported; remove it to clear this refusal',
-      })
-    }
   })
 }

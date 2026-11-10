@@ -12,19 +12,25 @@ export const haggadahHeadCss =
   ':where(.haggadah-head){position:relative;block-size:100%;display:flex;align-items:center;justify-content:center}:where(.haggadah-siman){position:absolute}:where(.haggadah-siman-start){inset-inline-start:0}:where(.haggadah-siman-end){inset-inline-end:0}'
 
 export function paginatedParents(footMotifKey?: string): ParentPage[] {
+  const head = (html: string) => ({ head: { edge: 'blockStart' as const, html } })
   return [
-    { name: 'deep-opener', basedOn: 'segnavia:opener', margin: { blockStart: 34, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
-    { name: 'haggadah-recto', basedOn: 'segnavia:recto', head: markHead('end') },
-    { name: 'haggadah-verso', basedOn: 'segnavia:verso', head: markHead('start') },
-    { name: variableHeadParents.recto, basedOn: 'segnavia:recto', head: variableHead },
-    { name: variableHeadParents.verso, basedOn: 'segnavia:verso', head: variableHead },
-    { name: 'wide-opener', basedOn: 'segnavia:opener', margin: { blockStart: 34, blockEnd: 16, inlineStart: 24, inlineEnd: 18 } },
-    { name: 'wide-recto', basedOn: 'haggadah-recto', margin: { blockStart: 16, blockEnd: 16, inlineStart: 24, inlineEnd: 18 } },
-    { name: 'wide-verso', basedOn: 'haggadah-verso', margin: { blockStart: 16, blockEnd: 16, inlineStart: 24, inlineEnd: 18 } },
+    { name: 'deep-opener', basedOn: 'segnavia:opener', margin: { blockStart: 34, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, regions: {} },
+    { name: 'haggadah-recto', basedOn: 'segnavia:recto', regions: head(markHead('end')) },
+    { name: 'haggadah-verso', basedOn: 'segnavia:verso', regions: head(markHead('start')) },
+    { name: variableHeadParents.recto, basedOn: 'segnavia:recto', regions: head(variableHead) },
+    { name: variableHeadParents.verso, basedOn: 'segnavia:verso', regions: head(variableHead) },
+    { name: 'wide-opener', basedOn: 'segnavia:opener', margin: { blockStart: 34, blockEnd: 16, inlineStart: 24, inlineEnd: 18 }, regions: {} },
+    { name: 'wide-recto', basedOn: 'haggadah-recto', margin: { blockStart: 16, blockEnd: 16, inlineStart: 24, inlineEnd: 18 }, regions: {} },
+    { name: 'wide-verso', basedOn: 'haggadah-verso', margin: { blockStart: 16, blockEnd: 16, inlineStart: 24, inlineEnd: 18 }, regions: {} },
     {
       name: 'ornament-foot',
       basedOn: 'segnavia:blank',
-      foot: `<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span><span aria-hidden="true"> ❧</span>${footMotifKey ? `<span data-motif="${footMotifKey}"></span>` : ''}</div>`,
+      regions: {
+        foot: {
+          edge: 'blockEnd',
+          html: `<div class="designed-foot"><span class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span><span aria-hidden="true"> ❧</span>${footMotifKey ? `<span data-motif="${footMotifKey}"></span>` : ''}</div>`,
+        },
+      },
     },
   ]
 }

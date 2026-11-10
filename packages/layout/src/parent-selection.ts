@@ -2,7 +2,9 @@ import {
   DESIGNED_PARENT_RULES,
   defaultParentRules,
   FLOWING_PARENT_RULES,
+  type LogicalMargin,
   type ParentRules,
+  type RegionEdge,
   TEMPLATED_PARENT_RULES,
   type TextArea,
   type TextDirection,
@@ -16,6 +18,24 @@ export interface ParentFacts {
   sectionLast: boolean
   face: 'recto' | 'verso'
   blank: boolean
+}
+
+export interface RegionBox {
+  top: number
+  left: number
+  width: number
+  height: number
+}
+
+export function regionBox(edge: RegionEdge, margin: LogicalMargin, textArea: TextArea, side: { direction: TextDirection; face: 'recto' | 'verso' }): RegionBox {
+  const startOnLeft = (side.direction === 'ltr') === (side.face === 'recto')
+  const left = startOnLeft ? margin.inlineStart : margin.inlineEnd
+  if (edge === 'blockStart') return { top: 0, left, width: textArea.width, height: margin.blockStart }
+  if (edge === 'blockEnd') return { top: margin.blockStart + textArea.height, left, width: textArea.width, height: margin.blockEnd }
+  if (edge === 'inlineStart') {
+    return { top: margin.blockStart, left: startOnLeft ? 0 : left + textArea.width, width: margin.inlineStart, height: textArea.height }
+  }
+  return { top: margin.blockStart, left: startOnLeft ? left + textArea.width : 0, width: margin.inlineEnd, height: textArea.height }
 }
 
 export { DESIGNED_PARENT_RULES, defaultParentRules, FLOWING_PARENT_RULES, TEMPLATED_PARENT_RULES }

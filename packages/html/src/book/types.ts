@@ -1,4 +1,4 @@
-import type { BookOpens, SectionNumbering } from '@segnavia/format'
+import type { BookOpens, ParentRules, SectionNumbering } from '@segnavia/format'
 
 export interface BookDocumentOptions {
   pageNumbers?: Record<string, string>
@@ -21,6 +21,7 @@ export interface BookSectionInfo {
   record?: { index: number; count: number }
   parts?: Record<string, string>
   numbering?: SectionNumbering
+  parentRules?: ParentRules
 }
 
 export type BookPrintPart = 'front' | 'body'

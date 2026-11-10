@@ -20,14 +20,14 @@ export interface MotifsOptions {
 
 export interface ParentRegion {
   name: string
-  region: 'head' | 'foot'
+  region: string
   html: string
 }
 
 export function pageParentRegions(page: HtmlPage | PrintedHtmlPage): ParentRegion[] {
   return (
     page.printedPages?.parents.flatMap((parent) =>
-      (['head', 'foot'] as const).flatMap((region) => (parent[region] === undefined ? [] : [{ name: parent.name, region, html: parent[region] }])),
+      Object.entries(parent.regions).map(([region, value]) => ({ name: parent.name, region, html: value.html })),
     ) ?? []
   )
 }
@@ -89,7 +89,8 @@ export async function expandPageMotifs(
 export function expandedPageParents(page: HtmlPage | PrintedHtmlPage, parentResults: ReadonlyMap<string, ExpandedMotifs>) {
   return (page.printedPages?.parents ?? []).map((parent) => ({
     ...parent,
-    ...(parent.head === undefined ? {} : { head: parentResults.get(`${parent.name}:head`)?.html ?? parent.head }),
-    ...(parent.foot === undefined ? {} : { foot: parentResults.get(`${parent.name}:foot`)?.html ?? parent.foot }),
+    regions: Object.fromEntries(
+      Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: parentResults.get(`${parent.name}:${name}`)?.html ?? region.html }]),
+    ),
   }))
 }

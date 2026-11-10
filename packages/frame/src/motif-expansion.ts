@@ -146,7 +146,7 @@ function bookShape(book: Book): BookHtmlShape<Book> {
   const body = book.body.map(entryShape)
   const endMatter = book.endMatter.map(entryShape)
   const templates = book.templates.map((template) => ({ ...template }))
-  const parentPages = book.parentPages.map((parent) => ({ ...parent }))
+  const parentPages = book.parentPages.map((parent) => ({ ...parent, regions: structuredClone(parent.regions) }))
   return {
     book: {
       ...book,
@@ -162,10 +162,7 @@ function bookShape(book: Book): BookHtmlShape<Book> {
       ...endMatter.flatMap(({ fields }) => fields),
       ...templates.map((template) => ({ html: template.html, furniture: false, replace: (html: string) => (template.html = html) })),
       ...parentPages.flatMap((parent) =>
-        (['head', 'foot'] as const).flatMap((region) => {
-          const html = parent[region]
-          return html === undefined ? [] : [{ html, furniture: true, replace: (expanded: string) => (parent[region] = expanded) }]
-        }),
+        Object.values(parent.regions).map((region) => ({ html: region.html, furniture: true, replace: (expanded: string) => (region.html = expanded) })),
       ),
     ],
   }
@@ -174,7 +171,9 @@ function bookShape(book: Book): BookHtmlShape<Book> {
 function viewShape(view: BookView): BookHtmlShape<BookView> {
   const book = {
     ...view,
-    pagination: view.pagination ? { ...view.pagination, parents: view.pagination.parents.map((parent) => ({ ...parent })) } : undefined,
+    pagination: view.pagination
+      ? { ...view.pagination, parents: view.pagination.parents.map((parent) => ({ ...parent, regions: structuredClone(parent.regions) })) }
+      : undefined,
   }
   return {
     book,
@@ -182,10 +181,7 @@ function viewShape(view: BookView): BookHtmlShape<BookView> {
       { html: book.html, furniture: false, replace: (html) => (book.html = html) },
       ...(book.flow === undefined ? [] : [{ html: book.flow, furniture: false, replace: (html: string) => (book.flow = html) }]),
       ...(book.pagination?.parents.flatMap((parent) =>
-        (['head', 'foot'] as const).flatMap((region) => {
-          const html = parent[region]
-          return html === undefined ? [] : [{ html, furniture: true, replace: (expanded: string) => (parent[region] = expanded) }]
-        }),
+        Object.values(parent.regions).map((region) => ({ html: region.html, furniture: true, replace: (expanded: string) => (region.html = expanded) })),
       ) ?? []),
     ],
   }

@@ -31,6 +31,7 @@
     "@segnavia/format": "workspace:*",
     "@segnavia/frame": "workspace:*",
     "@segnavia/html": "workspace:*",
+    "@segnavia/layout": "workspace:*",
     "pdf-lib": "^1.17.1"
   },
   "peerDependencies": {

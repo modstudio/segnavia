@@ -27,8 +27,13 @@ export function titleHeadFixture(hebrew: boolean): DocumentInput {
       { type: 'headTemplate', name: 'section-title', parts: [{ variable: 'section-title' }] },
     ],
     parentPages: [
-      { type: 'parentPage', name: 'title-recto', basedOn: BOOK_PARENT_NAMES.recto, head: placement('book-title') },
-      { type: 'parentPage', name: 'title-verso', basedOn: BOOK_PARENT_NAMES.verso, head: placement('section-title') },
+      { type: 'parentPage', name: 'title-recto', basedOn: BOOK_PARENT_NAMES.recto, regions: { head: { edge: 'blockStart', html: placement('book-title') } } },
+      {
+        type: 'parentPage',
+        name: 'title-verso',
+        basedOn: BOOK_PARENT_NAMES.verso,
+        regions: { head: { edge: 'blockStart', html: placement('section-title') } },
+      },
     ],
     parentRules: [{ when: { blank: true }, parent: BOOK_PARENT_NAMES.blank }, { when: { face: 'verso' }, parent: 'title-verso' }, { parent: 'title-recto' }],
     children: [

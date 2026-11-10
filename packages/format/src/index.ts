@@ -244,6 +244,7 @@ export {
   toMillimeters,
 } from './paper.ts'
 export { paperViewport, usesPressLayout } from './paper-viewport.ts'
+export * from './parent-regions.ts'
 export * from './parent-rules.ts'
 export {
   AssetKind,

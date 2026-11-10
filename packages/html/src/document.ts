@@ -67,9 +67,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
     })
   const parentPages = document.parentPages.map((node) => ({
     ...node,
-    ...(node.head === undefined ? {} : { head: html(node.head, node) }),
-    ...(node.foot === undefined ? {} : { foot: html(node.foot, node) }),
-    ...(node.regions === undefined ? {} : { regions: Object.fromEntries(Object.entries(node.regions).map(([name, value]) => [name, html(value, node)])) }),
+    regions: Object.fromEntries(Object.entries(node.regions).map(([name, region]) => [name, { ...region, html: html(region.html, node) }])),
   }))
   const templates = document.templates.map((node) => ({ ...node, html: html(node.html, node) }))
   return { ...document, children: nodes(document.children), parentPages, templates }

@@ -7,6 +7,7 @@ import {
   COMPOSED_ATTRIBUTE,
   composerScript,
   decideBookMeasurement,
+  embeddedComposerFunctions,
   flowSectionNumbering,
   inlineTileCount,
   noteFragmentExtent,
@@ -17,6 +18,19 @@ import {
   unmeasuredFlows,
 } from './composer.ts'
 import { embeddedPreflightFunctions, PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
+
+test('embedded region geometry includes its physical-margin dependency', () => {
+  const embedded = new Function(`${embeddedComposerFunctions()};return regionBox`)() as (
+    edge: 'blockStart',
+    margin: { blockStart: number; blockEnd: number; inlineStart: number; inlineEnd: number },
+    area: { width: number; height: number },
+    side: { direction: 'rtl'; face: 'recto' },
+  ) => { top: number; left: number; width: number; height: number }
+
+  expect(
+    embedded('blockStart', { blockStart: 10, blockEnd: 10, inlineStart: 30, inlineEnd: 40 }, { width: 100, height: 200 }, { direction: 'rtl', face: 'recto' }),
+  ).toEqual({ top: 0, left: 40, width: 100, height: 10 })
+})
 
 test('publishes preflight from the embedded functions alone, given the measured flows', () => {
   const posted: unknown[] = []
@@ -63,7 +77,7 @@ test('wraps composer start-up exceptions in a bounded failure report', () => {
 
 test('collects overset entries only when preflight is enabled', () => {
   const script = composerScript('{}')
-  expect(script).toContain("if(config.preflight){var furnitureRegions=pages.querySelectorAll('[data-segnavia-head],[data-segnavia-foot]')")
+  expect(script).toContain("if(config.preflight){var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]')")
   expect(script).toContain("if(config.preflight){var paper=filled[t].closest('['+config.pageMarker+']');markRegionOverflow")
 })
 

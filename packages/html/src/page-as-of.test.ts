@@ -12,8 +12,10 @@ test('fills the day throughout a printed page and leaves host bindings untouched
         parents: [
           {
             name: 'body',
-            head: '<header data-slot-value="asOf.date">head</header><b data-slot-value="person.name">Person</b>',
-            foot: '<footer data-slot-value="asOf.date">foot</footer><b data-slot-value="person.name">Person</b>',
+            regions: {
+              head: { edge: 'blockStart', html: '<header data-slot-value="asOf.date">head</header><b data-slot-value="person.name">Person</b>' },
+              foot: { edge: 'blockEnd', html: '<footer data-slot-value="asOf.date">foot</footer><b data-slot-value="person.name">Person</b>' },
+            },
           },
         ],
         parentRules: [{ parent: 'body' }],
@@ -22,7 +24,7 @@ test('fills the day throughout a printed page and leaves host bindings untouched
   )
 
   const filled = fillPageAsOfBindings(page, { date: '2026-11-14', zone: 'UTC', kind: 'current' })
-  const parts = [filled.printedPages.sections[0]?.html, filled.printedPages.parents[0]?.head, filled.printedPages.parents[0]?.foot]
+  const parts = [filled.printedPages.sections[0]?.html, filled.printedPages.parents[0]?.regions.head?.html, filled.printedPages.parents[0]?.regions.foot?.html]
   for (const part of parts) {
     expect(part).toContain('2026-11-14')
     expect(part).toContain('data-slot-value="person.name">Person</b>')

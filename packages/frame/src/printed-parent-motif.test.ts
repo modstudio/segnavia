@@ -7,7 +7,7 @@ function placed(foot: string) {
   return Page.parse({
     html: '<p>Body</p>',
     print: { paper: 'a4' },
-    printedPages: { parents: [{ name: 'body', foot }], parentRules: [{ parent: 'body' }] },
+    printedPages: { parents: [{ name: 'body', regions: { foot: { edge: 'blockEnd', html: foot } } }], parentRules: [{ parent: 'body' }] },
   })
 }
 

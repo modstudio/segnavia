@@ -204,7 +204,7 @@ async function unmarkWindows(frame: Frame) {
 
 async function hideOutsideText(frame: Frame, hidden: boolean) {
   await frame.evaluate((hide) => {
-    const nodes = document.querySelectorAll('[data-segnavia-head], [data-segnavia-foot], [data-segnavia-page-note], [data-segnavia-notes-galley]')
+    const nodes = document.querySelectorAll('[data-segnavia-region], [data-segnavia-page-note], [data-segnavia-notes-galley]')
     for (const node of Array.from(nodes)) (node as HTMLElement).style.visibility = hide ? 'hidden' : ''
   }, hidden)
 }

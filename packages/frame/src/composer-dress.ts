@@ -72,14 +72,14 @@ export function preflightPageFacts(
 export function markFurnitureOverflow(region: HTMLElement, page: Element, entries: PreflightEntry[]): void {
   const excess = region.scrollHeight - region.clientHeight
   if (excess <= 0.5) return
-  const kind = region.hasAttribute('data-segnavia-head') ? 'head' : 'foot'
+  const kind = region.getAttribute('data-segnavia-region') ?? ''
   const parent = region.getAttribute('data-segnavia-parent') ?? ''
   const subject = `${parent}:${kind}`
   if (entries.some((entry) => entry.check === 'furniture-overset' && entry.subject === subject)) return
   entries.push({
     check: 'furniture-overset',
     subject,
-    message: `Parent page ${parent} ${kind} furniture is overset; shorten its content or enlarge the ${kind} region to clear it.`,
+    message: `Parent page ${parent} region ${kind} is overset; shorten its content or enlarge the ${kind} region to clear it.`,
     location: { folio: page.getAttribute('data-segnavia-folio') ?? '' },
   })
 }

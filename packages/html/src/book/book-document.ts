@@ -46,7 +46,7 @@ function contentsSection(entry: Pick<BookContents, 'id' | 'title' | 'opens' | 'p
   const title = entry.title
   const children = title !== undefined ? [element('h1', { class: 'segnavia-contents-title', dir: 'ltr' }, [text(title)])] : []
   return {
-    info: { id, kind: 'contents', division: 'front', title, opens: entry.opens },
+    info: { id, kind: 'contents', division: 'front', title, opens: entry.opens, parentRules: entry.parentRules },
     node: sectionNode('contents', id, children, build, title, flowAttribs(entry.opens, entry.parentRules, numberingAttribs(entry.numbering))),
   }
 }
@@ -133,7 +133,14 @@ function notesSection(
     ...run.paragraphs,
   ])
   return {
-    info: { id, kind: 'endnotes', division: notes.targetId === 'book' ? 'body' : notes.division, title: notes.series.title, parts },
+    info: {
+      id,
+      kind: 'endnotes',
+      division: notes.targetId === 'book' ? 'body' : notes.division,
+      title: notes.series.title,
+      parts,
+      parentRules: book.parentRules,
+    },
     node: sectionNode('endnotes', id, [notesHeading(book, notes), ...runs], build, title, {
       ...flowAttribs(opens, book.parentRules),
       ...(parts ? { 'data-segnavia-parts': JSON.stringify(parts) } : {}),

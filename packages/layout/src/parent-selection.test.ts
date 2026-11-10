@@ -5,9 +5,46 @@ import {
   FLOWING_PARENT_RULES,
   finalParentSelections,
   finishedPlanParents,
+  regionBox,
   selectParent,
   TEMPLATED_PARENT_RULES,
 } from './parent-selection.ts'
+
+describe('regionBox', () => {
+  const margin = { blockStart: 10, blockEnd: 20, inlineStart: 30, inlineEnd: 40 }
+  const area = { width: 100, height: 200 }
+
+  test.each([
+    ['ltr', 'recto', 'blockStart', { top: 0, left: 30, width: 100, height: 10 }],
+    ['ltr', 'verso', 'blockEnd', { top: 210, left: 40, width: 100, height: 20 }],
+    ['ltr', 'recto', 'inlineStart', { top: 10, left: 0, width: 30, height: 200 }],
+    ['ltr', 'verso', 'inlineEnd', { top: 10, left: 0, width: 40, height: 200 }],
+    ['rtl', 'recto', 'blockStart', { top: 0, left: 40, width: 100, height: 10 }],
+    ['rtl', 'verso', 'blockEnd', { top: 210, left: 30, width: 100, height: 20 }],
+    ['rtl', 'recto', 'inlineStart', { top: 10, left: 140, width: 30, height: 200 }],
+    ['rtl', 'verso', 'inlineEnd', { top: 10, left: 130, width: 40, height: 200 }],
+  ] as const)('places %s %s %s', (direction, face, edge, expected) => {
+    expect(regionBox(edge, margin, area, { direction, face })).toEqual(expected)
+  })
+
+  test.each([
+    ['ltr', 'recto', 'inlineStart', 0],
+    ['ltr', 'recto', 'inlineEnd', 120],
+    ['ltr', 'verso', 'inlineStart', 120],
+    ['ltr', 'verso', 'inlineEnd', 0],
+    ['rtl', 'recto', 'inlineStart', 120],
+    ['rtl', 'recto', 'inlineEnd', 0],
+    ['rtl', 'verso', 'inlineStart', 0],
+    ['rtl', 'verso', 'inlineEnd', 120],
+  ] as const)('places equal %s %s %s margins by face and direction', (direction, face, edge, left) => {
+    expect(regionBox(edge, { ...margin, inlineStart: 20, inlineEnd: 20 }, area, { direction, face })).toEqual({
+      top: 10,
+      left,
+      width: 20,
+      height: 200,
+    })
+  })
+})
 
 const facts = {
   documentFirst: false,

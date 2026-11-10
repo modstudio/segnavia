@@ -26,13 +26,13 @@ const printedPagesFixture = {
       {
         name: 'body',
         margin: { blockStart: 18, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
-        foot: '<footer data-motif="printed-foot"></footer>',
+        regions: { foot: { edge: 'blockEnd', html: '<footer data-motif="printed-foot"></footer>' } },
       },
       {
         name: 'first',
         basedOn: 'body',
         margin: { blockStart: 30, blockEnd: 18, inlineStart: 22, inlineEnd: 12 },
-        head: '<header data-motif="printed-head"></header>',
+        regions: { head: { edge: 'blockStart', html: '<header data-motif="printed-head"></header>' } },
       },
     ],
     parentRules: [{ when: { position: 'documentFirst' }, parent: 'first' }, { parent: 'body' }],
@@ -51,7 +51,7 @@ const hebrewBookFixture = {
     {
       name: 'sefer',
       margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 },
-      head: '<header>ספר ההפלגה</header>',
+      regions: { head: { edge: 'blockStart', html: '<header>ספר ההפלגה</header>' } },
     },
   ],
   notes: [{ name: 'commentary', placement: 'book' as const, numbering: 'book' as const, marker: 'arabic' as const, title: 'פירוש' }],

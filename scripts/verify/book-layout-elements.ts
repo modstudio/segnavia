@@ -60,7 +60,7 @@ function flowFacts() {
   const column = document.querySelector('[data-columns="2"]')
   const ids = Array.from(document.querySelectorAll('[id]'), (node) => node.id)
   return {
-    heads: document.querySelectorAll('[data-segnavia-head],[data-segnavia-foot]').length,
+    heads: document.querySelectorAll('[data-segnavia-region]').length,
     designed: box ? { width: box.width, height: box.height } : null,
     columns: column ? getComputedStyle(column).columnCount : '',
     duplicateIds: ids.length - new Set(ids).size,

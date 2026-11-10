@@ -32,7 +32,7 @@ function fixture(): DocumentInput {
     type: 'parentPage' as const,
     name: `folio-${role}`,
     basedOn: `segnavia:${role}`,
-    foot,
+    regions: { foot: { edge: 'blockEnd' as const, html: foot } },
   }))
   return {
     type: 'document',

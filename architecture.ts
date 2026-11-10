@@ -131,6 +131,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/composer-measure.ts',
       'src/composer-dress.ts',
       'src/composer-preflight.ts',
+      'src/composer-regions.ts',
       'src/composer.ts',
       'src/book-presentation.ts',
       'src/book-document.ts',
@@ -153,7 +154,10 @@ export const PACKAGES: Record<string, PackageRule> = {
   },
   react: { runtime: 'browser', imports: ['@segnavia/frame', '@segnavia/markdown-editor', 'react', 'react-dom'] },
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
-  render: { runtime: 'server', imports: ['@segnavia/diagrams', '@segnavia/format', '@segnavia/frame', '@segnavia/html', 'playwright-core', 'pdf-lib'] },
+  render: {
+    runtime: 'server',
+    imports: ['@segnavia/diagrams', '@segnavia/format', '@segnavia/frame', '@segnavia/html', '@segnavia/layout', 'playwright-core', 'pdf-lib'],
+  },
   capture: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/render', 'playwright-core'] },
 }
 

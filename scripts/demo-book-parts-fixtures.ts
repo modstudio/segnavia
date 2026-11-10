@@ -34,7 +34,9 @@ export function partsFixture(hebrew: boolean): DocumentInput {
         type: 'parentPage',
         name: 'part-recto',
         basedOn: 'segnavia:recto',
-        head: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="part"></div>',
+        regions: {
+          head: { edge: 'blockStart', html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="part"></div>' },
+        },
       },
     ],
     parentRules: [

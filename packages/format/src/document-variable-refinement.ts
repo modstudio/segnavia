@@ -48,7 +48,7 @@ export function refineDocumentVariables(
   document: {
     variables: Array<Variable | VariableNode>
     headTemplates: Array<Omit<HeadTemplateNode, 'type'> | HeadTemplateNode>
-    parentPages: Array<{ head?: string; foot?: string; regions?: Record<string, string> }>
+    parentPages: Array<{ regions: Record<string, { html: string }> }>
     children?: DocumentNode[]
     partNames?: string[]
     templates?: Array<Omit<TemplateNode, 'type'> | TemplateNode>
@@ -146,9 +146,7 @@ export function refineDocumentVariables(
         })
     })
   })
-  const regionHtml = document.parentPages
-    .flatMap((parent) => [parent.head, parent.foot, ...Object.values(parent.regions ?? {})])
-    .filter((html): html is string => html !== undefined)
+  const regionHtml = document.parentPages.flatMap((parent) => Object.values(parent.regions).map((region) => region.html))
   for (const placement of regionHtml.flatMap((html) => headTemplatePlacements(html))) {
     if (!heads.has(placement.name))
       ctx.addIssue({

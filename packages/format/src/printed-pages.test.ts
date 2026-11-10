@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from './index.ts'
-import { BOOK_PARENT_NAMES, bookParentPages, PrintedPages } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, bookParentPages, bookParents, ParentPage, PrintedPages, resolveParentPages } from './printed-pages.ts'
 
 const base = {
   html: '<p>body</p>',
@@ -26,6 +26,28 @@ describe('Page printedPages', () => {
     expect(PrintedPages.parse(base.printedPages).fragmentation).toBe('safe')
     expect(PrintedPages.parse({ ...base.printedPages, fragmentation: 'none' }).fragmentation).toBe('none')
     expect(PrintedPages.safeParse({ ...base.printedPages, fragmentation: 'always' }).success).toBe(false)
+  })
+
+  test('refuses invalid parent-region names and edges with their accepted forms', () => {
+    expect(() =>
+      PrintedPages.parse({
+        ...base.printedPages,
+        parents: [{ name: 'body', regions: { 'side region': { edge: 'inlineEnd', html: '' } } }],
+      }),
+    ).toThrow('a parent-page region name must use a letter followed by letters, digits, hyphens or underscores')
+    expect(() =>
+      PrintedPages.parse({
+        ...base.printedPages,
+        parents: [{ name: 'body', regions: { side: { edge: 'outside', html: '' } } }],
+      }),
+    ).toThrow('a parent-page region edge must be blockStart, blockEnd, inlineStart or inlineEnd')
+  })
+
+  test.each([
+    ['head', 'blockStart'],
+    ['foot', 'blockEnd'],
+  ] as const)('refuses the removed parent-page %s field with its regions remedy', (field, edge) => {
+    expect(() => ParentPage.parse({ name: 'body', [field]: '<div>Furniture</div>' })).toThrow(`use regions with a ${field} (${edge}) region`)
   })
 
   test('stores authored definitions and round-trips through JSON', () => {
@@ -125,24 +147,57 @@ describe('bookParentPages', () => {
     const margin = { blockStart: 15, blockEnd: 16, inlineStart: 20, inlineEnd: 12 }
     const parents = bookParentPages(margin)
 
-    expect(parents.map(({ name, head, foot }) => ({ name, head, foot }))).toEqual([
+    expect(parents.map(({ name, regions }) => ({ name, regions }))).toEqual([
       {
         name: BOOK_PARENT_NAMES.recto,
-        head: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>',
-        foot: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>',
+        regions: {
+          head: {
+            edge: 'blockStart',
+            html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>',
+          },
+          foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' },
+        },
       },
       {
         name: BOOK_PARENT_NAMES.verso,
-        head: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>',
-        foot: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>',
+        regions: {
+          head: {
+            edge: 'blockStart',
+            html: '<div class="segnavia-running-head" data-motif="segnavia:head-template" data-motif-name="segnavia:running-head"></div>',
+          },
+          foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' },
+        },
       },
       {
         name: BOOK_PARENT_NAMES.opener,
-        head: undefined,
-        foot: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>',
+        regions: {
+          foot: { edge: 'blockEnd', html: '<div class="segnavia-folio" data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></div>' },
+        },
       },
-      { name: BOOK_PARENT_NAMES.blank, head: undefined, foot: undefined },
+      { name: BOOK_PARENT_NAMES.blank, regions: {} },
     ])
     expect(parents.every((parent) => parent.margin !== margin && parent.margin?.blockStart === margin.blockStart)).toBe(true)
+  })
+
+  test('merges inherited regions by name', () => {
+    const resolved = resolveParentPages([
+      { name: 'base', regions: { head: { edge: 'blockStart', html: 'base head' }, side: { edge: 'inlineEnd', html: 'base side' } } },
+      { name: 'child', basedOn: 'base', regions: { head: { edge: 'blockEnd', html: 'child head' } } },
+    ])
+    expect(resolved[1]?.regions).toEqual({
+      head: { edge: 'blockEnd', html: 'child head' },
+      side: { edge: 'inlineEnd', html: 'base side' },
+    })
+  })
+
+  test('puts host parents after the built-ins so they can shadow one by name', () => {
+    const margin = { blockStart: 15, blockEnd: 16, inlineStart: 20, inlineEnd: 12 }
+    const parents = bookParents(margin, [
+      { name: 'host', regions: {} },
+      { name: BOOK_PARENT_NAMES.recto, regions: { mark: { edge: 'blockStart', html: 'host recto' } } },
+    ])
+
+    expect(parents.slice(-2).map((parent) => parent.name)).toEqual(['host', BOOK_PARENT_NAMES.recto])
+    expect(parents.at(-1)?.regions).toEqual({ mark: { edge: 'blockStart', html: 'host recto' } })
   })
 })

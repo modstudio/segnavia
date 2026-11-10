@@ -1,5 +1,5 @@
 import type { DocumentOp } from '@segnavia/format'
-import { type ContentAddress, contentFieldShape, type FragmentShape, writeFragment } from './block-fragments.ts'
+import { type ContentAddress, contentFieldShape, type FragmentShape, fragmentShapeTakesKey, writeFragment } from './block-fragments.ts'
 import { type BlockPosition, insertBlock, moveBlock, removeBlock, type SetBlockChange, setBlock } from './block-ops.ts'
 import { DocumentCommandRefusal, resolveNode } from './document-addresses.ts'
 import {
@@ -70,11 +70,21 @@ const set: Handler<'set'> = (context, command) => {
 
 function addressedShape(address: ReturnType<typeof contentAddress>): FragmentShape {
   const shape = contentFieldShape(address.node.type as Parameters<typeof contentFieldShape>[0], address.field)
-  if (shape === 'record' && address.key === undefined) {
+  const keyed = fragmentShapeTakesKey(shape)
+  if (keyed && address.key === undefined) {
     throw new DocumentCommandRefusal(`record content field "${address.field}" requires a key`, 'supply the record key')
   }
-  if (shape !== 'record' && address.key !== undefined) {
+  if (!keyed && address.key !== undefined) {
     throw new DocumentCommandRefusal(`content field "${address.field}" takes no key`, 'remove the key')
+  }
+  if (shape === 'regionRecord' && address.key !== undefined) {
+    const regions = address.node[address.field]
+    if (!regions || typeof regions !== 'object' || !(address.key in regions)) {
+      throw new DocumentCommandRefusal(
+        `region "${address.key}" is not present in content field "${address.field}"`,
+        `add it with its edge through set on "${address.field}"`,
+      )
+    }
   }
   return shape
 }
@@ -104,7 +114,15 @@ function nativeValue(
   value: unknown,
   shape: FragmentShape,
 ): { value: unknown; added: string[] } {
-  if (shape !== 'record') return identifiedContentValue(context, address, value)
+  if (shape !== 'record' && shape !== 'regionRecord') return identifiedContentValue(context, address, value)
+  if (shape === 'regionRecord') {
+    const key = address.key as string
+    const regions = address.node[address.field] as Record<string, { edge: unknown; html: unknown }>
+    const supplied = value && typeof value === 'object' ? (value as Record<string, unknown>) : { html: value }
+    const identified = identifiedContentValue(context, address, { [key]: { ...supplied, edge: regions[key]?.edge } })
+    const region = (identified.value as Record<string, unknown>)[key]
+    return { value: { ...regions, [key]: region }, added: identified.added }
+  }
   const identified = identifiedContentValue(context, address, { [address.key as string]: value })
   const html = (identified.value as Record<string, unknown>)[address.key as string]
   return { value: { ...(address.node[address.field] as object), [address.key as string]: html }, added: identified.added }

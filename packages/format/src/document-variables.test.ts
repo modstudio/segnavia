@@ -55,7 +55,13 @@ test('validates head template placements and parts at parse', () => {
   expect(() =>
     Document.parse({
       ...base,
-      parentPages: [{ type: 'parentPage', name: 'body', head: '<span data-motif="segnavia:head-template" data-motif-name="missing"></span>' }],
+      parentPages: [
+        {
+          type: 'parentPage',
+          name: 'body',
+          regions: { head: { edge: 'blockStart', html: '<span data-motif="segnavia:head-template" data-motif-name="missing"></span>' } },
+        },
+      ],
     }),
   ).toThrow(/placement names undeclared template.*missing/)
   expect(() =>
@@ -65,7 +71,12 @@ test('validates head template placements and parts at parse', () => {
         {
           type: 'parentPage',
           name: 'body',
-          head: '<span data-motif="ornament" data-motif-name="host"></span><span data-motif="segnavia:head-template"></span>',
+          regions: {
+            head: {
+              edge: 'blockStart',
+              html: '<span data-motif="ornament" data-motif-name="host"></span><span data-motif="segnavia:head-template"></span>',
+            },
+          },
         },
       ],
     }),

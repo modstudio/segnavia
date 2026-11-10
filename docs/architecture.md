@@ -71,8 +71,9 @@ the resolved swatch and tint, and expands its logical padding while reducing
 the matching margins so its offsets do not move the text. When one master
 applies another, the importer recursively places the matching recto or verso
 base master boxes beneath the applying master's boxes. It composes these regions
-during import because format parent-page inheritance replaces a head or foot
-rather than merging its boxes; `basedOn` remains available for parent margins.
+during import because format parent-page inheritance merges regions by name: a
+same-named region replaces the base region, while regions with other names are
+kept. `basedOn` also inherits parent margins.
 Single-column paragraphs in a multi-column frame carry `data-columns` within
 the bound `html` exports.
 
@@ -711,7 +712,7 @@ retains the final override in every render view.
 | `scrollToHeading()` | `<segnavia-page>` | Scrolls to an id returned by `markdownOutline(page.body)`, resolves false for an unknown id, and refuses host-served pages and pages whose author scripts run. |
 | `AnchorSource`, `anchors`; `slots.resolve` | `<segnavia-page>`, `<segnavia-document>`, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `coverImage` | The host offers named anchors and resolves one from the surface moment, current calendar day and zone. The slots resolver receives the one established `AsOfDay` and returns the fill for that preview, print or render load. Missing, unoffered, null and invalid anchor answers refuse with the anchor and requested day. |
 | `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, page `<segnavia-thumbnail>` views, live board page, paper and book items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Book section HTML expands motifs before its screen or PDF document is built; page and book parent-page furniture use the same printed-page context. Decks and slides do not expand motif placements. |
-| Printed document | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds one page or one or more flowing sections. Its folios come from the section plan's counted and restart settings; parent rules choose each page's parent, face and side. Named parent pages supply inherited head and foot regions plus binding-relative logical margins. The composer measures content in paper-sized boxes, resolves declared variables and named head templates for each planned page, and fills every parent region through `fillRegion`. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. |
+| Printed document | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds one page or one or more flowing sections. Its folios come from the section plan's counted and restart settings; parent rules choose each page's parent, face and side. Named parent pages supply binding-relative logical margins and inherited named regions on `blockStart`, `blockEnd`, `inlineStart` (binding) or `inlineEnd` (outer). The built-in `head` and `foot` names use the two block edges. Each region becomes a `data-segnavia-region` box; this parent-page furniture is distinct from a template's `data-region` content target. The composer measures content in paper-sized boxes, resolves declared variables and named head templates for each planned page, and fills every parent region through `fillRegion`. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and the host's own CSP emitted as a second policy that is enforced independently and can only narrow the frame's policy. |
 | `alertLabels` | `<segnavia-page>`, `<segnavia-markdown-editor>` | Host overrides for the library-written GitHub alert labels in converted Markdown; locked editor views pass them to their nested page. |
 | `labels`, `frameTitle` | `<segnavia-player>`, `<segnavia-stage>` | The skin's words and the localized frame title. `defaultFrameTitle` supplies the English default, and the position is recomputed after a reorder. |
@@ -912,7 +913,7 @@ direction:
 not a host-authored input. Hosts author and parse a book `Document`; frame and
 render consume the lowered `Book`, whose section ids are already required.
 
-A `Book` is either continuous, where the screen is one scrolling flow, or paginated, where a page size and complete logical margins are required. Its reading tree has `frontMatter`, `body` and `endMatter` divisions, and each division may contain sections or recursive named parts up to six levels deep. A part may provide a title and an opening page; a title-only part points its contents and outline destination at the first section in its subtree. One canonical flattening carries division, tree path, depth and enclosing part facts to validation and rendering. Flowing sections carry HTML, while designed sections carry full-paper pages and templated sections fill named `data-region` elements. The Book declares slots, typed variables and named head templates. Content sets variables with `data-variable`; section-title, named enclosing part-title, folio, page-total and record variables come from page facts. Parent-page head, foot and region HTML place a head template by name. Every composer and server-margin path resolves that template from the page's variable map and record slots through `fillRegion`. Host motifs remain available in book HTML, but reserved library placements are refused in content; head-template placements are legal only in parent-page furniture. A counted blank contributes to totals without showing a folio, while an uncounted page does not.
+A `Book` is either continuous, where the screen is one scrolling flow, or paginated, where a page size and complete logical margins are required. Its reading tree has `frontMatter`, `body` and `endMatter` divisions, and each division may contain sections or recursive named parts up to six levels deep. A part may provide a title and an opening page; a title-only part points its contents and outline destination at the first section in its subtree. One canonical flattening carries division, tree path, depth and enclosing part facts to validation and rendering. Flowing sections carry HTML, while designed sections carry full-paper pages and templated sections fill named `data-region` elements. The Book declares slots, typed variables and named head templates. Content sets variables with `data-variable`; section-title, named enclosing part-title, folio, page-total and record variables come from page facts. Parent-page region HTML, including the built-in `head` and `foot` regions, places a head template by name. Every composer and server-margin path resolves that template from the page's variable map and record slots through `fillRegion`. Host motifs remain available in book HTML, but reserved library placements are refused in content; head-template placements are legal only in parent-page furniture. A counted blank contributes to totals without showing a folio, while an uncounted page does not.
 
 A section's non-empty `contentsLabel` replaces its title in the contents entry and PDF bookmark, while its non-empty `subtitle` appears beneath that entry only. Each entry string resolves through `entryDirection`: its own first strong letter takes precedence, with the book direction and language as fallback.
 
@@ -958,7 +959,7 @@ Each rendered tab receives a prepared-slots document view whose `marked` counts 
 
 `filledBook` returns `{ value, slots }`: the filled book and the prepared slots, which every print of that book receives explicitly. `filledPage`, `filledPages` and `filledDeck` return the same shape, and a deck records one frame of measurement marks per slide.
 
-Parent-page head and foot HTML place `segnavia:head-template` with a
+Parent-page region HTML, including the built-in `head` and `foot` regions, places `segnavia:head-template` with a
 `data-motif-name`. The template joins declared variable or record-slot parts,
 drops empty parts, optionally collapses equal sides, and isolates every value in
 its own `bdi`; the separator uses the template direction. Every composer and
@@ -973,7 +974,8 @@ printed page or book-view pagination holds only the author's declarations, so it
 re-parses to the same value; every consumer joins the library entries at the
 point of use through `withLibraryEntries`. An author name starting with
 `segnavia:` is refused, and so is every reserved motif key other than
-`segnavia:head-template` in parent head, foot or region HTML. A head-template
+`segnavia:head-template` in parent-page region HTML, including the built-in
+`head` and `foot` regions. A head-template
 placement anywhere else is refused with the remedy of moving it into a parent
 region.
 

@@ -10,7 +10,7 @@ import {
   type OperationDocument,
   type OperationNode,
 } from '@segnavia/format'
-import { CONTENT_FIELD_SHAPES, contentFieldShape } from './block-fragments.ts'
+import { CONTENT_FIELD_SHAPES, contentFieldShape, type FragmentShape } from './block-fragments.ts'
 import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
 import { blockView } from './block-view.ts'
 import { pageBodyHtml } from './document.ts'
@@ -65,7 +65,7 @@ function pageBodySource(value: object, context: DocumentCommandContext): string 
 
 function identifiedField(
   value: unknown,
-  shape: string,
+  shape: FragmentShape,
   context: DocumentCommandContext,
   usedBlocks: Map<string, BlockIdLocation>,
   added: string[],
@@ -86,8 +86,17 @@ function identifiedField(
     const held = value as { kind?: unknown; html?: unknown }
     return held.kind === 'html' && typeof held.html === 'string' ? { ...value, html: identify(held.html) } : value
   }
-  if (shape !== 'record') return value
-  return Object.fromEntries(Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identify(html) : html]))
+  if (shape === 'record') return Object.fromEntries(Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identify(html) : html]))
+  if (shape === 'regionRecord') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, region]) => {
+        if (!region || typeof region !== 'object') return [key, region]
+        const held = region as Record<string, unknown>
+        return [key, typeof held.html === 'string' ? { ...held, html: identify(held.html) } : held]
+      }),
+    )
+  }
+  return value
 }
 
 function identifyContent(node: Record<string, unknown>, context: DocumentCommandContext, usedBlocks: Map<string, BlockIdLocation>, added: string[]): void {

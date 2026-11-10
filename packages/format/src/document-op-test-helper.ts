@@ -39,7 +39,7 @@ export const DOCUMENT_NODE_SAMPLES: Record<DocumentNodeType, Sample> = {
     rectangle: { x: 0, y: 0, width: 20, height: 20 },
     items: [],
   }),
-  parentPage: (seed) => ({ type: 'parentPage', id: `parent-${seed}`, name: 'body', geometry: {}, head: HEBREW, regions: { side: HEBREW } }),
+  parentPage: (seed) => ({ type: 'parentPage', id: `parent-${seed}`, name: 'body', geometry: {}, regions: { side: { edge: 'inlineEnd', html: HEBREW } } }),
   template: (seed) => ({ type: 'template', id: `template-${seed}`, name: 'body', html: HEBREW }),
   noteSeries: (seed) => ({ type: 'noteSeries', id: `notes-${seed}`, name: 'notes' }),
   variable: (seed) => ({ type: 'variable', id: `variable-${seed}`, name: 'folio', kind: 'folio' }),
@@ -71,7 +71,7 @@ function base(kind: DocumentKind, seed: number): Record<string, unknown> {
           children: [{ type: 'section', id: `section-b-${seed}`, title: 'B', children: [{ type: 'flow', id: `flow-b-${seed}`, html: HEBREW }] }],
         },
       ],
-      parentPages: [{ type: 'parentPage', id: `base-parent-${seed}`, name: 'body', geometry: {}, head: HEBREW }],
+      parentPages: [{ type: 'parentPage', id: `base-parent-${seed}`, name: 'body', geometry: {}, regions: { head: { edge: 'blockStart', html: HEBREW } } }],
       templates: [{ type: 'template', id: `base-template-${seed}`, name: 'body', html: HEBREW, slots: [{ key: 'name', label: 'Name', type: 'text' }] }],
       noteSeries: [{ type: 'noteSeries', id: `base-notes-${seed}`, name: 'notes' }],
     }
@@ -82,7 +82,7 @@ function base(kind: DocumentKind, seed: number): Record<string, unknown> {
       ...common,
       parentRules: [{ parent: 'body' }],
       style: { fonts: {} },
-      parentPages: [{ type: 'parentPage', id: `printed-parent-${seed}`, name: 'body', geometry: {}, foot: HEBREW }],
+      parentPages: [{ type: 'parentPage', id: `printed-parent-${seed}`, name: 'body', geometry: {}, regions: { foot: { edge: 'blockEnd', html: HEBREW } } }],
       children: [DOCUMENT_NODE_SAMPLES.page(seed)],
     }
   return {
@@ -149,9 +149,14 @@ function mutateContent(value: unknown): unknown {
   }
   if (value && typeof value === 'object') {
     const copy = structuredClone(value) as Record<string, unknown>
-    const key = Object.keys(copy).find((candidate) => !['kind', 'type', 'id'].includes(candidate) && typeof copy[candidate] === 'string')
+    const key = Object.keys(copy).find((candidate) => !['kind', 'type', 'id', 'edge'].includes(candidate) && typeof copy[candidate] === 'string')
     if (key) {
       copy[key] = `${copy[key]}${HEBREW}`
+      return copy
+    }
+    const nested = Object.keys(copy).find((candidate) => copy[candidate] && typeof copy[candidate] === 'object')
+    if (nested) {
+      copy[nested] = mutateContent(copy[nested])
       return copy
     }
   }

@@ -22,8 +22,10 @@ export const recordsTableDocument: DocumentInput = {
       type: 'parentPage',
       name: 'body',
       geometry: { margin },
-      head: `<header>Record ${placed('record-index')} of ${placed('record-count')}</header>`,
-      foot: `<footer>Page ${placed('segnavia:folio')} of ${placed('record-pages')}</footer>`,
+      regions: {
+        head: { edge: 'blockStart', html: `<header>Record ${placed('record-index')} of ${placed('record-count')}</header>` },
+        foot: { edge: 'blockEnd', html: `<footer>Page ${placed('segnavia:folio')} of ${placed('record-pages')}</footer>` },
+      },
     },
   ],
   parentRules: [{ parent: 'body' }],
@@ -74,8 +76,13 @@ export const hebrewRecordsDocument: DocumentInput = {
       type: 'parentPage',
       name: 'body',
       geometry: { margin },
-      head: `<header>רשומה ${placed('record-index')} מתוך ${placed('record-count')}</header>`,
-      foot: `<footer>עמוד ${placed('segnavia:folio')} מתוך ${placed('record-pages')}; מסמך ${placed('document-page')} מתוך ${placed('document-pages')}</footer>`,
+      regions: {
+        head: { edge: 'blockStart', html: `<header>רשומה ${placed('record-index')} מתוך ${placed('record-count')}</header>` },
+        foot: {
+          edge: 'blockEnd',
+          html: `<footer>עמוד ${placed('segnavia:folio')} מתוך ${placed('record-pages')}; מסמך ${placed('document-page')} מתוך ${placed('document-pages')}</footer>`,
+        },
+      },
     },
   ],
   parentRules: [{ parent: 'body' }],

@@ -46,7 +46,13 @@ test('passes board motif and placement sources to a live book before its view', 
             rectoOpenings: false,
             orphans: 2,
             widows: 2,
-            parents: [{ name: 'body', foot: '<span data-motif="held"></span>', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+            parents: [
+              {
+                name: 'body',
+                regions: { foot: { edge: 'blockEnd', html: '<span data-motif="held"></span>' } },
+                margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+              },
+            ],
             endnotePlacement: 'book',
             contents: { pageNumbers: true, depth: 2 },
           },
@@ -64,8 +70,8 @@ test('passes board motif and placement sources to a live book before its view', 
     expect(book.pageWidths).toEqual({ standard: 900 })
     if (!book.view || !book.motifs) throw new Error('the live board book did not receive its view and sources')
     const expanded = await expandFrameBookView(book.view, book.motifs, new AbortController().signal, book.placements)
-    expect(expanded.book.pagination?.parents[0]?.foot).toContain('data-board-book-motif')
-    expect(expanded.book.pagination?.parents[0]?.foot).toContain(`src="${src}"`)
+    expect(expanded.book.pagination?.parents[0]?.regions.foot?.html).toContain('data-board-book-motif')
+    expect(expanded.book.pagination?.parents[0]?.regions.foot?.html).toContain(`src="${src}"`)
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

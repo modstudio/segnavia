@@ -39,7 +39,7 @@ test('book parsing refuses unclosed head-template placements whether or not thei
   const parentPages = [
     {
       name: 'body',
-      head: '<div data-motif="segnavia:head-template" data-motif-name="missing">',
+      regions: { head: { edge: 'blockStart', html: '<div data-motif="segnavia:head-template" data-motif-name="missing">' } },
       margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 },
     },
   ]
