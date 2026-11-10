@@ -26,6 +26,11 @@ export interface ImposedPdfPiece {
   placements: PiecePlacement[]
 }
 
+export interface ImposedPdfSide {
+  boxes: ImpositionSideBoxes
+  marks?: ImpositionSideMarks
+}
+
 function drawImposedSide(
   output: PDFDocument,
   imposed: Imposed,
@@ -62,31 +67,13 @@ function drawImposedSide(
   )
 }
 
-export async function composeImposedPdf(
-  imposed: Imposed,
-  pieces: ImposedPdfPiece[],
-  boxes: ImpositionSideBoxes[],
-  marks: ImpositionSideMarks[],
-  markColor: MarkColor,
-): Promise<Uint8Array> {
+export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiece[], sides: ImposedPdfSide[], markColor: MarkColor): Promise<Uint8Array> {
   const output = await PDFDocument.create()
   const embedded = new Map<string, PDFEmbeddedPage>()
   for (const piece of pieces) embedded.set(piece.key, await embedOnePage(output, piece.bytes, piece.name))
   for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {
-    for (const side of (['front', 'back'] as const).slice(0, imposed.sides)) {
-      const sideBoxes = boxes.find((entry) => entry.side === side)
-      if (!sideBoxes) throw new Error(`The imposed ${side} side has no page boxes.`)
-      drawImposedSide(
-        output,
-        imposed,
-        embedded,
-        pieces,
-        paperIndex,
-        side,
-        sideBoxes,
-        marks.find((entry) => entry.side === side),
-        markColor,
-      )
+    for (const { boxes, marks } of sides) {
+      drawImposedSide(output, imposed, embedded, pieces, paperIndex, boxes.side, boxes, marks, markColor)
     }
   }
   return output.save()

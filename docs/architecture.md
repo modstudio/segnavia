@@ -1118,11 +1118,13 @@ render-only; browser `printPages` draws neither.
 paper, an orientation, margins, a grid of cells (columns, rows, cell size and
 gaps), and how the cells fill: `sequence` puts one
 page in each cell in reading order, and `repeat` puts one page in every cell.
-An imposed PDF keeps the paper as its media box and declares the imposed area
-with trim and bleed boxes. Each box is the union of its grid cells on that
-physical side, using the same full grid that the marks frame; the back-side
-area follows the duplex flip. A cell's realized bleed is clipped by its gaps
-and paper edges, so the bleed box stays within the media box.
+An imposed PDF keeps the paper as its media box. A composed sheet declares its
+imposed area with trim and bleed boxes. Each box is the union of its grid cells
+on that physical side, using the same full grid that the marks frame; the
+back-side area follows the duplex flip. A cell's realized bleed is clipped by
+its gaps and paper edges, so the bleed box stays within the media box. A
+printed page under an identity imposition instead declares its own press boxes;
+without bleed, both boxes are the sheet.
 Its lengths are in one unit named once: millimeters, inches or points (72 to
 the inch), so a host writes its stock's numbers as the maker gives them. A
 custom paper on `Print` takes the same three units. Placements are always in

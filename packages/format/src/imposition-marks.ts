@@ -1,6 +1,6 @@
 import { gridPlacements, type ImpositionPlacement } from './imposition.ts'
 import type { Imposition } from './imposition-schema.ts'
-import { MARK_GAP_MM, MARK_LENGTH_MM, type MarkSegment, roundMillimeters } from './paper.ts'
+import { MARK_GAP_MM, MARK_LENGTH_MM, type MarkSegment, roundMillimeters, unionBoxes } from './paper.ts'
 
 export const MIN_MARK_LENGTH_MM = 2
 export type ImpositionMarkEdge = 'top' | 'right' | 'bottom' | 'left'
@@ -46,10 +46,11 @@ function addMark(
 function outerMarks(side: ImpositionSideMarks, placements: ImpositionPlacement[], paper: { width: number; height: number }, foldCuts: Set<number>): void {
   const verticalCuts = unique(placements.flatMap(({ trim }) => [trim.x, trim.x + trim.width]))
   const horizontalCuts = unique(placements.flatMap(({ trim }) => [trim.y, trim.y + trim.height]))
-  const top = Math.min(...placements.map(({ bleedBox }) => bleedBox.y))
-  const right = Math.max(...placements.map(({ bleedBox }) => bleedBox.x + bleedBox.width))
-  const bottom = Math.max(...placements.map(({ bleedBox }) => bleedBox.y + bleedBox.height))
-  const left = Math.min(...placements.map(({ bleedBox }) => bleedBox.x))
+  const bounds = unionBoxes(placements.map(({ bleedBox }) => bleedBox))
+  const top = bounds.y
+  const right = bounds.x + bounds.width
+  const bottom = bounds.y + bounds.height
+  const left = bounds.x
   for (const cut of verticalCuts) {
     if (foldCuts.has(cut)) continue
     addMark(side, 'top', cut, roundMillimeters(top - MARK_GAP_MM), top - MARK_GAP_MM, false, -1)

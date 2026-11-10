@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { Deck, Imposition, impositionBoxes, Page as PageSchema, PX_PER_MM } from '@segnavia/format'
 import { prepareSlots, resolvePageHtml } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
+import { buildPressProfile } from './color/profile-fixture.test-helper.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { finishPdf } from './pdf-finish.ts'
@@ -81,6 +82,31 @@ test('an imposed deck keeps both sides grid trim and bleed boxes through final o
   }
 })
 
+test('press finishing reserializes an imposed deck without stripping its page boxes', async () => {
+  const input = {
+    paper: { width: 100, height: 80, unit: 'mm' as const },
+    orientation: 'landscape' as const,
+    columns: 1,
+    rows: 1,
+    cell: { width: 60, height: 40 },
+    margin: { top: 20, right: 20, bottom: 20, left: 20 },
+  }
+  const deck = Deck.parse({
+    title: 'Press deck',
+    size: { width: 400, height: 200 },
+    print: { bleed: 3 },
+    slides: [{ id: 'card', content: { kind: 'html', html: '<p>Card</p>' } }],
+  })
+  const services = { renderPdf: async () => onePage(400, 200), fontFaces: () => '', finish: finishPdf }
+  const withoutPress = await renderDeckPdf(deck, { imposition: input }, services)
+  const withPress = await renderDeckPdf(deck, { imposition: input, press: { profile: buildPressProfile('mft1') } }, services)
+  expect(withPress).not.toEqual(withoutPress)
+  const output = await PDFDocument.load(withPress)
+  const expected = impositionBoxes(Imposition.parse(input), deck.print)[0]
+  if (!expected) throw new Error('the imposition has no front-side boxes')
+  expectPageBoxes(output.getPage(0), expected, { width: 100, height: 80 })
+})
+
 test('imposed pages keep equal no-bleed grid boxes through final output', async () => {
   const page = Page.parse({ html: '<p>Card</p>', size: { width: 80, height: 80 } })
   const input = {
@@ -111,4 +137,30 @@ test('imposed pages keep equal no-bleed grid boxes through final output', async 
     expectPageBoxes(sheet, expected, { width: 100, height: 80 })
     expectBox(sheet.getBleedBox(), sheet.getTrimBox())
   }
+})
+
+test('an identity-imposed printed page declares its sheet as trim and bleed', async () => {
+  const page = Page.parse({
+    html: '<p>Flow</p>',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+  })
+  const input = { paper: 'letter' as const, columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } }
+  const bytes = await renderPagesPdf(
+    [page],
+    preparedSlots,
+    { imposition: input },
+    {
+      pagePdf: async () => ({ bytes: await onePage(pt(215.9), pt(279.4)) }),
+      piecePdf: async () => new Uint8Array(),
+      fontFaces: () => '',
+      finish: finishPdf,
+    },
+  )
+  const output = await PDFDocument.load(bytes)
+  const sheet = output.getPage(0)
+  expect(sheet.node.has(PDFName.of('TrimBox'))).toBe(true)
+  expect(sheet.node.has(PDFName.of('BleedBox'))).toBe(true)
+  expectBox(sheet.getTrimBox(), sheet.getMediaBox())
+  expectBox(sheet.getBleedBox(), sheet.getMediaBox())
 })

@@ -52,8 +52,7 @@ async function imposedBytes(markColor: 'black' | 'registration'): Promise<Uint8A
       bytes: pieceBytes,
       placements: group.placements,
     })),
-    impositionBoxes(imposition),
-    impositionMarks(imposition),
+    impositionBoxes(imposition).map((boxes) => ({ boxes, marks: impositionMarks(imposition).find((entry) => entry.side === boxes.side) })),
     markColor,
   )
 }
@@ -109,8 +108,7 @@ test('a folded imposition with registration marks strokes dashed fold marks in S
       bytes: pieceBytes,
       placements: group.placements,
     })),
-    impositionBoxes(imposition),
-    impositionMarks(imposition),
+    impositionBoxes(imposition).map((boxes) => ({ boxes, marks: impositionMarks(imposition).find((entry) => entry.side === boxes.side) })),
     'registration',
   )
   const text = await pageContent(bytes)

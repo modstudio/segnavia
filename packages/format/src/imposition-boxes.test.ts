@@ -1,14 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { gridPlacements } from './imposition.ts'
-import { Imposition, impositionBoxes, impositionMarks, mirrorPlacement, type PaperBox } from './index.ts'
-
-const union = (boxes: PaperBox[]): PaperBox => {
-  const x = Math.min(...boxes.map((box) => box.x))
-  const y = Math.min(...boxes.map((box) => box.y))
-  const right = Math.max(...boxes.map((box) => box.x + box.width))
-  const bottom = Math.max(...boxes.map((box) => box.y + box.height))
-  return { x, y, width: right - x, height: bottom - y }
-}
+import { Imposition, impositionBoxes, impositionMarks } from './index.ts'
 
 const grid = (overrides: Record<string, unknown> = {}) =>
   Imposition.parse({
@@ -35,16 +26,19 @@ describe('impositionBoxes', () => {
 
   test('makes the bleed box equal the trim when there is no bleed', () => {
     const [front] = impositionBoxes(grid())
-    expect(front?.bleedBox).toEqual(front?.trim)
+    if (!front) throw new Error('the one-sided grid has no boxes')
+    expect(front.bleedBox).toEqual(front.trim)
   })
 
   test.each(['long', 'short'] as const)('mirrors an asymmetric grid onto the back for a %s-edge flip', (flip) => {
     const imposition = grid({ sides: 'two', flip })
-    const { paper, placements } = gridPlacements(imposition, { bleed: 2 })
     const [front, back] = impositionBoxes(imposition, { bleed: 2 })
-    const mirrored = placements.map((placement) => mirrorPlacement(placement, paper, flip))
-    expect(front).toEqual({ side: 'front', trim: union(placements.map(({ trim }) => trim)), bleedBox: union(placements.map(({ bleedBox }) => bleedBox)) })
-    expect(back).toEqual({ side: 'back', trim: union(mirrored.map(({ trim }) => trim)), bleedBox: union(mirrored.map(({ bleedBox }) => bleedBox)) })
+    expect(front).toEqual({ side: 'front', trim: { x: 7, y: 9, width: 68, height: 46 }, bleedBox: { x: 5, y: 7, width: 72, height: 50 } })
+    expect(back).toEqual(
+      flip === 'long'
+        ? { side: 'back', trim: { x: 7, y: 25, width: 68, height: 46 }, bleedBox: { x: 5, y: 23, width: 72, height: 50 } }
+        : { side: 'back', trim: { x: 25, y: 9, width: 68, height: 46 }, bleedBox: { x: 23, y: 7, width: 72, height: 50 } },
+    )
     expect(back?.trim).not.toEqual(front?.trim)
   })
 
@@ -56,10 +50,8 @@ describe('impositionBoxes', () => {
       cell: { height: 100 },
       margin: { top: 10, right: 0, bottom: 10, left: 0 },
     })
-    const { placements } = gridPlacements(imposition, { bleed: 2 })
     const [front] = impositionBoxes(imposition, { bleed: 2 })
-    expect(new Set(placements.map(({ trim }) => trim.width)).size).toBeGreaterThan(1)
-    expect(front).toEqual({ side: 'front', trim: union(placements.map(({ trim }) => trim)), bleedBox: union(placements.map(({ bleedBox }) => bleedBox)) })
+    expect(front).toEqual({ side: 'front', trim: { x: 0, y: 10, width: 300, height: 100 }, bleedBox: { x: 0, y: 8, width: 300, height: 104 } })
   })
 
   test('outer crop marks lie outside the imposed bleed box', () => {
