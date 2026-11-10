@@ -20,7 +20,7 @@ type DemoWindow = typeof window & {
   hostBoard: DemoDocument
   boardValue(target: { board: DemoDocument }): DemoBoard
   setBoardValue(target: { board: DemoDocument }, value: DemoBoard): void
-  attachBoardEditingForCheck(target: BoardElement): { editing: { detach(): void }; changes(): number }
+  attachBoardEditingForCheck(target: BoardElement): { editing: { canUndo: boolean; detach(): void }; changes(): number }
 }
 
 export async function checkBoardEditingLabelSizes(h: Harness, board: Locator) {
@@ -33,9 +33,10 @@ export async function checkBoardEditingLabelSizes(h: Harness, board: Locator) {
       target.board = value
       const check = state.attachBoardEditingForCheck(target)
       await new Promise((resolve) => setTimeout(resolve, 50))
+      const canUndo = check.editing.canUndo
       check.editing.detach()
       target.remove()
-      return check.changes()
+      return { changes: check.changes(), canUndo }
     }
     const settledDocument = structuredClone(state.hostBoard)
     const settled = state.boardValue({ board: settledDocument })
@@ -50,8 +51,12 @@ export async function checkBoardEditingLabelSizes(h: Harness, board: Locator) {
   })
   h.check(
     'attaching editing to a settled board with stored label sizes sends no settle change',
-    attachChanges.stored && attachChanges.settledChanges === 0,
+    attachChanges.stored && attachChanges.settledChanges.changes === 0,
     JSON.stringify(attachChanges),
   )
-  h.check('attaching editing to a board with one unsized label sends one settle change', attachChanges.unsizedChanges === 1, JSON.stringify(attachChanges))
+  h.check(
+    'attaching editing to a board with one unsized label sends one settle change outside undo history',
+    attachChanges.unsizedChanges.changes === 1 && !attachChanges.unsizedChanges.canUndo,
+    JSON.stringify(attachChanges),
+  )
 }
