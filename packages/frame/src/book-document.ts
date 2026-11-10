@@ -9,6 +9,7 @@ export {
   COMPOSED_ATTRIBUTE as BOOK_COMPOSED_ATTRIBUTE,
   COMPOSED_MS_ATTRIBUTE as BOOK_COMPOSED_MS_ATTRIBUTE,
 } from './composer.ts'
+export { PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
 export class PaginatedBookRefusedError extends Error {
   constructor(message: string) {

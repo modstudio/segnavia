@@ -1,15 +1,6 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
-import { expandFrameBookValue, expandFramePage, expandPrintedFramePage } from '@segnavia/frame/motifs'
-import {
-  type EstablishedPageDay,
-  fillPageAsOfBindings,
-  isPrintedHtmlPage,
-  type PreparedSlots,
-  parseDocument,
-  printedPageAuthorHtml,
-  resolvePageHtml,
-  resolvePrintedPageHtml,
-} from '@segnavia/html'
+import { expandFrameBookValue } from '@segnavia/frame/motifs'
+import { type EstablishedPageDay, fillPageAsOfBindings, type PreparedSlots, parseDocument, printedPageAuthorHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { parseBookPdfOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
@@ -25,16 +16,24 @@ import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { copyLimits, enforceDeckLimits, innerLimits, type OverflowEntry, parseRenderOptions, type RenderOptions } from './options.ts'
+import {
+  copyLimits,
+  enforceDeckLimits,
+  innerLimits,
+  type OverflowEntry,
+  parseComposedRenderOptions,
+  parseRenderOptions,
+  type RenderOptions,
+} from './options.ts'
 import { printWithOverflow } from './overflow.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
-import { prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
+import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
 import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce, finishPdf } from './pdf-finish.ts'
-import { renderPreflightProfile } from './preflight.ts'
+import { withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
@@ -169,30 +168,34 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
   const renderer: Renderer = {
     async bookPdf(input, opts = {}) {
-      opts = parseBookPdfOptions(opts)
-      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const book = await resolveRenderBook(input, opts.newId, opts.brandSource, deadline.signal)
+      const parsedOptions = parseBookPdfOptions(opts)
+      return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const book = await resolveRenderBook(input, parsedOptions.newId, parsedOptions.brandSource, deadline.signal)
         const expanded = await expandFrameBookValue(
           book,
-          opts.motifs,
+          parsedOptions.motifs,
           deadline.signal,
-          opts.placements,
+          parsedOptions.placements,
           'print',
-          opts.pageWidths,
-          renderPreflightProfile(opts.preflight),
+          parsedOptions.pageWidths,
+          parsedOptions.preflight?.profile,
         )
-        const { options, fontCss: resolvedFontCss, fontFailures } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
+        const seededOptions = { ...parsedOptions, preflight: withPreflightSeed(parsedOptions.preflight, expanded.preflight) }
+        const {
+          options,
+          fontCss: resolvedFontCss,
+          fontFailures,
+        } = await renderOptionsWithBookFonts(expanded.book, seededOptions, deadline.signal, expanded.fonts)
         return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
           render: (setup, pdf, pageWidth, part) =>
             withTab({ ...setup, deadline }, async (tab) => {
-              const captures = await prepareBackdropRasters(tab, opts.effects)
+              const captures = await prepareBackdropRasters(tab, options.effects)
               const printed = await printWithOverflow(tab, pageWidth, part, pdf)
               return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
             }),
           fontFaces: (options) => fontFaces(options.fonts),
           finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
           fontFailures,
-          preflightSeed: expanded.preflight,
         })
       })
     },
@@ -208,12 +211,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
     async pagePdf(input, opts = {}) {
-      opts = parsePagePdfOptions(opts ?? {})
-      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+      const parsedOptions = parsePagePdfOptions(opts ?? {})
+      return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
-        const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'print')
-        const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
-          const effectiveSlots = opts.slots?.fills ? copySlots : prepared.established.slots
+        const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
+        const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
+          const effectiveSlots = parsedOptions.slots?.fills ? copySlots : prepared.established.slots
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
           const { value: page, slots } = await filledPage(pageWithDay, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(printedPageAuthorHtml(page))
@@ -227,28 +230,27 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             diagramScript,
             prepared.fontCss,
             prepared.fontFailures,
-            prepared.preflightSeed,
           )
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
         })
-        const output = await withDocumentMetadata(await finishWithBrowser(bytes, prepared.options, deadline), opts.metadata)
-        if (overflows.length) opts.overflow?.report?.({ entries: overflows })
-        return enforce(output, opts.limits)
+        const output = await withDocumentMetadata(await finishWithBrowser(bytes, prepared.options, deadline), parsedOptions.metadata)
+        if (overflows.length) parsedOptions.overflow?.report?.({ entries: overflows })
+        return enforce(output, parsedOptions.limits)
       })
     },
     async pageImage(input, opts = {}) {
-      opts = parseRenderOptions(opts)
-      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const prepared = await prepareRenderedPage(input, opts, opts.motifs, deadline.signal, 'screen')
-        return renderPreparedPageImage(prepared, opts, deadline, withTab)
+      const parsedOptions = parseComposedRenderOptions(opts)
+      return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'screen')
+        return renderPreparedPageImage(prepared, parsedOptions, deadline, withTab)
       })
     },
 
     async coverImage(input, opts) {
       const cover = Cover.parse(input)
       const plan = coverImagePlan(cover, opts)
-      const options = parseRenderOptions(plan.options)
+      const options = parseComposedRenderOptions(plan.options)
       return await withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const contexts = await resolveRenderDayContexts([cover.page], options, deadline.signal)
         const established = contexts.pages[0] as EstablishedPageDay
@@ -258,30 +260,27 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async pagesPdf(inputs, opts = {}) {
-      opts = parsePagePdfOptions(opts ?? {})
-      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+      const parsedOptions = parsePagePdfOptions(opts ?? {})
+      return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const parsed = await Promise.all(
           inputs.map(async (input) => {
-            const document = parseDocument(input, { newId: opts.newId })
-            const brand = await resolveRenderBrand(document, opts.brandSource, deadline.signal)
+            const document = parseDocument(input, { newId: parsedOptions.newId })
+            const brand = await resolveRenderBrand(document, parsedOptions.brandSource, deadline.signal)
             const page = pageOrPrintedFromDocument(document, brand)
             return page
           }),
         )
-        const contexts = await resolveRenderDayContexts(parsed, opts, deadline.signal)
+        const contexts = await resolveRenderDayContexts(parsed, parsedOptions, deadline.signal)
         const expanded = await Promise.all(
           parsed.map((page, index) => {
             const day = contexts.pages[index]?.day
-            const profile = renderPreflightProfile(opts.preflight)
-            return isPrintedHtmlPage(page)
-              ? expandPrintedFramePage(resolvePrintedPageHtml(page), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths, day, profile)
-              : expandFramePage(resolvePageHtml(page), opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths, day, profile)
+            return expandRenderedPageValue(page, parsedOptions, deadline.signal, day, 'print')
           }),
         )
-        const prepared = await prepareRenderedPages(expanded, opts, deadline.signal)
+        const prepared = await prepareRenderedPages(expanded, parsedOptions, deadline.signal)
         const expandedPages = expanded.map((item, index) => fillPageAsOfBindings(item.page, contexts.pages[index]?.day))
-        const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
-          const effectiveSlots = opts.slots?.fills ? copySlots : contexts.pages[0]?.slots
+        const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
+          const effectiveSlots = parsedOptions.slots?.fills ? copySlots : contexts.pages[0]?.slots
           const { value: pages, slots, frameGroups } = await filledPages(expandedPages, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(pages.map(printedPageAuthorHtml).join(''))
           return renderPagesPdf(
@@ -293,14 +292,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                 renderPagePdf(
                   page,
                   slots,
-                  options,
+                  { ...options, preflight: withPreflightSeed(options.preflight, expanded[inputIndex]?.preflight) },
                   { withTab },
                   inputIndex,
                   deadline,
                   diagramScript,
                   prepared.fontCss,
                   prepared.fontFailures,
-                  expanded[inputIndex]?.preflight ?? [],
                 ),
               piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
@@ -309,7 +307,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             frameGroups,
           )
         })
-        return enforce(await withDocumentMetadata(await finishWithBrowser(bytes, opts, deadline), opts.metadata), opts.limits)
+        return enforce(await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata), parsedOptions.limits)
       })
     },
 

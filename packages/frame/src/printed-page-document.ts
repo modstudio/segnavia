@@ -39,7 +39,11 @@ import { declaredFontLoads } from './font-load.ts'
 import { PrintedPagesRefusedError, printedPageGeometry } from './printed-page-geometry.ts'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
-export { COMPOSE_FAILURE_ATTRIBUTE as PRINTED_PAGE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE as PRINTED_PAGE_COMPOSED_ATTRIBUTE } from './composer.ts'
+export {
+  COMPOSE_FAILURE_ATTRIBUTE as PRINTED_PAGE_FAILURE_ATTRIBUTE,
+  COMPOSED_ATTRIBUTE as PRINTED_PAGE_COMPOSED_ATTRIBUTE,
+} from './composer.ts'
+export { PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
 export { PrintedPagesRefusedError }
 

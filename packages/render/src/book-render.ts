@@ -8,7 +8,6 @@ import {
   Plan,
   type PreflightEntry,
   type PreflightProfile,
-  type PreflightReport,
   PX_PER_MM,
   pressBoxes,
   resolveBookPageGeometry,
@@ -37,21 +36,18 @@ import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
-import { handlePreflightAttribute, renderPreflightProfile } from './preflight.ts'
+import { awaitPreflightReport } from './preflight.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
-import type { BookPdfOptions, BookPlanOptions } from './renderer.ts'
+import type { BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
 
-export async function awaitBookComposition(tab: Tab, preflight?: { profile: PreflightProfile; report?: (report: PreflightReport) => void }): Promise<void> {
+export async function awaitBookComposition(tab: Tab, preflight?: ParsedBookPdfOptions['preflight']): Promise<void> {
   await tab.waitForFunction(({ composed, failed }) => document.documentElement.hasAttribute(composed) || document.documentElement.hasAttribute(failed), {
     composed: BOOK_COMPOSED_ATTRIBUTE,
     failed: BOOK_FAILURE_ATTRIBUTE,
   })
-  if (preflight) {
-    const attribute = await tab.evaluate(() => document.documentElement.getAttribute('data-segnavia-preflight'))
-    handlePreflightAttribute(attribute, preflight.profile, preflight.report)
-  }
+  await awaitPreflightReport(tab, preflight)
   const failure = await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), BOOK_FAILURE_ATTRIBUTE)
   if (failure) throw new RenderRefusedError(failure)
 }
@@ -76,7 +72,6 @@ export interface BrowserBookDependencies {
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
   fontFailures?: FontFailure[]
-  preflightSeed?: PreflightEntry[]
 }
 
 // A chapter can author its own plan carrier, so the composer's published one is the last.
@@ -199,7 +194,7 @@ async function printBook(
   html: string,
   book: Book,
   slots: PreparedSlots,
-  renderOptions: BookPdfOptions,
+  renderOptions: ParsedBookPdfOptions,
   part: BookOverflowPart,
   layerCss: string,
   resolvedFontCss: string,
@@ -223,8 +218,8 @@ async function printBook(
       limits: renderOptions.limits,
       plan: renderOptions.plan,
       breaks: renderOptions.breaks,
-      profile: renderPreflightProfile(renderOptions.preflight),
-      preflightSeed: dependencies.preflightSeed,
+      profile: renderOptions.preflight?.profile,
+      preflightSeed: renderOptions.preflight?.seed,
     }),
   )
   const setup: TabSetup = paginated
@@ -232,8 +227,7 @@ async function printBook(
         ...paginatedBookTabSetup(book, srcdoc, slots, renderOptions),
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
         beforeOutput: async (tab) => {
-          const profile = renderPreflightProfile(renderOptions.preflight)
-          await awaitBookComposition(tab, profile ? { profile, report: renderOptions.preflight?.report } : undefined)
+          await awaitBookComposition(tab, renderOptions.preflight)
           composedPlan = renderOptions.plan ?? (await composedPlanFromTab(tab, renderOptions.limits))
           await renderOptions.beforeOutput?.(tab)
         },
@@ -295,7 +289,7 @@ async function printBook(
   return { ...output, bytes: await document.save() }
 }
 
-export function renderBrowserBookPdf(book: Book, options: BookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
+export function renderBrowserBookPdf(book: Book, options: ParsedBookPdfOptions, fontCss: string, dependencies: BrowserBookDependencies): Promise<Uint8Array> {
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }

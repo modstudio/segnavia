@@ -1,9 +1,7 @@
 import type { Deck } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { type PrintOptions, printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
-import type { PreparedSlots } from '@segnavia/html'
-import type { Page as Tab } from 'playwright-core'
-import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
+import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDeckFonts } from './deck-pdf.ts'
 import { fontFaces } from './font-faces.ts'
@@ -15,7 +13,7 @@ import { slotsForDocument } from './slot-document.ts'
 import { filledDeck } from './slot-fill.ts'
 
 interface SlideImageServices {
-  withTab<T>(setup: BrowserTabSetup & { boundMs?: number; deadline?: RenderDeadline; slots?: PreparedSlots }, body: (tab: Tab) => Promise<T>): Promise<T>
+  withTab: TabRunner
   diagramScript(html: string): Promise<string | undefined>
 }
 

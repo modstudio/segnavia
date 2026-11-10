@@ -1,4 +1,5 @@
 import {
+  type AsOfDay,
   type Book,
   type FontFace,
   type FontFailure,
@@ -22,6 +23,7 @@ import {
   type EstablishedPageDay,
   FontCssRefusedError,
   type HtmlPage,
+  isPrintedHtmlPage,
   type PrintedHtmlPage,
   parseDocument,
   resolvePageHtml,
@@ -31,11 +33,11 @@ import { resolveRenderBrand } from './brand.ts'
 import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
-import type { ComposedRenderOptions, PageRenderOptions, RenderOptions } from './options.ts'
+import type { ComposedRenderOptions, ParsedPageRenderOptions, RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
 import { printCss } from './page-paper.ts'
-import { renderPreflightProfile } from './preflight.ts'
+import { withPreflightSeed } from './preflight.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
 
 export async function fontCssForRender<T>(work: Promise<T>): Promise<T> {
@@ -64,7 +66,7 @@ async function resolveRenderFontReferences(
 
 export async function prepareRenderedPage(
   input: PageOrPrintedInput,
-  options: PageRenderOptions,
+  options: ParsedPageRenderOptions,
   motifs: MotifsOptions | undefined,
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
@@ -89,17 +91,29 @@ export async function prepareRenderedPageValue(
   purpose: 'screen' | 'print' = 'print',
 ) {
   const page = resolvePageHtml(input)
-  const expanded = await expandFramePage(
-    page,
-    motifs,
-    signal,
-    options.placements,
-    purpose,
-    options.pageWidths,
-    established.day,
-    renderPreflightProfile(options.preflight),
-  )
+  const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths, established.day, options.preflight?.profile)
   return preparedRender(expanded, options, signal, established)
+}
+
+export function expandRenderedPageValue(
+  page: HtmlPage | PrintedHtmlPage,
+  options: ComposedRenderOptions & { motifs?: MotifsOptions },
+  signal: AbortSignal,
+  day: AsOfDay | undefined,
+  purpose: 'screen' | 'print',
+) {
+  return isPrintedHtmlPage(page)
+    ? expandPrintedFramePage(
+        resolvePrintedPageHtml(page),
+        options.motifs,
+        signal,
+        options.placements,
+        purpose,
+        options.pageWidths,
+        day,
+        options.preflight?.profile,
+      )
+    : expandFramePage(resolvePageHtml(page), options.motifs, signal, options.placements, purpose, options.pageWidths, day, options.preflight?.profile)
 }
 
 async function prepareRenderedPrintedPageValue(
@@ -118,7 +132,7 @@ async function prepareRenderedPrintedPageValue(
     purpose,
     options.pageWidths,
     established.day,
-    renderPreflightProfile(options.preflight),
+    options.preflight?.profile,
   )
   return preparedRender(expanded, options, signal, established)
 }
@@ -135,14 +149,20 @@ async function preparedRender<T extends HtmlPage | PrintedHtmlPage>(
   const place = expanded.page.id ? `page ${JSON.stringify(expanded.page.id)}` : 'page'
   const resolved = await fontCssForRender(resolveRenderFontReferences(manifest, undeclared, options.fontSource, local.faces, signal, place))
   options.localFonts?.report?.(local.report)
-  return { page: expanded.page, options, fontCss: resolved.css, fontFailures: resolved.failures, preflightSeed: expanded.preflight ?? [], established }
+  return {
+    page: expanded.page,
+    options: { ...options, preflight: withPreflightSeed(options.preflight, expanded.preflight) },
+    fontCss: resolved.css,
+    fontFailures: resolved.failures,
+    established,
+  }
 }
 
 export async function prepareRenderedPages(
   expanded: ReadonlyArray<{ page: Pick<Page, 'style'>; fonts: FontReference[] }>,
   options: ComposedRenderOptions,
   signal: AbortSignal,
-): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
+): Promise<{ options: ComposedRenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
   let declarations: FontManifest = {}
   const undeclared = new Set<string>()
   for (const item of expanded) {
@@ -160,10 +180,10 @@ export async function prepareRenderedPages(
 
 export async function renderOptionsWithBookFonts(
   book: Book,
-  options: RenderOptions,
+  options: ComposedRenderOptions,
   signal: AbortSignal,
   motifFonts: FontReference[] = [],
-): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
+): Promise<{ options: ComposedRenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
   const place = `book ${JSON.stringify(book.title)}`
   return renderOptionsWithFontManifest(book.style?.fonts, motifFonts, place, options, signal)
 }
@@ -172,9 +192,9 @@ export async function renderOptionsWithFontManifest(
   fonts: FontManifest | undefined,
   references: FontReference[],
   place: string,
-  options: RenderOptions,
+  options: ComposedRenderOptions,
   signal: AbortSignal,
-): Promise<{ options: RenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
+): Promise<{ options: ComposedRenderOptions; fontCss: string; fontFailures: FontFailure[] }> {
   const { manifest, undeclared } = fontManifestWithReferences(fonts, references)
   const resolvedReferences = fontManifestReferences(manifest, undeclared)
   const local = localFontsForRender(options.localFonts, resolvedReferences, resolveLimits(undefined, options.limits).localFonts)

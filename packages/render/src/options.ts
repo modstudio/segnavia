@@ -18,7 +18,7 @@ import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { RenderLimitError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
-import type { RenderPreflightOptions } from './preflight.ts'
+import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
 
 export type Font = FontFace
@@ -172,11 +172,27 @@ export interface ImageOptions extends RenderOptions {
   width?: number
 }
 
-export interface PageImageOptions extends ImageOptions, AsOfInputs {}
+export interface PageImageOptions extends ImageOptions, AsOfInputs {
+  preflight?: RenderPreflightOptions
+}
 
-export type ComposedRenderOptions = RenderOptions & { preflight?: RenderPreflightOptions }
+export type ComposedRenderInput = RenderOptions & { preflight?: RenderPreflightOptions }
 
-export type PageRenderOptions = ComposedRenderOptions & AsOfInputs
+export type ComposedRenderOptions = RenderOptions & { preflight?: ComposedPreflight }
+
+export type ParsedComposedRenderOptions<T extends ComposedRenderInput> = Omit<T, 'preflight'> & ComposedRenderOptions
+
+export function parseComposedRenderOptions<T extends ComposedRenderInput>(options: T): ParsedComposedRenderOptions<T> {
+  const parsed = parseRenderOptions(options)
+  const preflight = resolveRenderPreflight(options.preflight)
+  return { ...parsed, ...(preflight === undefined ? {} : { preflight }) }
+}
+
+export type PageRenderOptions = ComposedRenderInput & AsOfInputs
+
+export type ParsedPageRenderOptions = ComposedRenderOptions & AsOfInputs
+
+export type ParsedPageImageOptions = ParsedComposedRenderOptions<PageImageOptions>
 
 export interface ProofImageOptions {
   profile: Uint8Array

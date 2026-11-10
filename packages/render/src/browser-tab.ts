@@ -15,7 +15,7 @@ import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
-import { withinBound } from './render-deadline.ts'
+import { type RenderDeadline, withinBound } from './render-deadline.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, waitsForReadiness } from './render-readiness.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
@@ -34,6 +34,11 @@ export interface BrowserTabSetup {
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
 }
+
+export type TabRunner = <T>(
+  setup: BrowserTabSetup & { boundMs?: number; deadline?: RenderDeadline; slots?: PreparedSlots },
+  body: (tab: Tab) => Promise<T>,
+) => Promise<T>
 
 export const fontLoadSetup = (
   failures: FontFailure[],

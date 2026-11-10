@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { computeFolios, type DocumentInput, Page, type Page as PageValue, PREFLIGHT_PRESETS } from '@segnavia/format'
+import { computeFolios, type DocumentInput, Page, type Page as PageValue } from '@segnavia/format'
 import { fragmentationCss, markdownHtml, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
@@ -71,17 +71,6 @@ const printedPageDocument = (page: PageValue, options: Parameters<typeof documen
 }
 
 describe('printedPageDocument', () => {
-  test('puts the print preflight profile and seed into composer config only when supplied', () => {
-    const configured = printedPageValueDocument(resolvePrintedPageHtml(page), {
-      nonce: 'held',
-      profile: PREFLIGHT_PRESETS.strict,
-      preflightSeed: [{ check: 'placement-missing', subject: 'cover', message: 'Supply cover.' }],
-    })
-    expect(configured).toContain('"preflight":{"region-overset":"error"')
-    expect(configured).toContain('"preflightSeed":[{"check":"placement-missing","subject":"cover","message":"Supply cover."}]')
-    expect(printedPageValueDocument(resolvePrintedPageHtml(page), { nonce: 'held' })).not.toContain('"preflight"')
-  })
-
   test('keeps the implicit single flow markup byte-identical', () => {
     const html = printedPageValueDocument(resolvePrintedPageHtml(page), { nonce: 'held' })
     expect(html).toContain(

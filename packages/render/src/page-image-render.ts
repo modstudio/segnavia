@@ -1,10 +1,9 @@
 import { hasDiagram } from '@segnavia/frame/diagrams'
-import { fillPageAsOfBindings, type PreparedSlots, printedPageAuthorHtml } from '@segnavia/html'
-import type { Page as Tab } from 'playwright-core'
-import { type BrowserTabSetup, fontLoadSetup } from './browser-tab.ts'
+import { fillPageAsOfBindings, printedPageAuthorHtml } from '@segnavia/html'
+import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
-import { assetSetup, type PageImageOptions } from './options.ts'
+import { assetSetup, type ParsedPageImageOptions } from './options.ts'
 import type { prepareRenderedPage } from './page-document.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
@@ -15,9 +14,9 @@ import { filledPage } from './slot-fill.ts'
 
 export async function renderPreparedPageImage(
   prepared: Awaited<ReturnType<typeof prepareRenderedPage>>,
-  opts: PageImageOptions,
+  opts: ParsedPageImageOptions,
   deadline: RenderDeadline,
-  withTab: <T>(setup: BrowserTabSetup & { boundMs?: number; deadline?: RenderDeadline; slots?: PreparedSlots }, body: (tab: Tab) => Promise<T>) => Promise<T>,
+  withTab: TabRunner,
 ): Promise<Uint8Array> {
   const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
   const { value: page, slots } = await filledPage(pageWithDay, prepared.established.slots, deadline.signal)
@@ -39,7 +38,7 @@ export async function renderPreparedPageImage(
       ...fontLoadSetup(prepared.fontFailures, opts.fontLoad?.report),
     },
     async (tab) => {
-      await awaitPrintedPageComposition(tab, page)
+      await awaitPrintedPageComposition(tab, page, prepared.options.preflight)
       if (grows) await contentHeight(tab)
       return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
     },

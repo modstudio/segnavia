@@ -33,3 +33,10 @@ test('reports before refusing an error with the preview message', () => {
   ).toThrow(new RenderRefusedError(message))
   expect(calls).toEqual(['report'])
 })
+
+test('malformed composed attributes refuse through the render channel', () => {
+  expect(() => handlePreflightAttribute('{', PREFLIGHT_PRESETS.default)).toThrow(RenderRefusedError)
+  expect(() => handlePreflightAttribute('{', PREFLIGHT_PRESETS.default)).toThrow(
+    'The composed preflight report could not be read; compose the document again to clear this refusal.',
+  )
+})

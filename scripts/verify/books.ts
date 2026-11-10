@@ -26,6 +26,7 @@ import { inspectPaginatedBook, type PaginatedReport } from './paginated-inspect.
 import { inspectPaginatedMargins } from './paginated-margins.ts'
 import { verifyNoteCaseBooks } from './paginated-note-cases.ts'
 import { inspectNoteViewGeometry } from './paginated-notes.ts'
+import { readPreflightIssues } from './preflight.ts'
 export async function verifyBooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book.html'))
@@ -313,12 +314,10 @@ async function verifyWorkbooks(h: Harness) {
     const flowId = body && 'children' in body ? body.children.find((node) => node.type === 'section' && node.template === 'lesson')?.id : undefined
     if (!flowId) throw new Error(`${id} has no templated section id.`)
     const frame = await paginatedFrame(h, id)
+    const preflightIssues = await readPreflightIssues(frame)
     const report = await frame.evaluate((flowId) => {
       const pages = Array.from(document.querySelectorAll(`[data-segnavia-book-page][data-segnavia-flow="${flowId}"]`))
       const templates = pages.map((paper) => paper.querySelector('[data-template]')?.getAttribute('data-template') ?? '')
-      const preflight = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as {
-        issues?: Array<{ check?: string; subject?: string }>
-      } | null
       const school = document.body.textContent ?? ''
       const tableDir = Array.from(document.querySelectorAll('[data-segnavia-book-page] [data-region="table"]')).map((node) => getComputedStyle(node).direction)
       const contents = Array.from(document.querySelectorAll('.segnavia-contents-page[href^="#"]')).map((node) => {
@@ -330,7 +329,6 @@ async function verifyWorkbooks(h: Harness) {
         failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
         pages: pages.length,
         templates,
-        preflightIssues: preflight?.issues ?? [],
         school,
         tableDir,
         contents,
@@ -346,8 +344,8 @@ async function verifyWorkbooks(h: Harness) {
     )
     check(
       `${id} an overfull reading-text region is marked by page and name`,
-      report.preflightIssues.some((issue) => issue.check === 'region-overset' && issue.subject?.endsWith(':reading-text')),
-      JSON.stringify(report.preflightIssues),
+      preflightIssues.some((issue) => issue.check === 'region-overset' && issue.subject?.endsWith(':reading-text')),
+      JSON.stringify(preflightIssues),
     )
     check(`${id} templated pages carry folios`, report.bodyFolio)
     const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === flowId)
@@ -362,12 +360,8 @@ async function verifyWorkbooks(h: Harness) {
     const fit = await frame.evaluate(() => {
       const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
       if (!el) return { size: 0, overset: true, elements: -1 }
-      const preflight = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as {
-        issues?: Array<{ check?: string; subject?: string }>
-      } | null
       return {
         size: Number.parseFloat(getComputedStyle(el).fontSize),
-        overset: preflight?.issues?.some((issue) => issue.check === 'region-overset' && issue.subject?.endsWith(':lesson-text')) ?? false,
         elements: el.childElementCount,
       }
     })
@@ -375,7 +369,10 @@ async function verifyWorkbooks(h: Harness) {
     const maxPx = 75 * PX_PER_PT
     check(
       `${id} a region of bare overflowing text fits between min and max`,
-      fit.elements === 0 && !fit.overset && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5,
+      fit.elements === 0 &&
+        !preflightIssues.some((issue) => issue.check === 'region-overset' && issue.subject?.endsWith(':lesson-text')) &&
+        fit.size >= minPx - 0.5 &&
+        fit.size < maxPx - 0.5,
       JSON.stringify(fit),
     )
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
