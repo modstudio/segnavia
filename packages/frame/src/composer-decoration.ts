@@ -84,9 +84,12 @@ export function applyBoxDecorations(lines: readonly DecoratedLine[], boxes: read
     const first = indexes[0]
     const last = indexes.at(-1)
     if (first === undefined || last === undefined) continue
+    const firstLine = decorated[first]
+    const lastLine = decorated[last]
+    if (!firstLine || !lastLine) continue
     const edges = decorationEdges(box)
-    if (edges.top !== undefined) decorated[first]!.decorationTop = Math.min(decorated[first]!.decorationTop ?? edges.top, edges.top)
-    if (edges.bottom !== undefined) decorated[last]!.decorationBottom = Math.max(decorated[last]!.decorationBottom ?? edges.bottom, edges.bottom)
+    if (edges.top !== undefined) firstLine.decorationTop = Math.min(firstLine.decorationTop ?? edges.top, edges.top)
+    if (edges.bottom !== undefined) lastLine.decorationBottom = Math.max(lastLine.decorationBottom ?? edges.bottom, edges.bottom)
   }
   return decorated
 }

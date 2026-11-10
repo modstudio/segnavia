@@ -24,7 +24,6 @@ import {
 import { layoutScript, regionBox } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
-import { applyBoxDecorations, backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from './composer-decoration.ts'
 import {
   embeddedDressPlanPagesFunctions,
   fillFurniture,
@@ -35,24 +34,8 @@ import {
   resolveRegionHeads,
   resolveRegionHeadsImplementation,
 } from './composer-dress.ts'
-import {
-  composerLayoutReady,
-  descendantKeepSignals,
-  flowTextArea,
-  forcedPageBreak,
-  inlineLevelDisplay,
-  keepSignals,
-  type MeasuredLineBox,
-  measuredBlockConstraints,
-  measuredCandidateKeeps,
-  measuredCandidateRun,
-  measuredKeepRuns,
-  measureLineBoxes,
-  measurementRefusal,
-  outermostKeepValue,
-  sizeFlowGalley,
-  tableRowLines,
-} from './composer-measure.ts'
+import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
+import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
 import { embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { placeParentRegions } from './composer-regions.ts'
@@ -226,28 +209,10 @@ ${embedFunction('advanceVisibleTime', advanceVisibleTime)}
 ${embedFunction('decideVisibleMeasurement', decideVisibleMeasurement)}
 ${embedFunction('appendMeasuredBlock', appendMeasuredBlock)}
 ${embedFunction('partTitleValues', partTitleValues)}
-${embedFunction('keepSignals', keepSignals)}
-${embedFunction('outermostKeepValue', outermostKeepValue)}
-${embedFunction('descendantKeepSignals', descendantKeepSignals)}
-${embedFunction('inlineLevelDisplay', inlineLevelDisplay)}
-${embedFunction('measuredBlockConstraints', measuredBlockConstraints)}
-${embedFunction('measuredCandidateRun', measuredCandidateRun)}
-${embedFunction('measuredCandidateKeeps', measuredCandidateKeeps)}
-${embedFunction('measuredKeepRuns', measuredKeepRuns)}
-${embedFunction('backgroundPaints', backgroundPaints)}
-${embedFunction('shadowParts', shadowParts)}
-${embedFunction('parseBoxShadows', parseBoxShadows)}
-${embedFunction('decorationEdges', decorationEdges)}
-${embedFunction('applyBoxDecorations', applyBoxDecorations)}
+${embeddedComposerMeasureFunctions()}
 ${embedFunction('noteFragmentExtent', noteFragmentExtent)}
 ${embedFunction('noteSettlementOverlapsBody', noteSettlementOverlapsBody)}
 ${embedFunction('noteStackTops', noteStackTops)}
-${embedFunction('forcedPageBreak', forcedPageBreak)}
-${embedFunction('composerLayoutReady', composerLayoutReady)}
-${embedFunction('sizeFlowGalley', sizeFlowGalley)}
-${embedFunction('tableRowLines', tableRowLines)}
-${embedFunction('measureLineBoxes', measureLineBoxes)}
-${embedFunction('measurementRefusal', measurementRefusal)}
 ${embedFunction('fillFurniture', fillFurniture)}
 ${embedFunction('regionBox', regionBox)}
 ${embedFunction('placeParentRegions', placeParentRegions)}

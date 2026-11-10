@@ -59,31 +59,40 @@ interface PagePaint {
   rightSideRows: number
 }
 
-function pagePaint(file: string): PagePaint {
-  const { width, height, pixels } = readPgm(file)
-  const at = (x: number, y: number) => pixels[y * width + x] ?? 255
-  let boxLeft = width
-  let boxRight = -1
-  let widest = 0
+function graySpan(width: number, height: number, at: (x: number, y: number) => number): { left: number; right: number } | undefined {
+  let found: { left: number; right: number; width: number } | undefined
   for (let y = 0; y < height; y += 1) {
     let left = width
     let right = -1
-    let gray = 0
+    let count = 0
     for (let x = 0; x < width; x += 1) {
       const value = at(x, y)
-      if (value >= 180 && value <= 225) {
-        gray += 1
-        left = Math.min(left, x)
-        right = Math.max(right, x)
-      }
+      if (value < 180 || value > 225) continue
+      count += 1
+      left = Math.min(left, x)
+      right = Math.max(right, x)
     }
-    if (gray > widest) {
-      widest = gray
-      boxLeft = left
-      boxRight = right
-    }
+    if (!found || count > found.width) found = { left, right, width: count }
   }
-  if (boxRight < boxLeft) return { bands: [], firstGray: undefined, lastGray: undefined, leftSideRows: 0, rightSideRows: 0 }
+  return found && found.right >= found.left ? found : undefined
+}
+
+function contiguousBands(rows: readonly number[]): Array<{ start: number; end: number }> {
+  const bands: Array<{ start: number; end: number }> = []
+  for (const row of rows) {
+    const band = bands.at(-1)
+    if (band && row === band.end + 1) band.end = row
+    else bands.push({ start: row, end: row })
+  }
+  return bands
+}
+
+function pagePaint(file: string): PagePaint {
+  const { width, height, pixels } = readPgm(file)
+  const at = (x: number, y: number) => pixels[y * width + x] ?? 255
+  const box = graySpan(width, height, at)
+  if (!box) return { bands: [], firstGray: undefined, lastGray: undefined, leftSideRows: 0, rightSideRows: 0 }
+  const { left: boxLeft, right: boxRight } = box
   const span = boxRight - boxLeft + 1
   const borderRows: number[] = []
   const grayRows: number[] = []
@@ -98,27 +107,25 @@ function pagePaint(file: string): PagePaint {
     if (dark / span > 0.9) borderRows.push(y)
     if (gray / span > 0.5) grayRows.push(y)
   }
-  const bands: Array<{ start: number; end: number }> = []
-  for (const row of borderRows) {
-    const band = bands.at(-1)
-    if (band && row === band.end + 1) band.end = row
-    else bands.push({ start: row, end: row })
+  const bands = contiguousBands(borderRows)
+  const darkRowsAt = (x: number) => {
+    let rows = 0
+    for (let y = 0; y < height; y += 1) if (at(x, y) < 80) rows += 1
+    return rows
   }
-  let leftSideRows = 0
-  let rightSideRows = 0
-  for (let y = 0; y < height; y += 1) {
-    if (at(boxLeft, y) < 80) leftSideRows += 1
-    if (at(boxRight, y) < 80) rightSideRows += 1
-  }
+  const leftSideRows = Math.max(...Array.from({ length: 13 }, (_, offset) => darkRowsAt(boxLeft - offset)))
+  const rightSideRows = Math.max(...Array.from({ length: 13 }, (_, offset) => darkRowsAt(boxRight + offset)))
   return { bands, firstGray: grayRows[0], lastGray: grayRows.at(-1), leftSideRows, rightSideRows }
 }
 
-function hasTop(paint: PagePaint): boolean {
-  return paint.firstGray !== undefined && paint.bands.some((band) => band.end < paint.firstGray! && band.end - band.start >= 5)
+function hasTop(paint: PagePaint | undefined): boolean {
+  if (!paint || paint.firstGray === undefined) return false
+  return paint.bands.some((band) => band.end < paint.firstGray && band.end - band.start >= 5)
 }
 
-function hasBottom(paint: PagePaint): boolean {
-  return paint.lastGray !== undefined && paint.bands.some((band) => band.start > paint.lastGray! && band.end - band.start >= 5)
+function hasBottom(paint: PagePaint | undefined): boolean {
+  if (!paint || paint.lastGray === undefined) return false
+  return paint.bands.some((band) => band.start > paint.lastGray && band.end - band.start >= 5)
 }
 
 function detail(pages: PagePaint[]): string {
@@ -142,30 +149,34 @@ async function render(renderer: Renderer, work: string, stem: string, input: Doc
 
 export async function verifyFlowDecorationRender(renderer: Renderer, work: string, check: Check): Promise<void> {
   const first = await render(renderer, work, 'decoration-first', printed(`<p style="${BOX}">${LINES}</p>${PLAIN}`), 'page')
-  check('a first flowing block keeps its top border and padding', hasTop(first[0]!), detail(first))
+  check('a first flowing block keeps its top border and padding', hasTop(first[0]), detail(first))
 
   const last = await render(renderer, work, 'decoration-last', printed(`${PLAIN}<p style="${BOX}">${LINES}</p>`), 'page')
-  check('a last flowing block keeps its bottom border and padding', hasBottom(last.at(-1)!), detail(last))
+  check('a last flowing block keeps its bottom border and padding', hasBottom(last.at(-1)), detail(last))
 
   const chapter = await render(renderer, work, 'decoration-book', book(`<p style="${BOX}">${LINES}</p>${PLAIN}`), 'book')
-  check('a paginated chapter keeps its first box top border and padding', hasTop(chapter[0]!), detail(chapter))
+  check('a paginated chapter keeps its first box top border and padding', hasTop(chapter[0]), detail(chapter))
 
   const before = await render(renderer, work, 'decoration-before', printed(`${PLAIN}<p style="break-before:page;${BOX}">${LINES}</p>`), 'page')
-  check('a break before a bordered box keeps the whole top band on the following page', before.length === 2 && hasTop(before[1]!) && !hasTop(before[0]!), detail(before))
+  check(
+    'a break before a bordered box keeps the whole top band on the following page',
+    before.length === 2 && hasTop(before[1]) && !hasTop(before[0]),
+    detail(before),
+  )
 
   const tallLines = Array.from({ length: 60 }, (_, index) => `Box line ${index + 1}`).join('<br>')
   const sliced = await render(renderer, work, 'decoration-sliced', printed(`<p style="${BOX}">${tallLines}</p>`), 'page')
   const slicedOk =
     sliced.length === 2 &&
-    hasTop(sliced[0]!) &&
-    !hasBottom(sliced[0]!) &&
-    !hasTop(sliced[1]!) &&
-    hasBottom(sliced[1]!) &&
+    hasTop(sliced[0]) &&
+    !hasBottom(sliced[0]) &&
+    !hasTop(sliced[1]) &&
+    hasBottom(sliced[1]) &&
     sliced.every((page) => page.leftSideRows > 20 && page.rightSideRows > 20)
   check('a box split between pages is sliced with side borders on both pages', slicedOk, detail(sliced))
 
   const nested = await render(renderer, work, 'decoration-nested', printed(`<section><aside style="${BOX}">${LINES}</aside></section>`), 'page')
-  check('a nested bordered aside keeps both border bands', hasTop(nested[0]!) && hasBottom(nested[0]!), detail(nested))
+  check('a nested bordered aside keeps both border bands', hasTop(nested[0]) && hasBottom(nested[0]), detail(nested))
 
   const table = await render(
     renderer,
@@ -174,5 +185,5 @@ export async function verifyFlowDecorationRender(renderer: Renderer, work: strin
     printed(`<table style="${BOX};border-collapse:separate;width:100%"><tbody><tr><td>${LINES}</td></tr></tbody></table>`),
     'page',
   )
-  check('a first flowing table keeps its own top border band', hasTop(table[0]!), detail(table))
+  check('a first flowing table keeps its own top border band', hasTop(table[0]), detail(table))
 }
