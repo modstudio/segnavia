@@ -16,7 +16,9 @@ export interface VariablePageFacts {
 
 export function textVariableValue(variable: Extract<Variable, { kind: 'text' }>, facts: VariablePageFacts): string {
   if (variable.from === 'section-title') return facts.sectionTitle ?? ''
-  if (variable.from === 'part-title') return facts.partTitles?.[variable.part] ?? ''
+  if (variable.from === 'part-title') {
+    return facts.partTitles !== undefined && Object.hasOwn(facts.partTitles, variable.part) ? (facts.partTitles[variable.part] ?? '') : ''
+  }
   return ''
 }
 

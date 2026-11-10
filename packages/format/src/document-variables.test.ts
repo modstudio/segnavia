@@ -1,7 +1,9 @@
 import { expect, test } from 'bun:test'
+import { z } from 'zod'
 import { Book } from './book.ts'
 import { Document } from './document.ts'
 import { bookFromDocument } from './document-lowering.ts'
+import { VariableNode } from './document-nodes-book.ts'
 
 test('parses typed variables and refuses invalid names and references with remedies', () => {
   const base = {
@@ -121,6 +123,14 @@ test('part-title variables name an existing document part', () => {
   expect(() => Document.parse({ ...base, variables: [{ type: 'variable', name: 'part', kind: 'text', from: 'content', part: 'gate' }] })).toThrow(
     /Invalid input/,
   )
+})
+
+test('content variable node schema excludes part (mutation: shared optional part field)', () => {
+  const schema = z.toJSONSchema(VariableNode, { io: 'input' }) as {
+    oneOf?: Array<{ oneOf?: Array<{ properties?: Record<string, unknown> }> }>
+  }
+  const content = schema.oneOf?.[0]?.oneOf?.find((arm) => (arm.properties?.from as { const?: string } | undefined)?.const === 'content')
+  expect(content?.properties?.part).toEqual({ not: {} })
 })
 
 test('a document-lowered book stores authored definitions and re-parses after JSON', () => {

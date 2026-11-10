@@ -87,7 +87,7 @@ export function partTitleValues(variables: readonly Variable[], parts: Record<st
   for (index = 0; index < variables.length; index += 1) {
     variable = variables[index]
     if (variable === undefined || variable.kind !== 'text' || variable.from !== 'part-title') continue
-    value = parts[variable.part]
+    value = Object.prototype.hasOwnProperty.call(parts, variable.part) ? parts[variable.part] : undefined
     values.push({ name: variable.name, value: value === undefined ? '' : value, line: 0, scope: 'flow' })
   }
   return values

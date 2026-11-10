@@ -7,7 +7,7 @@ import { HeadTemplate } from './head-template.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries } from './note-series.ts'
 import { parentRules } from './parent-rules.ts'
-import { NumberVariable, RecordVariable, TextVariable, TextVariableBase, TextVariableFrom } from './variable.ts'
+import { ContentTextVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
 
 export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTemplate'), id: z.string().optional() })
 
@@ -50,14 +50,11 @@ export const NoteSeriesNode = NoteSeries.extend({ type: z.literal('noteSeries'),
 
 const VariableNodeFields = { type: z.literal('variable'), id: z.string().optional() }
 
-const TextVariableNode = z
-  .object({ ...TextVariableBase, from: TextVariableFrom, part: z.string().min(1).optional(), ...VariableNodeFields })
-  .superRefine((node, ctx) => {
-    const { type: _type, id: _id, ...variable } = node
-    const parsed = TextVariable.safeParse(variable)
-    if (parsed.success) return
-    for (const issue of parsed.error.issues) ctx.addIssue({ code: 'custom', path: issue.path, message: issue.message })
-  })
+const TextVariableNode = z.discriminatedUnion('from', [
+  ContentTextVariable.extend(VariableNodeFields),
+  SectionTitleTextVariable.extend(VariableNodeFields),
+  PartTitleTextVariable.extend(VariableNodeFields),
+])
 
 export const VariableNode = z.discriminatedUnion('kind', [
   TextVariableNode,
