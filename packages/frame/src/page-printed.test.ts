@@ -291,4 +291,23 @@ describe('printed pages in SegnaviaPage', () => {
     page.onMessage(failure)
     expect(errors.map((event) => event.message)).toEqual(['parent geometry was refused'])
   })
+
+  test('reports compose progress only for the current composition generation', () => {
+    const frame = pageFrame()
+    const reports: unknown[] = []
+    const page = new SegnaviaPage() as unknown as {
+      loadGeneration: number
+      composedFrame: { frame: ReturnType<typeof pageFrame>; generation: number }
+      onMessage(event: MessageEvent): void
+      addEventListener(type: string, listener: (event: Event) => void): void
+    }
+    Object.assign(page, { loadGeneration: 2, composedFrame: { frame, generation: 1 }, querySelector: () => frame })
+    page.addEventListener('composeprogress', (event) => reports.push((event as CustomEvent).detail))
+    const progress = { source: frame.contentWindow, data: { type: MESSAGE.composeProgress, pages: 2, total: 5 } } as MessageEvent
+    page.onMessage(progress)
+    expect(reports).toEqual([])
+    page.composedFrame.generation = 2
+    page.onMessage(progress)
+    expect(reports).toEqual([{ pages: 2, total: 5 }])
+  })
 })

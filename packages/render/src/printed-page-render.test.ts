@@ -55,3 +55,11 @@ test('embeds resolved app font CSS and carries failures in a printed-page frame'
   expect(html).toContain('"fontLoads":[{"font":"body"')
   expect(html).toContain('initialFontFailures=[{"font":"body","family":"body","reason":"unsupplied"}]')
 })
+
+test('installs the compose-progress binding only when a reporter is present', () => {
+  const withoutProgress = renderedPageDocument(composed, {})
+  const withProgress = renderedPageDocument(composed, { progress: { report: () => {} } })
+  expect(withoutProgress).not.toContain('__segnaviaComposeProgress')
+  expect(withProgress).toContain('__segnaviaComposeProgress')
+  expect(withProgress).toContain('data-segnavia-compose-progress')
+})

@@ -5,7 +5,7 @@ import { bookFrame } from './book-frame.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { BookSourcesElement } from './book-sources.ts'
-import { dispatchFontFailures, dispatchPreflight, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
+import { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 import { upgradeProperties } from './element-properties.ts'
 export class SegnaviaBook extends BookSourcesElement {
@@ -357,6 +357,10 @@ export class SegnaviaBook extends BookSourcesElement {
     if (!message) return
     const layout = frame.dataset.segnaviaBookLayout as BookLayout | undefined
     if (bookElement.handleBookFontFailures(this, message, frame.dataset.segnaviaBookGeneration, String(this.loadGeneration))) return
+    if (message.type === MESSAGE.composeProgress) {
+      if (layout === 'pages' && frame.dataset.segnaviaBookGeneration === String(this.loadGeneration)) dispatchComposeProgress(this, message)
+      return
+    }
     if (this.dispatchCurrentPreflight(message, frame, layout)) return
     if (message.type === MESSAGE.composeFailure && frame.dataset.segnaviaBookGeneration !== String(this.loadGeneration)) return
     const failureState: bookElement.BookComposeFailureState = {

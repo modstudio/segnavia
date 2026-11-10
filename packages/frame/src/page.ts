@@ -15,7 +15,7 @@ import {
 import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
 import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -372,6 +372,10 @@ export class SegnaviaPage extends PageAsOfElement {
     const message = messageFrom(event, frame, resolvePreflightProfile(this.profileInput))
     const currentFrame = { frame, generation: this.loadGeneration }
     dispatchFontFailures(this, message)
+    if (message?.type === MESSAGE.composeProgress) {
+      if (samePageFrame(currentFrame, this.composedFrame) || samePageFrame(currentFrame, this.slotFrame)) dispatchComposeProgress(this, message)
+      return
+    }
     if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
       this.frameReady = true
       releaseReadyPageRequests(this.pageRequests)

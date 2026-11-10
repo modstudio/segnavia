@@ -17,6 +17,7 @@ import { composerPageGeometries, composerPageRules } from './book-page-geometrie
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
+import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { declaredFontLoads } from './font-load.ts'
 
@@ -32,6 +33,8 @@ export interface PaginatedDocumentOptions {
   breaks?: string[]
   profile?: PreflightProfile
   preflightSeed?: PreflightEntry[]
+  progress?: boolean
+  progressCallback?: string
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
@@ -85,6 +88,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     fontLoads: declaredFontLoads(fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
+    progress: options.progress !== false,
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
   }
@@ -102,6 +106,8 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     reportHeight: false,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
+    progressAttribute: options.progress === false ? undefined : COMPOSE_PROGRESS_ATTRIBUTE,
+    progressCallback: options.progressCallback,
     bridgeForHost: true,
     printBackground: options.printBackground,
   })

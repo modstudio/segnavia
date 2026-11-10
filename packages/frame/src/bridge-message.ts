@@ -1,4 +1,4 @@
-import { boundPreflightReport, type FontFailure, type PreflightProfile, type PreflightReport } from '@segnavia/format'
+import { boundComposeProgress, boundPreflightReport, type FontFailure, type PreflightProfile, type PreflightReport } from '@segnavia/format'
 import { boundedFontReportMessage } from './font-load.ts'
 
 export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
@@ -13,6 +13,14 @@ export interface FrameMessage {
   slots?: Record<string, SlotFitState>
   failures?: FontFailure[]
   report?: PreflightReport
+  pages?: number
+  total?: number
+}
+
+export function dispatchComposeProgress(target: EventTarget, message: FrameMessage | null): boolean {
+  if (message?.pages === undefined || message.total === undefined) return false
+  target.dispatchEvent(new CustomEvent('composeprogress', { detail: { pages: message.pages, total: message.total }, bubbles: true, composed: true }))
+  return true
 }
 
 export function dispatchFontFailures(target: EventTarget, message: FrameMessage | null): void {
@@ -39,6 +47,7 @@ interface MessageTypes {
   key: string
   bookPlace: string
   composeFailure: string
+  composeProgress: string
   fontFailures: string
   preflight: string
   height: string
@@ -74,6 +83,10 @@ export function messageFromFrames(
   if (place) return place
   const preflight = preflightMessage(data as Record<string, unknown>, types.preflight, preflightProfile)
   if (preflight) return preflight
+  if (data.type === types.composeProgress) {
+    const progress = boundComposeProgress(data)
+    if (progress) return { type: types.composeProgress, ...progress }
+  }
   const bounded = boundedFontReportMessage(data, types, composeFailureLimit)
   if (bounded) return bounded
   if (data.type === types.height && typeof data.height === 'number' && Number.isFinite(data.height)) return { type: types.height, height: data.height }

@@ -41,6 +41,7 @@ export async function renderPagePdf(
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
+      progressReport: opts.progress?.report,
       ...assetSetup(opts),
       ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
     },

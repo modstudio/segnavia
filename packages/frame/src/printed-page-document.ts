@@ -33,6 +33,7 @@ import {
 } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
+import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { declaredFontLoads } from './font-load.ts'
@@ -81,6 +82,8 @@ export function printedPageValueDocument(
     origins?: Iterable<OriginApproval>
     profile?: import('@segnavia/format').PreflightProfile
     preflightSeed?: import('@segnavia/format').PreflightEntry[]
+    progress?: boolean
+    progressCallback?: string
   },
 ): string {
   const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
@@ -139,6 +142,7 @@ export function printedPageValueDocument(
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: options.screen } : {}),
+    progress: options.progress !== false,
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const sections = page.printedPages.sections
@@ -166,6 +170,8 @@ export function printedPageValueDocument(
     reportHeight: options.measure === true,
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
+    progressAttribute: options.progress === false ? undefined : COMPOSE_PROGRESS_ATTRIBUTE,
+    progressCallback: options.progressCallback,
     bridgeForHost: true,
     printBackground: options.printBackground,
     readyCallback: options.readyCallback,

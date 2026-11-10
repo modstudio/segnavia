@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { PREFLIGHT_PRESETS } from '@segnavia/format'
 import { bridgeForHost, COMPOSE_FAILURE_TEXT_LIMIT, MESSAGE, messageFrom } from './bridge.ts'
 
-function compositionBridge(failureAttribute?: string, reportHeight = false) {
+function compositionBridge(failureAttribute?: string, reportHeight = false, progressAttribute?: string) {
   const attributes = new Map<string, string>()
   const messages: unknown[] = []
   let height = 0
@@ -49,7 +49,7 @@ function compositionBridge(failureAttribute?: string, reportHeight = false) {
     'MutationObserver',
     'ResizeObserver',
     'setTimeout',
-    bridgeForHost({ reportHeight, readyAfterAttribute: 'data-done', failureAttribute }),
+    bridgeForHost({ reportHeight, readyAfterAttribute: 'data-done', failureAttribute, progressAttribute }),
   )(document, { postMessage: (message: unknown) => messages.push(message) }, window, MutationObserver, window.ResizeObserver, (callback: () => void) =>
     timers.push(callback),
   )
@@ -115,6 +115,36 @@ describe('composed frame bridge', () => {
     expect(messageFrom(event({ type: MESSAGE.composeFailure, text: '' }), frame)).toBeNull()
     expect(messageFrom(event({ type: MESSAGE.composeFailure, text: 1 }), frame)).toBeNull()
     expect(messageFrom(event({ type: MESSAGE.composeFailure, text: 'refused' }, {} as Window), frame)).toBeNull()
+  })
+
+  test('relays bounded progress changes while composition is pending', () => {
+    const bridge = compositionBridge(undefined, false, 'data-progress')
+    bridge.attributes.set('data-progress', '2/5')
+    bridge.changed()
+    expect(bridge.messages.at(-1)).toEqual({ type: MESSAGE.composeProgress, pages: 2, total: 5 })
+    bridge.attributes.set('data-progress', '6/5')
+    bridge.changed()
+    expect(bridge.messages.at(-1)).toEqual({ type: MESSAGE.composeProgress, pages: 2, total: 5 })
+  })
+
+  test('re-bounds compose progress from the frame source', () => {
+    const source = {} as Window
+    const frame = { contentWindow: source } as HTMLIFrameElement
+    const event = (data: unknown) => ({ source, data }) as MessageEvent
+    expect(messageFrom(event({ type: MESSAGE.composeProgress, pages: 3, total: 5 }), frame)).toEqual({
+      type: MESSAGE.composeProgress,
+      pages: 3,
+      total: 5,
+    })
+    for (const progress of [
+      { pages: -1, total: 5 },
+      { pages: 1.5, total: 5 },
+      { pages: 10_001, total: 10_001 },
+      { pages: 6, total: 5 },
+      { pages: '3', total: 5 },
+    ]) {
+      expect(messageFrom(event({ type: MESSAGE.composeProgress, ...progress }), frame)).toBeNull()
+    }
   })
 
   test('accepts and re-bounds preflight only from the frame source', () => {

@@ -38,6 +38,7 @@ import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
 import { awaitPreflightReport } from './preflight.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
+import { RENDER_PROGRESS_BINDING } from './progress.ts'
 import type { BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { bookSlotFrames, filledBook } from './slot-fill.ts'
@@ -65,6 +66,7 @@ interface TabSetup {
   limits?: Limits
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
+  progressReport?: (progress: { pages: number; total: number }) => void
 }
 
 export interface BrowserBookDependencies {
@@ -122,6 +124,8 @@ function bookSrcdoc(
     breaks?: string[]
     profile?: PreflightProfile
     preflightSeed?: PreflightEntry[]
+    progress?: boolean
+    progressCallback?: string
   },
 ): string {
   const nonce = newNonce()
@@ -137,6 +141,8 @@ function bookSrcdoc(
       breaks: options.breaks ?? options.plan?.breaks,
       profile: options.profile,
       preflightSeed: options.preflightSeed,
+      progress: options.progress,
+      progressCallback: options.progressCallback,
     })
   return frameDocument(withDiagramScript(html, nonce, diagramScript), {
     scripts: marginLayer ? 'refuse' : book.scripts,
@@ -169,6 +175,7 @@ function paginatedBookTabSetup(book: Book, html: string, slots: PreparedSlots, o
     readiness: renderReadiness('refuse', false, false),
     boundMs: options.boundMs,
     ...assetSetup(options),
+    progressReport: options.progress?.report,
   }
 }
 
@@ -220,6 +227,8 @@ async function printBook(
       breaks: renderOptions.breaks,
       profile: renderOptions.preflight?.profile,
       preflightSeed: renderOptions.preflight?.seed,
+      progress: renderOptions.progress !== undefined,
+      progressCallback: renderOptions.progress ? RENDER_PROGRESS_BINDING : undefined,
     }),
   )
   const setup: TabSetup = paginated
@@ -321,6 +330,8 @@ export async function renderBrowserBookPlan(
       origins: options.origins,
       limits: options.limits,
       breaks: options.breaks,
+      progress: options.progress !== undefined,
+      progressCallback: options.progress ? RENDER_PROGRESS_BINDING : undefined,
     }),
   )
   return withTab(

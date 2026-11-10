@@ -9,6 +9,7 @@ import type { ComposedRenderOptions } from './options.ts'
 import { renderPageValueDocument } from './page-document.ts'
 import { awaitPreflightReport, type ComposedPreflight } from './preflight.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
+import { RENDER_PROGRESS_BINDING } from './progress.ts'
 
 export function renderedPageDocument(
   page: HtmlPage | PrintedHtmlPage,
@@ -33,6 +34,8 @@ export function renderedPageDocument(
       origins: options.origins,
       profile: options.preflight?.profile,
       preflightSeed: options.preflight?.seed,
+      progress: options.progress !== undefined,
+      progressCallback: options.progress ? RENDER_PROGRESS_BINDING : undefined,
     })
   } catch (error) {
     if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)

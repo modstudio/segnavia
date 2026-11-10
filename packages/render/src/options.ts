@@ -84,6 +84,7 @@ export interface RenderOptions {
   fontSource?: FontSource
   brandSource?: BrandSource
   fontLoad?: { report?: (report: { failures: FontFailure[] }) => void }
+  progress?: { report: (progress: { pages: number; total: number }) => void }
   localFonts?: LocalFontsOptions
   limits?: Limits
   boundMs?: number
