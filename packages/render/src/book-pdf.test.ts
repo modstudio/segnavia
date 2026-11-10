@@ -70,20 +70,11 @@ test('resolves a named enclosing part title only inside that part', () => {
 test('resolves metadata variables in the continuous margin plan', () => {
   const sections = [{ id: 'chapter', kind: 'chapter' as const, division: 'body' as const, title: 'One' }]
   const destinations = new Map([['chapter', { page: 1, x: 0, y: 0 }]])
-  const facts = marginFactsFor(
-    sections,
-    destinations,
-    2,
-    new Set(),
-    'arabic',
-    [{ name: 'title', kind: 'meta', field: 'title' }],
-    undefined,
-    { lang: 'he', metadata: { title: 'ספר' } },
-  )
-  expect(facts.map(({ variables }) => variables)).toEqual([
-    expect.objectContaining({ title: 'ספר' }),
-    expect.objectContaining({ title: 'ספר' }),
-  ])
+  const facts = marginFactsFor(sections, destinations, 2, new Set(), 'arabic', [{ name: 'title', kind: 'meta', field: 'title' }], undefined, {
+    lang: 'he',
+    metadata: { title: 'ספר' },
+  })
+  expect(facts.map(({ variables }) => variables)).toEqual([expect.objectContaining({ title: 'ספר' }), expect.objectContaining({ title: 'ספר' })])
 })
 
 test('maps asymmetric book margins to physical right and left pages independent of text direction', () => {
