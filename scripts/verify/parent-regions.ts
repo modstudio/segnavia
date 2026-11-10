@@ -83,7 +83,7 @@ function pageWords(file: string) {
   }))
 }
 
-function hebrewHeadFixture(): DocumentInput {
+export function hebrewHeadFixture(): DocumentInput {
   const left = 'hebrew-head-left'
   const right = 'hebrew-head-right'
   const head = { edge: 'blockStart' as const, html: '<div class="segnavia-running-head">כותרת</div>' }
@@ -91,7 +91,7 @@ function hebrewHeadFixture(): DocumentInput {
     type: 'document',
     kind: 'book',
     title: 'כותרת חיצונית',
-    mode: 'paginated',
+    mode: 'continuous',
     settings: { lang: 'he', dir: 'rtl' },
     page: { paper: 'a5', margin },
     parentPages: [
@@ -99,7 +99,14 @@ function hebrewHeadFixture(): DocumentInput {
       { type: 'parentPage', name: right, basedOn: 'segnavia:recto', regions: { head } },
     ],
     parentRules: [{ when: { face: 'verso' }, parent: left }, { parent: right }],
-    children: [{ type: 'section', title: 'ראשון', children: [{ type: 'flow', html: `<p>${'מילים בעמוד '.repeat(900)}</p>` }] }],
+    children: [
+      {
+        type: 'section',
+        title: 'ראשון',
+        parentRules: [{ when: { face: 'verso' }, parent: left }, { parent: right }],
+        children: [{ type: 'flow', html: `<p>${'מילים בעמוד '.repeat(900)}</p>` }],
+      },
+    ],
   }
 }
 
@@ -160,7 +167,7 @@ export async function verifyParentRegions(renderer: Renderer, work: string, chec
   writeFileSync(hebrewHeadFile, hebrewHeadBytes)
   const hebrewHeadPages = pageWords(hebrewHeadFile)
   const hebrewHeads = hebrewHeadPages.flatMap((page, index) =>
-    page.words.filter((word) => word.text === 'כותרת' || word.text === 'תרתוכ').map((word) => ({ page: index, x: word.x, xMax: word.xMax, width: page.width })),
+    page.words.filter((word) => /[כך]/.test(word.text)).map((word) => ({ page: index, x: word.x, xMax: word.xMax, width: page.width })),
   )
   const physicallyOuter = hebrewHeads.every((head) => (head.page % 2 === 0 ? head.x < head.width - head.xMax : head.width - head.xMax < head.x))
   check(

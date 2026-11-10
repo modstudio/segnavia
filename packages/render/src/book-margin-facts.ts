@@ -100,6 +100,7 @@ export function marginFactsFor(
       blank: false,
       sectionOpening: owner?.page === page,
       folio,
+      parentRules: owner?.section.parentRules,
       variables: variablesFor(owner, index, folio),
       recordSlots: owner?.section.values ?? {},
     }
