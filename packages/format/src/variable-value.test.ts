@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { variableValue } from './variable-value.ts'
+import { hebrewDatePartValue, variableValue } from './variable-value.ts'
 
 const facts = (lang: string) => ({ numberingTotal: '', documentTotal: '', document: { lang, metadata: {} } })
 
@@ -18,6 +18,25 @@ describe('date variables', () => {
   test('keeps Intl digits for a Hebrew-calendar date in an English document', () => {
     expect(variableValue({ name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }, facts('en'))).toMatch(/14 Adar II 5784/)
   })
+
+  test('keeps Hebrew-letter day and year parts supplied by Intl', () => {
+    expect(hebrewDatePartValue({ type: 'day', value: 'י״ד' })).toBe('י״ד')
+    expect(hebrewDatePartValue({ type: 'year', value: 'תשפ״ד' })).toBe('תשפ״ד')
+  })
+
+  test('formats Bun-style Hebrew years above 9999 and at an exact thousand', () => {
+    expect(hebrewDatePartValue({ type: 'year', value: '10760' })).toBe('תש״ס')
+    expect(hebrewDatePartValue({ type: 'year', value: '6000' })).toBe('ו׳')
+  })
+})
+
+test('part-title variables ignore inherited names', () => {
+  expect(
+    variableValue(
+      { name: 'part', kind: 'text', from: 'part-title', part: 'constructor', pick: 'first' },
+      { numberingTotal: '', documentTotal: '', partTitles: {} },
+    ),
+  ).toBe('')
 })
 
 describe('meta variables', () => {

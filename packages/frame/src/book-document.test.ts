@@ -88,6 +88,15 @@ describe('bookDocument', () => {
     expect(html).toContain('"name":"topic-head"')
   })
 
+  test('carries document facts for document-reading variables and omits them otherwise', () => {
+    const dateBook = parseBookFixture({
+      ...book,
+      variables: [{ name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }],
+    })
+    expect(bookDocument(dateBook, { nonce: 'held' })).toContain('"document":{"lang":"he","metadata":{"title":"Book"}}')
+    expect(bookDocument(book, { nonce: 'held' })).not.toContain('"document":')
+  })
+
   test('carries saved plans and breaks in config without closing the composer script', () => {
     const plan = {
       version: 5 as const,

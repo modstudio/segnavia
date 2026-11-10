@@ -164,6 +164,17 @@ describe('printedPageDocument', () => {
     expect(html).toContain('@media print{:where([data-segnavia-galley-source]){display:none!important}}')
   })
 
+  test('carries the page language as document facts for a date variable', () => {
+    const dated = Page.parse({
+      ...page,
+      printedPages: {
+        ...page.printedPages,
+        variables: [{ name: 'date', kind: 'date', date: '2024-03-24', calendar: 'hebrew', format: 'long' }],
+      },
+    })
+    expect(printedPageValueDocument(resolvePrintedPageHtml(dated), { nonce: 'held' })).toContain('"document":{"lang":"he"}')
+  })
+
   test('adds a one-column screen presentation without a book place reporter', () => {
     const html = printedPageDocument(page, { nonce: 'held', screen: { spread: false } })
 

@@ -33,6 +33,7 @@ import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
 import { Variables } from './variable.ts'
+import { bookVariableDocumentFacts, VariableDocumentFacts, variableReadsDocumentFacts } from './variable-document-facts.ts'
 
 export { bookPageGeometries, bookPageName, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export {
@@ -156,17 +157,7 @@ export const BookViewPagination = z
     variables: Variables,
     headTemplates: HeadTemplates,
     recordSlotsByFlow: z.record(z.string(), z.record(z.string(), z.string())).optional(),
-    document: z
-      .object({
-        lang: z.string().optional(),
-        metadata: z.object({
-          title: z.string().optional(),
-          subject: z.string().optional(),
-          authors: z.array(z.string()).optional(),
-          extra: z.record(z.string(), z.string()).optional(),
-        }),
-      })
-      .optional(),
+    document: VariableDocumentFacts.optional(),
   })
   .superRefine((pagination, ctx) =>
     refineDocumentVariables(
@@ -176,6 +167,7 @@ export const BookViewPagination = z
         parentPages: pagination.parents,
         recordSlotNames: Object.values(pagination.recordSlotsByFlow ?? {}).flatMap((slots) => Object.keys(slots)),
         metadata: pagination.document?.metadata,
+        lang: pagination.document?.lang,
       },
       ctx,
     ),
@@ -321,6 +313,8 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
       partNames: declaredPartNames([...book.frontMatter, ...book.body, ...book.endMatter]),
       recordSlotNames: bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? Object.keys(entry.values) : [])),
       metadata: { extra: book.extra },
+      kind: 'book',
+      lang: book.lang,
     },
     ctx,
   )
@@ -382,8 +376,6 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     variables: book.variables,
     headTemplates: book.headTemplates,
     recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),
-    ...(book.variables.some((variable) => variable.kind === 'date' || variable.kind === 'meta')
-      ? { document: { lang: book.lang, metadata: { title: book.title, subject: book.subject, authors: book.authors, extra: book.extra } } }
-      : {}),
+    ...(book.variables.some(variableReadsDocumentFacts) ? { document: bookVariableDocumentFacts(book) } : {}),
   }
 }

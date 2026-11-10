@@ -19,6 +19,7 @@ import {
   resolveParentPages,
   sheetMm,
   textArea,
+  variableReadsDocumentFacts,
   withLibraryEntries,
 } from '@segnavia/format'
 import {
@@ -120,7 +121,7 @@ export function printedPageValueDocument(
     rectoOpenings: false,
     endnotePlacement: 'chapter',
     variables: withLibraryEntries(LIBRARY_VARIABLES, page.printedPages.variables),
-    ...(page.printedPages.variables.some((variable) => variable.kind === 'date') ? { document: { lang: page.lang, metadata: {} } } : {}),
+    ...(page.printedPages.variables?.some(variableReadsDocumentFacts) ? { document: { lang: page.lang } } : {}),
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, page.printedPages.headTemplates),
     recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.values ?? {}])),
     pageMarker: 'data-segnavia-printed-page',

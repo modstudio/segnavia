@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { CalendarDate } from './as-of.ts'
 import { refineLibraryNames } from './library-names.ts'
 
 export const TextVariableBase = {
@@ -23,21 +24,11 @@ export const RecordVariable = z.object({
   value: z.enum(['index', 'count']),
   system: z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew']).optional(),
 })
-const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 export const DateVariable = z.object({
   name: z.string().min(1),
   kind: z.literal('date'),
   date: z.string().superRefine((date, ctx) => {
-    const match = ISO_DATE.exec(date)
-    const parsed = match ? new Date(`${date}T00:00:00Z`) : undefined
-    if (
-      !match ||
-      !parsed ||
-      Number.isNaN(parsed.valueOf()) ||
-      parsed.getUTCFullYear() !== Number(match[1]) ||
-      parsed.getUTCMonth() + 1 !== Number(match[2]) ||
-      parsed.getUTCDate() !== Number(match[3])
-    )
+    if (!CalendarDate.safeParse(date).success)
       ctx.addIssue({ code: 'custom', message: `date ${JSON.stringify(date)} is not a real ISO YYYY-MM-DD date; provide a real date to clear this refusal` })
   }),
   calendar: z.enum(['gregorian', 'hebrew'], { error: 'unknown date calendar; use gregorian or hebrew to clear this refusal' }),

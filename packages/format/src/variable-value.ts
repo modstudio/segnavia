@@ -1,10 +1,6 @@
 import { formatHebrewNumeral, formatNumber, isHebrew } from './numbering.ts'
 import type { Variable } from './variable.ts'
-
-export interface VariableDocumentFacts {
-  lang?: string
-  metadata?: { title?: string; subject?: string; authors?: string[]; extra?: Record<string, string> }
-}
+import { STANDARD_META_FIELD_READERS, type StandardMetaField, type VariableDocumentFacts } from './variable-document-facts.ts'
 
 export interface VariablePageFacts {
   folio?: string | null
@@ -40,19 +36,21 @@ export function dateVariableValue(variable: Extract<Variable, { kind: 'date' }>,
   return formatter
     .formatToParts(date)
     .map((part) => {
-      if (part.type !== 'day' && part.type !== 'year') return part.value
-      const value = Number(part.value.replace(/[^0-9]/g, ''))
-      return formatHebrewNumeral(value, part.type === 'year')
+      return hebrewDatePartValue(part)
     })
     .join('')
+}
+
+export function hebrewDatePartValue(part: { type: string; value: string }): string {
+  if ((part.type !== 'day' && part.type !== 'year') || !/^[0-9]+$/.test(part.value)) return part.value
+  return formatHebrewNumeral(Number(part.value), part.type === 'year')
 }
 
 export function metaVariableValue(variable: Extract<Variable, { kind: 'meta' }>, document: VariableDocumentFacts | undefined): string {
   const metadata = document?.metadata
   if (!metadata) return ''
-  if (variable.field === 'authors') return new Intl.ListFormat(document?.lang, { style: 'long', type: 'conjunction' }).format(metadata.authors ?? [])
-  if (variable.field === 'title') return metadata.title ?? ''
-  if (variable.field === 'subject') return metadata.subject ?? ''
+  if (Object.hasOwn(STANDARD_META_FIELD_READERS, variable.field))
+    return STANDARD_META_FIELD_READERS[variable.field as StandardMetaField](metadata, document.lang)
   return metadata.extra?.[variable.field] ?? ''
 }
 

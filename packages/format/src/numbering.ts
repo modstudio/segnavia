@@ -118,10 +118,11 @@ function punctuatedHebrew(letters: string): string {
 
 export function formatHebrewNumeral(value: number, omitThousands = false): string {
   positiveInteger(value)
-  inRange(value, 9999, 'hebrew')
+  if (!omitThousands) inRange(value, 9999, 'hebrew')
   const thousands = Math.floor(value / 1000)
   const rest = value % 1000
   const heldThousands = omitThousands || thousands === 0 ? '' : `${hebrewBelowThousand(thousands)}׳`
+  if (omitThousands && rest === 0) return `${hebrewBelowThousand(thousands)}׳`
   return `${heldThousands}${rest === 0 ? '' : punctuatedHebrew(hebrewBelowThousand(rest))}`
 }
 
