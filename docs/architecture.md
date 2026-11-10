@@ -1911,7 +1911,9 @@ with `setMember`, and replace board grid cells with `setCells`. `rebaseOps`
 applies operations against their priors without a fingerprint gate and reports
 conflicts, while `invertOps` supplies undo,
 `inverseBatch` binds that inverse to the after-document fingerprint, and
-`diffDocuments` produces operations between two parsed documents.
+`diffDocuments` produces operations between two parsed documents. It emits
+a move only for a node whose parent or rank among its surviving siblings
+changes, so removing a node emits no moves for siblings that keep their order.
 `jsonSchemas()` publishes `documentOp` and `documentBatch`, so a host that does
 not run TypeScript can validate the batches it exchanges.
 `editDocument` in universal `html` compiles agent-facing commands addressed by
