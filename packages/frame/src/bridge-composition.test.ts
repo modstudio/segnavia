@@ -127,6 +127,16 @@ describe('composed frame bridge', () => {
     expect(bridge.messages.at(-1)).toEqual({ type: MESSAGE.composeProgress, pages: 2, total: 5 })
   })
 
+  test('catches removal of the unchanged-progress check by posting one report', () => {
+    const bridge = compositionBridge(undefined, false, 'data-progress')
+    bridge.attributes.set('data-progress', '2/5')
+    bridge.changed()
+    bridge.changed()
+    expect(bridge.messages.filter((message) => (message as { type?: string }).type === MESSAGE.composeProgress)).toEqual([
+      { type: MESSAGE.composeProgress, pages: 2, total: 5 },
+    ])
+  })
+
   test('re-bounds compose progress from the frame source', () => {
     const source = {} as Window
     const frame = { contentWindow: source } as HTMLIFrameElement

@@ -89,9 +89,9 @@ async function verifyLargeBookComposition(check: Harness['check'], stressPage: P
     const progressPages = progress.map((entry) => entry.pages)
     check(
       `book-large-${language} reports monotonic compose progress through its final page`,
-      progress.length > 1 &&
+      progress.length > 0 &&
         progress.every((entry) => entry.total === expectedPages) &&
-        progressPages.every((pages, index) => index === 0 || pages >= (progressPages[index - 1] ?? 0)) &&
+        progressPages.every((pages, index) => index === 0 || pages > (progressPages[index - 1] ?? 0)) &&
         progressPages.at(-1) === expectedPages,
       JSON.stringify({ expectedPages, progress }),
     )
