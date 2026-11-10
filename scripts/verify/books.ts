@@ -135,9 +135,9 @@ function checkMarkHeads(h: Harness, id: string, report: PaginatedReport) {
     JSON.stringify(pdfMarks),
   )
   check(
-    `${id} running heads take the first mark and carry onto a page with none`,
-    report.runningHead.fromMark && report.runningHead.carried,
-    report.runningHead.detail,
+    `${id} heads resolve the declared content variable and carry its value onto a page with none`,
+    report.variableHead.resolved && report.variableHead.carried,
+    report.variableHead.detail,
   )
 }
 async function checkParentMargins(h: Harness, frame: Awaited<ReturnType<typeof paginatedFrame>>, id: string) {

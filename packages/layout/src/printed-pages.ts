@@ -19,9 +19,10 @@ export interface BookPageFacts {
   sectionOpening: boolean
   sectionLast?: boolean
   folio?: string
-  runningHead?: string
   role?: BookPrintedPageRole | 'body'
   parentRules?: ParentRules
+  variables?: Record<string, string>
+  recordSlots?: Record<string, string>
 }
 
 export interface BookPrintedPagePlan extends Omit<BookPageFacts, 'blank' | 'sectionOpening' | 'parentRules'> {
@@ -89,7 +90,8 @@ export function planBookPages(facts: BookPageFacts[], direction: TextDirection):
       parent,
       ...physical,
       ...(fact.folio === undefined || role === 'blank' ? {} : { folio: fact.folio }),
-      ...(fact.runningHead === undefined || role === 'blank' || role === 'opener' ? {} : { runningHead: fact.runningHead }),
+      variables: fact.variables ?? {},
+      recordSlots: fact.recordSlots ?? {},
     }
   })
 }

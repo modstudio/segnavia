@@ -36,15 +36,17 @@ export type IdentifiedDocument<
     templates: DefinitionNode[]
     noteSeries: DefinitionNode[]
     variables: DefinitionNode[]
+    headTemplates: DefinitionNode[]
     conditions: DefinitionNode[]
   },
-> = Omit<T, 'id' | 'children' | 'parentPages' | 'templates' | 'noteSeries' | 'variables' | 'conditions'> & {
+> = Omit<T, 'id' | 'children' | 'parentPages' | 'templates' | 'noteSeries' | 'variables' | 'headTemplates' | 'conditions'> & {
   id: string
   children: IdentifiedNode[]
   parentPages: Array<T['parentPages'][number] & { id: string }>
   templates: Array<T['templates'][number] & { id: string }>
   noteSeries: Array<T['noteSeries'][number] & { id: string }>
   variables: Array<T['variables'][number] & { id: string }>
+  headTemplates: Array<T['headTemplates'][number] & { id: string }>
   conditions: Array<T['conditions'][number] & { id: string }>
 }
 
@@ -61,6 +63,7 @@ export function identifyDocument<
     templates: DefinitionNode[]
     noteSeries: DefinitionNode[]
     variables: DefinitionNode[]
+    headTemplates: DefinitionNode[]
     conditions: DefinitionNode[]
   },
 >(document: T, options: DocumentParseOptions = {}): IdentifiedDocument<T> {
@@ -91,6 +94,7 @@ export function identifyDocument<
     templates: definitions(document.templates, 'templates'),
     noteSeries: definitions(document.noteSeries, 'noteSeries'),
     variables: definitions(document.variables, 'variables'),
+    headTemplates: definitions(document.headTemplates, 'headTemplates'),
     conditions: definitions(document.conditions, 'conditions'),
   } as IdentifiedDocument<T>
 }

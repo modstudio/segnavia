@@ -1,3 +1,5 @@
+import type { BookOpens, SectionNumbering } from '@segnavia/format'
+
 export interface BookDocumentOptions {
   pageNumbers?: Record<string, string>
   blankBefore?: string[]
@@ -14,8 +16,11 @@ export interface BookSectionInfo {
   kind: 'front' | 'contents' | 'part' | 'chapter' | 'endnotes' | 'designed' | 'templated'
   division: 'front' | 'body' | 'end'
   title?: string
-  runningHead?: string
   opens?: BookOpens
+  values?: Record<string, string>
+  record?: { index: number; count: number }
+  parts?: Record<string, string>
+  numbering?: SectionNumbering
 }
 
 export type BookPrintPart = 'front' | 'body'
@@ -45,5 +50,3 @@ export interface BookDocument {
   pageReferenceTargets: string[]
   issues: string[]
 }
-
-import type { BookOpens } from '@segnavia/format'

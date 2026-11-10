@@ -13,10 +13,18 @@ test('fills catalogued furniture by its parsed motif key and uses its resolved p
   const parents = bookParentPages(book.page?.margin ?? { blockStart: 0, blockEnd: 0, inlineStart: 0, inlineEnd: 0 })
   const recto = parents.find((parent) => parent.name === BOOK_PARENT_NAMES.recto)
   if (!recto) throw new Error('Expected the built-in recto parent page.')
-  recto.head = '<div class="segnavia-running-head" DATA-MOTIF=segnavia:running-head></div>'
+  recto.head = '<div class="segnavia-running-head" DATA-MOTIF=segnavia:head-template data-motif-name="segnavia:running-head"></div>'
   recto.margin = { blockStart: 21, blockEnd: 22, inlineStart: 23, inlineEnd: 24 }
   const pages: BookPrintedPagePlan[] = [
-    { index: 0, role: 'recto', parent: BOOK_PARENT_NAMES.recto, face: 'recto', side: 'right', folio: '7', runningHead: 'Heading' },
+    {
+      index: 0,
+      role: 'recto',
+      parent: BOOK_PARENT_NAMES.recto,
+      face: 'recto',
+      side: 'right',
+      folio: '7',
+      variables: { 'segnavia:section-title': 'Heading', 'segnavia:folio': '7' },
+    },
   ]
 
   const html = marginDocument(book, pages, parents)

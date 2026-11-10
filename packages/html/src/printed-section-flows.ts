@@ -16,7 +16,7 @@ export function printedSectionFlows(sections: readonly PrintedSection[], rules: 
       ...recordAttribs(section.record),
     })
     return {
-      info: { id: section.id, kind: 'chapter', division: 'body', title: section.title, runningHead: section.title, opens: section.opens },
+      info: { id: section.id, kind: 'chapter', division: 'body', title: section.title, opens: section.opens },
       node: element('div', { 'data-segnavia-flow': section.id, id: section.id, ...attribs }, parse(section.html).children),
     }
   })

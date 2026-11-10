@@ -9,7 +9,6 @@ export interface BookRenderFixture {
   frontTitle: string
   frontMarker: string
   chapterMarkers: string[]
-  runningHeads: string[]
   endnotesTitle: string
 }
 
@@ -20,7 +19,6 @@ export function bookRenderFixture(key: 'english' | 'hebrew'): BookRenderFixture 
   const hebrew = key === 'hebrew'
   const tag = hebrew ? 'HE' : 'EN'
   const chapterMarkers = [`OPEN${tag}1`, `OPEN${tag}2`, `OPEN${tag}3`]
-  const runningHeads = hebrew ? ['ראשון', 'שני', 'שלישי'] : ['RUNEN1', 'RUNEN2', 'RUNEN3']
   const sections = [
     {
       type: 'section' as const,
@@ -28,7 +26,6 @@ export function bookRenderFixture(key: 'english' | 'hebrew'): BookRenderFixture 
       children: [
         {
           type: 'flow' as const,
-          runningHead: runningHeads[0],
           html: `<p>${chapterMarkers[0]}<span data-note="footnote">FOOT-${tag}</span></p><p>B2F-${tag}[<a href="#pdf-front-ref-target" data-ref="page"></a>]</p><p>REF-${tag}[<a href="#pdf-page-ref-target" data-ref="page"></a>]</p><p class="margin-probe"><span>MARGIN-L-${tag}-1</span><span>MARGIN-R-${tag}-1</span></p>${topics(tag, 1)}<div class="second-page">SECOND${tag}1<p class="margin-probe"><span>MARGIN-L-${tag}-2</span><span>MARGIN-R-${tag}-2</span></p></div>`,
         },
       ],
@@ -36,7 +33,7 @@ export function bookRenderFixture(key: 'english' | 'hebrew'): BookRenderFixture 
     {
       type: 'section' as const,
       title: hebrew ? 'פרק שני' : 'Chapter Two',
-      children: [{ type: 'flow' as const, runningHead: runningHeads[1], html: `<p>${chapterMarkers[1]}</p>${topics(tag, 2)}` }],
+      children: [{ type: 'flow' as const, html: `<p>${chapterMarkers[1]}</p>${topics(tag, 2)}` }],
     },
     {
       type: 'section' as const,
@@ -44,7 +41,6 @@ export function bookRenderFixture(key: 'english' | 'hebrew'): BookRenderFixture 
       children: [
         {
           type: 'flow' as const,
-          runningHead: runningHeads[2],
           html: `<p id="pdf-page-ref-target">${chapterMarkers[2]}<span data-note="endnote">END-${tag}</span></p>${topics(tag, 3)}`,
         },
       ],
@@ -88,7 +84,6 @@ export function bookRenderFixture(key: 'english' | 'hebrew'): BookRenderFixture 
     frontTitle: hebrew ? 'פתיחה' : 'Front',
     frontMarker: `FRONT${tag}`,
     chapterMarkers,
-    runningHeads,
     endnotesTitle: hebrew ? 'הערות' : 'Notes',
   }
 }

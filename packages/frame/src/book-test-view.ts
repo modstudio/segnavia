@@ -65,7 +65,6 @@ export function switchableBookView(): BookViewInput {
       parents: [],
       endnotePlacement: 'book',
       contents: { pageNumbers: true, depth: 2 },
-      runningHead: { recto: 'title', verso: 'title' },
     },
   }
 }

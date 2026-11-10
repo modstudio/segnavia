@@ -36,6 +36,7 @@ export const CONTENT_FIELD_SHAPES: Readonly<Record<DocumentNodeType, FieldShapes
   template: { html: 'htmlString' },
   noteSeries: {},
   variable: {},
+  headTemplate: {},
   condition: {},
 }
 

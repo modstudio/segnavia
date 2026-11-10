@@ -2,7 +2,8 @@ import { expect, test } from 'bun:test'
 import { PressGeometry, pressBoxes, sheetMm, usesPressLayout } from '@segnavia/format'
 import { parseBookFixture } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
-import { type BookPdfAdapter, bookPageCss, renderBookPdf } from './book-pdf.ts'
+import { bookPageCss, marginFactsFor, marginVariablePagesFor, renderBookPdf } from './book-pdf.ts'
+import type { BookPdfAdapter } from './book-pdf-types.ts'
 import { renderBrowserBookPdf } from './book-render.ts'
 
 const continuousBook = (body: string, front?: string) =>
@@ -13,6 +14,58 @@ const continuousBook = (body: string, front?: string) =>
     ...(front === undefined ? {} : { frontMatter: [{ title: 'Preface', html: front }] }),
     chapters: [{ id: 'body-section', title: 'One', html: body }],
   })
+
+test('resolves record-page totals and document folios for the margin plan', () => {
+  const sections = [{ id: 'record', kind: 'chapter' as const, division: 'body' as const, title: 'Record', record: { index: 2, count: 5 } }]
+  const destinations = new Map([['record', { page: 2, x: 0, y: 0 }]])
+  const bodyPages = marginVariablePagesFor(sections, destinations, 4, new Set())
+  const facts = marginFactsFor(
+    sections,
+    destinations,
+    4,
+    new Set(),
+    'roman-upper',
+    [
+      { name: 'record-pages', kind: 'pages', of: 'record' },
+      { name: 'document-folio', kind: 'folio', of: 'document' },
+    ],
+    {
+      pages: [{ flow: 'front', blank: false, counted: true, record: false }, { flow: 'front', blank: false, counted: true, record: false }, ...bodyPages],
+      offset: 2,
+      system: 'roman-upper',
+    },
+  )
+  expect(facts[2]?.variables).toMatchObject({ 'record-pages': 'III', 'document-folio': 'V' })
+})
+
+test('counts a blank inside a record the same way as the page plan', () => {
+  const sections = [{ id: 'record', kind: 'chapter' as const, division: 'body' as const, title: 'Record', record: { index: 1, count: 1 } }]
+  const destinations = new Map([['record', { page: 2, x: 0, y: 0 }]])
+  const facts = marginFactsFor(sections, destinations, 2, new Set([1]), 'arabic', [
+    { name: 'record-folio', kind: 'folio', of: 'record' },
+    { name: 'record-pages', kind: 'pages', of: 'record' },
+  ])
+  expect(facts).toEqual([
+    { blank: true, sectionOpening: false },
+    expect.objectContaining({ variables: expect.objectContaining({ 'record-folio': '2', 'record-pages': '2' }) }),
+  ])
+})
+
+test('resolves a named enclosing part title only inside that part', () => {
+  const sections = [
+    { id: 'inside', kind: 'chapter' as const, division: 'body' as const, title: 'Inside', parts: { part: 'Part One' } },
+    { id: 'outside', kind: 'chapter' as const, division: 'body' as const, title: 'Outside' },
+  ]
+  const destinations = new Map([
+    ['inside', { page: 1, x: 0, y: 0 }],
+    ['outside', { page: 2, x: 0, y: 0 }],
+  ])
+  const facts = marginFactsFor(sections, destinations, 2, new Set(), 'arabic', [
+    { name: 'part', kind: 'text', from: 'part-title', part: 'part', pick: 'first' },
+  ])
+  expect(facts[0]?.variables?.part).toBe('Part One')
+  expect(facts[1]?.variables?.part).toBeUndefined()
+})
 
 test('maps asymmetric book margins to physical right and left pages independent of text direction', () => {
   const expected =

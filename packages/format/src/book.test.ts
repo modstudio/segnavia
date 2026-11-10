@@ -7,6 +7,31 @@ const page = { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inl
 const input = (overrides: Record<string, unknown> = {}) => identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [chapter], ...overrides })
 
 describe('book', () => {
+  test('stores only authored definitions and round-trips parsed books', () => {
+    const book = Book.parse(
+      input({
+        chapters: undefined,
+        body: [{ id: 'chapter', title: 'Chapter', html: '<p>Text</p>', contents: true }],
+        variables: [{ name: 'topic', kind: 'text', from: 'content' }],
+        headTemplates: [{ name: 'topic-head', parts: [{ variable: 'topic' }] }],
+      }),
+    )
+    expect(book.variables.map(({ name }) => name)).toEqual(['topic'])
+    expect(book.headTemplates.map(({ name }) => name)).toEqual(['topic-head'])
+    expect(Book.parse(JSON.parse(JSON.stringify(book)))).toEqual(book)
+    expect(Book.safeParse(JSON.parse(JSON.stringify(Book.parse(input())))).success).toBeTrue()
+  })
+
+  test('refuses library names and undeclared head-template variables at the book edge', () => {
+    expect(() => Book.parse(input({ variables: [{ name: 'segnavia:folio', kind: 'folio' }] }))).toThrow(
+      /reserved for the library; rename it without the segnavia: prefix/,
+    )
+    expect(() => Book.parse(input({ headTemplates: [{ name: 'segnavia:folio', parts: [{ variable: 'segnavia:folio' }] }] }))).toThrow(
+      /reserved for the library; rename it without the segnavia: prefix/,
+    )
+    expect(() => Book.parse(input({ headTemplates: [{ name: 'h', parts: [{ variable: 'missing' }] }] }))).toThrow(/undeclared variable.*missing/)
+  })
+
   test('accepts book placements from the table and refuses other asset kinds', () => {
     expect(Book.parse(input({ chapters: [{ kind: 'placed', placement: { kind: 'page', address: 'pages/one' } }] })).body[0]).toMatchObject({
       kind: 'placed',
@@ -78,7 +103,6 @@ describe('book', () => {
       rectoOpenings: false,
       orphans: 2,
       widows: 2,
-      runningHead: { recto: 'title', verso: 'title' },
       contents: { pageNumbers: true, depth: 2 },
     })
     expect(Object.keys(parsed)).not.toContain('chapters')
@@ -114,23 +138,20 @@ describe('book', () => {
     expect(result.error?.issues[0]).toMatchObject({ path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   })
 
-  test('page column gap defaults to four millimeters and running heads default to the title', () => {
+  test('page column gap and line-count defaults can be overridden', () => {
     const book = Book.parse(input({ mode: 'paginated', page }))
     expect(book.page?.columnGap).toBe(4)
-    expect(book.runningHead).toEqual({ recto: 'title', verso: 'title' })
     expect(book.orphans).toBe(2)
     expect(book.widows).toBe(2)
     const marked = Book.parse(
       input({
         mode: 'paginated',
         page: { ...page, columnGap: 6 },
-        runningHead: { recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'last' } },
         orphans: 3,
         widows: 1,
       }),
     )
     expect(marked.page?.columnGap).toBe(6)
-    expect(marked.runningHead).toEqual({ recto: { mark: 'siman', which: 'first' }, verso: { mark: 'siman', which: 'last' } })
     expect(marked.orphans).toBe(3)
     expect(marked.widows).toBe(1)
   })

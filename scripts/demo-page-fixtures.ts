@@ -22,8 +22,14 @@ export const printedPageMotifs: Motif[] = [
     fields: [],
     fonts: [],
     versions: [
-      { lang: 'en', html: '<bdi>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></bdi>' },
-      { lang: 'he', html: '<bdi>עמוד <span data-slot-value="printedPage.number"></span> מתוך <span data-slot-value="printedPage.total"></span></bdi>' },
+      {
+        lang: 'en',
+        html: '<bdi>Page <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span> of <span data-motif="segnavia:head-template" data-motif-name="page-total"></span></bdi>',
+      },
+      {
+        lang: 'he',
+        html: '<bdi>עמוד <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span> מתוך <span data-motif="segnavia:head-template" data-motif-name="page-total"></span></bdi>',
+      },
     ],
   },
 ]
@@ -265,6 +271,8 @@ function printedDocument(input: {
     kind: 'printed',
     settings: { lang: input.lang, dir: input.dir },
     print: { paper: 'letter' },
+    variables: [{ type: 'variable', name: 'page-total', kind: 'pages', of: 'document' }],
+    headTemplates: [{ type: 'headTemplate', name: 'page-total', parts: [{ variable: 'page-total' }] }],
     parentPages: parents.map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
     parentRules: input.parentRules ?? parentPages.parentRules,
     children: [{ type: 'page', body: { html: input.html } }],
@@ -305,6 +313,8 @@ export const printedSectionDocument: DocumentInput = {
   kind: 'printed',
   settings: { lang: 'en' },
   print: { paper: 'letter' },
+  variables: [{ type: 'variable', name: 'page-total', kind: 'pages', of: 'document' }],
+  headTemplates: [{ type: 'headTemplate', name: 'page-total', parts: [{ variable: 'page-total' }] }],
   parentPages: [
     {
       type: 'parentPage',
@@ -315,7 +325,7 @@ export const printedSectionDocument: DocumentInput = {
       type: 'parentPage',
       name: 'body',
       geometry: { margin: { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 } },
-      foot: '<footer>Page <span data-slot-value="printedPage.number"></span> of <span data-slot-value="printedPage.total"></span></footer>',
+      foot: '<footer>Page <span data-motif="segnavia:head-template" data-motif-name="segnavia:folio"></span> of <span data-motif="segnavia:head-template" data-motif-name="page-total"></span></footer>',
     },
   ],
   parentRules: [{ when: { position: 'documentFirst' }, parent: 'cover' }, { parent: 'body' }],

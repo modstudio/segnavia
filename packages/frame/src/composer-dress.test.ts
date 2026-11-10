@@ -1,11 +1,47 @@
 import { expect, test } from 'bun:test'
-import { PRINTED_PAGE_NUMBER_PATH, PRINTED_PAGE_TOTAL_PATH } from '@segnavia/format'
-import { fillBookFurniture } from '@segnavia/html'
-import { fillFurniture, markFurnitureOverflow, markRegionOverflow, preflightPageFacts } from './composer-dress.ts'
+import { fillFurniture, fillRegion, markFurnitureOverflow, markRegionOverflow, preflightPageFacts, resolveRegionHeads } from './composer-dress.ts'
 
-test('fills a right-to-left Hebrew motif and a printed-page slot in one pass', () => {
+test('fills named head templates and removes an empty placement', () => {
+  const html = '<div data-motif="segnavia:head-template" data-motif-name="head"></div><i data-motif="segnavia:head-template" data-motif-name="empty"></i>'
+  expect(fillRegion(html, { heads: { head: '<bdi dir="rtl">פרשה</bdi>', empty: '' } }, 'rtl', 'he')).toBe('<div><bdi dir="rtl">פרשה</bdi></div>')
+})
+
+test('fills balanced and self-closing head-template placements', () => {
+  expect(
+    fillRegion('<div data-motif="segnavia:head-template" data-motif-name="head"><div class="inner">old</div></div>', {
+      heads: { head: '<bdi>New</bdi>' },
+    }),
+  ).toBe('<div><bdi>New</bdi></div>')
+  expect(fillRegion('<span class="folio" data-motif="segnavia:head-template" data-motif-name="head"/>', { heads: { head: '<bdi>7</bdi>' } })).toBe(
+    '<span class="folio"><bdi>7</bdi></span>',
+  )
+})
+
+test('fills only the outer placement when head-template placements are nested', () => {
+  const html = '<div data-motif="segnavia:head-template" data-motif-name="outer"><div data-motif="segnavia:head-template" data-motif-name="inner"></div></div>'
+  expect(fillRegion(html, { heads: { outer: '<bdi>Outer</bdi>', inner: '<bdi>Inner</bdi>' } })).toBe('<div><bdi>Outer</bdi></div>')
+})
+
+test('removes inherited and unbounded head-template placements', () => {
+  expect(fillRegion('<div data-motif="segnavia:head-template" data-motif-name="constructor"></div>', { heads: {} })).toBe('')
+  expect(fillRegion('<div data-motif="segnavia:head-template" data-motif-name="head">Text', { heads: { head: '<bdi>Head</bdi>' } })).toBe('Text')
+})
+
+test('fills printed-page furniture from a text variable and record slot', () => {
+  const heads = resolveRegionHeads(
+    [{ name: 'record-head', parts: [{ variable: 'parasha' }, { record: 'name' }], separator: ' — ', dropEmpty: true, collapseEqual: true }],
+    { parasha: 'בראשית' },
+    { name: 'כהן' },
+    'rtl',
+    'he',
+  )
+  const html = fillRegion('<div data-motif="segnavia:head-template" data-motif-name="record-head"></div>', { heads }, 'rtl', 'he')
+  expect(html).toContain('<bdi dir="rtl">בראשית</bdi><span dir="rtl"> — </span><bdi dir="rtl">כהן</bdi>')
+})
+
+test('fills a head template and an author record slot in one pass', () => {
   const slot = {
-    path: PRINTED_PAGE_NUMBER_PATH,
+    path: 'record.name',
     removed: false,
     direction: '',
     textContent: '',
@@ -32,28 +68,27 @@ test('fills a right-to-left Hebrew motif and a printed-page slot in one pass', (
 
   fillFurniture(
     root,
-    '<span data-motif="segnavia:running-head"></span><span data-slot-value="printedPage.number"></span>',
-    { folio: 'יב', runningHead: 'פרק ראשון', total: 'כ' },
+    '<span data-motif="segnavia:head-template" data-motif-name="head"></span><span data-slot-value="record.name"></span>',
+    { head: '<bdi dir="rtl">פרק ראשון</bdi>' },
+    { name: 'כהן' },
     'rtl',
     'he',
-    { [PRINTED_PAGE_NUMBER_PATH]: 'יב', [PRINTED_PAGE_TOTAL_PATH]: 'כ' },
-    fillBookFurniture,
   )
 
   expect(root.innerHTML).toContain('<bdi dir="rtl">פרק ראשון</bdi>')
-  expect(slot).toMatchObject({ direction: 'auto', path: '', removed: false, textContent: 'יב' })
+  expect(slot).toMatchObject({ direction: 'auto', path: '', removed: false, textContent: 'כהן' })
 })
 
-test('removes an undefined furniture binding', () => {
+test('removes an undefined record binding', () => {
   const slot = {
     removed: false,
-    getAttribute: () => PRINTED_PAGE_NUMBER_PATH,
+    getAttribute: () => 'record.name',
     remove() {
       this.removed = true
     },
   }
   const root = { innerHTML: '', querySelectorAll: () => [slot] } as unknown as Element
-  fillFurniture(root, '<span data-slot-value="printedPage.number"></span>', {}, undefined, undefined, { [PRINTED_PAGE_NUMBER_PATH]: undefined }, (html) => html)
+  fillFurniture(root, '<span data-slot-value="record.name"></span>', {}, { name: undefined }, undefined, undefined)
   expect(slot.removed).toBeTrue()
 })
 

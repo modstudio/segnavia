@@ -32,7 +32,7 @@ describe('saved book plans', () => {
     expect(replayed).toEqual({
       ok: true,
       plan: {
-        version: 4,
+        version: 5,
         pages: saved.pages,
         folios: saved.folios,
         total: saved.total,
@@ -99,7 +99,7 @@ describe('saved book plans', () => {
       ],
     })
     const saved = savePlan(measurements, planned(measurements), numbering)
-    expect(saved.pages.find((page) => page.blank)?.variables).toEqual({})
+    expect(saved.pages.find((page) => page.blank)?.variables).toEqual({ 'segnavia:pages-total': 'ה' })
     expect(replayPlan(measurements, saved, numbering)).toMatchObject({ ok: true })
   })
 
@@ -159,7 +159,7 @@ describe('saved book plans', () => {
   test('replays a plan saved with the default-page fingerprint shape', () => {
     const measurements = input({ flows: [flow('legacy', 'chapter', [block('text', 'p', 1, 1, 2, 0, { id: 'paragraph' })])] })
     const saved = SavedPlan.parse({
-      version: 4,
+      version: 5,
       fingerprint: 'fnv1a64:9a6fde523f833732',
       breaks: [],
       pages: [

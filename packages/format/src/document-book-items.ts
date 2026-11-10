@@ -69,7 +69,7 @@ function sectionItem(section: Extract<DocumentNode, { type: 'section' }>, divisi
   const flow = section.children.find((node): node is Extract<DocumentNode, { type: 'flow' }> => node.type === 'flow')
   if (flow) {
     const flowFields = division === 'body' ? { ...fields, contents: undefined } : fields
-    return defined({ ...flowFields, title: section.title ?? flow.title, html: flow.html, runningHead: flow.runningHead }) as BookItem
+    return defined({ ...flowFields, title: section.title ?? flow.title, html: flow.html }) as BookItem
   }
   throw new Error('a section needs a flow, page or placed child; add one to clear this refusal')
 }
@@ -90,7 +90,6 @@ function partItem(
     contents: part.contents,
     opens: part.opens,
     parentRules: part.parentRules,
-    runningHead: part.runningHead,
     children: part.children.map((child, index) =>
       bookItem(child, division, [...sourcePath, 'children', index], [...bookPath, 'children', index], sourcePaths, expanded),
     ),
@@ -122,7 +121,7 @@ function bookItem(
       parentRules: node.parentRules,
       numbering: node.numbering,
     }) as BookItem
-  if (node.type === 'flow') return defined({ id: nodeId(node, bookPath), title: node.title, html: node.html, runningHead: node.runningHead }) as BookItem
+  if (node.type === 'flow') return defined({ id: nodeId(node, bookPath), title: node.title, html: node.html }) as BookItem
   if (node.type === 'placed') return { id: nodeId(node, bookPath), kind: 'placed', contents: true, placement: placement(node) }
   throw new Error(`node ${node.type} cannot lower to a book entry; put it inside a section to clear this refusal`)
 }

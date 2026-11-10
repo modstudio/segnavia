@@ -1,4 +1,12 @@
-import { type Measurements as FormatMeasurements, formatNumber, PLAN_VERSION, type Variable } from '@segnavia/format'
+import {
+  bookVariablePageNumbers,
+  type Measurements as FormatMeasurements,
+  LIBRARY_VARIABLES,
+  PLAN_VERSION,
+  type Variable,
+  variableValue,
+  withLibraryEntries,
+} from '@segnavia/format'
 import { type BookPlanDocumentNumbers, bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanSection, bookPlanFolios } from './book-plan-folios.ts'
 import { paginateBook } from './paginate-book.ts'
@@ -15,19 +23,21 @@ export function numberVariableValue(
   variable: Exclude<Variable, { kind: 'text' }>,
   page: PaginateBookPage,
   index: number,
-  recordIndex: number,
-  numbering: BookPlanNumbering,
+  recordFolio: string | null,
+  record: { index: number; count: number } | undefined,
   folios: BookPlanFolioResult,
   documents: BookPlanDocumentNumbers,
 ): string {
-  if (variable.kind === 'folio') {
-    if (variable.of === 'numbering') return folios.folios[index] ?? ''
-    if (variable.of === 'document') return documents.documentFolios[index] ?? ''
-    return page.blank ? '' : formatNumber(recordIndex, numbering.body)
-  }
-  if (variable.of === 'numbering') return folios.total
-  if (variable.of === 'document') return documents.documentTotal
-  return documents.recordTotals[page.flow] ?? ''
+  return variableValue(variable, {
+    folio: folios.folios[index],
+    documentFolio: documents.documentFolios[index],
+    numberingTotal: folios.total,
+    documentTotal: documents.documentTotal,
+    recordIndex: record?.index,
+    recordCount: record?.count,
+    recordFolio: recordFolio ?? '',
+    recordTotal: documents.recordTotals[page.flow],
+  })
 }
 
 export function pagesWithNumberVariables(
@@ -38,14 +48,22 @@ export function pagesWithNumberVariables(
   documents: BookPlanDocumentNumbers,
   sections: readonly BookPlanSection[] = [],
 ): PaginateBookPage[] {
-  const recordIndexes = new Map<string, number>()
   const countedByFlow = new Map(sections.map((section) => [section.id, section.numbering?.counted !== false]))
+  const recordsByFlow = new Map(sections.flatMap((section) => (section.record ? [[section.id, section.record] as const] : [])))
+  const numberPages = bookVariablePageNumbers(
+    pages.map((page) => ({
+      flow: page.flow,
+      blank: page.blank,
+      counted: countedByFlow.get(page.flow) !== false,
+      record: recordsByFlow.has(page.flow),
+    })),
+    numbering.body,
+  )
   return pages.map((page, index) => {
-    if (countedByFlow.get(page.flow) !== false) recordIndexes.set(page.flow, (recordIndexes.get(page.flow) ?? 0) + 1)
     const resolved = { ...page.variables }
     for (const variable of variables) {
       if (variable.kind === 'text') continue
-      const value = numberVariableValue(variable, page, index, recordIndexes.get(page.flow) ?? 0, numbering, folios, documents)
+      const value = numberVariableValue(variable, page, index, numberPages.recordFolios[index] ?? null, recordsByFlow.get(page.flow), folios, documents)
       if (value) resolved[variable.name] = value
     }
     return { ...page, variables: resolved }
@@ -69,10 +87,10 @@ export function planBook(
   measurements: Measurements,
   numbering: BookPlanNumbering,
 ): { ok: true; plan: BookPlan } | { ok: false; refusals: PaginateBookRefusal[] } {
-  return planBookWithVersion(measurements, numbering, PLAN_VERSION)
+  return planBookWithVersion({ ...measurements, variables: withLibraryEntries(LIBRARY_VARIABLES, measurements.variables) }, numbering, PLAN_VERSION)
 }
 
 export function planBookScript(): string {
   return `var planBookImplementation=${planBookWithVersion.toString()};
-var planBook=function(measurements,numbering){return planBookImplementation(measurements,numbering,${PLAN_VERSION});};`
+var planBook=function(measurements,numbering){return planBookImplementation({...measurements,variables:withLibraryEntries(LIBRARY_VARIABLES,measurements.variables)},numbering,${PLAN_VERSION});};`
 }

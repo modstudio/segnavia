@@ -2,12 +2,11 @@ import { describe, expect, test } from 'bun:test'
 import {
   BOOK_PARENT_NAMES,
   bookFromDocument,
+  bookParentPages,
   type boundPreflightReport,
   computeFolios,
   Document,
   PREFLIGHT_PRESETS,
-  PRINTED_PAGE_NUMBER_PATH,
-  PRINTED_PAGE_TOTAL_PATH,
   type preflightRefusal,
   resolveDirection,
   StyleSheet,
@@ -63,9 +62,24 @@ describe('bookDocument', () => {
     expect(html.match(/"font":"body"/g)).toHaveLength(1)
   })
 
+  test('joins library and authored definitions in the composer config', () => {
+    const html = bookDocument(
+      parseBookFixture({
+        ...book,
+        variables: [{ name: 'topic', kind: 'text', from: 'content' }],
+        headTemplates: [{ name: 'topic-head', parts: [{ variable: 'topic' }] }],
+      }),
+      { nonce: 'held' },
+    )
+    expect(html).toContain('"name":"segnavia:section-title"')
+    expect(html).toContain('"name":"segnavia:running-head"')
+    expect(html).toContain('"name":"topic"')
+    expect(html).toContain('"name":"topic-head"')
+  })
+
   test('carries saved plans and breaks in config without closing the composer script', () => {
     const plan = {
-      version: 4 as const,
+      version: 5 as const,
       fingerprint: '</script><script>unsafe()</script>',
       breaks: ['middle'],
       pages: [],
@@ -78,7 +92,7 @@ describe('bookDocument', () => {
     }
     const html = bookDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
     expect(html).toContain('"breaks":["middle"]')
-    expect(html).toContain('"plan":{"version":4')
+    expect(html).toContain('"plan":{"version":5')
     expect(html).not.toContain('</script><script>unsafe()</script>')
     expect(html).toContain('\\u003c/script>\\u003cscript>unsafe()\\u003c/script>')
   })
@@ -96,7 +110,7 @@ describe('bookDocument', () => {
           setup(builder) {
             builder.onResolve({ filter: /^virtual:composer-functions$/ }, () => ({ path: 'composer-functions', namespace: 'virtual' }))
             builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
-              contents: `import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/composer.ts`)}; export const script = embeddedComposerFunctions();`,
+              contents: `import { layoutScript } from ${JSON.stringify(Bun.resolveSync('@segnavia/layout', import.meta.dir))}; import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/composer.ts`)}; export const script = layoutScript() + embeddedComposerFunctions();`,
               loader: 'ts',
             }))
           },
@@ -108,8 +122,15 @@ describe('bookDocument', () => {
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
     const embedded = new Function(
-      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal}`,
+      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal}`,
     )() as {
+      resolveRegionHeads: (
+        templates: { name: string; parts: { variable: string }[]; separator: string; dropEmpty: boolean; collapseEqual: boolean }[],
+        variables: Record<string, string>,
+        recordSlots: Record<string, string>,
+        direction?: string,
+        lang?: string,
+      ) => Record<string, string>
       flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
@@ -120,6 +141,13 @@ describe('bookDocument', () => {
       preflightPageFacts: typeof preflightPageFacts
       boundPreflightReport: typeof boundPreflightReport
       preflightRefusal: typeof preflightRefusal
+      fillRegion: (html: string, values: { heads: Record<string, string> }) => string
+      fillFurniture: (
+        root: { innerHTML: string; querySelectorAll: () => never[] },
+        html: string,
+        heads: Record<string, string>,
+        slots: Record<string, string>,
+      ) => void
     }
     expect(
       embedded.flowTextArea(FLOWING_PARENT_RULES, {
@@ -143,6 +171,17 @@ describe('bookDocument', () => {
       PREFLIGHT_PRESETS.strict,
     )
     expect(embedded.preflightRefusal(report)).toBe('shorten it')
+    const parent = bookParentPages({ blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 })[0]
+    expect(embedded.fillRegion(parent?.head ?? '', { heads: { 'segnavia:running-head': '<bdi>Chapter</bdi>' } })).toBe(
+      '<div class="segnavia-running-head"><bdi>Chapter</bdi></div>',
+    )
+    const root = { innerHTML: '', querySelectorAll: () => [] }
+    embedded.fillFurniture(root, parent?.head ?? '', { 'segnavia:running-head': '<bdi>Chapter</bdi>' }, {})
+    expect(root.innerHTML).toBe('<div class="segnavia-running-head"><bdi>Chapter</bdi></div>')
+    const template = { name: 'head', parts: [{ variable: 'parasha' }, { variable: 'siman' }], separator: ' · ', dropEmpty: true, collapseEqual: false }
+    expect(embedded.resolveRegionHeads([template], { parasha: 'בראשית', siman: 'Mark B' }, {}, 'rtl', 'he')).toEqual({
+      head: '<bdi dir="rtl">בראשית</bdi><span dir="rtl"> · </span><bdi dir="rtl">Mark B</bdi>',
+    })
   })
 
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {
@@ -163,12 +202,10 @@ describe('bookDocument', () => {
     expect(COMPOSER_SCRIPT).toContain('paginateBook')
     expect(COMPOSER_SCRIPT).toContain('lineInWindow')
     expect(COMPOSER_SCRIPT).toContain(computeFolios.toString())
-    expect(COMPOSER_SCRIPT).toContain('fillBookFurniture')
+    expect(COMPOSER_SCRIPT).toContain('fillRegion')
     expect(COMPOSER_SCRIPT).toContain('fillFurniture')
     expect(COMPOSER_SCRIPT).toContain("document.querySelectorAll('script[data-segnavia-plan]')")
     expect(COMPOSER_SCRIPT).toContain('previous[i].remove()')
-    expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_NUMBER_PATH)
-    expect(COMPOSER_SCRIPT).toContain(PRINTED_PAGE_TOTAL_PATH)
     expect(COMPOSER_SCRIPT).toContain('parent.textArea')
     expect(COMPOSER_SCRIPT).toContain('sizeFlowGalley(flows[f],area.width,area.height,config.orphans,config.widows)')
     expect(COMPOSER_SCRIPT).toContain("note.style.setProperty('--segnavia-text-height',area.height+'px')")
@@ -255,7 +292,8 @@ describe('bookDocument', () => {
         parents: [],
         endnotePlacement: 'book' as const,
         contents: { pageNumbers: true, depth: 2 },
-        runningHead: { recto: 'title' as const, verso: 'title' as const },
+        variables: [],
+        headTemplates: [],
       },
     }
     const screen = bookViewDocument(view, { nonce: 'held', screen: { spread: true } })
@@ -312,7 +350,8 @@ describe('bookDocument', () => {
         parents: [],
         endnotePlacement: 'book' as const,
         contents: { pageNumbers: true, depth: 2 },
-        runningHead: { recto: 'title' as const, verso: 'title' as const },
+        variables: [],
+        headTemplates: [],
       },
     }
     const html = bookViewDocument(view, { nonce: 'held', fontCss: '.lead{color:blue}', css: '.lead{color:green}' })

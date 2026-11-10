@@ -4,6 +4,8 @@ import {
   type DocumentMetadata as DocumentMetadataValue,
   defaultPageNumbering,
   type FontFailure,
+  LIBRARY_HEAD_TEMPLATES,
+  LIBRARY_VARIABLES,
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
@@ -17,6 +19,7 @@ import {
   resolveParentPages,
   sheetMm,
   textArea,
+  withLibraryEntries,
 } from '@segnavia/format'
 import {
   fragmentationCss,
@@ -103,8 +106,9 @@ export function printedPageValueDocument(
     widows: 2,
     rectoOpenings: false,
     endnotePlacement: 'chapter',
-    runningHead: {},
-    variables: page.printedPages.variables,
+    variables: withLibraryEntries(LIBRARY_VARIABLES, page.printedPages.variables),
+    headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, page.printedPages.headTemplates),
+    recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.values ?? {}])),
     pageMarker: 'data-segnavia-printed-page',
     pageAttributes: ['data-segnavia-page-view'],
     refusalSubject: 'The printed page',

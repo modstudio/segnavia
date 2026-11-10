@@ -9,11 +9,10 @@ const INSIDE_BLOCKS = new Set(['li', 'dd', 'dt', 'td', 'th'])
 export interface NoteSectionContext {
   chapter: number
   title?: string
-  runningHead?: string
   division: BookDivision
   targetId: string
   placementKey?: string
-  part?: { id: string; title?: string; runningHead?: string }
+  part?: { id: string; title?: string }
 }
 
 export interface CollectedNoteRun {
@@ -80,10 +79,10 @@ const SCOPE_RANK = { page: -1, chapter: 0, part: 1, book: 2 } as const
 
 function runHeading(series: ResolvedNoteSeries, context: NoteSectionContext): string | undefined {
   if (series.numbering === 'book' || SCOPE_RANK[series.numbering] > SCOPE_RANK[series.placement]) return undefined
-  if (series.numbering === 'part') return context.part?.runningHead ?? context.part?.title
+  if (series.numbering === 'part') return context.part?.title
   // Chapter scope zero is shared by every front-matter and held section, so it has no single title to name.
   if (context.chapter === 0) return undefined
-  return context.runningHead ?? context.title
+  return context.title
 }
 
 function nextNumber(series: ResolvedNoteSeries, context: NoteSectionContext, state: NoteState): { number: number; scope: string } {
