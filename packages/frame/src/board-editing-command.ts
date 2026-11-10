@@ -34,7 +34,8 @@ export function prepareBoardApply(
   const board = boardFromDocument(rebased.document)
   const candidates = board.labels.map((label) => {
     const old = previous.get(label.id)
-    return old && (old.text !== label.text || old.width !== label.width) ? { ...label, size: undefined } : label
+    const sizeChanged = old && (old.size?.width !== label.size?.width || old.size?.height !== label.size?.height)
+    return old && (old.text !== label.text || old.width !== label.width) && !sizeChanged ? { ...label, size: undefined } : label
   })
   const labels = sizeMeasuredLabels(candidates, (label) => labelShape(label, measureLabel))
   const measured = labels.some((label, index) => label !== board.labels[index]) ? document({ ...board, labels }) : rebased.document

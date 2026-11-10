@@ -97,4 +97,26 @@ describe('board editing release commands', () => {
     expect(calls).toEqual([{ text: 'Changed', width: 60 }])
     expect(prepared.document.children.find((node) => node.id === 'label')).toMatchObject({ size: { width: 60, height: 44 } })
   })
+
+  test('keeps a host-provided replacement size when the same operations change a label', () => {
+    const original = { id: 'label', text: 'Old', x: 10, y: 20, width: 80, size: { width: 80, height: 20 } }
+    const before = document({ ...board, items: [], labels: [original] })
+    const after = document({
+      ...board,
+      items: [],
+      labels: [{ ...original, text: 'Changed', width: 60, size: { width: 60, height: 36 } }],
+    })
+    let measurements = 0
+    const prepared = prepareBoardApply(
+      before,
+      diffDocuments(before, after),
+      () => {
+        measurements++
+        return { width: 1, height: 1 }
+      },
+      (value) => documentFromBoard(value, after),
+    )
+    expect(measurements).toBe(0)
+    expect(prepared.document.children.find((node) => node.id === 'label')).toMatchObject({ size: { width: 60, height: 36 } })
+  })
 })

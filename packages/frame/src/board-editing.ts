@@ -53,7 +53,7 @@ export type { ComputedBoardShapes } from '@segnavia/format'
 export type { AddBoardItemInput, BoardChange, BoardEdit, BoardEditing, BoardEditingOptions } from './board-editing-types.ts'
 export { BOARD_HISTORY_LIMIT, DEFAULT_BOARD_ITEM_WIDTH }
 
-class BoardEditingController implements BoardEditing, BoardPointerDelegate {
+export class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>
   private bridge: BoardEditingBridge
   private state: BoardEditQueueState | null
@@ -170,7 +170,10 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   apply(ops: readonly DocumentOp[], label: string) {
     if (!this.state) return
     const prepared = prepareBoardApply(this.state.value, ops, this.bridge.measureLabel, this.bridge.document)
-    this.refuseConflicts(prepared.conflicts)
+    if (prepared.conflicts.length > 0) {
+      this.refuseConflicts(prepared.conflicts)
+      return
+    }
     const transition = applyBoardEdit(this.state, prepared.applied, { kind: 'apply', label, ids: [] })
     this.applyTransition(transition)
   }
