@@ -160,7 +160,7 @@ export async function verifyParentRegions(renderer: Renderer, work: string, chec
   writeFileSync(hebrewHeadFile, hebrewHeadBytes)
   const hebrewHeadPages = pageWords(hebrewHeadFile)
   const hebrewHeads = hebrewHeadPages.flatMap((page, index) =>
-    page.words.filter((word) => word.text === 'כותרת').map((word) => ({ page: index, x: word.x, xMax: word.xMax, width: page.width })),
+    page.words.filter((word) => word.text === 'כותרת' || word.text === 'תרתוכ').map((word) => ({ page: index, x: word.x, xMax: word.xMax, width: page.width })),
   )
   const physicallyOuter = hebrewHeads.every((head) => (head.page % 2 === 0 ? head.x < head.width - head.xMax : head.width - head.xMax < head.x))
   check(

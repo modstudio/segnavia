@@ -33,7 +33,7 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
           return `:where(${selector} [data-segnavia-region="${name}"]){top:${box.top}mm;left:${box.left}mm;width:${box.width}mm;height:${box.height}mm}`
         })
         .join('')
-      const furniture = `:where(${selector} .segnavia-running-head,${selector} .segnavia-folio){justify-content:${page.side === 'left' ? 'flex-start' : 'flex-end'}}`
+      const furniture = `:where(${selector} .segnavia-running-head,${selector} .segnavia-folio){text-align:${page.side}}`
       return regions + furniture
     })
     .join('')
@@ -42,7 +42,7 @@ export function marginCss(book: Book, pages: BookPrintedPagePlan[], parents: Par
     `:where(html,body){margin:0}` +
     `:where(.segnavia-margin-page){position:relative;inline-size:${size.width}mm;block-size:${size.height}mm;break-after:page;direction:ltr}` +
     `:where([data-segnavia-region]){position:absolute;overflow:hidden}` +
-    `:where(.segnavia-running-head,.segnavia-folio){display:flex;align-items:center;inline-size:100%;block-size:100%}` +
+    `:where(.segnavia-running-head,.segnavia-folio){display:grid;align-items:center;inline-size:100%;block-size:100%}` +
     geometry
   )
 }
