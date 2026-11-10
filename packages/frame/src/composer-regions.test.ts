@@ -5,13 +5,11 @@ import { placeParentRegions } from './composer-regions.ts'
 test('places an RTL block-start region with physical coordinates', () => {
   const appended: HTMLElement[] = []
   const attributes = new Map<string, string>()
-  const furniture = { style: { cssText: '' } } as unknown as HTMLElement
   const held = {
     style: { cssText: '' },
     setAttribute(name: string, value: string) {
       attributes.set(name, value)
     },
-    querySelectorAll: () => [furniture],
   } as unknown as HTMLElement
 
   placeParentRegions(
@@ -22,7 +20,7 @@ test('places an RTL block-start region with physical coordinates', () => {
       textArea: { width: 100, height: 200 },
       regions: { head: { edge: 'blockStart', html: '<p>Head</p>' } },
     },
-    { face: 'recto', side: 'left', flow: 'body' },
+    { face: 'recto', flow: 'body' },
     { direction: 'rtl' },
     regionBox,
     () => ({}),
@@ -33,5 +31,4 @@ test('places an RTL block-start region with physical coordinates', () => {
   expect(appended).toEqual([held])
   expect(held.style.cssText).toBe('position:absolute;overflow:hidden;top:0px;left:40px;width:100px;height:10px')
   expect(attributes.get('data-segnavia-edge')).toBe('blockStart')
-  expect(furniture.style.cssText).toContain('justify-content:flex-start')
 })

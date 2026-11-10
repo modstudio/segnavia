@@ -5,6 +5,7 @@ import { HeadTemplates } from './head-template.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { headTemplatePlacement } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
+import { RemovedParentPageFields } from './parent-page-fields.ts'
 import { ParentRegions } from './parent-regions.ts'
 import { BOOK_PARENT_NAMES, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { RecordFacts, RecordValues } from './record-facts.ts'
@@ -15,6 +16,7 @@ export const Fragmentation = z.enum(['safe', 'none'])
 export type Fragmentation = z.infer<typeof Fragmentation>
 
 export const ParentPage = z.object({
+  ...RemovedParentPageFields,
   name: z.string().min(1),
   basedOn: z.string().min(1).optional(),
   margin: RequiredLogicalMargin.optional(),

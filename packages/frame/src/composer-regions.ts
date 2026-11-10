@@ -3,7 +3,6 @@ import type { regionBox } from '@segnavia/layout'
 
 interface RegionPage {
   face: 'recto' | 'verso'
-  side: 'left' | 'right'
   flow: string
   variables?: Record<string, string>
 }
@@ -44,10 +43,6 @@ export function placeParentRegions(
     if (config.lang) held.setAttribute('lang', config.lang)
     held.style.cssText = `position:absolute;overflow:hidden;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px`
     fill(held, region.html, heads, slots, config.dir, config.lang)
-    const justify = page.side === 'left' ? 'flex-start' : 'flex-end'
-    for (const furniture of held.querySelectorAll<HTMLElement>('.segnavia-running-head,.segnavia-folio')) {
-      furniture.style.cssText += `;display:flex;align-items:center;inline-size:100%;block-size:100%;justify-content:${justify}`
-    }
     paper.append(held)
   }
 }

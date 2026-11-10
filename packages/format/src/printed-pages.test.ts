@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from './index.ts'
-import { BOOK_PARENT_NAMES, bookParentPages, PrintedPages, resolveParentPages } from './printed-pages.ts'
+import { BOOK_PARENT_NAMES, bookParentPages, ParentPage, PrintedPages, resolveParentPages } from './printed-pages.ts'
 
 const base = {
   html: '<p>body</p>',
@@ -41,6 +41,13 @@ describe('Page printedPages', () => {
         parents: [{ name: 'body', regions: { side: { edge: 'outside', html: '' } } }],
       }),
     ).toThrow('a parent-page region edge must be blockStart, blockEnd, inlineStart or inlineEnd')
+  })
+
+  test.each([
+    ['head', 'blockStart'],
+    ['foot', 'blockEnd'],
+  ] as const)('refuses the removed parent-page %s field with its regions remedy', (field, edge) => {
+    expect(() => ParentPage.parse({ name: 'body', [field]: '<div>Furniture</div>' })).toThrow(`use regions with a ${field} (${edge}) region`)
   })
 
   test('stores authored definitions and round-trips through JSON', () => {
