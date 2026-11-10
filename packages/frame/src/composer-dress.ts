@@ -5,9 +5,11 @@ import {
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_TOTAL_PATH,
   type PreflightEntry,
+  type PreflightPageFacts,
   RECORD_COUNT_PATH,
   RECORD_INDEX_PATH,
 } from '@segnavia/format'
+import { type PaginateBookPage, type PaginateFlow, pageBlockRange } from '@segnavia/layout'
 
 export type ComposerFolioPlan = Pick<Plan, 'folios' | 'total' | 'documentFolios' | 'documentTotal' | 'recordTotals' | 'records'>
 
@@ -51,30 +53,15 @@ export interface RegionExcess {
   inline: number
 }
 
-interface PreflightPlanPage {
-  flow: string
-  start?: { flow: string; block: number; line: number; id?: string }
-}
-
-interface PreflightMeasurementFlow {
-  id: string
-  kind: string
-  blocks?: readonly { id?: string }[]
-}
-
 export function preflightPageFacts(
-  pages: readonly PreflightPlanPage[],
+  pages: readonly PaginateBookPage[],
   folios: readonly (string | null)[],
-  flows: readonly PreflightMeasurementFlow[],
-): Array<{ folio: string; first?: string; last?: string }> {
+  flows: readonly PaginateFlow[],
+): PreflightPageFacts[] {
   return pages.map((page, index) => {
-    const first = page.start?.id
-    const flow = flows.find((candidate) => candidate.id === (page.start?.flow ?? page.flow))
-    const blocks = flow?.kind === 'fixed' ? undefined : flow?.blocks
-    const next = pages[index + 1]?.start
-    let lastIndex = (blocks?.length ?? 0) - 1
-    if (next && next.flow === flow?.id) lastIndex = next.line > 0 ? next.block : next.block - 1
-    const last = blocks?.[lastIndex]?.id
+    const range = pageBlockRange(flows, page)
+    const first = range.first?.id
+    const last = range.last?.id
     return { folio: folios[index] ?? '', ...(first ? { first } : {}), ...(last ? { last } : {}) }
   })
 }

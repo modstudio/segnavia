@@ -35,27 +35,47 @@ function inputFingerprint(measurements: Measurements, numbering: BookPlanNumberi
   return fingerprintValue({ measurements: withoutLineBoxes(measurements), numbering })
 }
 
+function lineInWindow(line: PaginateLine, window: PaginateWindow): boolean {
+  return line.top >= window.start && line.bottom <= window.end
+}
+
+export function pageBlockRange(flows: Measurements['flows'], page: Pick<PlanPage, 'windows'>): { first?: PlanPage['start']; last?: PlanPage['start'] } {
+  const heldLineInWindow = (line: PaginateLine, window: PaginateWindow): boolean => line.top >= window.start && line.bottom <= window.end
+  const blockInWindow = (window: PaginateWindow, fromEnd: boolean): PlanPage['start'] => {
+    const flow = flows.find((candidate) => candidate.id === window.flow)
+    if (!flow || flow.kind === 'fixed') return undefined
+    const blockIndexes = flow.blocks.map((_, index) => index)
+    if (fromEnd) blockIndexes.reverse()
+    for (const blockIndex of blockIndexes) {
+      const block = flow.blocks[blockIndex]
+      if (!block) continue
+      const lineIndexes = block.lines.map((_, index) => index)
+      if (fromEnd) lineIndexes.reverse()
+      const line = lineIndexes.find((index) => block.lines[index] !== undefined && heldLineInWindow(block.lines[index], window))
+      if (line !== undefined) return { flow: flow.id, block: blockIndex, line, ...(block.id === undefined ? {} : { id: block.id }) }
+    }
+    return undefined
+  }
+  const starts = page.windows.flatMap((window) => {
+    const start = blockInWindow(window, false)
+    return start === undefined ? [] : [start]
+  })
+  const ends = page.windows.flatMap((window) => {
+    const end = blockInWindow(window, true)
+    return end === undefined ? [] : [end]
+  })
+  const first = starts[0]
+  const last = ends.at(-1)
+  return { ...(first === undefined ? {} : { first }), ...(last === undefined ? {} : { last }) }
+}
+
 function flowingFlow(measurements: Measurements, id: string) {
   const flow = measurements.flows.find((candidate) => candidate.id === id)
   return flow?.kind === 'fixed' ? undefined : flow
 }
 
-function lineInWindow(line: PaginateLine, window: PaginateWindow): boolean {
-  return line.top >= window.start && line.bottom <= window.end
-}
-
 function startOf(measurements: Measurements, page: Pick<PlanPage, 'windows'>): PlanPage['start'] {
-  const first = page.windows[0]
-  if (!first) return undefined
-  const flow = flowingFlow(measurements, first.flow)
-  if (!flow) return undefined
-  for (const [blockIndex, block] of flow.blocks.entries()) {
-    const line = block.lines.findIndex((candidate) => candidate.top >= first.start)
-    if (line >= 0 && block.lines[line] !== undefined && lineInWindow(block.lines[line], first)) {
-      return { flow: flow.id, block: blockIndex, line, ...(block.id === undefined ? {} : { id: block.id }) }
-    }
-  }
-  return undefined
+  return pageBlockRange(measurements.flows, page).first
 }
 
 function consumedLines(measurements: Measurements, page: Pick<PlanPage, 'windows'>) {

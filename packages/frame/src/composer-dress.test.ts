@@ -81,13 +81,32 @@ test('collects furniture and template-region overset as separate preflight entri
 
 test('reports the first and last block on each page without walking composed pages', () => {
   const pages = [
-    { flow: 'chapter', start: { flow: 'chapter', block: 0, line: 0, id: 'first' } },
-    { flow: 'chapter', start: { flow: 'chapter', block: 1, line: 2, id: 'split' } },
+    { flow: 'split', windows: [{ flow: 'split', start: 0, end: 20 }] },
+    { flow: 'split', windows: [{ flow: 'split', start: 20, end: 40 }] },
+    { flow: 'break', windows: [{ flow: 'break', start: 0, end: 10 }] },
+    { flow: 'break', windows: [{ flow: 'break', start: 10, end: 20 }] },
+    { flow: 'blank', windows: [] },
+    { flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] },
+    { flow: 'appendix', windows: [{ flow: 'appendix', start: 0, end: 10 }] },
+    { flow: 'fixed', windows: [{ flow: 'fixed', start: 0, end: 10 }] },
   ]
-  const flows = [{ id: 'chapter', kind: 'chapter', blocks: [{ id: 'first' }, { id: 'split' }, { id: 'last' }] }]
+  const line = (top: number, bottom: number) => ({ top, bottom })
+  const flows = [
+    { id: 'split', kind: 'chapter', blocks: [{ id: 'first', lines: [line(0, 10)] }, { id: 'split', lines: [line(10, 20), line(20, 30)] }, { id: 'last', lines: [line(30, 40)] }] },
+    { id: 'break', kind: 'chapter', blocks: [{ id: 'before-break', lines: [line(0, 10)] }, { id: 'after-break', lines: [line(10, 20)] }] },
+    { id: 'chapter', kind: 'chapter', blocks: [{ id: 'chapter-only', lines: [line(0, 10)] }] },
+    { id: 'appendix', kind: 'chapter', blocks: [{ id: 'appendix-only', lines: [line(0, 10)] }] },
+    { id: 'fixed', kind: 'fixed', pages: 1 },
+  ]
 
-  expect(preflightPageFacts(pages, ['1', '2'], flows)).toEqual([
+  expect(preflightPageFacts(pages as never, ['1', '2', '3', '4', null, '5', '6', '7'], flows as never)).toEqual([
     { folio: '1', first: 'first', last: 'split' },
     { folio: '2', first: 'split', last: 'last' },
+    { folio: '3', first: 'before-break', last: 'before-break' },
+    { folio: '4', first: 'after-break', last: 'after-break' },
+    { folio: '' },
+    { folio: '5', first: 'chapter-only', last: 'chapter-only' },
+    { folio: '6', first: 'appendix-only', last: 'appendix-only' },
+    { folio: '7' },
   ])
 })

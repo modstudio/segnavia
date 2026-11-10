@@ -27,8 +27,8 @@ export function dispatchPreflight(target: EventTarget, message: FrameMessage | n
 
 function preflightMessage(data: Record<string, unknown>, type: string, profile: PreflightProfile): FrameMessage | null {
   if (data.type !== type || !('report' in data)) return null
-  const report = data.report as { issues?: unknown; facts?: unknown } | undefined
-  return { type, report: boundPreflightReport({ entries: report?.issues, facts: report?.facts }, profile) }
+  const report = data.report as { issues?: unknown; facts?: unknown; omitted?: unknown } | undefined
+  return { type, report: boundPreflightReport({ entries: report?.issues, facts: report?.facts, omitted: report?.omitted }, profile) }
 }
 
 function bookPlaceMessage(data: Record<string, unknown>, type: string): FrameMessage | null {

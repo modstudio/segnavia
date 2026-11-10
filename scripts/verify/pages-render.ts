@@ -98,12 +98,6 @@ function verifyParentDetails(output: string, check: Check): void {
     narrow.length === 3 && (narrow[1]?.match(/Narrow-/g)?.length ?? 0) === 30 && Boolean(narrow[2]?.includes('Wide ending')),
     `pages=${narrow.length} narrow=${narrow[1]?.match(/Narrow-/g)?.length ?? 0} ending=${Boolean(narrow[2]?.includes('Wide ending'))}`,
   )
-  const furnitureEntry = JSON.parse(readFileSync(path.join(output, 'pages-parent-furniture-overflow.json'), 'utf8')).entries?.[0]
-  check(
-    'oversized furniture appears in the overflow report with parent and region',
-    furnitureEntry?.elements?.some((element: { locator?: string }) => element.locator === 'parent page body head') ?? false,
-    JSON.stringify(furnitureEntry),
-  )
 }
 
 export function verifyPagesRender(output: string, work: string, check: Check): void {

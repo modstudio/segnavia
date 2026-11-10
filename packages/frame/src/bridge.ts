@@ -28,7 +28,7 @@ import { escapeHtml } from './svg.ts'
 
 export type { SlotFitState } from './bridge-message.ts'
 export { dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
-export { headingMessage, type PageSelection, type SelectionMessage, selectionMessage } from './bridge-selection.ts'
+export { headingMessage, type PageSelection, type SelectionMessage, SELECTION_TEXT_LIMIT, selectionMessage } from './bridge-selection.ts'
 export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
 
@@ -52,7 +52,6 @@ export const MESSAGE = {
   preflight: 'segnavia:preflight',
 } as const
 
-export const SELECTION_TEXT_LIMIT = 1_000_000
 export const HEADING_ID_LIMIT = 256
 export const COMPOSE_FAILURE_TEXT_LIMIT = 1024
 

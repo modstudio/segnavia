@@ -4,6 +4,8 @@ import { bookDocument, parseBookFixture } from '@segnavia/html'
 import {
   appendMeasuredBlock,
   COMPOSE_FAILURE_ATTRIBUTE,
+  COMPOSED_ATTRIBUTE,
+  PREFLIGHT_ATTRIBUTE,
   composerScript,
   decideBookMeasurement,
   flowSectionNumbering,
@@ -14,6 +16,7 @@ import {
   pageReferenceFolio,
   unmeasuredFlows,
 } from './composer.ts'
+import { MESSAGE } from './bridge.ts'
 
 test('wraps composer start-up exceptions in a bounded failure report', () => {
   const script = composerScript('{}')
@@ -32,6 +35,18 @@ test('collects overset entries only when preflight is enabled', () => {
   const script = composerScript('{}')
   expect(script).toContain("if(config.preflight){var furnitureRegions=pages.querySelectorAll('[data-segnavia-head],[data-segnavia-foot]')")
   expect(script).toContain("if(config.preflight){var paper=filled[t].closest('['+config.pageMarker+']');markRegionOverflow")
+})
+
+test('publishes preflight before refusing or marking composition complete', () => {
+  const script = composerScript('{}')
+  const publish = script.indexOf(`setAttribute('${PREFLIGHT_ATTRIBUTE}',json)`)
+  const post = script.indexOf(`postMessage({type:'${MESSAGE.preflight}',report:report}`, publish)
+  const refusal = script.indexOf('var refusal=preflightRefusal(report)', post)
+  const composed = script.lastIndexOf(`setAttribute('${COMPOSED_ATTRIBUTE}','')`)
+  expect(publish).toBeGreaterThan(0)
+  expect(post).toBeGreaterThan(publish)
+  expect(refusal).toBeGreaterThan(post)
+  expect(composed).toBeGreaterThan(refusal)
 })
 
 function startTagElement(tag: string): Pick<Element, 'getAttribute'> {

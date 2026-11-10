@@ -10,6 +10,7 @@ import {
   type OriginApproval,
   type Page,
   type ParentRules,
+  preflightEnabled,
   PX_PER_MM,
   printedFromDocument,
   resolveLimits,
@@ -119,7 +120,7 @@ export function printedPageValueDocument(
     numbering: { frontMatter: numbering, body: numbering },
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
-    ...(options.profile && Object.values(options.profile).some((severity) => severity !== 'off') ? { preflight: options.profile } : {}),
+    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile } : {}),
     ...(options.screen ? { presentation: options.screen } : {}),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')

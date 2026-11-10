@@ -1,19 +1,23 @@
 import { describe, expect, test } from 'bun:test'
 import {
   BOOK_PARENT_NAMES,
+  boundPreflightReport,
   bookFromDocument,
   computeFolios,
   Document,
   PRINTED_PAGE_NUMBER_PATH,
   PRINTED_PAGE_TOTAL_PATH,
+  PREFLIGHT_PRESETS,
+  preflightRefusal,
   resolveDirection,
   StyleSheet,
 } from '@segnavia/format'
 import { bookView, heldPageNumber, openerPageIndex, pageIndexForTarget, parseBookFixture, selectParent, windowPageIndex } from '@segnavia/html'
-import { FLOWING_PARENT_RULES, layoutScript } from '@segnavia/layout'
+import { FLOWING_PARENT_RULES, layoutScript, pageBlockRange } from '@segnavia/layout'
 import { bookValueDocument as bookDocument, bookViewDocument, COMPOSER_SCRIPT, PaginatedBookRefusedError } from './book-document.ts'
 import { pageScale, spreadSlots } from './book-presentation.ts'
 import { flowViewDocument } from './book-view-document.ts'
+import { preflightPageFacts } from './composer-dress.ts'
 import { MESSAGE } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE as BOOK_FAILURE_ATTRIBUTE, decideBookMeasurement, flowTextArea, pixelPhaseOffset, type unmeasuredFlows } from './composer.ts'
 import type { forcedPageBreak } from './composer-measure.ts'
@@ -103,13 +107,19 @@ describe('bookDocument', () => {
     const bundle = await built.outputs[0]?.text()
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
-    const embedded = new Function(`${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak}`)() as {
+    const embedded = new Function(
+      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal}`,
+    )() as {
       flowTextArea: typeof flowTextArea
       spreadSlots: typeof spreadSlots
       pageScale: typeof pageScale
       unmeasuredFlows: typeof unmeasuredFlows
       decideBookMeasurement: typeof decideBookMeasurement
       forcedPageBreak: typeof forcedPageBreak
+      pageBlockRange: typeof pageBlockRange
+      preflightPageFacts: typeof preflightPageFacts
+      boundPreflightReport: typeof boundPreflightReport
+      preflightRefusal: typeof preflightRefusal
     }
     expect(
       embedded.flowTextArea(FLOWING_PARENT_RULES, {
@@ -124,6 +134,15 @@ describe('bookDocument', () => {
     expect(embedded.unmeasuredFlows(flows)).toEqual(['chapter-1'])
     expect(embedded.decideBookMeasurement({ hasLayout: true, flows, plannedPages: 0, visibleElapsedMs: 0 }, 1_000)).toBe('retry')
     expect(embedded.forcedPageBreak('recto')).toBe(true)
+    const measuredFlows = [{ id: 'chapter', kind: 'chapter', blocks: [{ id: 'held', lines: [{ top: 0, bottom: 10 }] }] }]
+    const pages = [{ flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] }]
+    expect(embedded.pageBlockRange(measuredFlows as never, pages[0] as never).first?.id).toBe('held')
+    expect(embedded.preflightPageFacts(pages as never, ['1'], measuredFlows as never)).toEqual([{ folio: '1', first: 'held', last: 'held' }])
+    const report = embedded.boundPreflightReport(
+      { entries: [{ check: 'region-overset', subject: 'held', message: 'shorten it' }], facts: { pageCount: 1, pages: [], fits: [] } },
+      PREFLIGHT_PRESETS.strict,
+    )
+    expect(embedded.preflightRefusal(report)).toBe('shorten it')
   })
 
   test('embeds the planner, furniture fill and parent-page planner under the bridge nonce', () => {

@@ -147,6 +147,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   moment?: SegnaviaPage['moment']
   onAsof?: CustomEventProp<AsOfDay>
   pageWidths?: SegnaviaPage['pageWidths']
+  profile?: SegnaviaPage['profile']
   src?: string
   label?: string
   bounded?: boolean
@@ -160,6 +161,7 @@ export interface BookProps extends ElementProps<SegnaviaBook> {
   placements?: SegnaviaBook['placements']
   pageWidths?: SegnaviaBook['pageWidths']
   origins?: SegnaviaBook['origins']
+  profile?: SegnaviaBook['profile']
   src?: string
   spread?: boolean
   layout?: SegnaviaBook['layout']

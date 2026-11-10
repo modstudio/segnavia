@@ -23,6 +23,26 @@ describe('book layout lifecycle', () => {
     expect(seen).toEqual([{ failures: [failure], bubbles: true, composed: true }])
   })
 
+  test('a preflight report dispatches only from the current composing frame', () => {
+    const { book, frames } = reflectedBookElement()
+    book.view = switchableBookView()
+    const frame = frames[0]
+    if (!frame) throw new Error('the book frame was not mounted')
+    const seen: unknown[] = []
+    book.dispatchEvent = ((event: Event) => {
+      if (event.type === 'preflight') seen.push((event as CustomEvent).detail)
+      return true
+    }) as typeof book.dispatchEvent
+    const report = { status: 'clean', issues: [], omitted: {}, facts: { pageCount: 1, pages: [], fits: [] } }
+    const onMessage = (book as unknown as { onMessage(event: MessageEvent): void }).onMessage
+    const generation = String((book as unknown as { loadGeneration: number }).loadGeneration)
+    frame.dataset.segnaviaBookGeneration = '-1'
+    onMessage({ source: frame.contentWindow, data: { type: MESSAGE.preflight, report } } as MessageEvent)
+    frame.dataset.segnaviaBookGeneration = generation
+    onMessage({ source: frame.contentWindow, data: { type: MESSAGE.preflight, report } } as MessageEvent)
+    expect(seen).toEqual([report])
+  })
+
   test('a reloaded frame keeps its intrinsic layout and detach clears readiness', () => {
     const { book, frames } = reflectedBookElement()
     const messages: unknown[] = []

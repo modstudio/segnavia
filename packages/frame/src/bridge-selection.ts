@@ -3,13 +3,15 @@ export interface PageSelection {
   pageText: string
 }
 
+export const SELECTION_TEXT_LIMIT = 1_000_000
+
 export type SelectionMessage = { selection: PageSelection } | { oversize: true }
 
 export function selectionMessage(event: MessageEvent, frame: HTMLIFrameElement | null, id: number): SelectionMessage | null {
   if (event.source !== frame?.contentWindow) return null
   const data = event.data as { type?: unknown; id?: unknown; text?: unknown; pageText?: unknown }
   if (data?.type !== 'segnavia:selection' || data.id !== id || typeof data.text !== 'string' || typeof data.pageText !== 'string') return null
-  if (data.text.length > 1_000_000 || data.pageText.length > 1_000_000) return { oversize: true }
+  if (data.text.length > SELECTION_TEXT_LIMIT || data.pageText.length > SELECTION_TEXT_LIMIT) return { oversize: true }
   return { selection: { text: data.text, pageText: data.pageText } }
 }
 

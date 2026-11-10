@@ -319,9 +319,9 @@ async function verifyWorkbooks(h: Harness) {
     const report = await frame.evaluate((flowId) => {
       const pages = Array.from(document.querySelectorAll(`[data-segnavia-book-page][data-segnavia-flow="${flowId}"]`))
       const templates = pages.map((paper) => paper.querySelector('[data-template]')?.getAttribute('data-template') ?? '')
-      const overflow = Array.from(document.querySelectorAll('[data-segnavia-region-overflow]')).map((node) =>
-        node.getAttribute('data-segnavia-region-overflow'),
-      )
+      const preflight = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as
+        | { issues?: Array<{ check?: string; subject?: string }> }
+        | null
       const school = document.body.textContent ?? ''
       const tableDir = Array.from(document.querySelectorAll('[data-segnavia-book-page] [data-region="table"]')).map((node) => getComputedStyle(node).direction)
       const contents = Array.from(document.querySelectorAll('.segnavia-contents-page[href^="#"]')).map((node) => {
@@ -333,7 +333,7 @@ async function verifyWorkbooks(h: Harness) {
         failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
         pages: pages.length,
         templates,
-        overflow,
+        preflightIssues: preflight?.issues ?? [],
         school,
         tableDir,
         contents,
@@ -349,8 +349,8 @@ async function verifyWorkbooks(h: Harness) {
     )
     check(
       `${id} an overfull reading-text region is marked by page and name`,
-      report.overflow.some((mark) => mark?.includes(':reading-text:')),
-      JSON.stringify(report.overflow),
+      report.preflightIssues.some((issue) => issue.check === 'region-overset' && issue.subject?.endsWith(':reading-text')),
+      JSON.stringify(report.preflightIssues),
     )
     check(`${id} templated pages carry folios`, report.bodyFolio)
     const lessons = report.contents.filter((entry) => entry.id.startsWith('lesson-') || entry.id === flowId)
@@ -364,10 +364,13 @@ async function verifyWorkbooks(h: Harness) {
     check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
     const fit = await frame.evaluate(() => {
       const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
-      if (!el) return { size: 0, overflow: 'missing', elements: -1 }
+      if (!el) return { size: 0, overset: true, elements: -1 }
+      const preflight = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as
+        | { issues?: Array<{ check?: string; subject?: string }> }
+        | null
       return {
         size: Number.parseFloat(getComputedStyle(el).fontSize),
-        overflow: el.getAttribute('data-segnavia-region-overflow'),
+        overset: preflight?.issues?.some((issue) => issue.check === 'region-overset' && issue.subject?.endsWith(':lesson-text')) ?? false,
         elements: el.childElementCount,
       }
     })
@@ -375,7 +378,7 @@ async function verifyWorkbooks(h: Harness) {
     const maxPx = 75 * PX_PER_PT
     check(
       `${id} a region of bare overflowing text fits between min and max`,
-      fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overflow,
+      fit.elements === 0 && fit.size >= minPx - 0.5 && fit.size < maxPx - 0.5 && !fit.overset,
       JSON.stringify(fit),
     )
     await frame.locator('[data-segnavia-pages] a[href="#lesson-1"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())

@@ -27,5 +27,5 @@ export type {
 } from './paginate-types.ts'
 export * from './parent-selection.ts'
 export { type BookPlan, type Measurements, planBook } from './plan-book.ts'
-export { type ReplayPlanResult, replayPlan, savePlan } from './plan-save.ts'
+export { pageBlockRange, type ReplayPlanResult, replayPlan, savePlan } from './plan-save.ts'
 export * from './printed-pages.ts'

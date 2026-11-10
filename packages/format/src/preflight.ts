@@ -48,6 +48,10 @@ export function resolvePreflightProfile(input: PreflightProfileInput = 'default'
   return Object.freeze(resolved)
 }
 
+export function preflightEnabled(profile: PreflightProfile): boolean {
+  return PREFLIGHT_CHECKS.some((check) => profile[check] !== 'off')
+}
+
 export interface PreflightLocation {
   readonly folio?: string
   readonly block?: string
@@ -92,67 +96,103 @@ export const PREFLIGHT_FITS_LIMIT = 256
 export const PREFLIGHT_FIT_GROUP_LIMIT = 256
 export const PREFLIGHT_FIT_SIZE_LIMIT = 64
 
-const boundedPreflightText = (value: unknown, limit: number): string | undefined => (typeof value === 'string' ? value.slice(0, limit) : undefined)
-
-function boundedPreflightLocation(value: unknown): PreflightLocation | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  const source = value as { folio?: unknown; block?: unknown }
-  const folio = boundedPreflightText(source.folio, PREFLIGHT_FOLIO_LIMIT)
-  const block = boundedPreflightText(source.block, PREFLIGHT_BLOCK_LIMIT)
-  return folio === undefined && block === undefined ? undefined : { ...(folio === undefined ? {} : { folio }), ...(block === undefined ? {} : { block }) }
-}
-
-function boundedPreflightEntry(value: unknown, profile: PreflightProfile, order: number): (PreflightIssue & { order: number }) | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  const source = value as { check?: unknown; subject?: unknown; message?: unknown; location?: unknown }
-  if (typeof source.check !== 'string' || !(PREFLIGHT_CHECKS as readonly string[]).includes(source.check)) return undefined
-  const check = source.check as PreflightCheck
-  const severity = profile[check]
-  if (severity === 'off') return undefined
-  const subject = boundedPreflightText(source.subject, PREFLIGHT_SUBJECT_LIMIT)
-  const message = boundedPreflightText(source.message, PREFLIGHT_MESSAGE_LIMIT)
-  if (subject === undefined || message === undefined) return undefined
-  const location = boundedPreflightLocation(source.location)
-  return { check, subject, message, id: `${check}:${subject}`, severity, ...(location ? { location } : {}), order }
-}
-
-function boundedPreflightFacts(value: unknown): PreflightFacts {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { pageCount: 0, pages: [], fits: [] }
-  const source = value as { pageCount?: unknown; pages?: unknown; fits?: unknown }
-  if (!Number.isSafeInteger(source.pageCount) || (source.pageCount as number) < 0 || !Array.isArray(source.pages) || !Array.isArray(source.fits)) {
-    return { pageCount: 0, pages: [], fits: [] }
+export function boundPreflightReport(
+  input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown },
+  profile: PreflightProfile,
+  bounds?: {
+    readonly checks: readonly PreflightCheck[]
+    readonly issuesPerCheck: number
+    readonly subject: number
+    readonly message: number
+    readonly folio: number
+    readonly block: number
+    readonly pages: number
+    readonly fits: number
+    readonly fitGroup: number
+    readonly fitSize: number
+  },
+): PreflightReport {
+  const limits =
+    bounds ??
+    ({
+      checks: PREFLIGHT_CHECKS,
+      issuesPerCheck: PREFLIGHT_ISSUES_PER_CHECK,
+      subject: PREFLIGHT_SUBJECT_LIMIT,
+      message: PREFLIGHT_MESSAGE_LIMIT,
+      folio: PREFLIGHT_FOLIO_LIMIT,
+      block: PREFLIGHT_BLOCK_LIMIT,
+      pages: PREFLIGHT_PAGES_LIMIT,
+      fits: PREFLIGHT_FITS_LIMIT,
+      fitGroup: PREFLIGHT_FIT_GROUP_LIMIT,
+      fitSize: PREFLIGHT_FIT_SIZE_LIMIT,
+    } as const)
+  const boundedPreflightText = (value: unknown, limit: number): string | undefined => (typeof value === 'string' ? value.slice(0, limit) : undefined)
+  const boundedPreflightLocation = (value: unknown): PreflightLocation | undefined => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+    const source = value as { folio?: unknown; block?: unknown }
+    const folio = boundedPreflightText(source.folio, limits.folio)
+    const block = boundedPreflightText(source.block, limits.block)
+    return folio === undefined && block === undefined ? undefined : { ...(folio === undefined ? {} : { folio }), ...(block === undefined ? {} : { block }) }
   }
-  const pages = source.pages.slice(0, PREFLIGHT_PAGES_LIMIT).flatMap((value): PreflightPageFacts[] => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return []
-    const page = value as { folio?: unknown; first?: unknown; last?: unknown }
-    const folio = boundedPreflightText(page.folio, PREFLIGHT_FOLIO_LIMIT)
-    if (folio === undefined) return []
-    const first = boundedPreflightText(page.first, PREFLIGHT_BLOCK_LIMIT)
-    const last = boundedPreflightText(page.last, PREFLIGHT_BLOCK_LIMIT)
-    return [{ folio, ...(first === undefined ? {} : { first }), ...(last === undefined ? {} : { last }) }]
-  })
-  const fits = source.fits.slice(0, PREFLIGHT_FITS_LIMIT).flatMap((value): PreflightFit[] => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return []
-    const fit = value as { group?: unknown; size?: unknown }
-    const group = boundedPreflightText(fit.group, PREFLIGHT_FIT_GROUP_LIMIT)
-    const size = boundedPreflightText(fit.size, PREFLIGHT_FIT_SIZE_LIMIT)
-    return group === undefined || size === undefined ? [] : [{ group, size }]
-  })
-  return { pageCount: source.pageCount as number, pages, fits }
-}
-
-export function boundPreflightReport(input: { readonly entries: unknown; readonly facts: unknown }, profile: PreflightProfile): PreflightReport {
+  const boundedPreflightEntry = (value: unknown, order: number): (PreflightIssue & { order: number }) | undefined => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+    const source = value as { check?: unknown; subject?: unknown; message?: unknown; location?: unknown }
+    if (typeof source.check !== 'string' || !(limits.checks as readonly string[]).includes(source.check)) return undefined
+    const check = source.check as PreflightCheck
+    const severity = profile[check]
+    if (severity === 'off') return undefined
+    const subject = boundedPreflightText(source.subject, limits.subject)
+    const message = boundedPreflightText(source.message, limits.message)
+    if (subject === undefined || message === undefined) return undefined
+    const location = boundedPreflightLocation(source.location)
+    return { check, subject, message, id: `${check}:${subject}`, severity, ...(location ? { location } : {}), order }
+  }
+  const boundedPreflightFacts = (value: unknown): PreflightFacts => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return { pageCount: 0, pages: [], fits: [] }
+    const source = value as { pageCount?: unknown; pages?: unknown; fits?: unknown }
+    if (!Number.isSafeInteger(source.pageCount) || (source.pageCount as number) < 0 || !Array.isArray(source.pages) || !Array.isArray(source.fits)) {
+      return { pageCount: 0, pages: [], fits: [] }
+    }
+    const pages = source.pages.slice(0, limits.pages).flatMap((held): PreflightPageFacts[] => {
+      if (!held || typeof held !== 'object' || Array.isArray(held)) return []
+      const page = held as { folio?: unknown; first?: unknown; last?: unknown }
+      const folio = boundedPreflightText(page.folio, limits.folio)
+      if (folio === undefined) return []
+      const first = boundedPreflightText(page.first, limits.block)
+      const last = boundedPreflightText(page.last, limits.block)
+      return [{ folio, ...(first === undefined ? {} : { first }), ...(last === undefined ? {} : { last }) }]
+    })
+    const fits = source.fits.slice(0, limits.fits).flatMap((held): PreflightFit[] => {
+      if (!held || typeof held !== 'object' || Array.isArray(held)) return []
+      const fit = held as { group?: unknown; size?: unknown }
+      const group = boundedPreflightText(fit.group, limits.fitGroup)
+      const size = boundedPreflightText(fit.size, limits.fitSize)
+      return group === undefined || size === undefined ? [] : [{ group, size }]
+    })
+    return { pageCount: Math.min(source.pageCount as number, limits.pages), pages, fits }
+  }
   const entries = Array.isArray(input.entries) ? input.entries : []
   const counts: Partial<Record<PreflightCheck, number>> = {}
   const omitted: Partial<Record<PreflightCheck, number>> = {}
+  const omittedLimit = 10_000
+  if (input.omitted && typeof input.omitted === 'object' && !Array.isArray(input.omitted)) {
+    for (const check of limits.checks) {
+      const value = (input.omitted as Record<string, unknown>)[check]
+      if (Number.isSafeInteger(value) && (value as number) >= 0) omitted[check] = Math.min(value as number, omittedLimit)
+    }
+  }
+  const addOmitted = (check: PreflightCheck): void => {
+    omitted[check] = Math.min((omitted[check] ?? 0) + 1, omittedLimit)
+  }
   const issues: (PreflightIssue & { order: number })[] = []
-  for (let order = 0; order < entries.length; order += 1) {
-    const issue = boundedPreflightEntry(entries[order], profile, order)
+  const scanLimit = limits.issuesPerCheck * limits.checks.length * 4
+  for (let order = 0; order < Math.min(entries.length, scanLimit); order += 1) {
+    const issue = boundedPreflightEntry(entries[order], order)
     if (!issue) continue
     const check = issue.check
     counts[check] = (counts[check] ?? 0) + 1
-    if ((counts[check] ?? 0) > PREFLIGHT_ISSUES_PER_CHECK) {
-      omitted[check] = (omitted[check] ?? 0) + 1
+    if ((counts[check] ?? 0) > limits.issuesPerCheck) {
+      addOmitted(check)
       continue
     }
     issues.push(issue)
@@ -160,7 +200,7 @@ export function boundPreflightReport(input: { readonly entries: unknown; readonl
   issues.sort((a, b) => {
     const severity = Number(b.severity === 'error') - Number(a.severity === 'error')
     if (severity) return severity
-    const check = PREFLIGHT_CHECKS.indexOf(a.check) - PREFLIGHT_CHECKS.indexOf(b.check)
+    const check = limits.checks.indexOf(a.check) - limits.checks.indexOf(b.check)
     return check || a.order - b.order
   })
   const cleanIssues = issues.map(({ order: _, ...issue }) => issue)

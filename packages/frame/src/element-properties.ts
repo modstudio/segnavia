@@ -83,7 +83,7 @@ export const ELEMENT_PROPERTIES = {
   boardToolbar: descriptor(HEADLESS_ELEMENTS.boardToolbar, ['target', 'list', 'shareable', 'labels'], ['segnavia-board-list-toggle', 'segnavia-board-share']),
   page: descriptor(
     HEADLESS_ELEMENTS.page,
-    ['page', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'alertLabels', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment'],
+    ['page', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'alertLabels', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment', 'profile'],
     ['asof'],
   ),
   paper: descriptor(
@@ -96,7 +96,7 @@ export const ELEMENT_PROPERTIES = {
     ['css', 'cspExtra', 'origins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment'],
     ['asof'],
   ),
-  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'origins'], []),
+  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'origins', 'profile'], []),
   player: descriptor(
     STYLED_ELEMENTS.player,
     ['labels', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots'],

@@ -127,12 +127,13 @@ describe('composed frame bridge', () => {
       severity: 'error',
       id: 'forged',
     }))
-    const data = { type: MESSAGE.preflight, report: { issues, facts: { pageCount: 1, pages: [], fits: [] } } }
+    const data = { type: MESSAGE.preflight, report: { issues, omitted: { 'region-overset': 4, unknown: 10 }, facts: { pageCount: 1, pages: [], fits: [] } } }
     const accepted = messageFrom({ source, data } as MessageEvent, frame, PREFLIGHT_PRESETS.default)
     expect(accepted?.report?.issues).toHaveLength(64)
     expect(accepted?.report?.issues[0]?.severity).toBe('warning')
     expect(accepted?.report?.issues[0]?.subject).toHaveLength(256)
-    expect(accepted?.report?.omitted).toEqual({ 'region-overset': 6 })
+    expect(accepted?.report?.issues[0]?.id).toBe(`region-overset:0${'x'.repeat(255)}`)
+    expect(accepted?.report?.omitted).toEqual({ 'region-overset': 10 })
     expect(messageFrom({ source: {} as Window, data } as MessageEvent, frame)).toBeNull()
   })
 
