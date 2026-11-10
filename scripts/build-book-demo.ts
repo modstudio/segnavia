@@ -12,7 +12,7 @@ import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 import { noteSeriesFixture, twoPageSeriesFixture, twoPageSeriesRelayoutCss } from './demo-book-note-series-fixtures.ts'
-import { haggadahHeadCss, markParents, paginatedParents } from './demo-book-parents.ts'
+import { chapterParentRules, haggadahHeadCss, markParents, paginatedParents, variableHeadParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
@@ -147,25 +147,21 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
         { ...designedSpread(hebrew), id: 'segnavia-designed-1' },
         flowSection(hebrew ? 'פרק ראשון' : 'Chapter One', chapterOneHtml(hebrew, undefined, true, 'segnavia-chapter-3'), {
           id: 'segnavia-chapter-1',
-          parentRules: [
-            { when: { blank: true }, parent: BOOK_PARENT_NAMES.blank },
-            { when: { position: 'sectionFirst' }, parent: 'deep-opener' },
-            { when: { face: 'verso' }, parent: markParents.verso },
-            { parent: markParents.recto },
-          ],
+          parentRules: chapterParentRules('deep-opener', markParents.verso, markParents.recto),
         }),
         { ...designedLeaf(hebrew), id: 'segnavia-designed-2' },
         flowSection(hebrew ? 'פרק שני' : 'Chapter Two', chapterTwoHtml(hebrew), {
           id: 'segnavia-chapter-2',
-          parentRules: [
-            { when: { blank: true }, parent: BOOK_PARENT_NAMES.blank },
-            { when: { position: 'sectionFirst' }, parent: 'wide-opener' },
-            { when: { face: 'verso' }, parent: 'wide-verso' },
-            { parent: 'wide-recto' },
-          ],
+          parentRules: chapterParentRules('wide-opener', 'wide-verso', 'wide-recto'),
         }),
-        flowSection(hebrew ? 'פרק שלישי' : 'Chapter Three', chapterThreeHtml(hebrew), { id: 'segnavia-chapter-3' }),
-        flowSection(hebrew ? 'פרק רביעי' : 'Chapter Four', chapterFourHtml(hebrew), { id: 'segnavia-chapter-4' }),
+        flowSection(hebrew ? 'פרק שלישי' : 'Chapter Three', chapterThreeHtml(hebrew), {
+          id: 'segnavia-chapter-3',
+          parentRules: chapterParentRules(BOOK_PARENT_NAMES.opener, variableHeadParents.verso, variableHeadParents.recto),
+        }),
+        flowSection(hebrew ? 'פרק רביעי' : 'Chapter Four', chapterFourHtml(hebrew), {
+          id: 'segnavia-chapter-4',
+          parentRules: chapterParentRules(BOOK_PARENT_NAMES.opener, variableHeadParents.verso, variableHeadParents.recto),
+        }),
         flowSection(columnFitChapter(hebrew).title, columnFitChapter(hebrew).html, { id: 'segnavia-chapter-5' }),
       ],
     },
