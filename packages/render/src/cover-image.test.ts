@@ -3,7 +3,7 @@ import { Cover, type coverDigest, Page } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 import { coverImagePlan } from './cover-image.ts'
 import { renderPreparedPageImage } from './page-image-render.ts'
-import { completePreflight, resolveRenderPreflight } from './preflight.ts'
+import { resolveRenderPreflight, surfacePreflight } from './preflight.ts'
 import type { Renderer } from './renderer.ts'
 
 const coverDocument = (html: string, print?: { paper: { width: number; height: number; unit: 'mm' } }) => ({
@@ -106,7 +106,7 @@ test('cover image rendering keeps composer preflight for a printed cover without
         setup.preflightReport?.({ fontFailures: [], slotFits: [{ title: 'overflowed' }] })
         return body(tab as never)
       },
-      completePreflight(preflight, 1),
+      surfacePreflight(preflight, 1),
     )
     expect(reports).toHaveLength(1)
     expect(reports[0]?.issues.map((issue) => issue.check)).toEqual(['css-var-invalid'])

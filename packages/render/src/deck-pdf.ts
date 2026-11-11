@@ -47,7 +47,7 @@ import { addPressBoxes, printCss } from './page-paper.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
-import { completePreflight, type SurfacePreflight } from './preflight.ts'
+import { type SurfacePreflight, type SurfacePreflightCapture, surfacePreflight } from './preflight.ts'
 import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = ComposedRenderOptions & PrintOptions
@@ -69,7 +69,7 @@ interface DeckPdfServices {
       limits?: Limits
       fontFailures?: FontFailure[]
       fontLoadReport?: (report: { failures: FontFailure[] }) => void
-      preflightReport?: (capture: { fontFailures: readonly FontFailure[]; slotFits: readonly Record<string, string>[] }) => void
+      preflightReport?: (capture: SurfacePreflightCapture) => void
     },
     pdf: Parameters<Tab['pdf']>[0],
     frames: readonly number[],
@@ -175,7 +175,7 @@ async function renderHtmlSlides(
             boundMs: opts.boundMs,
             ...assetSetup(opts),
             ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
-            preflightReport: preflight?.capture({ folio: String(index + 1) }),
+            preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
             beforeOutput: (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
           },
           {
@@ -233,7 +233,6 @@ async function regularDeckPdf(
       )
     : undefined
   const fontFailures = deckFontFailures(services.fontFailures ?? [], notesSheetFont)
-  preflight?.capture()({ fontFailures, slotFits: [] })
   let pageOwners: number[] = []
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
@@ -244,6 +243,7 @@ async function regularDeckPdf(
         boundMs: opts.boundMs,
         ...assetSetup(opts),
         ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
+        preflightReport: preflight?.capture(),
         beforeOutput: async (tab) => {
           await placeRenderedImages(tab)
           if (notesGeometry) {
@@ -286,6 +286,7 @@ async function imposedDeckPdf(
   const marks = impositionMarks(imposition, deck.print)
   const sides = boxes.map((sideBoxes) => ({ boxes: sideBoxes, marks: marks.find((entry) => entry.side === sideBoxes.side) }))
   const fontFailures = services.fontFailures ?? []
+  preflight?.capture()({ fontFailures, slotFits: [] })
   opts.marks?.report?.({ omittedMarks: marks.flatMap((side) => side.omittedMarks) })
   const rendered = await Promise.all(
     deck.slides.map(async (slide, index) => {
@@ -311,7 +312,7 @@ async function imposedDeckPdf(
             boundMs: opts.boundMs,
             ...assetSetup(opts),
             ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
-            preflightReport: preflight?.capture({ folio: String(index + 1) }),
+            preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
             beforeOutput:
               'kind' in slide.content && slide.content.kind === 'html'
                 ? (tab) => waitForPrintReady(tab, renderReadiness('refuse', diagrams, opts.waitForPageReady !== false))
@@ -366,8 +367,7 @@ export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: 
     fontFailures: resolvedFonts.fontFailures,
     fontFaces: (options: RenderOptions) => `${resolvedFonts.fontCss}${services.fontFaces(options)}`,
   }
-  const preflight = completePreflight(opts.preflight, deck.slides.length)
-  preflight?.capture()({ fontFailures: resolvedFonts.fontFailures, slotFits: [] })
+  const preflight = surfacePreflight(opts.preflight, deck.slides.length)
   opts = { ...opts, ...resolvedFonts.options }
   if (!opts.imposition) {
     const output = await regularDeckPdf(resolvedDeck, opts, resolvedServices, pressSettings, diagramScript, preflight)

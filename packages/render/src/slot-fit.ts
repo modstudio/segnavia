@@ -24,12 +24,13 @@ export async function mergeCapturedSlotFit(tab: Page, slots: PreparedSlots, time
     )
     .catch(() => {})
   const messages = await tab.evaluate(() => (window as typeof window & { __segnaviaSlotFit?: unknown[] }).__segnaviaSlotFit ?? [])
+  const declared = new Set(slots.declarations.map((slot) => slot.key))
   const measured = new Map<string, number>()
   const captured: Record<string, string>[] = []
   for (const data of messages) {
     const fit = slotFitMessageData(data)
     if (fit) {
-      captured.push(fit.slots)
+      captured.push(Object.fromEntries(Object.entries(fit.slots).filter(([key]) => declared.has(key))))
       for (const key of Object.keys(fit.slots)) measured.set(key, (measured.get(key) ?? 0) + 1)
       slots.mergeFit(fit.slots)
     }

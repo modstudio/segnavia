@@ -19,17 +19,28 @@ const deck = Deck.parse({
   ],
 })
 
+const imposition = {
+  paper: { width: 120, height: 80, unit: 'mm' as const },
+  orientation: 'landscape' as const,
+  columns: 2,
+  rows: 1,
+  cell: { width: 40, height: 60 },
+  margin: { top: 10, right: 15, bottom: 10, left: 15 },
+  gap: { column: 10, row: 0 },
+}
+
 test.each([
-  ['default', 'warnings'],
-  ['strict', 'refuses'],
-] as const)('deck PDF %s preflight reports an overset slide and %s', async (profile, outcome) => {
+  ['default', 'warnings', undefined],
+  ['strict', 'refuses', undefined],
+  ['strict', 'refuses', imposition],
+] as const)('deck PDF %s preflight reports an overset slide and %s with imposition %p', async (profile, outcome, imposed) => {
   const reports: PreflightReport[] = []
   const rendering = renderDeckPdf(
     deck,
-    { preflight: resolveRenderPreflight({ profile, report: (report) => reports.push(report) }) },
+    { preflight: resolveRenderPreflight({ profile, report: (report) => reports.push(report) }), imposition: imposed },
     {
       renderPdf: async (setup) => {
-        setup.preflightReport?.({ fontFailures: [], slotFits: [{ title: 'overflowed' }] })
+        setup.preflightReport?.({ fontFailures: [], slotFits: setup.html.includes('<section class="sheet">') ? [] : [{ title: 'overflowed' }] })
         if (!setup.html.includes('<section class="sheet">')) return onePage(400, 200)
         const pdf = await PDFDocument.create()
         pdf.addPage([300, 150]).drawRectangle({ x: 0, y: 0, width: 300, height: 150 })

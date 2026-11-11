@@ -32,18 +32,23 @@ export interface SurfacePreflightCapture {
 }
 
 export interface SurfacePreflight {
-  capture(location?: { readonly folio?: string }): (capture: SurfacePreflightCapture) => void
+  capture(position?: { readonly index?: number; readonly folio?: string }): (capture: SurfacePreflightCapture) => void
   complete(): void
 }
 
-export function completePreflight(preflight: ComposedPreflight | undefined, total: number): SurfacePreflight | undefined {
+export function surfacePreflight(preflight: ComposedPreflight | undefined, total: number): SurfacePreflight | undefined {
   if (!preflight || !preflightEnabled(preflight.profile)) return undefined
-  const captures: Array<SurfacePreflightCapture & { location?: { readonly folio?: string } }> = []
+  const captures: Array<SurfacePreflightCapture & { order: number; location?: { readonly folio?: string } }> = []
   return {
-    capture: (location) => (capture) => captures.push({ ...capture, ...(location === undefined ? {} : { location }) }),
+    capture: (position) => (capture) =>
+      captures.push({
+        ...capture,
+        order: position?.index ?? -1,
+        ...(position?.folio === undefined ? {} : { location: { folio: position.folio } }),
+      }),
     complete: () => {
       const entries: PreflightEntry[] = []
-      captures.sort((left, right) => Number(left.location?.folio ?? 0) - Number(right.location?.folio ?? 0))
+      captures.sort((left, right) => left.order - right.order)
       for (const capture of captures) {
         for (const slots of capture.slotFits) appendSlotOversetEntries(slots, entries, capture.location)
         for (const entry of fontMissingEntries(capture.fontFailures, capture.location)) {
@@ -63,6 +68,11 @@ export function completePreflight(preflight: ComposedPreflight | undefined, tota
 
 export function resolveRenderPreflight(preflight: RenderPreflightOptions | undefined): ComposedPreflight | undefined {
   if (preflight === undefined) return undefined
+  if (preflight.report !== undefined && typeof preflight.report !== 'function') {
+    throw new RenderRefusedError(
+      'The preflight option needs a report function; pass preflight: { profile, report(report) {} }, or omit report to clear this refusal.',
+    )
+  }
   try {
     return { profile: resolvePreflightProfile(preflight.profile), seed: [], report: preflight.report }
   } catch (error) {

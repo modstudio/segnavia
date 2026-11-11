@@ -1,4 +1,5 @@
 import { expect, test } from 'bun:test'
+import { appendSlotOversetEntries, type PreflightEntry } from '@segnavia/format'
 import { MESSAGE } from '@segnavia/frame/bridge'
 import { prepareSlots, RequiredSlotsRefusedError, UnmeasuredSlotsRefusedError } from '@segnavia/html'
 import type { Page } from 'playwright-core'
@@ -27,4 +28,19 @@ test('server measurement refuses a filled refuse slot when no fit result arrives
     evaluate: async () => [],
   } as unknown as Page
   await expect(mergeCapturedSlotFit(tab, prepared, 100)).rejects.toBeInstanceOf(UnmeasuredSlotsRefusedError)
+})
+
+test('a foreign overflowed slot key produces no preflight issue', async () => {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'shrink' }], {
+    fill: { id: 'long', values: { name: 'A long name' } },
+  })
+  const tab = {
+    waitForFunction: async () => {},
+    evaluate: async () => [{ type: MESSAGE.slotFit, slots: { name: 'fit', foreign: 'overflowed' } }],
+  } as unknown as Page
+  const captured = await mergeCapturedSlotFit(tab, prepared, 100)
+  const entries: PreflightEntry[] = []
+  for (const fit of captured ?? []) appendSlotOversetEntries(fit, entries)
+  expect(captured).toEqual([{ name: 'fit' }])
+  expect(entries).toEqual([])
 })

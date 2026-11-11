@@ -21,8 +21,6 @@ import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { preflightPageFacts } from './composer-dress.ts'
 
-export { appendSlotOversetEntries }
-
 export const PREFLIGHT_ATTRIBUTE = 'data-segnavia-preflight'
 
 function inlineVarHasFallback(style: string, start: number): boolean {

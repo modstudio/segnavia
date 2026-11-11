@@ -5,8 +5,8 @@ import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDeckFonts } from './deck-pdf.ts'
 import { fontFaces } from './font-faces.ts'
-import { assetSetup, type ComposedRenderOptions, type ImageOptions } from './options.ts'
-import { completePreflight } from './preflight.ts'
+import { assetSetup, type ParsedComposedRenderOptions, type SlideImageOptions } from './options.ts'
+import { surfacePreflight } from './preflight.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
@@ -21,7 +21,7 @@ interface SlideImageServices {
 export async function renderSlideImage(
   deck: Deck,
   index: number,
-  opts: ImageOptions & Pick<PrintOptions, 'inline'> & Pick<ComposedRenderOptions, 'preflight'>,
+  opts: ParsedComposedRenderOptions<SlideImageOptions> & Pick<PrintOptions, 'inline'>,
   services: SlideImageServices,
   deadline: RenderDeadline,
 ): Promise<Uint8Array> {
@@ -31,7 +31,7 @@ export async function renderSlideImage(
   if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
   const single: Deck = { ...preparedDeck, slides: [slide] }
   const resolvedFonts = await resolveDeckFonts(preparedDeck, opts, deadline.signal)
-  const preflight = completePreflight(opts.preflight, 1)
+  const preflight = surfacePreflight(opts.preflight, 1)
   const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
   const diagramScript = await services.diagramScript(slideHtml)
   const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false)
@@ -50,7 +50,7 @@ export async function renderSlideImage(
       beforeOutput: opts.beforeOutput,
       ...assetSetup(opts),
       ...fontLoadSetup(resolvedFonts.fontFailures, opts.fontLoad?.report),
-      preflightReport: preflight?.capture({ folio: String(index + 1) }),
+      preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
     },
     async (tab) => {
       await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)
