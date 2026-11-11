@@ -74,8 +74,7 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
     selected?.label?.id === 'label-he' && selected.labels?.length === 1 && (await handle.count()) === 1,
     JSON.stringify(selected),
   )
-  const beforeBox = await hebrew.boundingBox()
-  const beforeHandle = await handle.boundingBox()
+  const [beforeBox, beforeHandle] = await settledBoxes([hebrew, handle], 2_000)
   h.check(
     'a Hebrew label on an RTL board puts its resize handle on the left',
     Boolean(beforeBox && beforeHandle && Math.abs(beforeHandle.x + beforeHandle.width / 2 - beforeBox.x) < 1),
