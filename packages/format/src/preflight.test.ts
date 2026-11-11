@@ -6,6 +6,7 @@ import {
   PREFLIGHT_ISSUES_PER_CHECK,
   PREFLIGHT_PAGES_LIMIT,
   PREFLIGHT_PRESETS,
+  type PreflightEntry,
   preflightEnabled,
   preflightRefusal,
   resolvePreflightProfile,
@@ -111,18 +112,29 @@ describe('boundPreflightReport', () => {
   })
 
   test('bounds coverage and treats missing or invalid coverage as complete', () => {
-    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: PREFLIGHT_PAGES_LIMIT + 2, total: PREFLIGHT_PAGES_LIMIT + 1 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({
+    expect(
+      boundPreflightReport(
+        { entries: [], facts, coverage: { measured: PREFLIGHT_PAGES_LIMIT + 2, total: PREFLIGHT_PAGES_LIMIT + 1 } },
+        PREFLIGHT_PRESETS.default,
+      ).coverage,
+    ).toEqual({
       measured: PREFLIGHT_PAGES_LIMIT,
       total: PREFLIGHT_PAGES_LIMIT,
     })
-    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 2, total: 1 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({ measured: 1, total: 1 })
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 2, total: 1 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({
+      measured: 1,
+      total: 1,
+    })
     expect(boundPreflightReport({ entries: [], facts }, PREFLIGHT_PRESETS.default).coverage).toEqual({ measured: 1, total: 1 })
-    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: -1, total: 2 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({ measured: 1, total: 1 })
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: -1, total: 2 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({
+      measured: 1,
+      total: 1,
+    })
   })
 })
 
 test('slot overset entries keep one subject and may carry a surface location', () => {
-  const entries = [entry('region-overset')]
+  const entries: PreflightEntry[] = [entry('region-overset')]
   appendSlotOversetEntries({ title: 'overflowed', body: 'fit' }, entries, { folio: '2' })
   appendSlotOversetEntries({ title: 'overflowed' }, entries, { folio: '3' })
   expect(entries.at(-1)).toEqual({

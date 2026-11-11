@@ -326,19 +326,19 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async deckPdf(input, opts = {}) {
-      opts = parseComposedRenderOptions(opts)
-      refuseProgressUnlessOneComposition(opts, 0)
-      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
-        enforceDeckLimits(deck, opts.limits)
-        const bytes = await renderSlotCopyPdfs(opts.slots, async (copySlots) => {
+      const options = parseComposedRenderOptions(opts)
+      refuseProgressUnlessOneComposition(options, 0)
+      return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
+        enforceDeckLimits(deck, options.limits)
+        const bytes = await renderSlotCopyPdfs(options.slots, async (copySlots) => {
           const { value: prepared, slots } = await filledDeck(deck, copySlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(
             prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join(''),
           )
           return renderDeckPdf(
             prepared,
-            { ...opts, limits: copyLimits(opts.limits, opts.slots), press: undefined },
+            { ...options, limits: copyLimits(options.limits, options.slots), press: undefined },
             {
               renderPdf: (setup, pdf, frames) =>
                 withTab(
@@ -351,7 +351,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                     readiness: renderReadiness('refuse', false, false),
                     deadline,
                   },
-                  (tab) => pdfWithBackdropRasters(tab, pdf, opts.effects),
+                  (tab) => pdfWithBackdropRasters(tab, pdf, options.effects),
                 ),
               fontFaces: (options) => fontFaces(options.fonts),
               finish: async (pdf) => pdf,
@@ -360,17 +360,17 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             diagramScript,
           )
         })
-        return finishWithBrowser(bytes, opts, deadline)
+        return finishWithBrowser(bytes, options, deadline)
       })
     },
 
     async slideImage(input, index, opts = {}) {
-      opts = parseComposedRenderOptions(opts)
-      refuseProgressUnlessOneComposition(opts, 0)
-      return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
-        enforceDeckLimits(deck, opts.limits)
-        return renderSlideImage(deck, index, opts, { withTab, diagramScript: resolveDiagramScript }, deadline)
+      const options = parseComposedRenderOptions(opts)
+      refuseProgressUnlessOneComposition(options, 0)
+      return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
+        enforceDeckLimits(deck, options.limits)
+        return renderSlideImage(deck, index, options, { withTab, diagramScript: resolveDiagramScript }, deadline)
       })
     },
 

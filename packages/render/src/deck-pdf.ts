@@ -39,16 +39,16 @@ import {
 } from './deck-paper.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
-import { type Assets, assetSetup } from './options.ts'
 import type { ComposedRenderOptions } from './options.ts'
+import { type Assets, assetSetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
 import { addPressBoxes, printCss } from './page-paper.ts'
 import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
-import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 import { completePreflight, type SurfacePreflight } from './preflight.ts'
+import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = ComposedRenderOptions & PrintOptions
 

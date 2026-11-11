@@ -17,7 +17,13 @@ test('dispatches the shared bubbling and composed fontfailure event', () => {
 
 test('dispatches the shared bubbling and composed preflight event', () => {
   const target = new EventTarget()
-  const report = { status: 'clean' as const, issues: [], omitted: {}, facts: { pageCount: 0, pages: [], fits: [] } }
+  const report = {
+    status: 'clean' as const,
+    issues: [],
+    omitted: {},
+    facts: { pageCount: 0, pages: [], fits: [] },
+    coverage: { measured: 0, total: 0 },
+  }
   let received: CustomEvent | undefined
   target.addEventListener('preflight', (event) => {
     received = event as CustomEvent

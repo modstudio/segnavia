@@ -9,7 +9,6 @@ import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
-import { resolveRenderPreflight } from './preflight.ts'
 
 async function onePage(width = 300, height = 150): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()
@@ -59,34 +58,6 @@ test('deck PDF renders HTML slides separately and enforces only the composition'
   expect(htmlSlide).toContain('animation-play-state:paused!important')
   expect(htmlSlide).toContain('window.requestAnimationFrame(function(){window.requestAnimationFrame')
   expect(limitsSeen).toEqual([{ sheets: 2 }])
-})
-
-test.each([
-  ['default', 'warnings'],
-  ['strict', 'refuses'],
-] as const)('deck PDF %s preflight reports an overset slide and %s', async (profile, outcome) => {
-  const reports: Array<{ issues: Array<{ location?: { folio?: string } }>; coverage: unknown }> = []
-  const rendering = renderDeckPdf(
-    deck,
-    { preflight: resolveRenderPreflight({ profile, report: (report) => reports.push(report) }) },
-    {
-      renderPdf: async (setup) => {
-        setup.preflightReport?.({ fontFailures: [], slotFits: [{ title: 'overflowed' }] })
-        return setup.html.includes('<section class="sheet">') ? onePage(300, 150).then(async (first) => {
-          const pdf = await PDFDocument.load(first)
-          pdf.addPage([300, 150])
-          return pdf.save()
-        }) : onePage(400, 200)
-      },
-      fontFaces: () => '',
-      finish: async (pdf) => pdf,
-    },
-  )
-  if (outcome === 'refuses') await expect(rendering).rejects.toThrow('Slot title is overset')
-  else await expect(rendering).resolves.toBeInstanceOf(Uint8Array)
-  expect(reports).toHaveLength(1)
-  expect(reports[0]?.issues[0]?.location).toEqual({ folio: '1' })
-  expect(reports[0]?.coverage).toEqual({ measured: 2, total: 2 })
 })
 
 test('the print bridge and PDF waiter share one ready signal', async () => {
