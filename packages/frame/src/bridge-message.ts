@@ -10,6 +10,10 @@ import { boundedFontReportMessage } from './font-load.ts'
 
 export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
 
+export interface FontFailureDetail {
+  failures: FontFailure[]
+}
+
 interface FrameMessageFields {
   type: string
   key?: string
@@ -31,7 +35,10 @@ export function dispatchComposeProgress(target: EventTarget, message: FrameMessa
 }
 
 export function dispatchFontFailures(target: EventTarget, message: FrameMessage | null): void {
-  if (message?.failures) target.dispatchEvent(new CustomEvent('fontfailure', { detail: { failures: message.failures }, bubbles: true, composed: true }))
+  if (message?.failures) {
+    const detail: FontFailureDetail = { failures: message.failures }
+    target.dispatchEvent(new CustomEvent('fontfailure', { detail, bubbles: true, composed: true }))
+  }
 }
 
 export function dispatchPreflight(target: EventTarget, message: FrameMessage | null): boolean {

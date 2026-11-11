@@ -20,6 +20,7 @@ import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy
 import type { BrandsOptions } from './brands.ts'
 import { dispatchFontFailures, messageFrom } from './bridge.ts'
 import { internalPaperPagesLoad } from './document-value-load.ts'
+import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
@@ -272,7 +273,7 @@ export class SegnaviaPaper extends HTMLElement {
       this.resolvedSlots = undefined
       this.resolvedGeneration = 0
       if (showOriginal && !this.motifOptions && !this.fontOptions) this.paintResolved(imposition, imposed)
-      this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+      dispatchElementError(this, error)
     }
     if (this.resolvedBrandGeneration !== this.brandGeneration && this.brandDocuments.some((document) => document.brand !== undefined)) {
       const documents = this.brandDocuments

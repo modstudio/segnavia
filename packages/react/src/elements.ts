@@ -126,7 +126,7 @@ export const ELEMENTS = {
   }),
   paper: element<SegnaviaPaper, PaperProps, typeof FRAME_ELEMENTS.paper.tag>({
     ...FRAME_ELEMENTS.paper,
-    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, { fontfailure: 'onFontfailure', error: 'onError' }),
+    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, { fontfailure: 'onFontfailure', error: 'onError', change: 'onChange' }),
   }),
   document: element<SegnaviaDocument, DocumentProps, typeof FRAME_ELEMENTS.document.tag>({
     ...FRAME_ELEMENTS.document,
@@ -135,6 +135,9 @@ export const ELEMENTS = {
       preflight: 'onPreflight',
       fontfailure: 'onFontfailure',
       error: 'onError',
+      'segnavia-document-slots': 'onSegnaviaDocumentSlots',
+      'segnavia-document-page': 'onSegnaviaDocumentPage',
+      'segnavia-document-change': 'onSegnaviaDocumentChange',
     }),
   }),
   play: element<SegnaviaPlay, PlayProps, typeof FRAME_ELEMENTS.play.tag>({

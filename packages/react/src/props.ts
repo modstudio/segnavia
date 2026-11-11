@@ -5,7 +5,7 @@ import type {
   DeckController,
   DocumentInput,
   FittedSize,
-  FontFailure,
+  FontFailureDetail,
   HostTransition,
   PreflightReport,
   PrintInput,
@@ -41,7 +41,6 @@ import type { HTMLAttributes, ReactNode } from 'react'
 export type ElementProps<E> = Omit<HTMLAttributes<E>, 'children'> & { children?: ReactNode }
 export type CustomEventProp<D = unknown> = (event: CustomEvent<D>) => void
 export type ErrorEventProp = (event: ErrorEvent) => void
-type ErrorElementProps<E> = Omit<ElementProps<E>, 'onError'>
 type ControlProps<E extends HTMLElement> = ElementProps<E> & {
   controller?: DeckController | null
   labels?: Partial<PlayerLabels>
@@ -72,7 +71,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   onSegnaviaLabels?: CustomEventProp
 }
 
-export interface StageProps extends ErrorElementProps<SegnaviaStage> {
+export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'> {
   controller?: DeckController | null
   css?: string
   cspExtra?: string
@@ -96,7 +95,7 @@ export interface StageProps extends ErrorElementProps<SegnaviaStage> {
   onSegnaviaFrameMount?: CustomEventProp<StageFrameDetail>
   onSegnaviaFrameRelease?: CustomEventProp<StageFrameDetail>
   onPreflight?: CustomEventProp<PreflightReport>
-  onFontfailure?: CustomEventProp<{ failures: FontFailure[] }>
+  onFontfailure?: CustomEventProp<FontFailureDetail>
   onError?: ErrorEventProp
 }
 
@@ -140,7 +139,7 @@ export type ItemSettingsProps = ElementProps<SegnaviaItemSettings> & {
   onSegnaviaFillInput?: CustomEventProp<SegnaviaItemSettings['fills'][number]>
 }
 
-export interface PageProps extends ErrorElementProps<SegnaviaPage> {
+export interface PageProps extends Omit<ElementProps<SegnaviaPage>, 'onError'> {
   page?: DocumentInput | null
   css?: string
   cspExtra?: string
@@ -157,7 +156,7 @@ export interface PageProps extends ErrorElementProps<SegnaviaPage> {
   onAsof?: CustomEventProp<AsOfDay>
   onReady?: (event: Event) => void
   onPreflight?: CustomEventProp<PreflightReport>
-  onFontfailure?: CustomEventProp<{ failures: FontFailure[] }>
+  onFontfailure?: CustomEventProp<FontFailureDetail>
   onError?: ErrorEventProp
   onComposeprogress?: CustomEventProp<ComposeProgress>
   pageWidths?: SegnaviaPage['pageWidths']
@@ -168,7 +167,7 @@ export interface PageProps extends ErrorElementProps<SegnaviaPage> {
   unstyled?: boolean
 }
 
-export interface BookProps extends ErrorElementProps<SegnaviaBook> {
+export interface BookProps extends Omit<ElementProps<SegnaviaBook>, 'onError'> {
   view?: SegnaviaBook['view']
   fonts?: SegnaviaBook['fonts']
   motifs?: SegnaviaBook['motifs']
@@ -182,12 +181,12 @@ export interface BookProps extends ErrorElementProps<SegnaviaBook> {
   unstyled?: boolean
   onReady?: (event: Event) => void
   onPreflight?: CustomEventProp<PreflightReport>
-  onFontfailure?: CustomEventProp<{ failures: FontFailure[] }>
+  onFontfailure?: CustomEventProp<FontFailureDetail>
   onError?: ErrorEventProp
   onComposeprogress?: CustomEventProp<ComposeProgress>
 }
 
-export interface PaperProps extends ErrorElementProps<SegnaviaPaper> {
+export interface PaperProps extends Omit<ElementProps<SegnaviaPaper>, 'onError' | 'onChange'> {
   paper?: number
   side?: SegnaviaPaper['side']
   css?: string
@@ -200,11 +199,12 @@ export interface PaperProps extends ErrorElementProps<SegnaviaPaper> {
   placements?: SegnaviaPaper['placements']
   pageWidths?: SegnaviaPaper['pageWidths']
   unstyled?: boolean
-  onFontfailure?: CustomEventProp<{ failures: FontFailure[] }>
+  onFontfailure?: CustomEventProp<FontFailureDetail>
   onError?: ErrorEventProp
+  onChange?: (event: Event) => void
 }
 
-export interface DocumentProps extends ErrorElementProps<SegnaviaDocument> {
+export interface DocumentProps extends Omit<ElementProps<SegnaviaDocument>, 'onError'> {
   pages?: DocumentInput[]
   print?: PrintInput | null
   css?: string
@@ -221,8 +221,11 @@ export interface DocumentProps extends ErrorElementProps<SegnaviaDocument> {
   onAsof?: CustomEventProp<AsOfDay>
   profile?: SegnaviaDocument['profile']
   onPreflight?: CustomEventProp<PreflightReport>
-  onFontfailure?: CustomEventProp<{ failures: FontFailure[] }>
+  onFontfailure?: CustomEventProp<FontFailureDetail>
   onError?: ErrorEventProp
+  onSegnaviaDocumentSlots?: CustomEventProp<null>
+  onSegnaviaDocumentPage?: CustomEventProp<{ index: number }>
+  onSegnaviaDocumentChange?: CustomEventProp<null>
   pageWidths?: SegnaviaDocument['pageWidths']
   unstyled?: boolean
 }
@@ -244,3 +247,9 @@ export type FullscreenProps = ControlProps<SegnaviaFullscreen> & {
   targetElement?: Element | null
 }
 export type RailProps = ControlProps<SegnaviaRail> & { mountMargin?: number }
+
+type Assert<T extends true> = T
+type EventParameter<T> = T extends (event: infer E) => void ? E : never
+type ExactEvent<T, Expected> = [T] extends [Expected] ? ([Expected] extends [T] ? true : false) : false
+type _BookErrorIsExactlyErrorEvent = Assert<ExactEvent<EventParameter<NonNullable<BookProps['onError']>>, ErrorEvent>>
+type _PaperChangeIsExactlyEvent = Assert<ExactEvent<EventParameter<NonNullable<PaperProps['onChange']>>, Event>>

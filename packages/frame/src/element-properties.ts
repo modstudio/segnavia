@@ -106,12 +106,12 @@ export const ELEMENT_PROPERTIES = {
   paper: descriptor(
     HEADLESS_ELEMENTS.paper,
     ['paper', 'side', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths'],
-    ['fontfailure', 'error'],
+    ['fontfailure', 'error', 'change'],
   ),
   document: descriptor(
     HEADLESS_ELEMENTS.document,
     ['css', 'cspExtra', 'origins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment', 'profile'],
-    ['asof', 'preflight', 'fontfailure', 'error'],
+    ['asof', 'preflight', 'fontfailure', 'error', 'segnavia-document-slots', 'segnavia-document-page', 'segnavia-document-change'],
   ),
   book: descriptor(
     HEADLESS_ELEMENTS.book,
