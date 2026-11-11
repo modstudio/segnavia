@@ -4,13 +4,13 @@ import type { PrintOptions } from '@segnavia/frame/print-document'
 import type { CoverImageOptions } from './cover-image.ts'
 import type {
   ComposedRenderInput,
-  ImageOptions,
   PageImageOptions,
   PageRenderOptions,
   ParsedComposedRenderOptions,
   ParsedPageRenderOptions,
   ProofImageOptions,
   RenderOptions,
+  SlideImageOptions,
 } from './options.ts'
 
 export const RENDER_BOUND_MS = 60_000
@@ -39,8 +39,8 @@ export interface Renderer {
   pagesPdf(pages: PageOrPrintedInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageOrPrintedInput, options?: PageImageOptions): Promise<Uint8Array>
   coverImage(cover: CoverInput, options: CoverImageOptions): Promise<Uint8Array>
-  deckPdf(deck: DocumentInput, options?: RenderOptions & PrintOptions): Promise<Uint8Array>
-  slideImage(deck: DocumentInput, index: number, options?: ImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
+  deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PrintOptions): Promise<Uint8Array>
+  slideImage(deck: DocumentInput, index: number, options?: SlideImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
   close(): Promise<void>
 }

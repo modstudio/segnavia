@@ -18,6 +18,7 @@ import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
+import type { SurfacePreflightCapture } from './preflight.ts'
 import { RENDER_PROGRESS_BINDING, reportRenderProgress } from './progress.ts'
 import { type RenderDeadline, withinBound } from './render-deadline.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, waitsForReadiness } from './render-readiness.ts'
@@ -38,6 +39,7 @@ export interface BrowserTabSetup {
   fontFailures?: FontFailure[]
   fontLoadReport?: (report: { failures: FontFailure[] }) => void
   progressReport?: (progress: ComposeProgress) => void
+  preflightReport?: (capture: SurfacePreflightCapture) => void
 }
 
 export type TabRunner = <T>(
@@ -227,11 +229,14 @@ export async function renderInBrowserTab<T>(
     })
   }
   await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})
-  if (setup.fontLoadReport) {
+  let fontFailures = setup.fontFailures ?? []
+  if (setup.fontLoadReport || setup.preflightReport) {
     const value = await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), FONT_FAILURE_ATTRIBUTE)
-    setup.fontLoadReport({ failures: mergedFontFailures(setup.fontFailures ?? [], value) })
+    fontFailures = mergedFontFailures(fontFailures, value)
+    setup.fontLoadReport?.({ failures: fontFailures })
   }
-  if (measureSlots) await mergeCapturedSlotFit(tab, measureSlots, PAGE_READY_BOUND_MS)
+  const slotFits = (measureSlots ? await mergeCapturedSlotFit(tab, measureSlots, PAGE_READY_BOUND_MS) : undefined) ?? []
+  setup.preflightReport?.({ fontFailures, slotFits })
   await setup.beforeOutput?.(tab)
   refuseMissing()
   try {

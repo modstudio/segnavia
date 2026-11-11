@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
-import { boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal } from '@segnavia/format'
+import { appendSlotOversetEntries, boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal } from '@segnavia/format'
 import { composerScript } from './composer.ts'
-import { appendSlotOversetEntries, embeddedPreflightFunctions, markFurnitureInvalidVariables } from './composer-preflight.ts'
+import { embeddedPreflightFunctions, markFurnitureInvalidVariables } from './composer-preflight.ts'
 
 test('waits for slot fit before publishing its one report', () => {
   const posted: unknown[] = []

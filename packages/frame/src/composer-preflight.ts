@@ -1,6 +1,8 @@
 import {
+  appendSlotOversetEntries,
   boundPreflightReport,
   cssVarInvalidMessage,
+  fontMissingEntries,
   PREFLIGHT_BLOCK_LIMIT,
   PREFLIGHT_CHECKS,
   PREFLIGHT_FIT_GROUP_LIMIT,
@@ -18,16 +20,8 @@ import { embedFunction } from '@segnavia/html'
 import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { preflightPageFacts } from './composer-dress.ts'
-import { fontMissingEntries } from './font-load.ts'
 
 export const PREFLIGHT_ATTRIBUTE = 'data-segnavia-preflight'
-
-export function appendSlotOversetEntries(slots: Record<string, string>, entries: PreflightEntry[]): void {
-  for (const [key, state] of Object.entries(slots)) {
-    if (state !== 'overflowed' || entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)) continue
-    entries.push({ check: 'slot-overset', subject: key, message: `Slot ${key} is overset; shorten its value or enlarge the slot to clear it.` })
-  }
-}
 
 function inlineVarHasFallback(style: string, start: number): boolean {
   let depth = 1

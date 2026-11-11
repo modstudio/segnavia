@@ -11,7 +11,7 @@ export async function installSlotFitCapture(context: BrowserContext): Promise<vo
   })
 }
 
-export async function mergeCapturedSlotFit(tab: Page, slots: PreparedSlots, timeout: number): Promise<void> {
+export async function mergeCapturedSlotFit(tab: Page, slots: PreparedSlots, timeout: number): Promise<Record<string, string>[] | undefined> {
   await tab
     .waitForFunction(
       () => {
@@ -24,10 +24,13 @@ export async function mergeCapturedSlotFit(tab: Page, slots: PreparedSlots, time
     )
     .catch(() => {})
   const messages = await tab.evaluate(() => (window as typeof window & { __segnaviaSlotFit?: unknown[] }).__segnaviaSlotFit ?? [])
+  const declared = new Set(slots.declarations.map((slot) => slot.key))
   const measured = new Map<string, number>()
+  const captured: Record<string, string>[] = []
   for (const data of messages) {
     const fit = slotFitMessageData(data)
     if (fit) {
+      captured.push(Object.fromEntries(Object.entries(fit.slots).filter(([key]) => declared.has(key))))
       for (const key of Object.keys(fit.slots)) measured.set(key, (measured.get(key) ?? 0) + 1)
       slots.mergeFit(fit.slots)
     }
@@ -36,4 +39,5 @@ export async function mergeCapturedSlotFit(tab: Page, slots: PreparedSlots, time
   if (refusal) throw refusal
   const measurementRefusal = unmeasuredSlotRefusal(slots.declarations, slots.report, slots.marked, measured)
   if (measurementRefusal) throw measurementRefusal
+  return captured.length === 0 ? undefined : captured
 }

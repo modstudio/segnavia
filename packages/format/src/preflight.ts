@@ -1,3 +1,5 @@
+import type { FontFailure } from './fonts.ts'
+
 export const PREFLIGHT_CHECKS = [
   'region-overset',
   'furniture-overset',
@@ -64,6 +66,31 @@ export interface PreflightEntry {
   readonly location?: PreflightLocation
 }
 
+export function appendSlotOversetEntries(slots: Record<string, string>, entries: PreflightEntry[], location?: PreflightLocation): void {
+  for (const [key, state] of Object.entries(slots)) {
+    if (state !== 'overflowed' || entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)) continue
+    entries.push({
+      check: 'slot-overset',
+      subject: key,
+      message: `Slot ${key} is overset; shorten its value or enlarge the slot to clear it.`,
+      ...(location === undefined ? {} : { location }),
+    })
+  }
+}
+
+export function fontMissingEntries(failures: readonly FontFailure[], location?: PreflightLocation): PreflightEntry[] {
+  return failures.map((failure) => {
+    const details = [failure.weight === undefined ? undefined : `weight ${failure.weight}`, failure.style].filter(Boolean)
+    const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
+    return {
+      check: 'font-missing',
+      subject,
+      message: `Font face ${subject} is missing; supply and load that face to clear it.`,
+      ...(location === undefined ? {} : { location }),
+    }
+  })
+}
+
 export function cssVarInvalidMessage(subject: string): string {
   return `Custom property ${subject} is invalid; define it or add a var() fallback to clear it.`
 }
@@ -83,11 +110,16 @@ export interface PreflightFacts {
   readonly pages: readonly PreflightPageFacts[]
   readonly fits: readonly PreflightFit[]
 }
+export interface PreflightCoverage {
+  readonly measured: number
+  readonly total: number
+}
 export interface PreflightReport {
-  readonly status: 'clean' | 'warnings' | 'errors'
+  readonly status: 'clean' | 'incomplete' | 'warnings' | 'errors'
   readonly issues: readonly PreflightIssue[]
   readonly omitted: Readonly<Partial<Record<PreflightCheck, number>>>
   readonly facts: PreflightFacts
+  readonly coverage: PreflightCoverage
 }
 
 export const PREFLIGHT_ISSUES_PER_CHECK = 64
@@ -101,7 +133,7 @@ export const PREFLIGHT_FIT_GROUP_LIMIT = 256
 export const PREFLIGHT_FIT_SIZE_LIMIT = 64
 
 export function boundPreflightReport(
-  input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown },
+  input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown; readonly coverage?: unknown },
   profile: PreflightProfile,
   bounds?: {
     readonly checks: readonly PreflightCheck[]
@@ -211,8 +243,26 @@ export function boundPreflightReport(
     return check || a.order - b.order
   })
   const cleanIssues = issues.map(({ order: _, ...issue }) => issue)
-  const status = cleanIssues.some((issue) => issue.severity === 'error') ? 'errors' : cleanIssues.length ? 'warnings' : 'clean'
-  return { status, issues: cleanIssues, omitted, facts: boundedPreflightFacts(input.facts) }
+  const facts = boundedPreflightFacts(input.facts)
+  const coverage = (() => {
+    if (!input.coverage || typeof input.coverage !== 'object' || Array.isArray(input.coverage)) {
+      return { measured: facts.pageCount, total: facts.pageCount }
+    }
+    const source = input.coverage as { measured?: unknown; total?: unknown }
+    if (!Number.isSafeInteger(source.measured) || (source.measured as number) < 0 || !Number.isSafeInteger(source.total) || (source.total as number) < 0) {
+      return { measured: facts.pageCount, total: facts.pageCount }
+    }
+    const total = Math.min(source.total as number, limits.pages)
+    return { measured: Math.min(source.measured as number, total), total }
+  })()
+  const status = cleanIssues.some((issue) => issue.severity === 'error')
+    ? 'errors'
+    : cleanIssues.length
+      ? 'warnings'
+      : coverage.measured < coverage.total
+        ? 'incomplete'
+        : 'clean'
+  return { status, issues: cleanIssues, omitted, facts, coverage }
 }
 
 export function preflightRefusal(report: PreflightReport): string | undefined {
