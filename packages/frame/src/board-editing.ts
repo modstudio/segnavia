@@ -41,7 +41,14 @@ import {
   redoTransition,
   undoTransition,
 } from './board-editing-transition.ts'
-import type { AddBoardItemInput, BoardEdit, BoardEditing, BoardEditingOptions } from './board-editing-types.ts'
+import {
+  type AddBoardItemInput,
+  type BoardEdit,
+  type BoardEditing,
+  type BoardEditingOptions,
+  type BoardEditorFlags,
+  boardEditorFlags,
+} from './board-editing-types.ts'
 import { BOARD_HISTORY_LIMIT } from './board-history.ts'
 import { removeBoardEntities } from './board-removal.ts'
 import { copyComputedBoardShapes } from './board-shape-cache.ts'
@@ -53,7 +60,7 @@ export type { AddBoardItemInput, BoardChange, BoardEdit, BoardEditing, BoardEdit
 export { BOARD_HISTORY_LIMIT, DEFAULT_BOARD_ITEM_WIDTH }
 
 class BoardEditingController implements BoardEditing, BoardPointerDelegate {
-  private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'labelText' | 'labelResize' | 'sectionTitle', boolean>
+  private readonly enabled: BoardEditorFlags
   private bridge: BoardEditingBridge
   private state: BoardEditQueueState | null
   private readonly aborts = new Map<number, AbortController>()
@@ -61,24 +68,14 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private nextId = 1
   private invalidated: BoardEditQueueState['invalidated'] = null
   private readonly input: BoardEditingInput
-  private readonly labelEditor: BoardTextEditing
+  private readonly textEditing: BoardTextEditing
   private stopped = false
 
   constructor(
     private readonly board: SegnaviaBoard,
     private readonly options: BoardEditingOptions,
   ) {
-    this.enabled = {
-      move: true,
-      resize: true,
-      remove: true,
-      add: true,
-      arrange: true,
-      labelText: true,
-      labelResize: true,
-      sectionTitle: true,
-      ...options.editors,
-    }
+    this.enabled = boardEditorFlags(options.editors)
     this.input = new BoardEditingInput(board, this.enabled, {
       current: () => (this.state ? boardFromDocument(this.state.value) : null),
       bridge: () => this.bridge,
@@ -92,7 +89,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const initial = board.board
     this.state = initial ? boardEditQueue(initial) : null
     this.bridge = (board as SegnaviaBoard & BoardEditingHost)[boardEditing](this, this.hostValue)
-    this.labelEditor = new BoardTextEditing(board, this.bridge, this.enabled, options.limits, (next, edit) => this.applyBoard(next, edit), this.renderHandles)
+    this.textEditing = new BoardTextEditing(board, this.bridge, this.enabled, options.limits, (next, edit) => this.applyBoard(next, edit), this.renderHandles)
     board.addEventListener('segnavia-board-selection', this.renderHandles)
     board.addEventListener('segnavia-board-view', this.renderHandles)
     board.addEventListener('keyup', this.onKeyUp)
@@ -113,7 +110,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.board.removeEventListener('segnavia-board-selection', this.renderHandles)
     this.board.removeEventListener('segnavia-board-view', this.renderHandles)
     this.board.removeEventListener('keyup', this.onKeyUp)
-    this.labelEditor.detach()
+    this.textEditing.detach()
     if (this.state) this.applyTransition(detachBoardEditing(this.state))
     this.bridge.detach()
     if (!this.state?.jobs.length) this.bridge.release()
@@ -207,11 +204,11 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   editLabel(id: string) {
-    return this.labelEditor.editLabel(id)
+    return this.textEditing.editLabel(id)
   }
 
   pointerDown = (event: PointerEvent): boolean => {
-    this.labelEditor.capture(event)
+    this.textEditing.capture(event)
     return this.input.pointerDown(event)
   }
 
@@ -268,7 +265,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
           this.invalidated = state.invalidated
         },
         render: this.renderHandles,
-        refreshLabelEditor: this.labelEditor.refresh,
+        refreshLabelEditor: this.textEditing.refresh,
         notifyHistory: () => this.notifyHistory(),
         run: (id) => void this.run(id),
       },
@@ -327,13 +324,13 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
       if (hadHistory) this.notifyHistory()
     }
     this.renderHandles()
-    this.labelEditor.refresh()
+    this.textEditing.refresh()
   }
 
   private live(value: Board) {
     this.bridge.setOptimistic(value)
     this.renderHandles()
-    this.labelEditor.refresh()
+    this.textEditing.refresh()
   }
 
   private settleInitial() {
@@ -345,7 +342,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private renderHandles = () => {
-    if (this.labelEditor.active || this.board.selection.length !== 1) {
+    if (this.textEditing.active || this.board.selection.length !== 1) {
       renderResizeHandles(this.bridge.overlay, undefined, this.bridge.view(), undefined)
       renderLabelResizeHandle(this.bridge.overlay, undefined, this.bridge.view(), undefined, '')
       return

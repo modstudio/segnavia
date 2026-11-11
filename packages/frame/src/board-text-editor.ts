@@ -3,14 +3,16 @@ import type { SegnaviaBoard } from './board.ts'
 import { editBoardFromFrame } from './board-editing-command.ts'
 import type { BoardEditingBridge } from './board-editing-seam.ts'
 import type { BoardEdit } from './board-editing-types.ts'
-import { committedLabelText } from './board-label-editing.ts'
+import { committedText } from './board-label-editing.ts'
 
 type TextEditorSource = Pick<BoardEditingBridge, 'value' | 'computedShapes' | 'facts' | 'measureLabel' | 'document'>
 
 export interface BoardTextTarget {
   id: string
   node: HTMLElement
+  focusNode: HTMLElement
   text: string
+  ariaLabel: string
   command(text: string): BoardCommand
   edit: BoardEdit
   limit?: number
@@ -19,6 +21,7 @@ export interface BoardTextTarget {
 interface ActiveEditor {
   target: BoardTextTarget
   textarea: HTMLTextAreaElement
+  openedText: string
   previousVisibility: string
   growing: boolean
 }
@@ -74,7 +77,7 @@ export class BoardTextEditor {
     if (event.key !== 'Enter' || event.metaKey || event.ctrlKey || event.altKey || this.activeEditor || this.board.selection.length !== 1) return
     const id = this.board.selection[0]
     const target = id ? this.resolve(id) : undefined
-    if (!target || (event.composedPath()[0] !== this.board && !event.composedPath().includes(target.node))) return
+    if (!target || (event.composedPath()[0] !== this.board && !event.composedPath().includes(target.focusNode))) return
     event.preventDefault()
     this.open(target)
   }
@@ -87,9 +90,9 @@ export class BoardTextEditor {
     textarea.dataset.labelEditor = target.id
     textarea.dir = 'auto'
     textarea.rows = 1
-    textarea.value = textWithinCodePointLimit(target.text, target.limit)
-    textarea.setAttribute('aria-label', target.node.getAttribute('aria-label') ?? target.text)
-    const active: ActiveEditor = { target, textarea, previousVisibility: target.node.style.visibility, growing: false }
+    textarea.value = target.text
+    textarea.setAttribute('aria-label', target.ariaLabel)
+    const active: ActiveEditor = { target, textarea, openedText: target.text, previousVisibility: target.node.style.visibility, growing: false }
     this.activeEditor = active
     this.stateChanged()
     target.node.style.visibility = 'hidden'
@@ -127,11 +130,13 @@ export class BoardTextEditor {
     this.grow()
   }
 
-  private onInput = () => {
+  private onInput = (event: Event) => {
     const active = this.activeEditor
     if (!active) return
-    const bounded = textWithinCodePointLimit(active.textarea.value, active.target.limit)
-    if (bounded !== active.textarea.value) active.textarea.value = bounded
+    if ((event as InputEvent).inputType.startsWith('insert')) {
+      const bounded = textWithinCodePointLimit(active.textarea.value, active.target.limit)
+      if (bounded !== active.textarea.value) active.textarea.value = bounded
+    }
     this.grow()
   }
 
@@ -170,8 +175,9 @@ export class BoardTextEditor {
   }
 
   private commit(active: ActiveEditor) {
+    if (active.textarea.value === active.openedText) return
     const target = this.resolve(active.target.id)
-    const text = target && committedLabelText(target.text, textWithinCodePointLimit(active.textarea.value, target.limit))
+    const text = target && committedText(target.text, textWithinCodePointLimit(active.textarea.value, target.limit))
     const board = this.source.value()
     if (!target || text === undefined || !board) return
     const result = editBoardFromFrame(this.source.document(board), [target.command(text)], this.source)

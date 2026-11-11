@@ -31,9 +31,25 @@ export interface AddBoardItemInput {
   width?: number
 }
 
+export type BoardEditorFlags = Record<'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'labelText' | 'labelResize' | 'sectionTitle', boolean>
+
+export function boardEditorFlags(editors: BoardEditingOptions['editors'] = {}): BoardEditorFlags {
+  const resize = editors.resize ?? true
+  return {
+    move: editors.move ?? true,
+    resize,
+    remove: editors.remove ?? true,
+    add: editors.add ?? true,
+    arrange: editors.arrange ?? true,
+    labelText: editors.labelText ?? true,
+    labelResize: resize && (editors.labelResize ?? true),
+    sectionTitle: editors.sectionTitle ?? true,
+  }
+}
+
 export interface BoardEditingOptions {
   change(change: BoardChange): Promise<void>
-  editors?: Partial<Record<'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'labelText' | 'labelResize' | 'sectionTitle', boolean>>
+  editors?: Partial<BoardEditorFlags>
   limits?: { labelTextChars?: number }
   defaultWidth?: Partial<Record<BoardItem['kind'], number>>
 }

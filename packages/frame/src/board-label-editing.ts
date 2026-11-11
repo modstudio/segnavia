@@ -10,7 +10,7 @@ import {
   withLabelWidth,
 } from '@segnavia/format'
 
-export function committedLabelText(oldText: string, newText: string): string | undefined {
+export function committedText(oldText: string, newText: string): string | undefined {
   return newText !== oldText && newText.trim().length > 0 ? newText : undefined
 }
 

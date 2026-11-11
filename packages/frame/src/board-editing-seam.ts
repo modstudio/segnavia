@@ -18,6 +18,7 @@ export interface BoardEditingBridge {
   measureLabel(text: string, direction: Board['direction'], width: number | undefined): MeasuredSize | undefined
   measuredLabelSizes(): Record<string, MeasuredSize>
   labelShape(label: BoardLabel): MeasuredSize
+  focusNode(id: string): HTMLElement | undefined
   labelTextNode(id: string): HTMLElement | undefined
   sectionTitleNode(id: string): HTMLElement | undefined
   document(board: Board): Document
@@ -46,6 +47,7 @@ interface BridgeParts {
   measureLabel(text: string, direction: Board['direction'], width: number | undefined): MeasuredSize | undefined
   measuredLabelSizes(): Record<string, MeasuredSize>
   labelShape(label: BoardLabel): MeasuredSize
+  focusNode(id: string): HTMLElement | undefined
   labelTextNode(id: string): HTMLElement | undefined
   sectionTitleNode(id: string): HTMLElement | undefined
   document(board: Board): Document
@@ -71,6 +73,7 @@ export function createBoardEditingBridge(parts: BridgeParts): BoardEditingBridge
     measureLabel: parts.measureLabel,
     measuredLabelSizes: parts.measuredLabelSizes,
     labelShape: parts.labelShape,
+    focusNode: parts.focusNode,
     labelTextNode: parts.labelTextNode,
     sectionTitleNode: parts.sectionTitleNode,
     document: parts.document,
