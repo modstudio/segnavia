@@ -1,5 +1,9 @@
-import type { DocumentInput } from '@segnavia/format'
-import { markdownHtml } from '@segnavia/html'
+import { writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { bookFromDocument, type DocumentInput } from '@segnavia/format'
+import { bookValueDocument as paginatedBookDocument } from '@segnavia/frame/book-document'
+import { newNonce } from '@segnavia/frame/bridge'
+import { markdownHtml, parseDocument } from '@segnavia/html'
 import { BOOK_STYLE_CHECK_CSS } from './demo-book-fonts.ts'
 
 export const PAGINATED_TABLE_FLOW_IDS = {
@@ -58,3 +62,13 @@ export const paginatedTableFixture = (): DocumentInput => ({
     },
   ],
 })
+
+export function writePaginatedTableBook(site: string, css: string): void {
+  let id = 0
+  const book = bookFromDocument(parseDocument(paginatedTableFixture(), { newId: () => `fixture-${++id}` }))
+  writeFileSync(path.join(site, 'book-paginated-tables-he.html'), paginatedBookDocument(book, { nonce: newNonce(), css }))
+  writeFileSync(
+    path.join(site, 'book-paginated-tables.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated table book</title><style>html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}</style></head><body><main><section class="book"><h2>טבלאות</h2><iframe id="book-paginated-tables-he" sandbox="allow-scripts" src="book-paginated-tables-he.html"></iframe></section></main></body></html>`,
+  )
+}

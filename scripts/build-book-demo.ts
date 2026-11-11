@@ -15,7 +15,7 @@ import { noteSeriesFixture, twoPageSeriesFixture, twoPageSeriesRelayoutCss } fro
 import { chapterParentRules, haggadahHeadCss, markParents, paginatedParents, variableHeadParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
-import { PAGINATED_TABLE_FLOW_IDS, paginatedTableFixture, tableFixtureRows } from './demo-book-table-fixtures.ts'
+import { PAGINATED_TABLE_FLOW_IDS, tableFixtureRows, writePaginatedTableBook } from './demo-book-table-fixtures.ts'
 import { writeTitleHeadDemo } from './demo-book-title-head-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
@@ -168,6 +168,7 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
     },
   ],
 })
+
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
@@ -175,6 +176,7 @@ function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): v
     paginatedBookDocument(bookFixtureValue(noteCasesFixture(hebrew)), { nonce: newNonce(), css }),
   )
 }
+
 function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
   const oversize: DocumentInput = {
     type: 'document',
@@ -196,12 +198,14 @@ function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
     paginatedBookDocument(bookFixtureValue(oversize), { nonce: newNonce(), css }),
   )
 }
+
 function writePartsBook(site: string, hebrew: boolean, hebrewFace: string): void {
   writeFileSync(
     path.join(site, hebrew ? 'book-parts-he.html' : 'book-parts-en.html'),
     paginatedBookDocument(bookFixtureValue(partsFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
   )
 }
+
 function writeNoteSeriesBook(site: string, hebrew: boolean, hebrewFace: string): void {
   writeFileSync(
     path.join(site, hebrew ? 'book-note-series-he.html' : 'book-note-series-en.html'),
@@ -332,14 +336,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     )
   }
   const tableCss = `${hebrewFace}${designedCss}:where(html){font:16px/1.7 Alef,serif}`
-  writeFileSync(
-    path.join(site, 'book-paginated-tables-he.html'),
-    paginatedBookDocument(bookFixtureValue(paginatedTableFixture()), { nonce: newNonce(), css: tableCss }),
-  )
-  writeFileSync(
-    path.join(site, 'book-paginated-tables.html'),
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated table book</title><style>html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}</style></head><body><main><section class="book"><h2>טבלאות</h2><iframe id="book-paginated-tables-he" sandbox="allow-scripts" src="book-paginated-tables-he.html"></iframe></section></main></body></html>`,
-  )
+  writePaginatedTableBook(site, tableCss)
   writeFileSync(
     path.join(site, 'book-parts.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Books with parts</title><style>
