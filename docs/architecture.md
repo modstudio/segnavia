@@ -24,8 +24,8 @@ Every published package includes its `CHANGELOG.md` alongside its built distribu
 
 | Package entry | What it provides |
 |---|---|
-| `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and DOM event names; and `upgradeProperties`, which applies properties set before an element's definition loaded. Adapters map those event names to their own prop conventions, React owns its typed `on…` maps, and the Vue opt-ins derive their typed props and events from the same descriptors. |
-| `@segnavia/frame/vue` | A types-only Vue 3.5+ opt-in that derives global component props and typed custom events for every frame descriptor. Its JavaScript is empty and no runtime entry imports it. |
+| `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and every DOM event name it dispatches; and `upgradeProperties`, which applies properties set before an element's definition loaded. Adapters map those event names to their own prop conventions, React owns its typed `on…` maps, and the Vue opt-ins derive their typed props and events from the same descriptors. The page, paper, document, book and stage elements report a failure as a non-bubbling `error` `ErrorEvent` whose `error` is an `Error`. |
+| `@segnavia/frame/vue` | A types-only Vue 3.5+ opt-in that derives global component props and typed events for every frame descriptor: a custom event carries its typed detail, a native event such as `ErrorEvent` keeps its own class, and an event name whose type differs by element takes that element's own entry. Its JavaScript is empty and no runtime entry imports it. |
 | `@segnavia/frame/vue-types` | Types-only helpers shared by both Vue opt-ins. It makes no Vue augmentation, and the packed-package check asserts that its JavaScript is empty. |
 | `@segnavia/markdown-editor/vue` | The editor's types-only Vue 3.5+ global component opt-in, derived from its property and event descriptor. Its JavaScript is empty and no runtime entry imports it. |
 
