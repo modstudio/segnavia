@@ -15,6 +15,8 @@ export function lineExtent(line: PaginateLine): PaginateExtent {
 export function internalWindowEdge(previous: PaginateLine, next: PaginateLine): number {
   const previousEnd = lineExtent(previous).end
   const nextStart = lineExtent(next).start
-  const preferred = Math.min((previousEnd + nextStart) / 2, nextStart)
-  return Math.max(previous.bottom, Math.min(preferred, next.top))
+  const preferred = Math.min((previousEnd + nextStart) / 2, next.decorationTop ?? Number.POSITIVE_INFINITY)
+  const lower = Math.min(previous.bottom, next.top)
+  const upper = Math.max(previous.bottom, next.top)
+  return Math.max(lower, Math.min(preferred, upper))
 }

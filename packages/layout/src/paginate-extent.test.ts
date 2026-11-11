@@ -12,3 +12,12 @@ test('an overlapping opening decoration wins over a trailing decoration', () => 
 test('an internal edge cannot pass the next line top', () => {
   expect(internalWindowEdge({ top: 0, bottom: 10, decorationBottom: 50 }, { top: 30, bottom: 40 })).toBe(30)
 })
+
+test('decoration keeps an edge between overlapping line-box edges', () => {
+  const previous = { top: 0, bottom: 20, decorationBottom: 24 }
+  const next = { top: 10, bottom: 20, decorationTop: 8 }
+  const edge = internalWindowEdge(previous, next)
+  expect(edge).toBe(10)
+  expect(edge).toBeGreaterThanOrEqual(next.top)
+  expect(edge).toBeLessThanOrEqual(previous.bottom)
+})
