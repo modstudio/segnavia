@@ -22,6 +22,8 @@ async function waitForPageMeasurements(page: Harness['page']): Promise<string[]>
 
 async function verifyPrintedPages({ page, check }: Harness): Promise<void> {
   for (const fixture of PRINTED_PAGE_DEMO_PAGES) await page.frameLocator(`#${fixture.id} iframe`).locator('html[data-segnavia-composed]').waitFor()
+  // The unbounded fixture takes its height from the frame's report, which follows composition.
+  await page.waitForFunction(() => document.querySelector<HTMLElement>('#printed-he')?.dataset.height !== undefined)
   const printCounts = await page.evaluate(async (fixtures) => {
     const bundle = '/segnavia.js'
     const { printPages } = (await import(bundle)) as {
