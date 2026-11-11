@@ -127,12 +127,23 @@ export function approvedSources(approvals: Iterable<OriginApproval> | undefined,
   return result
 }
 
+function readableRequestPrefix(pathname: string, origin: string): string | undefined {
+  let end = pathname.length
+  while (end > 0) {
+    const prefix = readablePathname(pathname.slice(0, end), origin)
+    if (prefix) return prefix
+    end = pathname.lastIndexOf('/', end - 1)
+  }
+  return undefined
+}
+
 function pathRefusal(value: string, url: URL, origin: string, kind: FetchKind, candidates: OriginApproval[]): AssetRefusal | undefined {
   const prefixes = candidates.map((approval) => approval.pathname).filter((pathname): pathname is string => pathname !== undefined)
   if (prefixes.length !== candidates.length) return undefined
   const separator = url.pathname.match(ENCODED_SEPARATOR)?.[0]
   const matches = prefixes.some((prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`))
   if (!separator && matches) return undefined
+  const suggestedPathname = readableRequestPrefix(url.pathname, origin)
   return {
     url: value,
     origin,
@@ -143,7 +154,9 @@ function pathRefusal(value: string, url: URL, origin: string, kind: FetchKind, c
       : `${url.href} is outside the approved ${kind} path prefixes at ${origin}: ${prefixes.map((prefix) => JSON.stringify(prefix)).join(', ')}`,
     advice: separator
       ? 'use literal path separators instead of encoded separators to clear this refusal'
-      : `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}], pathname: ${JSON.stringify(url.pathname)} } to origins to clear this refusal`,
+      : suggestedPathname
+        ? `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}], pathname: ${JSON.stringify(suggestedPathname)} } to origins to clear this refusal`
+        : `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,
   }
 }
 

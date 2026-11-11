@@ -101,6 +101,31 @@ describe('origin policy', () => {
     })
   })
 
+  test('path refusal advice falls back to an unscoped approval when the first segment is unreadable', () => {
+    const url = 'https://cdn.jsdelivr.net/a;b/x.css'
+    const decision = originDecision(url, 'style', [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style'], pathname: '/fontsource' }], true)
+    expect(decision.allowed).toBe(false)
+    if (decision.allowed) return
+    expect(decision.refusal.reason).toBe('outside-approved-path')
+    expect(decision.refusal.advice).toBe('add { origin: "https://cdn.jsdelivr.net", kinds: ["style"] } to origins to clear this refusal')
+    expect(originDecision(url, 'style', [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style'] }], true).allowed).toBe(true)
+  })
+
+  test('path refusal advice stops before the first unreadable segment', () => {
+    const decision = originDecision(
+      'https://cdn.jsdelivr.net/npm/x@1.2.3/a;b.css',
+      'style',
+      [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style'], pathname: '/fontsource' }],
+      true,
+    )
+    expect(decision.allowed).toBe(false)
+    if (!decision.allowed) {
+      expect(decision.refusal.advice).toBe(
+        'add { origin: "https://cdn.jsdelivr.net", kinds: ["style"], pathname: "/npm/x@1.2.3" } to origins to clear this refusal',
+      )
+    }
+  })
+
   test('CSP sources carry both exact and descendant path forms', () => {
     const approvals: OriginApproval[] = [
       { origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font'], pathname: '/fontsource/' },
