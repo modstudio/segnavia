@@ -9,7 +9,7 @@ export interface PaginatedBlockReport {
   direction: { ok: boolean; detail: string }
 }
 
-export function inspectPaginatedBlocks(flowIds: { table?: string; wrapped?: string; margin?: string } | undefined): PaginatedBlockReport {
+export function inspectPaginatedBlocks(flowIds: { table?: string; wrapped?: string; margin?: string } | void): PaginatedBlockReport {
   function originTop(element: Element) {
     return element.getBoundingClientRect().top
   }
