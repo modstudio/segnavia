@@ -31,6 +31,21 @@ describe('origin policy', () => {
     }
   })
 
+  test('default Fontsource paths are scoped by fetch kind', () => {
+    const stylesheet = 'https://cdn.jsdelivr.net/fontsource/css/inter@latest/latin-400.css'
+    const font = 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.woff2'
+    const npmStyle = 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css'
+
+    expect(originDecision(stylesheet, 'style', [], true).allowed).toBe(true)
+    expect(originDecision(font, 'font', [], true).allowed).toBe(true)
+    expect(originDecision(font, 'style', [], true).allowed).toBe(false)
+    expect(originDecision(stylesheet, 'font', [], true).allowed).toBe(false)
+
+    const decision = originDecision(npmStyle, 'style', [], true)
+    expect(decision.allowed).toBe(false)
+    if (!decision.allowed) expect(decision.refusal.reason).toBe('outside-approved-path')
+  })
+
   test('script approvals exist only for scripted frames', () => {
     const url = 'https://cdn.jsdelivr.net/npm/example@1.2.3/index.js'
     expect(originDecision(url, 'script', undefined, true).allowed).toBe(true)
@@ -110,7 +125,8 @@ describe('origin policy', () => {
         origin: 'https://cdn.jsdelivr.net',
         kind: 'style',
         reason: 'outside-approved-path',
-        message: 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css is outside the approved style path prefixes at https://cdn.jsdelivr.net: "/fontsource"',
+        message:
+          'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css is outside the approved style path prefixes at https://cdn.jsdelivr.net: "/fontsource/css", "/fontsource"',
         advice: 'add { origin: "https://cdn.jsdelivr.net", kinds: ["style"], pathname: "/npm/x@1.2.3/x.css" } to origins to clear this refusal',
       },
     })
@@ -148,11 +164,15 @@ describe('origin policy', () => {
     ]
     expect([...approvedSources(approvals, 'style', true)]).toEqual([
       'https://fonts.googleapis.com',
+      'https://cdn.jsdelivr.net/fontsource/css',
+      'https://cdn.jsdelivr.net/fontsource/css/',
       'https://cdn.jsdelivr.net/fontsource',
       'https://cdn.jsdelivr.net/fontsource/',
     ])
     expect([...approvedSources(approvals, 'font', true)]).toEqual([
       'https://fonts.gstatic.com',
+      'https://cdn.jsdelivr.net/fontsource/fonts',
+      'https://cdn.jsdelivr.net/fontsource/fonts/',
       'https://cdn.jsdelivr.net/fontsource',
       'https://cdn.jsdelivr.net/fontsource/',
     ])
