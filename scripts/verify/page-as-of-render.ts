@@ -78,7 +78,7 @@ export async function verifyPageAsOfRender(renderer: Renderer, work: string, che
       {
         type: 'division',
         name: 'body',
-        children: [{ type: 'section', title: 'Chapter', children: [{ type: 'flow', html: '<time data-slot-value="asOf.date"></time>' }] }],
+        children: [{ type: 'section', id: 'chapter', title: 'Chapter', children: [{ type: 'flow', html: '<time data-slot-value="asOf.date"></time>' }] }],
       },
     ],
   }
