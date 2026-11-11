@@ -1,10 +1,22 @@
+import { bytesToHex } from './bytes-to-hex.ts'
 import type { DivisionNode, DocumentNode, PartNode, SectionNode } from './document-nodes.ts'
 
 export interface DocumentParseOptions {
   newId?: () => string
 }
 
-export const defaultNewId = (): string => globalThis.crypto.randomUUID()
+export const defaultNewId = (): string => {
+  const crypto = globalThis.crypto
+  if (typeof crypto?.randomUUID === 'function') return crypto.randomUUID()
+  if (typeof crypto?.getRandomValues !== 'function') {
+    throw new Error('crypto.randomUUID and crypto.getRandomValues are unavailable; pass newId to clear this refusal')
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(16))
+  bytes[6] = 0x40 | ((bytes[6] ?? 0) & 0x0f)
+  bytes[8] = 0x80 | ((bytes[8] ?? 0) & 0x3f)
+  const hex = bytesToHex(bytes)
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
 
 type IdentifiedLeaf =
   Exclude<DocumentNode, DivisionNode | PartNode | SectionNode> extends infer N ? (N extends DocumentNode ? Omit<N, 'id'> & { id: string } : never) : never

@@ -8,6 +8,7 @@ import getReleasePlan from '@changesets/get-release-plan'
 import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../architecture.ts'
 import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
+import { checkRandomUuidSource } from './checks/random-uuid-source.ts'
 import { type ChangesetRelease, checkReleasePlan, type DeclaredChangeset } from './checks/release-plan.ts'
 import {
   checkBunEngine,
@@ -74,6 +75,7 @@ function workspaces(): Map<string, Workspace> {
 
 const PATTERNS = ['packages/*/src/**/*.ts', 'packages/*/test-fixtures/**/*.ts', 'scripts/**/*.ts', 'fixtures/**/*.ts', 'architecture.ts']
 const TEST_PATTERNS = ['packages/**/*.{ts,tsx,js,jsx,mts,mtsx,mjs,mjsx,cts,ctsx,cjs,cjsx}', 'scripts/**/*.{ts,tsx,js,jsx,mts,mtsx,mjs,mjsx,cts,ctsx,cjs,cjsx}']
+// Test discovery intentionally excludes test helpers, which are support modules rather than suites.
 const TEST_FILE = /\.(test|spec)\.[mc]?[jt]sx?$/
 
 function sources(): string[] {
@@ -141,7 +143,13 @@ function structural(names: string[]): Finding[] {
       else findings.push(...checkImports(file, workspace, all), ...checkVueImports(file))
       findings.push(...checkHostNames(file, names))
     }
-    findings.push(...checkComments(file), ...checkTypeScriptSuppressions(file), ...checkChromiumEnvironmentRead(file), ...checkCeiling(file))
+    findings.push(
+      ...checkComments(file),
+      ...checkTypeScriptSuppressions(file),
+      ...checkChromiumEnvironmentRead(file),
+      ...checkRandomUuidSource(file),
+      ...checkCeiling(file),
+    )
   }
   for (const relative of testFiles()) {
     const text = readFileSync(path.join(ROOT, relative), 'utf8')

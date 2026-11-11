@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { BUN_SUPPORTED_PACKAGES, PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
+import { checkRandomUuidSource, DEFAULT_NEW_ID_SOURCE } from './random-uuid-source.ts'
 import {
   checkBunEngine,
   checkChromiumEnvironmentRead,
@@ -247,6 +248,37 @@ describe('writing rules', () => {
     const belowComment = { ...direct, text: `/*\n one\n two\n*/\nconst browser = process.env.${CHROMIUM_ENVIRONMENT_VARIABLE}` }
     expect(checkChromiumEnvironmentRead(belowComment)[0]?.path).toBe('scripts/example.ts:5')
     expect(checkChromiumEnvironmentRead({ ...direct, path: CHROMIUM_PATH_MODULE })).toEqual([])
+  })
+
+  test('package sources use the shared id source', () => {
+    const direct = { path: 'packages/frame/src/example.ts', text: 'const id = crypto.randomUUID()', imports: [] }
+    expect(checkRandomUuidSource(direct)).toEqual([
+      {
+        rule: 'random-uuid-source',
+        path: 'packages/frame/src/example.ts:1',
+        message:
+          'uses randomUUID directly; use defaultNewId from @segnavia/format, or ./document-identity.ts inside format, so ids work outside a secure context.',
+      },
+    ])
+    for (const text of [
+      'const makeId = crypto.randomUUID',
+      "const id = crypto['randomUUID']()",
+      'const { randomUUID } = crypto',
+      'Document.parse(value, { newId: crypto.randomUUID })',
+      `const id = \`host-\${crypto.randomUUID()}\``,
+      `const id = \`host-\${\`nested-\${crypto.randomUUID()}\`}\``,
+    ])
+      expect(checkRandomUuidSource({ ...direct, text })).toHaveLength(1)
+    expect(checkRandomUuidSource({ ...direct, path: DEFAULT_NEW_ID_SOURCE })).toEqual([])
+    expect(checkRandomUuidSource({ ...direct, path: 'packages/frame/src/example.test.ts' })).toEqual([])
+    expect(checkRandomUuidSource({ ...direct, text: '// crypto.randomUUID()' })).toEqual([])
+    expect(checkRandomUuidSource({ ...direct, text: "const help = 'do not call crypto.randomUUID()'" })).toEqual([])
+    expect(checkRandomUuidSource({ ...direct, text: 'const help = `do not call crypto.randomUUID()`' })).toEqual([])
+  })
+
+  test('source blanking uses comment offsets when a string repeats a later comment', () => {
+    const text = "const help = '// crypto.randomUUID()'\n// crypto.randomUUID()\nconst id = defaultNewId()"
+    expect(checkRandomUuidSource({ path: 'packages/frame/src/example.ts', text, imports: [] })).toEqual([])
   })
 
   test('a comment telling history is caught; the same words in a string are not', () => {

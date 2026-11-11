@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { bytesToHex } from './bytes-to-hex.ts'
 import { DocumentField } from './document.ts'
 import { pageFromDocument } from './document-lowering.ts'
 import type { Motif } from './motif.ts'
@@ -105,6 +106,10 @@ function orderedMotifs(motifs: readonly Motif[]): Motif[] {
 }
 
 export async function digestCoverMaterial(material: CoverDigestMaterial): Promise<string> {
+  const subtle = globalThis.crypto?.subtle
+  if (!subtle) {
+    throw new Error('SHA-256 needs crypto.subtle, which a browser exposes only in a secure context; call coverDigest on a server or over https.')
+  }
   const { id: _pageId, ...page } = material.page
   const canonical = canonicalJson({
     ...material,
@@ -112,8 +117,8 @@ export async function digestCoverMaterial(material: CoverDigestMaterial): Promis
     fonts: [...material.fonts].sort(),
     motifs: orderedMotifs(material.motifs),
   })
-  const digest = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonical))
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  const digest = await subtle.digest('SHA-256', new TextEncoder().encode(canonical))
+  return bytesToHex(new Uint8Array(digest))
 }
 
 export function coverDigestMaterial(cover: Cover, options: CoverDigestOptions): CoverDigestMaterial {

@@ -1,4 +1,4 @@
-import { type Fill, type FillValues, hasSlotValue, type SlotValue } from '@segnavia/format'
+import { defaultNewId, type Fill, type FillValues, hasSlotValue, type SlotValue } from '@segnavia/format'
 
 export const PROVISIONAL_FILL_PREFIX = 'provisional:'
 
@@ -11,8 +11,7 @@ export function isProvisionalFillId(id: string): boolean {
 }
 
 export function provisionalFillId(): string {
-  const unique = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
-  return `${PROVISIONAL_FILL_PREFIX}${unique}`
+  return `${PROVISIONAL_FILL_PREFIX}${defaultNewId()}`
 }
 
 export function cloneSlotValue(value: SlotValue): SlotValue {

@@ -1,4 +1,5 @@
 import {
+  defaultNewId,
   type Fill,
   type FillValues,
   hasSlotValue,
@@ -241,7 +242,7 @@ export class SegnaviaItemSettings extends HTMLElement {
   }
 
   private addNewFill() {
-    const fill: Fill = { id: this.authoring ? provisionalFillId() : crypto.randomUUID(), label: this.words.newFill, values: {} }
+    const fill: Fill = { id: this.authoring ? provisionalFillId() : defaultNewId(), label: this.words.newFill, values: {} }
     this.fillList = addFill(this.fillList, fill)
     this.selected = fill.id
     this.render()

@@ -5,14 +5,13 @@
 
 import ts from 'typescript'
 import type { Finding } from './rules.ts'
+import { TEST_FILE } from './source-text.ts'
 
 export interface SideEffectsPackage {
   path: string
   sideEffects: string[]
   sources: { path: string; text: string }[]
 }
-
-const TEST_FILE = /\.(?:test|spec|test-helper)\.[mc]?[jt]sx?$/
 
 function functionOrClass(node: ts.Node): boolean {
   return (
