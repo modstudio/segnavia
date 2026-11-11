@@ -95,6 +95,21 @@ test('stage reports and binds the deck day, then reloads with a host moment', as
   expect(days.at(-1)).toEqual({ date: '2026-11-15', zone: 'UTC', kind: 'current', moment: Date.parse('2026-11-15T12:00:00Z') })
 })
 
+test('stage reports and binds a fixed deck day regardless of the host moment', async () => {
+  const controller = new DeckController({ hash: null })
+  await controller.loadDeckValue({
+    title: 'Fixed',
+    asOf: { kind: 'fixed', date: '2026-11-14' },
+    slides: [{ id: 'one', content: { kind: 'html', html: '<time data-slot-value="asOf.date">placeholder</time>' } }],
+  })
+  const { stage, html, days } = stageHarness(controller)
+  asOfSetter(stage, 'moment', Date.parse('2026-12-01T12:00:00Z'))
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
+  expect(days.at(-1)).toEqual({ date: '2026-11-14', zone: 'UTC', kind: 'fixed' })
+  expect(html.at(-1)).toContain('2026-11-14')
+})
+
 test('stage repaints an as-of-bound neighbor when its day resolves and changes', async () => {
   const controller = new DeckController({ hash: null })
   await controller.loadDeckValue({
