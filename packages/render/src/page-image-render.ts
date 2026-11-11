@@ -16,6 +16,11 @@ import { renderReadiness } from './render-readiness.ts'
 import { filledPage } from './slot-fill.ts'
 import { stampImage } from './stamp-image.ts'
 
+export function enforceImageBytes(image: Uint8Array, limit?: number): Uint8Array {
+  if (limit !== undefined && image.byteLength > limit) throw new RenderLimitError('bytes', image.byteLength, limit)
+  return image
+}
+
 export async function renderPreparedPageImage(
   prepared: Awaited<ReturnType<typeof prepareRenderedPage>>,
   opts: ParsedPageImageOptions,
@@ -58,10 +63,7 @@ export async function renderPreparedPageImage(
       plainPagePreflight?.complete()
       const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
       const stamped = stampImage(image, outputDate([prepared.established.day]))
-      if (opts.limits?.bytes !== undefined && stamped.byteLength > opts.limits.bytes) {
-        throw new RenderLimitError('bytes', stamped.byteLength, opts.limits.bytes)
-      }
-      return stamped
+      return enforceImageBytes(stamped, opts.limits?.bytes)
     },
   )
 }
