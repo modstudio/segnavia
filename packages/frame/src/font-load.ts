@@ -1,6 +1,7 @@
 import {
   type FontFailure,
   type FontManifest,
+  type FontWeight,
   type FontWeightRange,
   fontWeightRange,
   fontWeightRangeCovers,
@@ -14,7 +15,7 @@ export const FONT_FAILURE_FIELD_LIMIT = 256
 
 export interface DeclaredFontLoad {
   font: string
-  weight?: number | [number, number]
+  weight?: FontWeight
   style?: 'normal' | 'italic'
   unicodeRange?: string
   sample: string
@@ -51,7 +52,7 @@ export async function loadDeclaredFonts(
   failureAttribute: string,
   failureLimit: number,
   fieldLimit: number,
-  weightRange: (value: number | string | [number, number] | undefined) => FontWeightRange | null = fontWeightRange,
+  weightRange: (value: FontWeight | string | undefined) => FontWeightRange | null = fontWeightRange,
   weightRangeCovers: (candidate: FontWeightRange | null, declaration: FontWeightRange | null) => boolean = fontWeightRangeCovers,
 ): Promise<FontFailure[]> {
   const available = Array.from(faces)

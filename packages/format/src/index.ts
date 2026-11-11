@@ -128,6 +128,7 @@ export {
   FontReferenceInput,
   type FontReferencesSource,
   type FontSource,
+  type FontWeight,
   type FontWeightRange,
   fontManifestReferences,
   fontManifestWithReferences,

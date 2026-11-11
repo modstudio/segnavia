@@ -132,7 +132,11 @@ describe('FontManifest', () => {
       expect(matchFaces([declaration], [variable])).toEqual({ faces: [variable], unsupplied: [] })
     }
     expect(matchFaces([{ weight: [100, 900] }], [regular])).toEqual({ faces: [regular], unsupplied: [{ weight: [100, 900] }] })
-    expect(matchFaces([{ weight: [100, 900] }], [{ ...variable }])).toEqual({ faces: [variable], unsupplied: [] })
+  })
+
+  test('lets one supplied variable face satisfy multiple declarations', () => {
+    const variable = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const, weight: '100 900' }
+    expect(matchFaces([{ weight: 400 }, { weight: 700 }], [variable])).toEqual({ faces: [variable], unsupplied: [] })
   })
 
   test('matches a ranged Hebrew declaration by weight and unicode range', () => {

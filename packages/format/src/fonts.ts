@@ -32,27 +32,21 @@ function validUnicodeRange(value: string): boolean {
   return unicodeRangeParts(value) !== null
 }
 
-export const FontDeclarationWeight = z.union([
-  z
+function fontWeightValue(wording: 'an integer' | 'integers') {
+  return z
     .number()
     .int()
-    .min(1, 'weight must be from 1 to 1000; use an integer in that range')
-    .max(1000, 'weight must be from 1 to 1000; use an integer in that range'),
-  z
-    .tuple([
-      z
-        .number()
-        .int()
-        .min(1, 'weight must be from 1 to 1000; use integers in that range')
-        .max(1000, 'weight must be from 1 to 1000; use integers in that range'),
-      z
-        .number()
-        .int()
-        .min(1, 'weight must be from 1 to 1000; use integers in that range')
-        .max(1000, 'weight must be from 1 to 1000; use integers in that range'),
-    ])
-    .refine(([min, max]) => min <= max, 'weight range minimum must not exceed its maximum; put the lower weight first'),
-])
+    .min(1, `weight must be from 1 to 1000; use ${wording} in that range`)
+    .max(1000, `weight must be from 1 to 1000; use ${wording} in that range`)
+}
+
+export const FontDeclarationWeight = z
+  .union([fontWeightValue('an integer'), z.tuple([fontWeightValue('integers'), fontWeightValue('integers')])])
+  .superRefine((weight, ctx) => {
+    if (fontWeightRange(weight) !== null) return
+    ctx.addIssue({ code: 'custom', message: 'weight range minimum must not exceed its maximum; put the lower weight first' })
+  })
+export type FontWeight = z.infer<typeof FontDeclarationWeight>
 
 const FontDeclarationShape = {
   weight: FontDeclarationWeight.optional(),
@@ -77,16 +71,15 @@ export type FontManifestEntry = z.infer<typeof FontManifestEntry>
 export const FontManifest = z.record(AppFontName, FontManifestEntry).superRefine((fonts, ctx) => {
   for (const [font, entry] of Object.entries(fonts)) {
     if (!('faces' in entry)) continue
-    const seen: Array<{ face: FontDeclaration; index: number }> = []
+    const seen = new Map<string, Array<{ face: FontDeclaration; index: number }>>()
     for (const [index, face] of entry.faces.entries()) {
-      const previous = seen.find(
-        ({ face: candidate }) =>
-          (candidate.style ?? 'normal') === (face.style ?? 'normal') &&
-          (candidate.unicodeRange?.replace(/\s/g, '').toUpperCase() ?? '') === (face.unicodeRange?.replace(/\s/g, '').toUpperCase() ?? '') &&
-          fontWeightRangesOverlap(fontWeightRange(candidate.weight), fontWeightRange(face.weight)),
-      )
-      if (previous === undefined) seen.push({ face, index })
-      else {
+      const key = faceStyleRangeKey(face)
+      const bucket = seen.get(key) ?? []
+      const previous = bucket.find(({ face: candidate }) => fontWeightRangesOverlap(fontWeightRange(candidate.weight), fontWeightRange(face.weight)))
+      if (previous === undefined) {
+        bucket.push({ face, index })
+        seen.set(key, bucket)
+      } else {
         ctx.addIssue({
           code: 'custom',
           path: [font, 'faces', index],
@@ -136,7 +129,7 @@ export function persistedFontManifestWithReferences(fonts: FontManifest | undefi
 export interface FontFailure {
   font: string
   family: string
-  weight?: number | [number, number]
+  weight?: FontWeight
   style?: string
   unicodeRange?: string
   reason: 'unsupplied' | 'unloaded'
@@ -208,18 +201,20 @@ export interface FontSource {
 
 export type FontWeightRange = readonly [number, number]
 
+/** Its source text is embedded in frames by declaredFontLoadExpression, so this function must remain self-contained. */
 export function fontWeightRange(weight: FontDeclaration['weight'] | FontFace['weight']): FontWeightRange | null {
-  if (weight === undefined || weight === 'normal') return [400, 400]
-  if (weight === 'bold') return [700, 700]
-  if (typeof weight === 'number') return Number.isInteger(weight) && weight >= 1 && weight <= 1000 ? [weight, weight] : null
-  if (Array.isArray(weight)) return [weight[0], weight[1]]
+  const checkedRange = (min: number, max: number): FontWeightRange | null =>
+    Number.isInteger(min) && Number.isInteger(max) && min >= 1 && max <= 1000 && min <= max ? [min, max] : null
+  if (weight === undefined || weight === 'normal') return checkedRange(400, 400)
+  if (weight === 'bold') return checkedRange(700, 700)
+  if (typeof weight === 'number') return checkedRange(weight, weight)
+  if (Array.isArray(weight)) return checkedRange(weight[0], weight[1])
   const match = /^([1-9]\d{0,2}|1000)(?: ([1-9]\d{0,2}|1000))?$/.exec(weight)
   if (!match?.[1]) return null
-  const min = Number(match[1])
-  const max = Number(match[2] ?? match[1])
-  return min <= max ? [min, max] : null
+  return checkedRange(Number(match[1]), Number(match[2] ?? match[1]))
 }
 
+/** Its source text is embedded in frames by declaredFontLoadExpression, so this function must remain self-contained. */
 export function fontWeightRangeCovers(candidate: FontWeightRange | null, declaration: FontWeightRange | null): boolean {
   return candidate !== null && declaration !== null && candidate[0] <= declaration[0] && candidate[1] >= declaration[1]
 }
@@ -228,8 +223,12 @@ function fontWeightRangesOverlap(left: FontWeightRange | null, right: FontWeight
   return left !== null && right !== null && left[0] <= right[1] && right[0] <= left[1]
 }
 
-function faceKey(face: Pick<FontDeclaration, 'style' | 'unicodeRange'> | Pick<FontFace, 'style' | 'unicodeRange'>): string {
+function faceStyleRangeKey(face: Pick<FontDeclaration, 'style' | 'unicodeRange'> | Pick<FontFace, 'style' | 'unicodeRange'>): string {
   return JSON.stringify([face.style ?? 'normal', face.unicodeRange?.replace(/\s/g, '').toUpperCase() ?? ''])
+}
+
+function faceKey(face: Pick<FontDeclaration, 'style' | 'unicodeRange'> | Pick<FontFace, 'style' | 'unicodeRange'>): string {
+  return faceStyleRangeKey(face)
 }
 
 function faceMatches(declaration: FontDeclaration, supplied: FontFace): boolean {

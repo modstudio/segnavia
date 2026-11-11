@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  declaredFontLoadExpression,
   declaredFontLoads,
   FONT_FAILURE_ATTRIBUTE,
   FONT_FAILURE_FIELD_LIMIT,
@@ -60,7 +61,7 @@ describe('font load', () => {
     let loads = 0
     const variable = { family: 'Body', weight: '100 900', style: 'normal', status: 'loaded', load: async () => loads++ }
     const failures = await loadDeclaredFonts(
-      declaredFontLoads({ body: { faces: [{ weight: [300, 700] }, { weight: [100, 1000], style: 'italic' }] } }),
+      declaredFontLoads({ body: { faces: [{ weight: [300, 700] }, { weight: [100, 1000] }] } }),
       [variable],
       { setAttribute: () => {} },
       () => 'Body',
@@ -69,7 +70,25 @@ describe('font load', () => {
       FONT_FAILURE_FIELD_LIMIT,
     )
     expect(loads).toBe(1)
-    expect(failures).toEqual([{ font: 'body', family: 'Body', weight: [100, 1000], style: 'italic', reason: 'unloaded' }])
+    expect(failures).toEqual([{ font: 'body', family: 'Body', weight: [100, 1000], reason: 'unloaded' }])
+  })
+
+  test('embeds self-contained weight helpers in the declared font expression', async () => {
+    const compile = (declarations: string) =>
+      new Function('document', 'getComputedStyle', `return ${declaredFontLoadExpression(declarations)}`) as (
+        document: { fonts: unknown[]; documentElement: { setAttribute(): void } },
+        getComputedStyle: () => { getPropertyValue(): string },
+      ) => Promise<unknown>
+    expect(await compile('[]')({ fonts: [], documentElement: { setAttribute: () => {} } }, () => ({ getPropertyValue: () => '' }))).toEqual([])
+    const declarations = JSON.stringify([{ font: 'body', weight: [300, 700], sample: 'A' }])
+    const failures = await compile(declarations)(
+      {
+        fonts: [{ family: 'Body', weight: '100 900', style: 'normal', status: 'loaded', load: async () => undefined }],
+        documentElement: { setAttribute: () => {} },
+      },
+      () => ({ getPropertyValue: () => 'Body' }),
+    )
+    expect(failures).toEqual([])
   })
 
   test('attempts every declaration while bounding the report', async () => {

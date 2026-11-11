@@ -87,12 +87,23 @@ function matchedFaces(declaration: { faces: FontDeclaration[] } | undefined, fon
   return matchFaces(declaration.faces, font.faces)
 }
 
+function unusablePresentFailures(
+  name: string,
+  declaration: { faces: FontDeclaration[] } | undefined,
+  font: AppFont,
+  targetDocumentCanUsePresentFaces: boolean,
+): FontFailure[] {
+  if (!font.present || targetDocumentCanUsePresentFaces) return []
+  return declaration ? unsupplied(name, font.family, declaration.faces) : [{ font: name, family: font.family, reason: 'unsupplied' }]
+}
+
 export async function resolveFontReferences(
   declarations: FontManifest,
   undeclared: readonly string[],
   fonts: FontsOptions,
   signal: AbortSignal,
   place: string,
+  targetDocumentCanUsePresentFaces = true,
 ): Promise<ResolvedFonts> {
   const app = new Map<string, AppFont>()
   const failures: FontFailure[] = []
@@ -110,6 +121,7 @@ export async function resolveFontReferences(
       failures.push(...(declaration ? unsupplied(name, name, declaration.faces) : [{ font: name, family: name, reason: 'unsupplied' as const }]))
       continue
     }
+    failures.push(...unusablePresentFailures(name, declaration, font, targetDocumentCanUsePresentFaces))
     const matched = matchedFaces(declaration, font)
     if (declaration) failures.push(...unsupplied(name, font.family, matched.unsupplied))
     app.set(name, { ...font, faces: matched.faces, generic: declaration?.generic ?? font.generic })
@@ -198,5 +210,5 @@ export async function resolveNotesFontCss(
     refuseMissingFontSource({}, [name], NOTES_FONT_PLACE)
     return { family: notesSheetFontFamily(name), css: '', failures: [] }
   }
-  return { family: notesSheetFontFamily(name), ...(await resolveFontReferences({}, [name], fonts, signal, NOTES_FONT_PLACE)) }
+  return { family: notesSheetFontFamily(name), ...(await resolveFontReferences({}, [name], fonts, signal, NOTES_FONT_PLACE, false)) }
 }

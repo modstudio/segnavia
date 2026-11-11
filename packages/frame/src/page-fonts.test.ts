@@ -255,6 +255,15 @@ describe('notes font', () => {
     })
   })
 
+  test('resolveNotesFontCss reports a present face that the generated sheet cannot use', async () => {
+    const present = { family: 'Document Serif', faces: [], generic: 'serif' as const, present: true as const }
+    expect(await resolveNotesFontCss('serif', { source: source({ serif: present }) }, signal)).toEqual({
+      family: 'var(--segnavia-font-serif)',
+      css: ':root{--segnavia-font-serif:"Document Serif",serif}',
+      failures: [{ font: 'serif', family: 'Document Serif', reason: 'unsupplied' }],
+    })
+  })
+
   test('resolveNotesFontCss refuses a named font with no FontSource', async () => {
     await expect(resolveNotesFontCss('serif', undefined, signal)).rejects.toThrow(FontRefusedError)
     await expect(resolveNotesFontCss('serif', undefined, signal)).rejects.toThrow(
