@@ -88,14 +88,20 @@ describe('frame content security policy', () => {
     expect(actual['img-src']).toContain('https://img.example')
   })
 
-  test('carries default Fontsource path prefixes into CSP sources', () => {
-    const actual = cspDirectives(frameDocument('<p>frame</p>', { scripts: 'refuse', nonce: 'known' }))
-    expect(actual['style-src']).toContain('https://cdn.jsdelivr.net/fontsource/css')
-    expect(actual['style-src']).toContain('https://cdn.jsdelivr.net/fontsource/css/')
-    expect(actual['font-src']).toContain('https://cdn.jsdelivr.net/fontsource/fonts')
-    expect(actual['font-src']).toContain('https://cdn.jsdelivr.net/fontsource/fonts/')
-    expect(actual['style-src']).not.toContain('https://cdn.jsdelivr.net')
-    expect(actual['font-src']).not.toContain('https://cdn.jsdelivr.net')
+  test('carries approved path prefixes into CSP sources', () => {
+    const actual = cspDirectives(
+      frameDocument('<p>frame</p>', {
+        scripts: 'refuse',
+        nonce: 'known',
+        origins: [{ origin: 'https://assets.example', kinds: ['style', 'font'], pathname: '/approved' }],
+      }),
+    )
+    expect(actual['style-src']).toContain('https://assets.example/approved')
+    expect(actual['style-src']).toContain('https://assets.example/approved/')
+    expect(actual['font-src']).toContain('https://assets.example/approved')
+    expect(actual['font-src']).toContain('https://assets.example/approved/')
+    expect(actual['style-src']).not.toContain('https://assets.example')
+    expect(actual['font-src']).not.toContain('https://assets.example')
   })
 
   test.each([

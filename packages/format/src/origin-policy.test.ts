@@ -113,21 +113,20 @@ describe('origin policy', () => {
 
   test('path refusals name the URL, prefixes, and clearing approval', () => {
     const decision = originDecision(
-      'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css',
+      'https://assets.example/outside/x.css',
       'style',
-      [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style'], pathname: '/fontsource' }],
+      [{ origin: 'https://assets.example', kinds: ['style'], pathname: '/approved' }],
       true,
     )
     expect(decision).toEqual({
       allowed: false,
       refusal: {
-        url: 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css',
-        origin: 'https://cdn.jsdelivr.net',
+        url: 'https://assets.example/outside/x.css',
+        origin: 'https://assets.example',
         kind: 'style',
         reason: 'outside-approved-path',
-        message:
-          'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css is outside the approved style path prefixes at https://cdn.jsdelivr.net: "/fontsource/css", "/fontsource"',
-        advice: 'add { origin: "https://cdn.jsdelivr.net", kinds: ["style"], pathname: "/npm/x@1.2.3/x.css" } to origins to clear this refusal',
+        message: 'https://assets.example/outside/x.css is outside the approved style path prefixes at https://assets.example: "/approved"',
+        advice: 'add { origin: "https://assets.example", kinds: ["style"], pathname: "/outside/x.css" } to origins to clear this refusal',
       },
     })
   })
