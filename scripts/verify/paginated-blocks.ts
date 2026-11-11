@@ -9,6 +9,8 @@ export interface PaginatedBlockReport {
   direction: { ok: boolean; detail: string }
 }
 
+// `void` matches Playwright's no-argument PageFunction overload used by the IDML verifier.
+// biome-ignore lint/suspicious/noConfusingVoidType: the callback accepts that overload as well as optional flow ids
 export function inspectPaginatedBlocks(flowIds: { table?: string; wrapped?: string; margin?: string } | void): PaginatedBlockReport {
   function originTop(element: Element) {
     return element.getBoundingClientRect().top

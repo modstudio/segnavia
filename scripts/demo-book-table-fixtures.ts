@@ -1,4 +1,8 @@
+import type { DocumentInput } from '@segnavia/format'
 import { markdownHtml } from '@segnavia/html'
+import { BOOK_STYLE_CHECK_CSS } from './demo-book-fonts.ts'
+import { BOOK_FOLIO_MOTIF_KEY } from './demo-book-motifs.ts'
+import { paginatedParents } from './demo-book-parents.ts'
 
 export const PAGINATED_TABLE_FLOW_IDS = {
   table: 'segnavia-chapter-4',
@@ -25,3 +29,35 @@ export function marginTableHtml(hebrew: boolean): string {
   const head = hebrew ? '<th>אות בשוליים</th><th>ערך בשוליים</th>' : '<th>Margin letter</th><th>Margin value</th>'
   return `<table style="margin-top:24px"${hebrew ? ' dir="rtl"' : ''}><thead><tr>${head}</tr></thead><tbody>${tableFixtureRows(hebrew, 46).html}</tbody></table>`
 }
+
+export const paginatedTableFixture = (): DocumentInput => ({
+  type: 'document',
+  kind: 'book',
+  metadata: { title: 'טבלאות מחולקות' },
+  mode: 'paginated',
+  settings: { lang: 'he' },
+  style: { css: BOOK_STYLE_CHECK_CSS },
+  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, columnGap: 5 },
+  rectoOpenings: true,
+  parentPages: paginatedParents(BOOK_FOLIO_MOTIF_KEY).map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
+  children: [
+    {
+      type: 'division',
+      name: 'body',
+      children: [
+        {
+          type: 'section',
+          title: 'טבלה עטופה',
+          id: PAGINATED_TABLE_FLOW_IDS.wrapped,
+          children: [{ type: 'flow', html: wrappedTableHtml(true) }],
+        },
+        {
+          type: 'section',
+          title: 'טבלה עם שוליים',
+          id: PAGINATED_TABLE_FLOW_IDS.margin,
+          children: [{ type: 'flow', html: marginTableHtml(true) }],
+        },
+      ],
+    },
+  ],
+})
