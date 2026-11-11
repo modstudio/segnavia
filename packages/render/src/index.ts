@@ -27,6 +27,7 @@ import {
   type RenderOptions,
   refuseProgressUnlessOneComposition,
 } from './options.ts'
+import { outputDate } from './output-date.ts'
 import { printWithOverflow } from './overflow.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
 import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
@@ -245,7 +246,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
         })
-        const output = await withDocumentMetadata(await finishWithBrowser(bytes, prepared.options, deadline), parsedOptions.metadata)
+        const output = await withDocumentMetadata(
+          await finishWithBrowser(bytes, prepared.options, deadline),
+          parsedOptions.metadata,
+          outputDate([prepared.established.day]),
+        )
         if (overflows.length) parsedOptions.overflow?.report?.({ entries: overflows })
         return enforce(output, parsedOptions.limits)
       })
@@ -321,7 +326,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             frameGroups,
           )
         })
-        return enforce(await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata), parsedOptions.limits)
+        return enforce(
+          await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata, outputDate(contexts.days)),
+          parsedOptions.limits,
+        )
       })
     },
 
@@ -360,7 +368,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             diagramScript,
           )
         })
-        return finishWithBrowser(bytes, options, deadline)
+        return withDocumentMetadata(await finishWithBrowser(bytes, options, deadline))
       })
     },
 

@@ -386,7 +386,7 @@ export function rewriteEffectsDocument(document: PDFDocument): EffectsReport {
 
 export async function rewriteEffectsPdf(bytes: Uint8Array): Promise<{ bytes: Uint8Array; report: EffectsReport }> {
   try {
-    const document = await loadPdf(bytes, { updateMetadata: false })
+    const document = await loadPdf(bytes)
     const { changed, report } = rewriteEffects(document)
     return { bytes: !changed && report.rule1 === 0 && report.ruleC === 0 ? bytes : await document.save(), report }
   } catch (error) {

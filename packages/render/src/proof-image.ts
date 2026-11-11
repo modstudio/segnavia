@@ -26,7 +26,7 @@ function proofTable(bytes: Uint8Array): ProofTable {
   }
 }
 
-function mimeOf(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 'image/webp' {
+export function mimeOf(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 'image/webp' {
   const text = (start: number, end: number) => String.fromCharCode(...bytes.subarray(start, end))
   if (bytes.length >= 8 && text(1, 4) === 'PNG') return 'image/png'
   if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'

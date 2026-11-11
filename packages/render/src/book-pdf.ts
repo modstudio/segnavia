@@ -21,7 +21,6 @@ import {
   PAGE_REFERENCE_VALUE,
   planBookPages,
 } from '@segnavia/html'
-import { PDFDocument } from 'pdf-lib'
 import { type BookDestination, joinedDestinations, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
@@ -32,7 +31,7 @@ import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry } from './options.ts'
 import type { PrintResult } from './overflow.ts'
 import { addPressBoxes } from './page-paper.ts'
-import { loadPdf } from './pdf-load.ts'
+import { createPdf, loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import type { ParsedBookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
@@ -233,7 +232,7 @@ async function convergeBookParts(
 }
 
 async function join(book: Book, headings: BookHeading[], front: PrintedPart, body: PrintedPart, marginBytes: Uint8Array): Promise<Uint8Array> {
-  const output = await PDFDocument.create()
+  const output = await createPdf()
   for (const part of [front, body]) {
     if (!part.bytes) continue
     const source = await loadPdf(part.bytes)

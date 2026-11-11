@@ -652,6 +652,13 @@ refused so each day can be produced separately. An anchor the host cannot
 resolve refuses, naming the anchor. Book and deck surfaces do not take the
 moment yet.
 
+Rendered PDF, PNG, JPEG and WebP output records that one established as-of day
+as its creation and modification date. A host moment is written as an instant
+in the day's zone; a fixed day, or an anchor without a host moment, is written
+as a date only. A current day without a host moment, mixed days and an absent
+day carry no date. Render time is never metadata, identical inputs produce
+identical bytes, and PDFs carry neither a Producer nor a Creator.
+
 ## The seams
 
 The library declares every seam, and hosts implement them. Nothing in the

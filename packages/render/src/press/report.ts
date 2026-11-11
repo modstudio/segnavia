@@ -81,7 +81,7 @@ function outputDestination(document: PDFDocument): PressDestination {
 }
 
 export async function inspectPressPdf(bytes: Uint8Array, requested?: PressDestination): Promise<PressReport> {
-  const document = await loadPdf(bytes, { updateMetadata: false })
+  const document = await loadPdf(bytes)
   const destination = requested ?? outputDestination(document)
   const state: ReportState = {
     budget: { decodedBytes: 0 },
