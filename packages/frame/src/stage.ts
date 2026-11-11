@@ -15,6 +15,7 @@ import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
+import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
@@ -273,7 +274,11 @@ export class SegnaviaStage extends HTMLElement {
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
     this.dataset.layout = deck.layout
     const scripts = shownScripts(deck.scripts, this.authoringRefusesScripts)
-    surfacePreflightFor(this).reset(deck, deck.slides.length)
+    const folios = deckFolios(deck)
+    surfacePreflightFor(this).setSurface(
+      deck.slides.map((slide, index) => ({ key: slide.id, folio: String(deckFolioAt(folios, index).number) })),
+      true,
+    )
     const shownState = scripts === deck.scripts ? state : { ...state, deck: { ...deck, scripts } }
     this.pool.update(shownState, this.attached as DeckController, {
       neighbors: this.neighbors,
@@ -324,11 +329,10 @@ export class SegnaviaStage extends HTMLElement {
   private onMessage = (event: MessageEvent) => {
     const message = messageFrom(event, this.pool.frames(), surfacePreflightFor(this).resolvedProfile())
     dispatchFontFailures(this, message)
-    if (message?.type === MESSAGE.preflight && message.report) {
+    if (message?.type === MESSAGE.preflight && message.report && surfacePreflightFor(this).enabled) {
       const frame = this.pool.frames().find((candidate) => candidate.contentWindow === event.source)
       const slideId = frame?.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId
-      const index = this.attached?.state.deck?.slides.findIndex((slide) => slide.id === slideId) ?? -1
-      if (index >= 0) surfacePreflightFor(this).receive(index, message.report)
+      if (slideId) surfacePreflightFor(this).receive(slideId, message.report)
     }
     if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
     if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)

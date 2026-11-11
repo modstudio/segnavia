@@ -3,7 +3,7 @@ import { embedFunction } from '@segnavia/html'
 import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { preflightPageFacts } from './composer-dress.ts'
-import { embeddedPreflightBounds, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
+import { embeddedPreflightBounds, PREFLIGHT_ATTRIBUTE, publishPreflightReport } from './embedded-preflight.ts'
 
 export { PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
 
@@ -49,6 +49,7 @@ ${embedFunction('inlineVarHasFallback', inlineVarHasFallback)}
 ${embedFunction('inlineVariablesWithoutFallback', inlineVariablesWithoutFallback)}
 ${embedFunction('markFurnitureInvalidVariables', markFurnitureInvalidVariables)}
 ${embedFunction('fontMissingEntries', fontMissingEntries)}
-var publishPreflight=function(plan,flows){if(!config.preflight)return true;var pageFacts=preflightPageFacts(plan.pages,planFolios.folios,flows);var report=boundPreflightReport({entries:preflightEntries,facts:{pageCount:plan.pages.length,pages:pageFacts,fits:preflightFits}},config.preflight);var json=JSON.stringify(report);document.documentElement.setAttribute('${PREFLIGHT_ATTRIBUTE}',json);window.parent.postMessage({type:'${MESSAGE.preflight}',report:report},'*');var refusal=preflightRefusal(report);if(refusal){fail(refusal);return false;}return true;};
+${embedFunction('publishPreflightReport', publishPreflightReport)}
+var publishPreflight=function(plan,flows){if(!config.preflight)return true;var pageFacts=preflightPageFacts(plan.pages,planFolios.folios,flows);var report=boundPreflightReport({entries:preflightEntries,facts:{pageCount:plan.pages.length,pages:pageFacts,fits:preflightFits}},config.preflight);publishPreflightReport(report,'${PREFLIGHT_ATTRIBUTE}','${MESSAGE.preflight}',function(message){window.parent.postMessage(message,'*');});var refusal=preflightRefusal(report);if(refusal){fail(refusal);return false;}return true;};
 var completePreflight=function(plan,flows,done){var publish=function(){if(publishPreflight(plan,flows))done();};if(config.preflight&&config.preflight['slot-overset']!=='off'&&typeof window.segnaviaSlotFit==='function'){window.segnaviaSlotFit(function(slots){appendSlotOversetEntries(slots||{},preflightEntries);publish();});return;}publish();};`
 }

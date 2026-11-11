@@ -32,7 +32,7 @@ export function handlePageFrameMessage(target: HTMLElement, event: MessageEvent,
     state.ready()
     if (state.documentIsFinal) target.dispatchEvent(new Event('ready'))
   }
-  if (samePageFrame(state.currentFrame, state.composedFrame) && dispatchPreflight(target, message)) return
+  if (dispatchPreflight(target, message)) return
   const composeFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, state.currentFrame, state.composedFrame)
   if (composeFailure) {
     dispatchPageFailure(target, composeFailure, true)

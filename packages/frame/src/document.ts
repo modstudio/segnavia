@@ -231,7 +231,10 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   private paint() {
-    surfacePreflightFor(this).clear()
+    surfacePreflightFor(this).setSurface(
+      this.pageValues.map((_, index) => ({ key: index, folio: String(index + 1) })),
+      false,
+    )
     this.cancelSlotPreparation()
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
@@ -351,7 +354,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       csp: this.extraCsp,
       origins: [...this.origins],
       profile: surfacePreflightFor(this).resolvedProfile(),
-      preflight: (report) => surfacePreflightFor(this).receive(index, report, this.pageValues.length),
+      preflight: (report) => surfacePreflightFor(this).receive(index, report),
     })
   }
   private onMessage = (event: MessageEvent) => {

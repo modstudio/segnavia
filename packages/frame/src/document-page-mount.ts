@@ -2,6 +2,7 @@ import type { PageWidths } from '@segnavia/format'
 import { Page, type PreflightProfile } from '@segnavia/format'
 import type { EstablishedPageDay } from '@segnavia/html'
 import type { BrandsOptions } from './brands.ts'
+import { installDocumentPagePreflight } from './document-page-preflight.ts'
 import { internalPageDayLoad } from './document-value-load.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page-element.ts'
@@ -37,10 +38,7 @@ export function mountDocumentPage(sheet: HTMLElement, options: DocumentPageMount
   element.origins = options.origins
   element.profile = options.profile
   element.part.add('page')
-  element.addEventListener('preflight', (event) => {
-    event.stopPropagation()
-    options.preflight((event as CustomEvent<import('@segnavia/format').PreflightReport>).detail)
-  })
+  installDocumentPagePreflight(element, options.preflight)
   sheet.append(element)
   element[internalPageDayLoad](
     Page.parse({

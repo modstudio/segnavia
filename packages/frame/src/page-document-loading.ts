@@ -1,33 +1,12 @@
-import type { FontFailure, OriginApproval, PreflightProfile } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { type FrameOptions, frameDocument, newNonce } from './bridge.ts'
 import { hasDiagram, loadDiagramScript, withDiagramScript } from './diagram-document.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
-import { shownPageDocument } from './shown-page-document.ts'
+import { type ShownPageDocumentOptions, shownPageDocument } from './shown-page-document.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 type DiagramScriptLoader = (html: string) => Promise<string | undefined>
 type DiagramDocumentBuilder = (nonce: string, diagramScript: string | undefined) => string
-
-type ShownPageDocumentOptions = {
-  baseCss?: string
-  css?: string
-  csp?: string
-  origins?: Iterable<OriginApproval>
-  fontFailures?: FontFailure[]
-  preflight?: PreflightProfile
-}
-
-export function shownPageDocumentOptions(
-  baseCss: string,
-  css: string,
-  csp: string,
-  origins: Iterable<OriginApproval>,
-  fontFailures: FontFailure[],
-  preflight: PreflightProfile,
-): ShownPageDocumentOptions {
-  return { baseCss, css, csp: csp || undefined, origins, fontFailures, preflight }
-}
 
 function loadDiagramDocument(
   html: string,

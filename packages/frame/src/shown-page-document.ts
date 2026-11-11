@@ -4,19 +4,16 @@ import { frameDocument, frameStyleSheets } from './bridge.ts'
 import type { PreparedSlots } from './slot-render.ts'
 import { slotHtml } from './slot-render.ts'
 
-export function shownPageDocument(
-  page: HtmlPage,
-  resolved: PreparedSlots | undefined,
-  options: {
-    nonce: string
-    baseCss?: string
-    css?: string
-    csp?: string
-    origins?: Iterable<OriginApproval>
-    fontFailures?: FontFailure[]
-    preflight?: PreflightProfile
-  },
-): string {
+export interface ShownPageDocumentOptions {
+  baseCss?: string
+  css?: string
+  csp?: string
+  origins?: Iterable<OriginApproval>
+  fontFailures?: FontFailure[]
+  preflight?: PreflightProfile
+}
+
+export function shownPageDocument(page: HtmlPage, resolved: PreparedSlots | undefined, options: ShownPageDocumentOptions & { nonce: string }): string {
   const html = slotHtml(page.html, resolved)
   return frameDocument(html, {
     scripts: page.scripts,

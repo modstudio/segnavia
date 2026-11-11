@@ -21,7 +21,7 @@ import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { PageAsOfElement } from './page-as-of-element.ts'
 import { loadBrandedPage } from './page-brand.ts'
-import { loadShownPageDocument, shownPageDocumentOptions } from './page-document-loading.ts'
+import { loadShownPageDocument } from './page-document-loading.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -31,6 +31,7 @@ import { scrollPageToHeading } from './page-heading.ts'
 import { printedPageRequestRefusal } from './page-printed.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
+import { loadPageUrl } from './page-url-load.ts'
 import { renderPageValue } from './page-value-render.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import type { PreparedSlots } from './slot-render.ts'
@@ -177,9 +178,7 @@ export class SegnaviaPage extends PageAsOfElement {
       return
     }
     if (!value) return
-    const response = await fetch(new URL(value, location.href))
-    if (!response.ok) throw new Error(`The page at ${value} answered ${response.status}.`)
-    this.load(await response.json())
+    await loadPageUrl(value, location.href, (input) => this.load(input))
   }
 
   load(input: DocumentInput | unknown) {
@@ -226,7 +225,14 @@ export class SegnaviaPage extends PageAsOfElement {
       loadShownPageDocument(
         shownPage,
         resolved,
-        shownPageDocumentOptions(fontCss, this.css, this.cspExtra, this.origins, fontFailures, resolvePreflightProfile(this.profileInput)),
+        {
+          baseCss: fontCss,
+          css: this.css,
+          csp: this.cspExtra || undefined,
+          origins: this.origins,
+          fontFailures,
+          preflight: resolvePreflightProfile(this.profileInput),
+        },
         (document) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved

@@ -4,8 +4,16 @@ import {
   type PreflightProfile,
   type PreflightProfileInput,
   type PreflightReport,
+  preflightEnabled,
   resolvePreflightProfile,
 } from '@segnavia/format'
+
+export type SurfacePreflightKey = number | string
+
+export interface SurfacePreflightItem<Key extends SurfacePreflightKey = SurfacePreflightKey> {
+  key: Key
+  folio: string
+}
 
 export function surfacePreflightProfile(input: PreflightProfileInput): PreflightProfile {
   const resolved = resolvePreflightProfile(input)
@@ -16,28 +24,34 @@ export function surfacePreflightProfile(input: PreflightProfileInput): Preflight
   )
 }
 
-export function mergeSurfacePreflightReports(reports: ReadonlyMap<number, PreflightReport>, total: number, profile: PreflightProfile): PreflightReport {
+export function mergeSurfacePreflightReports<Key extends SurfacePreflightKey>(
+  reports: ReadonlyMap<Key, PreflightReport>,
+  surface: readonly SurfacePreflightItem<Key>[],
+  profile: PreflightProfile,
+): PreflightReport {
   const entries: PreflightEntry[] = []
   const omitted: Record<string, number> = {}
   const pages: PreflightReport['facts']['pages'][number][] = []
   const fits: PreflightReport['facts']['fits'][number][] = []
-  const measured = [...reports.entries()]
-    .filter(([index]) => Number.isSafeInteger(index) && index >= 0 && index < total)
-    .sort(([left], [right]) => left - right)
-  for (const [index, report] of measured) {
-    for (const issue of report.issues) entries.push({ ...issue, location: { ...issue.location, folio: String(index + 1) } })
+  let measured = 0
+  for (const { key, folio } of surface) {
+    const report = reports.get(key)
+    if (!report) continue
+    measured++
+    for (const issue of report.issues) entries.push({ ...issue, location: { ...issue.location, folio } })
     for (const [check, count] of Object.entries(report.omitted)) omitted[check] = (omitted[check] ?? 0) + (count ?? 0)
     pages.push(...report.facts.pages)
     fits.push(...report.facts.fits)
   }
-  return boundPreflightReport({ entries, omitted, facts: { pageCount: total, pages, fits }, coverage: { measured: measured.length, total } }, profile)
+  const total = surface.length
+  return boundPreflightReport({ entries, omitted, facts: { pageCount: total, pages, fits }, coverage: { measured, total } }, profile)
 }
 
-export class SurfacePreflightCoordinator {
+export class SurfacePreflightCoordinator<Key extends SurfacePreflightKey = SurfacePreflightKey> {
   private input: PreflightProfileInput = 'default'
-  private reports = new Map<number, PreflightReport>()
-  private scope: unknown
-  private total = 0
+  private resolved = surfacePreflightProfile(this.input)
+  private reports = new Map<Key, PreflightReport>()
+  private surface: readonly SurfacePreflightItem<Key>[] = []
 
   constructor(private target: EventTarget) {}
 
@@ -46,31 +60,34 @@ export class SurfacePreflightCoordinator {
   }
 
   set profile(value: PreflightProfileInput) {
+    const resolved = surfacePreflightProfile(value)
     this.input = value
-    this.clear()
+    this.resolved = resolved
+    this.reports.clear()
+  }
+
+  get enabled(): boolean {
+    return preflightEnabled(this.resolved)
   }
 
   resolvedProfile(): PreflightProfile {
-    return surfacePreflightProfile(this.input)
+    return this.resolved
   }
 
-  reset(scope: unknown, total: number): void {
-    if (scope === this.scope && total === this.total) return
-    this.scope = scope
-    this.total = total
-    this.reports.clear()
+  setSurface(surface: readonly SurfacePreflightItem<Key>[], retainReports: boolean): void {
+    this.surface = surface
+    if (!retainReports) {
+      this.reports.clear()
+      return
+    }
+    const kept = new Set(surface.map(({ key }) => key))
+    for (const key of this.reports.keys()) if (!kept.has(key)) this.reports.delete(key)
   }
 
-  clear(): void {
-    this.scope = undefined
-    this.total = 0
-    this.reports.clear()
-  }
-
-  receive(index: number, report: PreflightReport, total = this.total): void {
-    this.total = total
-    this.reports.set(index, report)
-    const merged = mergeSurfacePreflightReports(this.reports, total, this.resolvedProfile())
+  receive(key: Key, report: PreflightReport): void {
+    if (!this.enabled || !this.surface.some((item) => item.key === key)) return
+    this.reports.set(key, report)
+    const merged = mergeSurfacePreflightReports(this.reports, this.surface, this.resolved)
     this.target.dispatchEvent(new CustomEvent('preflight', { detail: merged, bubbles: true, composed: true }))
   }
 }

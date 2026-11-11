@@ -1,8 +1,10 @@
 import { expect, test } from 'bun:test'
-import { Page, PREFLIGHT_PRESETS } from '@segnavia/format'
+import { boundPreflightReport, Page, PREFLIGHT_PRESETS } from '@segnavia/format'
 import { MESSAGE } from './bridge.ts'
+import { installDocumentPagePreflight } from './document-page-preflight.ts'
 import { fitPageFrame } from './page-element-layout.ts'
 import { handlePageFrameMessage, type PageFrameMessageState } from './page-frame-message.ts'
+import { SurfacePreflightCoordinator } from './surface-preflight.ts'
 
 const printed = Page.parse({
   html: '<p>Paper</p>',
@@ -60,4 +62,40 @@ test('only the current composed frame can set a printed page height', () => {
   expect(target.dataset.height).toBe('640')
   expect(target.dataset.measured).toBe('')
   expect(fits).toBe(1)
+})
+
+test('a plain mounted document page advances document preflight coverage', () => {
+  const current = frame()
+  const pageElement = new EventTarget() as HTMLElement
+  const documentElement = new EventTarget()
+  const documentPreflight = new SurfacePreflightCoordinator<number>(documentElement)
+  documentPreflight.setSurface([{ key: 0, folio: '1' }], false)
+  installDocumentPagePreflight(pageElement, (report) => documentPreflight.receive(0, report))
+  let received: import('@segnavia/format').PreflightReport | undefined
+  documentElement.addEventListener('preflight', (event) => {
+    received = (event as CustomEvent<import('@segnavia/format').PreflightReport>).detail
+  })
+  const state: PageFrameMessageState = {
+    composedFrame: undefined,
+    currentFrame: { frame: current, generation: 1 },
+    documentIsFinal: true,
+    documentIsLoaded: true,
+    frameHeight: { contentHeight: 0, hasReport: false, ownsElementHeight: false },
+    frameReady: true,
+    page: Page.parse({ html: '<p>Page</p>' }),
+    profile: PREFLIGHT_PRESETS.default,
+    resolvedSlots: undefined,
+    slotFrame: undefined,
+    fit: () => {},
+    ready: () => {},
+  }
+  const report = boundPreflightReport(
+    { entries: [{ check: 'slot-overset', subject: 'name', message: 'Name is overset.' }], facts: { pageCount: 1, pages: [], fits: [] } },
+    PREFLIGHT_PRESETS.default,
+  )
+
+  handlePageFrameMessage(pageElement, { source: current.contentWindow, data: { type: MESSAGE.preflight, report } } as MessageEvent, state)
+
+  expect(received).toMatchObject({ coverage: { measured: 1, total: 1 } })
+  expect(received?.issues[0]).toMatchObject({ subject: 'name', location: { folio: '1' } })
 })
