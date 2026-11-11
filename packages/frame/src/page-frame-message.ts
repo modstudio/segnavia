@@ -40,10 +40,14 @@ export function handlePageFrameMessage(target: HTMLElement, event: MessageEvent,
   }
   if (message?.type === MESSAGE.slotFit && message.slots && samePageFrame(state.currentFrame, state.slotFrame)) state.resolvedSlots?.mergeFit(message.slots)
   if (!state.page || message?.type !== MESSAGE.height || message.height === undefined) return
-  if (state.page.printedPages) return
-  // A fixed sheet keeps its own height whatever its content reports.
-  if (typeof state.page.size === 'object' && state.page.size.height !== 'auto') return
+  if (state.page.printedPages) {
+    if (!samePageFrame(state.currentFrame, state.composedFrame)) return
+  } else if (typeof state.page.size === 'object' && state.page.size.height !== 'auto') {
+    // A fixed sheet keeps its own height whatever its content reports.
+    return
+  }
   state.frameHeight.contentHeight = message.height
+  state.frameHeight.hasReport = true
   target.dataset.measured = ''
   state.fit()
 }

@@ -48,6 +48,11 @@ export { PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
 export { PrintedPagesRefusedError }
 
+function printedHeightReporting(options: { measure?: boolean; screen?: ScreenPresentation }): boolean | 'body' {
+  if (options.measure === true) return true
+  return options.screen ? 'body' : false
+}
+
 function pageParts(html: string): { head: string; body: string } {
   if (!/<html\b|<body\b/i.test(html)) return { head: '', body: html }
   const head = html.match(/<head\b[^>]*>([\s\S]*?)<\/head\s*>/i)?.[1] ?? ''
@@ -168,7 +173,7 @@ export function printedPageValueDocument(
     css: options.css,
     csp: options.csp,
     relayKeys: false,
-    reportHeight: options.measure === true,
+    reportHeight: printedHeightReporting(options),
     readyAfterAttribute: COMPOSED_ATTRIBUTE,
     failureAttribute: COMPOSE_FAILURE_ATTRIBUTE,
     progressAttribute: progress ? COMPOSE_PROGRESS_ATTRIBUTE : undefined,

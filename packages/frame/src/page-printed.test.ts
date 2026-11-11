@@ -115,6 +115,88 @@ function loadingHarness(slotOptions?: SlotsOptions) {
 }
 
 describe('printed pages in SegnaviaPage', () => {
+  test('loading another printed page restores the host box until its height report', () => {
+    const { page } = loadingHarness()
+    const target = page as unknown as {
+      dataset: Record<string, string>
+      style: { height: string; removeProperty(name: string): void }
+      frameHeight: { contentHeight: number; hasReport: boolean; ownsElementHeight: boolean }
+      loadValue(value: Page): void
+      mount(value: Page): HTMLIFrameElement
+      fit(): void
+      resetDocumentReadiness(): void
+    }
+    Object.assign(target, {
+      dataset: {},
+      style: {
+        height: '',
+        removeProperty(name: string) {
+          if (name === 'height') this.height = ''
+        },
+      },
+      frameHeight: { contentHeight: 0, hasReport: false, ownsElementHeight: false },
+      mount: (SegnaviaPage.prototype as unknown as { mount(value: Page): HTMLIFrameElement }).mount,
+      fit: (SegnaviaPage.prototype as unknown as { fit(): void }).fit,
+      resetDocumentReadiness: (SegnaviaPage.prototype as unknown as { resetDocumentReadiness(): void }).resetDocumentReadiness,
+    })
+    let sheet:
+      | {
+          style: { height: string; transform: string }
+          frame?: ReturnType<typeof pageFrame>
+          append(frame: ReturnType<typeof pageFrame>): void
+        }
+      | undefined
+    Object.assign(globalThis, {
+      document: {
+        createElement(tag: string) {
+          if (tag === 'iframe') return pageFrame()
+          sheet = {
+            style: { height: '', transform: '' },
+            frame: undefined,
+            append(frame: ReturnType<typeof pageFrame>) {
+              if (sheet) sheet.frame = frame
+            },
+          }
+          return sheet
+        },
+      },
+    })
+    Object.assign(page, {
+      clientWidth: 800,
+      getAttribute() {
+        return null
+      },
+      replaceChildren(next: typeof sheet) {
+        sheet = next
+      },
+      querySelector(selector: string) {
+        return selector === 'iframe' ? sheet?.frame : sheet
+      },
+    })
+    const first = Page.parse({
+      html: '<p>First</p>',
+      print: { paper: 'letter' },
+      printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+    })
+    const second = Page.parse({
+      html: '<p>Second</p>',
+      print: { paper: 'letter' },
+      printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+    })
+    target.loadValue(first)
+    Object.assign(target.frameHeight, { contentHeight: 640, hasReport: true, ownsElementHeight: true })
+    target.style.height = '640px'
+    target.dataset.height = '640'
+    target.dataset.measured = ''
+
+    target.loadValue(second)
+
+    expect(target.frameHeight.hasReport).toBe(false)
+    expect(target.style.height).toBe('')
+    expect(target.dataset.height).toBeUndefined()
+    expect(target.dataset.measured).toBeUndefined()
+  })
+
   test('lowers a printed Document and writes a one-column composed frame', async () => {
     const { page, frame, errors } = loadingHarness()
     page.load(printedDocument())

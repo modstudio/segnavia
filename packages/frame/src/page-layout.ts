@@ -20,6 +20,16 @@ export interface PageFitLayout {
   measuredHeight?: number
 }
 
+export function pagePrintedFitLayout(bounded: boolean, hasReport: boolean, contentHeight: number): PageFitLayout {
+  const measuredHeight = !bounded && hasReport ? contentHeight : undefined
+  return {
+    sheetHeight: '',
+    transform: '',
+    hostHeight: measuredHeight === undefined ? '' : `${measuredHeight}px`,
+    ...(measuredHeight === undefined ? {} : { measuredHeight }),
+  }
+}
+
 export function pageFitLayout(size: PageSize, bounded: boolean, clientWidth: number, contentHeight: number): PageFitLayout {
   if (size.height === 'auto' && size.width === 'full' && bounded) {
     return { sheetHeight: '100%', transform: '', hostHeight: '', ...(contentHeight ? { measuredHeight: contentHeight } : {}) }

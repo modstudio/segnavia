@@ -81,7 +81,7 @@ export function buildPageDemo(site: string, shell: (body: string) => string): vo
   writeFileSync(
     path.join(site, 'page.html'),
     shell(
-      `<div style="background:#fff;max-width:900px">${PAGE_DEMO_PAGES.map(({ id, file }) => `<segnavia-page id="${id}" src="${file}"></segnavia-page>`).join('')}${PRINTED_PAGE_DEMO_PAGES.map(({ id, file }) => `<segnavia-page id="${id}" src="${file}" style="height:500px"></segnavia-page>`).join('')}${buildInPageLinkDemo(site)}</div>`,
+      `<div style="background:#fff;max-width:900px">${PAGE_DEMO_PAGES.map(({ id, file }) => `<segnavia-page id="${id}" src="${file}"></segnavia-page>`).join('')}${PRINTED_PAGE_DEMO_PAGES.map(({ id, file }) => `<segnavia-page id="${id}" src="${file}"${id === 'printed-en' ? ' bounded style="height:500px"' : ''}></segnavia-page>`).join('')}${buildInPageLinkDemo(site)}</div>`,
     ),
   )
 }

@@ -54,6 +54,8 @@ class TestElement extends EventTarget {
   }
 
   setAttribute() {}
+
+  toggleAttribute() {}
 }
 
 function installGlobals() {

@@ -244,12 +244,19 @@ describe('printedPageDocument', () => {
   test('starts at zero height and can build one numbered paper after measuring the full flow', () => {
     const measuring = printedPageDocument(page, { nonce: 'held', measure: true })
     const second = printedPageDocument(page, { nonce: 'held', only: 2 })
+    const screen = printedPageDocument(page, { nonce: 'held', screen: { spread: false } })
     expect(measuring).toContain(':where([data-segnavia-flow]){position:absolute}')
     expect(measuring).toContain('html:not([data-segnavia-composed])')
     expect(measuring).toContain('ResizeObserver')
+    expect(measuring).toContain('document.documentElement.getBoundingClientRect().height')
+    expect(measuring).not.toContain('document.body.getBoundingClientRect().height')
     expect(second).toContain('"only":2')
     expect(second).not.toContain('ResizeObserver')
+    expect(second).not.toContain("post({type:'segnavia:height'")
     expect(second).toContain('attributeFilter:[name,failureName,progressName]')
+    expect(screen).toContain('document.body.getBoundingClientRect().height')
+    expect(screen).toContain('new ResizeObserver(report).observe(document.body)')
+    expect(screen).toContain('startHeightReporting();')
   })
 
   test('settles furniture resources and fonts before marking composition complete', () => {

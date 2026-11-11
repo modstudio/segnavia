@@ -27,8 +27,20 @@ function cspDirectives(html: string): Record<string, string[]> {
 const refused = {
   'default-src': ["'none'"],
   'script-src': ["'nonce-known'"],
-  'style-src': ["'unsafe-inline'", 'https://css.example', 'https://fonts.googleapis.com'],
-  'font-src': ['data:', 'https://font.example', 'https://fonts.gstatic.com'],
+  'style-src': [
+    "'unsafe-inline'",
+    'https://cdn.jsdelivr.net/fontsource/css',
+    'https://cdn.jsdelivr.net/fontsource/css/',
+    'https://css.example',
+    'https://fonts.googleapis.com',
+  ],
+  'font-src': [
+    'data:',
+    'https://cdn.jsdelivr.net/fontsource/fonts',
+    'https://cdn.jsdelivr.net/fontsource/fonts/',
+    'https://font.example',
+    'https://fonts.gstatic.com',
+  ],
   'img-src': [
     'data:',
     'blob:',
@@ -81,14 +93,15 @@ describe('frame content security policy', () => {
       frameDocument('<p>frame</p>', {
         scripts: 'refuse',
         nonce: 'known',
-        origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font'], pathname: '/fontsource' }],
+        origins: [{ origin: 'https://assets.example', kinds: ['style', 'font'], pathname: '/approved' }],
       }),
     )
-    for (const directive of ['style-src', 'font-src']) {
-      expect(actual[directive]).toContain('https://cdn.jsdelivr.net/fontsource')
-      expect(actual[directive]).toContain('https://cdn.jsdelivr.net/fontsource/')
-      expect(actual[directive]).not.toContain('https://cdn.jsdelivr.net')
-    }
+    expect(actual['style-src']).toContain('https://assets.example/approved')
+    expect(actual['style-src']).toContain('https://assets.example/approved/')
+    expect(actual['font-src']).toContain('https://assets.example/approved')
+    expect(actual['font-src']).toContain('https://assets.example/approved/')
+    expect(actual['style-src']).not.toContain('https://assets.example')
+    expect(actual['font-src']).not.toContain('https://assets.example')
   })
 
   test.each([
