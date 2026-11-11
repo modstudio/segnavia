@@ -108,8 +108,7 @@ export function measuredCandidateRun(
   candidate: Pick<MeasuredKeepCandidate, 'top' | 'bottom'>,
 ): { start: number; end: number } | undefined {
   const indexes = lines.flatMap((line, index) => {
-    const middle = (line.top + line.bottom) / 2
-    return middle >= candidate.top - 0.5 && middle <= candidate.bottom + 0.5 ? [index] : []
+    return lineWithinBox(line, candidate) ? [index] : []
   })
   const start = indexes[0]
   const last = indexes.at(-1)
@@ -190,7 +189,7 @@ export function sizeFlowGalley(flow: HTMLElement, width: number, height: number,
 export interface TableRowMeasurement {
   top: number
   bottom: number
-  boxes: Array<{ top: number; bottom: number }>
+  boxes: MeasuredLineBox[]
 }
 
 export interface DescendantTableMeasurement {
@@ -199,10 +198,15 @@ export interface DescendantTableMeasurement {
   lines: MeasuredLineBox[]
 }
 
-export function tableRowLines(rows: readonly TableRowMeasurement[]): Array<{ top: number; bottom: number }> {
+export function lineWithinBox(line: MeasuredLineBox, box: Pick<MeasuredLineBox, 'top' | 'bottom'>): boolean {
+  const middle = (line.top + line.bottom) / 2
+  return middle >= box.top - 0.5 && middle <= box.bottom + 0.5
+}
+
+export function tableRowLines(rows: readonly TableRowMeasurement[]): MeasuredLineBox[] {
   return rows.flatMap((row) => {
     const boxes = [...row.boxes].sort((left, right) => left.top - right.top)
-    const groups: Array<{ top: number; bottom: number }> = []
+    const groups: MeasuredLineBox[] = []
     for (const box of boxes) {
       const group = groups.at(-1)
       if (group && box.top < group.bottom && box.bottom > group.top) group.bottom = Math.max(group.bottom, box.bottom)
@@ -217,38 +221,42 @@ export function tableRowLines(rows: readonly TableRowMeasurement[]): Array<{ top
 }
 
 export function linesWithDescendantTables(rangeLines: readonly MeasuredLineBox[], tables: readonly DescendantTableMeasurement[]): MeasuredLineBox[] {
-  const outsideTables = rangeLines.filter((line) => {
-    const middle = (line.top + line.bottom) / 2
-    return !tables.some((table) => middle >= table.top - 0.5 && middle <= table.bottom + 0.5)
-  })
+  const outsideTables = rangeLines.filter((line) => !tables.some((table) => lineWithinBox(line, table)))
   return [...outsideTables, ...tables.flatMap((table) => table.lines)].sort((left, right) => left.top - right.top)
 }
 
 export function measureTableLines(element: Element, origin: number): MeasuredLineBox[] {
-  const rows = Array.from(element.querySelectorAll('tr')).map((row) => {
-    const rowBox = row.getBoundingClientRect()
-    const boxes: Array<{ top: number; bottom: number }> = []
-    for (const cell of row.querySelectorAll(':scope > th, :scope > td')) {
-      const walker = element.ownerDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
-      let node = walker.nextNode()
-      while (node) {
-        const textRange = element.ownerDocument.createRange()
-        textRange.selectNodeContents(node)
-        for (const rect of textRange.getClientRects()) boxes.push({ top: rect.top - origin, bottom: rect.bottom - origin })
-        node = walker.nextNode()
+  const rows = Array.from(element.querySelectorAll('tr'))
+    .filter((row) => row.closest('table') === element)
+    .map((row) => {
+      const rowBox = row.getBoundingClientRect()
+      const boxes: MeasuredLineBox[] = []
+      for (const cell of row.querySelectorAll(':scope > th, :scope > td')) {
+        const walker = element.ownerDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+        let node = walker.nextNode()
+        while (node) {
+          const textRange = element.ownerDocument.createRange()
+          textRange.selectNodeContents(node)
+          for (const rect of textRange.getClientRects()) boxes.push({ top: rect.top - origin, bottom: rect.bottom - origin })
+          node = walker.nextNode()
+        }
+        for (const replaced of cell.querySelectorAll('img,svg,video,canvas,picture,iframe,object,embed,math')) {
+          const box = replaced.getBoundingClientRect()
+          boxes.push({ top: box.top - origin, bottom: box.bottom - origin })
+        }
       }
-      for (const replaced of cell.querySelectorAll('img,svg,video,canvas,picture,iframe,object,embed,math')) {
-        const box = replaced.getBoundingClientRect()
-        boxes.push({ top: box.top - origin, bottom: box.bottom - origin })
-      }
-    }
-    return { top: rowBox.top - origin, bottom: rowBox.bottom - origin, boxes }
-  })
+      return { top: rowBox.top - origin, bottom: rowBox.bottom - origin, boxes }
+    })
   return tableRowLines(rows)
 }
 
+export function tableRenderedInFlow(element: Element, styleOf: (element: Element) => CSSStyleDeclaration = getComputedStyle): boolean {
+  const style = styleOf(element)
+  return element.getClientRects().length > 0 && style.display !== 'none' && style.position !== 'absolute' && style.position !== 'fixed'
+}
+
 export function headerTableFor(element: Element, styleOf: (element: Element) => CSSStyleDeclaration = getComputedStyle): Element | null {
-  if (element.tagName === 'TABLE') return element
+  if (element.tagName === 'TABLE') return tableRenderedInFlow(element, styleOf) ? element : null
   let table: Element | null = null
   for (const node of element.childNodes) {
     if (node.nodeType === 3) {
@@ -257,8 +265,7 @@ export function headerTableFor(element: Element, styleOf: (element: Element) => 
     }
     if (node.nodeType !== 1) continue
     const child = node as Element
-    const style = styleOf(child)
-    if (style.display === 'none' || style.position === 'absolute' || style.position === 'fixed') continue
+    if (!tableRenderedInFlow(child, styleOf)) continue
     if (child.tagName !== 'TABLE' || table) return null
     table = child
   }
@@ -270,19 +277,37 @@ export function headerHeightFor(element: Element, styleOf: (element: Element) =>
   return table?.tHead?.getBoundingClientRect().height ?? 0
 }
 
-export function measureLineBoxes(element: Element, origin: number): Array<{ top: number; bottom: number }> {
+export function measureLineBoxes(element: Element, origin: number): MeasuredLineBox[] {
   const tag = element.tagName.toLowerCase()
-  if (tag === 'img' || tag === 'figure') {
+  if (tag === 'img') {
     const box = element.getBoundingClientRect()
     return [{ top: box.top - origin, bottom: box.bottom - origin }]
   }
   const display = getComputedStyle(element).display
   if (display === 'table' || display === 'inline-table') {
-    return measureTableLines(element, origin)
+    return tableRenderedInFlow(element) ? measureTableLines(element, origin) : []
+  }
+  const tables = Array.from(element.querySelectorAll('table'))
+    .filter((table) => {
+      if (!tableRenderedInFlow(table)) return false
+      let ancestor = table.parentElement
+      while (ancestor && ancestor !== element) {
+        if (ancestor.tagName === 'TABLE') return false
+        ancestor = ancestor.parentElement
+      }
+      return true
+    })
+    .map((table) => {
+      const box = table.getBoundingClientRect()
+      return { top: box.top - origin, bottom: box.bottom - origin, lines: measureTableLines(table, origin) }
+    })
+  if (tag === 'figure' && tables.length === 0) {
+    const box = element.getBoundingClientRect()
+    return [{ top: box.top - origin, bottom: box.bottom - origin }]
   }
   const range = element.ownerDocument.createRange()
   range.selectNodeContents(element)
-  const groups: Array<{ top: number; bottom: number }> = []
+  const groups: MeasuredLineBox[] = []
   for (const rect of range.getClientRects()) {
     const top = rect.top - origin
     const bottom = rect.bottom - origin
@@ -291,10 +316,6 @@ export function measureLineBoxes(element: Element, origin: number): Array<{ top:
     else if (bottom > found.bottom) found.bottom = bottom
   }
   groups.sort((left, right) => left.top - right.top)
-  const tables = Array.from(element.querySelectorAll('table')).map((table) => {
-    const box = table.getBoundingClientRect()
-    return { top: box.top - origin, bottom: box.bottom - origin, lines: measureTableLines(table, origin) }
-  })
   if (groups.length > 0 || tables.length > 0) return linesWithDescendantTables(groups, tables)
   const box = element.getBoundingClientRect()
   return box.height > 0 ? [{ top: box.top - origin, bottom: box.bottom - origin }] : []

@@ -13,7 +13,7 @@ import { verifyPartsBooks } from './book-parts.ts'
 import { verifyPlacedMediaBook } from './book-placed-media.ts'
 import { verifyBookTitleHeads } from './book-title-heads.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
-import { inspectPaginatedBlocks } from './paginated-blocks.ts'
+import { inspectPaginatedBlocks, PAGINATED_TABLE_FLOW_IDS } from './paginated-blocks.ts'
 import {
   compareDesignedPages,
   compareTemplatedPages,
@@ -281,7 +281,7 @@ async function verifyKeepBooks(h: Harness) {
 }
 
 async function checkPaginatedBlocks(h: Harness, frame: Awaited<ReturnType<typeof paginatedFrame>>, id: string) {
-  const blocks = await frame.evaluate(inspectPaginatedBlocks)
+  const blocks = await frame.evaluate(inspectPaginatedBlocks, PAGINATED_TABLE_FLOW_IDS)
   h.check(`${id} each chapter's endnotes follow its text and come before the next chapter's opener or blank`, blocks.endnotes.ok, blocks.endnotes.detail)
   h.check(`${id} a tall image is scaled onto one page`, blocks.image.ok, blocks.image.detail)
   h.check(`${id} a long table continues with its header row repeated and no row lost or repeated`, blocks.table.ok, blocks.table.detail)

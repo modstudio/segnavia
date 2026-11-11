@@ -10,6 +10,7 @@ import {
   inlineLevelDisplay,
   keepSignals,
   linesWithDescendantTables,
+  lineWithinBox,
   measuredBlockConstraints,
   measuredCandidateKeeps,
   measuredCandidateRun,
@@ -21,6 +22,7 @@ import {
   outermostKeepValue,
   sizeFlowGalley,
   skippableDescendantBoxDisplay,
+  tableRenderedInFlow,
   tableRowLines,
 } from './composer-measure.ts'
 
@@ -32,6 +34,7 @@ export function embeddedComposerMeasureFunctions(): string {
     embedFunction('inlineLevelDisplay', inlineLevelDisplay),
     embedFunction('skippableDescendantBoxDisplay', skippableDescendantBoxDisplay),
     embedFunction('measuredBlockConstraints', measuredBlockConstraints),
+    embedFunction('lineWithinBox', lineWithinBox),
     embedFunction('measuredCandidateRun', measuredCandidateRun),
     embedFunction('measuredCandidateKeeps', measuredCandidateKeeps),
     embedFunction('measuredKeepRuns', measuredKeepRuns),
@@ -47,6 +50,7 @@ export function embeddedComposerMeasureFunctions(): string {
     embedFunction('tableRowLines', tableRowLines),
     embedFunction('linesWithDescendantTables', linesWithDescendantTables),
     embedFunction('measureTableLines', measureTableLines),
+    embedFunction('tableRenderedInFlow', tableRenderedInFlow),
     embedFunction('headerTableFor', headerTableFor),
     embedFunction('headerHeightFor', headerHeightFor),
     embedFunction('measureLineBoxes', measureLineBoxes),

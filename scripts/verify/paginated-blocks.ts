@@ -1,3 +1,5 @@
+export { PAGINATED_TABLE_FLOW_IDS } from '../demo-book-table-fixtures.ts'
+
 export interface PaginatedBlockReport {
   endnotes: { ok: boolean; detail: string }
   image: { ok: boolean; detail: string }
@@ -7,7 +9,7 @@ export interface PaginatedBlockReport {
   direction: { ok: boolean; detail: string }
 }
 
-export function inspectPaginatedBlocks(): PaginatedBlockReport {
+export function inspectPaginatedBlocks(flowIds: { table?: string; wrapped?: string; margin?: string } | void): PaginatedBlockReport {
   function originTop(element: Element) {
     return element.getBoundingClientRect().top
   }
@@ -106,7 +108,8 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     return Math.abs(clip.bottom - box.top) <= 1.5 && Math.abs(clip.left - box.left) <= 1.5 && Math.abs(clip.right - box.right) <= 1.5
   }
 
-  function table(selector: string) {
+  function table(requestedFlowId?: string) {
+    const selector = requestedFlowId ? `[data-segnavia-flow="${requestedFlowId}"] table` : 'table'
     const galley = document.querySelector(`[data-segnavia-galley-source] ${selector}`)
     const flow = galley?.closest('[data-segnavia-flow]')
     if (!galley || !flow) return { ok: false, detail: 'no galley table' }
@@ -131,9 +134,10 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     const clipOk = clones.length > 0 && clones.every((clone) => headerClipOk(clone))
     const onlyOnContinuation = clones.every((clone) => continuations.some((win) => cloneMatchesWindow(clone, win)))
     const everyContinuation = continuations.every((win) => clones.some((clone) => cloneMatchesWindow(clone, win)))
+    const tableClones = clones.every((clone) => clone.firstElementChild?.tagName === 'TABLE')
     return {
-      ok: sequence && expected.length > 0 && continuations.length > 0 && clipOk && onlyOnContinuation && everyContinuation,
-      detail: `rows ${shown.length}/${expected.length} repeats ${clones.length}/${continuations.length} clip ${clipOk}`,
+      ok: sequence && expected.length > 0 && continuations.length > 0 && clipOk && onlyOnContinuation && everyContinuation && tableClones,
+      detail: `rows ${shown.length}/${expected.length} repeats ${clones.length}/${continuations.length} clip ${clipOk} tables ${tableClones}`,
     }
   }
 
@@ -150,9 +154,9 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
   return {
     endnotes: endnotes(),
     image: image(),
-    table: table('[data-segnavia-flow="segnavia-chapter-4"] table'),
-    wrappedTable: table('[data-segnavia-flow="segnavia-wrapped-table"] table'),
-    marginTable: table('[data-segnavia-flow="segnavia-margin-table"] table'),
+    table: table(flowIds?.table),
+    wrappedTable: flowIds?.wrapped ? table(flowIds.wrapped) : { ok: true, detail: 'not requested' },
+    marginTable: flowIds?.margin ? table(flowIds.margin) : { ok: true, detail: 'not requested' },
     direction: direction(),
   }
 }
