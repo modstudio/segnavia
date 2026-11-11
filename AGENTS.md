@@ -108,7 +108,7 @@ Hebrew books and seforim are a first-class use, not a localization. Their conven
   `origin` (`messageFrom`). The bridge relays exactly a key's name, a height,
   a ready signal, an animation report, a bounded slot-fit report, a bounded
   `segnavia:font-failures` report of at most 64 entries and 256 characters per
-  field whose reason is exactly `unsupplied` or `unloaded`, and, from a
+  field whose weight is an integer from 1 to 1000 or a two-integer range within those bounds and whose reason is exactly `unsupplied` or `unloaded`, and, from a
   paginated book frame, a bounded `segnavia:book-place` report: a position key
   parsed by the book model and at most 256 characters. From a paginated book
   frame or a printed-page frame, a bounded `segnavia:compose-failure` report: the composer's refusal

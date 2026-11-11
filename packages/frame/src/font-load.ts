@@ -1,4 +1,12 @@
-import { type FontFailure, type FontManifest, HEBREW_UNICODE_RANGE, rangeSample } from '@segnavia/format'
+import {
+  type FontFailure,
+  type FontManifest,
+  type FontWeightRange,
+  fontWeightRange,
+  fontWeightRangeCovers,
+  HEBREW_UNICODE_RANGE,
+  rangeSample,
+} from '@segnavia/format'
 
 export const FONT_FAILURE_ATTRIBUTE = 'data-segnavia-font-failures'
 export const FONT_FAILURE_LIMIT = 64
@@ -6,7 +14,7 @@ export const FONT_FAILURE_FIELD_LIMIT = 256
 
 export interface DeclaredFontLoad {
   font: string
-  weight?: number
+  weight?: number | [number, number]
   style?: 'normal' | 'italic'
   unicodeRange?: string
   sample: string
@@ -43,14 +51,11 @@ export async function loadDeclaredFonts(
   failureAttribute: string,
   failureLimit: number,
   fieldLimit: number,
+  weightRange: (value: number | string | [number, number] | undefined) => FontWeightRange | null = fontWeightRange,
+  weightRangeCovers: (candidate: FontWeightRange | null, declaration: FontWeightRange | null) => boolean = fontWeightRangeCovers,
 ): Promise<FontFailure[]> {
   const available = Array.from(faces)
   const failures: FontFailure[] = []
-  const normalizedWeight = (value: string | number | undefined) => {
-    if (value === undefined || value === 'normal') return '400'
-    if (value === 'bold') return '700'
-    return String(value)
-  }
   const parsedRange = (value: string | undefined): [number, number][] | null => {
     if (value === undefined) return []
     const parts: [number, number][] = []
@@ -85,7 +90,7 @@ export async function loadDeclaredFonts(
     const face = available.find(
       (candidate) =>
         candidate.family.replace(/^['"]|['"]$/g, '') === family &&
-        normalizedWeight(candidate.weight) === normalizedWeight(declaration.weight) &&
+        weightRangeCovers(weightRange(candidate.weight), weightRange(declaration.weight)) &&
         (candidate.style || 'normal') === (declaration.style ?? 'normal') &&
         rangesMatch(candidate.unicodeRange, declaration.unicodeRange),
     )
@@ -107,12 +112,23 @@ export async function loadDeclaredFonts(
 
 /** Builds the shared in-frame expression that loads every declared face. */
 export function declaredFontLoadExpression(declarations: string): string {
-  return `(!document.fonts||!${declarations}.length?Promise.resolve([]):(${loadDeclaredFonts.toString()})(${declarations},document.fonts,document.documentElement,function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');},'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT}))`
+  return `(!document.fonts||!${declarations}.length?Promise.resolve([]):(${loadDeclaredFonts.toString()})(${declarations},document.fonts,document.documentElement,function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');},'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT},(${fontWeightRange.toString()}),(${fontWeightRangeCovers.toString()})))`
 }
 
 function boundedField(value: unknown, optional = false): boolean {
   if (optional && value === undefined) return true
   return (typeof value === 'string' || typeof value === 'number') && String(value).length <= FONT_FAILURE_FIELD_LIMIT
+}
+
+function boundedWeight(value: unknown): boolean {
+  if (value === undefined) return true
+  if (typeof value === 'number') return Number.isInteger(value) && value >= 1 && value <= 1000
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    value.every((part) => typeof part === 'number' && Number.isInteger(part) && part >= 1 && part <= 1000) &&
+    (value[0] as number) <= (value[1] as number)
+  )
 }
 
 /** Validates the whole report before accepting any entry. */
@@ -125,7 +141,7 @@ export function fontFailuresData(value: unknown): FontFailure[] | null {
         typeof failure !== 'object' ||
         !boundedField((failure as FontFailure).font) ||
         !boundedField((failure as FontFailure).family) ||
-        !boundedField((failure as FontFailure).weight, true) ||
+        !boundedWeight((failure as FontFailure).weight) ||
         !boundedField((failure as FontFailure).style, true) ||
         !boundedField((failure as FontFailure).unicodeRange, true) ||
         !['unsupplied', 'unloaded'].includes((failure as FontFailure).reason),

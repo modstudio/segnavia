@@ -46,6 +46,30 @@ describe('font load', () => {
     expect(fontFailuresData([{ ...valid, family: 'x'.repeat(257) }])).toBeNull()
     expect(fontFailuresData(Array.from({ length: 65 }, () => valid))).toBeNull()
     expect(fontFailuresData([{ ...valid, extra: 'removed' }])).toEqual([valid])
+    expect(fontFailuresData([{ ...valid, weight: [100, 900] }])).toEqual([{ ...valid, weight: [100, 900] }])
+    for (const weight of [
+      [100, 400, 900],
+      [100.5, 900],
+      [0, 900],
+      [900, 100],
+    ])
+      expect(fontFailuresData([{ ...valid, weight }])).toBeNull()
+  })
+
+  test('loads a variable face only when it covers the declared range', async () => {
+    let loads = 0
+    const variable = { family: 'Body', weight: '100 900', style: 'normal', status: 'loaded', load: async () => loads++ }
+    const failures = await loadDeclaredFonts(
+      declaredFontLoads({ body: { faces: [{ weight: [300, 700] }, { weight: [100, 1000], style: 'italic' }] } }),
+      [variable],
+      { setAttribute: () => {} },
+      () => 'Body',
+      FONT_FAILURE_ATTRIBUTE,
+      FONT_FAILURE_LIMIT,
+      FONT_FAILURE_FIELD_LIMIT,
+    )
+    expect(loads).toBe(1)
+    expect(failures).toEqual([{ font: 'body', family: 'Body', weight: [100, 1000], style: 'italic', reason: 'unloaded' }])
   })
 
   test('attempts every declaration while bounding the report', async () => {

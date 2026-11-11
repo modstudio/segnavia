@@ -81,6 +81,12 @@ function unsupplied(font: string, family: string, faces: readonly FontDeclaratio
   return faces.map(({ script: _script, ...face }) => ({ font, family, ...face, reason: 'unsupplied' as const }))
 }
 
+function matchedFaces(declaration: { faces: FontDeclaration[] } | undefined, font: AppFont) {
+  if (font.present) return { faces: [], unsupplied: [] }
+  if (!declaration) return { faces: font.faces, unsupplied: [] }
+  return matchFaces(declaration.faces, font.faces)
+}
+
 export async function resolveFontReferences(
   declarations: FontManifest,
   undeclared: readonly string[],
@@ -104,7 +110,7 @@ export async function resolveFontReferences(
       failures.push(...(declaration ? unsupplied(name, name, declaration.faces) : [{ font: name, family: name, reason: 'unsupplied' as const }]))
       continue
     }
-    const matched = declaration ? matchFaces(declaration.faces, font.faces) : { faces: font.faces, unsupplied: [] }
+    const matched = matchedFaces(declaration, font)
     if (declaration) failures.push(...unsupplied(name, font.family, matched.unsupplied))
     app.set(name, { ...font, faces: matched.faces, generic: declaration?.generic ?? font.generic })
   }

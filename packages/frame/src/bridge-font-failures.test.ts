@@ -9,6 +9,15 @@ test('font failure messages trust their frame and reject malformed reports whole
     type: MESSAGE.fontFailures,
     failures: [valid],
   })
+  expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: [{ ...valid, weight: [100, 900] }] } } as MessageEvent, frame)?.failures).toEqual([
+    { ...valid, weight: [100, 900] },
+  ])
+  for (const weight of [
+    [100, 400, 900],
+    [100.5, 900],
+    [0, 900],
+  ])
+    expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: [{ ...valid, weight }] } } as MessageEvent, frame)).toBeNull()
   expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: [valid, { ...valid, reason: 'other' }] } } as MessageEvent, frame)).toBeNull()
   expect(messageFrom({ source, data: { type: MESSAGE.fontFailures, failures: Array.from({ length: 65 }, () => valid) } } as MessageEvent, frame)).toBeNull()
   expect(messageFrom({ source: {} as Window, data: { type: MESSAGE.fontFailures, failures: [valid] } } as MessageEvent, frame)).toBeNull()

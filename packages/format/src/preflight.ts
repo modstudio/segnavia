@@ -80,7 +80,8 @@ export function appendSlotOversetEntries(slots: Record<string, string>, entries:
 
 export function fontMissingEntries(failures: readonly FontFailure[], location?: PreflightLocation): PreflightEntry[] {
   return failures.map((failure) => {
-    const details = [failure.weight === undefined ? undefined : `weight ${failure.weight}`, failure.style].filter(Boolean)
+    const weight = Array.isArray(failure.weight) ? failure.weight.join('–') : failure.weight
+    const details = [weight === undefined ? undefined : `weight ${weight}`, failure.style].filter(Boolean)
     const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
     return {
       check: 'font-missing',

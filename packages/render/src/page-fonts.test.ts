@@ -79,6 +79,20 @@ describe('prepareRenderedPageValue', () => {
     expect(prepared.fontFailures).toEqual([{ font: 'missing', family: 'missing', reason: 'unsupplied' }])
   })
 
+  test('keeps an already-present font as a property without embedding it', async () => {
+    const page = Page.parse({ html: '<p></p>', style: { fonts: { serif: { faces: [{ weight: [100, 900] }] } } } })
+    const prepared = await prepareRenderedPageValue(
+      page,
+      { fontSource: { font: async () => ({ family: 'Document Serif', faces: [], present: true }) } },
+      undefined,
+      signal,
+      established,
+    )
+    expect(prepared.fontFailures).toEqual([])
+    expect(prepared.fontCss).toBe(':root{--segnavia-font-serif:"Document Serif"}')
+    expect(prepared.fontCss).not.toContain('@font-face')
+  })
+
   test('refuses a local font fallback when no FontSource is supplied', async () => {
     const page = Page.parse({ html: '<p></p>', style: { fonts: { local: { local: 'Some Local Face', fallback: 'serif' } } } })
     await expect(prepareRenderedPageValue(page, {}, undefined, signal, established)).rejects.toThrow(

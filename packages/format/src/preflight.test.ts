@@ -156,4 +156,5 @@ test('font missing entries keep the face text and may carry a surface location',
       location: { folio: '2' },
     },
   ])
+  expect(fontMissingEntries([{ font: 'body', family: 'Body', weight: [100, 900], reason: 'unsupplied' }])[0]?.subject).toBe('Body (weight 100–900)')
 })

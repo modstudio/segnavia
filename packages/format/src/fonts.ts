@@ -32,8 +32,30 @@ function validUnicodeRange(value: string): boolean {
   return unicodeRangeParts(value) !== null
 }
 
+export const FontDeclarationWeight = z.union([
+  z
+    .number()
+    .int()
+    .min(1, 'weight must be from 1 to 1000; use an integer in that range')
+    .max(1000, 'weight must be from 1 to 1000; use an integer in that range'),
+  z
+    .tuple([
+      z
+        .number()
+        .int()
+        .min(1, 'weight must be from 1 to 1000; use integers in that range')
+        .max(1000, 'weight must be from 1 to 1000; use integers in that range'),
+      z
+        .number()
+        .int()
+        .min(1, 'weight must be from 1 to 1000; use integers in that range')
+        .max(1000, 'weight must be from 1 to 1000; use integers in that range'),
+    ])
+    .refine(([min, max]) => min <= max, 'weight range minimum must not exceed its maximum; put the lower weight first'),
+])
+
 const FontDeclarationShape = {
-  weight: z.number().int().min(1).max(1000).optional(),
+  weight: FontDeclarationWeight.optional(),
   style: z.enum(['normal', 'italic']).optional(),
   unicodeRange: z.string().min(1).refine(validUnicodeRange, 'must be a comma-separated CSS unicode range such as U+0590-05FF'),
   script: z.enum(['hebrew']).optional(),
@@ -55,16 +77,20 @@ export type FontManifestEntry = z.infer<typeof FontManifestEntry>
 export const FontManifest = z.record(AppFontName, FontManifestEntry).superRefine((fonts, ctx) => {
   for (const [font, entry] of Object.entries(fonts)) {
     if (!('faces' in entry)) continue
-    const seen = new Map<string, number>()
+    const seen: Array<{ face: FontDeclaration; index: number }> = []
     for (const [index, face] of entry.faces.entries()) {
-      const key = faceKey(face)
-      const previous = seen.get(key)
-      if (previous === undefined) seen.set(key, index)
+      const previous = seen.find(
+        ({ face: candidate }) =>
+          (candidate.style ?? 'normal') === (face.style ?? 'normal') &&
+          (candidate.unicodeRange?.replace(/\s/g, '').toUpperCase() ?? '') === (face.unicodeRange?.replace(/\s/g, '').toUpperCase() ?? '') &&
+          fontWeightRangesOverlap(fontWeightRange(candidate.weight), fontWeightRange(face.weight)),
+      )
+      if (previous === undefined) seen.push({ face, index })
       else {
         ctx.addIssue({
           code: 'custom',
           path: [font, 'faces', index],
-          message: `font ${JSON.stringify(font)} face ${index} duplicates face ${previous} by weight, style and unicodeRange; change or remove that face to clear this refusal`,
+          message: `font ${JSON.stringify(font)} face ${index} duplicates face ${previous.index} by overlapping weight, style and unicodeRange; change or remove that face to clear this refusal`,
         })
       }
     }
@@ -110,7 +136,7 @@ export function persistedFontManifestWithReferences(fonts: FontManifest | undefi
 export interface FontFailure {
   font: string
   family: string
-  weight?: number | string
+  weight?: number | [number, number]
   style?: string
   unicodeRange?: string
   reason: 'unsupplied' | 'unloaded'
@@ -173,37 +199,61 @@ export interface AppFont {
   family: string
   faces: FontFace[]
   generic?: FontGeneric
+  present?: true
 }
 
 export interface FontSource {
   font(name: string, options: { signal: AbortSignal }): Promise<AppFont | undefined>
 }
 
-function weightKey(weight: FontDeclaration['weight'] | FontFace['weight']): string {
-  if (weight === undefined || weight === 'normal') return '400'
-  if (weight === 'bold') return '700'
-  return String(weight)
+export type FontWeightRange = readonly [number, number]
+
+export function fontWeightRange(weight: FontDeclaration['weight'] | FontFace['weight']): FontWeightRange | null {
+  if (weight === undefined || weight === 'normal') return [400, 400]
+  if (weight === 'bold') return [700, 700]
+  if (typeof weight === 'number') return Number.isInteger(weight) && weight >= 1 && weight <= 1000 ? [weight, weight] : null
+  if (Array.isArray(weight)) return [weight[0], weight[1]]
+  const match = /^([1-9]\d{0,2}|1000)(?: ([1-9]\d{0,2}|1000))?$/.exec(weight)
+  if (!match?.[1]) return null
+  const min = Number(match[1])
+  const max = Number(match[2] ?? match[1])
+  return min <= max ? [min, max] : null
 }
 
-function faceKey(face: Pick<FontDeclaration, 'weight' | 'style' | 'unicodeRange'> | Pick<FontFace, 'weight' | 'style' | 'unicodeRange'>): string {
-  return JSON.stringify([weightKey(face.weight), face.style ?? 'normal', face.unicodeRange?.replace(/\s/g, '').toUpperCase() ?? ''])
+export function fontWeightRangeCovers(candidate: FontWeightRange | null, declaration: FontWeightRange | null): boolean {
+  return candidate !== null && declaration !== null && candidate[0] <= declaration[0] && candidate[1] >= declaration[1]
+}
+
+function fontWeightRangesOverlap(left: FontWeightRange | null, right: FontWeightRange | null): boolean {
+  return left !== null && right !== null && left[0] <= right[1] && right[0] <= left[1]
+}
+
+function faceKey(face: Pick<FontDeclaration, 'style' | 'unicodeRange'> | Pick<FontFace, 'style' | 'unicodeRange'>): string {
+  return JSON.stringify([face.style ?? 'normal', face.unicodeRange?.replace(/\s/g, '').toUpperCase() ?? ''])
 }
 
 function faceMatches(declaration: FontDeclaration, supplied: FontFace): boolean {
-  if (weightKey(declaration.weight) !== weightKey(supplied.weight) || (declaration.style ?? 'normal') !== (supplied.style ?? 'normal')) return false
+  if (
+    !fontWeightRangeCovers(fontWeightRange(supplied.weight), fontWeightRange(declaration.weight)) ||
+    (declaration.style ?? 'normal') !== (supplied.style ?? 'normal')
+  )
+    return false
   return supplied.unicodeRange === undefined || faceKey(declaration) === faceKey(supplied)
 }
 
 export function matchFaces(declared: readonly FontDeclaration[], supplied: readonly FontFace[]): { faces: FontFace[]; unsupplied: FontDeclaration[] } {
-  const remaining = [...supplied]
+  const used = new Set<number>()
   const faces: FontFace[] = []
   const unsupplied: FontDeclaration[] = []
   for (const declaration of declared) {
-    const index = remaining.findIndex((face) => faceMatches(declaration, face))
+    const index = supplied.findIndex((face) => faceMatches(declaration, face))
     if (index < 0) unsupplied.push(declaration)
-    else faces.push(...remaining.splice(index, 1))
+    else if (!used.has(index)) {
+      used.add(index)
+      faces.push(supplied[index] as FontFace)
+    }
   }
-  return { faces: [...faces, ...remaining], unsupplied }
+  return { faces: [...faces, ...supplied.filter((_, index) => !used.has(index))], unsupplied }
 }
 
 const HEBREW_SAMPLE = '\u05d0\u05b0\u0591\u05ea\u05b8\u05bd'
