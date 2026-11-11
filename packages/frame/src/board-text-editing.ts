@@ -35,6 +35,21 @@ export function sectionTitleTarget(section: Board['sections'][number], node: HTM
   }
 }
 
+export function boardTextTarget(
+  board: Board | null,
+  id: string,
+  enabled: Pick<TextEditors, 'labelText' | 'sectionTitle'>,
+  nodes: Pick<BoardEditingBridge, 'labelTextNode' | 'sectionTitleNode'>,
+  labelLimit?: number,
+): BoardTextTarget | undefined {
+  const label = enabled.labelText ? board?.labels.find((entry) => entry.id === id) : undefined
+  const labelNode = label ? nodes.labelTextNode(id) : undefined
+  if (label && labelNode) return labelTextTarget(label, labelNode, labelLimit)
+  const section = enabled.sectionTitle ? board?.sections.find((entry) => entry.id === id) : undefined
+  const sectionNode = section ? nodes.sectionTitleNode(id) : undefined
+  return section && sectionNode ? sectionTitleTarget(section, sectionNode) : undefined
+}
+
 export class BoardTextEditing {
   private readonly doubleClick = new BoardLabelDoubleClick()
   private readonly editor: BoardTextEditor
@@ -78,11 +93,7 @@ export class BoardTextEditing {
   }
 
   private resolve = (id: string): BoardTextTarget | undefined => {
-    if (this.enabled.labelText) {
-      const label = this.labelTarget(id)
-      if (label) return label
-    }
-    return this.enabled.sectionTitle ? this.sectionTarget(id) : undefined
+    return boardTextTarget(this.bridge.value(), id, this.enabled, this.bridge, this.limits?.labelTextChars)
   }
 
   private labelTarget(id: string): BoardTextTarget | undefined {

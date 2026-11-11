@@ -229,3 +229,41 @@ test('a section title click selects it while a drag moves without selecting', ()
     Object.assign(globalThis, { HTMLElement: previousHTMLElement })
   }
 })
+
+test('labelResize false does not start a label resize gesture', () => {
+  const previousHTMLElement = globalThis.HTMLElement
+  Object.assign(globalThis, { HTMLElement: TestElement })
+  try {
+    const node = Object.assign(new TestElement(), { dataset: { labelResizeHandle: 'a', boardLabel: 'a' } })
+    const host = { selection: ['a'], setPointerCapture() {} } as unknown as SegnaviaBoard
+    const input = new BoardEditingInput(
+      host,
+      { move: true, resize: true, remove: true, add: true, arrange: true, labelResize: false },
+      {
+        current: () => board,
+        bridge: () =>
+          ({
+            overlay: { append() {} },
+            value: () => board,
+            view: () => view,
+            shapes: () => shapes,
+            local: () => ({ x: 0, y: 0 }),
+            setDropTarget() {},
+          }) as unknown as BoardEditingBridge,
+        live() {},
+        commit() {},
+        command() {},
+        remove() {},
+        undo() {},
+        redo() {},
+      },
+    )
+    const gesture = (input as unknown as { startGesture(event: PointerEvent, current: Board): { kind: string } }).startGesture(
+      { composedPath: () => [node] } as unknown as PointerEvent,
+      board,
+    )
+    expect(gesture.kind).not.toBe('label-resize')
+  } finally {
+    Object.assign(globalThis, { HTMLElement: previousHTMLElement })
+  }
+})

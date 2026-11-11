@@ -112,7 +112,7 @@ export class BoardTextEditor {
     const inserted = limitedInsertion(textarea.value, textarea.selectionStart, textarea.selectionEnd, event.data, this.activeEditor?.target.limit)
     if (inserted === event.data) return
     event.preventDefault()
-    if (inserted) textarea.setRangeText(inserted, textarea.selectionStart, textarea.selectionEnd, 'end')
+    textarea.setRangeText(inserted, textarea.selectionStart, textarea.selectionEnd, 'end')
     this.grow()
   }
 
@@ -123,7 +123,7 @@ export class BoardTextEditor {
     if (!textarea || pasted === undefined || limit === undefined) return
     const inserted = limitedInsertion(textarea.value, textarea.selectionStart, textarea.selectionEnd, pasted, limit)
     event.preventDefault()
-    if (inserted) textarea.setRangeText(inserted, textarea.selectionStart, textarea.selectionEnd, 'end')
+    textarea.setRangeText(inserted, textarea.selectionStart, textarea.selectionEnd, 'end')
     this.grow()
   }
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board } from '@segnavia/format'
 import { limitedInsertion, textWithinCodePointLimit } from './board-label-editor.ts'
-import { labelEditRefusal, labelTextTarget, sectionTitleTarget } from './board-text-editing.ts'
+import { boardTextTarget, labelEditRefusal, labelTextTarget, sectionTitleTarget } from './board-text-editing.ts'
 
 const board: Board = {
   title: 'Board',
@@ -14,18 +14,30 @@ const board: Board = {
 describe('board text editor targets', () => {
   test('maps label text and section titles to their commands and edit kinds', () => {
     const node = {} as HTMLElement
-    const label = labelTextTarget(board.labels[0]!, node, 5)
-    const section = sectionTitleTarget(board.sections[0]!, node)
-    expect(label).toMatchObject({ id: 'label', text: 'עברית', edit: { kind: 'edit-label', ids: ['label'] }, limit: 5 })
-    expect(label.command('חדש')).toEqual({ type: 'label-set', label: { id: 'label' }, text: 'חדש' })
-    expect(section).toMatchObject({ id: 'section', text: 'כותרת', edit: { kind: 'rename-section', ids: ['section'] } })
-    expect(section.command('חדשה')).toEqual({ type: 'section-set', section: { id: 'section' }, title: 'חדשה' })
+    const label = board.labels[0]
+    const section = board.sections[0]
+    if (!label || !section) throw new Error('The fixture requires one label and section.')
+    const labelTarget = labelTextTarget(label, node, 5)
+    const sectionTarget = sectionTitleTarget(section, node)
+    expect(labelTarget).toMatchObject({ id: 'label', text: 'עברית', edit: { kind: 'edit-label', ids: ['label'] }, limit: 5 })
+    expect(labelTarget.command('חדש')).toEqual({ type: 'label-set', label: { id: 'label' }, text: 'חדש' })
+    expect(sectionTarget).toMatchObject({ id: 'section', text: 'כותרת', edit: { kind: 'rename-section', ids: ['section'] } })
+    expect(sectionTarget.command('חדשה')).toEqual({ type: 'section-set', section: { id: 'section' }, title: 'חדשה' })
   })
 
   test('returns the exact editLabel refusals', () => {
     expect(labelEditRefusal(board, 'missing', true)).toBe('label id missing does not exist; pass the id of a label on the board')
     expect(labelEditRefusal(board, 'label', false)).toBe('label text editing is switched off; set editors.labelText to true')
     expect(labelEditRefusal(board, 'label', true)).toBeUndefined()
+  })
+
+  test('editor flags remove label and section targets from every keyboard path', () => {
+    const node = {} as HTMLElement
+    const nodes = { labelTextNode: () => node, sectionTitleNode: () => node }
+    expect(boardTextTarget(board, 'label', { labelText: false, sectionTitle: true }, nodes)).toBeUndefined()
+    expect(boardTextTarget(board, 'section', { labelText: true, sectionTitle: false }, nodes)).toBeUndefined()
+    expect(boardTextTarget(board, 'label', { labelText: true, sectionTitle: false }, nodes)?.edit.kind).toBe('edit-label')
+    expect(boardTextTarget(board, 'section', { labelText: false, sectionTitle: true }, nodes)?.edit.kind).toBe('rename-section')
   })
 })
 
