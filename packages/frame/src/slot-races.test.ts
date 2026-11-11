@@ -20,7 +20,6 @@ const { SegnaviaPaper } = await import('./paper.ts')
 const { SegnaviaDocument } = await import('./document.ts')
 const { SegnaviaPage } = await import('./page.ts')
 const { thumbnailHarness, slotDeck } = await import('./thumbnail-slot.test-helper.ts')
-
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((done) => {
@@ -49,9 +48,7 @@ test('page keeps its pending fill when replacement input is refused', async () =
     },
     querySelector: () => iframe,
     fit() {},
-    dispatchEvent() {
-      return true
-    },
+    dispatchEvent: () => true,
     load: (SegnaviaPage.prototype as unknown as { load(input: unknown): void }).load,
   }
   Object.setPrototypeOf(page, SegnaviaPage.prototype)
@@ -208,6 +205,9 @@ test('stage renders the current slide when slot resolution finishes after naviga
     frameTitle: () => '',
     room: {},
     querySelector: () => null,
+    dispatchEvent() {
+      return true
+    },
     rebuildFrames: (SegnaviaStage.prototype as unknown as { rebuildFrames(): void }).rebuildFrames,
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,
   }
@@ -265,6 +265,7 @@ test('stage invalidates a pending fill when slot options are removed', async () 
     cspExtra: '',
     frameTitle: () => '',
     querySelector: () => null,
+    dispatchEvent: () => true,
     rebuildFrames: (SegnaviaStage.prototype as unknown as { rebuildFrames(): void }).rebuildFrames,
     update: (SegnaviaStage.prototype as unknown as { update(state: unknown): void }).update,
   }

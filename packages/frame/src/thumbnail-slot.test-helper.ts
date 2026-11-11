@@ -74,6 +74,7 @@ export function thumbnailHarness(deck: ReturnType<typeof Deck.parse>, slots: Slo
   installTestGlobals()
   const viewport = new TestNode()
   const errors: unknown[] = []
+  const days: unknown[] = []
   const thumbnail = {
     value: deck,
     pageValue: null,
@@ -92,12 +93,13 @@ export function thumbnailHarness(deck: ReturnType<typeof Deck.parse>, slots: Slo
     measure: (SegnaviaThumbnail.prototype as unknown as { measure(): void }).measure,
     clear: (SegnaviaThumbnail.prototype as unknown as { clear(): void }).clear,
     dispatchEvent(event: CustomEvent) {
-      errors.push(event.detail)
+      if (event.type === 'asof') days.push(event.detail)
+      else errors.push(event.detail)
       return true
     },
     mount: (SegnaviaThumbnail.prototype as unknown as { mount(): Promise<void> }).mount,
   }
-  return { thumbnail, viewport, errors }
+  return { thumbnail, viewport, errors, days }
 }
 
 export function slotDeck(html: string) {

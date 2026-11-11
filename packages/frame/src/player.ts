@@ -19,6 +19,7 @@ import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
+import { definePlayerAsOfPropertyAccessors } from './player-as-of.ts'
 import { handlePlayerKey } from './player-key.ts'
 import {
   containSlideSize,
@@ -58,7 +59,13 @@ function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
 }
 
 export class SegnaviaPlayer extends DeckSourcesElement {
+  static {
+    definePlayerAsOfPropertyAccessors(SegnaviaPlayer.prototype)
+  }
   static observedAttributes = ['src', 'notes', 'rail', 'fit', 'controls', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
+  declare anchors: SegnaviaStage['anchors']
+  declare asOf: SegnaviaStage['asOf']
+  declare moment: SegnaviaStage['moment']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage

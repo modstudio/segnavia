@@ -68,6 +68,7 @@ const reactEvents =
 
 const playerEvents = reactEvents<PlayerProps>()(FRAME_ELEMENTS.player.events, { 'segnavia-labels': 'onSegnaviaLabels' })
 const stageEvents = reactEvents<StageProps>()(FRAME_ELEMENTS.stage.events, {
+  asof: 'onAsof',
   'segnavia-controller': 'onSegnaviaController',
   'segnavia-fit': 'onSegnaviaFit',
   'segnavia-frame-mount': 'onSegnaviaFrameMount',
@@ -77,6 +78,7 @@ const stageEvents = reactEvents<StageProps>()(FRAME_ELEMENTS.stage.events, {
   error: 'onError',
 })
 const thumbnailEvents = reactEvents<ThumbnailProps>()(FRAME_ELEMENTS.thumbnail.events, {
+  asof: 'onAsof',
   'segnavia-thumbnail-error': 'onSegnaviaThumbnailError',
 })
 const paperPickerEvents = reactEvents<PaperPickerProps>()(FRAME_ELEMENTS.paperPicker.events, { change: 'onChange' })
