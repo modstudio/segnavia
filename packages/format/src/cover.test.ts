@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { withCrypto } from './crypto-test-helper.ts'
 import {
   COVER_DRAWING_VERSION,
   COVER_SHEET,
@@ -149,6 +150,14 @@ describe('Cover', () => {
 })
 
 describe('cover digest', () => {
+  test('refuses without crypto.subtle and names the secure-context remedy', async () => {
+    const material = coverDigestMaterial(cover(), { stamp: 'renderer' })
+    const randomUUID = globalThis.crypto.randomUUID.bind(globalThis.crypto)
+    await expect(withCrypto({ randomUUID } as Crypto, () => digestCoverMaterial(material))).rejects.toThrow(
+      'SHA-256 needs crypto.subtle, which a browser exposes only in a secure context; call coverDigest on a server or over https.',
+    )
+  })
+
   test('an input has the digest of its parsed cover material', async () => {
     const input = coverInput()
     const parsed = Cover.parse(input)

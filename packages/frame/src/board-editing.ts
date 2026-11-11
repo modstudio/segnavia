@@ -10,6 +10,7 @@ import {
   type Document,
   type DocumentBatch,
   type DocumentOp,
+  defaultNewId,
   fingerprintDocument,
   type Point,
   provisionalShape,
@@ -126,7 +127,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const shape = provisionalShape(input.kind)
     const center = at ?? screenToBoard(this.bridge.view(), { x: this.board.clientWidth / 2, y: this.board.clientHeight / 2 })
     const item: BoardItem = {
-      id: crypto.randomUUID(),
+      id: defaultNewId(),
       kind: input.kind,
       address: input.address,
       x: center.x - width / 2,
