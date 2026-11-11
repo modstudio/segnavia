@@ -56,6 +56,9 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
   placements?: SegnaviaPlayer['placements']
   transition?: HostTransition
   slots?: SegnaviaPlayer['slots']
+  anchors?: SegnaviaPlayer['anchors']
+  asOf?: SegnaviaPlayer['asOf']
+  moment?: SegnaviaPlayer['moment']
   src?: string
   theme?: string
   notes?: boolean
@@ -81,6 +84,9 @@ export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'>
   transition?: HostTransition
   reserve?: StageReserve
   slots?: SegnaviaStage['slots']
+  anchors?: SegnaviaStage['anchors']
+  asOf?: SegnaviaStage['asOf']
+  moment?: SegnaviaStage['moment']
   brands?: SegnaviaStage['brands']
   profile?: SegnaviaStage['profile']
   src?: string
@@ -97,6 +103,7 @@ export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'>
   onPreflight?: CustomEventProp<PreflightReport>
   onFontfailure?: CustomEventProp<FontFailureDetail>
   onError?: ErrorEventProp
+  onAsof?: CustomEventProp<AsOfDay>
 }
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
@@ -116,6 +123,10 @@ export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
   placements?: SegnaviaThumbnail['placements']
   designedCover?: SegnaviaThumbnail['designedCover']
   pageWidths?: SegnaviaThumbnail['pageWidths']
+  anchors?: SegnaviaThumbnail['anchors']
+  asOf?: SegnaviaThumbnail['asOf']
+  moment?: SegnaviaThumbnail['moment']
+  onAsof?: CustomEventProp<AsOfDay>
   onSegnaviaThumbnailError?: CustomEventProp<unknown>
 }
 

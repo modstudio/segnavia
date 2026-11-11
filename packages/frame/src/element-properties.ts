@@ -24,8 +24,23 @@ const controlProperties = ['controller', 'labels'] as const
 export const ELEMENT_PROPERTIES = {
   stage: descriptor(
     HEADLESS_ELEMENTS.stage,
-    ['controller', 'css', 'cspExtra', 'origins', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots', 'brands', 'profile'],
-    ['segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release', 'preflight', 'fontfailure', 'error'],
+    [
+      'controller',
+      'css',
+      'cspExtra',
+      'origins',
+      'bridgeReadyTimeoutMs',
+      'frameTitle',
+      'transition',
+      'reserve',
+      'slots',
+      'brands',
+      'anchors',
+      'asOf',
+      'moment',
+      'profile',
+    ],
+    ['asof', 'segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release', 'preflight', 'fontfailure', 'error'],
   ),
   thumbnail: descriptor(
     HEADLESS_ELEMENTS.thumbnail,
@@ -46,8 +61,11 @@ export const ELEMENT_PROPERTIES = {
       'placements',
       'designedCover',
       'pageWidths',
+      'anchors',
+      'asOf',
+      'moment',
     ],
-    ['segnavia-thumbnail-error'],
+    ['asof', 'segnavia-thumbnail-error'],
   ),
   board: descriptor(
     HEADLESS_ELEMENTS.board,
@@ -120,7 +138,7 @@ export const ELEMENT_PROPERTIES = {
   ),
   player: descriptor(
     STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots'],
+    ['labels', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots', 'anchors', 'asOf', 'moment'],
     ['segnavia-labels'],
   ),
   play: descriptor(STYLED_ELEMENTS.play, controlProperties, []),

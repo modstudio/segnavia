@@ -7,7 +7,6 @@
 // caption, bar, controls, track segments and caption words. Data attributes mirror the state for styling: data-slide,
 // data-playing, data-word, data-shown, data-direction and data-actions.
 
-import type { OriginApproval, SlotsOptions, TransitionInput } from '@segnavia/format'
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
 import { DeckController, type DeckState } from './controller.ts'
@@ -19,6 +18,7 @@ import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
+import { definePlayerForwardedPropertyAccessors, type PlayerForwardedProperties } from './player-forwarded-properties.ts'
 import { handlePlayerKey } from './player-key.ts'
 import {
   containSlideSize,
@@ -34,7 +34,6 @@ import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaStage } from './stage.ts'
 import { STYLED_ELEMENTS } from './styled-elements.ts'
-import type { HostTransition } from './transition.ts'
 
 const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="player" part="player">
   <div class="body"><div class="screen"><segnavia-stage part="stage"></segnavia-stage></div><segnavia-notes part="notes"></segnavia-notes></div>
@@ -58,7 +57,18 @@ function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
 }
 
 export class SegnaviaPlayer extends DeckSourcesElement {
+  static {
+    definePlayerForwardedPropertyAccessors(SegnaviaPlayer.prototype)
+  }
   static observedAttributes = ['src', 'notes', 'rail', 'fit', 'controls', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
+  declare anchors: PlayerForwardedProperties['anchors']
+  declare asOf: PlayerForwardedProperties['asOf']
+  declare moment: PlayerForwardedProperties['moment']
+  declare css: PlayerForwardedProperties['css']
+  declare cspExtra: PlayerForwardedProperties['cspExtra']
+  declare origins: PlayerForwardedProperties['origins']
+  declare slots: PlayerForwardedProperties['slots']
+  declare transition: PlayerForwardedProperties['transition']
   readonly controller: DeckController
   private root = this.attachShadow({ mode: 'open' })
   private stage: SegnaviaStage
@@ -114,22 +124,6 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     this.controller.resolveSlide = resolve
   }
 
-  set css(css: string) {
-    this.stage.css = css
-  }
-
-  set cspExtra(csp: string) {
-    this.stage.cspExtra = csp
-  }
-
-  set origins(origins: Iterable<OriginApproval>) {
-    this.stage.origins = origins
-  }
-
-  set slots(value: SlotsOptions | undefined) {
-    this.stage.slots = value
-  }
-
   get rail(): boolean {
     return this.hasAttribute('rail')
   }
@@ -154,14 +148,6 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   set controls(value: PlayerControls) {
     if (value === 'below') this.removeAttribute('controls')
     else this.setAttribute('controls', value)
-  }
-
-  get transition(): HostTransition | undefined {
-    return this.stage.transition
-  }
-
-  set transition(value: TransitionInput | 'none') {
-    this.stage.transition = value
   }
 
   authoringMount(): HTMLElement {

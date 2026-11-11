@@ -14,7 +14,7 @@ import {
   type SlotsOptions,
 } from '@segnavia/format'
 import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
-import { captureAsOfLoad } from './as-of-element.ts'
+import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
@@ -254,7 +254,7 @@ export class SegnaviaPage extends PageAsOfElement {
     }
     const render = (day: AsOfDay, slots: SlotsOptions) => {
       if (!isCurrent()) return
-      if (!established) this.dispatchEvent(new CustomEvent('asof', { detail: day }))
+      if (!established) dispatchAsof(this, day)
       renderPageValue(
         page,
         day,

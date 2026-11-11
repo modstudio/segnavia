@@ -3,6 +3,7 @@ import { Deck, type SlotsOptions } from '@segnavia/format'
 class TestElement extends EventTarget {}
 export class TestNode extends TestElement {
   children: TestNode[] = []
+  replacements = 0
   className = ''
   srcdoc = ''
   dataset: Record<string, string> = {}
@@ -19,6 +20,7 @@ export class TestNode extends TestElement {
   }
 
   replaceChildren(...nodes: TestNode[]) {
+    this.replacements++
     this.children = nodes
   }
 
@@ -74,6 +76,7 @@ export function thumbnailHarness(deck: ReturnType<typeof Deck.parse>, slots: Slo
   installTestGlobals()
   const viewport = new TestNode()
   const errors: unknown[] = []
+  const days: unknown[] = []
   const thumbnail = {
     value: deck,
     pageValue: null,
@@ -92,12 +95,15 @@ export function thumbnailHarness(deck: ReturnType<typeof Deck.parse>, slots: Slo
     measure: (SegnaviaThumbnail.prototype as unknown as { measure(): void }).measure,
     clear: (SegnaviaThumbnail.prototype as unknown as { clear(): void }).clear,
     dispatchEvent(event: CustomEvent) {
-      errors.push(event.detail)
+      if (event.type === 'asof') days.push(event.detail)
+      else errors.push(event.detail)
       return true
     },
     mount: (SegnaviaThumbnail.prototype as unknown as { mount(): Promise<void> }).mount,
+    mountDeck: (SegnaviaThumbnail.prototype as unknown as { mountDeck(): Promise<void> }).mountDeck,
+    mountPageValue: (SegnaviaThumbnail.prototype as unknown as { mountPageValue(page: unknown): Promise<void> }).mountPageValue,
   }
-  return { thumbnail, viewport, errors }
+  return { thumbnail, viewport, errors, days }
 }
 
 export function slotDeck(html: string) {

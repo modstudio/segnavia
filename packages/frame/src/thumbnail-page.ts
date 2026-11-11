@@ -1,6 +1,7 @@
 import type { OriginApproval, Page, PageWidths, Print, SlotsOptions } from '@segnavia/format'
+import type { EstablishedPageDay } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
-import { internalPageLoad } from './document-value-load.ts'
+import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import { createPageElement } from './page-element.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -25,7 +26,13 @@ export function updateThumbnailPageAspect(style: CSSStyleDeclaration, page: Page
   style.setProperty('--segnavia-aspect', String(projectPageOnPaper(page, resolvedPrint).aspect))
 }
 
-export function mountThumbnailPage(viewport: HTMLElement, source: Page | null, print: Print | null, options: ThumbnailPageOptions): void {
+export function mountThumbnailPage(
+  viewport: HTMLElement,
+  source: Page | null,
+  print: Print | null,
+  options: ThumbnailPageOptions,
+  established?: EstablishedPageDay,
+): void {
   const resolvedPrint = print ?? source?.print ?? null
   if (!source || !resolvedPrint || viewport.firstElementChild) return
   const page = createPageElement()
@@ -41,5 +48,7 @@ export function mountThumbnailPage(viewport: HTMLElement, source: Page | null, p
   page.part.add('canvas')
   page.style.inlineSize = '100%'
   viewport.append(page)
-  page[internalPageLoad](projectPageOnPaper(source, resolvedPrint).page)
+  const projected = projectPageOnPaper(source, resolvedPrint).page
+  if (established) page[internalPageDayLoad](projected, established)
+  else page[internalPageLoad](projected)
 }

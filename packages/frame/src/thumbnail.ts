@@ -1,34 +1,25 @@
-import {
-  type Deck,
-  type Document,
-  type DocumentInput,
-  deckFromDocument,
-  type Page,
-  type PageWidths,
-  Print,
-  type PrintInput,
-  pageFromDocument,
-  type SlotsOptions,
-} from '@segnavia/format'
-import { parseDocument } from '@segnavia/html'
+import { type Deck, type Document, type DocumentInput, deckFromDocument, type Page, Print, type PrintInput, pageFromDocument } from '@segnavia/format'
+import { type EstablishedPageDay, hasAsOfBinding, parseDocument } from '@segnavia/html'
+import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
+import { prepareSurfaceSlots, resolveSurfaceDay } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { BoardFrameInputs } from './board-frame-inputs.ts'
-import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
-import { type ControllerOptions, DeckController } from './controller.ts'
+import { type ControllerOptions, DeckController, type ResolvedContent } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 import { internalThumbnailDeckLoad, internalThumbnailPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
-import type { MotifsOptions } from './motif-expansion.ts'
-import type { FontsOptions } from './page-fonts.ts'
-import { parsePageWidths, samePageWidths } from './page-widths.ts'
-import { hasSlotWork, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { hasSlotWork, slotFillRefusal } from './slot-render.ts'
 import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 import { ThumbnailProperties } from './thumbnail-properties.ts'
+
+function thumbnailDayChangesCanvas(deck: Deck, content: ResolvedContent, slots: ThumbnailProperties['slots'], refused: boolean): boolean {
+  return refused || hasSlotWork(deck.slots, slots) || (content.kind === 'html' && hasAsOfBinding(content.html))
+}
 
 export class SegnaviaThumbnail extends ThumbnailProperties {
   private margin = 400
@@ -39,17 +30,11 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
   private printValue: Print | null = null
   private slideIndex = 0
   private slideResolver: ControllerOptions['resolveSlide']
-  private baseUrl: string | undefined
   private controller: DeckController | null = null
   private observer: IntersectionObserver | null = null
   private resize = new ResizeObserver(() => this.measure())
   private near = false
   private resolution = 0
-  private slotOptions: SlotsOptions | undefined
-  private motifOptions: MotifsOptions | undefined
-  private placementOptions: AssetPlacementsOptions | undefined
-  private widthOptions: PageWidths | undefined
-  private fontOptions: FontsOptions | undefined
   private brandOptions: BrandsOptions | undefined
   private brandResolution: AbortController | undefined
   private designedCoverInput: DesignedCover | undefined
@@ -133,33 +118,6 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     this.changed()
   }
 
-  get base(): string | undefined {
-    return this.baseUrl
-  }
-
-  set base(value: string | undefined) {
-    this.baseUrl = value
-    this.changed()
-  }
-
-  get motifs(): MotifsOptions | undefined {
-    return this.motifOptions
-  }
-
-  set motifs(value: MotifsOptions | undefined) {
-    this.motifOptions = value
-    this.changed()
-  }
-
-  get placements(): AssetPlacementsOptions | undefined {
-    return this.placementOptions
-  }
-
-  set placements(value: AssetPlacementsOptions | undefined) {
-    this.placementOptions = value
-    this.changed()
-  }
-
   get designedCover(): DesignedCover | undefined {
     return this.designedCoverInput
   }
@@ -171,26 +129,6 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     this.changed()
   }
 
-  get pageWidths(): PageWidths | undefined {
-    return this.widthOptions
-  }
-
-  set pageWidths(value: PageWidths | undefined) {
-    const parsed = parsePageWidths(value)
-    if (samePageWidths(this.widthOptions, parsed)) return
-    this.widthOptions = parsed
-    this.changed()
-  }
-
-  get fonts(): FontsOptions | undefined {
-    return this.fontOptions
-  }
-
-  set fonts(value: FontsOptions | undefined) {
-    this.fontOptions = value
-    this.changed()
-  }
-
   get brands(): BrandsOptions | undefined {
     return this.brandOptions
   }
@@ -199,15 +137,6 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     this.brandOptions = value
     if (this.deckDocument) this.resolveDeckDocument(this.deckDocument)
     else if (this.pageDocument) this.resolvePageDocument(this.pageDocument)
-  }
-
-  get slots(): SlotsOptions | undefined {
-    return this.slotOptions
-  }
-
-  set slots(value: SlotsOptions | undefined) {
-    this.slotOptions = value
-    this.changed()
   }
 
   connectedCallback() {
@@ -279,13 +208,34 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
       return
     }
     if (this.pageValue) {
-      this.mountPage()
+      await this.mountPageValue(this.pageValue)
       return
     }
+    await this.mountDeck()
+  }
+
+  private async mountPageValue(page: Page) {
+    const resolution = ++this.resolution
+    const slotPreparation = new AbortController()
+    const asOfLoad = captureAsOfLoad(this)
+    this.slotPreparation = slotPreparation
+    try {
+      const established = await resolveSurfaceDay(page, asOfLoad, this.slotOptions, slotPreparation.signal)
+      if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
+      dispatchAsof(this, established.day)
+      this.mountPage(established)
+    } catch (error) {
+      if (slotPreparation.signal.aborted || !this.isConnected || !isCurrentThumbnailResolution(resolution, this.resolution)) return
+      this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true }))
+    }
+  }
+
+  private async mountDeck() {
     const deck = this.value
     const slide = deck?.slides[this.slideIndex]
     if (!deck || !slide || this.controller) return
     const resolution = ++this.resolution
+    const asOfLoad = captureAsOfLoad(this)
     const controller = new DeckController({
       base: this.baseUrl,
       resolveSlide: this.slideResolver,
@@ -305,14 +255,21 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
       const refusal = slotFillRefusal(deck.scripts, deck.slots, this.slotOptions)
       if (refusal) {
         this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: refusal, bubbles: true, composed: true }))
-        return
       }
-      if (!hasSlotWork(deck.slots, this.slotOptions)) return
       const slotPreparation = new AbortController()
       this.slotPreparation = slotPreparation
       try {
-        const slots = await prepareSlots(deck.slots, this.slotOptions, slotPreparation.signal)
+        const established = await resolveSurfaceDay(deck, asOfLoad, refusal ? undefined : this.slotOptions, slotPreparation.signal)
+        const refreshCanvas = thumbnailDayChangesCanvas(deck, content, this.slotOptions, refusal !== undefined)
+        if (!refreshCanvas) {
+          if (this.isConnected && !slotPreparation.signal.aborted && isCurrentThumbnailResolution(resolution, this.resolution)) {
+            dispatchAsof(this, established.day)
+          }
+          return
+        }
+        const slots = await prepareSurfaceSlots(refusal ? undefined : deck.slots, established, slotPreparation.signal)
         if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
+        dispatchAsof(this, established.day)
         const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, slots, this.origins)
         filled.part.add('canvas')
         this.viewport.replaceChildren(filled)
@@ -383,15 +340,21 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     })
   }
 
-  private mountPage() {
-    mountThumbnailPage(this.viewport, this.pageValue, this.printValue, {
-      motifs: this.motifOptions,
-      placements: this.placementOptions,
-      pageWidths: this.widthOptions,
-      fonts: this.fontOptions,
-      slots: this.slotOptions,
-      origins: this.origins,
-      css: this.css,
-    })
+  private mountPage(established?: EstablishedPageDay) {
+    mountThumbnailPage(
+      this.viewport,
+      this.pageValue,
+      this.printValue,
+      {
+        motifs: this.motifOptions,
+        placements: this.placementOptions,
+        pageWidths: this.widthOptions,
+        fonts: this.fontOptions,
+        slots: this.slotOptions,
+        origins: this.origins,
+        css: this.css,
+      },
+      established,
+    )
   }
 }

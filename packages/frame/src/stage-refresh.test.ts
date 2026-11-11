@@ -4,6 +4,13 @@ import type { DeckState } from './controller-types.ts'
 class TestElement extends EventTarget {}
 Object.assign(globalThis, {
   HTMLElement: TestElement,
+  CustomEvent: class<T> extends Event {
+    detail: T
+    constructor(type: string, options: CustomEventInit<T> = {}) {
+      super(type, options)
+      this.detail = options.detail as T
+    }
+  },
   ResizeObserver: class {
     observe() {}
     disconnect() {}
@@ -46,6 +53,9 @@ function stageHarness(controller: InstanceType<typeof DeckController>, mountedFr
     style: { setProperty() {} },
     dataset: {},
     querySelector: () => null,
+    dispatchEvent() {
+      return true
+    },
     cancelSelectionRequests() {},
     cancelSlotPreparation: (SegnaviaStage.prototype as unknown as { cancelSlotPreparation(): void }).cancelSlotPreparation,
     rebuildFrames: (SegnaviaStage.prototype as unknown as { rebuildFrames(): void }).rebuildFrames,

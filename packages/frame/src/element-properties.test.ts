@@ -110,7 +110,9 @@ test('the table covers every public frame element and safe event name', () => {
     'segnavia-document-change',
   ])
   expect(ELEMENT_PROPERTIES.stage.properties).toContain('profile')
+  expect(ELEMENT_PROPERTIES.stage.properties).toEqual(expect.arrayContaining(['anchors', 'asOf', 'moment']))
   expect(ELEMENT_PROPERTIES.stage.events).toEqual([
+    'asof',
     'segnavia-controller',
     'segnavia-fit',
     'segnavia-frame-mount',
@@ -119,6 +121,9 @@ test('the table covers every public frame element and safe event name', () => {
     'fontfailure',
     'error',
   ])
+  expect(ELEMENT_PROPERTIES.thumbnail.properties).toEqual(expect.arrayContaining(['anchors', 'asOf', 'moment']))
+  expect(ELEMENT_PROPERTIES.thumbnail.events).toEqual(['asof', 'segnavia-thumbnail-error'])
+  expect(ELEMENT_PROPERTIES.player.properties).toEqual(expect.arrayContaining(['anchors', 'asOf', 'moment']))
 })
 
 test('every declared property is an accessor on its element prototype', async () => {

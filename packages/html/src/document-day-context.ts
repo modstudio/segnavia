@@ -1,4 +1,4 @@
-import { type AnchorSource, type AsOf, type AsOfDay, carryMoment, type Page, resolveDocumentDay, type SlotsOptions, Zone } from '@segnavia/format'
+import { type AnchorSource, type AsOf, type AsOfDay, carryMoment, resolveDocumentDay, type SlotsOptions, Zone } from '@segnavia/format'
 import { slotsForDay } from './day-slots.ts'
 
 export interface AsOfInputs {
@@ -61,7 +61,7 @@ function dayKey(day: AsOfDay): string {
   return JSON.stringify([day.date, day.zone, day.kind, day.anchor, day.moment])
 }
 
-export async function resolveDocumentDayContexts(pages: readonly Page[], options: DocumentDayContextOptions): Promise<DocumentDayContexts> {
+export async function resolveDocumentDayContexts(pages: readonly { asOf?: AsOf }[], options: DocumentDayContextOptions): Promise<DocumentDayContexts> {
   const resolutions = new Map<string, Promise<AsOfDay>>()
   const resolvedDays = await Promise.all(
     pages.map((page) => {
@@ -96,7 +96,7 @@ export async function resolveDocumentDayContexts(pages: readonly Page[], options
 }
 
 export async function resolveDayContextsFor(
-  pages: readonly Page[],
+  pages: readonly { asOf?: AsOf }[],
   inputs: AsOfInputs,
   slots: SlotsOptions | undefined,
   signal: AbortSignal,

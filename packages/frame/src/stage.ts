@@ -11,6 +11,7 @@
 // data-transition, data-entering, data-leaving, data-running and data-axis.
 
 import type { OriginApproval, PreflightProfileInput, SlotsOptions, TransitionInput } from '@segnavia/format'
+import { AsOfElement, captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
@@ -23,7 +24,8 @@ import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
-import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, prepareSlots, slotFillRefusal } from './slot-render.ts'
+import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
+import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
 import { measureStage } from './stage-measure.ts'
 import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
@@ -34,7 +36,7 @@ import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 
-export class SegnaviaStage extends HTMLElement {
+export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
     defineStagePropertyAccessors(SegnaviaStage.prototype)
@@ -90,6 +92,10 @@ export class SegnaviaStage extends HTMLElement {
     this.slotOptions = value
     this.slotDeck = null
     this.rebuildFrames()
+  }
+
+  protected asOfInputsChanged(): void {
+    this.slots = this.slotOptions
   }
 
   setAuthoringScriptsRefused(refused: boolean) {
@@ -246,30 +252,27 @@ export class SegnaviaStage extends HTMLElement {
       this.cancelSlotPreparation()
       this.slotGeneration++
       const refusal = slotFillRefusal(deck.scripts, deck.slots, this.slotOptions)
-      const slotWork = hasSlotWork(deck.slots, this.slotOptions)
-      if (!slotWork || refusal) {
-        this.slotDeck = deck
-        this.resolvedSlots = EMPTY_SLOTS
-        if (refusal) dispatchElementError(this, refusal)
-      } else {
-        const generation = this.slotGeneration
-        const controller = new AbortController()
-        this.slotPreparation = controller
-        this.slotDeck = deck
-        this.resolvedSlots = EMPTY_SLOTS
-        void prepareSlots(deck.slots, this.slotOptions, controller.signal)
-          .then((resolved) => {
-            if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
-            this.resolvedSlots = resolved
-            this.rebuildFrames()
-          })
-          .catch((error) => {
-            if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
-            this.resolvedSlots = EMPTY_SLOTS
-            this.rebuildFrames()
-            dispatchElementError(this, error)
-          })
-      }
+      const refreshFrames = stageDayChangesFrames(deck, this.slotOptions, refusal !== undefined)
+      const generation = this.slotGeneration
+      const controller = new AbortController()
+      const asOfLoad = captureAsOfLoad(this)
+      this.slotPreparation = controller
+      this.slotDeck = deck
+      this.resolvedSlots = EMPTY_SLOTS
+      if (refusal) dispatchElementError(this, refusal)
+      void prepareStageDay(deck, asOfLoad, refusal ? undefined : deck.slots, refusal ? undefined : this.slotOptions, controller.signal)
+        .then(({ established, resolved }) => {
+          if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
+          this.resolvedSlots = resolved
+          dispatchAsof(this, established.day)
+          if (refreshFrames) this.rebuildFrames()
+        })
+        .catch((error) => {
+          if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
+          this.resolvedSlots = EMPTY_SLOTS
+          if (refreshFrames) this.rebuildFrames()
+          dispatchElementError(this, error)
+        })
     }
     if (!this.resolvedSlots) return
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)

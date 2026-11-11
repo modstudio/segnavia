@@ -14,7 +14,7 @@ import {
   type SlotsOptions,
 } from '@segnavia/format'
 import { type EstablishedPageDay, fillAsOfBindings, type HtmlPage, parseDocument, resolveDocumentDayContexts, resolvePageHtml } from '@segnavia/html'
-import { captureAsOfLoad } from './as-of-element.ts'
+import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
@@ -263,7 +263,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     })
       .then(async (contexts) => {
         if (!isCurrent()) return
-        for (const day of contexts.days) this.dispatchEvent(new CustomEvent('asof', { detail: day }))
+        for (const day of contexts.days) dispatchAsof(this, day)
         if (this.motifOptions || this.slotOptions?.resolve) {
           this.pageDayContexts = contexts.pages
           this.paintResolved(print)

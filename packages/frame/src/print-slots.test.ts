@@ -123,6 +123,43 @@ test('printPages resolves placements before building the browser print document'
   }
 })
 
+test('printDeck fills and reports the deck day before opening the browser print dialog', async () => {
+  let written = ''
+  const reports: unknown[] = []
+  const printWindow = new EventTarget() as EventTarget & {
+    document: { open(): void; write(html: string): void; close(): void; querySelectorAll(): unknown[]; fonts: { ready: Promise<void> } }
+    setTimeout: typeof setTimeout
+    requestAnimationFrame: (callback: FrameRequestCallback) => number
+  }
+  printWindow.document = {
+    open() {},
+    write(html) {
+      written = html
+    },
+    close() {},
+    querySelectorAll: () => [],
+    fonts: { ready: Promise.resolve() },
+  }
+  printWindow.setTimeout = setTimeout
+  printWindow.requestAnimationFrame = (callback) => {
+    callback(0)
+    return 1
+  }
+  const host = { style: { cssText: '' }, contentWindow: printWindow, remove() {} }
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: () => host, body: { append() {} } } })
+  try {
+    const deck = { ...deckDocument('Day', '<time data-slot-value="asOf.date">placeholder</time>'), asOf: { kind: 'fixed' as const, date: '2026-11-09' } }
+    await printDeck(deck, { asOf: { report: (days) => reports.push(days) }, print: () => {} })
+    expect(written).toContain('2026-11-09')
+    expect(written).not.toContain('placeholder')
+    expect(reports).toEqual([[{ date: '2026-11-09', zone: 'UTC', kind: 'fixed' }]])
+  } finally {
+    if (previous) Object.defineProperty(globalThis, 'document', previous)
+    else Reflect.deleteProperty(globalThis, 'document')
+  }
+})
+
 test('browser print refuses fills together with fill', async () => {
   const deck = deckDocument('Fills', '<p>Design</p>')
   const slots = { fills: [{ fill: { id: 'ada', values: { name: 'Ada' } } }], fill: { id: 'ada', values: { name: 'Ada' } } }

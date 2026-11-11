@@ -1,8 +1,19 @@
-import { carryMoment, type Zone } from '@segnavia/format'
+import { type AsOfDay, carryMoment, type Zone } from '@segnavia/format'
 import { type AsOfInputs, parseAsOfInputs } from '@segnavia/html'
 
 export interface AsOfElementProperties extends Pick<AsOfInputs, 'anchors' | 'moment'> {
   asOf: { zone?: Zone } | undefined
+}
+
+export abstract class AsOfElement extends HTMLElement {
+  static {
+    defineAsOfPropertyAccessors(AsOfElement.prototype)
+  }
+  declare anchors: AsOfElementProperties['anchors']
+  declare asOf: AsOfElementProperties['asOf']
+  declare moment: AsOfElementProperties['moment']
+
+  protected abstract asOfInputsChanged(): void
 }
 
 interface AsOfElementHost {
@@ -30,6 +41,10 @@ export function captureAsOfLoad(element: object): { moment: number; hostMoment?:
     hostZone: held.asOfOptions?.zone,
     anchors: held.anchorOptions,
   }
+}
+
+export function dispatchAsof(element: EventTarget, day: AsOfDay): void {
+  element.dispatchEvent(new CustomEvent('asof', { detail: day }))
 }
 
 export function defineAsOfPropertyAccessors(prototype: object): void {
