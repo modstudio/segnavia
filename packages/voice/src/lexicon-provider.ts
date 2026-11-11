@@ -1,6 +1,7 @@
 import { type Lexicon, lexiconVersion } from '@segnavia/format'
 import { remapCaptionWords } from './captions.ts'
 import type { VoiceProvider } from './index.ts'
+import { longestTermsFirst } from './lexicon-order.ts'
 
 const WORD_CHARACTER = '[\\p{L}\\p{N}\\p{M}_]'
 
@@ -11,11 +12,8 @@ function escapeRegExp(value: string): string {
 function respell(text: string, lexicon: Lexicon): { text: string; captionWords: string[] } {
   const scriptWords = [...text.matchAll(/\S+/gu)].map((match) => ({ text: match[0], start: match.index, end: match.index + match[0].length }))
   if (lexicon.entries.length === 0) return { text, captionWords: scriptWords.map((word) => word.text) }
-  const replacements = new Map(lexicon.entries.map((entry) => [entry.term, entry.say]))
-  const alternatives = [...replacements.keys()]
-    .sort((left, right) => right.length - left.length)
-    .map(escapeRegExp)
-    .join('|')
+  const replacements = new Map(longestTermsFirst(lexicon.entries).map((entry) => [entry.term, entry.say]))
+  const alternatives = [...replacements.keys()].map(escapeRegExp).join('|')
   const terms = new RegExp(`(?<!${WORD_CHARACTER})(?:${alternatives})(?!${WORD_CHARACTER})`, 'gu')
   const wordBoundaries = new Set(scriptWords.slice(1).map((_word, index) => index + 1))
   const respelled = text.replace(terms, (term, offset: number) => {

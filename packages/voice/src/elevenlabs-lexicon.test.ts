@@ -176,8 +176,12 @@ describe('ElevenLabs lexicon publishing', () => {
     await expect(error).rejects.not.toThrow('private-key')
   })
 
-  test('refuses a successful reply that names no dictionary id', async () => {
-    globalThis.fetch = (async () => Response.json({})) as unknown as typeof fetch
+  test.each([
+    ['null', () => Response.json(null)],
+    ['HTML', () => new Response('<html>gateway</html>', { headers: { 'content-type': 'text/html' } })],
+    ['an empty id', () => Response.json({ id: '' })],
+  ])('refuses a successful reply containing %s instead of a dictionary id', async (_name, reply) => {
+    globalThis.fetch = (async () => reply()) as unknown as typeof fetch
     await expect(
       publishElevenLabsLexicon({
         apiKey: () => 'secret',
@@ -195,6 +199,27 @@ describe('ElevenLabs lexicon publishing', () => {
     }) as typeof fetch
     await publishElevenLabsLexicon({
       apiKey: () => 'secret',
+      name: 'Shared words',
+      lexicon: {
+        entries: [
+          { term: 'יום', say: 'yom' },
+          { term: 'טוב', say: 'tov' },
+          { term: 'יום טוב', say: 'yom tov' },
+        ],
+      },
+    })
+    expect(rules.map((rule) => rule.string_to_replace)).toEqual(['יום טוב', 'יום', 'טוב'])
+  })
+
+  test('updates rules longest first', async () => {
+    let rules: Array<{ string_to_replace: string }> = []
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      rules = JSON.parse(String(init.body)).rules
+      return Response.json({ id: 'dictionary-a', version_id: 'version-b' })
+    }) as typeof fetch
+    await publishElevenLabsLexicon({
+      apiKey: () => 'secret',
+      dictionaryId: 'dictionary-a',
       name: 'Shared words',
       lexicon: {
         entries: [

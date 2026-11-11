@@ -175,9 +175,10 @@ export interface Narrated {
 export async function narrate(
   provider: VoiceProvider,
   text: string,
-  options: { cacheDirectory: string; voice?: string; voiceSettings?: VoiceSettings; signal?: AbortSignal },
+  options: { cacheDirectory: string; voice?: string } & VoiceSynthesisOptions,
 ): Promise<Narrated> {
   options.signal?.throwIfAborted()
+  // The signal is excluded because cancellation controls the work, not the audio it produces.
   const hash = createHash('sha256')
     .update(JSON.stringify([provider.id, options.voice ?? null, text, ...(options.voiceSettings === undefined ? [] : [options.voiceSettings])]))
     .digest('hex')
