@@ -74,3 +74,14 @@ export class SurfacePreflightCoordinator {
     this.target.dispatchEvent(new CustomEvent('preflight', { detail: merged, bubbles: true, composed: true }))
   }
 }
+
+const surfacePreflightCoordinators = new WeakMap<EventTarget, SurfacePreflightCoordinator>()
+
+export function surfacePreflightFor(target: EventTarget): SurfacePreflightCoordinator {
+  let coordinator = surfacePreflightCoordinators.get(target)
+  if (!coordinator) {
+    coordinator = new SurfacePreflightCoordinator(target)
+    surfacePreflightCoordinators.set(target, coordinator)
+  }
+  return coordinator
+}

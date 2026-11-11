@@ -31,7 +31,7 @@ import { projectPageOnPaper } from './paper-geometry.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
-import { SurfacePreflightCoordinator } from './surface-preflight.ts'
+import { surfacePreflightFor } from './surface-preflight.ts'
 
 const MOUNT_MARGIN = 600
 
@@ -63,8 +63,6 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private resolvedSlots: PreparedSlots | undefined
   private resolvedGeneration = 0
   private pageDayContexts: EstablishedPageDay[] = []
-  private readonly preflightState = new SurfacePreflightCoordinator(this)
-
   constructor() {
     super()
     upgradeProperties(this)
@@ -75,11 +73,11 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   get profile(): PreflightProfileInput {
-    return this.preflightState.profile
+    return surfacePreflightFor(this).profile
   }
 
   set profile(value: PreflightProfileInput) {
-    this.preflightState.profile = value
+    surfacePreflightFor(this).profile = value
     this.paint()
   }
 
@@ -233,7 +231,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   private paint() {
-    this.preflightState.clear()
+    surfacePreflightFor(this).clear()
     this.cancelSlotPreparation()
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
@@ -352,8 +350,8 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       css: this.stylesheet,
       csp: this.extraCsp,
       origins: [...this.origins],
-      profile: this.preflightState.resolvedProfile(),
-      preflight: (report) => this.preflightState.receive(index, report, this.pageValues.length),
+      profile: surfacePreflightFor(this).resolvedProfile(),
+      preflight: (report) => surfacePreflightFor(this).receive(index, report, this.pageValues.length),
     })
   }
   private onMessage = (event: MessageEvent) => {

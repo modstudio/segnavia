@@ -22,6 +22,7 @@ import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { PageAsOfElement } from './page-as-of-element.ts'
 import { loadBrandedPage } from './page-brand.ts'
 import { loadShownPageDocument } from './page-document-loading.ts'
+import { PageDocumentReadiness } from './page-document-readiness.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -56,10 +57,7 @@ export class SegnaviaPage extends PageAsOfElement {
   private slotFrame: PageFrameIdentity | undefined
   private composedFrame: PageFrameIdentity | undefined
   private hostServed = false
-  private documentWrites = 0
-  private loadedDocument: number | undefined
-  private frameReady = false
-  private documentIsFinal = false
+  private documentReadiness = new PageDocumentReadiness()
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
   constructor() {
@@ -239,14 +237,14 @@ export class SegnaviaPage extends PageAsOfElement {
           this.resolvedSlots = resolved
           this.slotFrame = resolved ? { frame: iframe, generation } : undefined
           this.cancelPostedSelectionRequests()
-          this.writeDocument(iframe, document)
+      this.documentReadiness.write(iframe, document)
         },
         report,
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
     const write = (document: string, provisional = false) => {
-      if (isCurrent()) this.writeDocument(iframe, document, provisional)
+      if (isCurrent()) this.documentReadiness.write(iframe, document, provisional)
     }
     const { moment, hostZone, anchors } = captureAsOfLoad(this)
     const facts = {
@@ -302,7 +300,7 @@ export class SegnaviaPage extends PageAsOfElement {
   readSelection(): Promise<PageSelection> {
     const refusal = printedPageRequestRefusal(this.pageValue, 'selection')
     if (refusal) return Promise.reject(refusal)
-    return readPageSelection(this.pageValue, this.querySelector('iframe'), this.hostServed, this.frameReady, this.pageRequests)
+    return readPageSelection(this.pageValue, this.querySelector('iframe'), this.hostServed, this.documentReadiness.frameReady, this.pageRequests)
   }
   /** Scrolls to an id returned by `markdownOutline(page.body)`, resolving false when no heading has that id. */
   scrollToHeading(id: string, options?: { behavior?: ScrollBehavior }): Promise<boolean> {
@@ -315,13 +313,13 @@ export class SegnaviaPage extends PageAsOfElement {
       this.querySelector('iframe'),
       this.querySelector('.segnavia-page__sheet'),
       this.hostServed,
-      this.frameReady,
+      this.documentReadiness.frameReady,
       this.pageRequests,
     )
   }
 
   private mount(page: Page): HTMLIFrameElement {
-    this.resetDocumentReadiness()
+    this.documentReadiness.reset()
     this.pageValue = page
     this.frameHeight.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     this.frameHeight.hasReport = false
@@ -351,24 +349,10 @@ export class SegnaviaPage extends PageAsOfElement {
     cancelPageRequests(this.pageRequests, true)
   }
 
-  private resetDocumentReadiness() {
-    this.frameReady = false
-    this.loadedDocument = undefined
-    this.documentIsFinal = false
-  }
   private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional = false) {
-    const written = ++this.documentWrites
-    this.resetDocumentReadiness()
-    this.documentIsFinal = !provisional
-    iframe.addEventListener(
-      'load',
-      () => {
-        if (written === this.documentWrites) this.loadedDocument = written
-      },
-      { once: true },
-    )
-    iframe.srcdoc = srcdoc
+    this.documentReadiness.write(iframe, srcdoc, provisional)
   }
+
   private fit() {
     const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
@@ -382,17 +366,17 @@ export class SegnaviaPage extends PageAsOfElement {
     handlePageFrameMessage(this, event, {
       composedFrame: this.composedFrame,
       currentFrame,
-      documentIsFinal: this.documentIsFinal,
-      documentIsLoaded: this.loadedDocument === this.documentWrites,
+      documentIsFinal: this.documentReadiness.final,
+      documentIsLoaded: this.documentReadiness.documentIsLoaded,
       frameHeight: this.frameHeight,
-      frameReady: this.frameReady,
+      frameReady: this.documentReadiness.frameReady,
       page: this.pageValue,
       profile: resolvePreflightProfile(this.profileInput),
       resolvedSlots: this.resolvedSlots,
       slotFrame: this.slotFrame,
       fit: () => this.fit(),
       ready: () => {
-        this.frameReady = true
+        this.documentReadiness.frameReady = true
         releaseReadyPageRequests(this.pageRequests)
       },
     })
