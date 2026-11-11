@@ -11,7 +11,8 @@ export function hasAsOfBinding(html: string): boolean {
 export function fillAsOfBindings(html: string, day: AsOfDay | undefined): string {
   if (!day || !hasAsOfBinding(html)) return html
   const valueName = bindingNames('slot').value
-  for (const element of elements(parse(html).children)) {
+  const document = parse(html)
+  for (const element of elements(document.children)) {
     const path = element.attribs[valueName]
     const tag = element.name.toLowerCase()
     if (path !== undefined && bindingRoot(path) === AS_OF_CONTEXT && refusesValueBinding(tag)) {

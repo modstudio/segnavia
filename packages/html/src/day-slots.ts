@@ -2,9 +2,11 @@ import {
   AS_OF_ANCHOR_PATH,
   AS_OF_CONTEXT,
   AS_OF_DATE_PATH,
+  AS_OF_MOMENT_PATH,
   AS_OF_ZONE_PATH,
   type AsOfDay,
   type FillValues,
+  formatAsOfMoment,
   type SlotDeclarationInput,
   type SlotsOptions,
 } from '@segnavia/format'
@@ -14,6 +16,7 @@ const declarations: SlotDeclarationInput[] = [
   { key: AS_OF_DATE_PATH, label: 'As-of date', type: 'text' },
   { key: AS_OF_ZONE_PATH, label: 'As-of zone', type: 'text' },
   { key: AS_OF_ANCHOR_PATH, label: 'As-of anchor', type: 'text' },
+  { key: AS_OF_MOMENT_PATH, label: 'As-of moment', type: 'text' },
 ]
 
 function collision(options: SlotsOptions | undefined): string | undefined {
@@ -31,6 +34,7 @@ export function asOfValues(day: AsOfDay): FillValues {
     [AS_OF_DATE_PATH]: day.date,
     [AS_OF_ZONE_PATH]: day.zone,
     ...(day.anchor === undefined ? {} : { [AS_OF_ANCHOR_PATH]: day.anchor }),
+    ...(day.moment === undefined ? {} : { [AS_OF_MOMENT_PATH]: formatAsOfMoment(day.moment, day.zone) }),
   }
 }
 

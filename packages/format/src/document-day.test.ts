@@ -38,6 +38,21 @@ describe('resolveDocumentDay', () => {
     expect(calls).toMatchObject([{ name: 'shabbos', moment, today: '2026-11-14', zone: 'UTC', signal }])
   })
 
+  test('carries the host moment through an anchor day', async () => {
+    await expect(
+      resolveDocumentDay({ kind: 'anchor', anchor: 'shabbos' }, { moment, hostMoment: moment, anchors: source(async () => '2026-11-14'), signal }),
+    ).resolves.toEqual({ date: '2026-11-14', zone: 'UTC', kind: 'anchor', anchor: 'shabbos', moment })
+  })
+
+  test('carries the host moment through a current day', async () => {
+    await expect(resolveDocumentDay({ kind: 'current' }, { moment, hostMoment: moment, signal })).resolves.toEqual({
+      date: '2026-11-14',
+      zone: 'UTC',
+      kind: 'current',
+      moment,
+    })
+  })
+
   test.each([
     ['missing source', undefined, 'register an anchor source that offers it'],
     ['unoffered name', source(async () => '2026-11-14', ['weekday']), 'choose one of "weekday"'],

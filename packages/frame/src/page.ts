@@ -2,6 +2,7 @@ import {
   type AsOfDay,
   type Document,
   type DocumentInput,
+  dayWithHostMoment,
   type FontFailure,
   FULL_PAGE_SIZE,
   Page,
@@ -247,11 +248,8 @@ export class SegnaviaPage extends PageAsOfElement {
     const write = (document: string, provisional = false) => {
       if (isCurrent()) this.writeDocument(iframe, document, provisional)
     }
-    const { moment, hostZone, anchors } = captureAsOfLoad(this)
     const facts = {
-      moment,
-      hostZone,
-      anchors,
+      ...captureAsOfLoad(this),
       signal: controller.signal,
     }
     const render = (day: AsOfDay, slots: SlotsOptions) => {
@@ -280,7 +278,7 @@ export class SegnaviaPage extends PageAsOfElement {
     if (established) {
       render(established.day, established.slots)
     } else if (policy.kind === 'day' && !this.slotOptions?.resolve) {
-      render(policy.day, { ...this.slotOptions, resolve: undefined, source: this.slotOptions?.source })
+      render(dayWithHostMoment(policy.day, facts.hostMoment), { ...this.slotOptions, resolve: undefined, source: this.slotOptions?.source })
     } else {
       void resolveDocumentDayResult(policy, facts)
         .then(async (day) => ({ day, slots: await slotsForDay(this.slotOptions, day, controller.signal) }))

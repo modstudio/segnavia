@@ -115,7 +115,7 @@ test('reports the one as-of day used by a page load', () => {
   page.asOf = { zone: 'America/New_York' }
   page.addEventListener('asof', (event) => days.push((event as CustomEvent).detail))
   page.load(content)
-  expect(days).toEqual([{ date: '2026-11-13', zone: 'America/New_York', kind: 'current' }])
+  expect(days).toEqual([{ date: '2026-11-13', zone: 'America/New_York', kind: 'current', moment: Date.parse('2026-11-14T04:30:00Z') }])
 })
 
 test('a page given an established document day does not resolve or report it again', () => {

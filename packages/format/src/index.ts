@@ -1,6 +1,7 @@
 // The shapes every package agrees on. Hosts read and write these as JSON, so each is a Zod schema;
 // `jsonSchemas` generates JSON Schema for hosts that do not run TypeScript.
 export { AsOf, type AsOfDay, CalendarDate, Zone } from './as-of.ts'
+export { formatAsOfMoment } from './as-of-moment.ts'
 export {
   type AsOfFacts,
   AsOfRefusedError,
@@ -308,6 +309,7 @@ export {
   type TextStyleTokenGroup,
   TokenReference,
 } from './style-sheet.ts'
+export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
 export { LIBRARY_VARIABLES, MetaVariable, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'

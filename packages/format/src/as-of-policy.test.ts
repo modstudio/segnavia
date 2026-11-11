@@ -30,6 +30,22 @@ describe('as-of policy', () => {
     expect(calendarDate(boundaryMoment, 'UTC')).toBe('2026-11-14')
   })
 
+  test('leaves the host moment for document-day completion', () => {
+    expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment, hostMoment: boundaryMoment })).toEqual({
+      kind: 'day',
+      day: { date: '2026-11-14', zone: 'UTC', kind: 'current' },
+    })
+    expect(resolveAsOfDay({ kind: 'anchor', anchor: 'week' }, { moment: boundaryMoment, hostMoment: boundaryMoment })).toEqual({
+      kind: 'anchor',
+      anchor: 'week',
+      today: '2026-11-14',
+      zone: 'UTC',
+    })
+    expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment })).not.toHaveProperty('day.moment')
+    expect(resolveAsOfDay({ kind: 'anchor', anchor: 'week' }, { moment: boundaryMoment })).not.toHaveProperty('moment')
+    expect(resolveAsOfDay({ kind: 'fixed', date: '2026-11-14' }, { moment: boundaryMoment, hostMoment: boundaryMoment })).not.toHaveProperty('day.moment')
+  })
+
   test('uses the record zone, then the host zone, then UTC', () => {
     expect(resolveAsOfDay({ kind: 'current', zone: 'Europe/London' }, { moment: boundaryMoment, hostZone: 'America/New_York' })).toEqual({
       kind: 'day',

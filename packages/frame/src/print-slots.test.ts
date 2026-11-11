@@ -116,7 +116,7 @@ test('printPages resolves placements before building the browser print document'
     expect(written).toContain('2026-11-09')
     expect(written).not.toContain('data-segnavia-media')
     expect({ anchorCalls, slotCalls }).toEqual({ anchorCalls: 1, slotCalls: 1 })
-    expect(reports).toEqual([[{ date: '2026-11-09', zone: 'UTC', kind: 'anchor', anchor: 'week' }]])
+    expect(reports).toEqual([[{ date: '2026-11-09', zone: 'UTC', kind: 'anchor', anchor: 'week', moment: Date.parse('2026-11-14T12:00:00Z') }]])
   } finally {
     if (previous) Object.defineProperty(globalThis, 'document', previous)
     else Reflect.deleteProperty(globalThis, 'document')

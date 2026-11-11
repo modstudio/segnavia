@@ -114,3 +114,18 @@ test('the surface resolver reports the distinct days after resolving them', asyn
   )
   expect(reports).toEqual([contexts.days])
 })
+
+test('surface resolution carries only a supplied moment and stays stable without one', async () => {
+  const pages = [Page.parse({ html: '', asOf: { kind: 'fixed', date: '2026-11-09' } }), Page.parse({ html: '' })]
+  const first = await resolveDayContextsFor(pages, {}, undefined, signal())
+  const second = await resolveDayContextsFor(pages, {}, undefined, signal())
+  expect(first).toEqual(second)
+  expect(first.days.every((day) => day.moment === undefined)).toBe(true)
+
+  const moment = Date.parse('2026-11-14T12:00:00Z')
+  const supplied = await resolveDayContextsFor(pages, { moment }, undefined, signal())
+  expect(supplied.days).toEqual([
+    { date: '2026-11-09', zone: 'UTC', kind: 'fixed' },
+    { date: '2026-11-14', zone: 'UTC', kind: 'current', moment },
+  ])
+})
