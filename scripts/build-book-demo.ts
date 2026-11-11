@@ -335,10 +335,14 @@ export async function buildBookDemo(site: string): Promise<void> {
       paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull, profile: PREFLIGHT_PRESETS.default }),
     )
   }
-  const tableCss = `${hebrewFace}:where(html){font:16px/1.7 Alef,serif}`
+  const tableCss = `${hebrewFace}${designedCss}:where(html){font:16px/1.7 Alef,serif}`
   writeFileSync(
     path.join(site, 'book-paginated-tables-he.html'),
     paginatedBookDocument(bookFixtureValue(paginatedTableFixture()), { nonce: newNonce(), css: tableCss }),
+  )
+  writeFileSync(
+    path.join(site, 'book-paginated-tables.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated table book</title><style>html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}</style></head><body><main><section class="book"><h2>טבלאות</h2><iframe id="book-paginated-tables-he" sandbox="allow-scripts" src="book-paginated-tables-he.html"></iframe></section></main></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-parts.html'),
@@ -351,7 +355,7 @@ export async function buildBookDemo(site: string): Promise<void> {
     path.join(site, 'book-paginated.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Paginated books</title><style>
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}iframe{inline-size:100%;block-size:70vh;background:#fff;border:0}
-    </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-paginated-en" sandbox="allow-scripts" src="book-paginated-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-paginated-he" sandbox="allow-scripts" src="book-paginated-he.html"></iframe></section><section class="book"><h2>טבלאות</h2><iframe id="book-paginated-tables-he" sandbox="allow-scripts" src="book-paginated-tables-he.html"></iframe></section></main></body></html>`,
+    </style></head><body><main class="books"><section class="book"><h2>English</h2><iframe id="book-paginated-en" sandbox="allow-scripts" src="book-paginated-en.html"></iframe></section><section class="book"><h2>עברית</h2><iframe id="book-paginated-he" sandbox="allow-scripts" src="book-paginated-he.html"></iframe></section></main></body></html>`,
   )
   writeFileSync(
     path.join(site, 'book-keeps.html'),

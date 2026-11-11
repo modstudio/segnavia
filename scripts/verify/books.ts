@@ -106,7 +106,6 @@ export async function verifyBooks(h: Harness) {
   await verifyImportedIdmlTable(h)
   await verifyPlacedMediaBook(h)
 }
-
 async function paginatedFrame(h: Harness, id: string) {
   const element = await h.page.$(`#${id}`)
   const frame = await element?.contentFrame()
@@ -118,7 +117,6 @@ async function paginatedFrame(h: Harness, id: string) {
   )
   return frame
 }
-
 async function inspectPaginated(h: Harness, id: string): Promise<PaginatedReport> {
   const frame = await paginatedFrame(h, id)
   return frame.evaluate(inspectPaginatedBook)
@@ -267,7 +265,9 @@ async function verifyPaginatedBooks(h: Harness) {
     )
     await page.locator(`#${id}`).screenshot({ path: path.join(EVIDENCE, `${id}.png`) })
   }
+  await page.goto(h.url('book-paginated-tables.html'))
   await verifyPaginatedTableBook(h, await paginatedFrame(h, 'book-paginated-tables-he'))
+  await page.goto(h.url('book-paginated.html'))
   const hebrewDir = await (await paginatedFrame(h, 'book-paginated-he')).evaluate(() => document.documentElement.getAttribute('dir'))
   check('the Hebrew paginated book root is right to left', hebrewDir === 'rtl', String(hebrewDir))
   await verifyNoteCaseBooks(h)
