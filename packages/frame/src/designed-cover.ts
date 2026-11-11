@@ -29,6 +29,7 @@ export function mountDesignedCover(
   sheet.style.flex = 'none'
   sheet.style.transformOrigin = 'center'
   const page = createPageElement()
+  page.toggleAttribute('bounded', true)
   applyFrameInputs(page, inputs)
   page.slots = slots
   page.style.inlineSize = `${projection.box.width}px`

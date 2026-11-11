@@ -37,6 +37,7 @@ export function mountThumbnailPage(viewport: HTMLElement, source: Page | null, p
   page.origins = options.origins ?? []
   page.css = options.css
   page.cspExtra = ''
+  page.toggleAttribute('bounded', true)
   page.part.add('canvas')
   page.style.inlineSize = '100%'
   viewport.append(page)

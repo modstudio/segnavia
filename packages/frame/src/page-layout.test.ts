@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { pageFitLayout, pageSheetLayout } from './page-layout.ts'
+import { pageFitLayout, pagePrintedFitLayout, pageSheetLayout } from './page-layout.ts'
 
 test.each([
   ['standard', 1024],
@@ -34,4 +34,15 @@ test('fit geometry preserves bounded fluid and scaled fixed pages', () => {
     hostHeight: '200px',
     measuredHeight: 400,
   })
+})
+
+test('printed fit geometry grows only after an unbounded height report', () => {
+  expect(pagePrintedFitLayout(false, true, 640)).toEqual({
+    sheetHeight: '',
+    transform: '',
+    hostHeight: '640px',
+    measuredHeight: 640,
+  })
+  expect(pagePrintedFitLayout(false, false, 640)).toEqual({ sheetHeight: '', transform: '', hostHeight: '' })
+  expect(pagePrintedFitLayout(true, true, 640)).toEqual({ sheetHeight: '', transform: '', hostHeight: '' })
 })

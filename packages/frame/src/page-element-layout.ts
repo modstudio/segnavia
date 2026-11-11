@@ -1,6 +1,6 @@
 import type { Page, PageWidths } from '@segnavia/format'
 import { frameSandbox } from './bridge.ts'
-import { pageFitLayout, pageSheetLayout } from './page-layout.ts'
+import { pageFitLayout, pagePrintedFitLayout, pageSheetLayout } from './page-layout.ts'
 
 export interface PageFrameHeightState {
   contentHeight: number
@@ -44,22 +44,10 @@ export function mountPageFrame(element: HTMLElement, page: Page, widths: PageWid
 }
 
 export function fitPageFrame(element: HTMLElement, page: Page, sheet: HTMLElement, height: PageFrameHeightState, bounded: boolean): void {
-  if (page.printedPages) {
-    sheet.style.removeProperty('height')
-    sheet.style.removeProperty('transform')
-    if (!bounded && height.hasReport) {
-      element.style.height = `${height.contentHeight}px`
-      height.ownsElementHeight = true
-      element.dataset.height = String(height.contentHeight)
-      element.dataset.measured = ''
-    } else {
-      releaseElementHeight(element, height)
-      delete element.dataset.height
-      delete element.dataset.measured
-    }
-    return
-  }
-  const fit = pageFitLayout(page.size, bounded, element.clientWidth, height.contentHeight)
+  const printed = Boolean(page.printedPages)
+  const fit = printed
+    ? pagePrintedFitLayout(bounded, height.hasReport, height.contentHeight)
+    : pageFitLayout(page.size, bounded, element.clientWidth, height.contentHeight)
   sheet.style.height = fit.sheetHeight
   sheet.style.transform = fit.transform
   if (fit.hostHeight) {
@@ -68,4 +56,5 @@ export function fitPageFrame(element: HTMLElement, page: Page, sheet: HTMLElemen
   } else releaseElementHeight(element, height)
   if (fit.measuredHeight === undefined) delete element.dataset.height
   else element.dataset.height = String(fit.measuredHeight)
+  if (printed && fit.measuredHeight === undefined) delete element.dataset.measured
 }

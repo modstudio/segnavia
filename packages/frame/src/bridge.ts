@@ -107,6 +107,7 @@ export interface FrameOptions {
   csp?: string
   origins?: Iterable<OriginApproval>
   relayKeys?: boolean
+  // Body reporting starts only after the composer's ready attribute, so it requires readyAfterAttribute.
   reportHeight?: boolean | 'body'
   // Holds the existing ready message until a document composer marks its root.
   readyAfterAttribute?: string
@@ -126,13 +127,14 @@ export interface FrameOptions {
   // document is ready. Server render uses this independently of author code.
   readyCallback?: string
 }
+export const HEIGHT_REPORT_START_FUNCTION = 'startHeightReporting'
 
 function heightReporter(reportHeight: FrameOptions['reportHeight']): string {
   if (reportHeight === false) return ''
   const target = reportHeight === 'body' ? 'body' : 'documentElement'
   const observe =
     reportHeight === 'body'
-      ? 'function startHeightReporting(){if(window.ResizeObserver)new ResizeObserver(report).observe(document.body);report();}'
+      ? `function ${HEIGHT_REPORT_START_FUNCTION}(){if(window.ResizeObserver)new ResizeObserver(report).observe(document.body);report();}`
       : `if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentElement);}
 document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
   return `var pending=false,lastHeight=null;function send(){pending=false;var height=Math.ceil(document.${target}.getBoundingClientRect().height);if(height===lastHeight)return;lastHeight=height;post({type:'${MESSAGE.height}',height:height});}

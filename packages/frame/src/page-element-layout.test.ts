@@ -70,6 +70,7 @@ test('reported composed papers take their shown height', () => {
   const element = harness()
   const sheet = { style: style() } as unknown as HTMLElement
   const height = { contentHeight: 640, hasReport: true, ownsElementHeight: false }
+  element.dataset.measured = ''
   fitPageFrame(element, printed, sheet, height, false)
   expect(element.style.height).toBe('640px')
   expect(element.dataset).toMatchObject({ height: '640', measured: '' })
@@ -78,10 +79,12 @@ test('reported composed papers take their shown height', () => {
 test('composed papers keep the host box before a height report', () => {
   const element = harness()
   const sheet = { style: style() } as unknown as HTMLElement
-  const height = { contentHeight: 0, hasReport: false, ownsElementHeight: false }
-  element.style.height = '500px'
+  const height = { contentHeight: 0, hasReport: false, ownsElementHeight: true }
+  element.style.height = '640px'
+  element.dataset.measured = ''
   fitPageFrame(element, printed, sheet, height, false)
-  expect(element.style.height).toBe('500px')
+  expect(element.style.height).toBe('')
+  expect(height.ownsElementHeight).toBe(false)
   expect(element.dataset.height).toBeUndefined()
   expect(element.dataset.measured).toBeUndefined()
 })

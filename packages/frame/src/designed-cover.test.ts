@@ -9,7 +9,17 @@ class TestElement extends EventTarget {
   clientWidth = 0
   part = { add() {} }
   style: Record<string, string> = {}
+  private attributes = new Set<string>()
   append() {}
+  hasAttribute(name: string) {
+    return this.attributes.has(name)
+  }
+  toggleAttribute(name: string, force?: boolean) {
+    const present = force ?? !this.attributes.has(name)
+    if (present) this.attributes.add(name)
+    else this.attributes.delete(name)
+    return present
+  }
 }
 
 describe('designed cover layout', () => {
@@ -71,8 +81,15 @@ describe('designed cover layout', () => {
       const { internalPageLoad } = await import('./document-value-load.ts')
       const { SegnaviaPage } = await import('./page.ts')
       const style = Object.getOwnPropertyDescriptor(SegnaviaPage.prototype, 'style')
+      const toggleAttribute = Object.getOwnPropertyDescriptor(SegnaviaPage.prototype, 'toggleAttribute')
       const pageLoad = Reflect.get(SegnaviaPage.prototype, internalPageLoad)
       Object.defineProperty(SegnaviaPage.prototype, 'style', { configurable: true, value: {} })
+      Object.defineProperty(SegnaviaPage.prototype, 'toggleAttribute', {
+        configurable: true,
+        value(this: { boundedForTest?: boolean }, name: string, force?: boolean) {
+          if (name === 'bounded') this.boundedForTest = force
+        },
+      })
       Reflect.set(SegnaviaPage.prototype, internalPageLoad, () => {})
       const origins: readonly OriginApproval[] = [{ origin: 'https://images.example', kinds: ['image'] }]
       const pageWidths = { standard: 900 }
@@ -81,11 +98,14 @@ describe('designed cover layout', () => {
         const page = created.find((element) => element instanceof SegnaviaPage) as InstanceType<typeof SegnaviaPage> | undefined
         expect(page?.origins).toEqual(origins)
         expect(page?.pageWidths).toEqual(pageWidths)
+        expect((page as unknown as { boundedForTest?: boolean })?.boundedForTest).toBe(true)
         mounted.dispose()
       } finally {
         Reflect.set(SegnaviaPage.prototype, internalPageLoad, pageLoad)
         if (style) Object.defineProperty(SegnaviaPage.prototype, 'style', style)
         else Reflect.deleteProperty(SegnaviaPage.prototype, 'style')
+        if (toggleAttribute) Object.defineProperty(SegnaviaPage.prototype, 'toggleAttribute', toggleAttribute)
+        else Reflect.deleteProperty(SegnaviaPage.prototype, 'toggleAttribute')
       }
     } finally {
       for (const [name, descriptor] of [

@@ -1,6 +1,6 @@
 import { boundComposeProgress } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
-import { type FrameOptions, scriptJson } from './bridge.ts'
+import { type FrameOptions, HEIGHT_REPORT_START_FUNCTION, scriptJson } from './bridge.ts'
 
 export type CompositionWaitOptions = Pick<FrameOptions, 'readyAfterAttribute' | 'failureAttribute' | 'progressAttribute' | 'progressCallback' | 'reportHeight'>
 
@@ -11,7 +11,7 @@ export function compositionWait(
   progressLimit: number,
 ): string {
   if (!options.readyAfterAttribute) return 'null'
-  const report = options.reportHeight === false ? '' : options.reportHeight === 'body' ? 'startHeightReporting();' : 'report();'
+  const report = options.reportHeight === false ? '' : options.reportHeight === 'body' ? `${HEIGHT_REPORT_START_FUNCTION}();` : 'report();'
   const progressCallback = options.progressCallback
     ? `var callback=window[${scriptJson(options.progressCallback)}];if(typeof callback==='function')callback({pages:pages,total:total});`
     : ''
