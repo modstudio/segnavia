@@ -20,7 +20,16 @@ import {
   parseLimits,
   resolveBrand,
 } from '@segnavia/format'
-import { type AsOfInputs, fillPageAsOfBindings, type HtmlPage, parseDocument, resolveDayContextsFor, resolvePageHtml } from '@segnavia/html'
+import {
+  type AsOfInputs,
+  fillAsOfBindings,
+  fillPageAsOfBindings,
+  type HtmlPage,
+  parseAsOfInputs,
+  parseDocument,
+  resolveDayContextsFor,
+  resolvePageHtml,
+} from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { loadDiagramScript } from './diagram-document.ts'
@@ -66,7 +75,7 @@ export interface PrintDialogOptions {
   print?: (win: Window) => void | Promise<void>
 }
 
-export interface BrowserPrintOptions extends Omit<PrintOptions, 'slots'>, PrintDialogOptions {
+export interface BrowserPrintOptions extends Omit<PrintOptions, 'slots'>, PrintDialogOptions, AsOfInputs {
   slots?: SlotPrintOptions
   fonts?: FontsOptions
   placements?: PlacementsOptions
@@ -270,8 +279,19 @@ function refusePagesSheets(options: PrintFrameOptions): void {
 export async function printDeck(input: DocumentInput, options: BrowserPrintOptions = {}): Promise<void> {
   const signal = new AbortController().signal
   const document = parseDocument(input, { newId: options.newId })
-  const deck = deckFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
-  options = { ...options, limits: parseLimits(options.limits, 'host') }
+  const authoredDeck = deckFromDocument(document, await resolveBrand(document, options.brands?.source, signal))
+  options = parseAsOfInputs({ ...options, limits: parseLimits(options.limits, 'host') })
+  const contexts = await resolveDayContextsFor([authoredDeck], options, options.slots, signal)
+  const established = contexts.pages[0]
+  const deck = {
+    ...authoredDeck,
+    slides: authoredDeck.slides.map((slide) =>
+      'kind' in slide.content && slide.content.kind === 'html'
+        ? { ...slide, content: { ...slide.content, html: fillAsOfBindings(slide.content.html, established?.day) } }
+        : slide,
+    ),
+  }
+  options = { ...options, slots: established?.slots }
   const exceeded = deckLimitsExceeded(deck, options.limits ?? {})
   if (exceeded.length > 0) throw new LimitExceededError(exceeded as [(typeof exceeded)[number], ...typeof exceeded])
   const notesSheetFont = options.layout === 'notes' ? await resolveNotesFontCss(options.notesFont, options.fonts, signal) : undefined

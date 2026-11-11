@@ -638,14 +638,14 @@ A stored page, book or deck may say what day its data is for: a `fixed` date,
 resolves to a date. The day is a calendar date in a zone and may retain the
 host-supplied instant it was read from. Its zone comes from the record, then the
 host's `asOf.zone`, then UTC, and never from the machine. The page, document,
-stage and thumbnail preview surfaces, browser page print and server page render take a `moment`:
+stage and thumbnail preview surfaces, browser page and deck print, and server page render take a `moment`:
 now by default, or a stated moment for a replay. They resolve the day once at
 their load edge and pass it to the
 host's `anchors.resolve`, `slots.resolve`, `MotifSource.data` and
 `placements.resolve`. The day is bindable under the reserved slot root `asOf`.
 `asOf.moment` is ISO 8601 text with the resolved zone's offset when the host
 supplied a moment, and is omitted for a fixed day or when the clock supplied the
-moment. The elements report it in a non-bubbling `asof` event, while `printPages`, `pagePdf`,
+moment. The elements report it in a non-bubbling `asof` event, while `printPages`, `printDeck`, `pagePdf`,
 `pagesPdf`, `pageImage` and `coverImage` report it through `asOf.report`. A
 print or render whose pages resolve to distinct days under `slots.resolve` is
 refused so each day can be produced separately. An anchor the host cannot
