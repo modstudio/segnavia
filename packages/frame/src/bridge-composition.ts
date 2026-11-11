@@ -11,7 +11,7 @@ export function compositionWait(
   progressLimit: number,
 ): string {
   if (!options.readyAfterAttribute) return 'null'
-  const report = options.reportHeight === false ? '' : 'report();'
+  const report = options.reportHeight === false ? '' : options.reportHeight === 'body' ? 'startHeightReporting();' : 'report();'
   const progressCallback = options.progressCallback
     ? `var callback=window[${scriptJson(options.progressCallback)}];if(typeof callback==='function')callback({pages:pages,total:total});`
     : ''

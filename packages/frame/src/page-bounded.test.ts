@@ -50,8 +50,9 @@ function pageHarness(size: Page['size'], bounded = false) {
   const sheet = { style: style() }
   const frame = { contentWindow: {} }
   ;(page as unknown as { pageValue: Page }).pageValue = Page.parse({ html: '<p>Page</p>', size })
-  ;(page as unknown as { frameHeight: { contentHeight: number; ownsElementHeight: boolean } }).frameHeight = {
+  ;(page as unknown as { frameHeight: { contentHeight: number; hasReport: boolean; ownsElementHeight: boolean } }).frameHeight = {
     contentHeight: typeof size === 'object' && size.height !== 'auto' ? size.height : 0,
+    hasReport: false,
     ownsElementHeight: false,
   }
   ;(page as unknown as { querySelector(selector: string): unknown }).querySelector = (selector) =>

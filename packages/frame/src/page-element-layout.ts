@@ -4,6 +4,7 @@ import { pageFitLayout, pageSheetLayout } from './page-layout.ts'
 
 export interface PageFrameHeightState {
   contentHeight: number
+  hasReport: boolean
   ownsElementHeight: boolean
 }
 
@@ -16,6 +17,7 @@ export function clearPageFrame(element: HTMLElement, height: PageFrameHeightStat
   element.replaceChildren()
   element.removeAttribute('data-composed-papers')
   releaseElementHeight(element, height)
+  height.hasReport = false
   delete element.dataset.height
   delete element.dataset.measured
 }
@@ -45,8 +47,16 @@ export function fitPageFrame(element: HTMLElement, page: Page, sheet: HTMLElemen
   if (page.printedPages) {
     sheet.style.removeProperty('height')
     sheet.style.removeProperty('transform')
-    releaseElementHeight(element, height)
-    delete element.dataset.height
+    if (!bounded && height.hasReport) {
+      element.style.height = `${height.contentHeight}px`
+      height.ownsElementHeight = true
+      element.dataset.height = String(height.contentHeight)
+      element.dataset.measured = ''
+    } else {
+      releaseElementHeight(element, height)
+      delete element.dataset.height
+      delete element.dataset.measured
+    }
     return
   }
   const fit = pageFitLayout(page.size, bounded, element.clientWidth, height.contentHeight)
