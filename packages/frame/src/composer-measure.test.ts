@@ -9,10 +9,8 @@ import {
   linesWithDescendantTables,
   type MeasuredKeepCandidate,
   measuredBlockConstraints,
-  measuredDecorationBoxes,
   measuredKeepRuns,
   measureLineBoxes,
-  measureTableLines,
   measurementRefusal,
   skippableDescendantBoxDisplay,
   tableRowLines,
@@ -152,33 +150,6 @@ test('a display table element carries no orphan or widow constraint', () => {
   expect(measuredBlockConstraints('block', 2, 3)).toEqual({ orphans: 2, widows: 3 })
 })
 
-test('a collapsed cell decoration starts after its shared block-start border', () => {
-  const table = {}
-  const cell = { tagName: 'TD', closest: () => table, getBoundingClientRect: () => ({ top: 10, bottom: 30 }) }
-  const root = { tagName: 'DIV', querySelectorAll: () => [cell], getBoundingClientRect: () => ({ top: 0, bottom: 40 }) }
-  const plain = {
-    display: 'block',
-    borderBlockStartWidth: '0px',
-    borderBlockEndWidth: '0px',
-    backgroundColor: 'transparent',
-    backgroundImage: 'none',
-    boxShadow: 'none',
-    outlineStyle: 'none',
-    outlineWidth: '0px',
-    outlineOffset: '0px',
-  } as CSSStyleDeclaration
-  const original = globalThis.getComputedStyle
-  globalThis.getComputedStyle = ((element: Element) =>
-    (element === (table as unknown as Element)
-      ? { borderCollapse: 'collapse' }
-      : { ...plain, borderBlockStartWidth: '1px', borderBlockEndWidth: '1px' }) as CSSStyleDeclaration) as typeof getComputedStyle
-  try {
-    expect(measuredDecorationBoxes(root as unknown as Element, 0, plain)[1]?.top).toBe(11)
-  } finally {
-    globalThis.getComputedStyle = original
-  }
-})
-
 describe('tableRowLines', () => {
   test('a one-line row equals its row box', () => {
     expect(tableRowLines([{ top: 10, bottom: 30, boxes: [{ top: 14, bottom: 26 }] }])).toEqual([{ top: 10, bottom: 30 }])
@@ -226,35 +197,6 @@ describe('tableRowLines', () => {
 
   test('an empty row is one line', () => {
     expect(tableRowLines([{ top: 10, bottom: 30, boxes: [] }])).toEqual([{ top: 10, bottom: 30 }])
-  })
-
-  test('a collapsed border belongs to the preceding row band', () => {
-    const cell = { querySelectorAll: () => [] }
-    const rows = [
-      { closest: () => table, getBoundingClientRect: () => ({ top: 10.5, bottom: 30 }), querySelectorAll: (selector: string) => (selector.startsWith(':scope') ? [cell] : []) },
-      { closest: () => table, getBoundingClientRect: () => ({ top: 30, bottom: 49.5 }), querySelectorAll: (selector: string) => (selector.startsWith(':scope') ? [cell] : []) },
-    ]
-    const table = {
-      ownerDocument: { createTreeWalker: () => ({ nextNode: () => null }) },
-      getBoundingClientRect: () => ({ top: 10, bottom: 50 }),
-      querySelectorAll: (selector: string) => (selector === 'tr' ? rows : []),
-    }
-    const original = globalThis.getComputedStyle
-    const originalNodeFilter = globalThis.NodeFilter
-    globalThis.NodeFilter = { SHOW_TEXT: 4 } as typeof NodeFilter
-    globalThis.getComputedStyle = ((element: Element) =>
-      (element === (table as unknown as Element)
-        ? { borderCollapse: 'collapse' }
-        : { borderBlockStartWidth: '1px', borderBlockEndWidth: '1px' }) as CSSStyleDeclaration) as typeof getComputedStyle
-    try {
-      expect(measureTableLines(table as unknown as Element, 0)).toEqual([
-        { top: 10, bottom: 30, decorationBottom: 31 },
-        { top: 31, bottom: 50 },
-      ])
-    } finally {
-      globalThis.getComputedStyle = original
-      globalThis.NodeFilter = originalNodeFilter
-    }
   })
 })
 

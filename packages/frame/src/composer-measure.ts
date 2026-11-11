@@ -65,6 +65,13 @@ export function skippableDescendantBoxDisplay(display: string): boolean {
   return display === 'none' || display === 'contents' || inlineLevelDisplay(display) || display === 'ruby' || display === 'ruby-base' || display === 'ruby-text'
 }
 
+export function decorationBoxTop(candidate: Element, top: number, origin: number, borderTop: number): number {
+  if (candidate.tagName !== 'TH' && candidate.tagName !== 'TD') return top - origin
+  if (borderTop <= 0) return top - origin
+  const table = candidate.closest('table')
+  return getComputedStyle(table ?? candidate).borderCollapse === 'collapse' ? top - origin + borderTop + 0.5 : top - origin
+}
+
 export function measuredDecorationBoxes(element: Element, origin: number, elementStyle: CSSStyleDeclaration): MeasuredDecorationBox[] {
   const boxes: MeasuredDecorationBox[] = []
   const candidates = [element, ...element.querySelectorAll('*')]
@@ -83,10 +90,8 @@ export function measuredDecorationBoxes(element: Element, origin: number, elemen
     }
     const rect = candidate.getBoundingClientRect()
     const borderTop = Number.parseFloat(style.borderBlockStartWidth) || 0
-    const collapsedCell =
-      (candidate.tagName === 'TH' || candidate.tagName === 'TD') && getComputedStyle(candidate.closest('table') ?? candidate).borderCollapse === 'collapse'
     boxes.push({
-      top: rect.top - origin + (collapsedCell ? borderTop : 0),
+      top: decorationBoxTop(candidate, rect.top, origin, borderTop),
       bottom: rect.bottom - origin,
       borderTop,
       borderBottom: Number.parseFloat(style.borderBlockEndWidth) || 0,
@@ -234,29 +239,33 @@ export function measureTableLines(element: Element, origin: number): MeasuredLin
   const tableBox = element.getBoundingClientRect()
   const rowElements = Array.from(element.querySelectorAll('tr')).filter((row) => row.closest('table') === element)
   const rows = rowElements.map((row) => {
-      const rowBox = row.getBoundingClientRect()
-      const boxes: MeasuredLineBox[] = []
-      for (const cell of row.querySelectorAll(':scope > th, :scope > td')) {
-        const walker = element.ownerDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
-        let node = walker.nextNode()
-        while (node) {
-          const textRange = element.ownerDocument.createRange()
-          textRange.selectNodeContents(node)
-          for (const rect of textRange.getClientRects()) boxes.push({ top: rect.top - origin, bottom: rect.bottom - origin })
-          node = walker.nextNode()
-        }
-        for (const replaced of cell.querySelectorAll('img,svg,video,canvas,picture,iframe,object,embed,math')) {
-          const box = replaced.getBoundingClientRect()
-          boxes.push({ top: box.top - origin, bottom: box.bottom - origin })
-        }
+    const rowBox = row.getBoundingClientRect()
+    const boxes: MeasuredLineBox[] = []
+    for (const cell of row.querySelectorAll(':scope > th, :scope > td')) {
+      const walker = element.ownerDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
+      let node = walker.nextNode()
+      while (node) {
+        const textRange = element.ownerDocument.createRange()
+        textRange.selectNodeContents(node)
+        for (const rect of textRange.getClientRects()) boxes.push({ top: rect.top - origin, bottom: rect.bottom - origin })
+        node = walker.nextNode()
       }
-      return { top: rowBox.top - origin, bottom: rowBox.bottom - origin, boxes }
-    })
+      for (const replaced of cell.querySelectorAll('img,svg,video,canvas,picture,iframe,object,embed,math')) {
+        const box = replaced.getBoundingClientRect()
+        boxes.push({ top: box.top - origin, bottom: box.bottom - origin })
+      }
+    }
+    return { top: rowBox.top - origin, bottom: rowBox.bottom - origin, boxes }
+  })
   const rowLines = rows.map((row) => tableRowLines([row]))
   const collapsed = getComputedStyle(element).borderCollapse === 'collapse'
   const collapsedBorderOutset = (row: Element | undefined, edge: 'Start' | 'End') => {
     if (!collapsed || !row) return 0
-    return Math.max(0, ...Array.from(row.querySelectorAll(':scope > th, :scope > td')).map((cell) => Number.parseFloat(getComputedStyle(cell)[`borderBlock${edge}Width`]) || 0))
+    const width = Math.max(
+      0,
+      ...Array.from(row.querySelectorAll(':scope > th, :scope > td')).map((cell) => Number.parseFloat(getComputedStyle(cell)[`borderBlock${edge}Width`]) || 0),
+    )
+    return width > 0 ? width + 0.5 : 0
   }
   for (let index = 1; index < rowLines.length; index++) {
     const previous = rowLines[index - 1]?.at(-1)

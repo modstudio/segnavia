@@ -3,6 +3,7 @@ import { backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from 
 import {
   applyBoxDecorations,
   composerLayoutReady,
+  decorationBoxTop,
   descendantKeepSignals,
   forcedPageBreak,
   headerHeightFor,
@@ -31,6 +32,7 @@ export function embeddedComposerMeasureFunctions(): string {
     embedFunction('keepSignals', keepSignals),
     embedFunction('outermostKeepValue', outermostKeepValue),
     embedFunction('descendantKeepSignals', descendantKeepSignals),
+    embedFunction('decorationBoxTop', decorationBoxTop),
     embedFunction('inlineLevelDisplay', inlineLevelDisplay),
     embedFunction('skippableDescendantBoxDisplay', skippableDescendantBoxDisplay),
     embedFunction('measuredBlockConstraints', measuredBlockConstraints),
