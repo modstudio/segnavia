@@ -237,14 +237,14 @@ export class SegnaviaPage extends PageAsOfElement {
           this.resolvedSlots = resolved
           this.slotFrame = resolved ? { frame: iframe, generation } : undefined
           this.cancelPostedSelectionRequests()
-      this.documentReadiness.write(iframe, document)
+          this.writeDocument(iframe, document)
         },
         report,
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
     const write = (document: string, provisional = false) => {
-      if (isCurrent()) this.documentReadiness.write(iframe, document, provisional)
+      if (isCurrent()) this.writeDocument(iframe, document, provisional)
     }
     const { moment, hostZone, anchors } = captureAsOfLoad(this)
     const facts = {
