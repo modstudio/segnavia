@@ -45,15 +45,13 @@ export interface PaginateBookResult {
   refusals: PaginateBookRefusal[]
 }
 
-export interface PaginateUnit {
+export interface PaginateUnit extends PaginateLine {
   flowId: string
   block: PaginateBlock
   index: number
-  top: number
-  bottom: number
   refs: string[]
-  prevBottom?: number
-  nextTop?: number
+  previousEdge?: number
+  nextEdge?: number
 }
 
 export interface PaginatePageFill {

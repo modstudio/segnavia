@@ -1,5 +1,14 @@
 import { expect, test } from 'bun:test'
-import { PaginateBlock } from './measurements.ts'
+import { PaginateBlock, PaginateLine } from './measurements.ts'
+
+test('a measured line accepts optional opening and closing decoration edges', () => {
+  expect(PaginateLine.parse({ top: 10, bottom: 20, decorationTop: 2, decorationBottom: 28 })).toEqual({
+    top: 10,
+    bottom: 20,
+    decorationTop: 2,
+    decorationBottom: 28,
+  })
+})
 
 test('a measured block accepts optional keep-together line runs', () => {
   expect(
