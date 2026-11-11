@@ -69,9 +69,75 @@ export function blankComments(text: string): string {
   return blankRanges(text, scan(text).comments)
 }
 
+function commentAndLiteralRanges(text: string): SourceRange[] {
+  const ranges: SourceRange[] = []
+
+  function scanBlankedToken(i: number): number | null {
+    const comment = commentEnd(text, i)
+    if (comment !== null) {
+      ranges.push({ start: i, end: comment })
+      return comment
+    }
+    if (text[i] === "'" || text[i] === '"') {
+      const end = Math.min(stringEnd(text, i) ?? text.length, text.length)
+      ranges.push({ start: i, end })
+      return end
+    }
+    if (text[i] === '`') return scanTemplate(i)
+    return null
+  }
+
+  function scanCode(start: number, inTemplateSubstitution = false): number {
+    let braces = inTemplateSubstitution ? 1 : 0
+    let i = start
+    while (i < text.length) {
+      const tokenEnd = scanBlankedToken(i)
+      if (tokenEnd !== null) {
+        i = tokenEnd
+        continue
+      }
+      if (!inTemplateSubstitution) {
+        i += 1
+        continue
+      }
+      if (text[i] === '{') braces += 1
+      if (text[i] === '}' && --braces === 0) return i + 1
+      i += 1
+    }
+    return i
+  }
+
+  function scanTemplate(start: number): number {
+    let literalStart = start
+    let i = start + 1
+    while (i < text.length) {
+      if (text[i] === '\\') {
+        i += 2
+        continue
+      }
+      if (text[i] === '`') {
+        ranges.push({ start: literalStart, end: i + 1 })
+        return i + 1
+      }
+      if (text[i] === '$' && text[i + 1] === '{') {
+        ranges.push({ start: literalStart, end: i + 2 })
+        const substitutionEnd = scanCode(i + 2, true)
+        literalStart = Math.max(i + 2, substitutionEnd - 1)
+        i = substitutionEnd
+        continue
+      }
+      i += 1
+    }
+    ranges.push({ start: literalStart, end: text.length })
+    return text.length
+  }
+
+  scanCode(0)
+  return ranges
+}
+
 export function blankCommentsAndLiterals(text: string): string {
-  const { comments, literals } = scan(text)
-  return blankRanges(text, [...comments, ...literals])
+  return blankRanges(text, commentAndLiteralRanges(text))
 }
 
 export const TEST_FILE = /\.(?:test|spec|test-helper)\.[mc]?[jt]sx?$/

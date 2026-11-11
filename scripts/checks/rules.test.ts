@@ -265,12 +265,15 @@ describe('writing rules', () => {
       "const id = crypto['randomUUID']()",
       'const { randomUUID } = crypto',
       'Document.parse(value, { newId: crypto.randomUUID })',
+      `const id = \`host-\${crypto.randomUUID()}\``,
+      `const id = \`host-\${\`nested-\${crypto.randomUUID()}\`}\``,
     ])
       expect(checkRandomUuidSource({ ...direct, text })).toHaveLength(1)
     expect(checkRandomUuidSource({ ...direct, path: DEFAULT_NEW_ID_SOURCE })).toEqual([])
     expect(checkRandomUuidSource({ ...direct, path: 'packages/frame/src/example.test.ts' })).toEqual([])
     expect(checkRandomUuidSource({ ...direct, text: '// crypto.randomUUID()' })).toEqual([])
     expect(checkRandomUuidSource({ ...direct, text: "const help = 'do not call crypto.randomUUID()'" })).toEqual([])
+    expect(checkRandomUuidSource({ ...direct, text: 'const help = `do not call crypto.randomUUID()`' })).toEqual([])
   })
 
   test('source blanking uses comment offsets when a string repeats a later comment', () => {
