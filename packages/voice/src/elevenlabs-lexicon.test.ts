@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { publishElevenLabsLexicon } from './index.ts'
+import { archiveElevenLabsLexicon, LexiconRefusedError, publishElevenLabsLexicon } from './index.ts'
 
 describe('ElevenLabs lexicon publishing', () => {
   const realFetch = globalThis.fetch
@@ -166,7 +166,111 @@ describe('ElevenLabs lexicon publishing', () => {
       name: 'Shared words',
       lexicon: { entries: [{ term: 'route', say: 'root' }] },
     })
-    await expect(error).rejects.toThrow('422 invalid dictionary')
+    await expect(error).rejects.toMatchObject({
+      name: 'LexiconRefusedError',
+      status: 422,
+      reason: 'invalid dictionary',
+      message: expect.stringContaining('422 invalid dictionary'),
+    })
+    await expect(error).rejects.toBeInstanceOf(LexiconRefusedError)
     await expect(error).rejects.not.toThrow('private-key')
+  })
+
+  test.each([
+    ['null', () => Response.json(null)],
+    ['HTML', () => new Response('<html>gateway</html>', { headers: { 'content-type': 'text/html' } })],
+    ['an empty id', () => Response.json({ id: '' })],
+  ])('refuses a successful reply containing %s instead of a dictionary id', async (_name, reply) => {
+    globalThis.fetch = (async () => reply()) as unknown as typeof fetch
+    await expect(
+      publishElevenLabsLexicon({
+        apiKey: () => 'secret',
+        name: 'Shared words',
+        lexicon: { entries: [{ term: 'route', say: 'root' }] },
+      }),
+    ).rejects.toMatchObject({ status: 200, reason: 'the reply named no dictionary id', message: expect.stringContaining('no dictionary id') })
+  })
+
+  test('publishes longer terms first and keeps equal-length terms in entry order', async () => {
+    let rules: Array<{ string_to_replace: string }> = []
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      rules = JSON.parse(String(init.body)).rules
+      return Response.json({ id: 'dictionary-a', version_id: 'version-a' })
+    }) as typeof fetch
+    await publishElevenLabsLexicon({
+      apiKey: () => 'secret',
+      name: 'Shared words',
+      lexicon: {
+        entries: [
+          { term: 'יום', say: 'yom' },
+          { term: 'טוב', say: 'tov' },
+          { term: 'יום טוב', say: 'yom tov' },
+        ],
+      },
+    })
+    expect(rules.map((rule) => rule.string_to_replace)).toEqual(['יום טוב', 'יום', 'טוב'])
+  })
+
+  test('updates rules longest first', async () => {
+    let rules: Array<{ string_to_replace: string }> = []
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      rules = JSON.parse(String(init.body)).rules
+      return Response.json({ id: 'dictionary-a', version_id: 'version-b' })
+    }) as typeof fetch
+    await publishElevenLabsLexicon({
+      apiKey: () => 'secret',
+      dictionaryId: 'dictionary-a',
+      name: 'Shared words',
+      lexicon: {
+        entries: [
+          { term: 'יום', say: 'yom' },
+          { term: 'טוב', say: 'tov' },
+          { term: 'יום טוב', say: 'yom tov' },
+        ],
+      },
+    })
+    expect(rules.map((rule) => rule.string_to_replace)).toEqual(['יום טוב', 'יום', 'טוב'])
+  })
+
+  test('archives a dictionary with its escaped id and reads the key at use time', async () => {
+    let request: { url: string; method: string | undefined; key: string | null; body: unknown } | undefined
+    let key = 'first'
+    globalThis.fetch = (async (url: string, init: RequestInit) => {
+      request = {
+        url,
+        method: init.method,
+        key: new Headers(init.headers).get('xi-api-key'),
+        body: JSON.parse(String(init.body)),
+      }
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+    const apiKey = () => key
+    key = 'second'
+    await archiveElevenLabsLexicon({ apiKey, dictionaryId: 'shared/dictionary' })
+    expect(request).toEqual({
+      url: 'https://api.elevenlabs.io/v1/pronunciation-dictionaries/shared%2Fdictionary',
+      method: 'PATCH',
+      key: 'second',
+      body: { archived: true },
+    })
+  })
+
+  test('archive exposes refusals and an aborted request rejects with the signal reason', async () => {
+    globalThis.fetch = (async () => new Response('dictionary is active', { status: 409 })) as unknown as typeof fetch
+    await expect(archiveElevenLabsLexicon({ apiKey: () => 'secret', dictionaryId: 'dictionary-a' })).rejects.toMatchObject({
+      status: 409,
+      reason: 'dictionary is active',
+    })
+
+    const controller = new AbortController()
+    controller.abort(new DOMException('Archiving cancelled', 'AbortError'))
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      if (init.signal?.aborted) throw init.signal.reason
+      return new Response(null, { status: 204 })
+    }) as typeof fetch
+    await expect(archiveElevenLabsLexicon({ apiKey: () => 'secret', dictionaryId: 'dictionary-a', signal: controller.signal })).rejects.toMatchObject({
+      name: 'AbortError',
+      message: 'Archiving cancelled',
+    })
   })
 })

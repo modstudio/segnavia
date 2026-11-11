@@ -316,9 +316,16 @@ touches.
 
 **A host owns one pronunciation lexicon, independent of the voice engine.**
 The lexicon is published as a native dictionary where the engine supports
-one, and otherwise a provider respells the script before synthesis. Captions
+one, with longer terms published first, and can be archived when retired.
+Refusals preserve the engine's status and reason. Otherwise a provider
+respells the script before synthesis. Captions
 keep the script's spelling: when the engine's aligned word count matches the
 script, each word takes the script's text and keeps its timing.
+
+**Synthesis cancellation crosses provider wrappers.** Narration forwards the
+host's abort signal and checks it after synthesis, before writing cached audio
+or timings. `alignedProvider` forwards the signal to synthesis only because its
+alignment seam takes no options.
 
 **An aligner that loses a word is refused.** One missing word would shift
 every cue after it.

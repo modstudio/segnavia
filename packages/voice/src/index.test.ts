@@ -48,7 +48,7 @@ describe('paced punctuation', () => {
 })
 
 import { afterEach, beforeEach } from 'bun:test'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { elevenLabsProvider, narrate, type VoiceProvider } from './index.ts'
@@ -114,6 +114,22 @@ describe('ElevenLabs provider', () => {
       model_id: 'eleven_multilingual_v2',
       voice_settings: { stability: 0.4, similarity_boost: 0.8, style: 0.2, speed: 1.1, use_speaker_boost: true },
     })
+  })
+
+  test('passes the per-synthesis abort signal to fetch', async () => {
+    const controller = new AbortController()
+    let signal: AbortSignal | null | undefined
+    globalThis.fetch = (async (_url: string, init: RequestInit) => {
+      signal = init.signal
+      return new Response(
+        JSON.stringify({
+          audio_base64: '',
+          alignment: { characters: ['word'], character_start_times_seconds: [0], character_end_times_seconds: [0.1] },
+        }),
+      )
+    }) as typeof fetch
+    await elevenLabsProvider({ voice: 'v', apiKey: () => 'k' }).synthesize('word', undefined, { signal: controller.signal })
+    expect(signal).toBe(controller.signal)
   })
 
   test('its identity includes the configured voice', () => {
@@ -292,5 +308,24 @@ describe('narration cache', () => {
     await narrate(provider, 'one', { cacheDirectory: directory, voice: 'other' })
     expect(voiced).toEqual(['one', 'two', 'one'])
     expect(again.audio).toMatch(/^[0-9a-f]{16}\.wav$/)
+  })
+
+  test('an abort during synthesis rejects and writes no cache files', async () => {
+    const controller = new AbortController()
+    const reason = new DOMException('Narration cancelled', 'AbortError')
+    const provider: VoiceProvider = {
+      id: 'aborting',
+      synthesize: async (_text, _voice, options) => {
+        expect(options?.signal).toBe(controller.signal)
+        controller.abort(reason)
+        return {
+          words: [{ text: 'one', startMs: 0, endMs: 100 }],
+          durationMs: 200,
+          audio: { bytes: new Uint8Array([1]), extension: 'wav' },
+        }
+      },
+    }
+    await expect(narrate(provider, 'one', { cacheDirectory: directory, signal: controller.signal })).rejects.toBe(reason)
+    expect(readdirSync(directory)).toEqual([])
   })
 })

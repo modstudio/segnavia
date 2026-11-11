@@ -12,8 +12,9 @@ import { remapCaptionWords, splitWords } from './captions.ts'
 
 export { splitWords } from './captions.ts'
 
-export { publishElevenLabsLexicon } from './elevenlabs-lexicon.ts'
+export { archiveElevenLabsLexicon, publishElevenLabsLexicon } from './elevenlabs-lexicon.ts'
 export { lexiconProvider } from './lexicon-provider.ts'
+export { LexiconRefusedError } from './lexicon-refusal.ts'
 
 export interface Speech {
   words: Word[]
@@ -37,6 +38,7 @@ export interface VoiceSettings {
 
 export interface VoiceSynthesisOptions {
   voiceSettings?: VoiceSettings
+  signal?: AbortSignal
 }
 
 export interface VoiceProvider {
@@ -119,6 +121,7 @@ export function elevenLabsProvider(options: {
     async synthesize(text, voice = options.voice, synthesisOptions) {
       const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice}/with-timestamps`, {
         method: 'POST',
+        signal: synthesisOptions?.signal,
         headers: { 'xi-api-key': options.apiKey(), 'content-type': 'application/json' },
         body: JSON.stringify({
           text,
@@ -172,8 +175,10 @@ export interface Narrated {
 export async function narrate(
   provider: VoiceProvider,
   text: string,
-  options: { cacheDirectory: string; voice?: string; voiceSettings?: VoiceSettings },
+  options: { cacheDirectory: string; voice?: string } & VoiceSynthesisOptions,
 ): Promise<Narrated> {
+  options.signal?.throwIfAborted()
+  // The signal is excluded because cancellation controls the work, not the audio it produces.
   const hash = createHash('sha256')
     .update(JSON.stringify([provider.id, options.voice ?? null, text, ...(options.voiceSettings === undefined ? [] : [options.voiceSettings])]))
     .digest('hex')
@@ -181,8 +186,15 @@ export async function narrate(
   mkdirSync(options.cacheDirectory, { recursive: true })
   const timings = path.join(options.cacheDirectory, `${hash}.json`)
   if (existsSync(timings)) return JSON.parse(readFileSync(timings, 'utf8')) as Narrated
-  const synthesisOptions = options.voiceSettings === undefined ? undefined : { voiceSettings: options.voiceSettings }
+  const synthesisOptions =
+    options.voiceSettings === undefined && options.signal === undefined
+      ? undefined
+      : {
+          ...(options.voiceSettings === undefined ? {} : { voiceSettings: options.voiceSettings }),
+          ...(options.signal === undefined ? {} : { signal: options.signal }),
+        }
   const speech = await provider.synthesize(text, options.voice, synthesisOptions)
+  options.signal?.throwIfAborted()
   let audio: string | null = null
   if (speech.audio) {
     audio = `${hash}.${speech.audio.extension}`
