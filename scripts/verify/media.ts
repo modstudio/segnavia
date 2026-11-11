@@ -48,6 +48,11 @@ function installFakes() {
 export async function verifyMedia(h: Harness) {
   const { page, check } = h
   await page.addInitScript(installFakes)
+  await page.addInitScript(() => {
+    const failures: unknown[] = []
+    Object.defineProperty(window, '__urlFontFailures', { value: failures })
+    window.addEventListener('fontfailure', (event) => failures.push(...((event as CustomEvent<{ failures: unknown[] }>).detail?.failures ?? [])))
+  })
   await page.goto(h.url('media.html'))
   await h.waitFor(PLAYER, (d) => d.slide === '1')
   const started = Date.now()
@@ -78,6 +83,19 @@ export async function verifyMedia(h: Harness) {
     .textContent({ timeout: 5000 })
     .catch(() => null)
   check('a slide the host serves at its own URL is shown', served === 'Served by the host', served ?? '')
+  const servedFont = await page
+    .frameLocator(`${PLAYER} iframe`)
+    .locator('#served')
+    .evaluate(async (heading) => {
+      await document.fonts.ready
+      return { family: getComputedStyle(heading).fontFamily, loaded: document.fonts.check('48px "Demo Alef"') }
+    })
+  const fontFailures = await page.evaluate(() => (window as unknown as { __urlFontFailures: unknown[] }).__urlFontFailures.length)
+  check(
+    "a host-served slide uses its deck's loaded font without a font failure",
+    servedFont.family.startsWith('"Demo Alef"') && servedFont.loaded && fontFailures === 0,
+    JSON.stringify({ ...servedFont, fontFailures }),
+  )
   await page.locator(`${PLAYER} segnavia-step[to="next"] button`).click()
   await h.waitFor(PLAYER, (d) => d.slide === '4')
   const alt = await page.locator(`${PLAYER} segnavia-stage img`).getAttribute('alt')

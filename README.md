@@ -279,7 +279,24 @@ An HTML slide may set `printAtMs` to choose the millisecond at which its CSS
 and Web Animations are frozen for `printDeck` and `deckPdf`; printing defaults
 to the slide's start at 0 ms. Scripted slides can listen for
 `segnavia:print` and pass drawing work to `event.detail.waitUntil(promise)`.
-Host-served URL slides have no Segnavia bridge and are unaffected.
+Printing does not add a bridge to host-served URL slides, so `printAtMs` does
+not affect them.
+
+A host can give a URL slide the same declared fonts as an HTML slide through
+the server-safe bridge entry:
+
+```ts
+import { bridgeForHost, resolveFonts } from '@segnavia/frame/bridge'
+
+const { css, failures } = await resolveFonts(deck.style.fonts, { source })
+// Include in the served page:
+const head = `<style>${css}</style><script nonce="${nonce}">${bridgeForHost({ fonts: deck.style.fonts })}</script>`
+// Declare the slide content with { kind: 'url', src, bridge: true }.
+```
+
+`failures` contains faces the source could not supply. The bridge waits for
+the declared faces in the served page, reports any that did not load, and
+then reports ready to the stage.
 
 Capture an app through its own adapter:
 

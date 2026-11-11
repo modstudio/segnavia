@@ -129,6 +129,11 @@ export async function resolveFontReferences(
   return { css: fontCss({ app, local: fonts.local ?? [] }), failures: failures.slice(0, FONT_FAILURE_LIMIT) }
 }
 
+export function resolveFonts(fonts: FontManifest, options: FontsOptions & { signal?: AbortSignal }): Promise<ResolvedFonts> {
+  const signal = options.signal ?? new AbortController().signal
+  return resolveFontReferences(fonts, [], options, signal, 'fonts')
+}
+
 export async function resolvePageFonts(
   page: Pick<Page, 'id' | 'style'>,
   motifFonts: FontReference[],

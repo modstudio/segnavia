@@ -31,6 +31,7 @@ import { copyDemoBundles } from './copy-demo-bundles.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
 import { writeResponsiveDemo } from './demo-responsive-fixtures.ts'
+import { urlSlideFonts, urlSlideHtml } from './demo-url-slide.ts'
 import { sineWav } from './sine-wav.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -201,6 +202,7 @@ writeFileSync(
       type: 'document',
       kind: 'deck',
       title: 'Media',
+      style: { fonts: urlSlideFonts },
       children: [
         {
           type: 'slide',
@@ -222,16 +224,13 @@ writeFileSync(
             cues: [{ word: 6, annotation: 0 }],
           },
         },
-        { type: 'slide', id: 'url', content: { kind: 'url', src: 'slide-url.html' } },
+        { type: 'slide', id: 'url', content: { kind: 'url', src: 'slide-url.html', bridge: true } },
         { type: 'slide', id: 'image', content: { kind: 'image', src: `shots/${formShot.file}`, alt: 'The new class form' } },
       ],
     }),
   ),
 )
-writeFileSync(
-  path.join(SITE, 'slide-url.html'),
-  '<!doctype html><html><body style="margin:0;display:grid;place-content:center;height:100vh;font:48px system-ui"><h1 id="served">Served by the host</h1></body></html>',
-)
+writeFileSync(path.join(SITE, 'slide-url.html'), await urlSlideHtml(ROOT))
 
 writeFileSync(path.join(SITE, 'deck.json'), JSON.stringify(deck, null, 2))
 writeResponsiveDemo(SITE)

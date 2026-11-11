@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { AppFont, FontFace, FontSource } from '@segnavia/format'
-import { Imposition, Page as PageSchema } from '@segnavia/format'
+import { FontManifest, HEBREW_UNICODE_RANGE, Imposition, Page as PageSchema } from '@segnavia/format'
 import { fontCss, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { expandFramePage, expandPrintedFramePage } from './motif-expansion.ts'
 import {
@@ -10,6 +10,7 @@ import {
   notesSheetFontFamily,
   pageFontCss,
   resolveFontReferences,
+  resolveFonts,
   resolveNotesFontCss,
   resolvePageFonts,
 } from './page-fonts.ts'
@@ -36,6 +37,37 @@ const letterhead = {
   versions: [{ lang: 'en', html: '<header style="font-family: var(--segnavia-font-heading)">Head</header>' }],
   fonts: [{ app: 'heading' as const }],
 }
+
+describe('resolveFonts', () => {
+  test('writes a supplied Hebrew face, its custom property and unicode range', async () => {
+    const manifest = FontManifest.parse({ hebrew: { faces: [{ script: 'hebrew' }], generic: 'serif' } })
+    const face = { ...serifFace, unicodeRange: HEBREW_UNICODE_RANGE }
+    const resolved = await resolveFonts(manifest, {
+      source: source({ hebrew: { family: 'Body Serif', faces: [face], generic: 'serif' } }),
+    })
+
+    expect(resolved.failures).toEqual([])
+    expect(resolved.css).toContain('@font-face{font-family:"Body Serif"')
+    expect(resolved.css.replaceAll(' ', '')).toContain(`unicode-range:${HEBREW_UNICODE_RANGE}`)
+    expect(resolved.css).toContain('--segnavia-font-hebrew:"Body Serif",serif')
+  })
+
+  test('reports each face a source does not supply', async () => {
+    const resolved = await resolveFonts({ missing: { faces: [{ weight: 400 }, { weight: 700 }] } }, { source: source({}) })
+
+    expect(resolved.failures).toEqual([
+      { font: 'missing', family: 'missing', weight: 400, reason: 'unsupplied' },
+      { font: 'missing', family: 'missing', weight: 700, reason: 'unsupplied' },
+    ])
+  })
+
+  test('refuses an invalid app font name', async () => {
+    await expect(resolveFonts({ 'x}body{': { faces: [{}] } }, { source: source({}) })).rejects.toThrow(FontRefusedError)
+    await expect(resolveFonts({ 'x}body{': { faces: [{}] } }, { source: source({}) })).rejects.toThrow(
+      'fonts could not establish an app font name matching /^[a-z0-9-]+$/ ("x}body{"); use a lowercase name of letters, digits and hyphens to clear this refusal.',
+    )
+  })
+})
 
 describe('resolvePageFonts', () => {
   test('asks each app name once and writes faces plus custom properties', async () => {
