@@ -20,6 +20,11 @@ success only when every job below succeeds:
   PDF's output intent, so the press-color checks proof against a profile of a
   real press condition: FOGRA39L, or macOS's Generic CMYK where that is present.
 
+The poppler install steps use `scripts/ci/apt-install.sh`, which points the
+runner at the 1.1.1.1 and 9.9.9.9 public resolvers for the apt run only and
+retries apt. This keeps a fault in the runner's default resolver for the Ubuntu
+mirrors from failing the job.
+
 CI installs Chrome for Testing and passes its executable path to the demo and
 rendering scripts through `SEGNAVIA_CHROMIUM`. Each job caches Bun's install
 cache by `bun.lock`.
