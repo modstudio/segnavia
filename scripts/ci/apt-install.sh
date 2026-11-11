@@ -4,11 +4,34 @@
 
 set -euo pipefail
 
+resolver_drop_in=/etc/systemd/resolved.conf.d/fallback-dns.conf
+
+# shellcheck disable=SC2329 # Invoked indirectly by the EXIT trap.
+cleanup_resolver() {
+  local status=$?
+
+  if ! sudo rm -f "$resolver_drop_in"; then
+    printf '%s\n' 'Warning: could not remove the fallback resolver configuration.' >&2
+  fi
+  if ! sudo systemctl restart systemd-resolved; then
+    printf '%s\n' 'Warning: could not restart systemd-resolved after removing the fallback.' >&2
+  fi
+
+  return "$status"
+}
+
 if systemctl is-active --quiet systemd-resolved; then
-  sudo mkdir -p /etc/systemd/resolved.conf.d
-  printf '%s\n' '[Resolve]' 'DNS=1.1.1.1 9.9.9.9' 'Domains=~.' |
-    sudo tee /etc/systemd/resolved.conf.d/fallback-dns.conf >/dev/null
-  sudo systemctl restart systemd-resolved
+  if ! sudo mkdir -p /etc/systemd/resolved.conf.d; then
+    printf '%s\n' 'Warning: could not create the fallback resolver configuration directory; continuing.' >&2
+  elif ! printf '%s\n' '[Resolve]' 'DNS=1.1.1.1 9.9.9.9' 'Domains=~.' |
+    sudo tee "$resolver_drop_in" >/dev/null; then
+    printf '%s\n' 'Warning: could not write the fallback resolver configuration; continuing.' >&2
+  else
+    trap cleanup_resolver EXIT
+    if ! sudo systemctl restart systemd-resolved; then
+      printf '%s\n' 'Warning: could not restart systemd-resolved with the fallback; continuing.' >&2
+    fi
+  fi
 else
   printf '%s\n' 'Warning: systemd-resolved is not active; continuing with the current resolver.' >&2
 fi
