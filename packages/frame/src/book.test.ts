@@ -90,13 +90,16 @@ describe('book element input', () => {
   test('a failed fetch fires error with its message', async () => {
     globalThis.fetch = (async () => new Response(null, { status: 503 })) as unknown as typeof fetch
     const { book } = element()
-    let detail: unknown
+    let error: ErrorEvent | undefined
     ;(book as unknown as { dispatchEvent: (event: Event) => boolean }).dispatchEvent = (event) => {
-      detail = (event as CustomEvent).detail
+      error = event as ErrorEvent
       return true
     }
     await book.attributeChangedCallback('src', null, 'https://example.test/book.json')
-    expect(detail).toEqual({ message: 'The book at https://example.test/book.json answered 503.' })
+    expect(error).toBeInstanceOf(ErrorEvent)
+    expect(error?.message).toBe('The book at https://example.test/book.json answered 503.')
+    expect(error?.error).toBeInstanceOf(Error)
+    expect(error?.error.message).toBe('The book at https://example.test/book.json answered 503.')
   })
 
   test('the frame description uses book direction, security policy and labels', () => {
@@ -169,7 +172,7 @@ describe('book element input', () => {
     const { book, attributes } = reflectedBookElement()
     const errors: string[] = []
     book.dispatchEvent = ((event: Event) => {
-      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      if (event.type === 'error') errors.push((event as ErrorEvent).message)
       return true
     }) as typeof book.dispatchEvent
 
@@ -197,7 +200,7 @@ describe('book fonts', () => {
     ;(book as unknown as { mountFrames: (view: Parameters<typeof bookFrame>[0], css: string | undefined) => void }).mountFrames = (view, css) =>
       mounted.push(bookFrame(view, { css, spread, layout: book.layout }))
     book.dispatchEvent = ((event: Event) => {
-      if (event.type === 'error') errors.push((event as CustomEvent).detail)
+      if (event.type === 'error') errors.push((event as ErrorEvent).error)
       return true
     }) as typeof book.dispatchEvent
     book.fonts = {
@@ -295,6 +298,11 @@ describe('book fonts', () => {
       value: { addEventListener() {}, removeEventListener() {} },
     })
     const book = new SegnaviaBook()
+    let error: unknown
+    book.dispatchEvent = ((event: ErrorEvent) => {
+      error = event.error
+      return true
+    }) as typeof book.dispatchEvent
     let connected = false
     Object.defineProperty(book, 'isConnected', { configurable: true, get: () => connected })
     ;(book as unknown as { hasAttribute: () => boolean }).hasAttribute = () => true
@@ -312,6 +320,7 @@ describe('book fonts', () => {
     for (let i = 0; i < 8; i += 1) await Promise.resolve()
     globalThis.document = previousDocument
     globalThis.window = previousWindow
+    expect(error).toBeUndefined()
     expect(frames.at(-1)?.srcdoc).toContain('--segnavia-font-serif:"Body Serif",serif')
   })
 
@@ -354,29 +363,25 @@ describe('book fonts', () => {
 
   test('named app fonts without a FontSource surface through the error event', async () => {
     const book = new SegnaviaBook()
-    let detail: unknown
+    let message: string | undefined
     book.dispatchEvent = ((event: Event) => {
-      detail = (event as CustomEvent).detail
+      message = (event as ErrorEvent).message
       return true
     }) as typeof book.dispatchEvent
     book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { serif: { faces: [{}] } } } }
-    for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
-    expect(detail).toEqual({
-      message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
-    })
+    for (let i = 0; i < 8 && message === undefined; i += 1) await Promise.resolve()
+    expect(message).toBe('book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.')
   })
 
   test('a local font fallback without a FontSource surfaces through the error event', async () => {
     const book = new SegnaviaBook()
-    let detail: unknown
+    let message: string | undefined
     book.dispatchEvent = ((event: Event) => {
-      detail = (event as CustomEvent).detail
+      message = (event as ErrorEvent).message
       return true
     }) as typeof book.dispatchEvent
     book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { local: { local: 'Local Face', fallback: 'serif' } } } }
-    for (let i = 0; i < 8 && detail === undefined; i += 1) await Promise.resolve()
-    expect(detail).toEqual({
-      message: 'book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.',
-    })
+    for (let i = 0; i < 8 && message === undefined; i += 1) await Promise.resolve()
+    expect(message).toBe('book "Named book" could not establish app font "serif"; supply a FontSource to clear this refusal.')
   })
 })

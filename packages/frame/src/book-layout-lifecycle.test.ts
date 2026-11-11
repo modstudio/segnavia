@@ -103,7 +103,7 @@ describe('book layout lifecycle', () => {
     const { book, attributes } = reflectedBookElement()
     const errors: string[] = []
     book.dispatchEvent = ((event: Event) => {
-      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      if (event.type === 'error') errors.push((event as ErrorEvent).message)
       return true
     }) as typeof book.dispatchEvent
     const withoutFlow = switchableBookView()
@@ -124,7 +124,7 @@ describe('book layout lifecycle', () => {
     const { book, attributes } = reflectedBookElement()
     const errors: string[] = []
     book.dispatchEvent = ((event: Event) => {
-      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      if (event.type === 'error') errors.push((event as ErrorEvent).message)
       return true
     }) as typeof book.dispatchEvent
 
@@ -241,7 +241,7 @@ describe('book layout lifecycle', () => {
     const { book, frames } = reflectedBookElement()
     const events: string[] = []
     book.dispatchEvent = ((event: Event) => {
-      events.push(event.type === 'error' ? (event as CustomEvent<{ message: string }>).detail.message : event.type)
+      events.push(event.type === 'error' ? (event as ErrorEvent).message : event.type)
       return true
     }) as typeof book.dispatchEvent
     book.view = switchableBookView()
@@ -258,7 +258,7 @@ describe('book layout lifecycle', () => {
     const { book, frames } = reflectedBookElement()
     const errors: string[] = []
     book.dispatchEvent = ((event: Event) => {
-      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      if (event.type === 'error') errors.push((event as ErrorEvent).message)
       return true
     }) as typeof book.dispatchEvent
     book.view = switchableBookView()
@@ -292,7 +292,7 @@ describe('book layout lifecycle', () => {
     const { book, attributes, frames } = reflectedBookElement()
     const errors: string[] = []
     book.dispatchEvent = ((event: Event) => {
-      if (event.type === 'error') errors.push((event as CustomEvent<{ message: string }>).detail.message)
+      if (event.type === 'error') errors.push((event as ErrorEvent).message)
       return true
     }) as typeof book.dispatchEvent
     book.view = switchableBookView()

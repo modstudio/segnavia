@@ -22,6 +22,7 @@ import { DocumentAsOfElement } from './document-as-of-element.ts'
 import { mountDocumentPage } from './document-page-mount.ts'
 import { documentSheets } from './document-sheets.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead } from './document-value-load.ts'
+import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -288,7 +289,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
         this.filledHtml = undefined
         this.resolvedSlots = undefined
         this.resolvedGeneration = 0
-        this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+        dispatchElementError(this, error)
       })
   }
 
@@ -385,7 +386,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       .then(commit)
       .catch((error) => {
         if (controller.signal.aborted || documents !== this.sourceDocuments) return
-        this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+        dispatchElementError(this, error)
       })
   }
   private changed() {

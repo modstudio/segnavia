@@ -89,9 +89,10 @@ export function liveBoardItem(
   let mounting = true
   const onError = (event: Event) => {
     event.stopPropagation()
-    const error = (event as CustomEvent).detail
-    if (mounting) loadError = error
-    else failed(error)
+    const errorEvent = event as ErrorEvent
+    const failure = errorEvent.error ?? errorEvent.message
+    if (mounting) loadError = failure
+    else failed(failure)
   }
   book.addEventListener('error', onError)
   applyFrameInputs(book, inputs)
