@@ -6,6 +6,6 @@
 
 Resolve a deck's or book's as-of day in server PDF and image renders, fill its reserved as-of bindings, and date deterministic output from that day.
 
-`@segnavia/html` exports `fillDeckAsOfBindings`, `fillBookAsOfBindings` and `mapBookHtml` for the shared deck and book binding walks.
+`@segnavia/html` exports `fillDeckAsOfBindings`, `fillBookAsOfBindings`, `mapBookHtml` and `bindBookRecordValues` for the shared deck and book binding walks.
 
 `expandFrameBookValue` from `@segnavia/frame/motifs` takes the as-of `day` before `profile`, as `expandFramePage` does. A caller that passes `profile` positionally moves it one place later. `resolveDeckMedia` and `resolveMediaContent` from `@segnavia/frame/print-document` take an optional trailing `day`.

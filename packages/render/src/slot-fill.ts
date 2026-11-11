@@ -1,6 +1,7 @@
 import { type AsOfDay, type Book, type Deck, isDesignedSection, isPart, isTemplatedSection, type Page } from '@segnavia/format'
 import {
   assertSingleSlotCopy,
+  bindBookRecordValues,
   bindRecordValues,
   fillBookAsOfBindings,
   fillDeckAsOfBindings,
@@ -151,12 +152,7 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
   if (refusal) throw refusal
   const prepared = await prepareSlots(book.slots, slots, signal)
   refuseRequired(prepared)
-  const value = hasSlotWork(book.slots, slots)
-    ? mapBookHtml(book, (html, entry, slotFill = true) => {
-        if (!slotFill) return html
-        return prepared.apply(entry ? bindRecordValues(entry).html : html)
-      })
-    : book
+  const value = hasSlotWork(book.slots, slots) ? mapBookHtml(bindBookRecordValues(book), prepared.apply) : book
   return { value, slots: prepared }
 }
 

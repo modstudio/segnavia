@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
-import { Deck, isDesignedSection, isTemplatedSection, Page } from '@segnavia/format'
-import { parseBookFixture, RequiredSlotsRefusedError, resolvePrintedPageHtml, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
+import { Book, Deck, isDesignedSection, isTemplatedSection, Page } from '@segnavia/format'
+import { bookDocument, parseBookFixture, RequiredSlotsRefusedError, resolvePrintedPageHtml, SlotFillRefusedError, SlotFillsConflictError } from '@segnavia/html'
 import { renderPagePdf } from './page-render.ts'
 import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
 
@@ -54,6 +54,30 @@ test('filledBook applies host values to a part opening and its nested chapter', 
   const nested = part !== undefined && 'name' in part ? part.children[0] : undefined
   expect(part !== undefined && 'name' in part && part.html).toContain('Lincoln School')
   expect(nested !== undefined && 'html' in nested && nested.html).toContain('Lincoln School')
+})
+
+test('filledBook binds a chapter record once before applying host slots', async () => {
+  const book = Book.parse({
+    title: 'Records',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    slots: [{ key: 'host.name', label: 'Host name', type: 'text' }],
+    body: [
+      {
+        id: 'one',
+        title: 'One',
+        html: '<p data-slot-value="record.name"></p><p data-slot-value="host.name"></p>',
+        values: { 'record.name': 'Ada' },
+        record: { index: 1, count: 1 },
+        recordTemplate: { name: 'row', slots: [{ key: 'record.name', label: 'Name', type: 'text' }] },
+      },
+    ],
+  })
+  const { value } = await filledBook(book, { fill: { id: 'host', values: { 'host.name': 'School' } } })
+  const chapter = value.body[0]
+
+  expect(chapter && 'values' in chapter ? chapter.values : undefined).toBeUndefined()
+  expect(() => bookDocument(value)).not.toThrow()
 })
 
 test('filledBook refuses a missing required slot by name', async () => {

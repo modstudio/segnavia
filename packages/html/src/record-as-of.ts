@@ -9,9 +9,10 @@ import {
   isTemplatedSection,
 } from '@segnavia/format'
 import { fillAsOfBindings } from './as-of-bindings.ts'
+import { bindRecordValues } from './record-values.ts'
 
 type BookEntry = BookFrontMatterEntry | BookChapterEntry
-type BookHtmlMapper = (html: string, entry?: BookEntry & { html: string }, slotFill?: boolean) => string
+type BookHtmlMapper = (html: string) => string
 
 function mapBookEntry<T extends BookEntry>(entry: T, apply: BookHtmlMapper): T {
   if (isDesignedSection(entry)) return { ...entry, pages: entry.pages.map((page) => ({ ...page, html: apply(page.html) })) }
@@ -24,34 +25,51 @@ function mapBookEntry<T extends BookEntry>(entry: T, apply: BookHtmlMapper): T {
       })),
     }
   }
-  if ('html' in entry) return { ...entry, html: apply(entry.html as string, entry as BookEntry & { html: string }) } as T
+  if ('html' in entry) return { ...entry, html: apply(entry.html as string) } as T
   return entry
 }
 
-function mapBookItems(items: Book['body'], apply: BookHtmlMapper): Book['body'] {
+function mapBookItems(items: Book['body'], applyEntry: (entry: BookEntry) => BookEntry, applyPartHtml: BookHtmlMapper): Book['body'] {
   return items.map((entry) => {
-    if (!isPart(entry)) return mapBookEntry(entry, apply)
-    return { ...entry, ...(entry.html === undefined ? {} : { html: apply(entry.html) }), children: mapBookItems(entry.children, apply) }
+    if (!isPart(entry)) return applyEntry(entry)
+    return {
+      ...entry,
+      ...(entry.html === undefined ? {} : { html: applyPartHtml(entry.html) }),
+      children: mapBookItems(entry.children, applyEntry, applyPartHtml),
+    }
   })
 }
 
-/** Maps every HTML string carried by a book through one function. */
-export function mapBookHtml(book: Book, apply: BookHtmlMapper): Book {
+function mapBookEntries(book: Book, applyEntry: (entry: BookEntry) => BookEntry, applyPartHtml: BookHtmlMapper = (html) => html): Book {
   return {
     ...book,
-    frontMatter: mapBookItems(book.frontMatter, apply),
-    body: mapBookItems(book.body, apply),
-    endMatter: mapBookItems(book.endMatter, apply),
-    templates: book.templates.map((template) => ({ ...template, html: apply(template.html) })),
-    parentPages: book.parentPages.map((parent) => ({
-      ...parent,
-      regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: apply(region.html, undefined, false) }])),
-    })),
+    frontMatter: mapBookItems(book.frontMatter, applyEntry, applyPartHtml),
+    body: mapBookItems(book.body, applyEntry, applyPartHtml),
+    endMatter: mapBookItems(book.endMatter, applyEntry, applyPartHtml),
   }
 }
 
+/** Maps section, part and template HTML carried by a book through one function. */
+export function mapBookHtml(book: Book, apply: BookHtmlMapper): Book {
+  return {
+    ...mapBookEntries(book, (entry) => mapBookEntry(entry, apply), apply),
+    templates: book.templates.map((template) => ({ ...template, html: apply(template.html) })),
+  }
+}
+
+export function bindBookRecordValues(book: Book): Book {
+  return mapBookEntries(book, (entry) => ('html' in entry ? (bindRecordValues(entry) as BookEntry) : entry))
+}
+
 export function fillBookAsOfBindings(book: Book, day: AsOfDay): Book {
-  return mapBookHtml(book, (html) => fillAsOfBindings(html, day))
+  const filled = mapBookHtml(book, (html) => fillAsOfBindings(html, day))
+  return {
+    ...filled,
+    parentPages: book.parentPages.map((parent) => ({
+      ...parent,
+      regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: fillAsOfBindings(region.html, day) }])),
+    })),
+  }
 }
 
 export function fillDeckAsOfBindings(deck: Deck, day: AsOfDay): Deck {
