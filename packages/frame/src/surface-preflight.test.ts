@@ -19,6 +19,8 @@ test('receive dispatches a merged report with measured coverage', () => {
   seen.coordinator.setSurface(surface('first', 'second'), true)
   seen.coordinator.receive('second', report())
   expect(seen.reports.at(-1)).toMatchObject({ status: 'incomplete', coverage: { measured: 1, total: 2 } })
+  seen.coordinator.receive('first', report())
+  expect(seen.reports.at(-1)).toMatchObject({ status: 'clean', coverage: { measured: 2, total: 2 } })
 })
 
 test('a later report for the same key replaces the earlier report', () => {
