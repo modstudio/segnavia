@@ -203,6 +203,8 @@ export interface ImageOptions extends RenderOptions {
   width?: number
 }
 
+export type SlideImageOptions = ImageOptions & { preflight?: RenderPreflightOptions }
+
 export interface PageImageOptions extends ImageOptions, AsOfInputs {
   preflight?: RenderPreflightOptions
 }

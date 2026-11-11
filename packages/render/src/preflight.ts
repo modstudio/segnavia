@@ -1,9 +1,12 @@
 import {
+  appendSlotOversetEntries,
   boundPreflightReport,
+  type FontFailure,
   type PreflightEntry,
   type PreflightProfile,
   type PreflightProfileInput,
   type PreflightReport,
+  preflightEnabled,
   preflightRefusal,
   resolvePreflightProfile,
 } from '@segnavia/format'
@@ -20,6 +23,54 @@ export interface ComposedPreflight {
   profile: PreflightProfile
   seed: PreflightEntry[]
   report?(report: PreflightReport): void
+}
+
+export interface SurfacePreflightCapture {
+  readonly fontFailures: readonly FontFailure[]
+  readonly slotFits: readonly Record<string, string>[]
+}
+
+export interface SurfacePreflight {
+  capture(location?: { readonly folio?: string }): (capture: SurfacePreflightCapture) => void
+  complete(): void
+}
+
+function fontMissingEntries(failures: readonly FontFailure[], location?: { readonly folio?: string }): PreflightEntry[] {
+  return failures.map((failure) => {
+    const details = [failure.weight === undefined ? undefined : `weight ${failure.weight}`, failure.style].filter(Boolean)
+    const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
+    return {
+      check: 'font-missing',
+      subject,
+      message: `Font face ${subject} is missing; supply and load that face to clear it.`,
+      ...(location === undefined ? {} : { location }),
+    }
+  })
+}
+
+export function completePreflight(preflight: ComposedPreflight | undefined, total: number): SurfacePreflight | undefined {
+  if (!preflight || !preflightEnabled(preflight.profile)) return undefined
+  const captures: Array<SurfacePreflightCapture & { location?: { readonly folio?: string } }> = []
+  return {
+    capture: (location) => (capture) => captures.push({ ...capture, ...(location === undefined ? {} : { location }) }),
+    complete: () => {
+      const entries: PreflightEntry[] = []
+      captures.sort((left, right) => Number(left.location?.folio ?? 0) - Number(right.location?.folio ?? 0))
+      for (const capture of captures) {
+        for (const slots of capture.slotFits) appendSlotOversetEntries(slots, entries, capture.location)
+        for (const entry of fontMissingEntries(capture.fontFailures, capture.location)) {
+          if (!entries.some((held) => held.check === entry.check && held.subject === entry.subject)) entries.push(entry)
+        }
+      }
+      const report = boundPreflightReport(
+        { entries, facts: { pageCount: total, pages: [], fits: [] }, coverage: { measured: total, total } },
+        preflight.profile,
+      )
+      preflight.report?.(report)
+      const refusal = preflightRefusal(report)
+      if (refusal) throw new RenderRefusedError(refusal)
+    },
+  }
 }
 
 export function resolveRenderPreflight(preflight: RenderPreflightOptions | undefined): ComposedPreflight | undefined {

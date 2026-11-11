@@ -15,9 +15,31 @@ type Same<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Valu
 const sharedCoverInput: Same<Parameters<Renderer['coverImage']>[0], Parameters<typeof coverDigest>[0]> = true
 void sharedCoverInput
 
+let slotFit = { type: 'segnavia:slot-fit', slots: { title: 'fit' } }
+const tab = {
+  setContent: async () => {},
+  evaluate(callback: (...args: never[]) => unknown) {
+    if (String(callback).includes('document.fonts')) return Promise.resolve(true)
+    if (String(callback).includes('__segnaviaSlotFit')) return Promise.resolve([slotFit])
+    return Promise.resolve(null)
+  },
+  waitForFunction: async () => {},
+  screenshot: async () => new Uint8Array([1, 2, 3]),
+  on: () => tab,
+}
+const context = {
+  addInitScript: async () => {},
+  route: async () => {},
+  routeWebSocket: async () => {},
+  newPage: async () => tab,
+  close: async () => {},
+}
+
 const browser = {
+  newContext: async () => context,
   isConnected: () => true,
   on: () => browser,
+  off: () => browser,
   close: async () => {},
 }
 
@@ -70,4 +92,38 @@ test('keeps PNG and refuses a non-positive or fractional width', () => {
 test('refuses a missing options object by naming the width', () => {
   expect(() => coverImagePlan(cover, undefined)).toThrow('Cover image width is undefined; use a positive integer pixel width')
   expect(() => coverImagePlan(cover, null)).toThrow('Cover image width is undefined; use a positive integer pixel width')
+})
+
+test.each([
+  ['default', 'warnings'],
+  ['strict', 'refuses'],
+] as const)('coverImage %s preflight reports an overset slot and %s', async (profile, outcome) => {
+  slotFit = { type: 'segnavia:slot-fit', slots: { title: 'overflowed' } }
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const reports: Array<{ status: string; issues: readonly { location?: unknown }[] }> = []
+  try {
+    const input = {
+      page: {
+        type: 'document' as const,
+        kind: 'page' as const,
+        data: { slots: [{ key: 'title', label: 'Title', type: 'text' as const, overflow: 'truncate' as const }] },
+        children: [{ type: 'page' as const, body: { html: '<h1 data-slot-value="title">Title</h1>' } }],
+      },
+    }
+    const rendering = renderer.coverImage(input, {
+      width: 160,
+      format: 'png',
+      slots: { fill: { id: 'host', values: { title: 'A very long title' } } },
+      preflight: { profile, report: (report) => reports.push(report) },
+    })
+    if (outcome === 'refuses') await expect(rendering).rejects.toThrow('Slot title is overset')
+    else expect(await rendering).toEqual(new Uint8Array([1, 2, 3]))
+    expect(reports).toHaveLength(1)
+    expect(reports[0]?.status).toBe(profile === 'strict' ? 'errors' : 'warnings')
+    expect(reports[0]?.issues[0]?.location).toBeUndefined()
+  } finally {
+    slotFit = { type: 'segnavia:slot-fit', slots: { title: 'fit' } }
+    await renderer.close()
+  }
 })

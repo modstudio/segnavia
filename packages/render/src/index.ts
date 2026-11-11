@@ -35,7 +35,7 @@ import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce, finishPdf } from './pdf-finish.ts'
-import { withPreflightSeed } from './preflight.ts'
+import { completePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
@@ -76,6 +76,7 @@ export type {
   PageImageOptions,
   ProofImageOptions,
   RenderOptions,
+  SlideImageOptions,
 } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
@@ -267,7 +268,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const established = contexts.pages[0] as EstablishedPageDay
         const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, established, 'screen')
         refuseProgressUnlessOneComposition(options, pageCompositionCount([prepared.page]))
-        return renderPreparedPageImage(prepared, options, deadline, withTab)
+        return renderPreparedPageImage(prepared, options, deadline, withTab, completePreflight(options.preflight, 1))
       })
     },
 
@@ -325,7 +326,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async deckPdf(input, opts = {}) {
-      opts = parseRenderOptions(opts)
+      opts = parseComposedRenderOptions(opts)
       refuseProgressUnlessOneComposition(opts, 0)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)
@@ -364,7 +365,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async slideImage(input, index, opts = {}) {
-      opts = parseRenderOptions(opts)
+      opts = parseComposedRenderOptions(opts)
       refuseProgressUnlessOneComposition(opts, 0)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, opts.newId, opts.brandSource, deadline.signal)

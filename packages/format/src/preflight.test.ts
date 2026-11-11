@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import {
+  appendSlotOversetEntries,
   boundPreflightReport,
   PREFLIGHT_CHECKS,
   PREFLIGHT_ISSUES_PER_CHECK,
@@ -99,4 +100,36 @@ describe('boundPreflightReport', () => {
     expect(preflightRefusal(report)).toBeUndefined()
     expect(boundPreflightReport({ entries: [], facts: { pageCount: -1 } }, PREFLIGHT_PRESETS.default).facts).toEqual({ pageCount: 0, pages: [], fits: [] })
   })
+
+  test.each([
+    ['errors', [entry('region-overset')], { measured: 0, total: 1 }, { 'region-overset': 'error' }],
+    ['warnings', [entry('region-overset')], { measured: 0, total: 1 }, { 'region-overset': 'warning' }],
+    ['incomplete', [], { measured: 0, total: 1 }, {}],
+    ['clean', [], { measured: 1, total: 1 }, {}],
+  ] as const)('gives %s precedence over lower report states', (status, entries, coverage, profile) => {
+    expect(boundPreflightReport({ entries, facts, coverage }, resolvePreflightProfile(profile)).status).toBe(status)
+  })
+
+  test('bounds coverage and treats missing or invalid coverage as complete', () => {
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: PREFLIGHT_PAGES_LIMIT + 2, total: PREFLIGHT_PAGES_LIMIT + 1 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({
+      measured: PREFLIGHT_PAGES_LIMIT,
+      total: PREFLIGHT_PAGES_LIMIT,
+    })
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 2, total: 1 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({ measured: 1, total: 1 })
+    expect(boundPreflightReport({ entries: [], facts }, PREFLIGHT_PRESETS.default).coverage).toEqual({ measured: 1, total: 1 })
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: -1, total: 2 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({ measured: 1, total: 1 })
+  })
+})
+
+test('slot overset entries keep one subject and may carry a surface location', () => {
+  const entries = [entry('region-overset')]
+  appendSlotOversetEntries({ title: 'overflowed', body: 'fit' }, entries, { folio: '2' })
+  appendSlotOversetEntries({ title: 'overflowed' }, entries, { folio: '3' })
+  expect(entries.at(-1)).toEqual({
+    check: 'slot-overset',
+    subject: 'title',
+    message: 'Slot title is overset; shorten its value or enlarge the slot to clear it.',
+    location: { folio: '2' },
+  })
+  expect(entries).toHaveLength(2)
 })

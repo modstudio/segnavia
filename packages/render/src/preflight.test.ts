@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { PREFLIGHT_PRESETS } from '@segnavia/format'
 import { RenderRefusedError } from './errors.ts'
-import { handlePreflightAttribute } from './preflight.ts'
+import { completePreflight, handlePreflightAttribute, resolveRenderPreflight } from './preflight.ts'
 
 const facts = { pageCount: 1, pages: [{ folio: '1' }], fits: [] }
 
@@ -39,4 +39,50 @@ test('malformed composed attributes refuse through the render channel', () => {
   expect(() => handlePreflightAttribute('{', PREFLIGHT_PRESETS.default)).toThrow(
     'The composed preflight report could not be read; compose the document again to clear this refusal.',
   )
+})
+
+test('surface preflight reports bounded slide issues with full coverage', () => {
+  const reports: unknown[] = []
+  const preflight = completePreflight(resolveRenderPreflight({ profile: 'default', report: (report) => reports.push(report) }), 3)
+  preflight?.capture({ folio: '2' })({
+    slotFits: [{ title: 'overflowed' }],
+    fontFailures: [{ font: 'body', family: 'Body', reason: 'unsupplied' }],
+  })
+  preflight?.complete()
+  expect(reports).toEqual([
+    {
+      status: 'warnings',
+      issues: [
+        {
+          check: 'slot-overset',
+          subject: 'title',
+          message: 'Slot title is overset; shorten its value or enlarge the slot to clear it.',
+          id: 'slot-overset:title',
+          severity: 'warning',
+          location: { folio: '2' },
+        },
+        {
+          check: 'font-missing',
+          subject: 'Body',
+          message: 'Font face Body is missing; supply and load that face to clear it.',
+          id: 'font-missing:Body',
+          severity: 'warning',
+          location: { folio: '2' },
+        },
+      ],
+      omitted: {},
+      facts: { pageCount: 3, pages: [], fits: [] },
+      coverage: { measured: 3, total: 3 },
+    },
+  ])
+})
+
+test('surface preflight reports before refusing strict issues and stays silent when off', () => {
+  const calls: string[] = []
+  const strict = completePreflight(resolveRenderPreflight({ profile: 'strict', report: () => calls.push('report') }), 1)
+  strict?.capture()({ slotFits: [{ title: 'overflowed' }], fontFailures: [] })
+  expect(() => strict?.complete()).toThrow('Slot title is overset')
+  expect(calls).toEqual(['report'])
+  expect(completePreflight(resolveRenderPreflight({ profile: 'off', report: () => calls.push('off') }), 1)).toBeUndefined()
+  expect(calls).toEqual(['report'])
 })
