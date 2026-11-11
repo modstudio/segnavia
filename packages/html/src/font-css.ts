@@ -44,7 +44,8 @@ function faceRefusal(font: FontFace, problem: string, remedy: string): FontCssRe
 }
 
 function isCssWeight(value: FontFace['weight']): boolean {
-  return fontWeightRange(value) !== null
+  // A supplied face is CSS text or a number; an array is a declaration's range, which CSS cannot read.
+  return (value === undefined || typeof value === 'number' || typeof value === 'string') && fontWeightRange(value) !== null
 }
 
 function isFontFormat(value: FontFace['format']): value is FontFormat {
