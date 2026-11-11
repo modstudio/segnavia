@@ -727,11 +727,25 @@ edge, as it uses `findActiveContent` for HTML. Generated font CSS
 comes first, then book CSS, then the host render `css` option, so the host
 retains the final override in every render view.
 
+A host that serves a URL slide resolves the deck's manifest through the
+server-safe bridge entry, includes both the resulting CSS and the bridge in
+the served page. Its `resolveSlide` seam returns the URL as resolved content
+with `bridge: true`; `bridge` is not part of a deck document and
+`Document.parse` drops such a key. The complete host recipe is in
+[Host-served URL slide fonts](../README.md#host-served-url-slide-fonts).
+
+The host reports the resolver's `unsupplied` failures at its own boundary.
+The bridge waits for every declared face, reports `unloaded` failures, and
+then tells the stage it is ready. The stage remains sandboxed without
+same-origin and relays the bounded failure report by trusted `event.source`;
+this adds no inbound frame message.
+
 | Seam | Where | What the host supplies |
 |---|---|---|
 | `registerDiagramProvider` | `@segnavia/frame/diagrams` | A `() => Promise<string>` provider for the complete offline diagram script. `@segnavia/diagrams` exports the lazy provider and its `/auto` entry registers it. |
 | `Host` and `HostSession` | `capture/src/host.ts` | Session setup (`context`, `contextFor(flow)`), CSS to hide account details, per-flow `extras` (an API client, seeded data, a CLI bridge), `beforeNavigate` (wait for capacity), `observe` (watch responses), `refuseShot` (veto a broken screen), `close`. |
 | `resolveSlide` | `DeckController` option and property; `<segnavia-player>` property | Content minted when a slide is shown: a single-use ticket URL, a signed image, a fresh shot. |
+| `resolveFonts` | `@segnavia/frame/bridge` | Resolves a deck font manifest through the host's `FontSource` into embeddable CSS and bounded `unsupplied` failures for a host-served URL slide. |
 | `contentFor` | `DeckController` | Resolved content for a neighbor without navigating; the stage shares the controller's prefetch cache. |
 | `go`, `goToSlide` | `DeckController` | Navigate by the deck's current index or by stable slide id. `goToSlide` resolves true when the deck is on that slide afterward, and false for an unknown id or a navigation that did not land there. A navigation that waited on a navigation guard while a new deck loaded is dropped, never applied to the new deck. |
 | `addNavigationGuard` | `DeckController` | Register a load and cross-slide navigation guard. Guards are awaited in registration order; the returned function removes that guard. A rejection takes the controller's `error` path. Seek policy refuses a locked target before consulting guards. |
@@ -1392,8 +1406,9 @@ window.addEventListener('segnavia:print', (event) => {
 ```
 
 Image, font and authored print waits share the existing four-second print
-deadline; a wait that never settles cannot hold printing beyond it. A
-host-served URL slide has no Segnavia bridge, so `printAtMs` does not affect it.
+deadline; a wait that never settles cannot hold printing beyond it. A host may
+include a bridge in the URL slide it serves, but printing adds no
+bridge to a host-served URL slide, so `printAtMs` does not affect it.
 The live stage and thumbnails do not pass a print moment and never freeze.
 
 The notes layout belongs to the slide whose number it carries. The sheet sets

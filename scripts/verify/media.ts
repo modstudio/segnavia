@@ -1,6 +1,7 @@
 // Recorded audio driving a slide, live speech in the narration's language,
 // host-served and image slides, full screen, and a host's style in a slide.
 
+import { URL_SLIDE_FONT_FAMILY } from '../demo-url-slide.ts'
 import type { Harness } from './harness.ts'
 
 const PLAYER = 'segnavia-player'
@@ -48,6 +49,16 @@ function installFakes() {
 export async function verifyMedia(h: Harness) {
   const { page, check } = h
   await page.addInitScript(installFakes)
+  await page.addInitScript(() => {
+    const failures: unknown[] = []
+    Object.defineProperty(window, '__urlFontFailures', { value: failures })
+    window.addEventListener('fontfailure', (event) => failures.push(...((event as CustomEvent<{ failures: unknown[] }>).detail?.failures ?? [])))
+    const readySources: MessageEventSource[] = []
+    Object.defineProperty(window, '__urlReadySources', { value: readySources })
+    window.addEventListener('message', (event) => {
+      if (event.data?.type === 'segnavia:ready' && event.source) readySources.push(event.source)
+    })
+  })
   await page.goto(h.url('media.html'))
   await h.waitFor(PLAYER, (d) => d.slide === '1')
   const started = Date.now()
@@ -78,6 +89,32 @@ export async function verifyMedia(h: Harness) {
     .textContent({ timeout: 5000 })
     .catch(() => null)
   check('a slide the host serves at its own URL is shown', served === 'Served by the host', served ?? '')
+  const servedFont = await page
+    .frameLocator(`${PLAYER} iframe`)
+    .locator('#served')
+    .evaluate(async (heading, family) => {
+      await document.fonts.ready
+      return { family: getComputedStyle(heading).fontFamily, loaded: document.fonts.check(`48px "${family}"`) }
+    }, URL_SLIDE_FONT_FAMILY)
+  const bridgeFacts = await page.evaluate(() => {
+    const player = document.querySelector('segnavia-player') as HTMLElement & { controller: { state: { content: { bridge?: true } | null } } }
+    const frame = player.shadowRoot?.querySelector<HTMLIFrameElement>('segnavia-stage .segnavia-stage__canvas[data-slide-id="url"] iframe')
+    const readySources = (window as unknown as { __urlReadySources: MessageEventSource[] }).__urlReadySources
+    return {
+      declared: player.controller.state.content?.bridge === true,
+      ready: frame?.contentWindow ? readySources.includes(frame.contentWindow) : false,
+      fontFailures: (window as unknown as { __urlFontFailures: unknown[] }).__urlFontFailures.length,
+    }
+  })
+  check(
+    "a bridged host-served slide reports ready and uses its deck's loaded font without a font failure",
+    bridgeFacts.declared &&
+      bridgeFacts.ready &&
+      servedFont.family.startsWith(`"${URL_SLIDE_FONT_FAMILY}"`) &&
+      servedFont.loaded &&
+      bridgeFacts.fontFailures === 0,
+    JSON.stringify({ ...servedFont, ...bridgeFacts }),
+  )
   await page.locator(`${PLAYER} segnavia-step[to="next"] button`).click()
   await h.waitFor(PLAYER, (d) => d.slide === '4')
   const alt = await page.locator(`${PLAYER} segnavia-stage img`).getAttribute('alt')
