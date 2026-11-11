@@ -82,10 +82,13 @@ export function measuredDecorationBoxes(element: Element, origin: number, elemen
       )
     }
     const rect = candidate.getBoundingClientRect()
+    const borderTop = Number.parseFloat(style.borderBlockStartWidth) || 0
+    const collapsedCell =
+      (candidate.tagName === 'TH' || candidate.tagName === 'TD') && getComputedStyle(candidate.closest('table') ?? candidate).borderCollapse === 'collapse'
     boxes.push({
-      top: rect.top - origin,
+      top: rect.top - origin + (collapsedCell ? borderTop : 0),
       bottom: rect.bottom - origin,
-      borderTop: Number.parseFloat(style.borderBlockStartWidth) || 0,
+      borderTop,
       borderBottom: Number.parseFloat(style.borderBlockEndWidth) || 0,
       background: backgroundPaints(style.backgroundColor, style.backgroundImage),
       shadows,
@@ -249,24 +252,26 @@ export function measureTableLines(element: Element, origin: number): MeasuredLin
       }
       return { top: rowBox.top - origin, bottom: rowBox.bottom - origin, boxes }
     })
-  const lines = tableRowLines(rows)
+  const rowLines = rows.map((row) => tableRowLines([row]))
   const collapsed = getComputedStyle(element).borderCollapse === 'collapse'
   const collapsedBorderOutset = (row: Element | undefined, edge: 'Start' | 'End') => {
     if (!collapsed || !row) return 0
-    return Math.max(0, ...Array.from(row.querySelectorAll(':scope > th, :scope > td')).map((cell) => Number.parseFloat(getComputedStyle(cell)[`borderBlock${edge}Width`]) || 0)) / 2
+    return Math.max(0, ...Array.from(row.querySelectorAll(':scope > th, :scope > td')).map((cell) => Number.parseFloat(getComputedStyle(cell)[`borderBlock${edge}Width`]) || 0))
   }
+  for (let index = 1; index < rowLines.length; index++) {
+    const previous = rowLines[index - 1]?.at(-1)
+    const next = rowLines[index]?.[0]
+    if (!previous || !next) continue
+    const outset = Math.max(collapsedBorderOutset(rowElements[index - 1], 'End'), collapsedBorderOutset(rowElements[index], 'Start'))
+    if (outset <= 0) continue
+    previous.decorationBottom = Math.max(previous.decorationBottom ?? previous.bottom, previous.bottom + outset)
+    next.top += outset
+  }
+  const lines = rowLines.flat()
   const first = lines[0]
-  if (first) {
-    first.top = Math.min(first.top, tableBox.top - origin)
-    const top = tableBox.top - origin - collapsedBorderOutset(rowElements[0], 'Start')
-    if (top < first.top) first.decorationTop = top
-  }
+  if (first) first.top = Math.min(first.top, tableBox.top - origin)
   const last = lines.at(-1)
-  if (last) {
-    last.bottom = Math.max(last.bottom, tableBox.bottom - origin)
-    const bottom = tableBox.bottom - origin + collapsedBorderOutset(rowElements.at(-1), 'End')
-    if (bottom > last.bottom) last.decorationBottom = bottom
-  }
+  if (last) last.bottom = Math.max(last.bottom, tableBox.bottom - origin)
   return lines
 }
 
