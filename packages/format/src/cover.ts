@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { bytesToHex } from './bytes-to-hex.ts'
 import { DocumentField } from './document.ts'
 import { pageFromDocument } from './document-lowering.ts'
 import type { Motif } from './motif.ts'
@@ -117,7 +118,7 @@ export async function digestCoverMaterial(material: CoverDigestMaterial): Promis
     motifs: orderedMotifs(material.motifs),
   })
   const digest = await subtle.digest('SHA-256', new TextEncoder().encode(canonical))
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return bytesToHex(new Uint8Array(digest))
 }
 
 export function coverDigestMaterial(cover: Cover, options: CoverDigestOptions): CoverDigestMaterial {

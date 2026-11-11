@@ -8,6 +8,7 @@ import getReleasePlan from '@changesets/get-release-plan'
 import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../architecture.ts'
 import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
+import { checkRandomUuidSource } from './checks/random-uuid-source.ts'
 import { type ChangesetRelease, checkReleasePlan, type DeclaredChangeset } from './checks/release-plan.ts'
 import {
   checkBunEngine,
@@ -17,7 +18,6 @@ import {
   checkHostNames,
   checkImports,
   checkManifest,
-  checkRandomUuidSource,
   checkReactDependencies,
   checkSourceResolution,
   checkTypeScriptSuppressions,
@@ -75,6 +75,7 @@ function workspaces(): Map<string, Workspace> {
 
 const PATTERNS = ['packages/*/src/**/*.ts', 'packages/*/test-fixtures/**/*.ts', 'scripts/**/*.ts', 'fixtures/**/*.ts', 'architecture.ts']
 const TEST_PATTERNS = ['packages/**/*.{ts,tsx,js,jsx,mts,mtsx,mjs,mjsx,cts,ctsx,cjs,cjsx}', 'scripts/**/*.{ts,tsx,js,jsx,mts,mtsx,mjs,mjsx,cts,ctsx,cjs,cjsx}']
+// Test discovery intentionally excludes test helpers, which are support modules rather than suites.
 const TEST_FILE = /\.(test|spec)\.[mc]?[jt]sx?$/
 
 function sources(): string[] {

@@ -5,9 +5,6 @@ import { BUN_SUPPORTED_PACKAGES, FILE_CEILING_LINES, type PackageRule } from '..
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
 import { blankComments, comments, stripComments } from './source-text.ts'
 
-export { checkRandomUuidSource } from './random-uuid-source.ts'
-export { comments, stripComments }
-
 export interface SourceFile {
   path: string
   text: string

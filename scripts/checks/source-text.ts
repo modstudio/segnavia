@@ -19,24 +19,32 @@ function stringEnd(text: string, i: number): number | null {
   return j + 1
 }
 
+interface SourceRange {
+  start: number
+  end: number
+}
+
 // Splits source into its comments and everything else, skipping string and
 // template literals so a `//` inside one is never read as a comment.
-function scan(text: string): { code: string; comments: string[] } {
+function scan(text: string): { code: string; comments: SourceRange[]; literals: SourceRange[] } {
   let code = ''
-  const found: string[] = []
+  const comments: SourceRange[] = []
+  const literals: SourceRange[] = []
   let i = 0
   while (i < text.length) {
     const comment = commentEnd(text, i)
     if (comment !== null) {
-      found.push(text.slice(i, comment))
+      comments.push({ start: i, end: comment })
       i = comment
       continue
     }
-    const end = stringEnd(text, i) ?? i + 1
+    const literal = stringEnd(text, i)
+    const end = literal ?? i + 1
+    if (literal !== null) literals.push({ start: i, end: Math.min(end, text.length) })
     code += text.slice(i, end)
     i = end
   }
-  return { code, comments: found }
+  return { code, comments, literals }
 }
 
 export function stripComments(text: string): string {
@@ -44,18 +52,30 @@ export function stripComments(text: string): string {
 }
 
 export function comments(text: string): string[] {
-  return scan(text).comments
+  return scan(text).comments.map(({ start, end }) => text.slice(start, end))
+}
+
+function blankRanges(text: string, ranges: SourceRange[]): string {
+  const blanked = text.split('')
+  for (const { start, end } of ranges) {
+    for (let i = start; i < end; i += 1) if (blanked[i] !== '\n') blanked[i] = ' '
+  }
+  return blanked.join('')
 }
 
 // The source with each comment blanked to spaces but its line breaks kept, so
 // an offset into the result is on the same line as in the source.
 export function blankComments(text: string): string {
-  let blanked = text
-  let from = 0
-  for (const comment of comments(text)) {
-    const at = blanked.indexOf(comment, from)
-    blanked = blanked.slice(0, at) + comment.replace(/[^\n]/g, ' ') + blanked.slice(at + comment.length)
-    from = at + comment.length
-  }
-  return blanked
+  return blankRanges(text, scan(text).comments)
+}
+
+export function blankCommentsAndLiterals(text: string): string {
+  const { comments, literals } = scan(text)
+  return blankRanges(text, [...comments, ...literals])
+}
+
+export const TEST_FILE = /\.(?:test|spec|test-helper)\.[mc]?[jt]sx?$/
+
+export function isPackageSource(path: string): boolean {
+  return /^packages\/[^/]+\/src\//.test(path)
 }

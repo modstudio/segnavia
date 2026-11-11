@@ -1,4 +1,4 @@
-import type { Fill, SlotDeclaration, SlotsOptions } from '@segnavia/format'
+import { defaultNewId, type Fill, type SlotDeclaration, type SlotsOptions } from '@segnavia/format'
 import type { SegnaviaDocument } from '@segnavia/frame'
 import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import { attachItemSettings } from '@segnavia/frame/item-settings'
@@ -67,7 +67,7 @@ panel.addEventListener('segnavia-fill-select', (event) => {
 
 const handlers: Parameters<typeof attachItemSettings>[1] = {
   createFill: async ({ label }) => {
-    const fill: Fill = { id: `host-${crypto.randomUUID()}`, label, values: {} }
+    const fill: Fill = { id: `host-${defaultNewId()}`, label, values: {} }
     fills = [...fills, fill]
     return fill
   },
