@@ -2,7 +2,7 @@ import type { OriginApproval, Page, PageWidths, Print, SlotsOptions } from '@seg
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { internalPageLoad } from './document-value-load.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
-import { createPageElement } from './page.ts'
+import { createPageElement } from './page-element.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 

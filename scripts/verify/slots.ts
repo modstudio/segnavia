@@ -8,7 +8,8 @@ export async function verifySlots(h: Harness) {
       'slotFacts' in window &&
       'slotPrintFacts' in window &&
       document.querySelectorAll('#mina iframe').length === 2 &&
-      document.querySelector('#filled-deck-thumbnail')?.shadowRoot?.querySelector('iframe'),
+      document.querySelector('#filled-deck-thumbnail')?.shadowRoot?.querySelector('iframe') &&
+      (window as unknown as { slotFacts?: { stagePreflight?: unknown } }).slotFacts?.stagePreflight,
   )
   await page.evaluate(() => {
     const probe = document.createElement('segnavia-page') as HTMLElement & { page: unknown }
@@ -43,6 +44,8 @@ export async function verifySlots(h: Harness) {
         refuseError?: string
         inlineRefuseElapsed: number
         failedAsset?: { slots: Record<string, string> }
+        stagePreflight?: { issues: Array<{ check: string; subject: string; location?: { folio?: string } }> }
+        stageScale?: number
       }
       slotPrintFacts: string
     }
@@ -80,6 +83,12 @@ export async function verifySlots(h: Harness) {
     JSON.stringify({ reports: facts.reports.filter((report) => report.fill === 'long-print'), marked: facts.shrink?.includes('data-slot-overflow') }),
   )
   check('an overflowed refuse slot blocks printPages with the named error', facts.refuseError?.includes('"name" (overflowed)') === true)
+  check(
+    'a stage frame detects slot overflow at a non-unit canvas scale',
+    facts.stageScale === 0.5 &&
+      facts.stagePreflight?.issues.some((issue) => issue.check === 'slot-overset' && issue.subject === 'name' && issue.location?.folio === '1') === true,
+    JSON.stringify({ scale: facts.stageScale, report: facts.stagePreflight }),
+  )
   check('an inline refuse slot reports and prints without waiting for the deadline', facts.inlineRefuseElapsed < 1800, `${facts.inlineRefuseElapsed}ms`)
   check('an invalid authored shrink marker cannot prevent page readiness', true)
 

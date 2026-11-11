@@ -71,8 +71,8 @@ export const slotLogo =
 export async function buildSlotDemo(site: string): Promise<void> {
   writeFileSync(
     path.join(site, 'slots.html'),
-    `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:32px;background:#e7e7e4;font:16px system-ui}.cards{display:flex;gap:24px;align-items:start}.settings{display:flex;gap:24px;align-items:start;margin-block-start:24px}.card{width:420px}segnavia-document{display:block}segnavia-page{display:block;width:336px}#filled-deck-thumbnail{display:block;inline-size:336px}segnavia-item-settings{display:block;inline-size:22rem;padding:1rem;background:#fff;color:#17324d}segnavia-item-settings input,segnavia-item-settings select,segnavia-item-settings button{font:14px system-ui}</style></head><body><h1>Filled business cards</h1><div class="cards"><segnavia-document id="mina" class="card"></segnavia-document><segnavia-document id="noah" class="card"></segnavia-document><segnavia-page id="unfilled"></segnavia-page><segnavia-page id="shrink-card"></segnavia-page><segnavia-thumbnail id="filled-thumbnail"></segnavia-thumbnail><segnavia-thumbnail id="filled-deck-thumbnail"></segnavia-thumbnail></div><div class="settings"><segnavia-item-settings id="card-settings"></segnavia-item-settings><segnavia-item-settings id="card-settings-rtl" dir="rtl" lang="he"></segnavia-item-settings></div><script type="module" src="segnavia.js"></script><script type="module">
-      import { printPages } from './segnavia.js'
+    `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:32px;background:#e7e7e4;font:16px system-ui}.cards{display:flex;gap:24px;align-items:start}.settings{display:flex;gap:24px;align-items:start;margin-block-start:24px}.card{width:420px}segnavia-document{display:block}segnavia-page{display:block;width:336px}#filled-deck-thumbnail{display:block;inline-size:336px}#overflow-stage{display:block;inline-size:168px;block-size:96px}segnavia-item-settings{display:block;inline-size:22rem;padding:1rem;background:#fff;color:#17324d}segnavia-item-settings input,segnavia-item-settings select,segnavia-item-settings button{font:14px system-ui}</style></head><body><h1>Filled business cards</h1><div class="cards"><segnavia-document id="mina" class="card"></segnavia-document><segnavia-document id="noah" class="card"></segnavia-document><segnavia-page id="unfilled"></segnavia-page><segnavia-page id="shrink-card"></segnavia-page><segnavia-thumbnail id="filled-thumbnail"></segnavia-thumbnail><segnavia-thumbnail id="filled-deck-thumbnail"></segnavia-thumbnail><segnavia-stage id="overflow-stage"></segnavia-stage></div><div class="settings"><segnavia-item-settings id="card-settings"></segnavia-item-settings><segnavia-item-settings id="card-settings-rtl" dir="rtl" lang="he"></segnavia-item-settings></div><script type="module" src="segnavia.js"></script><script type="module">
+      import { DeckController, printPages } from './segnavia.js'
       await customElements.whenDefined('segnavia-document')
       const pages = ${JSON.stringify(slotCardPages)}
       const declarations = ${JSON.stringify(cardSlots)}
@@ -117,6 +117,23 @@ export async function buildSlotDemo(site: string): Promise<void> {
         data: { slots: [{ key: 'name', label: 'Name', type: 'text' }] },
         children: [{ type: 'slide', id: 'card', content: { kind: 'html', html: '<p data-slot-value="name">Design Name</p>' } }],
       }
+      const overflowStage = document.getElementById('overflow-stage')
+      document.body.append(overflowStage)
+      overflowStage.style.setProperty('flex', '0 0 168px')
+      overflowStage.style.setProperty('inline-size', '168px')
+      overflowStage.style.setProperty('block-size', '96px')
+      const overflowController = new DeckController({ hash: null })
+      let stagePreflight
+      overflowStage.addEventListener('preflight', event => { stagePreflight = event.detail })
+      overflowStage.slots = { fill: { id: 'long-stage', values: { name: 'Alexandria Montgomery' } } }
+      overflowStage.controller = overflowController
+      await overflowController.load({
+        type: 'document', kind: 'deck', title: 'Scaled overflow', size: { width: 336, height: 192 },
+        data: { slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }] },
+        children: [{ type: 'slide', id: 'overflow', content: { kind: 'html', html: '<strong data-slot-value="name" style="display:block;inline-size:100px;block-size:96px;font-size:80px;white-space:nowrap">Design Name</strong>' } }],
+      })
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      window.dispatchEvent(new Event('resize'))
       let failedAsset
       const failing = { fill: { id: 'broken', values: { logo: { asset: 'missing' } } }, resolveAsset, report: report => { failedAsset = report } }
       const probe = document.createElement('segnavia-page')
@@ -159,7 +176,7 @@ export async function buildSlotDemo(site: string): Promise<void> {
         const check = () => settled() ? resolve() : setTimeout(check, 10)
         check()
       })
-      window.slotFacts = { reports, refuseError, inlineRefuseElapsed, get failedAsset() { return failedAsset } }
+      window.slotFacts = { reports, refuseError, inlineRefuseElapsed, get failedAsset() { return failedAsset }, get stagePreflight() { return stagePreflight }, get stageScale() { return overflowStage.fitted?.scale } }
       window.slotCard = { declarations, fills: { mina: ${JSON.stringify(firstCardFill)}, noah: ${JSON.stringify(secondCardFill)} }, resolveAsset }
       window.dispatchEvent(new Event('slot-card-ready'))
     </script><script type="module" src="slot-settings-demo.js"></script></body></html>`,

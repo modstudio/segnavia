@@ -17,12 +17,14 @@ import {
   type OriginApproval,
   PREFLIGHT_PRESETS,
   type PreflightProfile,
+  preflightEnabled,
   type Scripts,
 } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
+import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
@@ -31,6 +33,7 @@ import { escapeHtml } from './svg.ts'
 export type { SlotFitState } from './bridge-message.ts'
 export { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
 export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type SelectionMessage, selectionMessage } from './bridge-selection.ts'
+export { documentNeedsSlotFit } from './document-slot-fit.ts'
 export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
 
@@ -126,6 +129,8 @@ export interface FrameOptions {
   // Calls a host-provided binding after the library has established that the
   // document is ready. Server render uses this independently of author code.
   readyCallback?: string
+  // Plain page and slide frames establish only slot and font preflight facts.
+  preflight?: PreflightProfile
 }
 export const HEIGHT_REPORT_START_FUNCTION = 'startHeightReporting'
 
@@ -158,6 +163,7 @@ export function frameSandbox(scripts: Scripts | undefined): string {
 // layout wait, and readiness waits for that report. An element without a
 // layout box retries instead of reporting fit.
 function bridgeScript(options: FrameOptions): string {
+  const surfacePreflight = surfacePreflightOption(options.preflight)
   const readyCallback = options.readyCallback ? `var callback=window[${scriptJson(options.readyCallback)}];if(typeof callback==='function')callback();` : ''
   const keys = options.relayKeys === false ? '[]' : scriptJson(RELAYED_KEYS)
   const selection =
@@ -214,15 +220,18 @@ Object.defineProperty(window,'localStorage',{configurable:true,value:storage()})
       : ''
   const fontDeclarations = scriptJson(declaredFontLoads(options.fonts))
   const initialFontFailures = scriptJson(options.fontFailures ?? [])
-  const fontLoads = options.readyAfterAttribute
-    ? `Promise.resolve([]);var composerFontFailures=function(){try{var value=JSON.parse(document.documentElement.getAttribute('${FONT_FAILURE_ATTRIBUTE}')||'[]');return Array.isArray(value)?value:[];}catch(error){return [];}}`
-    : `${declaredFontLoadExpression('declarations')}.then(reportFontFailures)`
+  const fontLoads = options.readyAfterAttribute ? 'Promise.resolve([])' : `${declaredFontLoadExpression('declarations')}.then(reportFontFailures)`
+  const composerFontFailures = options.readyAfterAttribute
+    ? `var composerFontFailures=function(){try{var value=JSON.parse(document.documentElement.getAttribute('${FONT_FAILURE_ATTRIBUTE}')||'[]');return Array.isArray(value)?value:[];}catch(error){return [];}};`
+    : ''
   const reportComposerFontFailures = options.readyAfterAttribute ? 'reportFontFailures(composerFontFailures());' : ''
   const composerSlotFit = options.bridgeForHost ? 'window.segnaviaSlotFit=function(done){slotFit(done,false);};' : ''
+  const preflight = surfacePreflight ? embeddedSurfacePreflight(surfacePreflight, PREFLIGHT_ATTRIBUTE, MESSAGE.preflight) : ''
   return `(function(){
 ${storage}
 ${keepPassScript()}
 var post=function(m){parent.postMessage(m,'*')};
+${preflight}
 var keys=${keys};
 ${selection}
 ${heading}
@@ -273,11 +282,15 @@ ${heightReporter(options.reportHeight)}
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};
-var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return failures;};
-var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var fontLoads=${fontLoads};var diagrams=${DIAGRAM_READY_EXPR};
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(){${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return merged;};
+${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});var diagrams=${DIAGRAM_READY_EXPR};
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
+}
+
+function surfacePreflightOption(profile: PreflightProfile | undefined): PreflightProfile | undefined {
+  return profile && preflightEnabled(profile) ? profile : undefined
 }
 
 function escapeAttribute(value: string): string {
@@ -293,19 +306,6 @@ const SCRIPT_DIRECTIVES: Record<Scripts, (scriptOrigins: string) => string[]> = 
     "frame-src 'none'",
     'worker-src blob:',
   ],
-}
-
-// The overflow modes the bridge's slot fitting acts on; a `wrap` slot is never marked.
-const FITTED_SLOT_MODES = new Set(['shrink', 'truncate', 'refuse'])
-
-/** Whether filled HTML contains a slot whose overflow the bridge must fit. */
-export function documentNeedsSlotFit(html: string): boolean {
-  const marker = /\bdata-slot-overflow\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi
-  for (const match of html.matchAll(marker)) {
-    const value = match[1] ?? match[2] ?? match[3] ?? ''
-    if (FITTED_SLOT_MODES.has(value.split(':')[1] ?? '')) return true
-  }
-  return false
 }
 
 function rootAttributes(tag: string | undefined, options: Pick<FrameOptions, 'dir' | 'lang'>): string {

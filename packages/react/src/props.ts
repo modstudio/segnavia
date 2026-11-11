@@ -78,6 +78,7 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   reserve?: StageReserve
   slots?: SegnaviaStage['slots']
   brands?: SegnaviaStage['brands']
+  profile?: SegnaviaStage['profile']
   src?: string
   hash?: string
   prefetch?: boolean
@@ -89,6 +90,8 @@ export interface StageProps extends ElementProps<SegnaviaStage> {
   onSegnaviaFit?: CustomEventProp<FittedSize>
   onSegnaviaFrameMount?: CustomEventProp<StageFrameDetail>
   onSegnaviaFrameRelease?: CustomEventProp<StageFrameDetail>
+  onPreflight?: CustomEventProp
+  onFontfailure?: CustomEventProp
 }
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
@@ -147,6 +150,8 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   moment?: SegnaviaPage['moment']
   onAsof?: CustomEventProp<AsOfDay>
   onReady?: (event: Event) => void
+  onPreflight?: CustomEventProp
+  onFontfailure?: CustomEventProp
   pageWidths?: SegnaviaPage['pageWidths']
   profile?: SegnaviaPage['profile']
   src?: string
@@ -167,6 +172,8 @@ export interface BookProps extends ElementProps<SegnaviaBook> {
   spread?: boolean
   layout?: SegnaviaBook['layout']
   unstyled?: boolean
+  onPreflight?: CustomEventProp
+  onFontfailure?: CustomEventProp
 }
 
 export interface PaperProps extends ElementProps<SegnaviaPaper> {
@@ -199,6 +206,9 @@ export interface DocumentProps extends ElementProps<SegnaviaDocument> {
   asOf?: SegnaviaDocument['asOf']
   moment?: SegnaviaDocument['moment']
   onAsof?: CustomEventProp<AsOfDay>
+  profile?: SegnaviaDocument['profile']
+  onPreflight?: CustomEventProp
+  onFontfailure?: CustomEventProp
   pageWidths?: SegnaviaDocument['pageWidths']
   unstyled?: boolean
 }

@@ -83,13 +83,11 @@ test('collects overset entries only when preflight is enabled', () => {
 
 test('publishes preflight before refusing or marking composition complete', () => {
   const script = composerScript('{}')
-  const publish = script.indexOf(`setAttribute('${PREFLIGHT_ATTRIBUTE}',json)`)
-  const post = script.indexOf(`postMessage({type:'${MESSAGE.preflight}',report:report}`, publish)
-  const refusal = script.indexOf('var refusal=preflightRefusal(report)', post)
+  const publish = script.indexOf(`publishPreflightReport(report,'${PREFLIGHT_ATTRIBUTE}','${MESSAGE.preflight}'`)
+  const refusal = script.indexOf('var refusal=preflightRefusal(report)', publish)
   const composed = script.lastIndexOf(`setAttribute('${COMPOSED_ATTRIBUTE}','')`)
   expect(publish).toBeGreaterThan(0)
-  expect(post).toBeGreaterThan(publish)
-  expect(refusal).toBeGreaterThan(post)
+  expect(refusal).toBeGreaterThan(publish)
   expect(composed).toBeGreaterThan(refusal)
 })
 

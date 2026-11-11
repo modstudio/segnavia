@@ -109,6 +109,8 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/bridge.ts',
       'src/bridge-composition.ts',
       'src/bridge-message.ts',
+      'src/document-slot-fit.ts',
+      'src/embedded-preflight.ts',
       'src/bridge-selection.ts',
       'src/font-load.ts',
       'src/frame-style-sheets.ts',

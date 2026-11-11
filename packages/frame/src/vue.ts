@@ -1,4 +1,4 @@
-import type { AsOfDay } from '@segnavia/format'
+import type { AsOfDay, FontFailure, PreflightReport } from '@segnavia/format'
 import type { DefineComponent } from 'vue'
 import type {
   BoardChangeDetail,
@@ -71,6 +71,8 @@ type ElementClasses = {
 
 export interface FrameVueEventDetails {
   asof: AsOfDay
+  fontfailure: { failures: FontFailure[] }
+  preflight: PreflightReport
   ready: PlainEvent
   'segnavia-controller': unknown
   'segnavia-fit': FittedSize

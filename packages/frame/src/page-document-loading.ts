@@ -1,9 +1,8 @@
-import type { FontFailure, OriginApproval } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { type FrameOptions, frameDocument, newNonce } from './bridge.ts'
 import { hasDiagram, loadDiagramScript, withDiagramScript } from './diagram-document.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
-import { shownPageDocument } from './shown-page-document.ts'
+import { type ShownPageDocumentOptions, shownPageDocument } from './shown-page-document.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 type DiagramScriptLoader = (html: string) => Promise<string | undefined>
@@ -64,7 +63,7 @@ export function loadPageDocument(
 export function loadShownPageDocument(
   page: HtmlPage,
   resolved: PreparedSlots | undefined,
-  options: { baseCss?: string; css?: string; csp?: string; origins?: Iterable<OriginApproval>; fontFailures?: FontFailure[] },
+  options: ShownPageDocumentOptions,
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
