@@ -74,6 +74,7 @@ const stageEvents = reactEvents<StageProps>()(FRAME_ELEMENTS.stage.events, {
   'segnavia-frame-release': 'onSegnaviaFrameRelease',
   preflight: 'onPreflight',
   fontfailure: 'onFontfailure',
+  error: 'onError',
 })
 const thumbnailEvents = reactEvents<ThumbnailProps>()(FRAME_ELEMENTS.thumbnail.events, {
   'segnavia-thumbnail-error': 'onSegnaviaThumbnailError',
@@ -109,15 +110,23 @@ export const ELEMENTS = {
       ready: 'onReady',
       preflight: 'onPreflight',
       fontfailure: 'onFontfailure',
+      error: 'onError',
+      composeprogress: 'onComposeprogress',
     }),
   }),
   book: element<SegnaviaBook, BookProps, typeof FRAME_ELEMENTS.book.tag>({
     ...FRAME_ELEMENTS.book,
-    events: reactEvents<BookProps>()(FRAME_ELEMENTS.book.events, { preflight: 'onPreflight', fontfailure: 'onFontfailure' }),
+    events: reactEvents<BookProps>()(FRAME_ELEMENTS.book.events, {
+      preflight: 'onPreflight',
+      fontfailure: 'onFontfailure',
+      ready: 'onReady',
+      error: 'onError',
+      composeprogress: 'onComposeprogress',
+    }),
   }),
   paper: element<SegnaviaPaper, PaperProps, typeof FRAME_ELEMENTS.paper.tag>({
     ...FRAME_ELEMENTS.paper,
-    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, {}),
+    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, { fontfailure: 'onFontfailure', error: 'onError' }),
   }),
   document: element<SegnaviaDocument, DocumentProps, typeof FRAME_ELEMENTS.document.tag>({
     ...FRAME_ELEMENTS.document,
@@ -125,6 +134,7 @@ export const ELEMENTS = {
       asof: 'onAsof',
       preflight: 'onPreflight',
       fontfailure: 'onFontfailure',
+      error: 'onError',
     }),
   }),
   play: element<SegnaviaPlay, PlayProps, typeof FRAME_ELEMENTS.play.tag>({

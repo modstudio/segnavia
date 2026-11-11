@@ -12,7 +12,8 @@ export function bookSourceUrl(src: string): URL {
 
 export function reportBookError(element: HTMLElement, reason: unknown) {
   const message = reason instanceof Error ? reason.message : String(reason)
-  element.dispatchEvent(new CustomEvent('error', { detail: { message } }))
+  const error = reason instanceof Error ? reason : new Error(message)
+  element.dispatchEvent(new ErrorEvent('error', { message, error, bubbles: true, composed: true }))
 }
 
 export function showBookLayoutFrames(frames: Iterable<HTMLIFrameElement>, layout: BookLayout) {

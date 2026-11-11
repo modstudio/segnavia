@@ -74,6 +74,16 @@ describe('React element prop wiring', () => {
     expect(boardSelections).toBe(1)
   })
 
+  test('passes a book ErrorEvent to its onError prop', () => {
+    const element = new FakeElement()
+    let received: ErrorEvent | undefined
+    const cleanup = syncElementProps(ELEMENTS.book, element as unknown as HTMLElement, { onError: (event: ErrorEvent) => (received = event) }, {})
+    const dispatched = new ErrorEvent('error', { message: 'composition refused', error: new Error('composition refused') })
+    element.dispatchEvent(dispatched)
+    expect(received).toBe(dispatched)
+    cleanup()
+  })
+
   test('reflects the page bounded boolean as an attribute', () => {
     const element = new FakeElement()
     syncElementProps(ELEMENTS.page, element as unknown as HTMLElement, { bounded: true }, {})

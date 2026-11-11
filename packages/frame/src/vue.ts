@@ -1,4 +1,4 @@
-import type { AsOfDay, FontFailure, PreflightReport } from '@segnavia/format'
+import type { AsOfDay, ComposeProgress, FontFailure, PreflightReport } from '@segnavia/format'
 import type { DefineComponent } from 'vue'
 import type {
   BoardChangeDetail,
@@ -41,7 +41,7 @@ import type {
 import type { SegnaviaItemSettings } from './item-settings.ts'
 import type { SegnaviaPlayer } from './player-entry.ts'
 import type { StageFrameDetail } from './stage-frame-events.ts'
-import type { Assert, ElementPropertyWrites, EventProps, PlainEvent } from './vue-types.ts'
+import type { Assert, ElementPropertyWrites, EventProps, NativeEvent, PlainEvent } from './vue-types.ts'
 
 type ElementClasses = {
   stage: SegnaviaStage
@@ -74,6 +74,8 @@ export interface FrameVueEventDetails {
   fontfailure: { failures: FontFailure[] }
   preflight: PreflightReport
   ready: PlainEvent
+  error: NativeEvent<ErrorEvent>
+  composeprogress: ComposeProgress
   'segnavia-controller': unknown
   'segnavia-fit': FittedSize
   'segnavia-frame-mount': StageFrameDetail
@@ -120,6 +122,8 @@ type ComponentFor<K extends keyof typeof ELEMENT_PROPERTIES> = Partial<{
   [P in Extract<(typeof ELEMENT_PROPERTIES)[K]['properties'][number], keyof ElementClasses[K]>]: ComponentProperty<K, P>
 }> &
   EventProps<(typeof ELEMENT_PROPERTIES)[K]['events'], FrameVueEventDetails>
+type _BookErrorIsNative = Assert<Parameters<NonNullable<ComponentFor<'book'>['onError']>>[0] extends ErrorEvent ? true : false>
+type _BookReadyIsNative = Assert<Parameters<NonNullable<ComponentFor<'book'>['onReady']>>[0] extends Event ? true : false>
 type FrameGlobalComponents = {
   [K in keyof typeof ELEMENT_PROPERTIES as (typeof ELEMENT_PROPERTIES)[K]['tag']]: DefineComponent<ComponentFor<K>>
 }

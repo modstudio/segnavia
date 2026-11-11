@@ -95,14 +95,22 @@ test('the table covers every public frame element and safe event name', () => {
   expect(ELEMENT_PROPERTIES.board.properties).toContain('selected')
   expect(ELEMENT_PROPERTIES.board.properties).toContain('origins')
   expect(ELEMENT_PROPERTIES.page.properties).toContain('profile')
-  expect(ELEMENT_PROPERTIES.page.events).toContain('ready')
-  expect(ELEMENT_PROPERTIES.page.events).toEqual(expect.arrayContaining(['preflight', 'fontfailure']))
+  expect(ELEMENT_PROPERTIES.page.events).toEqual(['asof', 'ready', 'preflight', 'fontfailure', 'error', 'composeprogress'])
+  expect(ELEMENT_PROPERTIES.paper.events).toEqual(['fontfailure', 'error'])
   expect(ELEMENT_PROPERTIES.book.properties).toContain('profile')
-  expect(ELEMENT_PROPERTIES.book.events).toEqual(expect.arrayContaining(['preflight', 'fontfailure']))
-  for (const element of [ELEMENT_PROPERTIES.document, ELEMENT_PROPERTIES.stage]) {
-    expect(element.properties).toContain('profile')
-    expect(element.events).toEqual(expect.arrayContaining(['preflight', 'fontfailure']))
-  }
+  expect(ELEMENT_PROPERTIES.book.events).toEqual(['preflight', 'fontfailure', 'ready', 'error', 'composeprogress'])
+  expect(ELEMENT_PROPERTIES.document.properties).toContain('profile')
+  expect(ELEMENT_PROPERTIES.document.events).toEqual(['asof', 'preflight', 'fontfailure', 'error'])
+  expect(ELEMENT_PROPERTIES.stage.properties).toContain('profile')
+  expect(ELEMENT_PROPERTIES.stage.events).toEqual([
+    'segnavia-controller',
+    'segnavia-fit',
+    'segnavia-frame-mount',
+    'segnavia-frame-release',
+    'preflight',
+    'fontfailure',
+    'error',
+  ])
 })
 
 test('every declared property is an accessor on its element prototype', async () => {
