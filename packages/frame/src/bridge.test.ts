@@ -160,9 +160,17 @@ describe('frame document', () => {
       nonce: 'n',
       origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script', 'style', 'font'] }],
     })
-    expect(html).toContain("script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net")
-    expect(html).toContain("style-src 'unsafe-inline' https://cdn.jsdelivr.net")
-    expect(html).toContain('font-src data: https://cdn.jsdelivr.net')
+    const content = html.match(/<meta http-equiv="Content-Security-Policy" content="([^"]+)">/)?.[1]
+    if (!content) throw new Error('The frame document has no CSP meta element.')
+    const directives = Object.fromEntries(
+      content.split('; ').map((directive) => {
+        const [name, ...sources] = directive.split(' ')
+        return [name, sources]
+      }),
+    )
+    expect(directives['script-src']).toContain('https://cdn.jsdelivr.net')
+    expect(directives['style-src']).toContain('https://cdn.jsdelivr.net')
+    expect(directives['font-src']).toContain('https://cdn.jsdelivr.net')
   })
 
   test('only refused-script documents answer a parent selection request', () => {

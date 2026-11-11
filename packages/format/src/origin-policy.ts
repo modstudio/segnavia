@@ -50,6 +50,8 @@ export const DEFAULT_ORIGINS: readonly OriginApproval[] = [
   { origin: 'https://images.pexels.com', kinds: ['image'] },
   { origin: 'https://cdnjs.cloudflare.com', kinds: ['script'] },
   { origin: 'https://cdn.jsdelivr.net', kinds: ['script'] },
+  { origin: 'https://cdn.jsdelivr.net', kinds: ['style'], pathname: '/fontsource/css' },
+  { origin: 'https://cdn.jsdelivr.net', kinds: ['font'], pathname: '/fontsource/fonts' },
   { origin: 'https://unpkg.com', kinds: ['script'] },
   { origin: 'https://cdn.tailwindcss.com', kinds: ['script'] },
   { origin: 'https://code.jquery.com', kinds: ['script'] },
