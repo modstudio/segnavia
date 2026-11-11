@@ -1,17 +1,11 @@
 import type { OriginApproval, PageWidths, SlotsOptions } from '@segnavia/format'
-import { type AsOfElementProperties, defineAsOfPropertyAccessors } from './as-of-element.ts'
+import { AsOfElement } from './as-of-element.ts'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 
-export class ThumbnailProperties extends HTMLElement {
-  static {
-    defineAsOfPropertyAccessors(ThumbnailProperties.prototype)
-  }
-  declare anchors: AsOfElementProperties['anchors']
-  declare asOf: AsOfElementProperties['asOf']
-  declare moment: AsOfElementProperties['moment']
+export class ThumbnailProperties extends AsOfElement {
   private originOptions: readonly OriginApproval[] = []
   private stylesheet = ''
   protected baseUrl: string | undefined

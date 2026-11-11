@@ -645,12 +645,11 @@ host's `anchors.resolve`, `slots.resolve`, `MotifSource.data` and
 `placements.resolve`. The day is bindable under the reserved slot root `asOf`.
 `asOf.moment` is ISO 8601 text with the resolved zone's offset when the host
 supplied a moment, and is omitted for a fixed day or when the clock supplied the
-moment. The elements report it in an `asof` event, while `printPages`, `pagePdf`,
+moment. The elements report it in a non-bubbling `asof` event, while `printPages`, `pagePdf`,
 `pagesPdf`, `pageImage` and `coverImage` report it through `asOf.report`. A
 print or render whose pages resolve to distinct days under `slots.resolve` is
 refused so each day can be produced separately. An anchor the host cannot
-resolve refuses, naming the anchor. Book and deck surfaces do not take the
-moment yet on book surfaces.
+resolve refuses, naming the anchor. Book surfaces do not take the moment yet.
 
 The output of `pagePdf`, `pagesPdf`, `pageImage` and `coverImage` records that
 one established as-of day as its creation and modification date: in the PDF
@@ -822,7 +821,7 @@ Boards use the board profile of `DocumentOp`, so items, labels, sections and eve
 
 ## Player surface
 
-The player keeps `src`, `theme`, `notes`, `hash`, `prefetch`, transition attributes, `controller`, `resolveSlide`, `css`, `cspExtra`, `labels` and the `transition` property. `fit` is `width`, `height` or `contain`, with `contain` the default. Containment chooses the largest deck-ratio slide no wider than the player less `--segnavia-stage-gutter` on each side, for which the whole player fits within the visible viewport block size: the slide, caption, bar (via `measuredBarHeight`, including the flattened compact track, transport and host-action rows), `.below` slot, and, at compact below-controls, the stacked rail. This chrome is measured in one place for both fixed and responsive layouts. The slide has a 240px block-size floor, centers when height is limiting, and may scroll in a shorter viewport. `--segnavia-fit-reserve`, whose default is `0px`, subtracts only height the host keeps for its own page chrome; it is not for the player's caption, bar, `.below` slot or rail. The size responds to connection, player and viewport resizing, orientation changes, fit and control placement changes, a new or resized deck, presentation changes, and notes or rail toggles; playback ticks and scrolling do not remeasure it. At compact widths the player keeps its content height.
+The player keeps `src`, `theme`, `notes`, `hash`, `prefetch`, transition attributes, `controller`, `resolveSlide`, `css`, `cspExtra`, `labels`, `anchors`, `asOf`, `moment` and the `transition` property. `fit` is `width`, `height` or `contain`, with `contain` the default. Containment chooses the largest deck-ratio slide no wider than the player less `--segnavia-stage-gutter` on each side, for which the whole player fits within the visible viewport block size: the slide, caption, bar (via `measuredBarHeight`, including the flattened compact track, transport and host-action rows), `.below` slot, and, at compact below-controls, the stacked rail. This chrome is measured in one place for both fixed and responsive layouts. The slide has a 240px block-size floor, centers when height is limiting, and may scroll in a shorter viewport. `--segnavia-fit-reserve`, whose default is `0px`, subtracts only height the host keeps for its own page chrome; it is not for the player's caption, bar, `.below` slot or rail. The size responds to connection, player and viewport resizing, orientation changes, fit and control placement changes, a new or resized deck, presentation changes, and notes or rail toggles; playback ticks and scrolling do not remeasure it. At compact widths the player keeps its content height.
 
 `controls` is `below` by default or `overlay`. Overlay makes the player box equal the slide box and places the caption and bar over its bottom edge on `--segnavia-overlay-scrim`. The bar stays visible while paused or ended, during interaction and while a control has focus. During playback it hides after three seconds without pointer, touch or handled-key activity, and reveals before hidden controls can receive focus. The caption remains visible above the bar and moves to the slide's bottom edge when the bar hides. Reduced-motion readers receive no fade. The `actions` slot remains in the bar and the `below` slot remains outside the overlaid player box. With `rail`, the rail keeps its column at the inline start, or its row below the slide at narrow widths, and the overlay covers the slide alone. Presentation retains its existing layout, and existing narrow-layout rules still hide secondary controls.
 

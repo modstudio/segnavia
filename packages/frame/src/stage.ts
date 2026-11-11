@@ -1,13 +1,17 @@
-// <segnavia-stage> shows the current slide scaled to the host box, with no appearance or controls; hosts use `stage.controller`.
+// <segnavia-stage>: shows the current slide of a DeckController, scaled to
+// fit the box the host gives it, with a shot's annotations shown on cue. It
+// draws no controls and brings no appearance: a host styles it, and builds
+// its own controls from `stage.controller`.
 // Give it a controller, or a deck: attributes src, hash ("off" to leave the
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
-// State, active canvases and transition motion are mirrored as data attributes for styling.
+// State is mirrored as data attributes for styling: data-slide, data-playing,
+// data-word, data-shown, data-direction. A visible canvas has data-active, and
+// a pending incoming canvas on any swap has data-incoming. Motion uses
+// data-transition, data-entering, data-leaving, data-running and data-axis.
 
 import type { OriginApproval, PreflightProfileInput, SlotsOptions, TransitionInput } from '@segnavia/format'
-import { hasAsOfBinding } from '@segnavia/html'
-import { captureAsOfLoad } from './as-of-element.ts'
-import { prepareSurfaceSlots, resolveSurfaceDay } from './as-of-slots.ts'
+import { AsOfElement, captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
@@ -20,8 +24,8 @@ import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
-import { EMPTY_SLOTS, hasSlotWork, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
-import { StageAsOfElement } from './stage-as-of-element.ts'
+import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
+import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
 import { measureStage } from './stage-measure.ts'
 import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
@@ -32,7 +36,7 @@ import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
 
-export class SegnaviaStage extends StageAsOfElement {
+export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
     defineStagePropertyAccessors(SegnaviaStage.prototype)
@@ -248,7 +252,7 @@ export class SegnaviaStage extends StageAsOfElement {
       this.cancelSlotPreparation()
       this.slotGeneration++
       const refusal = slotFillRefusal(deck.scripts, deck.slots, this.slotOptions)
-      const refreshFrames = (!refusal && hasSlotWork(deck.slots, this.slotOptions)) || (state.content.kind === 'html' && hasAsOfBinding(state.content.html))
+      const refreshFrames = stageDayChangesFrames(deck, this.slotOptions, refusal !== undefined)
       const generation = this.slotGeneration
       const controller = new AbortController()
       const asOfLoad = captureAsOfLoad(this)
@@ -256,15 +260,11 @@ export class SegnaviaStage extends StageAsOfElement {
       this.slotDeck = deck
       this.resolvedSlots = EMPTY_SLOTS
       if (refusal) dispatchElementError(this, refusal)
-      void resolveSurfaceDay(deck, asOfLoad, refusal ? undefined : this.slotOptions, controller.signal)
-        .then(async (established) => ({
-          established,
-          resolved: await prepareSurfaceSlots(refusal ? undefined : deck.slots, established, controller.signal),
-        }))
+      void prepareStageDay(deck, asOfLoad, refusal ? undefined : deck.slots, refusal ? undefined : this.slotOptions, controller.signal)
         .then(({ established, resolved }) => {
           if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
           this.resolvedSlots = resolved
-          this.dispatchEvent(new CustomEvent('asof', { detail: established.day, bubbles: true, composed: true }))
+          dispatchAsof(this, established.day)
           if (refreshFrames) this.rebuildFrames()
         })
         .catch((error) => {

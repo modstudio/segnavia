@@ -1,21 +1,25 @@
 import { type Deck, type Document, type DocumentInput, deckFromDocument, type Page, Print, type PrintInput, pageFromDocument } from '@segnavia/format'
-import { parseDocument } from '@segnavia/html'
-import { captureAsOfLoad } from './as-of-element.ts'
-import { type EstablishedSurfaceDay, prepareSurfaceSlots, resolveSurfaceDay } from './as-of-slots.ts'
+import { type EstablishedPageDay, hasAsOfBinding, parseDocument } from '@segnavia/html'
+import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
+import { prepareSurfaceSlots, resolveSurfaceDay } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { BoardFrameInputs } from './board-frame-inputs.ts'
 import type { BrandsOptions } from './brands.ts'
-import { type ControllerOptions, DeckController } from './controller.ts'
+import { type ControllerOptions, DeckController, type ResolvedContent } from './controller.ts'
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 import { internalThumbnailDeckLoad, internalThumbnailPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
-import { slotFillRefusal } from './slot-render.ts'
+import { hasSlotWork, slotFillRefusal } from './slot-render.ts'
 import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 import { ThumbnailProperties } from './thumbnail-properties.ts'
+
+function thumbnailDayChangesCanvas(deck: Deck, content: ResolvedContent, slots: ThumbnailProperties['slots'], refused: boolean): boolean {
+  return refused || hasSlotWork(deck.slots, slots) || (content.kind === 'html' && hasAsOfBinding(content.html))
+}
 
 export class SegnaviaThumbnail extends ThumbnailProperties {
   private margin = 400
@@ -218,7 +222,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     try {
       const established = await resolveSurfaceDay(page, asOfLoad, this.slotOptions, slotPreparation.signal)
       if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-      this.dispatchEvent(new CustomEvent('asof', { detail: established.day, bubbles: true, composed: true }))
+      dispatchAsof(this, established.day)
       this.mountPage(established)
     } catch (error) {
       if (slotPreparation.signal.aborted || !this.isConnected || !isCurrentThumbnailResolution(resolution, this.resolution)) return
@@ -256,9 +260,16 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
       this.slotPreparation = slotPreparation
       try {
         const established = await resolveSurfaceDay(deck, asOfLoad, refusal ? undefined : this.slotOptions, slotPreparation.signal)
+        const refreshCanvas = thumbnailDayChangesCanvas(deck, content, this.slotOptions, refusal !== undefined)
+        if (!refreshCanvas) {
+          if (this.isConnected && !slotPreparation.signal.aborted && isCurrentThumbnailResolution(resolution, this.resolution)) {
+            dispatchAsof(this, established.day)
+          }
+          return
+        }
         const slots = await prepareSurfaceSlots(refusal ? undefined : deck.slots, established, slotPreparation.signal)
         if (!this.isConnected || slotPreparation.signal.aborted || !isCurrentThumbnailResolution(resolution, this.resolution)) return
-        this.dispatchEvent(new CustomEvent('asof', { detail: established.day, bubbles: true, composed: true }))
+        dispatchAsof(this, established.day)
         const filled = thumbnailCanvas(controller, deck, slide, this.slideIndex, content, this.css, slots, this.origins)
         filled.part.add('canvas')
         this.viewport.replaceChildren(filled)
@@ -329,7 +340,7 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     })
   }
 
-  private mountPage(established?: EstablishedSurfaceDay) {
+  private mountPage(established?: EstablishedPageDay) {
     mountThumbnailPage(
       this.viewport,
       this.pageValue,

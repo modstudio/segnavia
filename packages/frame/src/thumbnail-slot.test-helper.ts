@@ -3,6 +3,7 @@ import { Deck, type SlotsOptions } from '@segnavia/format'
 class TestElement extends EventTarget {}
 export class TestNode extends TestElement {
   children: TestNode[] = []
+  replacements = 0
   className = ''
   srcdoc = ''
   dataset: Record<string, string> = {}
@@ -19,6 +20,7 @@ export class TestNode extends TestElement {
   }
 
   replaceChildren(...nodes: TestNode[]) {
+    this.replacements++
     this.children = nodes
   }
 

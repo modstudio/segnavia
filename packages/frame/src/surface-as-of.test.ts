@@ -54,7 +54,10 @@ function stageHarness(controller: InstanceType<typeof DeckController>) {
       hasMountedFrame: () => false,
       clear() {},
       update(state: DeckState, _controller: unknown, options: { slots: typeof EMPTY_SLOTS }) {
-        if (state.content?.kind === 'html') html.push(options.slots.apply(state.content.html))
+        const contents = stage.neighbors && state.deck?.scripts === 'refuse' ? state.deck.slides.map((slide) => slide.content) : [state.content]
+        for (const content of contents) {
+          if (content && 'kind' in content && content.kind === 'html') html.push(options.slots.apply(content.html))
+        }
       },
     },
     frameRebuilder: { rebuild: () => stage.update(controller.state) },
@@ -90,6 +93,28 @@ test('stage reports and binds the deck day, then reloads with a host moment', as
   asOfSetter(stage, 'moment', Date.parse('2026-11-15T12:00:00Z'))
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(days.at(-1)).toEqual({ date: '2026-11-15', zone: 'UTC', kind: 'current', moment: Date.parse('2026-11-15T12:00:00Z') })
+})
+
+test('stage repaints an as-of-bound neighbor when its day resolves and changes', async () => {
+  const controller = new DeckController({ hash: null })
+  await controller.loadDeckValue({
+    title: 'Neighbor day',
+    scripts: 'refuse',
+    asOf: { kind: 'current' },
+    slides: [
+      { id: 'shown', content: { kind: 'html', html: '<p>Shown</p>' } },
+      { id: 'neighbor', content: { kind: 'html', html: '<time data-slot-value="asOf.date">placeholder</time>' } },
+    ],
+  })
+  const { stage, html } = stageHarness(controller)
+  stage.neighbors = true
+  asOfSetter(stage, 'moment', Date.parse('2026-11-14T12:00:00Z'))
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(html.at(-1)).toContain('2026-11-14')
+
+  asOfSetter(stage, 'moment', Date.parse('2026-11-15T12:00:00Z'))
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  expect(html.at(-1)).toContain('2026-11-15')
 })
 
 test('deck and page thumbnails report their record day and deck HTML binds it', async () => {
@@ -147,4 +172,17 @@ test('player as-of setters forward to its stage', () => {
   player.asOf = { zone: 'UTC' }
   player.moment = 42
   expect(writes).toEqual({ anchors, asOf: { zone: 'UTC' }, moment: 42 })
+})
+
+test('a deck thumbnail keeps its authored canvas when its day cannot change the document', async () => {
+  const deck = Deck.parse({
+    title: 'Plain',
+    asOf: { kind: 'fixed', date: '2026-11-14' },
+    slides: [{ id: 'one', content: { kind: 'html', html: '<p>Plain</p>' } }],
+  })
+  const { thumbnail, viewport, days } = thumbnailHarness(deck, {})
+  await thumbnail.mount()
+  expect(viewport.children).toHaveLength(1)
+  expect(viewport.replacements).toBe(0)
+  expect(days).toEqual([{ date: '2026-11-14', zone: 'UTC', kind: 'fixed' }])
 })

@@ -1,5 +1,5 @@
 import type { OriginApproval, Page, PageWidths, Print, SlotsOptions } from '@segnavia/format'
-import type { EstablishedSurfaceDay } from './as-of-slots.ts'
+import type { EstablishedPageDay } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -31,7 +31,7 @@ export function mountThumbnailPage(
   source: Page | null,
   print: Print | null,
   options: ThumbnailPageOptions,
-  established?: EstablishedSurfaceDay,
+  established?: EstablishedPageDay,
 ): void {
   const resolvedPrint = print ?? source?.print ?? null
   if (!source || !resolvedPrint || viewport.firstElementChild) return

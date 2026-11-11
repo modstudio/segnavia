@@ -1,7 +1,8 @@
 import { expect, test } from 'bun:test'
 import { type OriginApproval, Page, Print } from '@segnavia/format'
+import type { EstablishedPageDay } from '@segnavia/html'
 import { frameDocument } from './bridge.ts'
-import { internalPageLoad } from './document-value-load.ts'
+import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 
 test('a thumbnail page frame carries approved image origins in its CSP', async () => {
   const originalElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
@@ -9,7 +10,13 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
   const definitions = new Map<string, CustomElementConstructor>()
   let srcdoc = ''
+  let plainLoads = 0
+  let received: EstablishedPageDay | undefined
   const attributes = new Set<string>()
+  const load = (page: Page) => {
+    const html = 'html' in page.body ? page.body.html : ''
+    srcdoc = frameDocument(html, { scripts: 'refuse', nonce: 'test', origins: pageElement.origins })
+  }
   const pageElement = {
     part: { add() {} },
     style: {} as CSSStyleDeclaration,
@@ -19,8 +26,12 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
       else attributes.delete(name)
     },
     [internalPageLoad](page: Page) {
-      const html = 'html' in page.body ? page.body.html : ''
-      srcdoc = frameDocument(html, { scripts: 'refuse', nonce: 'test', origins: this.origins })
+      plainLoads++
+      load(page)
+    },
+    [internalPageDayLoad](page: Page, established: EstablishedPageDay) {
+      received = established
+      load(page)
     },
   }
   Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class HTMLElement extends EventTarget {} })
@@ -33,13 +44,22 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
     const { mountThumbnailPage } = await import('./thumbnail-page.ts')
     const source = Page.parse({ html: '<img src="https://images.example/a.png">', print: { paper: 'letter' } })
     const print = Print.parse({ paper: 'letter' })
+    const established: EstablishedPageDay = { day: { date: '2026-11-16', zone: 'UTC', kind: 'fixed' }, slots: {} }
     const viewport = { firstElementChild: null, append() {} } as unknown as HTMLElement
-    mountThumbnailPage(viewport, source, print, {
-      css: '',
-      origins: [{ origin: 'https://images.example', kinds: ['image'] }],
-    })
+    mountThumbnailPage(
+      viewport,
+      source,
+      print,
+      {
+        css: '',
+        origins: [{ origin: 'https://images.example', kinds: ['image'] }],
+      },
+      established,
+    )
     expect(srcdoc).toMatch(/img-src [^;]*https:\/\/images\.example/)
     expect(attributes.has('bounded')).toBe(true)
+    expect(received).toBe(established)
+    expect(plainLoads).toBe(0)
   } finally {
     if (originalElement) Object.defineProperty(globalThis, 'HTMLElement', originalElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')
