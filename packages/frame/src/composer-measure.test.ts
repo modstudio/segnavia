@@ -201,18 +201,32 @@ describe('tableRowLines', () => {
   })
 
   test('the outer row bands include a collapsed table border', () => {
+    const cell = { querySelectorAll: () => [] }
     const rows = [
-      { closest: () => table, getBoundingClientRect: () => ({ top: 10.5, bottom: 30 }), querySelectorAll: () => [] },
-      { closest: () => table, getBoundingClientRect: () => ({ top: 30, bottom: 49.5 }), querySelectorAll: () => [] },
+      { closest: () => table, getBoundingClientRect: () => ({ top: 10.5, bottom: 30 }), querySelectorAll: (selector: string) => (selector.startsWith(':scope') ? [cell] : []) },
+      { closest: () => table, getBoundingClientRect: () => ({ top: 30, bottom: 49.5 }), querySelectorAll: (selector: string) => (selector.startsWith(':scope') ? [cell] : []) },
     ]
     const table = {
+      ownerDocument: { createTreeWalker: () => ({ nextNode: () => null }) },
       getBoundingClientRect: () => ({ top: 10, bottom: 50 }),
       querySelectorAll: (selector: string) => (selector === 'tr' ? rows : []),
     }
-    expect(measureTableLines(table as unknown as Element, 0)).toEqual([
-      { top: 10, bottom: 30 },
-      { top: 30, bottom: 50 },
-    ])
+    const original = globalThis.getComputedStyle
+    const originalNodeFilter = globalThis.NodeFilter
+    globalThis.NodeFilter = { SHOW_TEXT: 4 } as typeof NodeFilter
+    globalThis.getComputedStyle = ((element: Element) =>
+      (element === (table as unknown as Element)
+        ? { borderCollapse: 'collapse' }
+        : { borderBlockStartWidth: '1px', borderBlockEndWidth: '1px' }) as CSSStyleDeclaration) as typeof getComputedStyle
+    try {
+      expect(measureTableLines(table as unknown as Element, 0)).toEqual([
+        { top: 10, bottom: 30, decorationTop: 9.5 },
+        { top: 30, bottom: 50, decorationBottom: 50.5 },
+      ])
+    } finally {
+      globalThis.getComputedStyle = original
+      globalThis.NodeFilter = originalNodeFilter
+    }
   })
 })
 

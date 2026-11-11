@@ -18,6 +18,8 @@ export interface MeasuredKeeps {
 export interface MeasuredLineBox {
   top: number
   bottom: number
+  decorationTop?: number
+  decorationBottom?: number
 }
 
 export interface KeepSignalValues {
@@ -227,9 +229,8 @@ export function linesWithDescendantTables(rangeLines: readonly MeasuredLineBox[]
 
 export function measureTableLines(element: Element, origin: number): MeasuredLineBox[] {
   const tableBox = element.getBoundingClientRect()
-  const rows = Array.from(element.querySelectorAll('tr'))
-    .filter((row) => row.closest('table') === element)
-    .map((row) => {
+  const rowElements = Array.from(element.querySelectorAll('tr')).filter((row) => row.closest('table') === element)
+  const rows = rowElements.map((row) => {
       const rowBox = row.getBoundingClientRect()
       const boxes: MeasuredLineBox[] = []
       for (const cell of row.querySelectorAll(':scope > th, :scope > td')) {
@@ -249,10 +250,23 @@ export function measureTableLines(element: Element, origin: number): MeasuredLin
       return { top: rowBox.top - origin, bottom: rowBox.bottom - origin, boxes }
     })
   const lines = tableRowLines(rows)
+  const collapsed = getComputedStyle(element).borderCollapse === 'collapse'
+  const collapsedBorderOutset = (row: Element | undefined, edge: 'Start' | 'End') => {
+    if (!collapsed || !row) return 0
+    return Math.max(0, ...Array.from(row.querySelectorAll(':scope > th, :scope > td')).map((cell) => Number.parseFloat(getComputedStyle(cell)[`borderBlock${edge}Width`]) || 0)) / 2
+  }
   const first = lines[0]
-  if (first) first.top = Math.min(first.top, tableBox.top - origin)
+  if (first) {
+    first.top = Math.min(first.top, tableBox.top - origin)
+    const top = tableBox.top - origin - collapsedBorderOutset(rowElements[0], 'Start')
+    if (top < first.top) first.decorationTop = top
+  }
   const last = lines.at(-1)
-  if (last) last.bottom = Math.max(last.bottom, tableBox.bottom - origin)
+  if (last) {
+    last.bottom = Math.max(last.bottom, tableBox.bottom - origin)
+    const bottom = tableBox.bottom - origin + collapsedBorderOutset(rowElements.at(-1), 'End')
+    if (bottom > last.bottom) last.decorationBottom = bottom
+  }
   return lines
 }
 
