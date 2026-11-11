@@ -3,6 +3,7 @@ import type { Board, BoardShapes, BoardView } from '@segnavia/format'
 import type { SegnaviaBoard } from './board.ts'
 import { BoardEditingInput } from './board-editing-input.ts'
 import type { BoardEditingBridge } from './board-editing-seam.ts'
+import { boardEditorFlags } from './board-editing-types.ts'
 
 class TestElement {
   dataset: DOMStringMap = {} as DOMStringMap
@@ -35,27 +36,23 @@ test('pointer-move and nudge releases stay on the primitive commit path', () => 
       setDropTarget() {},
     } as BoardEditingBridge
     const host = { selection: ['a'], setPointerCapture() {} } as unknown as SegnaviaBoard
-    const input = new BoardEditingInput(
-      host,
-      { move: true, resize: true, remove: true, add: true, arrange: true },
-      {
-        current: () => optimistic,
-        bridge: () => bridge,
-        live: (value) => {
-          optimistic = value
-        },
-        commit: (_before, after) => {
-          commits += 1
-          optimistic = after
-        },
-        command: () => {
-          commands += 1
-        },
-        remove() {},
-        undo() {},
-        redo() {},
+    const input = new BoardEditingInput(host, boardEditorFlags(), {
+      current: () => optimistic,
+      bridge: () => bridge,
+      live: (value) => {
+        optimistic = value
       },
-    )
+      commit: (_before, after) => {
+        commits += 1
+        optimistic = after
+      },
+      command: () => {
+        commands += 1
+      },
+      remove() {},
+      undo() {},
+      redo() {},
+    })
     const node = new TestElement()
     node.dataset.boardItem = 'a'
     const pointer = (clientX: number) =>
@@ -122,24 +119,20 @@ test('unbuildable resize releases restore the board before the live preview', ()
         setDropTarget() {},
       } as BoardEditingBridge
       const host = { selection: ['a'], setPointerCapture() {} } as unknown as SegnaviaBoard
-      const input = new BoardEditingInput(
-        host,
-        { move: true, resize: true, remove: true, add: true, arrange: true },
-        {
-          current: () => fixture.before,
-          bridge: () => bridge,
-          live: (value) => {
-            optimistic = value
-          },
-          commit() {},
-          command: () => {
-            commands += 1
-          },
-          remove() {},
-          undo() {},
-          redo() {},
+      const input = new BoardEditingInput(host, boardEditorFlags(), {
+        current: () => fixture.before,
+        bridge: () => bridge,
+        live: (value) => {
+          optimistic = value
         },
-      )
+        commit() {},
+        command: () => {
+          commands += 1
+        },
+        remove() {},
+        undo() {},
+        redo() {},
+      })
       const pointer = (clientX: number) =>
         ({
           pointerId: 1,
@@ -183,25 +176,21 @@ test('a section title click selects it while a drag moves without selecting', ()
       setDropTarget() {},
     } as unknown as BoardEditingBridge
     const host = { selection: ['a'], setPointerCapture() {} } as unknown as SegnaviaBoard
-    const input = new BoardEditingInput(
-      host,
-      { move: true, resize: true, remove: true, add: true, arrange: true },
-      {
-        current: () => sectionBoard,
-        bridge: () => bridge,
-        live: (value) => {
-          optimistic = value
-        },
-        commit: (_before, after) => {
-          commits += 1
-          optimistic = after
-        },
-        command() {},
-        remove() {},
-        undo() {},
-        redo() {},
+    const input = new BoardEditingInput(host, boardEditorFlags(), {
+      current: () => sectionBoard,
+      bridge: () => bridge,
+      live: (value) => {
+        optimistic = value
       },
-    )
+      commit: (_before, after) => {
+        commits += 1
+        optimistic = after
+      },
+      command() {},
+      remove() {},
+      undo() {},
+      redo() {},
+    })
     const title = Object.assign(new TestElement(), { dataset: { boardSectionTitle: 'section' } })
     const pointer = (clientX: number, pointerId: number) =>
       ({
@@ -225,6 +214,40 @@ test('a section title click selects it while a drag moves without selecting', ()
     input.pointerUp(pointer(20, 2))
     expect(host.selection).toEqual(['a'])
     expect(commits).toBe(1)
+  } finally {
+    Object.assign(globalThis, { HTMLElement: previousHTMLElement })
+  }
+})
+
+test.each([{ resize: false }, { labelResize: false }])('%j does not start a label resize gesture', (editors) => {
+  const previousHTMLElement = globalThis.HTMLElement
+  Object.assign(globalThis, { HTMLElement: TestElement })
+  try {
+    const node = Object.assign(new TestElement(), { dataset: { labelResizeHandle: 'a', boardLabel: 'a' } })
+    const host = { selection: ['a'], setPointerCapture() {} } as unknown as SegnaviaBoard
+    const input = new BoardEditingInput(host, boardEditorFlags(editors), {
+      current: () => board,
+      bridge: () =>
+        ({
+          overlay: { append() {} },
+          value: () => board,
+          view: () => view,
+          shapes: () => shapes,
+          local: () => ({ x: 0, y: 0 }),
+          setDropTarget() {},
+        }) as unknown as BoardEditingBridge,
+      live() {},
+      commit() {},
+      command() {},
+      remove() {},
+      undo() {},
+      redo() {},
+    })
+    const gesture = (input as unknown as { startGesture(event: PointerEvent, current: Board): { kind: string } | null }).startGesture(
+      { composedPath: () => [node] } as unknown as PointerEvent,
+      board,
+    )
+    expect(gesture).toBeNull()
   } finally {
     Object.assign(globalThis, { HTMLElement: previousHTMLElement })
   }

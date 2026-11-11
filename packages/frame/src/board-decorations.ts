@@ -34,6 +34,11 @@ export class BoardDecorations {
     return text instanceof HTMLElement ? text : undefined
   }
 
+  sectionTitleNode(id: string): HTMLElement | undefined {
+    const title = this.sectionNodes.get(id)?.querySelector('[data-board-section-title]')
+    return title instanceof HTMLElement ? title : undefined
+  }
+
   render(board: Board, view: BoardView) {
     const sectionIds = new Set(board.sections.map((section) => section.id))
     const labelIds = new Set(board.labels.map((label) => label.id))

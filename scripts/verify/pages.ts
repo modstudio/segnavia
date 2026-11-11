@@ -24,6 +24,9 @@ async function verifyPrintedPages({ page, check }: Harness): Promise<void> {
   for (const fixture of PRINTED_PAGE_DEMO_PAGES) await page.frameLocator(`#${fixture.id} iframe`).locator('html[data-segnavia-composed]').waitFor()
   // The unbounded fixture takes its height from the frame's report, which follows composition.
   await page.waitForFunction(() => document.querySelector<HTMLElement>('#printed-he')?.dataset.height !== undefined)
+  // The bounded fixture's papers can be laid out after the composed mark, so wait for its content to outgrow the 500px box.
+  const boundedRoot = page.frameLocator('#printed-en iframe').locator('html')
+  for (let attempt = 0; attempt < 50 && (await boundedRoot.evaluate((element) => element.scrollHeight)) <= 500; attempt += 1) await page.waitForTimeout(200)
   const printCounts = await page.evaluate(async (fixtures) => {
     const bundle = '/segnavia.js'
     const { printPages } = (await import(bundle)) as {

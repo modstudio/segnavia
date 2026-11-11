@@ -52,12 +52,14 @@ export interface BoardLabels {
   itemAction: (label: string, name: string) => string
   labelEdit: string
   labelResize: string
+  sectionTitleEdit: string
 }
 
 export const ENGLISH_BOARD_LABELS: BoardLabels = {
   itemAction: (label, name) => `${label} ${name}`,
   labelEdit: 'Edit label',
   labelResize: 'Resize label',
+  sectionTitleEdit: 'Edit section title',
 }
 
 export function boardLabels(labels: Partial<BoardLabels>): BoardLabels {

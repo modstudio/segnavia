@@ -19,7 +19,7 @@ import type { SegnaviaBoard } from './board.ts'
 import { labelResizeReleaseCommand, resizeReleaseCommand } from './board-editing-command.ts'
 import { placeMarquee, renderDropMarker, resizedAtPointer } from './board-editing-overlay.ts'
 import type { BoardEditingBridge, BoardPointerDelegate } from './board-editing-seam.ts'
-import type { BoardEdit } from './board-editing-types.ts'
+import type { BoardEdit, BoardEditorFlags } from './board-editing-types.ts'
 import { boardPathElement } from './board-event-path.ts'
 import { selectBoardNode } from './board-selection.ts'
 
@@ -59,7 +59,7 @@ export class BoardEditingInput implements BoardPointerDelegate {
 
   constructor(
     private readonly board: SegnaviaBoard,
-    private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>,
+    private readonly enabled: BoardEditorFlags,
     private readonly callbacks: Callbacks,
   ) {}
 
@@ -77,7 +77,8 @@ export class BoardEditingInput implements BoardPointerDelegate {
   private startGesture(event: PointerEvent, current: Board): Gesture | null {
     const bridge = this.callbacks.bridge()
     const labelHandle = boardPathElement(event, 'labelResizeHandle')
-    if (labelHandle && this.enabled.resize) {
+    if (labelHandle) {
+      if (!this.enabled.labelResize) return null
       const id = labelHandle.dataset.labelResizeHandle
       const currentWidth = id ? bridge.shapes().labels[id]?.width : undefined
       return id && currentWidth
@@ -159,7 +160,7 @@ export class BoardEditingInput implements BoardPointerDelegate {
       renderDropMarker(bridge.overlay, gesture.before, target?.id, drop, bridge.view(), bridge.shapes())
     } else if (gesture.kind === 'section' && gesture.sectionId && this.enabled.move) this.callbacks.live(moveSection(gesture.before, gesture.sectionId, delta))
     else if (gesture.kind === 'marquee') this.updateMarquee(gesture, point)
-    else if (gesture.kind === 'label-resize') {
+    else if (gesture.kind === 'label-resize' && this.enabled.labelResize) {
       const edge = screenToBoard(bridge.view(), point).x
       this.callbacks.live(resizeLabel(gesture.before, gesture.id, edge, gesture.currentWidth))
     } else if (gesture.kind === 'resize') {
@@ -218,7 +219,7 @@ export class BoardEditingInput implements BoardPointerDelegate {
       })
     } else if (gesture.kind === 'resize') {
       this.finishCommand(gesture.before, resizeReleaseCommand(next, gesture.id, gesture.corner), { kind: 'resize', ids: [gesture.id] })
-    } else if (gesture.kind === 'label-resize') {
+    } else if (gesture.kind === 'label-resize' && this.enabled.labelResize) {
       this.finishCommand(gesture.before, labelResizeReleaseCommand(next, gesture.id), { kind: 'resize', ids: [gesture.id] })
     }
   }

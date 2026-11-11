@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import type { Board, BoardLabel, BoardShapes, BoardView } from '@segnavia/format'
 import { BoardDecorations } from './board-decorations.ts'
-import { committedLabelText, labelDoubleClickTarget, labelResizeHandlePoint, withoutLabelWidth } from './board-label-editing.ts'
+import { committedText, labelDoubleClickTarget, labelResizeHandlePoint, withoutLabelWidth } from './board-label-editing.ts'
 
 const view: BoardView = { zoom: 2, pan: { x: 10, y: 20 }, viewport: { width: 800, height: 600 } }
 const shapes: BoardShapes = { items: { item: { width: 4, height: 3 } }, labels: { latin: { width: 80, height: 20 }, hebrew: { width: 70, height: 38 } } }
@@ -45,7 +45,7 @@ describe('label text editing', () => {
     ['changed text', 'Old text', 'New text', 'New text'],
     ['changed Hebrew text', 'עברית', 'עברית חדשה', 'עברית חדשה'],
   ])('%s', (_name, oldText, newText, expected) => {
-    expect(committedLabelText(oldText, newText)).toBe(expected)
+    expect(committedText(oldText, newText)).toBe(expected)
   })
 
   test.each([
