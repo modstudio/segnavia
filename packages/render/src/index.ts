@@ -6,7 +6,6 @@ import { parseBookPdfOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
 import { resolveRenderBook, resolveRenderBrand, resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
-import { browserJpegDecoder } from './browser-jpeg.ts'
 import { keepBrowser } from './browser-keeper.ts'
 import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { coverImagePlan } from './cover-image.ts'
@@ -24,9 +23,9 @@ import {
   pageCompositionCount,
   parseComposedRenderOptions,
   parseRenderOptions,
-  type RenderOptions,
   refuseProgressUnlessOneComposition,
 } from './options.ts'
+import { outputDate } from './output-date.ts'
 import { printWithOverflow } from './overflow.ts'
 import { resolveRenderDayContexts } from './page-as-of.ts'
 import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
@@ -34,7 +33,8 @@ import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
-import { enforce, finishPdf } from './pdf-finish.ts'
+import { enforce } from './pdf-finish.ts'
+import { finishPdfWithBrowser } from './pdf-output.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
@@ -165,17 +165,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       await context?.close().catch(() => {})
     }
   }
-  async function finishWithBrowser(
-    pdf: Uint8Array,
-    options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>,
-    deadline?: RenderDeadline,
-  ): Promise<Uint8Array> {
-    if (!options.press) return finishPdf(pdf, options)
-    return withTab(
-      { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false, false), deadline },
-      (tab) => finishPdf(pdf, options, browserJpegDecoder(tab)),
-    )
-  }
+  const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
+    finishPdfWithBrowser(pdf, options, withTab, deadline)
   const renderer: Renderer = {
     async bookPdf(input, opts = {}) {
       const parsedOptions = parseBookPdfOptions(opts)
@@ -245,7 +236,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
         })
-        const output = await withDocumentMetadata(await finishWithBrowser(bytes, prepared.options, deadline), parsedOptions.metadata)
+        const output = await withDocumentMetadata(
+          await finishWithBrowser(bytes, prepared.options, deadline),
+          parsedOptions.metadata,
+          outputDate([prepared.established.day]),
+        )
         if (overflows.length) parsedOptions.overflow?.report?.({ entries: overflows })
         return enforce(output, parsedOptions.limits)
       })
@@ -321,7 +316,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             frameGroups,
           )
         })
-        return enforce(await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata), parsedOptions.limits)
+        return enforce(
+          await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata, outputDate(contexts.days)),
+          parsedOptions.limits,
+        )
       })
     },
 
@@ -360,7 +358,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             diagramScript,
           )
         })
-        return finishWithBrowser(bytes, options, deadline)
+        return withDocumentMetadata(await finishWithBrowser(bytes, options, deadline))
       })
     },
 

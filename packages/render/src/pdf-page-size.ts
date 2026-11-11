@@ -70,7 +70,7 @@ export function translatePdfAnnotations(annotations: PDFArray | undefined, x: nu
 }
 
 export async function setPdfPageSize(pdf: Uint8Array, size: MillimeterPageSize, remedy?: string): Promise<Uint8Array> {
-  const document = await loadPdf(pdf, { updateMetadata: false })
+  const document = await loadPdf(pdf)
   return setDocumentPageSizes(
     document,
     document.getPages().map(() => size),
@@ -107,5 +107,5 @@ async function setDocumentPageSizes(
 }
 
 export async function setPdfPageSizes(pdf: Uint8Array, sizes: readonly MillimeterPageSize[], remedy?: PageSizeRemedy): Promise<Uint8Array> {
-  return setDocumentPageSizes(await loadPdf(pdf, { updateMetadata: false }), sizes, remedy)
+  return setDocumentPageSizes(await loadPdf(pdf), sizes, remedy)
 }

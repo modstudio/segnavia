@@ -315,7 +315,7 @@ const equal = (left: Uint8Array, right: Uint8Array): boolean => left.length === 
 
 export async function tagBackdropRasters(pdf: Uint8Array, captures: RasterCapture[]): Promise<Uint8Array> {
   if (captures.length === 0) return pdf
-  const document = await loadPdf(pdf, { updateMetadata: false })
+  const document = await loadPdf(pdf)
   const unmatched = new Set(captures)
   for (const [, object] of document.context.enumerateIndirectObjects()) {
     if (!(object instanceof PDFRawStream) || object.dict.get(key('Subtype'))?.toString() !== '/Image') continue

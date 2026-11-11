@@ -373,7 +373,7 @@ export async function rewritePressPdf(
     const profile = readProfile(profileBytes)
     if (profile.colorSpace !== 'CMYK' && profile.colorSpace !== 'GRAY')
       throw new RenderColorProfileError('press', `color space ${profile.colorSpace.trim()}`, 'CMYK or GRAY')
-    const document = await loadPdf(bytes, { updateMetadata: false })
+    const document = await loadPdf(bytes)
     const destination = pressDestination(profile)
     const counts = rewritePressDocument(document, profile, tolerance, destination === 'gray' || images === 'convert')
     let convertedImages = 0

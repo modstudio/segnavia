@@ -3,7 +3,9 @@ import { fillPageAsOfBindings, printedPageAuthorHtml } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
+import { RenderLimitError } from './errors.ts'
 import { assetSetup, type ParsedPageImageOptions } from './options.ts'
+import { outputDate } from './output-date.ts'
 import type { prepareRenderedPage } from './page-document.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { SurfacePreflight } from './preflight.ts'
@@ -12,6 +14,12 @@ import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
 import { filledPage } from './slot-fill.ts'
+import { stampImage } from './stamp-image.ts'
+
+export function enforceImageBytes(image: Uint8Array, limit?: number): Uint8Array {
+  if (limit !== undefined && image.byteLength > limit) throw new RenderLimitError('bytes', image.byteLength, limit)
+  return image
+}
 
 export async function renderPreparedPageImage(
   prepared: Awaited<ReturnType<typeof prepareRenderedPage>>,
@@ -53,7 +61,9 @@ export async function renderPreparedPageImage(
       await awaitPrintedPageComposition(tab, page, plainPagePreflight ? undefined : prepared.options.preflight)
       if (grows) await contentHeight(tab)
       plainPagePreflight?.complete()
-      return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
+      const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
+      const stamped = stampImage(image, outputDate([prepared.established.day]))
+      return enforceImageBytes(stamped, opts.limits?.bytes)
     },
   )
 }

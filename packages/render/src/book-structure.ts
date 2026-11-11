@@ -85,7 +85,7 @@ function writeSiblings(
 }
 
 export function writeBookStructure(document: PDFDocument, input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book }): void {
-  writeDocumentMetadata(document, input.book)
+  writeDocumentMetadata(document, input.book, undefined)
 
   const outline = bookOutline(input.headings, input.destinations)
   if (outline.length === 0) return

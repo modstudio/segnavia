@@ -3,7 +3,7 @@ import { Buffer } from 'node:buffer'
 import { deflateSync } from 'node:zlib'
 import { PDFDocument } from 'pdf-lib'
 import { RenderRefusedError } from './errors.ts'
-import { loadPdf, MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
+import { createPdf, loadPdf, MAX_PDF_STREAM_BYTES } from './pdf-load.ts'
 
 function objectStream(contents: Uint8Array): Uint8Array {
   const compressed = deflateSync(contents)
@@ -28,4 +28,18 @@ test('loads a normal generated PDF', async () => {
   generated.addPage([612, 792])
   const loaded = await loadPdf(await generated.save())
   expect(loaded.getPageCount()).toBe(1)
+})
+
+test('created and loaded documents do not gain automatic metadata', async () => {
+  const created = await createPdf()
+  created.addPage()
+  const loaded = await loadPdf(await created.save())
+  const roundTrip = await loadPdf(await loaded.save())
+
+  for (const document of [loaded, roundTrip]) {
+    expect(document.getProducer()).toBeUndefined()
+    expect(document.getCreator()).toBeUndefined()
+    expect(document.getCreationDate()).toBeUndefined()
+    expect(document.getModificationDate()).toBeUndefined()
+  }
 })

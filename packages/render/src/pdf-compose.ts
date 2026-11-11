@@ -1,9 +1,9 @@
 import type { Imposed, ImpositionSideBoxes, ImpositionSideMarks, MarkColor } from '@segnavia/format'
-import { clip, endPath, PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
+import { clip, endPath, type PDFDocument, type PDFEmbeddedPage, type PDFPage, popGraphicsState, pushGraphicsState, rectangle } from 'pdf-lib'
 import type { PiecePlacement } from './pages-imposition.ts'
 import { placementPdfGeometry } from './pages-imposition.ts'
 import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
-import { loadPdf } from './pdf-load.ts'
+import { createPdf, loadPdf } from './pdf-load.ts'
 import { drawCropMarks } from './pdf-marks.ts'
 
 export async function embedOnePage(output: PDFDocument, bytes: Uint8Array, name: string): Promise<PDFEmbeddedPage> {
@@ -68,7 +68,7 @@ function drawImposedSide(
 }
 
 export async function composeImposedPdf(imposed: Imposed, pieces: ImposedPdfPiece[], sides: ImposedPdfSide[], markColor: MarkColor): Promise<Uint8Array> {
-  const output = await PDFDocument.create()
+  const output = await createPdf()
   const embedded = new Map<string, PDFEmbeddedPage>()
   for (const piece of pieces) embedded.set(piece.key, await embedOnePage(output, piece.bytes, piece.name))
   for (let paperIndex = 0; paperIndex < imposed.papers; paperIndex += 1) {

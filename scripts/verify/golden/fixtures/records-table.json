@@ -169,8 +169,6 @@
   "fonts": ["DejaVuSans", "DejaVuSansMono", "LiberationSerif", "LiberationSerif-Bold"],
   "info": {
     "Title": "The Paged Book",
-    "Creator": "HeadlessChrome",
-    "Producer": "pdf-lib (https://github.com/Hopding/pdf-lib)",
     "Custom Metadata": "no",
     "Metadata Stream": "yes",
     "Tagged": "no",
