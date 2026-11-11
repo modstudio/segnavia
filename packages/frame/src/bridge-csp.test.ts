@@ -76,6 +76,21 @@ describe('frame content security policy', () => {
     expect(actual['img-src']).toContain('https://img.example')
   })
 
+  test('carries approved path prefixes into CSP sources', () => {
+    const actual = cspDirectives(
+      frameDocument('<p>frame</p>', {
+        scripts: 'refuse',
+        nonce: 'known',
+        origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font'], pathname: '/fontsource' }],
+      }),
+    )
+    for (const directive of ['style-src', 'font-src']) {
+      expect(actual[directive]).toContain('https://cdn.jsdelivr.net/fontsource')
+      expect(actual[directive]).toContain('https://cdn.jsdelivr.net/fontsource/')
+      expect(actual[directive]).not.toContain('https://cdn.jsdelivr.net')
+    }
+  })
+
   test.each([
     ['refuse', refused],
     ['sandboxed', scripted],

@@ -35,6 +35,23 @@ describe('asset route decision', () => {
     expect(lookups).toBe(0)
   })
 
+  test('answers only requests under an approved path prefix', async () => {
+    const approvals = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font'] as const, pathname: '/fontsource' }]
+    const allowed = 'https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.woff2'
+    const refused = 'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css'
+    const requested: string[] = []
+    const lookup = async (requestedUrl: string) => {
+      requested.push(requestedUrl)
+      return answer
+    }
+    expect(await assetRouteDecision(allowed, 'font', approvals, lookup, new AbortController().signal)).toEqual({ action: 'fulfill', ...answer })
+    expect(await assetRouteDecision(refused, 'style', approvals, lookup, new AbortController().signal)).toEqual({
+      action: 'abort',
+      reason: expect.stringContaining('outside the approved style path prefixes'),
+    })
+    expect(requested).toEqual([allowed])
+  })
+
   test('turns rejected and late asset answers into refusals', async () => {
     expect(
       await assetRouteDecision(

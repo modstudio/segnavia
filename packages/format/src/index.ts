@@ -189,6 +189,7 @@ export {
   type AssetRefusal,
   type AssetRefusalReason,
   approvedOrigins,
+  approvedSources,
   assetRefusalText,
   authoredOrigin,
   DEFAULT_ORIGINS,
