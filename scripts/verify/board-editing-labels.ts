@@ -1,5 +1,5 @@
 import type { Locator } from 'playwright-core'
-import { center, drag, waitChanges } from './board-editing-actions.ts'
+import { center, drag, settledBoxes, waitChanges } from './board-editing-actions.ts'
 import type { DemoBoard, DemoChange, DemoDocument, DemoItem, DemoLabel } from './board-editing-types.ts'
 import type { Harness } from './harness.ts'
 
@@ -74,8 +74,7 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
     selected?.label?.id === 'label-he' && selected.labels?.length === 1 && (await handle.count()) === 1,
     JSON.stringify(selected),
   )
-  const beforeBox = await hebrew.boundingBox()
-  const beforeHandle = await handle.boundingBox()
+  const [beforeBox, beforeHandle] = await settledBoxes([hebrew, handle], 2_000)
   h.check(
     'a Hebrew label on an RTL board puts its resize handle on the left',
     Boolean(beforeBox && beforeHandle && Math.abs(beforeHandle.x + beforeHandle.width / 2 - beforeBox.x) < 1),
@@ -170,8 +169,7 @@ export async function checkBoardEditingLabels(h: Harness, board: Locator, origin
   await reset()
   await board.evaluate((element) => ((element as BoardElement).selection = ['label']))
   const latin = board.locator('[data-board-label="label"]')
-  const latinBox = await latin.boundingBox()
-  const latinHandle = await handle.waitFor({ state: 'visible' }).then(() => handle.boundingBox())
+  const [latinBox, latinHandle] = await settledBoxes([latin, handle], 2_000)
   h.check(
     'an LTR label on an RTL board puts its resize handle on the right',
     Boolean(latinBox && latinHandle && Math.abs(latinHandle.x + latinHandle.width / 2 - latinBox.x - latinBox.width) < 1),
