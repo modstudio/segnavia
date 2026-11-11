@@ -34,7 +34,7 @@ export function asOfValues(day: AsOfDay): FillValues {
     [AS_OF_DATE_PATH]: day.date,
     [AS_OF_ZONE_PATH]: day.zone,
     ...(day.anchor === undefined ? {} : { [AS_OF_ANCHOR_PATH]: day.anchor }),
-    [AS_OF_MOMENT_PATH]: day.moment === undefined ? '' : formatAsOfMoment(day.moment, day.zone),
+    ...(day.moment === undefined ? {} : { [AS_OF_MOMENT_PATH]: formatAsOfMoment(day.moment, day.zone) }),
   }
 }
 

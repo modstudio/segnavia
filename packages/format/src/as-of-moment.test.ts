@@ -13,3 +13,8 @@ test.each([
 test('preserves nonzero milliseconds', () => {
   expect(formatAsOfMoment(Date.parse('2026-01-15T13:00:00.123Z'), 'UTC')).toBe('2026-01-15T13:00:00.123+00:00')
 })
+
+test('refuses a moment whose year cannot be written with four ISO digits', () => {
+  expect(() => formatAsOfMoment(Date.parse('+010000-01-01T00:00:00Z'), 'UTC')).toThrow('year in the ISO 8601 range 0000 through 9999')
+  expect(() => formatAsOfMoment(Date.parse('-000001-01-01T00:00:00Z'), 'UTC')).toThrow('supply a moment within that year range to clear this refusal')
+})

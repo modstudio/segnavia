@@ -1,4 +1,4 @@
-import type { Zone } from '@segnavia/format'
+import { carryMoment, type Zone } from '@segnavia/format'
 import { type AsOfInputs, parseAsOfInputs } from '@segnavia/html'
 
 export interface AsOfElementProperties extends Pick<AsOfInputs, 'anchors' | 'moment'> {
@@ -26,7 +26,7 @@ export function captureAsOfLoad(element: object): { moment: number; hostMoment?:
   const held = state(element)
   return {
     moment: held.momentValue ?? Date.now(),
-    ...(held.momentValue === undefined ? {} : { hostMoment: held.momentValue }),
+    ...carryMoment('hostMoment', held.momentValue),
     hostZone: held.asOfOptions?.zone,
     anchors: held.anchorOptions,
   }

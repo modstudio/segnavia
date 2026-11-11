@@ -1,6 +1,7 @@
 import type { AsOf, AsOfDay, CalendarDate as CalendarDateValue, Zone } from './as-of.ts'
 import { CalendarDate } from './as-of.ts'
 import { AsOfRefusedError, type AsOfResolution, asOfRefusal, resolveAsOfDay } from './as-of-policy.ts'
+import { carryMoment } from './supplied-moment.ts'
 
 export interface AnchorSource {
   choices: readonly { name: string; label: string | Readonly<Record<string, string>> }[]
@@ -30,8 +31,10 @@ export async function resolveDocumentDay(asOf: AsOf | undefined, options: Docume
 /** Completes an already-evaluated as-of policy without evaluating that policy a second time. */
 export async function resolveDocumentDayResult(resolution: AsOfResolution, options: DocumentDayOptions): Promise<AsOfDay> {
   options.signal.throwIfAborted()
-  if (resolution.kind === 'day') return resolution.day
-  const { anchor, today, zone, moment } = resolution
+  if (resolution.kind === 'day') {
+    return resolution.day.kind === 'fixed' ? resolution.day : { ...resolution.day, ...carryMoment('moment', options.hostMoment) }
+  }
+  const { anchor, today, zone } = resolution
   if (!options.anchors) {
     throw refused(anchor, `the day asked from was ${today} in ${zone}, but no anchor source was registered; register an anchor source that offers it`)
   }
@@ -52,5 +55,5 @@ export async function resolveDocumentDayResult(resolution: AsOfResolution, optio
       `the day asked from was ${today} in ${zone}, but the host's anchor source returned an invalid date; make the source return a YYYY-MM-DD calendar date`,
     )
   }
-  return { date: parsed.data, zone, kind: 'anchor', anchor, ...(moment === undefined ? {} : { moment }) }
+  return { date: parsed.data, zone, kind: 'anchor', anchor, ...carryMoment('moment', options.hostMoment) }
 }

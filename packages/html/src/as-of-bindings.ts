@@ -1,7 +1,7 @@
-import { AS_OF_CONTEXT, AS_OF_MOMENT_PATH, type AsOfDay } from '@segnavia/format'
+import { AS_OF_CONTEXT, type AsOfDay } from '@segnavia/format'
 import { bindingNames, bindingPaths, bindingRoot, fill } from './bindings.ts'
 import { asOfValues } from './day-slots.ts'
-import { elements, parse, serialize } from './sanitize.ts'
+import { elements, parse } from './sanitize.ts'
 import { refusesValueBinding } from './slots.ts'
 
 export function hasAsOfBinding(html: string): boolean {
@@ -18,12 +18,11 @@ export function fillAsOfBindings(html: string, day: AsOfDay | undefined): string
     if (path !== undefined && bindingRoot(path) === AS_OF_CONTEXT && refusesValueBinding(tag)) {
       throw new RangeError(`Slot "${path}" uses a value binding on <${tag}>, whose content cannot be filled safely.`)
     }
-    if (path === AS_OF_MOMENT_PATH) element.attribs.dir = 'ltr'
   }
   const roots = bindingPaths(html, 'slot')
     .map(bindingRoot)
     .filter((root) => root !== AS_OF_CONTEXT)
-  return fill(serialize(document), {
+  return fill(html, {
     prefix: 'slot',
     data: asOfValues(day),
     deferPaths: roots,

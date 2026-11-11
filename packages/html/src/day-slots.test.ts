@@ -15,6 +15,7 @@ test('resolves slots once with the established day and binds the reserved contex
     },
   }
   const resolved = await slotsForDay(options, day, signal, true)
+  expect(resolved.declarations).toContainEqual({ key: 'asOf.moment', label: 'As-of moment', type: 'text' })
   const prepared = await prepareSlots([{ key: 'title', label: 'Title', type: 'text', required: false }], resolved, signal)
   expect(calls).toEqual([{ day, signal }])
   expect(prepared.apply('<h1 data-slot-value="title"></h1><time data-slot-value="asOf.date"></time><b data-slot-value="asOf.anchor"></b>')).toBe(

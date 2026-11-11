@@ -30,7 +30,7 @@ describe('as-of policy', () => {
     expect(calendarDate(boundaryMoment, 'UTC')).toBe('2026-11-14')
   })
 
-  test('carries only a host-supplied moment on current and anchor resolutions', () => {
+  test('carries a host moment on a current day but not an anchor resolution', () => {
     expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment, hostMoment: boundaryMoment })).toEqual({
       kind: 'day',
       day: { date: '2026-11-14', zone: 'UTC', kind: 'current', moment: boundaryMoment },
@@ -40,7 +40,6 @@ describe('as-of policy', () => {
       anchor: 'week',
       today: '2026-11-14',
       zone: 'UTC',
-      moment: boundaryMoment,
     })
     expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment })).not.toHaveProperty('day.moment')
     expect(resolveAsOfDay({ kind: 'anchor', anchor: 'week' }, { moment: boundaryMoment })).not.toHaveProperty('moment')

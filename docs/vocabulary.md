@@ -64,7 +64,7 @@ something else.
 | **Bindings** | `data-<prefix>-*` attributes that fill a page from data with no script. The prefix is the host's. |
 | **Slot** | A declared dotted binding path on a reusable page or deck. Slot HTML uses the fixed `slot` binding prefix; its declaration gives the host a label, type, required flag and optional placeholder. |
 | **Fill** | One named set of slot values applied before a viewer, thumbnail or print frame is built. Image values may name a host-resolved asset. |
-| **As-of** | What calendar day a document's data is for: a fixed date, the current day at the moment it is shown, or a named anchor the host resolves. An absent as-of means the current day. Its zone comes from the stored value, then the host, then UTC. |
+| **As-of** | What calendar day a document's data is for: a fixed date, the current day at the moment it is shown, or a named anchor the host resolves. An absent as-of means the current day. Its zone comes from the stored value, then the host, then UTC. Its moment is written only when the host supplies one, as ISO 8601 local time with the zone's offset and milliseconds only when they are nonzero. |
 | **Calendar date** | A real Gregorian date written `YYYY-MM-DD`, interpreted in a stated zone rather than as a bare instant. |
 | **Zone** | A time-zone name accepted by `Intl.DateTimeFormat`. It determines the calendar date of an as-of moment and never defaults from the machine. |
 | **Motif** | Reusable designed HTML and CSS that a host supplies by key and a page places in its own markup. It may declare fields, fonts and language versions. |

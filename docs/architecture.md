@@ -644,7 +644,7 @@ their load edge and pass it to the
 host's `anchors.resolve`, `slots.resolve`, `MotifSource.data` and
 `placements.resolve`. The day is bindable under the reserved slot root `asOf`.
 `asOf.moment` is ISO 8601 text with the resolved zone's offset when the host
-supplied a moment, and is empty for a fixed day or when the clock supplied the
+supplied a moment, and is omitted for a fixed day or when the clock supplied the
 moment. The elements report it in an `asof` event, while `printPages`, `pagePdf`,
 `pagesPdf`, `pageImage` and `coverImage` report it through `asOf.report`. A
 print or render whose pages resolve to distinct days under `slots.resolve` is

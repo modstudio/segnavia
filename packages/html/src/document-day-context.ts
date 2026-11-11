@@ -1,4 +1,4 @@
-import { type AnchorSource, type AsOf, type AsOfDay, type Page, resolveDocumentDay, type SlotsOptions, Zone } from '@segnavia/format'
+import { type AnchorSource, type AsOf, type AsOfDay, carryMoment, type Page, resolveDocumentDay, type SlotsOptions, Zone } from '@segnavia/format'
 import { slotsForDay } from './day-slots.ts'
 
 export interface AsOfInputs {
@@ -104,7 +104,7 @@ export async function resolveDayContextsFor(
   const parsed = parseAsOfInputs(inputs)
   const contexts = await resolveDocumentDayContexts(pages, {
     moment: parsed.moment ?? Date.now(),
-    ...(parsed.moment === undefined ? {} : { hostMoment: parsed.moment }),
+    ...carryMoment('hostMoment', parsed.moment),
     hostZone: parsed.asOf?.zone,
     anchors: parsed.anchors,
     slots,
