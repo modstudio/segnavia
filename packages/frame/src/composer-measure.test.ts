@@ -11,6 +11,7 @@ import {
   measuredBlockConstraints,
   measuredKeepRuns,
   measureLineBoxes,
+  measureTableLines,
   measurementRefusal,
   skippableDescendantBoxDisplay,
   tableRowLines,
@@ -197,6 +198,21 @@ describe('tableRowLines', () => {
 
   test('an empty row is one line', () => {
     expect(tableRowLines([{ top: 10, bottom: 30, boxes: [] }])).toEqual([{ top: 10, bottom: 30 }])
+  })
+
+  test('the outer row bands include a collapsed table border', () => {
+    const rows = [
+      { closest: () => table, getBoundingClientRect: () => ({ top: 10.5, bottom: 30 }), querySelectorAll: () => [] },
+      { closest: () => table, getBoundingClientRect: () => ({ top: 30, bottom: 49.5 }), querySelectorAll: () => [] },
+    ]
+    const table = {
+      getBoundingClientRect: () => ({ top: 10, bottom: 50 }),
+      querySelectorAll: (selector: string) => (selector === 'tr' ? rows : []),
+    }
+    expect(measureTableLines(table as unknown as Element, 0)).toEqual([
+      { top: 10, bottom: 30 },
+      { top: 30, bottom: 50 },
+    ])
   })
 })
 

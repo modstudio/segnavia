@@ -226,6 +226,7 @@ export function linesWithDescendantTables(rangeLines: readonly MeasuredLineBox[]
 }
 
 export function measureTableLines(element: Element, origin: number): MeasuredLineBox[] {
+  const tableBox = element.getBoundingClientRect()
   const rows = Array.from(element.querySelectorAll('tr'))
     .filter((row) => row.closest('table') === element)
     .map((row) => {
@@ -247,7 +248,12 @@ export function measureTableLines(element: Element, origin: number): MeasuredLin
       }
       return { top: rowBox.top - origin, bottom: rowBox.bottom - origin, boxes }
     })
-  return tableRowLines(rows)
+  const lines = tableRowLines(rows)
+  const first = lines[0]
+  if (first) first.top = Math.min(first.top, tableBox.top - origin)
+  const last = lines.at(-1)
+  if (last) last.bottom = Math.max(last.bottom, tableBox.bottom - origin)
+  return lines
 }
 
 export function tableRenderedInFlow(element: Element, styleOf: (element: Element) => CSSStyleDeclaration = getComputedStyle): boolean {
