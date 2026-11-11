@@ -19,6 +19,8 @@ describe('decorationEdges', () => {
   test('a background paints to both border-box edges', () => expect(decorationEdges(box({ background: true }))).toEqual({ top: 10, bottom: 40 }))
   test('a shadow extends each edge by its block-axis reach', () =>
     expect(decorationEdges(box({ shadows: [{ offsetBlock: 3, blur: 4, spread: 2 }] }))).toEqual({ top: 7, bottom: 49 }))
+  test('a shadow edge may begin inside a box that does not otherwise paint', () =>
+    expect(decorationEdges(box({ shadows: [{ offsetBlock: 20, blur: 5, spread: 0 }] }))).toEqual({ top: 25, bottom: 65 }))
   test('an outline extends both edges by its width and offset', () =>
     expect(decorationEdges(box({ outlineWidth: 2, outlineOffset: 3 }))).toEqual({ top: 5, bottom: 45 }))
 })
@@ -38,6 +40,8 @@ test('the outermost nested opening and closing edges win', () => {
 
 test('computed backgrounds distinguish transparent color from painted color or image', () => {
   expect(backgroundPaints('rgba(0, 0, 0, 0)', 'none')).toBe(false)
+  expect(backgroundPaints('color(srgb 0 0 0 / 0)', 'none')).toBe(false)
+  expect(backgroundPaints('lab(0% 0 0 / 0)', 'none')).toBe(false)
   expect(backgroundPaints('rgb(0, 0, 0)', 'none')).toBe(true)
   expect(backgroundPaints('rgba(0, 0, 0, 0)', 'linear-gradient(red, blue)')).toBe(true)
 })

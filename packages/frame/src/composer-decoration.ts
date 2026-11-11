@@ -1,3 +1,6 @@
+import type { PaginateLine } from '@segnavia/format'
+import { measuredCandidateRun } from './composer-measure.ts'
+
 export interface MeasuredShadow {
   offsetBlock: number
   blur: number
@@ -15,16 +18,11 @@ export interface MeasuredDecorationBox {
   outlineOffset: number
 }
 
-export interface DecoratedLine {
-  top: number
-  bottom: number
-  decorationTop?: number
-  decorationBottom?: number
-}
-
 export function backgroundPaints(color: string, image: string): boolean {
   if (image !== 'none') return true
   if (color === 'transparent') return false
+  const slashAlpha = color.match(/\/\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))%?\s*\)$/)
+  if (slashAlpha && Number(slashAlpha[1]) === 0) return false
   const rgba = color.match(/^rgba?\(([^)]+)\)$/)
   if (!rgba) return color !== ''
   const parts = rgba[1]?.split(/[\s,/]+/).filter(Boolean) ?? []
@@ -61,29 +59,29 @@ export function parseBoxShadows(value: string): MeasuredShadow[] | undefined {
 }
 
 export function decorationEdges(box: MeasuredDecorationBox): { top?: number; bottom?: number } {
-  const shadowPaint = box.shadows.length > 0
   const outlinePaint = box.outlineWidth > 0
-  const paintsTop = box.borderTop > 0 || box.background || shadowPaint || outlinePaint
-  const paintsBottom = box.borderBottom > 0 || box.background || shadowPaint || outlinePaint
   const outlineReach = outlinePaint ? Math.max(0, box.outlineWidth + box.outlineOffset) : 0
-  const shadowTop = box.shadows.reduce((reach, shadow) => Math.max(reach, shadow.blur + shadow.spread - shadow.offsetBlock), 0)
-  const shadowBottom = box.shadows.reduce((reach, shadow) => Math.max(reach, shadow.blur + shadow.spread + shadow.offsetBlock), 0)
+  const topEdges = box.shadows.map((shadow) => box.top + shadow.offsetBlock - shadow.blur - shadow.spread)
+  const bottomEdges = box.shadows.map((shadow) => box.bottom + shadow.offsetBlock + shadow.blur + shadow.spread)
+  if (box.borderTop > 0 || box.background) topEdges.push(box.top)
+  if (box.borderBottom > 0 || box.background) bottomEdges.push(box.bottom)
+  if (outlinePaint) {
+    topEdges.push(box.top - outlineReach)
+    bottomEdges.push(box.bottom + outlineReach)
+  }
   return {
-    ...(paintsTop ? { top: box.top - Math.max(outlineReach, shadowTop) } : {}),
-    ...(paintsBottom ? { bottom: box.bottom + Math.max(outlineReach, shadowBottom) } : {}),
+    ...(topEdges.length > 0 ? { top: Math.min(...topEdges) } : {}),
+    ...(bottomEdges.length > 0 ? { bottom: Math.max(...bottomEdges) } : {}),
   }
 }
 
-export function applyBoxDecorations(lines: readonly DecoratedLine[], boxes: readonly MeasuredDecorationBox[]): DecoratedLine[] {
+export function applyBoxDecorations(lines: readonly PaginateLine[], boxes: readonly MeasuredDecorationBox[]): PaginateLine[] {
   const decorated = lines.map((line) => ({ ...line }))
   for (const box of boxes) {
-    const indexes = decorated.flatMap((line, index) => {
-      const middle = (line.top + line.bottom) / 2
-      return middle >= box.top - 0.5 && middle <= box.bottom + 0.5 ? [index] : []
-    })
-    const first = indexes[0]
-    const last = indexes.at(-1)
-    if (first === undefined || last === undefined) continue
+    const run = measuredCandidateRun(decorated, box)
+    if (!run) continue
+    const first = run.start
+    const last = run.end - 1
     const firstLine = decorated[first]
     const lastLine = decorated[last]
     if (!firstLine || !lastLine) continue

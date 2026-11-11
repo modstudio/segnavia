@@ -10,6 +10,7 @@ type Check = (what: string, ok: boolean, detail?: string) => void
 const DPI = 150
 const MARGIN_MM = 18
 const BOX = 'border:4pt solid #000;padding:12pt;background:#ccc;margin:0'
+const OUTLINE_BOX = 'padding:12pt;outline:3pt solid #000;outline-offset:2pt;box-shadow:0 4pt 6pt 2pt #000;margin:0'
 const LINES = 'The first line of the boxed paragraph.<br>The second line of the boxed paragraph.<br>The third line of the boxed paragraph.'
 const PLAIN = '<p style="margin:0">An unstyled paragraph outside the box.</p>'
 
@@ -53,6 +54,7 @@ function book(html: string): DocumentInput {
 
 interface PagePaint {
   bands: Array<{ start: number; end: number }>
+  textAreaBands: Array<{ start: number; end: number }>
   firstGray: number | undefined
   lastGray: number | undefined
   leftSideRows: number
@@ -90,8 +92,17 @@ function contiguousBands(rows: readonly number[]): Array<{ start: number; end: n
 function pagePaint(file: string): PagePaint {
   const { width, height, pixels } = readPgm(file)
   const at = (x: number, y: number) => pixels[y * width + x] ?? 255
+  const textInset = Math.round((MARGIN_MM / 25.4) * DPI)
+  const textAreaRows: number[] = []
+  const textAreaWidth = width - 2 * textInset
+  for (let y = 0; y < height; y += 1) {
+    let dark = 0
+    for (let x = textInset; x < width - textInset; x += 1) if (at(x, y) < 80) dark += 1
+    if (dark / textAreaWidth > 0.9) textAreaRows.push(y)
+  }
+  const textAreaBands = contiguousBands(textAreaRows)
   const box = graySpan(width, height, at)
-  if (!box) return { bands: [], firstGray: undefined, lastGray: undefined, leftSideRows: 0, rightSideRows: 0 }
+  if (!box) return { bands: [], textAreaBands, firstGray: undefined, lastGray: undefined, leftSideRows: 0, rightSideRows: 0 }
   const { left: boxLeft, right: boxRight } = box
   const span = boxRight - boxLeft + 1
   const borderRows: number[] = []
@@ -115,7 +126,12 @@ function pagePaint(file: string): PagePaint {
   }
   const leftSideRows = Math.max(...Array.from({ length: 13 }, (_, offset) => darkRowsAt(boxLeft - offset)))
   const rightSideRows = Math.max(...Array.from({ length: 13 }, (_, offset) => darkRowsAt(boxRight + offset)))
-  return { bands, firstGray: grayRows[0], lastGray: grayRows.at(-1), leftSideRows, rightSideRows }
+  return { bands, textAreaBands, firstGray: grayRows[0], lastGray: grayRows.at(-1), leftSideRows, rightSideRows }
+}
+
+function hasBandAtTextTop(paint: PagePaint | undefined): boolean {
+  const textTop = Math.round((MARGIN_MM / 25.4) * DPI)
+  return paint?.textAreaBands.some((band) => band.start <= textTop + 4 && band.end >= textTop - 4 && band.end - band.start >= 5) ?? false
 }
 
 function hasTop(paint: PagePaint | undefined): boolean {
@@ -134,7 +150,7 @@ function detail(pages: PagePaint[]): string {
   return pages
     .map(
       (page, index) =>
-        `p${index + 1}: bands=${page.bands.map((band) => `${band.start}-${band.end}`).join(',') || 'none'} gray=${page.firstGray ?? 'none'}-${page.lastGray ?? 'none'} sides=${page.leftSideRows}/${page.rightSideRows}`,
+        `p${index + 1}: bands=${page.bands.map((band) => `${band.start}-${band.end}`).join(',') || 'none'} text-area-bands=${page.textAreaBands.map((band) => `${band.start}-${band.end}`).join(',') || 'none'} gray=${page.firstGray ?? 'none'}-${page.lastGray ?? 'none'} sides=${page.leftSideRows}/${page.rightSideRows}`,
     )
     .join('; ')
 }
@@ -188,4 +204,7 @@ export async function verifyFlowDecorationRender(renderer: Renderer, work: strin
     'page',
   )
   check('a first flowing table keeps its own top border band', hasTop(table[0]), detail(table))
+
+  const outline = await render(renderer, work, 'decoration-outline-shadow', printed(`<p style="${OUTLINE_BOX}">${LINES}</p>${PLAIN}`), 'page')
+  check('a first flowing box keeps its outline and shadow reach above its first line', hasBandAtTextTop(outline[0]), detail(outline))
 }

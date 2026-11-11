@@ -1,4 +1,5 @@
 import { defaultParentRules, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
+import { backgroundPaints, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
 
 export interface MeasuredKeepCandidate {
   top: number
@@ -56,6 +57,41 @@ export function descendantKeepSignals(values: KeepSignalValues, parentKeepWith: 
 
 export function inlineLevelDisplay(display: string): boolean {
   return display.split(' ')[0]?.startsWith('inline') === true
+}
+
+export function skippableDescendantBoxDisplay(display: string): boolean {
+  return display === 'none' || display === 'contents' || inlineLevelDisplay(display) || display === 'ruby' || display === 'ruby-base' || display === 'ruby-text'
+}
+
+export function measuredDecorationBoxes(element: Element, origin: number, elementStyle: CSSStyleDeclaration): MeasuredDecorationBox[] {
+  const boxes: MeasuredDecorationBox[] = []
+  const candidates = [element, ...element.querySelectorAll('*')]
+  for (const [index, candidate] of candidates.entries()) {
+    const style = index === 0 ? elementStyle : getComputedStyle(candidate)
+    const rootSkipped =
+      style.display === 'none' || style.display === 'contents' || style.display === 'ruby' || style.display === 'ruby-base' || style.display === 'ruby-text'
+    if (index === 0 ? rootSkipped : skippableDescendantBoxDisplay(style.display)) continue
+    const shadowValue = String(style.boxShadow)
+    const shadows = parseBoxShadows(shadowValue)
+    if (shadows === undefined) {
+      const shown = shadowValue.length > 256 ? `${shadowValue.slice(0, 253)}...` : shadowValue
+      throw new Error(
+        `The computed box-shadow ${JSON.stringify(shown)} could not be read as a color followed by three or four pixel lengths; removing or simplifying that element's box-shadow clears this refusal.`,
+      )
+    }
+    const rect = candidate.getBoundingClientRect()
+    boxes.push({
+      top: rect.top - origin,
+      bottom: rect.bottom - origin,
+      borderTop: Number.parseFloat(style.borderBlockStartWidth) || 0,
+      borderBottom: Number.parseFloat(style.borderBlockEndWidth) || 0,
+      background: backgroundPaints(style.backgroundColor, style.backgroundImage),
+      shadows,
+      outlineWidth: style.outlineStyle === 'none' ? 0 : Number.parseFloat(style.outlineWidth) || 0,
+      outlineOffset: Number.parseFloat(style.outlineOffset) || 0,
+    })
+  }
+  return boxes
 }
 
 export function measuredBlockConstraints(display: string, orphans: number, widows: number): { orphans?: number; widows?: number } {

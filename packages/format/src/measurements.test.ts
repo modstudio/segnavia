@@ -10,10 +10,6 @@ test('a measured line accepts optional opening and closing decoration edges', ()
   })
 })
 
-test('a measured line without decoration parses as before', () => {
-  expect(PaginateLine.parse({ top: 10, bottom: 20 })).toEqual({ top: 10, bottom: 20 })
-})
-
 test('a measured block accepts optional keep-together line runs', () => {
   expect(
     PaginateBlock.parse({

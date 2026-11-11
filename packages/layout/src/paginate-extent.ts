@@ -1,4 +1,4 @@
-import type { PaginateLine, PaginateUnit } from './paginate-types.ts'
+import type { PaginateLine } from './paginate-types.ts'
 
 export interface PaginateExtent {
   start: number
@@ -12,6 +12,9 @@ export function lineExtent(line: PaginateLine): PaginateExtent {
   }
 }
 
-export function unitExtent(unit: PaginateUnit): PaginateExtent {
-  return lineExtent(unit)
+export function internalWindowEdge(previous: PaginateLine, next: PaginateLine): number {
+  const previousEnd = lineExtent(previous).end
+  const nextStart = lineExtent(next).start
+  const preferred = Math.min((previousEnd + nextStart) / 2, nextStart)
+  return Math.max(previous.bottom, Math.min(preferred, next.top))
 }

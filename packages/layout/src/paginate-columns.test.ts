@@ -22,10 +22,27 @@ test('flow edges include decoration that opens and closes on their lines', () =>
 test('an edge between decorated blocks is the midpoint of their decoration extents', () => {
   const first = block('text', 'div', 1, 1, 1, 0)
   const second = block('text', 'div', 1, 2, 1, 30, { breakBefore: true })
-  first.lines[0] = { top: 0, bottom: 10, decorationBottom: 18 }
-  second.lines[0] = { top: 30, bottom: 40, decorationTop: 22 }
+  first.lines[0] = { top: 0, bottom: 10, decorationBottom: 24 }
+  second.lines[0] = { top: 30, bottom: 40 }
   const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [first, second])] })).pages
-  expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 20, 0)], [win('c1', 20, 40, -2)]])
+  expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 27, 0)], [win('c1', 27, 40, -3)]])
+})
+
+test('an overlapping opening edge is not clipped by a preceding closing reach', () => {
+  const first = block('text', 'div', 1, 1, 1, 0)
+  const second = block('text', 'div', 1, 2, 1, 28, { breakBefore: true })
+  first.lines[0] = { top: 0, bottom: 10, decorationBottom: 24 }
+  second.lines[0] = { top: 28, bottom: 38, decorationTop: 20 }
+  const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [first, second])] })).pages
+  expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 20, 0)], [win('c1', 20, 38, 0)]])
+})
+
+test('a trailing reach cannot move an internal edge past the next line', () => {
+  const first = block('text', 'div', 1, 1, 1, 0)
+  const second = block('text', 'div', 1, 2, 1, 30, { id: 'next', breakBefore: true })
+  first.lines[0] = { top: 0, bottom: 10, decorationBottom: 50 }
+  const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [first, second])] })).pages
+  expect(pages.map((page) => page.windows)).toEqual([[win('c1', 0, 30, 0)], [win('c1', 30, 40, 0)]])
 })
 
 test('an edge inside a decorated box remains the line midpoint', () => {

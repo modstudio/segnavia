@@ -1,5 +1,5 @@
 import { paginateColumns } from './paginate-columns.ts'
-import { lineExtent } from './paginate-extent.ts'
+import { internalWindowEdge } from './paginate-extent.ts'
 import type {
   PaginateBlock,
   PaginateBookInput,
@@ -79,8 +79,9 @@ export function paginateSequence(
         const refs = (block.footnoteRefs ?? []).filter((ref) => ref.line === index).map((ref) => ref.note)
         const unit: PaginateUnit = { flowId: flow.id, block, index, ...line, refs }
         if (previous) {
-          unit.previousExtentEnd = lineExtent(previous).end
-          previous.nextExtentStart = lineExtent(line).start
+          const edge = internalWindowEdge(previous, unit)
+          unit.previousEdge = edge
+          previous.nextEdge = edge
         }
         units.push(unit)
       }

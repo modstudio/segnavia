@@ -1,5 +1,5 @@
 import { paginateColumns } from './paginate-columns.ts'
-import { lineExtent, unitExtent } from './paginate-extent.ts'
+import { internalWindowEdge, lineExtent } from './paginate-extent.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { measuredExtentFits } from './paginate-measure.ts'
 import { paginateNotes } from './paginate-notes.ts'
@@ -98,7 +98,7 @@ function paginateBookWithPageFace(
   }
 
   function lineTooTall(unit: PaginateUnit, textHeight: number): boolean {
-    const extent = unitExtent(unit)
+    const extent = lineExtent(unit)
     return !measuredExtentFits(extent.end - extent.start, textHeight)
   }
 
@@ -167,7 +167,7 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
 export const PAGINATE_FUNCTIONS = [
   measuredExtentFits,
   lineExtent,
-  unitExtent,
+  internalWindowEdge,
   paginateColumns,
   paginateNotes,
   paginateKeeps,
