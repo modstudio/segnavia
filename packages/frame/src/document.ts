@@ -334,16 +334,15 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private mount(sheet: HTMLElement) {
     if (sheet.firstElementChild) return
     const index = Number(sheet.dataset.page)
-    const source = this.sourceValues[index]
-    const shown = this.pageValues[index]
+    const source = this.pageValues[index]
     const context = this.pageDayContexts[index]
     const print = this.printValue
-    if (!source || !shown || !context || !print) return
+    if (!source || !context || !print) return
     const projection = projectPageOnPaper(source, print)
     mountDocumentPage(sheet, {
       context,
       page: projection.page,
-      html: this.filledHtml?.[index] ?? shown.html,
+      html: this.filledHtml?.[index] ?? source.html,
       resolvedSlots: this.resolvedSlots,
       motifs: this.motifOptions,
       placements: this.placementOptions,

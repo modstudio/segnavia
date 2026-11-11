@@ -1,6 +1,6 @@
 import type { PageWidths } from '@segnavia/format'
 import { Page, type PreflightProfile } from '@segnavia/format'
-import type { EstablishedPageDay } from '@segnavia/html'
+import type { EstablishedPageDay, HtmlPage } from '@segnavia/html'
 import type { BrandsOptions } from './brands.ts'
 import { installDocumentPagePreflight } from './document-page-preflight.ts'
 import { internalPageDayLoad } from './document-value-load.ts'
@@ -11,7 +11,7 @@ import type { PreparedSlots } from './slot-render.ts'
 
 interface DocumentPageMountOptions {
   context: EstablishedPageDay
-  page: Page
+  page: HtmlPage
   html: string
   resolvedSlots?: PreparedSlots
   motifs?: MotifsOptions
