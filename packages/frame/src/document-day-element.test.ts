@@ -69,7 +69,7 @@ test('document paints its sheets immediately, then resolves and reports one shar
 
   expect(anchorCalls).toBe(1)
   expect(slotCalls).toBe(1)
-  expect(events).toEqual([{ date: '2026-11-09', zone: 'UTC', kind: 'anchor', anchor: 'week' }])
+  expect(events).toEqual([{ date: '2026-11-09', zone: 'UTC', kind: 'anchor', anchor: 'week', moment: Date.parse('2026-11-14T12:00:00Z') }])
   expect(paints).toBe(2)
 })
 

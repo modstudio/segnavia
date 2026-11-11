@@ -247,11 +247,8 @@ export class SegnaviaPage extends PageAsOfElement {
     const write = (document: string, provisional = false) => {
       if (isCurrent()) this.writeDocument(iframe, document, provisional)
     }
-    const { moment, hostZone, anchors } = captureAsOfLoad(this)
     const facts = {
-      moment,
-      hostZone,
-      anchors,
+      ...captureAsOfLoad(this),
       signal: controller.signal,
     }
     const render = (day: AsOfDay, slots: SlotsOptions) => {

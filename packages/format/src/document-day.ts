@@ -12,6 +12,7 @@ export interface AnchorSource {
 
 export interface DocumentDayOptions {
   moment: number
+  hostMoment?: number
   hostZone?: Zone
   anchors?: AnchorSource
   signal: AbortSignal
@@ -30,7 +31,7 @@ export async function resolveDocumentDay(asOf: AsOf | undefined, options: Docume
 export async function resolveDocumentDayResult(resolution: AsOfResolution, options: DocumentDayOptions): Promise<AsOfDay> {
   options.signal.throwIfAborted()
   if (resolution.kind === 'day') return resolution.day
-  const { anchor, today, zone } = resolution
+  const { anchor, today, zone, moment } = resolution
   if (!options.anchors) {
     throw refused(anchor, `the day asked from was ${today} in ${zone}, but no anchor source was registered; register an anchor source that offers it`)
   }
@@ -51,5 +52,5 @@ export async function resolveDocumentDayResult(resolution: AsOfResolution, optio
       `the day asked from was ${today} in ${zone}, but the host's anchor source returned an invalid date; make the source return a YYYY-MM-DD calendar date`,
     )
   }
-  return { date: parsed.data, zone, kind: 'anchor', anchor }
+  return { date: parsed.data, zone, kind: 'anchor', anchor, ...(moment === undefined ? {} : { moment }) }
 }

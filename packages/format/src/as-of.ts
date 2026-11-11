@@ -44,4 +44,5 @@ export interface AsOfDay {
   zone: Zone
   kind: 'fixed' | 'current' | 'anchor'
   anchor?: string
+  moment?: number
 }

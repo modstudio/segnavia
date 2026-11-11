@@ -37,3 +37,13 @@ test.each(['style', 'xmp'])('refuses an as-of value binding on <%s>', (tag) => {
 test('fills an as-of value binding on a plain text element', () => {
   expect(fillAsOfBindings('<p data-slot-value="asOf.date"></p>', { date: '2026-11-14', zone: 'UTC', kind: 'current' })).toBe('<p dir="auto">2026-11-14</p>')
 })
+
+test('fills the moment as isolated left-to-right text on a Hebrew page and empties an absent moment', () => {
+  const html = '<main lang="he" dir="rtl"><time data-slot-value="asOf.moment">placeholder</time></main>'
+  expect(fillAsOfBindings(html, { date: '2026-11-14', zone: 'America/New_York', kind: 'current', moment: Date.parse('2026-11-14T13:00:00Z') })).toBe(
+    '<main lang="he" dir="rtl"><time dir="ltr">2026-11-14T08:00:00-05:00</time></main>',
+  )
+  expect(fillAsOfBindings(html, { date: '2026-11-14', zone: 'America/New_York', kind: 'current' })).toBe(
+    '<main lang="he" dir="rtl"><time dir="ltr"></time></main>',
+  )
+})

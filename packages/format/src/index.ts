@@ -1,6 +1,7 @@
 // The shapes every package agrees on. Hosts read and write these as JSON, so each is a Zod schema;
 // `jsonSchemas` generates JSON Schema for hosts that do not run TypeScript.
 export { AsOf, type AsOfDay, CalendarDate, Zone } from './as-of.ts'
+export { formatAsOfMoment } from './as-of-moment.ts'
 export {
   type AsOfFacts,
   AsOfRefusedError,

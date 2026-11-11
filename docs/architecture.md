@@ -635,14 +635,17 @@ Bun and Node resolve workspace imports directly to `src` while developing.
 
 A stored page, book or deck may say what day its data is for: a `fixed` date,
 `current` (the day of the moment it is shown), or an `anchor` that the host
-resolves to a date. The day is a calendar date in a zone, never an instant. Its
-zone comes from the record, then the host's `asOf.zone`, then UTC, and never
-from the machine. The page and document preview surfaces, browser page print
-and server page render take a `moment`: now by default, or a stated moment for
-a replay. They resolve the day once at their load edge and pass it to the
+resolves to a date. The day is a calendar date in a zone and may retain the
+host-supplied instant it was read from. Its zone comes from the record, then the
+host's `asOf.zone`, then UTC, and never from the machine. The page and document
+preview surfaces, browser page print and server page render take a `moment`:
+now by default, or a stated moment for a replay. They resolve the day once at
+their load edge and pass it to the
 host's `anchors.resolve`, `slots.resolve`, `MotifSource.data` and
-`placements.resolve`. The day is bindable under the reserved slot root `asOf`;
-the elements report it in an `asof` event, while `printPages`, `pagePdf`,
+`placements.resolve`. The day is bindable under the reserved slot root `asOf`.
+`asOf.moment` is ISO 8601 text with the resolved zone's offset when the host
+supplied a moment, and is empty for a fixed day or when the clock supplied the
+moment. The elements report it in an `asof` event, while `printPages`, `pagePdf`,
 `pagesPdf`, `pageImage` and `coverImage` report it through `asOf.report`. A
 print or render whose pages resolve to distinct days under `slots.resolve` is
 refused so each day can be produced separately. An anchor the host cannot

@@ -30,6 +30,7 @@ export interface DocumentDayContexts {
 
 export interface DocumentDayContextOptions {
   moment: number
+  hostMoment?: number
   hostZone?: Zone
   anchors?: AnchorSource
   slots?: SlotsOptions
@@ -57,7 +58,7 @@ function asOfKey(asOf: AsOf | undefined): string {
 }
 
 function dayKey(day: AsOfDay): string {
-  return JSON.stringify([day.date, day.zone, day.kind, day.anchor])
+  return JSON.stringify([day.date, day.zone, day.kind, day.anchor, day.moment])
 }
 
 export async function resolveDocumentDayContexts(pages: readonly Page[], options: DocumentDayContextOptions): Promise<DocumentDayContexts> {
@@ -103,6 +104,7 @@ export async function resolveDayContextsFor(
   const parsed = parseAsOfInputs(inputs)
   const contexts = await resolveDocumentDayContexts(pages, {
     moment: parsed.moment ?? Date.now(),
+    ...(parsed.moment === undefined ? {} : { hostMoment: parsed.moment }),
     hostZone: parsed.asOf?.zone,
     anchors: parsed.anchors,
     slots,
