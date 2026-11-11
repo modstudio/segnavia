@@ -36,7 +36,7 @@ export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type Selectio
 export { documentNeedsSlotFit } from './document-slot-fit.ts'
 export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
-export { FontRefusedError, type FontsOptions, type ResolvedFonts, resolveFonts } from './page-fonts.ts'
+export { FontRefusedError, type FontsOptions, type ResolvedFonts, type ResolveFontsOptions, resolveFonts } from './page-fonts.ts'
 export const MESSAGE = {
   key: 'segnavia:key',
   height: 'segnavia:height',

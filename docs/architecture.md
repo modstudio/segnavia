@@ -719,15 +719,10 @@ retains the final override in every render view.
 
 A host that serves a URL slide resolves the deck's manifest through the
 server-safe bridge entry, includes both the resulting CSS and the bridge in
-the served page, and declares that the URL content has a bridge:
-
-```ts
-import { bridgeForHost, resolveFonts } from '@segnavia/frame/bridge'
-
-const { css, failures } = await resolveFonts(deck.style.fonts, { source })
-const page = `<style>${css}</style><script nonce="${nonce}">${bridgeForHost({ fonts: deck.style.fonts })}</script>`
-const content = { kind: 'url', src, bridge: true }
-```
+the served page. Its `resolveSlide` seam returns the URL as resolved content
+with `bridge: true`; `bridge` is not part of a deck document and
+`Document.parse` drops such a key. The complete host recipe is in
+[Host-served URL slide fonts](../README.md#host-served-url-slide-fonts).
 
 The host reports the resolver's `unsupplied` failures at its own boundary.
 The bridge waits for every declared face, reports `unloaded` failures, and
@@ -1401,8 +1396,9 @@ window.addEventListener('segnavia:print', (event) => {
 ```
 
 Image, font and authored print waits share the existing four-second print
-deadline; a wait that never settles cannot hold printing beyond it. A
-host-served URL slide has no Segnavia bridge, so `printAtMs` does not affect it.
+deadline; a wait that never settles cannot hold printing beyond it. A host may
+include a bridge in the URL slide it serves, but printing adds no
+bridge to a host-served URL slide, so `printAtMs` does not affect it.
 The live stage and thumbnails do not pass a print moment and never freeze.
 
 The notes layout belongs to the slide whose number it carries. The sheet sets

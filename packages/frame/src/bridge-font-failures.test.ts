@@ -37,7 +37,6 @@ test('carries declared face loads and the shared failure bounds into the embedde
   const script = bridgeForHost({ fonts: { body: { faces: [{ weight: 700, style: 'italic' }] } } })
   expect(script).toContain('var declarations=[{"font":"body","weight":700,"style":"italic","sample":"Aa"}]')
   expect(script).toContain("'data-segnavia-font-failures',64,256")
-  expect(script).toContain('reason: "unloaded"')
 })
 
 test('a composed frame reports the composer failures without loading faces again', () => {

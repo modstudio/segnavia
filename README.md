@@ -282,21 +282,27 @@ to the slide's start at 0 ms. Scripted slides can listen for
 Printing does not add a bridge to host-served URL slides, so `printAtMs` does
 not affect them.
 
+### Host-served URL slide fonts
+
 A host can give a URL slide the same declared fonts as an HTML slide through
 the server-safe bridge entry:
 
 ```ts
 import { bridgeForHost, resolveFonts } from '@segnavia/frame/bridge'
 
-const { css, failures } = await resolveFonts(deck.style.fonts, { source })
+const fonts = deck.style?.fonts
+const { css, failures } = await resolveFonts(fonts, { source })
 // Include in the served page:
-const head = `<style>${css}</style><script nonce="${nonce}">${bridgeForHost({ fonts: deck.style.fonts })}</script>`
-// Declare the slide content with { kind: 'url', src, bridge: true }.
+const head = `<style>${css}</style><script nonce="${nonce}">${bridgeForHost({ fonts })}</script>`
+// Return bridged resolved content from the host's resolveSlide seam:
+player.resolveSlide = (slide) => slide.content.kind === 'url' ? { ...slide.content, bridge: true } : slide.content
 ```
 
 `failures` contains faces the source could not supply. The bridge waits for
 the declared faces in the served page, reports any that did not load, and
-then reports ready to the stage.
+then reports ready to the stage. `bridge` belongs to resolved content returned
+by `resolveSlide`; a `bridge` key in a deck document is dropped by
+`Document.parse`.
 
 Capture an app through its own adapter:
 

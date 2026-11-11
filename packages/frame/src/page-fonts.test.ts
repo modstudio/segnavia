@@ -39,7 +39,7 @@ const letterhead = {
 }
 
 describe('resolveFonts', () => {
-  test('writes a supplied Hebrew face, its custom property and unicode range', async () => {
+  test('writes a supplied face and reports a non-Hebrew range against a Hebrew declaration', async () => {
     const manifest = FontManifest.parse({ hebrew: { faces: [{ script: 'hebrew' }], generic: 'serif' } })
     const face = { ...serifFace, unicodeRange: HEBREW_UNICODE_RANGE }
     const resolved = await resolveFonts(manifest, {
@@ -50,6 +50,16 @@ describe('resolveFonts', () => {
     expect(resolved.css).toContain('@font-face{font-family:"Body Serif"')
     expect(resolved.css.replaceAll(' ', '')).toContain(`unicode-range:${HEBREW_UNICODE_RANGE}`)
     expect(resolved.css).toContain('--segnavia-font-hebrew:"Body Serif",serif')
+
+    const nonHebrewRange = 'U+0000-007F'
+    const mismatched = await resolveFonts(manifest, {
+      source: source({ hebrew: { family: 'Body Serif', faces: [{ ...serifFace, unicodeRange: nonHebrewRange }], generic: 'serif' } }),
+    })
+    expect(mismatched.failures).toEqual([{ font: 'hebrew', family: 'Body Serif', unicodeRange: HEBREW_UNICODE_RANGE, reason: 'unsupplied' }])
+  })
+
+  test('returns no CSS or failures for an absent manifest', async () => {
+    expect(await resolveFonts(undefined, { source: source({}) })).toEqual({ css: '', failures: [] })
   })
 
   test('reports each face a source does not supply', async () => {

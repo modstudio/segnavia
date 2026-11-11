@@ -31,7 +31,7 @@ import { copyDemoBundles } from './copy-demo-bundles.ts'
 import { fitDeck, writeFitDemo } from './demo-fit-fixtures.ts'
 import { fixedPage, fluidPage, hebrewPage, marginPage, postcardPage } from './demo-page-fixtures.ts'
 import { writeResponsiveDemo } from './demo-responsive-fixtures.ts'
-import { urlSlideFonts, urlSlideHtml } from './demo-url-slide.ts'
+import { urlSlideFonts, urlSlideHtml, urlSlidePlayer } from './demo-url-slide.ts'
 import { sineWav } from './sine-wav.ts'
 
 const ROOT = path.resolve(import.meta.dir, '..')
@@ -224,7 +224,7 @@ writeFileSync(
             cues: [{ word: 6, annotation: 0 }],
           },
         },
-        { type: 'slide', id: 'url', content: { kind: 'url', src: 'slide-url.html', bridge: true } },
+        { type: 'slide', id: 'url', content: { kind: 'url', src: 'slide-url.html' } },
         { type: 'slide', id: 'image', content: { kind: 'image', src: `shots/${formShot.file}`, alt: 'The new class form' } },
       ],
     }),
@@ -251,7 +251,7 @@ writeFileSync(path.join(SITE, 'layout-overlay.html'), flowShell('<segnavia-playe
 writeFileSync(path.join(SITE, 'continuous.html'), shell(`<segnavia-player playback="continuous" src="deck.json">${playerChrome}</segnavia-player>`))
 writeFileSync(path.join(SITE, 'icons.html'), shell(`<segnavia-player playback="continuous" src="deck.json">${testIcons}</segnavia-player>`))
 writeFileSync(path.join(SITE, 'parts.html'), shell(`${partStyles}<segnavia-player playback="continuous" src="deck.json"></segnavia-player>`))
-writeFileSync(path.join(SITE, 'media.html'), shell('<segnavia-player id="player" src="deck-media.json" hash="off" presentation="native"></segnavia-player>'))
+writeFileSync(path.join(SITE, 'media.html'), shell(urlSlidePlayer))
 buildProgressDemo(SITE, shell)
 writeFileSync(
   path.join(SITE, 'he.html'),

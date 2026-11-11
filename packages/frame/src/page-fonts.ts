@@ -22,6 +22,10 @@ export interface FontsOptions {
   local?: FontFace[]
 }
 
+export interface ResolveFontsOptions extends FontsOptions {
+  signal?: AbortSignal
+}
+
 export { fontManifestReferences, fontManifestWithReferences }
 
 export interface ResolvedFonts {
@@ -129,9 +133,9 @@ export async function resolveFontReferences(
   return { css: fontCss({ app, local: fonts.local ?? [] }), failures: failures.slice(0, FONT_FAILURE_LIMIT) }
 }
 
-export function resolveFonts(fonts: FontManifest, options: FontsOptions & { signal?: AbortSignal }): Promise<ResolvedFonts> {
+export function resolveFonts(fonts: FontManifest | undefined, options: ResolveFontsOptions): Promise<ResolvedFonts> {
   const signal = options.signal ?? new AbortController().signal
-  return resolveFontReferences(fonts, [], options, signal, 'fonts')
+  return resolveFontReferences(fonts ?? {}, [], options, signal, 'fonts')
 }
 
 export async function resolvePageFonts(
