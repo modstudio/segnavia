@@ -172,7 +172,11 @@ worked under refused scripts; this design closes that gap.
 **Fonts reach every frame as data: faces in its own css.** A page and a motif
 name the fonts they use. Preview, browser print and server PDF resolve app
 font names through one `FontSource` and prepend the same `@font-face` rules to
-that frame's css, so screen and print cannot differ for app fonts. A local
+that frame's css, so screen and print cannot differ for app fonts. A source
+may answer that the target author document already loads a face; the frame
+then writes only the family property and embeds nothing for it, and a
+document the library builds itself, such as a notes sheet, reports that face
+as unsupplied because nothing there loads it. A local
 font is a browser face. For one server render, the host may send only the
 page's named local faces as JSON-safe base64 transport; render validates and
 embeds them under their declared families, reports absent faces as fallbacks,

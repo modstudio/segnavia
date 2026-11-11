@@ -192,7 +192,7 @@ describe('fontCss', () => {
       expect(malformed).toThrow(FontCssRefusedError)
       expect(malformed).toThrow(weightMessage)
     }
-    for (const invalid of [null, {}, ['100 900']]) {
+    for (const invalid of [null, {}, ['100 900'], [100, 900]]) {
       const malformed = () => fontCss({ app: new Map(), local: [face({ family: 'Face', weight: invalid as unknown as FontFace['weight'] })] })
       expect(malformed).toThrow(FontCssRefusedError)
       expect(malformed).toThrow(weightMessage)

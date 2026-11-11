@@ -5,6 +5,7 @@ import {
   type FontFace,
   FontFaceRefusedError,
   type FontFormat,
+  fontWeightRange,
   type ResolvedFontFace,
   resolveFontFace,
 } from '@segnavia/format'
@@ -18,9 +19,6 @@ export class FontCssRefusedError extends Error {
     this.name = 'FontCssRefusedError'
   }
 }
-
-const CSS_WEIGHT_KEYWORD = /^(?:normal|bold)$/
-const CSS_WEIGHT_NUMBER = /^(?:[1-9]\d{0,2}|1000)$/
 
 function mimeType(format: FontFormat): string {
   if (format === 'truetype') return 'ttf'
@@ -45,19 +43,9 @@ function faceRefusal(font: FontFace, problem: string, remedy: string): FontCssRe
   return new FontCssRefusedError(`The face ${JSON.stringify(font.family)} could not establish ${problem}; ${remedy} to clear this refusal.`)
 }
 
-function isCssWeightNumber(value: string): boolean {
-  return CSS_WEIGHT_NUMBER.test(value)
-}
-
 function isCssWeight(value: FontFace['weight']): boolean {
-  if (value === undefined) return true
-  if (typeof value === 'number') return Number.isInteger(value) && isCssWeightNumber(String(value))
-  if (typeof value !== 'string') return false
-  if (CSS_WEIGHT_KEYWORD.test(value) || isCssWeightNumber(value)) return true
-  const range = value.split(' ')
-  const low = range[0]
-  const high = range[1]
-  return range.length === 2 && low !== undefined && high !== undefined && isCssWeightNumber(low) && isCssWeightNumber(high) && Number(low) <= Number(high)
+  // A supplied face is CSS text or a number; an array is a declaration's range, which CSS cannot read.
+  return (value === undefined || typeof value === 'number' || typeof value === 'string') && fontWeightRange(value) !== null
 }
 
 function isFontFormat(value: FontFace['format']): value is FontFormat {

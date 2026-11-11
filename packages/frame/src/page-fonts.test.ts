@@ -73,6 +73,15 @@ describe('resolvePageFonts', () => {
     })
   })
 
+  test('writes the custom property without embedding or reporting a face already present', async () => {
+    const page = PageSchema.parse({ html: '<p></p>', style: { fonts: { serif: { faces: [{ weight: [100, 900] }] } } } })
+    const present = { family: 'Document Serif', faces: [], generic: 'serif' as const, present: true as const }
+    const resolved = await resolvePageFonts(page, [], { source: source({ serif: present }) }, signal)
+    expect(resolved.failures).toEqual([])
+    expect(resolved.css).toBe(':root{--segnavia-font-serif:"Document Serif",serif}')
+    expect(resolved.css).not.toContain('@font-face')
+  })
+
   test('bounds an unsupplied report where it is built', async () => {
     const declarations = Object.fromEntries(Array.from({ length: 65 }, (_, index) => [`font-${index}`, { faces: [{}] }]))
     expect((await resolveFontReferences(declarations, [], { source: source({}) }, signal, 'page')).failures).toHaveLength(64)
@@ -243,6 +252,15 @@ describe('notes font', () => {
       family: 'var(--segnavia-font-missing)',
       css: '',
       failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }],
+    })
+  })
+
+  test('resolveNotesFontCss reports a present face that the generated sheet cannot use', async () => {
+    const present = { family: 'Document Serif', faces: [], generic: 'serif' as const, present: true as const }
+    expect(await resolveNotesFontCss('serif', { source: source({ serif: present }) }, signal)).toEqual({
+      family: 'var(--segnavia-font-serif)',
+      css: ':root{--segnavia-font-serif:"Document Serif",serif}',
+      failures: [{ font: 'serif', family: 'Document Serif', reason: 'unsupplied' }],
     })
   })
 

@@ -47,6 +47,21 @@ describe('Page and Book fonts', () => {
 })
 
 describe('FontManifest', () => {
+  test('accepts a declared weight range and refuses inverted and out-of-bounds ranges', () => {
+    expect(FontManifest.parse({ body: { faces: [{ weight: [100, 900] }] } })).toEqual({ body: { faces: [{ weight: [100, 900] }] } })
+    for (const [weight, message] of [
+      [[900, 100], 'put the lower weight first'],
+      [[0, 900], 'use integers in that range'],
+    ] as const) {
+      const result = FontManifest.safeParse({ body: { faces: [{ weight }] } })
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.toString()).toContain('body')
+        expect(result.error.toString()).toContain(message)
+      }
+    }
+  })
+
   test('converts a manifest to references without browser globals', () => {
     expect(
       fontManifestReferences(
@@ -97,10 +112,38 @@ describe('FontManifest', () => {
     if (!duplicate.success) expect(duplicate.error.toString()).toContain('duplicates face 0')
   })
 
+  test('refuses declarations whose weight ranges overlap for the same face', () => {
+    const duplicate = FontManifest.safeParse({ body: { faces: [{ weight: [100, 500] }, { weight: [500, 900] }] } })
+    expect(duplicate.success).toBe(false)
+    if (!duplicate.success) expect(duplicate.error.toString()).toContain('duplicates face 0 by overlapping weight')
+    expect(FontManifest.safeParse({ body: { faces: [{ weight: [100, 499] }, { weight: [500, 900] }] } }).success).toBe(true)
+  })
+
   test('matches declared faces while retaining undeclared supplied faces', () => {
     const regular = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const }
     const bold = { ...regular, weight: 700 }
     expect(matchFaces([{ weight: 400 }, { weight: 300 }], [regular, bold])).toEqual({ faces: [regular, bold], unsupplied: [{ weight: 300 }] })
+  })
+
+  test('matches declarations only when a supplied weight range covers them', () => {
+    const variable = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const, weight: '100 900' }
+    const regular = { ...variable, weight: 400 }
+    for (const declaration of [{ weight: 400 }, { weight: [100, 900] as [number, number] }, { weight: [300, 700] as [number, number] }]) {
+      expect(matchFaces([declaration], [variable])).toEqual({ faces: [variable], unsupplied: [] })
+    }
+    expect(matchFaces([{ weight: [100, 900] }], [regular])).toEqual({ faces: [regular], unsupplied: [{ weight: [100, 900] }] })
+  })
+
+  test('lets one supplied variable face satisfy multiple declarations', () => {
+    const variable = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const, weight: '100 900' }
+    expect(matchFaces([{ weight: 400 }, { weight: 700 }], [variable])).toEqual({ faces: [variable], unsupplied: [] })
+  })
+
+  test('matches a ranged Hebrew declaration by weight and unicode range', () => {
+    const declaration = FontManifest.parse({ body: { faces: [{ script: 'hebrew', weight: [300, 700] }] } }).body
+    if (!declaration || !('faces' in declaration)) throw new Error('expected app font declaration')
+    const supplied = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const, weight: '100 900' }
+    expect(matchFaces(declaration.faces, [supplied])).toEqual({ faces: [supplied], unsupplied: [] })
   })
 
   test('matches a ranged Hebrew declaration to a supplied face with no range', () => {
@@ -138,7 +181,12 @@ describe('LocalFaceTransport', () => {
     expect(jsonSchemas().fontDeclaration).toMatchObject({
       type: 'object',
       properties: {
-        weight: { minimum: 1, maximum: 1000 },
+        weight: {
+          oneOf: [
+            { type: 'integer', minimum: 1, maximum: 1000 },
+            { type: 'array', minItems: 2, maxItems: 2 },
+          ],
+        },
         style: { enum: ['normal', 'italic'] },
         unicodeRange: { type: 'string' },
         script: { enum: ['hebrew'] },
