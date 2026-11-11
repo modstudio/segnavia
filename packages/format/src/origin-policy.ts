@@ -71,21 +71,21 @@ function strictOriginSet(values: Iterable<string> | undefined): Set<string> {
   return readOrigins(values, true)
 }
 
-interface ReadableApproval {
-  origin: string
-  kinds: readonly FetchKind[]
-  pathname?: string
-}
-
 const READABLE_PATHNAME = /^\/(?:[A-Za-z0-9._~!$&'()*+=:@/-]|%[0-9A-Fa-f]{2})*$/
+const ENCODED_SEPARATOR = /%(?:2f|5c)/i
 
 function readablePathname(value: string, origin: string): string | undefined {
-  if (!READABLE_PATHNAME.test(value) || /%(?:2e|2f|5c)/i.test(value) || new URL(value, origin).pathname !== value) return undefined
-  return value === '/' ? value : value.replace(/\/+$/, '')
+  if (!READABLE_PATHNAME.test(value) || /%2e/i.test(value) || ENCODED_SEPARATOR.test(value)) return undefined
+  try {
+    if (new URL(value, origin).pathname !== value) return undefined
+  } catch {
+    return undefined
+  }
+  return value === '/' ? undefined : value.replace(/\/+$/, '')
 }
 
-function readableApprovals(approvals: Iterable<OriginApproval> | undefined): ReadableApproval[] {
-  const result: ReadableApproval[] = []
+function readableApprovals(approvals: Iterable<OriginApproval> | undefined): OriginApproval[] {
+  const result: OriginApproval[] = []
   for (const approval of [...DEFAULT_ORIGINS, ...(approvals ?? [])]) {
     const origin = [...strictOriginSet([approval.origin])][0]
     if (!origin) continue
@@ -95,27 +95,28 @@ function readableApprovals(approvals: Iterable<OriginApproval> | undefined): Rea
     }
     const pathname = readablePathname(approval.pathname, origin)
     if (pathname) result.push({ origin, kinds: approval.kinds, pathname })
+    else if (approval.pathname === '/') result.push({ origin, kinds: approval.kinds })
   }
   return result
 }
 
-function approvalsFor(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): ReadableApproval[] {
+function approvalsFor(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): OriginApproval[] {
   if (kind === 'script' && !scripts) return []
   return readableApprovals(approvals).filter((approval) => approval.kinds.includes(kind))
 }
 
 export function approvedOrigins(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
-  return new Set(approvalsFor(approvals, kind, scripts).map((approval) => approval.origin))
+  return new Set(
+    approvalsFor(approvals, kind, scripts)
+      .filter((approval) => approval.pathname === undefined)
+      .map((approval) => approval.origin),
+  )
 }
 
 export function approvedSources(approvals: Iterable<OriginApproval> | undefined, kind: FetchKind, scripts: boolean): Set<string> {
   const result = new Set<string>()
   for (const approval of approvalsFor(approvals, kind, scripts)) {
     if (approval.pathname === undefined) {
-      result.add(approval.origin)
-      continue
-    }
-    if (approval.pathname === '/') {
       result.add(approval.origin)
       continue
     }
@@ -126,11 +127,11 @@ export function approvedSources(approvals: Iterable<OriginApproval> | undefined,
   return result
 }
 
-function pathRefusal(value: string, url: URL, origin: string, kind: FetchKind, candidates: ReadableApproval[]): AssetRefusal | undefined {
-  if (candidates.some((approval) => approval.pathname === undefined)) return undefined
-  const prefixes = candidates.flatMap((approval) => (approval.pathname === undefined ? [] : [approval.pathname]))
-  const separator = url.pathname.match(/%(?:2f|5c)/i)?.[0]
-  const matches = prefixes.some((prefix) => url.pathname === prefix || url.pathname.startsWith(prefix === '/' ? '/' : `${prefix}/`))
+function pathRefusal(value: string, url: URL, origin: string, kind: FetchKind, candidates: OriginApproval[]): AssetRefusal | undefined {
+  const prefixes = candidates.map((approval) => approval.pathname).filter((pathname): pathname is string => pathname !== undefined)
+  if (prefixes.length !== candidates.length) return undefined
+  const separator = url.pathname.match(ENCODED_SEPARATOR)?.[0]
+  const matches = prefixes.some((prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`))
   if (!separator && matches) return undefined
   return {
     url: value,

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { approvedSources, authoredOrigin, DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-policy.ts'
+import { approvedOrigins, approvedSources, authoredOrigin, DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-policy.ts'
 
 describe('origin policy', () => {
   test('opaque URLs do not report the serialized null origin', () => {
@@ -41,23 +41,44 @@ describe('origin policy', () => {
     expect(originDecision('https://cdn.jsdelivr.net/npm/approved/x.css', 'style', approvals, true).allowed).toBe(true)
   })
 
-  test('refuses encoded separators and unreadable prefixes', () => {
-    const approval = { origin: 'https://assets.example', kinds: ['image'] as const, pathname: '/approved' }
-    const separator = originDecision('https://assets.example/approved%2Fx.png', 'image', [approval], true)
-    expect(separator.allowed).toBe(false)
-    if (!separator.allowed) {
-      expect(separator.refusal.reason).toBe('outside-approved-path')
-      expect(separator.refusal.message).toContain('%2F')
+  test('refuses encoded separators inside an approved prefix', () => {
+    for (const separator of ['%2F', '%5C']) {
+      const decision = originDecision(
+        `https://cdn.jsdelivr.net/fontsource/a${separator}b.woff2`,
+        'font',
+        [{ origin: 'https://cdn.jsdelivr.net', kinds: ['font'], pathname: '/fontsource' }],
+        true,
+      )
+      expect(decision.allowed).toBe(false)
+      if (!decision.allowed) {
+        expect(decision.refusal.reason).toBe('outside-approved-path')
+        expect(decision.refusal.message).toContain(separator)
+        expect(decision.refusal.message).not.toContain('outside the approved font path prefixes')
+      }
     }
+  })
+
+  test('refuses unreadable prefixes', () => {
+    const approval = { origin: 'https://assets.example', kinds: ['image'] as const, pathname: '/approved' }
     for (const pathname of ['approved', '/a?b', '/a#b', '/a;b', '/a,b', '/a\\b', '/a/./b', '/a/../b', '/a/%2E/b', '/a/%2f/b', '/a/%5C/b']) {
       expect(originDecision('https://assets.example/a/b.png', 'image', [{ ...approval, pathname }], true).allowed).toBe(false)
     }
   })
 
-  test.each(['/x https://evil.example', '/x"https://evil.example', '/café', '/100%'])('unreadable path prefix %s approves no CSP source', (pathname) => {
-    const approvals = [{ origin: 'https://assets.example', kinds: ['image'] as const, pathname }]
-    expect([...approvedSources(approvals, 'image', false)]).toEqual([])
-    expect(originDecision('https://assets.example/x.png', 'image', approvals, false).allowed).toBe(false)
+  test.each(['/x https://evil.example', '/x"https://evil.example', '/café', '/100%', '//', '///', '//:1'])(
+    'unreadable path prefix %s approves no CSP source',
+    (pathname) => {
+      const approvals = [{ origin: 'https://assets.example', kinds: ['image'] as const, pathname }]
+      expect([...approvedSources(approvals, 'image', false)]).toEqual([])
+      expect(originDecision('https://assets.example/x.png', 'image', approvals, false).allowed).toBe(false)
+    },
+  )
+
+  test('normalizes a root pathname to an unscoped approval', () => {
+    const approvals = [{ origin: 'https://assets.example', kinds: ['image'] as const, pathname: '/' }]
+    expect([...approvedOrigins(approvals, 'image', false)]).toEqual(['https://assets.example'])
+    expect([...approvedSources(approvals, 'image', false)]).toEqual(['https://assets.example'])
+    expect(originDecision('https://assets.example/a%2Fb.png', 'image', approvals, false).allowed).toBe(true)
   })
 
   test('path refusals name the URL, prefixes, and clearing approval', () => {
@@ -96,6 +117,17 @@ describe('origin policy', () => {
       'https://cdn.jsdelivr.net/fontsource/',
     ])
     expect([...approvedSources(approvals, 'image', true)]).toEqual(['https://assets.example'])
+  })
+
+  test('approved origins include only unscoped approvals', () => {
+    const approvals: OriginApproval[] = [{ origin: 'https://assets.example', kinds: ['image'], pathname: '/public' }]
+    expect([...approvedOrigins(approvals, 'image', true)]).toEqual([])
+    expect([...approvedSources(approvals, 'image', true)]).toEqual(['https://assets.example/public', 'https://assets.example/public/'])
+  })
+
+  test('a prefixed approval does not narrow a built-in unscoped approval', () => {
+    const approvals: OriginApproval[] = [{ origin: 'https://cdn.jsdelivr.net', kinds: ['script'], pathname: '/fontsource' }]
+    expect(originDecision('https://cdn.jsdelivr.net/npm/x@1.2.3/x.js', 'script', approvals, true).allowed).toBe(true)
   })
 
   test('prefixed scripts still require exact versions', () => {
