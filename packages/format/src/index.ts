@@ -305,7 +305,7 @@ export {
   type TextStyleTokenGroup,
   TokenReference,
 } from './style-sheet.ts'
-export { carryMoment } from './supplied-moment.ts'
+export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'
 export { MAX_SLIDE_TIMING_MS } from './timing.ts'
 export * from './transition.ts'
 export { LIBRARY_VARIABLES, MetaVariable, NumberVariable, RecordVariable, TextVariable, Variable } from './variable.ts'
