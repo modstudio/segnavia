@@ -29,7 +29,6 @@ function deferred<T>() {
 }
 
 const assetSlot = [{ key: 'logo', label: 'Logo', type: 'image' as const, required: false }]
-
 test('page keeps its pending fill when replacement input is refused', async () => {
   const asset = deferred<string>()
   let iframe = { srcdoc: '', contentWindow: {}, addEventListener() {} }

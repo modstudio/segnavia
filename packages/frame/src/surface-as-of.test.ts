@@ -123,6 +123,7 @@ test('deck and page thumbnails report their record day and deck HTML binds it', 
       return true
     },
     mount: deckHarness.thumbnail.mount,
+    mountPageValue: deckHarness.thumbnail.mountPageValue,
   }
   await pageThumbnail.mount()
   expect(pageDays).toEqual([{ date: '2026-11-16', zone: 'UTC', kind: 'fixed' }])

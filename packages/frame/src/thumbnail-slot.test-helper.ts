@@ -98,6 +98,8 @@ export function thumbnailHarness(deck: ReturnType<typeof Deck.parse>, slots: Slo
       return true
     },
     mount: (SegnaviaThumbnail.prototype as unknown as { mount(): Promise<void> }).mount,
+    mountDeck: (SegnaviaThumbnail.prototype as unknown as { mountDeck(): Promise<void> }).mountDeck,
+    mountPageValue: (SegnaviaThumbnail.prototype as unknown as { mountPageValue(page: unknown): Promise<void> }).mountPageValue,
   }
   return { thumbnail, viewport, errors, days }
 }
