@@ -209,7 +209,7 @@ export interface PageImageOptions extends ImageOptions, AsOfInputs {
 
 export type ComposedRenderInput = RenderOptions & { preflight?: RenderPreflightOptions }
 
-export type SlideImageOptions = ImageOptions & ComposedRenderInput
+export type SlideImageOptions = ImageOptions & ComposedRenderInput & AsOfInputs
 
 export type ComposedRenderOptions = RenderOptions & { preflight?: ComposedPreflight }
 

@@ -1,4 +1,4 @@
-import { type Book, type BookItem, isPart, isPlacedSection, type PlacedSection, pageOrPrintedFromDocument } from '@segnavia/format'
+import { type AsOfDay, type Book, type BookItem, isPart, isPlacedSection, type PlacedSection, pageOrPrintedFromDocument } from '@segnavia/format'
 import { PLACEMENT_ATTRIBUTES, type PlacementsOptions, parseDocument, placementCropEdges, resolvePageHtml, resolvePlacements } from '@segnavia/html'
 import type { ResolvedAsset } from './board-policy.ts'
 import { bookPlacementWidth } from './placement-resolution.ts'
@@ -30,11 +30,12 @@ async function resolvePlaced(
   purpose: 'screen' | 'print',
   width: number,
   signal: AbortSignal,
+  day?: AsOfDay,
 ): Promise<BookItem> {
   const placement = entry.placement
   let answer: ResolvedAsset | undefined
   try {
-    answer = (await options.resolve(placement, { purpose, width, signal })) as ResolvedAsset | undefined
+    answer = (await options.resolve(placement, { purpose, width, signal, day })) as ResolvedAsset | undefined
   } catch (error) {
     return designed(
       entry,
@@ -46,6 +47,7 @@ async function resolvePlaced(
         purpose,
         width,
         signal,
+        day,
       }),
     )
   }
@@ -56,6 +58,7 @@ async function resolvePlaced(
     purpose,
     width,
     signal,
+    day,
   })
   return designed(entry, html)
 }
@@ -66,10 +69,11 @@ async function resolveItem(
   options: PlacementsOptions<ResolvedAsset>,
   purpose: 'screen' | 'print',
   signal: AbortSignal,
+  day?: AsOfDay,
 ): Promise<BookItem> {
-  if (isPart(item)) return { ...item, children: await Promise.all(item.children.map((child) => resolveItem(book, child, options, purpose, signal))) }
+  if (isPart(item)) return { ...item, children: await Promise.all(item.children.map((child) => resolveItem(book, child, options, purpose, signal, day))) }
   if (!isPlacedSection(item)) return item
-  return resolvePlaced(item, options, purpose, bookPlacementWidth(book, item.pageGeometry), signal)
+  return resolvePlaced(item, options, purpose, bookPlacementWidth(book, item.pageGeometry), signal, day)
 }
 
 function firstPlacedPath(book: Book): (string | number)[] | undefined {
@@ -92,6 +96,7 @@ export async function resolveBookEntries(
   options: PlacementsOptions<ResolvedAsset> | undefined,
   purpose: 'screen' | 'print',
   signal: AbortSignal,
+  day?: AsOfDay,
 ): Promise<Book> {
   const placedPath = firstPlacedPath(book)
   if (!options && !placedPath) return book
@@ -104,9 +109,9 @@ export async function resolveBookEntries(
       resolve: async () => undefined,
     } satisfies PlacementsOptions<ResolvedAsset>)
   const [frontMatter, body, endMatter] = await Promise.all([
-    Promise.all(book.frontMatter.map((item) => resolveItem(book, item, activeOptions, purpose, signal))),
-    Promise.all(book.body.map((item) => resolveItem(book, item, activeOptions, purpose, signal))),
-    Promise.all(book.endMatter.map((item) => resolveItem(book, item, activeOptions, purpose, signal))),
+    Promise.all(book.frontMatter.map((item) => resolveItem(book, item, activeOptions, purpose, signal, day))),
+    Promise.all(book.body.map((item) => resolveItem(book, item, activeOptions, purpose, signal, day))),
+    Promise.all(book.endMatter.map((item) => resolveItem(book, item, activeOptions, purpose, signal, day))),
   ])
   return { ...book, frontMatter, body, endMatter }
 }

@@ -5,6 +5,7 @@ import { type PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type 
 import { type BookDestination, explicit } from './book-destinations.ts'
 import { writeDocumentMetadata } from './document-metadata.ts'
 import { RenderRefusedError } from './errors.ts'
+import type { OutputDate } from './output-date.ts'
 
 export interface BookOutlineItem {
   id: string
@@ -84,8 +85,12 @@ function writeSiblings(
   return { first: references[0] as PDFRef, last: references.at(-1) as PDFRef }
 }
 
-export function writeBookStructure(document: PDFDocument, input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book }): void {
-  writeDocumentMetadata(document, input.book, undefined)
+export function writeBookStructure(
+  document: PDFDocument,
+  input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book },
+  date?: OutputDate,
+): void {
+  writeDocumentMetadata(document, input.book, date)
 
   const outline = bookOutline(input.headings, input.destinations)
   if (outline.length === 0) return

@@ -34,7 +34,7 @@ import { fontFaces } from './font-faces.ts'
 import { localFontsForRender } from './local-fonts.ts'
 import type { ComposedRenderOptions, ParsedPageRenderOptions, RenderOptions } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
-import { resolveRenderDayContexts } from './page-as-of.ts'
+import { resolveRenderDayContext } from './page-as-of.ts'
 import { printCss } from './page-paper.ts'
 import { withPreflightSeed } from './preflight.ts'
 import { RENDER_READY_BINDING } from './render-readiness.ts'
@@ -73,8 +73,7 @@ export async function prepareRenderedPage(
   const document = parseDocument(input, { newId: options.newId })
   const brand = await resolveRenderBrand(document, options.brandSource, signal)
   const page = pageOrPrintedFromDocument(document, brand)
-  const contexts = await resolveRenderDayContexts([page], options, signal)
-  const established = contexts.pages[0] as EstablishedPageDay
+  const established = await resolveRenderDayContext(page, options, signal)
   const prepared = page.printedPages?.sections
     ? await prepareRenderedPrintedPageValue(page, options, motifs, signal, established, purpose)
     : await prepareRenderedPageValue(page, options, motifs, signal, established, purpose)

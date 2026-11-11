@@ -7,6 +7,8 @@ import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName } from 
 import { awaitBookComposition, continuousBookNeedsScripts, lastBookPlanText, renderBrowserBookPdf, renderBrowserBookPlan, usesKeepWith } from './book-render.ts'
 import { RenderRefusedError } from './errors.ts'
 
+const currentDay = { date: '2026-11-14', zone: 'UTC', kind: 'current' as const }
+
 function planPage(number: number): Plan['pages'][number] {
   return {
     kind: 'body',
@@ -64,10 +66,16 @@ test('bookPlan turns a style sheet that cannot merge into a render refusal befor
     chapters: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
   })
   let opened = false
-  const planned = renderBrowserBookPlan(book, {}, '', async () => {
-    opened = true
-    throw new Error('no tab expected')
-  })
+  const planned = renderBrowserBookPlan(
+    book,
+    {},
+    '',
+    async () => {
+      opened = true
+      throw new Error('no tab expected')
+    },
+    currentDay,
+  )
   await expect(planned).rejects.toThrow(RenderRefusedError)
   await expect(planned).rejects.toThrow(/textStyles\.body\.basedOn/)
   expect(opened).toBe(false)
@@ -86,14 +94,20 @@ test.each([
   let opened = false
 
   await expect(
-    renderBrowserBookPdf(book, options, '', {
-      render: async () => {
-        opened = true
-        throw new Error('no tab expected')
+    renderBrowserBookPdf(
+      book,
+      options,
+      '',
+      {
+        render: async () => {
+          opened = true
+          throw new Error('no tab expected')
+        },
+        fontFaces: () => '',
+        finish: async (pdf) => pdf,
       },
-      fontFaces: () => '',
-      finish: async (pdf) => pdf,
-    }),
+      currentDay,
+    ),
   ).rejects.toThrow('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal')
   expect(opened).toBe(false)
 })
@@ -125,24 +139,30 @@ test('bookPdf labels a fresh paginated composition from its published plan', asy
     recordTotals: {},
     records: {},
   })
-  const output = await renderBrowserBookPdf(book, {}, '', {
-    render: async (setup) => {
-      await setup.beforeOutput?.({
-        waitForFunction: async () => undefined,
-        evaluate: async (_function: unknown, argument?: unknown) => (argument === undefined ? published : null),
-      } as never)
-      const document = await PDFDocument.create()
-      const first = document.addPage([419.53, 595.28])
-      document.addPage([419.53, 595.28])
-      document.catalog.set(PDFName.of('Dests'), document.context.obj({ one: [first.ref, PDFName.of('XYZ'), 0, first.getHeight(), null] }))
-      return {
-        bytes: await document.save(),
-        overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
-      }
+  const output = await renderBrowserBookPdf(
+    book,
+    {},
+    '',
+    {
+      render: async (setup) => {
+        await setup.beforeOutput?.({
+          waitForFunction: async () => undefined,
+          evaluate: async (_function: unknown, argument?: unknown) => (argument === undefined ? published : null),
+        } as never)
+        const document = await PDFDocument.create()
+        const first = document.addPage([419.53, 595.28])
+        document.addPage([419.53, 595.28])
+        document.catalog.set(PDFName.of('Dests'), document.context.obj({ one: [first.ref, PDFName.of('XYZ'), 0, first.getHeight(), null] }))
+        return {
+          bytes: await document.save(),
+          overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
+        }
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
     },
-    fontFaces: () => '',
-    finish: async (pdf) => pdf,
-  })
+    currentDay,
+  )
   const document = await PDFDocument.load(output)
   const labels = document.catalog.lookup(PDFName.of('PageLabels')) as PDFDict
   const numbers = labels.lookup(PDFName.of('Nums')) as PDFArray
@@ -170,26 +190,32 @@ test('bookPdf labels a supplied plan without reading a carrier', async () => {
     records: {},
   }
   let carrierReads = 0
-  const output = await renderBrowserBookPdf(book, { plan }, '', {
-    render: async (setup) => {
-      await setup.beforeOutput?.({
-        waitForFunction: async () => undefined,
-        evaluate: async (_function: unknown, argument?: unknown) => {
-          if (argument === undefined) carrierReads += 1
-          return null
-        },
-      } as never)
-      const document = await PDFDocument.create()
-      const first = document.addPage([419.53, 595.28])
-      document.catalog.set(PDFName.of('Dests'), document.context.obj({ one: [first.ref, PDFName.of('XYZ'), 0, first.getHeight(), null] }))
-      return {
-        bytes: await document.save(),
-        overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
-      }
+  const output = await renderBrowserBookPdf(
+    book,
+    { plan },
+    '',
+    {
+      render: async (setup) => {
+        await setup.beforeOutput?.({
+          waitForFunction: async () => undefined,
+          evaluate: async (_function: unknown, argument?: unknown) => {
+            if (argument === undefined) carrierReads += 1
+            return null
+          },
+        } as never)
+        const document = await PDFDocument.create()
+        const first = document.addPage([419.53, 595.28])
+        document.catalog.set(PDFName.of('Dests'), document.context.obj({ one: [first.ref, PDFName.of('XYZ'), 0, first.getHeight(), null] }))
+        return {
+          bytes: await document.save(),
+          overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
+        }
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
     },
-    fontFaces: () => '',
-    finish: async (pdf) => pdf,
-  })
+    currentDay,
+  )
   const document = await PDFDocument.load(output)
   const labels = document.catalog.lookup(PDFName.of('PageLabels')) as PDFDict
   const numbers = labels.lookup(PDFName.of('Nums')) as PDFArray
@@ -207,12 +233,42 @@ test('bookPlan measures the host-filled text that bookPdf prints', async () => {
   })
   let html = ''
 
-  await renderBrowserBookPlan(book, { slots: { fill: { id: 'host', values: { school: 'Lincoln School' } } } }, '', async (setup) => {
-    html = setup.html
-    throw new Error('no tab expected')
-  }).catch(() => undefined)
+  await renderBrowserBookPlan(
+    book,
+    { slots: { fill: { id: 'host', values: { school: 'Lincoln School' } } } },
+    '',
+    async (setup) => {
+      html = setup.html
+      throw new Error('no tab expected')
+    },
+    currentDay,
+  ).catch(() => undefined)
 
   expect(html).toContain('Lincoln School')
+})
+
+test('bookPlan measures the as-of text that bookPdf prints', async () => {
+  const book = parseBookFixture({
+    title: 'Dated workbook',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
+    chapters: [{ title: 'One', html: '<time data-slot-value="asOf.date"></time>' }],
+  })
+  const day = { date: '2026-11-14', zone: 'UTC', kind: 'fixed' as const }
+  let html = ''
+
+  await renderBrowserBookPlan(
+    book,
+    {},
+    '',
+    async (setup) => {
+      html = setup.html
+      throw new Error('no tab expected')
+    },
+    day,
+  ).catch(() => undefined)
+
+  expect(html).toContain('2026-11-14')
 })
 
 test('bookPlan refuses a continuous book before opening a tab', async () => {
@@ -225,10 +281,16 @@ test('bookPlan refuses a continuous book before opening a tab', async () => {
   let opened = false
 
   await expect(
-    renderBrowserBookPlan(book, {}, '', async () => {
-      opened = true
-      throw new Error('no tab expected')
-    }),
+    renderBrowserBookPlan(
+      book,
+      {},
+      '',
+      async () => {
+        opened = true
+        throw new Error('no tab expected')
+      },
+      currentDay,
+    ),
   ).rejects.toThrow('bookPlan needs a paginated book; set mode to paginated to clear this refusal')
   expect(opened).toBe(false)
 })

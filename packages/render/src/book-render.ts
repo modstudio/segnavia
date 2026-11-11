@@ -1,4 +1,5 @@
 import {
+  type AsOfDay,
   type Book,
   bookPageGeometries,
   type ComposeProgress,
@@ -33,6 +34,7 @@ import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
+import type { OutputDate } from './output-date.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
@@ -42,7 +44,7 @@ import { renderProgressDocumentOptions } from './progress.ts'
 import { RENDER_READY_BINDING, type RenderReadiness, renderReadiness } from './render-readiness.ts'
 import type { BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
-import { bookSlotFrames, filledBook } from './slot-fill.ts'
+import { bookSlotFrames, fillBookForDay } from './slot-fill.ts'
 
 export async function awaitBookComposition(tab: Tab, preflight?: ParsedBookPdfOptions['preflight']): Promise<void> {
   await tab.waitForFunction(({ composed, failed }) => document.documentElement.hasAttribute(composed) || document.documentElement.hasAttribute(failed), {
@@ -303,19 +305,27 @@ export async function renderBrowserBookPdf(
   options: ParsedBookPdfOptions,
   fontCss: string,
   dependencies: BrowserBookDependencies,
+  day: AsOfDay,
+  date?: OutputDate,
 ): Promise<Uint8Array> {
   refuseProgressUnlessOneComposition(options, book.mode === 'paginated' ? 1 : 0)
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
   let script: Promise<string | undefined> | undefined
-  return renderBookPdf(book, options, {
-    print: async (html, book, slots, renderOptions, part, layerCss = '') => {
-      script ??= resolveDiagramScript(bookDocument(book).html)
-      return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies.fontFailures ?? [], dependencies)
+  return renderBookPdf(
+    book,
+    options,
+    {
+      print: async (html, book, slots, renderOptions, part, layerCss = '') => {
+        script ??= resolveDiagramScript(bookDocument(book).html)
+        return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies.fontFailures ?? [], dependencies)
+      },
+      finish: dependencies.finish,
     },
-    finish: dependencies.finish,
-  })
+    day,
+    date,
+  )
 }
 
 export async function renderBrowserBookPlan(
@@ -323,12 +333,13 @@ export async function renderBrowserBookPlan(
   options: BookPlanOptions & { fontFailures?: FontFailure[] },
   fontCss: string,
   withTab: (setup: TabSetup, body: (tab: Tab) => Promise<SavedPlan>) => Promise<SavedPlan>,
+  day: AsOfDay,
 ): Promise<SavedPlan> {
   if (input.mode !== 'paginated') {
     throw new RenderRefusedError('bookPlan needs a paginated book; set mode to paginated to clear this refusal')
   }
   // The plan must measure the same filled text that bookPdf prints, or its replay refuses.
-  const { value: book, slots } = await filledBook(input, options.slots)
+  const { value: book, slots } = await fillBookForDay(input, day, options.slots)
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPlan.')
   const diagramScript = await resolveDiagramScript(bookDocument(book).html)
   const srcdoc = refusedAsRender(() =>

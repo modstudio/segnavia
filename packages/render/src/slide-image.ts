@@ -1,17 +1,21 @@
 import type { Deck } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { type PrintOptions, printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
+import type { EstablishedPageDay } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDeckFonts } from './deck-pdf.ts'
 import { fontFaces } from './font-faces.ts'
 import { assetSetup, type ParsedComposedRenderOptions, type SlideImageOptions } from './options.ts'
+import { outputDate } from './output-date.ts'
+import { enforceImageBytes } from './page-image-render.ts'
 import { surfacePreflight } from './preflight.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 import { slotsForDocument } from './slot-document.ts'
-import { filledDeck } from './slot-fill.ts'
+import { fillDeckForDay } from './slot-fill.ts'
+import { stampImage } from './stamp-image.ts'
 
 interface SlideImageServices {
   withTab: TabRunner
@@ -24,9 +28,10 @@ export async function renderSlideImage(
   opts: ParsedComposedRenderOptions<SlideImageOptions> & Pick<PrintOptions, 'inline'>,
   services: SlideImageServices,
   deadline: RenderDeadline,
+  established: EstablishedPageDay,
 ): Promise<Uint8Array> {
-  const { value: filled, slots } = await filledDeck(deck, opts.slots, deadline.signal)
-  const preparedDeck = await resolveDeckMedia(filled, opts.placements, 'print', deadline.signal)
+  const { value: filled, slots } = await fillDeckForDay(deck, established.day, established.slots, deadline.signal)
+  const preparedDeck = await resolveDeckMedia(filled, opts.placements, 'print', deadline.signal, established.day)
   const slide = preparedDeck.slides[index]
   if (!slide) throw new RangeError(`The deck has no slide ${index + 1}.`)
   const single: Deck = { ...preparedDeck, slides: [slide] }
@@ -55,7 +60,8 @@ export async function renderSlideImage(
     async (tab) => {
       await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)
       preflight?.complete()
-      return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
+      const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
+      return enforceImageBytes(stampImage(image, outputDate([established.day])), opts.limits?.bytes)
     },
   )
 }

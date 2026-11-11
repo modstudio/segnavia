@@ -1,4 +1,5 @@
 import {
+  type AsOfDay,
   type Book,
   type BookChapterEntry,
   type BookFrontMatterEntry,
@@ -11,6 +12,7 @@ import {
 import {
   assertSingleSlotCopy,
   bindRecordValues,
+  fillAsOfBindings,
   type HtmlPage,
   hasSlotWork,
   isPrintedHtmlPage,
@@ -23,6 +25,36 @@ import {
   type SlotPrintOptions,
   slotFillRefusal,
 } from '@segnavia/html'
+
+export function fillDeckAsOfBindings(deck: Deck, day: AsOfDay): Deck {
+  return {
+    ...deck,
+    slides: deck.slides.map((slide) =>
+      'kind' in slide.content && slide.content.kind === 'html'
+        ? { ...slide, content: { ...slide.content, html: fillAsOfBindings(slide.content.html, day) } }
+        : slide,
+    ),
+  }
+}
+
+export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions | undefined, signal?: AbortSignal) {
+  return filledDeck(fillDeckAsOfBindings(deck, day), slots, signal)
+}
+
+export function fillBookAsOfBindings(book: Book, day: AsOfDay): Book {
+  const apply = (html: string) => fillAsOfBindings(html, day)
+  return {
+    ...book,
+    frontMatter: mapBookItems(book.frontMatter, apply, false),
+    body: mapBookItems(book.body, apply, false),
+    endMatter: mapBookItems(book.endMatter, apply, false),
+    templates: book.templates.map((template) => ({ ...template, html: apply(template.html) })),
+    parentPages: book.parentPages.map((parent) => ({
+      ...parent,
+      regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: fillAsOfBindings(region.html, day) }])),
+    })),
+  }
+}
 
 function refuseRequired(prepared: PreparedSlots): void {
   const refusal = requiredSlotRefusal(prepared.declarations, prepared.report)
@@ -147,7 +179,7 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
   return { value, slots: prepared }
 }
 
-function fillEntry<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T, apply: (html: string) => string): T {
+function fillEntry<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T, apply: (html: string) => string, bind: boolean): T {
   if (isDesignedSection(entry)) return { ...entry, pages: entry.pages.map((page) => ({ ...page, html: apply(page.html) })) }
   if (isTemplatedSection(entry)) {
     return {
@@ -159,16 +191,16 @@ function fillEntry<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T, 
     }
   }
   if ('html' in entry) {
-    const bound = bindRecordValues(entry)
-    return { ...bound, html: apply(bound.html) } as T
+    const value = bind ? bindRecordValues(entry) : entry
+    return { ...value, html: apply(value.html as string) } as T
   }
   return entry
 }
 
-function mapBookItems(items: Book['body'], apply: (html: string) => string): Book['body'] {
+function mapBookItems(items: Book['body'], apply: (html: string) => string, bind: boolean): Book['body'] {
   return items.map((entry) => {
-    if (!isPart(entry)) return fillEntry(entry, apply)
-    return { ...entry, ...(entry.html === undefined ? {} : { html: apply(entry.html) }), children: mapBookItems(entry.children, apply) }
+    if (!isPart(entry)) return fillEntry(entry, apply, bind)
+    return { ...entry, ...(entry.html === undefined ? {} : { html: apply(entry.html) }), children: mapBookItems(entry.children, apply, bind) }
   })
 }
 
@@ -181,13 +213,17 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
   const value = hasSlotWork(book.slots, slots)
     ? {
         ...book,
-        frontMatter: mapBookItems(book.frontMatter, prepared.apply),
-        body: mapBookItems(book.body, prepared.apply),
-        endMatter: mapBookItems(book.endMatter, prepared.apply),
+        frontMatter: mapBookItems(book.frontMatter, prepared.apply, true),
+        body: mapBookItems(book.body, prepared.apply, true),
+        endMatter: mapBookItems(book.endMatter, prepared.apply, true),
         templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
       }
     : book
   return { value, slots: prepared }
+}
+
+export function fillBookForDay(book: Book, day: AsOfDay, slots: SlotPrintOptions | undefined, signal?: AbortSignal) {
+  return filledBook(fillBookAsOfBindings(book, day), slots, signal)
 }
 
 function bookItemFrameCount(items: Book['body']): number {

@@ -1,4 +1,5 @@
 import {
+  type AsOfDay,
   type Deck,
   type FontFailure,
   fitPage,
@@ -351,7 +352,7 @@ async function imposedDeckPdf(
   return services.finish(await composeImposedPdf(imposed, pieces, sides, imposition.markColor), opts)
 }
 
-export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string): Promise<Uint8Array> {
+export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: DeckPdfServices, diagramScript?: string, day?: AsOfDay): Promise<Uint8Array> {
   let pressSettings: ReturnType<typeof deckPressSettings>
   try {
     pressSettings = deckPressSettings(deck, opts)
@@ -361,7 +362,7 @@ export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: 
   }
   const signal = services.signal ?? AbortSignal.any([])
   const resolvedFonts = await resolveDeckFonts(deck, opts, signal)
-  const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', signal)
+  const resolvedDeck = await resolveDeckMedia(deck, opts.placements, 'print', signal, day)
   const resolvedServices = {
     ...services,
     fontFailures: resolvedFonts.fontFailures,

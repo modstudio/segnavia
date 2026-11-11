@@ -5,6 +5,7 @@ import type { DocumentInput } from '@segnavia/format'
 import type { Renderer } from '@segnavia/render'
 import { PDFDict, PDFDocument, PDFName, PDFString } from 'pdf-lib'
 import { AS_OF_DEMO_DATE, AS_OF_DEMO_MOMENT, PAGE_DEMO_PAGES } from '../build-page-demo.ts'
+import { screenDeck } from '../screen-document.ts'
 
 export async function verifyPageAsOfRender(renderer: Renderer, work: string, check: (what: string, ok: boolean, detail?: string) => void): Promise<void> {
   const days: Array<{ date: string }> = []
@@ -53,6 +54,57 @@ export async function verifyPageAsOfRender(renderer: Renderer, work: string, che
   check(
     'a current day without a host moment carries no PDF date or producer',
     !undatedInfo.has(PDFName.of('CreationDate')) && !undatedInfo.has(PDFName.of('Producer')),
+  )
+
+  const deck = screenDeck([{ type: 'slide', id: 'as-of', content: { kind: 'html', html: '<time data-slot-value="asOf.date"></time>' } }], {
+    title: 'As-of deck',
+    size: { width: 400, height: 200 },
+    asOf: { kind: 'fixed', date: AS_OF_DEMO_DATE },
+  })
+  const [firstDeck, secondDeck] = await Promise.all([renderer.deckPdf(deck), renderer.deckPdf(deck)])
+  const deckDocument = await PDFDocument.load(firstDeck, { updateMetadata: false })
+  const deckInfo = deckDocument.context.lookup(deckDocument.context.trailerInfo.Info, PDFDict)
+  const deckCreationDate = deckInfo.lookup(PDFName.of('CreationDate'), PDFString).decodeText()
+  check('fixed as-of deck PDFs carry their date and are byte-identical', deckCreationDate === 'D:20261114' && Buffer.from(firstDeck).equals(secondDeck))
+
+  const book: DocumentInput = {
+    type: 'document',
+    kind: 'book',
+    metadata: { title: 'As-of book' },
+    mode: 'paginated',
+    asOf: { kind: 'fixed', date: AS_OF_DEMO_DATE },
+    page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
+    children: [
+      {
+        type: 'division',
+        name: 'body',
+        children: [{ type: 'section', title: 'Chapter', children: [{ type: 'flow', html: '<time data-slot-value="asOf.date"></time>' }] }],
+      },
+    ],
+  }
+  const [firstBook, secondBook] = await Promise.all([renderer.bookPdf(book), renderer.bookPdf(book)])
+  const bookDocument = await PDFDocument.load(firstBook, { updateMetadata: false })
+  const bookInfo = bookDocument.context.lookup(bookDocument.context.trailerInfo.Info, PDFDict)
+  const bookCreationDate = bookInfo.lookup(PDFName.of('CreationDate'), PDFString).decodeText()
+  check('fixed as-of book PDFs carry their date and are byte-identical', bookCreationDate === 'D:20261114' && Buffer.from(firstBook).equals(secondBook))
+
+  const undatedDeck = screenDeck([{ type: 'slide', id: 'plain', content: { kind: 'html', html: '<p>Plain</p>' } }], {
+    title: 'Undated deck',
+    size: { width: 400, height: 200 },
+  })
+  const undatedBook = { ...book, asOf: undefined }
+  const [undatedDeckPdf, undatedBookPdf, undatedSlide] = await Promise.all([
+    renderer.deckPdf(undatedDeck),
+    renderer.bookPdf(undatedBook),
+    renderer.slideImage(undatedDeck, 0, { format: 'png' }),
+  ])
+  const undatedDeckDocument = await PDFDocument.load(undatedDeckPdf, { updateMetadata: false })
+  const undatedBookDocument = await PDFDocument.load(undatedBookPdf, { updateMetadata: false })
+  const undatedDeckInfo = undatedDeckDocument.context.lookup(undatedDeckDocument.context.trailerInfo.Info, PDFDict)
+  const undatedBookInfo = undatedBookDocument.context.lookup(undatedBookDocument.context.trailerInfo.Info, PDFDict)
+  check(
+    'deckPdf, bookPdf and slideImage without as-of inputs carry no creation date',
+    !undatedDeckInfo.has(PDFName.of('CreationDate')) && !undatedBookInfo.has(PDFName.of('CreationDate')) && pngCreationTime(undatedSlide) === undefined,
   )
 }
 

@@ -195,7 +195,14 @@ export function bookViewMotifRefusal(view: BookView): MotifRefusedError | undefi
   return motifSourceRefusal(viewShape(view).fields, BOOK_MOTIF_POLICY)
 }
 
-async function expandBookHtml(field: BookHtmlField, lang: string | undefined, scripts: Book['scripts'], motifs: MotifsOptions, signal: AbortSignal) {
+async function expandBookHtml(
+  field: BookHtmlField,
+  lang: string | undefined,
+  scripts: Book['scripts'],
+  motifs: MotifsOptions,
+  signal: AbortSignal,
+  day?: AsOfDay,
+) {
   const deferred = field.furniture ? { deferPaths: [RECORD_CONTEXT], deferLibrary: true } : {}
   return expandMotifs(field.html, {
     source: motifs.source,
@@ -205,12 +212,18 @@ async function expandBookHtml(field: BookHtmlField, lang: string | undefined, sc
     prefix: 'slot',
     linkOrigins: motifs.linkOrigins,
     signal,
+    day,
     ...deferred,
   })
 }
 
-async function expandBookShape<T extends Book | BookView>(shape: BookHtmlShape<T>, motifs: MotifsOptions, signal: AbortSignal): Promise<ExpandedBook<T>> {
-  const results = await Promise.all(shape.fields.map((field) => expandBookHtml(field, shape.book.lang, shape.book.scripts, motifs, signal)))
+async function expandBookShape<T extends Book | BookView>(
+  shape: BookHtmlShape<T>,
+  motifs: MotifsOptions,
+  signal: AbortSignal,
+  day?: AsOfDay,
+): Promise<ExpandedBook<T>> {
+  const results = await Promise.all(shape.fields.map((field) => expandBookHtml(field, shape.book.lang, shape.book.scripts, motifs, signal, day)))
   results.forEach((result, index) => {
     shape.fields[index]?.replace(result.html)
   })
@@ -225,6 +238,7 @@ async function resolveBookShape<T extends Book | BookView>(
   purpose: 'screen' | 'print',
   signal: AbortSignal,
   pageWidths?: PageWidths,
+  day?: AsOfDay,
   preflight?: PlacementPreflight,
 ): Promise<ExpandedBook<T>> {
   if (!placements) return expanded
@@ -237,6 +251,7 @@ async function resolveBookShape<T extends Book | BookView>(
         purpose,
         width: bookPlacementWidth(shape.book, field.pageGeometry, pageWidths),
         signal,
+        day,
       }),
     ),
   )
@@ -264,6 +279,7 @@ export async function expandFrameBook(
     placements,
     purpose,
     pageWidths,
+    undefined,
     profile,
   )
 }
@@ -275,19 +291,20 @@ export async function expandFrameBookValue(
   placements?: PlacementsOptions,
   purpose: 'screen' | 'print' = 'screen',
   pageWidths?: PageWidths,
+  day?: AsOfDay,
   profile?: PreflightProfile,
 ): Promise<ExpandedBook<Book>> {
   const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
   const placementOptions = placements ? { ...placements, report: placementReportWithPreflight(placements.report, preflight) } : placements
-  const entriesResolved = await resolveBookEntries(book, placementOptions, purpose, signal)
+  const entriesResolved = await resolveBookEntries(book, placementOptions, purpose, signal, day)
   const shape = bookShape(entriesResolved)
   if (!motifs) {
     const refusal = motifSourceRefusal(shape.fields, BOOK_MOTIF_POLICY)
     if (refusal) throw refusal
-    return resolveBookShape({ book: entriesResolved, fonts: [], preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, preflight)
+    return resolveBookShape({ book: entriesResolved, fonts: [], preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, day, preflight)
   }
-  const expanded = await expandBookShape(shape, motifs, signal)
-  return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, preflight)
+  const expanded = await expandBookShape(shape, motifs, signal, day)
+  return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, purpose, signal, pageWidths, day, preflight)
 }
 
 export async function expandFrameBookView(
@@ -300,7 +317,7 @@ export async function expandFrameBookView(
 ): Promise<ExpandedBook<BookView>> {
   const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
   const expanded = motifs ? await expandBookShape(viewShape(view), motifs, signal) : { book: view, fonts: [] }
-  return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, 'screen', signal, pageWidths, preflight)
+  return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, 'screen', signal, pageWidths, undefined, preflight)
 }
 
 export async function expandFramePage(

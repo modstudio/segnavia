@@ -4,6 +4,7 @@ import { placementPlaceholderSource } from '@segnavia/html'
 import { boardItemFrom } from './board-resolutions.ts'
 import { DeckController } from './controller.ts'
 import { preparedDeckValuePrint } from './print.ts'
+import { resolveDeckMedia } from './print-document.ts'
 import { slotAssetFrom } from './slot-render.ts'
 
 const media: Media = { format: 'png', size: { width: 40, height: 20 } }
@@ -83,6 +84,29 @@ test('deck media content resolves through placements as existing image content',
   })
   expect(controller.state.content).toEqual({ kind: 'image', src, alt: '', fit: undefined })
   controller.destroy()
+})
+
+test('deck media resolution passes the established day to placements', async () => {
+  const day = { date: '2026-11-14', zone: 'UTC', kind: 'fixed' as const }
+  let received: unknown
+  const deck = Deck.parse({
+    title: 'Placed',
+    size: { width: 640, height: 360 },
+    slides: [{ id: 'a', content: { media: { kind: 'media', address: 'logo' } } }],
+  })
+  await resolveDeckMedia(
+    deck,
+    {
+      resolve: async (_placement, context) => {
+        received = context.day
+        return undefined
+      },
+    },
+    'print',
+    new AbortController().signal,
+    day,
+  )
+  expect(received).toEqual(day)
 })
 
 test('deck media reports each unusable resolver answer and keeps the placeholder', async () => {

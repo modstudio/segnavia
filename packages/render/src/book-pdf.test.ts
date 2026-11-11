@@ -2,9 +2,12 @@ import { expect, test } from 'bun:test'
 import { PressGeometry, pressBoxes, sheetMm, usesPressLayout } from '@segnavia/format'
 import { bookDocument, parseBookFixture, planBookPages } from '@segnavia/html'
 import { PDFDocument, PDFName } from 'pdf-lib'
-import { bookPageCss, marginFactsFor, marginVariablePagesFor, renderBookPdf } from './book-pdf.ts'
+import { bookPageCss, marginFactsFor, marginVariablePagesFor, renderBookPdf as renderDatedBookPdf } from './book-pdf.ts'
 import type { BookPdfAdapter } from './book-pdf-types.ts'
-import { renderBrowserBookPdf } from './book-render.ts'
+
+const currentDay = { date: '2026-11-14', zone: 'UTC', kind: 'current' as const }
+const renderBookPdf = (input: Parameters<typeof renderDatedBookPdf>[0], options: Parameters<typeof renderDatedBookPdf>[1], adapter: BookPdfAdapter) =>
+  renderDatedBookPdf(input, options, adapter, currentDay)
 
 const continuousBook = (body: string, front?: string) =>
   parseBookFixture({
@@ -215,36 +218,6 @@ test('book bleed pads the composed source and writes media and trim boxes on eve
     expect(page.getTrimBox().x).toBeCloseTo((3 * 72) / 25.4)
     expect(page.getTrimBox().y).toBeCloseTo((3 * 72) / 25.4)
   }
-})
-
-test('places FontSource CSS before book CSS in the printed document', async () => {
-  let srcdoc = ''
-  await renderBrowserBookPdf(
-    parseBookFixture({
-      title: 'Book',
-      mode: 'paginated',
-      style: { css: '.book-rule{color:purple}' },
-      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-      chapters: [{ id: 'body-section', title: 'One', html: '<p class="book-rule">Text</p>' }],
-    }),
-    {},
-    '.font-source-marker{font-family:Held}',
-    {
-      render: async (setup) => {
-        srcdoc = setup.html
-        const document = await PDFDocument.create()
-        const page = document.addPage([419.53, 595.28])
-        document.catalog.set(PDFName.of('Dests'), document.context.obj({ 'body-section': [page.ref, PDFName.of('XYZ'), 0, 595.28, null] }))
-        return {
-          bytes: await document.save(),
-          overflow: { part: 'body', pageWidth: 419, extent: 419, clippedStart: 0, clippedEnd: 0, scale: 1, elements: [] },
-        }
-      },
-      fontFaces: () => '',
-      finish: async (pdf) => pdf,
-    },
-  )
-  expect(srcdoc.indexOf('.font-source-marker')).toBeLessThan(srcdoc.indexOf('.book-rule{color:purple}'))
 })
 
 test('reprints a growing page reference until its moved target settles', async () => {

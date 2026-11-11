@@ -103,6 +103,83 @@ test('Book preparation resolves placed media through the book PDF field path', a
   expect(bookDocument(expanded.book).html).toContain(`src="${src}"`)
 })
 
+test('book preparation passes the established day to placements', async () => {
+  const book = parseBookFixture({ title: 'Placed', mode: 'continuous', chapters: [{ title: 'One', html: '<img data-segnavia-media="cover">' }] })
+  const day = { date: '2026-11-14', zone: 'UTC', kind: 'fixed' as const }
+  let received: unknown
+  await expandFrameBook(
+    book,
+    undefined,
+    signal,
+    {
+      resolve: async (_placement, context) => {
+        received = context.day
+        return undefined
+      },
+    },
+    'print',
+    undefined,
+    day,
+  )
+  expect(received).toEqual(day)
+})
+
+test('book preparation passes the established day to placed sections', async () => {
+  const book = parseBookFixture({
+    title: 'Placed section',
+    mode: 'continuous',
+    chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/cover' } }],
+  })
+  const day = { date: '2026-11-14', zone: 'UTC', kind: 'fixed' as const }
+  let received: unknown
+  await expandFrameBook(
+    book,
+    undefined,
+    signal,
+    {
+      resolve: async (_placement, context) => {
+        received = context.day
+        return undefined
+      },
+    },
+    'print',
+    undefined,
+    day,
+  )
+  expect(received).toEqual(day)
+})
+
+test('book preparation passes the established day to motif data', async () => {
+  const book = parseBookFixture({ title: 'Motif', mode: 'continuous', chapters: [{ title: 'One', html: '<div data-motif="dated"></div>' }] })
+  const day = { date: '2026-11-14', zone: 'UTC', kind: 'fixed' as const }
+  let received: unknown
+  await expandFrameBook(
+    book,
+    {
+      source: {
+        motif: async () => ({
+          key: 'dated',
+          revision: '1',
+          label: 'Dated',
+          fields: [],
+          fonts: [],
+          versions: [{ lang: 'en', html: '<span data-slot-value="title"></span>' }],
+        }),
+        data: async (_placement, context) => {
+          received = context.day
+          return { title: 'Today' }
+        },
+      },
+    },
+    signal,
+    undefined,
+    'print',
+    undefined,
+    day,
+  )
+  expect(received).toEqual(day)
+})
+
 test('placed page entries become designed sections before the book is built', async () => {
   const book = parseBookFixture({
     title: 'Placed',
