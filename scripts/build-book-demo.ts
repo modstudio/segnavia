@@ -15,6 +15,7 @@ import { noteSeriesFixture, twoPageSeriesFixture, twoPageSeriesRelayoutCss } fro
 import { chapterParentRules, haggadahHeadCss, markParents, paginatedParents, variableHeadParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
+import { PAGINATED_TABLE_FLOW_IDS, tableFixtureRows, writePaginatedTableBook } from './demo-book-table-fixtures.ts'
 import { writeTitleHeadDemo } from './demo-book-title-head-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
@@ -78,8 +79,7 @@ function chapterFourHtml(hebrew: boolean): string {
   )
   const image = `<img alt="${hebrew ? 'תמונה גבוהה' : 'A tall image'}" src="data:image/svg+xml,${svg}">`
   const head = hebrew ? '<th>אות</th><th>ערך</th>' : '<th>Letter</th><th>Value</th>'
-  const letters = hebrew ? 'אבגדהוזחטיכלמנסעפצקרשת' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const rows = Array.from({ length: 40 }, (_, index) => `<tr><td>${letters[index % letters.length]}</td><td>${index + 1}</td></tr>`).join('')
+  const rows = tableFixtureRows(hebrew, 40).html
   const table = `<table${hebrew ? ' dir="rtl"' : ''}><thead><tr>${head}</tr></thead><tbody>${rows}</tbody></table>`
   const end = hebrew ? 'מקור לפרק הרביעי.' : 'The source for the fourth chapter.'
   return `<h1>${title}</h1>${image}${table}<p>${hebrew ? 'הערת סיום.' : 'An endnote.'}<span data-note="endnote">${end}</span></p>`
@@ -160,7 +160,7 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
           parentRules: chapterParentRules(BOOK_PARENT_NAMES.opener, variableHeadParents.verso, variableHeadParents.recto),
         }),
         flowSection(hebrew ? 'פרק רביעי' : 'Chapter Four', chapterFourHtml(hebrew), {
-          id: 'segnavia-chapter-4',
+          id: PAGINATED_TABLE_FLOW_IDS.table,
           parentRules: chapterParentRules(BOOK_PARENT_NAMES.opener, variableHeadParents.verso, variableHeadParents.recto),
         }),
         flowSection(columnFitChapter(hebrew).title, columnFitChapter(hebrew).html, { id: 'segnavia-chapter-5' }),
@@ -168,6 +168,7 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
     },
   ],
 })
+
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
@@ -334,6 +335,8 @@ export async function buildBookDemo(site: string): Promise<void> {
       paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull, profile: PREFLIGHT_PRESETS.default }),
     )
   }
+  const tableCss = `${hebrewFace}${designedCss}:where(html){font:16px/1.7 Alef,serif}`
+  writePaginatedTableBook(site, tableCss)
   writeFileSync(
     path.join(site, 'book-parts.html'),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Books with parts</title><style>

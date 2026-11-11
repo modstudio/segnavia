@@ -1,13 +1,16 @@
 import { describe, expect, test } from 'bun:test'
-import { decideVisibleMeasurement } from './composer.ts'
+import { COMPOSER_SCRIPT, decideVisibleMeasurement } from './composer.ts'
 import {
   descendantKeepSignals,
+  headerHeightFor,
   inlineLevelDisplay,
   type KeepSignalValues,
   keepSignals,
+  linesWithDescendantTables,
   type MeasuredKeepCandidate,
   measuredBlockConstraints,
   measuredKeepRuns,
+  measureLineBoxes,
   measurementRefusal,
   skippableDescendantBoxDisplay,
   tableRowLines,
@@ -195,6 +198,126 @@ describe('tableRowLines', () => {
   test('an empty row is one line', () => {
     expect(tableRowLines([{ top: 10, bottom: 30, boxes: [] }])).toEqual([{ top: 10, bottom: 30 }])
   })
+})
+
+test('a table inside a block replaces the range line spanning it with row bands', () => {
+  expect(
+    linesWithDescendantTables(
+      [
+        { top: 0, bottom: 10 },
+        { top: 10, bottom: 70 },
+        { top: 70, bottom: 80 },
+      ],
+      [
+        {
+          top: 10,
+          bottom: 70,
+          lines: [
+            { top: 10, bottom: 30 },
+            { top: 30, bottom: 50 },
+            { top: 50, bottom: 70 },
+          ],
+        },
+      ],
+    ),
+  ).toEqual([
+    { top: 0, bottom: 10 },
+    { top: 10, bottom: 30 },
+    { top: 30, bottom: 50 },
+    { top: 50, bottom: 70 },
+    { top: 70, bottom: 80 },
+  ])
+})
+
+test('only a block whose in-flow content is one table receives its header height', () => {
+  const head = { getBoundingClientRect: () => ({ height: 18 }) }
+  const table = { nodeType: 1, tagName: 'TABLE', tHead: head, getClientRects: () => [{}] }
+  const whitespace = { nodeType: 3, textContent: ' \n ' }
+  const paragraph = { nodeType: 1, tagName: 'P', getClientRects: () => [{}] }
+  const wrapper = { tagName: 'DIV', childNodes: [whitespace, table] }
+  const mixed = { tagName: 'DIV', childNodes: [paragraph, table] }
+  const styleOf = () => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration
+
+  expect(headerHeightFor(wrapper as unknown as Element, styleOf)).toBe(18)
+  expect(headerHeightFor(mixed as unknown as Element, styleOf)).toBe(0)
+})
+
+test('the repeated table header drops its block-start margin', () => {
+  const placeHeader = COMPOSER_SCRIPT.slice(COMPOSER_SCRIPT.indexOf('var placeHeader='))
+  const source = placeHeader.slice(0, placeHeader.indexOf('\nvar ', 1))
+  expect(source).toContain("held.style.marginBlockStart='0'")
+})
+
+function measuredElement(options: {
+  tag?: string
+  box?: { top: number; bottom: number; height: number }
+  range?: Array<{ top: number; bottom: number }>
+  tables?: unknown[]
+}) {
+  const box = options.box ?? { top: 10, bottom: 20, height: 10 }
+  const document = {
+    createRange: () => ({ selectNodeContents: () => {}, getClientRects: () => options.range ?? [] }),
+  }
+  return {
+    tagName: options.tag ?? 'DIV',
+    ownerDocument: document,
+    querySelectorAll: (selector: string) => (selector === 'table' ? (options.tables ?? []) : []),
+    getBoundingClientRect: () => box,
+  }
+}
+
+test('a hidden descendant table does not change its block lines', () => {
+  const hiddenTable = {
+    tagName: 'TABLE',
+    parentElement: null,
+    getClientRects: () => [],
+  }
+  const plain = measuredElement({ range: [{ top: 12, bottom: 18 }] })
+  const withHiddenTable = measuredElement({ range: [{ top: 12, bottom: 18 }], tables: [hiddenTable] })
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = ((element: Element) =>
+    ({ display: element === (hiddenTable as unknown as Element) ? 'none' : 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+  try {
+    expect(measureLineBoxes(withHiddenTable as unknown as Element, 0)).toEqual(measureLineBoxes(plain as unknown as Element, 0))
+  } finally {
+    globalThis.getComputedStyle = original
+  }
+})
+
+test('a figure without an in-flow table keeps its replaced box', () => {
+  const figure = measuredElement({ tag: 'FIGURE', box: { top: 10, bottom: 80, height: 70 } })
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+  try {
+    expect(measureLineBoxes(figure as unknown as Element, 0)).toEqual([{ top: 10, bottom: 80 }])
+  } finally {
+    globalThis.getComputedStyle = original
+  }
+})
+
+test('a figure with an in-flow table uses the table row bands', () => {
+  const row = {
+    closest: () => table,
+    getBoundingClientRect: () => ({ top: 20, bottom: 60 }),
+    querySelectorAll: () => [],
+  }
+  const table = {
+    tagName: 'TABLE',
+    parentElement: null as unknown,
+    ownerDocument: {},
+    getClientRects: () => [{}],
+    getBoundingClientRect: () => ({ top: 20, bottom: 60 }),
+    querySelectorAll: (selector: string) => (selector === 'tr' ? [row] : []),
+  }
+  const figure = measuredElement({ tag: 'FIGURE', box: { top: 10, bottom: 80, height: 70 }, range: [{ top: 20, bottom: 60 }], tables: [table] })
+  table.parentElement = figure
+  const original = globalThis.getComputedStyle
+  globalThis.getComputedStyle = (() => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration) as typeof getComputedStyle
+  try {
+    expect(measureLineBoxes(figure as unknown as Element, 0)).toEqual([{ top: 20, bottom: 60 }])
+  } finally {
+    globalThis.getComputedStyle = original
+  }
 })
 
 test('an unmeasurable printed-page galley refuses with its own subject', () => {

@@ -9,11 +9,11 @@ import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-mot
 import { clickBookAnchor, inBookView } from './book-navigation.ts'
 import { verifyNoteSeries } from './book-note-series.ts'
 import { verifyPaginatedPageReferences } from './book-page-reference-screen.ts'
+import { verifyPaginatedBlocks, verifyPaginatedTableBook } from './book-paginated-tables.ts'
 import { verifyPartsBooks } from './book-parts.ts'
 import { verifyPlacedMediaBook } from './book-placed-media.ts'
 import { verifyBookTitleHeads } from './book-title-heads.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
-import { inspectPaginatedBlocks } from './paginated-blocks.ts'
 import {
   compareDesignedPages,
   compareTemplatedPages,
@@ -233,7 +233,7 @@ async function verifyPaginatedBooks(h: Harness) {
       designed.spreadHasNoFurniture && designed.leafHasFurniture,
       JSON.stringify({ spreadHasNoFurniture: designed.spreadHasNoFurniture, leafHasFurniture: designed.leafHasFurniture }),
     )
-    await checkPaginatedBlocks(h, frame, id)
+    await verifyPaginatedBlocks(h, frame, id)
     check(`${id} contents page numbers equal the designed section's first page and its headings' pages`, designed.contents.matches, designed.contents.detail)
     await frame.locator('[data-segnavia-pages] a[href="#spread-open"]:not([data-ref])').evaluate((element: HTMLAnchorElement) => element.click())
     const spreadLanded = await frame.evaluate(() => {
@@ -266,6 +266,7 @@ async function verifyPaginatedBooks(h: Harness) {
     )
     await page.locator(`#${id}`).screenshot({ path: path.join(EVIDENCE, `${id}.png`) })
   }
+  await verifyPaginatedTableBook(h)
   const hebrewDir = await (await paginatedFrame(h, 'book-paginated-he')).evaluate(() => document.documentElement.getAttribute('dir'))
   check('the Hebrew paginated book root is right to left', hebrewDir === 'rtl', String(hebrewDir))
   await verifyNoteCaseBooks(h)
@@ -278,14 +279,6 @@ async function verifyKeepBooks(h: Harness) {
     const frame = await paginatedFrame(h, id)
     await verifyPaginatedBookKeeps(h.page.frameLocator(`#${id}`), frame, id, h.check)
   }
-}
-
-async function checkPaginatedBlocks(h: Harness, frame: Awaited<ReturnType<typeof paginatedFrame>>, id: string) {
-  const blocks = await frame.evaluate(inspectPaginatedBlocks)
-  h.check(`${id} each chapter's endnotes follow its text and come before the next chapter's opener or blank`, blocks.endnotes.ok, blocks.endnotes.detail)
-  h.check(`${id} a tall image is scaled onto one page`, blocks.image.ok, blocks.image.detail)
-  h.check(`${id} a long table continues with its header row repeated and no row lost or repeated`, blocks.table.ok, blocks.table.detail)
-  if (id === 'book-paginated-he') h.check(`${id} the long table and endnotes are right to left`, blocks.direction.ok, blocks.direction.detail)
 }
 
 async function checkOversizeBooks(h: Harness) {
@@ -306,6 +299,7 @@ async function checkOversizeBooks(h: Harness) {
   }
   await page.goto(h.url('book-paginated.html'))
 }
+
 async function verifyWorkbooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-workbook.html'))
