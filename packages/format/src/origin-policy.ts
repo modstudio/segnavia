@@ -43,6 +43,10 @@ const VERSIONED_SCRIPT_PATHS: Record<string, RegExp> = {
 export const DEFAULT_ORIGINS: readonly OriginApproval[] = [
   { origin: 'https://fonts.googleapis.com', kinds: ['style'] },
   { origin: 'https://fonts.gstatic.com', kinds: ['font'] },
+  { origin: 'https://api.iconify.design', kinds: ['image'] },
+  { origin: 'https://images.unsplash.com', kinds: ['image'] },
+  { origin: 'https://plus.unsplash.com', kinds: ['image'] },
+  { origin: 'https://images.pexels.com', kinds: ['image'] },
   { origin: 'https://cdnjs.cloudflare.com', kinds: ['script'] },
   { origin: 'https://cdn.jsdelivr.net', kinds: ['script'] },
   { origin: 'https://unpkg.com', kinds: ['script'] },

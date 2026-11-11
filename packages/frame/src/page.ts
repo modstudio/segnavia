@@ -15,7 +15,7 @@ import {
 import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
 import { captureAsOfLoad } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
@@ -26,10 +26,10 @@ import { loadShownPageDocument } from './page-document-loading.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
-import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
-import { dispatchCurrentPageProgress } from './page-frame-progress.ts'
+import type { PageFrameIdentity } from './page-frame.ts'
+import { handlePageFrameMessage } from './page-frame-message.ts'
 import { scrollPageToHeading } from './page-heading.ts'
-import { printedPageComposeFailure, printedPageRequestRefusal } from './page-printed.ts'
+import { printedPageRequestRefusal } from './page-printed.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
 import { renderPageValue } from './page-value-render.ts'
@@ -60,6 +60,7 @@ export class SegnaviaPage extends PageAsOfElement {
   private documentWrites = 0
   private loadedDocument: number | undefined
   private frameReady = false
+  private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
   constructor() {
@@ -238,8 +239,8 @@ export class SegnaviaPage extends PageAsOfElement {
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
-    const write = (document: string) => {
-      if (isCurrent()) this.writeDocument(iframe, document)
+    const write = (document: string, provisional = false) => {
+      if (isCurrent()) this.writeDocument(iframe, document, provisional)
     }
     const { moment, hostZone, anchors } = captureAsOfLoad(this)
     const facts = {
@@ -346,10 +347,12 @@ export class SegnaviaPage extends PageAsOfElement {
   private resetDocumentReadiness() {
     this.frameReady = false
     this.loadedDocument = undefined
+    this.documentIsFinal = false
   }
-  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string) {
+  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional = false) {
     const written = ++this.documentWrites
     this.resetDocumentReadiness()
+    this.documentIsFinal = !provisional
     iframe.addEventListener(
       'load',
       () => {
@@ -368,29 +371,24 @@ export class SegnaviaPage extends PageAsOfElement {
 
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
-    const message = messageFrom(event, frame, resolvePreflightProfile(this.profileInput))
     const currentFrame = { frame, generation: this.loadGeneration }
-    dispatchFontFailures(this, message)
-    if (dispatchCurrentPageProgress(this, message, currentFrame, this.composedFrame, this.slotFrame)) return
-    if (message?.type === MESSAGE.ready && this.loadedDocument === this.documentWrites) {
-      this.frameReady = true
-      releaseReadyPageRequests(this.pageRequests)
-    }
-    const page = this.pageValue
-    if (samePageFrame(currentFrame, this.composedFrame) && dispatchPreflight(this, message)) return
-    const composeFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, currentFrame, this.composedFrame)
-    if (composeFailure) {
-      dispatchPageFailure(this, composeFailure, true)
-      return
-    }
-    if (message?.type === MESSAGE.slotFit && message.slots && samePageFrame(currentFrame, this.slotFrame)) this.resolvedSlots?.mergeFit(message.slots)
-    if (!page || message?.type !== MESSAGE.height || message.height === undefined) return
-    if (page.printedPages) return
-    // A fixed sheet keeps its own height whatever its content reports.
-    if (typeof page.size === 'object' && page.size.height !== 'auto') return
-    this.frameHeight.contentHeight = message.height
-    this.dataset.measured = ''
-    this.fit()
+    handlePageFrameMessage(this, event, {
+      composedFrame: this.composedFrame,
+      currentFrame,
+      documentIsFinal: this.documentIsFinal,
+      documentIsLoaded: this.loadedDocument === this.documentWrites,
+      frameHeight: this.frameHeight,
+      frameReady: this.frameReady,
+      page: this.pageValue,
+      profile: resolvePreflightProfile(this.profileInput),
+      resolvedSlots: this.resolvedSlots,
+      slotFrame: this.slotFrame,
+      fit: () => this.fit(),
+      ready: () => {
+        this.frameReady = true
+        releaseReadyPageRequests(this.pageRequests)
+      },
+    })
   }
 }
 export function createPageElement(): SegnaviaPage {
