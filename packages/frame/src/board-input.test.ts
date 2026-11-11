@@ -6,13 +6,14 @@ class TestElement extends EventTarget {
 }
 
 const previousHTMLElement = globalThis.HTMLElement
+const previousHTMLButtonElement = globalThis.HTMLButtonElement
 
 afterEach(() => {
-  Object.assign(globalThis, { HTMLElement: previousHTMLElement })
+  Object.assign(globalThis, { HTMLElement: previousHTMLElement, HTMLButtonElement: previousHTMLButtonElement })
 })
 
 test('Space selects labels and section titles before editing input and Escape clears them', () => {
-  Object.assign(globalThis, { HTMLElement: TestElement })
+  Object.assign(globalThis, { HTMLElement: TestElement, HTMLButtonElement: TestElement })
   const host = new TestElement()
   const selected: Array<[string | null, boolean]> = []
   let delegated = 0
