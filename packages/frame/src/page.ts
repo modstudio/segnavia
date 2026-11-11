@@ -60,6 +60,7 @@ export class SegnaviaPage extends PageAsOfElement {
   private documentWrites = 0
   private loadedDocument: number | undefined
   private frameReady = false
+  private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
   constructor() {
@@ -238,8 +239,8 @@ export class SegnaviaPage extends PageAsOfElement {
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
-    const write = (document: string) => {
-      if (isCurrent()) this.writeDocument(iframe, document)
+    const write = (document: string, provisional = false) => {
+      if (isCurrent()) this.writeDocument(iframe, document, provisional)
     }
     const { moment, hostZone, anchors } = captureAsOfLoad(this)
     const facts = {
@@ -346,10 +347,12 @@ export class SegnaviaPage extends PageAsOfElement {
   private resetDocumentReadiness() {
     this.frameReady = false
     this.loadedDocument = undefined
+    this.documentIsFinal = false
   }
-  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string) {
+  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional = false) {
     const written = ++this.documentWrites
     this.resetDocumentReadiness()
+    this.documentIsFinal = !provisional
     iframe.addEventListener(
       'load',
       () => {
@@ -372,6 +375,7 @@ export class SegnaviaPage extends PageAsOfElement {
     handlePageFrameMessage(this, event, {
       composedFrame: this.composedFrame,
       currentFrame,
+      documentIsFinal: this.documentIsFinal,
       documentIsLoaded: this.loadedDocument === this.documentWrites,
       frameHeight: this.frameHeight,
       frameReady: this.frameReady,

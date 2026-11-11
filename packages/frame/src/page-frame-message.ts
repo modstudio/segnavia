@@ -7,9 +7,12 @@ import { dispatchCurrentPageProgress } from './page-frame-progress.ts'
 import { printedPageComposeFailure } from './page-printed.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
+// These fields are captured when the message arrives. This is safe because every
+// branch after an event dispatch is gated on a different message type.
 export interface PageFrameMessageState {
   composedFrame: PageFrameIdentity | undefined
   currentFrame: PageFrameIdentity
+  documentIsFinal: boolean
   documentIsLoaded: boolean
   frameHeight: PageFrameHeightState
   frameReady: boolean
@@ -27,7 +30,7 @@ export function handlePageFrameMessage(target: HTMLElement, event: MessageEvent,
   if (dispatchCurrentPageProgress(target, message, state.currentFrame, state.composedFrame, state.slotFrame)) return
   if (message?.type === MESSAGE.ready && state.documentIsLoaded && !state.frameReady) {
     state.ready()
-    target.dispatchEvent(new Event('ready'))
+    if (state.documentIsFinal) target.dispatchEvent(new Event('ready'))
   }
   if (samePageFrame(state.currentFrame, state.composedFrame) && dispatchPreflight(target, message)) return
   const composeFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, state.currentFrame, state.composedFrame)

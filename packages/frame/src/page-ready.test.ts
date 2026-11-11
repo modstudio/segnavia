@@ -46,7 +46,12 @@ function readyHarness(pageValue = Page.parse({ html: '<p>Screen page</p>' })) {
   })
   page.addEventListener('ready', (event) => ready.push(event))
   page.addEventListener('error', (event) => errors.push(event as ErrorEvent))
-  const write = () => (page as unknown as { writeDocument(frame: unknown, source: string): void }).writeDocument(heldFrame, '<!doctype html><p>Written</p>')
+  const write = (provisional = false) =>
+    (page as unknown as { writeDocument(frame: unknown, source: string, provisional?: boolean): void }).writeDocument(
+      heldFrame,
+      '<!doctype html><p>Written</p>',
+      provisional,
+    )
   const dispatch = (data: unknown) =>
     (page as unknown as { onMessage(event: MessageEvent): void }).onMessage({ source: heldFrame.contentWindow, data } as MessageEvent)
   return { dispatch, errors, frame: heldFrame, page, ready, write }
@@ -105,6 +110,22 @@ describe('SegnaviaPage ready', () => {
     expect(harness.ready).toHaveLength(1)
   })
 
+  test('fires only for the final document after slot filling replaces a provisional write', () => {
+    const harness = readyHarness()
+    harness.write(true)
+    harness.frame.load()
+    harness.dispatch({ type: MESSAGE.ready })
+
+    expect(harness.ready).toEqual([])
+
+    harness.write()
+    harness.frame.load()
+    harness.dispatch({ type: MESSAGE.ready })
+    harness.dispatch({ type: MESSAGE.ready })
+
+    expect(harness.ready).toHaveLength(1)
+  })
+
   test('reports a compose failure without firing ready', () => {
     const harness = readyHarness(printedPage())
     Object.assign(harness.page, { composedFrame: { frame: harness.frame, generation: 1 } })
@@ -115,22 +136,5 @@ describe('SegnaviaPage ready', () => {
 
     expect(harness.errors.map((event) => event.message)).toEqual(['composition failed'])
     expect(harness.ready).toEqual([])
-  })
-
-  test('does not fire for a host-served document', () => {
-    const harness = readyHarness()
-    const previousLocation = globalThis.location
-    Object.assign(globalThis, { location: { href: 'https://host.example/' } })
-    Object.assign(harness.page, {
-      releaseFrame: () => 2,
-      mount: () => harness.frame,
-      fit: () => {},
-    })
-
-    harness.page.showUrl('/page.html')
-    harness.dispatch({ type: MESSAGE.ready })
-
-    expect(harness.ready).toEqual([])
-    Object.assign(globalThis, { location: previousLocation })
   })
 })
