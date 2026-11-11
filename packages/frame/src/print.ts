@@ -22,7 +22,7 @@ import {
 } from '@segnavia/format'
 import {
   type AsOfInputs,
-  fillAsOfBindings,
+  fillDeckAsOfBindings,
   fillPageAsOfBindings,
   type HtmlPage,
   parseAsOfInputs,
@@ -283,14 +283,7 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
   options = parseAsOfInputs({ ...options, limits: parseLimits(options.limits, 'host') })
   const contexts = await resolveDayContextsFor([authoredDeck], options, options.slots, signal)
   const established = contexts.pages[0]
-  const deck = {
-    ...authoredDeck,
-    slides: authoredDeck.slides.map((slide) =>
-      'kind' in slide.content && slide.content.kind === 'html'
-        ? { ...slide, content: { ...slide.content, html: fillAsOfBindings(slide.content.html, established?.day) } }
-        : slide,
-    ),
-  }
+  const deck = established ? fillDeckAsOfBindings(authoredDeck, established.day) : authoredDeck
   options = { ...options, slots: established?.slots }
   const exceeded = deckLimitsExceeded(deck, options.limits ?? {})
   if (exceeded.length > 0) throw new LimitExceededError(exceeded as [(typeof exceeded)[number], ...typeof exceeded])

@@ -1,6 +1,7 @@
 import type { CoverInput, DocumentInput, DocumentMetadata, ImpositionInput, PageOrPrintedInput, Plan } from '@segnavia/format'
 import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { PrintOptions } from '@segnavia/frame/print-document'
+import type { AsOfInputs } from '@segnavia/html'
 import type { CoverImageOptions } from './cover-image.ts'
 import type {
   ComposedRenderInput,
@@ -29,9 +30,9 @@ export interface RendererOptions {
 
 export type PagePdfOptions = PageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata }
 export type ParsedPagePdfOptions = ParsedPageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata }
-export type BookPdfOptions = ComposedRenderInput & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[] }
+export type BookPdfOptions = ComposedRenderInput & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[] }
 export type ParsedBookPdfOptions = ParsedComposedRenderOptions<BookPdfOptions>
-export type BookPlanOptions = RenderOptions & { motifs?: MotifsOptions; breaks?: string[] }
+export type BookPlanOptions = RenderOptions & AsOfInputs & { motifs?: MotifsOptions; breaks?: string[] }
 export interface Renderer {
   bookPdf(book: DocumentInput, options?: BookPdfOptions): Promise<Uint8Array>
   bookPlan(book: DocumentInput, options?: BookPlanOptions): Promise<Plan>
@@ -39,7 +40,7 @@ export interface Renderer {
   pagesPdf(pages: PageOrPrintedInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageOrPrintedInput, options?: PageImageOptions): Promise<Uint8Array>
   coverImage(cover: CoverInput, options: CoverImageOptions): Promise<Uint8Array>
-  deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PrintOptions): Promise<Uint8Array>
+  deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PrintOptions & AsOfInputs): Promise<Uint8Array>
   slideImage(deck: DocumentInput, index: number, options?: SlideImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
   close(): Promise<void>

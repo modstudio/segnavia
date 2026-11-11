@@ -61,14 +61,14 @@ function dayKey(day: AsOfDay): string {
   return JSON.stringify([day.date, day.zone, day.kind, day.anchor, day.moment])
 }
 
-export async function resolveDocumentDayContexts(pages: readonly { asOf?: AsOf }[], options: DocumentDayContextOptions): Promise<DocumentDayContexts> {
+export async function resolveDocumentDayContexts(records: readonly { asOf?: AsOf }[], options: DocumentDayContextOptions): Promise<DocumentDayContexts> {
   const resolutions = new Map<string, Promise<AsOfDay>>()
   const resolvedDays = await Promise.all(
-    pages.map((page) => {
-      const key = asOfKey(page.asOf)
+    records.map((record) => {
+      const key = asOfKey(record.asOf)
       const existing = resolutions.get(key)
       if (existing) return existing
-      const resolution = resolveDocumentDay(page.asOf, options)
+      const resolution = resolveDocumentDay(record.asOf, options)
       resolutions.set(key, resolution)
       return resolution
     }),
@@ -96,13 +96,13 @@ export async function resolveDocumentDayContexts(pages: readonly { asOf?: AsOf }
 }
 
 export async function resolveDayContextsFor(
-  pages: readonly { asOf?: AsOf }[],
+  records: readonly { asOf?: AsOf }[],
   inputs: AsOfInputs,
   slots: SlotsOptions | undefined,
   signal: AbortSignal,
 ): Promise<DocumentDayContexts> {
   const parsed = parseAsOfInputs(inputs)
-  const contexts = await resolveDocumentDayContexts(pages, {
+  const contexts = await resolveDocumentDayContexts(records, {
     moment: parsed.moment ?? Date.now(),
     ...carryMoment('hostMoment', parsed.moment),
     hostZone: parsed.asOf?.zone,

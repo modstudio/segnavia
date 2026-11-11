@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { RenderLimitError } from './errors.ts'
-import { enforceImageBytes } from './page-image-render.ts'
+import { enforceImageBytes } from './image-bytes.ts'
 
 test('enforces the byte ceiling on the final stamped image', () => {
   const image = new Uint8Array(11)

@@ -3,6 +3,7 @@
 // annotation shown, and its narration prints as its notes.
 
 import {
+  type AsOfDay,
   type Deck,
   type DocumentInput,
   deckFromDocument,
@@ -75,11 +76,12 @@ export async function resolveMediaContent<R extends { kind: string }>(
   purpose: 'screen' | 'print',
   width: number,
   signal: AbortSignal,
+  day?: AsOfDay,
 ): Promise<ImageSlide> {
   const placement = content.media
   if (!placements) return missingMedia(content)
   try {
-    const answer = await placements.resolve(placement, { purpose, width, signal })
+    const answer = await placements.resolve(placement, { purpose, width, signal, day })
     signal.throwIfAborted()
     const classified = classifyMediaAnswer({ answer })
     if (classified.status === 'ok') {
@@ -104,10 +106,11 @@ export async function resolveDeckMedia<R extends { kind: string }>(
   placements: PlacementsOptions<R> | undefined,
   purpose: 'screen' | 'print',
   signal: AbortSignal,
+  day?: AsOfDay,
 ): Promise<Deck> {
   const slides = await Promise.all(
     deck.slides.map(async (slide) =>
-      'media' in slide.content ? { ...slide, content: await resolveMediaContent(slide.content, placements, purpose, deck.size.width, signal) } : slide,
+      'media' in slide.content ? { ...slide, content: await resolveMediaContent(slide.content, placements, purpose, deck.size.width, signal, day) } : slide,
     ),
   )
   return { ...deck, slides }

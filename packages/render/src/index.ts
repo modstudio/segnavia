@@ -1,10 +1,10 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
-import { expandFrameBookValue } from '@segnavia/frame/motifs'
-import { type EstablishedPageDay, fillPageAsOfBindings, type PreparedSlots, parseDocument, printedPageAuthorHtml } from '@segnavia/html'
+import { fillPageAsOfBindings, type PreparedSlots, parseAsOfInputs, parseDocument, printedPageAuthorHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
-import { parseBookPdfOptions } from './book-options.ts'
+import { prepareRenderBook } from './book-expansion.ts'
+import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
-import { resolveRenderBook, resolveRenderBrand, resolveRenderDeck } from './brand.ts'
+import { resolveRenderBrand, resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { keepBrowser } from './browser-keeper.ts'
 import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
@@ -22,13 +22,12 @@ import {
   type OverflowEntry,
   pageCompositionCount,
   parseComposedRenderOptions,
-  parseRenderOptions,
   refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { printWithOverflow } from './overflow.ts'
-import { resolveRenderDayContexts } from './page-as-of.ts'
-import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
+import { resolveRenderDayContext, resolveRenderDayContexts } from './page-as-of.ts'
+import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue } from './page-document.ts'
 import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
@@ -43,9 +42,9 @@ import { renderQueue } from './render-queue.ts'
 import { renderReadiness } from './render-readiness.ts'
 import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlideImage } from './slide-image.ts'
-import { renderSlotCopyPdfs } from './slot-copies.ts'
+import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
-import { filledBook, filledDeck, filledPage, filledPages } from './slot-fill.ts'
+import { fillDeckForDay, filledBook, filledPage, filledPages } from './slot-fill.ts'
 
 export { FontRefusedError } from '@segnavia/frame/fonts'
 export type { MotifsOptions } from '@segnavia/frame/motifs'
@@ -171,43 +170,37 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async bookPdf(input, opts = {}) {
       const parsedOptions = parseBookPdfOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const book = await resolveRenderBook(input, parsedOptions.newId, parsedOptions.brandSource, deadline.signal)
-        const expanded = await expandFrameBookValue(
+        const { book, options, fontCss: resolvedFontCss, fontFailures, established, preflight } = await prepareRenderBook(input, parsedOptions, deadline.signal)
+        const seededOptions = { ...options, preflight: withPreflightSeed(options.preflight, preflight) }
+        return renderBrowserBookPdf(
           book,
-          parsedOptions.motifs,
-          deadline.signal,
-          parsedOptions.placements,
-          'print',
-          parsedOptions.pageWidths,
-          parsedOptions.preflight?.profile,
+          seededOptions,
+          resolvedFontCss,
+          {
+            render: (setup, pdf, pageWidth, part) =>
+              withTab({ ...setup, deadline }, async (tab) => {
+                const captures = await prepareBackdropRasters(tab, options.effects)
+                const printed = await printWithOverflow(tab, pageWidth, part, pdf)
+                return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
+              }),
+            fontFaces: (options) => fontFaces(options.fonts),
+            finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+            fontFailures,
+          },
+          established.day,
         )
-        const seededOptions = { ...parsedOptions, preflight: withPreflightSeed(parsedOptions.preflight, expanded.preflight) }
-        const {
-          options,
-          fontCss: resolvedFontCss,
-          fontFailures,
-        } = await renderOptionsWithBookFonts(expanded.book, seededOptions, deadline.signal, expanded.fonts)
-        return renderBrowserBookPdf(expanded.book, options, resolvedFontCss, {
-          render: (setup, pdf, pageWidth, part) =>
-            withTab({ ...setup, deadline }, async (tab) => {
-              const captures = await prepareBackdropRasters(tab, options.effects)
-              const printed = await printWithOverflow(tab, pageWidth, part, pdf)
-              return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
-            }),
-          fontFaces: (options) => fontFaces(options.fonts),
-          finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
-          fontFailures,
-        })
       })
     },
     async bookPlan(input, opts = {}) {
-      opts = parseRenderOptions(opts)
+      opts = parseBookPlanOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const book = await resolveRenderBook(input, opts.newId, opts.brandSource, deadline.signal)
-        const expanded = await expandFrameBookValue(book, opts.motifs, deadline.signal, opts.placements, 'print', opts.pageWidths)
-        const { options, fontCss: resolvedFontCss, fontFailures } = await renderOptionsWithBookFonts(expanded.book, opts, deadline.signal, expanded.fonts)
-        return renderBrowserBookPlan(expanded.book, { ...options, fontFailures }, `${resolvedFontCss}${fontFaces(options.fonts)}`, (setup, body) =>
-          withTab({ ...setup, deadline }, body),
+        const { book, options, fontCss: resolvedFontCss, fontFailures, established } = await prepareRenderBook(input, opts, deadline.signal)
+        return renderBrowserBookPlan(
+          book,
+          { ...options, fontFailures },
+          `${resolvedFontCss}${fontFaces(options.fonts)}`,
+          (setup, body) => withTab({ ...setup, deadline }, body),
+          established.day,
         )
       })
     },
@@ -218,7 +211,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page], parsedOptions.slots))
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
-          const effectiveSlots = parsedOptions.slots?.fills ? copySlots : prepared.established.slots
+          const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, prepared.established.slots)
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
           const { value: page, slots } = await filledPage(pageWithDay, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(printedPageAuthorHtml(page))
@@ -253,14 +246,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         return renderPreparedPageImage(prepared, parsedOptions, deadline, withTab)
       })
     },
-
     async coverImage(input, opts) {
       const cover = Cover.parse(input)
       const plan = coverImagePlan(cover, opts)
       const options = parseComposedRenderOptions(plan.options)
       return await withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const contexts = await resolveRenderDayContexts([cover.page], options, deadline.signal)
-        const established = contexts.pages[0] as EstablishedPageDay
+        const established = await resolveRenderDayContext(cover.page, options, deadline.signal)
         const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, established, 'screen')
         refuseProgressUnlessOneComposition(options, pageCompositionCount([prepared.page]))
         return renderPreparedPageImage(prepared, options, deadline, withTab, surfacePreflight(options.preflight, 1))
@@ -289,7 +280,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const prepared = await prepareRenderedPages(expanded, parsedOptions, deadline.signal)
         const expandedPages = expanded.map((item, index) => fillPageAsOfBindings(item.page, contexts.pages[index]?.day))
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
-          const effectiveSlots = parsedOptions.slots?.fills ? copySlots : contexts.pages[0]?.slots
+          const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, contexts.pages[0]?.slots)
           const { value: pages, slots, frameGroups } = await filledPages(expandedPages, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(pages.map(printedPageAuthorHtml).join(''))
           return renderPagesPdf(
@@ -324,13 +315,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async deckPdf(input, opts = {}) {
-      const options = parseComposedRenderOptions(opts)
+      const options = parseAsOfInputs(parseComposedRenderOptions(opts))
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
+        const established = await resolveRenderDayContext(deck, options, deadline.signal)
         enforceDeckLimits(deck, options.limits)
         const bytes = await renderSlotCopyPdfs(options.slots, async (copySlots) => {
-          const { value: prepared, slots } = await filledDeck(deck, copySlots, deadline.signal)
+          const effectiveSlots = effectiveCopySlots(options.slots, copySlots, established.slots)
+          const { value: prepared, slots } = await fillDeckForDay(deck, established.day, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(
             prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join(''),
           )
@@ -356,19 +349,21 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               signal: deadline.signal,
             },
             diagramScript,
+            established.day,
           )
         })
-        return withDocumentMetadata(await finishWithBrowser(bytes, options, deadline))
+        return withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
       })
     },
 
     async slideImage(input, index, opts = {}) {
-      const options = parseComposedRenderOptions(opts)
+      const options = parseAsOfInputs(parseComposedRenderOptions(opts))
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
+        const established = await resolveRenderDayContext(deck, options, deadline.signal)
         enforceDeckLimits(deck, options.limits)
-        return renderSlideImage(deck, index, options, { withTab, diagramScript: resolveDiagramScript }, deadline)
+        return renderSlideImage(deck, index, options, { withTab, diagramScript: resolveDiagramScript }, deadline, established)
       })
     },
 
