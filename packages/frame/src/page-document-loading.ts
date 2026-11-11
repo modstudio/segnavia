@@ -9,6 +9,26 @@ import type { PreparedSlots } from './slot-render.ts'
 type DiagramScriptLoader = (html: string) => Promise<string | undefined>
 type DiagramDocumentBuilder = (nonce: string, diagramScript: string | undefined) => string
 
+type ShownPageDocumentOptions = {
+  baseCss?: string
+  css?: string
+  csp?: string
+  origins?: Iterable<OriginApproval>
+  fontFailures?: FontFailure[]
+  preflight?: PreflightProfile
+}
+
+export function shownPageDocumentOptions(
+  baseCss: string,
+  css: string,
+  csp: string,
+  origins: Iterable<OriginApproval>,
+  fontFailures: FontFailure[],
+  preflight: PreflightProfile,
+): ShownPageDocumentOptions {
+  return { baseCss, css, csp: csp || undefined, origins, fontFailures, preflight }
+}
+
 function loadDiagramDocument(
   html: string,
   build: DiagramDocumentBuilder,
@@ -64,7 +84,7 @@ export function loadPageDocument(
 export function loadShownPageDocument(
   page: HtmlPage,
   resolved: PreparedSlots | undefined,
-  options: { baseCss?: string; css?: string; csp?: string; origins?: Iterable<OriginApproval>; fontFailures?: FontFailure[]; preflight?: PreflightProfile },
+  options: ShownPageDocumentOptions,
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,

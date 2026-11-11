@@ -21,8 +21,7 @@ import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { PageAsOfElement } from './page-as-of-element.ts'
 import { loadBrandedPage } from './page-brand.ts'
-import { loadShownPageDocument } from './page-document-loading.ts'
-import { PageDocumentReadiness } from './page-document-readiness.ts'
+import { loadShownPageDocument, shownPageDocumentOptions } from './page-document-loading.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
 import { dispatchPageFailure } from './page-failure.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -57,7 +56,10 @@ export class SegnaviaPage extends PageAsOfElement {
   private slotFrame: PageFrameIdentity | undefined
   private composedFrame: PageFrameIdentity | undefined
   private hostServed = false
-  private documentReadiness = new PageDocumentReadiness()
+  private documentWrites = 0
+  private loadedDocument: number | undefined
+  private frameReady = false
+  private documentIsFinal = false
   private pageRequests = createPageRequestState()
   private profileInput: PreflightProfileInput = 'default'
   constructor() {
@@ -224,14 +226,7 @@ export class SegnaviaPage extends PageAsOfElement {
       loadShownPageDocument(
         shownPage,
         resolved,
-        {
-          baseCss: fontCss,
-          css: this.css,
-          csp: this.cspExtra || undefined,
-          origins: this.origins,
-          fontFailures,
-          preflight: resolvePreflightProfile(this.profileInput),
-        },
+        shownPageDocumentOptions(fontCss, this.css, this.cspExtra, this.origins, fontFailures, resolvePreflightProfile(this.profileInput)),
         (document) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved
@@ -300,7 +295,7 @@ export class SegnaviaPage extends PageAsOfElement {
   readSelection(): Promise<PageSelection> {
     const refusal = printedPageRequestRefusal(this.pageValue, 'selection')
     if (refusal) return Promise.reject(refusal)
-    return readPageSelection(this.pageValue, this.querySelector('iframe'), this.hostServed, this.documentReadiness.frameReady, this.pageRequests)
+    return readPageSelection(this.pageValue, this.querySelector('iframe'), this.hostServed, this.frameReady, this.pageRequests)
   }
   /** Scrolls to an id returned by `markdownOutline(page.body)`, resolving false when no heading has that id. */
   scrollToHeading(id: string, options?: { behavior?: ScrollBehavior }): Promise<boolean> {
@@ -313,13 +308,13 @@ export class SegnaviaPage extends PageAsOfElement {
       this.querySelector('iframe'),
       this.querySelector('.segnavia-page__sheet'),
       this.hostServed,
-      this.documentReadiness.frameReady,
+      this.frameReady,
       this.pageRequests,
     )
   }
 
   private mount(page: Page): HTMLIFrameElement {
-    this.documentReadiness.reset()
+    this.resetDocumentReadiness()
     this.pageValue = page
     this.frameHeight.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
     this.frameHeight.hasReport = false
@@ -349,10 +344,24 @@ export class SegnaviaPage extends PageAsOfElement {
     cancelPageRequests(this.pageRequests, true)
   }
 
-  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional = false) {
-    this.documentReadiness.write(iframe, srcdoc, provisional)
+  private resetDocumentReadiness() {
+    this.frameReady = false
+    this.loadedDocument = undefined
+    this.documentIsFinal = false
   }
-
+  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional = false) {
+    const written = ++this.documentWrites
+    this.resetDocumentReadiness()
+    this.documentIsFinal = !provisional
+    iframe.addEventListener(
+      'load',
+      () => {
+        if (written === this.documentWrites) this.loadedDocument = written
+      },
+      { once: true },
+    )
+    iframe.srcdoc = srcdoc
+  }
   private fit() {
     const page = this.pageValue
     const sheet = this.querySelector<HTMLElement>('.segnavia-page__sheet')
@@ -366,17 +375,17 @@ export class SegnaviaPage extends PageAsOfElement {
     handlePageFrameMessage(this, event, {
       composedFrame: this.composedFrame,
       currentFrame,
-      documentIsFinal: this.documentReadiness.final,
-      documentIsLoaded: this.documentReadiness.documentIsLoaded,
+      documentIsFinal: this.documentIsFinal,
+      documentIsLoaded: this.loadedDocument === this.documentWrites,
       frameHeight: this.frameHeight,
-      frameReady: this.documentReadiness.frameReady,
+      frameReady: this.frameReady,
       page: this.pageValue,
       profile: resolvePreflightProfile(this.profileInput),
       resolvedSlots: this.resolvedSlots,
       slotFrame: this.slotFrame,
       fit: () => this.fit(),
       ready: () => {
-        this.documentReadiness.frameReady = true
+        this.frameReady = true
         releaseReadyPageRequests(this.pageRequests)
       },
     })
