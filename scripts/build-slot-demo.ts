@@ -118,6 +118,10 @@ export async function buildSlotDemo(site: string): Promise<void> {
         children: [{ type: 'slide', id: 'card', content: { kind: 'html', html: '<p data-slot-value="name">Design Name</p>' } }],
       }
       const overflowStage = document.getElementById('overflow-stage')
+      document.body.append(overflowStage)
+      overflowStage.style.setProperty('flex', '0 0 168px')
+      overflowStage.style.setProperty('inline-size', '168px')
+      overflowStage.style.setProperty('block-size', '96px')
       const overflowController = new DeckController({ hash: null })
       let stagePreflight
       overflowStage.addEventListener('preflight', event => { stagePreflight = event.detail })
@@ -128,6 +132,8 @@ export async function buildSlotDemo(site: string): Promise<void> {
         data: { slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'refuse' }] },
         children: [{ type: 'slide', id: 'overflow', content: { kind: 'html', html: '<strong data-slot-value="name" style="display:block;inline-size:100px;block-size:96px;font-size:80px;white-space:nowrap">Design Name</strong>' } }],
       })
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      window.dispatchEvent(new Event('resize'))
       let failedAsset
       const failing = { fill: { id: 'broken', values: { logo: { asset: 'missing' } } }, resolveAsset, report: report => { failedAsset = report } }
       const probe = document.createElement('segnavia-page')
