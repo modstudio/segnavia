@@ -223,9 +223,10 @@ Object.defineProperty(window,'localStorage',{configurable:true,value:storage()})
   const fontLoads = options.readyAfterAttribute
     ? 'Promise.resolve([])'
     : `${declaredFontLoadExpression('declarations')}.then(reportFontFailures)`
-  const reportComposerFontFailures = options.readyAfterAttribute
-    ? `var composerFontFailures=function(){try{var value=JSON.parse(document.documentElement.getAttribute('${FONT_FAILURE_ATTRIBUTE}')||'[]');return Array.isArray(value)?value:[];}catch(error){return [];}};loadedFontFailures=reportFontFailures(composerFontFailures());`
+  const composerFontFailures = options.readyAfterAttribute
+    ? `var composerFontFailures=function(){try{var value=JSON.parse(document.documentElement.getAttribute('${FONT_FAILURE_ATTRIBUTE}')||'[]');return Array.isArray(value)?value:[];}catch(error){return [];}};`
     : ''
+  const reportComposerFontFailures = options.readyAfterAttribute ? 'reportFontFailures(composerFontFailures());' : ''
   const composerSlotFit = options.bridgeForHost ? 'window.segnaviaSlotFit=function(done){slotFit(done,false);};' : ''
   const preflight = surfacePreflight ? embeddedSurfacePreflight(surfacePreflight, PREFLIGHT_ATTRIBUTE, MESSAGE.preflight) : ''
   return `(function(){
@@ -284,7 +285,7 @@ function ready(){animationReport();${options.printBackground ? 'printBackground(
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};
 var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return merged;};
-var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});var diagrams=${DIAGRAM_READY_EXPR};
+${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});var diagrams=${DIAGRAM_READY_EXPR};
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`

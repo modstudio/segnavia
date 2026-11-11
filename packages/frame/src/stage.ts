@@ -63,7 +63,7 @@ export class SegnaviaStage extends HTMLElement {
     (state) => this.update(state),
   )
   private selectionRequests = new Map<(reason: Error) => void, { frame: HTMLIFrameElement; slideId: string }>()
-  private preflightState = new SurfacePreflightCoordinator(this)
+  private preflightState: SurfacePreflightCoordinator | undefined
 
   constructor() {
     super()
@@ -75,11 +75,11 @@ export class SegnaviaStage extends HTMLElement {
   }
 
   get profile(): PreflightProfileInput {
-    return this.preflightState.profile
+    return (this.preflightState ??= new SurfacePreflightCoordinator(this)).profile
   }
 
   set profile(value: PreflightProfileInput) {
-    this.preflightState.profile = value
+    ;(this.preflightState ??= new SurfacePreflightCoordinator(this)).profile = value
     this.rebuildFrames()
   }
 
@@ -275,7 +275,7 @@ export class SegnaviaStage extends HTMLElement {
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
     this.dataset.layout = deck.layout
     const scripts = shownScripts(deck.scripts, this.authoringRefusesScripts)
-    this.preflightState.reset(deck, deck.slides.length)
+    ;(this.preflightState ??= new SurfacePreflightCoordinator(this)).reset(deck, deck.slides.length)
     const shownState = scripts === deck.scripts ? state : { ...state, deck: { ...deck, scripts } }
     this.pool.update(shownState, this.attached as DeckController, {
       neighbors: this.neighbors,
@@ -287,7 +287,7 @@ export class SegnaviaStage extends HTMLElement {
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
       slots: this.resolvedSlots,
       bridgeReadyTimeoutMs: this.bridgeReadyTimeoutMs,
-      preflight: this.preflightState.resolvedProfile(),
+      preflight: (this.preflightState ??= new SurfacePreflightCoordinator(this)).resolvedProfile(),
       reportSlideError: (slideId, message) => {
         const error = new SlideFrameError(message, slideId, this.attached?.state.deck?.slides.findIndex((slide) => slide.id === slideId) ?? -1)
         this.dispatchEvent(new ErrorEvent('error', { error, message }))
@@ -324,13 +324,13 @@ export class SegnaviaStage extends HTMLElement {
 
   // A key pressed inside the slide reaches the stage only through the bridge.
   private onMessage = (event: MessageEvent) => {
-    const message = messageFrom(event, this.pool.frames(), this.preflightState.resolvedProfile())
+    const message = messageFrom(event, this.pool.frames(), (this.preflightState ??= new SurfacePreflightCoordinator(this)).resolvedProfile())
     dispatchFontFailures(this, message)
     if (message?.type === MESSAGE.preflight && message.report) {
       const frame = this.pool.frames().find((candidate) => candidate.contentWindow === event.source)
       const slideId = frame?.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId
       const index = this.attached?.state.deck?.slides.findIndex((slide) => slide.id === slideId) ?? -1
-      if (index >= 0) this.preflightState.receive(index, message.report)
+      if (index >= 0) (this.preflightState ??= new SurfacePreflightCoordinator(this)).receive(index, message.report)
     }
     if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
     if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
@@ -364,6 +364,7 @@ export class SegnaviaStage extends HTMLElement {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
   }
+
 
   private rebuildFrames() {
     this.frameRebuilder.rebuild(this.attached, true)

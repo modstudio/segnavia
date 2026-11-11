@@ -62,7 +62,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private resolvedSlots: PreparedSlots | undefined
   private resolvedGeneration = 0
   private pageDayContexts: EstablishedPageDay[] = []
-  private preflightState = new SurfacePreflightCoordinator(this)
+  private preflightState: SurfacePreflightCoordinator | undefined
 
   constructor() {
     super()
@@ -74,11 +74,11 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   get profile(): PreflightProfileInput {
-    return this.preflightState.profile
+    return (this.preflightState ??= new SurfacePreflightCoordinator(this)).profile
   }
 
   set profile(value: PreflightProfileInput) {
-    this.preflightState.profile = value
+    ;(this.preflightState ??= new SurfacePreflightCoordinator(this)).profile = value
     this.paint()
   }
 
@@ -232,7 +232,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   private paint() {
-    this.preflightState.clear()
+    ;(this.preflightState ??= new SurfacePreflightCoordinator(this)).clear()
     this.cancelSlotPreparation()
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
@@ -350,8 +350,8 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       css: this.stylesheet,
       csp: this.extraCsp,
       origins: [...this.origins],
-      profile: this.preflightState.resolvedProfile(),
-      preflight: (report) => this.preflightState.receive(index, report, this.pageValues.length),
+      profile: (this.preflightState ??= new SurfacePreflightCoordinator(this)).resolvedProfile(),
+      preflight: (report) => (this.preflightState ??= new SurfacePreflightCoordinator(this)).receive(index, report, this.pageValues.length),
     })
   }
   private onMessage = (event: MessageEvent) => {
