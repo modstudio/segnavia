@@ -1,5 +1,4 @@
 import { type AsOf, type AsOfDay, CalendarDate, type Zone } from './as-of.ts'
-import { carryMoment } from './supplied-moment.ts'
 import { zonedParts } from './zoned-parts.ts'
 
 export interface AsOfFacts {
@@ -26,7 +25,7 @@ export function resolveAsOfDay(asOf: AsOf | undefined, facts: AsOfFacts): AsOfRe
   if (asOf?.kind === 'anchor') {
     return { kind: 'anchor', anchor: asOf.anchor, today, zone }
   }
-  return { kind: 'day', day: { date: today, zone, kind: 'current', ...carryMoment('moment', facts.hostMoment) } }
+  return { kind: 'day', day: { date: today, zone, kind: 'current' } }
 }
 
 export function asOfRefusal(anchor: string, reason: string): string {

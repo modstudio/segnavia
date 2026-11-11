@@ -1,5 +1,6 @@
 import {
   type AsOfDay,
+  carryMoment,
   type Document,
   type DocumentInput,
   type FontFailure,
@@ -277,7 +278,8 @@ export class SegnaviaPage extends PageAsOfElement {
     if (established) {
       render(established.day, established.slots)
     } else if (policy.kind === 'day' && !this.slotOptions?.resolve) {
-      render(policy.day, { ...this.slotOptions, resolve: undefined, source: this.slotOptions?.source })
+      const day = policy.day.kind === 'fixed' ? policy.day : { ...policy.day, ...carryMoment('moment', facts.hostMoment) }
+      render(day, { ...this.slotOptions, resolve: undefined, source: this.slotOptions?.source })
     } else {
       void resolveDocumentDayResult(policy, facts)
         .then(async (day) => ({ day, slots: await slotsForDay(this.slotOptions, day, controller.signal) }))

@@ -30,10 +30,10 @@ describe('as-of policy', () => {
     expect(calendarDate(boundaryMoment, 'UTC')).toBe('2026-11-14')
   })
 
-  test('carries a host moment on a current day but not an anchor resolution', () => {
+  test('leaves the host moment for document-day completion', () => {
     expect(resolveAsOfDay({ kind: 'current' }, { moment: boundaryMoment, hostMoment: boundaryMoment })).toEqual({
       kind: 'day',
-      day: { date: '2026-11-14', zone: 'UTC', kind: 'current', moment: boundaryMoment },
+      day: { date: '2026-11-14', zone: 'UTC', kind: 'current' },
     })
     expect(resolveAsOfDay({ kind: 'anchor', anchor: 'week' }, { moment: boundaryMoment, hostMoment: boundaryMoment })).toEqual({
       kind: 'anchor',
