@@ -1,8 +1,6 @@
 import type { DocumentInput } from '@segnavia/format'
 import { markdownHtml } from '@segnavia/html'
 import { BOOK_STYLE_CHECK_CSS } from './demo-book-fonts.ts'
-import { BOOK_FOLIO_MOTIF_KEY } from './demo-book-motifs.ts'
-import { paginatedParents } from './demo-book-parents.ts'
 
 export const PAGINATED_TABLE_FLOW_IDS = {
   table: 'segnavia-chapter-4',
@@ -39,7 +37,6 @@ export const paginatedTableFixture = (): DocumentInput => ({
   style: { css: BOOK_STYLE_CHECK_CSS },
   page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 }, columnGap: 5 },
   rectoOpenings: true,
-  parentPages: paginatedParents(BOOK_FOLIO_MOTIF_KEY).map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
   children: [
     {
       type: 'division',
