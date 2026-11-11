@@ -46,3 +46,35 @@ test.each([
   expect(reports[0]?.issues[0]?.location).toEqual({ folio: '1' })
   expect(reports[0]?.coverage).toEqual({ measured: 2, total: 2 })
 })
+
+test('deck-wide font failures stay locationless when the same face also fails in a slide tab', async () => {
+  const reports: PreflightReport[] = []
+  const missing = { font: 'body', family: 'Body', reason: 'unsupplied' as const }
+  const fontDeck = Deck.parse({
+    ...deck,
+    style: { fonts: { body: { faces: [{}] } } },
+  })
+  await renderDeckPdf(
+    fontDeck,
+    {
+      fontSource: { font: async () => undefined },
+      preflight: resolveRenderPreflight({ profile: 'default', report: (report) => reports.push(report) }),
+    },
+    {
+      renderPdf: async (setup) => {
+        setup.preflightReport?.({ fontFailures: setup.fontFailures?.slice(0, 1) ?? [missing], slotFits: [] })
+        if (!setup.html.includes('<section class="sheet">')) return onePage(400, 200)
+        const pdf = await PDFDocument.create()
+        pdf.addPage([300, 150])
+        pdf.addPage([300, 150])
+        return pdf.save()
+      },
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+  expect(reports).toHaveLength(1)
+  expect(reports[0]?.issues).toHaveLength(1)
+  expect(reports[0]?.issues[0]).toMatchObject({ check: 'font-missing', subject: 'body' })
+  expect(reports[0]?.issues[0]?.location).toBeUndefined()
+})

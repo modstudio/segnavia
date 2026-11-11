@@ -233,7 +233,7 @@ async function regularDeckPdf(
       )
     : undefined
   const fontFailures = deckFontFailures(services.fontFailures ?? [], notesSheetFont)
-  preflight?.capture({ folio: '1' })({ fontFailures, slotFits: [] })
+  preflight?.capture()({ fontFailures, slotFits: [] })
   let pageOwners: number[] = []
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
@@ -367,7 +367,7 @@ export async function renderDeckPdf(deck: Deck, opts: DeckPdfOptions, services: 
     fontFaces: (options: RenderOptions) => `${resolvedFonts.fontCss}${services.fontFaces(options)}`,
   }
   const preflight = completePreflight(opts.preflight, deck.slides.length)
-  preflight?.capture({ folio: '1' })({ fontFailures: resolvedFonts.fontFailures, slotFits: [] })
+  preflight?.capture()({ fontFailures: resolvedFonts.fontFailures, slotFits: [] })
   opts = { ...opts, ...resolvedFonts.options }
   if (!opts.imposition) {
     const output = await regularDeckPdf(resolvedDeck, opts, resolvedServices, pressSettings, diagramScript, preflight)

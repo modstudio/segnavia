@@ -1,6 +1,9 @@
 import { expect, mock, test } from 'bun:test'
-import { Cover, type coverDigest } from '@segnavia/format'
+import { Cover, type coverDigest, Page } from '@segnavia/format'
+import { resolvePageHtml } from '@segnavia/html'
 import { coverImagePlan } from './cover-image.ts'
+import { renderPreparedPageImage } from './page-image-render.ts'
+import { completePreflight, resolveRenderPreflight } from './preflight.ts'
 import type { Renderer } from './renderer.ts'
 
 const coverDocument = (html: string, print?: { paper: { width: number; height: number; unit: 'mm' } }) => ({
@@ -16,11 +19,13 @@ const sharedCoverInput: Same<Parameters<Renderer['coverImage']>[0], Parameters<t
 void sharedCoverInput
 
 let slotFit = { type: 'segnavia:slot-fit', slots: { title: 'fit' } }
+let composedPreflight: string | null = null
 const tab = {
   setContent: async () => {},
-  evaluate(callback: (...args: never[]) => unknown) {
+  evaluate(callback: (...args: never[]) => unknown, argument?: string) {
     if (String(callback).includes('document.fonts')) return Promise.resolve(true)
     if (String(callback).includes('__segnaviaSlotFit')) return Promise.resolve([slotFit])
+    if (argument === 'data-segnavia-preflight') return Promise.resolve(composedPreflight)
     return Promise.resolve(null)
   },
   waitForFunction: async () => {},
@@ -63,6 +68,52 @@ test.each([
   const plan = coverImagePlan(cover, { width })
   expect(plan.height).toBe(height)
   expect(plan.options.scale).toBe(width / 605)
+})
+
+test('cover image rendering keeps composer preflight for a printed cover without also reporting surface preflight', async () => {
+  slotFit = { type: 'segnavia:slot-fit', slots: { title: 'overflowed' } }
+  composedPreflight = JSON.stringify({
+    issues: [
+      {
+        check: 'css-var-invalid',
+        subject: '--missing',
+        message: 'Custom property --missing is invalid; define it or add a var() fallback to clear it.',
+      },
+    ],
+    facts: { pageCount: 1, pages: [{ folio: '1' }], fits: [] },
+  })
+  const reports: Array<{ issues: readonly { check: string }[] }> = []
+  try {
+    const preflight = resolveRenderPreflight({ profile: 'default', report: (report) => reports.push(report) })
+    const page = resolvePageHtml(
+      Page.parse({
+        html: '<p style="color:var(--missing)">Cover</p>',
+        print: { paper: { width: 160, height: 100, unit: 'mm' } },
+        printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+      }),
+    )
+    await renderPreparedPageImage(
+      {
+        page,
+        options: { format: 'png', preflight },
+        fontCss: '',
+        fontFailures: [],
+        established: { day: undefined, slots: undefined },
+      } as never,
+      { format: 'png' },
+      { signal: AbortSignal.any([]), remaining: () => 1_000 },
+      async (setup, body) => {
+        setup.preflightReport?.({ fontFailures: [], slotFits: [{ title: 'overflowed' }] })
+        return body(tab as never)
+      },
+      completePreflight(preflight, 1),
+    )
+    expect(reports).toHaveLength(1)
+    expect(reports[0]?.issues.map((issue) => issue.check)).toEqual(['css-var-invalid'])
+  } finally {
+    slotFit = { type: 'segnavia:slot-fit', slots: { title: 'fit' } }
+    composedPreflight = null
+  }
 })
 
 test('defaults to WebP and forwards asset policy options', () => {

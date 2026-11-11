@@ -1,4 +1,4 @@
-import { type FontFailure, type FontManifest, HEBREW_UNICODE_RANGE, type PreflightEntry, rangeSample } from '@segnavia/format'
+import { type FontFailure, type FontManifest, HEBREW_UNICODE_RANGE, rangeSample } from '@segnavia/format'
 
 export const FONT_FAILURE_ATTRIBUTE = 'data-segnavia-font-failures'
 export const FONT_FAILURE_LIMIT = 64
@@ -23,18 +23,6 @@ export function declaredFontLoads(fonts: FontManifest | undefined): DeclaredFont
         }))
       : [],
   )
-}
-
-export function fontMissingEntries(failures: readonly FontFailure[]): PreflightEntry[] {
-  return failures.map((failure) => {
-    const details = [failure.weight === undefined ? undefined : `weight ${failure.weight}`, failure.style].filter(Boolean)
-    const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
-    return {
-      check: 'font-missing',
-      subject,
-      message: `Font face ${subject} is missing; supply and load that face to clear it.`,
-    }
-  })
 }
 
 type LoadableFace = {

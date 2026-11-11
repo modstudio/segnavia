@@ -2,6 +2,7 @@ import {
   appendSlotOversetEntries,
   boundPreflightReport,
   type FontFailure,
+  fontMissingEntries,
   type PreflightEntry,
   type PreflightProfile,
   type PreflightProfileInput,
@@ -33,19 +34,6 @@ export interface SurfacePreflightCapture {
 export interface SurfacePreflight {
   capture(location?: { readonly folio?: string }): (capture: SurfacePreflightCapture) => void
   complete(): void
-}
-
-function fontMissingEntries(failures: readonly FontFailure[], location?: { readonly folio?: string }): PreflightEntry[] {
-  return failures.map((failure) => {
-    const details = [failure.weight === undefined ? undefined : `weight ${failure.weight}`, failure.style].filter(Boolean)
-    const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
-    return {
-      check: 'font-missing',
-      subject,
-      message: `Font face ${subject} is missing; supply and load that face to clear it.`,
-      ...(location === undefined ? {} : { location }),
-    }
-  })
 }
 
 export function completePreflight(preflight: ComposedPreflight | undefined, total: number): SurfacePreflight | undefined {

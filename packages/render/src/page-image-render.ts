@@ -22,6 +22,7 @@ export async function renderPreparedPageImage(
 ): Promise<Uint8Array> {
   const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
   const { value: page, slots } = await filledPage(pageWithDay, prepared.established.slots, deadline.signal)
+  const plainPagePreflight = page.printedPages ? undefined : surfacePreflight
   const pageHtml = printedPageAuthorHtml(page)
   const diagramScript = await resolveDiagramScript(pageHtml)
   const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
@@ -33,7 +34,7 @@ export async function renderPreparedPageImage(
       scale: opts.scale,
       html: renderedPageDocument(
         page,
-        surfacePreflight ? { ...prepared.options, preflight: undefined } : prepared.options,
+        plainPagePreflight ? { ...prepared.options, preflight: undefined } : prepared.options,
         false,
         diagramScript,
         prepared.fontCss,
@@ -46,12 +47,12 @@ export async function renderPreparedPageImage(
       progressReport: opts.progress?.report,
       ...assetSetup(opts),
       ...fontLoadSetup(prepared.fontFailures, opts.fontLoad?.report),
-      preflightReport: surfacePreflight?.capture(),
+      preflightReport: plainPagePreflight?.capture(),
     },
     async (tab) => {
-      await awaitPrintedPageComposition(tab, page, surfacePreflight ? undefined : prepared.options.preflight)
+      await awaitPrintedPageComposition(tab, page, plainPagePreflight ? undefined : prepared.options.preflight)
       if (grows) await contentHeight(tab)
-      surfacePreflight?.complete()
+      plainPagePreflight?.complete()
       return proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
     },
   )

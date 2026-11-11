@@ -2,6 +2,7 @@ import {
   appendSlotOversetEntries,
   boundPreflightReport,
   cssVarInvalidMessage,
+  fontMissingEntries,
   PREFLIGHT_BLOCK_LIMIT,
   PREFLIGHT_CHECKS,
   PREFLIGHT_FIT_GROUP_LIMIT,
@@ -19,7 +20,6 @@ import { embedFunction } from '@segnavia/html'
 import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { preflightPageFacts } from './composer-dress.ts'
-import { fontMissingEntries } from './font-load.ts'
 
 export { appendSlotOversetEntries }
 

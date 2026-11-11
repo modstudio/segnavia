@@ -1,3 +1,5 @@
+import type { FontFailure } from './fonts.ts'
+
 export const PREFLIGHT_CHECKS = [
   'region-overset',
   'furniture-overset',
@@ -74,6 +76,19 @@ export function appendSlotOversetEntries(slots: Record<string, string>, entries:
       ...(location === undefined ? {} : { location }),
     })
   }
+}
+
+export function fontMissingEntries(failures: readonly FontFailure[], location?: PreflightLocation): PreflightEntry[] {
+  return failures.map((failure) => {
+    const details = [failure.weight === undefined ? undefined : `weight ${failure.weight}`, failure.style].filter(Boolean)
+    const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
+    return {
+      check: 'font-missing',
+      subject,
+      message: `Font face ${subject} is missing; supply and load that face to clear it.`,
+      ...(location === undefined ? {} : { location }),
+    }
+  })
 }
 
 export function cssVarInvalidMessage(subject: string): string {

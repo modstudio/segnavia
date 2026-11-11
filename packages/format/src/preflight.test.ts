@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import {
   appendSlotOversetEntries,
   boundPreflightReport,
+  fontMissingEntries,
   PREFLIGHT_CHECKS,
   PREFLIGHT_ISSUES_PER_CHECK,
   PREFLIGHT_PAGES_LIMIT,
@@ -144,4 +145,15 @@ test('slot overset entries keep one subject and may carry a surface location', (
     location: { folio: '2' },
   })
   expect(entries).toHaveLength(2)
+})
+
+test('font missing entries keep the face text and may carry a surface location', () => {
+  expect(fontMissingEntries([{ font: 'body', family: 'Body', weight: 700, style: 'italic', reason: 'unsupplied' }], { folio: '2' })).toEqual([
+    {
+      check: 'font-missing',
+      subject: 'Body (weight 700, italic)',
+      message: 'Font face Body (weight 700, italic) is missing; supply and load that face to clear it.',
+      location: { folio: '2' },
+    },
+  ])
 })
