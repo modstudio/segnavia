@@ -1,10 +1,10 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
 import { fillPageAsOfBindings, type PreparedSlots, parseAsOfInputs, parseDocument, printedPageAuthorHtml } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
-import { expandRenderBook, prepareRenderBookPlan } from './book-expansion.ts'
-import { parseBookPdfOptions } from './book-options.ts'
+import { prepareRenderBook } from './book-expansion.ts'
+import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
-import { resolveRenderBook, resolveRenderBrand, resolveRenderDeck } from './brand.ts'
+import { resolveRenderBrand, resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { keepBrowser } from './browser-keeper.ts'
 import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
@@ -22,13 +22,12 @@ import {
   type OverflowEntry,
   pageCompositionCount,
   parseComposedRenderOptions,
-  parseRenderOptions,
   refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { printWithOverflow } from './overflow.ts'
 import { resolveRenderDayContext, resolveRenderDayContexts } from './page-as-of.ts'
-import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue, renderOptionsWithBookFonts } from './page-document.ts'
+import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, prepareRenderedPageValue } from './page-document.ts'
 import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
@@ -171,18 +170,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async bookPdf(input, opts = {}) {
       const parsedOptions = parseBookPdfOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const book = await resolveRenderBook(input, parsedOptions.newId, parsedOptions.brandSource, deadline.signal)
-        const established = await resolveRenderDayContext(book, parsedOptions, deadline.signal)
-        const expanded = await expandRenderBook(book, parsedOptions, deadline.signal, established.day)
-        const seededOptions = { ...parsedOptions, slots: established.slots, preflight: withPreflightSeed(parsedOptions.preflight, expanded.preflight) }
-        const {
-          options,
-          fontCss: resolvedFontCss,
-          fontFailures,
-        } = await renderOptionsWithBookFonts(expanded.book, seededOptions, deadline.signal, expanded.fonts)
+        const { book, options, fontCss: resolvedFontCss, fontFailures, established, preflight } = await prepareRenderBook(input, parsedOptions, deadline.signal)
+        const seededOptions = { ...options, preflight: withPreflightSeed(options.preflight, preflight) }
         return renderBrowserBookPdf(
-          expanded.book,
-          options,
+          book,
+          seededOptions,
           resolvedFontCss,
           {
             render: (setup, pdf, pageWidth, part) =>
@@ -196,14 +188,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             fontFailures,
           },
           established.day,
-          outputDate([established.day]),
         )
       })
     },
     async bookPlan(input, opts = {}) {
-      opts = parseAsOfInputs(parseRenderOptions(opts))
+      opts = parseBookPlanOptions(opts)
       return withinRenderPermit(opts.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const { book, options, fontCss: resolvedFontCss, fontFailures, established } = await prepareRenderBookPlan(input, opts, deadline.signal)
+        const { book, options, fontCss: resolvedFontCss, fontFailures, established } = await prepareRenderBook(input, opts, deadline.signal)
         return renderBrowserBookPlan(
           book,
           { ...options, fontFailures },

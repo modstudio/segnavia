@@ -1,21 +1,13 @@
-import {
-  type AsOfDay,
-  type Book,
-  type BookChapterEntry,
-  type BookFrontMatterEntry,
-  type Deck,
-  isDesignedSection,
-  isPart,
-  isTemplatedSection,
-  type Page,
-} from '@segnavia/format'
+import { type AsOfDay, type Book, type Deck, isDesignedSection, isPart, isTemplatedSection, type Page } from '@segnavia/format'
 import {
   assertSingleSlotCopy,
   bindRecordValues,
-  fillAsOfBindings,
+  fillBookAsOfBindings,
+  fillDeckAsOfBindings,
   type HtmlPage,
   hasSlotWork,
   isPrintedHtmlPage,
+  mapBookHtml,
   type PreparedSlots,
   type PrintedHtmlPage,
   prepareSlotCollection,
@@ -26,34 +18,8 @@ import {
   slotFillRefusal,
 } from '@segnavia/html'
 
-export function fillDeckAsOfBindings(deck: Deck, day: AsOfDay): Deck {
-  return {
-    ...deck,
-    slides: deck.slides.map((slide) =>
-      'kind' in slide.content && slide.content.kind === 'html'
-        ? { ...slide, content: { ...slide.content, html: fillAsOfBindings(slide.content.html, day) } }
-        : slide,
-    ),
-  }
-}
-
 export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions | undefined, signal?: AbortSignal) {
   return filledDeck(fillDeckAsOfBindings(deck, day), slots, signal)
-}
-
-export function fillBookAsOfBindings(book: Book, day: AsOfDay): Book {
-  const apply = (html: string) => fillAsOfBindings(html, day)
-  return {
-    ...book,
-    frontMatter: mapBookItems(book.frontMatter, apply, false),
-    body: mapBookItems(book.body, apply, false),
-    endMatter: mapBookItems(book.endMatter, apply, false),
-    templates: book.templates.map((template) => ({ ...template, html: apply(template.html) })),
-    parentPages: book.parentPages.map((parent) => ({
-      ...parent,
-      regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: fillAsOfBindings(region.html, day) }])),
-    })),
-  }
 }
 
 function refuseRequired(prepared: PreparedSlots): void {
@@ -179,31 +145,6 @@ export async function filledDeck(deck: Deck, slots: SlotPrintOptions | undefined
   return { value, slots: prepared }
 }
 
-function fillEntry<T extends BookFrontMatterEntry | BookChapterEntry>(entry: T, apply: (html: string) => string, bind: boolean): T {
-  if (isDesignedSection(entry)) return { ...entry, pages: entry.pages.map((page) => ({ ...page, html: apply(page.html) })) }
-  if (isTemplatedSection(entry)) {
-    return {
-      ...entry,
-      pages: entry.pages.map((page) => ({
-        ...page,
-        regions: Object.fromEntries(Object.entries(page.regions).map(([key, html]) => [key, apply(html)])),
-      })),
-    }
-  }
-  if ('html' in entry) {
-    const value = bind ? bindRecordValues(entry) : entry
-    return { ...value, html: apply(value.html as string) } as T
-  }
-  return entry
-}
-
-function mapBookItems(items: Book['body'], apply: (html: string) => string, bind: boolean): Book['body'] {
-  return items.map((entry) => {
-    if (!isPart(entry)) return fillEntry(entry, apply, bind)
-    return { ...entry, ...(entry.html === undefined ? {} : { html: apply(entry.html) }), children: mapBookItems(entry.children, apply, bind) }
-  })
-}
-
 export async function filledBook(book: Book, slots: SlotPrintOptions | undefined, signal?: AbortSignal): Promise<{ value: Book; slots: PreparedSlots }> {
   assertSingleSlotCopy(slots)
   const refusal = slotFillRefusal(book.scripts, book.slots, slots)
@@ -211,13 +152,10 @@ export async function filledBook(book: Book, slots: SlotPrintOptions | undefined
   const prepared = await prepareSlots(book.slots, slots, signal)
   refuseRequired(prepared)
   const value = hasSlotWork(book.slots, slots)
-    ? {
-        ...book,
-        frontMatter: mapBookItems(book.frontMatter, prepared.apply, true),
-        body: mapBookItems(book.body, prepared.apply, true),
-        endMatter: mapBookItems(book.endMatter, prepared.apply, true),
-        templates: book.templates.map((template) => ({ ...template, html: prepared.apply(template.html) })),
-      }
+    ? mapBookHtml(book, (html, entry, slotFill = true) => {
+        if (!slotFill) return html
+        return prepared.apply(entry ? bindRecordValues(entry).html : html)
+      })
     : book
   return { value, slots: prepared }
 }

@@ -30,7 +30,7 @@ import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrin
 import { writeBookStructure } from './book-structure.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry } from './options.ts'
-import type { OutputDate } from './output-date.ts'
+import { type OutputDate, outputDate } from './output-date.ts'
 import type { PrintResult } from './overflow.ts'
 import { addPressBoxes } from './page-paper.ts'
 import { createPdf, loadPdf } from './pdf-load.ts'
@@ -280,8 +280,9 @@ async function renderPaginatedBookPdf(
   return output
 }
 
-export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, adapter: BookPdfAdapter, day: AsOfDay, date?: OutputDate): Promise<Uint8Array> {
+export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, adapter: BookPdfAdapter, day: AsOfDay): Promise<Uint8Array> {
   const { value: book, slots } = await fillBookForDay(input, day, options.slots)
+  const date = outputDate([day])
   const frames = bookSlotFrames(book)
   if (book.mode === 'paginated') return renderPaginatedBookPdf(book, slotsForDocument(slots, [frames.all]), options, adapter, date)
   if (!book.page) throw new RenderRefusedError('Printing a continuous book needs page; set page before calling bookPdf.')

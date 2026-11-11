@@ -1,14 +1,16 @@
 import { expect, mock, test } from 'bun:test'
+import { PDFDocument } from 'pdf-lib'
 
 let slotFit: { type: string; slots: Record<string, string> } = { type: 'segnavia:slot-fit', slots: { name: 'fit' } }
 let screenshotBytes = new Uint8Array([1, 2, 3])
+let renderedHtml: string[] = []
 
 const frame = {
   locator: () => ({ waitFor: async () => {} }),
 }
 
 const tab = {
-  setContent: async () => {},
+  setContent: async (html: string) => void renderedHtml.push(html),
   evaluate(callback: (...args: never[]) => unknown) {
     if (String(callback).includes('document.fonts')) return Promise.resolve(true)
     if (String(callback).includes('__segnaviaSlotFit')) return Promise.resolve([slotFit])
@@ -16,7 +18,12 @@ const tab = {
   },
   waitForFunction: async () => {},
   screenshot: async () => screenshotBytes,
-  locator: () => ({ contentFrame: () => frame }),
+  pdf: async () => {
+    const document = await PDFDocument.create()
+    document.addPage([400, 200]).drawRectangle({ x: 0, y: 0, width: 400, height: 200 })
+    return document.save()
+  },
+  locator: () => ({ contentFrame: () => frame, evaluateAll: async () => [], waitFor: async () => {} }),
   on() {
     return tab
   },
@@ -67,6 +74,7 @@ test("slideImage measures only the selected slide's refuse-overflow slots", asyn
 })
 
 test('slideImage reports, resolves slots for and stamps a fixed deck day', async () => {
+  renderedHtml = []
   const { pngChunk } = await import('./png-chunk.ts')
   const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])
   const ihdr = pngChunk('IHDR', new Uint8Array(13))
@@ -102,8 +110,31 @@ test('slideImage reports, resolves slots for and stamps a fixed deck day', async
     )
     expect(new TextDecoder().decode(output)).toContain('Creation Time\u00002026-11-14')
     expect({ reportedDate, slotDate }).toEqual({ reportedDate: '2026-11-14', slotDate: '2026-11-14' })
+    expect(renderedHtml.some((html) => html.includes('2026-11-14'))).toBe(true)
   } finally {
     screenshotBytes = new Uint8Array([1, 2, 3])
+    await renderer.close()
+  }
+})
+
+test('deckPdf passes its bound fixed day to rendered slide HTML', async () => {
+  renderedHtml = []
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  try {
+    await renderer.deckPdf(
+      {
+        type: 'document',
+        kind: 'deck',
+        title: 'Dated deck',
+        size: { width: 400, height: 200 },
+        asOf: { kind: 'fixed', date: '2026-11-14' },
+        children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: '<time data-slot-value="asOf.date"></time>' } }],
+      },
+      { effects: false },
+    )
+    expect(renderedHtml.some((html) => html.includes('2026-11-14'))).toBe(true)
+  } finally {
     await renderer.close()
   }
 })

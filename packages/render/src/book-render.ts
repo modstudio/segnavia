@@ -34,7 +34,6 @@ import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
-import type { OutputDate } from './output-date.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
 import { loadPdf } from './pdf-load.ts'
@@ -306,7 +305,6 @@ export async function renderBrowserBookPdf(
   fontCss: string,
   dependencies: BrowserBookDependencies,
   day: AsOfDay,
-  date?: OutputDate,
 ): Promise<Uint8Array> {
   refuseProgressUnlessOneComposition(options, book.mode === 'paginated' ? 1 : 0)
   if (book.mode !== 'paginated' && (options.plan !== undefined || options.breaks !== undefined)) {
@@ -324,7 +322,6 @@ export async function renderBrowserBookPdf(
       finish: dependencies.finish,
     },
     day,
-    date,
   )
 }
 

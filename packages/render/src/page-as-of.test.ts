@@ -1,8 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Deck, Page } from '@segnavia/format'
-import { parseBookFixture } from '@segnavia/html'
+import { fillBookAsOfBindings, fillDeckAsOfBindings, parseBookFixture } from '@segnavia/html'
 import { resolveRenderDayContexts } from './page-as-of.ts'
-import { fillBookAsOfBindings, fillDeckAsOfBindings } from './slot-fill.ts'
 
 const signal = new AbortController().signal
 
@@ -92,7 +91,7 @@ test('a deck reports and binds its fixed day, gives its zone precedence and esta
 
   expect(day).toMatchObject({ date: '2026-11-09', zone: 'America/New_York' })
   expect(slotDate).toBe('2026-11-09')
-  expect(reports).toEqual([contexts.days])
+  expect(reports).toEqual([[expect.objectContaining({ date: '2026-11-09', zone: 'America/New_York' })]])
   expect(filled?.slides[0]?.content).toEqual({ kind: 'html', html: '<time dir="auto">2026-11-09</time>' })
 })
 

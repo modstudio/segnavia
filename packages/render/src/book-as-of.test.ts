@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test'
 import { parseBookFixture } from '@segnavia/html'
 import { PDFDict, PDFDocument, PDFName, PDFString } from 'pdf-lib'
 import { renderBookPdf } from './book-pdf.ts'
-import { outputDate } from './output-date.ts'
 
 const fixedDay = { date: '2026-11-14', zone: 'UTC', kind: 'fixed' as const }
 
@@ -30,7 +29,7 @@ const adapter = {
 }
 
 test('a fixed book day writes the PDF creation date', async () => {
-  const output = await renderBookPdf(book(), {}, adapter, fixedDay, outputDate([fixedDay]))
+  const output = await renderBookPdf(book(), {}, adapter, fixedDay)
   const document = await PDFDocument.load(output, { updateMetadata: false })
   const info = document.context.lookup(document.context.trailerInfo.Info, PDFDict)
 
