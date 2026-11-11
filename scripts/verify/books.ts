@@ -285,6 +285,8 @@ async function checkPaginatedBlocks(h: Harness, frame: Awaited<ReturnType<typeof
   h.check(`${id} each chapter's endnotes follow its text and come before the next chapter's opener or blank`, blocks.endnotes.ok, blocks.endnotes.detail)
   h.check(`${id} a tall image is scaled onto one page`, blocks.image.ok, blocks.image.detail)
   h.check(`${id} a long table continues with its header row repeated and no row lost or repeated`, blocks.table.ok, blocks.table.detail)
+  h.check(`${id} a wrapped Markdown table repeats its header without losing rows`, blocks.wrappedTable.ok, blocks.wrappedTable.detail)
+  h.check(`${id} a table with a top margin repeats its header at the top of the header band`, blocks.marginTable.ok, blocks.marginTable.detail)
   if (id === 'book-paginated-he') h.check(`${id} the long table and endnotes are right to left`, blocks.direction.ok, blocks.direction.detail)
 }
 

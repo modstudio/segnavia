@@ -1,10 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { decideVisibleMeasurement } from './composer.ts'
+import { COMPOSER_SCRIPT, decideVisibleMeasurement } from './composer.ts'
 import {
   descendantKeepSignals,
+  headerHeightFor,
   inlineLevelDisplay,
   type KeepSignalValues,
   keepSignals,
+  linesWithDescendantTables,
   type MeasuredKeepCandidate,
   measuredBlockConstraints,
   measuredKeepRuns,
@@ -195,6 +197,52 @@ describe('tableRowLines', () => {
   test('an empty row is one line', () => {
     expect(tableRowLines([{ top: 10, bottom: 30, boxes: [] }])).toEqual([{ top: 10, bottom: 30 }])
   })
+})
+
+test('a table inside a block replaces the range line spanning it with row bands', () => {
+  expect(
+    linesWithDescendantTables(
+      [
+        { top: 0, bottom: 10 },
+        { top: 10, bottom: 70 },
+        { top: 70, bottom: 80 },
+      ],
+      [
+        {
+          top: 10,
+          bottom: 70,
+          lines: [
+            { top: 10, bottom: 30 },
+            { top: 30, bottom: 50 },
+            { top: 50, bottom: 70 },
+          ],
+        },
+      ],
+    ),
+  ).toEqual([
+    { top: 0, bottom: 10 },
+    { top: 10, bottom: 30 },
+    { top: 30, bottom: 50 },
+    { top: 50, bottom: 70 },
+    { top: 70, bottom: 80 },
+  ])
+})
+
+test('only a block whose in-flow content is one table receives its header height', () => {
+  const head = { getBoundingClientRect: () => ({ height: 18 }) }
+  const table = { nodeType: 1, tagName: 'TABLE', tHead: head }
+  const whitespace = { nodeType: 3, textContent: ' \n ' }
+  const paragraph = { nodeType: 1, tagName: 'P' }
+  const wrapper = { tagName: 'DIV', childNodes: [whitespace, table] }
+  const mixed = { tagName: 'DIV', childNodes: [paragraph, table] }
+  const styleOf = () => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration
+
+  expect(headerHeightFor(wrapper as unknown as Element, styleOf)).toBe(18)
+  expect(headerHeightFor(mixed as unknown as Element, styleOf)).toBe(0)
+})
+
+test('the repeated table header drops its block-start margin', () => {
+  expect(COMPOSER_SCRIPT).toContain("held.style.marginBlockStart='0'")
 })
 
 test('an unmeasurable printed-page galley refuses with its own subject', () => {

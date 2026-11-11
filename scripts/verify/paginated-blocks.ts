@@ -2,6 +2,8 @@ export interface PaginatedBlockReport {
   endnotes: { ok: boolean; detail: string }
   image: { ok: boolean; detail: string }
   table: { ok: boolean; detail: string }
+  wrappedTable: { ok: boolean; detail: string }
+  marginTable: { ok: boolean; detail: string }
   direction: { ok: boolean; detail: string }
 }
 
@@ -72,13 +74,12 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     }
   }
 
-  function rowsInView(view: Element) {
+  function rowsInView(view: Element, source: Element) {
     const start = Number(view.getAttribute('data-start'))
     const end = Number(view.getAttribute('data-end'))
     const flowId = view.getAttribute('data-flow') ?? ''
     const flow = document.querySelector(`[data-segnavia-galley-source] [data-segnavia-flow="${flowId}"]`)
-    const source = flow?.querySelector('table')
-    if (!flow || !source) return []
+    if (!flow?.contains(source)) return []
     const origin = originTop(flow)
     return Array.from(source.querySelectorAll('tbody tr')).flatMap((row) => {
       const box = row.getBoundingClientRect()
@@ -94,8 +95,8 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     if (!head || !row) return false
     const headBox = head.getBoundingClientRect()
     const rowBox = row.getBoundingClientRect()
-    const intersects = headBox.bottom > clip.top + 0.5 && headBox.top < clip.bottom - 0.5
-    return intersects && (rowBox.top + rowBox.bottom) / 2 >= clip.bottom - 0.5
+    const startsAtClip = Math.abs(headBox.top - clip.top) <= 1
+    return startsAtClip && (rowBox.top + rowBox.bottom) / 2 >= clip.bottom - 0.5
   }
 
   function cloneMatchesWindow(clone: Element, win: Element) {
@@ -105,8 +106,8 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     return Math.abs(clip.bottom - box.top) <= 1.5 && Math.abs(clip.left - box.left) <= 1.5 && Math.abs(clip.right - box.right) <= 1.5
   }
 
-  function table() {
-    const galley = document.querySelector('[data-segnavia-galley-source] table')
+  function table(selector: string) {
+    const galley = document.querySelector(`[data-segnavia-galley-source] ${selector}`)
     const flow = galley?.closest('[data-segnavia-flow]')
     if (!galley || !flow) return { ok: false, detail: 'no galley table' }
     const origin = originTop(flow)
@@ -116,14 +117,17 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     const headBottom = head ? head.getBoundingClientRect().bottom - origin : tableBox.top - origin
     const flowId = flow.getAttribute('data-segnavia-flow') ?? ''
     const expected = Array.from(galley.querySelectorAll('tbody tr')).map((row) => textOf(row))
-    const shown = Array.from(document.querySelectorAll('[data-segnavia-window]')).flatMap((view) => rowsInView(view))
+    const shown = Array.from(document.querySelectorAll('[data-segnavia-window]')).flatMap((view) => rowsInView(view, galley))
     const sequence = shown.join('|') === expected.join('|')
     const continuations = Array.from(document.querySelectorAll('[data-segnavia-window]')).filter((win) => {
       if (win.getAttribute('data-flow') !== flowId) return false
       const start = Number(win.getAttribute('data-start'))
       return start > headBottom && start < tableBottom
     })
-    const clones = Array.from(document.querySelectorAll('[data-segnavia-table-header]'))
+    const headerText = textOf(galley.querySelector('thead') ?? galley)
+    const clones = Array.from(document.querySelectorAll('[data-segnavia-table-header]')).filter(
+      (clone) => textOf(clone.querySelector('thead') ?? clone) === headerText,
+    )
     const clipOk = clones.length > 0 && clones.every((clone) => headerClipOk(clone))
     const onlyOnContinuation = clones.every((clone) => continuations.some((win) => cloneMatchesWindow(clone, win)))
     const everyContinuation = continuations.every((win) => clones.some((clone) => cloneMatchesWindow(clone, win)))
@@ -143,5 +147,12 @@ export function inspectPaginatedBlocks(): PaginatedBlockReport {
     return { ok: tableDir === 'rtl' && notesDir === 'rtl', detail: `table ${tableDir} notes ${notesDir}` }
   }
 
-  return { endnotes: endnotes(), image: image(), table: table(), direction: direction() }
+  return {
+    endnotes: endnotes(),
+    image: image(),
+    table: table('[data-segnavia-flow="segnavia-chapter-4"] table'),
+    wrappedTable: table('[data-segnavia-flow="segnavia-wrapped-table"] table'),
+    marginTable: table('[data-segnavia-flow="segnavia-margin-table"] table'),
+    direction: direction(),
+  }
 }

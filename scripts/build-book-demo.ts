@@ -15,6 +15,7 @@ import { noteSeriesFixture, twoPageSeriesFixture, twoPageSeriesRelayoutCss } fro
 import { chapterParentRules, haggadahHeadCss, markParents, paginatedParents, variableHeadParents } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 import { writePlacedMediaBook } from './demo-book-placed-media.ts'
+import { marginTableHtml, wrappedTableHtml } from './demo-book-table-fixtures.ts'
 import { writeTitleHeadDemo } from './demo-book-title-head-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
@@ -164,6 +165,8 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
           parentRules: chapterParentRules(BOOK_PARENT_NAMES.opener, variableHeadParents.verso, variableHeadParents.recto),
         }),
         flowSection(columnFitChapter(hebrew).title, columnFitChapter(hebrew).html, { id: 'segnavia-chapter-5' }),
+        flowSection(hebrew ? 'טבלה עטופה' : 'Wrapped Table', wrappedTableHtml(hebrew), { id: 'segnavia-wrapped-table' }),
+        flowSection(hebrew ? 'טבלה עם שוליים' : 'Margin Table', marginTableHtml(hebrew), { id: 'segnavia-margin-table' }),
       ],
     },
   ],
