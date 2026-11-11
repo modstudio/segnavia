@@ -1,17 +1,24 @@
-import { type Board, type BoardItem, itemHeight } from '@segnavia/format'
+import { type Board, type BoardItem, type BoardShapes, itemHeight, labelRectangle } from '@segnavia/format'
 
-export interface RevealTarget {
-  item?: BoardItem
-  bounds: { x: number; y: number; width: number; height: number }
-}
+type RevealBounds = { x: number; y: number; width: number; height: number }
+export type RevealTarget =
+  | { kind: 'item'; item: BoardItem; bounds: RevealBounds }
+  | { kind: 'label'; bounds: RevealBounds }
+  | { kind: 'section'; bounds: RevealBounds }
 
-/** The board-space box a reveal brings into view: a section's rectangle, or an item at its resolved height. */
-export function revealTarget(board: Board, shapes: Record<string, { width: number; height: number }>, id: string): RevealTarget | undefined {
+/** A section rectangle, label rectangle or item box at its resolved height brought into view. */
+export function revealTarget(board: Board, shapes: BoardShapes, id: string): RevealTarget | undefined {
   const item = board.items.find((entry) => entry.id === id)
+  const label = board.labels.find((entry) => entry.id === id)
   const section = board.sections.find((entry) => entry.id === id)
-  if (section) return { bounds: section.rectangle }
+  if (section) return { kind: 'section', bounds: section.rectangle }
+  if (label) return { kind: 'label', bounds: labelRectangle(label, shapes) }
   if (!item) return undefined
-  return { item, bounds: { x: item.x, y: item.y, width: item.width, height: itemHeight(item, shapes[item.id] as { width: number; height: number }) } }
+  return {
+    kind: 'item',
+    item,
+    bounds: { x: item.x, y: item.y, width: item.width, height: itemHeight(item, shapes.items[item.id] as { width: number; height: number }) },
+  }
 }
 
 // A reveal the user asked for moves focus to the item a frame later, unless focus

@@ -92,7 +92,7 @@ export async function checkBoardEditing(h: Harness) {
   await drag(h.page, marquee, 700, 260)
   await h.page.keyboard.up('Shift')
   selected = await selection()
-  h.check('a shifted marquee adds its items to the selection', selected.join() === 'deck-small,deck-hebrew,page', selected.join())
+  h.check('a shifted marquee adds its items after the existing selection', selected.join() === 'page,deck-small,deck-hebrew', selected.join())
 
   await first.focus()
   await h.page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
@@ -100,8 +100,9 @@ export async function checkBoardEditing(h: Harness) {
     selected: (element as BoardElement).selection.length,
     items: (window as unknown as DemoWindow).boardValue(element as BoardElement).items.length,
     labels: (window as unknown as DemoWindow).boardValue(element as BoardElement).labels.length,
+    sections: (window as unknown as DemoWindow).boardValue(element as BoardElement).sections.length,
   }))
-  h.check('Cmd or Ctrl+A selects every board node', all.selected === all.items + all.labels, JSON.stringify(all))
+  h.check('Cmd or Ctrl+A selects every board node', all.selected === all.items + all.labels + all.sections, JSON.stringify(all))
 
   await reset()
   await board.evaluate((element) => ((element as BoardElement).selection = ['page', 'paper']))

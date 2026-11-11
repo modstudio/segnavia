@@ -163,3 +163,69 @@ test('unbuildable resize releases restore the board before the live preview', ()
     Object.assign(globalThis, { HTMLElement: previousHTMLElement })
   }
 })
+
+test('a section title click selects it while a drag moves without selecting', () => {
+  const previousHTMLElement = globalThis.HTMLElement
+  Object.assign(globalThis, { HTMLElement: TestElement })
+  try {
+    const sectionBoard: Board = {
+      ...board,
+      sections: [{ id: 'section', title: 'Section', rectangle: { x: 0, y: 0, width: 200, height: 160 }, items: ['a'], layout: 'manual' }],
+    }
+    let optimistic = sectionBoard
+    let commits = 0
+    const bridge = {
+      overlay: { querySelector: () => undefined },
+      value: () => optimistic,
+      view: () => view,
+      shapes: () => shapes,
+      local: (event: { clientX: number; clientY: number }) => ({ x: event.clientX, y: event.clientY }),
+      setDropTarget() {},
+    } as unknown as BoardEditingBridge
+    const host = { selection: ['a'], setPointerCapture() {} } as unknown as SegnaviaBoard
+    const input = new BoardEditingInput(
+      host,
+      { move: true, resize: true, remove: true, add: true, arrange: true },
+      {
+        current: () => sectionBoard,
+        bridge: () => bridge,
+        live: (value) => {
+          optimistic = value
+        },
+        commit: (_before, after) => {
+          commits += 1
+          optimistic = after
+        },
+        command() {},
+        remove() {},
+        undo() {},
+        redo() {},
+      },
+    )
+    const title = Object.assign(new TestElement(), { dataset: { boardSectionTitle: 'section' } })
+    const pointer = (clientX: number, pointerId: number) =>
+      ({
+        pointerId,
+        pointerType: 'mouse',
+        button: 0,
+        clientX,
+        clientY: 0,
+        shiftKey: false,
+        composedPath: () => [title],
+        preventDefault() {},
+      }) as unknown as PointerEvent
+
+    input.pointerDown(pointer(0, 1))
+    input.pointerUp(pointer(0, 1))
+    expect(host.selection).toEqual(['section'])
+
+    host.selection = ['a']
+    input.pointerDown(pointer(0, 2))
+    input.pointerMove(pointer(20, 2))
+    input.pointerUp(pointer(20, 2))
+    expect(host.selection).toEqual(['a'])
+    expect(commits).toBe(1)
+  } finally {
+    Object.assign(globalThis, { HTMLElement: previousHTMLElement })
+  }
+})

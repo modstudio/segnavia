@@ -1,6 +1,7 @@
 export { Board, BoardItem, BoardLabel, BoardSection, GridCell, LABEL_MIN_WIDTH } from './board.ts'
 export type { BoardCommandOptions } from './board-command-core.ts'
 export { DEFAULT_BOARD_ITEM_WIDTH } from './board-command-items.ts'
+export { releasedSectionMembers } from './board-command-sections.ts'
 export {
   BoardCommand,
   type BoardCommandOf,
@@ -44,6 +45,7 @@ export type {
   BoardEditResult,
   BoardEditSuccess,
 } from './board-edit-result.ts'
+export { boardFocusOrder } from './board-focus-order.ts'
 export {
   type ArrangeOptions,
   arrange,
@@ -55,6 +57,7 @@ export {
   itemAt,
   itemHeight,
   labelDirection,
+  labelRectangle,
   labelXForWidth,
   MAX_BOARD_ZOOM,
   MIN_BOARD_ZOOM,
@@ -65,7 +68,15 @@ export {
   zoomAt,
   zoomToFit,
 } from './board-geometry.ts'
-export { type BoardListingGroup, boardListing, boardListingIsEmpty, foldForSearch, nameMatches } from './board-listing.ts'
+export {
+  type BoardListingGroup,
+  type BoardSectionGroup,
+  boardListing,
+  boardListingIsEmpty,
+  boardSectionGroups,
+  foldForSearch,
+  nameMatches,
+} from './board-listing.ts'
 export {
   deriveSectionCells,
   type GridDropTarget,

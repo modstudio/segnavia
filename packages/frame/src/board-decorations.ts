@@ -14,7 +14,19 @@ export class BoardDecorations {
   ) {}
 
   get nodes(): ReadonlyMap<string, HTMLElement> {
-    return this.labelNodes
+    return new Map([...this.sectionNodes, ...this.labelNodes])
+  }
+
+  focusNode(id: string): HTMLElement | undefined {
+    const section = this.sectionNodes.get(id)?.querySelector('[data-board-section-title]')
+    return section instanceof HTMLElement ? section : this.labelNodes.get(id)
+  }
+
+  markSelected(id: string, selected: boolean) {
+    const title = this.sectionNodes.get(id)?.querySelector<HTMLElement>('[data-board-section-title]')
+    title?.toggleAttribute('data-selected', selected)
+    if (selected) title?.part.add('selected')
+    else title?.part.remove('selected')
   }
 
   labelTextNode(id: string): HTMLElement | undefined {
@@ -34,6 +46,7 @@ export class BoardDecorations {
       const title = node.firstElementChild as HTMLElement
       title.textContent = section.title
       title.dir = resolveDirection(undefined, undefined, section.title)
+      title.setAttribute('aria-label', section.title)
     }
     for (const label of board.labels) {
       const node = this.labelNodes.get(label.id) ?? this.mountLabel(label.id)
@@ -46,6 +59,7 @@ export class BoardDecorations {
       text.style.inlineSize = label.width === undefined ? '' : `${label.width * view.zoom}px`
       placeBoardNode(node, view, label)
       node.style.fontSize = `${16 * view.zoom}px`
+      node.setAttribute('aria-label', label.text)
     }
   }
 
@@ -123,8 +137,11 @@ export class BoardDecorations {
     const title = document.createElement('div')
     title.part.add('section-title')
     title.dataset.boardSectionTitle = id
+    title.tabIndex = 0
+    title.setAttribute('role', 'button')
     node.append(title)
     this.sectionNodes.set(id, node)
+    this.mounted(node, id)
     this.insert(node)
     return node
   }
@@ -140,6 +157,8 @@ export class BoardDecorations {
     node.dataset.decoration = ''
     node.dataset.boardLabel = id
     node.part.add('label')
+    node.tabIndex = 0
+    node.setAttribute('role', 'button')
     const text = document.createElement('span')
     text.dataset.boardLabelText = id
     node.append(text)

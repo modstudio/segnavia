@@ -17,6 +17,7 @@ import { BoardChrome } from './board-chrome.ts'
 import { BoardDecorations } from './board-decorations.ts'
 import { type BoardEditingBridge, type BoardEditingHostValue, type BoardPointerDelegate, boardEditing, createBoardEditingBridge } from './board-editing-seam.ts'
 import { BoardViewEventDispatcher, boardEvent } from './board-events.ts'
+import { BoardFocusAdapter } from './board-focus.ts'
 import { BoardFrameInputsElement } from './board-frame-inputs.ts'
 import { BoardGestures } from './board-gestures.ts'
 import { BoardPointerInput } from './board-input.ts'
@@ -26,7 +27,7 @@ import { BoardPainter } from './board-painter.ts'
 import { placeBoardItem } from './board-placement.ts'
 import * as boardPolicy from './board-policy.ts'
 import type { ResolveBoardItem } from './board-resolutions.ts'
-import { focusAfterReveal, revealTarget } from './board-reveal.ts'
+import { revealTarget } from './board-reveal.ts'
 import { BoardSelection, selectBoardNode } from './board-selection.ts'
 import { BoardShapeCache } from './board-shape-cache.ts'
 import { BoardItemTitles } from './board-titles.ts'
@@ -61,7 +62,9 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this,
     () => this.items,
     () => new Map(this.value?.labels.map((label) => [label.id, label]) ?? []),
+    () => new Map(this.value?.sections.map((section) => [section.id, section]) ?? []),
     () => new Map([...this.mounts.nodes, ...this.decorations.nodes]),
+    (id, selected) => this.decorations.markSelected(id, selected),
   )
   private readonly mounts = new BoardMounts(
     this.surface,
@@ -69,6 +72,14 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     (node, id) => this.selectionState.mount(node, id),
     (id) => this.painter.remove(id),
   )
+  private readonly boardFocus = new BoardFocusAdapter(this, {
+    board: () => this.value,
+    shapes: () => this.shapeCache.value.shapes,
+    canReveal: () => this.canReveal,
+    entityNode: (id) => this.entityNode(id),
+    actionNodes: (id) => this.titles.actionNodes(id),
+    reveal: (id) => this.revealItem(id, true),
+  })
   private readonly names = new BoardNames(
     () => {
       this.render()
@@ -89,7 +100,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       else this.selectionState.selection = selectBoardNode(this.selectionState.selection, id, toggle)
     },
     selectAll: () => {
-      this.selectionState.selection = this.value ? [...this.value.items, ...this.value.labels].map((node) => node.id) : []
+      this.selectionState.selection = this.value ? [...this.value.items, ...this.value.labels, ...this.value.sections].map((node) => node.id) : []
     },
     open: (item) => this.dispatchEvent(boardEvent('segnavia-board-open', { item })),
     boardKey: (event) =>
@@ -100,7 +111,8 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
         (view) => this.setView(view),
       ),
     action: (action, item) => this.dispatchEvent(boardEvent('segnavia-board-item-action', { action, item })),
-    focus: (id) => (id && this.mounts.nodes.get(id) ? this.mounts.nodes.get(id)?.focus() : this.focus()),
+    focus: (id) => this.boardFocus.focus(id),
+    focusByTab: (current, backwards) => this.boardFocus.byTab(current, backwards),
   })
   private readonly resize = new ResizeObserver(() => this.measure())
   constructor() {
@@ -166,7 +178,6 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
   get labels(): Partial<BoardLabels> {
     return this.chrome.labels
   }
-
   set labels(value: Partial<BoardLabels>) {
     this.chrome.labels = value
     this.chrome.refresh()
@@ -175,29 +186,23 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this.viewWasSet = true
     this.setView(value)
   }
-
   get liveWidth(): number {
     return this.threshold
   }
-
   set liveWidth(value: number) {
     this.threshold = value
     this.render()
   }
-
   get resolveItem(): ResolveBoardItem | undefined {
     return this.resolutions.resolver
   }
-
   set resolveItem(value: ResolveBoardItem | undefined) {
     this.resolutions.resolver = value
     this.render()
   }
-
   get itemNames(): BoardItemNames | undefined {
     return this.nameProvider
   }
-
   set itemNames(value: BoardItemNames | undefined) {
     this.nameProvider = value
     this.names.update(this.value?.items ?? [], value)
@@ -234,7 +239,6 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       },
     })
   }
-
   connectedCallback() {
     ensureBaseStyle(this.surface)
     if (!this.hasAttribute('tabindex')) this.tabIndex = 0
@@ -243,72 +247,66 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
     this.measure()
     this.render()
   }
-
   disconnectedCallback() {
     this.resize.disconnect()
     this.input.disconnect()
     this.mounts.clear()
     this.decorations.disconnect()
   }
-
   fitAll() {
     this.pendingReveal = undefined
     const board = this.value
-    if (!board || this.clientWidth <= 96 || this.clientHeight <= 96) return
+    if (!board || !this.canReveal) return
     const bounds = boardBounds(board, this.shapeCache.value.shapes)
     if (!(bounds.width > 0 && bounds.height > 0)) return
     this.setView(zoomToFit(bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
   }
-
   zoomIn() {
     this.zoomTo(this.currentView.zoom * boardPolicy.BOARD_ZOOM_FACTOR)
   }
-
   zoomOut() {
     this.zoomTo(this.currentView.zoom / boardPolicy.BOARD_ZOOM_FACTOR)
   }
-
   zoomTo(zoom: number) {
     if (!this.value || this.currentView.viewport.width <= 0 || this.currentView.viewport.height <= 0) return
     this.setView(boardPolicy.zoomView(this.currentView, zoom))
   }
-
   reveal(id: string): boolean {
     return this.revealItem(id, true)
   }
-
   private revealItem(id: string, focus: boolean): boolean {
-    const target = this.value && this.clientWidth > 96 && this.clientHeight > 96 ? revealTarget(this.value, this.shapeCache.value.shapes.items, id) : undefined
+    const target = this.value && this.canReveal ? revealTarget(this.value, this.shapeCache.value.shapes, id) : undefined
     if (!target) return false
-    const item = target.item
     this.pendingReveal = undefined
     this.setView(revealView(target.bounds, { width: this.clientWidth, height: this.clientHeight }, 48))
-    if (item) this.pendingReveal = { id: item.id, height: target.bounds.height }
-    if (item && focus) focusAfterReveal(() => this.mounts.nodes.get(item.id)?.focus())
+    if (target.kind === 'item') this.pendingReveal = { id: target.item.id, height: target.bounds.height }
+    if (focus) this.boardFocus.afterReveal(id)
     return true
   }
-
+  private entityNode(id: string): HTMLElement | undefined {
+    return this.mounts.nodes.get(id) ?? this.decorations.focusNode(id)
+  }
+  private get canReveal(): boolean {
+    return this.clientWidth > 96 && this.clientHeight > 96
+  }
   private fitInitial() {
     if (this.initialFitDone || this.viewWasSet || !this.value) return
-    if (this.clientWidth <= 96 || this.clientHeight <= 96) return
+    if (!this.canReveal) return
     this.initialFitDone = true
     this.fitAll()
   }
-
   private measure() {
     const viewport = { width: this.clientWidth, height: this.clientHeight }
     if (viewport.width === this.currentView.viewport.width && viewport.height === this.currentView.viewport.height) return
     this.setView({ ...this.currentView, viewport })
     this.fitInitial()
   }
-
   private setView(value: BoardView) {
     this.pendingReveal = undefined
     this.currentView = { ...value, pan: { ...value.pan }, viewport: { ...value.viewport } }
     this.render()
     this.viewEvents.schedule(() => ({ view: this.currentView }))
   }
-
   private render() {
     const board = this.value
     if (!board) {

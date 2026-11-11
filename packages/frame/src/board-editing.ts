@@ -46,6 +46,7 @@ import { BOARD_HISTORY_LIMIT } from './board-history.ts'
 import { BoardLabelDoubleClick } from './board-label-double-click.ts'
 import { withoutLabelWidth } from './board-label-editing.ts'
 import { BoardLabelEditor } from './board-label-editor.ts'
+import { removeBoardEntities } from './board-removal.ts'
 import { copyComputedBoardShapes } from './board-shape-cache.ts'
 import { boardLabels } from './labels.ts'
 
@@ -143,11 +144,8 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
 
   remove(ids: readonly string[] = this.board.selection) {
     const current = this.state ? boardFromDocument(this.state.value) : null
-    const existing = ids.filter((id) => current?.items.some((item) => item.id === id))
-    if (!this.enabled.remove || !current || existing.length === 0) return
-    this.board.selection = this.board.selection.filter((id) => !existing.includes(id))
-    this.applyCommands(current, [{ type: 'item-remove', items: existing.map((id) => ({ id })) }], { kind: 'remove', ids: existing })
-    this.board.focus()
+    if (!this.enabled.remove || !current) return
+    removeBoardEntities(current, ids, this.board, (removal) => this.applyCommands(current, removal.commands, { kind: 'remove', ids: removal.removed }))
   }
 
   arrange(options: ArrangeOptions) {
@@ -250,10 +248,11 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     if (this.state) this.applyTransition(commitLiveTransition(this.state, this.bridge, before, next, edit))
   }
 
-  private applyCommands(current: Board, commands: BoardCommand[], edit: BoardEdit) {
+  private applyCommands(current: Board, commands: BoardCommand[], edit: BoardEdit): boolean {
     const result = editBoardFromFrame(this.bridge.document(current), commands, this.bridge)
     if (result.ok) this.applyBoard(result.board, edit)
     else this.dispatchError(edit, result.refusal)
+    return result.ok
   }
 
   private commitCommands(before: Board, commands: BoardCommand[], edit: BoardEdit) {

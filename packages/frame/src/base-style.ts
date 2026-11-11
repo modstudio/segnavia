@@ -78,8 +78,10 @@ export const BASE_CSS = `
 :where(:host(segnavia-board:not([unstyled])) [part~="item-actions"]){display:inline-flex;flex:none;margin-inline-start:auto;opacity:0;pointer-events:none}
 :where(:host(segnavia-board:not([unstyled])) [part~="item"]:hover + [part~="item-title"] [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item"]:focus + [part~="item-title"] [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]:hover [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item-title"]:focus-within [part~="item-actions"]),:where(:host(segnavia-board:not([unstyled])) [part~="item"][data-selected] + [part~="item-title"] [part~="item-actions"]){opacity:1;pointer-events:auto}
 :where(:host(segnavia-board:not([unstyled])) [part~="section"]){position:absolute;overflow:visible;background:var(--segnavia-board-section-fill,transparent);box-shadow:inset 0 0 0 1px var(--segnavia-board-section,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="section"][data-selected]){outline:2px solid var(--segnavia-board-selection-color,#2463eb);outline-offset:2px}
 :where(:host(segnavia-board:not([unstyled])) [part~="section"][part~="drop-target"]){outline:2px solid var(--segnavia-board-drop-target-color,#2463eb);outline-offset:2px}
 :where(:host(segnavia-board:not([unstyled])) [part~="section-title"]){position:absolute;inset-block-end:100%;inset-inline-start:0;white-space:pre;unicode-bidi:isolate;color:var(--segnavia-board-section-title,currentColor)}
+:where(:host(segnavia-board:not([unstyled])) [part~="section-title"][data-selected]){outline:2px solid var(--segnavia-board-selection-color,#2463eb);outline-offset:2px}
 :where(:host(segnavia-board-list)){display:block;color:var(--segnavia-board-list-color,currentColor);background:var(--segnavia-board-list-background,transparent)}
 :where(:host(segnavia-board-list[hidden])){display:none}
 :where(:host(segnavia-board-list) [part~="search"]){box-sizing:border-box;inline-size:100%;color:var(--segnavia-board-list-search-color,currentColor);background:var(--segnavia-board-list-search-background,transparent)}
