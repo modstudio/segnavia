@@ -45,9 +45,10 @@ export type ElementPropertyWrites = {
 
 export type CamelEvent<S extends string> = S extends `${infer Head}-${infer Tail}` ? `${Capitalize<Head>}${CamelEvent<Tail>}` : Capitalize<S>
 
-export declare const plainEvent: unique symbol
-export type PlainEvent = { readonly [plainEvent]: true }
+export declare const nativeEvent: unique symbol
+export type NativeEvent<E extends Event> = { readonly [nativeEvent]: E }
+export type PlainEvent = NativeEvent<Event>
 
 export type EventProps<Events extends readonly string[], Details extends Record<Events[number], unknown>> = {
-  [E in Events[number] as `on${CamelEvent<E>}`]?: (event: Details[E] extends PlainEvent ? Event : CustomEvent<Details[E]>) => void
+  [E in Events[number] as `on${CamelEvent<E>}`]?: (event: Details[E] extends NativeEvent<infer T> ? T : CustomEvent<Details[E]>) => void
 }

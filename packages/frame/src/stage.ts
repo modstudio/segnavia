@@ -16,6 +16,7 @@ import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type Page
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
 import { deckFolioAt, deckFolios } from './deck-folios.ts'
+import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
@@ -249,7 +250,7 @@ export class SegnaviaStage extends HTMLElement {
       if (!slotWork || refusal) {
         this.slotDeck = deck
         this.resolvedSlots = EMPTY_SLOTS
-        if (refusal) this.dispatchEvent(new ErrorEvent('error', { error: refusal, message: refusal.message }))
+        if (refusal) dispatchElementError(this, refusal)
       } else {
         const generation = this.slotGeneration
         const controller = new AbortController()
@@ -266,7 +267,7 @@ export class SegnaviaStage extends HTMLElement {
             if (!this.isConnected || controller.signal.aborted || generation !== this.slotGeneration || this.slotDeck !== deck) return
             this.resolvedSlots = EMPTY_SLOTS
             this.rebuildFrames()
-            this.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))
+            dispatchElementError(this, error)
           })
       }
     }
@@ -293,7 +294,7 @@ export class SegnaviaStage extends HTMLElement {
       preflight: surfacePreflightFor(this).resolvedProfile(),
       reportSlideError: (slideId, message) => {
         const error = new SlideFrameError(message, slideId, this.attached?.state.deck?.slides.findIndex((slide) => slide.id === slideId) ?? -1)
-        this.dispatchEvent(new ErrorEvent('error', { error, message }))
+        dispatchElementError(this, error)
       },
     })
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')

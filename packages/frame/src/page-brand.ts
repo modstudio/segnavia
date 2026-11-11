@@ -1,5 +1,6 @@
 import { type Document, pageOrPrintedFromDocument, resolveBrand } from '@segnavia/format'
 import type { BrandsOptions } from './brands.ts'
+import { dispatchElementError } from './element-error.ts'
 
 export function loadBrandedPage(
   document: Document,
@@ -17,5 +18,5 @@ export function loadBrandedPage(
   }
   void resolveBrand(document, brands?.source, signal)
     .then((brand) => current(() => loaded(pageOrPrintedFromDocument(document, brand))))
-    .catch((error) => current(() => host.dispatchEvent(new ErrorEvent('error', { error, message: error instanceof Error ? error.message : String(error) }))))
+    .catch((error) => current(() => dispatchElementError(host, error)))
 }

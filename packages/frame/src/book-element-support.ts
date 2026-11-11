@@ -1,6 +1,7 @@
 import { BOOK_LAYOUTS, type BookLayout } from './book-presentation.ts'
 import { dispatchFontFailures, MESSAGE } from './bridge.ts'
 import type { FrameMessage } from './bridge-message.ts'
+import { dispatchElementError } from './element-error.ts'
 
 export function bookSourceUrl(src: string): URL {
   try {
@@ -11,8 +12,7 @@ export function bookSourceUrl(src: string): URL {
 }
 
 export function reportBookError(element: HTMLElement, reason: unknown) {
-  const message = reason instanceof Error ? reason.message : String(reason)
-  element.dispatchEvent(new CustomEvent('error', { detail: { message } }))
+  dispatchElementError(element, reason)
 }
 
 export function showBookLayoutFrames(frames: Iterable<HTMLIFrameElement>, layout: BookLayout) {

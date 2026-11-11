@@ -32,6 +32,43 @@ class TestElement extends EventTarget {
   }
 }
 
+function bookItem(foot = '<span data-motif="held"></span>') {
+  return {
+    kind: 'book' as const,
+    size: { width: 100, height: 140 },
+    view: {
+      html: '<main data-segnavia-galleys></main>',
+      pagination: {
+        paper: { width: 100, height: 140 },
+        margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+        columnGap: 0,
+        geometries: [
+          {
+            paper: { width: 100, height: 140 },
+            margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+            columns: { count: 1, gap: 0 },
+            parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+          },
+        ],
+        direction: 'ltr' as const,
+        numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
+        rectoOpenings: false,
+        orphans: 2,
+        widows: 2,
+        parents: [
+          {
+            name: 'body',
+            regions: { foot: { edge: 'blockEnd' as const, html: foot } },
+            margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+          },
+        ],
+        endnotePlacement: 'book' as const,
+        contents: { pageNumbers: true, depth: 2 },
+      },
+    },
+  }
+}
+
 test('passes board motif and placement sources to a live book before its view', async () => {
   const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
   Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: TestElement })
@@ -55,44 +92,7 @@ test('passes board motif and placement sources to a live book before its view', 
   }
   const origins: readonly OriginApproval[] = [{ origin: 'https://images.example', kinds: ['image'] }]
   try {
-    const live = liveBoardItem(
-      {
-        kind: 'book',
-        size: { width: 100, height: 140 },
-        view: {
-          html: '<main data-segnavia-galleys></main>',
-          pagination: {
-            paper: { width: 100, height: 140 },
-            margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
-            columnGap: 0,
-            geometries: [
-              {
-                paper: { width: 100, height: 140 },
-                margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
-                columns: { count: 1, gap: 0 },
-                parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
-              },
-            ],
-            direction: 'ltr',
-            numbering: { frontMatter: 'roman-lower', body: 'arabic' },
-            rectoOpenings: false,
-            orphans: 2,
-            widows: 2,
-            parents: [
-              {
-                name: 'body',
-                regions: { foot: { edge: 'blockEnd', html: '<span data-motif="held"></span>' } },
-                margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
-              },
-            ],
-            endnotePlacement: 'book',
-            contents: { pageNumbers: true, depth: 2 },
-          },
-        },
-      },
-      () => {},
-      { motifs, placements, pageWidths: { standard: 900 }, origins },
-    )
+    const live = liveBoardItem(bookItem(), () => {}, { motifs, placements, pageWidths: { standard: 900 }, origins })
     const book = live.element as InstanceType<typeof import('./book.ts')['SegnaviaBook']>
     expect(book.motifs).toBe(motifs)
     expect(book.placements).toBe(placements)
@@ -102,6 +102,36 @@ test('passes board motif and placement sources to a live book before its view', 
     const expanded = await expandFrameBookView(book.view, book.motifs, new AbortController().signal, book.placements)
     expect(expanded.book.pagination?.parents[0]?.regions.foot?.html).toContain('data-board-book-motif')
     expect(expanded.book.pagination?.parents[0]?.regions.foot?.html).toContain(`src="${src}"`)
+  } finally {
+    if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
+    else Reflect.deleteProperty(globalThis, 'HTMLElement')
+  }
+})
+
+test('reports a live book ErrorEvent and throws one dispatched while mounting', async () => {
+  const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: TestElement })
+  try {
+    const { liveBoardItem } = await import('./board-live.ts')
+    const failures: unknown[] = []
+    const motifs = {
+      source: {
+        motif: async (key: string) => ({ key, revision: 'one', label: key, fields: [], versions: [{ lang: 'en', html: '' }], fonts: [] }),
+      },
+    }
+    const live = liveBoardItem(bookItem(), (failure) => failures.push(failure), { motifs, origins: [] })
+    const refusal = new Error('composition refused')
+    live.element.dispatchEvent(new ErrorEvent('error', { message: refusal.message, error: refusal }))
+    expect(failures).toEqual([refusal])
+    live.dispose()
+
+    let thrown: unknown
+    try {
+      liveBoardItem({ ...bookItem(''), view: {} } as never, () => {}, { origins: [] })
+    } catch (error) {
+      thrown = error
+    }
+    expect(thrown).toBeInstanceOf(Error)
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

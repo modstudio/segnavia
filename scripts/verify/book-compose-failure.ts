@@ -8,8 +8,7 @@ export async function verifyComposeFailure(h: Harness) {
     window.addEventListener(
       'error',
       (event) => {
-        if (event.target instanceof HTMLElement && event.target.id === 'book-compose-failure')
-          facts.errors.push((event as unknown as CustomEvent<{ message?: string }>).detail?.message ?? '')
+        if (event.target instanceof HTMLElement && event.target.id === 'book-compose-failure') facts.errors.push((event as ErrorEvent).message)
       },
       true,
     )
