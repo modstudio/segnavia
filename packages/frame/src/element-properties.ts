@@ -24,8 +24,8 @@ const controlProperties = ['controller', 'labels'] as const
 export const ELEMENT_PROPERTIES = {
   stage: descriptor(
     HEADLESS_ELEMENTS.stage,
-    ['controller', 'css', 'cspExtra', 'origins', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots', 'brands'],
-    ['segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release'],
+    ['controller', 'css', 'cspExtra', 'origins', 'bridgeReadyTimeoutMs', 'frameTitle', 'transition', 'reserve', 'slots', 'brands', 'profile'],
+    ['segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release', 'preflight', 'fontfailure'],
   ),
   thumbnail: descriptor(
     HEADLESS_ELEMENTS.thumbnail,
@@ -101,7 +101,7 @@ export const ELEMENT_PROPERTIES = {
       'moment',
       'profile',
     ],
-    ['asof', 'ready'],
+    ['asof', 'ready', 'preflight', 'fontfailure'],
   ),
   paper: descriptor(
     HEADLESS_ELEMENTS.paper,
@@ -110,10 +110,10 @@ export const ELEMENT_PROPERTIES = {
   ),
   document: descriptor(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'origins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment'],
-    ['asof'],
+    ['css', 'cspExtra', 'origins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment', 'profile'],
+    ['asof', 'preflight', 'fontfailure'],
   ),
-  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'origins', 'profile'], []),
+  book: descriptor(HEADLESS_ELEMENTS.book, ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'origins', 'profile'], ['preflight', 'fontfailure']),
   player: descriptor(
     STYLED_ELEMENTS.player,
     ['labels', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots'],

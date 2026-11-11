@@ -1,4 +1,4 @@
-import { type FontFailure, type OriginApproval, pageDirection, printProperties } from '@segnavia/format'
+import { type FontFailure, type OriginApproval, pageDirection, type PreflightProfile, printProperties } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import type { PreparedSlots } from './slot-render.ts'
@@ -7,7 +7,7 @@ import { slotHtml } from './slot-render.ts'
 export function shownPageDocument(
   page: HtmlPage,
   resolved: PreparedSlots | undefined,
-  options: { nonce: string; baseCss?: string; css?: string; csp?: string; origins?: Iterable<OriginApproval>; fontFailures?: FontFailure[] },
+  options: { nonce: string; baseCss?: string; css?: string; csp?: string; origins?: Iterable<OriginApproval>; fontFailures?: FontFailure[]; preflight?: PreflightProfile },
 ): string {
   const html = slotHtml(page.html, resolved)
   return frameDocument(html, {
@@ -21,6 +21,7 @@ export function shownPageDocument(
     css: options.css,
     csp: options.csp,
     origins: options.origins,
+    preflight: options.preflight,
     relayKeys: false,
   })
 }

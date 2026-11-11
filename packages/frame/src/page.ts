@@ -227,7 +227,14 @@ export class SegnaviaPage extends PageAsOfElement {
       loadShownPageDocument(
         shownPage,
         resolved,
-        { baseCss: fontCss, css: this.css, csp: this.cspExtra || undefined, origins: this.origins, fontFailures },
+        {
+          baseCss: fontCss,
+          css: this.css,
+          csp: this.cspExtra || undefined,
+          origins: this.origins,
+          fontFailures,
+          preflight: resolvePreflightProfile(this.profileInput),
+        },
         (document) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved

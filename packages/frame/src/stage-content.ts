@@ -1,4 +1,4 @@
-import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type PixelSize, type Slide } from '@segnavia/format'
+import { type Deck, type Folio, firstStrongDirection, type OriginApproval, type PixelSize, type PreflightProfile, type Slide } from '@segnavia/format'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefusedError } from './bridge.ts'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
@@ -18,6 +18,7 @@ interface StageCanvasOptions {
   bridge?: boolean
   folio: Folio
   failed?: (error: StyleSheetRefusedError) => void
+  preflight?: PreflightProfile
 }
 
 function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): string | undefined {
@@ -34,6 +35,7 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       origins: options.origins,
       reportHeight: false,
       bridge: options.bridge,
+      preflight: options.preflight,
     })
   } catch (error) {
     if (!(error instanceof StyleSheetRefusedError) || !options.failed) throw error

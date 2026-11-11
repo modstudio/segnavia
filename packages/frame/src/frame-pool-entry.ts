@@ -42,6 +42,7 @@ export function addFrame({ entries, events, host, index, content, state, control
     failed: (error) => pool.reportSlideError(slide.id, error.message),
     slots: pool.slots,
     folio,
+    preflight: pool.preflight,
   })
   entry.canvas = canvas
   entries.set(slide.id, entry)

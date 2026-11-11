@@ -4,8 +4,8 @@
 import {
   type Document,
   type OriginApproval,
-  Page,
   type PageWidths,
+  type PreflightProfileInput,
   Print,
   type PrintInput,
   pageOrPrintedFromDocument,
@@ -18,17 +18,19 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { DocumentAsOfElement } from './document-as-of-element.ts'
-import { internalDocumentPagesLoad, internalDocumentPagesRead, internalPageDayLoad } from './document-value-load.ts'
+import { internalDocumentPagesLoad, internalDocumentPagesRead } from './document-value-load.ts'
+import { mountDocumentPage } from './document-page-mount.ts'
+import { documentSheets } from './document-sheets.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
-import { createPageElement } from './page.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
 import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
+import { SurfacePreflightCoordinator } from './surface-preflight.ts'
 
 const MOUNT_MARGIN = 600
 
@@ -60,6 +62,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private resolvedSlots: PreparedSlots | undefined
   private resolvedGeneration = 0
   private pageDayContexts: EstablishedPageDay[] = []
+  private preflightState = new SurfacePreflightCoordinator(this)
 
   constructor() {
     super()
@@ -68,6 +71,15 @@ export class SegnaviaDocument extends DocumentAsOfElement {
 
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
+  }
+
+  get profile(): PreflightProfileInput {
+    return this.preflightState.profile
+  }
+
+  set profile(value: PreflightProfileInput) {
+    this.preflightState.profile = value
+    this.paint()
   }
 
   set slots(value: SlotsOptions | undefined) {
@@ -220,6 +232,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   private paint() {
+    this.preflightState.clear()
     this.cancelSlotPreparation()
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
@@ -289,21 +302,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     if (this.authoringRail) layout.append(this.authoringRail)
     const list = document.createElement('div')
     list.className = 'segnavia-document__pages'
-    const sheets = this.pageValues.map((_, index) => {
-      const item = document.createElement('div')
-      item.className = 'segnavia-document__item'
-      item.dataset.pageIndex = String(index)
-      const sheet = document.createElement('div')
-      sheet.className = 'segnavia-document__sheet'
-      sheet.dataset.page = String(index)
-      sheet.style.width = `${projection.box.width}px`
-      const number = document.createElement('div')
-      number.className = 'segnavia-document__number'
-      number.innerHTML = `Page <bdi dir="ltr">${index + 1}</bdi>`
-      item.append(sheet, number)
-      list.append(item)
-      return sheet
-    })
+    const sheets = documentSheets(this.pageValues, projection.box.width, list)
     layout.append(list)
     this.append(layout)
     this.observer = new IntersectionObserver(
@@ -338,26 +337,22 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     const print = this.printValue
     if (!source || !context || !print) return
     const projection = projectPageOnPaper(source, print)
-    const page = createPageElement()
-    page.motifs = this.motifOptions
-    page.placements = this.placementOptions
-    page.pageWidths = this.widthOptions
-    page.fonts = this.fontOptions
-    page.brands = this.brandOptions
-    page.css = this.stylesheet
-    page.cspExtra = this.extraCsp
-    page.origins = this.origins
-    page.part.add('page')
-    sheet.append(page)
-    page[internalPageDayLoad](
-      Page.parse({
-        ...projection.page,
-        printedPages: undefined,
-        slots: this.resolvedSlots ? [] : projection.page.slots,
-        html: this.filledHtml?.[index] ?? source.html,
-      }),
+    mountDocumentPage(sheet, {
       context,
-    )
+      page: projection.page,
+      html: this.filledHtml?.[index] ?? source.html,
+      resolvedSlots: this.resolvedSlots,
+      motifs: this.motifOptions,
+      placements: this.placementOptions,
+      pageWidths: this.widthOptions,
+      fonts: this.fontOptions,
+      brands: this.brandOptions,
+      css: this.stylesheet,
+      csp: this.extraCsp,
+      origins: [...this.origins],
+      profile: this.preflightState.resolvedProfile(),
+      preflight: (report) => this.preflightState.receive(index, report, this.pageValues.length),
+    })
   }
   private onMessage = (event: MessageEvent) => {
     if (!this.resolvedSlots || this.resolvedGeneration !== this.slotGeneration) return
