@@ -1,5 +1,6 @@
 import type { Lexicon } from '@segnavia/format'
 import type { PronunciationDictionary } from './index.ts'
+import { LexiconRefusedError } from './lexicon-refusal.ts'
 
 type RuleBase = {
   string_to_replace: string
@@ -32,6 +33,10 @@ function refuseCaseInsensitiveCollisions(lexicon: Lexicon): void {
   }
 }
 
+function longestTermsFirst(lexicon: Lexicon): Lexicon['entries'] {
+  return [...lexicon.entries].sort((left, right) => [...right.term].length - [...left.term].length)
+}
+
 export async function publishElevenLabsLexicon(options: {
   apiKey: () => string
   lexicon: Lexicon
@@ -46,7 +51,7 @@ export async function publishElevenLabsLexicon(options: {
 
   const caseSensitive = options.caseSensitive ?? true
   if (!caseSensitive) refuseCaseInsensitiveCollisions(options.lexicon)
-  const rules: (AliasRule | PhonemeRule)[] = options.lexicon.entries.map((entry) => {
+  const rules: (AliasRule | PhonemeRule)[] = longestTermsFirst(options.lexicon).map((entry) => {
     const shared: RuleBase = { string_to_replace: entry.term, case_sensitive: caseSensitive, word_boundaries: true }
     return options.phonemes === true && entry.ipa !== undefined
       ? {
@@ -67,7 +72,20 @@ export async function publishElevenLabsLexicon(options: {
       updating ? { rules } : { name: options.name, ...(options.description === undefined ? {} : { description: options.description }), rules },
     ),
   })
-  if (!response.ok) throw new Error(`ElevenLabs refused the pronunciation dictionary: ${response.status} ${await response.text()}`)
-  const body = (await response.json()) as { id: string; version_id: string }
+  if (!response.ok) throw new LexiconRefusedError(response.status, await response.text())
+  const body = (await response.json()) as { id?: unknown; version_id?: string }
+  if (typeof body.id !== 'string' || body.id.length === 0) {
+    throw new LexiconRefusedError(response.status, 'the reply named no dictionary id')
+  }
   return { id: body.id, versionId: body.version_id }
+}
+
+export async function archiveElevenLabsLexicon(options: { apiKey: () => string; dictionaryId: string; signal?: AbortSignal }): Promise<void> {
+  const response = await fetch(`https://api.elevenlabs.io/v1/pronunciation-dictionaries/${encodeURIComponent(options.dictionaryId)}`, {
+    method: 'PATCH',
+    signal: options.signal,
+    headers: { 'xi-api-key': options.apiKey(), 'content-type': 'application/json' },
+    body: JSON.stringify({ archived: true }),
+  })
+  if (!response.ok) throw new LexiconRefusedError(response.status, await response.text())
 }
