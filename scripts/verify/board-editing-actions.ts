@@ -13,6 +13,16 @@ export async function center(locator: Locator) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
+export async function settledBoxes(locators: readonly Locator[], timeout: number) {
+  const deadline = Date.now() + timeout
+  let boxes = await Promise.all(locators.map((locator) => locator.boundingBox()))
+  while (boxes.some((box) => !box) && Date.now() < deadline) {
+    await locators[0]?.page().waitForTimeout(50)
+    boxes = await Promise.all(locators.map((locator) => locator.boundingBox()))
+  }
+  return boxes
+}
+
 export async function drag(page: Page, from: { x: number; y: number }, x: number, y: number) {
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
