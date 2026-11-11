@@ -168,7 +168,6 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
     },
   ],
 })
-
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
@@ -176,7 +175,6 @@ function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): v
     paginatedBookDocument(bookFixtureValue(noteCasesFixture(hebrew)), { nonce: newNonce(), css }),
   )
 }
-
 function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
   const oversize: DocumentInput = {
     type: 'document',
@@ -198,14 +196,12 @@ function writeOversizeBook(site: string, hebrew: boolean, css: string): void {
     paginatedBookDocument(bookFixtureValue(oversize), { nonce: newNonce(), css }),
   )
 }
-
 function writePartsBook(site: string, hebrew: boolean, hebrewFace: string): void {
   writeFileSync(
     path.join(site, hebrew ? 'book-parts-he.html' : 'book-parts-en.html'),
     paginatedBookDocument(bookFixtureValue(partsFixture(hebrew)), { nonce: newNonce(), css: hebrew ? hebrewFace : undefined }),
   )
 }
-
 function writeNoteSeriesBook(site: string, hebrew: boolean, hebrewFace: string): void {
   writeFileSync(
     path.join(site, hebrew ? 'book-note-series-he.html' : 'book-note-series-en.html'),
