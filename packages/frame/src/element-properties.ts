@@ -101,7 +101,7 @@ export const ELEMENT_PROPERTIES = {
       'moment',
       'profile',
     ],
-    ['asof'],
+    ['asof', 'ready'],
   ),
   paper: descriptor(
     HEADLESS_ELEMENTS.paper,

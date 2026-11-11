@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { approvedOrigins, approvedSources, authoredOrigin, DEFAULT_ORIGINS, type OriginApproval, originDecision } from './origin-policy.ts'
 
+const BUILT_IN_IMAGE_SOURCES = [...approvedSources([], 'image', true)]
+
 describe('origin policy', () => {
   test('opaque URLs do not report the serialized null origin', () => {
     expect(authoredOrigin('data:text/plain,x')).toBeUndefined()
@@ -14,6 +16,19 @@ describe('origin policy', () => {
     expect(originDecision('https://fonts.googleapis.com/css2?family=Inter', 'script', [], true).allowed).toBe(false)
     expect(originDecision('https://fonts.gstatic.com/s/inter.woff2', 'font', [], true).allowed).toBe(true)
     expect(originDecision('https://example.com/image.png', 'image', [], true).allowed).toBe(false)
+  })
+
+  test('default image origins are image-only', () => {
+    const urls = [
+      'https://api.iconify.design/mdi/home.svg',
+      'https://images.unsplash.com/photo-example',
+      'https://plus.unsplash.com/premium_photo-example',
+      'https://images.pexels.com/photos/1/example.jpeg',
+    ]
+    for (const url of urls) {
+      expect(originDecision(url, 'image', [], true).allowed).toBe(true)
+      for (const kind of ['style', 'font', 'script'] as const) expect(originDecision(url, kind, [], true).allowed).toBe(false)
+    }
   })
 
   test('script approvals exist only for scripted frames', () => {
@@ -69,15 +84,15 @@ describe('origin policy', () => {
     'unreadable path prefix %s approves no CSP source',
     (pathname) => {
       const approvals = [{ origin: 'https://assets.example', kinds: ['image'] as const, pathname }]
-      expect([...approvedSources(approvals, 'image', false)]).toEqual([])
+      expect([...approvedSources(approvals, 'image', false)]).toEqual(BUILT_IN_IMAGE_SOURCES)
       expect(originDecision('https://assets.example/x.png', 'image', approvals, false).allowed).toBe(false)
     },
   )
 
   test('normalizes a root pathname to an unscoped approval', () => {
     const approvals = [{ origin: 'https://assets.example', kinds: ['image'] as const, pathname: '/' }]
-    expect([...approvedOrigins(approvals, 'image', false)]).toEqual(['https://assets.example'])
-    expect([...approvedSources(approvals, 'image', false)]).toEqual(['https://assets.example'])
+    expect([...approvedOrigins(approvals, 'image', false)]).toEqual([...BUILT_IN_IMAGE_SOURCES, 'https://assets.example'])
+    expect([...approvedSources(approvals, 'image', false)]).toEqual([...BUILT_IN_IMAGE_SOURCES, 'https://assets.example'])
     expect(originDecision('https://assets.example/a%2Fb.png', 'image', approvals, false).allowed).toBe(true)
   })
 
@@ -141,13 +156,17 @@ describe('origin policy', () => {
       'https://cdn.jsdelivr.net/fontsource',
       'https://cdn.jsdelivr.net/fontsource/',
     ])
-    expect([...approvedSources(approvals, 'image', true)]).toEqual(['https://assets.example'])
+    expect([...approvedSources(approvals, 'image', true)]).toEqual([...BUILT_IN_IMAGE_SOURCES, 'https://assets.example'])
   })
 
   test('approved origins include only unscoped approvals', () => {
     const approvals: OriginApproval[] = [{ origin: 'https://assets.example', kinds: ['image'], pathname: '/public' }]
-    expect([...approvedOrigins(approvals, 'image', true)]).toEqual([])
-    expect([...approvedSources(approvals, 'image', true)]).toEqual(['https://assets.example/public', 'https://assets.example/public/'])
+    expect([...approvedOrigins(approvals, 'image', true)]).toEqual(BUILT_IN_IMAGE_SOURCES)
+    expect([...approvedSources(approvals, 'image', true)]).toEqual([
+      ...BUILT_IN_IMAGE_SOURCES,
+      'https://assets.example/public',
+      'https://assets.example/public/',
+    ])
   })
 
   test('a prefixed approval does not narrow a built-in unscoped approval', () => {
