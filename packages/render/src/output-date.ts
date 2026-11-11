@@ -12,7 +12,8 @@ export function outputDate(days: readonly AsOfDay[]): OutputDate | undefined {
 }
 
 export function isoDate(date: OutputDate): string {
-  return date.kind === 'date' ? date.date : formatAsOfMoment(date.moment, date.zone)
+  if (date.kind === 'date') return date.date
+  return formatAsOfMoment(date.moment, date.zone).replace(/([+-]\d{2}:\d{2}):\d{2}$/, '$1')
 }
 
 export function pdfDate(date: OutputDate): string {

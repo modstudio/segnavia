@@ -1,7 +1,7 @@
-import { crc32 } from './crc32.ts'
 import { RenderRefusedError } from './errors.ts'
+import { imageMime } from './image-format.ts'
 import { isoDate, type OutputDate } from './output-date.ts'
-import { mimeOf } from './proof-image.ts'
+import { pngChunk } from './png-chunk.ts'
 import { xmpDatePacket } from './xmp.ts'
 
 const ascii = (value: string) => new TextEncoder().encode(value)
@@ -22,11 +22,6 @@ function uint32(value: number, littleEndian: boolean): Uint8Array {
   return bytes
 }
 
-function pngChunk(type: string, data: Uint8Array): Uint8Array {
-  const name = ascii(type)
-  return concat(uint32(data.length, false), name, data, uint32(crc32(concat(name, data)), false))
-}
-
 function stampPng(bytes: Uint8Array, date: OutputDate): Uint8Array {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const ihdrEnd = 8 + 12 + view.getUint32(8)
@@ -45,6 +40,7 @@ function stampJpeg(bytes: Uint8Array, date: OutputDate): Uint8Array {
 }
 
 function stampWebp(bytes: Uint8Array, date: OutputDate): Uint8Array {
+  // Chromium's screenshot and canvas WebP encoders produce VP8X; this guards inputs the renderer does not produce.
   if (String.fromCharCode(...bytes.subarray(12, 16)) !== 'VP8X') {
     throw new RenderRefusedError('The WebP output uses a simple container; render an extended WebP container to carry output date metadata.')
   }
@@ -59,8 +55,17 @@ function stampWebp(bytes: Uint8Array, date: OutputDate): Uint8Array {
 
 export function stampImage(bytes: Uint8Array, date?: OutputDate): Uint8Array {
   if (!date) return bytes
-  const mime = mimeOf(bytes)
-  if (mime === 'image/png') return stampPng(bytes, date)
-  if (mime === 'image/jpeg') return stampJpeg(bytes, date)
-  return stampWebp(bytes, date)
+  const mime = imageMime(bytes)
+  switch (mime) {
+    case 'image/png':
+      return stampPng(bytes, date)
+    case 'image/jpeg':
+      return stampJpeg(bytes, date)
+    case 'image/webp':
+      return stampWebp(bytes, date)
+    default: {
+      const exhaustive: never = mime
+      return exhaustive
+    }
+  }
 }

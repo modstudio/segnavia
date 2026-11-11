@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { crc32 } from './crc32.ts'
 import type { OutputDate } from './output-date.ts'
+import { pngChunk } from './png-chunk.ts'
 import { stampImage } from './stamp-image.ts'
 
 const encoder = new TextEncoder()
@@ -22,13 +23,13 @@ function u32(value: number, littleEndian = false): Uint8Array {
   return bytes
 }
 
-function pngChunk(name: string, data = new Uint8Array()): Uint8Array {
-  const type = encoder.encode(name)
-  return concat(u32(data.length), type, data, u32(crc32(concat(type, data))))
-}
-
 function png(): Uint8Array {
-  return concat(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), pngChunk('IHDR', new Uint8Array(13)), pngChunk('IDAT'), pngChunk('IEND'))
+  return concat(
+    new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', new Uint8Array(13)),
+    pngChunk('IDAT', new Uint8Array()),
+    pngChunk('IEND', new Uint8Array()),
+  )
 }
 
 function jpeg(): Uint8Array {

@@ -3,6 +3,7 @@ import { readProfile } from './color/profile.ts'
 import { buildProofTable } from './color/proof.ts'
 import { type ProofTable, WELL_FORMED_ICC_PROFILE } from './color/types.ts'
 import { colorProfileRefusal, RenderColorProfileError, RenderRefusedError } from './errors.ts'
+import { imageMime } from './image-format.ts'
 import type { ImageOptions, ProofImageOptions } from './options.ts'
 import { proofRgba } from './proof-image-transform.ts'
 
@@ -24,14 +25,6 @@ function proofTable(bytes: Uint8Array): ProofTable {
   } catch (error) {
     throw colorProfileRefusal('proof', error) ?? new RenderColorProfileError('proof', 'malformed structure', WELL_FORMED_ICC_PROFILE)
   }
-}
-
-export function mimeOf(bytes: Uint8Array): 'image/png' | 'image/jpeg' | 'image/webp' {
-  const text = (start: number, end: number) => String.fromCharCode(...bytes.subarray(start, end))
-  if (bytes.length >= 8 && text(1, 4) === 'PNG') return 'image/png'
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg'
-  if (bytes.length >= 12 && text(0, 4) === 'RIFF' && text(8, 12) === 'WEBP') return 'image/webp'
-  throw new RenderRefusedError('The proof image format is unsupported; supply a PNG, JPEG, or WebP image to clear this refusal.')
 }
 
 function boundedBytes(bytes: Uint8Array, part: 'input' | 'output'): void {
@@ -66,7 +59,7 @@ async function decode(tab: Tab, bytes: Uint8Array): Promise<{ width: number; hei
         bitmap.close()
       }
     },
-    { encoded, maxPixels: MAX_PROOF_IMAGE_PIXELS, mime: mimeOf(bytes) },
+    { encoded, maxPixels: MAX_PROOF_IMAGE_PIXELS, mime: imageMime(bytes) },
   )
   const pixels = decoded.width * decoded.height
   if (!Number.isSafeInteger(pixels) || pixels > MAX_PROOF_IMAGE_PIXELS)

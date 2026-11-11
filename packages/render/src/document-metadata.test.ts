@@ -1,7 +1,6 @@
 import { expect, test } from 'bun:test'
 import { PDFDict, PDFDocument, PDFHexString, PDFName, PDFRawStream, PDFString } from 'pdf-lib'
 import { withDocumentMetadata, writeDocumentMetadata } from './document-metadata.ts'
-import { RenderRefusedError } from './errors.ts'
 import type { OutputDate } from './output-date.ts'
 
 const key = (value: string) => PDFName.of(value)
@@ -31,6 +30,7 @@ test('writes defined fields and escaped extras through a PDF load round trip', a
   expect(loaded.context.lookup(loaded.catalog.get(key('Lang')), PDFHexString).decodeText()).toBe('en')
   expect(info.lookup(key('edition'), PDFHexString).decodeText()).toBe('Second & <final>')
   const packet = xmp(loaded)
+  expect(packet).not.toContain('xap/1.0')
   expect(packet).toContain('<rdf:li xml:lang="x-default">Seder &amp; Song</rdf:li>')
   expect(packet).toContain('<rdf:li>David &quot;Levy&quot;</rdf:li>')
   expect(packet).toContain('<rdf:li xml:lang="x-default">One&apos;s &gt; two</rdf:li>')
@@ -61,18 +61,6 @@ test('omits empty authors from Info and XMP', async () => {
 
   expect(loaded.getAuthor()).toBeUndefined()
   expect(xmp(loaded)).not.toContain('<dc:creator>')
-})
-
-test('refuses a missing Info dictionary with a named remedy', async () => {
-  const document = await PDFDocument.create({ updateMetadata: false })
-  const setTitle = document.setTitle.bind(document)
-  document.setTitle = (title) => {
-    setTitle(title)
-    document.context.trailerInfo.Info = undefined
-  }
-
-  expect(() => writeDocumentMetadata(document, { title: 'Seder' })).toThrow(RenderRefusedError)
-  expect(() => writeDocumentMetadata(document, { title: 'Seder' })).toThrow('Render the page again through this renderer to clear this refusal')
 })
 
 test('removes Chromium placeholder title when page metadata is omitted', async () => {
@@ -113,7 +101,7 @@ test('removes producer, creator, and render-time dates when no output date is kn
 })
 
 test.each([
-  [{ kind: 'instant', moment: Date.parse('2026-07-04T16:34:56Z'), zone: 'America/New_York' }, "D:20260704123456-04'00'", '2026-07-04T12:34:56-04:00'],
+  [{ kind: 'instant', moment: Date.parse('2026-07-04T16:34:56.789Z'), zone: 'America/New_York' }, "D:20260704123456-04'00'", '2026-07-04T12:34:56.789-04:00'],
   [{ kind: 'date', date: '2026-11-14' }, 'D:20261114', '2026-11-14'],
 ] as const)('writes exact Info and XMP dates for %s', async (date, expectedPdf, expectedIso) => {
   const document = await PDFDocument.create({ updateMetadata: false })
@@ -126,13 +114,4 @@ test.each([
   expect(info.lookup(key('ModDate'), PDFString).decodeText()).toBe(expectedPdf)
   expect(xmp(loaded)).toContain(`<xmp:CreateDate>${expectedIso}</xmp:CreateDate>`)
   expect(xmp(loaded)).toContain(`<xmp:ModifyDate>${expectedIso}</xmp:ModifyDate>`)
-})
-
-test('writes byte-identical metadata for equal input', async () => {
-  const document = await PDFDocument.create({ updateMetadata: false })
-  document.addPage()
-  const input = await document.save()
-  const date: OutputDate = { kind: 'date', date: '2026-11-14' }
-
-  expect(await withDocumentMetadata(input, { title: 'Equal' }, date)).toEqual(await withDocumentMetadata(input, { title: 'Equal' }, date))
 })

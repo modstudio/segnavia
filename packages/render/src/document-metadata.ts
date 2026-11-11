@@ -1,6 +1,5 @@
 import type { DocumentMetadata } from '@segnavia/format'
 import { PDFDict, type PDFDocument, PDFHexString, PDFName, PDFString } from 'pdf-lib'
-import { RenderRefusedError } from './errors.ts'
 import { type OutputDate, pdfDate } from './output-date.ts'
 import { loadPdf } from './pdf-load.ts'
 import { xmpPacket } from './xmp.ts'
@@ -20,17 +19,14 @@ function writeDescriptiveMetadata(document: PDFDocument, metadata: DocumentMetad
 }
 
 export function writeDocumentMetadata(document: PDFDocument, metadata?: DocumentMetadata, date?: OutputDate): void {
+  const needsInfo = metadata !== undefined || date !== undefined
   if (metadata) writeDescriptiveMetadata(document, metadata)
   else if (document.getTitle() === 'about:blank') infoDictionary(document)?.delete(key('Title'))
   let info = infoDictionary(document)
-  if (!info && date && !metadata) {
+  // Descriptive metadata and dates both need Info; either may establish it when the source PDF has none.
+  if (needsInfo && !info) {
     info = document.context.obj({})
     document.context.trailerInfo.Info = document.context.register(info)
-  }
-  if (!info && (metadata || date)) {
-    throw new RenderRefusedError(
-      'The PDF document metadata Info dictionary could not be established. Render the page again through this renderer to clear this refusal.',
-    )
   }
   for (const name of ['CreationDate', 'ModDate', 'Producer', 'Creator']) info?.delete(key(name))
   if (metadata) for (const [name, value] of Object.entries(metadata.extra ?? {})) info?.set(key(name), PDFHexString.fromText(value))

@@ -169,8 +169,6 @@
   "fonts": ["Alef-Regular", "DejaVuSans", "DejaVuSansMono", "LiberationSerif", "NotoSerifHebrew-Regular"],
   "info": {
     "Title": "הגדת הדף",
-    "Creator": "HeadlessChrome",
-    "Producer": "pdf-lib (https://github.com/Hopding/pdf-lib)",
     "Custom Metadata": "no",
     "Metadata Stream": "yes",
     "Tagged": "no",

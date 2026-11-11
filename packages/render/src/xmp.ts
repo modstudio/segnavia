@@ -24,7 +24,8 @@ function documentFields(metadata: DocumentMetadata): string {
 export function xmpPacket(metadata?: DocumentMetadata, date?: OutputDate): string {
   const dates = date ? `<xmp:CreateDate>${isoDate(date)}</xmp:CreateDate><xmp:ModifyDate>${isoDate(date)}</xmp:ModifyDate>` : ''
   const fields = metadata ? documentFields(metadata) : ''
-  return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>\n<x:xmpmeta xmlns:x="adobe:ns:meta/">\n<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdfx="http://ns.adobe.com/pdfx/1.3/" xmlns:xmp="http://ns.adobe.com/xap/1.0/">\n${fields}${dates}\n</rdf:Description>\n</rdf:RDF>\n</x:xmpmeta>\n<?xpacket end="w"?>`
+  const xmpNamespace = date ? ' xmlns:xmp="http://ns.adobe.com/xap/1.0/"' : ''
+  return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>\n<x:xmpmeta xmlns:x="adobe:ns:meta/">\n<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:pdfx="http://ns.adobe.com/pdfx/1.3/"${xmpNamespace}>\n${fields}${dates}\n</rdf:Description>\n</rdf:RDF>\n</x:xmpmeta>\n<?xpacket end="w"?>`
 }
 
 export function xmpDatePacket(date: OutputDate): Uint8Array {

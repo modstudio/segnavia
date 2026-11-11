@@ -3,6 +3,7 @@ import { fillPageAsOfBindings, printedPageAuthorHtml } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
+import { RenderLimitError } from './errors.ts'
 import { assetSetup, type ParsedPageImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import type { prepareRenderedPage } from './page-document.ts'
@@ -56,7 +57,11 @@ export async function renderPreparedPageImage(
       if (grows) await contentHeight(tab)
       plainPagePreflight?.complete()
       const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
-      return stampImage(image, outputDate([prepared.established.day]))
+      const stamped = stampImage(image, outputDate([prepared.established.day]))
+      if (opts.limits?.bytes !== undefined && stamped.byteLength > opts.limits.bytes) {
+        throw new RenderLimitError('bytes', stamped.byteLength, opts.limits.bytes)
+      }
+      return stamped
     },
   )
 }
