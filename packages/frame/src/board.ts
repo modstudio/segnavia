@@ -227,6 +227,7 @@ export class SegnaviaBoard extends BoardFrameInputsElement {
       measuredLabelSizes: () => this.decorations.measureMissingLabels(this.value?.labels ?? [], this.currentView.zoom),
       labelShape: (label) => this.decorations.labelShape(label, this.currentView.zoom),
       labelTextNode: (id) => this.decorations.labelTextNode(id),
+      sectionTitleNode: (id) => this.decorations.sectionTitleNode(id),
       document: (board) => this.documentWithBoard(board),
       setDropTarget: (id) => this.decorations.setDropTarget(id),
       local: (event) => this.gestures.local(event),

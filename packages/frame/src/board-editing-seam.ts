@@ -19,6 +19,7 @@ export interface BoardEditingBridge {
   measuredLabelSizes(): Record<string, MeasuredSize>
   labelShape(label: BoardLabel): MeasuredSize
   labelTextNode(id: string): HTMLElement | undefined
+  sectionTitleNode(id: string): HTMLElement | undefined
   document(board: Board): Document
   local(event: { clientX: number; clientY: number }): Point
   setDropTarget(id?: string): void
@@ -46,6 +47,7 @@ interface BridgeParts {
   measuredLabelSizes(): Record<string, MeasuredSize>
   labelShape(label: BoardLabel): MeasuredSize
   labelTextNode(id: string): HTMLElement | undefined
+  sectionTitleNode(id: string): HTMLElement | undefined
   document(board: Board): Document
   local(event: { clientX: number; clientY: number }): Point
   setDropTarget(id?: string): void
@@ -70,6 +72,7 @@ export function createBoardEditingBridge(parts: BridgeParts): BoardEditingBridge
     measuredLabelSizes: parts.measuredLabelSizes,
     labelShape: parts.labelShape,
     labelTextNode: parts.labelTextNode,
+    sectionTitleNode: parts.sectionTitleNode,
     document: parts.document,
     local: parts.local,
     setDropTarget: parts.setDropTarget,

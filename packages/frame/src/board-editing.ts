@@ -43,11 +43,9 @@ import {
 } from './board-editing-transition.ts'
 import type { AddBoardItemInput, BoardEdit, BoardEditing, BoardEditingOptions } from './board-editing-types.ts'
 import { BOARD_HISTORY_LIMIT } from './board-history.ts'
-import { BoardLabelDoubleClick } from './board-label-double-click.ts'
-import { withoutLabelWidth } from './board-label-editing.ts'
-import { BoardLabelEditor } from './board-label-editor.ts'
 import { removeBoardEntities } from './board-removal.ts'
 import { copyComputedBoardShapes } from './board-shape-cache.ts'
+import { BoardTextEditing } from './board-text-editing.ts'
 import { boardLabels } from './labels.ts'
 
 export type { ComputedBoardShapes } from '@segnavia/format'
@@ -55,7 +53,7 @@ export type { AddBoardItemInput, BoardChange, BoardEdit, BoardEditing, BoardEdit
 export { BOARD_HISTORY_LIMIT, DEFAULT_BOARD_ITEM_WIDTH }
 
 class BoardEditingController implements BoardEditing, BoardPointerDelegate {
-  private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>
+  private readonly enabled: Record<'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'labelText' | 'labelResize' | 'sectionTitle', boolean>
   private bridge: BoardEditingBridge
   private state: BoardEditQueueState | null
   private readonly aborts = new Map<number, AbortController>()
@@ -63,15 +61,24 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   private nextId = 1
   private invalidated: BoardEditQueueState['invalidated'] = null
   private readonly input: BoardEditingInput
-  private readonly labelEditor: BoardLabelEditor
-  private readonly labelDoubleClick = new BoardLabelDoubleClick()
+  private readonly labelEditor: BoardTextEditing
   private stopped = false
 
   constructor(
     private readonly board: SegnaviaBoard,
     private readonly options: BoardEditingOptions,
   ) {
-    this.enabled = { move: true, resize: true, remove: true, add: true, arrange: true, ...options.editors }
+    this.enabled = {
+      move: true,
+      resize: true,
+      remove: true,
+      add: true,
+      arrange: true,
+      labelText: true,
+      labelResize: true,
+      sectionTitle: true,
+      ...options.editors,
+    }
     this.input = new BoardEditingInput(board, this.enabled, {
       current: () => (this.state ? boardFromDocument(this.state.value) : null),
       bridge: () => this.bridge,
@@ -85,17 +92,9 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const initial = board.board
     this.state = initial ? boardEditQueue(initial) : null
     this.bridge = (board as SegnaviaBoard & BoardEditingHost)[boardEditing](this, this.hostValue)
-    this.labelEditor = new BoardLabelEditor(
-      board,
-      this.bridge.overlay,
-      this.bridge,
-      () => boardLabels(board.labels),
-      (next, kind, id) => this.applyBoard(next, { kind, ids: [id] }),
-      this.renderHandles,
-    )
+    this.labelEditor = new BoardTextEditing(board, this.bridge, this.enabled, options.limits, (next, edit) => this.applyBoard(next, edit), this.renderHandles)
     board.addEventListener('segnavia-board-selection', this.renderHandles)
     board.addEventListener('segnavia-board-view', this.renderHandles)
-    board.addEventListener('dblclick', this.onDoubleClick)
     board.addEventListener('keyup', this.onKeyUp)
     this.renderHandles()
     queueMicrotask(() => this.settleInitial())
@@ -113,7 +112,6 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.input.cancel()
     this.board.removeEventListener('segnavia-board-selection', this.renderHandles)
     this.board.removeEventListener('segnavia-board-view', this.renderHandles)
-    this.board.removeEventListener('dblclick', this.onDoubleClick)
     this.board.removeEventListener('keyup', this.onKeyUp)
     this.labelEditor.detach()
     if (this.state) this.applyTransition(detachBoardEditing(this.state))
@@ -208,8 +206,12 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     this.applyTransition(result.transition, result.selection)
   }
 
+  editLabel(id: string) {
+    return this.labelEditor.editLabel(id)
+  }
+
   pointerDown = (event: PointerEvent): boolean => {
-    this.labelDoubleClick.capture(event)
+    this.labelEditor.capture(event)
     return this.input.pointerDown(event)
   }
 
@@ -227,17 +229,6 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private onKeyUp = (event: KeyboardEvent) => this.input.keyUp(event)
-
-  private onDoubleClick = (event: MouseEvent) => {
-    const target = this.labelDoubleClick.resolve(event)
-    if (target?.kind === 'handle') {
-      const next = withoutLabelWidth(this.bridge.value(), target.id, this.bridge.shapes(), this.bridge.labelShape)
-      if (next) this.applyBoard(next, { kind: 'resize', ids: [target.id] })
-      event.preventDefault()
-      return
-    }
-    if (target?.kind === 'label') this.labelEditor.open(target.id)
-  }
 
   private applyBoard(next: Board, edit: BoardEdit, recorded = true) {
     if (!this.state) return
@@ -354,7 +345,7 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
   }
 
   private renderHandles = () => {
-    if (this.labelEditor.active || !this.enabled.resize || this.board.selection.length !== 1) {
+    if (this.labelEditor.active || this.board.selection.length !== 1) {
       renderResizeHandles(this.bridge.overlay, undefined, this.bridge.view(), undefined)
       renderLabelResizeHandle(this.bridge.overlay, undefined, this.bridge.view(), undefined, '')
       return
@@ -362,8 +353,8 @@ class BoardEditingController implements BoardEditing, BoardPointerDelegate {
     const value = this.bridge.value()
     const item = value?.items.find((entry) => entry.id === this.board.selection[0])
     const shape = item ? this.bridge.shapes().items[item.id] : undefined
-    renderResizeHandles(this.bridge.overlay, item, this.bridge.view(), shape)
-    const label = value?.labels.find((entry) => entry.id === this.board.selection[0])
+    renderResizeHandles(this.bridge.overlay, this.enabled.resize ? item : undefined, this.bridge.view(), shape)
+    const label = this.enabled.labelResize ? value?.labels.find((entry) => entry.id === this.board.selection[0]) : undefined
     const labelShape = label ? this.bridge.shapes().labels[label.id] : undefined
     renderLabelResizeHandle(this.bridge.overlay, label, this.bridge.view(), labelShape, boardLabels(this.board.labels).labelResize)
   }

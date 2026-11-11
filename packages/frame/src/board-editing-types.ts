@@ -10,7 +10,7 @@ import type {
   Point,
 } from '@segnavia/format'
 
-type EditKind = 'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'move-section' | 'settle' | 'edit-label'
+type EditKind = 'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'move-section' | 'settle' | 'edit-label' | 'rename-section'
 type DirectBoardEdit = { [Kind in EditKind]: { kind: Kind; ids: string[] } }[EditKind]
 type HostBoardEdit = { kind: 'apply'; label: string; ids: string[] }
 type CommandBoardEdit = { kind: 'command'; label: string; ids: string[] }
@@ -33,7 +33,8 @@ export interface AddBoardItemInput {
 
 export interface BoardEditingOptions {
   change(change: BoardChange): Promise<void>
-  editors?: Partial<Record<'move' | 'resize' | 'remove' | 'add' | 'arrange', boolean>>
+  editors?: Partial<Record<'move' | 'resize' | 'remove' | 'add' | 'arrange' | 'labelText' | 'labelResize' | 'sectionTitle', boolean>>
+  limits?: { labelTextChars?: number }
   defaultWidth?: Partial<Record<BoardItem['kind'], number>>
 }
 
@@ -48,6 +49,7 @@ export interface BoardEditing {
   applyRemote(batch: DocumentBatch): void
   undo(): void
   redo(): void
+  editLabel(id: string): { ok: true } | { ok: false; refusal: string }
   readonly canUndo: boolean
   readonly canRedo: boolean
 }
