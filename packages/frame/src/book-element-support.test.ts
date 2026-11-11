@@ -14,8 +14,8 @@ test('book errors use the native ErrorEvent contract', () => {
   expect(received?.message).toBe('composition refused')
   expect(received?.error).toBeInstanceOf(Error)
   expect(received?.error.message).toBe('composition refused')
-  expect(received?.bubbles).toBeTrue()
-  expect(received?.composed).toBeTrue()
+  expect(received?.bubbles).toBeFalse()
+  expect(received?.composed).toBeFalse()
 })
 
 describe('book composition failure decision', () => {

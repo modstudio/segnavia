@@ -13,7 +13,7 @@ export function bookSourceUrl(src: string): URL {
 export function reportBookError(element: HTMLElement, reason: unknown) {
   const message = reason instanceof Error ? reason.message : String(reason)
   const error = reason instanceof Error ? reason : new Error(message)
-  element.dispatchEvent(new ErrorEvent('error', { message, error, bubbles: true, composed: true }))
+  element.dispatchEvent(new ErrorEvent('error', { message, error }))
 }
 
 export function showBookLayoutFrames(frames: Iterable<HTMLIFrameElement>, layout: BookLayout) {
