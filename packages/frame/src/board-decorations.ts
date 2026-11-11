@@ -22,6 +22,13 @@ export class BoardDecorations {
     return section instanceof HTMLElement ? section : this.labelNodes.get(id)
   }
 
+  markSelected(id: string, selected: boolean) {
+    const title = this.sectionNodes.get(id)?.querySelector<HTMLElement>('[data-board-section-title]')
+    title?.toggleAttribute('data-selected', selected)
+    if (selected) title?.part.add('selected')
+    else title?.part.remove('selected')
+  }
+
   labelTextNode(id: string): HTMLElement | undefined {
     const text = this.labelNodes.get(id)?.querySelector('[data-board-label-text]')
     return text instanceof HTMLElement ? text : undefined

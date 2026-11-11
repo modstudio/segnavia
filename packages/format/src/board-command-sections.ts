@@ -102,6 +102,11 @@ function boardStartX(direction: Board['direction'], start: number, width: number
   return direction === 'rtl' ? start - width : start
 }
 
+/** Item ids released when the named sections are removed without their members. */
+export function releasedSectionMembers(board: Board, sectionIds: ReadonlySet<string>): string[] {
+  return [...new Set(board.sections.filter((section) => sectionIds.has(section.id)).flatMap((section) => section.items))]
+}
+
 function sectionRemove(context: CommandContext, command: BoardCommandOf<'section-remove'>): CommandResult {
   const section = resolveSection(context.board, command.section)
   let intended: Board = { ...context.board, sections: context.board.sections.filter((entry) => entry.id !== section.id) }

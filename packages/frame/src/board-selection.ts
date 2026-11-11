@@ -32,6 +32,7 @@ export class BoardSelection {
     private readonly labels: () => ReadonlyMap<string, BoardLabel>,
     private readonly sections: () => ReadonlyMap<string, BoardSection>,
     private readonly nodes: () => ReadonlyMap<string, HTMLElement>,
+    private readonly markDecorationSelected: (id: string, selected: boolean) => void,
   ) {}
 
   get selection(): readonly string[] {
@@ -48,12 +49,14 @@ export class BoardSelection {
 
   mount(node: HTMLElement, id: string) {
     this.update(node, id)
+    this.markDecorationSelected(id, this.value.includes(id))
   }
 
   private set(value: string[]) {
     if (value.length === this.value.length && value.every((id, index) => id === this.value[index])) return
     this.value = value
     for (const [id, node] of this.nodes()) this.update(node, id)
+    for (const id of this.sections().keys()) this.markDecorationSelected(id, value.includes(id))
     const items = value.flatMap((id) => (this.items().get(id) ? [this.items().get(id) as BoardItem] : []))
     const labels = value.flatMap((id) => (this.labels().get(id) ? [this.labels().get(id) as BoardLabel] : []))
     const sections = value.flatMap((id) => (this.sections().get(id) ? [this.sections().get(id) as BoardSection] : []))
@@ -88,9 +91,5 @@ export class BoardSelection {
     node.toggleAttribute('data-selected', selected)
     if (selected) node.part.add('selected')
     else node.part.remove('selected')
-    const title = node.querySelector<HTMLElement>('[data-board-section-title]')
-    title?.toggleAttribute('data-selected', selected)
-    if (selected) title?.part.add('selected')
-    else title?.part.remove('selected')
   }
 }

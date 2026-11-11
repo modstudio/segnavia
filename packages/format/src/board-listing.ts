@@ -1,6 +1,7 @@
 import type { Board, BoardItem, BoardSection } from './board.ts'
 
 export type BoardListingGroup = { kind: 'section'; section: BoardSection; items: BoardItem[] } | { kind: 'loose'; items: BoardItem[] }
+export type BoardSectionGroup = BoardListingGroup
 
 const FINAL_LETTERS: Record<string, string> = { ך: 'כ', ם: 'מ', ן: 'נ', ף: 'פ', ץ: 'צ' }
 
@@ -22,26 +23,36 @@ export function boardListingIsEmpty(query: string, groups: BoardListingGroup[]):
   return foldForSearch(query).length > 0 && groups.length === 0
 }
 
+/** Every section with the items it first claims, followed by the loose items. */
+export function boardSectionGroups(board: Board): BoardSectionGroup[] {
+  const byId = new Map(board.items.map((item) => [item.id, item]))
+  const claimed = new Set<string>()
+  const sections = board.sections.map(
+    (section): BoardSectionGroup => ({
+      kind: 'section',
+      section,
+      items: section.items.flatMap((id) => {
+        const item = byId.get(id)
+        if (!item || claimed.has(id)) return []
+        claimed.add(id)
+        return [item]
+      }),
+    }),
+  )
+  return [...sections, { kind: 'loose', items: board.items.filter((item) => !claimed.has(item.id)) }]
+}
+
 export function boardListing(board: Board, nameOf: (item: BoardItem) => string, query: string, contentMatches: Iterable<string> = []): BoardListingGroup[] {
   const folded = foldForSearch(query)
-  const byId = new Map(board.items.map((item) => [item.id, item]))
   const content = new Set(contentMatches)
-  const claimed = new Set<string>()
   const groups: BoardListingGroup[] = []
 
-  for (const section of board.sections) {
-    const members = section.items.flatMap((id) => {
-      if (claimed.has(id)) return []
-      claimed.add(id)
-      const item = byId.get(id)
-      return item ? [item] : []
-    })
-    const items = !folded || nameMatches(section.title, folded) ? members : members.filter((item) => nameMatches(nameOf(item), folded) || content.has(item.id))
-    if (!folded || items.length > 0) groups.push({ kind: 'section', section, items })
+  for (const group of boardSectionGroups(board)) {
+    const visible = folded ? group.items.filter((item) => nameMatches(nameOf(item), folded) || content.has(item.id)) : group.items
+    if (group.kind === 'section') {
+      const items = !folded || nameMatches(group.section.title, folded) ? group.items : visible
+      if (!folded || items.length > 0) groups.push({ ...group, items })
+    } else if (visible.length > 0) groups.push({ kind: 'loose', items: visible })
   }
-
-  const loose = board.items.filter((item) => !claimed.has(item.id))
-  const visibleLoose = folded ? loose.filter((item) => nameMatches(nameOf(item), folded) || content.has(item.id)) : loose
-  if (visibleLoose.length > 0) groups.push({ kind: 'loose', items: visibleLoose })
   return groups
 }

@@ -63,15 +63,7 @@ export class BoardPointerInput {
     this.pointerTitles.delete(event.pointerId)
     const actionStarted = this.actionPointers.delete(event.pointerId)
     if (actionStarted || this.gestures.dragged || this.actionButton(event)) return
-    const titleItem = this.callbacks.item(titleId)
-    this.callbacks.select(
-      titleItem?.id ??
-        this.sectionTitleNode(event)?.dataset.boardSectionTitle ??
-        this.labelNode(event)?.dataset.boardLabel ??
-        this.callbacks.itemAt(event)?.id ??
-        null,
-      event.shiftKey,
-    )
+    this.callbacks.select(titleId ?? this.entityId(event) ?? this.callbacks.itemAt(event)?.id ?? null, event.shiftKey)
   }
 
   private onPointerDown = (event: PointerEvent) => {
@@ -79,19 +71,13 @@ export class BoardPointerInput {
       this.actionPointers.add(event.pointerId)
       return
     }
-    if (event.button === 0)
-      this.callbacks.focus(
-        this.itemNode(event)?.dataset.boardItem ??
-          this.titleNode(event)?.dataset.boardTitle ??
-          this.sectionTitleNode(event)?.dataset.boardSectionTitle ??
-          this.labelNode(event)?.dataset.boardLabel,
-      )
+    if (event.button === 0) this.callbacks.focus(this.entityId(event))
     if (this.delegate?.pointerDown(event)) {
       this.delegatedPointers.add(event.pointerId)
       return
     }
     this.gestures.onPointerDown(event)
-    const id = this.titleNode(event)?.dataset.boardTitle
+    const id = boardPathElement(event, 'boardTitle')?.dataset.boardTitle
     if (id) this.pointerTitles.set(event.pointerId, id)
   }
 
@@ -109,7 +95,7 @@ export class BoardPointerInput {
 
   private onDoubleClick = (event: MouseEvent) => {
     if (this.gestures.dragged || this.actionButton(event) || boardPathElement(event, 'labelResizeHandle')) return
-    if (this.labelNode(event)) return
+    if (boardPathElement(event, 'boardLabel')) return
     const item = this.callbacks.itemAt(event)
     if (item) this.callbacks.open(item)
   }
@@ -119,12 +105,21 @@ export class BoardPointerInput {
       if (this.callbacks.focusByTab(this.focusStop(event), event.shiftKey)) event.preventDefault()
       return
     }
+    const id = this.actionButton(event) ? undefined : this.entityId(event)
+    if (event.key === ' ' && id) {
+      this.callbacks.select(id, event.shiftKey)
+      event.preventDefault()
+      return
+    }
+    if (event.key === 'Escape' && (event.target === this.host || id)) {
+      this.callbacks.select(null, false)
+      event.preventDefault()
+      return
+    }
     if (this.delegate?.keyDown(event)) return
-    const item = this.callbacks.item(this.itemNode(event)?.dataset.boardItem)
+    const item = this.callbacks.item(id)
     if (event.key === 'Enter' && item) this.callbacks.open(item)
-    else if (event.key === ' ' && item) this.callbacks.select(item.id, false)
-    else if (event.key === 'Escape' && (event.target === this.host || item)) this.callbacks.select(null, false)
-    else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a' && (event.target === this.host || item)) this.callbacks.selectAll()
+    else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a' && (event.target === this.host || id)) this.callbacks.selectAll()
     else {
       if (event.target === this.host) this.callbacks.boardKey(event)
       return
@@ -138,20 +133,13 @@ export class BoardPointerInput {
     if (button?.dataset.action && item) this.callbacks.action(button.dataset.action, item)
   }
 
-  private itemNode(event: Event): HTMLElement | undefined {
-    return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardItem))
-  }
-
-  private titleNode(event: Event): HTMLElement | undefined {
-    return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardTitle))
-  }
-
-  private sectionTitleNode(event: Event): HTMLElement | undefined {
-    return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardSectionTitle))
-  }
-
-  private labelNode(event: Event): HTMLElement | undefined {
-    return event.composedPath().find((target): target is HTMLElement => target instanceof HTMLElement && Boolean(target.dataset.boardLabel))
+  private entityId(event: Event): string | undefined {
+    return (
+      boardPathElement(event, 'boardItem')?.dataset.boardItem ??
+      boardPathElement(event, 'boardTitle')?.dataset.boardTitle ??
+      boardPathElement(event, 'boardSectionTitle')?.dataset.boardSectionTitle ??
+      boardPathElement(event, 'boardLabel')?.dataset.boardLabel
+    )
   }
 
   private actionButton(event: Event): HTMLButtonElement | undefined {
@@ -162,7 +150,7 @@ export class BoardPointerInput {
     const action = this.actionButton(event)
     const actionIndex = Number(action?.dataset.boardItemActionIndex)
     if (action?.dataset.boardItemAction && Number.isInteger(actionIndex)) return { id: action.dataset.boardItemAction, action: actionIndex }
-    const id = this.itemNode(event)?.dataset.boardItem ?? this.sectionTitleNode(event)?.dataset.boardSectionTitle ?? this.labelNode(event)?.dataset.boardLabel
+    const id = this.entityId(event)
     return id ? { id } : undefined
   }
 }
