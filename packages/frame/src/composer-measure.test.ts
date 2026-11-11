@@ -9,6 +9,7 @@ import {
   measuredBlockConstraints,
   measuredKeepRuns,
   measurementRefusal,
+  skippableDescendantBoxDisplay,
   tableRowLines,
 } from './composer-measure.ts'
 
@@ -72,6 +73,19 @@ describe('keep signals', () => {
       true,
     ])
     expect(inlineLevelDisplay('block')).toBe(false)
+  })
+
+  test('skips descendants that do not establish measurable block boxes', () => {
+    expect(['none', 'contents', 'inline', 'inline flow-root', 'ruby', 'ruby-base', 'ruby-text'].map(skippableDescendantBoxDisplay)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+    ])
+    expect(skippableDescendantBoxDisplay('block')).toBe(false)
   })
 })
 

@@ -7,7 +7,14 @@ import { RecordFacts } from './record-facts.ts'
 import { Variable } from './variable.ts'
 import { VariableDocumentFacts } from './variable-document-facts.ts'
 
-export const PaginateLine = z.object({ top: z.number(), bottom: z.number() })
+export const PaginateLine = z.object({
+  top: z.number(),
+  bottom: z.number(),
+  /** The outer edge, in galley coordinates, of box decoration that opens on this line. */
+  decorationTop: z.number().optional(),
+  /** The outer edge, in galley coordinates, of box decoration that closes on this line. */
+  decorationBottom: z.number().optional(),
+})
 export type PaginateLine = z.infer<typeof PaginateLine>
 
 export const PaginateNoteRef = z.object({ note: z.string(), line: z.number() })

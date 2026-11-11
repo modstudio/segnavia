@@ -25,7 +25,7 @@ export function paginateKeeps(placed: PaginateUnit[], next: PaginateUnit | undef
   function layoutHeight(block: PaginateBlock): number {
     const units: PaginateUnit[] = []
     for (const [index, line] of block.lines.entries()) {
-      units.push({ flowId: '', block, index, top: line.top, bottom: line.bottom, refs: [] })
+      units.push({ flowId: '', block, index, ...line, refs: [] })
     }
     return paginateColumns(units).height
   }

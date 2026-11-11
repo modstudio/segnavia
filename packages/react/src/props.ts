@@ -146,6 +146,7 @@ export interface PageProps extends ElementProps<SegnaviaPage> {
   asOf?: SegnaviaPage['asOf']
   moment?: SegnaviaPage['moment']
   onAsof?: CustomEventProp<AsOfDay>
+  onReady?: (event: Event) => void
   pageWidths?: SegnaviaPage['pageWidths']
   profile?: SegnaviaPage['profile']
   src?: string

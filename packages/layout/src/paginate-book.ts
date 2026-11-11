@@ -1,4 +1,5 @@
 import { paginateColumns } from './paginate-columns.ts'
+import { internalWindowEdge, lineExtent } from './paginate-extent.ts'
 import { paginateKeeps } from './paginate-keeps.ts'
 import { measuredExtentFits } from './paginate-measure.ts'
 import { paginateNotes } from './paginate-notes.ts'
@@ -97,7 +98,8 @@ function paginateBookWithPageFace(
   }
 
   function lineTooTall(unit: PaginateUnit, textHeight: number): boolean {
-    return !measuredExtentFits(unit.bottom - unit.top, textHeight)
+    const extent = lineExtent(unit)
+    return !measuredExtentFits(extent.end - extent.start, textHeight)
   }
 
   function greedyFill(placed: PaginateUnit[], fragments: PaginatePageNote[], units: PaginateUnit[], index: number, textHeight: number) {
@@ -164,6 +166,8 @@ export function paginateBook(input: PaginateBookInput): PaginateBookResult {
 // Ordered for embedding: each function calls only the others by name.
 export const PAGINATE_FUNCTIONS = [
   measuredExtentFits,
+  lineExtent,
+  internalWindowEdge,
   paginateColumns,
   paginateNotes,
   paginateKeeps,

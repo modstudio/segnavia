@@ -29,7 +29,15 @@ const refused = {
   'script-src': ["'nonce-known'"],
   'style-src': ["'unsafe-inline'", 'https://css.example', 'https://fonts.googleapis.com'],
   'font-src': ['data:', 'https://font.example', 'https://fonts.gstatic.com'],
-  'img-src': ['data:', 'blob:', 'https://img.example'],
+  'img-src': [
+    'data:',
+    'blob:',
+    'https://api.iconify.design',
+    'https://images.pexels.com',
+    'https://images.unsplash.com',
+    'https://img.example',
+    'https://plus.unsplash.com',
+  ],
   'media-src': ['*', 'data:', 'blob:'],
   'connect-src': ['*'],
   'frame-src': ['*'],
@@ -66,6 +74,21 @@ describe('frame content security policy', () => {
     expect(actual['style-src']).toContain('https://css.example')
     expect(actual['font-src']).toContain('https://font.example')
     expect(actual['img-src']).toContain('https://img.example')
+  })
+
+  test('carries approved path prefixes into CSP sources', () => {
+    const actual = cspDirectives(
+      frameDocument('<p>frame</p>', {
+        scripts: 'refuse',
+        nonce: 'known',
+        origins: [{ origin: 'https://cdn.jsdelivr.net', kinds: ['style', 'font'], pathname: '/fontsource' }],
+      }),
+    )
+    for (const directive of ['style-src', 'font-src']) {
+      expect(actual[directive]).toContain('https://cdn.jsdelivr.net/fontsource')
+      expect(actual[directive]).toContain('https://cdn.jsdelivr.net/fontsource/')
+      expect(actual[directive]).not.toContain('https://cdn.jsdelivr.net')
+    }
   })
 
   test.each([

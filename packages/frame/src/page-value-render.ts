@@ -23,7 +23,7 @@ export interface PageValueRenderOptions {
 export interface PageValueRenderHandlers {
   show(page: HtmlPage, resolved?: PreparedSlots, fontCss?: string, fontFailures?: import('@segnavia/format').FontFailure[]): void
   report(error: unknown): void
-  write(document: string): void
+  write(document: string, provisional?: boolean): void
   composed(identity: PageFrameIdentity): void
   fit(): void
 }
@@ -75,6 +75,7 @@ export function renderPageValue(
       handlers.fit()
       return
     }
+    const provisional = hasSlotWork(resolvedPage.slots, effectiveSlots)
     loadPageDocument(
       resolvedPage,
       {
@@ -87,12 +88,12 @@ export function renderPageValue(
         origins: options.origins,
         relayKeys: false,
       },
-      handlers.write,
+      (document) => handlers.write(document, provisional),
       handlers.report,
     )
     const refusal = slotFillRefusal(resolvedPage.scripts, resolvedPage.slots, effectiveSlots)
     if (refusal) handlers.report(refusal)
-    else if (hasSlotWork(resolvedPage.slots, effectiveSlots)) {
+    else if (provisional) {
       void prepareSlots(resolvedPage.slots, effectiveSlots, signal)
         .then((resolved) => handlers.show(resolvedPage, resolved))
         .catch(handlers.report)

@@ -41,7 +41,7 @@ import type {
 import type { SegnaviaItemSettings } from './item-settings.ts'
 import type { SegnaviaPlayer } from './player-entry.ts'
 import type { StageFrameDetail } from './stage-frame-events.ts'
-import type { Assert, ElementPropertyWrites, EventProps } from './vue-types.ts'
+import type { Assert, ElementPropertyWrites, EventProps, PlainEvent } from './vue-types.ts'
 
 type ElementClasses = {
   stage: SegnaviaStage
@@ -71,6 +71,7 @@ type ElementClasses = {
 
 export interface FrameVueEventDetails {
   asof: AsOfDay
+  ready: PlainEvent
   'segnavia-controller': unknown
   'segnavia-fit': FittedSize
   'segnavia-frame-mount': StageFrameDetail

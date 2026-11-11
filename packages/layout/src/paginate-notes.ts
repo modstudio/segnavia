@@ -1,3 +1,4 @@
+import { lineExtent } from './paginate-extent.ts'
 import { measuredExtentFits } from './paginate-measure.ts'
 import type { PaginateNote, PaginateNotesOp, PaginatePageNote, PaginateUnit } from './paginate-types.ts'
 
@@ -28,7 +29,7 @@ export function paginateNotes(
     const note = notesById.get(fragment.id)
     const start = note?.lines[fragment.start]
     const end = note?.lines[fragment.end - 1]
-    return start && end ? end.bottom - start.top : 0
+    return start && end ? lineExtent(end).end - lineExtent(start).start : 0
   }
 
   function notesSpace(fragments: PaginatePageNote[]): number {

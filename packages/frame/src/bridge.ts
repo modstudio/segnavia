@@ -8,7 +8,7 @@
 // Pure string building, so the browser and a server produce the same bytes.
 
 import {
-  approvedOrigins,
+  approvedSources,
   COMPOSE_PROGRESS_PAGES_LIMIT,
   type Direction,
   type FetchKind,
@@ -316,7 +316,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const bridge = options.bridge !== false
   const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
   const sources = (kind: FetchKind) => {
-    const values = [...approvedOrigins(origins, kind, scripts === 'sandboxed')].sort()
+    const values = [...approvedSources(origins, kind, scripts === 'sandboxed')].sort()
     return values.length ? ` ${values.join(' ')}` : ''
   }
   const scriptDirectives = scripts === 'refuse' ? [`script-src 'nonce-${options.nonce}'`] : SCRIPT_DIRECTIVES[scripts](sources('script'))

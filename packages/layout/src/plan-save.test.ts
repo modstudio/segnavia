@@ -270,6 +270,21 @@ describe('saved book plans', () => {
     expect(replayPlan(measurements, saved, numbering)).toMatchObject({ ok: true, plan: { pages: saved.pages } })
   })
 
+  test('attributes the next line after a clamped decoration edge to its saved page', () => {
+    const first = block('text', 'p', 1, 1, 1, 0, { id: 'before' })
+    const next = block('text', 'p', 1, 2, 1, 30, { id: 'next', breakBefore: true })
+    first.lines[0] = { top: 0, bottom: 10, decorationBottom: 50 }
+    const measurements = input({ flows: [flow('chapter', 'chapter', [first, next])] })
+    const plan = planned(measurements)
+    const saved = savePlan(measurements, plan, numbering)
+
+    expect(saved.pages.map((page) => page.start)).toEqual([
+      { flow: 'chapter', block: 0, line: 0, id: 'before' },
+      { flow: 'chapter', block: 1, line: 0, id: 'next' },
+    ])
+    expect(replayPlan(measurements, saved, numbering)).toMatchObject({ ok: true, plan: { pages: saved.pages } })
+  })
+
   test('omits starts for fixed pages without inventing block identities', () => {
     const measurements = input({ flows: [{ id: 'plates', kind: 'fixed', pages: 2 }] })
     const saved = savePlan(measurements, planned(measurements), numbering)
