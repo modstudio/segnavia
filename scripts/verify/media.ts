@@ -98,7 +98,7 @@ export async function verifyMedia(h: Harness) {
     }, URL_SLIDE_FONT_FAMILY)
   const bridgeFacts = await page.evaluate(() => {
     const player = document.querySelector('segnavia-player') as HTMLElement & { controller: { state: { content: { bridge?: true } | null } } }
-    const frame = document.querySelector<HTMLIFrameElement>('segnavia-player segnavia-stage .segnavia-stage__canvas[data-slide-id="url"] iframe')
+    const frame = player.shadowRoot?.querySelector<HTMLIFrameElement>('segnavia-stage .segnavia-stage__canvas[data-slide-id="url"] iframe')
     const readySources = (window as unknown as { __urlReadySources: MessageEventSource[] }).__urlReadySources
     return {
       declared: player.controller.state.content?.bridge === true,
