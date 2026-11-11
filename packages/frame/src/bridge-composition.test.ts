@@ -2,11 +2,19 @@ import { describe, expect, test } from 'bun:test'
 import { PREFLIGHT_PRESETS } from '@segnavia/format'
 import { bridgeForHost, COMPOSE_FAILURE_TEXT_LIMIT, MESSAGE, messageFrom } from './bridge.ts'
 
-function compositionBridge(failureAttribute?: string, reportHeight = false, progressAttribute?: string, progressCallback?: string, installCallback = true) {
+function compositionBridge(
+  failureAttribute?: string,
+  reportHeight: boolean | 'body' = false,
+  progressAttribute?: string,
+  progressCallback?: string,
+  installCallback = true,
+) {
   const attributes = new Map<string, string>()
   const messages: unknown[] = []
   let height = 0
+  let bodyHeight = 0
   let changed = () => {}
+  let resized = () => {}
   let disconnected = false
   const document = {
     readyState: 'complete',
@@ -15,6 +23,7 @@ function compositionBridge(failureAttribute?: string, reportHeight = false, prog
       getAttribute: (name: string) => attributes.get(name) ?? null,
       getBoundingClientRect: () => ({ height }),
     },
+    body: { getBoundingClientRect: () => ({ height: bodyHeight }) },
     images: [],
     fonts: { ready: Promise.resolve() },
     getAnimations: () => [],
@@ -39,6 +48,9 @@ function compositionBridge(failureAttribute?: string, reportHeight = false, prog
     addEventListener: () => {},
     MutationObserver,
     ResizeObserver: class {
+      constructor(callback: () => void) {
+        resized = callback
+      }
       observe() {}
     },
   }
@@ -62,6 +74,10 @@ function compositionBridge(failureAttribute?: string, reportHeight = false, prog
     setHeight: (value: number) => {
       height = value
     },
+    setBodyHeight: (value: number) => {
+      bodyHeight = value
+    },
+    resized: () => resized(),
     disconnected: () => disconnected,
   }
 }
@@ -91,6 +107,25 @@ describe('composed frame bridge', () => {
     bridge.changed()
     bridge.timers.shift()?.()
     expect(bridge.messages.filter((message) => (message as { type?: string }).type === MESSAGE.height)).toEqual(heightReports)
+  })
+
+  test('starts body height reporting after composition and re-reports body resizes', async () => {
+    const bridge = compositionBridge(undefined, 'body')
+    bridge.setBodyHeight(900)
+    bridge.timers.shift()?.()
+    expect(bridge.messages.some((message) => (message as { type?: string }).type === MESSAGE.height)).toBe(false)
+
+    bridge.attributes.set('data-done', '')
+    bridge.changed()
+    bridge.timers.shift()?.()
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(bridge.messages).toContainEqual({ type: MESSAGE.height, height: 900 })
+
+    bridge.setBodyHeight(720)
+    bridge.resized()
+    bridge.timers.shift()?.()
+    expect(bridge.messages).toContainEqual({ type: MESSAGE.height, height: 720 })
   })
 
   test('reports a bounded compose failure once and never reports ready', async () => {

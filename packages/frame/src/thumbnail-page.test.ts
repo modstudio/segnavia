@@ -9,10 +9,15 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
   const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
   const definitions = new Map<string, CustomElementConstructor>()
   let srcdoc = ''
+  const attributes = new Set<string>()
   const pageElement = {
     part: { add() {} },
     style: {} as CSSStyleDeclaration,
     origins: [] as Iterable<OriginApproval>,
+    toggleAttribute(name: string, force?: boolean) {
+      if (force ?? !attributes.has(name)) attributes.add(name)
+      else attributes.delete(name)
+    },
     [internalPageLoad](page: Page) {
       const html = 'html' in page.body ? page.body.html : ''
       srcdoc = frameDocument(html, { scripts: 'refuse', nonce: 'test', origins: this.origins })
@@ -34,6 +39,7 @@ test('a thumbnail page frame carries approved image origins in its CSP', async (
       origins: [{ origin: 'https://images.example', kinds: ['image'] }],
     })
     expect(srcdoc).toMatch(/img-src [^;]*https:\/\/images\.example/)
+    expect(attributes.has('bounded')).toBe(true)
   } finally {
     if (originalElement) Object.defineProperty(globalThis, 'HTMLElement', originalElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

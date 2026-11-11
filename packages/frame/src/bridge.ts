@@ -107,7 +107,8 @@ export interface FrameOptions {
   csp?: string
   origins?: Iterable<OriginApproval>
   relayKeys?: boolean
-  reportHeight?: boolean
+  // Body reporting starts only after the composer's ready attribute, so it requires readyAfterAttribute.
+  reportHeight?: boolean | 'body'
   // Holds the existing ready message until a document composer marks its root.
   readyAfterAttribute?: string
   // Reports a document composer's refusal instead of ready.
@@ -125,6 +126,20 @@ export interface FrameOptions {
   // Calls a host-provided binding after the library has established that the
   // document is ready. Server render uses this independently of author code.
   readyCallback?: string
+}
+export const HEIGHT_REPORT_START_FUNCTION = 'startHeightReporting'
+
+function heightReporter(reportHeight: FrameOptions['reportHeight']): string {
+  if (reportHeight === false) return ''
+  const target = reportHeight === 'body' ? 'body' : 'documentElement'
+  const observe =
+    reportHeight === 'body'
+      ? `function ${HEIGHT_REPORT_START_FUNCTION}(){if(window.ResizeObserver)new ResizeObserver(report).observe(document.body);report();}`
+      : `if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentElement);}
+document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
+  return `var pending=false,lastHeight=null;function send(){pending=false;var height=Math.ceil(document.${target}.getBoundingClientRect().height);if(height===lastHeight)return;lastHeight=height;post({type:'${MESSAGE.height}',height:height});}
+function report(){if(pending)return;pending=true;setTimeout(send,0);}
+${observe}`
 }
 
 // The sandbox and the document policy fail closed together: only the exact
@@ -254,14 +269,7 @@ if(!target&&(fragment===''||fragment.toLowerCase()==='top')){scrollTo(0,0);retur
 if(!target)return;target.scrollIntoView();
 if(target.focus){target.focus({preventScroll:true});if(document.activeElement!==target){if(!target.hasAttribute('tabindex'))target.setAttribute('tabindex','-1');target.focus({preventScroll:true});}}
 });
-${
-  options.reportHeight === false
-    ? ''
-    : `var pending=false,lastHeight=null;function send(){pending=false;var height=Math.ceil(document.documentElement.getBoundingClientRect().height);if(height===lastHeight)return;lastHeight=height;post({type:'${MESSAGE.height}',height:height});}
-function report(){if(pending)return;pending=true;setTimeout(send,0);}
-if(window.ResizeObserver){new ResizeObserver(report).observe(document.documentElement);}
-document.addEventListener('DOMContentLoaded',report);window.addEventListener('load',report);`
-}
+${heightReporter(options.reportHeight)}
 function ready(){animationReport();${options.printBackground ? 'printBackground();' : ''}var imgs=Array.prototype.slice.call(document.images).map(function(i){return i.decode?i.decode().catch(function(){}):null;});${options.printBackground ? 'imgs=imgs.concat(backgroundImages());' : ''}
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};

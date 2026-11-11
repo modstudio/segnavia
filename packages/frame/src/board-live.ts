@@ -71,6 +71,7 @@ export function liveBoardItem(
   }
   if (resolved.kind === 'page') {
     const page = createPageElement()
+    page.toggleAttribute('bounded', true)
     const dispose = listenForError(page, failed)
     applyFrameInputs(page, inputs)
     loadLivePage(page, resolved.page)

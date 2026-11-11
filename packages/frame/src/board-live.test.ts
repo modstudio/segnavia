@@ -145,10 +145,17 @@ test('passes board origins to live page, paper and deck elements', async () => {
     const { SegnaviaThumbnail } = await import('./thumbnail.ts')
     const { internalPageLoad, internalPaperPagesLoad, internalThumbnailDeckLoad } = await import('./document-value-load.ts')
     const attachShadow = Object.getOwnPropertyDescriptor(SegnaviaThumbnail.prototype, 'attachShadow')
+    const toggleAttribute = Object.getOwnPropertyDescriptor(SegnaviaPage.prototype, 'toggleAttribute')
     const pageLoad = Reflect.get(SegnaviaPage.prototype, internalPageLoad)
     const paperLoad = Reflect.get(SegnaviaPaper.prototype, internalPaperPagesLoad)
     const deckLoad = Reflect.get(SegnaviaThumbnail.prototype, internalThumbnailDeckLoad)
     Object.defineProperty(SegnaviaThumbnail.prototype, 'attachShadow', { configurable: true, value: () => ({ append() {} }) })
+    Object.defineProperty(SegnaviaPage.prototype, 'toggleAttribute', {
+      configurable: true,
+      value(this: { boundedForTest?: boolean }, name: string, force?: boolean) {
+        if (name === 'bounded') this.boundedForTest = force
+      },
+    })
     Reflect.set(SegnaviaPage.prototype, internalPageLoad, () => {})
     Reflect.set(SegnaviaPaper.prototype, internalPaperPagesLoad, () => {})
     Reflect.set(SegnaviaThumbnail.prototype, internalThumbnailDeckLoad, () => {})
@@ -168,6 +175,7 @@ test('passes board origins to live page, paper and deck elements', async () => {
       const livePaper = liveBoardItem({ kind: 'paper', pages: [page], imposition, size: { width: 320, height: 200 } }, () => {}, inputs)
       const liveDeck = liveBoardItem({ kind: 'deck', deck }, () => {}, inputs)
       expect((livePage.element as InstanceType<typeof SegnaviaPage>).origins).toEqual(origins)
+      expect((livePage.element as unknown as { boundedForTest?: boolean }).boundedForTest).toBe(true)
       expect((livePaper.element as InstanceType<typeof SegnaviaPaper>).origins).toEqual(origins)
       expect((liveDeck.element as InstanceType<typeof SegnaviaThumbnail>).origins).toEqual(origins)
     } finally {
@@ -176,6 +184,8 @@ test('passes board origins to live page, paper and deck elements', async () => {
       Reflect.set(SegnaviaThumbnail.prototype, internalThumbnailDeckLoad, deckLoad)
       if (attachShadow) Object.defineProperty(SegnaviaThumbnail.prototype, 'attachShadow', attachShadow)
       else Reflect.deleteProperty(SegnaviaThumbnail.prototype, 'attachShadow')
+      if (toggleAttribute) Object.defineProperty(SegnaviaPage.prototype, 'toggleAttribute', toggleAttribute)
+      else Reflect.deleteProperty(SegnaviaPage.prototype, 'toggleAttribute')
     }
   } finally {
     for (const [name, descriptor] of [

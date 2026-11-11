@@ -209,8 +209,10 @@ specificity, so a host's CSS can override it.
 frames in a cross-origin frame that is off screen. A report batched on an
 animation frame was then never sent, and the page kept its placeholder height.
 
-**Pages measure the root element's box.** `scrollHeight` is never less than
-the frame's own viewport, so a frame would never shrink to a short page.
+**Pages measure the root element's box, except composed papers on screen.**
+`scrollHeight` is never less than the frame's own viewport, so a frame would
+never shrink to a short page. A screen frame showing composed papers measures
+the body's box because its composer pins the root to the viewport.
 
 **Viewing is headless; the skin is optional.** Each host has its own design
 system. One host's rules forbid hand-rolled controls, another uses Tailwind,

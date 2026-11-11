@@ -43,7 +43,7 @@ export class SegnaviaPage extends PageAsOfElement {
   private pageInput: DocumentInput | unknown
   private pageValue: Page | null = null
   private documentValue: Document | null = null
-  private frameHeight: PageFrameHeightState = { contentHeight: 0, ownsElementHeight: false }
+  private frameHeight: PageFrameHeightState = { contentHeight: 0, hasReport: false, ownsElementHeight: false }
   private resize = new ResizeObserver(() => this.fit())
   private slotOptions: SlotsOptions | undefined
   private motifOptions: MotifsOptions | undefined
@@ -318,6 +318,7 @@ export class SegnaviaPage extends PageAsOfElement {
     this.resetDocumentReadiness()
     this.pageValue = page
     this.frameHeight.contentHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : 0
+    this.frameHeight.hasReport = false
     delete this.dataset.measured
     return mountPageFrame(this, page, this.widthOptions, this.label)
   }

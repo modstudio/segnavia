@@ -54,29 +54,48 @@ const printed = Page.parse({
   printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
 })
 
-test('host height survives a bounded full page followed by composed papers', () => {
+test('bounded composed papers keep the host height and clear a reported height', () => {
   const element = harness()
   const sheet = { style: style() } as unknown as HTMLElement
-  const height = { contentHeight: 640, ownsElementHeight: false }
+  const height = { contentHeight: 640, hasReport: true, ownsElementHeight: false }
   element.style.height = '500px'
-  fitPageFrame(element, bounded, sheet, height, true)
+  element.dataset.measured = ''
+  fitPageFrame(element, printed, sheet, height, true)
   expect(element.style.height).toBe('500px')
-  fitPageFrame(element, printed, sheet, height, false)
-  expect(element.style.height).toBe('500px')
+  expect(element.dataset.height).toBeUndefined()
+  expect(element.dataset.measured).toBeUndefined()
 })
 
-test('a library-written height is cleared by the next composed or bounded fit', () => {
+test('reported composed papers take their shown height', () => {
   const element = harness()
   const sheet = { style: style() } as unknown as HTMLElement
-  const height = { contentHeight: 400, ownsElementHeight: false }
+  const height = { contentHeight: 640, hasReport: true, ownsElementHeight: false }
+  element.dataset.measured = ''
+  fitPageFrame(element, printed, sheet, height, false)
+  expect(element.style.height).toBe('640px')
+  expect(element.dataset).toMatchObject({ height: '640', measured: '' })
+})
+
+test('composed papers keep the host box before a height report', () => {
+  const element = harness()
+  const sheet = { style: style() } as unknown as HTMLElement
+  const height = { contentHeight: 0, hasReport: false, ownsElementHeight: true }
+  element.style.height = '640px'
+  element.dataset.measured = ''
+  fitPageFrame(element, printed, sheet, height, false)
+  expect(element.style.height).toBe('')
+  expect(height.ownsElementHeight).toBe(false)
+  expect(element.dataset.height).toBeUndefined()
+  expect(element.dataset.measured).toBeUndefined()
+})
+
+test('a library-written height is cleared by the next bounded fit', () => {
+  const element = harness()
+  const sheet = { style: style() } as unknown as HTMLElement
+  const height = { contentHeight: 400, hasReport: true, ownsElementHeight: false }
   fitPageFrame(element, plain, sheet, height, false)
   expect(element.style.height).toBe('400px')
   expect(element.dataset.height).toBe('400')
-  fitPageFrame(element, printed, sheet, height, false)
-  expect(element.style.height).toBe('')
-  expect(element.dataset.height).toBeUndefined()
-
-  fitPageFrame(element, plain, sheet, height, false)
   fitPageFrame(element, bounded, sheet, height, true)
   expect(element.style.height).toBe('')
   expect(element.dataset.height).toBe('400')
@@ -92,6 +111,6 @@ test('mounting tracks whether the current frame shows composed papers', () => {
   expect(element.hasAttribute('data-composed-papers')).toBe(false)
   mountPageFrame(element, printed, undefined, '')
   expect(element.hasAttribute('data-composed-papers')).toBe(true)
-  clearPageFrame(element, { contentHeight: 0, ownsElementHeight: false })
+  clearPageFrame(element, { contentHeight: 0, hasReport: false, ownsElementHeight: false })
   expect(element.hasAttribute('data-composed-papers')).toBe(false)
 })
