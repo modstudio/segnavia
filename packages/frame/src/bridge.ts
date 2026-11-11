@@ -16,24 +16,24 @@ import {
   type FontManifest,
   type OriginApproval,
   PREFLIGHT_PRESETS,
-  preflightEnabled,
   type PreflightProfile,
+  preflightEnabled,
   type Scripts,
 } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
+import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
 import { escapeHtml } from './svg.ts'
-import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
-export { documentNeedsSlotFit } from './document-slot-fit.ts'
 
 export type { SlotFitState } from './bridge-message.ts'
 export { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
 export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type SelectionMessage, selectionMessage } from './bridge-selection.ts'
+export { documentNeedsSlotFit } from './document-slot-fit.ts'
 export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
 
@@ -163,7 +163,7 @@ export function frameSandbox(scripts: Scripts | undefined): string {
 // layout wait, and readiness waits for that report. An element without a
 // layout box retries instead of reporting fit.
 function bridgeScript(options: FrameOptions): string {
-  const surfacePreflight = options.preflight && preflightEnabled(options.preflight) ? options.preflight : undefined
+  const surfacePreflight = surfacePreflightOption(options.preflight)
   const readyCallback = options.readyCallback ? `var callback=window[${scriptJson(options.readyCallback)}];if(typeof callback==='function')callback();` : ''
   const keys = options.relayKeys === false ? '[]' : scriptJson(RELAYED_KEYS)
   const selection =
@@ -220,9 +220,7 @@ Object.defineProperty(window,'localStorage',{configurable:true,value:storage()})
       : ''
   const fontDeclarations = scriptJson(declaredFontLoads(options.fonts))
   const initialFontFailures = scriptJson(options.fontFailures ?? [])
-  const fontLoads = options.readyAfterAttribute
-    ? 'Promise.resolve([])'
-    : `${declaredFontLoadExpression('declarations')}.then(reportFontFailures)`
+  const fontLoads = options.readyAfterAttribute ? 'Promise.resolve([])' : `${declaredFontLoadExpression('declarations')}.then(reportFontFailures)`
   const composerFontFailures = options.readyAfterAttribute
     ? `var composerFontFailures=function(){try{var value=JSON.parse(document.documentElement.getAttribute('${FONT_FAILURE_ATTRIBUTE}')||'[]');return Array.isArray(value)?value:[];}catch(error){return [];}};`
     : ''
@@ -289,6 +287,10 @@ ${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_
 Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
+}
+
+function surfacePreflightOption(profile: PreflightProfile | undefined): PreflightProfile | undefined {
+  return profile && preflightEnabled(profile) ? profile : undefined
 }
 
 function escapeAttribute(value: string): string {

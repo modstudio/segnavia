@@ -5,7 +5,7 @@ import type { CoverPresentation } from './designed-cover-policy.ts'
 import { loadPageValue } from './document-value-load.ts'
 import { fitDesignedCover } from './fit.ts'
 import type { MountedElement } from './mounted-element.ts'
-import { createPageElement } from './page.ts'
+import { createPageElement } from './page-element.ts'
 import { projectPageOnPaper } from './paper-geometry.ts'
 
 export function mountDesignedCover(

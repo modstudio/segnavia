@@ -1,11 +1,11 @@
+import type { PageWidths } from '@segnavia/format'
 import { Page, type PreflightProfile } from '@segnavia/format'
 import type { EstablishedPageDay } from '@segnavia/html'
 import type { BrandsOptions } from './brands.ts'
 import { internalPageDayLoad } from './document-value-load.ts'
-import { createPageElement } from './page.ts'
-import type { FontsOptions } from './page-fonts.ts'
-import type { PageWidths } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
+import { createPageElement } from './page-element.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 interface DocumentPageMountOptions {

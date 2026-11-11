@@ -5,7 +5,7 @@ import { SegnaviaBook } from './book.ts'
 import { coverImage } from './cover-element.ts'
 import { internalPageLoad, internalPaperPagesLoad, internalThumbnailDeckLoad } from './document-value-load.ts'
 import type { MountedElement } from './mounted-element.ts'
-import { createPageElement } from './page.ts'
+import { createPageElement } from './page-element.ts'
 import { SegnaviaPaper } from './paper.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
 

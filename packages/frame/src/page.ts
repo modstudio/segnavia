@@ -18,7 +18,6 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
-import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { PageAsOfElement } from './page-as-of-element.ts'
 import { loadBrandedPage } from './page-brand.ts'
@@ -398,8 +397,4 @@ export class SegnaviaPage extends PageAsOfElement {
       },
     })
   }
-}
-export function createPageElement(): SegnaviaPage {
-  if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
-  return document.createElement(HEADLESS_ELEMENTS.page) as SegnaviaPage
 }

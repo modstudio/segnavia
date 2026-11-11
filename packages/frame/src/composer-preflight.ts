@@ -1,10 +1,4 @@
-import {
-  appendSlotOversetEntries,
-  cssVarInvalidMessage,
-  fontMissingEntries,
-  type PreflightEntry,
-  preflightRefusal,
-} from '@segnavia/format'
+import { appendSlotOversetEntries, cssVarInvalidMessage, fontMissingEntries, type PreflightEntry, preflightRefusal } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
 import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'

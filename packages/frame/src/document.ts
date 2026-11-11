@@ -4,6 +4,7 @@
 import {
   type Document,
   type OriginApproval,
+  type Page,
   type PageWidths,
   type PreflightProfileInput,
   Print,
@@ -18,9 +19,9 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { DocumentAsOfElement } from './document-as-of-element.ts'
-import { internalDocumentPagesLoad, internalDocumentPagesRead } from './document-value-load.ts'
 import { mountDocumentPage } from './document-page-mount.ts'
 import { documentSheets } from './document-sheets.ts'
+import { internalDocumentPagesLoad, internalDocumentPagesRead } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -62,7 +63,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private resolvedSlots: PreparedSlots | undefined
   private resolvedGeneration = 0
   private pageDayContexts: EstablishedPageDay[] = []
-  private preflightState: SurfacePreflightCoordinator | undefined
+  private readonly preflightState = new SurfacePreflightCoordinator(this)
 
   constructor() {
     super()
@@ -74,11 +75,11 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   get profile(): PreflightProfileInput {
-    return (this.preflightState ??= new SurfacePreflightCoordinator(this)).profile
+    return this.preflightState.profile
   }
 
   set profile(value: PreflightProfileInput) {
-    ;(this.preflightState ??= new SurfacePreflightCoordinator(this)).profile = value
+    this.preflightState.profile = value
     this.paint()
   }
 
@@ -232,7 +233,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   private paint() {
-    ;(this.preflightState ??= new SurfacePreflightCoordinator(this)).clear()
+    this.preflightState.clear()
     this.cancelSlotPreparation()
     const declarations = this.pageValues.map((page) => page.slots)
     const generation = ++this.slotGeneration
@@ -332,15 +333,16 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private mount(sheet: HTMLElement) {
     if (sheet.firstElementChild) return
     const index = Number(sheet.dataset.page)
-    const source = this.pageValues[index]
+    const source = this.sourceValues[index]
+    const shown = this.pageValues[index]
     const context = this.pageDayContexts[index]
     const print = this.printValue
-    if (!source || !context || !print) return
+    if (!source || !shown || !context || !print) return
     const projection = projectPageOnPaper(source, print)
     mountDocumentPage(sheet, {
       context,
       page: projection.page,
-      html: this.filledHtml?.[index] ?? source.html,
+      html: this.filledHtml?.[index] ?? shown.html,
       resolvedSlots: this.resolvedSlots,
       motifs: this.motifOptions,
       placements: this.placementOptions,
@@ -350,8 +352,8 @@ export class SegnaviaDocument extends DocumentAsOfElement {
       css: this.stylesheet,
       csp: this.extraCsp,
       origins: [...this.origins],
-      profile: (this.preflightState ??= new SurfacePreflightCoordinator(this)).resolvedProfile(),
-      preflight: (report) => (this.preflightState ??= new SurfacePreflightCoordinator(this)).receive(index, report, this.pageValues.length),
+      profile: this.preflightState.resolvedProfile(),
+      preflight: (report) => this.preflightState.receive(index, report, this.pageValues.length),
     })
   }
   private onMessage = (event: MessageEvent) => {
