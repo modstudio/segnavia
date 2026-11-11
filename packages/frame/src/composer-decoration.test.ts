@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { applyBoxDecorations, backgroundPaints, decorationEdges, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
+import { backgroundPaints, decorationEdges, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
+import { applyBoxDecorations } from './composer-measure.ts'
 
 const box = (extra: Partial<MeasuredDecorationBox> = {}): MeasuredDecorationBox => ({
   top: 10,

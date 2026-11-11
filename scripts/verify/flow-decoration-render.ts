@@ -89,28 +89,28 @@ function contiguousBands(rows: readonly number[]): Array<{ start: number; end: n
   return bands
 }
 
-function pagePaint(file: string): PagePaint {
-  const { width, height, pixels } = readPgm(file)
-  const at = (x: number, y: number) => pixels[y * width + x] ?? 255
+type Pixel = (x: number, y: number) => number
+
+function darkTextAreaRows(width: number, height: number, at: Pixel): number[] {
   const textInset = Math.round((MARGIN_MM / 25.4) * DPI)
-  const textAreaRows: number[] = []
   const textAreaWidth = width - 2 * textInset
+  const rows: number[] = []
   for (let y = 0; y < height; y += 1) {
     let dark = 0
     for (let x = textInset; x < width - textInset; x += 1) if (at(x, y) < 80) dark += 1
-    if (dark / textAreaWidth > 0.9) textAreaRows.push(y)
+    if (dark / textAreaWidth > 0.9) rows.push(y)
   }
-  const textAreaBands = contiguousBands(textAreaRows)
-  const box = graySpan(width, height, at)
-  if (!box) return { bands: [], textAreaBands, firstGray: undefined, lastGray: undefined, leftSideRows: 0, rightSideRows: 0 }
-  const { left: boxLeft, right: boxRight } = box
-  const span = boxRight - boxLeft + 1
+  return rows
+}
+
+function boxRows(left: number, right: number, height: number, at: Pixel): { borderRows: number[]; grayRows: number[] } {
+  const span = right - left + 1
   const borderRows: number[] = []
   const grayRows: number[] = []
   for (let y = 0; y < height; y += 1) {
     let dark = 0
     let gray = 0
-    for (let x = boxLeft; x <= boxRight; x += 1) {
+    for (let x = left; x <= right; x += 1) {
       const value = at(x, y)
       if (value < 80) dark += 1
       if (value >= 180 && value <= 225) gray += 1
@@ -118,6 +118,17 @@ function pagePaint(file: string): PagePaint {
     if (dark / span > 0.9) borderRows.push(y)
     if (gray / span > 0.5) grayRows.push(y)
   }
+  return { borderRows, grayRows }
+}
+
+function pagePaint(file: string): PagePaint {
+  const { width, height, pixels } = readPgm(file)
+  const at: Pixel = (x, y) => pixels[y * width + x] ?? 255
+  const textAreaBands = contiguousBands(darkTextAreaRows(width, height, at))
+  const box = graySpan(width, height, at)
+  if (!box) return { bands: [], textAreaBands, firstGray: undefined, lastGray: undefined, leftSideRows: 0, rightSideRows: 0 }
+  const { left: boxLeft, right: boxRight } = box
+  const { borderRows, grayRows } = boxRows(boxLeft, boxRight, height, at)
   const bands = contiguousBands(borderRows)
   const darkRowsAt = (x: number) => {
     let rows = 0

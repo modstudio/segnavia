@@ -1,6 +1,7 @@
 import { embedFunction } from '@segnavia/html'
-import { applyBoxDecorations, backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from './composer-decoration.ts'
+import { backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from './composer-decoration.ts'
 import {
+  applyBoxDecorations,
   composerLayoutReady,
   descendantKeepSignals,
   forcedPageBreak,

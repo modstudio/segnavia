@@ -1,5 +1,5 @@
-import { defaultParentRules, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
-import { backgroundPaints, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
+import { defaultParentRules, type PaginateLine, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
+import { backgroundPaints, decorationEdges, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
 
 export interface MeasuredKeepCandidate {
   top: number
@@ -253,4 +253,21 @@ export function measureLineBoxes(element: Element, origin: number): Array<{ top:
   if (groups.length > 0) return groups
   const box = element.getBoundingClientRect()
   return box.height > 0 ? [{ top: box.top - origin, bottom: box.bottom - origin }] : []
+}
+
+export function applyBoxDecorations(lines: readonly PaginateLine[], boxes: readonly MeasuredDecorationBox[]): PaginateLine[] {
+  const decorated = lines.map((line) => ({ ...line }))
+  for (const box of boxes) {
+    const run = measuredCandidateRun(decorated, box)
+    if (!run) continue
+    const first = run.start
+    const last = run.end - 1
+    const firstLine = decorated[first]
+    const lastLine = decorated[last]
+    if (!firstLine || !lastLine) continue
+    const edges = decorationEdges(box)
+    if (edges.top !== undefined) firstLine.decorationTop = Math.min(firstLine.decorationTop ?? edges.top, edges.top)
+    if (edges.bottom !== undefined) lastLine.decorationBottom = Math.max(lastLine.decorationBottom ?? edges.bottom, edges.bottom)
+  }
+  return decorated
 }

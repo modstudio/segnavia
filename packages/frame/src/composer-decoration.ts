@@ -1,6 +1,3 @@
-import type { PaginateLine } from '@segnavia/format'
-import { measuredCandidateRun } from './composer-measure.ts'
-
 export interface MeasuredShadow {
   offsetBlock: number
   blur: number
@@ -73,21 +70,4 @@ export function decorationEdges(box: MeasuredDecorationBox): { top?: number; bot
     ...(topEdges.length > 0 ? { top: Math.min(...topEdges) } : {}),
     ...(bottomEdges.length > 0 ? { bottom: Math.max(...bottomEdges) } : {}),
   }
-}
-
-export function applyBoxDecorations(lines: readonly PaginateLine[], boxes: readonly MeasuredDecorationBox[]): PaginateLine[] {
-  const decorated = lines.map((line) => ({ ...line }))
-  for (const box of boxes) {
-    const run = measuredCandidateRun(decorated, box)
-    if (!run) continue
-    const first = run.start
-    const last = run.end - 1
-    const firstLine = decorated[first]
-    const lastLine = decorated[last]
-    if (!firstLine || !lastLine) continue
-    const edges = decorationEdges(box)
-    if (edges.top !== undefined) firstLine.decorationTop = Math.min(firstLine.decorationTop ?? edges.top, edges.top)
-    if (edges.bottom !== undefined) lastLine.decorationBottom = Math.max(lastLine.decorationBottom ?? edges.bottom, edges.bottom)
-  }
-  return decorated
 }
