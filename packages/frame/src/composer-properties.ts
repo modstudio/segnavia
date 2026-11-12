@@ -59,6 +59,13 @@ export function measurePropertyElement(element: HTMLElement, lineBoxes: LineBoxe
   return { id, name, kind, value: kind === 'line-count' ? Math.round(value) : Math.round(value * 10_000) / 10_000, unit: model.unit }
 }
 
+export function requireMeasuredLayout(element: HTMLElement): void {
+  if (element.getClientRects().length > 0) return
+  const id = blockSubject(element)
+  if (!id) throw new Error('data-measure has no identified block subject; add data-segnavia-id to it or a block ancestor to clear this refusal')
+  throw new Error(`data-measure on block "${id}" has no layout boxes; make the element laid out or remove data-measure to clear this refusal`)
+}
+
 export function propertySources(
   root: ParentNode,
   geometry: (name: string | null | undefined) => SourceGeometry,
@@ -70,9 +77,9 @@ export function propertySources(
     ...templateFits(root, geometry, defaultDirection, defaultLang, selector, 'data-measure'),
     ...designedFits(root, geometry, defaultDirection, defaultLang, selector, 'data-measure'),
   ]
-  const ordinary = Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
-    (element) => !stagedSourceExcluded(element) && element.getClientRects().length > 0,
-  )
+  const ordinary = Array.from(root.querySelectorAll<HTMLElement>(selector)).filter((element) => !stagedSourceExcluded(element))
+  for (const element of ordinary) requireMeasuredLayout(element)
+  for (const entry of temporary) requireMeasuredLayout(entry.fitted)
   return { ordinary, temporary }
 }
 

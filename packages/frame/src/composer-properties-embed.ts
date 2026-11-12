@@ -7,6 +7,7 @@ import {
   measurePropertyElement,
   measureSourcePropertiesImplementation,
   propertySources,
+  requireMeasuredLayout,
 } from './composer-properties.ts'
 import { measuredProperties, propertyCssValue } from './composer-properties-policy.ts'
 
@@ -19,6 +20,7 @@ ${embedFunction('directMeasurementNodes', directMeasurementNodes)}
 ${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}
 ${embedFunction('measuredValue', measuredValue)}
 ${embedFunction('measurePropertyElement', measurePropertyElement)}
+${embedFunction('requireMeasuredLayout', requireMeasuredLayout)}
 ${embedFunction('propertySources', propertySources)}
 ${embedFunction('measureSourcePropertiesImplementation', measureSourcePropertiesImplementation)}
 var propertyStageState={done:false,results:[]};
