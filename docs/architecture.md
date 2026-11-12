@@ -2067,7 +2067,17 @@ remain part of their base letter; a direct child without text contributes its
 own logical inline box. The inline style is inherited by every page
 copy, and the same `{ id, name, kind, value, unit }` facts appear in
 `Measurements.properties`. `describeDocument` includes supplied fit and
-property facts in its `measured` section.
+property facts in its `measured` section. A line count is read from the same
+line model the paginator measures, so it agrees with the planned block.
+
+A measured element needs a block subject, as a fitted one does: it is a block
+element or sits inside one. Book template and designed-page region HTML gets
+no minted block id, so a measure there needs an authored `data-segnavia-id` on
+the element or a block ancestor. A parent-page region is rebuilt on every page
+from its source, so a measure there could not take effect and is refused at
+the edge. An element with no layout boxes when the stage runs, such as one
+under `display: none`, refuses the composition by its block id rather than
+leaving the property unset.
 
 An author derives a column count without another attribute by using the
 measured width in CSS, for example
