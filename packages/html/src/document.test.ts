@@ -44,6 +44,7 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
     children: [
       {
         type: 'section' as const,
+        id: 'hebrew-1',
         title: 'ספר',
         children: [
           {
@@ -79,10 +80,10 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
         )
       : [],
   )
-  const carriedIds = new Set(['hebrew-2', 'hebrew-4', 'hebrew-6'])
+  const carriedIds = new Set(['hebrew-1', 'hebrew-2', 'hebrew-4', 'hebrew-6'])
   const mintedIds = [...nodeIds, ...blockIds].filter((id) => !carriedIds.has(id))
   const documentIds = [...nodeIds, ...blockIds, 'hebrew-6']
-  expect(mintedIds).toEqual(['hebrew-1', 'hebrew-3', 'hebrew-5', 'hebrew-7', 'hebrew-8', 'hebrew-9', 'hebrew-10', 'hebrew-11', 'hebrew-12', 'hebrew-13'])
+  expect(mintedIds).toEqual(['hebrew-3', 'hebrew-5', 'hebrew-7', 'hebrew-8', 'hebrew-9', 'hebrew-10', 'hebrew-11', 'hebrew-12', 'hebrew-13'])
   expect(new Set(documentIds).size).toBe(documentIds.length)
 })
 
