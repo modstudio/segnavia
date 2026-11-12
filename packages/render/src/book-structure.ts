@@ -1,5 +1,4 @@
-import type { TextDirection } from '@segnavia/format'
-import { type Book, firstStrongDirection, resolveDirection } from '@segnavia/format'
+import { type Book, markedTitle, resolveDirection } from '@segnavia/format'
 import { type BookHeading, headingLabel } from '@segnavia/html'
 import { type PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFRef } from 'pdf-lib'
 import { type BookDestination, explicit } from './book-destinations.ts'
@@ -12,12 +11,6 @@ export interface BookOutlineItem {
   title: string
   destination: BookDestination
   children: BookOutlineItem[]
-}
-
-function markedTitle(title: string, direction: TextDirection): string {
-  const natural = firstStrongDirection(title) ?? 'ltr'
-  if (natural === direction) return title
-  return `${direction === 'rtl' ? '\u200f' : '\u200e'}${title}`
 }
 
 export function outlineTitle(title: string, dir: Book['dir'], lang: Book['lang']): string {
@@ -90,7 +83,7 @@ export function writeBookStructure(
   input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book },
   date?: OutputDate,
 ): void {
-  writeDocumentMetadata(document, input.book, date)
+  writeDocumentMetadata(document, input.book, date, input.book.dir)
 
   const outline = bookOutline(input.headings, input.destinations)
   if (outline.length === 0) return

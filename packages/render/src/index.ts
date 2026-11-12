@@ -23,6 +23,7 @@ import {
   pageCompositionCount,
   parseComposedRenderOptions,
   refuseProgressUnlessOneComposition,
+  type RenderOptions,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { printWithOverflow } from './overflow.ts'
@@ -32,8 +33,9 @@ import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
-import { enforce } from './pdf-finish.ts'
+import { enforce, enforcePdfBytes } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
+import { protectPdf } from './protect-pdf.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
@@ -78,6 +80,7 @@ export type {
   SlideImageOptions,
 } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
+export type { PdfPermissions, Protection } from './protection-options.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
 export {
   type BookPdfOptions,
@@ -166,13 +169,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
   const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
     finishPdfWithBrowser(pdf, options, withTab, deadline)
+  const finishProtection = async (pdf: Uint8Array, options: Pick<RenderOptions, 'limits' | 'protection'>) =>
+    options.protection ? enforcePdfBytes(await protectPdf(pdf, options.protection), options.limits) : pdf
   const renderer: Renderer = {
     async bookPdf(input, opts = {}) {
       const parsedOptions = parseBookPdfOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const { book, options, fontCss: resolvedFontCss, fontFailures, established, preflight } = await prepareRenderBook(input, parsedOptions, deadline.signal)
         const seededOptions = { ...options, preflight: withPreflightSeed(options.preflight, preflight) }
-        return renderBrowserBookPdf(
+        const output = await renderBrowserBookPdf(
           book,
           seededOptions,
           resolvedFontCss,
@@ -189,6 +194,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           },
           established.day,
         )
+        return finishProtection(output, parsedOptions)
       })
     },
     async bookPlan(input, opts = {}) {
@@ -235,7 +241,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           outputDate([prepared.established.day]),
         )
         if (overflows.length) parsedOptions.overflow?.report?.({ entries: overflows })
-        return enforce(output, parsedOptions.limits)
+        return finishProtection(await enforce(output, parsedOptions.limits), parsedOptions)
       })
     },
     async pageImage(input, opts = {}) {
@@ -307,10 +313,11 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             frameGroups,
           )
         })
-        return enforce(
+        const output = await enforce(
           await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata, outputDate(contexts.days)),
           parsedOptions.limits,
         )
+        return finishProtection(output, parsedOptions)
       })
     },
 
@@ -352,7 +359,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             established.day,
           )
         })
-        return withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
+        const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
+        return finishProtection(output, options)
       })
     },
 

@@ -13,13 +13,16 @@ async function sheets(pdf: Uint8Array): Promise<number> {
 }
 
 export async function enforce(pdf: Uint8Array, limits: Limits | undefined): Promise<Uint8Array> {
-  if (limits?.bytes !== undefined && pdf.byteLength > limits.bytes) {
-    throw new RenderLimitError('bytes', pdf.byteLength, limits.bytes)
-  }
+  enforcePdfBytes(pdf, limits)
   if (limits?.sheets !== undefined) {
     const count = await sheets(pdf)
     if (count > limits.sheets) throw new RenderLimitError('sheets', count, limits.sheets)
   }
+  return pdf
+}
+
+export function enforcePdfBytes(pdf: Uint8Array, limits: Limits | undefined): Uint8Array {
+  if (limits?.bytes !== undefined && pdf.byteLength > limits.bytes) throw new RenderLimitError('bytes', pdf.byteLength, limits.bytes)
   return pdf
 }
 

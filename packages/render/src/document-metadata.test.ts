@@ -53,6 +53,24 @@ test('keeps a Hebrew title byte for byte in Info and escapes it in UTF-8 XMP', a
   expect(xmp(loaded)).toContain('<xmp:CreateDate>2026-11-14</xmp:CreateDate>')
 })
 
+test('marks Hebrew descriptive metadata for an LTR document and leaves it unmarked for RTL', async () => {
+  const metadata = { title: 'שלום', authors: ['מחברת'], subject: 'נושא', lang: 'en' }
+  const ltr = await PDFDocument.create({ updateMetadata: false })
+  ltr.addPage()
+  writeDocumentMetadata(ltr, metadata)
+  expect(ltr.getTitle()).toBe('\u200eשלום')
+  expect(ltr.getAuthor()).toBe('\u200eמחברת')
+  expect(ltr.getSubject()).toBe('\u200eנושא')
+  expect(xmp(ltr)).toContain('\u200eשלום')
+
+  const rtl = await PDFDocument.create({ updateMetadata: false })
+  rtl.addPage()
+  writeDocumentMetadata(rtl, { ...metadata, lang: 'he' })
+  expect(rtl.getTitle()).toBe('שלום')
+  expect(rtl.getAuthor()).toBe('מחברת')
+  expect(rtl.getSubject()).toBe('נושא')
+})
+
 test('omits empty authors from Info and XMP', async () => {
   const document = await PDFDocument.create({ updateMetadata: false })
   document.addPage()
