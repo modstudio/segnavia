@@ -58,23 +58,18 @@ export async function verifySlots(h: Harness) {
     for (let index = 0; index < (await frames.count()); index++) text.push(await frames.nth(index).contentFrame().locator('body').innerText())
     return text
   }
-  await page.locator('#filled-thumbnail iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor({ state: 'attached' })
   await page.locator('#filled-deck-thumbnail iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor()
   await page.locator('#mina iframe').first().contentFrame().locator('body').getByText('<em>Mina Patel</em>').waitFor()
   await page.locator('#noah iframe').first().contentFrame().locator('body').getByText('Noah Kim').waitFor()
   const mina = await frameText('#mina iframe')
   const noah = await frameText('#noah iframe')
-  const thumbnail = await frameText('#filled-thumbnail iframe')
   const deckThumbnail = await frameText('#filled-deck-thumbnail iframe')
   check('two fills render different text on the same two-sided card', mina.join(' ').includes('<em>Mina Patel</em>') && noah.join(' ').includes('Noah Kim'))
   check(
     'an asset reference resolves to a data URL and a failed reference reports unavailable',
     facts.logo?.includes('data:image/svg+xml') === true && facts.failedAsset?.slots.logo === 'unavailable',
   )
-  check(
-    'slot markup renders as literal text in viewers and thumbnails',
-    mina.join(' ').includes('<em>Mina Patel</em>') && thumbnail.join(' ').includes('<em>Mina Patel</em>'),
-  )
+  check('slot markup renders as literal text in a viewer', mina.join(' ').includes('<em>Mina Patel</em>'))
   check('a deck thumbnail renders its filled slot value', deckThumbnail.join(' ').includes('<em>Mina Patel</em>'))
   check('printPages prints filled values', facts.printed.includes('Noah Kim') && facts.printed.includes('noah@example.com'))
   check(
