@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Page as PageSchema, PX_PER_MM } from '@segnavia/format'
 import { prepareSlots, printedPageAuthorHtml, resolvePageHtml } from '@segnavia/html'
-import { PDFDocument } from 'pdf-lib'
+import { PDFDocument, PDFName } from 'pdf-lib'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
@@ -22,9 +22,49 @@ async function pdfPages(count: number, width: number, height: number): Promise<U
   return document.save()
 }
 
+async function markedPdf(mark: string): Promise<Uint8Array> {
+  const document = await PDFDocument.create()
+  const page = document.addPage([100, 100])
+  page.node.set(PDFName.of('Contents'), document.context.register(document.context.stream(mark)))
+  return document.save()
+}
+
 async function cssPiece(pixels: number, height = pixels): Promise<Uint8Array> {
   return pdfPage(pt(pixels / PX_PER_MM), pt(height / PX_PER_MM))
 }
+
+test('unimposed pages are watermarked before their marked bytes are joined and finished', async () => {
+  const pages = [
+    Page.parse({ html: '<p>First</p>', size: { width: 100, height: 100 } }),
+    Page.parse({ html: '<p>Second</p>', size: { width: 100, height: 100 } }),
+  ]
+  let watermarkedPages: unknown[] = []
+  let finished = false
+
+  await renderPagesPdf(
+    pages,
+    preparedSlots,
+    {},
+    {
+      pagePdf: async () => ({ bytes: await pdfPage(100, 100) }),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
+      fontFaces: () => '',
+      watermark: async (parts) => {
+        watermarkedPages = parts.map((part) => part.page)
+        return [await markedPdf('marked-first'), await markedPdf('marked-second')]
+      },
+      finish: async (pdf) => {
+        expect(await pageContent(pdf, 0)).toBe('marked-first')
+        expect(await pageContent(pdf, 1)).toBe('marked-second')
+        finished = true
+        return pdf
+      },
+    },
+  )
+
+  expect(watermarkedPages).toEqual(pages)
+  expect(finished).toBe(true)
+})
 
 test('mixed identity imposition numbers every page in a sectioned printed part', async () => {
   const printed = Page.parse({

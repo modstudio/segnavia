@@ -19,8 +19,6 @@ interface PageRenderServices {
   withTab: TabRunner
 }
 
-export const shouldCapturePageFontFacts = (watermark: unknown): boolean => Boolean(watermark)
-
 export async function pageFontFacts(tab: Tab, printedPages = false): Promise<PageFontFacts> {
   return tab.evaluate((fromPrintedPage) => {
     const rules: string[] = []
@@ -73,7 +71,7 @@ export async function renderPagePdf(
     async (tab) => {
       await awaitPrintedPageComposition(tab, page, opts.preflight)
       const captures = await prepareBackdropRasters(tab, opts.effects)
-      const font = shouldCapturePageFontFacts(captureFontFacts) ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
+      const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page))
         return { ...printed, ...font, bytes: await tagBackdropRasters(printed.bytes, captures) }
@@ -137,7 +135,7 @@ export async function renderPiecePdf(
         },
         opts.effects,
       ),
-      ...(shouldCapturePageFontFacts(captureFontFacts) ? await pageFontFacts(tab) : {}),
+      ...(captureFontFacts ? await pageFontFacts(tab) : {}),
     }),
   )
 }
