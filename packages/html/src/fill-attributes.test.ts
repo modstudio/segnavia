@@ -20,6 +20,24 @@ test('refuses zero repeat bounds by attribute name', () => {
   expect(maximum).toContain('data-fill-max is invalid')
 })
 
+test('refuses a repeat maximum above the bounded region count', () => {
+  expect(issues('<main data-region="body"><p data-fill="repeat" data-fill-max="10001">row</p></main>').join(' ')).toContain(
+    'data-fill-max is invalid; use a positive integer no greater than 10000',
+  )
+})
+
+test('refuses repeat fill below a direct region child', () => {
+  const result = issues('<main data-region="practice"><div><p data-fill="repeat">row</p></div></main>').join(' ')
+  expect(result).toContain('region "practice" is not on a direct child')
+})
+
+test('refuses overflow on a region descendant or outside a region', () => {
+  expect(issues('<main data-region="practice"><p data-overflow="truncate">row</p></main>').join(' ')).toContain(
+    'not on a named template or parent-page region element',
+  )
+  expect(issues('<p data-overflow="refuse">row</p>').join(' ')).toContain('not on a named template or parent-page region element')
+})
+
 test('refuses measured properties inside a repeated child by block and region', () => {
   const result = issues(
     '<main data-region="practice"><div data-fill="repeat"><p data-segnavia-id="measured-row" data-measure="block" data-measure-as="--row-height">row</p></div></main>',
@@ -27,6 +45,14 @@ test('refuses measured properties inside a repeated child by block and region', 
   expect(result).toContain('block "measured-row"')
   expect(result).toContain('repeated fill region "practice"')
   expect(result).toContain('move data-measure outside the repeated child')
+})
+
+test('refuses measurement on the repeated element itself', () => {
+  const result = issues(
+    '<main data-region="practice"><p data-segnavia-id="measured-row" data-fill="repeat" data-measure="block" data-measure-as="--row-height">row</p></main>',
+  ).join(' ')
+  expect(result).toContain('block "measured-row"')
+  expect(result).toContain('repeated fill region "practice"')
 })
 
 test('refuses unknown overflow modes', () => {

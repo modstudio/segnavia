@@ -9,7 +9,8 @@ const bookWithParentRegion = () =>
     id: 'book',
     kind: 'book',
     metadata: { title: 'Book' },
-    mode: 'continuous',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
     children: [],
     parentPages: [
       {
@@ -17,6 +18,25 @@ const bookWithParentRegion = () =>
         id: 'parent',
         name: 'body',
         regions: { head: { edge: 'blockStart', html: '<p data-segnavia-id="old-head">Old</p>' } },
+      },
+    ],
+  })
+
+const bookWithPageRegion = () =>
+  parseDocument({
+    type: 'document',
+    id: 'book',
+    kind: 'book',
+    metadata: { title: 'Book' },
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+    templates: [{ type: 'template', name: 'page', html: '<main data-region="body"></main>' }],
+    children: [
+      {
+        type: 'section',
+        id: 'section',
+        template: 'page',
+        children: [{ type: 'page', id: 'page', regions: { body: '<p data-segnavia-id="old-body">Old</p>' } }],
       },
     ],
   })
@@ -29,6 +49,40 @@ function expectComposes(input: Document, result: ReturnType<typeof editDocument>
 }
 
 describe('editDocument parent regions', () => {
+  test('applies the region edge rules to page and parent-page command writes', () => {
+    const parent = bookWithParentRegion()
+    const parentResult = editDocument(
+      parent,
+      [{ type: 'setContent', content: { node: { id: 'parent' }, field: 'regions', key: 'head' }, html: '<p data-fill="repeat">Head</p>' }],
+      { newId: () => 'new-head' },
+    )
+    expect(parentResult.ok).toBe(true)
+    expectComposes(parent, parentResult)
+
+    const page = bookWithPageRegion()
+    const pageResult = editDocument(
+      page,
+      [{ type: 'setContent', content: { node: { id: 'page' }, field: 'regions', key: 'body' }, html: '<p data-fill="repeat">Body</p>' }],
+      { newId: () => 'new-body' },
+    )
+    expectComposes(page, pageResult)
+  })
+
+  test('keeps parent-page measure refusal on command writes', () => {
+    const result = editDocument(
+      bookWithParentRegion(),
+      [
+        {
+          type: 'setContent',
+          content: { node: { id: 'parent' }, field: 'regions', key: 'head' },
+          html: '<p data-measure="block" data-measure-as="--height">Head</p>',
+        },
+      ],
+      { newId: () => 'measured-head' },
+    )
+    expect(result).toMatchObject({ ok: false, refusal: expect.stringContaining('data-measure cannot take effect in a parent-page region') })
+  })
+
   test('sets keyed HTML and keeps the region edge', () => {
     const input = bookWithParentRegion()
     const result = editDocument(input, [{ type: 'setContent', content: { node: { id: 'parent' }, field: 'regions', key: 'head' }, html: '<p>New</p>' }], {

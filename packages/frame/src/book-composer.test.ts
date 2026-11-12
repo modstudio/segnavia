@@ -16,6 +16,7 @@ import {
   partTitleValues,
   unmeasuredFlows,
 } from './composer.ts'
+import { mergeRegionFact } from './composer-fill-policy.ts'
 import { embeddedComposerFitFunctions } from './composer-fit.ts'
 import { embeddedPreflightFunctions, PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
@@ -59,6 +60,7 @@ test('publishes preflight from the embedded functions alone, given the measured 
     'fail',
     'window',
     'document',
+    'mergeRegionFact',
     `${embeddedPreflightFunctions()};return publishPreflight`,
   )(
     { preflight: { 'region-overset': 'error' } },
@@ -68,10 +70,11 @@ test('publishes preflight from the embedded functions alone, given the measured 
     (reason: string) => failures.push(reason),
     { parent: { postMessage: (message: unknown) => posted.push(message) } },
     { documentElement: { setAttribute: (name: string, value: string) => (attributes[name] = value) } },
-  ) as (plan: unknown, flows: unknown) => boolean
+    mergeRegionFact,
+  ) as (plan: unknown, flows: unknown, regions: import('@segnavia/format').PreflightRegion[]) => boolean
   const flows = [{ id: 'chapter', kind: 'chapter', blocks: [{ id: 'held', lines: [{ top: 0, bottom: 10 }] }] }]
 
-  expect(publish({ pages: [{ flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] }] }, flows)).toBe(false)
+  expect(publish({ pages: [{ flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] }] }, flows, [])).toBe(false)
   expect(JSON.parse(attributes[PREFLIGHT_ATTRIBUTE] ?? '{}').facts.pages).toEqual([{ folio: '1', first: 'held', last: 'held' }])
   expect(posted).toHaveLength(1)
   expect(failures).toEqual(['shorten it'])
@@ -92,10 +95,9 @@ test('wraps composer start-up exceptions in a bounded failure report', () => {
 
 test('applies region overflow without preflight and collects only its reports under the profile', () => {
   const script = composerScript('{}')
-  expect(script).toContain('var furnitureOutcome=applyRegionOverflow')
-  expect(script).toContain('var filledOutcome=applyRegionOverflow')
-  expect(script).toContain('if(config.preflight)reportRegionOverflow')
-  expect(script).toContain("if(config.preflight){var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]')")
+  expect(script.match(/applyRegionOverflowTo\(/g)).toHaveLength(3)
+  expect(script).toContain("var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]');applyRegionOverflowTo")
+  expect(script).toContain('config.overflowRefusal!==false')
   expect(script).toContain('if(config.preflight)markRegionOverflow')
 })
 

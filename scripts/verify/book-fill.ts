@@ -48,4 +48,25 @@ export async function verifyBookFill(h: Harness): Promise<void> {
     refusal?.includes('Region practice:rows on page ') === true && refusal.includes('exceeds its block size by'),
     String(refusal),
   )
+
+  await settled(h, 'book-fill-parent-page.html')
+  const parentFill = await h.page.evaluate((attribute) => {
+    const report = JSON.parse(document.documentElement.getAttribute(attribute) ?? 'null')
+    const region = document.querySelector<HTMLElement>('[data-segnavia-region="practice"]')
+    const rows = Array.from(region?.querySelectorAll<HTMLElement>(':scope > [data-fill-index]') ?? [])
+    const box = region?.getBoundingClientRect()
+    const inkInside = rows.every((row) => {
+      const range = document.createRange()
+      range.selectNodeContents(row)
+      const ink = range.getBoundingClientRect()
+      return box !== undefined && ink.top >= box.top - 0.5 && ink.bottom <= box.bottom + 0.5
+    })
+    const fact = report?.facts?.regions?.find((candidate: { subject?: string }) => candidate.subject === 'practice-parent:practice')
+    return { count: rows.length, fillCount: fact?.fillCount, inkInside }
+  }, PREFLIGHT_ATTRIBUTE)
+  h.check(
+    'a parent-page region fills while attached, reports its count and keeps its ink',
+    parentFill.count > 1 && parentFill.fillCount === parentFill.count && parentFill.inkInside,
+    JSON.stringify(parentFill),
+  )
 }

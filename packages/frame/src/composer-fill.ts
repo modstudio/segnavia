@@ -37,7 +37,7 @@ function fillBlockExtent(region: HTMLElement): number {
   const range = region.ownerDocument.createRange()
   range.selectNodeContents(region)
   const ink = range.getBoundingClientRect()
-  return Math.max(region.scrollHeight, ink.bottom - bounds.top)
+  return Math.max(0, ink.bottom - bounds.top)
 }
 
 export function repeatFill(

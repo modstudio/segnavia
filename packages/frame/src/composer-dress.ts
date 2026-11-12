@@ -9,8 +9,8 @@ import {
 } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
 import { type PaginateBookPage, type PaginateFlow, pageBlockRange, resolveHeadTemplate } from '@segnavia/layout'
-import { decideProgressYield } from './composer-progress.ts'
 import { overflowMode } from './composer-fill-policy.ts'
+import { decideProgressYield } from './composer-progress.ts'
 
 interface ProgressPages {
   setAttribute(name: string, value: string): void

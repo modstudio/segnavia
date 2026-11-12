@@ -11,6 +11,7 @@ test('places an RTL block-start region with physical coordinates', () => {
       attributes.set(name, value)
     },
   } as unknown as HTMLElement
+  const facts: import('@segnavia/format').PreflightRegion[] = []
 
   placeParentRegions(
     { append: (child: HTMLElement) => appended.push(child) } as unknown as HTMLElement,
@@ -26,10 +27,18 @@ test('places an RTL block-start region with physical coordinates', () => {
     () => ({}),
     () => {},
     () => held,
+    (region, blockSize) => {
+      expect(appended).toEqual([region])
+      expect(blockSize).toBe(10)
+      return [{ subject: 'body:head', fillCount: 2 }]
+    },
+    facts,
+    (heldFacts, fact) => heldFacts.push(fact),
   )
 
   expect(appended).toEqual([held])
   expect(held.style.cssText).toBe('position:absolute;overflow:hidden;top:0px;left:40px;width:100px;height:10px')
   expect(attributes.get('data-segnavia-edge')).toBe('blockStart')
   expect(attributes.has('dir')).toBe(false)
+  expect(facts).toEqual([{ subject: 'body:head', fillCount: 2 }])
 })

@@ -56,6 +56,8 @@ function elementIssues(
   if (overflow !== undefined && !RegionOverflow.options.includes(overflow as 'grow' | 'truncate' | 'refuse'))
     issues.push(`${where} <${name}> data-overflow "${overflow}" is invalid; use grow, truncate or refuse to clear this refusal`)
   if (overflow !== undefined && !regionElement)
-    issues.push(`${where} <${name}> data-overflow is not on a named template or parent-page region element; move it onto the region element to clear this refusal`)
+    issues.push(
+      `${where} <${name}> data-overflow is not on a named template or parent-page region element; move it onto the region element to clear this refusal`,
+    )
   return issues
 }
