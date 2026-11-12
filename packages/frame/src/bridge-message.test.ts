@@ -21,7 +21,7 @@ test('dispatches the shared bubbling and composed preflight event', () => {
     status: 'clean' as const,
     issues: [],
     omitted: {},
-    facts: { pageCount: 0, pages: [], fits: [] },
+    facts: { pageCount: 0, pages: [], fits: [], regions: [] },
     coverage: { measured: 0, total: 0 },
   }
   let received: CustomEvent | undefined

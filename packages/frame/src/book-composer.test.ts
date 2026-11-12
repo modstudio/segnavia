@@ -16,6 +16,7 @@ import {
   partTitleValues,
   unmeasuredFlows,
 } from './composer.ts'
+import { mergeRegionFact } from './composer-fill-policy.ts'
 import { embeddedComposerFitFunctions } from './composer-fit.ts'
 import { embeddedPreflightFunctions, PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
@@ -47,18 +48,6 @@ test('embedded copyfit bounds include their value parser dependency', () => {
   })
 })
 
-test('measured properties run once after copyfit and before the first pagination measurement', () => {
-  const script = composerScript('{}')
-  const fit = script.indexOf('fitResults=fitSourceElements()')
-  const properties = script.indexOf('propertyResults=measureSourceProperties()', fit)
-  const input = script.indexOf('var input=measureInput()', properties)
-  expect(fit).toBeGreaterThan(-1)
-  expect(properties).toBeGreaterThan(fit)
-  expect(input).toBeGreaterThan(properties)
-  expect(script.match(/propertyResults=measureSourceProperties\(\)/g)).toHaveLength(1)
-  expect(script).toContain('properties:propertyResults')
-})
-
 test('publishes preflight from the embedded functions alone, given the measured flows', () => {
   const posted: unknown[] = []
   const attributes: Record<string, string> = {}
@@ -71,6 +60,7 @@ test('publishes preflight from the embedded functions alone, given the measured 
     'fail',
     'window',
     'document',
+    'mergeRegionFact',
     `${embeddedPreflightFunctions()};return publishPreflight`,
   )(
     { preflight: { 'region-overset': 'error' } },
@@ -80,10 +70,11 @@ test('publishes preflight from the embedded functions alone, given the measured 
     (reason: string) => failures.push(reason),
     { parent: { postMessage: (message: unknown) => posted.push(message) } },
     { documentElement: { setAttribute: (name: string, value: string) => (attributes[name] = value) } },
-  ) as (plan: unknown, flows: unknown) => boolean
+    mergeRegionFact,
+  ) as (plan: unknown, flows: unknown, regions: import('@segnavia/format').PreflightRegion[]) => boolean
   const flows = [{ id: 'chapter', kind: 'chapter', blocks: [{ id: 'held', lines: [{ top: 0, bottom: 10 }] }] }]
 
-  expect(publish({ pages: [{ flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] }] }, flows)).toBe(false)
+  expect(publish({ pages: [{ flow: 'chapter', windows: [{ flow: 'chapter', start: 0, end: 10 }] }] }, flows, [])).toBe(false)
   expect(JSON.parse(attributes[PREFLIGHT_ATTRIBUTE] ?? '{}').facts.pages).toEqual([{ folio: '1', first: 'held', last: 'held' }])
   expect(posted).toHaveLength(1)
   expect(failures).toEqual(['shorten it'])
@@ -102,10 +93,12 @@ test('wraps composer start-up exceptions in a bounded failure report', () => {
   expect(script).toContain(`String(reason).slice(0,1024);document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}'`)
 })
 
-test('collects overset entries only when preflight is enabled', () => {
+test('applies region overflow without preflight and collects only its reports under the profile', () => {
   const script = composerScript('{}')
-  expect(script).toContain("if(config.preflight){var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]')")
-  expect(script).toContain("if(config.preflight){var paper=filled[t].closest('['+config.pageMarker+']');markRegionOverflow")
+  expect(script.match(/applyRegionOverflowTo\(/g)).toHaveLength(3)
+  expect(script).toContain("var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]');applyRegionOverflowTo")
+  expect(script).toContain('config.overflowRefusal!==false')
+  expect(script).toContain('if(config.preflight)markRegionOverflow')
 })
 
 test('publishes preflight before refusing or marking composition complete', () => {

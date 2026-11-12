@@ -22,6 +22,7 @@ import { notesGalleys, targetLinks, withBlankPages } from './book-document-nodes
 import { BOOK_COLUMN_MAX, BOOK_COLUMN_MIN, bookDocumentCss, bookFlowPageGeometry, markBlockPositions, resolveBookBuild } from './book-flow.ts'
 import {
   authoredSection,
+  authoredSectionAttributeIssues,
   type BuiltSection,
   collectHeadings,
   designedSection,
@@ -217,7 +218,7 @@ function addFrontMatter(book: Book, build: DocumentBuild): BuiltSection | undefi
     const section = authoredSection({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, sectionEntry.id, build.build)
     build.sections.push(section)
     decorateSection(sectionEntry, build)
-    build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
+    build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
     if ('contents' in entry && entry.contents && entry.title !== undefined) {
       build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth))
     }
@@ -250,7 +251,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     const section = chapterSection({ ...entry, parentRules: entry.parentRules ?? book.parentRules }, build.chapterNumber, sectionEntry.division, build.build)
     build.sections.push(section)
     decorateSection(sectionEntry, build)
-    build.issues.push(...reservedIdIssues(section), ...columnIssues(section))
+    build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
     if (entry.title !== undefined) {
       build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth))
     }

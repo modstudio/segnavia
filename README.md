@@ -162,6 +162,20 @@ copyfit and before pagination:
 `px`; line counts are unitless. `describeDocument` exposes supplied composition
 measurements under `measured`.
 
+Template and parent-page regions can repeat a child to use their definite block
+space, or choose how overset is handled:
+
+```html
+<main data-region="practice" data-overflow="truncate">
+  <p data-fill="repeat" data-fill-min="2" data-fill-max="12">Practice row</p>
+</main>
+```
+
+Repeated copies carry zero-based `data-fill-index` values. `grow` preserves
+overset, `truncate` removes only whole trailing blocks or lines, and `refuse`
+stops composition unless the `region-overset` preflight check is explicitly
+`off`.
+
 Install `@segnavia/markdown-editor` and its required Tiptap, CodeMirror and
 Lezer peers only when the host edits Markdown:
 

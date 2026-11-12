@@ -1,4 +1,4 @@
-import type { HeadTemplate, ResolvedParentPage, TextDirection } from '@segnavia/format'
+import type { HeadTemplate, PreflightRegion, ResolvedParentPage, TextDirection } from '@segnavia/format'
 import type { regionBox } from '@segnavia/layout'
 
 interface RegionPage {
@@ -30,6 +30,9 @@ export function placeParentRegions(
   ) => Record<string, string>,
   fill: (root: Element, html: string, heads: Record<string, string>, slots: Record<string, string | undefined>, dir?: string, lang?: string) => void,
   create: (tag: string) => HTMLElement,
+  repeat: (region: HTMLElement, definiteBlockSize: number) => PreflightRegion[],
+  facts: PreflightRegion[],
+  merge: (facts: PreflightRegion[], fact: PreflightRegion) => void,
 ): void {
   const slots = config.recordSlotsByFlow?.[page.flow] ?? {}
   const heads = headsFor(config.headTemplates ?? [], page.variables ?? {}, slots, config.dir, config.lang)
@@ -43,5 +46,6 @@ export function placeParentRegions(
     held.style.cssText = `position:absolute;overflow:hidden;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px`
     fill(held, region.html, heads, slots, config.dir, config.lang)
     paper.append(held)
+    for (const fact of repeat(held, box.height)) merge(facts, fact)
   }
 }

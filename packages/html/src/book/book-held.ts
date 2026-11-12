@@ -10,6 +10,7 @@ import {
   type TemplatedSection,
 } from '@segnavia/format'
 import type { ChildNode, Element } from 'domhandler'
+import { fillAttributeIssues } from '../fill-attributes.ts'
 import { FIT_ATTRIBUTE_FAMILY } from '../fit-attributes.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from '../measure-attributes.ts'
 import { elements, parse } from '../sanitize.ts'
@@ -216,28 +217,39 @@ export function templateRegionIssues(templates: BookTemplate[]): string[] {
       ...regions.flatMap((region) =>
         sourceAttributeIssues([region], `template "${template.name}"`, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true }),
       ),
+      ...fillAttributeIssues(parse(template.html).children, `template "${template.name}"`),
     ]
   })
 }
 
-function templatedPageRegionFitIssues(entry: TemplatedSection, id: string): string[] {
+function templatedPageRegionAttributeIssues(entry: TemplatedSection, id: string): string[] {
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) =>
-    Object.values(page.regions).flatMap((html) => {
-      const where = `section ${label} page ${index + 1}`
+    Object.entries(page.regions).flatMap(([name, html]) => {
+      const where = `section ${label} page ${index + 1} region "${name}"`
       const regions = templateRegionElements(html)
-      return regions.flatMap((region) => sourceAttributeIssues([region], where, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true }))
+      return [
+        ...regions.flatMap((region) => sourceAttributeIssues([region], where, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true })),
+        ...fillAttributeIssues(parse(html).children, where, name),
+      ]
     }),
   )
 }
 
 export function designedSectionAttributeIssues(entry: DesignedSection, id: string): string[] {
   const label = entry.title ?? id
-  return entry.pages.flatMap((page, index) =>
-    sourceAttributeIssues(parse(page.html).children, `section ${label} page ${index + 1}`, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
-      requireAuthoredId: true,
-    }),
-  )
+  return entry.pages.flatMap((page, index) => {
+    const children = parse(page.html).children
+    const where = `section ${label} page ${index + 1}`
+    return [
+      ...sourceAttributeIssues(children, where, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true }),
+      ...fillAttributeIssues(children, where),
+    ]
+  })
+}
+
+export function authoredSectionAttributeIssues(entry: Pick<BookSection, 'html' | 'title'>, id: string): string[] {
+  return fillAttributeIssues(parse(entry.html).children, `section ${entry.title ?? id}`)
 }
 
 function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
@@ -258,7 +270,7 @@ function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: 
 }
 
 export function templatedSectionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
-  return [...undeclaredRegionIssues(entry, id, templates), ...templatedPageRegionFitIssues(entry, id)]
+  return [...undeclaredRegionIssues(entry, id, templates), ...templatedPageRegionAttributeIssues(entry, id)]
 }
 
 export function templatedSection(

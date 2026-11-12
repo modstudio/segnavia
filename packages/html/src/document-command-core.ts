@@ -72,8 +72,8 @@ function identifiedField(
   added: string[],
   nodeLabel: string,
 ): unknown {
-  const identify = (html: string): string => {
-    const result = identifyHtmlBlocks(html, nodeLabel, context.options.newId ?? defaultNewId, usedBlocks)
+  const identify = (html: string, options: { insideNamedRegion?: string; refuseMeasure?: boolean } = {}): string => {
+    const result = identifyHtmlBlocks(html, nodeLabel, context.options.newId ?? defaultNewId, usedBlocks, options)
     added.push(...result.added)
     return result.html
   }
@@ -87,13 +87,14 @@ function identifiedField(
     const held = value as { kind?: unknown; html?: unknown }
     return held.kind === 'html' && typeof held.html === 'string' ? { ...value, html: identify(held.html) } : value
   }
-  if (shape === 'record') return Object.fromEntries(Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identify(html) : html]))
+  if (shape === 'record')
+    return Object.fromEntries(Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identify(html, { insideNamedRegion: key }) : html]))
   if (shape === 'regionRecord') {
     return Object.fromEntries(
       Object.entries(value).map(([key, region]) => {
         if (!region || typeof region !== 'object') return [key, region]
         const held = region as Record<string, unknown>
-        return [key, typeof held.html === 'string' ? { ...held, html: identify(held.html) } : held]
+        return [key, typeof held.html === 'string' ? { ...held, html: identify(held.html, { insideNamedRegion: key, refuseMeasure: true }) } : held]
       }),
     )
   }
@@ -157,7 +158,12 @@ export function htmlWithIds(
 ): { html: string; added: string[] } {
   const used = blockLocations(context.document, replacing)
   const node = replacing ? resolveNode(context.document, { id: replacing.node }).node : undefined
-  return identifyHtmlBlocks(html, node ? `${node.type} node "${node.id}"` : 'supplied content', context.options.newId ?? defaultNewId, used)
+  const shape = node && replacing ? contentFieldShape(node.type as keyof typeof CONTENT_FIELD_SHAPES, replacing.field) : undefined
+  const region = replacing?.key
+  return identifyHtmlBlocks(html, node ? `${node.type} node "${node.id}"` : 'supplied content', context.options.newId ?? defaultNewId, used, {
+    ...(region && (shape === 'record' || shape === 'regionRecord') ? { insideNamedRegion: region } : {}),
+    ...(shape === 'regionRecord' ? { refuseMeasure: true } : {}),
+  })
 }
 
 export function identifiedContentValue(

@@ -90,7 +90,7 @@ test('includes a supplied preflight report unchanged and otherwise omits the sec
       },
     ],
     omitted: {},
-    facts: { pageCount: 1, pages: [{ folio: '1' }], fits: [] },
+    facts: { pageCount: 1, pages: [{ folio: '1' }], fits: [], regions: [] },
     coverage: { measured: 1, total: 1 },
   }
   expect(describeDocument(document(), { preflight }).preflight).toBe(preflight)

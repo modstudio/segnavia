@@ -4,12 +4,14 @@ import { Document, PX_PER_PT } from '@segnavia/format'
 import { workbookFixture } from '../demo-book-workbook-fixtures.ts'
 import { verifyBookCopyfit } from './book-copyfit.ts'
 import { verifyPaginatedBookElements } from './book-elements.ts'
+import { verifyBookFill } from './book-fill.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
 import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
 import { verifyBookMeasuredProperties } from './book-measured-properties.ts'
 import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
 import { clickBookAnchor, inBookView } from './book-navigation.ts'
 import { verifyNoteSeries } from './book-note-series.ts'
+import { verifyPageLimit583 } from './book-page-limit-583.ts'
 import { verifyPaginatedPageReferences } from './book-page-reference-screen.ts'
 import { verifyPaginatedBlocks, verifyPaginatedTableBook } from './book-paginated-tables.ts'
 import { verifyPartsBooks } from './book-parts.ts'
@@ -110,8 +112,9 @@ export async function verifyBooks(h: Harness) {
   await verifyBookSlotCopyfit(h)
   await verifyBookCopyfit(h)
   await verifyBookMeasuredProperties(h)
+  await verifyBookFill(h)
+  await verifyPageLimit583(h)
 }
-
 async function paginatedFrame(h: Harness, id: string) {
   const element = await h.page.$(`#${id}`)
   const frame = await element?.contentFrame()
@@ -123,7 +126,6 @@ async function paginatedFrame(h: Harness, id: string) {
   )
   return frame
 }
-
 async function inspectPaginated(h: Harness, id: string): Promise<PaginatedReport> {
   const frame = await paginatedFrame(h, id)
   return frame.evaluate(inspectPaginatedBook)

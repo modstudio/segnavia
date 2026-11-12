@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { appendSlotOversetEntries, boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal } from '@segnavia/format'
 import { composerScript } from './composer.ts'
+import { mergeRegionFact } from './composer-fill-policy.ts'
 import { embeddedPreflightFunctions, markFurnitureInvalidVariables } from './composer-preflight.ts'
 
 test('waits for slot fit before publishing its one report', () => {
@@ -14,6 +15,8 @@ test('waits for slot fit before publishing its one report', () => {
     'fail',
     'window',
     'document',
+    'mergeRegionFact',
+    'preflightRegions',
     `${embeddedPreflightFunctions()};return completePreflight`,
   )(
     { preflight: PREFLIGHT_PRESETS.default },
@@ -23,6 +26,8 @@ test('waits for slot fit before publishing its one report', () => {
     () => {},
     { parent: { postMessage: (message: unknown) => posted.push(message) }, segnaviaSlotFit: (done: typeof fitted) => (fitted = done) },
     { documentElement: { setAttribute: () => {} } },
+    mergeRegionFact,
+    [],
   ) as (plan: unknown, flows: unknown[], done: () => void) => void
   let done = false
   complete({ pages: [] }, [], () => (done = true))

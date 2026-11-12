@@ -2082,13 +2082,39 @@ element or sits inside one. Book template and designed-page region HTML gets
 no minted block id, so a measure there needs an authored `data-segnavia-id` on
 the element or a block ancestor. A parent-page region is rebuilt on every page
 from its source, so a measure there could not take effect and is refused at
-the edge. An element with no layout boxes when the stage runs, such as one
-under `display: none`, refuses the composition by its block id rather than
-leaving the property unset.
+the edge. A measured element inside a `data-fill="repeat"` child is also
+refused at the edge: fill-index styling can make the copies differ, while
+measurement facts have one key per block. An element with no layout boxes when
+the stage runs, such as one under `display: none`, refuses the composition by
+its block id rather than leaving the property unset.
 
 An author derives a column count without another attribute by using the
 measured width in CSS, for example
 `column-count: clamp(1, round(down, calc(var(--widest) / 12rem), 1), 4)`.
+
+Template fill runs once after copyfit and before measured properties and the
+first pagination measurement. `data-fill="repeat"` is accepted only on a direct
+child of a template or parent-page region, and `data-overflow` only on the
+region element itself. Both are refused at the parse edge elsewhere, including
+designed and authored pages; `data-measure` inside the repeated child is also
+refused there. The repeated child is copied until the region's definite block
+space is used, within positive integer `data-fill-min` and `data-fill-max`
+bounds capped at 10,000; copies carry a zero-based `data-fill-index`.
+Parent-page regions are absolutely positioned furniture and never affect flow,
+so their repeat runs while each attached page copy is dressed and before its
+overflow is handled. An indefinite runtime block size, a copy that adds no
+block extent, a maximum above the bound, or a minimum that cannot fit refuses
+composition by region.
+
+Regions choose `data-overflow="grow|truncate|refuse"`. Grow preserves the
+existing overset behavior. Truncate removes trailing whole blocks or whole
+lines and reports `region-truncated`; cuts therefore never separate a Hebrew
+mark from its base letter. Refuse names the region, folio and excess under the
+default profile, including printed pages, and only explicit
+`region-overset: off` suppresses it. Preflight `facts.regions` has one record per
+region subject, keeps the smallest fill count across its page copies, and
+records truncation counts, up to 256 regions; each truncation carries at most 50
+dropped ids while retaining the full total.
 
 The environment is always an input. `paperViewport` supplies the print
 viewport, timing bounds are options and loaded fonts are measured facts.
