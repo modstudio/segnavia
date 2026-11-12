@@ -22,7 +22,6 @@ import {
   type OverflowEntry,
   pageCompositionCount,
   parseComposedRenderOptions,
-  type RenderOptions,
   refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
@@ -33,11 +32,12 @@ import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
-import { enforce, enforcePdfBytes } from './pdf-finish.ts'
+import { enforce } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
-import { createPdfProtector } from './protect-pdf.ts'
+import { createProtectPdf } from './protect-pdf.ts'
+import { parsePdfOptions } from './protection-options.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
@@ -46,54 +46,9 @@ import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOption
 import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
-import { fillDeckForDay, filledBook, filledPage, filledPages } from './slot-fill.ts'
+import { fillDeckForDay, filledPage, filledPages } from './slot-fill.ts'
 
-export { FontRefusedError } from '@segnavia/frame/fonts'
-export type { MotifsOptions } from '@segnavia/frame/motifs'
-export type { PreparedSlots, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
-export { captureImage } from './capture-image.ts'
-export { COVER_IMAGE_OMITTED, type CoverImageOptions, type CoverImagePlan, coverImagePlan } from './cover-image.ts'
-export type { EffectsReport } from './effects/types.ts'
-export {
-  type ColorProfileUse,
-  RenderColorProfileError,
-  RendererUnavailableError,
-  RenderLimitError,
-  RenderOversetError,
-  RenderRefusedError,
-} from './errors.ts'
-export { fontFaces } from './font-faces.ts'
-export type { LocalFontsOptions, LocalFontsReport } from './local-fonts.ts'
-export type {
-  AssetAnswer,
-  Assets,
-  Font,
-  ImageOptions,
-  MarksReport,
-  OverflowContribution,
-  OverflowEntry,
-  OverflowPart,
-  OverflowReport,
-  PageImageOptions,
-  ProofImageOptions,
-  RenderOptions,
-  SlideImageOptions,
-} from './options.ts'
-export type { PressDestination, PressImage, PressReport } from './press/types.ts'
-export type { PdfPermissions, Protection } from './protection-options.ts'
-export { RenderTimeoutError } from './render-deadline.ts'
-export {
-  type BookPdfOptions,
-  type BookPlanOptions,
-  CONTAINER_ARGS,
-  DEFAULT_JS_HEAP_MB,
-  PAGE_READY_BOUND_MS,
-  type PagePdfOptions,
-  RENDER_BOUND_MS,
-  type Renderer,
-  type RendererOptions,
-} from './renderer.ts'
-export { filledBook }
+export * from './public.ts'
 
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
@@ -113,7 +68,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   let closed = false
   const queue = renderQueue(options.concurrency ?? 2)
   const { acquire, release } = queue
-  const protectPdf = createPdfProtector()
+  const protectPdf = createProtectPdf()
 
   async function withTab<T>(
     setup: BrowserTabSetup & {
@@ -170,8 +125,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
   const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
     finishPdfWithBrowser(pdf, options, withTab, deadline)
-  const finishProtection = async (pdf: Uint8Array, options: Pick<RenderOptions, 'limits' | 'protection'>) =>
-    options.protection ? enforcePdfBytes(await protectPdf(pdf, options.protection), options.limits) : pdf
   const renderer: Renderer = {
     async bookPdf(input, opts = {}) {
       const parsedOptions = parseBookPdfOptions(opts)
@@ -195,7 +148,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           },
           established.day,
         )
-        return finishProtection(output, parsedOptions)
+        return protectPdf(output, parsedOptions)
       })
     },
     async bookPlan(input, opts = {}) {
@@ -243,7 +196,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           printedPageDirection(prepared.page),
         )
         if (overflows.length) parsedOptions.overflow?.report?.({ entries: overflows })
-        return finishProtection(await enforce(output, parsedOptions.limits), parsedOptions)
+        return protectPdf(await enforce(output, parsedOptions.limits), parsedOptions)
       })
     },
     async pageImage(input, opts = {}) {
@@ -323,12 +276,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           ),
           parsedOptions.limits,
         )
-        return finishProtection(output, parsedOptions)
+        return protectPdf(output, parsedOptions)
       })
     },
 
     async deckPdf(input, opts = {}) {
-      const options = parseAsOfInputs(parseComposedRenderOptions(opts))
+      const options = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(opts)))
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
@@ -366,7 +319,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           )
         })
         const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
-        return finishProtection(output, options)
+        return protectPdf(output, options)
       })
     },
 

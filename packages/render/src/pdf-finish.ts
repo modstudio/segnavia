@@ -27,7 +27,7 @@ export function enforcePdfBytes(pdf: Uint8Array, limits: Limits | undefined): Ui
 }
 
 export async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>, decodeJpeg?: JpegDecoder): Promise<Uint8Array> {
-  if (options.limits?.bytes !== undefined && pdf.byteLength > options.limits.bytes) throw new RenderLimitError('bytes', pdf.byteLength, options.limits.bytes)
+  enforcePdfBytes(pdf, options.limits)
   let output = pdf
   if (options.effects !== false) {
     const rewritten = await rewriteEffectsPdf(output)

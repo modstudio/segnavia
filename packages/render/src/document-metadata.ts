@@ -1,4 +1,4 @@
-import { type Direction, type DocumentMetadata, markedTitle, resolveDirection } from '@segnavia/format'
+import { type DocumentMetadata, markedTitle, resolveDirection, type TextDirection } from '@segnavia/format'
 import { PDFDict, type PDFDocument, PDFHexString, PDFName, PDFString } from 'pdf-lib'
 import { type OutputDate, pdfDate } from './output-date.ts'
 import { loadPdf } from './pdf-load.ts'
@@ -18,8 +18,8 @@ function writeDescriptiveMetadata(document: PDFDocument, metadata: DocumentMetad
   if (metadata.lang) document.catalog.set(key('Lang'), PDFHexString.fromText(metadata.lang))
 }
 
-function markedMetadata(metadata: DocumentMetadata, dir?: Direction): DocumentMetadata {
-  const direction = resolveDirection(dir, metadata.lang, metadata.title)
+function markedMetadata(metadata: DocumentMetadata, dir?: TextDirection): DocumentMetadata {
+  const direction = dir ?? resolveDirection(undefined, metadata.lang, metadata.title)
   return {
     ...metadata,
     title: markedTitle(metadata.title, direction),
@@ -28,7 +28,7 @@ function markedMetadata(metadata: DocumentMetadata, dir?: Direction): DocumentMe
   }
 }
 
-export function writeDocumentMetadata(document: PDFDocument, metadata?: DocumentMetadata, date?: OutputDate, dir?: Direction): void {
+export function writeDocumentMetadata(document: PDFDocument, metadata?: DocumentMetadata, date?: OutputDate, dir?: TextDirection): void {
   const descriptive = metadata && markedMetadata(metadata, dir)
   const needsInfo = metadata !== undefined || date !== undefined
   if (descriptive) writeDescriptiveMetadata(document, descriptive)
@@ -52,7 +52,7 @@ export function writeDocumentMetadata(document: PDFDocument, metadata?: Document
   }
 }
 
-export async function withDocumentMetadata(pdf: Uint8Array, metadata?: DocumentMetadata, date?: OutputDate, dir?: Direction): Promise<Uint8Array> {
+export async function withDocumentMetadata(pdf: Uint8Array, metadata?: DocumentMetadata, date?: OutputDate, dir?: TextDirection): Promise<Uint8Array> {
   const document = await loadPdf(pdf)
   writeDocumentMetadata(document, metadata, date, dir)
   return document.save()

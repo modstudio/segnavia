@@ -23,7 +23,6 @@ import type { LocalFontsOptions } from './local-fonts.ts'
 import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
 import type { RenderProgressOptions } from './progress.ts'
-import { type Protection, parseProtection } from './protection-options.ts'
 
 export type Font = FontFace
 
@@ -127,7 +126,6 @@ export interface RenderOptions {
     neutralTolerance?: number
     report?: (report: PressReport) => void
   }
-  protection?: Protection
 }
 
 export function parseRenderOptions<T extends RenderOptions>(options: T): Omit<T, 'progress'> & RenderOptions {
@@ -140,7 +138,6 @@ export function parseRenderOptions<T extends RenderOptions>(options: T): Omit<T,
     assetBudget: { bytes: 0 },
     limits: parseLimits(options.limits, 'host'),
     progress: parseRenderProgress(options.progress),
-    protection: parseProtection(options.protection),
     ...(options.pageWidths === undefined ? {} : { pageWidths: PageWidths.parse(options.pageWidths) }),
   }
 }
