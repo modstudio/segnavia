@@ -159,4 +159,3 @@ test('treats qpdf status 3 as success with warnings', async () => {
   const warningProtector = createPdfProtector({ loadQpdf: async () => warningInstance })
   expect(await warningProtector(new Uint8Array([1]), { ownerPassword: 'owner-warning' })).toEqual(new Uint8Array([3]))
 })
-
