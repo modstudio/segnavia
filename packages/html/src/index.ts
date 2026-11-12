@@ -173,7 +173,7 @@ export {
   type UrlPolicy,
 } from './sanitize.ts'
 export { type CssPreflightFinding, cssPreflightFindings } from './sanitize-css.ts'
-export { FITTED_SLOT_MODES, type FittedSlotMode, readSlotOverflowMarker } from './slot-overflow.ts'
+export { FITTED_SLOT_MODES, type FittedSlotMode, fittedSlotModes, readSlotOverflowMarker } from './slot-overflow.ts'
 export {
   assertSingleSlotCopy,
   assertSlotPrintOptions,

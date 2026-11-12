@@ -1,5 +1,5 @@
 import type { FitStrategy } from '@segnavia/format'
-import { embedFunction, FITTED_SLOT_MODES, fitList, parseCssLength, readSlotOverflowMarker } from '@segnavia/html'
+import { embedFunction, fitList, fittedSlotModes, parseCssLength, readSlotOverflowMarker } from '@segnavia/html'
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
 import { FIT_AXES, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue } from './composer-fit-policy.ts'
@@ -238,7 +238,7 @@ export function embeddedComposerFitFunctions(): string {
   return `${embedFunction('fitSearch', fitSearch)}
 ${embedFunction('reduceFitGroups', reduceFitGroups)}
 var FIT_AXES=${JSON.stringify(FIT_AXES)};
-var FITTED_SLOT_MODES=${JSON.stringify(FITTED_SLOT_MODES)};
+${embedFunction('fittedSlotModes', fittedSlotModes)}
 ${embedFunction('readSlotOverflowMarker', readSlotOverflowMarker)}
 ${embedFunction('parseCssLength', parseCssLength)}
 ${embedFunction('fitValue', fitValue)}

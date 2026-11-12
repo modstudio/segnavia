@@ -8,7 +8,7 @@ import {
   slotFitCoverage,
   unmeasuredSlotsRefusalMessage,
 } from '@segnavia/format'
-import { embedFunction, FITTED_SLOT_MODES, readSlotOverflowMarker } from '@segnavia/html'
+import { embedFunction, fittedSlotModes, readSlotOverflowMarker } from '@segnavia/html'
 import { pageBlockRange } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
 import { preflightPageFacts } from './composer-dress.ts'
@@ -60,9 +60,9 @@ ${embedFunction('inlineVariablesWithoutFallback', inlineVariablesWithoutFallback
 ${embedFunction('markFurnitureInvalidVariables', markFurnitureInvalidVariables)}
 ${embedFunction('fontMissingEntries', fontMissingEntries)}
 ${embedFunction('publishPreflightReport', publishPreflightReport)}
-var FITTED_SLOT_MODES=${JSON.stringify(FITTED_SLOT_MODES)};
 ${embedFunction('isMeasuredSlotFit', isMeasuredSlotFit)}
 ${embedFunction('slotFitCoverage', slotFitCoverage)}
+${embedFunction('fittedSlotModes', fittedSlotModes)}
 ${embedFunction('readSlotOverflowMarker', readSlotOverflowMarker)}
 ${embedFunction('slotMarkCoverage', slotMarkCoverage)}
 var publishPreflight=function(plan,flows,regionFacts,slotCoverage){if(!config.preflight)return true;var mergedRegionFacts=[];for(var regionFactIndex=0;regionFactIndex<regionFacts.length;regionFactIndex++)mergeRegionFact(mergedRegionFacts,regionFacts[regionFactIndex]);var pageFacts=preflightPageFacts(plan.pages,planFolios.folios,flows);var report=boundPreflightReport({entries:preflightEntries,facts:{pageCount:plan.pages.length,pages:pageFacts,fits:preflightFits,regions:mergedRegionFacts},coverage:{measured:plan.pages.length,total:plan.pages.length,slots:slotCoverage||{measured:0,total:0}}},config.preflight);publishPreflightReport(report,'${PREFLIGHT_ATTRIBUTE}','${MESSAGE.preflight}',function(message){window.parent.postMessage(message,'*');});var refusal=preflightRefusal(report);if(refusal){fail(refusal);return false;}return true;};

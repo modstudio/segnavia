@@ -21,7 +21,7 @@ import {
   slotFitCoverage,
   unmeasuredSlotsRefusalMessage,
 } from '@segnavia/format'
-import { embedFunction, FITTED_SLOT_MODES, readSlotOverflowMarker } from '@segnavia/html'
+import { embedFunction, fittedSlotModes, readSlotOverflowMarker } from '@segnavia/html'
 
 export const PREFLIGHT_ATTRIBUTE = 'data-segnavia-preflight'
 
@@ -57,13 +57,13 @@ var boundPreflightReport=function(input,profile){return boundPreflightReportImpl
 
 export function embeddedSurfacePreflight(profile: import('@segnavia/format').PreflightProfile, attribute: string, message: string): string {
   return `${embeddedPreflightBounds()}
-var FITTED_SLOT_MODES=${JSON.stringify(FITTED_SLOT_MODES)};
 ${embedFunction('unmeasuredSlotsRefusalMessage', unmeasuredSlotsRefusalMessage)}
 ${embedFunction('appendSlotOversetEntries', appendSlotOversetEntries)}
 ${embedFunction('fontMissingEntries', fontMissingEntries)}
 ${embedFunction('publishPreflightReport', publishPreflightReport)}
 ${embedFunction('isMeasuredSlotFit', isMeasuredSlotFit)}
 ${embedFunction('slotFitCoverage', slotFitCoverage)}
+${embedFunction('fittedSlotModes', fittedSlotModes)}
 ${embedFunction('readSlotOverflowMarker', readSlotOverflowMarker)}
 ${embedFunction('slotMarkCoverage', slotMarkCoverage)}
 var surfacePreflightProfile=${JSON.stringify(profile)};

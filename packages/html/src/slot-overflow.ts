@@ -10,7 +10,11 @@ interface SlotOverflowContext {
 
 const FIT_ATTRIBUTES = ['data-fit', 'data-fit-min', 'data-fit-max', 'data-fit-step', 'data-fit-axis', 'data-fit-box', 'data-fit-group'] as const
 
-export const FITTED_SLOT_MODES = ['shrink', 'truncate', 'refuse'] as const
+export function fittedSlotModes(): readonly ['shrink', 'truncate', 'refuse'] {
+  return ['shrink', 'truncate', 'refuse']
+}
+
+export const FITTED_SLOT_MODES = fittedSlotModes()
 export type FittedSlotMode = (typeof FITTED_SLOT_MODES)[number]
 
 export function readSlotOverflowMarker(value: string | null): { key: string; mode: FittedSlotMode; minSize: number | undefined } | undefined {
@@ -23,7 +27,7 @@ export function readSlotOverflowMarker(value: string | null): { key: string; mod
     return undefined
   }
   const mode = parts[1]
-  if (!key || !FITTED_SLOT_MODES.includes(mode as FittedSlotMode)) return undefined
+  if (!key || !fittedSlotModes().includes(mode as FittedSlotMode)) return undefined
   const parsedMinSize = parts[2] === undefined ? undefined : Number.parseFloat(parts[2])
   return { key, mode: mode as FittedSlotMode, minSize: parsedMinSize !== undefined && Number.isFinite(parsedMinSize) ? parsedMinSize : undefined }
 }
