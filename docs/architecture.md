@@ -2039,8 +2039,17 @@ strategy list defaults to `size`. The optional
 `data-fit-axis` chooses `block`, `inline` or `both`, `data-fit-box` chooses the
 element or its parent, and `data-fit-group` shares the smallest fitted values
 across every named member. The fitted inline styles remain on the galley source,
-so every dressed page and printed copy inherits the same values. A search that
-exhausts its bounds contributes `fit-limit` to preflight instead of clipping.
+so every dressed page and printed copy inherits the same values. A page copy
+whose box is narrower than its galley source keeps those values and reports
+its overflow; it never shrinks alone. A search that exhausts its bounds
+contributes `fit-limit` to preflight instead of clipping.
+
+Bounds are absolute CSS lengths, except that leading may be a unitless ratio
+of at least 1.0; unitless tracking is refused at the edge. Applied leading
+never falls below the fitted size. A slot whose overflow is `shrink` is
+lowered to this stage with its `minSize` as the size bound, so a shrunk slot
+has one size on every page copy; author fit attributes on a shrink slot's own
+element are refused, since the slot already declares its fit.
 
 The environment is always an input. `paperViewport` supplies the print
 viewport, timing bounds are options and loaded fonts are measured facts.
