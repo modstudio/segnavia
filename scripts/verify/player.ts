@@ -42,6 +42,10 @@ export async function verifyPlayer(h: Harness) {
     .locator('body')
     .evaluate((b) => getComputedStyle(b).backgroundColor)
   check("the slide's own script did not run", background !== 'rgb(255, 0, 0)', background)
+  const watermarkElements =
+    (await page.locator(`${PLAYER} .segnavia-watermark-page`).count()) +
+    (await page.frameLocator(`${PLAYER} iframe`).locator('.segnavia-watermark-page').count())
+  check('a deck played on screen has no image watermark element', watermarkElements === 0, String(watermarkElements))
 
   await h.clickFrame(`${PLAYER} iframe`)
   await page.keyboard.press('ArrowRight')
