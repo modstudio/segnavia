@@ -35,6 +35,29 @@ function applyFitValue(element: HTMLElement, strategy: FitStrategy, value: numbe
   else element.style.letterSpacing = `${value}px`
 }
 
+function fitExcess(element: HTMLElement, box: HTMLElement) {
+  const bounds = box.getBoundingClientRect()
+  let top = bounds.top
+  let right = bounds.right
+  let bottom = bounds.bottom
+  let left = bounds.left
+  const include = (rect: DOMRect) => {
+    if (rect.width === 0 && rect.height === 0) return
+    top = Math.min(top, rect.top)
+    right = Math.max(right, rect.right)
+    bottom = Math.max(bottom, rect.bottom)
+    left = Math.min(left, rect.left)
+  }
+  const range = document.createRange()
+  range.selectNodeContents(element)
+  if (!range.collapsed) include(range.getBoundingClientRect())
+  for (const child of Array.from(element.querySelectorAll<HTMLElement>('*'))) include(child.getBoundingClientRect())
+  const vertical = getComputedStyle(box).writingMode.startsWith('vertical')
+  const height = Math.max(bottom - bounds.bottom, bounds.top - top, element === box ? box.scrollHeight - bounds.height : 0)
+  const width = Math.max(right - bounds.right, bounds.left - left, element === box ? box.scrollWidth - bounds.width : 0)
+  return vertical ? { block: width, inline: height } : { block: height, inline: width }
+}
+
 function templatePageFits(
   documentRoot: Document,
   template: HTMLElement,
@@ -53,7 +76,7 @@ function templatePageFits(
     if (target) target.innerHTML = fragment.innerHTML
   }
   documentRoot.body.append(clone)
-  return Array.from(clone.querySelectorAll<HTMLElement>('[data-fit],[data-fit-min]')).flatMap((fitted) => {
+  const entries = Array.from(clone.querySelectorAll<HTMLElement>('[data-fit],[data-fit-min]')).flatMap((fitted) => {
     const region = fitted.getAttribute('data-region') ?? ''
     const source = Array.from(template.querySelectorAll<HTMLElement>('[data-fit],[data-fit-min]')).find(
       (candidate) => candidate.getAttribute('data-region') === region,
@@ -64,6 +87,8 @@ function templatePageFits(
     if (!fitted.hasAttribute('data-fit-group')) fitted.setAttribute('data-fit-group', `segnavia-template-${name}-${region}`)
     return [{ clone, fitted, source }]
   })
+  if (entries.length === 0) clone.remove()
+  return entries
 }
 
 function templateFits(root: ParentNode, area: { width: number; height: number }): TemporaryFit[] {
@@ -105,9 +130,7 @@ function fitElement(element: HTMLElement, absolutePx: Readonly<Record<string, nu
   const axis = element.getAttribute('data-fit-axis') ?? 'block'
   const result = search(bounds, (values) => {
     for (const strategy of strategies) applyFitValue(element, strategy, values[strategy] ?? authored[strategy], units[strategy])
-    const rect = box.getBoundingClientRect()
-    const block = Math.max(0, box.scrollHeight - rect.height)
-    const inline = Math.max(0, box.scrollWidth - rect.width)
+    const { block, inline } = fitExcess(element, box)
     const excess = axis === 'block' ? block : axis === 'inline' ? inline : Math.max(block, inline)
     return { fits: excess <= 0.5, excess }
   })
@@ -173,6 +196,7 @@ ${embedFunction('reduceFitGroups', reduceFitGroups)}
 ${embedFunction('fitList', fitList)}
 ${embedFunction('fitValue', fitValue)}
 ${embedFunction('applyFitValue', applyFitValue)}
+${embedFunction('fitExcess', fitExcess)}
 ${embedFunction('templatePageFits', templatePageFits)}
 ${embedFunction('templateFits', templateFits)}
 ${embedFunction('fitElement', fitElement)}
