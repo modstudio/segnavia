@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { bridgeForHost, frameDocument, MESSAGE } from './bridge.ts'
 
-function startSlotFitBridge(elements: unknown[], frames?: Array<() => void>, rootRects: () => unknown[] = () => [{}]) {
+function startSlotFitBridge(
+  elements: unknown[],
+  frames?: Array<() => void>,
+  rootRects: () => unknown[] = () => [{}],
+  options: Parameters<typeof bridgeForHost>[0] = { reportHeight: false },
+) {
   const messages: unknown[] = []
   let ready = () => {}
   const settled = new Promise<void>((resolve) => {
@@ -23,7 +28,7 @@ function startSlotFitBridge(elements: unknown[], frames?: Array<() => void>, roo
       if (message.type === MESSAGE.ready) ready()
     },
   }
-  const window = {
+  const window: Record<string, unknown> = {
     addEventListener: () => {},
     getComputedStyle: (element: { style: { fontSize?: string } }) => ({ fontSize: element.style.fontSize ?? '16px' }),
     requestAnimationFrame: frames ? (callback: () => void) => frames.push(callback) : undefined,
@@ -35,7 +40,7 @@ function startSlotFitBridge(elements: unknown[], frames?: Array<() => void>, roo
     'MutationObserver',
     'setTimeout',
     'clearTimeout',
-    bridgeForHost({ reportHeight: false }),
+    bridgeForHost(options),
   )(
     document,
     parent,
@@ -44,7 +49,7 @@ function startSlotFitBridge(elements: unknown[], frames?: Array<() => void>, roo
     () => 1,
     () => {},
   )
-  return { messages, settled }
+  return { messages, settled, window }
 }
 
 function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Promise<unknown[]> {
@@ -165,5 +170,28 @@ describe('slot fit bridge', () => {
     for (let turn = 0; turn < 100 && !run.messages.some((message) => (message as { type?: string }).type === MESSAGE.ready); turn++) frames.shift()?.()
     await run.settled
     expect(run.messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'fit' } })
+  })
+
+  test('a later measurement replaces an unmeasured state', async () => {
+    let laid = false
+    const frames: Array<() => void> = []
+    const element = {
+      clientWidth: 10,
+      clientHeight: 10,
+      scrollWidth: 20,
+      scrollHeight: 10,
+      getClientRects: () => (laid ? [{}] : []),
+      getAttribute: () => 'name:refuse',
+      style: {},
+    }
+    const run = startSlotFitBridge([element], frames, () => [{}], { reportHeight: false, bridgeForHost: true })
+    for (let turn = 0; turn < 4 && frames.length < 2; turn++) await Promise.resolve()
+    for (let turn = 0; turn < 100 && !run.messages.some((message) => (message as { type?: string }).type === MESSAGE.ready); turn++) frames.shift()?.()
+    await run.settled
+    expect(run.messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'unmeasured' } })
+    laid = true
+    const slotFit = run.window.segnaviaSlotFit as (done: (slots: Record<string, string>) => void) => void
+    const remeasured = await new Promise<Record<string, string>>((resolve) => slotFit(resolve))
+    expect(remeasured).toEqual({ name: 'overflowed' })
   })
 })
