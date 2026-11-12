@@ -1,11 +1,5 @@
 import { expect, test } from 'bun:test'
-import {
-  boundPreflightReport,
-  PREFLIGHT_ISSUES_PER_CHECK,
-  PREFLIGHT_MESSAGE_LIMIT,
-  PREFLIGHT_PRESETS,
-  PREFLIGHT_SUBJECT_LIMIT,
-} from '@segnavia/format'
+import { boundPreflightReport, PREFLIGHT_ISSUES_PER_CHECK, PREFLIGHT_MESSAGE_LIMIT, PREFLIGHT_PRESETS, PREFLIGHT_SUBJECT_LIMIT } from '@segnavia/format'
 import { LAYOUT_PHASE_TIMEOUT_MS } from './layout.ts'
 import { installLayoutRuntime, layoutRuntimeScript, withLayoutScripts } from './layout-runtime.ts'
 
@@ -24,7 +18,7 @@ test('layout runtime injection is byte-neutral without providers and nonce-autho
 })
 
 test('serialized provider registrations escape less-than characters', () => {
-  const runtime = layoutRuntimeScript([{ ...scripts[0]!, selects: '[title="<"]' }])
+  const runtime = layoutRuntimeScript([{ name: 'margin', script: '', priority: 1, order: 0, selects: '[title="<"]' }])
   expect(runtime).toContain('title=\\"\\u003c\\"')
   expect(runtime).not.toContain('title=\\"<\\"')
 })
@@ -152,7 +146,13 @@ test('ink searches every selected element and refuses a missing string', async (
     createRange: () => range,
     createTreeWalker: (element: Element) => {
       let read = false
-      return { nextNode: () => (read ? null : ((read = true), element === second ? text : null)) }
+      return {
+        nextNode() {
+          if (read) return null
+          read = true
+          return element === second ? text : null
+        },
+      }
     },
   } as unknown as Document
   const previous = { DOMRect: Reflect.get(globalThis, 'DOMRect'), NodeFilter: Reflect.get(globalThis, 'NodeFilter') }
@@ -182,7 +182,11 @@ test('ink searches every selected element and refuses a missing string', async (
     )
     runtime._loading = 'search'
     let found: DOMRect | undefined
-    runtime.define({ galley: (context) => void (found = context.ink('wanted')) })
+    runtime.define({
+      galley(context) {
+        found = context.ink('wanted')
+      },
+    })
     runtime._loading = undefined
     await runtime.run('galley')
     expect(found?.width).toBe(3)

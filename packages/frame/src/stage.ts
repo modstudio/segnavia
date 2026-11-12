@@ -71,7 +71,6 @@ export class SegnaviaStage extends AsOfElement {
     super()
     upgradeProperties(this)
   }
-
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }

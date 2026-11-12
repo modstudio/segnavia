@@ -38,4 +38,3 @@ export async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): P
   }
   await waitForDiagramReadiness(tab, readiness)
 }
-
