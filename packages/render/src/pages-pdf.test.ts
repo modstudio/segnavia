@@ -33,7 +33,7 @@ test('pagesPdf refuses an empty collection with the action that clears it', asyn
     {},
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => new Uint8Array(),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -56,7 +56,7 @@ test('pagesPdf renders the page objects with a document view of the prepared slo
         expect(slots.marked.size).toBe(0)
         throw new Error('stop after the first page')
       },
-      piecePdf: async () => new Uint8Array(),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -85,7 +85,7 @@ test('pagesPdf gives each page only its own slot measurement marks', async () =>
         outcomes[inputIndex] = await mergeCapturedSlotFit(tab, pageSlots, 100).catch((error) => error)
         return { bytes: await cssPiece(100) }
       },
-      piecePdf: async () => new Uint8Array(),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -128,7 +128,7 @@ test('pagesPdf keeps every input aligned with the slot frames its HTML produced'
         seen[inputIndex] = { frames: documentSlots.frames.length, marked: [...documentSlots.marked.keys()] }
         return { bytes: await cssPiece(100) }
       },
-      piecePdf: async () => new Uint8Array(),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -154,7 +154,7 @@ test('pagesPdf applies sheets to the joined output instead of each inner page', 
         innerLimits.push(options.limits)
         return { bytes: await enforce(await cssPiece(100), options.limits) }
       },
-      piecePdf: async () => new Uint8Array(),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
       fontFaces: () => '',
       finish: (pdf, options) => enforce(pdf, options.limits),
     },
@@ -183,7 +183,7 @@ test('pagesPdf carries a named width override into the imposed piece', async () 
       pagePdf: async () => ({ bytes: new Uint8Array() }),
       piecePdf: async (_page, _slots, geometry) => {
         widths.push(geometry.viewport.width)
-        return cssPiece(geometry.viewport.width, geometry.viewport.height)
+        return { bytes: await cssPiece(geometry.viewport.width, geometry.viewport.height) }
       },
       fontFaces: () => '',
       finish: async (pdf) => pdf,
@@ -200,7 +200,7 @@ test('pagesPdf refuses an invalid named width at the render options boundary', a
     { pageWidths: { standard: 0 } },
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => new Uint8Array(),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -227,7 +227,7 @@ test('pagesPdf reports marks omitted from a narrow imposition margin without ref
     },
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => cssPiece(100),
+      piecePdf: async () => ({ bytes: await cssPiece(100) }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -261,7 +261,7 @@ test('an imposed pagesPdf with registration marks strokes Separation All', async
     },
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => cssPiece(80),
+      piecePdf: async () => ({ bytes: await cssPiece(80) }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -289,7 +289,7 @@ test('an imposed fluid letter piece whose printed page was snapped is drawn at s
     },
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => snapped.save(),
+      piecePdf: async () => ({ bytes: await snapped.save() }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -311,7 +311,7 @@ test('pagesPdf refuses a non-identity imposition for printed pages with its reme
     { imposition: { paper: 'letter', columns: 2, rows: 1, cell: { width: 100, height: 279.4 } } },
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => new Uint8Array(),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
@@ -343,7 +343,7 @@ test('identity-imposed printed pages use full page rendering while plain neighbo
       },
       piecePdf: async () => {
         calls.push('piece')
-        return onePage()
+        return { bytes: await onePage() }
       },
       fontFaces: () => '',
       finish: async (pdf) => pdf,

@@ -2,10 +2,11 @@ import type { FontFailure } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
+import type { Page as Tab } from 'playwright-core'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { assetSetup, type ComposedRenderOptions, type RenderOptions } from './options.ts'
-import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
+import { measureOverflow, type PageFontFacts, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolvedPageDocument } from './page-document.ts'
 import { assertPrintOptions, printPage } from './page-paper.ts'
@@ -19,6 +20,27 @@ interface PageRenderServices {
   withTab: TabRunner
 }
 
+export async function pageFontFacts(tab: Tab, printedPages = false): Promise<PageFontFacts> {
+  return tab.evaluate((fromPrintedPage) => {
+    const rules: string[] = []
+    const collect = (list: CSSRuleList) => {
+      for (const rule of list) {
+        if (rule.type === CSSRule.FONT_FACE_RULE) rules.push(rule.cssText)
+        else if ('cssRules' in rule) collect((rule as CSSGroupingRule).cssRules)
+      }
+    }
+    for (const sheet of document.styleSheets) {
+      try {
+        collect(sheet.cssRules)
+      } catch {}
+    }
+    const textRoot = fromPrintedPage
+      ? (document.querySelector('[data-segnavia-printed-page] [data-segnavia-text]') ?? document.querySelector('[data-segnavia-printed-page]'))
+      : document.body
+    return { fontFamily: getComputedStyle(textRoot ?? document.body).fontFamily, fontFaceCss: rules.join('') }
+  }, printedPages)
+}
+
 export async function renderPagePdf(
   page: HtmlPage | PrintedHtmlPage,
   slots: PreparedSlots,
@@ -30,6 +52,7 @@ export async function renderPagePdf(
   fontCss = '',
   fontFailures: FontFailure[] = [],
   layoutScripts?: readonly LoadedLayoutScript[],
+  captureFontFacts = false,
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
   const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
@@ -50,9 +73,10 @@ export async function renderPagePdf(
     async (tab) => {
       await awaitPrintedPageComposition(tab, page, opts.preflight)
       const captures = await prepareBackdropRasters(tab, opts.effects)
+      const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page))
-        return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
+        return { ...printed, ...font, bytes: await tagBackdropRasters(printed.bytes, captures) }
       }
       const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
       const height = fixedHeight ?? (await contentHeight(tab))
@@ -60,6 +84,7 @@ export async function renderPagePdf(
         const overflow = await measureOverflow(tab, viewport.width, 'page', inputIndex)
         return {
           bytes: await tagBackdropRasters(await tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true }), captures),
+          ...font,
           overflow,
         }
       }
@@ -70,12 +95,12 @@ export async function renderPagePdf(
         { width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: '1' },
         inputIndex,
       )
-      return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
+      return { ...printed, ...font, bytes: await tagBackdropRasters(printed.bytes, captures) }
     },
   )
 }
 
-export function renderPiecePdf(
+export async function renderPiecePdf(
   page: HtmlPage,
   slots: PreparedSlots,
   geometry: PieceGeometry,
@@ -85,7 +110,8 @@ export function renderPiecePdf(
   deadline?: RenderDeadline,
   diagramScript?: string,
   layoutScripts?: readonly LoadedLayoutScript[],
-): Promise<Uint8Array> {
+  captureFontFacts = false,
+): Promise<PrintResult> {
   const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, diagramScript, layoutScripts })
   return services.withTab(
     {
@@ -99,8 +125,8 @@ export function renderPiecePdf(
       beforeOutput: opts.beforeOutput,
       ...assetSetup(opts),
     },
-    (tab) =>
-      pdfWithBackdropRasters(
+    async (tab) => ({
+      bytes: await pdfWithBackdropRasters(
         tab,
         {
           width: geometry.pdf.width,
@@ -112,5 +138,7 @@ export function renderPiecePdf(
         },
         opts.effects,
       ),
+      ...(captureFontFacts ? await pageFontFacts(tab) : {}),
+    }),
   )
 }

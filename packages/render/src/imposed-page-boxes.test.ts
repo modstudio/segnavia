@@ -124,7 +124,7 @@ test('imposed pages keep equal no-bleed grid boxes through final output', async 
     { imposition: input },
     {
       pagePdf: async () => ({ bytes: new Uint8Array() }),
-      piecePdf: async () => cssPiece(80),
+      piecePdf: async () => ({ bytes: await cssPiece(80) }),
       fontFaces: () => '',
       finish: finishPdf,
     },
@@ -152,7 +152,7 @@ test('an identity-imposed printed page declares its sheet as trim and bleed', as
     { imposition: input },
     {
       pagePdf: async () => ({ bytes: await onePage(pt(215.9), pt(279.4)) }),
-      piecePdf: async () => new Uint8Array(),
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
       fontFaces: () => '',
       finish: finishPdf,
     },
