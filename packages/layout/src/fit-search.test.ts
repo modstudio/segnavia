@@ -24,13 +24,11 @@ test('reports the last exhausted bound and reduces every group strategy to its m
     values: { size: 12 },
     stopped: { strategy: 'size', bound: 12, excess: 4 },
   })
-  expect(
-    reduceFitGroups([
-      { group: 'cards', values: { size: 18, leading: 1.2 } },
-      { group: 'cards', values: { size: 16, leading: 1.4 } },
-    ]),
-  ).toEqual([
-    { group: 'cards', values: { size: 16, leading: 1.2 } },
-    { group: 'cards', values: { size: 16, leading: 1.2 } },
-  ])
+  const flashcards = Array.from({ length: 16 }, (_, index) => ({
+    group: 'flashcards',
+    values: { size: 28 - index, leading: 1.2 + index / 100 },
+  }))
+  const reduced = reduceFitGroups(flashcards)
+  expect(reduced).toHaveLength(16)
+  expect(reduced.every((card) => card.values.size === 13 && card.values.leading === 1.2)).toBe(true)
 })
