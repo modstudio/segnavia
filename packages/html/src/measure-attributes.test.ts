@@ -45,3 +45,17 @@ test('parent-page regions refuse measured properties that cannot be copied from 
     }),
   ).toThrow('data-measure cannot take effect in a parent-page region')
 })
+
+test('line numbers require a block, their document setting, and stay out of parent-page regions', () => {
+  expect(() => identifyHtmlBlocks('<p data-line-numbers>Text</p>', 'chapter', () => 'line', new Map())).toThrow('settings.lineNumbers setting')
+  expect(() => identifyHtmlBlocks('<p><em data-line-numbers>Text</em></p>', 'chapter', () => 'line', new Map(), { lineNumbers: true })).toThrow(
+    'must mark a block element',
+  )
+  expect(() =>
+    identifyHtmlBlocks('<p data-line-numbers>Text</p>', 'parent page', () => 'line', new Map(), {
+      refuseMeasure: true,
+      lineNumbers: true,
+    }),
+  ).toThrow('cannot take effect in a parent-page region')
+  expect(identifyHtmlBlocks('<p data-line-numbers>Text</p>', 'chapter', () => 'line', new Map(), { lineNumbers: true }).html).toContain('data-line-numbers')
+})

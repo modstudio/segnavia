@@ -185,6 +185,7 @@ export { jsonSchemas } from './json-schemas.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export { withLibraryEntries } from './library-names.ts'
 export * from './limit-exports.ts'
+export * from './line-numbers.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export { MEASURE_KIND_MODEL, MEASURE_KINDS, MeasuredProperty, MeasureKind } from './measured-property.ts'
 export * from './measurements.ts'
@@ -282,7 +283,6 @@ export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from '.
 export { PlacementRefusedError } from './placement-refusal.ts'
 export { PaginatePageNote, PaginateWindow, PLAN_VERSION, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
 export * from './preflight.ts'
-export * from './line-numbers.ts'
 export {
   MarkColor,
   PRESS_GEOMETRY_FIELDS,

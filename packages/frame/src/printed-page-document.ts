@@ -33,9 +33,15 @@ import {
   printedSectionFlows,
   resolvePrintedPageHtml,
 } from '@segnavia/html'
-import { LINE_NUMBER_CSS } from './composer-margin.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
+import { LINE_NUMBER_CSS } from './composer-margin.ts'
+
+function printedLineNumbers(page: PrintedHtmlPage, system: import('@segnavia/format').NumberSystem) {
+  const settings = page.printedPages.lineNumbers
+  return settings === undefined ? {} : { lineNumbers: { ...settings, system: settings.system ?? system } }
+}
+
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
@@ -149,9 +155,7 @@ export function printedPageValueDocument(
     measure: options.measure ?? false,
     inlineOverflow: 'tile',
     numbering: divisionNumbering(undefined, { frontMatter: numbering, body: numbering }),
-    ...(page.printedPages.lineNumbers === undefined
-      ? {}
-      : { lineNumbers: { ...page.printedPages.lineNumbers, system: page.printedPages.lineNumbers.system ?? numbering } }),
+    ...printedLineNumbers(page, numbering),
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),

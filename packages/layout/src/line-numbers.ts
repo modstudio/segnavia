@@ -17,11 +17,25 @@ export interface NumberedPage {
 
 export type NumberLinesSettings = LineNumbers & { system: NumberSystem }
 
-export function resolveLineNumberSide(
-  side: LineNumbers['side'],
-  page: Pick<Plan['pages'][number], 'side'>,
-  direction: 'ltr' | 'rtl',
-): 'left' | 'right' {
+type NumberWindow = Plan['pages'][number]['windows'][number]
+
+function windowLines(measurements: Measurements, window: NumberWindow): Array<{ line: { top: number; bottom: number }; direction: 'ltr' | 'rtl' }> {
+  const flow = measurements.flows.find((candidate) => candidate.id === window.flow)
+  if (!flow || !('blocks' in flow)) return []
+  return flow.blocks.flatMap((block) =>
+    !block.numbered || block.kind !== 'text'
+      ? []
+      : block.lines
+          .filter((line) => line.top >= window.start && line.top < window.end)
+          .map((line) => ({ line, direction: block.direction ?? measurements.settings.direction })),
+  )
+}
+
+export function numberLinesScript(): string {
+  return `${windowLines.toString()}\n${resolveLineNumberSide.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
+}
+
+export function resolveLineNumberSide(side: LineNumbers['side'], page: Pick<Plan['pages'][number], 'side'>, direction: 'ltr' | 'rtl'): 'left' | 'right' {
   if (side === 'outer') return page.side
   if (side === 'inner') return page.side === 'left' ? 'right' : 'left'
   if (side === 'start') return direction === 'ltr' ? 'left' : 'right'
@@ -39,26 +53,19 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Nu
     const windows = page.windows
     for (const window of windows) {
       if (settings.restart === 'section' && window.flow !== previousFlow) counter = settings.start
-      const flow = measurements.flows.find((candidate) => candidate.id === window.flow)
-      if (!flow || !('blocks' in flow)) continue
-      for (const block of flow.blocks) {
-        if (!block.numbered || block.kind !== 'text') continue
-        const side = resolveLineNumberSide(settings.side, page, block.direction ?? measurements.settings.direction)
-        for (const line of block.lines) {
-          if (line.top < window.start || line.top >= window.end) continue
-          const value = counter
-          counter += 1
-          if (value % settings.interval !== 0) continue
-          result[pageIndex]?.lines.push({
-            value,
-            label: formatNumber(value, settings.system),
-            top: window.top + line.top - window.start,
-            height: line.bottom - line.top,
-            column: window.column,
-            columns: window.columns,
-            side,
-          })
-        }
+      for (const { line, direction } of windowLines(measurements, window)) {
+        const value = counter
+        counter += 1
+        if (value % settings.interval !== 0) continue
+        result[pageIndex]?.lines.push({
+          value,
+          label: formatNumber(value, settings.system),
+          top: window.top + line.top - window.start,
+          height: line.bottom - line.top,
+          column: window.column,
+          columns: window.columns,
+          side: resolveLineNumberSide(settings.side, page, direction),
+        })
       }
       previousFlow = window.flow
     }

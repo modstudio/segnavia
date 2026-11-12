@@ -26,6 +26,14 @@ function blockElements(children: readonly import('domhandler').ChildNode[]): Ele
   return result
 }
 
+function hasLineNumbers(children: readonly import('domhandler').ChildNode[]): boolean {
+  for (const node of children) {
+    if (!isTag(node)) continue
+    if (node.attribs['data-line-numbers'] !== undefined || hasLineNumbers(node.children)) return true
+  }
+  return false
+}
+
 export function identifyBlockElements(elements: readonly Element[], node: string, newId: () => string, seen: Map<string, BlockIdLocation>): string[] {
   const added: string[] = []
   for (const element of elements) {
@@ -61,7 +69,7 @@ export function identifyHtmlBlocks(
   })
   if (!options.lineNumbers) {
     const numbered = sourceAttributeIssues(tree.children, node, [LINE_NUMBER_ATTRIBUTE_FAMILY])
-    if (numbered.length === 0 && html.includes('data-line-numbers')) {
+    if (numbered.length === 0 && hasLineNumbers(tree.children)) {
       issues.push(`${node} data-line-numbers needs the document settings.lineNumbers setting; add that setting to clear this refusal`)
     }
   }

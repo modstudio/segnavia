@@ -15,16 +15,44 @@ function fixtures() {
     },
   ]
   const measurements = {
-    fits: [], properties: [], variables: [], notes: [], parents: {}, geometry: { notesGap: 0 },
+    fits: [],
+    properties: [],
+    variables: [],
+    notes: [],
+    parents: {},
+    geometry: { notesGap: 0 },
     settings: { rectoOpenings: false, direction: 'ltr' as const, endnotePlacement: 'book' as const },
     flows: [{ id: 'one', kind: 'chapter' as const, blocks }],
   } as Measurements
   const page = (start: number, end: number, top: number, sectionOpening: boolean) => ({
-    kind: 'body' as const, number: 1, sequence: 'body' as const, flow: 'one', role: 'body' as const,
-    windows: [{ flow: 'one', start, end, top, column: 0, columns: 1 }], notes: [], blank: false, sectionOpening,
-    variables: {}, parent: 'body', face: 'recto' as const, side: 'right' as const, fingerprint: '',
+    kind: 'body' as const,
+    number: 1,
+    sequence: 'body' as const,
+    flow: 'one',
+    role: 'body' as const,
+    windows: [{ flow: 'one', start, end, top, column: 0, columns: 1 }],
+    notes: [],
+    blank: false,
+    sectionOpening,
+    variables: {},
+    parent: 'body',
+    face: 'recto' as const,
+    side: 'right' as const,
+    fingerprint: '',
   })
-  const plan = { version: 7, fingerprint: '', breaks: [], pages: [page(0, 80, 0, true), page(80, 170, 0, false)], folios: ['1', '2'], folioPrints: [true, true], total: '2', documentFolios: ['1', '2'], documentTotal: '2', recordTotals: {}, records: {} } as Plan
+  const plan = {
+    version: 7,
+    fingerprint: '',
+    breaks: [],
+    pages: [page(0, 80, 0, true), page(80, 170, 0, false)],
+    folios: ['1', '2'],
+    folioPrints: [true, true],
+    total: '2',
+    documentFolios: ['1', '2'],
+    documentTotal: '2',
+    recordTotals: {},
+    records: {},
+  } as Plan
   return { measurements, plan }
 }
 
@@ -33,13 +61,21 @@ describe('numberLines', () => {
     const { measurements, plan } = fixtures()
     expect(numberLines(measurements, plan, { interval: 5, start: 1, restart: 'section', area: 'text', side: 'outer', system: 'hebrew' })).toEqual([
       { page: 0, lines: [{ value: 5, label: 'ה', top: 50, height: 10, column: 0, columns: 1, side: 'right' }] },
-      { page: 1, lines: [{ value: 10, label: 'י', top: 20, height: 10, column: 0, columns: 1, side: 'right' }, { value: 15, label: 'טו', top: 70, height: 10, column: 0, columns: 1, side: 'right' }] },
+      {
+        page: 1,
+        lines: [
+          { value: 10, label: 'י', top: 20, height: 10, column: 0, columns: 1, side: 'right' },
+          { value: 15, label: 'טו', top: 70, height: 10, column: 0, columns: 1, side: 'right' },
+        ],
+      },
     ])
   })
 
   test('restarts page counters while never continues across flows', () => {
     const { measurements, plan } = fixtures()
-    expect(numberLines(measurements, plan, { interval: 1, start: 3, restart: 'page', area: 'text', side: 'start', system: 'arabic' })[1]?.lines[0]?.value).toBe(3)
+    expect(numberLines(measurements, plan, { interval: 1, start: 3, restart: 'page', area: 'text', side: 'start', system: 'arabic' })[1]?.lines[0]?.value).toBe(
+      3,
+    )
   })
 })
 

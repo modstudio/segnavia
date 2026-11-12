@@ -39,9 +39,9 @@ import {
 } from './composer-dress.ts'
 import { embeddedComposerFillFunctions } from './composer-fill.ts'
 import { embeddedComposerFitFunctions } from './composer-fit.ts'
+import { embeddedComposerMarginFunctions } from './composer-margin-embed.ts'
 import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
-import { embeddedComposerMarginFunctions } from './composer-margin.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
 import { embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { embeddedComposerPropertyFunctions } from './composer-properties-embed.ts'
@@ -380,7 +380,7 @@ if(settlement==='failed')return;
 if(settlement==='overlap'){fail('settled page note lines move the note stack into the planned body; shorten the page notes or body so their settled line boxes do not overlap');return;}
 if(config.savedPlans&&!config.plan)saved=savePlan(input,plan,config.numbering);
 if(saved)publishPlan(saved);
-return Promise.all([document.fonts?document.fonts.ready:Promise.resolve(),readyImages(composed)]).then(async function(){var finalSettlement=settleHeldNoteViews();if(finalSettlement==='failed')return;if(finalSettlement==='overlap'){fail('settled page note lines move the note stack into the planned body; shorten the page notes or body so their settled line boxes do not overlap');return;}if(window.segnaviaLayout){await window.segnaviaLayout.run('composed');preflightEntries=preflightEntries.concat(window.segnaviaLayout.reports());if(config.preflight)markComposedOverflow(composed,config.pageMarker,regionExcess,preflightEntries);}if(config.lineNumbers)drawLineNumbers(numberLines(input,prepared,config.lineNumbers),Object.assign({},config,{area:config.lineNumbers.area}),preflightEntries);presentScreen(composed,prepared.pages.length);completePreflight(prepared,input.flows,function(){document.documentElement.setAttribute('${COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');});});
+return Promise.all([document.fonts?document.fonts.ready:Promise.resolve(),readyImages(composed)]).then(async function(){var finalSettlement=settleHeldNoteViews();if(finalSettlement==='failed')return;if(finalSettlement==='overlap'){fail('settled page note lines move the note stack into the planned body; shorten the page notes or body so their settled line boxes do not overlap');return;}if(window.segnaviaLayout){await window.segnaviaLayout.run('composed');preflightEntries=preflightEntries.concat(window.segnaviaLayout.reports());if(config.preflight)markComposedOverflow(composed,config.pageMarker,regionExcess,preflightEntries);}if(config.lineNumbers)drawLineNumbers(numberLines(input,prepared,config.lineNumbers),Object.assign({},config,{area:config.lineNumbers.area}),preflightEntries,document);presentScreen(composed,prepared.pages.length);completePreflight(prepared,input.flows,function(){document.documentElement.setAttribute('${COMPOSED_MS_ATTRIBUTE}',String(Math.round(performance.now()-composeStarted)));document.documentElement.setAttribute('${COMPOSED_ATTRIBUTE}','');});});
 }catch(error){fail(error instanceof Error?error.message:String(error));}
 };
 return composeWhenMeasurable();

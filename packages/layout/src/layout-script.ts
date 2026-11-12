@@ -14,6 +14,7 @@ import { bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 import { bookPlanFolios } from './book-plan-folios.ts'
 import { convergeLayout } from './converge-layout.ts'
 import { headTemplateScript } from './head-template.ts'
+import { numberLinesScript } from './line-numbers.ts'
 import { measurementsWithBreaks } from './measurement-breaks.ts'
 import { paginateScript } from './paginate-book.ts'
 import { numberVariableValue, pagesWithNumberVariables, planBookScript } from './plan-book.ts'
@@ -22,6 +23,7 @@ import { planPrintedPages } from './printed-pages.ts'
 
 export function layoutScript(): string {
   return `${paginateScript()}
+${numberLinesScript()}
 ${headTemplateScript()}
 ${fingerprintScript()}
 ${savedPlanScript()}
