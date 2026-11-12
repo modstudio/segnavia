@@ -3,6 +3,7 @@ import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
 import { FIT_ATTRIBUTE_FAMILY } from './fit-attributes.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from './measure-attributes.ts'
+import { fillAttributeIssues } from './fill-attributes.ts'
 import { parse, serialize } from './sanitize.ts'
 import { sourceAttributeIssues } from './source-attributes.ts'
 
@@ -57,6 +58,7 @@ export function identifyHtmlBlocks(
   const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
     ...(options.refuseMeasure ? { refusedFamilies: ['data-measure'] } : {}),
   })
+  issues.push(...fillAttributeIssues(tree.children, node))
   if (issues.length) throw new RangeError(issues.join(' '))
   const added = identifyBlockElements(blockElements(tree.children), node, newId, seen)
   return { html: serialize(tree), added }

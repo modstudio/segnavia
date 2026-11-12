@@ -71,7 +71,7 @@ test('surface preflight reports bounded slide issues with full coverage', () => 
         },
       ],
       omitted: {},
-      facts: { pageCount: 3, pages: [], fits: [] },
+      facts: { pageCount: 3, pages: [], fits: [], regions: [] },
       coverage: { measured: 3, total: 3 },
     },
   ])

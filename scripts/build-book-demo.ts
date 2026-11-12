@@ -7,7 +7,8 @@ import { bookView, parseDocument } from '@segnavia/html'
 import { filledBook } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { writeBookFeatureDemos } from './build-book-feature-demos.ts'
-import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
+import { writeBookFillDemo } from './build-book-fill-demo.ts'
+import { basicBookFixture, composeFailureFixture, pageLimit583Fixture } from './demo-book-basic-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup } from './demo-book-motifs.ts'
@@ -286,6 +287,9 @@ export async function buildBookDemo(site: string): Promise<void> {
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(bookFixtureValue(basicBookFixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(bookFixtureValue(basicBookFixture(true)))))
   writeFileSync(path.join(site, 'book-compose-failure.json'), JSON.stringify(bookView(bookFixtureValue(composeFailureFixture()))))
+  const pageLimit583 = bookFixtureValue(pageLimit583Fixture())
+  writeFileSync(path.join(site, 'book-page-limit-583-default.html'), paginatedBookDocument(pageLimit583, { nonce: newNonce() }))
+  writeFileSync(path.join(site, 'book-page-limit-583-raised.html'), paginatedBookDocument(pageLimit583, { nonce: newNonce(), limits: { pages: 600 } }))
   writeFileSync(
     path.join(site, 'book-compose-failure.html'),
     `<!doctype html><html><head><meta charset="utf-8"><style>segnavia-book{display:block;block-size:70vh}</style></head><body><segnavia-book id="book-compose-failure" layout="flow" src="book-compose-failure.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
@@ -299,6 +303,7 @@ export async function buildBookDemo(site: string): Promise<void> {
 
   const hebrewFace = `${alefCss()}${notoCss()}`
   await writeBookFeatureDemos(site, hebrewFace)
+  writeBookFillDemo(site)
   for (const hebrew of [false, true]) {
     const book = bookFixtureValue(paginatedFixture(hebrew))
     const css = hebrew

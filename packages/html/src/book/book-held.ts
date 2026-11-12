@@ -12,6 +12,7 @@ import {
 import type { ChildNode, Element } from 'domhandler'
 import { FIT_ATTRIBUTE_FAMILY } from '../fit-attributes.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from '../measure-attributes.ts'
+import { fillAttributeIssues } from '../fill-attributes.ts'
 import { elements, parse } from '../sanitize.ts'
 import { sourceAttributeIssues } from '../source-attributes.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
@@ -216,6 +217,7 @@ export function templateRegionIssues(templates: BookTemplate[]): string[] {
       ...regions.flatMap((region) =>
         sourceAttributeIssues([region], `template "${template.name}"`, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true }),
       ),
+      ...fillAttributeIssues(parse(template.html).children, `template "${template.name}"`),
     ]
   })
 }
@@ -240,6 +242,15 @@ export function designedSectionAttributeIssues(entry: DesignedSection, id: strin
   )
 }
 
+function templatedPageRegionFillIssues(entry: TemplatedSection, id: string): string[] {
+  const label = entry.title ?? id
+  return entry.pages.flatMap((page, index) =>
+    Object.entries(page.regions).flatMap(([region, html]) =>
+      fillAttributeIssues(parse(html).children, `section ${label} page ${index + 1} region "${region}"`, true),
+    ),
+  )
+}
+
 function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) => {
@@ -258,7 +269,7 @@ function undeclaredRegionIssues(entry: TemplatedSection, id: string, templates: 
 }
 
 export function templatedSectionIssues(entry: TemplatedSection, id: string, templates: Map<string, BookTemplate>): string[] {
-  return [...undeclaredRegionIssues(entry, id, templates), ...templatedPageRegionFitIssues(entry, id)]
+  return [...undeclaredRegionIssues(entry, id, templates), ...templatedPageRegionFitIssues(entry, id), ...templatedPageRegionFillIssues(entry, id)]
 }
 
 export function templatedSection(

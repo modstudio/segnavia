@@ -147,6 +147,7 @@ export function markRegionOverflow(root: Element, folio: string, excessOf: (elem
   for (const region of regions) {
     const name = region.getAttribute('data-region')
     if (!name) continue
+    if ((region.getAttribute('data-overflow') ?? 'grow') !== 'grow') continue
     const excess = excessOf(region)
     if (excess.block <= 0.5 && excess.inline <= 0.5) continue
     const subject = `${template}:${name}`

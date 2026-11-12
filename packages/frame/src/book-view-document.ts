@@ -9,6 +9,7 @@ import {
   type Plan,
   type PreflightEntry,
   type PreflightProfile,
+  PREFLIGHT_PRESETS,
   preflightEnabled,
   resolveLimits,
   withLibraryEntries,
@@ -53,12 +54,13 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([${BOOK_PAGE_ATTRIBUTE}]:last-child){break-after:auto}` +
     GALLEY_PRINT_CSS +
     (options.fontCss ?? '')
+  const regionProfile = options.profile ?? (view.html.includes('data-overflow=') || view.html.includes('data-fill=') ? PREFLIGHT_PRESETS.default : undefined)
   const preflightSeed = [...(options.preflightSeed ?? [])]
   const sheets = frameStyleSheets(
     view.style,
     view.brand,
     baseCss,
-    options.profile && preflightEnabled(options.profile) ? { profile: options.profile, entries: preflightSeed } : undefined,
+    regionProfile && preflightEnabled(regionProfile) ? { profile: regionProfile, entries: preflightSeed } : undefined,
   )
   const config = {
     direction: pagination.direction,
@@ -87,9 +89,10 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     measure: false,
     savedPlans: true,
     fontLoads: declaredFontLoads(fonts),
-    ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
+    ...(regionProfile && preflightEnabled(regionProfile) ? { preflight: regionProfile, preflightSeed } : {}),
     ...(options.screen ? { presentation: { ...options.screen, reportPlace: true } } : {}),
     progress,
+    overflowRefusal: options.profile?.['region-truncated'] !== 'off',
     ...(options.plan === undefined ? {} : { plan: options.plan }),
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
   }

@@ -42,6 +42,10 @@ export function placeParentRegions(
     if (config.lang) held.setAttribute('lang', config.lang)
     held.style.cssText = `position:absolute;overflow:hidden;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px`
     fill(held, region.html, heads, slots, config.dir, config.lang)
+    const overflow = held.querySelector?.<HTMLElement>('[data-overflow]')?.getAttribute('data-overflow')
+    if (overflow) held.setAttribute('data-overflow', overflow)
+    const repeat = (globalThis as typeof globalThis & { repeatFill?: (region: HTMLElement) => unknown }).repeatFill
+    if (repeat && typeof held.querySelector === 'function') repeat(held)
     paper.append(held)
   }
 }

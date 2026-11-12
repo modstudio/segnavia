@@ -98,6 +98,15 @@ export {
 export { type RebaseResult, rebaseOps } from './document-rebase.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
+export {
+  FillMode,
+  PREFLIGHT_DROPPED_IDS_LIMIT,
+  PREFLIGHT_REGION_COUNT_LIMIT,
+  PREFLIGHT_REGION_ID_LIMIT,
+  PREFLIGHT_REGIONS_LIMIT,
+  type PreflightRegion,
+  RegionOverflow,
+} from './fill.ts'
 export { FIT_STRATEGIES, FitAxis, FitBox, FitMeasurement, type FitStrategy, FitValue } from './fit.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export {

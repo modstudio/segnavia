@@ -33,7 +33,7 @@ describe('book layout lifecycle', () => {
       if (event.type === 'preflight') seen.push((event as CustomEvent).detail)
       return true
     }) as typeof book.dispatchEvent
-    const report = { status: 'clean', issues: [], omitted: {}, facts: { pageCount: 1, pages: [], fits: [] }, coverage: { measured: 1, total: 1 } }
+    const report = { status: 'clean', issues: [], omitted: {}, facts: { pageCount: 1, pages: [], fits: [], regions: [] }, coverage: { measured: 1, total: 1 } }
     const onMessage = (book as unknown as { onMessage(event: MessageEvent): void }).onMessage
     const generation = String((book as unknown as { loadGeneration: number }).loadGeneration)
     frame.dataset.segnaviaBookGeneration = '-1'

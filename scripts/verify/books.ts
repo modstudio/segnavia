@@ -15,6 +15,8 @@ import { verifyPaginatedBlocks, verifyPaginatedTableBook } from './book-paginate
 import { verifyPartsBooks } from './book-parts.ts'
 import { verifyPlacedMediaBook } from './book-placed-media.ts'
 import { verifyBookSlotCopyfit } from './book-slot-copyfit.ts'
+import { verifyPageLimit583 } from './book-page-limit-583.ts'
+import { verifyBookFill } from './book-fill.ts'
 import { verifyBookTitleHeads } from './book-title-heads.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import {
@@ -110,6 +112,8 @@ export async function verifyBooks(h: Harness) {
   await verifyBookSlotCopyfit(h)
   await verifyBookCopyfit(h)
   await verifyBookMeasuredProperties(h)
+  await verifyBookFill(h)
+  await verifyPageLimit583(h)
 }
 
 async function paginatedFrame(h: Harness, id: string) {

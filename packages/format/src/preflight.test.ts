@@ -13,7 +13,7 @@ import {
   resolvePreflightProfile,
 } from './preflight.ts'
 
-const facts = { pageCount: 1, pages: [{ folio: '1', first: 'a', last: 'z' }], fits: [{ subject: 'held', group: 'sidebar', values: { size: '9px' } }] }
+const facts = { pageCount: 1, pages: [{ folio: '1', first: 'a', last: 'z' }], fits: [{ subject: 'held', group: 'sidebar', values: { size: '9px' } }], regions: [] }
 const entry = (check: 'region-overset' | 'furniture-overset', subject = 'body') => ({ check, subject, message: `Shorten ${subject} to clear it.` })
 
 describe('preflight profiles', () => {
@@ -100,7 +100,7 @@ describe('boundPreflightReport', () => {
     expect(report.status).toBe('warnings')
     expect(report.facts).toEqual(facts)
     expect(preflightRefusal(report)).toBeUndefined()
-    expect(boundPreflightReport({ entries: [], facts: { pageCount: -1 } }, PREFLIGHT_PRESETS.default).facts).toEqual({ pageCount: 0, pages: [], fits: [] })
+    expect(boundPreflightReport({ entries: [], facts: { pageCount: -1 } }, PREFLIGHT_PRESETS.default).facts).toEqual({ pageCount: 0, pages: [], fits: [], regions: [] })
   })
 
   test('drops malformed fit facts and bounds their strategy count and text', () => {
@@ -110,6 +110,23 @@ describe('boundPreflightReport', () => {
     ]
     const report = boundPreflightReport({ entries: [], facts: { pageCount: 0, pages: [], fits } as never }, PREFLIGHT_PRESETS.default)
     expect(report.facts.fits).toEqual([{ subject: 'card', group: 'g'.repeat(256), values: { size: '1'.repeat(64), leading: '1.2', tracking: '-.1px' } }])
+  })
+
+  test('bounds fill and truncation region facts at the host edge', () => {
+    const regions = Array.from({ length: 260 }, (_, index) => ({
+      subject: `${index}${'r'.repeat(300)}`,
+      fillCount: 20_000,
+      droppedPages: 2,
+      droppedBlocks: 70,
+      droppedIds: Array.from({ length: 60 }, (_, id) => `${id}${'x'.repeat(300)}`),
+      droppedTotal: 70,
+    }))
+    const report = boundPreflightReport({ entries: [], facts: { pageCount: 0, pages: [], fits: [], regions } }, PREFLIGHT_PRESETS.default)
+    expect(report.facts.regions).toHaveLength(256)
+    expect(report.facts.regions[0]).toMatchObject({ fillCount: 10_000, droppedPages: 2, droppedBlocks: 70, droppedTotal: 70 })
+    expect(report.facts.regions[0]?.subject).toHaveLength(256)
+    expect(report.facts.regions[0]?.droppedIds).toHaveLength(50)
+    expect(report.facts.regions[0]?.droppedIds?.[0]).toHaveLength(256)
   })
 
   test.each([
