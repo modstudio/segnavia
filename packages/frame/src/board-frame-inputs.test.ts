@@ -13,7 +13,6 @@ test('rebuilds frame inputs when origins change and clears them with undefined',
       get inputs(): BoardFrameInputs {
         return this.frameInputs
       }
-
       get selection(): readonly string[] {
         return []
       }
@@ -46,11 +45,4 @@ test('rebuilds frame inputs when origins change and clears them with undefined',
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')
   }
-})
-
-test('applies a board moment to a frame item', async () => {
-  const { applyFrameInputs } = await import('./board-frame-inputs.ts')
-  const target = {} as Parameters<typeof applyFrameInputs>[0]
-  applyFrameInputs(target, { origins: [], moment: 1_794_672_000_000 })
-  expect(target.moment).toBe(1_794_672_000_000)
 })

@@ -24,7 +24,7 @@ import { internalPaperPagesLoad } from './document-value-load.ts'
 import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
-import type { MotifsOptions } from './motif-expansion.ts'
+import { framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import { preparePaperDays } from './paper-day.ts'
@@ -301,8 +301,15 @@ export class SegnaviaPaper extends HTMLElement {
         .catch((error) => report(error, false))
       return
     }
-    if (typeof this.paintPlaceholder === 'function') this.paintPlaceholder(imposed)
-    else this.paintResolved(imposition, imposed)
+    if (!this.motifOptions) {
+      const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
+      if (motifRefusal) {
+        this.paintPlaceholder(imposed)
+        report(motifRefusal, false)
+        return
+      }
+    }
+    this.paintPlaceholder(imposed)
     void preparePaperDays(pages, asOfLoad, {
       slots: this.slotOptions,
       motifs: this.motifOptions,
@@ -310,10 +317,12 @@ export class SegnaviaPaper extends HTMLElement {
       pageWidths: this.widthOptions,
       fonts: this.fontOptions,
       signal: controller.signal,
+      established: (days) => {
+        if (current()) for (const day of days) dispatchAsof(this, day)
+      },
     })
       .then((prepared) => {
         if (!current()) return
-        if (typeof this.dispatchEvent === 'function') for (const day of prepared.days) dispatchAsof(this, day)
         commit(prepared.pages, prepared.slots, prepared.css)
       })
       .catch(report)

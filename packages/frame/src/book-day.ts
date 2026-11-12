@@ -1,27 +1,29 @@
 import { type AsOfDay, type BookView, dayWithHostMoment, type PageWidths, type PreflightProfile, resolveAsOfDay } from '@segnavia/format'
 import { fillBookViewAsOfBindings, resolveDayContextsFor } from '@segnavia/html'
-import type { captureAsOfLoad } from './as-of-element.ts'
+import { asOfContextInputs, type captureAsOfLoad } from './as-of-element.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
-export function resolveBookDiagram(view: BookView, settled: boolean) {
+function resolveBookDiagram(view: BookView, settled: boolean) {
   if (settled || !hasDiagram(`${view.html}${view.flow ?? ''}`)) return undefined
   return loadDiagramScriptResult(`${view.html}${view.flow ?? ''}`)
 }
 
-export function initialBookView(view: BookView, hasSources: boolean, failed?: (reason: unknown) => void) {
-  if (hasSources || hasDiagram(`${view.html}${view.flow ?? ''}`)) return undefined
+type InitialBookView = { kind: 'ready'; prepared: ReturnType<typeof prepareBookViewWithoutSources> } | { kind: 'refused' } | { kind: 'deferred' }
+
+function initialBookView(view: BookView, hasSources: boolean, failed?: (reason: unknown) => void): InitialBookView {
+  if (hasSources || hasDiagram(`${view.html}${view.flow ?? ''}`)) return { kind: 'deferred' }
   try {
-    return prepareBookViewWithoutSources(view)
+    return { kind: 'ready', prepared: prepareBookViewWithoutSources(view) }
   } catch (reason) {
     failed?.(reason)
-    return false
+    return { kind: 'refused' }
   }
 }
 
-export async function prepareDatedBookView(
+async function prepareDatedBookView(
   view: BookView,
   day: AsOfDay,
   options: {
@@ -61,14 +63,21 @@ export function startBookViewLoad(
     settled(): void
   },
 ): void {
-  const resolved = resolveBookViewDay(view, inputs, options.signal)
+  let resolved: ReturnType<typeof resolveBookViewDay>
+  try {
+    resolved = resolveBookViewDay(view, inputs, options.signal)
+  } catch (reason) {
+    if (options.current()) options.failed(reason)
+    options.settled()
+    return
+  }
   const accept = async ({ day, view: filled }: { day: AsOfDay; view: BookView }) => {
     if (!options.current()) return
     options.day(day)
     const initial = initialBookView(filled, Boolean(options.motifs || options.fonts || options.placements), options.failed)
-    if (initial === false || !options.current()) return
-    if (initial) {
-      options.prepared(initial, filled)
+    if (initial.kind === 'refused' || !options.current()) return
+    if (initial.kind === 'ready') {
+      options.prepared(initial.prepared, filled)
       return
     }
     const result = await prepareDatedBookView(filled, day, options)
@@ -78,14 +87,14 @@ export function startBookViewLoad(
   }
   if (!(resolved instanceof Promise)) {
     const initial = initialBookView(resolved.view, Boolean(options.motifs || options.fonts || options.placements), options.failed)
-    if (initial === false) {
+    if (initial.kind === 'refused') {
       options.settled()
       return
     }
-    if (initial) {
+    if (initial.kind === 'ready') {
       if (options.current()) {
         options.day(resolved.day)
-        options.prepared(initial, resolved.view)
+        options.prepared(initial.prepared, resolved.view)
       }
       options.settled()
       return
@@ -99,7 +108,7 @@ export function startBookViewLoad(
     .finally(options.settled)
 }
 
-export function resolveBookViewDay(
+function resolveBookViewDay(
   view: BookView,
   inputs: ReturnType<typeof captureAsOfLoad>,
   signal: AbortSignal,
@@ -109,16 +118,7 @@ export function resolveBookViewDay(
     const day = dayWithHostMoment(resolution.day, inputs.hostMoment)
     return { day, view: fillBookViewAsOfBindings(view, day) }
   }
-  return resolveDayContextsFor(
-    [view],
-    {
-      moment: inputs.moment,
-      anchors: inputs.anchors,
-      asOf: inputs.hostZone === undefined ? undefined : { zone: inputs.hostZone },
-    },
-    undefined,
-    signal,
-  ).then((contexts) => {
+  return resolveDayContextsFor([view], asOfContextInputs(inputs), undefined, signal).then((contexts) => {
     const day = contexts.days[0] as AsOfDay
     return { day, view: fillBookViewAsOfBindings(view, day) }
   })

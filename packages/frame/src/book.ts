@@ -168,7 +168,7 @@ export class SegnaviaBook extends BookSourcesElement {
     const previousLayout = this.currentLayout
     const outgoing = this.shownLayout
     this.currentLayout = layout
-    if (this.loadController && this.preparedView !== this.currentView) return
+    if (this.loadController) return
     this.cancelLayoutHandoff()
     this.pendingLayouts.delete(previousLayout)
     this.switchPlaces.delete(previousLayout)

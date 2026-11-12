@@ -1,6 +1,6 @@
 import type { AsOfDay, PageWidths, SlotsOptions } from '@segnavia/format'
 import { fillPageAsOfBindings, type HtmlPage, resolveDayContextsFor } from '@segnavia/html'
-import type { captureAsOfLoad } from './as-of-element.ts'
+import { asOfContextInputs, type captureAsOfLoad } from './as-of-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
@@ -16,18 +16,11 @@ export async function preparePaperDays(
     pageWidths?: PageWidths
     fonts?: FontsOptions
     signal: AbortSignal
+    established?(days: AsOfDay[]): void
   },
 ): Promise<{ pages: HtmlPage[]; days: AsOfDay[]; css: string; slots?: PreparedSlots }> {
-  const contexts = await resolveDayContextsFor(
-    pages,
-    {
-      moment: inputs.moment,
-      anchors: inputs.anchors,
-      asOf: inputs.hostZone === undefined ? undefined : { zone: inputs.hostZone },
-    },
-    options.slots,
-    options.signal,
-  )
+  const contexts = await resolveDayContextsFor(pages, asOfContextInputs(inputs), options.slots, options.signal)
+  options.established?.(contexts.days)
   const dated = pages.map((page, index) => fillPageAsOfBindings(page, contexts.pages[index]?.day))
   const expanded = await expandFramePages(
     dated,
