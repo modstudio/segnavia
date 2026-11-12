@@ -17,6 +17,7 @@ describe('book division numbering', () => {
     expect(result.error?.issues[0]).toMatchObject({ path: ['numbering'] })
     expect(result.error?.issues[0]?.message).toContain('both arabic')
     expect(result.error?.issues[0]?.message).toContain('must differ')
+    expect(result.error?.issues[0]?.message).toContain('numbering.printed.frontMatter')
     expect(
       Book.safeParse(
         input({ frontMatter: [{ html: '<nav>Contents</nav>' }], numbering: { frontMatter: 'arabic', body: 'arabic', printed: { frontMatter: false } } }),
