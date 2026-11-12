@@ -44,23 +44,23 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
     children: [
       {
         type: 'section' as const,
-        title: 'ראשון',
+        title: 'ספר',
         children: [
           {
-            type: 'flow' as const,
-            html: '<section dir="rtl" lang="he"><p data-segnavia-id="hebrew-2">קיים</p><h1>כותרת</h1><p>תוכן</p><figure>איור</figure></section>',
+            type: 'page' as const,
+            body: {
+              html: '<section dir="rtl" lang="he"><p data-segnavia-id="hebrew-2">קיים</p><h1>כותרת</h1><p>תוכן</p><figure>איור</figure></section>',
+            },
+          },
+          {
+            type: 'page' as const,
+            body: { html: '<p DATA-SEGNAVIA-ID="hebrew-4">קיים נוסף</p><p>תוכן נוסף</p>' },
+          },
+          {
+            type: 'page' as const,
+            body: { html: '<h2 id="hebrew-6">עוגן</h2><p>עמוד שלישי</p>' },
           },
         ],
-      },
-      {
-        type: 'section' as const,
-        title: 'שני',
-        children: [{ type: 'flow' as const, html: '<p DATA-SEGNAVIA-ID="hebrew-4">קיים נוסף</p><p>תוכן נוסף</p>' }],
-      },
-      {
-        type: 'section' as const,
-        title: 'שלישי',
-        children: [{ type: 'flow' as const, html: '<h2 id="hebrew-6">עוגן</h2><p>עמוד שלישי</p>' }],
       },
     ],
   }
@@ -73,27 +73,16 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
   const blockIds = first.children.flatMap((node) =>
     'children' in node
       ? node.children.flatMap((child) =>
-          child.type === 'flow' ? [...child.html.matchAll(/data-segnavia-id="([^"]+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])) : [],
+          child.type === 'page' && child.body && 'html' in child.body
+            ? [...child.body.html.matchAll(/data-segnavia-id="([^"]+)"/g)].flatMap((match) => (match[1] ? [match[1]] : []))
+            : [],
         )
       : [],
   )
   const carriedIds = new Set(['hebrew-2', 'hebrew-4', 'hebrew-6'])
   const mintedIds = [...nodeIds, ...blockIds].filter((id) => !carriedIds.has(id))
   const documentIds = [...nodeIds, ...blockIds, 'hebrew-6']
-  expect(mintedIds).toEqual([
-    'hebrew-1',
-    'hebrew-3',
-    'hebrew-5',
-    'hebrew-7',
-    'hebrew-8',
-    'hebrew-9',
-    'hebrew-10',
-    'hebrew-11',
-    'hebrew-12',
-    'hebrew-13',
-    'hebrew-14',
-    'hebrew-15',
-  ])
+  expect(mintedIds).toEqual(['hebrew-1', 'hebrew-3', 'hebrew-5', 'hebrew-7', 'hebrew-8', 'hebrew-9', 'hebrew-10', 'hebrew-11', 'hebrew-12', 'hebrew-13'])
   expect(new Set(documentIds).size).toBe(documentIds.length)
 })
 
