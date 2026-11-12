@@ -3,12 +3,13 @@ import {
   type DocumentInput,
   type DocumentParseOptions,
   defaultNewId,
+  type PageBody,
   type PageOrPrintedInput,
   type Document as ParsedDocument,
   pageOrPrintedFromDocument,
 } from '@segnavia/format'
 import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
-import { type AlertLabels, markdownHtml } from './markdown.ts'
+import { type AlertLabels, type BodyHtmlOptions, bodyHtml } from './markdown.ts'
 
 export { BLOCK_ELEMENTS } from './block-context.ts'
 
@@ -22,18 +23,12 @@ function contentNodeLabel(node: { type: string; id: string }): string {
   return `${node.type} node "${node.id}"`
 }
 
-export function pageBodyHtml(
-  body: { html: string } | { markdown: string },
-  document: Pick<ParsedDocument, 'settings'>,
-  alertLabels?: Partial<AlertLabels>,
-): string {
-  return 'html' in body
-    ? body.html
-    : markdownHtml(body, {
-        dir: document.settings?.dir,
-        lang: document.settings?.lang,
-        alertLabels,
-      })
+export function pageBodyHtml(body: PageBody, document: Pick<ParsedDocument, 'settings'>, options: Pick<BodyHtmlOptions, 'alertLabels'> = {}): string {
+  return bodyHtml(body, { dir: document.settings?.dir, lang: document.settings?.lang, ...options })
+}
+
+export function pageBodyFromHtml(html: string, markdown?: string): Extract<PageBody, { html: string }> {
+  return markdown === undefined ? { html } : { html, markdown }
 }
 
 export function parseDocument(input: DocumentInput | unknown, options: ParseDocumentOptions = {}): ParsedDocument {
@@ -43,8 +38,8 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const html: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen).html
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
-    const value = pageBodyHtml(node.body, document, options.alertLabels)
-    return { ...node, body: { html: html(value, node) } }
+    const value = pageBodyHtml(node.body, document, options)
+    return { ...node, body: pageBodyFromHtml(html(value, node), 'markdown' in node.body ? node.body.markdown : undefined) }
   }
   const nodeContent = (node: ParsedDocument['children'][number]): ParsedDocument['children'][number] => {
     if (node.type === 'flow') return { ...node, html: html(node.html, node) }

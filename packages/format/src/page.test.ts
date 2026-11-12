@@ -6,6 +6,7 @@ describe('PageSize', () => {
     expect(Page.parse({ html: '<p>HTML</p>' }).body).toEqual({ html: '<p>HTML</p>' })
     expect(Page.parse({ markdown: '# Markdown' }).body).toEqual({ markdown: '# Markdown' })
     expect(Page.parse({ body: { markdown: 'Body' } }).body).toEqual({ markdown: 'Body' })
+    expect(Page.parse({ body: { html: '<p>Body</p>', markdown: 'Body' } }).body).toEqual({ html: '<p>Body</p>', markdown: 'Body' })
   })
 
   test.each([

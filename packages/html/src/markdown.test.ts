@@ -141,9 +141,17 @@ test('markdownOutline lowercases headings independently of the host locale', () 
   expect(markdownOutline('# Istanbul')).toEqual([{ id: 'istanbul', level: 1, title: 'Istanbul' }])
 })
 
-test('resolvePageHtml reads stored HTML and refuses markdown that skipped the content edge', () => {
-  expect(() => resolvePageHtml(Page.parse({ markdown: '# Heading' }))).toThrow('pass its Document input through @segnavia/html parseDocument')
+test('resolvePageHtml lowers markdown with page options and prefers stored HTML', () => {
+  const remoteImage = Page.parse({ markdown: '![a](https://images.example/a.png)' })
+  expect(resolvePageHtml(Page.parse({ markdown: '> [!NOTE]\n> שלום', dir: 'rtl', lang: 'he' })).html).toContain('<bdi>הערה</bdi>')
+  expect(resolvePageHtml(Page.parse({ markdown: '> [!NOTE]\n> Read', dir: 'rtl' })).html).toContain('<bdi>הערה</bdi>')
+  expect(resolvePageHtml(Page.parse({ markdown: '> [!NOTE]\n> Read' }), { alertLabels: { note: 'Memo' } }).html).toContain('<bdi>Memo</bdi>')
+  expect(resolvePageHtml(remoteImage, { origins: [{ origin: 'https://images.example', kinds: ['image'] }] }).html).toContain(
+    'src="https://images.example/a.png"',
+  )
+  expect(resolvePageHtml(remoteImage).html).not.toContain('src="https://images.example/a.png"')
   expect(resolvePageHtml(Page.parse({ html: '<h1>Heading</h1>' })).html).toBe('<h1>Heading</h1>')
+  expect(resolvePageHtml(Page.parse({ body: { html: '<h1>Stored</h1>', markdown: '# Source' } })).html).toBe('<h1>Stored</h1>')
 })
 
 test('resolvePrintedPageHtml keeps the stored-HTML requirement for an implicit body', () => {

@@ -212,7 +212,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     if (sources.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     this.sourceValues = sources
     this.sourceDocuments = []
-    this.pageValues = sources.map(resolvePageHtml)
+    this.pageValues = sources.map((page) => resolvePageHtml(page, { origins: this.origins }))
     if (print) this.printValue = print
     this.paint()
     this.changed()
@@ -372,7 +372,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     const commit = (brands: Awaited<ReturnType<typeof resolveBrand>>[]) => {
       if (controller.signal.aborted || documents !== this.sourceDocuments) return
       this.sourceValues = documents.map((document, index) => pageOrPrintedFromDocument(document, brands[index]))
-      this.pageValues = this.sourceValues.map(resolvePageHtml)
+      this.pageValues = this.sourceValues.map((page) => resolvePageHtml(page, { origins: this.origins }))
       this.paint()
     }
     if (!documents.some((document) => document.brand !== undefined)) {

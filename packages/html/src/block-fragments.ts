@@ -7,6 +7,7 @@ import {
   type OperationDocument,
   requireParsedDocument,
 } from '@segnavia/format'
+import { pageBodyFromHtml } from './document.ts'
 
 export interface ContentAddress {
   node: string
@@ -58,7 +59,7 @@ const FRAGMENT_ACCESSORS: Readonly<Record<FragmentShape, FragmentAccessor>> = {
   pageBody: {
     keyed: false,
     read: (value, key) => (key === undefined && typeof object(value)?.html === 'string' ? (object(value)?.html as string) : undefined),
-    write: (value, html) => ({ ...object(value), html }),
+    write: (_value, html) => pageBodyFromHtml(html),
   },
   slideContent: {
     keyed: false,

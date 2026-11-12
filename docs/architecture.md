@@ -172,8 +172,8 @@ call `coverDigest` on a server or over HTTPS because browsers expose it only in
 a secure context.
 
 `parseDocument` from `@segnavia/html` is the content edge used by viewers and
-renderers. It runs the structural edge, converts markdown input once to the
-stored HTML form, parses each content fragment structurally, and preserves or mints
+renderers. It runs the structural edge, converts markdown input once to stored
+HTML while retaining the markdown source beside it, parses each content fragment structurally, and preserves or mints
 `data-segnavia-id` on paragraphs, headings, list items, figures, and table
 rows. One `newId` function supplies both node and block ids. Duplicate block
 ids are refused across the whole document. Hosts that need reproducible output
@@ -211,7 +211,7 @@ content is shown.
 | page `id` | `children[0].id` |
 | page `body` | `children[0].body` |
 | page `html` | `children[0].body.html` |
-| page `markdown` | `children[0].body.markdown` |
+| page `markdown` | `children[0].body.markdown`; after `parseDocument`, the body also carries the lowered `html` |
 | page `size` | root `size` |
 | page `scripts` | `settings.scripts` |
 | page `dir` | `settings.dir` |
@@ -320,9 +320,15 @@ remain author data and do not expose plan-derived values.
 
 ### Markdown page bodies
 
-A page document stores one page node whose `body` is either HTML or markdown.
-`bodyHtml` and the page-body resolver in the universal HTML package pass HTML through and convert
-markdown with remark before applying the library sanitizer. Frame page,
+A page document accepts one page node whose `body` is `{ markdown }` (authored
+source) or `{ html, markdown? }` (a stored body, where `markdown` is the source
+of that exact HTML).
+The content edge stores it as `{ html, markdown? }`: `markdown` is present only
+when it is the source of that exact HTML. An HTML edit clears the source, while
+undo restores the whole prior body. `bodyHtml` and the page-body resolver in the
+universal HTML package pass HTML through and convert markdown with remark before
+applying the library sanitizer. The resolver also accepts a markdown-only input
+body and takes alert labels and approved origins for that conversion. Frame page,
 document and browser-print loads, and render page and pages loads, resolve the
 body once at that parsing edge. Motifs, slots, placements, pagination,
 thumbnails, covers and board views receive only the resolved HTML. A weak memo
@@ -377,7 +383,8 @@ optional diagrams package when no provider is registered. It refuses diagram
 content when neither source is available, and imports no diagram module for
 content without a diagram.
 
-**Data the host keeps.** The host keeps the markdown source as the page body.
+**Data the host keeps.** The host keeps the parsed page body, including its
+markdown source beside the lowered HTML when the page was authored as markdown.
 Titles remain host data beside a page; markdown does not create a new asset
 type.
 

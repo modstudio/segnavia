@@ -367,7 +367,7 @@ export function printablePageValuesDocument(pages: Page[], imposition: Impositio
   return printableHtmlPagesDocument(
     pages.map((page) => {
       refuseSectionedImpositionPage(page)
-      return resolvePageHtml(page)
+      return resolvePageHtml(page, { origins: options.origins })
     }),
     imposition,
     options,
