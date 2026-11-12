@@ -1,5 +1,5 @@
 import { embedFunction } from '@segnavia/html'
-import { logicalExtent } from './composer-axis-policy.ts'
+import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
 import { type MeasuredLineBox, measureLineBoxes } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { inkExcess } from './composer-page-dom.ts'
@@ -178,7 +178,7 @@ export function layoutRuntimeScript(scripts: readonly LoadedLayoutScript[]): str
   const definitions = scripts
     .map(({ name, script }) => `window.segnaviaLayout._loading=${JSON.stringify(name)};\n${script}\nwindow.segnaviaLayout._loading=undefined;`)
     .join('\n')
-  return `${embeddedComposerMeasureFunctions()}\n${embedFunction('logicalExtent', logicalExtent)}\n${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}\n${embedFunction('inkExcess', inkExcess)}\n${embedFunction('layoutRange', layoutRange)}\n${embedFunction('layoutMeasurementNode', layoutMeasurementNode)}\n${embedFunction('layoutInkRect', layoutInkRect)}\n${embedFunction('boundedLayoutText', boundedLayoutText)}\n${embedFunction('installLayoutRuntime', installLayoutRuntime)}\ninstallLayoutRuntime(window,document,setTimeout,clearTimeout,10000,${JSON.stringify(registrations)},measureLineBoxes,graphemeInlineExtent,inkExcess);\n${definitions}`
+  return `${embeddedComposerMeasureFunctions()}\n${embedFunction('verticalWritingMode', verticalWritingMode)}\n${embedFunction('logicalExtent', logicalExtent)}\n${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}\n${embedFunction('inkExcess', inkExcess)}\n${embedFunction('layoutRange', layoutRange)}\n${embedFunction('layoutMeasurementNode', layoutMeasurementNode)}\n${embedFunction('layoutInkRect', layoutInkRect)}\n${embedFunction('boundedLayoutText', boundedLayoutText)}\n${embedFunction('installLayoutRuntime', installLayoutRuntime)}\ninstallLayoutRuntime(window,document,setTimeout,clearTimeout,10000,${JSON.stringify(registrations)},measureLineBoxes,graphemeInlineExtent,inkExcess);\n${definitions}`
 }
 
 export function withLayoutScripts(html: string, nonce: string, scripts: readonly LoadedLayoutScript[]): string {

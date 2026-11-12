@@ -10,7 +10,7 @@ async function bookFacts(h: Harness, name: string) {
     const plan = JSON.parse(document.querySelector('script[data-segnavia-plan]')?.textContent ?? 'null') as Plan | null
     const report = JSON.parse(document.documentElement.getAttribute(preflightAttribute) ?? 'null') as { issues?: Array<{ check?: string }> } | null
     return {
-      pages: document.querySelectorAll('[data-segnavia-page]').length,
+      pages: document.querySelectorAll('[data-segnavia-book-page]').length,
       plan,
       galley: document.querySelector('[data-galley-ran]') !== null,
       composed: document.querySelector('[data-composed-ran]') !== null,
@@ -53,18 +53,25 @@ export async function verifyLayoutProviders(h: Harness): Promise<void> {
 
   await h.page.goto(h.url('layout-provider-book-hebrew.html'))
   await h.page.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))
-  const hebrew = await h.page.locator('[data-layout-measurements]').evaluate((element: HTMLElement) => {
+  const hebrew = await h.page.locator('[data-segnavia-galley-source] [data-layout-measurements]').evaluate((element: HTMLElement) => {
     const measured = JSON.parse(element.dataset.layoutMeasurements ?? 'null') as {
       pointed: { x: number; y: number; width: number; height: number }
       plain: { x: number; y: number; width: number; height: number }
       lineBoxes: number
     }
-    const lines = new Set(
-      Array.from(element.getClientRects())
-        .map((rect) => Math.round(rect.top * 2) / 2)
-        .filter(Number.isFinite),
-    ).size
-    return { ...measured, lines }
+    const lines = new Set<number>()
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    let text = walker.nextNode() as Text | null
+    while (text) {
+      for (let index = 0; index < text.length; index++) {
+        const range = document.createRange()
+        range.setStart(text, index)
+        range.setEnd(text, index + 1)
+        for (const rect of range.getClientRects()) lines.add(Math.round(rect.top * 2) / 2)
+      }
+      text = walker.nextNode() as Text | null
+    }
+    return { ...measured, lines: lines.size }
   })
   const inkDelta = Math.max(Math.abs(hebrew.pointed.width - hebrew.plain.width), Math.abs(hebrew.pointed.height - hebrew.plain.height))
   h.check('pointed and plain Hebrew have the same ink box', inkDelta <= 0.5, `max delta ${inkDelta.toFixed(3)}px`)

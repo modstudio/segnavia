@@ -1,4 +1,5 @@
 import { PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
+import { BOOK_FAILURE_ATTRIBUTE } from '@segnavia/frame/book-document'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { layoutsUsed } from '@segnavia/frame/layout'
 import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
@@ -7,14 +8,28 @@ import { RenderRefusedError } from './errors.ts'
 import { type RenderReadiness, readinessRefusal, waitForDiagramReadiness } from './render-readiness.ts'
 
 export async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<void> {
-  const printed = await tab
+  let waiting = true
+  const printed = tab
     .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
     .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
     .then(
       () => true,
       () => false,
     )
-  if (!printed && readiness.layouts) {
+  const failure = (async () => {
+    while (waiting) {
+      for (const frame of tab.frames()) {
+        const reason = await frame.evaluate((attribute) => document.documentElement.getAttribute(attribute), BOOK_FAILURE_ATTRIBUTE).catch(() => null)
+        if (reason) return reason
+      }
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    return null
+  })()
+  const outcome = await Promise.race([printed.then((ready) => ({ ready, reason: null })), failure.then((reason) => ({ ready: false, reason }))])
+  waiting = false
+  if (outcome.reason) throw new RenderRefusedError(outcome.reason)
+  if (!outcome.ready && readiness.layouts) {
     throw new RenderRefusedError(readinessRefusal(readiness, { author: true, diagrams: true, layouts: false }, SLIDES_READY_DEADLINE_MS / 1000))
   }
   await waitForDiagramReadiness(tab, readiness)

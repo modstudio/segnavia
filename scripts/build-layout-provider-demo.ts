@@ -66,12 +66,15 @@ const measurementFixture: DocumentInput = {
 }
 
 async function bookHtml(input: DocumentInput, measure = false): Promise<string> {
-  const book = bookFromDocument(parseDocument(input))
+  let id = 0
+  const book = bookFromDocument(parseDocument(input, { newId: () => `layout-provider-${++id}` }))
   const html = bookValueDocument(book, {
     nonce: newNonce(),
     profile: PREFLIGHT_PRESETS.default,
     fontCss: `${alefCss()}${notoCss()}`,
-    layoutScripts: await loadLayoutScripts(JSON.stringify(input)),
+    layoutScripts: await loadLayoutScripts(
+      `<p data-segnavia-layout="${input === measurementFixture || JSON.stringify(input).includes(LAYOUT_DEMO_PROVIDER) ? LAYOUT_DEMO_PROVIDER : ''}"></p>`,
+    ),
   })
   return measure ? html.replace('"measure":false', '"measure":true') : html
 }
@@ -102,7 +105,13 @@ export async function buildLayoutProviderDemo(root: string, site: string): Promi
       type: 'document',
       kind: 'printed',
       print: { paper: 'letter' },
-      parentPages: [{ type: 'parentPage', name: 'body', geometry: { margin: 12 } }],
+      parentPages: [
+        {
+          type: 'parentPage',
+          name: 'body',
+          geometry: { margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+        },
+      ],
       parentRules: [{ parent: 'body' }],
       children: [{ type: 'page', body: { html: geometry } }],
     }),
@@ -122,7 +131,7 @@ export async function buildLayoutProviderDemo(root: string, site: string): Promi
   }
   writeFileSync(
     path.join(site, 'layout-provider.html'),
-    `<!doctype html><html><body><segnavia-page id="layout-page" src="layout-provider-page.json"></segnavia-page><segnavia-player id="layout-slide" src="layout-provider-slide.json"></segnavia-player><segnavia-page id="reject-page" src="layout-provider-page-reject.json"></segnavia-page><segnavia-player id="reject-slide" src="layout-provider-slide-reject.json"></segnavia-player><script>for(const id of ['reject-page','reject-slide'])document.getElementById(id).addEventListener('error',event=>event.currentTarget.dataset.error=event.error?.message||event.message||'')</script><script type="module" src="layout-provider-demo.js"></script></body></html>`,
+    `<!doctype html><html><body><segnavia-page id="layout-page" src="layout-provider-page.json"></segnavia-page><segnavia-player id="layout-slide" src="layout-provider-slide.json"></segnavia-player><segnavia-page id="reject-page" src="layout-provider-page-reject.json"></segnavia-page><segnavia-player id="reject-slide" src="layout-provider-slide-reject.json"></segnavia-player><script>document.getElementById('reject-page').addEventListener('error',event=>event.currentTarget.dataset.error=event.error?.message||event.message||'');customElements.whenDefined('segnavia-player').then(()=>{const player=document.getElementById('reject-slide');player.shadowRoot.querySelector('segnavia-stage').addEventListener('error',event=>player.dataset.error=event.error?.message||event.message||'')})</script><script type="module" src="layout-provider-demo.js"></script></body></html>`,
   )
 }
 

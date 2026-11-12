@@ -30,7 +30,14 @@ const provider = `segnaviaLayout.define({
     for (const element of ctx.elements) {
       const node = /** @type {HTMLElement} */ (element)
       node.dataset.composedRan = ''
-      if (node.dataset.layoutPhase === 'composed') node.style.blockSize = '620px'
+      if (node.dataset.layoutPhase === 'composed') {
+        node.style.blockSize = '620px'
+        const region = document.querySelector('[data-segnavia-region]')
+        if (region) {
+          region.style.blockSize = '1px'
+          region.append(Object.assign(document.createElement('b'), { textContent: 'overflow '.repeat(20) }))
+        }
+      }
     }
   },
 })`

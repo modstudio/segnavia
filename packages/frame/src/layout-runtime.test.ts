@@ -11,6 +11,7 @@ test('layout runtime injection is byte-neutral without providers and nonce-autho
   const injected = withLayoutScripts(html, 'held', scripts)
   expect(injected).toContain('<script nonce="held">')
   expect(injected).toContain('segnaviaLayout.define({galley(){}})')
+  expect(injected).toContain('function verticalWritingMode(')
   expect(injected.indexOf('<script')).toBeLessThan(injected.indexOf('</body>'))
 })
 
