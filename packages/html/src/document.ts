@@ -35,9 +35,10 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const newId = options.newId ?? defaultNewId
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockIdLocation>()
-  const html: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen).html
+  const identifyOptions = { lineNumbers: document.settings?.lineNumbers !== undefined }
+  const html: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, identifyOptions).html
   const regionHtml = (value: string, node: { type: string; id: string }, region: string) =>
-    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { insideNamedRegion: region }).html
+    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, insideNamedRegion: region }).html
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
     const value = pageBodyHtml(node.body, document, options)
@@ -69,7 +70,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
         name,
         {
           ...region,
-          html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { refuseMeasure: true, insideNamedRegion: name }).html,
+          html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { ...identifyOptions, refuseMeasure: true, insideNamedRegion: name }).html,
         },
       ]),
     ),

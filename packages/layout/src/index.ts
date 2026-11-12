@@ -4,6 +4,7 @@ export { type ConvergedLayout, convergeLayout, type LayoutStep, type LayoutWarni
 export { type FitProbe, type FitSearchResult, type FitSearchStrategy, fitSearch, reduceFitGroups } from './fit-search.ts'
 export { resolveHeadTemplate } from './head-template.ts'
 export { layoutScript } from './layout-script.ts'
+export { type NumberedLine, type NumberedPage, type NumberLinesSettings, numberLines, resolveLineNumberSide } from './line-numbers.ts'
 export { pageBlockRange } from './page-block-range.ts'
 export { PAGINATE_FUNCTIONS, paginateBook, paginateScript } from './paginate-book.ts'
 export type { PaginateTarget, PaginateTargetPage } from './paginate-target.ts'

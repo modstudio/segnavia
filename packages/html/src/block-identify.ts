@@ -3,6 +3,7 @@ import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
 import { fillAttributeIssues } from './fill-attributes.ts'
 import { FIT_ATTRIBUTE_FAMILY } from './fit-attributes.ts'
+import { LINE_NUMBER_ATTRIBUTE_FAMILY } from './line-number-attributes.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from './measure-attributes.ts'
 import { parse, serialize } from './sanitize.ts'
 import { sourceAttributeIssues } from './source-attributes.ts'
@@ -52,12 +53,18 @@ export function identifyHtmlBlocks(
   node: string,
   newId: () => string,
   seen: Map<string, BlockIdLocation>,
-  options: { refuseMeasure?: boolean; insideNamedRegion?: string } = {},
+  options: { refuseMeasure?: boolean; insideNamedRegion?: string; lineNumbers?: boolean } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
-  const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
-    ...(options.refuseMeasure ? { refusedFamilies: ['data-measure'] } : {}),
+  const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY, LINE_NUMBER_ATTRIBUTE_FAMILY], {
+    ...(options.refuseMeasure ? { refusedFamilies: ['data-measure', 'data-line-numbers'] } : {}),
   })
+  if (!options.lineNumbers) {
+    const numbered = sourceAttributeIssues(tree.children, node, [LINE_NUMBER_ATTRIBUTE_FAMILY])
+    if (numbered.length === 0 && html.includes('data-line-numbers')) {
+      issues.push(`${node} data-line-numbers needs the document settings.lineNumbers setting; add that setting to clear this refusal`)
+    }
+  }
   issues.push(...fillAttributeIssues(tree.children, node, options.insideNamedRegion))
   if (issues.length) throw new RangeError(issues.join(' '))
   const added = identifyBlockElements(blockElements(tree.children), node, newId, seen)

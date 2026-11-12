@@ -33,6 +33,7 @@ import {
   printedSectionFlows,
   resolvePrintedPageHtml,
 } from '@segnavia/html'
+import { LINE_NUMBER_CSS } from './composer-margin.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
@@ -114,7 +115,7 @@ export function printedPageValueDocument(
     }
   })
   const parentRules: ParentRules = page.printedPages.parentRules
-  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
+  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const preflightSeed = [...(options.preflightSeed ?? [])]
   const sheets = frameStyleSheets(
     page.style,
@@ -148,6 +149,9 @@ export function printedPageValueDocument(
     measure: options.measure ?? false,
     inlineOverflow: 'tile',
     numbering: divisionNumbering(undefined, { frontMatter: numbering, body: numbering }),
+    ...(page.printedPages.lineNumbers === undefined
+      ? {}
+      : { lineNumbers: { ...page.printedPages.lineNumbers, system: page.printedPages.lineNumbers.system ?? numbering } }),
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),

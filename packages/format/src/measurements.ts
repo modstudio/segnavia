@@ -42,6 +42,8 @@ export const PaginateBlock = z.object({
   keepRuns: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() })).optional(),
   headerHeight: z.number().optional(),
   footnoteRefs: z.array(PaginateNoteRef).optional(),
+  numbered: z.literal(true).optional(),
+  direction: z.enum(['ltr', 'rtl']).optional(),
   variables: z.array(PaginateVariable).optional(),
 })
 export type PaginateBlock = z.infer<typeof PaginateBlock>

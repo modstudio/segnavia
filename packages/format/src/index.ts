@@ -282,6 +282,7 @@ export { checkPlacementCycles, findPlacementCycle, type PlacementGraph } from '.
 export { PlacementRefusedError } from './placement-refusal.ts'
 export { PaginatePageNote, PaginateWindow, PLAN_VERSION, Plan, PlanPage, type PlanParseOptions } from './plan.ts'
 export * from './preflight.ts'
+export * from './line-numbers.ts'
 export {
   MarkColor,
   PRESS_GEOMETRY_FIELDS,
