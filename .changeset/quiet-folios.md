@@ -2,6 +2,7 @@
 '@segnavia/format': minor
 '@segnavia/layout': minor
 '@segnavia/frame': minor
+'@segnavia/html': minor
 '@segnavia/render': minor
 ---
 
