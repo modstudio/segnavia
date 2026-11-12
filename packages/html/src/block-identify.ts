@@ -2,6 +2,7 @@ import type { Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
 import { parse, serialize } from './sanitize.ts'
+import { fitIssuesIn } from './fit-attributes.ts'
 
 export interface BlockIdLocation {
   block: string
@@ -45,6 +46,8 @@ export function identifyBlockElements(elements: readonly Element[], node: string
 
 export function identifyHtmlBlocks(html: string, node: string, newId: () => string, seen: Map<string, BlockIdLocation>): { html: string; added: string[] } {
   const tree = parse(html)
+  const issues = fitIssuesIn(tree.children, node)
+  if (issues.length) throw new RangeError(issues.join(' '))
   const added = identifyBlockElements(blockElements(tree.children), node, newId, seen)
   return { html: serialize(tree), added }
 }

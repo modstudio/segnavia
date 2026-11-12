@@ -13,7 +13,7 @@ import type { ChildNode, Element } from 'domhandler'
 import { elements, parse } from '../sanitize.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
 import { element, headingText, linkChildren } from './dom.ts'
-import { namedRegionFitIssues, templateRegionFitIssues } from './region-fit.ts'
+import { namedRegionFitIssues, templateRegionFitIssues } from '../fit-attributes.ts'
 import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 
 export interface BuiltSection {

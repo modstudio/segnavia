@@ -13,7 +13,7 @@ import {
   resolvePreflightProfile,
 } from './preflight.ts'
 
-const facts = { pageCount: 1, pages: [{ folio: '1', first: 'a', last: 'z' }], fits: [{ group: 'sidebar', size: '9px' }] }
+const facts = { pageCount: 1, pages: [{ folio: '1', first: 'a', last: 'z' }], fits: [{ subject: 'held', group: 'sidebar', values: { size: '9px' } }] }
 const entry = (check: 'region-overset' | 'furniture-overset', subject = 'body') => ({ check, subject, message: `Shorten ${subject} to clear it.` })
 
 describe('preflight profiles', () => {

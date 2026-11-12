@@ -178,6 +178,10 @@ function markOverflow(element: Element, names: ReturnType<typeof bindingNames>, 
     // Only a value the fill supplied is measured: the design's placeholder text says nothing about the fill.
     if (!declaration || overflow === 'wrap' || resolved.report.slots[key] !== 'filled') continue
     element.attribs['data-slot-overflow'] = `${encodeURIComponent(key)}:${overflow}${overflow === 'shrink' ? `:${declaration.minSize ?? 6}` : ''}`
+    if (overflow === 'shrink') {
+      element.attribs['data-fit'] = 'size'
+      element.attribs['data-fit-min'] = `${declaration.minSize ?? 6}px`
+    }
     resolved.markedHere.add(key)
     return
   }
@@ -188,6 +192,8 @@ function applyElements(elements: Element[], names: ReturnType<typeof bindingName
     if (!applyPresent(element, names.present, resolved.report)) return []
     // Overflow markers are bridge instructions owned by this library, so authored values cannot survive slot application.
     delete element.attribs['data-slot-overflow']
+    delete element.attribs['data-fit']
+    delete element.attribs['data-fit-min']
     markOverflow(element, names, resolved)
     applyValue(element, names.value, resolved)
     applyUrl(element, 'href', names.href, resolved)

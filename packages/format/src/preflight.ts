@@ -1,6 +1,7 @@
 import type { FontFailure } from './fonts.ts'
 
 export const PREFLIGHT_CHECKS = [
+  'fit-limit',
   'region-overset',
   'furniture-overset',
   'slot-overset',
@@ -103,8 +104,9 @@ export interface PreflightPageFacts {
   readonly last?: string
 }
 export interface PreflightFit {
-  readonly group: string
-  readonly size: string
+  readonly subject: string
+  readonly group?: string
+  readonly values: Readonly<Record<string, string>>
 }
 export interface PreflightFacts {
   readonly pageCount: number
@@ -201,10 +203,19 @@ export function boundPreflightReport(
     })
     const fits = source.fits.slice(0, limits.fits).flatMap((held): PreflightFit[] => {
       if (!held || typeof held !== 'object' || Array.isArray(held)) return []
-      const fit = held as { group?: unknown; size?: unknown }
+      const fit = held as { subject?: unknown; group?: unknown; values?: unknown }
+      const subject = boundedPreflightText(fit.subject, limits.fitGroup)
       const group = boundedPreflightText(fit.group, limits.fitGroup)
-      const size = boundedPreflightText(fit.size, limits.fitSize)
-      return group === undefined || size === undefined ? [] : [{ group, size }]
+      if (subject === undefined || !fit.values || typeof fit.values !== 'object' || Array.isArray(fit.values)) return []
+      const values = Object.fromEntries(
+        Object.entries(fit.values)
+          .slice(0, 3)
+          .flatMap(([strategy, value]) => {
+            const bounded = boundedPreflightText(value, limits.fitSize)
+            return bounded === undefined ? [] : [[strategy.slice(0, limits.fitGroup), bounded]]
+          }),
+      )
+      return [{ subject, ...(group === undefined ? {} : { group }), values }]
     })
     return { pageCount: Math.min(source.pageCount as number, limits.pages), pages, fits }
   }

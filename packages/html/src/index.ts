@@ -67,7 +67,7 @@ export {
 export { PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_SELECTOR, PAGE_REFERENCE_VALUE, pageReferenceTarget } from './book/book-page-reference.ts'
 export { parseBookFixture } from './book/book-test-fixture.ts'
 export { bookView, bookViewFromHtml } from './book/book-view.ts'
-export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitRegionSize, lengthPx, parseCssLength } from './book/region-fit.ts'
+export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitAttributeIssues, lengthPx, parseCssLength } from './fit-attributes.ts'
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'
 export { bookPrintPart, headingLabel } from './book/types.ts'
 export { sanitizeBookCss } from './book-css.ts'

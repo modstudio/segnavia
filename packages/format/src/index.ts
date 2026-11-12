@@ -69,6 +69,7 @@ export { applyOps } from './document-apply.ts'
 export { type AnchorSource, type DocumentDayOptions, resolveDocumentDay, resolveDocumentDayResult } from './document-day.ts'
 export { diffDocuments } from './document-diff.ts'
 export { fingerprintDocument, fingerprintScript, fingerprintValue, requireParsedDocument } from './document-fingerprint.ts'
+export { FIT_STRATEGIES, FitAxis, FitBox, FitMeasurement, type FitStrategy, FitValue } from './fit.ts'
 export { defaultNewId } from './document-identity.ts'
 export { inverseBatch, invertOps } from './document-invert.ts'
 export {

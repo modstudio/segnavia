@@ -6,6 +6,7 @@ import { parentRules } from './parent-rules.ts'
 import { RecordFacts } from './record-facts.ts'
 import { Variable } from './variable.ts'
 import { VariableDocumentFacts } from './variable-document-facts.ts'
+import { FitMeasurement } from './fit.ts'
 
 export const PaginateLine = z.object({
   top: z.number(),
@@ -77,6 +78,7 @@ export const PaginateNoteSeriesGeometry = z.object({ name: z.string(), gap: z.nu
 export type PaginateNoteSeriesGeometry = z.infer<typeof PaginateNoteSeriesGeometry>
 
 export const Measurements = z.object({
+  fits: z.array(FitMeasurement).default([]),
   variables: z.array(Variable).default([]),
   document: VariableDocumentFacts.optional(),
   flows: z.array(PaginateFlow),

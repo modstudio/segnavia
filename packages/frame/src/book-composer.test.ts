@@ -91,6 +91,15 @@ test('publishes preflight before refusing or marking composition complete', () =
   expect(composed).toBeGreaterThan(refusal)
 })
 
+test('a slot shrunk in a composed book has the same size on every page copy', () => {
+  const script = composerScript('{}')
+  const fit = script.indexOf('fitSourceSlots()')
+  const firstMeasure = script.indexOf('var input=measureInput()')
+
+  expect(fit).toBeGreaterThan(0)
+  expect(fit).toBeLessThan(firstMeasure)
+})
+
 test('keeps one progress high-water across the note-overlap repair composition', () => {
   const script = composerScript('{}')
   const highWater = script.indexOf('var progressHighWater;')
