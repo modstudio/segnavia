@@ -3,6 +3,7 @@ import path from 'node:path'
 import { Document, PX_PER_PT } from '@segnavia/format'
 import { workbookFixture } from '../demo-book-workbook-fixtures.ts'
 import { verifyBookCopyfit } from './book-copyfit.ts'
+import { verifyBookMeasuredProperties } from './book-measured-properties.ts'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
 import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
@@ -108,6 +109,7 @@ export async function verifyBooks(h: Harness) {
   await verifyPlacedMediaBook(h)
   await verifyBookSlotCopyfit(h)
   await verifyBookCopyfit(h)
+  await verifyBookMeasuredProperties(h)
 }
 
 async function paginatedFrame(h: Harness, id: string) {

@@ -144,6 +144,25 @@ Strategies run in the listed order. An omitted maximum is the authored value,
 and `size` is the default strategy. A fit that reaches its bounds remains
 visible and is reported as `fit-limit`; strict preflight refuses it.
 
+Source content can publish a measured value as a CSS custom property after
+copyfit and before pagination:
+
+```html
+<section data-measure="max-content-inline:children" data-measure-as="--widest">
+  <span>short</span><span>the-widest-child</span>
+  <div class="columns">…</div>
+</section>
+<style>
+  .columns {
+    column-count: clamp(1, round(down, calc(var(--widest) / 12rem), 1), 4);
+  }
+</style>
+```
+
+`data-measure` also accepts `block` and `line-count`. Geometric values carry
+`px`; line counts are unitless. `describeDocument` exposes supplied composition
+measurements under `measured`.
+
 Install `@segnavia/markdown-editor` and its required Tiptap, CodeMirror and
 Lezer peers only when the host edits Markdown:
 

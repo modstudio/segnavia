@@ -11,6 +11,7 @@ import {
 } from '@segnavia/format'
 import type { ChildNode, Element } from 'domhandler'
 import { namedRegionFitIssues, templateRegionFitIssues } from '../fit-attributes.ts'
+import { namedRegionMeasureIssues, templateRegionMeasureIssues } from '../measure-attributes.ts'
 import { elements, parse } from '../sanitize.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
 import { element, headingText, linkChildren } from './dom.ts'
@@ -209,14 +210,22 @@ export function templateRegionNameIssues(template: string, regions: Element[]): 
 export function templateRegionIssues(templates: BookTemplate[]): string[] {
   return templates.flatMap((template) => {
     const regions = templateRegionElements(template.html)
-    return [...templateRegionNameIssues(template.name, regions), ...templateRegionFitIssues(template.name, regions)]
+    return [
+      ...templateRegionNameIssues(template.name, regions),
+      ...templateRegionFitIssues(template.name, regions),
+      ...templateRegionMeasureIssues(template.name, regions),
+    ]
   })
 }
 
 function templatedPageRegionFitIssues(entry: TemplatedSection, id: string): string[] {
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) =>
-    Object.values(page.regions).flatMap((html) => namedRegionFitIssues(`section ${label} page ${index + 1}`, templateRegionElements(html))),
+    Object.values(page.regions).flatMap((html) => {
+      const where = `section ${label} page ${index + 1}`
+      const regions = templateRegionElements(html)
+      return [...namedRegionFitIssues(where, regions), ...namedRegionMeasureIssues(where, regions)]
+    }),
   )
 }
 

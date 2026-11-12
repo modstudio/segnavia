@@ -3,6 +3,7 @@ import { embedFunction, fitList, parseCssLength } from '@segnavia/html'
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
 import { FIT_AXES, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue, runFitStageOnce } from './composer-fit-policy.ts'
 import { fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
+import { embeddedComposerPropertyFunctions } from './composer-properties.ts'
 
 interface FitResult {
   element: HTMLElement
@@ -266,5 +267,6 @@ ${embedFunction('finishTemporaryFits', finishTemporaryFits)}
 ${embedFunction('fitSourceElementsImplementation', fitSourceElementsImplementation)}
 var fitStageState={done:false,results:[]};
 var fitSourceElements=function(){return runFitStageOnce(fitStageState,function(){fitPreflightEntries=[];preflightFits=[];var results=fitSourceElementsImplementation(document,ABSOLUTE_PX,geometryFor,config.direction,config.lang);for(var i=0;i<results.length;i++){var fit=results[i];var entry=fitLimitEntry(fit);if(entry)fitPreflightEntries.push(entry);var values={};for(var v=0;v<fit.values.length;v++)values[fit.values[v].strategy]=fit.values[v].value+fit.values[v].unit;preflightFits.push({subject:fit.id,group:fit.group,values:values});}return results;});};
-var fitSourceSlots=function(){fitSourceElements();};`
+var fitSourceSlots=function(){fitSourceElements();};
+${embeddedComposerPropertyFunctions()}`
 }
