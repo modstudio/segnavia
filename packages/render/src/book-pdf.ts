@@ -29,6 +29,7 @@ import { marginCss, marginDocument } from './book-margins.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
 import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
 import { writeBookStructure } from './book-structure.ts'
+import { bookWatermarkPageFacts } from './book-watermark.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry } from './options.ts'
 import { type OutputDate, outputDate } from './output-date.ts'
@@ -44,7 +45,14 @@ export { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 
 async function inspect(output: PrintResult<true>): Promise<PrintedPart> {
   const document = await loadPdf(output.bytes)
-  return { bytes: output.bytes, overflow: output.overflow, pages: document.getPageCount(), destinations: namedDestinations(document) }
+  return {
+    bytes: output.bytes,
+    overflow: output.overflow,
+    pages: document.getPageCount(),
+    destinations: namedDestinations(document),
+    ...(output.fontFamily ? { fontFamily: output.fontFamily } : {}),
+    ...(output.fontFaceCss ? { fontFaceCss: output.fontFaceCss } : {}),
+  }
 }
 
 function hashTargets(document: BookDocument): string[] {
@@ -277,7 +285,9 @@ async function renderPaginatedBookPdf(
   const built = bookDocument(book)
   if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
   writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations }, date)
-  const output = await adapter.finish(await document.save(), options)
+  const joined = await document.save()
+  const watermarked = adapter.watermark ? await adapter.watermark(joined, bookWatermarkPageFacts(book, [printed])) : joined
+  const output = await adapter.finish(watermarked, options)
   options.overflow?.report?.({ entries: printed.overflow ? [printed.overflow] : [] })
   return output
 }
@@ -340,7 +350,9 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   const plan = planBookPages(marginFacts, direction)
   const parents = bookParents(book.page.margin, book.parentPages)
   const margin = await adapter.print(marginDocument(book, plan, parents), book, slotsForDocument(slots, []), options, 'margin', marginCss(book, plan, parents))
-  const output = await finishBookPdf(book, await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes, date), options, adapter)
+  const joined = await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes, date)
+  const watermarked = adapter.watermark ? await adapter.watermark(joined, bookWatermarkPageFacts(book, [front, printedBody.part])) : joined
+  const output = await finishBookPdf(book, watermarked, options, adapter)
   options.overflow?.report?.({
     entries: [front.overflow, printedBody.part.overflow, margin.overflow].filter((entry): entry is OverflowEntry => entry !== undefined),
   })

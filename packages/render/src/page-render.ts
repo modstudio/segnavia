@@ -19,8 +19,13 @@ interface PageRenderServices {
   withTab: TabRunner
 }
 
-export async function pageFontFacts(target: Tab | Frame, printedPages = false): Promise<PageFontFacts> {
-  return target.evaluate((fromPrintedPage) => {
+export interface PageFontFactsCapture {
+  printedPages?: boolean
+  textRootSelector?: string
+}
+
+export async function pageFontFactsFromRoot(target: Tab | Frame, capture: PageFontFactsCapture = {}): Promise<PageFontFacts> {
+  return target.evaluate(({ printedPages, textRootSelector }) => {
     const rules: string[] = []
     const collect = (list: CSSRuleList) => {
       for (const rule of list) {
@@ -33,11 +38,17 @@ export async function pageFontFacts(target: Tab | Frame, printedPages = false): 
         collect(sheet.cssRules)
       } catch {}
     }
-    const textRoot = fromPrintedPage
-      ? (document.querySelector('[data-segnavia-printed-page] [data-segnavia-text]') ?? document.querySelector('[data-segnavia-printed-page]'))
-      : document.body
+    const textRoot = textRootSelector
+      ? document.querySelector(textRootSelector)
+      : printedPages
+        ? (document.querySelector('[data-segnavia-printed-page] [data-segnavia-text]') ?? document.querySelector('[data-segnavia-printed-page]'))
+        : document.body
     return { fontFamily: getComputedStyle(textRoot ?? document.body).fontFamily, fontFaceCss: rules.join('') }
-  }, printedPages)
+  }, capture)
+}
+
+export async function pageFontFacts(target: Tab | Frame, printedPages = false): Promise<PageFontFacts> {
+  return pageFontFactsFromRoot(target, { printedPages })
 }
 
 export async function renderPagePdf(

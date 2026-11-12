@@ -5,7 +5,7 @@ import type { TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import type { RenderDeadline } from './render-deadline.ts'
-import { applyWatermark, stampWatermark, watermarkCopyStamper } from './watermark-stamp.ts'
+import { applyWatermark, stampWatermark, watermarkCopyStamper, watermarkPartFromFacts } from './watermark-stamp.ts'
 
 async function fixture(pages: number, prefix: string): Promise<Uint8Array> {
   const document = await PDFDocument.create()
@@ -119,4 +119,46 @@ test('the layer carries page font facts but none of the document CSS', async () 
   expect(html).toContain('@font-face{font-family:"Page Sans";src:local(Arial)}')
   expect(html).not.toContain('body{background:#fff}')
   expect(html).not.toContain('section{break-after:avoid}')
+})
+
+test('explicit page facts select physical pages and carry each selected page language, direction, and fonts', async () => {
+  const fontFaceCss = '@font-face{font-family:"Facts Face";src:local(Arial)}'
+  const facts = [
+    { direction: 'ltr' as const, lang: 'en', fontFamily: 'Facts Face', fontFaceCss },
+    { direction: 'rtl' as const, lang: 'he', fontFamily: 'Facts Face', fontFaceCss },
+    { direction: 'rtl' as const, lang: 'ar', fontFamily: 'Facts Face', fontFaceCss },
+  ]
+  let html = ''
+  const withTab = (async (setup, body) => {
+    html = setup.html
+    return body({ evaluate: async () => {}, pdf: async () => fixture(2, 'layer') } as never)
+  }) as TabRunner
+  const [output] = await applyWatermark(
+    [watermarkPartFromFacts(await fixture(3, 'reader'), facts)],
+    { watermark: { text: 'Draft', pages: [1, 3] } },
+    '',
+    {} as RenderDeadline,
+    withTab,
+  )
+
+  expect(await pageContent(output as Uint8Array, 0)).toContain('/Artifact')
+  expect(await pageContent(output as Uint8Array, 1)).toBe('reader-2')
+  expect(await pageContent(output as Uint8Array, 2)).toContain('/Artifact')
+  expect(html).toContain(fontFaceCss)
+  expect(html).toContain('<bdi dir="ltr" lang="en">Draft</bdi>')
+  expect(html).toContain('<bdi dir="rtl" lang="ar">Draft</bdi>')
+  expect(html).not.toContain('lang="he"')
+})
+
+test('refuses explicit page facts that do not match the laid-out part', async () => {
+  const withTab = (async (_setup, body) => body({ evaluate: async () => {}, pdf: async () => fixture(1, 'layer') } as never)) as TabRunner
+  await expect(
+    applyWatermark(
+      [watermarkPartFromFacts(await fixture(2, 'reader'), [{ direction: 'ltr' }])],
+      { watermark: { text: 'Draft' } },
+      '',
+      {} as RenderDeadline,
+      withTab,
+    ),
+  ).rejects.toThrow(RenderRefusedError)
 })

@@ -32,7 +32,7 @@ export interface RendererOptions {
 
 export type PagePdfOptions = PageRenderOptions & PdfOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
 export type ParsedPagePdfOptions = ParsedPageRenderOptions & PdfOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
-export type BookPdfOptions = ComposedRenderInput & PdfOptions & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[] }
+export type BookPdfOptions = ComposedRenderInput & PdfOptions & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[]; watermark?: Watermark }
 export type ParsedBookPdfOptions = ParsedComposedRenderOptions<BookPdfOptions>
 export type BookPlanOptions = RenderOptions & AsOfInputs & { motifs?: MotifsOptions; breaks?: string[] }
 export interface Renderer {
@@ -42,7 +42,7 @@ export interface Renderer {
   pagesPdf(pages: PageOrPrintedInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageOrPrintedInput, options?: PageImageOptions): Promise<Uint8Array>
   coverImage(cover: CoverInput, options: CoverImageOptions): Promise<Uint8Array>
-  deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PdfOptions & PrintOptions & AsOfInputs): Promise<Uint8Array>
+  deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PdfOptions & PrintOptions & AsOfInputs & { watermark?: Watermark }): Promise<Uint8Array>
   slideImage(deck: DocumentInput, index: number, options?: SlideImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
   close(): Promise<void>
