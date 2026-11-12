@@ -175,7 +175,16 @@ export const PACKAGES: Record<string, PackageRule> = {
   voice: { runtime: 'server', imports: ['@segnavia/format'] },
   render: {
     runtime: 'server',
-    imports: ['@segnavia/diagrams', '@segnavia/format', '@segnavia/frame', '@segnavia/html', '@segnavia/layout', 'playwright-core', 'pdf-lib'],
+    imports: [
+      '@neslinesli93/qpdf-wasm',
+      '@segnavia/diagrams',
+      '@segnavia/format',
+      '@segnavia/frame',
+      '@segnavia/html',
+      '@segnavia/layout',
+      'playwright-core',
+      'pdf-lib',
+    ],
   },
   capture: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/render', 'playwright-core'] },
 }

@@ -28,6 +28,7 @@
     }
   },
   "dependencies": {
+    "@neslinesli93/qpdf-wasm": "^0.3.1",
     "@segnavia/format": "workspace:*",
     "@segnavia/frame": "workspace:*",
     "@segnavia/html": "workspace:*",

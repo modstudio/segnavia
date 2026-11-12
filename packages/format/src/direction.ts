@@ -58,3 +58,10 @@ export function languageDirection(lang: string | undefined): TextDirection | nul
 export function resolveDirection(dir: Direction | undefined, lang: string | undefined, sample: string): TextDirection {
   return textDirection(dir, lang, sample) ?? 'ltr'
 }
+
+/** Prefixes text whose natural direction differs from its document direction with that document's directional mark. */
+export function markedTitle(title: string, direction: TextDirection): string {
+  const natural = firstStrongDirection(title) ?? 'ltr'
+  if (natural === direction) return title
+  return `${direction === 'rtl' ? '\u200f' : '\u200e'}${title}`
+}

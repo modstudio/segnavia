@@ -1,5 +1,4 @@
-import type { TextDirection } from '@segnavia/format'
-import { type Book, firstStrongDirection, resolveDirection } from '@segnavia/format'
+import { type Book, markedTitle, resolveDirection, type TextDirection } from '@segnavia/format'
 import { type BookHeading, headingLabel } from '@segnavia/html'
 import { type PDFDict, type PDFDocument, PDFHexString, PDFName, PDFNumber, type PDFRef } from 'pdf-lib'
 import { type BookDestination, explicit } from './book-destinations.ts'
@@ -14,14 +13,8 @@ export interface BookOutlineItem {
   children: BookOutlineItem[]
 }
 
-function markedTitle(title: string, direction: TextDirection): string {
-  const natural = firstStrongDirection(title) ?? 'ltr'
-  if (natural === direction) return title
-  return `${direction === 'rtl' ? '\u200f' : '\u200e'}${title}`
-}
-
-export function outlineTitle(title: string, dir: Book['dir'], lang: Book['lang']): string {
-  return markedTitle(title, resolveDirection(dir, lang, title))
+export function outlineTitle(title: string, direction: TextDirection): string {
+  return markedTitle(title, direction)
 }
 
 export function writePlanFolios(document: PDFDocument, folios: readonly (string | null)[]): void {
@@ -58,17 +51,12 @@ function descendantCount(item: BookOutlineItem): number {
   return item.children.reduce((count, child) => count + 1 + descendantCount(child), 0)
 }
 
-function writeSiblings(
-  document: PDFDocument,
-  items: BookOutlineItem[],
-  parent: PDFRef,
-  direction: Pick<Book, 'dir' | 'lang'>,
-): { first: PDFRef; last: PDFRef } {
+function writeSiblings(document: PDFDocument, items: BookOutlineItem[], parent: PDFRef, direction: TextDirection): { first: PDFRef; last: PDFRef } {
   const dictionaries = items.map(() => document.context.obj({}))
   const references = dictionaries.map((dictionary) => document.context.register(dictionary))
   items.forEach((item, index) => {
     const dictionary = dictionaries[index] as PDFDict
-    dictionary.set(key('Title'), PDFHexString.fromText(outlineTitle(item.title, direction.dir, direction.lang)))
+    dictionary.set(key('Title'), PDFHexString.fromText(outlineTitle(item.title, direction)))
     dictionary.set(key('Parent'), parent)
     dictionary.set(key('Dest'), explicit(document, item.destination, 0))
     const previous = references[index - 1]
@@ -90,13 +78,14 @@ export function writeBookStructure(
   input: { headings: BookHeading[]; destinations: Map<string, BookDestination>; book: Book },
   date?: OutputDate,
 ): void {
-  writeDocumentMetadata(document, input.book, date)
+  const direction = resolveDirection(input.book.dir, input.book.lang, input.book.title)
+  writeDocumentMetadata(document, input.book, date, direction)
 
   const outline = bookOutline(input.headings, input.destinations)
   if (outline.length === 0) return
   const root = document.context.obj({ Type: 'Outlines' })
   const rootReference = document.context.register(root)
-  const siblings = writeSiblings(document, outline, rootReference, input.book)
+  const siblings = writeSiblings(document, outline, rootReference, direction)
   root.set(key('First'), siblings.first)
   root.set(key('Last'), siblings.last)
   root.set(key('Count'), PDFNumber.of(outline.length))
