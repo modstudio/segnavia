@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { markupAssetRefusal } from './browser-tab.ts'
+import { RenderRefusedError } from './errors.ts'
 import { imageWatermarkPage, injectImageWatermark, nestedFrameFontFacts, selectedImageWatermarkMarkup } from './image-watermark.ts'
 
 const page = imageWatermarkPage({
@@ -27,11 +27,36 @@ test('page and trim pixels are expressed as equivalent CSS points', () => {
   })
 })
 
-test('an unapproved watermark image produces the ordinary asset refusal', () => {
+test('an unapproved watermark image refuses before overlay injection', async () => {
   const markup = selectedImageWatermarkMarkup({ image: 'https://outside.example/watermark.png' }, 1, page)
   expect(markup).toBeDefined()
-  expect(markupAssetRefusal(markup ?? '', { scripts: true })).toBe(
-    'https://outside.example/watermark.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+  const tab = { evaluateHandle: () => Promise.reject(new Error('overlay injection should not run')) }
+  await expect(injectImageWatermark(tab as never, markup ?? '', { scripts: true })).rejects.toEqual(
+    new RenderRefusedError(
+      'https://outside.example/watermark.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+    ),
+  )
+})
+
+test('an image that fails to decode refuses the overlay', async () => {
+  const root = {
+    evaluate: async (callback: unknown) => (String(callback).includes('Promise.allSettled') ? ['https://assets.example/watermark.png'] : undefined),
+    dispose: async () => {},
+  }
+  const tab = {
+    evaluateHandle: async () => root,
+    evaluate: async () => {},
+  }
+
+  await expect(
+    injectImageWatermark(tab as never, '<img src="https://assets.example/watermark.png">', {
+      scripts: true,
+      origins: [{ origin: 'https://assets.example', kinds: ['image'] }],
+    }),
+  ).rejects.toEqual(
+    new RenderRefusedError(
+      'The image watermark could not decode https://assets.example/watermark.png; approve its origin or omit the image to clear this refusal.',
+    ),
   )
 })
 
@@ -61,7 +86,7 @@ test('the outer document loads slide faces before watermark text is fitted', asy
     evaluate: async () => calls.push('fonts-ready'),
   }
 
-  await injectImageWatermark(tab as never, '<div>Draft</div>', '@font-face{font-family:SlideFace;src:url(face.woff2)}')
+  await injectImageWatermark(tab as never, '<div>Draft</div>', { scripts: true }, '@font-face{font-family:SlideFace;src:url(face.woff2)}')
 
   expect(calls).toEqual(['insert:@font-face{font-family:SlideFace;src:url(face.woff2)}', 'fonts-ready', 'fit', 'images', 'dispose'])
 })

@@ -72,7 +72,7 @@ export async function renderSlideImage(
           ...(font.fontFamily ? { fontFamily: font.fontFamily } : {}),
         }),
       )
-      if (watermark) await injectImageWatermark(tab, watermark, font.fontFaceCss)
+      if (watermark) await injectImageWatermark(tab, watermark, { scripts: true, origins: opts.origins }, font.fontFaceCss)
       const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
       return enforceImageBytes(stampImage(image, outputDate([established.day])), opts.limits?.bytes)
     },

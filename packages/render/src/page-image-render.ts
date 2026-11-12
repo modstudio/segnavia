@@ -56,21 +56,21 @@ export async function renderPreparedPageImage(
     },
     async (tab) => {
       await awaitPrintedPageComposition(tab, page, plainPagePreflight ? undefined : prepared.options.preflight)
-      if (grows) await contentHeight(tab)
+      const captureViewport = grows ? { ...viewport, height: await contentHeight(tab) } : viewport
       plainPagePreflight?.complete()
       const fontFamily = opts.watermark ? (await pageFontFacts(tab, Boolean(page.printedPages))).fontFamily : undefined
       const watermark = selectedImageWatermarkMarkup(
         opts.watermark,
         1,
         imageWatermarkPage({
-          viewport,
+          viewport: captureViewport,
           direction: printedPageDirection(page),
           ...(page.lang ? { lang: page.lang } : {}),
           ...(fontFamily ? { fontFamily } : {}),
           ...(page.print ? { trim: printedImageTrim(page.print) } : {}),
         }),
       )
-      if (watermark) await injectImageWatermark(tab, watermark)
+      if (watermark) await injectImageWatermark(tab, watermark, { scripts: true, origins: opts.origins })
       const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
       const stamped = stampImage(image, outputDate([prepared.established.day]))
       return enforceImageBytes(stamped, opts.limits?.bytes)

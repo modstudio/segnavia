@@ -1,5 +1,6 @@
 import { paperPixels, sheetMm, type TextDirection } from '@segnavia/format'
 import type { Page as Tab } from 'playwright-core'
+import { type BrowserTabSetup, markupAssetRefusal } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { PageFontFacts } from './overflow.ts'
 import { pageFontFacts } from './page-render.ts'
@@ -47,7 +48,9 @@ const OVERLAY_STYLE = `
 *,*::before,*::after{box-sizing:border-box}
 `
 
-export async function injectImageWatermark(tab: Tab, markup: string, fontFaceCss = ''): Promise<void> {
+export async function injectImageWatermark(tab: Tab, markup: string, options: Pick<BrowserTabSetup, 'scripts' | 'origins'>, fontFaceCss = ''): Promise<void> {
+  const assetRefusal = markupAssetRefusal(markup, options)
+  if (assetRefusal) throw new RenderRefusedError(assetRefusal)
   const root = await tab.evaluateHandle(
     ({ html, css, faces }) => {
       if (faces) {
@@ -70,11 +73,22 @@ export async function injectImageWatermark(tab: Tab, markup: string, fontFaceCss
   try {
     await tab.evaluate(() => document.fonts.ready)
     await root.evaluate(fitWatermarkText)
-    await root.evaluate(async (shadow) => {
+    const failedImages = await root.evaluate(async (shadow) => {
       const images = [...(shadow as ShadowRoot).querySelectorAll('img')]
-      await Promise.allSettled(images.map((image) => image.decode()))
+      const results = await Promise.allSettled(images.map((image) => image.decode()))
+      return results.flatMap((result, index) => {
+        if (result.status === 'fulfilled') return []
+        const image = images[index]
+        return [image?.currentSrc || image?.src || image?.getAttribute('src') || 'an unnamed image']
+      })
     })
+    if (failedImages.length > 0) {
+      throw new RenderRefusedError(
+        `The image watermark could not decode ${failedImages.join(', ')}; approve its origin or omit the image to clear this refusal.`,
+      )
+    }
   } catch (error) {
+    if (error instanceof RenderRefusedError) throw error
     throw new RenderRefusedError(
       `The image watermark overlay could not be prepared: ${error instanceof Error ? error.message : String(error)}; change the watermark or omit it to clear this refusal.`,
     )
