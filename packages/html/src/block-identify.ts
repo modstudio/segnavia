@@ -52,13 +52,13 @@ export function identifyHtmlBlocks(
   node: string,
   newId: () => string,
   seen: Map<string, BlockIdLocation>,
-  options: { refuseMeasure?: boolean } = {},
+  options: { refuseMeasure?: boolean; insideNamedRegion?: boolean } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
   const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
     ...(options.refuseMeasure ? { refusedFamilies: ['data-measure'] } : {}),
   })
-  issues.push(...fillAttributeIssues(tree.children, node))
+  issues.push(...fillAttributeIssues(tree.children, node, options.insideNamedRegion))
   if (issues.length) throw new RangeError(issues.join(' '))
   const added = identifyBlockElements(blockElements(tree.children), node, newId, seen)
   return { html: serialize(tree), added }

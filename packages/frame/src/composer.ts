@@ -36,8 +36,8 @@ import {
   resolveRegionHeads,
   resolveRegionHeadsImplementation,
 } from './composer-dress.ts'
-import { embeddedComposerFitFunctions } from './composer-fit.ts'
 import { embeddedComposerFillFunctions } from './composer-fill.ts'
+import { embeddedComposerFitFunctions } from './composer-fit.ts'
 import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'

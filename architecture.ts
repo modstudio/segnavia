@@ -136,6 +136,8 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/composer-fit.ts',
       'src/composer-fit-policy.ts',
       'src/composer-axis-policy.ts',
+      'src/composer-fill.ts',
+      'src/composer-fill-policy.ts',
       'src/composer-page-dom.ts',
       'src/composer-measure.ts',
       'src/composer-measure-embed.ts',

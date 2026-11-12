@@ -13,7 +13,11 @@ test('defaults and preserves validated repeat bounds', () => {
 })
 
 test('bounds dropped ids while retaining total counts', () => {
-  const result = truncatedRegion('lesson:practice', Array.from({ length: 54 }, (_, index) => `row-${index}`), '7')
+  const result = truncatedRegion(
+    'lesson:practice',
+    Array.from({ length: 54 }, (_, index) => `row-${index}`),
+    '7',
+  )
   expect(result.fact).toMatchObject({ droppedPages: 0, droppedBlocks: 54, droppedTotal: 54 })
   expect(result.fact.droppedIds).toHaveLength(50)
   expect(result.entry.message).toContain('54 blocks')

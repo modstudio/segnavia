@@ -9,7 +9,9 @@ interface FillGeometry {
 
 function regionSubject(region: HTMLElement): string {
   const name = region.getAttribute('data-region') ?? region.getAttribute('data-segnavia-region') ?? ''
-  const template = region.closest<HTMLElement>('[data-template]')?.getAttribute('data-template') ?? region.closest<HTMLElement>('[data-segnavia-template]')?.getAttribute('data-segnavia-template')
+  const template =
+    region.closest<HTMLElement>('[data-template]')?.getAttribute('data-template') ??
+    region.closest<HTMLElement>('[data-segnavia-template]')?.getAttribute('data-segnavia-template')
   const parent = region.getAttribute('data-segnavia-parent')
   return `${template ?? parent ?? 'region'}:${name}`
 }
@@ -19,7 +21,8 @@ function repeatFill(region: HTMLElement): PreflightRegion[] {
   if (!source) return []
   const name = region.getAttribute('data-region') ?? region.getAttribute('data-segnavia-region') ?? ''
   const blockSize = region.getBoundingClientRect().height
-  if (!Number.isFinite(blockSize) || blockSize <= 0) throw new Error(`Region ${name} has no definite block size; give the template or parent-page region a definite block size to clear this refusal.`)
+  if (!Number.isFinite(blockSize) || blockSize <= 0)
+    throw new Error(`Region ${name} has no definite block size; give the template or parent-page region a definite block size to clear this refusal.`)
   const limits = fillLimits(source.getAttribute('data-fill-min'), source.getAttribute('data-fill-max'))
   source.setAttribute('data-fill-index', '0')
   let count = 1
@@ -41,6 +44,40 @@ function repeatFill(region: HTMLElement): PreflightRegion[] {
   return [{ subject: regionSubject(region), fillCount: count }]
 }
 
+function fillTemplateHolder(
+  root: ParentNode,
+  template: HTMLElement,
+  holder: HTMLElement,
+  templateName: string,
+  geometry: (name: string | null | undefined) => FillGeometry,
+  defaultDirection: string,
+  defaultLang: string,
+): PreflightRegion[] {
+  const flow = holder.closest<HTMLElement>('[data-segnavia-flow]')
+  const area = geometry(flow?.getAttribute('data-page-geometry')).parents[0]?.textArea
+  if (!area) throw new Error(`Template ${templateName} has no definite text area; configure a page parent to clear this refusal.`)
+  const clone = template.cloneNode(true) as HTMLElement
+  clone.removeAttribute('hidden')
+  clone.removeAttribute('data-segnavia-template')
+  clone.setAttribute('data-template', templateName)
+  clone.style.cssText = `position:absolute;inset-block-start:0;inset-inline-start:-10000px;inline-size:${area.width}px;block-size:${area.height}px;overflow:visible;direction:${flow?.getAttribute('dir') ?? defaultDirection}`
+  const lang = flow?.getAttribute('lang') ?? defaultLang
+  if (lang) clone.setAttribute('lang', lang)
+  fillTemplateRegions(clone, holder)
+  ;(root as Document).body.append(clone)
+  const facts: PreflightRegion[] = []
+  for (const region of Array.from(clone.querySelectorAll<HTMLElement>('[data-region]'))) {
+    const added = repeatFill(region)
+    facts.push(...added)
+    if (added.length === 0) continue
+    const name = region.getAttribute('data-region')
+    const source = Array.from(holder.querySelectorAll<HTMLElement>('[data-region]')).find((candidate) => candidate.getAttribute('data-region') === name)
+    if (source) source.replaceChildren(...Array.from(region.childNodes).map((child) => child.cloneNode(true)))
+  }
+  clone.remove()
+  return facts
+}
+
 function fillTemplateSourceRegions(
   root: ParentNode,
   geometry: (name: string | null | undefined) => FillGeometry,
@@ -53,29 +90,7 @@ function fillTemplateSourceRegions(
     const holders = Array.from(root.querySelectorAll<HTMLElement>('[data-segnavia-templated-page]')).filter(
       (holder) => holder.getAttribute('data-template') === templateName,
     )
-    for (const holder of holders) {
-      const flow = holder.closest<HTMLElement>('[data-segnavia-flow]')
-      const area = geometry(flow?.getAttribute('data-page-geometry')).parents[0]?.textArea
-      if (!area) throw new Error(`Template ${templateName} has no definite text area; configure a page parent to clear this refusal.`)
-      const clone = template.cloneNode(true) as HTMLElement
-      clone.removeAttribute('hidden')
-      clone.removeAttribute('data-segnavia-template')
-      clone.setAttribute('data-template', templateName)
-      clone.style.cssText = `position:absolute;inset-block-start:0;inset-inline-start:-10000px;inline-size:${area.width}px;block-size:${area.height}px;overflow:visible;direction:${flow?.getAttribute('dir') ?? defaultDirection}`
-      const lang = flow?.getAttribute('lang') ?? defaultLang
-      if (lang) clone.setAttribute('lang', lang)
-      fillTemplateRegions(clone, holder)
-      ;(root as Document).body.append(clone)
-      for (const region of Array.from(clone.querySelectorAll<HTMLElement>('[data-region]'))) {
-        const added = repeatFill(region)
-        facts.push(...added)
-        if (added.length === 0) continue
-        const name = region.getAttribute('data-region')
-        const source = Array.from(holder.querySelectorAll<HTMLElement>('[data-region]')).find((candidate) => candidate.getAttribute('data-region') === name)
-        if (source) source.replaceChildren(...Array.from(region.childNodes).map((child) => child.cloneNode(true)))
-      }
-      clone.remove()
-    }
+    for (const holder of holders) facts.push(...fillTemplateHolder(root, template, holder, templateName, geometry, defaultDirection, defaultLang))
   }
   return facts
 }
@@ -124,6 +139,7 @@ ${embedFunction('regionSubject', regionSubject)}
 ${embedFunction('repeatFill', repeatFill)}
 ${embedFunction('fillTemplateRegions', fillTemplateRegions)}
 ${embedFunction('inkExcess', inkExcess)}
+${embedFunction('fillTemplateHolder', fillTemplateHolder)}
 ${embedFunction('fillTemplateSourceRegions', fillTemplateSourceRegions)}
 ${embedFunction('fillSourceRegionsImplementation', fillSourceRegionsImplementation)}
 ${embedFunction('applyRegionOverflow', applyRegionOverflow)}

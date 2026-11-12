@@ -16,12 +16,7 @@ export function fillLimits(minimum: string | null, maximum: string | null): { mi
   return { min: minimum === null ? 1 : Number(minimum), max: maximum === null ? 10_000 : Number(maximum) }
 }
 
-export function truncatedRegion(
-  subject: string,
-  droppedIds: readonly string[],
-  folio: string,
-  idLimit = 50,
-): { fact: PreflightRegion; entry: PreflightEntry } {
+export function truncatedRegion(subject: string, droppedIds: readonly string[], folio: string, idLimit = 50): { fact: PreflightRegion; entry: PreflightEntry } {
   const droppedTotal = droppedIds.length
   const dropped = droppedIds.slice(0, idLimit)
   return {

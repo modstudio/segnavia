@@ -22,13 +22,9 @@ export async function verifyPageLimit583(h: Harness): Promise<void> {
   const limited = await outcome(h, 'book-page-limit-583-default.html')
   h.check(
     'a 583-page book refuses through the document page limit at 500',
-    limited.failure?.includes('583 pages, above the pages limit of 500') === true,
+    limited.failure?.includes('583 papers, above the pages limit of 500') === true,
     JSON.stringify(limited),
   )
   const raised = await outcome(h, 'book-page-limit-583-raised.html')
-  h.check(
-    'a 583-page book composes when the host page limit is raised to 600',
-    raised.failure === null && raised.pages === 583,
-    JSON.stringify(raised),
-  )
+  h.check('a 583-page book composes when the host page limit is raised to 600', raised.failure === null && raised.pages === 583, JSON.stringify(raised))
 }

@@ -83,6 +83,7 @@ export const pageLimit583Fixture = (): DocumentInput => ({
   kind: 'book',
   metadata: { title: 'The 583 Page Book' },
   mode: 'paginated',
+  limits: { pages: 600 },
   page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
   rectoOpenings: true,
   children: [

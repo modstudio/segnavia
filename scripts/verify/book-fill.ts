@@ -12,8 +12,8 @@ export async function verifyBookFill(h: Harness): Promise<void> {
   await settled(h, 'book-fill-repeat.html')
   const fill = await h.page.evaluate((attribute) => {
     const report = JSON.parse(document.documentElement.getAttribute(attribute) ?? 'null')
-    const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-region="rows"] > [data-fill-index]'))
-    const region = document.querySelector<HTMLElement>('[data-region="rows"]')
+    const region = document.querySelector<HTMLElement>('[data-segnavia-book-page] [data-region="rows"]')
+    const rows = Array.from(region?.querySelectorAll<HTMLElement>(':scope > [data-fill-index]') ?? [])
     const inkInside = rows.every((row) => {
       const range = document.createRange()
       range.selectNodeContents(row)
@@ -25,7 +25,10 @@ export async function verifyBookFill(h: Harness): Promise<void> {
   }, PREFLIGHT_ATTRIBUTE)
   h.check(
     'a pointed Hebrew practice row fills its region with indexed whole-ink copies and reports the count',
-    fill.indexes.length > 1 && fill.indexes.every((index: string, at: number) => index === String(at)) && fill.inkInside && fill.facts?.[0]?.fillCount === fill.indexes.length,
+    fill.indexes.length > 1 &&
+      fill.indexes.every((index: string | null, at: number) => index === String(at)) &&
+      fill.inkInside &&
+      fill.facts?.[0]?.fillCount === fill.indexes.length,
     JSON.stringify(fill),
   )
 
@@ -42,7 +45,7 @@ export async function verifyBookFill(h: Harness): Promise<void> {
   const refusal = await h.page.evaluate(() => document.documentElement.getAttribute('data-segnavia-compose-failure'))
   h.check(
     'refuse names the overflowing region, page and excess under the omitted default profile',
-    refusal?.includes('practice:rows on page 1') === true && refusal.includes('exceeds its block size by'),
+    refusal?.includes('Region practice:rows on page ') === true && refusal.includes('exceeds its block size by'),
     String(refusal),
   )
 }

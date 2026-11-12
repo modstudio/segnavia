@@ -1,11 +1,5 @@
+import { PREFLIGHT_DROPPED_IDS_LIMIT, PREFLIGHT_REGION_COUNT_LIMIT, PREFLIGHT_REGION_ID_LIMIT, PREFLIGHT_REGIONS_LIMIT, type PreflightRegion } from './fill.ts'
 import { FIT_STRATEGIES } from './fit.ts'
-import {
-  PREFLIGHT_DROPPED_IDS_LIMIT,
-  PREFLIGHT_REGION_COUNT_LIMIT,
-  PREFLIGHT_REGION_ID_LIMIT,
-  PREFLIGHT_REGIONS_LIMIT,
-  type PreflightRegion,
-} from './fill.ts'
 import type { FontFailure } from './fonts.ts'
 
 export const PREFLIGHT_CHECKS = [
@@ -207,6 +201,33 @@ export function boundPreflightReport(
     const location = boundedPreflightLocation(source.location)
     return { check, subject, message, id: `${check}:${subject}`, severity, ...(location ? { location } : {}), order }
   }
+  const boundedRegionCount = (held: unknown): number | undefined =>
+    Number.isSafeInteger(held) && (held as number) >= 0 ? Math.min(held as number, limits.regionCount ?? PREFLIGHT_REGION_COUNT_LIMIT) : undefined
+  const boundedPreflightRegion = (held: unknown): PreflightRegion[] => {
+    if (!held || typeof held !== 'object' || Array.isArray(held)) return []
+    const region = held as Record<string, unknown>
+    const subject = boundedPreflightText(region.subject, limits.regionId ?? PREFLIGHT_REGION_ID_LIMIT)
+    if (subject === undefined) return []
+    const fillCount = boundedRegionCount(region.fillCount)
+    const droppedPages = boundedRegionCount(region.droppedPages)
+    const droppedBlocks = boundedRegionCount(region.droppedBlocks)
+    const droppedTotal = boundedRegionCount(region.droppedTotal)
+    const droppedIds = Array.isArray(region.droppedIds)
+      ? region.droppedIds
+          .slice(0, limits.droppedIds ?? PREFLIGHT_DROPPED_IDS_LIMIT)
+          .flatMap((id) => (typeof id === 'string' ? [id.slice(0, limits.regionId ?? PREFLIGHT_REGION_ID_LIMIT)] : []))
+      : undefined
+    return [
+      {
+        subject,
+        ...(fillCount === undefined ? {} : { fillCount }),
+        ...(droppedPages === undefined ? {} : { droppedPages }),
+        ...(droppedBlocks === undefined ? {} : { droppedBlocks }),
+        ...(droppedIds === undefined ? {} : { droppedIds }),
+        ...(droppedTotal === undefined ? {} : { droppedTotal }),
+      },
+    ]
+  }
   const boundedPreflightFacts = (value: unknown): PreflightFacts => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return { pageCount: 0, pages: [], fits: [], regions: [] }
     const source = value as { pageCount?: unknown; pages?: unknown; fits?: unknown; regions?: unknown }
@@ -238,24 +259,7 @@ export function boundPreflightReport(
       )
       return [{ subject, ...(group === undefined ? {} : { group }), values }]
     })
-    const count = (held: unknown): number | undefined =>
-      Number.isSafeInteger(held) && (held as number) >= 0 ? Math.min(held as number, limits.regionCount ?? PREFLIGHT_REGION_COUNT_LIMIT) : undefined
-    const regions = (Array.isArray(source.regions) ? source.regions : []).slice(0, limits.regions ?? PREFLIGHT_REGIONS_LIMIT).flatMap((held): PreflightRegion[] => {
-      if (!held || typeof held !== 'object' || Array.isArray(held)) return []
-      const region = held as Record<string, unknown>
-      const subject = boundedPreflightText(region.subject, limits.regionId ?? PREFLIGHT_REGION_ID_LIMIT)
-      if (subject === undefined) return []
-      const fillCount = count(region.fillCount)
-      const droppedPages = count(region.droppedPages)
-      const droppedBlocks = count(region.droppedBlocks)
-      const droppedTotal = count(region.droppedTotal)
-      const droppedIds = Array.isArray(region.droppedIds)
-        ? region.droppedIds
-            .slice(0, limits.droppedIds ?? PREFLIGHT_DROPPED_IDS_LIMIT)
-            .flatMap((id) => (typeof id === 'string' ? [id.slice(0, limits.regionId ?? PREFLIGHT_REGION_ID_LIMIT)] : []))
-        : undefined
-      return [{ subject, ...(fillCount === undefined ? {} : { fillCount }), ...(droppedPages === undefined ? {} : { droppedPages }), ...(droppedBlocks === undefined ? {} : { droppedBlocks }), ...(droppedIds === undefined ? {} : { droppedIds }), ...(droppedTotal === undefined ? {} : { droppedTotal }) }]
-    })
+    const regions = (Array.isArray(source.regions) ? source.regions : []).slice(0, limits.regions ?? PREFLIGHT_REGIONS_LIMIT).flatMap(boundedPreflightRegion)
     return { pageCount: Math.min(source.pageCount as number, limits.pages), pages, fits, regions }
   }
   const entries = Array.isArray(input.entries) ? input.entries : []

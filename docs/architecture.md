@@ -2090,6 +2090,20 @@ An author derives a column count without another attribute by using the
 measured width in CSS, for example
 `column-count: clamp(1, round(down, calc(var(--widest) / 12rem), 1), 4)`.
 
+Fill runs once after copyfit and before measured properties and the first pagination measurement. A
+`data-fill="repeat"` child in a template or parent-page region is copied until
+the region's definite block space is used, within integer `data-fill-min` and
+`data-fill-max` bounds; copies carry a zero-based `data-fill-index`. An
+indefinite runtime block size or a minimum that cannot fit refuses composition.
+
+Regions choose `data-overflow="grow|truncate|refuse"`. Grow preserves the
+existing overset behavior. Truncate removes trailing whole blocks or whole
+lines and reports `region-truncated`; cuts therefore never separate a Hebrew
+mark from its base letter. Refuse names the region, folio and excess under the
+default profile, and only explicit `off` suppresses it. Preflight
+`facts.regions` records fill counts and truncation counts, up to 256 regions;
+each truncation carries at most 50 dropped ids while retaining the full total.
+
 The environment is always an input. `paperViewport` supplies the print
 viewport, timing bounds are options and loaded fonts are measured facts.
 Prepared slot state is explicit rather than hidden. The bridge carries bounded

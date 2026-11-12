@@ -13,7 +13,12 @@ import {
   resolvePreflightProfile,
 } from './preflight.ts'
 
-const facts = { pageCount: 1, pages: [{ folio: '1', first: 'a', last: 'z' }], fits: [{ subject: 'held', group: 'sidebar', values: { size: '9px' } }], regions: [] }
+const facts = {
+  pageCount: 1,
+  pages: [{ folio: '1', first: 'a', last: 'z' }],
+  fits: [{ subject: 'held', group: 'sidebar', values: { size: '9px' } }],
+  regions: [],
+}
 const entry = (check: 'region-overset' | 'furniture-overset', subject = 'body') => ({ check, subject, message: `Shorten ${subject} to clear it.` })
 
 describe('preflight profiles', () => {
@@ -100,7 +105,12 @@ describe('boundPreflightReport', () => {
     expect(report.status).toBe('warnings')
     expect(report.facts).toEqual(facts)
     expect(preflightRefusal(report)).toBeUndefined()
-    expect(boundPreflightReport({ entries: [], facts: { pageCount: -1 } }, PREFLIGHT_PRESETS.default).facts).toEqual({ pageCount: 0, pages: [], fits: [], regions: [] })
+    expect(boundPreflightReport({ entries: [], facts: { pageCount: -1 } }, PREFLIGHT_PRESETS.default).facts).toEqual({
+      pageCount: 0,
+      pages: [],
+      fits: [],
+      regions: [],
+    })
   })
 
   test('drops malformed fit facts and bounds their strategy count and text', () => {

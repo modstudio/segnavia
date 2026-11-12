@@ -7,7 +7,7 @@ const base = (title: string, template: string, html: string, region: string): Do
   metadata: { title },
   mode: 'paginated',
   settings: { lang: 'he' },
-  page: { paper: 'a5', margin: 16 },
+  page: { paper: 'a5', margin: { blockStart: 16, blockEnd: 16, inlineStart: 16, inlineEnd: 16 } },
   templates: [{ type: 'template', name: 'practice', html: template }],
   children: [
     {
@@ -37,7 +37,10 @@ export const truncateFixture = (): DocumentInput =>
   base(
     'קיטום שורות',
     '<main data-region="rows" data-overflow="truncate" style="box-sizing:border-box;block-size:72px;overflow:visible"></main>',
-    Array.from({ length: 55 }, (_, index) => `<p style="box-sizing:border-box;block-size:24px;margin:0" data-segnavia-id="drop-${index + 1}">${pointed} ${index + 1}</p>`).join(''),
+    Array.from(
+      { length: 55 },
+      (_, index) => `<p style="box-sizing:border-box;block-size:24px;margin:0" data-segnavia-id="drop-${index + 1}">${pointed} ${index + 1}</p>`,
+    ).join(''),
     'rows',
   )
 
