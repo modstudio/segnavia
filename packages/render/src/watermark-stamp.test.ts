@@ -48,7 +48,7 @@ test('stamps selected pages as pagination watermark artifacts and leaves structu
 
 test('keeps physical page selection across pagesPdf slot-fill copies', async () => {
   const page = { html: '<p>Reader</p>', size: { width: 100, height: 100 }, scripts: 'refuse' as const, dir: 'ltr' as const }
-  const withTab = (async (_setup, body) => body({ pdf: async () => fixture(1, 'layer') } as never)) as TabRunner
+  const withTab = (async (_setup, body) => body({ evaluate: async () => {}, pdf: async () => fixture(1, 'layer') } as never)) as TabRunner
   let firstCount = 0
   const first = await applyWatermark(
     [{ bytes: await fixture(2, 'first'), page }],

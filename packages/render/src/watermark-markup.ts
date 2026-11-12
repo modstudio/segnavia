@@ -1,4 +1,5 @@
 import { resolveDirection, type TextDirection } from '@segnavia/format'
+import { watermarkTextTargetWidth } from './watermark-fit.ts'
 import type { Watermark, WatermarkPosition } from './watermark-options.ts'
 
 export interface WatermarkPage {
@@ -29,12 +30,12 @@ export function watermarkDirection(watermark: Watermark, page: WatermarkPage): T
 export function watermarkRotation(watermark: Watermark, page: WatermarkPage): number {
   if (typeof watermark.rotation === 'number') return watermark.rotation
   const angle = (Math.atan2(page.trim.height, page.trim.width) * 180) / Math.PI
-  return watermarkDirection(watermark, page) === 'rtl' ? -angle : angle
+  return watermarkDirection(watermark, page) === 'rtl' ? angle : -angle
 }
 
 export function watermarkMarkup(watermark: Watermark, page: WatermarkPage): string {
   const direction = watermarkDirection(watermark, page)
-  const width = page.trim.width * (watermark.size ?? 0.6)
+  const width = watermarkTextTargetWidth(watermark.size, page.trim.width)
   const top = page.media.height - page.trim.y - page.trim.height
   const box = [
     'position:absolute',

@@ -7,6 +7,7 @@ import { assetSetup } from './options.ts'
 import { createPdf, loadPdf } from './pdf-load.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import type { ParsedPagePdfOptions } from './renderer.ts'
+import { fitWatermarkText } from './watermark-fit.ts'
 import { type WatermarkPage, watermarkDocument } from './watermark-markup.ts'
 import { watermarkPageNumbers } from './watermark-options.ts'
 
@@ -160,12 +161,14 @@ export async function applyWatermark(
       deadline,
       ...assetSetup(options),
     },
-    (tab) =>
-      tab.pdf({
+    async (tab) => {
+      await tab.evaluate(fitWatermarkText)
+      return tab.pdf({
         printBackground: true,
         preferCSSPageSize: true,
         margin: { top: '0', right: '0', bottom: '0', left: '0' },
-      }),
+      })
+    },
   )
   return stampWatermarkParts(
     parts.map((part) => part.bytes),

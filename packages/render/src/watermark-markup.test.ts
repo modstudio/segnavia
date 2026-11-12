@@ -8,12 +8,12 @@ const page = (width: number, height: number, direction: 'ltr' | 'rtl' = 'ltr'): 
 })
 
 test('the default rotation follows A4 and letter diagonals', () => {
-  expect(watermarkRotation({ text: 'Draft' }, page(210, 297))).toBeCloseTo(54.73699, 5)
-  expect(watermarkRotation({ text: 'Draft' }, page(612, 792))).toBeCloseTo(52.30576, 5)
+  expect(watermarkRotation({ text: 'Draft' }, page(210, 297))).toBeCloseTo(-54.73699, 5)
+  expect(watermarkRotation({ text: 'Draft' }, page(612, 792))).toBeCloseTo(-52.30576, 5)
 })
 
 test('rtl text mirrors the page diagonal', () => {
-  expect(watermarkRotation({ text: 'טיוטה', dir: 'rtl' }, page(210, 297))).toBeCloseTo(-54.73699, 5)
+  expect(watermarkRotation({ text: 'טיוטה', dir: 'rtl' }, page(210, 297))).toBeCloseTo(54.73699, 5)
 })
 
 test.each([

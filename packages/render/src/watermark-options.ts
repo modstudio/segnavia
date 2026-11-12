@@ -10,6 +10,7 @@ export interface Watermark {
   font?: string
   color?: string
   opacity?: number
+  /** CSS rotation in degrees clockwise, or a direction-aware rising page diagonal. */
   rotation?: number | 'diagonal'
   size?: number
   position?: { inline?: WatermarkPosition; block?: WatermarkPosition }
