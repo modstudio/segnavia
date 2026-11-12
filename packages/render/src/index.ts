@@ -45,7 +45,7 @@ import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledBook, filledPage, filledPages } from './slot-fill.ts'
-import { applyWatermark } from './watermark-stamp.ts'
+import { applyWatermark, watermarkCopyStamper } from './watermark-stamp.ts'
 
 export { FontRefusedError } from '@segnavia/frame/fonts'
 export type { MotifsOptions } from '@segnavia/frame/motifs'
@@ -282,6 +282,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         )
         const prepared = await prepareRenderedPages(expanded, parsedOptions, deadline.signal)
         const expandedPages = expanded.map((item, index) => fillPageAsOfBindings(item.page, contexts.pages[index]?.day))
+        const watermarkCopies = watermarkCopyStamper(parsedOptions, prepared.fontCss, deadline, withTab)
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, contexts.pages[0]?.slots)
           const { value: pages, slots, frameGroups } = await filledPages(expandedPages, effectiveSlots, deadline.signal)
@@ -306,11 +307,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
-              watermark: (parts, count) => applyWatermark(parts, parsedOptions, prepared.fontCss, deadline, withTab, count),
+              watermark: watermarkCopies.stamp,
             },
             frameGroups,
           )
         })
+        watermarkCopies.validate()
         return enforce(
           await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata, outputDate(contexts.days)),
           parsedOptions.limits,

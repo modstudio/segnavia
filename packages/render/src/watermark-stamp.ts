@@ -107,14 +107,17 @@ export async function applyWatermark(
   deadline: RenderDeadline,
   withTab: TabRunner,
   pageCount?: number,
+  physicalPageOffset = 0,
+  reportPageCount?: (count: number) => void,
+  validateSelection = true,
 ): Promise<Uint8Array[]> {
   if (!options.watermark) return parts.map((part) => part.bytes)
   const geometries = await Promise.all(parts.map((part) => watermarkPages(part.bytes)))
-  let nextPhysicalPage = 1
+  let nextPhysicalPage = physicalPageOffset + 1
   const mapped = geometries.flatMap((partPages, partIndex) => {
     const part = parts[partIndex]
     if (!part) return []
-    const physical = part.physicalPages ?? partPages.map(() => nextPhysicalPage++)
+    const physical = part.physicalPages?.map((page) => page + physicalPageOffset) ?? partPages.map(() => nextPhysicalPage++)
     return partPages.map((page, pageIndex) => ({
       part: partIndex,
       page: pageIndex + 1,
@@ -122,7 +125,15 @@ export async function applyWatermark(
       geometry: { ...page, direction: printedPageDirection(part.page), ...(part.page.lang ? { lang: part.page.lang } : {}) },
     }))
   })
-  const selectedNumbers = new Set(watermarkPageNumbers(options.watermark, pageCount ?? mapped.length))
+  const count = pageCount ?? mapped.length
+  reportPageCount?.(count)
+  const selectedNumbers = new Set(
+    validateSelection
+      ? watermarkPageNumbers(options.watermark, physicalPageOffset + count)
+      : options.watermark.pages === undefined || options.watermark.pages === 'all'
+        ? mapped.map((entry) => entry.physical)
+        : options.watermark.pages,
+  )
   const selected = mapped.filter((entry) => selectedNumbers.has(entry.physical))
   if (selected.length === 0) return parts.map((part) => part.bytes)
   const documentCss = parts.map((part) => frameStyleSheets(part.page.style, part.page.brand).join('')).join('')
@@ -152,4 +163,31 @@ export async function applyWatermark(
     layer,
     selected.map((entry) => ({ part: entry.part, page: entry.page })),
   )
+}
+
+export function watermarkCopyStamper(options: ParsedPagePdfOptions, fontCss: string, deadline: RenderDeadline, withTab: TabRunner) {
+  let physicalPageOffset = 0
+  return {
+    stamp: async (parts: readonly WatermarkPart[], pageCount?: number): Promise<Uint8Array[]> => {
+      let renderedPageCount = 0
+      const output = await applyWatermark(
+        parts,
+        options,
+        fontCss,
+        deadline,
+        withTab,
+        pageCount,
+        physicalPageOffset,
+        (value) => {
+          renderedPageCount = value
+        },
+        false,
+      )
+      physicalPageOffset += renderedPageCount
+      return output
+    },
+    validate: (): void => {
+      if (options.watermark) watermarkPageNumbers(options.watermark, physicalPageOffset)
+    },
+  }
 }
