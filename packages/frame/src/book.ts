@@ -1,21 +1,16 @@
 import { BookView, type BookViewInput, type FontFailure, type PreflightEntry, resolvePreflightProfile, type Scripts } from '@segnavia/format'
+import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { type AsOfElementProperties, captureAsOfLoad, defineAsOfPropertyAccessors, dispatchAsof } from './as-of-element.ts'
+import { startBookViewLoad } from './book-day.ts'
 import * as bookElement from './book-element-support.ts'
-import { initialBookView, resolveBookDiagram, resolveBookViewDay } from './book-day.ts'
 import { bookFrame } from './book-frame.ts'
 import { dispatchBookFrameReport } from './book-frame-report.ts'
-import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from './book-presentation.ts'
 import { BookSourcesElement } from './book-sources.ts'
 import { dispatchFontFailures, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { upgradeProperties } from './element-properties.ts'
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
-  static { defineAsOfPropertyAccessors(SegnaviaBook.prototype) }
-  declare anchors: AsOfElementProperties['anchors']
-  declare asOf: AsOfElementProperties['asOf']
-  declare moment: AsOfElementProperties['moment']
   private currentView: BookView | null = null
   private preparedView: BookView | null = null
   private currentLayout: BookLayout = 'pages'
@@ -118,8 +113,6 @@ export class SegnaviaBook extends BookSourcesElement {
     this.sourceLoadController = null
     this.mount()
   }
-
-  asOfInputsChanged() { this.sourcesChanged() }
 
   get view(): BookView | null {
     return this.currentView
@@ -314,58 +307,32 @@ export class SegnaviaBook extends BookSourcesElement {
     this.loadController?.abort()
     const controller = new AbortController()
     this.loadController = controller
-    const asOfLoad = captureAsOfLoad(this)
-    const resolvedDay = resolveBookViewDay(view, asOfLoad, controller.signal)
-    let resolvedInitial: ReturnType<typeof initialBookView>
-    try {
-      resolvedInitial = resolvedDay instanceof Promise ? undefined : initialBookView(resolvedDay.view, Boolean(this.motifOptions || this.fontOptions || this.placementOptions))
-    } catch (reason) {
-      bookElement.reportBookError(this, reason)
-      this.loadController = null
-      return
-    }
-    if (!(resolvedDay instanceof Promise) && resolvedInitial) {
-      dispatchAsof(this, resolvedDay.day)
-      this.showRequestedLayout(resolvedDay.view)
-      this.mountFrames(resolvedInitial.view, resolvedInitial.css, resolvedInitial.failures, resolvedInitial.preflight)
-      this.loadController = null
-      return
-    }
-    void Promise.resolve(resolvedDay)
-      .then(async ({ day, view: filled }) => {
-        if (generation !== this.loadGeneration || controller.signal.aborted) return
-        dispatchAsof(this, day)
-        const diagram = await resolveBookDiagram(filled, this.diagramDrawing.settled)
-        if (diagram) {
-          if (generation !== this.loadGeneration || controller.signal.aborted) return
-          this.diagramDrawing = { script: diagram.script, settled: true }
-          if (diagram.error) bookElement.reportBookError(this, diagram.error)
-        }
+    startBookViewLoad(view, captureAsOfLoad(this), {
+      motifs: this.motifOptions,
+      fonts: this.fontOptions,
+      placements: this.placementOptions,
+      pageWidths: this.widthOptions,
+      profile: resolvePreflightProfile(this.profileInput),
+      signal: controller.signal,
+      diagramSettled: this.diagramDrawing.settled,
+      current: () => generation === this.loadGeneration && !controller.signal.aborted,
+      day: (day) => dispatchAsof(this, day),
+      diagram: ({ script, error }) => {
+        this.diagramDrawing = { script, settled: true }
+        if (error) bookElement.reportBookError(this, error)
+      },
+      prepared: (prepared, filled) => {
         this.showRequestedLayout(filled)
-        const result =
-          !this.motifOptions && !this.fontOptions && !this.placementOptions
-            ? prepareBookViewWithoutSources(filled)
-            : await prepareBookView(
-                filled,
-                this.motifOptions,
-                this.fontOptions,
-                controller.signal,
-                this.placementOptions,
-                this.widthOptions,
-                day,
-                resolvePreflightProfile(this.profileInput),
-              )
-        if (generation !== this.loadGeneration || controller.signal.aborted) return
-        this.mountFrames(result.view, result.css, result.failures, result.preflight)
-      })
-      .catch((reason) => {
-        if (generation !== this.loadGeneration || controller.signal.aborted) return
+        this.mountFrames(prepared.view, prepared.css, prepared.failures, prepared.preflight)
+      },
+      failed: (reason) => {
         this.preparedView = null
         bookElement.reportBookError(this, reason)
-      })
-      .finally(() => {
+      },
+      settled: () => {
         if (this.loadController === controller) this.loadController = null
-      })
+      },
+    })
   }
 
   private onMessage = (event: MessageEvent) => {

@@ -1,4 +1,5 @@
 import { type OriginApproval, type PageWidths, type PreflightProfileInput, resolvePreflightProfile } from '@segnavia/format'
+import { type AsOfElementProperties, defineAsOfPropertyAccessors } from './as-of-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
@@ -10,8 +11,12 @@ const HTMLElementBase = globalThis.HTMLElement ?? (class extends EventTarget {} 
 export abstract class BookSourcesElement extends HTMLElementBase {
   static {
     defineStylesheetPropertyAccessors(BookSourcesElement.prototype, ['origins'])
+    defineAsOfPropertyAccessors(BookSourcesElement.prototype)
   }
   declare origins: Iterable<OriginApproval>
+  declare anchors: AsOfElementProperties['anchors']
+  declare asOf: AsOfElementProperties['asOf']
+  declare moment: AsOfElementProperties['moment']
   protected fontOptions: FontsOptions | undefined
   protected motifOptions: MotifsOptions | undefined
   protected placementOptions: PlacementsOptions | undefined
@@ -75,4 +80,8 @@ export abstract class BookSourcesElement extends HTMLElementBase {
   }
 
   protected abstract sourcesChanged(): void
+
+  asOfInputsChanged() {
+    this.sourcesChanged()
+  }
 }

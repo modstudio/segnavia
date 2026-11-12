@@ -4,8 +4,8 @@ import { preparePaperDays } from './paper-day.ts'
 
 test('paper refuses distinct page days when slots.resolve must supply one rendering', async () => {
   const pages: HtmlPage[] = [
-    { html: '<main>One</main>', scripts: 'refuse', asOf: { kind: 'fixed', date: '2026-11-14' } },
-    { html: '<main>Two</main>', scripts: 'refuse', asOf: { kind: 'fixed', date: '2026-11-15' } },
+    { html: '<main>One</main>', size: { width: 'full', height: 'auto' }, scripts: 'refuse', asOf: { kind: 'fixed', date: '2026-11-14' } },
+    { html: '<main>Two</main>', size: { width: 'full', height: 'auto' }, scripts: 'refuse', asOf: { kind: 'fixed', date: '2026-11-15' } },
   ]
   const promise = preparePaperDays(
     pages,

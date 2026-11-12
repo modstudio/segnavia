@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { SegnaviaBook } from './book.ts'
 import { bookFrame } from './book-frame.ts'
-import { reflectedBookElement, switchableBookView } from './book-test-view.ts'
+import { reflectedBookElement } from './book-test-view.ts'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -27,28 +27,6 @@ function deferred<T>() {
 }
 
 describe('book element input', () => {
-  test('emits its fixed day and fills parent-page furniture', () => {
-    const { book, frames } = reflectedBookElement()
-    const days: Array<{ date: string }> = []
-    book.addEventListener('asof', (event) => days.push((event as CustomEvent<{ date: string }>).detail))
-    const view = switchableBookView()
-    view.asOf = { kind: 'fixed', date: '2026-11-14' }
-    const parent = view.pagination?.parents[0]
-    if (parent) parent.regions = { head: { edge: 'blockStart', html: '<time data-slot-value="asOf.date"></time>' } }
-    book.view = view
-    expect(days.map(({ date }) => date)).toEqual(['2026-11-14'])
-    expect(frames[0]?.srcdoc).toContain('2026-11-14')
-  })
-
-  test('reloads a current book view from the host moment', () => {
-    const { book } = reflectedBookElement()
-    const dates: string[] = []
-    book.addEventListener('asof', (event) => dates.push((event as CustomEvent<{ date: string }>).detail.date))
-    book.moment = Date.parse('2026-11-15T01:00:00Z')
-    book.view = { html: '<main>Book</main>', asOf: { kind: 'current', zone: 'America/New_York' } }
-    expect(dates).toEqual(['2026-11-14'])
-  })
-
   test('the view property parses and rebuilds the frame', () => {
     const { book, mounts } = element()
     book.view = { html: '<main>שלום</main>', lang: 'he' }

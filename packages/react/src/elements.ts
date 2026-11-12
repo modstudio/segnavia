@@ -17,8 +17,8 @@ import { ELEMENT_PROPERTIES as FRAME_ELEMENTS } from '@segnavia/frame/element-pr
 import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import type {
-  BookProps,
   BoardProps,
+  BookProps,
   CaptionProps,
   CaptionsProps,
   CounterProps,

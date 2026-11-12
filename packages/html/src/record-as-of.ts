@@ -1,9 +1,9 @@
 import {
   type AsOfDay,
   type Book,
-  type BookView,
   type BookChapterEntry,
   type BookFrontMatterEntry,
+  type BookView,
   type Deck,
   isDesignedSection,
   isPart,

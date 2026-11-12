@@ -186,7 +186,6 @@ test('stage renders the current slide when slot resolution finishes after naviga
     slotDeck: null,
     slotGeneration: 0,
     resolvedSlots: undefined,
-    dispatchEvent: () => true,
     slotOptions: { fill: { id: 'x', values: { logo: { asset: 'logo' } } }, resolveAsset: () => asset.promise } as SlotsOptions | undefined,
     attached: { state: first },
     frameRebuilder: { rebuild: () => rebuildStage() },
@@ -243,7 +242,6 @@ test('stage invalidates a pending fill when slot options are removed', async () 
     slotDeck: null,
     slotGeneration: 0,
     resolvedSlots: undefined,
-    dispatchEvent: () => true,
     slotOptions: {
       declarations: assetSlot,
       fill: { id: 'x', values: { logo: { asset: 'logo' } } },
@@ -324,7 +322,6 @@ test('disconnecting paper aborts a pending fill without reporting or repainting'
     slotGeneration: 0,
     slotPreparation: undefined,
     resolvedSlots: undefined,
-    dispatchEvent: () => true,
     slotOptions: {
       fill: { id: 'x', values: { logo: { asset: 'logo' } } },
       resolveAsset: () => asset.promise,

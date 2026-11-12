@@ -1,6 +1,6 @@
 import type { OriginApproval, PageWidths } from '@segnavia/format'
-import { BoardDocumentElement } from './board-document-element.ts'
 import { type AsOfElementProperties, defineAsOfPropertyAccessors } from './as-of-element.ts'
+import { BoardDocumentElement } from './board-document-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'

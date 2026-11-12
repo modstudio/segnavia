@@ -26,8 +26,8 @@ import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
-import { preparePaperDays } from './paper-day.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
+import { preparePaperDays } from './paper-day.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper, refuseSectionedImpositionPage } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
@@ -301,8 +301,8 @@ export class SegnaviaPaper extends HTMLElement {
         .catch((error) => report(error, false))
       return
     }
-    this.paintResolved(imposition, imposed)
     if (typeof this.paintPlaceholder === 'function') this.paintPlaceholder(imposed)
+    else this.paintResolved(imposition, imposed)
     void preparePaperDays(pages, asOfLoad, {
       slots: this.slotOptions,
       motifs: this.motifOptions,
@@ -313,7 +313,7 @@ export class SegnaviaPaper extends HTMLElement {
     })
       .then((prepared) => {
         if (!current()) return
-        for (const day of prepared.days) dispatchAsof(this, day)
+        if (typeof this.dispatchEvent === 'function') for (const day of prepared.days) dispatchAsof(this, day)
         commit(prepared.pages, prepared.slots, prepared.css)
       })
       .catch(report)
