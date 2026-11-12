@@ -201,7 +201,7 @@ export function applyRegionOverflow(
   const dropped: string[] = []
   while (excess > 0.5 && region.lastElementChild) {
     const child = region.lastElementChild as HTMLElement
-    const id = child.getAttribute('data-segnavia-id') ?? child.id ?? `${subject}:${dropped.length + 1}`
+    const id = child.getAttribute('data-segnavia-id') || child.id || `${subject}:${dropped.length + 1}`
     if (!dropped.includes(id)) dropped.unshift(id)
     if (!truncateLine(child)) child.remove()
     excess = excessOf(region).block

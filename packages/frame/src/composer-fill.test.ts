@@ -55,6 +55,32 @@ test('truncate applies without a preflight profile', () => {
   expect(outcome).toEqual({ mode: 'truncate', droppedIds: ['second', 'third'] })
 })
 
+test('truncate gives distinct fallback ids to id-less dropped blocks', () => {
+  const children = Array.from({ length: 3 }, () => ({
+    id: '',
+    getAttribute: () => null,
+    remove() {
+      children.splice(children.indexOf(this), 1)
+    },
+  }))
+  const region = {
+    get lastElementChild() {
+      return children.at(-1) ?? null
+    },
+    getAttribute: (name: string) => (name === 'data-overflow' ? 'truncate' : name === 'data-region' ? 'practice' : null),
+    closest: () => null,
+  } as unknown as HTMLElement
+
+  const outcome = applyRegionOverflow(
+    region,
+    '4',
+    false,
+    () => ({ block: children.length > 1 ? 10 : 0 }),
+    () => false,
+  )
+  expect(outcome.droppedIds).toEqual(['region:practice:2', 'region:practice:1'])
+})
+
 test('repeat fill refuses a region without a definite block size', () => {
   const fixture = fillRegion({ blockSize: () => 0 })
   expect(() =>

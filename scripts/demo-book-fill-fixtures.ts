@@ -1,6 +1,7 @@
 import type { DocumentInput } from '@segnavia/format'
 
 const pointed = 'בְּרֵאשִׁ֖ית'
+export const truncatePointedText = `${pointed} בָּרָ֣א אֱלֹהִ֑ים אֵ֥ת הַשָּׁמַ֖יִם וְאֵ֥ת הָאָֽרֶץ׃ `.repeat(5).trim()
 const base = (title: string, template: string, html: string, region: string): DocumentInput => ({
   type: 'document',
   kind: 'book',
@@ -41,6 +42,14 @@ export const truncateFixture = (): DocumentInput =>
       { length: 55 },
       (_, index) => `<p style="box-sizing:border-box;block-size:24px;margin:0" data-segnavia-id="drop-${index + 1}">${pointed} ${index + 1}</p>`,
     ).join(''),
+    'rows',
+  )
+
+export const truncatePointedFixture = (): DocumentInput =>
+  base(
+    'קיטום טקסט מנוקד',
+    '<main data-region="rows" data-overflow="truncate" style="box-sizing:border-box;inline-size:180px;block-size:48px;overflow:visible"></main>',
+    `<p data-segnavia-id="pointed-lines" style="box-sizing:border-box;font-size:20px;line-height:24px;margin:0">${truncatePointedText}</p>`,
     'rows',
   )
 

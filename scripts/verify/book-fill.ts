@@ -1,4 +1,5 @@
 import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
+import { truncatePointedText } from '../demo-book-fill-fixtures.ts'
 import type { Harness } from './harness.ts'
 
 async function settled(h: Harness, name: string) {
@@ -39,6 +40,67 @@ export async function verifyBookFill(h: Harness): Promise<void> {
     'truncate reports dropped pages and blocks, at most 50 ids, and the full total',
     truncation?.droppedPages === 1 && truncation?.droppedBlocks === 52 && truncation?.droppedIds?.length === 50 && truncation?.droppedTotal === 52,
     JSON.stringify(truncation),
+  )
+
+  await settled(h, 'book-fill-truncate-pointed.html')
+  const pointedTruncation = await h.page.evaluate(
+    ({ attribute, authored }) => {
+      const report = JSON.parse(document.documentElement.getAttribute(attribute) ?? 'null')
+      const region = document.querySelector<HTMLElement>('[data-segnavia-book-page] [data-region="rows"]')
+      const paragraph = region?.querySelector<HTMLElement>('[data-segnavia-id="pointed-lines"]')
+      if (!region || !paragraph) return null
+      const lineRects = (element: HTMLElement) => {
+        const range = document.createRange()
+        range.selectNodeContents(element)
+        return Array.from(range.getClientRects())
+      }
+      const lineCount = (element: HTMLElement) => {
+        const lines: number[] = []
+        for (const rect of lineRects(element)) if (!lines.some((top) => Math.abs(top - rect.top) <= 0.5)) lines.push(rect.top)
+        return lines.length
+      }
+      const authoredParagraph = paragraph.cloneNode(false) as HTMLElement
+      authoredParagraph.textContent = authored
+      authoredParagraph.style.position = 'fixed'
+      authoredParagraph.style.visibility = 'hidden'
+      authoredParagraph.style.inlineSize = `${region.getBoundingClientRect().width}px`
+      authoredParagraph.style.inset = '0 auto auto 0'
+      document.body.append(authoredParagraph)
+      const authoredLines = lineCount(authoredParagraph)
+      authoredParagraph.remove()
+      const kept = paragraph.textContent ?? ''
+      const keptLines = lineCount(paragraph)
+      const segments = Array.from(new Intl.Segmenter('he', { granularity: 'grapheme' }).segment(authored))
+      const boundaries = new Set([0, authored.length, ...segments.map((segment) => segment.index)])
+      const keptSegments = Array.from(new Intl.Segmenter('he', { granularity: 'grapheme' }).segment(kept))
+      const lastCodePoint = Array.from(kept).at(-1) ?? ''
+      const box = region.getBoundingClientRect()
+      const inkInside = lineRects(paragraph).every(
+        (rect) => rect.top >= box.top - 0.5 && rect.bottom <= box.bottom + 0.5 && rect.left >= box.left - 0.5 && rect.right <= box.right + 0.5,
+      )
+      const fact = report?.facts?.regions?.find((candidate: { droppedIds?: string[] }) => candidate.droppedIds?.includes('pointed-lines'))
+      return {
+        authoredLines,
+        keptLines,
+        keptIsBoundaryPrefix: authored.startsWith(kept) && boundaries.has(kept.length),
+        lastCodePointIsMark: /\p{M}/u.test(lastCodePoint),
+        lastGrapheme: keptSegments.at(-1)?.segment ?? '',
+        inkInside,
+        factNamesBlock: fact !== undefined,
+      }
+    },
+    { attribute: PREFLIGHT_ATTRIBUTE, authored: truncatePointedText },
+  )
+  h.check(
+    'truncate cuts pointed Hebrew at a grapheme boundary and keeps every retained ink rect inside the region',
+    pointedTruncation !== null &&
+      pointedTruncation.keptLines > 0 &&
+      pointedTruncation.keptLines < pointedTruncation.authoredLines &&
+      pointedTruncation.keptIsBoundaryPrefix &&
+      !pointedTruncation.lastCodePointIsMark &&
+      pointedTruncation.inkInside &&
+      pointedTruncation.factNamesBlock,
+    JSON.stringify(pointedTruncation),
   )
 
   await settled(h, 'book-fill-refuse.html')
