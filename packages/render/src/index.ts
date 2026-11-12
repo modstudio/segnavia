@@ -47,7 +47,7 @@ import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledPage, filledPages } from './slot-fill.ts'
-import { parseWatermark } from './watermark-options.ts'
+import { parseWatermarkOption } from './watermark-options.ts'
 import { watermarkCopyStamper, watermarkPartFromFacts } from './watermark-stamp.ts'
 
 export * from './public.ts'
@@ -301,7 +301,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
 
     async deckPdf(input, opts = {}) {
       const parsed = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(opts)))
-      const options = { ...parsed, ...(parsed.watermark === undefined ? {} : { watermark: parseWatermark(parsed.watermark) }) }
+      const options = parseWatermarkOption(parsed)
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)

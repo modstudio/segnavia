@@ -94,6 +94,11 @@ export function parseWatermark(value: unknown): Watermark | undefined {
   return { ...input, position: parsePosition(input.position), pages: parsePages(input.pages) } as Watermark
 }
 
+export function parseWatermarkOption<T extends { watermark?: Watermark }>(parsed: T): T {
+  const watermark = parseWatermark(parsed.watermark)
+  return { ...parsed, ...(watermark === undefined ? {} : { watermark }) }
+}
+
 export function watermarkPageNumbers(watermark: Watermark, laidOutPageCount: number, validateRange = true): number[] {
   const pages = watermark.pages ?? 'all'
   if (pages === 'all') return Array.from({ length: laidOutPageCount }, (_, index) => index + 1)
