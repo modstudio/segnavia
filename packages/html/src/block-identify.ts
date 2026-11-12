@@ -1,8 +1,10 @@
 import type { Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
-import { fitIssuesIn } from './fit-attributes.ts'
+import { FIT_ATTRIBUTE_FAMILY } from './fit-attributes.ts'
+import { MEASURE_ATTRIBUTE_FAMILY } from './measure-attributes.ts'
 import { parse, serialize } from './sanitize.ts'
+import { sourceAttributeIssues } from './source-attributes.ts'
 
 export interface BlockIdLocation {
   block: string
@@ -44,9 +46,17 @@ export function identifyBlockElements(elements: readonly Element[], node: string
   return added
 }
 
-export function identifyHtmlBlocks(html: string, node: string, newId: () => string, seen: Map<string, BlockIdLocation>): { html: string; added: string[] } {
+export function identifyHtmlBlocks(
+  html: string,
+  node: string,
+  newId: () => string,
+  seen: Map<string, BlockIdLocation>,
+  options: { refuseMeasure?: boolean } = {},
+): { html: string; added: string[] } {
   const tree = parse(html)
-  const issues = fitIssuesIn(tree.children, node)
+  const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
+    ...(options.refuseMeasure ? { refusedFamilies: ['data-measure'] } : {}),
+  })
   if (issues.length) throw new RangeError(issues.join(' '))
   const added = identifyBlockElements(blockElements(tree.children), node, newId, seen)
   return { html: serialize(tree), added }

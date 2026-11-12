@@ -18,18 +18,6 @@ export interface FitApplication {
   shrunk: boolean
 }
 
-export interface FitStageState<T> {
-  done: boolean
-  results: T
-}
-
-export function runFitStageOnce<T>(state: FitStageState<T>, execute: () => T): T {
-  if (state.done) return state.results
-  state.done = true
-  state.results = execute()
-  return state.results
-}
-
 export function fitAxis(authored: string | null, slot: boolean, axes: readonly FitAxis[] = FIT_AXES): FitAxis {
   const shared = (globalThis as typeof globalThis & { FIT_AXES?: readonly FitAxis[] }).FIT_AXES ?? axes
   return shared.find((axis) => axis === authored) ?? (slot ? 'both' : 'block')

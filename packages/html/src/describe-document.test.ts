@@ -95,3 +95,21 @@ test('includes a supplied preflight report unchanged and otherwise omits the sec
   expect(describeDocument(document(), { preflight }).preflight).toBe(preflight)
   expect(describeDocument(document())).not.toHaveProperty('preflight')
 })
+
+test('describes fitted and measured properties from supplied measurements', () => {
+  const measurements = {
+    fits: [{ id: 'heading', values: [{ strategy: 'size' as const, value: 18, unit: 'px' }] }],
+    properties: [{ id: 'words', name: '--widest', kind: 'max-content-inline:children' as const, value: 84.25, unit: 'px' as const }],
+    variables: [],
+    flows: [],
+    notes: [],
+    geometry: { notesGap: 0 },
+    parents: {},
+    settings: { rectoOpenings: false, direction: 'ltr' as const, endnotePlacement: 'book' as const },
+  }
+  expect(describeDocument(document(), { measurements }).measured).toEqual({
+    fits: measurements.fits,
+    properties: measurements.properties,
+  })
+  expect(describeDocument(document())).not.toHaveProperty('measured')
+})

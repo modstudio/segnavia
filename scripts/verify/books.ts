@@ -6,6 +6,7 @@ import { verifyBookCopyfit } from './book-copyfit.ts'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
 import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
+import { verifyBookMeasuredProperties } from './book-measured-properties.ts'
 import { verifyContinuousBookMotif, verifyPaginatedBookMotifs } from './book-motifs.ts'
 import { clickBookAnchor, inBookView } from './book-navigation.ts'
 import { verifyNoteSeries } from './book-note-series.ts'
@@ -108,6 +109,7 @@ export async function verifyBooks(h: Harness) {
   await verifyPlacedMediaBook(h)
   await verifyBookSlotCopyfit(h)
   await verifyBookCopyfit(h)
+  await verifyBookMeasuredProperties(h)
 }
 
 async function paginatedFrame(h: Harness, id: string) {

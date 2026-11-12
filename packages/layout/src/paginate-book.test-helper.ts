@@ -36,6 +36,7 @@ export function input(overrides: InputOverrides): PaginateBookInput {
   const area = { width: 100, height: geometry.textHeight }
   return {
     fits: [],
+    properties: [],
     variables: [],
     notes: [],
     geometry: { notesGap: geometry.notesGap, ...(geometry.noteSeries ? { noteSeries: geometry.noteSeries } : {}) },
