@@ -24,7 +24,7 @@ export async function writeBookCopyfitDemo(site: string): Promise<void> {
     writeFileSync(path.join(site, name), paginatedBookDocument(fixtureValue(fixture), { nonce: newNonce(), profile }))
   }
   const { value: slotCopyfit } = await filledBook(fixtureValue(slotCopyfitFixture()), {
-    fill: { id: 'copyfit', values: { name: 'Alexandria Montgomery-Worthington' } },
+    fill: { id: 'copyfit', values: { name: 'Alexandria Worthington' } },
   })
   writeFileSync(path.join(site, 'book-copyfit-slot.html'), paginatedBookDocument(slotCopyfit, { nonce: newNonce(), profile: PREFLIGHT_PRESETS.default }))
   writeFileSync(
