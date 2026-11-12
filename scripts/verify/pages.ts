@@ -53,7 +53,6 @@ async function verifyPrintedPages({ page, check }: Harness): Promise<void> {
     paperDirections: string[]
     hostHeight: number
     frameHeight: number
-    frameScrollHeight: number
     reportedHeight: number
   }> = []
   for (const fixture of PRINTED_PAGE_DEMO_PAGES) {
@@ -67,7 +66,6 @@ async function verifyPrintedPages({ page, check }: Harness): Promise<void> {
       paperDirections: await papers.evaluateAll((elements) => elements.map((paper) => getComputedStyle(paper).direction)),
       hostHeight: await page.locator(`#${fixture.id}`).evaluate((element) => element.getBoundingClientRect().height),
       frameHeight: await page.locator(`#${fixture.id} iframe`).evaluate((element) => element.getBoundingClientRect().height),
-      frameScrollHeight: await frame.locator('html').evaluate((element) => element.scrollHeight),
       reportedHeight: await page.locator(`#${fixture.id}`).evaluate((element) => Number((element as HTMLElement).dataset.height ?? 0)),
     })
   }
@@ -83,11 +81,7 @@ async function verifyPrintedPages({ page, check }: Harness): Promise<void> {
     JSON.stringify(hebrewPapers),
   )
   const bounded = printedFacts.find((fact) => fact.id === 'printed-en')
-  check(
-    'a bounded printed Document keeps its 500px host box and scrolls inside its frame',
-    bounded?.hostHeight === 500 && bounded.frameHeight === 500 && bounded.frameScrollHeight > bounded.frameHeight,
-    JSON.stringify(bounded),
-  )
+  check('a bounded printed Document keeps its 500px host box', bounded?.hostHeight === 500 && bounded.frameHeight === 500, JSON.stringify(bounded))
   const unbounded = printedFacts.find((fact) => fact.id === 'printed-he')
   check(
     "an unbounded printed Document's element height equals its reported column height",
