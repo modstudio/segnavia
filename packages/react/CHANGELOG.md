@@ -1,5 +1,41 @@
 # @segnavia/react
 
+## 0.56.0
+
+### Minor Changes
+
+- 48d62f3: Carry a book's as-of policy into its view, resolve and fill book and paper days in browser frames, and forward as-of inputs through live board items.
+
+  React Book and Paper bindings expose their `asof` events and React now includes the Board element binding.
+
+- 6c88cd3: Let hosts learn when a page document is drawn, and when a printed page is fully composed, through the page's `ready` event.
+- ded2142: Let stages, players, thumbnails and browser deck printing take as-of inputs, bind the resolved deck or page day and report it.
+- 02fd3bd: Declare every event dispatched by the page, paper, document, book, and stage elements, including paper `change` and the document slots, page, and change events, with typed Vue listeners. Breaking: a book `error` is now an `ErrorEvent`; read `event.message` or `event.error` instead of `event.detail.message`. Every element `error` now carries an `Error` in `event.error`.
+
+  Add typed React props for report events. The five elements' `onError` callbacks now receive the native `ErrorEvent` rather than React's synthetic error event.
+
+### Patch Changes
+
+- Updated dependencies [fc051c9]
+- Updated dependencies [2deede2]
+- Updated dependencies [48d62f3]
+- Updated dependencies [6c88cd3]
+- Updated dependencies [ded2142]
+- Updated dependencies [979581b]
+- Updated dependencies [a4cf3d5]
+- Updated dependencies [7f39300]
+- Updated dependencies [343ce7b]
+- Updated dependencies [458732b]
+- Updated dependencies [3b4872d]
+- Updated dependencies [2a61d34]
+- Updated dependencies [0181bb3]
+- Updated dependencies [02fd3bd]
+- Updated dependencies [d449b60]
+- Updated dependencies [401ef7c]
+- Updated dependencies [592bda3]
+- Updated dependencies [0aff593]
+  - @segnavia/frame@0.56.0
+
 ## 0.55.0
 
 ### Patch Changes

@@ -1,5 +1,59 @@
 # @segnavia/render
 
+## 0.56.0
+
+### Minor Changes
+
+- 966dd29: Stamp output dates from the established as-of day. Page and cover images carry it as PNG Creation Time or JPEG and WebP XMP. PDFs no longer carry the render time, Producer, or Creator.
+- c849fed: Expose structured render refusals for press-page overset and unusable press or proof color profiles.
+- 979581b: Resolve a deck's or book's as-of day in server PDF and image renders, fill its reserved as-of bindings, and date deterministic output from that day.
+
+  `@segnavia/html` exports `fillDeckAsOfBindings`, `fillBookAsOfBindings`, `mapBookHtml` and `bindBookRecordValues` for the shared deck and book binding walks.
+
+  `expandFrameBookValue` from `@segnavia/frame/motifs` takes the as-of `day` before `profile`, as `expandFramePage` does. A caller that passes `profile` positionally moves it one place later. `resolveDeckMedia` and `resolveMediaContent` from `@segnavia/frame/print-document` take an optional trailing `day`.
+
+- 7f1bd6f: Report each refused asset reference once with its URL, optional origin, fetch kind, stable reason, message and clearing advice. Script sources are now reported when scripts are off, and relative CSS URLs and imports are reported with their authored values.
+
+  Breaking for hosts:
+
+  - `assetOriginRefusals` returns `AssetRefusal[]` instead of `string[]`. Read `refusal.message` for the human reason and `refusal.advice` for what clears it.
+  - The refused branch from `originDecision` is `{ allowed: false, refusal }` instead of `{ allowed: false, reason }`. Read `refusal.message` and `refusal.advice` instead of parsing `reason`.
+  - A render now refuses a relative or protocol-relative `url()` or `@import` in author CSS.
+
+- 592bda3: Declare font faces over inclusive weight ranges and let a font source identify faces already present in the document.
+- 4214953: Report measured preflight coverage and run slot and font preflight checks for deck PDFs, slide images and cover images.
+
+  Breaking for hosts: `PreflightReport.status` can now be `incomplete`, and every report includes `coverage`. Handle the new status when switching over every report status.
+
+### Patch Changes
+
+- Updated dependencies [fc051c9]
+- Updated dependencies [2deede2]
+- Updated dependencies [48d62f3]
+- Updated dependencies [6c88cd3]
+- Updated dependencies [ded2142]
+- Updated dependencies [f30c51f]
+- Updated dependencies [979581b]
+- Updated dependencies [a4cf3d5]
+- Updated dependencies [7f39300]
+- Updated dependencies [343ce7b]
+- Updated dependencies [458732b]
+- Updated dependencies [3b4872d]
+- Updated dependencies [7f1bd6f]
+- Updated dependencies [2a61d34]
+- Updated dependencies [0181bb3]
+- Updated dependencies [02fd3bd]
+- Updated dependencies [5cb5000]
+- Updated dependencies [d449b60]
+- Updated dependencies [401ef7c]
+- Updated dependencies [592bda3]
+- Updated dependencies [4214953]
+- Updated dependencies [0aff593]
+  - @segnavia/format@0.56.0
+  - @segnavia/layout@0.56.0
+  - @segnavia/frame@0.56.0
+  - @segnavia/html@0.56.0
+
 ## 0.55.0
 
 ### Minor Changes

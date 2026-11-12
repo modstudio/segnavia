@@ -1,5 +1,45 @@
 # @segnavia/html
 
+## 0.56.0
+
+### Minor Changes
+
+- 48d62f3: Carry a book's as-of policy into its view, resolve and fill book and paper days in browser frames, and forward as-of inputs through live board items.
+
+  React Book and Paper bindings expose their `asof` events and React now includes the Board element binding.
+
+- ded2142: Let stages, players, thumbnails and browser deck printing take as-of inputs, bind the resolved deck or page day and report it.
+- 979581b: Resolve a deck's or book's as-of day in server PDF and image renders, fill its reserved as-of bindings, and date deterministic output from that day.
+
+  `@segnavia/html` exports `fillDeckAsOfBindings`, `fillBookAsOfBindings`, `mapBookHtml` and `bindBookRecordValues` for the shared deck and book binding walks.
+
+  `expandFrameBookValue` from `@segnavia/frame/motifs` takes the as-of `day` before `profile`, as `expandFramePage` does. A caller that passes `profile` positionally moves it one place later. `resolveDeckMedia` and `resolveMediaContent` from `@segnavia/frame/print-document` take an optional trailing `day`.
+
+- 3b4872d: Carry a host-supplied as-of moment through resolved days and expose it to page furniture as zoned ISO 8601 text, omitting the value when the host supplies no moment.
+- 7f1bd6f: Report each refused asset reference once with its URL, optional origin, fetch kind, stable reason, message and clearing advice. Script sources are now reported when scripts are off, and relative CSS URLs and imports are reported with their authored values.
+
+  Breaking for hosts:
+
+  - `assetOriginRefusals` returns `AssetRefusal[]` instead of `string[]`. Read `refusal.message` for the human reason and `refusal.advice` for what clears it.
+  - The refused branch from `originDecision` is `{ allowed: false, refusal }` instead of `{ allowed: false, reason }`. Read `refusal.message` and `refusal.advice` instead of parsing `reason`.
+  - A render now refuses a relative or protocol-relative `url()` or `@import` in author CSS.
+
+### Patch Changes
+
+- Updated dependencies [fc051c9]
+- Updated dependencies [2deede2]
+- Updated dependencies [48d62f3]
+- Updated dependencies [f30c51f]
+- Updated dependencies [a4cf3d5]
+- Updated dependencies [7f39300]
+- Updated dependencies [3b4872d]
+- Updated dependencies [7f1bd6f]
+- Updated dependencies [5cb5000]
+- Updated dependencies [592bda3]
+- Updated dependencies [4214953]
+  - @segnavia/format@0.56.0
+  - @segnavia/layout@0.56.0
+
 ## 0.55.0
 
 ### Minor Changes
