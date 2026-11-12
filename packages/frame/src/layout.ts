@@ -3,8 +3,8 @@ export const LAYOUT_PHASE_TIMEOUT_MS = 10_000
 
 export interface LayoutProvider {
   readonly script: () => Promise<string>
-  readonly priority: number
-  readonly selects: string
+  readonly priority?: number
+  readonly selects?: string
 }
 
 export interface LoadedLayoutScript {
@@ -15,7 +15,10 @@ export interface LoadedLayoutScript {
   readonly selects: string
 }
 
-interface RegisteredLayoutProvider extends LayoutProvider {
+interface RegisteredLayoutProvider {
+  readonly script: () => Promise<string>
+  readonly priority: number
+  readonly selects: string
   readonly order: number
 }
 
@@ -37,12 +40,14 @@ function validName(name: string): boolean {
 
 export function registerLayoutProvider(name: string, provider: LayoutProvider): void {
   if (!validName(name)) throw new Error(`Layout provider name ${JSON.stringify(name)} is invalid; use a lowercase CSS identifier to clear this refusal.`)
-  if (!provider || typeof provider.script !== 'function' || !Number.isFinite(provider.priority) || typeof provider.selects !== 'string' || !provider.selects) {
+  const priority = provider?.priority ?? 0
+  const selects = provider?.selects ?? `[data-segnavia-layout~="${name}"]`
+  if (!provider || typeof provider.script !== 'function' || !Number.isFinite(priority) || typeof selects !== 'string' || !selects) {
     throw new Error(`Layout provider ${JSON.stringify(name)} is invalid; pass { script, priority, selects } to clear this refusal.`)
   }
   const providers = registry()
   const previous = providers.get(name)
-  providers.set(name, { ...provider, order: previous?.order ?? providers.size })
+  providers.set(name, { script: provider.script, priority, selects, order: previous?.order ?? providers.size })
 }
 
 function selectedLayoutNames(html: string): string[] {

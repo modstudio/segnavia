@@ -22,3 +22,10 @@ test('layout loading is byte-neutral without a selection and refuses unknown nam
   expect(await loadLayoutScripts('<p>plain</p>')).toEqual([])
   expect(loadLayoutScripts('<p data-segnavia-layout="missing"></p>')).rejects.toThrow('registerLayoutProvider("missing", …)')
 })
+
+test('registration defaults priority and the content selector', async () => {
+  registerLayoutProvider('margin', { script: async () => 'MARGIN' })
+  expect(await loadLayoutScripts('<aside data-segnavia-layout="margin"></aside>')).toEqual([
+    { name: 'margin', script: 'MARGIN', priority: 0, order: 0, selects: '[data-segnavia-layout~="margin"]' },
+  ])
+})

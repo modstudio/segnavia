@@ -12,7 +12,7 @@ type DiagramDocumentBuilder = (nonce: string, diagramScript: string | undefined,
 function loadDiagramDocument(
   html: string,
   build: DiagramDocumentBuilder,
-  loaded: (document: string) => void,
+  loaded: (document: string, hasLayoutScripts?: boolean) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader,
   loadLayouts: (html: string) => Promise<LoadedLayoutScript[]>,
@@ -20,7 +20,7 @@ function loadDiagramDocument(
   const nonce = newNonce()
   const write = (diagramScript: string | undefined, layoutScripts: readonly LoadedLayoutScript[]) => {
     try {
-      loaded(build(nonce, diagramScript, layoutScripts))
+      loaded(build(nonce, diagramScript, layoutScripts), layoutScripts.length > 0)
     } catch (error) {
       failed(error)
     }
@@ -44,7 +44,7 @@ function loadDiagramDocument(
 export function loadPrintedPageDocument(
   source: PrintedHtmlPage | HtmlPage,
   options: Omit<Parameters<typeof printedPageValueDocument>[1], 'nonce' | 'diagramScript' | 'layoutScripts'>,
-  loaded: (document: string) => void,
+  loaded: (document: string, hasLayoutScripts?: boolean) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
   loadLayouts = loadLayoutScripts,
@@ -63,7 +63,7 @@ export function loadPrintedPageDocument(
 export function loadPageDocument(
   page: HtmlPage,
   options: Omit<FrameOptions, 'nonce'>,
-  loaded: (document: string) => void,
+  loaded: (document: string, hasLayoutScripts?: boolean) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
   loadLayouts = loadLayoutScripts,
@@ -82,7 +82,7 @@ export function loadShownPageDocument(
   page: HtmlPage,
   resolved: PreparedSlots | undefined,
   options: ShownPageDocumentOptions,
-  loaded: (document: string) => void,
+  loaded: (document: string, hasLayoutScripts?: boolean) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
   loadLayouts = loadLayoutScripts,

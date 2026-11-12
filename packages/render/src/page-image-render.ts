@@ -46,7 +46,7 @@ export async function renderPreparedPageImage(
         prepared.fontFailures,
         resolvedLayoutScripts,
       ),
-      readiness: renderReadiness(page.scripts, hasDiagram(pageHtml), opts.waitForPageReady !== false),
+      readiness: renderReadiness(page.scripts, hasDiagram(pageHtml), opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,

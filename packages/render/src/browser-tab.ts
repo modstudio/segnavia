@@ -183,6 +183,7 @@ export async function renderInBrowserTab<T>(
   tab.on('crash', state.crashed)
   let authorReady = !setup.readiness.author
   let diagramsReady = !setup.readiness.diagrams
+  let layoutsReady = !setup.readiness.layouts
   let resolveAuthor: (() => void) | undefined
   let resolveDiagrams: (() => void) | undefined
   const authorPromise = new Promise<void>((resolve) => {
@@ -197,9 +198,10 @@ export async function renderInBrowserTab<T>(
       resolveAuthor?.()
     })
   }
-  if (setup.readiness.diagrams) {
+  if (setup.readiness.diagrams || setup.readiness.layouts) {
     await tab.exposeFunction(RENDER_READY_BINDING, () => {
       diagramsReady = true
+      layoutsReady = true
       resolveDiagrams?.()
     })
   }
@@ -223,9 +225,11 @@ export async function renderInBrowserTab<T>(
   if (waitsForReadiness(setup.readiness)) {
     const waits: Promise<void>[] = []
     if (setup.readiness.author) waits.push(authorPromise)
-    if (setup.readiness.diagrams) waits.push(diagramPromise)
+    if (setup.readiness.diagrams || setup.readiness.layouts) waits.push(diagramPromise)
     await withinBound(PAGE_READY_BOUND_MS, Promise.all(waits)).catch(() => {
-      throw new RenderRefusedError(readinessRefusal(setup.readiness, { author: authorReady, diagrams: diagramsReady }, PAGE_READY_BOUND_MS / 1000))
+      throw new RenderRefusedError(
+        readinessRefusal(setup.readiness, { author: authorReady, diagrams: diagramsReady, layouts: layoutsReady }, PAGE_READY_BOUND_MS / 1000),
+      )
     })
   }
   await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})

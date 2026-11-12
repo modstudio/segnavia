@@ -1,4 +1,9 @@
 import { embedFunction } from '@segnavia/html'
+import { logicalExtent } from './composer-axis-policy.ts'
+import { measureLineBoxes, type MeasuredLineBox } from './composer-measure.ts'
+import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
+import { inkExcess } from './composer-page-dom.ts'
+import { graphemeInlineExtent } from './composer-properties.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 
 export type LayoutPhase = 'galley' | 'composed'
@@ -12,7 +17,7 @@ export interface LayoutContext {
   readonly page: HTMLElement
   readonly elements: readonly Element[]
   ink(value: Range | Node | string): DOMRect
-  lineBoxes(element: Element): readonly DOMRect[]
+  lineBoxes(element: Element): readonly MeasuredLineBox[]
   report(data: LayoutReportInput): void
 }
 
@@ -51,6 +56,9 @@ export function installLayoutRuntime(
   cancel: typeof clearTimeout,
   timeoutMs: number,
   registrations: RuntimeProvider[],
+  measureLines: typeof measureLineBoxes = measureLineBoxes,
+  graphemeExtent: typeof graphemeInlineExtent = graphemeInlineExtent,
+  excess: typeof inkExcess = inkExcess,
 ): SegnaviaLayoutRuntime {
   const reports: Array<{ check: 'layout-report'; subject: string; message: string }> = []
   const completed = new Set<LayoutPhase>()
@@ -67,25 +75,28 @@ export function installLayoutRuntime(
         range.setStart(node, start)
         range.setEnd(node, start + value.length)
       } else range.selectNodeContents(elements[0] ?? document.body)
-    } else if ('getBoundingClientRect' in value) range = value as Range
+    } else if ('setStart' in value && typeof value.setStart === 'function') range = value as Range
     else {
       range = document.createRange()
       range.selectNode(value)
     }
-    const boxes = Array.from(range.getClientRects()).filter((box) => box.width > 0 || box.height > 0)
-    if (boxes.length === 0) return range.getBoundingClientRect()
-    const left = Math.min(...boxes.map((box) => box.left))
-    const top = Math.min(...boxes.map((box) => box.top))
-    const right = Math.max(...boxes.map((box) => box.right))
-    const bottom = Math.max(...boxes.map((box) => box.bottom))
-    return new DOMRect(left, top, right - left, bottom - top)
+    const box = range.getBoundingClientRect()
+    const node = range.startContainer === range.endContainer && range.startOffset === 0 && range.endOffset === (range.startContainer.textContent ?? '').length
+      ? range.startContainer
+      : typeof value === 'object' && value !== null && !('setStart' in value)
+        ? value
+        : undefined
+    const element = (node?.nodeType === 1 ? node : node?.parentElement) as HTMLElement | undefined
+    const writingMode = element ? getComputedStyle(element).writingMode : 'horizontal-tb'
+    const inline = node ? graphemeExtent(node, writingMode) : logicalExtent(box, writingMode, 'inline')
+    const overflow = element ? excess(element) : { block: 0, inline: 0 }
+    const vertical = writingMode.startsWith('vertical')
+    const width = vertical ? box.width + overflow.block : Math.max(box.width, inline) + overflow.inline
+    const height = vertical ? Math.max(box.height, inline) + overflow.inline : box.height + overflow.block
+    return new DOMRect(box.left, box.top, width, height)
   }
 
-  const lineBoxes = (element: Element): DOMRect[] => {
-    const range = document.createRange()
-    range.selectNodeContents(element)
-    return Array.from(range.getClientRects())
-  }
+  const lineBoxes = (element: Element): MeasuredLineBox[] => measureLines(element, element.getBoundingClientRect().top)
 
   const runtime: SegnaviaLayoutRuntime = {
     define(implementation) {
@@ -156,7 +167,7 @@ export function layoutRuntimeScript(scripts: readonly LoadedLayoutScript[]): str
   const definitions = scripts
     .map(({ name, script }) => `window.segnaviaLayout._loading=${JSON.stringify(name)};\n${script}\nwindow.segnaviaLayout._loading=undefined;`)
     .join('\n')
-  return `${embedFunction('boundedLayoutText', boundedLayoutText)}\n${embedFunction('installLayoutRuntime', installLayoutRuntime)}\ninstallLayoutRuntime(window,document,setTimeout,clearTimeout,10000,${JSON.stringify(registrations)});\n${definitions}`
+  return `${embeddedComposerMeasureFunctions()}\n${embedFunction('logicalExtent', logicalExtent)}\n${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}\n${embedFunction('inkExcess', inkExcess)}\n${embedFunction('boundedLayoutText', boundedLayoutText)}\n${embedFunction('installLayoutRuntime', installLayoutRuntime)}\ninstallLayoutRuntime(window,document,setTimeout,clearTimeout,10000,${JSON.stringify(registrations)},measureLineBoxes,graphemeInlineExtent,inkExcess);\n${definitions}`
 }
 
 export function withLayoutScripts(html: string, nonce: string, scripts: readonly LoadedLayoutScript[]): string {

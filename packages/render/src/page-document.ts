@@ -241,7 +241,7 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     relayKeys: options.relayKeys ?? false,
     reportHeight: options.reportHeight ?? false,
     origins: options.origins,
-    readyCallback: hasDiagram(page.html) ? RENDER_READY_BINDING : undefined,
+    readyCallback: hasDiagram(page.html) || (options.layoutScripts?.length ?? 0) > 0 ? RENDER_READY_BINDING : undefined,
     layoutScripts: options.layoutScripts,
   })
 }

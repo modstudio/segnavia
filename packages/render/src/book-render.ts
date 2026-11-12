@@ -160,7 +160,7 @@ function bookSrcdoc(
     relayKeys: false,
     reportHeight: false,
     origins: options.origins,
-    readyCallback: hasDiagram(html) ? RENDER_READY_BINDING : undefined,
+    readyCallback: hasDiagram(html) || resolvedLayoutScripts.length > 0 ? RENDER_READY_BINDING : undefined,
     layoutScripts: resolvedLayoutScripts,
   })
 }
@@ -253,7 +253,12 @@ async function printBook(
         scripts: continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer),
         html: srcdoc,
         slots,
-        readiness: renderReadiness(marginLayer ? 'refuse' : book.scripts, hasDiagram(html), renderOptions.waitForPageReady !== false),
+        readiness: renderReadiness(
+          marginLayer ? 'refuse' : book.scripts,
+          hasDiagram(html),
+          renderOptions.waitForPageReady !== false,
+          resolvedLayoutScripts.length > 0,
+        ),
         boundMs: renderOptions.boundMs,
         beforeOutput: renderOptions.beforeOutput,
         ...assetSetup(renderOptions),

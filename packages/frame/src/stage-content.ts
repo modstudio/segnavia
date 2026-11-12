@@ -3,6 +3,7 @@ import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefu
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
+import { type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { annotationSvg } from './svg.ts'
 
@@ -17,8 +18,9 @@ interface StageCanvasOptions {
   slots?: PreparedSlots
   bridge?: boolean
   folio: Folio
-  failed?: (error: StyleSheetRefusedError) => void
+  failed?: (error: Error) => void
   preflight?: PreflightProfile
+  layoutScripts?: readonly LoadedLayoutScript[]
 }
 
 function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): string | undefined {
@@ -36,6 +38,7 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       reportHeight: false,
       bridge: options.bridge,
       preflight: options.preflight,
+      layoutScripts: options.layoutScripts,
     })
   } catch (error) {
     if (!(error instanceof StyleSheetRefusedError) || !options.failed) throw error
@@ -64,12 +67,14 @@ export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide
     iframe.title = options.frameTitle(deck.title, options.folio.number)
     iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
-      const srcdoc = htmlFrameDocument(deck, content.html, options)
-      if (srcdoc === undefined) {
-        layoutStageCanvas(canvas, deck.size)
-        return canvas
+      const write = (layoutScripts: readonly LoadedLayoutScript[]) => {
+        const srcdoc = htmlFrameDocument(deck, content.html, { ...options, layoutScripts })
+        if (srcdoc !== undefined) iframe.srcdoc = srcdoc
       }
-      iframe.srcdoc = srcdoc
+      if (layoutsUsed(content.html).length > 0) {
+        iframe.dataset.segnaviaLayoutFrame = ''
+        void loadLayoutScripts(content.html).then(write, (error) => options.failed?.(error instanceof Error ? error : new Error(String(error))))
+      } else write([])
     } else iframe.src = controller.url(content.src)
     canvas.append(iframe)
   } else {

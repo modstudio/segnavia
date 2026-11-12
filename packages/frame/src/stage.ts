@@ -339,6 +339,10 @@ export class SegnaviaStage extends AsOfElement {
       if (slideId) surfacePreflightFor(this).receive(slideId, message.report)
     }
     if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
+    if (message?.type === MESSAGE.composeFailure && message.text) {
+      const frame = this.pool.frames().find((candidate) => candidate.contentWindow === event.source)
+      if (frame?.hasAttribute('data-segnavia-layout-frame')) dispatchElementError(this, new Error(message.text))
+    }
     if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
     if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
   }

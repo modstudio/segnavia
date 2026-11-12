@@ -15,6 +15,7 @@ import {
 } from '@segnavia/format'
 import { newNonce, PRINT_READY_ATTRIBUTE, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram } from '@segnavia/frame/diagrams'
+import { layoutsUsed } from '@segnavia/frame/layout'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
@@ -50,7 +51,7 @@ import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { type SurfacePreflight, type SurfacePreflightCapture, surfacePreflight } from './preflight.ts'
-import { type RenderReadiness, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
+import { type RenderReadiness, readinessRefusal, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = ComposedRenderOptions & PrintOptions
 
@@ -83,11 +84,21 @@ interface DeckPdfServices {
 }
 
 async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<void> {
-  await tab
+  const printed = await tab
     .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
     .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
-    .catch(() => {})
+    .then(() => true, () => false)
+  if (!printed && readiness.layouts) {
+    throw new RenderRefusedError(
+      readinessRefusal(readiness, { author: true, diagrams: true, layouts: false }, SLIDES_READY_DEADLINE_MS / 1000),
+    )
+  }
   await waitForDiagramReadiness(tab, readiness)
+}
+
+function layoutsForHtml(html: string, scripts: readonly LoadedLayoutScript[]): readonly LoadedLayoutScript[] {
+  const names = new Set(layoutsUsed(html))
+  return scripts.filter((script) => names.has(script.name))
 }
 
 function nameSlideError(error: unknown, id: string): never {
@@ -161,6 +172,7 @@ async function renderHtmlSlides(
   return Promise.all(
     slides.map(async ({ index, id, html, printAtMs }) => {
       try {
+        const slideLayouts = layoutsForHtml(html, layoutScripts)
         const bytes = await services.renderPdf(
           {
             viewport: deckPrintableViewport(deck.size, undefined, press),
@@ -174,13 +186,14 @@ async function renderHtmlSlides(
               printAtMs,
               origins: opts.origins,
               diagramScript,
-              layoutScripts,
+              layoutScripts: slideLayouts,
             }),
             boundMs: opts.boundMs,
             ...assetSetup(opts),
             ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
             preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
-            beforeOutput: (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
+            beforeOutput: (tab) =>
+              waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false, slideLayouts.length > 0)),
           },
           {
             ...htmlSlidePdfOptions(deck.size, press),
@@ -298,6 +311,7 @@ async function imposedDeckPdf(
     deck.slides.map(async (slide, index) => {
       const single: Deck = { ...deck, slides: [slide] }
       const diagrams = 'kind' in slide.content && slide.content.kind === 'html' && hasDiagram(slide.content.html)
+      const slideLayouts = 'kind' in slide.content && slide.content.kind === 'html' ? layoutsForHtml(slide.content.html, layoutScripts) : []
       try {
         const html =
           'kind' in slide.content && slide.content.kind === 'html'
@@ -308,7 +322,7 @@ async function imposedDeckPdf(
                 printAtMs: slide.printAtMs ?? 0,
                 origins: opts.origins,
                 diagramScript,
-                layoutScripts,
+                layoutScripts: slideLayouts,
               })
             : printableDeckValue({ ...single, print: undefined }, { ...opts, layout: 'slides', imposition: undefined, baseCss, diagramScript, layoutScripts })
         const bytes = await services.renderPdf(
@@ -322,7 +336,7 @@ async function imposedDeckPdf(
             preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
             beforeOutput:
               'kind' in slide.content && slide.content.kind === 'html'
-                ? (tab) => waitForPrintReady(tab, renderReadiness('refuse', diagrams, opts.waitForPageReady !== false))
+                ? (tab) => waitForPrintReady(tab, renderReadiness('refuse', diagrams, opts.waitForPageReady !== false, slideLayouts.length > 0))
                 : 'kind' in slide.content && slide.content.kind === 'image'
                   ? placeRenderedImages
                   : undefined,
