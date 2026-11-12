@@ -4,6 +4,18 @@ import { primitiveRoot } from './repeated-mark.ts'
 export const NumberSystem = z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew'])
 export type NumberSystem = z.infer<typeof NumberSystem>
 
+export type BookNumberingDivision = 'frontMatter' | 'body'
+
+type BookPrinted = Partial<Record<BookNumberingDivision, boolean>>
+
+export function divisionPrints(numbering: { printed?: BookPrinted }, division: BookNumberingDivision): boolean {
+  return numbering.printed?.[division] ?? true
+}
+
+export function pageNotPrintedRefusal(id: string, division: BookNumberingDivision): string {
+  return `Page reference target ${id} lands on a page whose number is not printed; point the reference at a printed page or set numbering.printed.${division} to true to clear this refusal.`
+}
+
 export function isHebrew(lang: string | undefined): boolean {
   const primary = lang?.split('-')[0]?.toLowerCase()
   return primary === 'he' || primary === 'iw'
@@ -16,10 +28,14 @@ export function defaultPageNumbering(lang: string | undefined): NumberSystem {
 /** A book's division number systems: each configured system, or the language's default for that division. */
 export function divisionNumbering(
   lang: string | undefined,
-  configured: { frontMatter?: NumberSystem; body?: NumberSystem } = {},
-): { frontMatter: NumberSystem; body: NumberSystem } {
+  configured: { frontMatter?: NumberSystem; body?: NumberSystem; printed?: BookPrinted } = {},
+): { frontMatter: NumberSystem; body: NumberSystem; printed: { frontMatter: boolean; body: boolean } } {
   const hebrew = isHebrew(lang)
-  return { frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'), body: configured.body ?? defaultPageNumbering(lang) }
+  return {
+    frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
+    body: configured.body ?? defaultPageNumbering(lang),
+    printed: { frontMatter: divisionPrints(configured, 'frontMatter'), body: divisionPrints(configured, 'body') },
+  }
 }
 
 const NoteMark = z.string().regex(/^\S{1,8}$/u, 'a note mark must be 1 to 8 characters with no whitespace')

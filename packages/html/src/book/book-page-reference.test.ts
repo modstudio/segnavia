@@ -29,3 +29,18 @@ test('reports missing and ambiguous page reference targets', () => {
     'page reference target topic is used in 2 sections: One (section-1), Two (section-2); make the target id unique to clear this refusal',
   )
 })
+
+test('treats an authored contents styling class as an authored page reference', () => {
+  const result = bookDocument(
+    parseBookFixture(input([{ title: 'One', html: '<p><a class="segnavia-contents-page" href="#topic" data-ref="page"></a></p><h2 id="topic">Topic</h2>' }])),
+  )
+  expect(result.pageReferenceTargets).toEqual(['topic'])
+})
+
+test('removes the reserved generated-contents marker from authored page references', () => {
+  const html = '<p><a data-segnavia-generated-contents-page class="segnavia-contents-page" href="#topic" data-ref="page"></a></p><h2 id="topic">Topic</h2>'
+  const result = bookDocument(parseBookFixture(input([{ title: 'One', html }])))
+
+  expect(result.pageReferenceTargets).toEqual(['topic'])
+  expect(result.html).not.toContain('data-segnavia-generated-contents-page')
+})

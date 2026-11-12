@@ -64,7 +64,13 @@ export {
   type BookPositionKey,
   parseBookPositionKey,
 } from './book/book-flow.ts'
-export { PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_SELECTOR, PAGE_REFERENCE_VALUE, pageReferenceTarget } from './book/book-page-reference.ts'
+export {
+  CONTENTS_PAGE_REFERENCE_SELECTOR,
+  PAGE_REFERENCE_ATTRIBUTE,
+  PAGE_REFERENCE_SELECTOR,
+  PAGE_REFERENCE_VALUE,
+  pageReferenceTarget,
+} from './book/book-page-reference.ts'
 export { parseBookFixture } from './book/book-test-fixture.ts'
 export { bookView, bookViewFromHtml } from './book/book-view.ts'
 export type { BookBuild, BookDocument, BookDocumentOptions, BookHeading, BookPrintPart, BookSectionInfo } from './book/types.ts'

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { DEFAULT_LIMITS, type Limits } from './limits.ts'
 
-export const PLAN_VERSION = 5 as const
+export const PLAN_VERSION = 6 as const
 
 export const PaginateWindow = z.object({
   flow: z.string(),
@@ -68,6 +68,7 @@ const PlanShape = z.object({
   breaks: z.array(z.string()),
   pages: z.array(PlanPage),
   folios: z.array(z.string().nullable()),
+  folioPrints: z.array(z.boolean().nullable()),
   total: z.string(),
   documentFolios: z.array(z.string().nullable()),
   documentTotal: z.string(),
@@ -94,6 +95,13 @@ function planSchema(options?: PlanParseOptions) {
         code: 'custom',
         path: ['folios'],
         message: `folios has ${plan.folios.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
+      })
+    }
+    if (plan.folioPrints.length !== plan.pages.length) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['folioPrints'],
+        message: `folioPrints has ${plan.folioPrints.length} entries but pages has ${plan.pages.length}; compute a new plan to clear this refusal`,
       })
     }
     if (plan.documentFolios.length !== plan.pages.length) {

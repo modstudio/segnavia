@@ -1,12 +1,16 @@
-import { type Book, type Folio, sequenceFolios } from '@segnavia/format'
+import { type Book, type Folio, pageNotPrintedRefusal, sequenceFolios } from '@segnavia/format'
 import type { BookSectionInfo } from '@segnavia/html'
 import type { BookDestination } from './book-destinations.ts'
 import { RenderRefusedError } from './errors.ts'
 
-export function folioTextAt(folios: readonly Folio[], page: number): string {
+export function folioDisplayTextAt(folios: readonly Folio[], page: number): string {
   const folio = folios[page - 1]
   if (!folio) throw new RangeError(`Printed page ${page} has no computed folio.`)
-  return folio.text
+  return folio.printed ? folio.text : ''
+}
+
+export function folioCountedTextAt(folios: readonly Folio[], page: number): string {
+  return folios[page - 1]?.text ?? '0'
 }
 
 function destinationOwner(id: string, destination: BookDestination, sections: BookSectionInfo[], destinations: Map<string, BookDestination>): string {
@@ -40,18 +44,36 @@ export function frontPrintStatus(prints: Map<string, BookDestination>[], ids: st
 interface NumberSource {
   destinations: Map<string, BookDestination>
   system: Book['numbering']['body']
+  printed: boolean
+  division: 'frontMatter' | 'body'
 }
 
-export function finalNumbers(ids: string[], sources: NumberSource[], headings = new Set<string>()): Record<string, string> {
+function numberFromSource(
+  id: string,
+  source: NumberSource & { folios: Folio[] },
+  headings: ReadonlySet<string>,
+  pageReferences: ReadonlySet<string>,
+): string | undefined {
+  const page = source.destinations.get(id)?.page
+  if (page === undefined) return undefined
+  const folio = source.folios[page - 1]
+  if (!folio) throw new RangeError(`Printed page ${page} has no computed folio.`)
+  if (!folio.printed && (pageReferences.has(id) || !headings.has(id))) {
+    throw new RenderRefusedError(pageNotPrintedRefusal(id, source.division))
+  }
+  return folio.printed ? folio.text : ''
+}
+
+export function finalNumbers(ids: string[], sources: NumberSource[], headings = new Set<string>(), pageReferences = new Set<string>()): Record<string, string> {
   const numberedSources = sources.map((source) => {
     const pages = Math.max(0, ...[...source.destinations.values()].map((destination) => destination.page))
-    return { ...source, folios: sequenceFolios(pages, source.system) }
+    return { ...source, folios: sequenceFolios(pages, source.system, source.printed) }
   })
   return Object.fromEntries(
     ids.map((id) => {
       for (const source of numberedSources) {
-        const page = source.destinations.get(id)?.page
-        if (page !== undefined) return [id, folioTextAt(source.folios, page)]
+        const number = numberFromSource(id, source, headings, pageReferences)
+        if (number !== undefined) return [id, number]
       }
       const role = headings.has(id) ? 'heading' : 'page reference target'
       throw new RenderRefusedError(`The ${role} ${id} has no printed destination; keep its destination in the printed book to clear this refusal.`)

@@ -35,11 +35,12 @@ function page(number: number, face: PlanPage['face'], side: PlanPage['side'], st
 }
 
 const plan = (pages: PlanPage[]): Plan => ({
-  version: 5,
+  version: 6,
   fingerprint: 'fnv1a64:plan',
   breaks: ['chapter-two'],
   pages,
   folios: ['א', 'ב'],
+  folioPrints: [true, true],
   total: 'ב',
   documentFolios: ['א', 'ב'],
   documentTotal: 'ב',

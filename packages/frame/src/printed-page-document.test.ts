@@ -152,7 +152,7 @@ describe('printedPageDocument', () => {
   test('carries resolved config under the bridge nonce and injects the shared policy', () => {
     const html = printedPageDocument(page, { nonce: 'held' })
     expect(html.match(/<script nonce="held">/g)?.length).toBeGreaterThanOrEqual(1)
-    expect(html).toContain('"numbering":{"frontMatter":"hebrew","body":"hebrew"}')
+    expect(html).toContain('"numbering":{"frontMatter":"hebrew","body":"hebrew","printed":{"frontMatter":true,"body":true}}')
     expect(html).toContain('data-motif-name=\\"segnavia:folio\\"')
     expect(html.match(/\\u003ci>Inherited\\u003c\/i>/g)?.length).toBe(2)
     expect(COMPOSER_SCRIPT).toContain(layoutScript())

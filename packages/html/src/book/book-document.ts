@@ -36,7 +36,7 @@ import {
   templateRegionIssues,
 } from './book-held.ts'
 import { duplicateIdIssues, pageReferenceIssues, reservedIdIssues } from './book-issues.ts'
-import { pageReferenceNodes, pageReferenceTarget, pageReferenceTargets } from './book-page-reference.ts'
+import { pageReferenceNodes, pageReferenceTarget, pageReferenceTargets, removeAuthoredContentsPageReferenceMarkers } from './book-page-reference.ts'
 import { addPart, attachPendingPartHeadings, partNames } from './book-part-build.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
@@ -339,8 +339,13 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
   addChapters(book, build, 'end')
   const { notes, sections, headings, issues } = build
   insertCollectedSections(book, build)
-  if (contents) addContents(book, contents, headings, options)
   const noteGalleys = notesGalleys(book.notes, notes.pageParagraphs)
+  const holders =
+    requestedBuild === 'galley'
+      ? templateHolders(book.templates.map((template) => ({ ...template, parentRules: template.parentRules ?? book.parentRules })))
+      : []
+  removeAuthoredContentsPageReferenceMarkers([...sections.map((section) => section.node), ...noteGalleys, ...holders])
+  if (contents) addContents(book, contents, headings, options)
   const scopes = [
     ...sections.map((section) => ({ owner: `${section.info.title ?? section.info.id} (${section.info.id})`, roots: [section.node] })),
     ...noteGalleys.map((galley) => ({ owner: `page-placed note series ${galley.attribs['data-segnavia-note-series'] ?? ''}`, roots: [galley] })),
@@ -359,11 +364,7 @@ export function bookDocument(book: Book, options: BookDocumentOptions = {}): Boo
       ? [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),
           ...(options.targets ? [targetLinks(visible)] : []),
-          element('div', { 'data-segnavia-galleys': '' }, [
-            ...templateHolders(book.templates.map((template) => ({ ...template, parentRules: template.parentRules ?? book.parentRules }))),
-            ...visibleRoots.map((section) => section.node),
-            ...noteGalleys,
-          ]),
+          element('div', { 'data-segnavia-galleys': '' }, [...holders, ...visibleRoots.map((section) => section.node), ...noteGalleys]),
         ]
       : [
           element('style', {}, [text(bookDocumentCss(book, requestedBuild))]),

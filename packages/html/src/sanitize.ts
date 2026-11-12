@@ -32,7 +32,7 @@ const REFUSED = {
 export const REFUSED_ELEMENTS = new Set(Object.keys(REFUSED))
 // SVG's own ways of animating or embedding HTML.
 const REFUSED_SVG_ELEMENTS = new Set(['script', 'animate', 'set', 'animatetransform', 'animatemotion', 'foreignobject'])
-const REFUSED_ATTRIBUTES = new Set(['srcdoc', 'formaction', 'action'])
+const REFUSED_ATTRIBUTES = new Set(['srcdoc', 'formaction', 'action', 'data-segnavia-generated-contents-page'])
 const URL_ATTRIBUTES = new Set(['href', 'xlink:href', 'src', 'srcset', 'poster', 'background', 'data', 'cite', 'longdesc', 'ping'])
 const DATA_IMAGE_TYPES = String.raw`(?:png|jpeg|gif|webp|svg\+xml)`
 const DATA_IMAGE = new RegExp(`^data:image/${DATA_IMAGE_TYPES}(?:[;,])`, 'i')

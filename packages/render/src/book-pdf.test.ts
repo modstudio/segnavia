@@ -28,10 +28,17 @@ test('continuous margin facts select a host parent from the owning section rules
   })
   const sections = bookDocument(book).sections
   const destinations = new Map([['body-section', { page: 1, x: 0, y: 0 }]])
-  const facts = marginFactsFor(sections, destinations, 1, new Set(), 'arabic', [])
+  const facts = marginFactsFor(sections, destinations, 1, new Set(), { system: 'arabic', printed: true }, [])
 
   expect(facts[0]?.parentRules).toEqual([{ parent: 'host' }])
   expect(planBookPages(facts, 'ltr')[0]?.parent).toBe('host')
+})
+
+test('continuous margin facts hide an unprinted folio while keeping its counted total', () => {
+  const sections = [{ id: 'preface', kind: 'front' as const, division: 'front' as const, title: 'Preface' }]
+  const destinations = new Map([['preface', { page: 1, x: 0, y: 0 }]])
+  const facts = marginFactsFor(sections, destinations, 1, new Set(), { system: 'arabic', printed: false }, [])
+  expect(facts[0]).toMatchObject({ folio: '', variables: { 'segnavia:pages-total': '1', 'segnavia:section-title': 'Preface' } })
 })
 
 test("continuous margin facts fall back to the book's parent rules", () => {
@@ -45,7 +52,7 @@ test("continuous margin facts fall back to the book's parent rules", () => {
   })
   const sections = [{ id: 'body-section', kind: 'chapter' as const, division: 'body' as const, title: 'One' }]
   const destinations = new Map([['body-section', { page: 1, x: 0, y: 0 }]])
-  const facts = marginFactsFor(sections, destinations, 1, new Set(), 'arabic', [], undefined, undefined, book.parentRules)
+  const facts = marginFactsFor(sections, destinations, 1, new Set(), { system: 'arabic', printed: true }, [], undefined, undefined, book.parentRules)
 
   expect(planBookPages(facts, 'ltr')[0]?.parent).toBe('host')
 })
@@ -59,7 +66,7 @@ test('resolves record-page totals and document folios for the margin plan', () =
     destinations,
     4,
     new Set(),
-    'roman-upper',
+    { system: 'roman-upper', printed: true },
     [
       { name: 'record-pages', kind: 'pages', of: 'record' },
       { name: 'document-folio', kind: 'folio', of: 'document' },
@@ -76,7 +83,7 @@ test('resolves record-page totals and document folios for the margin plan', () =
 test('counts a blank inside a record the same way as the page plan', () => {
   const sections = [{ id: 'record', kind: 'chapter' as const, division: 'body' as const, title: 'Record', record: { index: 1, count: 1 } }]
   const destinations = new Map([['record', { page: 2, x: 0, y: 0 }]])
-  const facts = marginFactsFor(sections, destinations, 2, new Set([1]), 'arabic', [
+  const facts = marginFactsFor(sections, destinations, 2, new Set([1]), { system: 'arabic', printed: true }, [
     { name: 'record-folio', kind: 'folio', of: 'record' },
     { name: 'record-pages', kind: 'pages', of: 'record' },
   ])
@@ -95,7 +102,7 @@ test('resolves a named enclosing part title only inside that part', () => {
     ['inside', { page: 1, x: 0, y: 0 }],
     ['outside', { page: 2, x: 0, y: 0 }],
   ])
-  const facts = marginFactsFor(sections, destinations, 2, new Set(), 'arabic', [
+  const facts = marginFactsFor(sections, destinations, 2, new Set(), { system: 'arabic', printed: true }, [
     { name: 'part', kind: 'text', from: 'part-title', part: 'part', pick: 'first' },
   ])
   expect(facts[0]?.variables?.part).toBe('Part One')
@@ -105,10 +112,19 @@ test('resolves a named enclosing part title only inside that part', () => {
 test('resolves metadata variables in the continuous margin plan', () => {
   const sections = [{ id: 'chapter', kind: 'chapter' as const, division: 'body' as const, title: 'One' }]
   const destinations = new Map([['chapter', { page: 1, x: 0, y: 0 }]])
-  const facts = marginFactsFor(sections, destinations, 2, new Set(), 'arabic', [{ name: 'title', kind: 'meta', field: 'title' }], undefined, {
-    lang: 'he',
-    metadata: { title: 'ספר' },
-  })
+  const facts = marginFactsFor(
+    sections,
+    destinations,
+    2,
+    new Set(),
+    { system: 'arabic', printed: true },
+    [{ name: 'title', kind: 'meta', field: 'title' }],
+    undefined,
+    {
+      lang: 'he',
+      metadata: { title: 'ספר' },
+    },
+  )
   expect(facts.map(({ variables }) => variables)).toEqual([expect.objectContaining({ title: 'ספר' }), expect.objectContaining({ title: 'ספר' })])
 })
 

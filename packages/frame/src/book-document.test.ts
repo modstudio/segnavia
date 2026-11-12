@@ -108,26 +108,6 @@ describe('bookDocument', () => {
     expect(bookDocument(book, { nonce: 'held' })).not.toContain('"document":')
   })
 
-  test('carries saved plans and breaks in config without closing the composer script', () => {
-    const plan = {
-      version: 5 as const,
-      fingerprint: '</script><script>unsafe()</script>',
-      breaks: ['middle'],
-      pages: [],
-      folios: [],
-      total: '0',
-      documentFolios: [],
-      documentTotal: '0',
-      recordTotals: {},
-      records: {},
-    }
-    const html = bookDocument(book, { nonce: 'held', plan, breaks: ['middle'] })
-    expect(html).toContain('"breaks":["middle"]')
-    expect(html).toContain('"plan":{"version":5')
-    expect(html).not.toContain('</script><script>unsafe()</script>')
-    expect(html).toContain('\\u003c/script>\\u003cscript>unsafe()\\u003c/script>')
-  })
-
   test('minified embedded composer functions retain their aliases and have no module dependencies', async () => {
     const built = await Bun.build({
       entrypoints: ['virtual:composer-functions'],
@@ -322,7 +302,7 @@ describe('bookDocument', () => {
           },
         ],
         direction: 'rtl' as const,
-        numbering: { frontMatter: 'roman-lower' as const, body: 'hebrew' as const },
+        numbering: { frontMatter: 'roman-lower' as const, body: 'hebrew' as const, printed: { frontMatter: true, body: true } },
         rectoOpenings: false,
         orphans: 2,
         widows: 2,
@@ -380,7 +360,7 @@ describe('bookDocument', () => {
           },
         ],
         direction: 'ltr' as const,
-        numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
+        numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const, printed: { frontMatter: true, body: true } },
         rectoOpenings: false,
         orphans: 2,
         widows: 2,

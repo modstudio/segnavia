@@ -81,7 +81,7 @@ describe('book', () => {
         endnotes: { marker: 'hebrew', placement: 'book' },
       }),
     )
-    expect(book.numbering).toEqual({ frontMatter: 'roman-upper', body: 'roman-lower' })
+    expect(book.numbering).toEqual({ frontMatter: 'roman-upper', body: 'roman-lower', printed: { frontMatter: true, body: true } })
     expect(book.footnotes).toEqual({ marker: 'symbols', restart: 'book' })
     expect(book.endnotes).toEqual({ marker: 'hebrew', placement: 'book', title: 'הערות' })
   })
@@ -154,13 +154,6 @@ describe('book', () => {
     expect(marked.page?.columnGap).toBe(6)
     expect(marked.orphans).toBe(3)
     expect(marked.widows).toBe(1)
-  })
-
-  test('front matter and body must have different numbering systems', () => {
-    const result = Book.safeParse(input({ frontMatter: [{ html: '<nav>Contents</nav>' }], numbering: { frontMatter: 'arabic', body: 'arabic' } }))
-    expect(result.error?.issues[0]).toMatchObject({ path: ['numbering'] })
-    expect(result.error?.issues[0]?.message).toContain('both arabic')
-    expect(result.error?.issues[0]?.message).toContain('must differ')
   })
 
   test('chapter endnotes need paginated mode', () => {

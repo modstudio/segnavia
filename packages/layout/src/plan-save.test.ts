@@ -45,9 +45,10 @@ describe('saved book plans', () => {
     expect(replayed).toEqual({
       ok: true,
       plan: {
-        version: 5,
+        version: 6,
         pages: saved.pages,
         folios: saved.folios,
+        folioPrints: saved.folioPrints,
         total: saved.total,
         documentFolios: saved.documentFolios,
         documentTotal: saved.documentTotal,
@@ -172,7 +173,7 @@ describe('saved book plans', () => {
   test('replays a plan saved with the default-page fingerprint shape', () => {
     const measurements = input({ flows: [flow('legacy', 'chapter', [block('text', 'p', 1, 1, 2, 0, { id: 'paragraph' })])] })
     const saved = SavedPlan.parse({
-      version: 5,
+      version: 6,
       fingerprint: 'fnv1a64:9a6fde523f833732',
       breaks: [],
       pages: [
@@ -196,6 +197,7 @@ describe('saved book plans', () => {
         },
       ],
       folios: ['א'],
+      folioPrints: [true],
       total: 'א',
       documentFolios: ['א'],
       documentTotal: 'א',

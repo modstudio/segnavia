@@ -46,7 +46,7 @@ const hebrewBookFixture = {
   dir: 'rtl' as const,
   lang: 'he',
   css: ':where(html){font:16px/1.7 serif}',
-  numbering: { frontMatter: 'arabic' as const, body: 'hebrew' as const },
+  numbering: { frontMatter: 'arabic' as const, body: 'hebrew' as const, printed: { frontMatter: true, body: true } },
   parentPages: [
     {
       name: 'sefer',

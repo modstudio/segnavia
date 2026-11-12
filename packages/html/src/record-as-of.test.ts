@@ -53,7 +53,7 @@ test('book view as-of bindings fill the body, flow and parent-page regions', () 
         columnGap: 0,
         geometries: [],
         direction: 'ltr',
-        numbering: { frontMatter: 'roman-lower', body: 'arabic' },
+        numbering: { frontMatter: 'roman-lower', body: 'arabic', printed: { frontMatter: true, body: true } },
         rectoOpenings: false,
         orphans: 2,
         widows: 2,
