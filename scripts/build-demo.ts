@@ -1,3 +1,4 @@
+// Capture shots, narrate, assemble a deck, render every host output, and publish a player.
 import './source-guard.ts'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -88,7 +89,6 @@ async function narration(text: string, cues: (n: Pick<Narration, 'words'>) => Na
   const spoken = await narrate(voice, text, { cacheDirectory: cache })
   return { text, lang, ...spoken, live: false, cues: cues(spoken) }
 }
-
 function publish(key: string): Shot {
   const shot = run.manifest.shots[key] as Shot
   for (const file of [shot.file, shot.annotatedFile]) if (file) copyFileSync(path.join(shotsDirectory, file), path.join(SITE, 'shots', file))

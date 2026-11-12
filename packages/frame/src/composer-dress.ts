@@ -163,6 +163,19 @@ export function markRegionOverflow(root: Element, folio: string, excessOf: (elem
   }
 }
 
+export function markComposedOverflow(root: Element, pageMarker: string, excessOf: (element: Element) => RegionExcess, entries: PreflightEntry[]): void {
+  const furnitureRegions = root.querySelectorAll<HTMLElement>('[data-segnavia-region]')
+  for (const region of furnitureRegions) {
+    const page = region.closest(`[${pageMarker}]`)
+    if (page) markFurnitureOverflow(region, page, entries)
+  }
+  const templates = root.querySelectorAll('[data-template]')
+  for (const template of templates) {
+    const page = template.closest(`[${pageMarker}]`)
+    markRegionOverflow(template, page?.getAttribute('data-segnavia-folio') ?? '', excessOf, entries)
+  }
+}
+
 export function fillFurniture(
   root: Element,
   html: string,
