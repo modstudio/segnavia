@@ -13,6 +13,7 @@ import type {
   RenderOptions,
   SlideImageOptions,
 } from './options.ts'
+import type { Watermark } from './watermark-options.ts'
 
 export const RENDER_BOUND_MS = 60_000
 export const PAGE_READY_BOUND_MS = 10_000
@@ -28,8 +29,8 @@ export interface RendererOptions {
   jsHeapMb?: number
 }
 
-export type PagePdfOptions = PageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata }
-export type ParsedPagePdfOptions = ParsedPageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata }
+export type PagePdfOptions = PageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
+export type ParsedPagePdfOptions = ParsedPageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
 export type BookPdfOptions = ComposedRenderInput & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[] }
 export type ParsedBookPdfOptions = ParsedComposedRenderOptions<BookPdfOptions>
 export type BookPlanOptions = RenderOptions & AsOfInputs & { motifs?: MotifsOptions; breaks?: string[] }

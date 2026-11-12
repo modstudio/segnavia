@@ -1,5 +1,13 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
-import { fillPageAsOfBindings, type PreparedSlots, parseAsOfInputs, parseDocument, printedPageAuthorHtml } from '@segnavia/html'
+import { frameStyleSheets } from '@segnavia/frame/bridge'
+import {
+  fillPageAsOfBindings,
+  type PreparedSlots,
+  parseAsOfInputs,
+  parseDocument,
+  printedPageAuthorHtml,
+  printedPageDirection,
+} from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
@@ -16,6 +24,7 @@ import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } fr
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import {
+  assetSetup,
   copyLimits,
   enforceDeckLimits,
   innerLimits,
@@ -31,7 +40,7 @@ import { expandRenderedPageValue, prepareRenderedPage, prepareRenderedPages, pre
 import { renderPreparedPageImage } from './page-image-render.ts'
 import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
-import { renderPagesPdf } from './pages-pdf.ts'
+import { renderPagesPdf, type WatermarkPart } from './pages-pdf.ts'
 import { enforce } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
@@ -40,11 +49,14 @@ import { type RenderDeadline, withinBound, withinRenderPermit } from './render-d
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
 import { renderReadiness } from './render-readiness.ts'
-import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
+import { DEFAULT_JS_HEAP_MB, type ParsedPagePdfOptions, RENDER_BOUND_MS, type Renderer, type RendererOptions } from './renderer.ts'
 import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledBook, filledPage, filledPages } from './slot-fill.ts'
+import { watermarkDocument } from './watermark-markup.ts'
+import { watermarkPageNumbers } from './watermark-options.ts'
+import { stampWatermarkParts, watermarkPages } from './watermark-stamp.ts'
 
 export { FontRefusedError } from '@segnavia/frame/fonts'
 export type { MotifsOptions } from '@segnavia/frame/motifs'
@@ -78,6 +90,7 @@ export type {
   SlideImageOptions,
 } from './options.ts'
 export type { PressDestination, PressImage, PressReport } from './press/types.ts'
+export type { Watermark } from './watermark-options.ts'
 export { RenderTimeoutError } from './render-deadline.ts'
 export {
   type BookPdfOptions,
@@ -166,6 +179,54 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   }
   const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
     finishPdfWithBrowser(pdf, options, withTab, deadline)
+  const applyWatermark = async (
+    parts: readonly WatermarkPart[],
+    options: ParsedPagePdfOptions,
+    fontCss: string,
+    deadline: RenderDeadline,
+    pageCount?: number,
+  ): Promise<Uint8Array[]> => {
+    if (!options.watermark) return parts.map((part) => part.bytes)
+    const geometries = await Promise.all(parts.map((part) => watermarkPages(part.bytes)))
+    let nextPhysicalPage = 1
+    const mapped = geometries.flatMap((partPages, partIndex) => {
+      const part = parts[partIndex]
+      if (!part) return []
+      const physical = part.physicalPages ?? partPages.map(() => nextPhysicalPage++)
+      return partPages.map((page, pageIndex) => ({
+        part: partIndex,
+        page: pageIndex + 1,
+        physical: physical[pageIndex] as number,
+        geometry: { ...page, direction: printedPageDirection(part.page), ...(part.page.lang ? { lang: part.page.lang } : {}) },
+      }))
+    })
+    const selectedNumbers = new Set(watermarkPageNumbers(options.watermark, pageCount ?? mapped.length))
+    const selected = mapped.filter((entry) => selectedNumbers.has(entry.physical))
+    if (selected.length === 0) return parts.map((part) => part.bytes)
+    const documentCss = parts.map((part) => frameStyleSheets(part.page.style, part.page.brand).join('')).join('')
+    const html = watermarkDocument(options.watermark, selected.map((entry) => entry.geometry), `${documentCss}${options.css ?? ''}${fontCss}`)
+    const layer = await withTab(
+      {
+        viewport: { width: 1024, height: 768 },
+        scripts: false,
+        html,
+        readiness: { author: false, diagrams: false },
+        deadline,
+        ...assetSetup(options),
+      },
+      (tab) =>
+        tab.pdf({
+          printBackground: true,
+          preferCSSPageSize: true,
+          margin: { top: '0', right: '0', bottom: '0', left: '0' },
+        }),
+    )
+    return stampWatermarkParts(
+      parts.map((part) => part.bytes),
+      layer,
+      selected.map((entry) => ({ part: entry.part, page: entry.page })),
+    )
+  }
   const renderer: Renderer = {
     async bookPdf(input, opts = {}) {
       const parsedOptions = parseBookPdfOptions(opts)
@@ -229,8 +290,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
         })
+        const [watermarked] = await applyWatermark([{ bytes, page: prepared.page }], parsedOptions, prepared.fontCss, deadline)
         const output = await withDocumentMetadata(
-          await finishWithBrowser(bytes, prepared.options, deadline),
+          await finishWithBrowser(watermarked as Uint8Array, prepared.options, deadline),
           parsedOptions.metadata,
           outputDate([prepared.established.day]),
         )
@@ -303,6 +365,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
+              watermark: (parts, count) => applyWatermark(parts, parsedOptions, prepared.fontCss, deadline, count),
             },
             frameGroups,
           )
