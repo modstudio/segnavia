@@ -1,13 +1,5 @@
-import type { MeasureKind, MeasuredProperty } from '@segnavia/format'
-import { embedFunction } from '@segnavia/html'
-import {
-  logicalExtent,
-  logicalLineCount,
-  measuredProperties,
-  propertyValue,
-  runPropertyStageOnce,
-  verticalWritingMode,
-} from './composer-properties-policy.ts'
+import type { MeasuredProperty, MeasureKind } from '@segnavia/format'
+import { logicalExtent, logicalLineCount, measuredProperties, propertyValue } from './composer-properties-policy.ts'
 
 interface TemporaryPropertySource {
   clone: HTMLElement
@@ -21,12 +13,12 @@ interface PropertyGeometry {
   parents: Array<{ textArea: { width: number; height: number } }>
 }
 
-function directMeasurementNodes(element: HTMLElement): Node[] {
+export function directMeasurementNodes(element: HTMLElement): Node[] {
   const nodes = Array.from(element.childNodes).filter((node) => node.nodeType === 1 || (node.nodeType === 3 && (node.textContent ?? '').length > 0))
   return nodes.length > 0 ? nodes : [element]
 }
 
-function graphemeInlineExtent(node: Node, writingMode: string): number {
+export function graphemeInlineExtent(node: Node, writingMode: string): number {
   const owner = node.ownerDocument
   if (!owner) return 0
   const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
@@ -49,13 +41,13 @@ function graphemeInlineExtent(node: Node, writingMode: string): number {
   return total
 }
 
-function lineRects(element: HTMLElement): Array<{ width: number; height: number; top: number; left: number }> {
+export function lineRects(element: HTMLElement): Array<{ width: number; height: number; top: number; left: number }> {
   const range = element.ownerDocument.createRange()
   range.selectNodeContents(element)
   return Array.from(range.getClientRects()).map((rect) => ({ width: rect.width, height: rect.height, top: rect.top, left: rect.left }))
 }
 
-function measuredValue(element: HTMLElement, kind: MeasureKind): string {
+export function measuredValue(element: HTMLElement, kind: MeasureKind): string {
   const writingMode = getComputedStyle(element).writingMode
   let value: number
   if (kind === 'max-content-inline:children') {
@@ -69,7 +61,7 @@ function measuredValue(element: HTMLElement, kind: MeasureKind): string {
   return propertyValue(kind, value)
 }
 
-function measurePropertyElement(element: HTMLElement): MeasuredProperty {
+export function measurePropertyElement(element: HTMLElement): MeasuredProperty {
   const kind = element.getAttribute('data-measure') as MeasureKind
   const name = element.getAttribute('data-measure-as') ?? ''
   const id = element.getAttribute('data-segnavia-id') ?? element.closest<HTMLElement>('[data-segnavia-id]')?.getAttribute('data-segnavia-id')
@@ -77,7 +69,7 @@ function measurePropertyElement(element: HTMLElement): MeasuredProperty {
   return { id, name, value: measuredValue(element, kind) }
 }
 
-function propertySources(
+export function propertySources(
   root: ParentNode,
   geometry: (name: string | null | undefined) => PropertyGeometry,
   defaultDirection: string,
@@ -111,7 +103,7 @@ function propertySources(
   return { ordinary, temporary }
 }
 
-function measureSourcePropertiesImplementation(
+export function measureSourcePropertiesImplementation(
   root: ParentNode,
   geometry: (name: string | null | undefined) => PropertyGeometry,
   defaultDirection: string,
@@ -136,22 +128,4 @@ function measureSourcePropertiesImplementation(
   }
   for (const entry of temporary) entry.clone.remove()
   return (shared.measuredProperties ?? measuredProperties)(results)
-}
-
-export function embeddedComposerPropertyFunctions(): string {
-  return `${embedFunction('verticalWritingMode', verticalWritingMode)}
-${embedFunction('logicalExtent', logicalExtent)}
-${embedFunction('logicalLineCount', logicalLineCount)}
-${embedFunction('propertyValue', propertyValue)}
-${embedFunction('measuredProperties', measuredProperties)}
-${embedFunction('runPropertyStageOnce', runPropertyStageOnce)}
-${embedFunction('directMeasurementNodes', directMeasurementNodes)}
-${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}
-${embedFunction('lineRects', lineRects)}
-${embedFunction('measuredValue', measuredValue)}
-${embedFunction('measurePropertyElement', measurePropertyElement)}
-${embedFunction('propertySources', propertySources)}
-${embedFunction('measureSourcePropertiesImplementation', measureSourcePropertiesImplementation)}
-var propertyStageState={done:false,results:[]};
-var measureSourceProperties=function(){return runPropertyStageOnce(propertyStageState,function(){return measureSourcePropertiesImplementation(document,geometryFor,config.direction,config.lang);});};`
 }

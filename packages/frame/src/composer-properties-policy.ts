@@ -1,4 +1,4 @@
-import type { MeasureKind, MeasuredProperty } from '@segnavia/format'
+import type { MeasuredProperty, MeasureKind } from '@segnavia/format'
 
 export interface PropertyStageState<T> {
   done: boolean
@@ -44,7 +44,5 @@ export function propertyValue(kind: MeasureKind, value: number): string {
 }
 
 export function measuredProperties(properties: readonly MeasuredProperty[]): MeasuredProperty[] {
-  return properties.filter(
-    (property, index, all) => all.findIndex((candidate) => candidate.id === property.id && candidate.name === property.name) === index,
-  )
+  return properties.filter((property, index, all) => all.findIndex((candidate) => candidate.id === property.id && candidate.name === property.name) === index)
 }

@@ -38,6 +38,7 @@ import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
 import { embeddedComposerProgressFunctions } from './composer-progress.ts'
+import { embeddedComposerPropertyFunctions } from './composer-properties-embed.ts'
 import { placeParentRegions } from './composer-regions.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
@@ -229,7 +230,7 @@ var resolveRegionHeads=function(templates,variables,recordSlots,direction,lang){
 var ${resolveRegionHeads.name}=resolveRegionHeads;
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}
 ${embedFunction('markRegionOverflow', markRegionOverflow)}
-${embeddedComposerProgressFunctions()}${embeddedDressPlanPagesFunctions('progressMacrotask')}${embeddedPreflightFunctions()}${embeddedComposerFitFunctions()}
+${embeddedComposerProgressFunctions()}${embeddedDressPlanPagesFunctions('progressMacrotask')}${embeddedPreflightFunctions()}${embeddedComposerFitFunctions()}${embeddedComposerPropertyFunctions()}
 ${embedFunction('decideLayoutSettle', decideLayoutSettle)}
 ${embeddedBookPresentationFunctions()}`
 }

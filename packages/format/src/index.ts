@@ -99,7 +99,6 @@ export { type RebaseResult, rebaseOps } from './document-rebase.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
 export { FIT_STRATEGIES, FitAxis, FitBox, FitMeasurement, type FitStrategy, FitValue } from './fit.ts'
-export { MEASURE_KINDS, MeasuredProperty, MeasureKind } from './measured-property.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export {
   computeFolios,
@@ -179,6 +178,7 @@ export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export { withLibraryEntries } from './library-names.ts'
 export * from './limit-exports.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
+export { MEASURE_KINDS, MeasuredProperty, MeasureKind } from './measured-property.ts'
 export * from './measurements.ts'
 export {
   MEDIA_FORMATS,

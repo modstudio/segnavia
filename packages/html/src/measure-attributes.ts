@@ -11,9 +11,7 @@ export function measureAttributeIssues(where: string, attribs: Record<string, st
   if (measure === undefined && name === undefined) return []
   const issues: string[] = []
   if (!MEASURE_KINDS.includes(measure as (typeof MEASURE_KINDS)[number])) {
-    issues.push(
-      `${where} data-measure ${JSON.stringify(measure ?? '')} is invalid; use max-content-inline:children, block or line-count to clear this refusal`,
-    )
+    issues.push(`${where} data-measure ${JSON.stringify(measure ?? '')} is invalid; use max-content-inline:children, block or line-count to clear this refusal`)
   }
   if (name === undefined || !CUSTOM_PROPERTY.test(name)) {
     issues.push(`${where} data-measure-as ${JSON.stringify(name ?? '')} is invalid; use a CSS custom property name beginning with -- to clear this refusal`)
