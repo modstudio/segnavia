@@ -102,7 +102,9 @@ test('keeps Hebrew markdown and its direction through an edit inverse and anothe
     { type: 'document', kind: 'page', settings: { dir: 'rtl', lang: 'he' }, children: [{ type: 'page', body: { markdown } }] },
     { newId: counter() },
   )
-  expect(parsed.children[0]).toMatchObject({ body: { markdown, html: expect.stringContaining('<bdi>הערה</bdi>') } })
+  const body = parsed.children[0]?.type === 'page' ? parsed.children[0].body : undefined
+  expect(body?.markdown).toBe(markdown)
+  expect(body && 'html' in body ? body.html : '').toContain('<bdi>הערה</bdi>')
   const paragraph = blockView(parsed).find(({ kind }) => kind === 'p')
   if (!paragraph) throw new Error('Hebrew markdown paragraph missing')
   const batch = { base: fingerprintDocument(parsed), ops: setBlock(parsed, paragraph.id, { text: 'חדש' }) }
