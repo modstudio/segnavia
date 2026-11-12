@@ -56,11 +56,12 @@ function blockLocations(document: Document, omitted?: { node: string; field: str
   )
 }
 
-function pageBodySource(value: object, context: DocumentCommandContext): string | undefined {
+function pageBodySource(value: object, context: DocumentCommandContext): { source: string; markdown?: string } | undefined {
   const body = value as { html?: unknown; markdown?: unknown }
-  if (typeof body.html === 'string') return body.html
-  if (typeof body.markdown !== 'string') return undefined
-  return pageBodyHtml(body as { markdown: string }, context.document, { alertLabels: context.options.alertLabels })
+  const markdown = typeof body.markdown === 'string' ? body.markdown : undefined
+  if (typeof body.html === 'string') return { source: body.html, markdown }
+  if (markdown === undefined) return undefined
+  return { source: pageBodyHtml({ markdown }, context.document, { alertLabels: context.options.alertLabels }), markdown }
 }
 
 function identifiedField(
@@ -79,9 +80,8 @@ function identifiedField(
   if (shape === 'htmlString' && typeof value === 'string') return identify(value)
   if (!value || typeof value !== 'object') return value
   if (shape === 'pageBody') {
-    const source = pageBodySource(value, context)
-    const markdown = (value as { markdown?: string }).markdown
-    return source === undefined ? value : pageBodyFromHtml(identify(source), markdown)
+    const body = pageBodySource(value, context)
+    return body === undefined ? value : pageBodyFromHtml(identify(body.source), body.markdown)
   }
   if (shape === 'slideContent') {
     const held = value as { kind?: unknown; html?: unknown }

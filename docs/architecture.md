@@ -320,7 +320,9 @@ remain author data and do not expose plan-derived values.
 
 ### Markdown page bodies
 
-A page document accepts one page node whose `body` is `{ html }` or `{ markdown }`.
+A page document accepts one page node whose `body` is `{ markdown }` (authored
+source) or `{ html, markdown? }` (a stored body, where `markdown` is the source
+of that exact HTML).
 The content edge stores it as `{ html, markdown? }`: `markdown` is present only
 when it is the source of that exact HTML. An HTML edit clears the source, while
 undo restores the whole prior body. `bodyHtml` and the page-body resolver in the

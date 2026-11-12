@@ -3,12 +3,13 @@ import {
   type DocumentInput,
   type DocumentParseOptions,
   defaultNewId,
+  type PageBody,
   type PageOrPrintedInput,
   type Document as ParsedDocument,
   pageOrPrintedFromDocument,
 } from '@segnavia/format'
 import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
-import { type AlertLabels, markdownHtml, type ResolvePageHtmlOptions } from './markdown.ts'
+import { type AlertLabels, type BodyHtmlOptions, bodyHtml } from './markdown.ts'
 
 export { BLOCK_ELEMENTS } from './block-context.ts'
 
@@ -22,21 +23,11 @@ function contentNodeLabel(node: { type: string; id: string }): string {
   return `${node.type} node "${node.id}"`
 }
 
-export function pageBodyHtml(
-  body: { html: string } | { markdown: string },
-  document: Pick<ParsedDocument, 'settings'>,
-  options: Pick<ResolvePageHtmlOptions, 'alertLabels'> = {},
-): string {
-  return 'html' in body
-    ? body.html
-    : markdownHtml(body, {
-        dir: document.settings?.dir,
-        lang: document.settings?.lang,
-        alertLabels: options.alertLabels,
-      })
+export function pageBodyHtml(body: PageBody, document: Pick<ParsedDocument, 'settings'>, options: Pick<BodyHtmlOptions, 'alertLabels'> = {}): string {
+  return bodyHtml(body, { dir: document.settings?.dir, lang: document.settings?.lang, ...options })
 }
 
-export function pageBodyFromHtml(html: string, markdown?: string): { html: string; markdown?: string } {
+export function pageBodyFromHtml(html: string, markdown?: string): Extract<PageBody, { html: string }> {
   return markdown === undefined ? { html } : { html, markdown }
 }
 
