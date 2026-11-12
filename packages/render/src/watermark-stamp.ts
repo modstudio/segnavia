@@ -14,7 +14,19 @@ import { watermarkPageNumbers } from './watermark-options.ts'
 export interface WatermarkPart extends PageFontFacts {
   bytes: Uint8Array
   page: HtmlPage | PrintedHtmlPage
+  pageFacts?: readonly WatermarkPageFacts[]
   physicalPages?: readonly number[]
+}
+
+export interface WatermarkPageFacts extends PageFontFacts {
+  direction: WatermarkPage['direction']
+  lang?: string
+}
+
+const pageFactsSource = { html: '' } as HtmlPage
+
+export function watermarkPartFromFacts(bytes: Uint8Array, pageFacts: readonly WatermarkPageFacts[], physicalPages?: readonly number[]): WatermarkPart {
+  return { bytes, page: pageFactsSource, pageFacts, ...(physicalPages ? { physicalPages } : {}) }
 }
 
 interface ApplyWatermarkOptions {
@@ -135,18 +147,26 @@ export async function applyWatermark(
   const mapped = geometries.flatMap((partPages, partIndex) => {
     const part = parts[partIndex]
     if (!part) return []
+    if (part.pageFacts && part.pageFacts.length !== partPages.length) {
+      throw new RenderRefusedError(
+        `The watermark has font and direction facts for ${part.pageFacts.length} pages, but the laid-out part has ${partPages.length}; rebuild the output to clear this refusal.`,
+      )
+    }
     const physical = part.physicalPages?.map((page) => page + physicalPageOffset) ?? partPages.map(() => nextPhysicalPage++)
-    return partPages.map((page, pageIndex) => ({
-      part: partIndex,
-      page: pageIndex + 1,
-      physical: physical[pageIndex] as number,
-      geometry: {
-        ...page,
-        direction: printedPageDirection(part.page),
-        ...(part.page.lang ? { lang: part.page.lang } : {}),
-        ...(part.fontFamily ? { fontFamily: part.fontFamily } : {}),
-      },
-    }))
+    return partPages.map((page, pageIndex) => {
+      const facts = part.pageFacts?.[pageIndex]
+      return {
+        part: partIndex,
+        page: pageIndex + 1,
+        physical: physical[pageIndex] as number,
+        geometry: {
+          ...page,
+          direction: facts?.direction ?? printedPageDirection(part.page),
+          ...((facts?.lang ?? part.page?.lang) ? { lang: facts?.lang ?? part.page?.lang } : {}),
+          ...((facts?.fontFamily ?? part.fontFamily) ? { fontFamily: facts?.fontFamily ?? part.fontFamily } : {}),
+        },
+      }
+    })
   })
   const laidOutPageCount = pageCount ?? mapped.length
   reportPageCount?.(laidOutPageCount)
@@ -156,7 +176,10 @@ export async function applyWatermark(
   const html = watermarkDocument(
     options.watermark,
     selected.map((entry) => entry.geometry),
-    `${fontCss}${uniqueCss(parts, (part) => part.fontFaceCss)}`,
+    `${fontCss}${uniqueCss(parts, (part) => part.fontFaceCss)}${uniqueCss(
+      parts.flatMap((part) => part.pageFacts ?? []),
+      (facts) => facts.fontFaceCss,
+    )}`,
   )
   const layer = await withTab(
     {

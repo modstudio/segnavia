@@ -4,9 +4,11 @@ import { RenderRefusedError } from './errors.ts'
 import { parseComposedRenderOptions, parseRenderOptions } from './options.ts'
 import { parsePdfOptions } from './protection-options.ts'
 import type { BookPdfOptions, BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
+import { parseWatermark } from './watermark-options.ts'
 
 export function parseBookPdfOptions(options: BookPdfOptions): ParsedBookPdfOptions {
-  const parsed = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(options)))
+  const base = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(options)))
+  const parsed = { ...base, ...(base.watermark === undefined ? {} : { watermark: parseWatermark(base.watermark) }) }
   if (parsed.plan === undefined) return parsed
   try {
     return { ...parsed, plan: Plan.parse(parsed.plan, { limits: parsed.limits }) }
