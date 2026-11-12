@@ -50,4 +50,3 @@ export function registerLayoutDemoProviders(): void {
   registerLayoutProvider(LAYOUT_DEMO_PROVIDER, { script: async () => provider, priority: 0 })
   registerLayoutProvider(LAYOUT_DEMO_REJECTING_PROVIDER, { script: async () => rejecting, priority: 0 })
 }
-

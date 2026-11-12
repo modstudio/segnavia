@@ -131,7 +131,7 @@ export async function buildLayoutProviderDemo(root: string, site: string): Promi
   }
   writeFileSync(
     path.join(site, 'layout-provider.html'),
-    `<!doctype html><html><body><segnavia-page id="layout-page" src="layout-provider-page.json"></segnavia-page><segnavia-player id="layout-slide" src="layout-provider-slide.json"></segnavia-player><segnavia-page id="reject-page" src="layout-provider-page-reject.json"></segnavia-page><segnavia-player id="reject-slide" src="layout-provider-slide-reject.json"></segnavia-player><script>document.getElementById('reject-page').addEventListener('error',event=>event.currentTarget.dataset.error=event.error?.message||event.message||'');customElements.whenDefined('segnavia-player').then(()=>{const player=document.getElementById('reject-slide');player.shadowRoot.querySelector('segnavia-stage').addEventListener('error',event=>player.dataset.error=event.error?.message||event.message||'')})</script><script type="module" src="layout-provider-demo.js"></script></body></html>`,
+    `<!doctype html><html><body><segnavia-page id="layout-page" src="layout-provider-page.json"></segnavia-page><segnavia-player id="layout-slide" src="layout-provider-slide.json"></segnavia-player><segnavia-page id="reject-page" src="layout-provider-page-reject.json"></segnavia-page><segnavia-player id="reject-slide" src="layout-provider-slide-reject.json"></segnavia-player><script>const started=performance.now();const failed=(element,event)=>{element.dataset.error=event.error?.message||event.message||'';element.dataset.elapsed=String(performance.now()-started)};document.getElementById('reject-page').addEventListener('error',event=>failed(event.currentTarget,event));customElements.whenDefined('segnavia-player').then(()=>{const player=document.getElementById('reject-slide');player.shadowRoot.querySelector('segnavia-stage').addEventListener('error',event=>failed(player,event))})</script><script type="module" src="layout-provider-demo.js"></script></body></html>`,
   )
 }
 
@@ -149,14 +149,17 @@ export async function buildLayoutProviderRenderDemo(site: string, renderer: Rend
     title: 'Rejecting provider',
     children: [{ type: 'slide', id: 'one', content: { kind: 'html', html: rejecting } }],
   }
-  const refusal = (operation: Promise<unknown>) =>
-    operation.then(
+  const refusal = async (operation: () => Promise<unknown>) => {
+    const started = performance.now()
+    const message = await operation().then(
       () => 'rendered',
       (error) => (error instanceof Error ? error.message : String(error)),
     )
+    return { message, elapsedMs: performance.now() - started }
+  }
   const facts = {
-    page: await refusal(renderer.pagePdf(page)),
-    slide: await refusal(renderer.deckPdf(deck)),
+    page: await refusal(() => renderer.pagePdf(page)),
+    slide: await refusal(() => renderer.deckPdf(deck)),
   }
   writeFileSync(path.join(site, 'layout-provider-render-refusals.json'), JSON.stringify(facts))
 }

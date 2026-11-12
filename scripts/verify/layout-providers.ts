@@ -1,4 +1,5 @@
 import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
+import { LAYOUT_PHASE_TIMEOUT_MS } from '@segnavia/frame/layout'
 import type { Harness } from './harness.ts'
 
 type Plan = { pages?: Array<{ windows?: Array<{ flow?: string }> }> }
@@ -11,7 +12,9 @@ async function bookFacts(h: Harness, name: string) {
     const report = JSON.parse(document.documentElement.getAttribute(preflightAttribute) ?? 'null') as { issues?: Array<{ check?: string }> } | null
     return {
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
-      laterPage: Number(document.querySelector('[data-segnavia-pages] [data-layout-later]')?.closest('[data-segnavia-book-page]')?.getAttribute('data-segnavia-book-page')),
+      laterPage: Number(
+        document.querySelector('[data-segnavia-pages] [data-layout-later]')?.closest('[data-segnavia-book-page]')?.getAttribute('data-segnavia-book-page'),
+      ),
       plan,
       galley: document.querySelector('[data-galley-ran]') !== null,
       composed: document.querySelector('[data-composed-ran]') !== null,
@@ -117,14 +120,30 @@ export async function verifyLayoutProviders(h: Harness): Promise<void> {
 
   await h.waitFor('#reject-page', (data) => Boolean(data.error))
   await h.waitFor('#reject-slide', (data) => Boolean(data.error))
-  const errors = await h.page.evaluate(() => ['reject-page', 'reject-slide'].map((id) => (document.getElementById(id) as HTMLElement).dataset.error ?? ''))
+  const errors = await h.page.evaluate(() =>
+    ['reject-page', 'reject-slide'].map((id) => {
+      const element = document.getElementById(id) as HTMLElement
+      return { message: element.dataset.error ?? '', elapsedMs: Number(element.dataset.elapsed) }
+    }),
+  )
   for (const [index, kind] of ['plain page', 'slide'].entries()) {
-    const message = errors[index] ?? ''
-    h.check(`${kind} rejecting provider refuses through its error event`, message.includes('demo-layout-rejecting') && message.includes('galley'), message)
+    const refusal = errors[index] ?? { message: '', elapsedMs: Number.NaN }
+    h.check(
+      `${kind} rejecting provider refuses through its error event without waiting out the readiness bound`,
+      refusal.message.includes('demo-layout-rejecting') && refusal.message.includes('galley') && refusal.elapsedMs < LAYOUT_PHASE_TIMEOUT_MS,
+      `${refusal.message} (${refusal.elapsedMs.toFixed(1)}ms)`,
+    )
   }
-  const rendered = (await h.page.evaluate(async () => (await fetch('layout-provider-render-refusals.json')).json())) as Record<string, string>
+  const rendered = (await h.page.evaluate(async () => (await fetch('layout-provider-render-refusals.json')).json())) as Record<
+    string,
+    { message: string; elapsedMs: number }
+  >
   for (const kind of ['page', 'slide']) {
-    const message = rendered[kind] ?? ''
-    h.check(`${kind} rejecting provider refuses in render`, message.includes('demo-layout-rejecting') && message.includes('galley'), message)
+    const refusal = rendered[kind] ?? { message: '', elapsedMs: Number.NaN }
+    h.check(
+      `${kind} rejecting provider refuses in render without waiting out the readiness bound`,
+      refusal.message.includes('demo-layout-rejecting') && refusal.message.includes('galley') && refusal.elapsedMs < LAYOUT_PHASE_TIMEOUT_MS,
+      `${refusal.message} (${refusal.elapsedMs.toFixed(1)}ms)`,
+    )
   }
 }

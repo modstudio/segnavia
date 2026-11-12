@@ -1,5 +1,5 @@
-import { PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import { BOOK_FAILURE_ATTRIBUTE } from '@segnavia/frame/book-document'
+import { PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { layoutsUsed } from '@segnavia/frame/layout'
 import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
