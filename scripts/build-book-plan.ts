@@ -5,6 +5,7 @@ export interface DemoBookOptions {
   css?: string
   motifs?: MotifsOptions
   preflight?: BookPdfOptions['preflight']
+  beforeOutput?: BookPdfOptions['beforeOutput']
 }
 
 export type DemoBookPdf = (book: DocumentInput, options?: DemoBookOptions & { plan?: Plan }) => Promise<Uint8Array<ArrayBufferLike>>

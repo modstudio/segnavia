@@ -3,6 +3,7 @@ import type { Page } from 'playwright-core'
 import { verifyComposeFailure } from './book-compose-failure.ts'
 import { verifyHiddenBookElements } from './book-hidden-elements.ts'
 import { verifyBookLayoutSwitching, verifyNonceAuthorizedAuthorScripts } from './book-layout-elements.ts'
+import { verifyBookLineNumbers } from './book-line-numbers.ts'
 import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts } from './book-page-style.ts'
 import { collectedComposeProgress, installComposeProgressCollector, LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { pagesText } from './book-text.ts'
@@ -137,6 +138,7 @@ function hasPaginationRelayData(messages: Array<{ data: unknown }>): boolean {
 export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: ReadonlySet<string>) {
   const { page, check } = h
   await verifyHiddenBookElements(h)
+  await verifyBookLineNumbers(h)
   await page.goto(h.url('book-paginated.html'))
   const printStyle: Record<string, BookPageStyleFacts> = {}
   for (const language of ['en', 'he'] as const) {

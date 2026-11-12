@@ -19,7 +19,10 @@ export type NumberLinesSettings = LineNumbers & { system: NumberSystem }
 
 type NumberWindow = Plan['pages'][number]['windows'][number]
 
-function windowLines(measurements: Measurements, window: NumberWindow): Array<{ line: { top: number; bottom: number }; direction: 'ltr' | 'rtl' }> {
+function windowLines(
+  measurements: Measurements,
+  window: NumberWindow,
+): Array<{ line: { top: number; bottom: number }; direction: 'ltr' | 'rtl'; chapter: number }> {
   const flow = measurements.flows.find((candidate) => candidate.id === window.flow)
   if (!flow || !('blocks' in flow)) return []
   return flow.blocks.flatMap((block) =>
@@ -27,7 +30,7 @@ function windowLines(measurements: Measurements, window: NumberWindow): Array<{ 
       ? []
       : block.lines
           .filter((line) => line.top >= window.start && line.top < window.end)
-          .map((line) => ({ line, direction: block.direction ?? measurements.settings.direction })),
+          .map((line) => ({ line, direction: block.direction ?? measurements.settings.direction, chapter: block.position.chapter })),
   )
 }
 
@@ -46,16 +49,19 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Nu
   const result = plan.pages.map((_page, page) => ({ page, lines: [] as NumberedLine[] }))
   let counter = settings.start
   let previousFlow: string | undefined
+  let previousChapter: number | undefined
   for (let pageIndex = 0; pageIndex < plan.pages.length; pageIndex += 1) {
     const page = plan.pages[pageIndex]
     if (!page) continue
     if (settings.restart === 'page') counter = settings.start
     const windows = page.windows
     for (const window of windows) {
-      if (settings.restart === 'section' && window.flow !== previousFlow) counter = settings.start
-      for (const { line, direction } of windowLines(measurements, window)) {
+      for (const { line, direction, chapter } of windowLines(measurements, window)) {
+        if (settings.restart === 'section' && (window.flow !== previousFlow || chapter !== previousChapter)) counter = settings.start
         const value = counter
         counter += 1
+        previousFlow = window.flow
+        previousChapter = chapter
         if (value % settings.interval !== 0) continue
         result[pageIndex]?.lines.push({
           value,
@@ -67,7 +73,6 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Nu
           side: resolveLineNumberSide(settings.side, page, direction),
         })
       }
-      previousFlow = window.flow
     }
   }
   return result

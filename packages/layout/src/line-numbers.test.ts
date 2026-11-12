@@ -77,6 +77,29 @@ describe('numberLines', () => {
       3,
     )
   })
+
+  test('restarts a section counter when the chapter changes within one flow', () => {
+    const { measurements, plan } = fixtures()
+    const flow = measurements.flows[0]
+    if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+    flow.blocks.push({
+      kind: 'text',
+      tag: 'p',
+      position: { chapter: 1, block: 0 },
+      lines: [{ top: 160, bottom: 170 }],
+      numbered: true,
+      direction: 'ltr',
+    })
+    plan.pages = [
+      {
+        ...plan.pages[0],
+        windows: [{ flow: 'one', start: 0, end: 180, top: 0, column: 0, columns: 1 }],
+      } as Plan['pages'][number],
+    ]
+
+    const lines = numberLines(measurements, plan, { interval: 1, start: 3, restart: 'section', area: 'text', side: 'outer', system: 'arabic' })[0]?.lines
+    expect(lines?.at(-1)?.value).toBe(3)
+  })
 })
 
 test('resolves physical and directional sides', () => {

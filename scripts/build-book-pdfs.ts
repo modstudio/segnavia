@@ -7,6 +7,7 @@ import { basicBookFixture } from './demo-book-basic-fixtures.ts'
 import { groupCopyfitFixture } from './demo-book-copyfit-fixtures.ts'
 import { alefCss, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture } from './demo-book-keep-fixtures.ts'
+import { buildNumberedBookPdfs } from './demo-book-line-number-fixtures.ts'
 import { bookMotifs } from './demo-book-motifs.ts'
 import { haggadahHeadCss } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
@@ -42,6 +43,7 @@ export async function buildBookPdfs(site: string, bookPdf: DemoBookPdf, bookPlan
       hebrew ? await bookPdf(parts) : await replayBook(parts, undefined, bookPdf, bookPlan),
     )
   }
+  await buildNumberedBookPdfs(site, bookPdf)
   await buildLargeBookPdfs(site, (book) => bookPdf(book))
   await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
 }
