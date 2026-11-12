@@ -8,6 +8,8 @@ interface SlotOverflowContext {
   report: SlotReport
 }
 
+const FIT_ATTRIBUTES = ['data-fit', 'data-fit-min', 'data-fit-max', 'data-fit-step', 'data-fit-axis', 'data-fit-box', 'data-fit-group'] as const
+
 export function clearSlotOverflow(element: Element): void {
   delete element.attribs['data-slot-overflow']
 }
@@ -20,7 +22,7 @@ export function markSlotOverflow(element: Element, names: ReturnType<typeof bind
     const declaration = context.declarations.get(key)
     const overflow = declaration?.overflow ?? 'wrap'
     if (!declaration || overflow === 'wrap' || context.report.slots[key] !== 'filled') continue
-    if (overflow === 'shrink' && (element.attribs['data-fit'] !== undefined || element.attribs['data-fit-min'] !== undefined)) {
+    if (overflow === 'shrink' && FIT_ATTRIBUTES.some((attribute) => element.attribs[attribute] !== undefined)) {
       throw new RangeError(`slot "${key}" has both overflow shrink and authored data-fit; remove data-fit or use another overflow mode to clear this refusal`)
     }
     const minSize = declaration.minSize

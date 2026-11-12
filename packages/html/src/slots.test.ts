@@ -364,6 +364,13 @@ test('a filled shrink slot is lowered to copyfit attributes', async () => {
   expect(html).toContain('data-fit-min="8px"')
 })
 
+test('a shrink slot refuses any authored copyfit attribute on its element', async () => {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'shrink', minSize: 8 }], {
+    fill: { id: 'x', values: { name: 'Alexandria' } },
+  })
+  expect(() => prepared.apply('<p data-slot-value="name" data-fit-max="24px">Name</p>')).toThrow('slot "name" has both overflow shrink and authored data-fit')
+})
+
 test('slot application removes authored overflow markers before writing its own', async () => {
   const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }]
   const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Ada' } } })
