@@ -102,10 +102,13 @@ test('wraps composer start-up exceptions in a bounded failure report', () => {
   expect(script).toContain(`String(reason).slice(0,1024);document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}'`)
 })
 
-test('collects overset entries only when preflight is enabled', () => {
+test('applies region overflow without preflight and collects only its reports under the profile', () => {
   const script = composerScript('{}')
+  expect(script).toContain('var furnitureOutcome=applyRegionOverflow')
+  expect(script).toContain('var filledOutcome=applyRegionOverflow')
+  expect(script).toContain('if(config.preflight)reportRegionOverflow')
   expect(script).toContain("if(config.preflight){var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]')")
-  expect(script).toContain("if(config.preflight){var paper=filled[t].closest('['+config.pageMarker+']');markRegionOverflow")
+  expect(script).toContain('if(config.preflight)markRegionOverflow')
 })
 
 test('publishes preflight before refusing or marking composition complete', () => {

@@ -45,7 +45,15 @@ export function placeParentRegions(
     const overflow = held.querySelector?.<HTMLElement>('[data-overflow]')?.getAttribute('data-overflow')
     if (overflow) held.setAttribute('data-overflow', overflow)
     const repeat = (globalThis as typeof globalThis & { repeatFill?: (region: HTMLElement) => unknown }).repeatFill
-    if (repeat && typeof held.querySelector === 'function') repeat(held)
+    if (repeat && typeof held.querySelector === 'function') {
+      const added = repeat(held) as Array<{ subject: string; fillCount?: number }>
+      const shared = globalThis as typeof globalThis & { preflightRegions?: Array<{ subject: string; fillCount?: number }> }
+      for (const fact of added) {
+        const existing = shared.preflightRegions?.find((candidate) => candidate.subject === fact.subject && candidate.fillCount !== undefined)
+        if (existing) existing.fillCount = fact.fillCount
+        else shared.preflightRegions?.push(fact)
+      }
+    }
     paper.append(held)
   }
 }

@@ -13,6 +13,13 @@ test('refuses fill outside a region and invalid bounds at the edge', () => {
   expect(issues('<main data-region="body"><p data-fill="repeat" data-fill-min="many">row</p></main>').join(' ')).toContain('data-fill-min is invalid')
 })
 
+test('refuses zero repeat bounds by attribute name', () => {
+  const minimum = issues('<main data-region="body"><p data-fill="repeat" data-fill-min="0">row</p></main>').join(' ')
+  const maximum = issues('<main data-region="body"><p data-fill="repeat" data-fill-max="0">row</p></main>').join(' ')
+  expect(minimum).toContain('data-fill-min is invalid')
+  expect(maximum).toContain('data-fill-max is invalid')
+})
+
 test('refuses unknown overflow modes', () => {
   expect(issues('<main data-region="body" data-overflow="clip"></main>')[0]).toContain('grow, truncate or refuse')
 })

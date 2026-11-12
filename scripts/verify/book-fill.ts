@@ -37,7 +37,7 @@ export async function verifyBookFill(h: Harness): Promise<void> {
   const truncation = truncated?.facts?.regions?.find((region: { droppedTotal?: number }) => region.droppedTotal !== undefined)
   h.check(
     'truncate reports dropped pages and blocks, at most 50 ids, and the full total',
-    truncation?.droppedPages === 0 && truncation?.droppedBlocks === 52 && truncation?.droppedIds?.length === 50 && truncation?.droppedTotal === 52,
+    truncation?.droppedPages === 1 && truncation?.droppedBlocks === 52 && truncation?.droppedIds?.length === 50 && truncation?.droppedTotal === 52,
     JSON.stringify(truncation),
   )
 

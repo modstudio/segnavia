@@ -380,6 +380,14 @@ return composeWhenMeasurable();
 }catch(error){fail(error instanceof Error?error.message:String(error));}
 })();`
   return script
+    .replace(
+      'document.body.append(pages);if(config.preflight){',
+      "document.body.append(pages);var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]');for(var furnitureOverflowIndex=0;furnitureOverflowIndex<furnitureRegions.length;furnitureOverflowIndex++){var furnitureOverflowPage=furnitureRegions[furnitureOverflowIndex].closest('['+config.pageMarker+']');if(!furnitureOverflowPage)continue;var furnitureFolio=furnitureOverflowPage.getAttribute('data-segnavia-folio')||'';var furnitureOutcome=applyRegionOverflow(furnitureRegions[furnitureOverflowIndex],furnitureFolio,config.overflowRefusal);if(furnitureOutcome.refusal)throw new Error(furnitureOutcome.refusal);if(config.preflight)reportRegionOverflow(furnitureRegions[furnitureOverflowIndex],furnitureFolio,furnitureOutcome,preflightEntries,preflightRegions);}if(config.preflight){",
+    )
+    .replace(
+      "var filled=pages.querySelectorAll('[data-template]');for(var t=0;t<filled.length;t++){if(config.preflight){var paper=filled[t].closest('['+config.pageMarker+']');markRegionOverflow(filled[t],paper?paper.getAttribute('data-segnavia-folio')||'':'',regionExcess,preflightEntries);}}",
+      "var filled=pages.querySelectorAll('[data-template]');for(var t=0;t<filled.length;t++){var paper=filled[t].closest('['+config.pageMarker+']');var filledFolio=paper?paper.getAttribute('data-segnavia-folio')||'':'';var filledRegions=filled[t].querySelectorAll('[data-region]');for(var filledRegionIndex=0;filledRegionIndex<filledRegions.length;filledRegionIndex++){var filledOutcome=applyRegionOverflow(filledRegions[filledRegionIndex],filledFolio,config.overflowRefusal);if(filledOutcome.refusal)throw new Error(filledOutcome.refusal);if(config.preflight)reportRegionOverflow(filledRegions[filledRegionIndex],filledFolio,filledOutcome,preflightEntries,preflightRegions);}if(config.preflight)markRegionOverflow(filled[t],filledFolio,regionExcess,preflightEntries);}",
+    )
 }
 
 export const COMPOSER_SCRIPT = composerScript('{}')

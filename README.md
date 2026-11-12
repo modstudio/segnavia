@@ -173,7 +173,8 @@ space, or choose how overset is handled:
 
 Repeated copies carry zero-based `data-fill-index` values. `grow` preserves
 overset, `truncate` removes only whole trailing blocks or lines, and `refuse`
-stops composition unless preflight is explicitly `off`.
+stops composition unless the `region-overset` preflight check is explicitly
+`off`.
 
 Install `@segnavia/markdown-editor` and its required Tiptap, CodeMirror and
 Lezer peers only when the host edits Markdown:

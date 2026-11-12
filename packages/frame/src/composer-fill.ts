@@ -1,6 +1,6 @@
 import type { PreflightEntry, PreflightRegion } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
-import { fillLimits, regionRefusal, runFillStageOnce, truncatedRegion } from './composer-fill-policy.ts'
+import { fillLimits, recordTruncatedRegion, regionRefusal, runFillStageOnce, truncatedRegion } from './composer-fill-policy.ts'
 import { fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
 
 interface FillGeometry {
@@ -16,7 +16,7 @@ function regionSubject(region: HTMLElement): string {
   return `${template ?? parent ?? 'region'}:${name}`
 }
 
-function repeatFill(region: HTMLElement): PreflightRegion[] {
+export function repeatFill(region: HTMLElement): PreflightRegion[] {
   const source = region.querySelector<HTMLElement>(':scope > [data-fill="repeat"]')
   if (!source) return []
   const name = region.getAttribute('data-region') ?? region.getAttribute('data-segnavia-region') ?? ''
@@ -104,30 +104,43 @@ function fillSourceRegionsImplementation(
   return fillTemplateSourceRegions(root, geometry, direction, lang)
 }
 
-function applyRegionOverflow(
+export interface RegionOverflowOutcome {
+  mode: 'grow' | 'truncate' | 'refuse'
+  refusal?: string
+  droppedIds?: string[]
+}
+
+export function applyRegionOverflow(
   region: HTMLElement,
   folio: string,
-  entries: PreflightEntry[],
-  facts: PreflightRegion[],
   refusalEnabled: boolean,
-): string | undefined {
-  const mode = region.getAttribute('data-overflow') ?? 'grow'
-  if (mode === 'grow') return undefined
-  let excess = inkExcess(region).block
-  if (excess <= 0.5) return undefined
+  excessOf: (element: HTMLElement) => { block: number } = inkExcess,
+): RegionOverflowOutcome {
+  const mode = (region.getAttribute('data-overflow') ?? 'grow') as RegionOverflowOutcome['mode']
+  if (mode === 'grow') return { mode }
+  let excess = excessOf(region).block
+  if (excess <= 0.5) return { mode }
   const subject = regionSubject(region)
-  if (mode === 'refuse') return refusalEnabled ? regionRefusal(subject, folio, excess) : undefined
+  if (mode === 'refuse') return { mode, ...(refusalEnabled ? { refusal: regionRefusal(subject, folio, excess) } : {}) }
   const dropped: string[] = []
   while (excess > 0.5 && region.lastElementChild) {
     const child = region.lastElementChild as HTMLElement
     dropped.unshift(child.getAttribute('data-segnavia-id') ?? child.id ?? `${subject}:${dropped.length + 1}`)
     child.remove()
-    excess = inkExcess(region).block
+    excess = excessOf(region).block
   }
-  const result = truncatedRegion(subject, dropped, folio)
-  entries.push(result.entry)
-  facts.push(result.fact)
-  return undefined
+  return { mode, droppedIds: dropped }
+}
+
+export function reportRegionOverflow(
+  region: HTMLElement,
+  folio: string,
+  outcome: RegionOverflowOutcome,
+  entries: PreflightEntry[],
+  facts: PreflightRegion[],
+): void {
+  if (outcome.mode !== 'truncate' || !outcome.droppedIds?.length) return
+  recordTruncatedRegion(regionSubject(region), outcome.droppedIds, folio, entries, facts)
 }
 
 export function embeddedComposerFillFunctions(): string {
@@ -135,6 +148,7 @@ export function embeddedComposerFillFunctions(): string {
 ${embedFunction('fillLimits', fillLimits)}
 ${embedFunction('regionRefusal', regionRefusal)}
 ${embedFunction('truncatedRegion', truncatedRegion)}
+${embedFunction('recordTruncatedRegion', recordTruncatedRegion)}
 ${embedFunction('regionSubject', regionSubject)}
 ${embedFunction('repeatFill', repeatFill)}
 ${embedFunction('fillTemplateRegions', fillTemplateRegions)}
@@ -143,6 +157,7 @@ ${embedFunction('fillTemplateHolder', fillTemplateHolder)}
 ${embedFunction('fillTemplateSourceRegions', fillTemplateSourceRegions)}
 ${embedFunction('fillSourceRegionsImplementation', fillSourceRegionsImplementation)}
 ${embedFunction('applyRegionOverflow', applyRegionOverflow)}
+${embedFunction('reportRegionOverflow', reportRegionOverflow)}
 var fillStageState={done:false,results:[]};
 globalThis.repeatFill=repeatFill;
 globalThis.applyRegionOverflow=applyRegionOverflow;

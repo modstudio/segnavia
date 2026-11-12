@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { fillLimits, regionRefusal, runFillStageOnce, truncatedRegion } from './composer-fill-policy.ts'
+import { fillLimits, recordTruncatedRegion, regionRefusal, runFillStageOnce, truncatedRegion } from './composer-fill-policy.ts'
 
 test('runs fill once and reuses its first facts', () => {
   const state = { done: false, results: [] as number[] }
@@ -10,6 +10,8 @@ test('runs fill once and reuses its first facts', () => {
 test('defaults and preserves validated repeat bounds', () => {
   expect(fillLimits(null, null)).toEqual({ min: 1, max: 10_000 })
   expect(fillLimits('2', '8')).toEqual({ min: 2, max: 8 })
+  expect(() => fillLimits('0', '8')).toThrow('data-fill-min')
+  expect(() => fillLimits('1', '0')).toThrow('data-fill-max')
 })
 
 test('bounds dropped ids while retaining total counts', () => {
@@ -18,9 +20,19 @@ test('bounds dropped ids while retaining total counts', () => {
     Array.from({ length: 54 }, (_, index) => `row-${index}`),
     '7',
   )
-  expect(result.fact).toMatchObject({ droppedPages: 0, droppedBlocks: 54, droppedTotal: 54 })
+  expect(result.fact).toMatchObject({ droppedPages: 1, droppedBlocks: 54, droppedTotal: 54 })
   expect(result.fact.droppedIds).toHaveLength(50)
   expect(result.entry.message).toContain('54 blocks')
+})
+
+test('aggregates dropped page copies and blocks by region subject', () => {
+  const entries: import('@segnavia/format').PreflightEntry[] = []
+  const facts: import('@segnavia/format').PreflightRegion[] = []
+  recordTruncatedRegion('lesson:practice', ['first', 'second'], '2', entries, facts)
+  recordTruncatedRegion('lesson:practice', ['third'], '3', entries, facts)
+  expect(facts).toEqual([{ subject: 'lesson:practice', droppedPages: 2, droppedBlocks: 3, droppedIds: ['first', 'second', 'third'], droppedTotal: 3 }])
+  expect(entries).toHaveLength(1)
+  expect(entries[0]?.message).toContain('2 pages; 3 blocks')
 })
 
 test('region refusal names region, page and excess', () => {
