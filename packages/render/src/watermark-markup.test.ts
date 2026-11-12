@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { watermarkDocument, type WatermarkPage, watermarkMarkup, watermarkRotation } from './watermark-markup.ts'
+import { type WatermarkPage, watermarkDocument, watermarkMarkup, watermarkRotation } from './watermark-markup.ts'
 
 const page = (width: number, height: number, direction: 'ltr' | 'rtl' = 'ltr'): WatermarkPage => ({
   media: { width, height },
