@@ -24,6 +24,10 @@ function cssString(value: string): string {
   return JSON.stringify(value).replace(/</g, '\\3c ')
 }
 
+function styleText(value: string): string {
+  return value.replace(/</g, '\\3c ')
+}
+
 export function watermarkDirection(watermark: Watermark, page: WatermarkPage): TextDirection {
   return resolveDirection(watermark.dir ?? page.direction, watermark.lang ?? page.lang, watermark.text ?? '')
 }
@@ -67,7 +71,7 @@ export function watermarkMarkup(watermark: Watermark, page: WatermarkPage): stri
     watermark.text !== undefined
       ? `<bdi${attributes}>${text(watermark.text)}</bdi>`
       : `<img${attributes} src="${attribute(watermark.image ?? '')}" alt="" style="display:block;inline-size:100%;block-size:auto">`
-  return `<div class="segnavia-watermark-page" dir="${direction}" style="${box}"><div class="segnavia-watermark" style="${mark}">${content}</div></div>`
+  return `<div class="segnavia-watermark-page" dir="${direction}" style="${attribute(box)}"><div class="segnavia-watermark" style="${attribute(mark)}">${content}</div></div>`
 }
 
 export function watermarkDocument(watermark: Watermark, pages: readonly WatermarkPage[], css = ''): string {
@@ -79,5 +83,5 @@ export function watermarkDocument(watermark: Watermark, pages: readonly Watermar
     )
     .join('')
   const sheets = pages.map((page) => `<section class="segnavia-watermark-sheet">${watermarkMarkup(watermark, page)}</section>`).join('')
-  return `<!doctype html><html><head><style>${css}${pageRules}:where(html,body){margin:0;background:transparent}:where(.segnavia-watermark-sheet){position:relative;break-after:page;overflow:hidden}</style></head><body>${sheets}</body></html>`
+  return `<!doctype html><html><head><style>${styleText(css)}${pageRules}:where(html,body){margin:0;background:transparent}:where(.segnavia-watermark-sheet){position:relative;break-after:page;overflow:hidden}</style></head><body>${sheets}</body></html>`
 }

@@ -42,10 +42,22 @@ test('each layer page uses its part family unless the watermark overrides it', (
     { ...page(210, 297), fontFamily: 'Page Two' },
   ]
   const inherited = watermarkDocument({ text: 'Draft' }, pages)
-  expect(inherited).toContain('font-family:"Page One", serif')
+  expect(inherited).toContain('font-family:&quot;Page One&quot;, serif')
   expect(inherited).toContain('font-family:Page Two')
 
   const overridden = watermarkDocument({ text: 'Draft', font: 'Watermark Face' }, pages)
-  expect(overridden.match(/font-family:"Watermark Face"/g)).toHaveLength(2)
+  expect(overridden.match(/font-family:&quot;Watermark Face&quot;/g)).toHaveLength(2)
   expect(overridden).not.toContain('font-family:Page Two')
+})
+
+test('a quote in the watermark color stays inside the style attribute', () => {
+  const markup = watermarkMarkup({ text: 'Draft', color: 'rgb(1 2 3 / "quoted")' }, page(210, 297))
+  expect(markup).toContain('color:rgb(1 2 3 / &quot;quoted&quot;)')
+  expect(markup).toContain('&quot;quoted&quot;)"><bdi dir="ltr">Draft</bdi>')
+})
+
+test('carried CSS cannot close the layer style element', () => {
+  const document = watermarkDocument({ text: 'Draft' }, [page(210, 297)], '@font-face{src:url("face</style>tail")}')
+  expect(document).toContain('@font-face{src:url("face\\3c /style>tail")}')
+  expect(document.match(/<\/style>/g)).toHaveLength(1)
 })
