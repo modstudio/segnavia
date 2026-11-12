@@ -81,7 +81,10 @@ export function appendSlotOversetEntries(
   refuseKeys: ReadonlySet<string> = new Set(),
 ): void {
   for (const [key, state] of Object.entries(slots)) {
-    if ((state !== 'overflowed' && (state !== 'unmeasured' || !refuseKeys.has(key))) || entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)) {
+    if (
+      (state !== 'overflowed' && (state !== 'unmeasured' || !refuseKeys.has(key))) ||
+      entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)
+    ) {
       continue
     }
     entries.push({

@@ -3,6 +3,7 @@ import { appendSlotOversetEntries, boundPreflightReport, PREFLIGHT_PRESETS, type
 import { composerScript } from './composer.ts'
 import { mergeRegionFact } from './composer-fill-policy.ts'
 import { embeddedPreflightFunctions, markFurnitureInvalidVariables } from './composer-preflight.ts'
+import { slotPreflightFacts } from './embedded-preflight.ts'
 
 test('waits for slot fit before publishing its one report', () => {
   const posted: unknown[] = []
@@ -63,7 +64,10 @@ test('strict preflight refuses an unmeasured refuse slot', () => {
     [],
     [],
     (reason: string) => failures.push(reason),
-    { parent: { postMessage: (message: { report?: import('@segnavia/format').PreflightReport }) => posted.push(message) }, segnaviaSlotFit: (done: (slots: Record<string, string>) => void) => done({ name: 'unmeasured' }) },
+    {
+      parent: { postMessage: (message: { report?: import('@segnavia/format').PreflightReport }) => posted.push(message) },
+      segnaviaSlotFit: (done: (slots: Record<string, string>) => void) => done({ name: 'unmeasured' }),
+    },
     { documentElement: { setAttribute: () => {} }, querySelectorAll: () => [{ getAttribute: () => 'name:refuse' }] },
     mergeRegionFact,
     [],
@@ -72,6 +76,13 @@ test('strict preflight refuses an unmeasured refuse slot', () => {
   complete({ pages: [] }, [], () => {})
   expect(posted[0]?.report).toMatchObject({ status: 'errors', coverage: { slots: { measured: 0, total: 1 } } })
   expect(failures[0]).toContain('Overflow could not be measured for slot name')
+})
+
+test('slot preflight coverage counts distinct marked keys and only measured states', () => {
+  const mark = (value: string) => ({ getAttribute: () => value })
+  const facts = slotPreflightFacts({ name: 'fit', title: 'unmeasured' }, [mark('name:refuse'), mark('name:refuse'), mark('title:shrink:8')])
+  expect(facts.coverage).toEqual({ measured: 1, total: 2 })
+  expect(facts.refuse).toEqual(new Set(['name']))
 })
 
 test('slot overset names its subject and remedy under warning and strict profiles', () => {

@@ -31,7 +31,10 @@ interface SlotFitMark {
   getAttribute(name: string): string | null
 }
 
-export function slotPreflightFacts(slots: Record<string, string>, marked: Iterable<SlotFitMark>): { coverage: { measured: number; total: number }; refuse: Set<string> } {
+export function slotPreflightFacts(
+  slots: Record<string, string>,
+  marked: Iterable<SlotFitMark>,
+): { coverage: { measured: number; total: number }; refuse: Set<string> } {
   const keys = new Set<string>()
   const refuse = new Set<string>()
   for (const element of marked) {

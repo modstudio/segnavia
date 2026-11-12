@@ -36,6 +36,12 @@ export interface SurfacePreflight {
   complete(): void
 }
 
+function slotCoverage(slotFits: readonly Record<string, string>[]): { measured: number; total: number } {
+  const states = new Map<string, string>()
+  for (const fit of slotFits) for (const [key, state] of Object.entries(fit)) states.set(key, state)
+  return { measured: [...states.values()].filter((state) => state !== 'unmeasured').length, total: states.size }
+}
+
 export function surfacePreflight(preflight: ComposedPreflight | undefined, total: number): SurfacePreflight | undefined {
   if (!preflight || !preflightEnabled(preflight.profile)) return undefined
   const captures: Array<SurfacePreflightCapture & { order: number; location?: { readonly folio?: string } }> = []
@@ -52,17 +58,20 @@ export function surfacePreflight(preflight: ComposedPreflight | undefined, total
       let totalSlots = 0
       captures.sort((left, right) => left.order - right.order)
       for (const capture of captures) {
-        const slotStates = new Map<string, string>()
         for (const slots of capture.slotFits) appendSlotOversetEntries(slots, entries, capture.location)
-        for (const fit of capture.slotFits) for (const [key, state] of Object.entries(fit)) slotStates.set(key, state)
-        totalSlots += slotStates.size
-        measuredSlots += [...slotStates.values()].filter((state) => state !== 'unmeasured').length
+        const coverage = slotCoverage(capture.slotFits)
+        totalSlots += coverage.total
+        measuredSlots += coverage.measured
         for (const entry of fontMissingEntries(capture.fontFailures, capture.location)) {
           if (!entries.some((held) => held.check === entry.check && held.subject === entry.subject)) entries.push(entry)
         }
       }
       const report = boundPreflightReport(
-        { entries, facts: { pageCount: total, pages: [], fits: [] }, coverage: { measured: total, total, slots: { measured: measuredSlots, total: totalSlots } } },
+        {
+          entries,
+          facts: { pageCount: total, pages: [], fits: [] },
+          coverage: { measured: total, total, slots: { measured: measuredSlots, total: totalSlots } },
+        },
         preflight.profile,
       )
       preflight.report?.(report)

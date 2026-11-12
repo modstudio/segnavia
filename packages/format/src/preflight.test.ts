@@ -198,10 +198,7 @@ describe('boundPreflightReport', () => {
   test('strict preflight turns an unmeasured refuse slot into a slot overset error', () => {
     const entries: PreflightEntry[] = []
     appendSlotOversetEntries({ name: 'unmeasured' }, entries, undefined, new Set(['name']))
-    const report = boundPreflightReport(
-      { entries, facts, coverage: { measured: 1, total: 1, slots: { measured: 0, total: 1 } } },
-      PREFLIGHT_PRESETS.strict,
-    )
+    const report = boundPreflightReport({ entries, facts, coverage: { measured: 1, total: 1, slots: { measured: 0, total: 1 } } }, PREFLIGHT_PRESETS.strict)
     expect(report).toMatchObject({
       status: 'errors',
       issues: [{ check: 'slot-overset', subject: 'name', severity: 'error' }],
