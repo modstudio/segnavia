@@ -1,5 +1,37 @@
 # @segnavia/capture
 
+## 0.56.0
+
+### Patch Changes
+
+- Updated dependencies [fc051c9]
+- Updated dependencies [2deede2]
+- Updated dependencies [48d62f3]
+- Updated dependencies [6c88cd3]
+- Updated dependencies [966dd29]
+- Updated dependencies [c849fed]
+- Updated dependencies [ded2142]
+- Updated dependencies [f30c51f]
+- Updated dependencies [979581b]
+- Updated dependencies [a4cf3d5]
+- Updated dependencies [7f39300]
+- Updated dependencies [343ce7b]
+- Updated dependencies [458732b]
+- Updated dependencies [3b4872d]
+- Updated dependencies [7f1bd6f]
+- Updated dependencies [2a61d34]
+- Updated dependencies [0181bb3]
+- Updated dependencies [02fd3bd]
+- Updated dependencies [5cb5000]
+- Updated dependencies [d449b60]
+- Updated dependencies [401ef7c]
+- Updated dependencies [592bda3]
+- Updated dependencies [4214953]
+- Updated dependencies [0aff593]
+  - @segnavia/format@0.56.0
+  - @segnavia/frame@0.56.0
+  - @segnavia/render@0.56.0
+
 ## 0.55.0
 
 ### Patch Changes

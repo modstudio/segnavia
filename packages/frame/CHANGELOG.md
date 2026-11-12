@@ -1,5 +1,61 @@
 # @segnavia/frame
 
+## 0.56.0
+
+### Minor Changes
+
+- 2deede2: Allow an origin approval to carry a whole-segment path prefix. Frame CSP sources and reuse decisions now preserve approved paths, while sanitizing and offline rendering refuse requests outside them.
+- 48d62f3: Carry a book's as-of policy into its view, resolve and fill book and paper days in browser frames, and forward as-of inputs through live board items.
+
+  React Book and Paper bindings expose their `asof` events and React now includes the Board element binding.
+
+- 6c88cd3: Let hosts learn when a page document is drawn, and when a printed page is fully composed, through the page's `ready` event.
+- ded2142: Let stages, players, thumbnails and browser deck printing take as-of inputs, bind the resolved deck or page day and report it.
+- 979581b: Resolve a deck's or book's as-of day in server PDF and image renders, fill its reserved as-of bindings, and date deterministic output from that day.
+
+  `@segnavia/html` exports `fillDeckAsOfBindings`, `fillBookAsOfBindings`, `mapBookHtml` and `bindBookRecordValues` for the shared deck and book binding walks.
+
+  `expandFrameBookValue` from `@segnavia/frame/motifs` takes the as-of `day` before `profile`, as `expandFramePage` does. A caller that passes `profile` positionally moves it one place later. `resolveDeckMedia` and `resolveMediaContent` from `@segnavia/frame/print-document` take an optional trailing `day`.
+
+- a4cf3d5: Select, focus, remove and reveal board labels and sections alongside items, and expose the shared `boardFocusOrder` policy.
+
+  Breaking for hosts: `segnavia-board-selection` now reports tagged `entries` and `entry` instead of `nodes` and `node`. Read `entry.kind`, then `entry.item`, `entry.label` or `entry.section`; the kind-specific item and label fields remain and section fields are added. The `items` and `labels` arrays, and their `item` and `label` singletons, now follow selection order instead of board order.
+
+- 343ce7b: Let boards approve asset origins for every frame they draw, and apply thumbnail origins to deck slide frames.
+- 458732b: Let hosts set a preflight profile on `segnavia-document` and `segnavia-stage`, then receive coverage-aware reports as pages and slides are measured. A plain, non-printed `segnavia-page` now also emits `preflight` with its slot-overset and font-missing checks.
+- 3b4872d: Carry a host-supplied as-of moment through resolved days and expose it to page furniture as zoned ISO 8601 text, omitting the value when the host supplies no moment.
+- 2a61d34: Let a `segnavia-page` showing composed papers grow to the shown column's height. Hosts that relied on its previous inner scrolling should add `bounded`.
+- 0181bb3: Edit board label text and section titles in place, open a label editor through `editLabel`, independently switch label text, label resize and section title editors off, localize title editors with `labels.sectionTitleEdit`, and limit label editor text by Unicode code points.
+- 02fd3bd: Declare every event dispatched by the page, paper, document, book, and stage elements, including paper `change` and the document slots, page, and change events, with typed Vue listeners. Breaking: a book `error` is now an `ErrorEvent`; read `event.message` or `event.error` instead of `event.detail.message`. Every element `error` now carries an `Error` in `event.error`.
+
+  Add typed React props for report events. The five elements' `onError` callbacks now receive the native `ErrorEvent` rather than React's synthetic error event.
+
+- 401ef7c: Run board command batches against the canvas's measured shapes with `BoardEditing.command`, and expose those shapes through `BoardEditing.shapes`.
+- 592bda3: Declare font faces over inclusive weight ranges and let a font source identify faces already present in the document.
+- 0aff593: Resolve a deck's declared fonts for host-served URL slides through the server-safe bridge entry.
+
+### Patch Changes
+
+- fc051c9: Keep painted block decoration inside flowing page windows.
+- 7f39300: Mint UUIDs on plain-HTTP pages and give cover digest failures a secure-context remedy.
+- d449b60: A wrapped table or a table with a top margin now splits by rows and repeats its header.
+- Updated dependencies [fc051c9]
+- Updated dependencies [2deede2]
+- Updated dependencies [48d62f3]
+- Updated dependencies [ded2142]
+- Updated dependencies [f30c51f]
+- Updated dependencies [979581b]
+- Updated dependencies [a4cf3d5]
+- Updated dependencies [7f39300]
+- Updated dependencies [3b4872d]
+- Updated dependencies [7f1bd6f]
+- Updated dependencies [5cb5000]
+- Updated dependencies [592bda3]
+- Updated dependencies [4214953]
+  - @segnavia/format@0.56.0
+  - @segnavia/layout@0.56.0
+  - @segnavia/html@0.56.0
+
 ## 0.55.0
 
 ### Minor Changes

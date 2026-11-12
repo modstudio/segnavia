@@ -1,5 +1,39 @@
 # @segnavia/format
 
+## 0.56.0
+
+### Minor Changes
+
+- fc051c9: Keep painted block decoration inside flowing page windows.
+- 2deede2: Allow an origin approval to carry a whole-segment path prefix. Frame CSP sources and reuse decisions now preserve approved paths, while sanitizing and offline rendering refuse requests outside them.
+- 48d62f3: Carry a book's as-of policy into its view, resolve and fill book and paper days in browser frames, and forward as-of inputs through live board items.
+
+  React Book and Paper bindings expose their `asof` events and React now includes the Board element binding.
+
+- f30c51f: Approve Iconify, Unsplash, Unsplash+ and Pexels image origins by default.
+- a4cf3d5: Select, focus, remove and reveal board labels and sections alongside items, and expose the shared `boardFocusOrder` policy.
+
+  Breaking for hosts: `segnavia-board-selection` now reports tagged `entries` and `entry` instead of `nodes` and `node`. Read `entry.kind`, then `entry.item`, `entry.label` or `entry.section`; the kind-specific item and label fields remain and section fields are added. The `items` and `labels` arrays, and their `item` and `label` singletons, now follow selection order instead of board order.
+
+- 3b4872d: Carry a host-supplied as-of moment through resolved days and expose it to page furniture as zoned ISO 8601 text, omitting the value when the host supplies no moment.
+- 7f1bd6f: Report each refused asset reference once with its URL, optional origin, fetch kind, stable reason, message and clearing advice. Script sources are now reported when scripts are off, and relative CSS URLs and imports are reported with their authored values.
+
+  Breaking for hosts:
+
+  - `assetOriginRefusals` returns `AssetRefusal[]` instead of `string[]`. Read `refusal.message` for the human reason and `refusal.advice` for what clears it.
+  - The refused branch from `originDecision` is `{ allowed: false, refusal }` instead of `{ allowed: false, reason }`. Read `refusal.message` and `refusal.advice` instead of parsing `reason`.
+  - A render now refuses a relative or protocol-relative `url()` or `@import` in author CSS.
+
+- 5cb5000: Approve Fontsource CDN stylesheets and font files under their documented jsDelivr paths by default.
+- 592bda3: Declare font faces over inclusive weight ranges and let a font source identify faces already present in the document.
+- 4214953: Report measured preflight coverage and run slot and font preflight checks for deck PDFs, slide images and cover images.
+
+  Breaking for hosts: `PreflightReport.status` can now be `incomplete`, and every report includes `coverage`. Handle the new status when switching over every report status.
+
+### Patch Changes
+
+- 7f39300: Mint UUIDs on plain-HTTP pages and give cover digest failures a secure-context remedy.
+
 ## 0.55.0
 
 ### Minor Changes
