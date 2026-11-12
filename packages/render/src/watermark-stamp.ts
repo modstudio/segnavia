@@ -16,6 +16,17 @@ export interface WatermarkPart {
   physicalPages?: readonly number[]
 }
 
+interface ApplyWatermarkOptions {
+  pageCount?: number
+  physicalPageOffset?: number
+  reportPageCount?: (count: number) => void
+  validateSelection?: boolean
+}
+
+export function watermarkDocumentCss(parts: readonly WatermarkPart[]): string {
+  return [...new Set(parts.flatMap((part) => frameStyleSheets(part.page.style, part.page.brand)))].join('')
+}
+
 export async function watermarkPages(pdf: Uint8Array): Promise<WatermarkPage[]> {
   const document = await loadPdf(pdf)
   return document.getPages().map((page) => {
@@ -106,12 +117,10 @@ export async function applyWatermark(
   fontCss: string,
   deadline: RenderDeadline,
   withTab: TabRunner,
-  pageCount?: number,
-  physicalPageOffset = 0,
-  reportPageCount?: (count: number) => void,
-  validateSelection = true,
+  applyOptions: ApplyWatermarkOptions = {},
 ): Promise<Uint8Array[]> {
   if (!options.watermark) return parts.map((part) => part.bytes)
+  const { pageCount, physicalPageOffset = 0, reportPageCount, validateSelection = true } = applyOptions
   const geometries = await Promise.all(parts.map((part) => watermarkPages(part.bytes)))
   let nextPhysicalPage = physicalPageOffset + 1
   const mapped = geometries.flatMap((partPages, partIndex) => {
@@ -136,7 +145,7 @@ export async function applyWatermark(
   )
   const selected = mapped.filter((entry) => selectedNumbers.has(entry.physical))
   if (selected.length === 0) return parts.map((part) => part.bytes)
-  const documentCss = parts.map((part) => frameStyleSheets(part.page.style, part.page.brand).join('')).join('')
+  const documentCss = watermarkDocumentCss(parts)
   const html = watermarkDocument(
     options.watermark,
     selected.map((entry) => entry.geometry),
@@ -170,19 +179,14 @@ export function watermarkCopyStamper(options: ParsedPagePdfOptions, fontCss: str
   return {
     stamp: async (parts: readonly WatermarkPart[], pageCount?: number): Promise<Uint8Array[]> => {
       let renderedPageCount = 0
-      const output = await applyWatermark(
-        parts,
-        options,
-        fontCss,
-        deadline,
-        withTab,
+      const output = await applyWatermark(parts, options, fontCss, deadline, withTab, {
         pageCount,
         physicalPageOffset,
-        (value) => {
+        reportPageCount: (value) => {
           renderedPageCount = value
         },
-        false,
-      )
+        validateSelection: false,
+      })
       physicalPageOffset += renderedPageCount
       return output
     },

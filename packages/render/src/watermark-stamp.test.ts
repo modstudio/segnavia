@@ -1,9 +1,10 @@
 import { expect, test } from 'bun:test'
+import { StyleSheet } from '@segnavia/format'
 import { PDFDocument, PDFName } from 'pdf-lib'
 import type { TabRunner } from './browser-tab.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
 import type { RenderDeadline } from './render-deadline.ts'
-import { applyWatermark, stampWatermark } from './watermark-stamp.ts'
+import { applyWatermark, stampWatermark, watermarkDocumentCss } from './watermark-stamp.ts'
 
 async function fixture(pages: number, prefix: string): Promise<Uint8Array> {
   const document = await PDFDocument.create()
@@ -14,6 +15,19 @@ async function fixture(pages: number, prefix: string): Promise<Uint8Array> {
   }
   return document.save()
 }
+
+test('includes each watermark layer style sheet once across equal parts', () => {
+  const style = StyleSheet.parse({ css: '.document{color:navy}' })
+  const brand = StyleSheet.parse({ css: '.brand{color:gold}' })
+  const page = { html: '<p>Reader</p>', size: { width: 100, height: 100 }, scripts: 'refuse' as const, style, brand }
+  const css = watermarkDocumentCss([
+    { bytes: new Uint8Array(), page },
+    { bytes: new Uint8Array(), page },
+  ])
+
+  expect(css.match(/\.document\{color:navy\}/g)).toHaveLength(1)
+  expect(css.match(/\.brand\{color:gold\}/g)).toHaveLength(1)
+})
 
 test('stamps selected pages as pagination watermark artifacts and leaves structure alone', async () => {
   const source = await PDFDocument.load(await fixture(3, 'source'))
@@ -42,12 +56,12 @@ test('keeps physical page selection across pagesPdf slot-fill copies', async () 
     '',
     {} as RenderDeadline,
     withTab,
-    undefined,
-    0,
-    (count) => {
-      firstCount = count
+    {
+      reportPageCount: (count) => {
+        firstCount = count
+      },
+      validateSelection: false,
     },
-    false,
   )
   let secondCount = 0
   const second = await applyWatermark(
@@ -56,12 +70,13 @@ test('keeps physical page selection across pagesPdf slot-fill copies', async () 
     '',
     {} as RenderDeadline,
     withTab,
-    undefined,
-    firstCount,
-    (count) => {
-      secondCount = count
+    {
+      physicalPageOffset: firstCount,
+      reportPageCount: (count) => {
+        secondCount = count
+      },
+      validateSelection: false,
     },
-    false,
   )
   expect(firstCount + secondCount).toBe(4)
   expect(await pageContent(first[0] as Uint8Array, 0)).toBe('first-1')
