@@ -1,4 +1,3 @@
-// Capture shots, narrate, assemble a deck, render every host output, and publish a player.
 import './source-guard.ts'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -19,6 +18,7 @@ import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildDocumentDemo } from './build-document-demo.ts'
 import { buildFontCollectionDemo } from './build-font-collection-demo.ts'
+import { buildLayoutProviderDemo, buildLayoutProviderRenderDemo } from './build-layout-provider-demo.ts'
 import { buildMarkdownEditorDemo } from './build-markdown-editor-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
@@ -331,6 +331,7 @@ writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.j
 buildPageDemo(SITE, (body) => shell(body))
 await buildMarkdownEditorDemo(ROOT, SITE)
 await buildBookDemo(SITE)
+await buildLayoutProviderDemo(ROOT, SITE)
 buildPaperDemo(SITE)
 await buildSlotDemo(SITE)
 await buildDocumentDemo(ROOT, SITE)
@@ -354,6 +355,7 @@ await buildDeckHost(ROOT, SITE)
 const renderer = await openRenderer({ executablePath: CHROMIUM, jsHeapMb: 128 })
 const inline = (src: string) => `data:image/webp;base64,${readFileSync(path.join(SITE, src)).toString('base64')}`
 try {
+  await buildLayoutProviderRenderDemo(SITE, renderer)
   await buildFontCollectionDemo(ROOT, SITE, OUT, renderer)
   await buildBookPdfs(
     SITE,

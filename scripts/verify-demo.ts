@@ -15,6 +15,7 @@ import { verifyFontCollection } from './verify/font-collection.ts'
 import { openHarness } from './verify/harness.ts'
 import { verifyHeadless } from './verify/headless.ts'
 import { verifyImageFit } from './verify/image-fit.ts'
+import { verifyLayoutProviders } from './verify/layout-providers.ts'
 import { verifyMarkdownEditor } from './verify/markdown-editor.ts'
 import { verifyMedia } from './verify/media.ts'
 import { verifyPages } from './verify/pages.ts'
@@ -44,6 +45,7 @@ const sections: readonly VerifySection[] = [
   { name: 'verifyRailAuthoring', run: () => verifyRailAuthoring(h) },
   { name: 'verifyPages', run: () => verifyPages(h) },
   { name: 'verifyBooks', run: () => verifyBooks(h) },
+  { name: 'verifyLayoutProviders', run: () => verifyLayoutProviders(h) },
   { name: 'verifyFontCollection', run: () => verifyFontCollection(h) },
   { name: 'verifyBoard', run: () => verifyBoard(h) },
   { name: 'verifyPapers', run: () => verifyPapers(h) },

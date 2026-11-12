@@ -1,0 +1,118 @@
+import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
+import type { Harness } from './harness.ts'
+
+type Plan = { pages?: Array<{ windows?: Array<{ flow?: string }> }> }
+
+async function bookFacts(h: Harness, name: string) {
+  await h.page.goto(h.url(`layout-provider-book-${name}.html`))
+  await h.page.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))
+  return h.page.evaluate((preflightAttribute) => {
+    const plan = JSON.parse(document.querySelector('script[data-segnavia-plan]')?.textContent ?? 'null') as Plan | null
+    const report = JSON.parse(document.documentElement.getAttribute(preflightAttribute) ?? 'null') as { issues?: Array<{ check?: string }> } | null
+    return {
+      pages: document.querySelectorAll('[data-segnavia-page]').length,
+      plan,
+      galley: document.querySelector('[data-galley-ran]') !== null,
+      composed: document.querySelector('[data-composed-ran]') !== null,
+      overset: report?.issues?.some((issue) => issue.check === 'region-overset' || issue.check === 'furniture-overset') ?? false,
+    }
+  }, PREFLIGHT_ATTRIBUTE)
+}
+
+function samePlan(left: Plan | null, right: Plan | null): boolean {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+type FrameLike = { locator(selector: string): { evaluate<T>(body: (element: Element) => T): Promise<T> } }
+
+async function layoutBox(frame: FrameLike): Promise<{ x: number; y: number; width: number; height: number }> {
+  return frame.locator('[data-layout-box]').evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    return { x: box.x, y: box.y, width: box.width, height: box.height }
+  })
+}
+
+const close = (left: number, right: number) => Math.abs(left - right) <= 0.5
+const boxesAgree = (left: Awaited<ReturnType<typeof layoutBox>>, right: Awaited<ReturnType<typeof layoutBox>>) =>
+  close(left.x, right.x) && close(left.y, right.y) && close(left.width, right.width) && close(left.height, right.height)
+
+export async function verifyLayoutProviders(h: Harness): Promise<void> {
+  const baseline = await bookFacts(h, 'baseline')
+  const galley = await bookFacts(h, 'galley')
+  const composed = await bookFacts(h, 'composed')
+  h.check('a galley layout changes book pagination', !samePlan(baseline.plan, galley.plan), `${baseline.pages} -> ${galley.pages} pages`)
+  h.check('a composed layout does not re-paginate', samePlan(baseline.plan, composed.plan), `${baseline.pages} and ${composed.pages} pages`)
+  h.check('overflow caused in composed is reported by preflight', composed.overset, `overset=${composed.overset}`)
+
+  const measured = await bookFacts(h, 'measure')
+  h.check(
+    'a measure-only book runs galley and skips composed',
+    measured.galley && !measured.composed,
+    `galley=${measured.galley}, composed=${measured.composed}`,
+  )
+
+  await h.page.goto(h.url('layout-provider-book-hebrew.html'))
+  await h.page.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))
+  const hebrew = await h.page.locator('[data-layout-measurements]').evaluate((element: HTMLElement) => {
+    const measured = JSON.parse(element.dataset.layoutMeasurements ?? 'null') as {
+      pointed: { x: number; y: number; width: number; height: number }
+      plain: { x: number; y: number; width: number; height: number }
+      lineBoxes: number
+    }
+    const lines = new Set(
+      Array.from(element.getClientRects())
+        .map((rect) => Math.round(rect.top * 2) / 2)
+        .filter(Number.isFinite),
+    ).size
+    return { ...measured, lines }
+  })
+  const inkDelta = Math.max(Math.abs(hebrew.pointed.width - hebrew.plain.width), Math.abs(hebrew.pointed.height - hebrew.plain.height))
+  h.check('pointed and plain Hebrew have the same ink box', inkDelta <= 0.5, `max delta ${inkDelta.toFixed(3)}px`)
+  h.check('layout lineBoxes agrees with the paragraph line count', hebrew.lineBoxes === hebrew.lines, `${hebrew.lineBoxes} and ${hebrew.lines} lines`)
+
+  await h.page.goto(h.url('layout-provider.html'))
+  await h.page.locator('#layout-page iframe').waitFor()
+  const pageFrame = h.page.locator('#layout-page iframe').contentFrame()
+  const slideFrame = h.page.locator('#layout-slide iframe').contentFrame()
+  await pageFrame.locator('[data-layout-box]').waitFor()
+  await slideFrame.locator('[data-layout-box]').waitFor()
+  const screenPage = await layoutBox(pageFrame)
+  const screenSlide = await layoutBox(slideFrame)
+  await h.page.goto(h.url('layout-provider-book-geometry.html'))
+  await h.page.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))
+  const screenBook = await layoutBox(h.page)
+  await h.page.emulateMedia({ media: 'print' })
+  const printBook = await layoutBox(h.page)
+  await h.page.emulateMedia({ media: 'screen' })
+  await h.page.goto(h.url('layout-provider.html'))
+  const pageFramePrint = h.page.locator('#layout-page iframe').contentFrame()
+  const slideFramePrint = h.page.locator('#layout-slide iframe').contentFrame()
+  await pageFramePrint.locator('[data-layout-box]').waitFor()
+  await slideFramePrint.locator('[data-layout-box]').waitFor()
+  await h.page.emulateMedia({ media: 'print' })
+  const printPage = await layoutBox(pageFramePrint)
+  const printSlide = await layoutBox(slideFramePrint)
+  await h.page.emulateMedia({ media: 'screen' })
+  h.check(
+    'the fixture box has the same unscaled position in book, printed page, and slide screen and print media',
+    boxesAgree(screenPage, screenSlide) &&
+      boxesAgree(screenPage, screenBook) &&
+      boxesAgree(screenBook, printBook) &&
+      boxesAgree(screenPage, printPage) &&
+      boxesAgree(screenSlide, printSlide),
+    JSON.stringify({ screenBook, screenPage, screenSlide, printBook, printPage, printSlide }),
+  )
+
+  await h.waitFor('#reject-page', (data) => Boolean(data.error))
+  await h.waitFor('#reject-slide', (data) => Boolean(data.error))
+  const errors = await h.page.evaluate(() => ['reject-page', 'reject-slide'].map((id) => (document.getElementById(id) as HTMLElement).dataset.error ?? ''))
+  for (const [index, kind] of ['plain page', 'slide'].entries()) {
+    const message = errors[index] ?? ''
+    h.check(`${kind} rejecting provider refuses through its error event`, message.includes('demo-layout-rejecting') && message.includes('galley'), message)
+  }
+  const rendered = (await h.page.evaluate(async () => (await fetch('layout-provider-render-refusals.json')).json())) as Record<string, string>
+  for (const kind of ['page', 'slide']) {
+    const message = rendered[kind] ?? ''
+    h.check(`${kind} rejecting provider refuses in render`, message.includes('demo-layout-rejecting') && message.includes('galley'), message)
+  }
+}
