@@ -8,7 +8,7 @@ const provider = `segnaviaLayout.define({
     for (const element of ctx.elements) {
       const node = /** @type {HTMLElement} */ (element)
       node.dataset.galleyRan = ''
-      if (node.dataset.layoutPhase === 'galley') node.style.blockSize = '620px'
+      if (node.dataset.layoutPhase === 'galley') node.style.fontSize = '32px'
       if (node.dataset.layoutGeometry !== undefined) {
         const box = document.createElement('i')
         box.dataset.layoutBox = ''
@@ -31,7 +31,7 @@ const provider = `segnaviaLayout.define({
       const node = /** @type {HTMLElement} */ (element)
       node.dataset.composedRan = ''
       if (node.dataset.layoutPhase === 'composed') {
-        node.style.blockSize = '620px'
+        node.style.fontSize = '32px'
         const region = document.querySelector('[data-segnavia-region]')
         if (region) {
           region.style.blockSize = '1px'
@@ -51,4 +51,3 @@ export function registerLayoutDemoProviders(): void {
   registerLayoutProvider(LAYOUT_DEMO_REJECTING_PROVIDER, { script: async () => rejecting, priority: 0 })
 }
 
-registerLayoutDemoProviders()

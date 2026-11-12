@@ -11,6 +11,7 @@ async function bookFacts(h: Harness, name: string) {
     const report = JSON.parse(document.documentElement.getAttribute(preflightAttribute) ?? 'null') as { issues?: Array<{ check?: string }> } | null
     return {
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
+      laterPage: Number(document.querySelector('[data-segnavia-pages] [data-layout-later]')?.closest('[data-segnavia-book-page]')?.getAttribute('data-segnavia-book-page')),
       plan,
       galley: document.querySelector('[data-galley-ran]') !== null,
       composed: document.querySelector('[data-composed-ran]') !== null,
@@ -40,7 +41,11 @@ export async function verifyLayoutProviders(h: Harness): Promise<void> {
   const baseline = await bookFacts(h, 'baseline')
   const galley = await bookFacts(h, 'galley')
   const composed = await bookFacts(h, 'composed')
-  h.check('a galley layout changes book pagination', !samePlan(baseline.plan, galley.plan), `${baseline.pages} -> ${galley.pages} pages`)
+  h.check(
+    'a galley layout changes book pagination',
+    baseline.pages !== galley.pages || baseline.laterPage !== galley.laterPage,
+    `${baseline.pages} -> ${galley.pages} pages; later block ${baseline.laterPage} -> ${galley.laterPage}`,
+  )
   h.check('a composed layout does not re-paginate', samePlan(baseline.plan, composed.plan), `${baseline.pages} and ${composed.pages} pages`)
   h.check('overflow caused in composed is reported by preflight', composed.overset, `overset=${composed.overset}`)
 

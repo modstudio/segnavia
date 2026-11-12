@@ -18,7 +18,7 @@ export async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): P
     )
   const failure = (async () => {
     while (waiting) {
-      for (const frame of tab.frames()) {
+      for (const frame of typeof tab.frames === 'function' ? tab.frames() : []) {
         const reason = await frame.evaluate((attribute) => document.documentElement.getAttribute(attribute), BOOK_FAILURE_ATTRIBUTE).catch(() => null)
         if (reason) return reason
       }

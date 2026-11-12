@@ -1,2 +1,2 @@
-import './layout-provider-demo-runtime.ts'
+import './layout-provider-demo-registration.ts'
 import '@segnavia/frame/player'
