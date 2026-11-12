@@ -122,7 +122,7 @@ function checkRelative(file: SourceFile, workspace: Workspace, within: string, s
   if (leadingUps >= depth && !fixtureAllowed)
     findings.push({ rule: 'architecture', path: file.path, message: `"${specifier}" reaches outside the package; import another package by name.` })
   const safe = workspace.rule.serverSafe ?? []
-  const target = new URL(specifier, `file:///src/${within}`).pathname.replace(/^\/src\//, '').replace(/\.js$/, '.ts')
+  const target = new URL(specifier, `file:///${within}`).pathname.replace(/^\//, '').replace(/\.js$/, '.ts')
   if (safe.includes(within) && !safe.includes(target)) {
     findings.push({ rule: 'architecture', path: file.path, message: `a server-safe entry point imports "${specifier}", which is browser-only.` })
   }

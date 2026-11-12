@@ -45,16 +45,18 @@ test('reduces groups across the document and emits one measurement per block id'
 test('runs the copyfit stage once and reuses its facts on a retry', () => {
   const facts: string[] = []
   const state = { done: false, results: [] as string[] }
-  const run = () => runFitStageOnce(state, () => (facts.push('fit'), ['measurement']))
+  const run = () =>
+    runFitStageOnce(state, () => {
+      facts.push('fit')
+      return ['measurement']
+    })
   expect(run()).toEqual(['measurement'])
   expect(run()).toEqual(['measurement'])
   expect(facts).toEqual(['fit'])
 })
 
 test('normalizes absolute leading against fitted size and never applies below 1.0', () => {
-  expect(fitBounds(['leading'], ['12px'], ['48px'], [], authored, { px: 1 })?.bounds).toEqual([
-    { strategy: 'leading', authored: 1.4, min: 1, max: 1.5 },
-  ])
+  expect(fitBounds(['leading'], ['12px'], ['48px'], [], authored, { px: 1 })?.bounds).toEqual([{ strategy: 'leading', authored: 1.4, min: 1, max: 1.5 }])
 })
 
 test('fit-limit names the block, exhausted strategy, bound and excess in its refusal text', () => {

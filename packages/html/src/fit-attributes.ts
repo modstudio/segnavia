@@ -1,4 +1,4 @@
-import { FitAxis, FitBox, FIT_STRATEGIES, type FitStrategy } from '@segnavia/format'
+import { FIT_STRATEGIES, FitAxis, FitBox, type FitStrategy } from '@segnavia/format'
 import { type ChildNode, type Element, isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
 
@@ -76,7 +76,8 @@ export function fitAttributeIssues(where: string, attribs: Record<string, string
   if (axis && !FitAxis.options.includes(axis as (typeof FitAxis.options)[number]))
     issues.push(`${where} data-fit-axis "${axis}" is invalid; use block, inline or both to clear this refusal`)
   const box = attribs['data-fit-box']
-  if (box && !FitBox.options.includes(box as (typeof FitBox.options)[number])) issues.push(`${where} data-fit-box "${box}" is invalid; use self or parent to clear this refusal`)
+  if (box && !FitBox.options.includes(box as (typeof FitBox.options)[number]))
+    issues.push(`${where} data-fit-box "${box}" is invalid; use self or parent to clear this refusal`)
   return issues
 }
 

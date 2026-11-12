@@ -31,11 +31,13 @@ export function runFitStageOnce<T>(state: FitStageState<T>, execute: () => T): T
 }
 
 export function fitAxis(authored: string | null, slot: boolean, axes: readonly FitAxis[] = FIT_AXES): FitAxis {
-  return axes.find((axis) => axis === authored) ?? (slot ? 'both' : 'block')
+  const shared = (globalThis as typeof globalThis & { FIT_AXES?: readonly FitAxis[] }).FIT_AXES ?? axes
+  return shared.find((axis) => axis === authored) ?? (slot ? 'both' : 'block')
 }
 
 export function fitValue(text: string, strategy: FitStrategy, absolutePx: Readonly<Record<string, number>>) {
-  const parsed = parseCssLength(text)
+  const parser = (globalThis as typeof globalThis & { parseCssLength?: typeof parseCssLength }).parseCssLength ?? parseCssLength
+  const parsed = parser(text)
   if (!parsed) return undefined
   if (strategy === 'leading' && parsed.unit === '') return { value: parsed.value, unit: parsed.unit }
   const factor = absolutePx[parsed.unit]
@@ -51,11 +53,12 @@ export function fitBounds(
   absolutePx: Readonly<Record<string, number>>,
 ): { bounds: FitSearchStrategy[]; units: Record<FitStrategy, string> } | undefined {
   const units: Record<FitStrategy, string> = { size: 'px', leading: '', tracking: 'px' }
+  const readValue = (globalThis as typeof globalThis & { fitValue?: typeof fitValue }).fitValue ?? fitValue
   const bounds = strategies.flatMap((strategy, index) => {
     const fallback = strategy === 'tracking' ? '0px' : strategy === 'leading' ? '1' : '1px'
-    const min = fitValue(mins[index] ?? fallback, strategy, absolutePx)
-    const max = maxes[index] ? fitValue(maxes[index] as string, strategy, absolutePx) : { value: authored[strategy], unit: units[strategy] }
-    const step = steps[index] ? fitValue(steps[index] as string, strategy, absolutePx) : undefined
+    const min = readValue(mins[index] ?? fallback, strategy, absolutePx)
+    const max = maxes[index] ? readValue(maxes[index] as string, strategy, absolutePx) : { value: authored[strategy], unit: units[strategy] }
+    const step = steps[index] ? readValue(steps[index] as string, strategy, absolutePx) : undefined
     if (!min || !max) return []
     const normalize = (held: { value: number; unit: string }) =>
       strategy === 'leading' && held.unit === 'px' ? Math.max(1, held.value / authored.size) : strategy === 'leading' ? Math.max(1, held.value) : held.value

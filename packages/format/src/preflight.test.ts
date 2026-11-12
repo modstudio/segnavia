@@ -109,9 +109,7 @@ describe('boundPreflightReport', () => {
       { subject: 'card', group: 'g'.repeat(300), values: { size: '1'.repeat(300), leading: '1.2', tracking: '-.1px', extra: 'drop' } },
     ]
     const report = boundPreflightReport({ entries: [], facts: { pageCount: 0, pages: [], fits } as never }, PREFLIGHT_PRESETS.default)
-    expect(report.facts.fits).toEqual([
-      { subject: 'card', group: 'g'.repeat(256), values: { size: '1'.repeat(64), leading: '1.2', tracking: '-.1px' } },
-    ])
+    expect(report.facts.fits).toEqual([{ subject: 'card', group: 'g'.repeat(256), values: { size: '1'.repeat(64), leading: '1.2', tracking: '-.1px' } }])
   })
 
   test.each([

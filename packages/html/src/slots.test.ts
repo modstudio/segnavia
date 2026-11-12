@@ -355,7 +355,7 @@ test('only a slot the fill supplied is marked for measurement', async () => {
 })
 
 test('a filled shrink slot is lowered to copyfit attributes', async () => {
-  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', overflow: 'shrink', minSize: 8 }], {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'shrink', minSize: 8 }], {
     fill: { id: 'x', values: { name: 'Alexandria' } },
   })
   const html = prepared.apply('<p data-slot-value="name">Name</p>')
@@ -375,10 +375,8 @@ test('slot application removes authored overflow markers before writing its own'
 })
 
 test('slot application leaves authored copyfit on elements it does not lower', async () => {
-  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', overflow: 'wrap' }], {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'wrap' }], {
     fill: { id: 'x', values: { name: 'Ada' } },
   })
-  expect(prepared.apply('<div><p data-fit="size" data-fit-min="12px">Heading</p><p data-slot-value="name">Name</p></div>')).toContain(
-    'data-fit-min="12px"',
-  )
+  expect(prepared.apply('<div><p data-fit="size" data-fit-min="12px">Heading</p><p data-slot-value="name">Name</p></div>')).toContain('data-fit-min="12px"')
 })
