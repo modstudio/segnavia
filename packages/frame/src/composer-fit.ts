@@ -1,5 +1,5 @@
 import type { FitStrategy } from '@segnavia/format'
-import { embedFunction, fitList, parseCssLength } from '@segnavia/html'
+import { embedFunction, fitList, fittedSlotModes, parseCssLength, readSlotOverflowMarker } from '@segnavia/html'
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
 import { FIT_AXES, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue } from './composer-fit-policy.ts'
@@ -158,8 +158,8 @@ function fitElement(element: HTMLElement, absolutePx: Readonly<Record<string, nu
   const box = element.getAttribute('data-fit-box') === 'parent' ? element.parentElement : element
   if (!candidate || !box) return undefined
   const { bounds, units } = candidate
-  const slot = element.getAttribute('data-slot-overflow')
-  const axis = (shared.fitAxis ?? fitAxis)(element.getAttribute('data-fit-axis'), slot !== null)
+  const slot = readSlotOverflowMarker(element.getAttribute('data-slot-overflow'))
+  const axis = (shared.fitAxis ?? fitAxis)(element.getAttribute('data-fit-axis'), slot !== undefined)
   const result = (shared.fitSearch ?? fitSearch)(bounds, (values) => {
     const application = (shared.fitApplication ?? fitApplication)({ id: '', values: { ...authored, ...values }, authored, units })
     ;(shared.applyFitStyles ?? applyFitStyles)(element, application.styles)
@@ -167,13 +167,7 @@ function fitElement(element: HTMLElement, absolutePx: Readonly<Record<string, nu
     const excess = axis === 'block' ? block : axis === 'inline' ? inline : Math.max(block, inline)
     return { fits: excess <= 0.5, excess }
   })
-  let slotSubject = ''
-  if (slot) {
-    try {
-      slotSubject = decodeURIComponent(slot.split(':')[0] ?? '')
-    } catch {}
-  }
-  const id = blockSubject(element, slotSubject)
+  const id = blockSubject(element, slot?.key ?? '')
   if (!id) throw new Error('data-fit has no identified block subject; place it in a block element to clear this refusal')
   return {
     element,
@@ -244,6 +238,8 @@ export function embeddedComposerFitFunctions(): string {
   return `${embedFunction('fitSearch', fitSearch)}
 ${embedFunction('reduceFitGroups', reduceFitGroups)}
 var FIT_AXES=${JSON.stringify(FIT_AXES)};
+${embedFunction('fittedSlotModes', fittedSlotModes)}
+${embedFunction('readSlotOverflowMarker', readSlotOverflowMarker)}
 ${embedFunction('parseCssLength', parseCssLength)}
 ${embedFunction('fitValue', fitValue)}
 ${embedFunction('fitAxis', fitAxis)}

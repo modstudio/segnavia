@@ -1,3 +1,4 @@
+import { isMeasuredSlotFit } from '@segnavia/format'
 import { MESSAGE, type SlotFitState, slotFitMessageData } from './bridge.ts'
 
 export type PrintImage = EventTarget & { readonly complete: boolean; decode?: () => Promise<unknown> }
@@ -9,6 +10,12 @@ export function slotFitStillPending(marked: ReadonlyMap<string, number>, measure
     if ((measured.get(key) ?? 0) < count) return true
   }
   return false
+}
+
+export function recordSlotFitMeasurements(measured: Map<string, number>, slots: Readonly<Record<string, SlotFitState>>): void {
+  for (const [key, state] of Object.entries(slots)) {
+    if (isMeasuredSlotFit(state)) measured.set(key, (measured.get(key) ?? 0) + 1)
+  }
 }
 
 export function printDocumentSettled(

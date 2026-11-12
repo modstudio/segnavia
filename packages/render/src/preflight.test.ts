@@ -72,7 +72,7 @@ test('surface preflight reports bounded slide issues with full coverage', () => 
       ],
       omitted: {},
       facts: { pageCount: 3, pages: [], fits: [], regions: [] },
-      coverage: { measured: 3, total: 3 },
+      coverage: { measured: 3, total: 3, slots: { measured: 1, total: 1 } },
     },
   ])
 })
@@ -85,6 +85,25 @@ test('surface preflight reports before refusing strict issues and stays silent w
   expect(calls).toEqual(['report'])
   expect(surfacePreflight(resolveRenderPreflight({ profile: 'off', report: () => calls.push('off') }), 1)).toBeUndefined()
   expect(calls).toEqual(['report'])
+})
+
+test.each([
+  ['an unmeasured post', [{ name: 'unmeasured' }]],
+  ['a missing post', []],
+] as const)('surface preflight counts a marked slot with %s as incomplete', (_, slotFits) => {
+  const reports: import('@segnavia/format').PreflightReport[] = []
+  const preflight = surfacePreflight(resolveRenderPreflight({ profile: 'default', report: (report) => reports.push(report) }), 1)
+  preflight?.capture()({ slotFits, slotKeys: ['name'], fontFailures: [] })
+  preflight?.complete()
+  expect(reports[0]).toMatchObject({ status: 'incomplete', coverage: { slots: { measured: 0, total: 1 } }, issues: [] })
+})
+
+test('surface preflight includes unmeasured refuse slot errors', () => {
+  const reports: import('@segnavia/format').PreflightReport[] = []
+  const preflight = surfacePreflight(resolveRenderPreflight({ profile: 'strict', report: (report) => reports.push(report) }), 1)
+  preflight?.capture()({ slotFits: [{ name: 'unmeasured' }], slotKeys: ['name'], refuseKeys: new Set(['name']), fontFailures: [] })
+  expect(() => preflight?.complete()).toThrow('overflow could not be measured for slots: "name"')
+  expect(reports[0]).toMatchObject({ status: 'errors', coverage: { slots: { measured: 0, total: 1 } } })
 })
 
 test('surface preflight orders captures by slide index instead of display folio', () => {

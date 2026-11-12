@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { SlotDeclaration, SlotReport } from '@segnavia/format'
 import qrcode from 'qrcode-generator'
+import { readSlotOverflowMarker } from './slot-overflow.ts'
 import {
   fillsSlotValues,
   hasSlotWork,
@@ -23,6 +24,13 @@ const declarations: SlotDeclaration[] = [
   { key: 'site', label: 'Website', type: 'link', required: false },
   { key: 'logo', label: 'Logo', type: 'image', required: false },
 ]
+
+test('reads only fitted slot overflow markers', () => {
+  expect(readSlotOverflowMarker('first%20name:shrink:8')).toEqual({ key: 'first name', mode: 'shrink', minSize: 8 })
+  expect(readSlotOverflowMarker('name:refuse')).toEqual({ key: 'name', mode: 'refuse', minSize: undefined })
+  expect(readSlotOverflowMarker('name:wrap')).toBeUndefined()
+  expect(readSlotOverflowMarker('%zz:refuse')).toBeUndefined()
+})
 
 test('slot fill policy refuses only fills with declarations for an item that runs scripts', () => {
   const options = { fill: { id: 'x', values: {} } }

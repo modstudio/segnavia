@@ -2,6 +2,7 @@ import {
   mergeSlotDeclarations,
   resolveSlotValue,
   type Scripts,
+  SLOT_KEYS_LIMIT,
   type SlotDeclaration,
   type SlotOrigin,
   type SlotReport,
@@ -18,7 +19,7 @@ import { qrPayload, qrSvg } from './qr.ts'
 import { elements, parse, serialize } from './sanitize.ts'
 import { clearSlotOverflow, markSlotOverflow } from './slot-overflow.ts'
 
-export const MAX_SLOT_DECLARATIONS = 200
+export const MAX_SLOT_DECLARATIONS = SLOT_KEYS_LIMIT
 const ASSET_RESOLUTION_CONCURRENCY = 4
 
 export type { PreparedSlots } from './prepared-slots.ts'

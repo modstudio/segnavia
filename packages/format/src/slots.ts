@@ -77,6 +77,10 @@ export interface SlotSource {
 
 export const SLOT_STATES = ['filled', 'placeholder', 'unavailable', 'invalid', 'fit', 'shrunk', 'overflowed'] as const
 export type SlotState = (typeof SLOT_STATES)[number]
+export const SLOT_FIT_STATES = ['fit', 'shrunk', 'overflowed', 'unmeasured'] as const
+export type SlotFitState = (typeof SLOT_FIT_STATES)[number]
+/** Slot declarations and a slot-fit bridge message describe the same bounded key set. */
+export const SLOT_KEYS_LIMIT = 200
 export const SLOT_ORIGINS = ['design', 'hand', 'source'] as const
 export type SlotOrigin = (typeof SLOT_ORIGINS)[number]
 

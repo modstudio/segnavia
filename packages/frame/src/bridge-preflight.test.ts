@@ -19,7 +19,7 @@ test('a composer slot fit is cached and readiness posts the slot-fit message onc
     fonts: null,
     images: [],
     readyState: 'complete',
-    documentElement: { getBoundingClientRect: () => ({ height: 0 }) },
+    documentElement: { getBoundingClientRect: () => ({ height: 0 }), getClientRects: () => [{}] },
     getAnimations: () => [],
     querySelector: () => null,
     querySelectorAll: (selector: string) => (selector === '[data-slot-overflow]' ? [element] : []),

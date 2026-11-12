@@ -48,6 +48,13 @@ test('embedded copyfit bounds include their value parser dependency', () => {
   })
 })
 
+test('embedded copyfit reads slot markers without module constants', () => {
+  const readMarker = new Function(`${embeddedComposerFitFunctions()};return readSlotOverflowMarker`)() as (value: string) => unknown
+
+  expect(readMarker('name:refuse')).toEqual({ key: 'name', mode: 'refuse', minSize: undefined })
+  expect(embeddedComposerFitFunctions()).not.toContain('var FITTED_SLOT_MODES=')
+})
+
 test('publishes preflight from the embedded functions alone, given the measured flows', () => {
   const posted: unknown[] = []
   const attributes: Record<string, string> = {}

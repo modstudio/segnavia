@@ -22,7 +22,7 @@ test('dispatches the shared bubbling and composed preflight event', () => {
     issues: [],
     omitted: {},
     facts: { pageCount: 0, pages: [], fits: [], regions: [] },
-    coverage: { measured: 0, total: 0 },
+    coverage: { measured: 0, total: 0, slots: { measured: 0, total: 0 } },
   }
   let received: CustomEvent | undefined
   target.addEventListener('preflight', (event) => {

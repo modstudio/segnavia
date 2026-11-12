@@ -1,6 +1,7 @@
 import type { PreflightRegion } from './fill.ts'
 import { FIT_STRATEGIES } from './fit.ts'
 import type { FontFailure } from './fonts.ts'
+import type { SlotFitState } from './slots.ts'
 
 export const PREFLIGHT_CHECKS = [
   'fit-limit',
@@ -74,14 +75,40 @@ export interface PreflightEntry {
   readonly location?: PreflightLocation
 }
 
-export function appendSlotOversetEntries(slots: Record<string, string>, entries: PreflightEntry[], location?: PreflightLocation): void {
+export function isMeasuredSlotFit(state: unknown): state is Exclude<SlotFitState, 'unmeasured'> {
+  return state === 'fit' || state === 'shrunk' || state === 'overflowed'
+}
+
+export function slotFitCoverage(slots: Readonly<Record<string, unknown>>, markedKeys: Iterable<string>): PreflightCountCoverage {
+  const keys = new Set(markedKeys)
+  return {
+    measured: [...keys].filter((key) => Object.hasOwn(slots, key) && isMeasuredSlotFit(slots[key])).length,
+    total: keys.size,
+  }
+}
+
+export function unmeasuredSlotsRefusalMessage(keys: readonly string[]): string {
+  return `Output was refused because overflow could not be measured for slots: ${keys.map((key) => `"${key}"`).join(', ')}. Ensure each filled slot frame becomes ready before the output deadline, or change the slot's overflow from 'refuse'.`
+}
+
+export function appendSlotOversetEntries(
+  slots: Record<string, string>,
+  entries: PreflightEntry[],
+  options: { readonly location?: PreflightLocation; readonly refuseKeys?: ReadonlySet<string> } = {},
+): void {
+  const refuseKeys = options.refuseKeys ?? new Set<string>()
   for (const [key, state] of Object.entries(slots)) {
-    if (state !== 'overflowed' || entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)) continue
+    if (
+      (state !== 'overflowed' && (state !== 'unmeasured' || !refuseKeys.has(key))) ||
+      entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)
+    ) {
+      continue
+    }
     entries.push({
       check: 'slot-overset',
       subject: key,
-      message: `Slot ${key} is overset; shorten its value or enlarge the slot to clear it.`,
-      ...(location === undefined ? {} : { location }),
+      message: state === 'unmeasured' ? unmeasuredSlotsRefusalMessage([key]) : `Slot ${key} is overset; shorten its value or enlarge the slot to clear it.`,
+      ...(options.location === undefined ? {} : { location: options.location }),
     })
   }
 }
@@ -121,9 +148,12 @@ export interface PreflightFacts {
   readonly fits: readonly PreflightFit[]
   readonly regions: readonly PreflightRegion[]
 }
-export interface PreflightCoverage {
+export interface PreflightCountCoverage {
   readonly measured: number
   readonly total: number
+}
+export interface PreflightCoverage extends PreflightCountCoverage {
+  readonly slots: PreflightCountCoverage
 }
 export interface PreflightReport {
   readonly status: 'clean' | 'incomplete' | 'warnings' | 'errors'
@@ -146,6 +176,7 @@ export const PREFLIGHT_FIT_VALUES_LIMIT = FIT_STRATEGIES.length
 export const PREFLIGHT_REGIONS_LIMIT = 256
 export const PREFLIGHT_DROPPED_IDS_LIMIT = 50
 export const PREFLIGHT_REGION_FIELD_LIMIT = 10_000
+export const PREFLIGHT_SLOTS_LIMIT = 10_000
 
 export function boundPreflightReport(
   input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown; readonly coverage?: unknown },
@@ -166,6 +197,7 @@ export function boundPreflightReport(
     readonly droppedIds?: number
     readonly regionCount?: number
     readonly regionId?: number
+    readonly slots?: number
   },
 ): PreflightReport {
   const limits =
@@ -186,6 +218,7 @@ export function boundPreflightReport(
       droppedIds: PREFLIGHT_DROPPED_IDS_LIMIT,
       regionCount: PREFLIGHT_REGION_FIELD_LIMIT,
       regionId: PREFLIGHT_SUBJECT_LIMIT,
+      slots: PREFLIGHT_SLOTS_LIMIT,
     } as const)
   const boundedPreflightText = (value: unknown, limit: number): string | undefined => (typeof value === 'string' ? value.slice(0, limit) : undefined)
   const boundedPreflightLocation = (value: unknown): PreflightLocation | undefined => {
@@ -307,21 +340,35 @@ export function boundPreflightReport(
   const cleanIssues = issues.map(({ order: _, ...issue }) => issue)
   const facts = boundedPreflightFacts(input.facts)
   const coverage = (() => {
+    const countCoverage = (value: unknown, limit: number): PreflightCountCoverage | undefined => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return { measured: 0, total: 0 }
+      const source = value as { measured?: unknown; total?: unknown }
+      if (!Number.isSafeInteger(source.measured) || (source.measured as number) < 0 || !Number.isSafeInteger(source.total) || (source.total as number) < 0) {
+        return undefined
+      }
+      const inputMeasured = source.measured as number
+      const inputTotal = source.total as number
+      const total = Math.min(inputTotal, limit)
+      let measured = Math.min(inputMeasured, total)
+      if (inputMeasured < inputTotal && measured === total && total > 0) measured = total - 1
+      return { measured, total }
+    }
+    const slotCoverage = (value: unknown): PreflightCountCoverage => countCoverage(value, limits.slots ?? PREFLIGHT_SLOTS_LIMIT) ?? { measured: 0, total: 0 }
     if (!input.coverage || typeof input.coverage !== 'object' || Array.isArray(input.coverage)) {
-      return { measured: facts.pageCount, total: facts.pageCount }
+      return { measured: facts.pageCount, total: facts.pageCount, slots: { measured: 0, total: 0 } }
     }
-    const source = input.coverage as { measured?: unknown; total?: unknown }
-    if (!Number.isSafeInteger(source.measured) || (source.measured as number) < 0 || !Number.isSafeInteger(source.total) || (source.total as number) < 0) {
-      return { measured: facts.pageCount, total: facts.pageCount }
+    const source = input.coverage as { measured?: unknown; total?: unknown; slots?: unknown }
+    const pageCoverage = countCoverage(source, limits.pages)
+    if (!pageCoverage) {
+      return { measured: facts.pageCount, total: facts.pageCount, slots: slotCoverage(source.slots) }
     }
-    const total = Math.min(source.total as number, limits.pages)
-    return { measured: Math.min(source.measured as number, total), total }
+    return { ...pageCoverage, slots: slotCoverage(source.slots) }
   })()
   const status = cleanIssues.some((issue) => issue.severity === 'error')
     ? 'errors'
     : cleanIssues.length
       ? 'warnings'
-      : coverage.measured < coverage.total
+      : coverage.measured < coverage.total || coverage.slots.measured < coverage.slots.total
         ? 'incomplete'
         : 'clean'
   return { status, issues: cleanIssues, omitted, facts, coverage }

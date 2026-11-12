@@ -10,6 +10,28 @@ interface SlotOverflowContext {
 
 const FIT_ATTRIBUTES = ['data-fit', 'data-fit-min', 'data-fit-max', 'data-fit-step', 'data-fit-axis', 'data-fit-box', 'data-fit-group'] as const
 
+export function fittedSlotModes(): readonly ['shrink', 'truncate', 'refuse'] {
+  return ['shrink', 'truncate', 'refuse']
+}
+
+export const FITTED_SLOT_MODES = fittedSlotModes()
+export type FittedSlotMode = (typeof FITTED_SLOT_MODES)[number]
+
+export function readSlotOverflowMarker(value: string | null): { key: string; mode: FittedSlotMode; minSize: number | undefined } | undefined {
+  if (value === null) return undefined
+  const parts = value.split(':')
+  let key: string
+  try {
+    key = decodeURIComponent(parts[0] ?? '')
+  } catch {
+    return undefined
+  }
+  const mode = parts[1]
+  if (!key || !fittedSlotModes().includes(mode as FittedSlotMode)) return undefined
+  const parsedMinSize = parts[2] === undefined ? undefined : Number.parseFloat(parts[2])
+  return { key, mode: mode as FittedSlotMode, minSize: parsedMinSize !== undefined && Number.isFinite(parsedMinSize) ? parsedMinSize : undefined }
+}
+
 export function clearSlotOverflow(element: Element): void {
   delete element.attribs['data-slot-overflow']
 }

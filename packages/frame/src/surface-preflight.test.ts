@@ -32,6 +32,41 @@ test('a later report for the same key replaces the earlier report', () => {
   expect(seen.reports.at(-1)?.issues[0]?.location?.folio).toBe('1')
 })
 
+test('merged surfaces retain measured and total slot coverage', () => {
+  const first = boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 1, total: 2 } } }, PREFLIGHT_PRESETS.default)
+  const second = boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 2, total: 2 } } }, PREFLIGHT_PRESETS.default)
+  const merged = mergeSurfacePreflightReports(
+    new Map([
+      ['first', first],
+      ['second', second],
+    ]),
+    surface('first', 'second'),
+    PREFLIGHT_PRESETS.default,
+  )
+  expect(merged).toMatchObject({ status: 'incomplete', coverage: { slots: { measured: 3, total: 4 } } })
+})
+
+test('merged surface slot coverage remains incomplete above the slot-key message limit', () => {
+  const first = boundPreflightReport(
+    { entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 100, total: 120 } } },
+    PREFLIGHT_PRESETS.default,
+  )
+  const second = boundPreflightReport(
+    { entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 100, total: 120 } } },
+    PREFLIGHT_PRESETS.default,
+  )
+  expect(
+    mergeSurfacePreflightReports(
+      new Map([
+        ['first', first],
+        ['second', second],
+      ]),
+      surface('first', 'second'),
+      PREFLIGHT_PRESETS.default,
+    ),
+  ).toMatchObject({ status: 'incomplete', coverage: { slots: { measured: 200, total: 240 } } })
+})
+
 test('deck changes keep reports by slide id and drop ids that leave', () => {
   const seen = coordinator()
   seen.coordinator.setSurface(surface('kept', 'removed'), true)
