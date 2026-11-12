@@ -41,6 +41,7 @@ import {
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
 import { withDiagramScript } from './diagram-document.ts'
+import type { LoadedLayoutScript } from './layout.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { imposedPaperBodies, imposedPaperDocument, placementBox } from './imposed-paper.ts'
@@ -146,6 +147,7 @@ export interface PrintOptions {
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   diagramScript?: string
+  layoutScripts?: readonly LoadedLayoutScript[]
   limits?: Limits
 }
 
@@ -188,7 +190,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   if ('media' in content)
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
   const frame = (html: string) =>
-    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, diagramScript: options.diagramScript }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, diagramScript: options.diagramScript, layoutScripts: options.layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)
@@ -253,6 +255,7 @@ export interface PrintablePagesOptions {
   origins?: Iterable<OriginApproval>
   pageWidths?: PageWidths
   diagramScript?: string
+  layoutScripts?: readonly LoadedLayoutScript[]
   limits?: Limits
 }
 
@@ -318,6 +321,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     csp: options.cspExtra || undefined,
     reportHeight: false,
     relayKeys: false,
+    layoutScripts: options.layoutScripts,
     printBackground: true,
     origins: options.origins,
   })

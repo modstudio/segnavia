@@ -1,7 +1,7 @@
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { type FrameOptions, frameDocument, newNonce } from './bridge.ts'
 import { hasDiagram, loadDiagramScript, withDiagramScript } from './diagram-document.ts'
-import { type LoadedLayoutScript, loadLayoutScripts } from './layout.ts'
+import { type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
 import { type ShownPageDocumentOptions, shownPageDocument } from './shown-page-document.ts'
 import type { PreparedSlots } from './slot-render.ts'
@@ -25,7 +25,16 @@ function loadDiagramDocument(
       failed(error)
     }
   }
-  const diagram = hasDiagram(html) ? load(html) : Promise.resolve(undefined)
+  if (!hasDiagram(html) && layoutsUsed(html).length === 0) {
+    write(undefined, [])
+    return
+  }
+  const diagram = hasDiagram(html)
+    ? load(html).catch((error) => {
+        failed(error)
+        return undefined
+      })
+    : Promise.resolve(undefined)
   void Promise.all([diagram, loadLayouts(html)]).then(
     ([script, layouts]) => write(script, layouts),
     (error) => failed(error),

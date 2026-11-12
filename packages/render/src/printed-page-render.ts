@@ -17,9 +17,9 @@ export function renderedPageDocument(
   options: ComposedRenderOptions,
   printing = false,
   diagramScript?: string,
-  layoutScripts?: readonly LoadedLayoutScript[],
   fontCss = '',
   fontFailures: FontFailure[] = [],
+  layoutScripts?: readonly LoadedLayoutScript[],
 ): string {
   try {
     if (!isPrintedHtmlPage(page) && !page.printedPages) {

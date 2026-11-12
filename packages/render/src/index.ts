@@ -296,9 +296,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const bytes = await renderSlotCopyPdfs(options.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(options.slots, copySlots, established.slots)
           const { value: prepared, slots } = await fillDeckForDay(deck, established.day, effectiveSlots, deadline.signal)
-          const diagramScript = await resolveDiagramScript(
-            prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join(''),
-          )
+          const htmlSlides = prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join('')
+          const diagramScript = await resolveDiagramScript(htmlSlides)
+          const resolvedLayoutScripts = await layoutScripts(htmlSlides)
           return renderDeckPdf(
             prepared,
             { ...options, limits: copyLimits(options.limits, options.slots), press: undefined },
@@ -322,6 +322,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             },
             diagramScript,
             established.day,
+            resolvedLayoutScripts,
           )
         })
         const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))

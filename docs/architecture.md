@@ -383,6 +383,17 @@ optional diagrams package when no provider is registered. It refuses diagram
 content when neither source is available, and imports no diagram module for
 content without a diagram.
 
+Layout providers are host-supplied, offline scripts registered through the
+server-safe `@segnavia/frame/layout` entry. Content selects a provider with
+`data-segnavia-layout="name"`; only selected providers are loaded and injected
+under the frame nonce. The frame runs each provider serially in priority and
+registration order. `galley` runs after source shaping and before pagination;
+`composed` runs after page-note settlement and is never re-paginated. Plain
+pages and slides run both phases as part of the bridge's ready join. A provider
+receives its selected elements plus `ink`, `lineBoxes`, and bounded `report`
+helpers. Reports enter preflight as `layout-report`; rejected and timed-out
+phases use the existing compose-failure path.
+
 **Data the host keeps.** The host keeps the parsed page body, including its
 markdown source beside the lowered HTML when the page was authored as markdown.
 Titles remain host data beside a page; markdown does not create a new asset
