@@ -1,8 +1,10 @@
-const BLOCK_ID = /(?:^|[\s<])data-segnavia-id\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/g
+// Reads quoted and unquoted HTML id values without decoding entities. An encoded
+// collision is left for the document's existing duplicate-id refusal to report.
+const HTML_ID = /(?:^|[\s<])(?:data-segnavia-id|id)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'=<>`]+))/gi
 
 function collectIds(value: unknown, taken: Set<string>, visited: WeakSet<object>): void {
   if (typeof value === 'string') {
-    for (const match of value.matchAll(BLOCK_ID)) {
+    for (const match of value.matchAll(HTML_ID)) {
       const id = match[1] ?? match[2] ?? match[3]
       if (id !== undefined) taken.add(id)
     }
@@ -17,16 +19,17 @@ function collectIds(value: unknown, taken: Set<string>, visited: WeakSet<object>
 }
 
 export function deterministicNewId(input: unknown): () => string {
-  if (typeof input !== 'object' || input === null || typeof (input as { id?: unknown }).id !== 'string' || !(input as { id: string }).id) {
+  const rootId = typeof input === 'object' && input !== null ? (input as { id?: unknown }).id : undefined
+  if (typeof rootId !== 'string' || !rootId) {
     throw new Error("deterministicNewId needs the document's id to build ids from; give the document a non-empty id to clear this refusal")
   }
-  const prefix = (input as { id: string }).id
   const taken = new Set<string>()
   collectIds(input, taken, new WeakSet())
   let next = 1
+  // The captured ids are a snapshot, so one helper belongs to one input.
   return () => {
-    let id = `${prefix}-${next++}`
-    while (taken.has(id)) id = `${prefix}-${next++}`
+    let id = `${rootId}-${next++}`
+    while (taken.has(id)) id = `${rootId}-${next++}`
     taken.add(id)
     return id
   }

@@ -178,7 +178,9 @@ stored HTML form, parses each content fragment structurally, and preserves or mi
 rows. One `newId` function supplies both node and block ids. Duplicate block
 ids are refused across the whole document. Hosts that need reproducible output
 pass `deterministicNewId(input)`, which skips node and block ids already in the
-input. Its ids are stable across runs for the same input, not across edits: an
+input, including plain HTML `id` anchors. It does not decode entity-encoded
+attribute values; a collision through one reaches the existing duplicate-id
+refusal. Its ids are stable across runs for the same input, not across edits: an
 id minted after an insertion depends on the ids minted before it. Stored ids
 make later parses idempotent. A host keeps ids by storing the Document that
 `parseDocument` returns (or reading back an element's Document getter where one

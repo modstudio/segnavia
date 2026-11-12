@@ -34,18 +34,33 @@ test('keeps existing block ids, converts markdown once, and parsing twice is the
   expect(existingBody && 'html' in existingBody ? existingBody.html : '').toContain('data-segnavia-id="kept"')
 })
 
-test('deterministic ids are repeatable and skip existing node and Hebrew block ids', () => {
+test('deterministic ids are repeatable and unique across missing nodes and Hebrew blocks', () => {
   const input = {
     type: 'document' as const,
-    kind: 'page' as const,
+    kind: 'book' as const,
     id: 'hebrew',
+    title: 'ספר',
+    mode: 'continuous' as const,
     children: [
       {
-        type: 'page' as const,
-        id: 'hebrew-1',
-        body: {
-          html: '<section dir="rtl" lang="he"><p data-segnavia-id="hebrew-2">קיים</p><h1>כותרת</h1><p>תוכן</p><figure>איור</figure></section>',
-        },
+        type: 'section' as const,
+        title: 'ראשון',
+        children: [
+          {
+            type: 'flow' as const,
+            html: '<section dir="rtl" lang="he"><p data-segnavia-id="hebrew-2">קיים</p><h1>כותרת</h1><p>תוכן</p><figure>איור</figure></section>',
+          },
+        ],
+      },
+      {
+        type: 'section' as const,
+        title: 'שני',
+        children: [{ type: 'flow' as const, html: '<p DATA-SEGNAVIA-ID="hebrew-4">קיים נוסף</p><p>תוכן נוסף</p>' }],
+      },
+      {
+        type: 'section' as const,
+        title: 'שלישי',
+        children: [{ type: 'flow' as const, html: '<h2 id="hebrew-6">עוגן</h2><p>עמוד שלישי</p>' }],
       },
     ],
   }
@@ -54,10 +69,32 @@ test('deterministic ids are repeatable and skip existing node and Hebrew block i
 
   expect(second).toEqual(first)
   expect(first.children[0]?.id).toBe('hebrew-1')
-  const body = first.children[0]?.type === 'page' ? first.children[0].body : undefined
-  const ids = body && 'html' in body ? [...body.html.matchAll(/data-segnavia-id="([^"]+)"/g)].map((match) => match[1]) : []
-  expect(ids).toEqual(['hebrew-2', 'hebrew-3', 'hebrew-4', 'hebrew-5'])
-  expect(new Set(ids).size).toBe(ids.length)
+  const nodeIds = first.children.flatMap((node) => ('children' in node ? [node.id, ...node.children.map((child) => child.id)] : [node.id]))
+  const blockIds = first.children.flatMap((node) =>
+    'children' in node
+      ? node.children.flatMap((child) =>
+          child.type === 'flow' ? [...child.html.matchAll(/data-segnavia-id="([^"]+)"/g)].flatMap((match) => (match[1] ? [match[1]] : [])) : [],
+        )
+      : [],
+  )
+  const carriedIds = new Set(['hebrew-2', 'hebrew-4', 'hebrew-6'])
+  const mintedIds = [...nodeIds, ...blockIds].filter((id) => !carriedIds.has(id))
+  const documentIds = [...nodeIds, ...blockIds, 'hebrew-6']
+  expect(mintedIds).toEqual([
+    'hebrew-1',
+    'hebrew-3',
+    'hebrew-5',
+    'hebrew-7',
+    'hebrew-8',
+    'hebrew-9',
+    'hebrew-10',
+    'hebrew-11',
+    'hebrew-12',
+    'hebrew-13',
+    'hebrew-14',
+    'hebrew-15',
+  ])
+  expect(new Set(documentIds).size).toBe(documentIds.length)
 })
 
 test('uses host alert labels while converting markdown at the content edge', () => {
