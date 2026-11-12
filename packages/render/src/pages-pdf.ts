@@ -139,8 +139,8 @@ async function composedPdf(
       sides,
       imposition.markColor,
     ),
-    ...(rendered.length === 1 && rendered[0]?.rendered.fontFamily ? { fontFamily: rendered[0].rendered.fontFamily } : {}),
-    ...(rendered.length === 1 && rendered[0]?.rendered.fontFaceCss ? { fontFaceCss: rendered[0].rendered.fontFaceCss } : {}),
+    ...(rendered[0]?.rendered.fontFamily ? { fontFamily: rendered[0].rendered.fontFamily } : {}),
+    ...(rendered[0]?.rendered.fontFaceCss ? { fontFaceCss: rendered[0].rendered.fontFaceCss } : {}),
   }
 }
 

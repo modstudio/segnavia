@@ -58,16 +58,13 @@ async function stampWatermarkMapped(pdf: Uint8Array, layer: Uint8Array, placemen
   const output = await loadPdf(pdf)
   const source = await loadPdf(layer)
   for (const { layerPage: layerIndex, outputPage } of placements) {
-    const page = output.getPage(outputPage - 1)
-    const layerPage = source.getPage(layerIndex)
-    if (!page || !layerPage) {
+    if (outputPage < 1 || outputPage > output.getPageCount() || layerIndex < 0 || layerIndex >= source.getPageCount()) {
       throw new RenderRefusedError(`The watermark layer could not be matched to output page ${outputPage}; rebuild the output to clear this refusal.`)
     }
+    const page = output.getPage(outputPage - 1)
     const media = page.getMediaBox()
     const trim = page.getTrimBox()
-    const [embedded] = await output.embedPdf(source, [layerIndex])
-    if (!embedded)
-      throw new RenderRefusedError(`The watermark layer page for output page ${outputPage} could not be embedded; rebuild it to clear this refusal.`)
+    const embedded = await output.embedPage(source.getPage(layerIndex))
     const bbox = output.context.obj([
       PDFNumber.of(trim.x),
       PDFNumber.of(trim.y),

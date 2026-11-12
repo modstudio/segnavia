@@ -13,6 +13,7 @@ test.each([
   [{ text: 'Draft', pages: [0] }, 'pages'],
   [{ text: 'Draft', pages: [1.5] }, 'pages'],
   [{ text: 'Draft', font: 'Body, ' }, 'font'],
+  [{ text: 'Draft', font: '"Foo, Bar", serif' }, 'give family names without quotes; they are quoted for you'],
 ] as const)('refuses invalid watermark options %#', (input, message) => {
   expect(() => parseWatermark(input)).toThrow(message)
 })

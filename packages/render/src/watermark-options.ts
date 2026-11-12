@@ -79,6 +79,11 @@ export function parseWatermark(value: unknown): Watermark | undefined {
   const content = hasText ? input.text : input.image
   if (typeof content !== 'string') refusal(hasText ? 'text' : 'image', 'needs to be a string')
   validateStrings(input)
+  if (typeof input.font === 'string' && (input.font.includes('"') || input.font.includes("'"))) {
+    throw new RenderRefusedError(
+      'The watermark.font field may not contain quotes; give family names without quotes; they are quoted for you. Change watermark.font or omit the watermark to clear this refusal.',
+    )
+  }
   if (typeof input.font === 'string' && input.font.split(',').some((family) => family.trim() === '')) {
     refusal('font', 'needs a non-empty family name on each side of a comma')
   }

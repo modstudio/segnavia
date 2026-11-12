@@ -13,8 +13,8 @@ import type {
   RenderOptions,
   SlideImageOptions,
 } from './options.ts'
-import type { Watermark } from './watermark-options.ts'
 import type { PdfOptions } from './protection-options.ts'
+import type { Watermark } from './watermark-options.ts'
 
 export const RENDER_BOUND_MS = 60_000
 export const PAGE_READY_BOUND_MS = 10_000
