@@ -1,0 +1,82 @@
+import { paperPixels, sheetMm, type TextDirection } from '@segnavia/format'
+import type { Page as Tab } from 'playwright-core'
+import { RenderRefusedError } from './errors.ts'
+import { fitWatermarkText } from './watermark-fit.ts'
+import { type WatermarkPage, watermarkMarkup } from './watermark-markup.ts'
+import { type Watermark, watermarkPageNumbers } from './watermark-options.ts'
+
+const CSS_PIXELS_PER_POINT = 96 / 72
+
+export interface ImageWatermarkPageInput {
+  viewport: { width: number; height: number }
+  direction: TextDirection
+  lang?: string
+  fontFamily?: string
+  trim?: { width: number; height: number }
+}
+
+export function imageWatermarkPage(input: ImageWatermarkPageInput): WatermarkPage {
+  const trim = input.trim ?? input.viewport
+  const x = (input.viewport.width - trim.width) / 2
+  const y = (input.viewport.height - trim.height) / 2
+  const points = (pixels: number) => pixels / CSS_PIXELS_PER_POINT
+  return {
+    media: { width: points(input.viewport.width), height: points(input.viewport.height) },
+    trim: { x: points(x), y: points(y), width: points(trim.width), height: points(trim.height) },
+    direction: input.direction,
+    ...(input.lang ? { lang: input.lang } : {}),
+    ...(input.fontFamily ? { fontFamily: input.fontFamily } : {}),
+  }
+}
+
+export function printedImageTrim(print: Parameters<typeof sheetMm>[0]): { width: number; height: number } {
+  const trim = sheetMm(print)
+  return { width: paperPixels(trim.width), height: paperPixels(trim.height) }
+}
+
+export function selectedImageWatermarkMarkup(watermark: Watermark | undefined, pageNumber: number, page: WatermarkPage): string | undefined {
+  if (!watermark) return undefined
+  const selected = new Set(watermarkPageNumbers(watermark, pageNumber, false))
+  return selected.has(pageNumber) ? watermarkMarkup(watermark, page) : undefined
+}
+
+const OVERLAY_STYLE = `
+:host{all:initial!important;position:fixed!important;inset:0!important;display:block!important;overflow:hidden!important;pointer-events:none!important;z-index:2147483647!important;contain:strict!important}
+*,*::before,*::after{box-sizing:border-box}
+`
+
+export async function injectImageWatermark(tab: Tab, markup: string): Promise<void> {
+  const root = await tab.evaluateHandle(
+    ({ html, css }) => {
+      const host = document.createElement('div')
+      const shadow = host.attachShadow({ mode: 'closed' })
+      const style = document.createElement('style')
+      style.textContent = css
+      const layer = document.createElement('div')
+      layer.innerHTML = html
+      shadow.append(style, layer)
+      document.documentElement.append(host)
+      return shadow
+    },
+    { html: markup, css: OVERLAY_STYLE },
+  )
+  try {
+    await root.evaluate(fitWatermarkText)
+    await root.evaluate(async (shadow) => {
+      const images = [...(shadow as ShadowRoot).querySelectorAll('img')]
+      await Promise.allSettled(images.map((image) => image.decode()))
+    })
+  } catch (error) {
+    throw new RenderRefusedError(
+      `The image watermark overlay could not be prepared: ${error instanceof Error ? error.message : String(error)}; change the watermark or omit it to clear this refusal.`,
+    )
+  } finally {
+    await root.dispose()
+  }
+}
+
+export async function nestedFrameFontFamily(tab: Tab): Promise<string | undefined> {
+  const frame = tab.frames().find((candidate) => candidate !== tab.mainFrame())
+  if (!frame) return undefined
+  return frame.evaluate(() => getComputedStyle(document.body).fontFamily)
+}

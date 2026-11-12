@@ -1119,13 +1119,17 @@ first strong letter in its visible HTML text, with left to right as the
 fallback. A `dir` on the author's own `<html>` root takes precedence and is not
 duplicated. Composed printed pages resolve direction by the same rule in their
 own builder.
-`pagePdf` and `pagesPdf` may add a render-only watermark. Chromium prints its
-text or image in a separate transparent layer using the document CSS and
-fonts. The renderer draws that layer over the trim inside an artifact marked
-as a pagination watermark, before press conversion and output limits run, so
-it never enters the document's structure tree. A `pagesPdf` selection names
-reader pages; imposition therefore stamps each selected reader page before it
-is placed on a press sheet.
+`pagePdf`, `pagesPdf`, `pageImage`, `slideImage` and `coverImage` may add a
+render-only watermark. For PDFs, Chromium prints its text or image in a
+separate transparent layer using the document CSS and fonts. The renderer
+draws that layer over the trim inside an artifact marked as a pagination
+watermark, before press conversion and output limits run, so it never enters
+the document's structure tree. A `pagesPdf` selection names reader pages;
+imposition therefore stamps each selected reader page before it is placed on a
+press sheet. An image render adds the same markup in an isolated top layer
+after readiness and preflight, immediately before capture, so the author
+document and every on-screen player remain unchanged. Watermark images use the
+render tab's ordinary offline asset route and policy.
 Two-sided imposition, crop marks and folds are built.
 
 After the browser prints a plain page (one without bleed or marks and without

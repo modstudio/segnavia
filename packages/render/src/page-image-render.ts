@@ -1,12 +1,14 @@
 import { hasDiagram } from '@segnavia/frame/diagrams'
-import { fillPageAsOfBindings, printedPageAuthorHtml } from '@segnavia/html'
+import { fillPageAsOfBindings, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { enforceImageBytes } from './image-bytes.ts'
+import { imageWatermarkPage, injectImageWatermark, printedImageTrim, selectedImageWatermarkMarkup } from './image-watermark.ts'
 import { assetSetup, type ParsedPageImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import type { prepareRenderedPage } from './page-document.ts'
+import { pageFontFacts } from './page-render.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { SurfacePreflight } from './preflight.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
@@ -56,6 +58,19 @@ export async function renderPreparedPageImage(
       await awaitPrintedPageComposition(tab, page, plainPagePreflight ? undefined : prepared.options.preflight)
       if (grows) await contentHeight(tab)
       plainPagePreflight?.complete()
+      const fontFamily = opts.watermark ? (await pageFontFacts(tab, Boolean(page.printedPages))).fontFamily : undefined
+      const watermark = selectedImageWatermarkMarkup(
+        opts.watermark,
+        1,
+        imageWatermarkPage({
+          viewport,
+          direction: printedPageDirection(page),
+          ...(page.lang ? { lang: page.lang } : {}),
+          ...(fontFamily ? { fontFamily } : {}),
+          ...(page.print ? { trim: printedImageTrim(page.print) } : {}),
+        }),
+      )
+      if (watermark) await injectImageWatermark(tab, watermark)
       const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(prepared.options), false), prepared.options)
       const stamped = stampImage(image, outputDate([prepared.established.day]))
       return enforceImageBytes(stamped, opts.limits?.bytes)

@@ -1,5 +1,5 @@
-export function fitWatermarkText(): void {
-  for (const mark of document.querySelectorAll<HTMLElement>('.segnavia-watermark')) {
+export function fitWatermarkText(root: ParentNode = document): void {
+  for (const mark of root.querySelectorAll<HTMLElement>('.segnavia-watermark')) {
     const text = mark.querySelector<HTMLElement>('bdi')
     if (!text) continue
     const style = getComputedStyle(mark)
