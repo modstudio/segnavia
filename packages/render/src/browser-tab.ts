@@ -245,7 +245,10 @@ export async function renderInBrowserTab<T>(
   await setup.beforeOutput?.(tab)
   refuseMissing()
   try {
-    const result = await body(tab)
+    const result = await body(tab).catch((error) => {
+      refuseMissing()
+      throw error
+    })
     refuseMissing()
     return result
   } finally {

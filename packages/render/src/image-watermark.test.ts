@@ -55,9 +55,56 @@ test('an image that fails to decode refuses the overlay', async () => {
     }),
   ).rejects.toEqual(
     new RenderRefusedError(
-      'The image watermark could not decode https://assets.example/watermark.png; approve its origin or omit the image to clear this refusal.',
+      'The image watermark could not decode https://assets.example/watermark.png; supply a decodable image from an approved origin or omit the image to clear this refusal.',
     ),
   )
+})
+
+test('the overlay enters the browser top layer after it is appended', async () => {
+  const calls: string[] = []
+  let overlayCss = ''
+  const shadow = {
+    append: () => {},
+    evaluate: async (callback: unknown) => (String(callback).includes('Promise.allSettled') ? [] : undefined),
+    dispose: async () => {},
+  }
+  const host = {
+    setAttribute: (name: string, value: string) => calls.push(`attribute:${name}:${value}`),
+    attachShadow: () => shadow,
+    showPopover: () => calls.push('show'),
+  }
+  const documentBefore = globalThis.document
+  Object.assign(globalThis, {
+    document: {
+      createElement: (name: string) =>
+        name === 'div'
+          ? host
+          : {
+              textContent: '',
+            },
+      documentElement: { append: () => calls.push('append') },
+      head: { append: () => {} },
+      fonts: { ready: Promise.resolve() },
+    },
+  })
+  const tab = {
+    evaluateHandle: async (callback: (input: { html: string; css: string; faces: string }) => unknown, input: { html: string; css: string; faces: string }) => {
+      overlayCss = input.css
+      return callback(input)
+    },
+    evaluate: async () => {},
+  }
+
+  try {
+    await injectImageWatermark(tab as never, '<div>Draft</div>', { scripts: true })
+  } finally {
+    Object.assign(globalThis, { document: documentBefore })
+  }
+
+  expect(calls).toEqual(['attribute:popover:manual', 'append', 'show'])
+  for (const reset of ['inset:0', 'width:auto', 'height:auto', 'margin:0', 'padding:0', 'border:0', 'background:transparent', 'overflow:hidden']) {
+    expect(overlayCss).toContain(reset)
+  }
 })
 
 test("a slide's family and face rules are collected from its frame", async () => {

@@ -44,7 +44,7 @@ export function selectedImageWatermarkMarkup(watermark: Watermark | undefined, p
 }
 
 const OVERLAY_STYLE = `
-:host{all:initial!important;position:fixed!important;inset:0!important;display:block!important;overflow:hidden!important;pointer-events:none!important;z-index:2147483647!important;contain:strict!important}
+:host{all:initial!important;position:fixed!important;inset:0!important;width:auto!important;height:auto!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;display:block!important;overflow:hidden!important;pointer-events:none!important;z-index:2147483647!important;contain:strict!important}
 *,*::before,*::after{box-sizing:border-box}
 `
 
@@ -59,6 +59,7 @@ export async function injectImageWatermark(tab: Tab, markup: string, options: Pi
         document.head.append(faceStyle)
       }
       const host = document.createElement('div')
+      host.setAttribute('popover', 'manual')
       const shadow = host.attachShadow({ mode: 'closed' })
       const style = document.createElement('style')
       style.textContent = css
@@ -66,6 +67,7 @@ export async function injectImageWatermark(tab: Tab, markup: string, options: Pi
       layer.innerHTML = html
       shadow.append(style, layer)
       document.documentElement.append(host)
+      host.showPopover()
       return shadow
     },
     { html: markup, css: OVERLAY_STYLE, faces: fontFaceCss },
@@ -84,7 +86,7 @@ export async function injectImageWatermark(tab: Tab, markup: string, options: Pi
     })
     if (failedImages.length > 0) {
       throw new RenderRefusedError(
-        `The image watermark could not decode ${failedImages.join(', ')}; approve its origin or omit the image to clear this refusal.`,
+        `The image watermark could not decode ${failedImages.join(', ')}; supply a decodable image from an approved origin or omit the image to clear this refusal.`,
       )
     }
   } catch (error) {
