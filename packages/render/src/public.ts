@@ -44,3 +44,4 @@ export {
   type RendererOptions,
 } from './renderer.ts'
 export { filledBook } from './slot-fill.ts'
+export type { Watermark } from './watermark-options.ts'

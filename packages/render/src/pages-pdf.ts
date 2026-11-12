@@ -18,20 +18,25 @@ import { type ComposedRenderOptions, innerLimits, parseRenderOptions } from './o
 import type { PrintResult } from './overflow.ts'
 import { groupPieces, type PieceGeometry, pieceGeometry } from './pages-imposition.ts'
 import { composeImposedPdf } from './pdf-compose.ts'
-import { pdfBox } from './pdf-geometry.ts'
+import { pdfBox, pt } from './pdf-geometry.ts'
 import { joinPdfs } from './pdf-join.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { slotsForDocument } from './slot-document.ts'
+import type { WatermarkPart } from './watermark-stamp.ts'
 
 export type PagesPdfOptions = ComposedRenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
   pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number): Promise<PrintResult>
-  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions): Promise<Uint8Array>
+  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions): Promise<PrintResult>
   fontFaces(options: ComposedRenderOptions): string
   finish(pdf: Uint8Array, options: Pick<ComposedRenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
+  watermark?(parts: readonly WatermarkPart[], pageCount?: number): Promise<Uint8Array[]>
 }
+
+const watermarkParts = (services: PagesPdfServices, parts: readonly WatermarkPart[], pageCount?: number) =>
+  services.watermark ? services.watermark(parts, pageCount) : Promise.resolve(parts.map((part) => part.bytes))
 
 function namePageError(error: unknown, page: number): never {
   if (error instanceof Error) {
@@ -53,6 +58,18 @@ async function declarePrintedPageBoxes(pdf: Uint8Array, print: Print): Promise<U
   return document.save()
 }
 
+async function declarePieceTrimBox(pdf: Uint8Array, geometry: PieceGeometry): Promise<Uint8Array> {
+  if (!geometry.padding) return pdf
+  const document = await loadPdf(pdf)
+  for (const page of document.getPages()) {
+    const media = page.getMediaBox()
+    const left = pt(geometry.padding.left)
+    const bottom = pt(geometry.padding.bottom)
+    page.setTrimBox(media.x + left, media.y + bottom, media.width - left - pt(geometry.padding.right), media.height - bottom - pt(geometry.padding.top))
+  }
+  return document.save()
+}
+
 async function composedPdf(
   pages: HtmlPage[],
   slots: PreparedSlots,
@@ -60,7 +77,7 @@ async function composedPdf(
   opts: PagesPdfOptions,
   services: PagesPdfServices,
   frameGroups: ReadonlyArray<readonly number[]> = pages.map((_, index) => [index]),
-): Promise<Uint8Array> {
+): Promise<PrintResult> {
   const press = sharedImpositionPress(pages)
   const imposed = impose(imposition, pages.length, press)
   const boxes = impositionBoxes(imposition, press)
@@ -78,33 +95,53 @@ async function composedPdf(
       const geometry = pieceGeometry(first)
       const css = `${page.print ? printProperties(page.print) : ''}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
       try {
+        const piece = await services.piecePdf(page, slotsForDocument(slots, [pageFrames]), geometry, css, {
+          ...opts,
+          limits: innerLimits(opts.limits),
+        })
         return {
           group,
-          bytes: await setPdfPageSize(
-            await services.piecePdf(page, slotsForDocument(slots, [pageFrames]), geometry, css, {
-              ...opts,
-              limits: innerLimits(opts.limits),
-            }),
-            geometry.paper,
-            'An imposition piece prints at its paper, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
-          ),
+          rendered: {
+            ...piece,
+            bytes: await declarePieceTrimBox(
+              await setPdfPageSize(
+                piece.bytes,
+                geometry.paper,
+                'An imposition piece prints at its paper, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
+              ),
+              geometry,
+            ),
+          },
         }
       } catch (error) {
         namePageError(error, group.page)
       }
     }),
   )
-  return composeImposedPdf(
-    imposed,
-    rendered.map(({ group, bytes }) => ({
-      key: group.key,
-      name: `The rendered piece for page ${group.page}`,
-      bytes,
-      placements: group.placements,
+  const watermarked = await watermarkParts(
+    services,
+    rendered.map(({ group, rendered: part }) => ({
+      ...part,
+      page: pages[group.page] as HtmlPage,
+      physicalPages: [group.page + 1],
     })),
-    sides,
-    imposition.markColor,
+    pages.length,
   )
+  return {
+    bytes: await composeImposedPdf(
+      imposed,
+      rendered.map(({ group }, index) => ({
+        key: group.key,
+        name: `The rendered piece for page ${group.page}`,
+        bytes: watermarked[index] as Uint8Array,
+        placements: group.placements,
+      })),
+      sides,
+      imposition.markColor,
+    ),
+    ...(rendered[0]?.rendered.fontFamily ? { fontFamily: rendered[0].rendered.fontFamily } : {}),
+    ...(rendered[0]?.rendered.fontFaceCss ? { fontFaceCss: rendered[0].rendered.fontFaceCss } : {}),
+  }
 }
 
 // Pages arrive parsed and filled with the slot preparation that measures their overflow.
@@ -128,7 +165,11 @@ export async function renderPagesPdf(
         ),
       ),
     )
-    const output = await services.finish(await joinPdfs(rendered.map((part) => part.bytes)), opts)
+    const watermarked = await watermarkParts(
+      services,
+      rendered.map((part, index) => ({ ...part, page: pages[index] as HtmlPage | PrintedHtmlPage })),
+    )
+    const output = await services.finish(await joinPdfs(watermarked), opts)
     opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
     return output
   }
@@ -151,7 +192,7 @@ export async function renderPagesPdf(
     const parts = await Promise.all(
       pages.map(async (page, inputIndex) => {
         if (!isPrintedHtmlPage(page) && !page.printedPages) {
-          return composedPdf([page], slots, imposition, opts, services, [frameGroups[inputIndex] ?? []])
+          return composedPdf([page], slots, imposition, opts, { ...services, watermark: undefined }, [frameGroups[inputIndex] ?? []])
         }
         const rendered = await services.pagePdf(
           page,
@@ -161,15 +202,19 @@ export async function renderPagesPdf(
         )
         if (rendered.overflow) overflow.push(rendered.overflow)
         if (!page.print) throw new Error('An identity-imposed printed page has no print geometry.')
-        return declarePrintedPageBoxes(rendered.bytes, page.print)
+        return { ...rendered, bytes: await declarePrintedPageBoxes(rendered.bytes, page.print), page }
       }),
     )
-    const output = await services.finish(await joinPdfs(parts), opts)
+    const watermarked = await watermarkParts(
+      services,
+      parts.map((part, index) => ({ ...part, page: pages[index] as HtmlPage | PrintedHtmlPage })),
+    )
+    const output = await services.finish(await joinPdfs(watermarked), opts)
     opts.overflow?.report?.({ entries: overflow })
     return output
   }
   if (!pages.every((page): page is HtmlPage => !isPrintedHtmlPage(page))) {
     throw new RenderRefusedError('A sectioned printed page could not be imposed with other pages; print without imposition to clear this refusal.')
   }
-  return services.finish(await composedPdf(pages, slots, imposition, opts, services, frameGroups), opts)
+  return services.finish((await composedPdf(pages, slots, imposition, opts, services, frameGroups)).bytes, opts)
 }

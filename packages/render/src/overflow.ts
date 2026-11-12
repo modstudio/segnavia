@@ -3,7 +3,12 @@ import type { OverflowContribution, OverflowEntry, OverflowPart } from './option
 
 export type BookOverflowPart = Extract<OverflowPart, 'front' | 'body' | 'margin'>
 
-export type PrintResult<Required extends boolean = false> = {
+export interface PageFontFacts {
+  fontFamily?: string
+  fontFaceCss?: string
+}
+
+export type PrintResult<Required extends boolean = false> = PageFontFacts & {
   bytes: Uint8Array
 } & (Required extends true ? { overflow: OverflowEntry } : { overflow?: OverflowEntry })
 

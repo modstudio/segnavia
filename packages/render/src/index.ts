@@ -47,6 +47,7 @@ import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledPage, filledPages } from './slot-fill.ts'
+import { watermarkCopyStamper } from './watermark-stamp.ts'
 
 export * from './public.ts'
 
@@ -170,6 +171,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page], parsedOptions.slots))
+        const watermarkCopies = watermarkCopyStamper(parsedOptions, prepared.fontCss, deadline, withTab)
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, prepared.established.slots)
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
@@ -185,10 +187,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             diagramScript,
             prepared.fontCss,
             prepared.fontFailures,
+            Boolean(parsedOptions.watermark),
           )
           if (printed.overflow) overflows.push(printed.overflow)
-          return printed.bytes
+          const [watermarked] = await watermarkCopies.stamp([{ ...printed, page }])
+          return watermarked as Uint8Array
         })
+        watermarkCopies.validate()
         const output = await withDocumentMetadata(
           await finishWithBrowser(bytes, prepared.options, deadline),
           parsedOptions.metadata,
@@ -239,6 +244,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         )
         const prepared = await prepareRenderedPages(expanded, parsedOptions, deadline.signal)
         const expandedPages = expanded.map((item, index) => fillPageAsOfBindings(item.page, contexts.pages[index]?.day))
+        const watermarkCopies = watermarkCopyStamper(parsedOptions, prepared.fontCss, deadline, withTab)
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, contexts.pages[0]?.slots)
           const { value: pages, slots, frameGroups } = await filledPages(expandedPages, effectiveSlots, deadline.signal)
@@ -259,14 +265,18 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   diagramScript,
                   prepared.fontCss,
                   prepared.fontFailures,
+                  Boolean(parsedOptions.watermark),
                 ),
-              piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
+              piecePdf: (page, slots, geometry, css, options) =>
+                renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript, Boolean(parsedOptions.watermark)),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
+              watermark: watermarkCopies.stamp,
             },
             frameGroups,
           )
         })
+        watermarkCopies.validate()
         const output = await enforce(
           await withDocumentMetadata(
             await finishWithBrowser(bytes, parsedOptions, deadline),
