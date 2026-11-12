@@ -111,6 +111,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/layout-runtime.ts',
       'src/bridge-slot-fit.ts',
       'src/bridge-composition.ts',
+      'src/composition-failure.ts',
       'src/bridge-message.ts',
       'src/document-slot-fit.ts',
       'src/embedded-preflight.ts',

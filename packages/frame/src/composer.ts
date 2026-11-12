@@ -25,7 +25,7 @@ import {
 } from '@segnavia/html'
 import { layoutScript, regionBox } from '@segnavia/layout'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
-import { COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
+import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
 import {
   embeddedDressPlanPagesFunctions,
   fillFurniture,
@@ -50,7 +50,7 @@ import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layo
 import { applyPrintedParentRules } from './printed-parent-selection.ts'
 export const COMPOSED_ATTRIBUTE = 'data-segnavia-composed'
 export const COMPOSED_MS_ATTRIBUTE = 'data-segnavia-composed-ms'
-export const COMPOSE_FAILURE_ATTRIBUTE = 'data-segnavia-compose-failure'
+export { COMPOSE_FAILURE_ATTRIBUTE } from './bridge.ts'
 export const GALLEY_PRINT_CSS = '@media print{:where([data-segnavia-galley-source]){display:none!important}}'
 // A valid book normally establishes its line boxes in one layout frame. One second admits throttled or deferred browser layout while still reporting a bounded measurement failure.
 export const BOOK_MEASUREMENT_WAIT_MS = 1_000

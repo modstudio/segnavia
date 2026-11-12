@@ -13,7 +13,7 @@ import {
   type ResolvedLimits,
   resolveLimits,
 } from '@segnavia/format'
-import { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
+import { COMPOSE_FAILURE_ATTRIBUTE, FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from '@segnavia/frame/bridge'
 import { assetOriginRefusals, type PreparedSlots } from '@segnavia/html'
 import type { Browser, BrowserContext, BrowserContextOptions, Page as Tab } from 'playwright-core'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
@@ -21,7 +21,7 @@ import type { AssetAnswer, AssetBudget, Assets } from './options.ts'
 import type { SurfacePreflightCapture } from './preflight.ts'
 import { RENDER_PROGRESS_BINDING, reportRenderProgress } from './progress.ts'
 import { type RenderDeadline, withinBound } from './render-deadline.ts'
-import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, waitsForReadiness } from './render-readiness.ts'
+import { RENDER_READY_BINDING, type RenderReadiness, readinessRefusal, recordedLayoutRefusal, waitsForReadiness } from './render-readiness.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
 import { installSlotFitCapture, mergeCapturedSlotFit } from './slot-fit.ts'
 
@@ -53,6 +53,34 @@ async function exposeLibraryReadiness(tab: Tab, enabled: boolean, ready: () => v
 
 function needsLibraryReadiness(readiness: RenderReadiness): boolean {
   return Boolean(readiness.diagrams || readiness.layouts)
+}
+
+async function waitForTabReadiness(
+  tab: Tab,
+  readiness: RenderReadiness,
+  waits: Promise<void>[],
+  established: () => RenderReadiness,
+): Promise<void> {
+  const genericRefusal = () => readinessRefusal(readiness, established(), PAGE_READY_BOUND_MS / 1000)
+  const readinessWait = withinBound(PAGE_READY_BOUND_MS, Promise.all(waits)).catch(async () => {
+    const recorded = readiness.layouts
+      ? await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), COMPOSE_FAILURE_ATTRIBUTE)
+      : null
+    throw new RenderRefusedError(recordedLayoutRefusal(recorded, genericRefusal()))
+  })
+  const failureWait = readiness.layouts
+    ? tab
+        .waitForFunction((attribute) => document.documentElement.hasAttribute(attribute), COMPOSE_FAILURE_ATTRIBUTE, { timeout: PAGE_READY_BOUND_MS })
+        .then(async () => {
+          const recorded = await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), COMPOSE_FAILURE_ATTRIBUTE)
+          throw new RenderRefusedError(recordedLayoutRefusal(recorded, genericRefusal()))
+        })
+        .catch((error) => {
+          if (error instanceof RenderRefusedError) throw error
+          return new Promise<never>(() => {})
+        })
+    : new Promise<void>(() => {})
+  await Promise.race([readinessWait, failureWait])
 }
 
 export const fontLoadSetup = (
@@ -232,11 +260,7 @@ export async function renderInBrowserTab<T>(
     const waits: Promise<void>[] = []
     if (setup.readiness.author) waits.push(authorPromise)
     if (needsLibraryReadiness(setup.readiness)) waits.push(diagramPromise)
-    await withinBound(PAGE_READY_BOUND_MS, Promise.all(waits)).catch(() => {
-      throw new RenderRefusedError(
-        readinessRefusal(setup.readiness, { author: authorReady, diagrams: diagramsReady, layouts: layoutsReady }, PAGE_READY_BOUND_MS / 1000),
-      )
-    })
+    await waitForTabReadiness(tab, setup.readiness, waits, () => ({ author: authorReady, diagrams: diagramsReady, layouts: layoutsReady }))
   }
   await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})
   let fontFailures = setup.fontFailures ?? []

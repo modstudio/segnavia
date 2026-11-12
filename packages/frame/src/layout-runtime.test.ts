@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { boundPreflightReport, PREFLIGHT_PRESETS } from '@segnavia/format'
-import { installLayoutRuntime, withLayoutScripts } from './layout-runtime.ts'
+import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
+import { installLayoutRuntime, layoutReadyBridgeScript, withLayoutScripts } from './layout-runtime.ts'
 
 const scripts = [{ name: 'margin', script: 'segnaviaLayout.define({galley(){}})', priority: 1, order: 0, selects: '.note' }]
 
@@ -11,6 +12,12 @@ test('layout runtime injection is byte-neutral without providers and nonce-autho
   expect(injected).toContain('<script nonce="held">')
   expect(injected).toContain('segnaviaLayout.define({galley(){}})')
   expect(injected.indexOf('<script')).toBeLessThan(injected.indexOf('</body>'))
+})
+
+test('layout bridge records a bounded compose failure for the render readiness join', () => {
+  const bridge = layoutReadyBridgeScript({ layoutScripts: scripts })
+  expect(bridge.declaration).toContain(`slice(0,${COMPOSE_FAILURE_TEXT_LIMIT})`)
+  expect(bridge.declaration).toContain(`setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}',text)`)
 })
 
 function harness(names = ['first', 'second']) {

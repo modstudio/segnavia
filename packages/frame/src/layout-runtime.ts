@@ -4,6 +4,7 @@ import { type MeasuredLineBox, measureLineBoxes } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { inkExcess } from './composer-page-dom.ts'
 import { graphemeInlineExtent } from './composer-properties.ts'
+import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 
 export type LayoutPhase = 'galley' | 'composed'
@@ -193,6 +194,6 @@ export function layoutReadyBridgeScript(options: { readonly layoutScripts?: read
   if ((options.layoutScripts?.length ?? 0) === 0) return { declaration: '', join: '' }
   const expression = options.readyAfterAttribute
     ? 'null'
-    : "window.segnaviaLayout?window.segnaviaLayout.run('galley').then(function(){return window.segnaviaLayout.run('composed');}).catch(function(error){post({type:'segnavia:compose-failure',text:String(error&&error.message||error).slice(0,1024)});return new Promise(function(){});}):null"
+    : `window.segnaviaLayout?window.segnaviaLayout.run('galley').then(function(){return window.segnaviaLayout.run('composed');}).catch(function(error){var text=String(error&&error.message||error).slice(0,${COMPOSE_FAILURE_TEXT_LIMIT});document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}',text);post({type:'segnavia:compose-failure',text:text});return new Promise(function(){});}):null`
   return { declaration: `var layouts=${expression};`, join: ',layouts' }
 }

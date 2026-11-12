@@ -25,6 +25,7 @@ import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { slotFitBridgeScript } from './bridge-slot-fit.ts'
+import { COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
@@ -37,6 +38,7 @@ import { escapeHtml } from './svg.ts'
 export type { SlotFitState } from '@segnavia/format'
 export { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
 export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type SelectionMessage, selectionMessage } from './bridge-selection.ts'
+export { COMPOSE_FAILURE_ATTRIBUTE, COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 export { documentNeedsSlotFit } from './document-slot-fit.ts'
 export { FONT_FAILURE_ATTRIBUTE, fontFailuresAttribute } from './font-load.ts'
 export { BLOCK_DIRECTION_CSS, frameStyleSheets, StyleSheetRefusedError } from './frame-style-sheets.ts'
@@ -63,7 +65,6 @@ export const MESSAGE = {
 } as const
 
 export const HEADING_ID_LIMIT = 256
-export const COMPOSE_FAILURE_TEXT_LIMIT = 1024
 
 export function scriptJson(value: unknown): string {
   return JSON.stringify(value)

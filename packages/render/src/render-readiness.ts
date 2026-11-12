@@ -1,4 +1,5 @@
 import type { Scripts } from '@segnavia/format'
+import { COMPOSE_FAILURE_TEXT_LIMIT } from '@segnavia/frame/bridge'
 import { DIAGRAMS_DRAWN_ATTRIBUTE } from '@segnavia/frame/diagrams'
 import { RenderRefusedError } from './errors.ts'
 import { PAGE_READY_BOUND_MS } from './renderer.ts'
@@ -21,6 +22,10 @@ export function renderReadiness(scripts: Scripts, diagrams: boolean, waitForPage
 
 export function waitsForReadiness(readiness: RenderReadiness): boolean {
   return Boolean(readiness.author || readiness.diagrams || readiness.layouts)
+}
+
+export function recordedLayoutRefusal(recorded: string | null, generic: string): string {
+  return recorded ? recorded.slice(0, COMPOSE_FAILURE_TEXT_LIMIT) : generic
 }
 
 export function readinessRefusal(readiness: RenderReadiness, established: RenderReadiness, seconds: number): string {

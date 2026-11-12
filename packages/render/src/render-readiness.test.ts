@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { readinessRefusal, renderReadiness } from './render-readiness.ts'
+import { readinessRefusal, recordedLayoutRefusal, renderReadiness } from './render-readiness.ts'
 
 describe('renderReadiness', () => {
   test.each([
@@ -31,4 +31,11 @@ describe('renderReadiness', () => {
       'layout provider galley and composed phases did not finish',
     )
   })
+})
+
+test('a recorded layout refusal is bounded and wins over the generic readiness refusal', () => {
+  const generic = 'Layout providers did not finish.'
+  expect(recordedLayoutRefusal(null, generic)).toBe(generic)
+  expect(recordedLayoutRefusal('', generic)).toBe(generic)
+  expect(recordedLayoutRefusal('x'.repeat(1200), generic)).toBe('x'.repeat(1024))
 })
