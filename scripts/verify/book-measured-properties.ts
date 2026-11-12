@@ -5,7 +5,7 @@ export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
   await h.page.goto(h.url('book-measured-properties.html'))
   const frame = h.page.frameLocator('#measured-properties')
   await frame.locator('[data-segnavia-pages]').waitFor()
-  const report = await frame.locator('body').evaluate((columnUnit) => {
+  const report = await frame.locator('body').evaluate(() => {
     const source = (id: string) => document.querySelector<HTMLElement>(`[data-segnavia-galley-source] [data-segnavia-id="${id}"]`)
     const property = (id: string, name: string) => source(id)?.style.getPropertyValue(name) ?? ''
     const count = (id: string) => Number.parseInt(getComputedStyle(source(id)?.querySelector('.derived-columns') as Element).columnCount, 10)
@@ -18,8 +18,8 @@ export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
     for (const rect of fitted ? range.getClientRects() : []) if (!lineTops.some((top) => Math.abs(top - rect.top) < 0.5)) lineTops.push(rect.top)
     const copies = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-pages] [data-segnavia-id="flowing-measure"]'))
     return {
-      wide: { value: widest, columns: count('wide-words'), implied: Math.max(1, Math.min(4, Math.floor(widest / columnUnit))) },
-      narrow: { value: narrowest, columns: count('narrow-words'), implied: Math.max(1, Math.min(4, Math.floor(narrowest / columnUnit))) },
+      wide: { value: widest, columns: count('wide-words') },
+      narrow: { value: narrowest, columns: count('narrow-words') },
       hebrew: {
         pointed: Number.parseFloat(property('pointed-word', '--word-width')),
         plain: Number.parseFloat(property('plain-word', '--word-width')),
@@ -31,11 +31,12 @@ export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
       },
       copies: copies.map((copy) => copy.style.getPropertyValue('--flow-block')),
     }
-  }, MEASURE_COLUMN_UNIT)
+  })
+  const implied = (value: number) => Math.max(1, Math.min(4, Math.floor(value / MEASURE_COLUMN_UNIT)))
   h.check(
     'the column-count recipe yields the count implied by the widest child and changes when that child changes',
-    report.wide.columns === report.wide.implied &&
-      report.narrow.columns === report.narrow.implied &&
+    report.wide.columns === implied(report.wide.value) &&
+      report.narrow.columns === implied(report.narrow.value) &&
       report.wide.value > report.narrow.value &&
       report.wide.columns > report.narrow.columns,
     JSON.stringify({ wide: report.wide, narrow: report.narrow }),

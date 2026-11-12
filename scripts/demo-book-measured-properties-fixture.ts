@@ -5,10 +5,10 @@ export const MEASURE_COLUMN_UNIT = 45
 export function measuredPropertiesFixture(): DocumentInput {
   const flowing = 'A measured paragraph keeps its source property on every dressed page copy. '.repeat(180)
   const fitted = 'Measured line count follows the fitted type rather than the authored type.'
-  const html = `<section class="measure-probe" data-segnavia-id="wide-words" data-measure="max-content-inline:children" data-measure-as="--widest"><span>map</span><span>characteristically</span><div class="derived-columns"></div></section>
-<section class="measure-probe" data-segnavia-id="narrow-words" data-measure="max-content-inline:children" data-measure-as="--widest"><span>map</span><span>harbor</span><div class="derived-columns"></div></section>
-<section class="measure-probe hebrew-measure" lang="he" dir="rtl" data-segnavia-id="pointed-word" data-measure="max-content-inline:children" data-measure-as="--word-width"><span>בְּרֵאשִׁית</span></section>
-<section class="measure-probe hebrew-measure" lang="he" dir="rtl" data-segnavia-id="plain-word" data-measure="max-content-inline:children" data-measure-as="--word-width"><span>בראשית</span></section>
+  const html = `<figure class="measure-probe" data-segnavia-id="wide-words" data-measure="max-content-inline:children" data-measure-as="--widest"><span>map</span><span>characteristically</span><div class="derived-columns"></div></figure>
+<figure class="measure-probe" data-segnavia-id="narrow-words" data-measure="max-content-inline:children" data-measure-as="--widest"><span>map</span><span>harbor</span><div class="derived-columns"></div></figure>
+<figure class="measure-probe hebrew-measure" lang="he" dir="rtl" data-segnavia-id="pointed-word" data-measure="max-content-inline:children" data-measure-as="--word-width"><span>בְּרֵאשִׁית</span></figure>
+<figure class="measure-probe hebrew-measure" lang="he" dir="rtl" data-segnavia-id="plain-word" data-measure="max-content-inline:children" data-measure-as="--word-width"><span>בראשית</span></figure>
 <div class="fit-measure-box"><p data-segnavia-id="fitted-lines" data-fit="size" data-fit-min="10px" data-fit-step="1px" data-fit-axis="both" data-fit-box="parent" data-measure="line-count" data-measure-as="--fitted-lines">${fitted}</p></div>
 <p class="flowing-measure" data-segnavia-id="flowing-measure" data-measure="block" data-measure-as="--flow-block">${flowing}</p>`
   const css = `
@@ -27,7 +27,7 @@ export function measuredPropertiesFixture(): DocumentInput {
     metadata: { title: 'Measured properties' },
     mode: 'paginated',
     settings: { lang: 'en' },
-    page: { paper: 'a5', margin: 18 },
+    page: { paper: 'a5', margin: { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 } },
     style: { css },
     children: [
       {
