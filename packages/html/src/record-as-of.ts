@@ -1,6 +1,7 @@
 import {
   type AsOfDay,
   type Book,
+  type BookView,
   type BookChapterEntry,
   type BookFrontMatterEntry,
   type Deck,
@@ -69,6 +70,28 @@ export function fillBookAsOfBindings(book: Book, day: AsOfDay): Book {
       ...parent,
       regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: fillAsOfBindings(region.html, day) }])),
     })),
+  }
+}
+
+/** Fills every author-HTML string carried by a lowered book view. */
+export function fillBookViewAsOfBindings(view: BookView, day: AsOfDay): BookView {
+  return {
+    ...view,
+    html: fillAsOfBindings(view.html, day),
+    ...(view.flow === undefined ? {} : { flow: fillAsOfBindings(view.flow, day) }),
+    ...(view.pagination === undefined
+      ? {}
+      : {
+          pagination: {
+            ...view.pagination,
+            parents: view.pagination.parents.map((parent) => ({
+              ...parent,
+              regions: Object.fromEntries(
+                Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: fillAsOfBindings(region.html, day) }]),
+              ),
+            })),
+          },
+        }),
   }
 }
 

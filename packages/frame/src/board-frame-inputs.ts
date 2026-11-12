@@ -1,5 +1,6 @@
 import type { OriginApproval, PageWidths } from '@segnavia/format'
 import { BoardDocumentElement } from './board-document-element.ts'
+import { type AsOfElementProperties, defineAsOfPropertyAccessors } from './as-of-element.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
@@ -11,6 +12,9 @@ export interface BoardFrameInputs {
   placements?: PlacementsOptions
   pageWidths?: PageWidths
   origins: readonly OriginApproval[]
+  anchors?: AsOfElementProperties['anchors']
+  asOf?: AsOfElementProperties['asOf']
+  moment?: AsOfElementProperties['moment']
 }
 
 export interface FrameInputsTarget {
@@ -19,6 +23,9 @@ export interface FrameInputsTarget {
   placements: PlacementsOptions | undefined
   pageWidths: PageWidths | undefined
   origins: Iterable<OriginApproval>
+  anchors: AsOfElementProperties['anchors']
+  asOf: AsOfElementProperties['asOf']
+  moment: AsOfElementProperties['moment']
 }
 
 export function applyFrameInputs(target: FrameInputsTarget, inputs: BoardFrameInputs): void {
@@ -27,10 +34,24 @@ export function applyFrameInputs(target: FrameInputsTarget, inputs: BoardFrameIn
   target.placements = inputs.placements
   target.pageWidths = inputs.pageWidths
   target.origins = inputs.origins
+  target.anchors = inputs.anchors
+  target.asOf = inputs.asOf
+  target.moment = inputs.moment
 }
 
 export abstract class BoardFrameInputsElement extends BoardDocumentElement {
+  static {
+    defineAsOfPropertyAccessors(BoardFrameInputsElement.prototype)
+  }
+  declare anchors: AsOfElementProperties['anchors']
+  declare asOf: AsOfElementProperties['asOf']
+  declare moment: AsOfElementProperties['moment']
   protected frameInputs: BoardFrameInputs = { origins: [] }
+
+  asOfInputsChanged(): void {
+    this.frameInputs = { ...this.frameInputs, anchors: this.anchors, asOf: this.asOf, moment: this.moment }
+    this.frameInputsChanged()
+  }
 
   set motifs(value: MotifsOptions | undefined) {
     this.frameInputs = { ...this.frameInputs, motifs: value }

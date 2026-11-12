@@ -5,7 +5,7 @@ import type { MotifsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
 
-const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
+const HTMLElementBase = globalThis.HTMLElement ?? (class extends EventTarget {} as typeof HTMLElement)
 
 export abstract class BookSourcesElement extends HTMLElementBase {
   static {

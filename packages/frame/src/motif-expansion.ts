@@ -313,11 +313,12 @@ export async function expandFrameBookView(
   signal: AbortSignal,
   placements?: PlacementsOptions,
   pageWidths?: PageWidths,
+  day?: AsOfDay,
   profile?: PreflightProfile,
 ): Promise<ExpandedBook<BookView>> {
   const preflight = profile ? { profile, entries: [] as PreflightEntry[] } : undefined
-  const expanded = motifs ? await expandBookShape(viewShape(view), motifs, signal) : { book: view, fonts: [] }
-  return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, 'screen', signal, pageWidths, undefined, preflight)
+  const expanded = motifs ? await expandBookShape(viewShape(view), motifs, signal, day) : { book: view, fonts: [] }
+  return resolveBookShape({ ...expanded, preflight: preflight?.entries ?? [] }, placements, 'screen', signal, pageWidths, day, preflight)
 }
 
 export async function expandFramePage(

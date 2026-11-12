@@ -25,7 +25,7 @@ describe('book motifs', () => {
     }
     book.fonts = { source: { font: async () => undefined } }
     book.view = { html: '<main>Book</main>', style: { fonts: { missing: { faces: [{}] } } } }
-    for (let i = 0; i < 20; i += 1) await Promise.resolve()
+    for (let i = 0; i < 40; i += 1) await Promise.resolve()
     expect(detail).toEqual({ failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }] })
   })
 
@@ -37,7 +37,7 @@ describe('book motifs', () => {
     view.html = '<main data-segnavia-galleys><span data-motif="held"></span></main>'
     view.flow = '<main data-segnavia-flow="chapter"><span data-motif="held"></span></main>'
     book.view = view
-    for (let i = 0; i < 20; i += 1) await Promise.resolve()
+    for (let i = 0; i < 40; i += 1) await Promise.resolve()
 
     expect(frames.find((frame) => frame.dataset.segnaviaBookLayout === 'pages')?.srcdoc).toContain('data-expanded-motif')
     book.layout = 'flow'

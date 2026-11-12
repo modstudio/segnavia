@@ -250,7 +250,7 @@ describe('book layout lifecycle', () => {
     const failure = { source: pages.contentWindow, data: { type: 'segnavia:compose-failure', text: 'page limit reached' } } as MessageEvent
     ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage(failure)
     ;(book as unknown as { onMessage: (event: MessageEvent) => void }).onMessage(failure)
-    expect(events).toEqual(['page limit reached'])
+    expect(events).toEqual(['asof', 'page limit reached'])
     expect((book as unknown as { readyLayouts: Set<string> }).readyLayouts.size).toBe(0)
   })
 

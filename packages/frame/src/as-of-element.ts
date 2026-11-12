@@ -5,7 +5,9 @@ export interface AsOfElementProperties extends Pick<AsOfInputs, 'anchors' | 'mom
   asOf: { zone?: Zone } | undefined
 }
 
-export abstract class AsOfElement extends HTMLElement {
+const HTMLElementBase = globalThis.HTMLElement ?? (class {} as typeof HTMLElement)
+
+export abstract class AsOfElement extends HTMLElementBase {
   static {
     defineAsOfPropertyAccessors(AsOfElement.prototype)
   }

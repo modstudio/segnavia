@@ -133,6 +133,7 @@ export {
   renderMotifPlacements,
 } from './motifs.ts'
 export { fillPageAsOfBindings } from './page-as-of.ts'
+export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, fillDeckAsOfBindings, mapBookHtml } from './record-as-of.ts'
 export {
   classifyMediaAnswer,
   type MediaAnswer,
@@ -151,7 +152,6 @@ export {
   resolvePlacements,
 } from './placements.ts'
 export { printedSectionFlows } from './printed-section-flows.ts'
-export { bindBookRecordValues, fillBookAsOfBindings, fillDeckAsOfBindings, mapBookHtml } from './record-as-of.ts'
 export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
 export {
   assetOriginRefusals,

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import { SegnaviaBook } from './book.ts'
 import { bookFrame } from './book-frame.ts'
-import { reflectedBookElement } from './book-test-view.ts'
+import { reflectedBookElement, switchableBookView } from './book-test-view.ts'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -27,6 +27,28 @@ function deferred<T>() {
 }
 
 describe('book element input', () => {
+  test('emits its fixed day and fills parent-page furniture', () => {
+    const { book, frames } = reflectedBookElement()
+    const days: Array<{ date: string }> = []
+    book.addEventListener('asof', (event) => days.push((event as CustomEvent<{ date: string }>).detail))
+    const view = switchableBookView()
+    view.asOf = { kind: 'fixed', date: '2026-11-14' }
+    const parent = view.pagination?.parents[0]
+    if (parent) parent.regions = { head: { edge: 'blockStart', html: '<time data-slot-value="asOf.date"></time>' } }
+    book.view = view
+    expect(days.map(({ date }) => date)).toEqual(['2026-11-14'])
+    expect(frames[0]?.srcdoc).toContain('2026-11-14')
+  })
+
+  test('reloads a current book view from the host moment', () => {
+    const { book } = reflectedBookElement()
+    const dates: string[] = []
+    book.addEventListener('asof', (event) => dates.push((event as CustomEvent<{ date: string }>).detail.date))
+    book.moment = Date.parse('2026-11-15T01:00:00Z')
+    book.view = { html: '<main>Book</main>', asOf: { kind: 'current', zone: 'America/New_York' } }
+    expect(dates).toEqual(['2026-11-14'])
+  })
+
   test('the view property parses and rebuilds the frame', () => {
     const { book, mounts } = element()
     book.view = { html: '<main>שלום</main>', lang: 'he' }
@@ -242,7 +264,7 @@ describe('book fonts', () => {
     spread = true
     await book.attributeChangedCallback('spread', null, '')
     pending.resolve()
-    for (let i = 0; i < 8; i += 1) await Promise.resolve()
+    for (let i = 0; i < 32; i += 1) await Promise.resolve()
 
     expect(errors).toEqual([])
     expect(mounted.at(-1)?.title).toBe('Latest')
@@ -271,7 +293,7 @@ describe('book fonts', () => {
     await book.attributeChangedCallback('spread', null, '')
     resolveResponse(Response.json({ html: '<main>Fetched</main>', title: 'Fetched' }))
     await loading
-    for (let i = 0; i < 4; i += 1) await Promise.resolve()
+    for (let i = 0; i < 32; i += 1) await Promise.resolve()
 
     expect(book.view?.title).toBe('Fetched')
     expect(mounted.at(-1)?.title).toBe('Fetched')
@@ -317,7 +339,7 @@ describe('book fonts', () => {
     expect(frames).toHaveLength(0)
     connected = true
     book.connectedCallback()
-    for (let i = 0; i < 8; i += 1) await Promise.resolve()
+    for (let i = 0; i < 32; i += 1) await Promise.resolve()
     globalThis.document = previousDocument
     globalThis.window = previousWindow
     expect(error).toBeUndefined()
@@ -354,7 +376,7 @@ describe('book fonts', () => {
       },
     }
     book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { serif: { faces: [{}] } } } }
-    for (let i = 0; i < 8; i += 1) await Promise.resolve()
+    for (let i = 0; i < 32; i += 1) await Promise.resolve()
     globalThis.document = previous
     expect(frames.at(-1)?.srcdoc).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
     expect(frames.at(-1)?.srcdoc).toContain('--segnavia-font-serif:"Body Serif",serif')

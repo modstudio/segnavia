@@ -1,5 +1,11 @@
 import type {
   AsOfDay,
+  BoardChangeDetail,
+  BoardErrorDetail,
+  BoardItemActionDetail,
+  BoardOpenDetail,
+  BoardSelectionDetail,
+  BoardViewDetail,
   ComposeProgress,
   ControllerOptions,
   DeckController,
@@ -10,6 +16,7 @@ import type {
   PreflightReport,
   PrintInput,
   SegnaviaBook,
+  SegnaviaBoard,
   SegnaviaDocument,
   SegnaviaPage,
   SegnaviaPaper,
@@ -185,12 +192,16 @@ export interface BookProps extends Omit<ElementProps<SegnaviaBook>, 'onError'> {
   placements?: SegnaviaBook['placements']
   pageWidths?: SegnaviaBook['pageWidths']
   origins?: SegnaviaBook['origins']
+  anchors?: SegnaviaBook['anchors']
+  asOf?: SegnaviaBook['asOf']
+  moment?: SegnaviaBook['moment']
   profile?: SegnaviaBook['profile']
   src?: string
   spread?: boolean
   layout?: SegnaviaBook['layout']
   unstyled?: boolean
   onReady?: (event: Event) => void
+  onAsof?: CustomEventProp<AsOfDay>
   onPreflight?: CustomEventProp<PreflightReport>
   onFontfailure?: CustomEventProp<FontFailureDetail>
   onError?: ErrorEventProp
@@ -209,10 +220,44 @@ export interface PaperProps extends Omit<ElementProps<SegnaviaPaper>, 'onError' 
   brands?: SegnaviaPaper['brands']
   placements?: SegnaviaPaper['placements']
   pageWidths?: SegnaviaPaper['pageWidths']
+  anchors?: SegnaviaPaper['anchors']
+  asOf?: SegnaviaPaper['asOf']
+  moment?: SegnaviaPaper['moment']
   unstyled?: boolean
   onFontfailure?: CustomEventProp<FontFailureDetail>
+  onAsof?: CustomEventProp<AsOfDay>
   onError?: ErrorEventProp
   onChange?: (event: Event) => void
+}
+
+export interface BoardProps extends ElementProps<SegnaviaBoard> {
+  board?: SegnaviaBoard['board']
+  motifs?: SegnaviaBoard['motifs']
+  placements?: SegnaviaBoard['placements']
+  pageWidths?: SegnaviaBoard['pageWidths']
+  fonts?: SegnaviaBoard['fonts']
+  origins?: SegnaviaBoard['origins']
+  anchors?: SegnaviaBoard['anchors']
+  asOf?: SegnaviaBoard['asOf']
+  moment?: SegnaviaBoard['moment']
+  brands?: SegnaviaBoard['brands']
+  view?: SegnaviaBoard['view']
+  kindIcon?: SegnaviaBoard['kindIcon']
+  selection?: SegnaviaBoard['selection']
+  selected?: SegnaviaBoard['selected']
+  itemActions?: SegnaviaBoard['itemActions']
+  labels?: SegnaviaBoard['labels']
+  liveWidth?: SegnaviaBoard['liveWidth']
+  resolveItem?: SegnaviaBoard['resolveItem']
+  itemNames?: SegnaviaBoard['itemNames']
+  onSegnaviaBoardChange?: CustomEventProp<BoardChangeDetail>
+  onSegnaviaBoardError?: CustomEventProp<BoardErrorDetail>
+  onSegnaviaBoardIcons?: CustomEventProp
+  onSegnaviaBoardItemAction?: CustomEventProp<BoardItemActionDetail>
+  onSegnaviaBoardNames?: CustomEventProp
+  onSegnaviaBoardOpen?: CustomEventProp<BoardOpenDetail>
+  onSegnaviaBoardSelection?: CustomEventProp<BoardSelectionDetail>
+  onSegnaviaBoardView?: CustomEventProp<BoardViewDetail>
 }
 
 export interface DocumentProps extends Omit<ElementProps<SegnaviaDocument>, 'onError'> {
