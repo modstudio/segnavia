@@ -48,7 +48,8 @@ import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledPage, filledPages } from './slot-fill.ts'
-import { watermarkCopyStamper } from './watermark-stamp.ts'
+import { parseWatermarkOption } from './watermark-options.ts'
+import { watermarkCopyStamper, watermarkPartFromFacts } from './watermark-stamp.ts'
 
 export * from './public.ts'
 
@@ -133,6 +134,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const { book, options, fontCss: resolvedFontCss, fontFailures, established, preflight } = await prepareRenderBook(input, parsedOptions, deadline.signal)
         const seededOptions = { ...options, preflight: withPreflightSeed(options.preflight, preflight) }
+        const watermarkCopies = watermarkCopyStamper(parsedOptions, resolvedFontCss, deadline, withTab)
         const output = await renderBrowserBookPdf(
           book,
           seededOptions,
@@ -146,10 +148,17 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               }),
             fontFaces: (options) => fontFaces(options.fonts),
             finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),
+            watermark: parsedOptions.watermark
+              ? async (pdf, pages) => {
+                  const [watermarked] = await watermarkCopies.stamp([watermarkPartFromFacts(pdf, pages)])
+                  return watermarked as Uint8Array
+                }
+              : undefined,
             fontFailures,
           },
           established.day,
         )
+        watermarkCopies.validate()
         return protectPdf(output, parsedOptions, deadline)
       })
     },
@@ -307,12 +316,14 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async deckPdf(input, opts = {}) {
-      const options = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(opts)))
+      const parsed = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(opts)))
+      const options = parseWatermarkOption(parsed)
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
         const established = await resolveRenderDayContext(deck, options, deadline.signal)
         enforceDeckLimits(deck, options.limits)
+        const watermarkCopies = watermarkCopyStamper(options, '', deadline, withTab)
         const bytes = await renderSlotCopyPdfs(options.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(options.slots, copySlots, established.slots)
           const { value: prepared, slots } = await fillDeckForDay(deck, established.day, effectiveSlots, deadline.signal)
@@ -338,6 +349,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                 ),
               fontFaces: (options) => fontFaces(options.fonts),
               finish: async (pdf) => pdf,
+              watermark: options.watermark ? watermarkCopies.stamp : undefined,
               signal: deadline.signal,
             },
             diagramScript,
@@ -345,6 +357,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             resolvedLayoutScripts,
           )
         })
+        watermarkCopies.validate()
         const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
         return protectPdf(output, options, deadline)
       })

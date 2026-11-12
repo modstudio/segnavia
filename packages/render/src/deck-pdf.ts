@@ -3,7 +3,6 @@ import {
   type Deck,
   type FontFailure,
   fitPage,
-  type ImageFit,
   Imposition,
   impose,
   impositionBoxes,
@@ -16,7 +15,6 @@ import {
 import { newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
-import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import {
   deckPressSettings,
@@ -38,12 +36,15 @@ import {
   htmlSlidePdfOptions,
   regularSlideDrawBox,
 } from './deck-paper.ts'
-import { waitForPrintReady } from './deck-readiness.ts'
+import { placeRenderedImages, slidePrepare, waitForPrintReady } from './deck-readiness.ts'
+import { deckFontFailures, firstNotesPages } from './deck-render-helpers.ts'
+import { captureDeckFont, type DeckWatermark, type RenderedDeckPage, watermarkImposedDeck, watermarkRegularDeck } from './deck-watermark.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import { layoutsForHtml } from './layout-scripts.ts'
 import type { ComposedRenderOptions } from './options.ts'
 import { type Assets, assetSetup } from './options.ts'
+import type { PageFontFacts } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { fontCssForRender, renderOptionsWithFontManifest } from './page-document.ts'
 import { addPressBoxes, printCss } from './page-paper.ts'
@@ -52,8 +53,9 @@ import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { type SurfacePreflight, type SurfacePreflightCapture, surfacePreflight } from './preflight.ts'
 import { renderReadiness } from './render-readiness.ts'
+import type { Watermark } from './watermark-options.ts'
 
-export type DeckPdfOptions = ComposedRenderOptions & PrintOptions
+export type DeckPdfOptions = ComposedRenderOptions & PrintOptions & { watermark?: Watermark }
 
 export function resolveDeckFonts(deck: Deck, opts: RenderOptions, signal: AbortSignal) {
   return renderOptionsWithFontManifest(deck.style?.fonts, [], `deck ${JSON.stringify(deck.title)}`, opts, signal)
@@ -81,6 +83,7 @@ interface DeckPdfServices {
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
   signal?: AbortSignal
   fontFailures?: FontFailure[]
+  watermark?: DeckWatermark
 }
 
 function nameSlideError(error: unknown, id: string): never {
@@ -92,45 +95,7 @@ function nameSlideError(error: unknown, id: string): never {
   throw new Error(`Slide "${id}" could not be rendered: ${String(error)}`)
 }
 
-export function firstNotesPages(pageOwners: readonly number[], slideCount: number): number[] {
-  return Array.from({ length: slideCount }, (_, slide) => pageOwners.indexOf(slide))
-}
-
-function deckFontFailures(initial: readonly FontFailure[], notes: { failures: FontFailure[] } | undefined): FontFailure[] {
-  return [...initial, ...(notes?.failures ?? [])]
-}
-
-async function placeRenderedImages(tab: Tab): Promise<void> {
-  const layers = tab.locator('[data-segnavia-image-layer]')
-  const facts = await layers.evaluateAll((elements) =>
-    elements.map((element) => {
-      const layer = element as HTMLElement
-      const image = layer.querySelector('img') as HTMLImageElement | null
-      return {
-        slide: { width: Number(layer.dataset.slideWidth), height: Number(layer.dataset.slideHeight) },
-        image: { width: image?.naturalWidth ?? 0, height: image?.naturalHeight ?? 0 },
-        fit: layer.dataset.fit,
-        frame: layer.dataset.frame === 'true',
-      }
-    }),
-  )
-  const styles = facts.map((fact) => {
-    if (fact.image.width <= 0 || fact.image.height <= 0) return null
-    const placement = fitImage(fact.slide, fact.image, fact.fit as ImageFit, undefined, fact.frame)
-    return imageLayerStyles(fact.image, placement, fact.slide)
-  })
-  await layers.evaluateAll((elements, values) => {
-    elements.forEach((element, index) => {
-      const styles = values[index]
-      if (!styles) return
-      const layer = element as HTMLElement
-      const image = layer.querySelector('img') as HTMLImageElement | null
-      if (!image) return
-      Object.assign(layer.style, styles.layer)
-      Object.assign(image.style, styles.image)
-    })
-  }, styles)
-}
+export { firstNotesPages } from './deck-render-helpers.ts'
 
 async function paginateRenderedNotes(tab: Tab, sheets?: number): Promise<{ sheets: number; exceeded: boolean }> {
   if (sheets === undefined) return tab.evaluate(paginateNotes, null)
@@ -147,7 +112,7 @@ async function renderHtmlSlides(
   diagramScript: string | undefined,
   layoutScripts: readonly LoadedLayoutScript[],
   preflight: SurfacePreflight | undefined,
-): Promise<Array<{ index: number; bytes: Uint8Array }>> {
+): Promise<RenderedDeckPage[]> {
   const slides = deck.slides.flatMap((slide, index) =>
     'kind' in slide.content && slide.content.kind === 'html' ? [{ index, id: slide.id, html: slide.content.html, printAtMs: slide.printAtMs ?? 0 }] : [],
   )
@@ -155,6 +120,7 @@ async function renderHtmlSlides(
     slides.map(async ({ index, id, html, printAtMs }) => {
       try {
         const slideLayouts = layoutsForHtml(html, layoutScripts)
+        let font: PageFontFacts = {}
         const bytes = await services.renderPdf(
           {
             viewport: deckPrintableViewport(deck.size, undefined, press),
@@ -174,8 +140,12 @@ async function renderHtmlSlides(
             ...assetSetup(opts),
             ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
             preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
-            beforeOutput: (tab) =>
-              waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false, slideLayouts.length > 0)),
+            beforeOutput: async (tab) => {
+              font = await captureDeckFont(tab, Boolean(opts.watermark), {
+                prepare: (page) =>
+                  waitForPrintReady(page, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false, slideLayouts.length > 0)),
+              })
+            },
           },
           {
             ...htmlSlidePdfOptions(deck.size, press),
@@ -186,6 +156,7 @@ async function renderHtmlSlides(
         return {
           index,
           bytes: press.slides && press.boxes ? await setPdfPageSize(bytes, press.boxes.bleedBox, DECK_PRESS_SIZE_REMEDY) : bytes,
+          ...font,
         }
       } catch (error) {
         nameSlideError(error, id)
@@ -234,6 +205,7 @@ async function regularDeckPdf(
     : undefined
   const fontFailures = deckFontFailures(services.fontFailures ?? [], notesSheetFont)
   let pageOwners: number[] = []
+  let printableFont: PageFontFacts = {}
   const [printable, rendered] = await Promise.all([
     services.renderPdf(
       {
@@ -255,6 +227,7 @@ async function regularDeckPdf(
             pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
           }
           await opts.beforeOutput?.(tab)
+          printableFont = await captureDeckFont(tab, Boolean(opts.watermark), notesGeometry ? { textRootSelector: '.sheet' } : {})
         },
       },
       deckPrintablePdfOptions(press),
@@ -265,6 +238,7 @@ async function regularDeckPdf(
   const output = await loadPdf(printable)
   await composeRegularSlides(output, deck, rendered, notesGeometry, pageOwners, press)
   let bytes = await output.save()
+  bytes = await watermarkRegularDeck(services.watermark, bytes, deck, pageOwners, printableFont, rendered)
   if (press.active && press.boxes && press.print) {
     bytes = await setPdfPageSize(bytes, press.boxes.bleedBox, DECK_PRESS_SIZE_REMEDY)
     bytes = await addPressBoxes(bytes, press.boxes, press.print.markColor)
@@ -292,9 +266,10 @@ async function imposedDeckPdf(
   const rendered = await Promise.all(
     deck.slides.map(async (slide, index) => {
       const single: Deck = { ...deck, slides: [slide] }
-      const diagrams = 'kind' in slide.content && slide.content.kind === 'html' && hasDiagram(slide.content.html)
       const slideLayouts = 'kind' in slide.content && slide.content.kind === 'html' ? layoutsForHtml(slide.content.html, layoutScripts) : []
+      const prepare = slidePrepare(slide.content, slideLayouts.length > 0, opts.waitForPageReady !== false)
       try {
+        let font: PageFontFacts = {}
         const html =
           'kind' in slide.content && slide.content.kind === 'html'
             ? htmlSlideDocument(deck, slide.content.html, {
@@ -317,11 +292,11 @@ async function imposedDeckPdf(
             ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
             preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
             beforeOutput:
-              'kind' in slide.content && slide.content.kind === 'html'
-                ? (tab) => waitForPrintReady(tab, renderReadiness('refuse', diagrams, opts.waitForPageReady !== false, slideLayouts.length > 0))
-                : 'kind' in slide.content && slide.content.kind === 'image'
-                  ? placeRenderedImages
-                  : undefined,
+              prepare || opts.watermark
+                ? async (tab) => {
+                    font = await captureDeckFont(tab, Boolean(opts.watermark), { prepare })
+                  }
+                : undefined,
           },
           {
             width: `${deck.size.width}px`,
@@ -332,7 +307,7 @@ async function imposedDeckPdf(
           },
           [index],
         )
-        return { index, bytes }
+        return { index, bytes, ...font }
       } catch (error) {
         nameSlideError(error, slide.id)
       }
@@ -345,10 +320,11 @@ async function imposedDeckPdf(
     group.push({ placement, layout: pagePlacementLayout(deck.size, placement, fit) })
     placements.set(placement.page, group)
   }
-  const pieces = rendered.map((item) => ({
+  const watermarked = await watermarkImposedDeck(services.watermark, deck, rendered)
+  const pieces = rendered.map((item, index) => ({
     key: String(item.index),
     name: `The rendered slide "${deck.slides[item.index]?.id ?? item.index}"`,
-    bytes: item.bytes,
+    bytes: watermarked[index] as Uint8Array,
     placements: placements.get(item.index) ?? [],
   }))
   return services.finish(await composeImposedPdf(imposed, pieces, sides, imposition.markColor), opts)

@@ -38,6 +38,7 @@ import { layoutScripts } from './layout-scripts.ts'
 import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
+import { pageFontFacts } from './page-render.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
 import { awaitPreflightReport } from './preflight.ts'
@@ -77,6 +78,7 @@ export interface BrowserBookDependencies {
   render(setup: TabSetup, pdf: Parameters<Tab['pdf']>[0], pageWidth: number, part: BookOverflowPart): Promise<PrintResult<true>>
   fontFaces(options: RenderOptions): string
   finish(pdf: Uint8Array, options: RenderOptions): Promise<Uint8Array>
+  watermark?: import('./book-pdf-types.ts').BookPdfAdapter['watermark']
   fontFailures?: FontFailure[]
 }
 
@@ -226,6 +228,7 @@ async function printBook(
   const baseCss = `${bookPageCss(book, marginLayer || paginated)}${layerCss}`
   const sheets = paginated ? undefined : refusedAsRender(() => frameStyleSheets(book.style, book.brand, `${fontCss}${baseCss}`))
   let composedPlan: SavedPlan | undefined
+  let watermarkFont: Awaited<ReturnType<typeof pageFontFacts>> = {}
   const srcdoc = refusedAsRender(() =>
     bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, resolvedLayoutScripts, {
       sheets,
@@ -246,6 +249,7 @@ async function printBook(
           await awaitBookComposition(tab, renderOptions.preflight)
           composedPlan = renderOptions.plan ?? (await composedPlanFromTab(tab, renderOptions.limits))
           await renderOptions.beforeOutput?.(tab)
+          if (renderOptions.watermark) watermarkFont = await pageFontFacts(tab)
         },
       }
     : {
@@ -260,7 +264,13 @@ async function printBook(
           resolvedLayoutScripts.length > 0,
         ),
         boundMs: renderOptions.boundMs,
-        beforeOutput: renderOptions.beforeOutput,
+        beforeOutput:
+          renderOptions.beforeOutput || (renderOptions.watermark && !marginLayer)
+            ? async (tab) => {
+                await renderOptions.beforeOutput?.(tab)
+                if (renderOptions.watermark && !marginLayer) watermarkFont = await pageFontFacts(tab)
+              }
+            : undefined,
         ...assetSetup(renderOptions),
         ...fontLoadSetup(fontFailures, renderOptions.fontLoad?.report),
       }
@@ -281,6 +291,7 @@ async function printBook(
     Math.round((paginated ? paginatedBookWidth(book) : size.width) * PX_PER_MM),
     part,
   )
+  output = { ...output, ...watermarkFont }
   if (!composedPlan) return output
   const trims = composedPlan.pages.map((page, index) => {
     const geometry = resolveBookPageGeometry(book, page.pageGeometry)
@@ -344,6 +355,7 @@ export async function renderBrowserBookPdf(
           dependencies,
         )
       },
+      watermark: dependencies.watermark,
       finish: dependencies.finish,
     },
     day,
