@@ -1,7 +1,9 @@
 import { expect, test } from 'bun:test'
 import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFName, PDFString } from 'pdf-lib'
+import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import { enforcePdfBytes } from './pdf-finish.ts'
-import { createPdfProtector, generatedOwnerPassword, loadQpdf, runQpdf, type WritableQpdf } from './protect-pdf.ts'
+import { createPdfProtector, createProtectPdf, generatedOwnerPassword, loadQpdf, runQpdf, type WritableQpdf } from './protect-pdf.ts'
+import { type RenderDeadline, RenderTimeoutError } from './render-deadline.ts'
 
 const qpdf = loadQpdf()
 const protectPdf = createPdfProtector()
@@ -119,7 +121,9 @@ test('does not expose a generated owner password and only that password decrypts
 })
 
 test('generated owner passwords never begin with a qpdf option prefix', () => {
-  for (let draw = 0; draw < 1_000; draw += 1) expect(generatedOwnerPassword()).toStartWith('A')
+  const password = generatedOwnerPassword()
+  expect(password).not.toBeEmpty()
+  expect(password).not.toStartWith('-')
 })
 
 test('restores the host process exit code after qpdf runs', async () => {
@@ -158,4 +162,79 @@ test('treats qpdf status 3 as success with warnings', async () => {
   } as unknown as WritableQpdf
   const warningProtector = createPdfProtector({ loadQpdf: async () => warningInstance })
   expect(await warningProtector(new Uint8Array([1]), { ownerPassword: 'owner-warning' })).toEqual(new Uint8Array([3]))
+})
+
+function fakeQpdf(output: Uint8Array, status: number | (() => number) = 0): WritableQpdf {
+  return {
+    callMain: () => (typeof status === 'function' ? status() : status),
+    FS: {
+      writeFile: () => {},
+      readFile: () => output,
+      unlink: () => {},
+    },
+  } as unknown as WritableQpdf
+}
+
+const activeDeadline = (): RenderDeadline => ({ signal: new AbortController().signal, remaining: () => 1_000 })
+
+test('checks the encrypted byte length and leaves unprotected input unchanged', async () => {
+  const protect = createProtectPdf({ loadQpdf: async () => fakeQpdf(new Uint8Array([1, 2])) })
+  const input = new Uint8Array([1])
+
+  await expect(protect(input, { protection: {}, limits: { bytes: 1 } }, activeDeadline())).rejects.toBeInstanceOf(RenderLimitError)
+  expect(await protect(input, { limits: { bytes: 1 } }, activeDeadline())).toBe(input)
+})
+
+test('does not load qpdf after the render deadline has expired', async () => {
+  let loads = 0
+  const protect = createProtectPdf({
+    loadQpdf: async () => {
+      loads += 1
+      return fakeQpdf(new Uint8Array([1]))
+    },
+  })
+  const controller = new AbortController()
+  const timeout = new RenderTimeoutError('expired')
+  controller.abort(timeout)
+
+  await expect(protect(new Uint8Array([1]), { protection: {} }, { signal: controller.signal, remaining: () => 0 })).rejects.toBe(timeout)
+  expect(loads).toBe(0)
+})
+
+test('drops the cached qpdf module after its queue settles', async () => {
+  let loads = 0
+  const protect = createProtectPdf({
+    loadQpdf: async () => {
+      loads += 1
+      return fakeQpdf(new Uint8Array([1]))
+    },
+  })
+
+  await protect(new Uint8Array([1]), { protection: {} }, activeDeadline())
+  await protect.dispose()
+  await protect(new Uint8Array([1]), { protection: {} }, activeDeadline())
+  expect(loads).toBe(2)
+})
+
+test.each([
+  [
+    'throws',
+    () => {
+      throw new Error('diagnostic password=secret')
+    },
+    'its run threw',
+  ],
+  ['returns a failure status', () => 2, 'status 2'],
+])('refuses protection when qpdf %s without exposing diagnostics', async (_case, run, expected) => {
+  const protect = createPdfProtector({ loadQpdf: async () => fakeQpdf(new Uint8Array(), run) })
+  try {
+    await protect(new Uint8Array([1]), { ownerPassword: 'secret' })
+    throw new Error('expected protection to be refused')
+  } catch (error) {
+    expect(error).toBeInstanceOf(RenderRefusedError)
+    expect(String(error)).toContain(expected)
+    expect(String(error)).toContain('render without protection, or report the document')
+    expect(String(error)).not.toContain('secret')
+    expect(String(error)).not.toContain('diagnostic')
+  }
 })

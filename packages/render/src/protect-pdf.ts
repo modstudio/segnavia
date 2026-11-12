@@ -1,8 +1,10 @@
 import { fileURLToPath } from 'node:url'
 import createQpdf, { type QpdfInstance } from '@neslinesli93/qpdf-wasm'
 import type { Limits } from '@segnavia/format'
+import { RenderRefusedError } from './errors.ts'
 import { enforcePdfBytes } from './pdf-finish.ts'
 import { type Protection, permissionArguments } from './protection-options.ts'
+import type { RenderDeadline } from './render-deadline.ts'
 
 export interface WritableQpdf extends QpdfInstance {
   FS: QpdfInstance['FS'] & {
@@ -12,6 +14,16 @@ export interface WritableQpdf extends QpdfInstance {
 }
 
 export type QpdfLoader = () => Promise<WritableQpdf>
+
+export interface PdfProtector {
+  (pdf: Uint8Array, protection: Protection): Promise<Uint8Array>
+  dispose(): Promise<void>
+}
+
+export interface ProtectPdf {
+  (pdf: Uint8Array, options: { limits?: Limits; protection?: Protection }, deadline: RenderDeadline): Promise<Uint8Array>
+  dispose(): Promise<void>
+}
 
 function base64Url(bytes: Uint8Array): string {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
@@ -36,6 +48,7 @@ export function loadQpdf(): Promise<WritableQpdf> {
   const hostConsole = Reflect.get(globalThis, 'console') as Console
   const print = hostConsole.log
   const printErr = hostConsole.error
+  // This build binds the host console directly and ignores print and printErr.
   hostConsole.log = () => {}
   hostConsole.error = () => {}
   try {
@@ -60,9 +73,7 @@ export function runQpdf(instance: WritableQpdf, arguments_: string[]): number {
   }
 }
 
-export function createPdfProtector(
-  dependencies: { loadQpdf?: QpdfLoader; ownerPassword?: () => string } = {},
-): (pdf: Uint8Array, protection: Protection) => Promise<Uint8Array> {
+export function createPdfProtector(dependencies: { loadQpdf?: QpdfLoader; ownerPassword?: () => string } = {}): PdfProtector {
   let qpdf: Promise<WritableQpdf> | undefined
   let queue = Promise.resolve()
   let fileNumber = 0
@@ -108,9 +119,13 @@ export function createPdfProtector(
           output,
         ])
       } catch {
-        throw new Error('qpdf could not protect the input PDF; the input PDF was refused.')
+        throw new RenderRefusedError('qpdf could not protect the input PDF because its run threw; render without protection, or report the document.')
       }
-      if (status !== 0 && status !== 3) throw new Error(`qpdf returned status ${status}; the input PDF was refused.`)
+      if (status !== 0 && status !== 3) {
+        throw new RenderRefusedError(
+          `qpdf could not protect the input PDF because it returned status ${status}; render without protection, or report the document.`,
+        )
+      }
       return new Uint8Array(instance.FS.readFile(output))
     } finally {
       instance.FS.unlink(input)
@@ -120,7 +135,7 @@ export function createPdfProtector(
     }
   }
 
-  return (pdf, protection) => {
+  const protect: PdfProtector = (pdf, protection) => {
     const result = queue.then(() => encrypt(pdf, protection))
     queue = result.then(
       () => undefined,
@@ -128,9 +143,25 @@ export function createPdfProtector(
     )
     return result
   }
+  protect.dispose = async () => {
+    while (true) {
+      const pending = queue
+      await pending
+      if (queue === pending) {
+        qpdf = undefined
+        return
+      }
+    }
+  }
+  return protect
 }
 
-export function createProtectPdf(): (pdf: Uint8Array, options: { limits?: Limits; protection?: Protection }) => Promise<Uint8Array> {
-  const protect = createPdfProtector()
-  return async (pdf, options) => (options.protection ? enforcePdfBytes(await protect(pdf, options.protection), options.limits) : pdf)
+export function createProtectPdf(dependencies: { loadQpdf?: QpdfLoader; ownerPassword?: () => string } = {}): ProtectPdf {
+  const protector = createPdfProtector(dependencies)
+  const protect: ProtectPdf = async (pdf, options, deadline) => {
+    if (deadline.signal.aborted) throw deadline.signal.reason
+    return options.protection ? enforcePdfBytes(await protector(pdf, options.protection), options.limits) : pdf
+  }
+  protect.dispose = () => protector.dispose()
+  return protect
 }

@@ -148,7 +148,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           },
           established.day,
         )
-        return protectPdf(output, parsedOptions)
+        return protectPdf(output, parsedOptions, deadline)
       })
     },
     async bookPlan(input, opts = {}) {
@@ -196,7 +196,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           printedPageDirection(prepared.page),
         )
         if (overflows.length) parsedOptions.overflow?.report?.({ entries: overflows })
-        return protectPdf(await enforce(output, parsedOptions.limits), parsedOptions)
+        return protectPdf(await enforce(output, parsedOptions.limits), parsedOptions, deadline)
       })
     },
     async pageImage(input, opts = {}) {
@@ -276,7 +276,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           ),
           parsedOptions.limits,
         )
-        return protectPdf(output, parsedOptions)
+        return protectPdf(output, parsedOptions, deadline)
       })
     },
 
@@ -319,7 +319,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           )
         })
         const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
-        return protectPdf(output, options)
+        return protectPdf(output, options, deadline)
       })
     },
 
@@ -345,6 +345,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async close() {
       closed = true
       queue.close()
+      await protectPdf.dispose()
       await keeper.close()
     },
   }
