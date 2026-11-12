@@ -127,6 +127,15 @@ export function preflightPageFacts(
 }
 
 export function markFurnitureOverflow(region: HTMLElement, page: Element, entries: PreflightEntry[]): void {
+  const shared = globalThis as typeof globalThis & {
+    applyRegionOverflow?: (region: HTMLElement, folio: string, entries: PreflightEntry[], facts: unknown[], refusal: boolean) => string | undefined
+    preflightRegions?: unknown[]
+  }
+  if (shared.applyRegionOverflow) {
+    const refusal = shared.applyRegionOverflow(region, page.getAttribute('data-segnavia-folio') ?? '', entries, shared.preflightRegions ?? [], true)
+    if (refusal) throw new Error(refusal)
+    if ((region.getAttribute('data-overflow') ?? 'grow') !== 'grow') return
+  }
   const excess = region.scrollHeight - region.clientHeight
   if (excess <= 0.5) return
   const kind = region.getAttribute('data-segnavia-region') ?? ''
@@ -147,7 +156,15 @@ export function markRegionOverflow(root: Element, folio: string, excessOf: (elem
   for (const region of regions) {
     const name = region.getAttribute('data-region')
     if (!name) continue
-    if ((region.getAttribute('data-overflow') ?? 'grow') !== 'grow') continue
+    const shared = globalThis as typeof globalThis & {
+      applyRegionOverflow?: (region: HTMLElement, folio: string, entries: PreflightEntry[], facts: unknown[], refusal: boolean) => string | undefined
+      preflightRegions?: unknown[]
+    }
+    if (shared.applyRegionOverflow) {
+      const refusal = shared.applyRegionOverflow(region as HTMLElement, folio, entries, shared.preflightRegions ?? [], true)
+      if (refusal) throw new Error(refusal)
+      if ((region.getAttribute('data-overflow') ?? 'grow') !== 'grow') continue
+    }
     const excess = excessOf(region)
     if (excess.block <= 0.5 && excess.inline <= 0.5) continue
     const subject = `${template}:${name}`

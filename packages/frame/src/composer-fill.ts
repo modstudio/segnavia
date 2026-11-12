@@ -145,5 +145,6 @@ ${embedFunction('fillSourceRegionsImplementation', fillSourceRegionsImplementati
 ${embedFunction('applyRegionOverflow', applyRegionOverflow)}
 var fillStageState={done:false,results:[]};
 globalThis.repeatFill=repeatFill;
-var fillSourceRegions=function(){return runFillStageOnce(fillStageState,function(){preflightRegions=fillSourceRegionsImplementation(document,geometryFor,config.direction,config.lang);return preflightRegions;});};`
+globalThis.applyRegionOverflow=applyRegionOverflow;
+var fillSourceRegions=function(){return runFillStageOnce(fillStageState,function(){preflightRegions=fillSourceRegionsImplementation(document,geometryFor,config.direction,config.lang);globalThis.preflightRegions=preflightRegions;return preflightRegions;});};`
 }
