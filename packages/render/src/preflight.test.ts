@@ -87,13 +87,15 @@ test('surface preflight reports before refusing strict issues and stays silent w
   expect(calls).toEqual(['report'])
 })
 
-test('surface preflight counts marked slots with unmeasured or missing posts', () => {
+test.each([
+  ['an unmeasured post', [{ name: 'unmeasured' }]],
+  ['a missing post', []],
+] as const)('surface preflight counts a marked slot with %s as incomplete', (_, slotFits) => {
   const reports: import('@segnavia/format').PreflightReport[] = []
-  const preflight = surfacePreflight(resolveRenderPreflight({ profile: 'default', report: (report) => reports.push(report) }), 2)
-  preflight?.capture({ index: 0 })({ slotFits: [{ name: 'unmeasured' }], slotKeys: ['name'], fontFailures: [] })
-  preflight?.capture({ index: 1 })({ slotFits: [], slotKeys: ['title'], fontFailures: [] })
+  const preflight = surfacePreflight(resolveRenderPreflight({ profile: 'default', report: (report) => reports.push(report) }), 1)
+  preflight?.capture()({ slotFits, slotKeys: ['name'], fontFailures: [] })
   preflight?.complete()
-  expect(reports[0]).toMatchObject({ status: 'incomplete', coverage: { slots: { measured: 0, total: 2 } }, issues: [] })
+  expect(reports[0]).toMatchObject({ status: 'incomplete', coverage: { slots: { measured: 0, total: 1 } }, issues: [] })
 })
 
 test('surface preflight includes unmeasured refuse slot errors', () => {

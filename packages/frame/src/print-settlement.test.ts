@@ -50,7 +50,7 @@ function reportReady(messages: EventTarget, frame: EventTarget) {
   report(messages, frame, { type: MESSAGE.ready })
 }
 
-function reportSlotFit(messages: EventTarget, frame: EventTarget, slots: Record<string, 'fit' | 'shrunk' | 'overflowed'>) {
+function reportSlotFit(messages: EventTarget, frame: EventTarget, slots: Record<string, 'fit' | 'shrunk' | 'overflowed' | 'unmeasured'>) {
   report(messages, frame, { type: MESSAGE.slotFit, slots })
 }
 
@@ -209,11 +209,28 @@ test('slotFitStillPending is true only while a marked key has fewer reports than
   expect(slotFitStillPending(new Map(), new Map(), refuseKeys)).toBeFalse()
 })
 
-test('an unmeasured print report remains pending and refuses a refuse slot', () => {
+test('a posted unmeasured print report remains pending through the deadline and refuses a refuse slot', async () => {
+  const deadline = deferred()
+  const messages = new EventTarget()
+  const frame = new EventTarget()
   const measured = new Map<string, number>()
   const marked = new Map([['name', 1]])
-  recordSlotFitMeasurements(measured, { name: 'unmeasured' })
+  const wait = printDocumentSettled(
+    messages,
+    [frame],
+    [],
+    deadline.promise,
+    (slots) => recordSlotFitMeasurements(measured, slots),
+    () => slotFitStillPending(marked, measured, new Set(['name'])),
+  )
+  const resolved = await resolutionOf(wait)
+  reportReady(messages, frame)
+  reportSlotFit(messages, frame, { name: 'unmeasured' })
+  await Promise.resolve()
+  expect(resolved()).toBeFalse()
   expect(slotFitStillPending(marked, measured, new Set(['name']))).toBeTrue()
+  deadline.resolve()
+  await expect(wait).resolves.toBeTrue()
   expect(
     unmeasuredSlotRefusal(
       [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }],
