@@ -47,6 +47,14 @@ export type TabRunner = <T>(
   body: (tab: Tab) => Promise<T>,
 ) => Promise<T>
 
+async function exposeLibraryReadiness(tab: Tab, enabled: boolean, ready: () => void): Promise<void> {
+  if (enabled) await tab.exposeFunction(RENDER_READY_BINDING, ready)
+}
+
+function needsLibraryReadiness(readiness: RenderReadiness): boolean {
+  return Boolean(readiness.diagrams || readiness.layouts)
+}
+
 export const fontLoadSetup = (
   failures: FontFailure[],
   report: BrowserTabSetup['fontLoadReport'],
@@ -198,13 +206,11 @@ export async function renderInBrowserTab<T>(
       resolveAuthor?.()
     })
   }
-  if (setup.readiness.diagrams || setup.readiness.layouts) {
-    await tab.exposeFunction(RENDER_READY_BINDING, () => {
-      diagramsReady = true
-      layoutsReady = true
-      resolveDiagrams?.()
-    })
-  }
+  await exposeLibraryReadiness(tab, needsLibraryReadiness(setup.readiness), () => {
+    diagramsReady = true
+    layoutsReady = true
+    resolveDiagrams?.()
+  })
   if (setup.progressReport) {
     await tab.exposeFunction(RENDER_PROGRESS_BINDING, (progress: unknown) => reportRenderProgress(progress, setup.progressReport))
   }
@@ -225,7 +231,7 @@ export async function renderInBrowserTab<T>(
   if (waitsForReadiness(setup.readiness)) {
     const waits: Promise<void>[] = []
     if (setup.readiness.author) waits.push(authorPromise)
-    if (setup.readiness.diagrams || setup.readiness.layouts) waits.push(diagramPromise)
+    if (needsLibraryReadiness(setup.readiness)) waits.push(diagramPromise)
     await withinBound(PAGE_READY_BOUND_MS, Promise.all(waits)).catch(() => {
       throw new RenderRefusedError(
         readinessRefusal(setup.readiness, { author: authorReady, diagrams: diagramsReady, layouts: layoutsReady }, PAGE_READY_BOUND_MS / 1000),

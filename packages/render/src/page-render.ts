@@ -39,12 +39,7 @@ export async function renderPagePdf(
       scripts: true,
       slots,
       html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures, layoutScripts),
-      readiness: renderReadiness(
-        page.scripts,
-        hasDiagram(printedPageAuthorHtml(page)),
-        opts.waitForPageReady !== false,
-        (layoutScripts?.length ?? 0) > 0,
-      ),
+      readiness: renderReadiness(page.scripts, hasDiagram(printedPageAuthorHtml(page)), opts.waitForPageReady !== false, (layoutScripts?.length ?? 0) > 0),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,

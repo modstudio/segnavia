@@ -35,7 +35,6 @@ import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } fr
 import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
-
 export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
@@ -339,14 +338,12 @@ export class SegnaviaStage extends AsOfElement {
       if (slideId) surfacePreflightFor(this).receive(slideId, message.report)
     }
     if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
-    if (message?.type === MESSAGE.composeFailure && message.text) {
-      const frame = this.pool.frames().find((candidate) => candidate.contentWindow === event.source)
-      if (frame?.hasAttribute('data-segnavia-layout-frame')) dispatchElementError(this, new Error(message.text))
-    }
+    const failedFrame =
+      message?.type === MESSAGE.composeFailure && message.text ? this.pool.frames().find((frame) => frame.contentWindow === event.source) : undefined
+    if (failedFrame?.hasAttribute('data-segnavia-layout-frame')) dispatchElementError(this, new Error(message?.text ?? ''))
     if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
     if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
   }
-
   private onResize = () => this.measure()
 
   private poolChanged() {
@@ -388,7 +385,6 @@ export class SegnaviaStage extends AsOfElement {
     const frame = [...this.pool.frames()].find((candidate) => candidate.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId === slideId)
     frame?.contentWindow?.postMessage({ type: MESSAGE.release }, '*')
   }
-
   authoringAnimationMessage(event: MessageEvent): { slideId: string; animated: boolean; lengthMs: number | null } | null {
     for (const frame of this.pool.frames()) {
       const report = animationMessage(event, frame)

@@ -20,10 +20,10 @@ function harness(names = ['first', 'second']) {
   const runtime = installLayoutRuntime(
     target,
     document,
-    (callback) => {
+    ((callback: TimerHandler) => {
       timers.push(callback as () => void)
       return timers.length as unknown as ReturnType<typeof setTimeout>
-    },
+    }) as unknown as typeof setTimeout,
     () => {},
     10_000,
     names.map((name) => ({ name, selects: `.${name}` })),
@@ -39,14 +39,24 @@ function harness(names = ['first', 'second']) {
 test('providers run sequentially in registration order and a phase runs once', async () => {
   const { runtime, define } = harness(['priority', 'tie-first', 'tie-second'])
   const calls: string[] = []
-  for (const name of ['priority', 'tie-first', 'tie-second']) define(name, { galley: async () => calls.push(name) })
+  for (const name of ['priority', 'tie-first', 'tie-second'])
+    define(name, {
+      galley: async () => {
+        calls.push(name)
+      },
+    })
   await runtime.run('galley')
   await runtime.run('galley')
   expect(calls).toEqual(['priority', 'tie-first', 'tie-second'])
 })
 
 test.each([
-  ['throws', () => { throw new Error('broken') }],
+  [
+    'throws',
+    () => {
+      throw new Error('broken')
+    },
+  ],
   ['rejects', () => Promise.reject(new Error('broken'))],
 ] as const)('a provider that %s refuses with its name and phase', async (_kind, run) => {
   const { runtime, define } = harness(['margin'])

@@ -8,7 +8,7 @@ export const RENDER_READY_BINDING = '__segnaviaRenderReady'
 export interface RenderReadiness {
   author: boolean
   diagrams: boolean
-  layouts: boolean
+  layouts?: boolean
 }
 
 export function renderReadiness(scripts: Scripts, diagrams: boolean, waitForPageReady = true, layouts = false): RenderReadiness {
@@ -20,7 +20,7 @@ export function renderReadiness(scripts: Scripts, diagrams: boolean, waitForPage
 }
 
 export function waitsForReadiness(readiness: RenderReadiness): boolean {
-  return readiness.author || readiness.diagrams || readiness.layouts
+  return Boolean(readiness.author || readiness.diagrams || readiness.layouts)
 }
 
 export function readinessRefusal(readiness: RenderReadiness, established: RenderReadiness, seconds: number): string {
@@ -54,11 +54,7 @@ export async function waitForDiagramReadiness(scope: DiagramScope, readiness: Re
     .waitFor({ timeout: PAGE_READY_BOUND_MS })
     .catch(() => {
       throw new RenderRefusedError(
-        readinessRefusal(
-          { author: false, diagrams: true, layouts: false },
-          { author: true, diagrams: false, layouts: true },
-          PAGE_READY_BOUND_MS / 1000,
-        ),
+        readinessRefusal({ author: false, diagrams: true, layouts: false }, { author: true, diagrams: false, layouts: true }, PAGE_READY_BOUND_MS / 1000),
       )
     })
 }

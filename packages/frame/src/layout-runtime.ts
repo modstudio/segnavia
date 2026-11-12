@@ -1,6 +1,6 @@
 import { embedFunction } from '@segnavia/html'
 import { logicalExtent } from './composer-axis-policy.ts'
-import { measureLineBoxes, type MeasuredLineBox } from './composer-measure.ts'
+import { type MeasuredLineBox, measureLineBoxes } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { inkExcess } from './composer-page-dom.ts'
 import { graphemeInlineExtent } from './composer-properties.ts'
@@ -49,6 +49,49 @@ export function boundedLayoutText(value: unknown, limit: number): string {
   return String(value ?? '').slice(0, limit)
 }
 
+function layoutRange(document: Document, value: Range | Node | string, elements: readonly Element[]): Range {
+  const range = document.createRange()
+  if (typeof value === 'string') {
+    const walker = document.createTreeWalker(elements[0] ?? document.body, NodeFilter.SHOW_TEXT)
+    let node = walker.nextNode()
+    while (node && !(node.textContent ?? '').includes(value)) node = walker.nextNode()
+    if (!node) range.selectNodeContents(elements[0] ?? document.body)
+    else {
+      const start = (node.textContent ?? '').indexOf(value)
+      range.setStart(node, start)
+      range.setEnd(node, start + value.length)
+    }
+  } else if ('setStart' in value && typeof value.setStart === 'function') return value as Range
+  else range.selectNode(value as Node)
+  return range
+}
+
+function layoutMeasurementNode(range: Range, value: Range | Node | string): Node | undefined {
+  if (range.startContainer === range.endContainer && range.startOffset === 0 && range.endOffset === (range.startContainer.textContent ?? '').length)
+    return range.startContainer
+  return typeof value === 'object' && value !== null && !('setStart' in value) ? value : undefined
+}
+
+function layoutInkRect(
+  document: Document,
+  value: Range | Node | string,
+  elements: readonly Element[],
+  graphemeExtent: typeof graphemeInlineExtent,
+  excess: typeof inkExcess,
+): DOMRect {
+  const range = layoutRange(document, value, elements)
+  const box = range.getBoundingClientRect()
+  const node = layoutMeasurementNode(range, value)
+  const element = (node?.nodeType === 1 ? node : node?.parentElement) as HTMLElement | undefined
+  const writingMode = element ? getComputedStyle(element).writingMode : 'horizontal-tb'
+  const inline = node ? graphemeExtent(node, writingMode) : logicalExtent(box, writingMode, 'inline')
+  const overflow = element ? excess(element) : { block: 0, inline: 0 }
+  const vertical = writingMode.startsWith('vertical')
+  const width = vertical ? box.width + overflow.block : Math.max(box.width, inline) + overflow.inline
+  const height = vertical ? Math.max(box.height, inline) + overflow.inline : box.height + overflow.block
+  return new DOMRect(box.left, box.top, width, height)
+}
+
 export function installLayoutRuntime(
   target: Window,
   document: Document,
@@ -62,39 +105,6 @@ export function installLayoutRuntime(
 ): SegnaviaLayoutRuntime {
   const reports: Array<{ check: 'layout-report'; subject: string; message: string }> = []
   const completed = new Set<LayoutPhase>()
-
-  const rectFor = (value: Range | Node | string, elements: readonly Element[]): DOMRect => {
-    let range: Range
-    if (typeof value === 'string') {
-      range = document.createRange()
-      const walker = document.createTreeWalker(elements[0] ?? document.body, NodeFilter.SHOW_TEXT)
-      let node = walker.nextNode()
-      while (node && !(node.textContent ?? '').includes(value)) node = walker.nextNode()
-      if (node) {
-        const start = (node.textContent ?? '').indexOf(value)
-        range.setStart(node, start)
-        range.setEnd(node, start + value.length)
-      } else range.selectNodeContents(elements[0] ?? document.body)
-    } else if ('setStart' in value && typeof value.setStart === 'function') range = value as Range
-    else {
-      range = document.createRange()
-      range.selectNode(value)
-    }
-    const box = range.getBoundingClientRect()
-    const node = range.startContainer === range.endContainer && range.startOffset === 0 && range.endOffset === (range.startContainer.textContent ?? '').length
-      ? range.startContainer
-      : typeof value === 'object' && value !== null && !('setStart' in value)
-        ? value
-        : undefined
-    const element = (node?.nodeType === 1 ? node : node?.parentElement) as HTMLElement | undefined
-    const writingMode = element ? getComputedStyle(element).writingMode : 'horizontal-tb'
-    const inline = node ? graphemeExtent(node, writingMode) : logicalExtent(box, writingMode, 'inline')
-    const overflow = element ? excess(element) : { block: 0, inline: 0 }
-    const vertical = writingMode.startsWith('vertical')
-    const width = vertical ? box.width + overflow.block : Math.max(box.width, inline) + overflow.inline
-    const height = vertical ? Math.max(box.height, inline) + overflow.inline : box.height + overflow.block
-    return new DOMRect(box.left, box.top, width, height)
-  }
 
   const lineBoxes = (element: Element): MeasuredLineBox[] => measureLines(element, element.getBoundingClientRect().top)
 
@@ -117,7 +127,7 @@ export function installLayoutRuntime(
         const context: LayoutContext = {
           page: document.documentElement,
           elements,
-          ink: (value) => rectFor(value, elements),
+          ink: (value) => layoutInkRect(document, value, elements, graphemeExtent, excess),
           lineBoxes,
           report(data) {
             if (reports.length >= 64) return
@@ -167,7 +177,7 @@ export function layoutRuntimeScript(scripts: readonly LoadedLayoutScript[]): str
   const definitions = scripts
     .map(({ name, script }) => `window.segnaviaLayout._loading=${JSON.stringify(name)};\n${script}\nwindow.segnaviaLayout._loading=undefined;`)
     .join('\n')
-  return `${embeddedComposerMeasureFunctions()}\n${embedFunction('logicalExtent', logicalExtent)}\n${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}\n${embedFunction('inkExcess', inkExcess)}\n${embedFunction('boundedLayoutText', boundedLayoutText)}\n${embedFunction('installLayoutRuntime', installLayoutRuntime)}\ninstallLayoutRuntime(window,document,setTimeout,clearTimeout,10000,${JSON.stringify(registrations)},measureLineBoxes,graphemeInlineExtent,inkExcess);\n${definitions}`
+  return `${embeddedComposerMeasureFunctions()}\n${embedFunction('logicalExtent', logicalExtent)}\n${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}\n${embedFunction('inkExcess', inkExcess)}\n${embedFunction('layoutRange', layoutRange)}\n${embedFunction('layoutMeasurementNode', layoutMeasurementNode)}\n${embedFunction('layoutInkRect', layoutInkRect)}\n${embedFunction('boundedLayoutText', boundedLayoutText)}\n${embedFunction('installLayoutRuntime', installLayoutRuntime)}\ninstallLayoutRuntime(window,document,setTimeout,clearTimeout,10000,${JSON.stringify(registrations)},measureLineBoxes,graphemeInlineExtent,inkExcess);\n${definitions}`
 }
 
 export function withLayoutScripts(html: string, nonce: string, scripts: readonly LoadedLayoutScript[]): string {

@@ -46,6 +46,24 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
   }
 }
 
+function writeHtmlFrame(iframe: HTMLIFrameElement, deck: Deck, html: string, options: StageCanvasOptions): boolean {
+  if (layoutsUsed(html).length === 0) {
+    const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts: [] })
+    if (srcdoc !== undefined) iframe.srcdoc = srcdoc
+    return srcdoc !== undefined
+  }
+  if (htmlFrameDocument(deck, html, { ...options, layoutScripts: [] }) === undefined) return false
+  iframe.dataset.segnaviaLayoutFrame = ''
+  void loadLayoutScripts(html).then(
+    (layoutScripts) => {
+      const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts })
+      if (srcdoc !== undefined) iframe.srcdoc = srcdoc
+    },
+    (error) => options.failed?.(error instanceof Error ? error : new Error(String(error))),
+  )
+  return true
+}
+
 export function layoutStageCanvas(canvas: HTMLElement, size: PixelSize) {
   canvas.style.inlineSize = `${size.width}px`
   canvas.style.blockSize = `${size.height}px`
@@ -67,14 +85,10 @@ export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide
     iframe.title = options.frameTitle(deck.title, options.folio.number)
     iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
-      const write = (layoutScripts: readonly LoadedLayoutScript[]) => {
-        const srcdoc = htmlFrameDocument(deck, content.html, { ...options, layoutScripts })
-        if (srcdoc !== undefined) iframe.srcdoc = srcdoc
+      if (!writeHtmlFrame(iframe, deck, content.html, options)) {
+        layoutStageCanvas(canvas, deck.size)
+        return canvas
       }
-      if (layoutsUsed(content.html).length > 0) {
-        iframe.dataset.segnaviaLayoutFrame = ''
-        void loadLayoutScripts(content.html).then(write, (error) => options.failed?.(error instanceof Error ? error : new Error(String(error))))
-      } else write([])
     } else iframe.src = controller.url(content.src)
     canvas.append(iframe)
   } else {

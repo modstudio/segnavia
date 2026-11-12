@@ -28,7 +28,7 @@ describe('renderReadiness', () => {
       "The page's diagrams did not finish drawing within 10s. Correct or simplify the diagram source so it draws within the bound to clear this refusal.",
     )
     expect(readinessRefusal({ author: false, diagrams: false, layouts: true }, { author: true, diagrams: true, layouts: false }, 10)).toContain(
-      "layout provider galley and composed phases did not finish",
+      'layout provider galley and composed phases did not finish',
     )
   })
 })

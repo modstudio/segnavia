@@ -13,9 +13,8 @@ import {
   type Imposition as ParsedImposition,
   pagePlacementLayout,
 } from '@segnavia/format'
-import { newNonce, PRINT_READY_ATTRIBUTE, StyleSheetRefusedError } from '@segnavia/frame/bridge'
+import { newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram } from '@segnavia/frame/diagrams'
-import { layoutsUsed } from '@segnavia/frame/layout'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
@@ -27,7 +26,6 @@ import {
   paginateNotes,
   printableDeckValue,
   resolveDeckMedia,
-  SLIDES_READY_DEADLINE_MS,
 } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import { fontLoadSetup } from './browser-tab.ts'
@@ -40,6 +38,7 @@ import {
   htmlSlidePdfOptions,
   regularSlideDrawBox,
 } from './deck-paper.ts'
+import { layoutsForHtml, waitForPrintReady } from './deck-readiness.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
 import type { ComposedRenderOptions } from './options.ts'
@@ -51,7 +50,7 @@ import { composeImposedPdf, drawClippedPage, embedOnePage } from './pdf-compose.
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { type SurfacePreflight, type SurfacePreflightCapture, surfacePreflight } from './preflight.ts'
-import { type RenderReadiness, readinessRefusal, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
+import { renderReadiness } from './render-readiness.ts'
 
 export type DeckPdfOptions = ComposedRenderOptions & PrintOptions
 
@@ -81,24 +80,6 @@ interface DeckPdfServices {
   finish(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
   signal?: AbortSignal
   fontFailures?: FontFailure[]
-}
-
-async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<void> {
-  const printed = await tab
-    .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
-    .waitFor({ timeout: SLIDES_READY_DEADLINE_MS })
-    .then(() => true, () => false)
-  if (!printed && readiness.layouts) {
-    throw new RenderRefusedError(
-      readinessRefusal(readiness, { author: true, diagrams: true, layouts: false }, SLIDES_READY_DEADLINE_MS / 1000),
-    )
-  }
-  await waitForDiagramReadiness(tab, readiness)
-}
-
-function layoutsForHtml(html: string, scripts: readonly LoadedLayoutScript[]): readonly LoadedLayoutScript[] {
-  const names = new Set(layoutsUsed(html))
-  return scripts.filter((script) => names.has(script.name))
 }
 
 function nameSlideError(error: unknown, id: string): never {

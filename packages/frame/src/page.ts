@@ -98,7 +98,6 @@ export class SegnaviaPage extends PageAsOfElement {
     this.placementOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
-
   protected asOfInputsChanged(): void {
     if (this.pageValue) this.loadValue(this.pageValue)
   }
@@ -375,7 +374,6 @@ export class SegnaviaPage extends PageAsOfElement {
     if (!page || !sheet) return
     fitPageFrame(this, page, sheet, this.frameHeight, this.bounded)
   }
-
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const currentFrame = { frame, generation: this.loadGeneration }
