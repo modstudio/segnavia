@@ -13,6 +13,26 @@ interface SourceAttributeOptions {
   refusedFamilies?: readonly string[]
 }
 
+function familyIssues(
+  family: SourceAttributeFamily,
+  where: string,
+  attribs: Record<string, string>,
+  block: boolean,
+  identified: boolean,
+  options: SourceAttributeOptions,
+): string[] {
+  const issues = family.issues(where, attribs)
+  if (!family.subjectAttributes.some((attribute) => attribs[attribute] !== undefined)) return issues
+  if (options.refusedFamilies?.includes(family.name)) {
+    issues.push(`${where} ${family.name} cannot take effect in a parent-page region; remove it to clear this refusal`)
+  } else if (!block) {
+    issues.push(`${where} ${family.name} has no block subject; place it in a block element to clear this refusal`)
+  } else if (options.requireAuthoredId && !identified) {
+    issues.push(`${where} ${family.name} has no authored block id; add data-segnavia-id to it or a block ancestor to clear this refusal`)
+  }
+  return issues
+}
+
 export function sourceAttributeIssues(
   nodes: readonly ChildNode[],
   where: string,
@@ -27,18 +47,7 @@ export function sourceAttributeIssues(
       const block = insideBlock || BLOCK_KINDS.has(child.name.toLowerCase())
       const authoredId = child.attribs['data-segnavia-id'] !== undefined
       const identified = authoredId || identifiedBlock
-      for (const family of families) {
-        issues.push(...family.issues(childWhere, child.attribs))
-        const present = family.subjectAttributes.some((attribute) => child.attribs[attribute] !== undefined)
-        if (!present) continue
-        if (options.refusedFamilies?.includes(family.name)) {
-          issues.push(`${childWhere} ${family.name} cannot take effect in a parent-page region; remove it to clear this refusal`)
-        } else if (!block) {
-          issues.push(`${childWhere} ${family.name} has no block subject; place it in a block element to clear this refusal`)
-        } else if (options.requireAuthoredId && !identified) {
-          issues.push(`${childWhere} ${family.name} has no authored block id; add data-segnavia-id to it or a block ancestor to clear this refusal`)
-        }
-      }
+      for (const family of families) issues.push(...familyIssues(family, childWhere, child.attribs, block, identified, options))
       visit(child.children, block, BLOCK_KINDS.has(child.name.toLowerCase()) ? identified : identifiedBlock)
     }
   }

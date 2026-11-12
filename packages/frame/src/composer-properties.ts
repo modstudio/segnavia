@@ -1,5 +1,6 @@
 import { MEASURE_KIND_MODEL, type MeasuredProperty, type MeasureKind } from '@segnavia/format'
 import { logicalExtent } from './composer-axis-policy.ts'
+import { designedFits, templateFits } from './composer-fit.ts'
 import { measuredProperties, propertyCssValue } from './composer-properties-policy.ts'
 import { blockSubject, type SourceGeometry, type StagedSource, stagedSourceExcluded } from './composer-source-staging.ts'
 
@@ -65,27 +66,9 @@ export function propertySources(
   defaultLang: string,
   selector: string,
 ): { ordinary: HTMLElement[]; temporary: StagedSource[] } {
-  const shared = globalThis as typeof globalThis & {
-    designedFits?: (
-      root: ParentNode,
-      geometry: (name: string | null | undefined) => SourceGeometry,
-      defaultDirection: string,
-      defaultLang: string,
-      selector: string,
-      attribute: string,
-    ) => StagedSource[]
-    templateFits?: (
-      root: ParentNode,
-      geometry: (name: string | null | undefined) => SourceGeometry,
-      defaultDirection: string,
-      defaultLang: string,
-      selector: string,
-      attribute: string,
-    ) => StagedSource[]
-  }
   const temporary = [
-    ...(shared.templateFits?.(root, geometry, defaultDirection, defaultLang, selector, 'data-measure') ?? []),
-    ...(shared.designedFits?.(root, geometry, defaultDirection, defaultLang, selector, 'data-measure') ?? []),
+    ...templateFits(root, geometry, defaultDirection, defaultLang, selector, 'data-measure'),
+    ...designedFits(root, geometry, defaultDirection, defaultLang, selector, 'data-measure'),
   ]
   const ordinary = Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
     (element) => !stagedSourceExcluded(element) && element.getClientRects().length > 0,

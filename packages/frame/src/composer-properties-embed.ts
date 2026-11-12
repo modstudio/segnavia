@@ -1,5 +1,5 @@
-import { embedFunction } from '@segnavia/html'
 import { MEASURE_KIND_MODEL } from '@segnavia/format'
+import { embedFunction } from '@segnavia/html'
 import {
   directMeasurementNodes,
   graphemeInlineExtent,

@@ -40,12 +40,8 @@ test('the documented block-kind measured-property example parses and receives an
 
 test('parent-page regions refuse measured properties that cannot be copied from a source', () => {
   expect(() =>
-    identifyHtmlBlocks(
-      '<p data-measure="block" data-measure-as="--height">Furniture</p>',
-      'parent page',
-      () => 'furniture',
-      new Map(),
-      { refuseMeasure: true },
-    ),
+    identifyHtmlBlocks('<p data-measure="block" data-measure-as="--height">Furniture</p>', 'parent page', () => 'furniture', new Map(), {
+      refuseMeasure: true,
+    }),
   ).toThrow('data-measure cannot take effect in a parent-page region')
 })

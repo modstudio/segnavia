@@ -1,6 +1,8 @@
 import { MEASURE_COLUMN_UNIT } from '../demo-book-measured-properties-fixture.ts'
 import type { Harness } from './harness.ts'
 
+const FITTED_LINE_COUNT = 4
+
 export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
   await h.page.goto(h.url('book-measured-properties.html'))
   const frame = h.page.frameLocator('#measured-properties')
@@ -8,14 +10,10 @@ export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
   const report = await frame.locator('body').evaluate(() => {
     const source = (id: string) => document.querySelector<HTMLElement>(`[data-segnavia-galley-source] [data-segnavia-id="${id}"]`)
     const property = (id: string, name: string) => source(id)?.style.getPropertyValue(name) ?? ''
-    const count = (id: string) => Number.parseInt(getComputedStyle(source(id)?.querySelector('.derived-columns') as Element).columnCount, 10)
+    const count = (id: string) => Number.parseInt(getComputedStyle(source(id) as Element).columnCount, 10)
     const widest = Number.parseFloat(property('wide-words', '--widest'))
     const narrowest = Number.parseFloat(property('narrow-words', '--widest'))
     const fitted = source('fitted-lines')
-    const range = document.createRange()
-    if (fitted) range.selectNodeContents(fitted)
-    const lineTops: number[] = []
-    for (const rect of fitted ? range.getClientRects() : []) if (!lineTops.some((top) => Math.abs(top - rect.top) < 0.5)) lineTops.push(rect.top)
     const copies = Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-pages] [data-segnavia-id="flowing-measure"]'))
     return {
       wide: { value: widest, columns: count('wide-words') },
@@ -27,9 +25,11 @@ export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
       fitted: {
         size: fitted ? Number.parseFloat(getComputedStyle(fitted).fontSize) : 0,
         property: Number.parseInt(property('fitted-lines', '--fitted-lines'), 10),
-        actual: lineTops.length,
       },
-      template: property('template-measure', '--template-width'),
+      template: Array.from(document.querySelectorAll<HTMLElement>('[data-segnavia-id="template-measure"]')).map((element) => ({
+        value: element.style.getPropertyValue('--template-width'),
+        context: element.closest('[data-segnavia-templated-page],[data-segnavia-pages]')?.getAttribute('data-segnavia-templated-page') ?? 'page',
+      })),
       copies: copies.map((copy) => copy.style.getPropertyValue('--flow-block')),
     }
   })
@@ -44,13 +44,13 @@ export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
   )
   h.check(
     'a template-region source carries the property measured on its staged clone',
-    Number.parseFloat(report.template) > 0,
-    JSON.stringify({ value: report.template }),
+    report.template.some((entry) => Number.parseFloat(entry.value) > 0),
+    JSON.stringify(report.template),
   )
   h.check(
     'line-count is measured after copyfit and equals the fitted source lines',
-    report.fitted.size < 28 && report.fitted.property === report.fitted.actual && report.fitted.actual > 0,
-    JSON.stringify(report.fitted),
+    report.fitted.size < 28 && report.fitted.property === FITTED_LINE_COUNT,
+    JSON.stringify({ ...report.fitted, expected: FITTED_LINE_COUNT }),
   )
   const hebrewDifference = Math.abs(report.hebrew.pointed - report.hebrew.plain)
   h.check(

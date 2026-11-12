@@ -226,9 +226,7 @@ function templatedPageRegionFitIssues(entry: TemplatedSection, id: string): stri
     Object.values(page.regions).flatMap((html) => {
       const where = `section ${label} page ${index + 1}`
       const regions = templateRegionElements(html)
-      return regions.flatMap((region) =>
-        sourceAttributeIssues([region], where, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true }),
-      )
+      return regions.flatMap((region) => sourceAttributeIssues([region], where, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true }))
     }),
   )
 }

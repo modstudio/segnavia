@@ -2063,7 +2063,8 @@ pagination measurement. `data-measure` selects
 The measurement fact carries its kind, numeric value and unit. Geometric
 values are pixel lengths and line counts are unitless. Inline
 max-content is read from range boxes over whole grapheme clusters, so marks
-remain part of their base letter. The inline style is inherited by every page
+remain part of their base letter; a direct child without text contributes its
+own logical inline box. The inline style is inherited by every page
 copy, and the same `{ id, name, kind, value, unit }` facts appear in
 `Measurements.properties`. `describeDocument` includes supplied fit and
 property facts in its `measured` section.

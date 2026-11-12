@@ -51,10 +51,14 @@ function templatePageFits(
     )
     const source = Array.from((heldRegion ?? templateRegion ?? template).querySelectorAll<HTMLElement>(selector))[position]
     if (!source)
-      throw new Error(`template "${name}" region "${regionName}" ${attribute} ${position + 1} has no source; keep the staged block in its region to clear this refusal`)
+      throw new Error(
+        `template "${name}" region "${regionName}" ${attribute} ${position + 1} has no source; keep the staged block in its region to clear this refusal`,
+      )
     const subject = blockSubject(fitted)
     if (!subject)
-      throw new Error(`template "${name}" region "${regionName}" ${attribute} ${position + 1} has no block id; add data-segnavia-id to it or a block ancestor to clear this refusal`)
+      throw new Error(
+        `template "${name}" region "${regionName}" ${attribute} ${position + 1} has no block id; add data-segnavia-id to it or a block ancestor to clear this refusal`,
+      )
     fitted.setAttribute('data-segnavia-id', subject)
     if (!fitted.hasAttribute('data-fit-group')) fitted.setAttribute('data-fit-group', `segnavia-template-${name}-${regionName}-${position}`)
     return { clone, fitted, source }
@@ -63,7 +67,7 @@ function templatePageFits(
   return entries
 }
 
-function templateFits(
+export function templateFits(
   root: ParentNode,
   geometry: (name: string | null | undefined) => SourceGeometry,
   defaultDirection: string,
@@ -101,7 +105,7 @@ function templateFits(
   return temporary
 }
 
-function designedFits(
+export function designedFits(
   root: ParentNode,
   geometry: (name: string | null | undefined) => SourceGeometry,
   defaultDirection: string,
@@ -223,8 +227,7 @@ function fitSourceElementsImplementation(
     ...(shared.designedFits ?? designedFits)(root, geometry, defaultDirection, defaultLang, selector, 'data-fit'),
   ]
   const ordinary = Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
-    (element) =>
-      !stagedSourceExcluded(element) && element.getClientRects().length > 0,
+    (element) => !stagedSourceExcluded(element) && element.getClientRects().length > 0,
   )
   const candidates = [...ordinary, ...temporary.map((entry) => entry.fitted)]
   const results = candidates.flatMap((element) => {

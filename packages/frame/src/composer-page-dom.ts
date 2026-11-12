@@ -1,3 +1,5 @@
+import { logicalExtent } from './composer-axis-policy.ts'
+
 export function fillTemplateRegions(clone: HTMLElement, holder: HTMLElement): void {
   for (const fragment of Array.from(holder.querySelectorAll<HTMLElement>('[data-region]'))) {
     const name = fragment.getAttribute('data-region')
@@ -28,7 +30,8 @@ export function inkExcess(element: HTMLElement, box: HTMLElement = element): { b
   const block = Math.max(bottom - bounds.bottom, bounds.top - top, element === box ? box.scrollHeight - bounds.height : 0)
   const inline = Math.max(right - bounds.right, bounds.left - left, element === box ? box.scrollWidth - bounds.width : 0)
   const writingMode = getComputedStyle(box).writingMode
-  return { block: logicalExtent({ width: inline, height: block }, writingMode, 'block'), inline: logicalExtent({ width: inline, height: block }, writingMode, 'inline') }
+  return {
+    block: logicalExtent({ width: inline, height: block }, writingMode, 'block'),
+    inline: logicalExtent({ width: inline, height: block }, writingMode, 'inline'),
+  }
 }
-import { logicalExtent } from './composer-axis-policy.ts'
-
