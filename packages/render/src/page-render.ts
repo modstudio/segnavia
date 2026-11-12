@@ -1,5 +1,6 @@
 import type { FontFailure } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
@@ -28,6 +29,7 @@ export async function renderPagePdf(
   diagramScript?: string,
   fontCss = '',
   fontFailures: FontFailure[] = [],
+  layoutScripts?: readonly LoadedLayoutScript[],
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
   const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
@@ -36,7 +38,7 @@ export async function renderPagePdf(
       viewport,
       scripts: true,
       slots,
-      html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures),
+      html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures, layoutScripts),
       readiness: renderReadiness(page.scripts, hasDiagram(printedPageAuthorHtml(page)), opts.waitForPageReady !== false),
       boundMs: opts.boundMs,
       deadline,
@@ -82,8 +84,9 @@ export function renderPiecePdf(
   services: PageRenderServices,
   deadline?: RenderDeadline,
   diagramScript?: string,
+  layoutScripts?: readonly LoadedLayoutScript[],
 ): Promise<Uint8Array> {
-  const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, diagramScript })
+  const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, diagramScript, layoutScripts })
   return services.withTab(
     {
       viewport: geometry.viewport,

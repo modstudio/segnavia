@@ -13,6 +13,7 @@ export const PREFLIGHT_CHECKS = [
   'placement-missing',
   'css-var-invalid',
   'css-url-network',
+  'layout-report',
 ] as const
 
 export type PreflightCheck = (typeof PREFLIGHT_CHECKS)[number]

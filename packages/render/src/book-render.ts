@@ -26,12 +26,14 @@ import {
 } from '@segnavia/frame/book-document'
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
+import { layoutScripts } from './layout-scripts.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
@@ -118,6 +120,7 @@ function bookSrcdoc(
   hostCss: string | undefined,
   marginLayer: boolean,
   diagramScript: string | undefined,
+  resolvedLayoutScripts: readonly LoadedLayoutScript[],
   options: {
     sheets?: readonly string[]
     origins?: Iterable<OriginApproval>
@@ -138,6 +141,7 @@ function bookSrcdoc(
       css: hostCss,
       printBackground: true,
       diagramScript,
+      layoutScripts: resolvedLayoutScripts,
       limits: options.limits,
       plan: options.plan,
       breaks: options.breaks ?? options.plan?.breaks,
@@ -157,6 +161,7 @@ function bookSrcdoc(
     reportHeight: false,
     origins: options.origins,
     readyCallback: hasDiagram(html) ? RENDER_READY_BINDING : undefined,
+    layoutScripts: resolvedLayoutScripts,
   })
 }
 
@@ -208,6 +213,7 @@ async function printBook(
   layerCss: string,
   resolvedFontCss: string,
   diagramScript: string | undefined,
+  resolvedLayoutScripts: readonly LoadedLayoutScript[],
   fontFailures: FontFailure[],
   dependencies: BrowserBookDependencies,
 ): Promise<PrintResult<true>> {
@@ -221,7 +227,7 @@ async function printBook(
   const sheets = paginated ? undefined : refusedAsRender(() => frameStyleSheets(book.style, book.brand, `${fontCss}${baseCss}`))
   let composedPlan: SavedPlan | undefined
   const srcdoc = refusedAsRender(() =>
-    bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, {
+    bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, resolvedLayoutScripts, {
       sheets,
       origins: renderOptions.origins,
       limits: renderOptions.limits,
@@ -311,13 +317,15 @@ export async function renderBrowserBookPdf(
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
   let script: Promise<string | undefined> | undefined
+  let resolvedLayouts: Promise<LoadedLayoutScript[]> | undefined
   return renderBookPdf(
     book,
     options,
     {
       print: async (html, book, slots, renderOptions, part, layerCss = '') => {
         script ??= resolveDiagramScript(bookDocument(book).html)
-        return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies.fontFailures ?? [], dependencies)
+        resolvedLayouts ??= layoutScripts(bookDocument(book).html)
+        return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, await resolvedLayouts, dependencies.fontFailures ?? [], dependencies)
       },
       finish: dependencies.finish,
     },
@@ -339,8 +347,9 @@ export async function renderBrowserBookPlan(
   const { value: book, slots } = await fillBookForDay(input, day, options.slots)
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPlan.')
   const diagramScript = await resolveDiagramScript(bookDocument(book).html)
+  const resolvedLayoutScripts = await layoutScripts(bookDocument(book).html)
   const srcdoc = refusedAsRender(() =>
-    bookSrcdoc('', book, fontCss, bookPageCss(book, true), options.css, false, diagramScript, {
+    bookSrcdoc('', book, fontCss, bookPageCss(book, true), options.css, false, diagramScript, resolvedLayoutScripts, {
       origins: options.origins,
       limits: options.limits,
       breaks: options.breaks,

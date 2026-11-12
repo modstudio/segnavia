@@ -11,6 +11,7 @@ import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
+import { layoutScripts } from './layout-scripts.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
@@ -175,6 +176,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
           const { value: page, slots } = await filledPage(pageWithDay, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(printedPageAuthorHtml(page))
+          const resolvedLayoutScripts = await layoutScripts(printedPageAuthorHtml(page))
           const printed = await renderPagePdf(
             page,
             slots,
@@ -185,6 +187,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             diagramScript,
             prepared.fontCss,
             prepared.fontFailures,
+            resolvedLayoutScripts,
           )
           if (printed.overflow) overflows.push(printed.overflow)
           return printed.bytes
@@ -243,6 +246,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, contexts.pages[0]?.slots)
           const { value: pages, slots, frameGroups } = await filledPages(expandedPages, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(pages.map(printedPageAuthorHtml).join(''))
+          const resolvedLayoutScripts = await layoutScripts(pages.map(printedPageAuthorHtml).join(''))
           return renderPagesPdf(
             pages,
             slots,
@@ -259,8 +263,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   diagramScript,
                   prepared.fontCss,
                   prepared.fontFailures,
+                  resolvedLayoutScripts,
                 ),
-              piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
+              piecePdf: (page, slots, geometry, css, options) =>
+                renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript, resolvedLayoutScripts),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
             },

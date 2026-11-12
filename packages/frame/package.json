@@ -69,6 +69,11 @@
       "types": "./dist/diagram-document.d.ts",
       "default": "./dist/diagram-document.js"
     },
+    "./layout": {
+      "@segnavia/source": "./src/layout.ts",
+      "types": "./dist/layout.d.ts",
+      "default": "./dist/layout.js"
+    },
     "./image-fit": {
       "@segnavia/source": "./src/image-fit.ts",
       "types": "./dist/image-fit.d.ts",

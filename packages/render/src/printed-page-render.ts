@@ -1,5 +1,6 @@
 import type { FontFailure } from '@segnavia/format'
 import { newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { PRINTED_PAGE_COMPOSED_ATTRIBUTE, PRINTED_PAGE_FAILURE_ATTRIBUTE, printedPageValueDocument } from '@segnavia/frame/printed-page-document'
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
@@ -16,18 +17,20 @@ export function renderedPageDocument(
   options: ComposedRenderOptions,
   printing = false,
   diagramScript?: string,
+  layoutScripts?: readonly LoadedLayoutScript[],
   fontCss = '',
   fontFailures: FontFailure[] = [],
 ): string {
   try {
     if (!isPrintedHtmlPage(page) && !page.printedPages) {
-      return renderPageValueDocument(page, options, printing, undefined, fontCss, diagramScript, fontFailures)
+      return renderPageValueDocument(page, options, printing, undefined, fontCss, diagramScript, fontFailures, layoutScripts)
     }
     return printedPageValueDocument(page, {
       nonce: newNonce(),
       baseCss: `${fontCss}${fontFaces(options.fonts)}`,
       css: options.css,
       diagramScript,
+      layoutScripts,
       readyCallback: RENDER_READY_BINDING,
       limits: options.limits,
       fontFailures,

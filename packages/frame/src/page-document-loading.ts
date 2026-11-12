@@ -1,12 +1,13 @@
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { type FrameOptions, frameDocument, newNonce } from './bridge.ts'
 import { hasDiagram, loadDiagramScript, withDiagramScript } from './diagram-document.ts'
+import { type LoadedLayoutScript, loadLayoutScripts } from './layout.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
 import { type ShownPageDocumentOptions, shownPageDocument } from './shown-page-document.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 type DiagramScriptLoader = (html: string) => Promise<string | undefined>
-type DiagramDocumentBuilder = (nonce: string, diagramScript: string | undefined) => string
+type DiagramDocumentBuilder = (nonce: string, diagramScript: string | undefined, layoutScripts: readonly LoadedLayoutScript[]) => string
 
 function loadDiagramDocument(
   html: string,
@@ -14,39 +15,39 @@ function loadDiagramDocument(
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader,
+  loadLayouts: (html: string) => Promise<LoadedLayoutScript[]>,
 ): void {
   const nonce = newNonce()
-  const write = (diagramScript: string | undefined) => {
+  const write = (diagramScript: string | undefined, layoutScripts: readonly LoadedLayoutScript[]) => {
     try {
-      loaded(build(nonce, diagramScript))
+      loaded(build(nonce, diagramScript, layoutScripts))
     } catch (error) {
       failed(error)
     }
   }
-  if (!hasDiagram(html)) {
-    write(undefined)
-    return
-  }
-  void load(html).then(write, (error) => {
-    failed(error)
-    write(undefined)
-  })
+  const diagram = hasDiagram(html) ? load(html) : Promise.resolve(undefined)
+  void Promise.all([diagram, loadLayouts(html)]).then(
+    ([script, layouts]) => write(script, layouts),
+    (error) => failed(error),
+  )
 }
 
 export function loadPrintedPageDocument(
   source: PrintedHtmlPage | HtmlPage,
-  options: Omit<Parameters<typeof printedPageValueDocument>[1], 'nonce' | 'diagramScript'>,
+  options: Omit<Parameters<typeof printedPageValueDocument>[1], 'nonce' | 'diagramScript' | 'layoutScripts'>,
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
+  loadLayouts = loadLayoutScripts,
 ): void {
   const page = isPrintedHtmlPage(source) ? source : resolvePrintedPageHtml(source)
   loadDiagramDocument(
     printedPageAuthorHtml(page),
-    (nonce, diagramScript) => printedPageValueDocument(page, { ...options, nonce, diagramScript }),
+    (nonce, diagramScript, layoutScripts) => printedPageValueDocument(page, { ...options, nonce, diagramScript, layoutScripts }),
     loaded,
     failed,
     load,
+    loadLayouts,
   )
 }
 
@@ -56,8 +57,9 @@ export function loadPageDocument(
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
+  loadLayouts = loadLayoutScripts,
 ): void {
-  loadDiagramDocument(page.html, (nonce, script) => frameDocument(withDiagramScript(page.html, nonce, script), { ...options, nonce }), loaded, failed, load)
+  loadDiagramDocument(page.html, (nonce, script, layoutScripts) => frameDocument(withDiagramScript(page.html, nonce, script), { ...options, nonce, layoutScripts }), loaded, failed, load, loadLayouts)
 }
 
 export function loadShownPageDocument(
@@ -67,12 +69,14 @@ export function loadShownPageDocument(
   loaded: (document: string) => void,
   failed: (error: unknown) => void,
   load: DiagramScriptLoader = loadDiagramScript,
+  loadLayouts = loadLayoutScripts,
 ): void {
   loadDiagramDocument(
     page.html,
-    (nonce, script) => shownPageDocument({ ...page, html: withDiagramScript(page.html, nonce, script) }, resolved, { ...options, nonce }),
+    (nonce, script, layoutScripts) => shownPageDocument({ ...page, html: withDiagramScript(page.html, nonce, script) }, resolved, { ...options, nonce, layoutScripts }),
     loaded,
     failed,
     load,
+    loadLayouts,
   )
 }

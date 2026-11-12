@@ -30,6 +30,8 @@ import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-prefli
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
+import { type LoadedLayoutScript } from './layout.ts'
+import { withLayoutScripts } from './layout-runtime.ts'
 import { escapeHtml } from './svg.ts'
 
 export type { SlotFitState } from '@segnavia/format'
@@ -133,6 +135,7 @@ export interface FrameOptions {
   readyCallback?: string
   // Plain page and slide frames establish only slot and font preflight facts.
   preflight?: PreflightProfile
+  layoutScripts?: readonly LoadedLayoutScript[]
 }
 export const HEIGHT_REPORT_START_FUNCTION = 'startHeightReporting'
 
@@ -275,8 +278,8 @@ function ready(){animationReport();${options.printBackground ? 'printBackground(
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};
 var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return merged;};
-${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});var diagrams=${DIAGRAM_READY_EXPR};
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});var diagrams=${DIAGRAM_READY_EXPR};var layouts=${options.readyAfterAttribute ? 'null' : "window.segnaviaLayout?window.segnaviaLayout.run('galley').then(function(){return window.segnaviaLayout.run('composed');}).catch(function(error){post({type:'segnavia:compose-failure',text:String(error&&error.message||error).slice(0,1024)});return new Promise(function(){});}):null"};
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams,layouts]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }
@@ -314,7 +317,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const scripts: Scripts = options.scripts === 'sandboxed' ? 'sandboxed' : 'refuse'
   const origins = options.origins === undefined ? undefined : [...options.origins]
   const bridge = options.bridge !== false
-  const body = html.replace(/^\s*<!doctype[^>]*>/i, '')
+  const body = withLayoutScripts(html.replace(/^\s*<!doctype[^>]*>/i, ''), options.nonce, options.layoutScripts ?? [])
   const sources = (kind: FetchKind) => {
     const values = [...approvedSources(origins, kind, scripts === 'sandboxed')].sort()
     return values.length ? ` ${values.join(' ')}` : ''
