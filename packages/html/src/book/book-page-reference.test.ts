@@ -36,3 +36,11 @@ test('treats an authored contents styling class as an authored page reference', 
   )
   expect(result.pageReferenceTargets).toEqual(['topic'])
 })
+
+test('removes the reserved generated-contents marker from authored page references', () => {
+  const html = '<p><a data-segnavia-generated-contents-page class="segnavia-contents-page" href="#topic" data-ref="page"></a></p><h2 id="topic">Topic</h2>'
+  const result = bookDocument(parseBookFixture(input([{ title: 'One', html }])))
+
+  expect(result.pageReferenceTargets).toEqual(['topic'])
+  expect(result.html).not.toContain('data-segnavia-generated-contents-page')
+})

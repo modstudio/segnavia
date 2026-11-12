@@ -12,6 +12,10 @@ export function isGeneratedContentsPageReference(attribs: Record<string, string>
   return CONTENTS_PAGE_REFERENCE_ATTRIBUTE in attribs
 }
 
+export function removeAuthoredContentsPageReferenceMarkers(roots: Element[]): void {
+  for (const node of roots.flatMap((root) => [root, ...elements(root.children)])) delete node.attribs[CONTENTS_PAGE_REFERENCE_ATTRIBUTE]
+}
+
 export function pageReferenceTarget(attribs: Record<string, string>): string | undefined {
   if (attribs[PAGE_REFERENCE_ATTRIBUTE] !== PAGE_REFERENCE_VALUE) return undefined
   const href = attribs.href
