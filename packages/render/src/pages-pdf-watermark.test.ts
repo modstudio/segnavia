@@ -136,7 +136,10 @@ test('imposed watermark parts identify their reader pages even when placements a
       fontFaces: () => '',
       finish: async (pdf) => pdf,
       watermark: async (parts, count) => {
-        seen = parts.map((part) => ({ source: printedPageAuthorHtml(part.page), physical: part.physicalPages }))
+        seen = parts.map((part) => {
+          if (!part.page) throw new Error('An imposed page watermark part needs its source page.')
+          return { source: printedPageAuthorHtml(part.page), physical: part.physicalPages }
+        })
         pageCount = count ?? 0
         return parts.map((part) => part.bytes)
       },
