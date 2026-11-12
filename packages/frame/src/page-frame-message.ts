@@ -16,6 +16,7 @@ export interface PageFrameMessageState {
   documentIsLoaded: boolean
   frameHeight: PageFrameHeightState
   frameReady: boolean
+  layoutFrame?: PageFrameIdentity
   page: Page | null
   profile: PreflightProfile
   resolvedSlots: PreparedSlots | undefined
@@ -34,8 +35,9 @@ export function handlePageFrameMessage(target: HTMLElement, event: MessageEvent,
   }
   if (dispatchPreflight(target, message)) return
   const composeFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, state.currentFrame, state.composedFrame)
-  if (composeFailure) {
-    dispatchPageFailure(target, composeFailure, true)
+  const layoutFailure = printedPageComposeFailure(message, MESSAGE.composeFailure, state.currentFrame, state.layoutFrame)
+  if (composeFailure || layoutFailure) {
+    dispatchPageFailure(target, composeFailure ?? layoutFailure, true)
     return
   }
   if (message?.type === MESSAGE.slotFit && message.slots && samePageFrame(state.currentFrame, state.slotFrame)) state.resolvedSlots?.mergeFit(message.slots)

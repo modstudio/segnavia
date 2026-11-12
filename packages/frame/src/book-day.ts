@@ -3,6 +3,7 @@ import { fillBookViewAsOfBindings, resolveDayContextsFor } from '@segnavia/html'
 import { asOfContextInputs, type captureAsOfLoad } from './as-of-element.ts'
 import { prepareBookView, prepareBookViewWithoutSources } from './book-motifs.ts'
 import { hasDiagram, loadDiagramScriptResult } from './diagram-document.ts'
+import { type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 
@@ -14,7 +15,8 @@ function resolveBookDiagram(view: BookView, settled: boolean) {
 type InitialBookView = { kind: 'ready'; prepared: ReturnType<typeof prepareBookViewWithoutSources> } | { kind: 'refused' } | { kind: 'deferred' }
 
 function initialBookView(view: BookView, hasSources: boolean, failed?: (reason: unknown) => void): InitialBookView {
-  if (hasSources || hasDiagram(`${view.html}${view.flow ?? ''}`)) return { kind: 'deferred' }
+  const html = `${view.html}${view.flow ?? ''}`
+  if (hasSources || hasDiagram(html) || layoutsUsed(html).length > 0) return { kind: 'deferred' }
   try {
     return { kind: 'ready', prepared: prepareBookViewWithoutSources(view) }
   } catch (reason) {
@@ -37,11 +39,13 @@ async function prepareDatedBookView(
   },
 ) {
   const diagram = await resolveBookDiagram(view, options.diagramSettled)
+  const html = `${view.html}${view.flow ?? ''}`
+  const layoutScripts = layoutsUsed(html).length > 0 ? await loadLayoutScripts(html) : []
   const prepared =
     !options.motifs && !options.fonts && !options.placements
       ? prepareBookViewWithoutSources(view)
       : await prepareBookView(view, options.motifs, options.fonts, options.signal, options.placements, options.pageWidths, day, options.profile)
-  return { diagram, prepared }
+  return { diagram, layoutScripts, prepared }
 }
 
 export function startBookViewLoad(
@@ -58,6 +62,7 @@ export function startBookViewLoad(
     current(): boolean
     day(day: AsOfDay): void
     diagram(result: Awaited<ReturnType<typeof loadDiagramScriptResult>>): void
+    layout(scripts: readonly LoadedLayoutScript[]): void
     prepared(result: ReturnType<typeof prepareBookViewWithoutSources>, view: BookView): void
     failed(reason: unknown): void
     settled(): void
@@ -83,6 +88,7 @@ export function startBookViewLoad(
     const result = await prepareDatedBookView(filled, day, options)
     if (!options.current()) return
     if (result.diagram) options.diagram(result.diagram)
+    options.layout(result.layoutScripts)
     options.prepared(result.prepared, filled)
   }
   if (!(resolved instanceof Promise)) {

@@ -383,6 +383,30 @@ optional diagrams package when no provider is registered. It refuses diagram
 content when neither source is available, and imports no diagram module for
 content without a diagram.
 
+Layout providers are host-supplied, offline scripts registered through the
+server-safe `@segnavia/frame/layout` entry. Content selects a provider with
+`data-segnavia-layout="name"`. Names are read from parsed element attributes,
+so text in comments, scripts, styles or code samples selects nothing. Only
+selected providers are loaded. They are injected under the frame nonce, after
+the runtime and ahead of any document script, so the runtime exists before the
+composer or bridge reaches a phase. A provider script containing `</script`
+refuses at load, naming the provider. Each provider's definition loads in its
+own `try`; one that throws refuses the phase with "failed to load", naming that
+provider, and later providers still define. A document that selects a provider
+without the runtime installed refuses instead of skipping the phase.
+
+The frame runs each provider serially in priority and registration order.
+`galley` runs after source shaping and before pagination. `composed` runs after
+page-note settlement and before the screen scales the pages, so both phases
+measure in unscaled page coordinates. It is never re-paginated, and the overset
+checks run after it. Plain pages and slides run both phases as part of the
+bridge's ready join; a slide frame signals loaded only when its layout document
+is written, and a provider that fails to load writes a document that carries
+the refusal. A provider receives its selected elements plus `ink`, `lineBoxes`,
+and bounded `report` helpers. `ink` searches every selected element and throws
+when its text is not found. Reports enter preflight as `layout-report`;
+rejected, thrown and timed-out phases use the existing compose-failure path.
+
 **Data the host keeps.** The host keeps the parsed page body, including its
 markdown source beside the lowered HTML when the page was authored as markdown.
 Titles remain host data beside a page; markdown does not create a new asset
@@ -2060,7 +2084,8 @@ is pure and runs in process, with a capped fixed-point loop for page references
 and head-template variables. It may replay a saved `Plan` after checking its
 fingerprints. Dressing is separate from page breaking: it slices the planned
 content, selects parent-page regions and adds furniture and marginal material.
-Layout providers run at named measure or dress phases in priority order.
+Layout providers run in priority order at two phases: `galley`, before the
+first pagination measurement, and `composed`, after note settlement.
 
 Copyfit runs once after fonts, images and diagrams are ready and before the
 first pagination measurement. Authors mark source content with `data-fit`, an

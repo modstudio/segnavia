@@ -21,6 +21,7 @@ import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_P
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { declaredFontLoads } from './font-load.ts'
+import type { LoadedLayoutScript } from './layout.ts'
 
 export interface PaginatedDocumentOptions {
   nonce: string
@@ -29,6 +30,7 @@ export interface PaginatedDocumentOptions {
   printBackground?: boolean
   screen?: Omit<ScreenPresentation, 'reportPlace'>
   diagramScript?: string
+  layoutScripts?: readonly LoadedLayoutScript[]
   limits?: Limits
   plan?: Plan
   breaks?: string[]
@@ -114,10 +116,14 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     progressCallback: options.progressCallback,
     bridgeForHost: true,
     printBackground: options.printBackground,
+    layoutScripts: options.layoutScripts,
   })
 }
 
-export function flowViewDocument(view: BookView, options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'diagramScript'>): string {
+export function flowViewDocument(
+  view: BookView,
+  options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'diagramScript' | 'layoutScripts'>,
+): string {
   if (!view.flow || !view.pagination) throw new Error('A flow frame requires a paginated view built with its flow.')
   const script = `var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};${embeddedBookPresentationFunctions()}${bookPresentationScript('document', '', JSON.stringify(BOOK_PAGE_ATTRIBUTE))}`
   return frameDocument(`${withDiagramScript(view.flow, options.nonce, options.diagramScript)}<script nonce="${options.nonce}">${script}</script>`, {
@@ -130,5 +136,6 @@ export function flowViewDocument(view: BookView, options: Pick<PaginatedDocument
     relayKeys: false,
     reportHeight: false,
     fonts: view.style?.fonts,
+    layoutScripts: options.layoutScripts,
   })
 }

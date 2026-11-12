@@ -8,6 +8,7 @@ import { resolveDeckFonts } from './deck-pdf.ts'
 import { fontFaces } from './font-faces.ts'
 import { enforceImageBytes } from './image-bytes.ts'
 import { imageWatermarkPage, injectImageWatermark, nestedFrameFontFacts, selectedImageWatermarkMarkup } from './image-watermark.ts'
+import { layoutScripts } from './layout-scripts.ts'
 import { assetSetup, type ParsedComposedRenderOptions, type SlideImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { surfacePreflight } from './preflight.ts'
@@ -40,9 +41,10 @@ export async function renderSlideImage(
   const preflight = surfacePreflight(opts.preflight, 1)
   const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
   const diagramScript = await services.diagramScript(slideHtml)
-  const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false)
+  const resolvedLayoutScripts = await layoutScripts(slideHtml)
+  const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0)
   const css = `${resolvedFonts.fontCss}${fontFaces(opts.fonts)}${opts.css ?? ''}`
-  const html = printableDeckValue(single, { inline: opts.inline, css, origins: opts.origins, diagramScript })
+  const html = printableDeckValue(single, { inline: opts.inline, css, origins: opts.origins, diagramScript, layoutScripts: resolvedLayoutScripts })
   return services.withTab(
     {
       viewport: deck.size,

@@ -1,6 +1,7 @@
 import { type FontFailure, type OriginApproval, type PreflightProfile, pageDirection, printProperties } from '@segnavia/format'
 import type { HtmlPage } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
+import type { LoadedLayoutScript } from './layout.ts'
 import type { PreparedSlots } from './slot-render.ts'
 import { slotHtml } from './slot-render.ts'
 
@@ -11,6 +12,7 @@ export interface ShownPageDocumentOptions {
   origins?: Iterable<OriginApproval>
   fontFailures?: FontFailure[]
   preflight?: PreflightProfile
+  layoutScripts?: readonly LoadedLayoutScript[]
 }
 
 export function shownPageDocument(page: HtmlPage, resolved: PreparedSlots | undefined, options: ShownPageDocumentOptions & { nonce: string }): string {
@@ -28,5 +30,6 @@ export function shownPageDocument(page: HtmlPage, resolved: PreparedSlots | unde
     origins: options.origins,
     preflight: options.preflight,
     relayKeys: false,
+    layoutScripts: options.layoutScripts,
   })
 }

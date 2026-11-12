@@ -44,6 +44,7 @@ import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { imposedPaperBodies, imposedPaperDocument, placementBox } from './imposed-paper.ts'
+import { layoutsUsed } from './layout.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
@@ -54,7 +55,6 @@ export { deckNotesPrint, deckPressSettings, deckSheetGeometry } from './deck-pre
 export { imposedPaperDocument, type PrintablePaperBody } from './imposed-paper.ts'
 export { notesLayoutGeometry, paginateNotes } from './notes-layout.ts'
 export { htmlSlideDocument } from './slide-print-document.ts'
-
 export const SLIDES_READY_DEADLINE_MS = 4000
 export const SECTIONED_IMPOSITION_REFUSAL =
   'Imposition shows one page per input and cannot show a sectioned printed document; show it with <segnavia-page> or print it with pagePdf to clear this refusal.'
@@ -62,10 +62,8 @@ export const SECTIONED_IMPOSITION_REFUSAL =
 export function refuseSectionedImpositionPage(page: Page): void {
   if (isPrintedHtmlPage(page)) throw new RangeError(SECTIONED_IMPOSITION_REFUSAL)
 }
-
 type MediaSlide = Extract<Slide['content'], { media: unknown }>
 type ImageSlide = Extract<Slide['content'], { kind: 'image' }>
-
 function missingMedia(content: MediaSlide): ImageSlide {
   return { kind: 'image', src: placementPlaceholderSource(), alt: content.media.alt?.text ?? '', fit: content.media.fit }
 }
@@ -100,7 +98,6 @@ export async function resolveMediaContent<R extends { kind: string }>(
   }
   return missingMedia(content)
 }
-
 export async function resolveDeckMedia<R extends { kind: string }>(
   deck: Deck,
   placements: PlacementsOptions<R> | undefined,
@@ -146,6 +143,7 @@ export interface PrintOptions {
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   diagramScript?: string
+  layoutScripts?: readonly import('./layout.ts').LoadedLayoutScript[]
   limits?: Limits
 }
 
@@ -187,8 +185,11 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const content = slide.content
   if ('media' in content)
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
-  const frame = (html: string) =>
-    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, diagramScript: options.diagramScript }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+  const frame = (html: string) => {
+    const selectedLayouts = new Set(layoutsUsed(html))
+    const layoutScripts = options.layoutScripts?.filter(({ name }) => selectedLayouts.has(name))
+    return `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, diagramScript: options.diagramScript, layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+  }
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)
@@ -253,6 +254,7 @@ export interface PrintablePagesOptions {
   origins?: Iterable<OriginApproval>
   pageWidths?: PageWidths
   diagramScript?: string
+  layoutScripts?: readonly import('./layout.ts').LoadedLayoutScript[]
   limits?: Limits
 }
 
@@ -318,6 +320,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     csp: options.cspExtra || undefined,
     reportHeight: false,
     relayKeys: false,
+    layoutScripts: options.layoutScripts,
     printBackground: true,
     origins: options.origins,
   })

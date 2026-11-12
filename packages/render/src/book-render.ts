@@ -26,6 +26,7 @@ import {
 } from '@segnavia/frame/book-document'
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { bookPageCss, renderBookPdf } from './book-pdf.ts'
@@ -33,6 +34,7 @@ import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { RenderRefusedError } from './errors.ts'
+import { layoutScripts } from './layout-scripts.ts'
 import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
@@ -120,6 +122,7 @@ function bookSrcdoc(
   hostCss: string | undefined,
   marginLayer: boolean,
   diagramScript: string | undefined,
+  resolvedLayoutScripts: readonly LoadedLayoutScript[],
   options: {
     sheets?: readonly string[]
     origins?: Iterable<OriginApproval>
@@ -140,6 +143,7 @@ function bookSrcdoc(
       css: hostCss,
       printBackground: true,
       diagramScript,
+      layoutScripts: resolvedLayoutScripts,
       limits: options.limits,
       plan: options.plan,
       breaks: options.breaks ?? options.plan?.breaks,
@@ -158,7 +162,8 @@ function bookSrcdoc(
     relayKeys: false,
     reportHeight: false,
     origins: options.origins,
-    readyCallback: hasDiagram(html) ? RENDER_READY_BINDING : undefined,
+    readyCallback: hasDiagram(html) || resolvedLayoutScripts.length > 0 ? RENDER_READY_BINDING : undefined,
+    layoutScripts: resolvedLayoutScripts,
   })
 }
 
@@ -210,6 +215,7 @@ async function printBook(
   layerCss: string,
   resolvedFontCss: string,
   diagramScript: string | undefined,
+  resolvedLayoutScripts: readonly LoadedLayoutScript[],
   fontFailures: FontFailure[],
   dependencies: BrowserBookDependencies,
 ): Promise<PrintResult<true>> {
@@ -224,7 +230,7 @@ async function printBook(
   let composedPlan: SavedPlan | undefined
   let watermarkFont: Awaited<ReturnType<typeof pageFontFacts>> = {}
   const srcdoc = refusedAsRender(() =>
-    bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, {
+    bookSrcdoc(html, book, fontCss, baseCss, renderOptions.css, marginLayer, diagramScript, resolvedLayoutScripts, {
       sheets,
       origins: renderOptions.origins,
       limits: renderOptions.limits,
@@ -251,7 +257,12 @@ async function printBook(
         scripts: continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer),
         html: srcdoc,
         slots,
-        readiness: renderReadiness(marginLayer ? 'refuse' : book.scripts, hasDiagram(html), renderOptions.waitForPageReady !== false),
+        readiness: renderReadiness(
+          marginLayer ? 'refuse' : book.scripts,
+          hasDiagram(html),
+          renderOptions.waitForPageReady !== false,
+          resolvedLayoutScripts.length > 0,
+        ),
         boundMs: renderOptions.boundMs,
         beforeOutput:
           renderOptions.beforeOutput || (renderOptions.watermark && !marginLayer)
@@ -322,13 +333,27 @@ export async function renderBrowserBookPdf(
     return Promise.reject(new RenderRefusedError('bookPdf with plan or breaks needs a paginated book; set mode to paginated to clear this refusal'))
   }
   let script: Promise<string | undefined> | undefined
+  let resolvedLayouts: Promise<LoadedLayoutScript[]> | undefined
   return renderBookPdf(
     book,
     options,
     {
       print: async (html, book, slots, renderOptions, part, layerCss = '') => {
         script ??= resolveDiagramScript(bookDocument(book).html)
-        return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, dependencies.fontFailures ?? [], dependencies)
+        resolvedLayouts ??= layoutScripts(bookDocument(book).html)
+        return printBook(
+          html,
+          book,
+          slots,
+          renderOptions,
+          part,
+          layerCss,
+          fontCss,
+          await script,
+          await resolvedLayouts,
+          dependencies.fontFailures ?? [],
+          dependencies,
+        )
       },
       watermark: dependencies.watermark,
       finish: dependencies.finish,
@@ -351,8 +376,9 @@ export async function renderBrowserBookPlan(
   const { value: book, slots } = await fillBookForDay(input, day, options.slots)
   if (!book.page) throw new RenderRefusedError('Printing a book needs page; set page before calling bookPlan.')
   const diagramScript = await resolveDiagramScript(bookDocument(book).html)
+  const resolvedLayoutScripts = await layoutScripts(bookDocument(book).html)
   const srcdoc = refusedAsRender(() =>
-    bookSrcdoc('', book, fontCss, bookPageCss(book, true), options.css, false, diagramScript, {
+    bookSrcdoc('', book, fontCss, bookPageCss(book, true), options.css, false, diagramScript, resolvedLayoutScripts, {
       origins: options.origins,
       limits: options.limits,
       breaks: options.breaks,

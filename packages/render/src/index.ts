@@ -15,6 +15,7 @@ import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
+import { layoutScripts } from './layout-scripts.ts'
 import {
   copyLimits,
   enforceDeckLimits,
@@ -187,6 +188,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
           const { value: page, slots } = await filledPage(pageWithDay, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(printedPageAuthorHtml(page))
+          const resolvedLayoutScripts = await layoutScripts(printedPageAuthorHtml(page))
           const printed = await renderPagePdf(
             page,
             slots,
@@ -197,6 +199,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             diagramScript,
             prepared.fontCss,
             prepared.fontFailures,
+            resolvedLayoutScripts,
             Boolean(parsedOptions.watermark),
           )
           if (printed.overflow) overflows.push(printed.overflow)
@@ -259,6 +262,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, contexts.pages[0]?.slots)
           const { value: pages, slots, frameGroups } = await filledPages(expandedPages, effectiveSlots, deadline.signal)
           const diagramScript = await resolveDiagramScript(pages.map(printedPageAuthorHtml).join(''))
+          const resolvedLayoutScripts = await layoutScripts(pages.map(printedPageAuthorHtml).join(''))
           return renderPagesPdf(
             pages,
             slots,
@@ -275,10 +279,22 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   diagramScript,
                   prepared.fontCss,
                   prepared.fontFailures,
+                  resolvedLayoutScripts,
                   Boolean(parsedOptions.watermark),
                 ),
               piecePdf: (page, slots, geometry, css, options) =>
-                renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript, Boolean(parsedOptions.watermark)),
+                renderPiecePdf(
+                  page,
+                  slots,
+                  geometry,
+                  css,
+                  options,
+                  { withTab },
+                  deadline,
+                  diagramScript,
+                  resolvedLayoutScripts,
+                  Boolean(parsedOptions.watermark),
+                ),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
               watermark: watermarkCopies.stamp,
@@ -312,9 +328,9 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const bytes = await renderSlotCopyPdfs(options.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(options.slots, copySlots, established.slots)
           const { value: prepared, slots } = await fillDeckForDay(deck, established.day, effectiveSlots, deadline.signal)
-          const diagramScript = await resolveDiagramScript(
-            prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join(''),
-          )
+          const htmlSlides = prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join('')
+          const diagramScript = await resolveDiagramScript(htmlSlides)
+          const resolvedLayoutScripts = await layoutScripts(htmlSlides)
           return renderDeckPdf(
             prepared,
             { ...options, limits: copyLimits(options.limits, options.slots), press: undefined },
@@ -339,6 +355,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             },
             diagramScript,
             established.day,
+            resolvedLayoutScripts,
           )
         })
         watermarkCopies.validate()

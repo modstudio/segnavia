@@ -19,6 +19,7 @@ import { buildDeckHost } from './build-deck-host.ts'
 import { buildDeckPdfs } from './build-deck-pdfs.ts'
 import { buildDocumentDemo } from './build-document-demo.ts'
 import { buildFontCollectionDemo } from './build-font-collection-demo.ts'
+import { buildLayoutProviderDemo, buildLayoutProviderRenderDemo } from './build-layout-provider-demo.ts'
 import { buildMarkdownEditorDemo } from './build-markdown-editor-demo.ts'
 import { buildPageDemo } from './build-page-demo.ts'
 import { buildPagePdfs } from './build-page-pdfs.ts'
@@ -88,7 +89,6 @@ async function narration(text: string, cues: (n: Pick<Narration, 'words'>) => Na
   const spoken = await narrate(voice, text, { cacheDirectory: cache })
   return { text, lang, ...spoken, live: false, cues: cues(spoken) }
 }
-
 function publish(key: string): Shot {
   const shot = run.manifest.shots[key] as Shot
   for (const file of [shot.file, shot.annotatedFile]) if (file) copyFileSync(path.join(shotsDirectory, file), path.join(SITE, 'shots', file))
@@ -331,6 +331,7 @@ writeFileSync(path.join(SITE, 'notes.html'), shell('<segnavia-player src="deck.j
 buildPageDemo(SITE, (body) => shell(body))
 await buildMarkdownEditorDemo(ROOT, SITE)
 await buildBookDemo(SITE)
+await buildLayoutProviderDemo(ROOT, SITE)
 buildPaperDemo(SITE)
 await buildSlotDemo(SITE)
 await buildDocumentDemo(ROOT, SITE)
@@ -354,6 +355,7 @@ await buildDeckHost(ROOT, SITE)
 const renderer = await openRenderer({ executablePath: CHROMIUM, jsHeapMb: 128 })
 const inline = (src: string) => `data:image/webp;base64,${readFileSync(path.join(SITE, src)).toString('base64')}`
 try {
+  await buildLayoutProviderRenderDemo(SITE, renderer)
   await buildFontCollectionDemo(ROOT, SITE, OUT, renderer)
   await buildBookPdfs(
     SITE,

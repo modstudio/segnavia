@@ -119,6 +119,19 @@ describe('frame content security policy', () => {
     expect(actual['script-src']).not.toContain(scripts === 'sandboxed' ? "'nonce-known'" : 'https://cdn.jsdelivr.net')
   })
 
+  test('refused-script layout frames close connect-src while ordinary refused frames retain author fetch policy', () => {
+    const plain = cspDirectives(frameDocument('<p>frame</p>', { scripts: 'refuse', nonce: 'known' }))
+    const layout = cspDirectives(
+      frameDocument('<p data-segnavia-layout="margin">frame</p>', {
+        scripts: 'refuse',
+        nonce: 'known',
+        layoutScripts: [{ name: 'margin', script: 'window.segnaviaLayout.define({})', priority: 0, order: 0, selects: '*' }],
+      }),
+    )
+    expect(plain['connect-src']).toEqual(['*'])
+    expect(layout['connect-src']).toEqual(["'none'"])
+  })
+
   test('slide, deck and printed-page entry points use the same directive map', () => {
     const deck = Deck.parse({
       title: 'CSP',

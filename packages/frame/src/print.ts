@@ -33,6 +33,7 @@ import {
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { loadDiagramScript } from './diagram-document.ts'
+import { loadLayoutScripts } from './layout.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
 import { parsePageWidths } from './page-widths.ts'
@@ -198,13 +199,17 @@ export async function preparedDeckValuePrint(
         : slide,
     ),
   }
+  const layoutScripts = await loadLayoutScripts(
+    preparedDeck.slides.flatMap((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? [slide.content.html] : [])).join(''),
+  )
+  const preparedPrintOptions = { ...printOptions, layoutScripts }
   if (options.imposition) {
-    const printable = printableDeckValueDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
+    const printable = printableDeckValueDocument(preparedDeck, { ...preparedPrintOptions, imposition: options.imposition })
     return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
   const removedPressFields = Object.fromEntries(PRESS_GEOMETRY_FIELDS.map((field) => [field, undefined]))
   const browserOptions = {
-    ...printOptions,
+    ...preparedPrintOptions,
     notesPaper: printOptions.notesPaper ? { ...printOptions.notesPaper, ...removedPressFields } : undefined,
   }
   return { ...resolvedDeck.size, html: printableDeckValue({ ...preparedDeck, print: undefined }, browserOptions), ...options, slots: resolvedSlots }
@@ -231,7 +236,8 @@ async function preparedPagesPrint(
   if (requiredRefusal) throw requiredRefusal
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
   const diagramScript = await loadDiagramScript(filled.map((page) => page.html).join(''))
-  options = { ...options, diagramScript }
+  const layoutScripts = await loadLayoutScripts(filled.map((page) => page.html).join(''))
+  options = { ...options, diagramScript, layoutScripts }
   if (filled.some((page) => page.printedPages)) {
     const printable = await printedPagesPrintDocument(filled, imposition, {
       ...options,

@@ -99,3 +99,29 @@ test('a plain mounted document page advances document preflight coverage', () =>
   expect(received).toMatchObject({ coverage: { measured: 1, total: 1 } })
   expect(received?.issues[0]).toMatchObject({ subject: 'name', location: { folio: '1' } })
 })
+
+test('a plain frame with layout scripts dispatches only bounded compose failures', () => {
+  const current = frame()
+  const pageElement = new EventTarget() as HTMLElement
+  const errors: ErrorEvent[] = []
+  pageElement.addEventListener('error', (event) => errors.push(event as ErrorEvent))
+  const state: PageFrameMessageState = {
+    composedFrame: undefined,
+    currentFrame: { frame: current, generation: 3 },
+    documentIsFinal: true,
+    documentIsLoaded: true,
+    frameHeight: { contentHeight: 0, hasReport: false, ownsElementHeight: false },
+    frameReady: false,
+    layoutFrame: { frame: current, generation: 3 },
+    page: Page.parse({ html: '<p data-segnavia-layout="margin">Page</p>' }),
+    profile: PREFLIGHT_PRESETS.default,
+    resolvedSlots: undefined,
+    slotFrame: undefined,
+    fit: () => {},
+    ready: () => {},
+  }
+  const text = 'x'.repeat(1024)
+  handlePageFrameMessage(pageElement, { source: current.contentWindow, data: { type: MESSAGE.composeFailure, text } } as MessageEvent, state)
+  handlePageFrameMessage(pageElement, { source: current.contentWindow, data: { type: MESSAGE.composeFailure, text: `${text}x` } } as MessageEvent, state)
+  expect(errors.map((event) => event.message)).toEqual([text])
+})

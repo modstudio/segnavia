@@ -3,6 +3,7 @@ import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefu
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
+import { LAYOUT_FRAME_ATTRIBUTE, type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { annotationSvg } from './svg.ts'
 
@@ -17,8 +18,9 @@ interface StageCanvasOptions {
   slots?: PreparedSlots
   bridge?: boolean
   folio: Folio
-  failed?: (error: StyleSheetRefusedError) => void
+  failed?: (error: Error) => void
   preflight?: PreflightProfile
+  layoutScripts?: readonly LoadedLayoutScript[]
 }
 
 function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions): string | undefined {
@@ -36,11 +38,46 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
       reportHeight: false,
       bridge: options.bridge,
       preflight: options.preflight,
+      layoutScripts: options.layoutScripts,
     })
   } catch (error) {
     if (!(error instanceof StyleSheetRefusedError) || !options.failed) throw error
     options.failed(error)
   }
+}
+
+function writeFrame(iframe: HTMLIFrameElement, srcdoc: string, loaded: () => void): void {
+  iframe.addEventListener('load', loaded, { once: true })
+  iframe.srcdoc = srcdoc
+}
+
+function refusalLayoutScript(html: string, reason: unknown): LoadedLayoutScript {
+  const name = layoutsUsed(html)[0] ?? 'selected'
+  const message = reason instanceof Error ? reason.message : String(reason)
+  return { name, script: `throw new Error(${JSON.stringify(message)})`, priority: 0, order: 0, selects: '*' }
+}
+
+function writeHtmlFrame(iframe: HTMLIFrameElement, deck: Deck, html: string, options: StageCanvasOptions): boolean {
+  if (layoutsUsed(html).length === 0) {
+    const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts: [] })
+    if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
+    return srcdoc !== undefined
+  }
+  if (htmlFrameDocument(deck, html, { ...options, layoutScripts: [] }) === undefined) return false
+  iframe.setAttribute(LAYOUT_FRAME_ATTRIBUTE, '')
+  void loadLayoutScripts(html).then(
+    (layoutScripts) => {
+      const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts })
+      if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
+    },
+    (error) => {
+      const failure = error instanceof Error ? error : new Error(String(error))
+      options.failed?.(failure)
+      const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts: [refusalLayoutScript(html, failure)] })
+      if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
+    },
+  )
+  return true
 }
 
 export function layoutStageCanvas(canvas: HTMLElement, size: PixelSize) {
@@ -62,15 +99,15 @@ export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide
     // A URL slide's host-served document is outside the frame policy that blocks form submission.
     iframe.setAttribute('sandbox', options.bridge === false ? '' : frameSandbox(content.kind === 'url' ? 'refuse' : deck.scripts))
     iframe.title = options.frameTitle(deck.title, options.folio.number)
-    iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
-      const srcdoc = htmlFrameDocument(deck, content.html, options)
-      if (srcdoc === undefined) {
+      if (!writeHtmlFrame(iframe, deck, content.html, options)) {
         layoutStageCanvas(canvas, deck.size)
         return canvas
       }
-      iframe.srcdoc = srcdoc
-    } else iframe.src = controller.url(content.src)
+    } else {
+      iframe.addEventListener('load', options.loaded, { once: true })
+      iframe.src = controller.url(content.src)
+    }
     canvas.append(iframe)
   } else {
     const layer = document.createElement('div')

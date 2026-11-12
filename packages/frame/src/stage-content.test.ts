@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import type { DeckController, ResolvedContent } from './controller.ts'
 import { installFramePoolTestDocument } from './frame-pool.test-helper.ts'
+import { LAYOUT_FRAME_ATTRIBUTE } from './layout.ts'
 import { stageCanvas } from './stage-content.ts'
 
 let restoreDocument = () => {}
@@ -43,5 +44,31 @@ describe('stageCanvas', () => {
     const canvas = stageCanvas(controller, refused, slide, slide.content as ResolvedContent, { ...options, failed: (error) => errors.push(error) })
     expect(canvas.querySelector('iframe')).toBeNull()
     expect(errors[0]?.message).toContain('textStyles.body.basedOn')
+  })
+
+  test('a layout slide waits for the written document load and paints a refusal document when loading fails', async () => {
+    const selected = Deck.parse({
+      ...deck,
+      slides: [{ id: 'layout', content: { kind: 'html', html: '<p data-segnavia-layout="unknown">Layout</p>' } }],
+    })
+    const slide = selected.slides[0]
+    if (!slide) throw new Error('Expected the layout slide.')
+    let loads = 0
+    const errors: Error[] = []
+    const canvas = stageCanvas(controller, selected, slide, slide.content as ResolvedContent, {
+      ...options,
+      loaded: () => loads++,
+      failed: (error) => errors.push(error),
+    })
+    const iframe = canvas.querySelector('iframe') as (HTMLIFrameElement & { dispatch(name: string): void }) | null
+    expect(iframe?.getAttribute(LAYOUT_FRAME_ATTRIBUTE)).toBe('')
+    iframe?.dispatch('load')
+    expect(loads).toBe(0)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(errors[0]?.message).toContain('unknown')
+    expect(iframe?.srcdoc).toContain('unknown')
+    iframe?.dispatch('load')
+    expect(loads).toBe(1)
   })
 })

@@ -2,7 +2,8 @@ import { expect, test } from 'bun:test'
 import type { DocumentInput, SlotDeclarationInput } from '@segnavia/format'
 import { RequiredSlotsRefusedError, SlotFillRefusedError, SlotFillsConflictError, SlotFillsRefusedError } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
-import { copiesPrint, printDeck, printPages } from './print.ts'
+import { registerLayoutProvider, resetLayoutProvidersForTest } from './layout.ts'
+import { copiesPrint, preparedDeckPrint, printDeck, printPages } from './print.ts'
 import { EMPTY_SLOTS } from './slot-render.ts'
 
 function deckDocument(title: string, html: string, slots?: SlotDeclarationInput[], scripts?: 'sandboxed'): DocumentInput {
@@ -59,6 +60,16 @@ test('browser deck and page printing refuse every required slot state before cre
 })
 
 const imposition = { paper: { unit: 'mm' as const, width: 210, height: 297 }, columns: 1, rows: 1, cell: { width: 210, height: 297 } }
+
+test('browser deck printing injects the provider selected by a slide', async () => {
+  registerLayoutProvider('printed-layout', { script: async () => 'window.segnaviaLayout.define({galley(){window.printedLayout=true}})' })
+  try {
+    const prepared = await preparedDeckPrint(deckDocument('Layout', '<p data-segnavia-layout="printed-layout">Design</p>'), {})
+    expect(prepared.html).toContain('window.printedLayout=true')
+  } finally {
+    resetLayoutProvidersForTest()
+  }
+})
 
 test('printPages resolves placements before building the browser print document', async () => {
   let written = ''

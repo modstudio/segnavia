@@ -131,6 +131,33 @@ test('the browser tab exposes and re-bounds the progress reporter only when supp
   expect(reports).toEqual([{ pages: 2, total: 5 }])
 })
 
+test('a recorded layout failure wins over the readiness timeout', async () => {
+  const failure = 'Layout provider margin refused its galley phase: broken'
+  const page = {
+    on: () => {},
+    exposeFunction: async () => {},
+    setContent: async () => {},
+    waitForFunction: async () => {},
+    evaluate: async () => failure,
+  }
+  const context = {
+    route: async () => {},
+    routeWebSocket: async () => {},
+    newPage: async () => page,
+    close: async () => {},
+  }
+  const browser = { newContext: async () => context } as unknown as Browser
+  const rendering = renderInBrowserTab(
+    browser,
+    { viewport: { width: 100, height: 100 }, scripts: true, html: '<p>layout</p>', readiness: { author: false, diagrams: false, layouts: true } },
+    undefined,
+    { settled: () => false, opened: () => {}, crashed: () => {} },
+    async () => undefined,
+  )
+  await expect(rendering).rejects.toEqual(expect.objectContaining({ message: failure }))
+  await expect(rendering).rejects.toBeInstanceOf(RenderRefusedError)
+})
+
 test('asset caps name the address, byte count, limit and host option, and raised caps admit the answer', () => {
   const url = 'https://images.example/a.png'
   expect(assetLimitRefusal(url, 11, 0, { each: 10, bytes: 50 })?.message).toBe(
