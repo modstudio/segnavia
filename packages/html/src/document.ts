@@ -67,7 +67,12 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
     })
   const parentPages = document.parentPages.map((node) => ({
     ...node,
-    regions: Object.fromEntries(Object.entries(node.regions).map(([name, region]) => [name, { ...region, html: html(region.html, node) }])),
+    regions: Object.fromEntries(
+      Object.entries(node.regions).map(([name, region]) => [
+        name,
+        { ...region, html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { refuseMeasure: true }).html },
+      ]),
+    ),
   }))
   const templates = document.templates.map((node) => ({ ...node, html: html(node.html, node) }))
   return { ...document, children: nodes(document.children), parentPages, templates }

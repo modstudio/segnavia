@@ -1,8 +1,11 @@
 import type { FitStrategy } from '@segnavia/format'
 import { embedFunction, fitList, parseCssLength } from '@segnavia/html'
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
-import { FIT_AXES, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue, runFitStageOnce } from './composer-fit-policy.ts'
+import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
+import { FIT_AXES, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue } from './composer-fit-policy.ts'
 import { fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
+import { blockSubject, type SourceGeometry, type StagedSource, stagedSourceExcluded } from './composer-source-staging.ts'
+import { runStageOnce } from './composer-stage-policy.ts'
 
 interface FitResult {
   element: HTMLElement
@@ -13,17 +16,6 @@ interface FitResult {
   units: Record<FitStrategy, string>
   stopped?: { strategy: FitStrategy; bound: number; excess: number }
 }
-interface TemporaryFit {
-  clone: HTMLElement
-  fitted: HTMLElement
-  source: HTMLElement
-}
-interface FitGeometry {
-  paperWidth: number
-  paperHeight: number
-  parents: Array<{ textArea: { width: number; height: number } }>
-}
-
 function applyFitStyles(element: HTMLElement, styles: ReturnType<typeof fitApplication>['styles']) {
   for (const [property, value] of Object.entries(styles) as Array<[keyof typeof styles, string]>) element.style[property] = value
 }
@@ -37,7 +29,8 @@ function templatePageFits(
   direction: string,
   lang: string,
   selector: string,
-): TemporaryFit[] {
+  attribute: string,
+): StagedSource[] {
   const fillRegions = (globalThis as typeof globalThis & { fillTemplateRegions?: typeof fillTemplateRegions }).fillTemplateRegions ?? fillTemplateRegions
   const clone = template.cloneNode(true) as HTMLElement
   clone.removeAttribute('hidden')
@@ -58,10 +51,10 @@ function templatePageFits(
     )
     const source = Array.from((heldRegion ?? templateRegion ?? template).querySelectorAll<HTMLElement>(selector))[position]
     if (!source)
-      throw new Error(`template "${name}" region "${regionName}" fit ${position + 1} has no source; keep the fitted block in its region to clear this refusal`)
-    const subject = fitted.getAttribute('data-segnavia-id') ?? fitted.closest<HTMLElement>('[data-segnavia-id]')?.getAttribute('data-segnavia-id')
+      throw new Error(`template "${name}" region "${regionName}" ${attribute} ${position + 1} has no source; keep the staged block in its region to clear this refusal`)
+    const subject = blockSubject(fitted)
     if (!subject)
-      throw new Error(`template "${name}" region "${regionName}" fit ${position + 1} has no block id; place it in an identified block to clear this refusal`)
+      throw new Error(`template "${name}" region "${regionName}" ${attribute} ${position + 1} has no block id; add data-segnavia-id to it or a block ancestor to clear this refusal`)
     fitted.setAttribute('data-segnavia-id', subject)
     if (!fitted.hasAttribute('data-fit-group')) fitted.setAttribute('data-fit-group', `segnavia-template-${name}-${regionName}-${position}`)
     return { clone, fitted, source }
@@ -72,13 +65,14 @@ function templatePageFits(
 
 function templateFits(
   root: ParentNode,
-  geometry: (name: string | null | undefined) => FitGeometry,
+  geometry: (name: string | null | undefined) => SourceGeometry,
   defaultDirection: string,
   defaultLang: string,
   selector: string,
-): TemporaryFit[] {
+  attribute: string,
+): StagedSource[] {
   const measurePage = (globalThis as typeof globalThis & { templatePageFits?: typeof templatePageFits }).templatePageFits ?? templatePageFits
-  const temporary: TemporaryFit[] = []
+  const temporary: StagedSource[] = []
   for (const template of Array.from(root.querySelectorAll<HTMLElement>('[data-segnavia-template]'))) {
     const name = template.getAttribute('data-segnavia-template') ?? ''
     const holders = Array.from(root.querySelectorAll<HTMLElement>('[data-segnavia-templated-page]')).filter(
@@ -99,6 +93,7 @@ function templateFits(
           flow?.getAttribute('dir') ?? defaultDirection,
           flow?.getAttribute('lang') ?? defaultLang,
           selector,
+          attribute,
         ),
       )
     }
@@ -108,12 +103,13 @@ function templateFits(
 
 function designedFits(
   root: ParentNode,
-  geometry: (name: string | null | undefined) => FitGeometry,
+  geometry: (name: string | null | undefined) => SourceGeometry,
   defaultDirection: string,
   defaultLang: string,
   selector: string,
-): TemporaryFit[] {
-  const temporary: TemporaryFit[] = []
+  _attribute: string,
+): StagedSource[] {
+  const temporary: StagedSource[] = []
   for (const holder of Array.from(root.querySelectorAll<HTMLElement>('[data-segnavia-designed-page]'))) {
     const sourceFits = Array.from(holder.querySelectorAll<HTMLElement>(selector))
     if (sourceFits.length === 0) continue
@@ -173,7 +169,7 @@ function fitElement(element: HTMLElement, absolutePx: Readonly<Record<string, nu
       slotSubject = decodeURIComponent(slot.split(':')[0] ?? '')
     } catch {}
   }
-  const id = element.getAttribute('data-segnavia-id') ?? element.closest<HTMLElement>('[data-segnavia-id]')?.getAttribute('data-segnavia-id') ?? slotSubject
+  const id = blockSubject(element, slotSubject)
   if (!id) throw new Error('data-fit has no identified block subject; place it in a block element to clear this refusal')
   return {
     element,
@@ -195,7 +191,7 @@ function applyFits(results: FitResult[]) {
   }
 }
 
-function finishTemporaryFits(temporary: TemporaryFit[]) {
+function finishTemporaryFits(temporary: StagedSource[]) {
   for (const entry of temporary) {
     entry.source.style.fontSize = entry.fitted.style.fontSize
     entry.source.style.lineHeight = entry.fitted.style.lineHeight
@@ -208,7 +204,7 @@ function finishTemporaryFits(temporary: TemporaryFit[]) {
 function fitSourceElementsImplementation(
   root: ParentNode,
   absolutePx: Readonly<Record<string, number>>,
-  geometry: (name: string | null | undefined) => FitGeometry,
+  geometry: (name: string | null | undefined) => SourceGeometry,
   defaultDirection: string,
   defaultLang: string,
 ) {
@@ -223,12 +219,12 @@ function fitSourceElementsImplementation(
   }
   const selector = '[data-fit],[data-fit-min]'
   const temporary = [
-    ...(shared.templateFits ?? templateFits)(root, geometry, defaultDirection, defaultLang, selector),
-    ...(shared.designedFits ?? designedFits)(root, geometry, defaultDirection, defaultLang, selector),
+    ...(shared.templateFits ?? templateFits)(root, geometry, defaultDirection, defaultLang, selector, 'data-fit'),
+    ...(shared.designedFits ?? designedFits)(root, geometry, defaultDirection, defaultLang, selector, 'data-fit'),
   ]
   const ordinary = Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
     (element) =>
-      !element.closest('[data-segnavia-template],[data-segnavia-templated-page],[data-segnavia-designed-page]') && element.getClientRects().length > 0,
+      !stagedSourceExcluded(element) && element.getClientRects().length > 0,
   )
   const candidates = [...ordinary, ...temporary.map((entry) => entry.fitted)]
   const results = candidates.flatMap((element) => {
@@ -250,13 +246,17 @@ ${embedFunction('fitValue', fitValue)}
 ${embedFunction('fitAxis', fitAxis)}
 ${embedFunction('fitBounds', fitBounds)}
 ${embedFunction('fitApplication', fitApplication)}
-${embedFunction('runFitStageOnce', runFitStageOnce)}
+${embedFunction('runStageOnce', runStageOnce)}
 ${embedFunction('fitMeasurements', fitMeasurements)}
 ${embedFunction('fitLimitEntry', fitLimitEntry)}
 ${embedFunction('fitList', fitList)}
 ${embedFunction('applyFitStyles', applyFitStyles)}
 ${embedFunction('fillTemplateRegions', fillTemplateRegions)}
+${embedFunction('verticalWritingMode', verticalWritingMode)}
+${embedFunction('logicalExtent', logicalExtent)}
 ${embedFunction('inkExcess', inkExcess)}
+${embedFunction('blockSubject', blockSubject)}
+${embedFunction('stagedSourceExcluded', stagedSourceExcluded)}
 ${embedFunction('templatePageFits', templatePageFits)}
 ${embedFunction('templateFits', templateFits)}
 ${embedFunction('designedFits', designedFits)}
@@ -265,6 +265,6 @@ ${embedFunction('applyFits', applyFits)}
 ${embedFunction('finishTemporaryFits', finishTemporaryFits)}
 ${embedFunction('fitSourceElementsImplementation', fitSourceElementsImplementation)}
 var fitStageState={done:false,results:[]};
-var fitSourceElements=function(){return runFitStageOnce(fitStageState,function(){fitPreflightEntries=[];preflightFits=[];var results=fitSourceElementsImplementation(document,ABSOLUTE_PX,geometryFor,config.direction,config.lang);for(var i=0;i<results.length;i++){var fit=results[i];var entry=fitLimitEntry(fit);if(entry)fitPreflightEntries.push(entry);var values={};for(var v=0;v<fit.values.length;v++)values[fit.values[v].strategy]=fit.values[v].value+fit.values[v].unit;preflightFits.push({subject:fit.id,group:fit.group,values:values});}return results;});};
+var fitSourceElements=function(){return runStageOnce(fitStageState,function(){fitPreflightEntries=[];preflightFits=[];var results=fitSourceElementsImplementation(document,ABSOLUTE_PX,geometryFor,config.direction,config.lang);for(var i=0;i<results.length;i++){var fit=results[i];var entry=fitLimitEntry(fit);if(entry)fitPreflightEntries.push(entry);var values={};for(var v=0;v<fit.values.length;v++)values[fit.values[v].strategy]=fit.values[v].value+fit.values[v].unit;preflightFits.push({subject:fit.id,group:fit.group,values:values});}return results;});};
 var fitSourceSlots=function(){fitSourceElements();};`
 }

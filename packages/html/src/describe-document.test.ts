@@ -99,7 +99,7 @@ test('includes a supplied preflight report unchanged and otherwise omits the sec
 test('describes fitted and measured properties from supplied measurements', () => {
   const measurements = {
     fits: [{ id: 'heading', values: [{ strategy: 'size' as const, value: 18, unit: 'px' }] }],
-    properties: [{ id: 'words', name: '--widest', value: '84.25px' }],
+    properties: [{ id: 'words', name: '--widest', kind: 'max-content-inline:children' as const, value: 84.25, unit: 'px' as const }],
     variables: [],
     flows: [],
     notes: [],

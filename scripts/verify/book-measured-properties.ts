@@ -29,6 +29,7 @@ export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
         property: Number.parseInt(property('fitted-lines', '--fitted-lines'), 10),
         actual: lineTops.length,
       },
+      template: property('template-measure', '--template-width'),
       copies: copies.map((copy) => copy.style.getPropertyValue('--flow-block')),
     }
   })
@@ -40,6 +41,11 @@ export async function verifyBookMeasuredProperties(h: Harness): Promise<void> {
       report.wide.value > report.narrow.value &&
       report.wide.columns > report.narrow.columns,
     JSON.stringify({ wide: report.wide, narrow: report.narrow }),
+  )
+  h.check(
+    'a template-region source carries the property measured on its staged clone',
+    Number.parseFloat(report.template) > 0,
+    JSON.stringify({ value: report.template }),
   )
   h.check(
     'line-count is measured after copyfit and equals the fitted source lines',

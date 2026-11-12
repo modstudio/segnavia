@@ -1,17 +1,9 @@
-import type { MeasuredProperty, MeasureKind } from '@segnavia/format'
-import { logicalExtent, logicalLineCount, measuredProperties, propertyValue } from './composer-properties-policy.ts'
+import { MEASURE_KIND_MODEL, type MeasuredProperty, type MeasureKind } from '@segnavia/format'
+import { logicalExtent } from './composer-axis-policy.ts'
+import { measuredProperties, propertyCssValue } from './composer-properties-policy.ts'
+import { blockSubject, type SourceGeometry, type StagedSource, stagedSourceExcluded } from './composer-source-staging.ts'
 
-interface TemporaryPropertySource {
-  clone: HTMLElement
-  fitted: HTMLElement
-  source: HTMLElement
-}
-
-interface PropertyGeometry {
-  paperWidth: number
-  paperHeight: number
-  parents: Array<{ textArea: { width: number; height: number } }>
-}
+type LineBoxes = (element: HTMLElement) => readonly unknown[]
 
 export function directMeasurementNodes(element: HTMLElement): Node[] {
   const nodes = Array.from(element.childNodes).filter((node) => node.nodeType === 1 || (node.nodeType === 3 && (node.textContent ?? '').length > 0))
@@ -22,14 +14,15 @@ export function graphemeInlineExtent(node: Node, writingMode: string): number {
   const owner = node.ownerDocument
   if (!owner) return 0
   const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
-  const walker = owner.createTreeWalker(node, 4)
-  let total = 0
+  const walker = owner.createTreeWalker(node, NodeFilter.SHOW_TEXT)
   const texts = node.nodeType === 3 ? [node as Text] : []
   let found = walker.nextNode() as Text | null
   while (found) {
     texts.push(found)
     found = walker.nextNode() as Text | null
   }
+  if (texts.length === 0 && 'getBoundingClientRect' in node) return logicalExtent((node as HTMLElement).getBoundingClientRect(), writingMode, 'inline')
+  let total = 0
   for (const text of texts) {
     for (const part of segmenter.segment(text.data)) {
       const range = owner.createRange()
@@ -41,91 +34,84 @@ export function graphemeInlineExtent(node: Node, writingMode: string): number {
   return total
 }
 
-export function lineRects(element: HTMLElement): Array<{ width: number; height: number; top: number; left: number }> {
-  const range = element.ownerDocument.createRange()
-  range.selectNodeContents(element)
-  return Array.from(range.getClientRects()).map((rect) => ({ width: rect.width, height: rect.height, top: rect.top, left: rect.left }))
+const MEASURERS: Record<MeasureKind, (element: HTMLElement, writingMode: string, lineBoxes: LineBoxes) => number> = {
+  'max-content-inline:children': (element, writingMode) =>
+    Math.max(0, ...directMeasurementNodes(element).map((node) => graphemeInlineExtent(node, writingMode))),
+  block: (element, writingMode) => logicalExtent(element.getBoundingClientRect(), writingMode, 'block'),
+  'line-count': (element, _writingMode, lineBoxes) => lineBoxes(element).length,
 }
 
-export function measuredValue(element: HTMLElement, kind: MeasureKind): string {
-  const writingMode = getComputedStyle(element).writingMode
-  let value: number
-  if (kind === 'max-content-inline:children') {
-    value = Math.max(0, ...directMeasurementNodes(element).map((node) => graphemeInlineExtent(node, writingMode)))
-  } else if (kind === 'block') {
-    value = logicalExtent(element.getBoundingClientRect(), writingMode, 'block')
-  } else {
-    const rects = lineRects(element)
-    value = rects.length > 0 ? logicalLineCount(rects, writingMode) : element.getClientRects().length > 0 ? 1 : 0
-  }
-  return propertyValue(kind, value)
+export function measuredValue(element: HTMLElement, kind: MeasureKind, lineBoxes: LineBoxes): number {
+  return Math.max(0, MEASURERS[kind](element, getComputedStyle(element).writingMode, lineBoxes))
 }
 
-export function measurePropertyElement(element: HTMLElement): MeasuredProperty {
-  const kind = element.getAttribute('data-measure') as MeasureKind
+export function measurePropertyElement(element: HTMLElement, lineBoxes: LineBoxes): MeasuredProperty {
+  const authored = element.getAttribute('data-measure') ?? ''
+  const model = MEASURE_KIND_MODEL[authored as MeasureKind]
+  const measure = MEASURERS[authored as MeasureKind]
+  if (!model || !measure) throw new Error(`data-measure ${JSON.stringify(authored)} is unknown; use a supported measure kind to clear this refusal`)
+  const kind = authored as MeasureKind
   const name = element.getAttribute('data-measure-as') ?? ''
-  const id = element.getAttribute('data-segnavia-id') ?? element.closest<HTMLElement>('[data-segnavia-id]')?.getAttribute('data-segnavia-id')
-  if (!id) throw new Error('data-measure has no identified block subject; place it in a block element to clear this refusal')
-  return { id, name, value: measuredValue(element, kind) }
+  const id = blockSubject(element)
+  if (!id) throw new Error('data-measure has no identified block subject; add data-segnavia-id to it or a block ancestor to clear this refusal')
+  const value = measuredValue(element, kind, lineBoxes)
+  return { id, name, kind, value: kind === 'line-count' ? Math.round(value) : Math.round(value * 10_000) / 10_000, unit: model.unit }
 }
 
 export function propertySources(
   root: ParentNode,
-  geometry: (name: string | null | undefined) => PropertyGeometry,
+  geometry: (name: string | null | undefined) => SourceGeometry,
   defaultDirection: string,
   defaultLang: string,
   selector: string,
-): { ordinary: HTMLElement[]; temporary: TemporaryPropertySource[] } {
+): { ordinary: HTMLElement[]; temporary: StagedSource[] } {
   const shared = globalThis as typeof globalThis & {
     designedFits?: (
       root: ParentNode,
-      geometry: (name: string | null | undefined) => PropertyGeometry,
+      geometry: (name: string | null | undefined) => SourceGeometry,
       defaultDirection: string,
       defaultLang: string,
       selector: string,
-    ) => TemporaryPropertySource[]
+      attribute: string,
+    ) => StagedSource[]
     templateFits?: (
       root: ParentNode,
-      geometry: (name: string | null | undefined) => PropertyGeometry,
+      geometry: (name: string | null | undefined) => SourceGeometry,
       defaultDirection: string,
       defaultLang: string,
       selector: string,
-    ) => TemporaryPropertySource[]
+      attribute: string,
+    ) => StagedSource[]
   }
   const temporary = [
-    ...(shared.templateFits?.(root, geometry, defaultDirection, defaultLang, selector) ?? []),
-    ...(shared.designedFits?.(root, geometry, defaultDirection, defaultLang, selector) ?? []),
+    ...(shared.templateFits?.(root, geometry, defaultDirection, defaultLang, selector, 'data-measure') ?? []),
+    ...(shared.designedFits?.(root, geometry, defaultDirection, defaultLang, selector, 'data-measure') ?? []),
   ]
   const ordinary = Array.from(root.querySelectorAll<HTMLElement>(selector)).filter(
-    (element) =>
-      !element.closest('[data-segnavia-template],[data-segnavia-templated-page],[data-segnavia-designed-page]') && element.getClientRects().length > 0,
+    (element) => !stagedSourceExcluded(element) && element.getClientRects().length > 0,
   )
   return { ordinary, temporary }
 }
 
 export function measureSourcePropertiesImplementation(
   root: ParentNode,
-  geometry: (name: string | null | undefined) => PropertyGeometry,
+  geometry: (name: string | null | undefined) => SourceGeometry,
   defaultDirection: string,
   defaultLang: string,
+  lineBoxes: LineBoxes,
 ): MeasuredProperty[] {
-  const shared = globalThis as typeof globalThis & {
-    measurePropertyElement?: typeof measurePropertyElement
-    measuredProperties?: typeof measuredProperties
-    propertySources?: typeof propertySources
-  }
-  const { ordinary, temporary } = (shared.propertySources ?? propertySources)(root, geometry, defaultDirection, defaultLang, '[data-measure]')
+  const { ordinary, temporary } = propertySources(root, geometry, defaultDirection, defaultLang, '[data-measure]')
   const results: MeasuredProperty[] = []
   for (const element of ordinary) {
-    const result = (shared.measurePropertyElement ?? measurePropertyElement)(element)
-    element.style.setProperty(result.name, result.value)
+    const result = measurePropertyElement(element, lineBoxes)
+    element.style.setProperty(result.name, propertyCssValue(result))
     results.push(result)
   }
   for (const entry of temporary) {
-    const result = (shared.measurePropertyElement ?? measurePropertyElement)(entry.fitted)
-    entry.source.style.setProperty(result.name, result.value)
+    const result = measurePropertyElement(entry.fitted, lineBoxes)
+    entry.source.style.setProperty(result.name, propertyCssValue(result))
     results.push(result)
   }
   for (const entry of temporary) entry.clone.remove()
-  return (shared.measuredProperties ?? measuredProperties)(results)
+  return measuredProperties(results)
 }

@@ -148,10 +148,10 @@ Source content can publish a measured value as a CSS custom property after
 copyfit and before pagination:
 
 ```html
-<section data-measure="max-content-inline:children" data-measure-as="--widest">
+<figure data-measure="max-content-inline:children" data-measure-as="--widest">
   <span>short</span><span>the-widest-child</span>
   <div class="columns">…</div>
-</section>
+</figure>
 <style>
   .columns {
     column-count: clamp(1, round(down, calc(var(--widest) / 12rem), 1), 4);

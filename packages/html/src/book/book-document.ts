@@ -24,6 +24,7 @@ import {
   authoredSection,
   type BuiltSection,
   collectHeadings,
+  designedSectionAttributeIssues,
   designedSection,
   flowAttribs,
   numberingAttribs,
@@ -63,7 +64,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
   )
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)
-  build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built))
+  build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...designedSectionAttributeIssues(entry, id))
   build.headings.push(...withSectionDepth(held.headings, sectionEntry.depth))
   const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')

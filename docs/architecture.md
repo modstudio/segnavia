@@ -2060,10 +2060,11 @@ Measured properties run once after source-shaping stages and before the first
 pagination measurement. `data-measure` selects
 `max-content-inline:children`, `block` or `line-count`, and
 `data-measure-as` names the CSS custom property written on that source element.
-Geometric values are pixel lengths and line counts are unitless. Inline
+The measurement fact carries its kind, numeric value and unit. Geometric
+values are pixel lengths and line counts are unitless. Inline
 max-content is read from range boxes over whole grapheme clusters, so marks
 remain part of their base letter. The inline style is inherited by every page
-copy, and the same `{ id, name, value }` facts appear in
+copy, and the same `{ id, name, kind, value, unit }` facts appear in
 `Measurements.properties`. `describeDocument` includes supplied fit and
 property facts in its `measured` section.
 

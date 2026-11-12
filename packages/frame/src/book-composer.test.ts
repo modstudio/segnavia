@@ -57,6 +57,7 @@ test('measured properties run once after copyfit and before the first pagination
   expect(properties).toBeGreaterThan(fit)
   expect(input).toBeGreaterThan(properties)
   expect(script.match(/propertyResults=measureSourceProperties\(\)/g)).toHaveLength(1)
+  expect(script).toContain('properties:propertyResults')
 })
 
 test('publishes preflight from the embedded functions alone, given the measured flows', () => {

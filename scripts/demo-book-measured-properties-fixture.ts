@@ -29,11 +29,31 @@ export function measuredPropertiesFixture(): DocumentInput {
     settings: { lang: 'en' },
     page: { paper: 'a5', margin: { blockStart: 18, blockEnd: 18, inlineStart: 18, inlineEnd: 18 } },
     style: { css },
+    templates: [{ type: 'template', name: 'measure-card', html: '<main class="template-measure-card" data-region="body"></main>' }],
     children: [
       {
         type: 'division',
         name: 'body',
         children: [{ type: 'section', title: 'Measured properties', children: [{ type: 'flow', html }] }],
+      },
+      {
+        type: 'division',
+        name: 'end',
+        children: [
+          {
+            type: 'section',
+            title: 'Measured template source',
+            template: 'measure-card',
+            children: [
+              {
+                type: 'page',
+                regions: {
+                  body: '<figure data-segnavia-id="template-measure" data-measure="max-content-inline:children" data-measure-as="--template-width"><span>template measurement</span></figure>',
+                },
+              },
+            ],
+          },
+        ],
       },
     ],
   }

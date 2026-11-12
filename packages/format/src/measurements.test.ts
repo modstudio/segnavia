@@ -50,7 +50,7 @@ test('a measured block accepts forced breaks on either edge', () => {
   expect({ breakBefore: block.breakBefore, breakAfter: block.breakAfter }).toEqual({ breakBefore: true, breakAfter: true })
 })
 
-test('measurements default measured properties and accept CSS values', () => {
+test('measurements default measured properties and carry their kind and unit', () => {
   const input = {
     variables: [],
     flows: [],
@@ -60,7 +60,8 @@ test('measurements default measured properties and accept CSS values', () => {
     settings: { rectoOpenings: false, direction: 'ltr' as const, endnotePlacement: 'book' as const },
   }
   expect(Measurements.parse(input).properties).toEqual([])
-  expect(Measurements.parse({ ...input, properties: [{ id: 'words', name: '--widest', value: '84.25px' }] }).properties).toEqual([
-    { id: 'words', name: '--widest', value: '84.25px' },
+  expect(Measurements.parse({ ...input, properties: [{ id: 'words', name: '--widest', kind: 'max-content-inline:children', value: 84.25, unit: 'px' }] }).properties).toEqual([
+    { id: 'words', name: '--widest', kind: 'max-content-inline:children', value: 84.25, unit: 'px' },
   ])
+  expect(() => Measurements.parse({ ...input, properties: [{ id: 'words', name: '--widest', kind: 'line-count', value: 2, unit: 'px' }] })).toThrow()
 })

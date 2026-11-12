@@ -36,10 +36,7 @@ interface DocumentDescriptionPlan {
   pages: DocumentDescriptionPlanPage[]
 }
 
-interface DocumentDescriptionMeasured {
-  fits: Measurements['fits']
-  properties: Measurements['properties']
-}
+type DocumentDescriptionMeasured = Pick<Measurements, 'fits' | 'properties'>
 
 export interface DocumentDescriptionNode {
   id: string

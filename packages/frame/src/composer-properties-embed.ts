@@ -1,29 +1,26 @@
 import { embedFunction } from '@segnavia/html'
+import { MEASURE_KIND_MODEL } from '@segnavia/format'
 import {
   directMeasurementNodes,
   graphemeInlineExtent,
-  lineRects,
   measuredValue,
   measurePropertyElement,
   measureSourcePropertiesImplementation,
   propertySources,
 } from './composer-properties.ts'
-import { logicalExtent, logicalLineCount, measuredProperties, propertyValue, runPropertyStageOnce, verticalWritingMode } from './composer-properties-policy.ts'
+import { measuredProperties, propertyCssValue } from './composer-properties-policy.ts'
 
 export function embeddedComposerPropertyFunctions(): string {
-  return `${embedFunction('verticalWritingMode', verticalWritingMode)}
-${embedFunction('logicalExtent', logicalExtent)}
-${embedFunction('logicalLineCount', logicalLineCount)}
-${embedFunction('propertyValue', propertyValue)}
+  return `var MEASURE_KIND_MODEL=${JSON.stringify(MEASURE_KIND_MODEL)};
+var MEASURERS={"max-content-inline:children":function(element,writingMode){return Math.max(0,...directMeasurementNodes(element).map(function(node){return graphemeInlineExtent(node,writingMode);}));},"block":function(element,writingMode){return logicalExtent(element.getBoundingClientRect(),writingMode,"block");},"line-count":function(element,_writingMode,lineBoxes){return lineBoxes(element).length;}};
+${embedFunction('propertyCssValue', propertyCssValue)}
 ${embedFunction('measuredProperties', measuredProperties)}
-${embedFunction('runPropertyStageOnce', runPropertyStageOnce)}
 ${embedFunction('directMeasurementNodes', directMeasurementNodes)}
 ${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}
-${embedFunction('lineRects', lineRects)}
 ${embedFunction('measuredValue', measuredValue)}
 ${embedFunction('measurePropertyElement', measurePropertyElement)}
 ${embedFunction('propertySources', propertySources)}
 ${embedFunction('measureSourcePropertiesImplementation', measureSourcePropertiesImplementation)}
 var propertyStageState={done:false,results:[]};
-var measureSourceProperties=function(){return runPropertyStageOnce(propertyStageState,function(){return measureSourcePropertiesImplementation(document,geometryFor,config.direction,config.lang);});};`
+var measureSourceProperties=function(){return runStageOnce(propertyStageState,function(){return measureSourcePropertiesImplementation(document,geometryFor,config.direction,config.lang,function(element){return blockLines(element,originTop(element));});});};`
 }
