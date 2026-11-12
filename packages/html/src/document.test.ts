@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { type DocumentInput, deterministicNewId } from '@segnavia/format'
-import { BLOCK_ELEMENTS, pageOrPrintedFromInput, parseDocument } from './document.ts'
+import { BLOCK_ELEMENTS, pageBodyFromHtml, pageOrPrintedFromInput, parseDocument } from './document.ts'
 
 function counter() {
   let value = 0
@@ -11,6 +11,11 @@ const page = (body: { html: string } | { markdown: string }): DocumentInput => (
   type: 'document',
   kind: 'page',
   children: [{ type: 'page', body }],
+})
+
+test('builds stored bodies with only a current markdown source', () => {
+  expect(pageBodyFromHtml('<p>HTML</p>')).toEqual({ html: '<p>HTML</p>' })
+  expect(pageBodyFromHtml('<p>Markdown</p>', '# Markdown')).toEqual({ html: '<p>Markdown</p>', markdown: '# Markdown' })
 })
 
 test('the exported block table controls id minting and inline elements get no id', () => {

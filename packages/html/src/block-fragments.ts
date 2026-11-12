@@ -5,9 +5,9 @@ import {
   type DocumentOp,
   documentEntries,
   type OperationDocument,
-  pageBodyFromHtml,
   requireParsedDocument,
 } from '@segnavia/format'
+import { pageBodyFromHtml } from './document.ts'
 
 export interface ContentAddress {
   node: string

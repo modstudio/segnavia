@@ -312,7 +312,7 @@ export function resolvePageHtml(page: Page, options: ResolvePageHtmlOptions = {}
       'a sectioned printed page has no single body; compose it through printedPageValueDocument with resolvePrintedPageHtml to clear this refusal',
     )
   }
-  const html = 'html' in body ? body.html : markdownHtml(body, { ...options, dir: page.dir, lang: page.lang })
+  const html = bodyHtml(body, { ...options, dir: page.dir, lang: page.lang })
   return { ...fields, html }
 }
 

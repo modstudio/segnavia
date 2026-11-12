@@ -317,7 +317,7 @@ export async function printPages(pagesInput: PageOrPrintedInput[], impositionInp
     }),
   )
   const contexts = await resolveDayContextsFor(pageValues, options, options.slots, signal)
-  const pages = pageValues.map(resolvePageHtml)
+  const pages = pageValues.map((page) => resolvePageHtml(page, { origins: options.origins }))
   const expanded = await expandFramePages(
     pages,
     options.motifs,

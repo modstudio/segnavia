@@ -34,10 +34,6 @@ export interface ResolvedPageWidth {
 export const PageBody = z.union([z.strictObject({ html: z.string(), markdown: z.string().optional() }), z.strictObject({ markdown: z.string() })])
 export type PageBody = z.infer<typeof PageBody>
 
-export function pageBodyFromHtml(html: string, source?: { markdown?: string }): Extract<PageBody, { html: string }> {
-  return source?.markdown === undefined ? { html } : { html, markdown: source.markdown }
-}
-
 export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): ResolvedPageWidth {
   const width = size.width
   if (typeof width === 'number') return { measure: width, viewportWidth: width }
