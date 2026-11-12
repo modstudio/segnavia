@@ -9,11 +9,11 @@ export interface FitSearchStrategy {
 }
 
 export interface FitSearchResult {
-  values: Readonly<Record<FitStrategy, number>>
+  values: Readonly<Partial<Record<FitStrategy, number>>>
   stopped?: { strategy: FitStrategy; bound: number; excess: number }
 }
 
-export type FitProbe = (values: Readonly<Record<FitStrategy, number>>) => { fits: boolean; excess: number }
+export type FitProbe = (values: Readonly<Partial<Record<FitStrategy, number>>>) => { fits: boolean; excess: number }
 
 export function fitSearch(strategies: readonly FitSearchStrategy[], probe: FitProbe): FitSearchResult {
   const values = Object.fromEntries(strategies.map((entry) => [entry.strategy, entry.max ?? entry.authored])) as Record<FitStrategy, number>
@@ -33,7 +33,8 @@ export function fitSearch(strategies: readonly FitSearchStrategy[], probe: FitPr
     }
     while (high - low > step) {
       const raw = (low + high) / 2
-      const candidate = entry.step ? entry.min + Math.floor((raw - entry.min) / step) * step : raw
+      const stepped = entry.min + Math.floor((raw - entry.min) / step) * step
+      const candidate = entry.step ? (stepped <= low ? low + step : stepped) : raw
       values[entry.strategy] = candidate
       measured = probe(values)
       if (measured.fits) {

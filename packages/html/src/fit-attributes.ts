@@ -1,5 +1,5 @@
 import { FIT_STRATEGIES, type FitStrategy } from '@segnavia/format'
-import { isTag, type ChildNode, type Element } from 'domhandler'
+import { type ChildNode, type Element, isTag } from 'domhandler'
 
 export const ABSOLUTE_UNITS = ['px', 'pt', 'pc', 'in', 'cm', 'mm', 'q'] as const
 export const ABSOLUTE_PX: Readonly<Record<string, number>> = { px: 1, pt: 4 / 3, pc: 16, in: 96, cm: 96 / 2.54, mm: 96 / 25.4, q: 96 / 101.6 }
@@ -41,7 +41,8 @@ export function fitAttributeIssues(where: string, attribs: Record<string, string
   const attributes = ['data-fit', 'data-fit-min', 'data-fit-max', 'data-fit-step', 'data-fit-axis', 'data-fit-box', 'data-fit-group']
   if (!attributes.some((name) => attribs[name] !== undefined)) return []
   const strategies = strategiesOf(attribs)
-  if (!strategies) return [`${where} data-fit "${attribs['data-fit'] ?? ''}" is invalid; use an ordered, non-repeated list of size, leading or tracking to clear this refusal`]
+  if (!strategies)
+    return [`${where} data-fit "${attribs['data-fit'] ?? ''}" is invalid; use an ordered, non-repeated list of size, leading or tracking to clear this refusal`]
   const issues: string[] = []
   const parsedLists = new Map<string, string[]>()
   for (const attribute of ['data-fit-min', 'data-fit-max', 'data-fit-step']) {
@@ -49,7 +50,9 @@ export function fitAttributeIssues(where: string, attribs: Record<string, string
     if (values.length === 0) continue
     parsedLists.set(attribute, values)
     if (values.length !== strategies.length) {
-      issues.push(`${where} ${attribute} has ${values.length} values but data-fit has ${strategies.length}; provide one value per strategy to clear this refusal`)
+      issues.push(
+        `${where} ${attribute} has ${values.length} values but data-fit has ${strategies.length}; provide one value per strategy to clear this refusal`,
+      )
       continue
     }
     values.forEach((value, index) => {
@@ -69,7 +72,8 @@ export function fitAttributeIssues(where: string, attribs: Record<string, string
     })
   }
   const axis = attribs['data-fit-axis']
-  if (axis && !['block', 'inline', 'both'].includes(axis)) issues.push(`${where} data-fit-axis "${axis}" is invalid; use block, inline or both to clear this refusal`)
+  if (axis && !['block', 'inline', 'both'].includes(axis))
+    issues.push(`${where} data-fit-axis "${axis}" is invalid; use block, inline or both to clear this refusal`)
   const box = attribs['data-fit-box']
   if (box && !['self', 'parent'].includes(box)) issues.push(`${where} data-fit-box "${box}" is invalid; use self or parent to clear this refusal`)
   return issues

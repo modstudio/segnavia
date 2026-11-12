@@ -16,9 +16,10 @@ import type { BookPlan } from './plan-book.ts'
 export type ReplayPlanResult = { ok: true; plan: BookPlan } | { ok: false; page: number; refusal: string }
 
 function withoutLineBoxes(measurements: Measurements) {
-  const { geometryParents: _geometryParents, pageGeometries: _pageGeometries, ...stable } = measurements
+  const { fits, geometryParents: _geometryParents, pageGeometries: _pageGeometries, ...stable } = measurements
   return {
     ...stable,
+    ...(fits.length > 0 ? { fits } : {}),
     flows: measurements.flows.map(({ pageGeometry: _pageGeometry, ...flow }) =>
       flow.kind === 'fixed' ? flow : { ...flow, blocks: flow.blocks.map(({ lines: _lines, variables: _variables, ...block }) => block) },
     ),

@@ -1,8 +1,8 @@
 import type { Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
-import { parse, serialize } from './sanitize.ts'
 import { fitIssuesIn } from './fit-attributes.ts'
+import { parse, serialize } from './sanitize.ts'
 
 export interface BlockIdLocation {
   block: string

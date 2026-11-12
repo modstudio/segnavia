@@ -2031,6 +2031,16 @@ fingerprints. Dressing is separate from page breaking: it slices the planned
 content, selects parent-page regions and adds furniture and marginal material.
 Layout providers run at named measure or dress phases in priority order.
 
+Copyfit runs once after fonts, images and diagrams are ready and before the
+first pagination measurement. Authors mark source content with `data-fit`, an
+ordered list of `size`, `leading` and `tracking`; `data-fit-min`,
+`data-fit-max` and `data-fit-step` carry one bound per strategy. The optional
+`data-fit-axis` chooses `block`, `inline` or `both`, `data-fit-box` chooses the
+element or its parent, and `data-fit-group` shares the smallest fitted values
+across every named member. The fitted inline styles remain on the galley source,
+so every dressed page and printed copy inherits the same values. A search that
+exhausts its bounds contributes `fit-limit` to preflight instead of clipping.
+
 The environment is always an input. `paperViewport` supplies the print
 viewport, timing bounds are options and loaded fonts are measured facts.
 Prepared slot state is explicit rather than hidden. The bridge carries bounded

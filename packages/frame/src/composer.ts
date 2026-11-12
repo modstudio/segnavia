@@ -33,9 +33,9 @@ import {
   resolveRegionHeads,
   resolveRegionHeadsImplementation,
 } from './composer-dress.ts'
+import { embeddedComposerFitFunctions } from './composer-fit.ts'
 import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
-import { embeddedComposerFitFunctions } from './composer-fit.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
 import { embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { placeParentRegions } from './composer-regions.ts'

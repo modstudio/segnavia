@@ -1,12 +1,12 @@
 import { z } from 'zod'
 import { BookOpens } from './book-section.ts'
 import { TextDirection } from './direction.ts'
+import { FitMeasurement } from './fit.ts'
 import { SectionNumbering } from './folio.ts'
 import { parentRules } from './parent-rules.ts'
 import { RecordFacts } from './record-facts.ts'
 import { Variable } from './variable.ts'
 import { VariableDocumentFacts } from './variable-document-facts.ts'
-import { FitMeasurement } from './fit.ts'
 
 export const PaginateLine = z.object({
   top: z.number(),

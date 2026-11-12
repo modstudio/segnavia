@@ -69,7 +69,6 @@ export { applyOps } from './document-apply.ts'
 export { type AnchorSource, type DocumentDayOptions, resolveDocumentDay, resolveDocumentDayResult } from './document-day.ts'
 export { diffDocuments } from './document-diff.ts'
 export { fingerprintDocument, fingerprintScript, fingerprintValue, requireParsedDocument } from './document-fingerprint.ts'
-export { FIT_STRATEGIES, FitAxis, FitBox, FitMeasurement, type FitStrategy, FitValue } from './fit.ts'
 export { defaultNewId } from './document-identity.ts'
 export { inverseBatch, invertOps } from './document-invert.ts'
 export {
@@ -98,6 +97,7 @@ export {
 export { type RebaseResult, rebaseOps } from './document-rebase.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
+export { FIT_STRATEGIES, FitAxis, FitBox, FitMeasurement, type FitStrategy, FitValue } from './fit.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export {
   computeFolios,
