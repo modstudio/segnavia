@@ -638,8 +638,8 @@ A stored page, book or deck may say what day its data is for: a `fixed` date,
 resolves to a date. The day is a calendar date in a zone and may retain the
 host-supplied instant it was read from. Its zone comes from the record, then the
 host's `asOf.zone`, then UTC, and never from the machine. The page, paper,
-document, book, stage and thumbnail preview surfaces, and the items drawn by a
-board, browser page and deck print, and server
+document, book, stage and thumbnail preview surfaces; the items a board draws;
+browser page and deck print; and the server
 renders `pagePdf`, `pagesPdf`, `pageImage`, `coverImage`, `deckPdf`,
 `slideImage`, `bookPdf` and `bookPlan` take a `moment`:
 now by default, or a stated moment for a replay. They resolve the day once at
