@@ -52,8 +52,8 @@ export function writeDocumentMetadata(document: PDFDocument, metadata?: Document
   }
 }
 
-export async function withDocumentMetadata(pdf: Uint8Array, metadata?: DocumentMetadata, date?: OutputDate): Promise<Uint8Array> {
+export async function withDocumentMetadata(pdf: Uint8Array, metadata?: DocumentMetadata, date?: OutputDate, dir?: Direction): Promise<Uint8Array> {
   const document = await loadPdf(pdf)
-  writeDocumentMetadata(document, metadata, date)
+  writeDocumentMetadata(document, metadata, date, dir)
   return document.save()
 }

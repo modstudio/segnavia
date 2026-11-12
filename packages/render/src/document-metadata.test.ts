@@ -71,6 +71,18 @@ test('marks Hebrew descriptive metadata for an LTR document and leaves it unmark
   expect(rtl.getSubject()).toBe('נושא')
 })
 
+test('marks metadata against the supplied page direction', async () => {
+  const source = await PDFDocument.create({ updateMetadata: false })
+  source.addPage()
+  const pdf = await source.save()
+
+  const rtl = await PDFDocument.load(await withDocumentMetadata(pdf, { title: 'English title' }, undefined, 'rtl'), { updateMetadata: false })
+  expect(rtl.getTitle()).toBe('\u200fEnglish title')
+
+  const ltr = await PDFDocument.load(await withDocumentMetadata(pdf, { title: 'כותרת עברית' }, undefined, 'ltr'), { updateMetadata: false })
+  expect(ltr.getTitle()).toBe('\u200eכותרת עברית')
+})
+
 test('omits empty authors from Info and XMP', async () => {
   const document = await PDFDocument.create({ updateMetadata: false })
   document.addPage()

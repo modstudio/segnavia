@@ -1,5 +1,5 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
-import { fillPageAsOfBindings, type PreparedSlots, parseAsOfInputs, parseDocument, printedPageAuthorHtml } from '@segnavia/html'
+import { fillPageAsOfBindings, type PreparedSlots, parseAsOfInputs, parseDocument, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
@@ -240,6 +240,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           await finishWithBrowser(bytes, prepared.options, deadline),
           parsedOptions.metadata,
           outputDate([prepared.established.day]),
+          printedPageDirection(prepared.page),
         )
         if (overflows.length) parsedOptions.overflow?.report?.({ entries: overflows })
         return finishProtection(await enforce(output, parsedOptions.limits), parsedOptions)
@@ -264,7 +265,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         return renderPreparedPageImage(prepared, options, deadline, withTab, surfacePreflight(options.preflight, 1))
       })
     },
-
     async pagesPdf(inputs, opts = {}) {
       const parsedOptions = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
@@ -315,7 +315,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           )
         })
         const output = await enforce(
-          await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata, outputDate(contexts.days)),
+          await withDocumentMetadata(
+            await finishWithBrowser(bytes, parsedOptions, deadline),
+            parsedOptions.metadata,
+            outputDate(contexts.days),
+            expanded[0] ? printedPageDirection(expanded[0].page) : undefined,
+          ),
           parsedOptions.limits,
         )
         return finishProtection(output, parsedOptions)

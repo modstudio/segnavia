@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import createQpdf, { type QpdfInstance } from '@neslinesli93/qpdf-wasm'
 import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFName, PDFString } from 'pdf-lib'
 import { enforcePdfBytes } from './pdf-finish.ts'
-import { protectPdf } from './protect-pdf.ts'
+import { createPdfProtector } from './protect-pdf.ts'
 
 interface WritableQpdf extends QpdfInstance {
   FS: QpdfInstance['FS'] & { unlink(path: string): void; writeFile(path: string, bytes: Uint8Array): void }
@@ -13,6 +13,7 @@ const qpdf = createQpdf({
   locateFile: () => fileURLToPath(new URL('qpdf.wasm', import.meta.resolve('@neslinesli93/qpdf-wasm'))),
   noInitialRun: true,
 } as never) as Promise<WritableQpdf>
+const protectPdf = createPdfProtector()
 
 let fileNumber = 0
 

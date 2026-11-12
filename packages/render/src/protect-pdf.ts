@@ -94,5 +94,3 @@ export function createPdfProtector(): (pdf: Uint8Array, protection: Protection) 
     return result
   }
 }
-
-export const protectPdf = createPdfProtector()
