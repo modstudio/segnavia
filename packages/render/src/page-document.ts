@@ -17,8 +17,8 @@ import {
 } from '@segnavia/format'
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
-import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { expandFramePage, expandPrintedFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import {
   type EstablishedPageDay,

@@ -12,6 +12,7 @@ import { flowViewDocument, paginatedViewDocument } from './book-view-document.ts
 import { frameDocument, frameStyleSheets, newNonce } from './bridge.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { bookLabel } from './labels.ts'
+import type { LoadedLayoutScript } from './layout.ts'
 
 export function bookFrame(
   view: BookView,
@@ -21,11 +22,12 @@ export function bookFrame(
     layout?: BookLayout
     origins?: Iterable<OriginApproval>
     diagramScript?: string
+    layoutScripts?: readonly LoadedLayoutScript[]
     profile?: PreflightProfileInput
     preflightSeed?: PreflightEntry[]
   } = {},
 ): { title: string; srcdoc: string; scripts: Scripts } {
-  const { css, spread = false, layout = 'pages', origins = [], diagramScript, profile, preflightSeed } = options
+  const { css, spread = false, layout = 'pages', origins = [], diagramScript, layoutScripts, profile, preflightSeed } = options
   const title = view.title ?? bookLabel(view.lang)
   if (view.pagination) {
     return {
@@ -33,12 +35,13 @@ export function bookFrame(
       scripts: 'refuse',
       srcdoc:
         layout === 'flow' && view.flow
-          ? flowViewDocument(view, { nonce: newNonce(), fontCss: css, diagramScript })
+          ? flowViewDocument(view, { nonce: newNonce(), fontCss: css, diagramScript, layoutScripts })
           : paginatedViewDocument(view, view.pagination, {
               nonce: newNonce(),
               fontCss: css,
               screen: { spread },
               diagramScript,
+              layoutScripts,
               profile: resolvePreflightProfile(profile),
               preflightSeed,
             }),
@@ -58,6 +61,7 @@ export function bookFrame(
       reportHeight: false,
       origins,
       fonts: view.style?.fonts,
+      layoutScripts,
     }),
   }
 }

@@ -39,8 +39,8 @@ import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { declaredFontLoads } from './font-load.ts'
-import { PrintedPagesRefusedError, printedPageGeometry } from './printed-page-geometry.ts'
 import type { LoadedLayoutScript } from './layout.ts'
+import { PrintedPagesRefusedError, printedPageGeometry } from './printed-page-geometry.ts'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
 export {

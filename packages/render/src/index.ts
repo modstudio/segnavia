@@ -11,11 +11,11 @@ import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
-import { layoutScripts } from './layout-scripts.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
+import { layoutScripts } from './layout-scripts.ts'
 import {
   copyLimits,
   enforceDeckLimits,

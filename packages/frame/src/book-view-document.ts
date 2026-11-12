@@ -120,7 +120,10 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
   })
 }
 
-export function flowViewDocument(view: BookView, options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'diagramScript' | 'layoutScripts'>): string {
+export function flowViewDocument(
+  view: BookView,
+  options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'diagramScript' | 'layoutScripts'>,
+): string {
   if (!view.flow || !view.pagination) throw new Error('A flow frame requires a paginated view built with its flow.')
   const script = `var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};${embeddedBookPresentationFunctions()}${bookPresentationScript('document', '', JSON.stringify(BOOK_PAGE_ATTRIBUTE))}`
   return frameDocument(`${withDiagramScript(view.flow, options.nonce, options.diagramScript)}<script nonce="${options.nonce}">${script}</script>`, {

@@ -8,7 +8,15 @@ export const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-w
 export function htmlSlideDocument(
   deck: Pick<Deck, 'scripts' | 'dir' | 'lang' | 'style' | 'brand' | 'title'>,
   html: string,
-  options: { baseCss?: string; css?: string; nonce: string; printAtMs?: number; origins?: Iterable<OriginApproval>; diagramScript?: string; layoutScripts?: readonly LoadedLayoutScript[] },
+  options: {
+    baseCss?: string
+    css?: string
+    nonce: string
+    printAtMs?: number
+    origins?: Iterable<OriginApproval>
+    diagramScript?: string
+    layoutScripts?: readonly LoadedLayoutScript[]
+  },
 ): string {
   return frameDocument(withDiagramScript(html, options.nonce, options.diagramScript), {
     scripts: deck.scripts,

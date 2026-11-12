@@ -15,9 +15,9 @@ import {
 } from '@segnavia/format'
 import { newNonce, PRINT_READY_ATTRIBUTE, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram } from '@segnavia/frame/diagrams'
-import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import {
   deckPressSettings,
   htmlSlideDocument,

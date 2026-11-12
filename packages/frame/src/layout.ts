@@ -24,7 +24,11 @@ type LayoutRegistryGlobal = typeof globalThis & { [LAYOUT_PROVIDERS_KEY]?: Map<s
 
 function registry(): Map<string, RegisteredLayoutProvider> {
   const held = globalThis as LayoutRegistryGlobal
-  return (held[LAYOUT_PROVIDERS_KEY] ??= new Map())
+  const existing = held[LAYOUT_PROVIDERS_KEY]
+  if (existing) return existing
+  const created = new Map<string, RegisteredLayoutProvider>()
+  held[LAYOUT_PROVIDERS_KEY] = created
+  return created
 }
 
 function validName(name: string): boolean {

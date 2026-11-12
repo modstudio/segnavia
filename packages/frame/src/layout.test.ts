@@ -20,5 +20,5 @@ test('layout loading is byte-neutral without a selection and refuses unknown nam
   registerLayoutProvider('known', { script: async () => 'KNOWN', priority: 0, selects: '*' })
   expect(layoutsUsed('<p data-segnavia-layout="known known">x</p>')).toEqual(['known'])
   expect(await loadLayoutScripts('<p>plain</p>')).toEqual([])
-  expect(loadLayoutScripts('<p data-segnavia-layout="missing"></p>')).rejects.toThrow("registerLayoutProvider(\"missing\", …)")
+  expect(loadLayoutScripts('<p data-segnavia-layout="missing"></p>')).rejects.toThrow('registerLayoutProvider("missing", …)')
 })

@@ -33,8 +33,8 @@ import { bookPageCss, renderBookPdf } from './book-pdf.ts'
 import { writePlanFolios } from './book-structure.ts'
 import { fontLoadSetup } from './browser-tab.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
-import { layoutScripts } from './layout-scripts.ts'
 import { RenderRefusedError } from './errors.ts'
+import { layoutScripts } from './layout-scripts.ts'
 import { type Assets, assetSetup, type RenderOptions, refuseProgressUnlessOneComposition } from './options.ts'
 import type { BookOverflowPart, PrintResult } from './overflow.ts'
 import { addPressBoxesByPage } from './page-paper.ts'
@@ -325,7 +325,19 @@ export async function renderBrowserBookPdf(
       print: async (html, book, slots, renderOptions, part, layerCss = '') => {
         script ??= resolveDiagramScript(bookDocument(book).html)
         resolvedLayouts ??= layoutScripts(bookDocument(book).html)
-        return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await script, await resolvedLayouts, dependencies.fontFailures ?? [], dependencies)
+        return printBook(
+          html,
+          book,
+          slots,
+          renderOptions,
+          part,
+          layerCss,
+          fontCss,
+          await script,
+          await resolvedLayouts,
+          dependencies.fontFailures ?? [],
+          dependencies,
+        )
       },
       finish: dependencies.finish,
     },

@@ -41,7 +41,6 @@ import {
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
 import { withDiagramScript } from './diagram-document.ts'
-import type { LoadedLayoutScript } from './layout.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { imposedPaperBodies, imposedPaperDocument, placementBox } from './imposed-paper.ts'
@@ -147,7 +146,7 @@ export interface PrintOptions {
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   diagramScript?: string
-  layoutScripts?: readonly LoadedLayoutScript[]
+  layoutScripts?: readonly import('./layout.ts').LoadedLayoutScript[]
   limits?: Limits
 }
 
@@ -255,7 +254,7 @@ export interface PrintablePagesOptions {
   origins?: Iterable<OriginApproval>
   pageWidths?: PageWidths
   diagramScript?: string
-  layoutScripts?: readonly LoadedLayoutScript[]
+  layoutScripts?: readonly import('./layout.ts').LoadedLayoutScript[]
   limits?: Limits
 }
 

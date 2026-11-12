@@ -68,7 +68,14 @@ export function loadPageDocument(
   load: DiagramScriptLoader = loadDiagramScript,
   loadLayouts = loadLayoutScripts,
 ): void {
-  loadDiagramDocument(page.html, (nonce, script, layoutScripts) => frameDocument(withDiagramScript(page.html, nonce, script), { ...options, nonce, layoutScripts }), loaded, failed, load, loadLayouts)
+  loadDiagramDocument(
+    page.html,
+    (nonce, script, layoutScripts) => frameDocument(withDiagramScript(page.html, nonce, script), { ...options, nonce, layoutScripts }),
+    loaded,
+    failed,
+    load,
+    loadLayouts,
+  )
 }
 
 export function loadShownPageDocument(
@@ -82,7 +89,8 @@ export function loadShownPageDocument(
 ): void {
   loadDiagramDocument(
     page.html,
-    (nonce, script, layoutScripts) => shownPageDocument({ ...page, html: withDiagramScript(page.html, nonce, script) }, resolved, { ...options, nonce, layoutScripts }),
+    (nonce, script, layoutScripts) =>
+      shownPageDocument({ ...page, html: withDiagramScript(page.html, nonce, script) }, resolved, { ...options, nonce, layoutScripts }),
     loaded,
     failed,
     load,

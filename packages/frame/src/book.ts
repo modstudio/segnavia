@@ -9,6 +9,7 @@ import { BOOK_LAYOUTS, type BookLayout, bookLayoutMessage, bookPlaceKey } from '
 import { BookSourcesElement } from './book-sources.ts'
 import { dispatchFontFailures, frameSandbox, MESSAGE, messageFrom } from './bridge.ts'
 import { upgradeProperties } from './element-properties.ts'
+import type { LoadedLayoutScript } from './layout.ts'
 export class SegnaviaBook extends BookSourcesElement {
   static observedAttributes = ['src', 'spread', 'layout']
   private currentView: BookView | null = null
@@ -26,6 +27,7 @@ export class SegnaviaBook extends BookSourcesElement {
   private resolvedFontCss: string | undefined
   private preflightSeed: PreflightEntry[] = []
   private diagramDrawing = { script: undefined as string | undefined, settled: false }
+  private layoutScripts: readonly LoadedLayoutScript[] = []
   private reflectingLayout = false
   private loadGeneration = 0
   private loadController: AbortController | null = null
@@ -247,6 +249,7 @@ export class SegnaviaBook extends BookSourcesElement {
       layout,
       origins: this.origins,
       diagramScript: this.diagramDrawing.script,
+      layoutScripts: this.layoutScripts,
       profile: this.profileInput,
       preflightSeed: this.preflightSeed,
     })
@@ -268,7 +271,11 @@ export class SegnaviaBook extends BookSourcesElement {
     this.preflightSeed = preflight
     if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
-      this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script })))
+      this.replaceChildren(
+        this.mountFrame(
+          bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script, layoutScripts: this.layoutScripts }),
+        ),
+      )
       return
     }
     const pages = this.mountFrame(this.renderFrame(view, css, 'pages'), 'pages')
@@ -303,6 +310,7 @@ export class SegnaviaBook extends BookSourcesElement {
   private mount() {
     const view = this.currentView
     if (!view) return
+    this.layoutScripts = []
     const generation = this.loadGeneration
     this.loadController?.abort()
     const controller = new AbortController()
@@ -320,6 +328,9 @@ export class SegnaviaBook extends BookSourcesElement {
       diagram: ({ script, error }) => {
         this.diagramDrawing = { script, settled: true }
         if (error) bookElement.reportBookError(this, error)
+      },
+      layout: (scripts) => {
+        this.layoutScripts = scripts
       },
       prepared: (prepared, filled) => {
         this.showRequestedLayout(filled)

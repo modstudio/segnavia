@@ -98,7 +98,8 @@ export function installLayoutRuntime(
       if (completed.has(phase)) return
       for (const registration of registrations) {
         const implementation = registration.implementation
-        if (!implementation) throw new Error(`Layout provider ${registration.name} did not call segnaviaLayout.define; add its definition to clear this refusal.`)
+        if (!implementation)
+          throw new Error(`Layout provider ${registration.name} did not call segnaviaLayout.define; add its definition to clear this refusal.`)
         const run = implementation[phase]
         if (!run) continue
         const elements = Array.from(document.querySelectorAll(registration.selects))
@@ -118,7 +119,12 @@ export function installLayoutRuntime(
         }
         await new Promise<void>((resolve, reject) => {
           const timer = schedule(
-            () => reject(new Error(`Layout provider ${registration.name} did not settle its ${phase} phase within ${timeoutMs}ms; make the phase settle to clear this refusal.`)),
+            () =>
+              reject(
+                new Error(
+                  `Layout provider ${registration.name} did not settle its ${phase} phase within ${timeoutMs}ms; make the phase settle to clear this refusal.`,
+                ),
+              ),
             timeoutMs,
           )
           Promise.resolve()
@@ -157,4 +163,15 @@ export function withLayoutScripts(html: string, nonce: string, scripts: readonly
   if (scripts.length === 0) return html
   const tag = `<script nonce="${nonce}">${layoutRuntimeScript(scripts)}</script>`
   return /<\/body\s*>/i.test(html) ? html.replace(/<\/body\s*>/i, () => `${tag}</body>`) : `${html}${tag}`
+}
+
+export function layoutReadyBridgeScript(options: { readonly layoutScripts?: readonly LoadedLayoutScript[]; readonly readyAfterAttribute?: string }): {
+  declaration: string
+  join: string
+} {
+  if ((options.layoutScripts?.length ?? 0) === 0) return { declaration: '', join: '' }
+  const expression = options.readyAfterAttribute
+    ? 'null'
+    : "window.segnaviaLayout?window.segnaviaLayout.run('galley').then(function(){return window.segnaviaLayout.run('composed');}).catch(function(error){post({type:'segnavia:compose-failure',text:String(error&&error.message||error).slice(0,1024)});return new Promise(function(){});}):null"
+  return { declaration: `var layouts=${expression};`, join: ',layouts' }
 }

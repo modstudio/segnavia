@@ -30,8 +30,8 @@ import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-prefli
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
-import { type LoadedLayoutScript } from './layout.ts'
-import { withLayoutScripts } from './layout-runtime.ts'
+import type { LoadedLayoutScript } from './layout.ts'
+import { layoutReadyBridgeScript, withLayoutScripts } from './layout-runtime.ts'
 import { escapeHtml } from './svg.ts'
 
 export type { SlotFitState } from '@segnavia/format'
@@ -169,11 +169,7 @@ export function frameSandbox(scripts: Scripts | undefined): string {
 // layout box retries instead of reporting fit.
 function bridgeScript(options: FrameOptions): string {
   const surfacePreflight = surfacePreflightOption(options.preflight)
-  const hasLayouts = (options.layoutScripts?.length ?? 0) > 0
-  const layoutReady = hasLayouts
-    ? `var layouts=${options.readyAfterAttribute ? 'null' : "window.segnaviaLayout?window.segnaviaLayout.run('galley').then(function(){return window.segnaviaLayout.run('composed');}).catch(function(error){post({type:'segnavia:compose-failure',text:String(error&&error.message||error).slice(0,1024)});return new Promise(function(){});}):null"};`
-    : ''
-  const layoutJoin = hasLayouts ? ',layouts' : ''
+  const layoutReady = layoutReadyBridgeScript(options)
   const readyCallback = options.readyCallback ? `var callback=window[${scriptJson(options.readyCallback)}];if(typeof callback==='function')callback();` : ''
   const keys = options.relayKeys === false ? '[]' : scriptJson(RELAYED_KEYS)
   const selection =
@@ -283,8 +279,8 @@ function ready(){animationReport();${options.printBackground ? 'printBackground(
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};
 var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return merged;};
-${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});var diagrams=${DIAGRAM_READY_EXPR};${layoutReady}
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams${layoutJoin}]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});var diagrams=${DIAGRAM_READY_EXPR};${layoutReady.declaration}
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams${layoutReady.join}]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }
