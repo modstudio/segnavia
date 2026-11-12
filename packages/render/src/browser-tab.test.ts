@@ -216,6 +216,43 @@ test('asset limits stay structured when another asset refusal precedes them', as
   await expect(rendering).rejects.toBeInstanceOf(RenderLimitError)
 })
 
+test("a missing asset refusal takes precedence over the body's resulting error", async () => {
+  const url = 'https://images.example/watermark.png'
+  let routeHandler: ((route: Route) => Promise<void>) | undefined
+  const context = {
+    route: async (_pattern: string, handler: (route: Route) => Promise<void>) => {
+      routeHandler = handler
+    },
+    routeWebSocket: async () => {},
+    newPage: async () => ({
+      on: () => {},
+      setContent: async () => {},
+      evaluate: async () => true,
+    }),
+    close: async () => {},
+  }
+  const browser = { newContext: async () => context } as unknown as Browser
+  const rendering = renderInBrowserTab(
+    browser,
+    {
+      viewport: { width: 100, height: 100 },
+      scripts: true,
+      html: '<p>watermark</p>',
+      readiness: { author: false, diagrams: false },
+      origins: [{ origin: 'https://images.example', kinds: ['image'] }],
+    },
+    undefined,
+    { settled: () => false, opened: () => {}, crashed: () => {} },
+    async () => {
+      const request = { url: () => url, resourceType: () => 'image' }
+      await routeHandler?.({ request: () => request, abort: async () => {} } as unknown as Route)
+      throw new Error('image decode failed')
+    },
+  )
+
+  await expect(rendering).rejects.toEqual(new RenderRefusedError(`The host assets option did not answer approved requests: ${url}.`))
+})
+
 test('font load reports merge supplied-resolution and frame-load failures', () => {
   expect(
     mergedFontFailures(

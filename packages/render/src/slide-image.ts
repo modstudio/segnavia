@@ -1,4 +1,4 @@
-import type { Deck } from '@segnavia/format'
+import { type Deck, resolveDirection } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { type PrintOptions, printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
 import type { EstablishedPageDay } from '@segnavia/html'
@@ -7,6 +7,7 @@ import { captureImage } from './capture-image.ts'
 import { resolveDeckFonts } from './deck-pdf.ts'
 import { fontFaces } from './font-faces.ts'
 import { enforceImageBytes } from './image-bytes.ts'
+import { imageWatermarkPage, injectImageWatermark, nestedFrameFontFacts, selectedImageWatermarkMarkup } from './image-watermark.ts'
 import { layoutScripts } from './layout-scripts.ts'
 import { assetSetup, type ParsedComposedRenderOptions, type SlideImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
@@ -62,6 +63,18 @@ export async function renderSlideImage(
     async (tab) => {
       await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)
       preflight?.complete()
+      const font = opts.watermark ? await nestedFrameFontFacts(tab) : {}
+      const watermark = selectedImageWatermarkMarkup(
+        opts.watermark,
+        index + 1,
+        imageWatermarkPage({
+          viewport: deck.size,
+          direction: resolveDirection(deck.dir, deck.lang, deck.title),
+          ...(deck.lang ? { lang: deck.lang } : {}),
+          ...(font.fontFamily ? { fontFamily: font.fontFamily } : {}),
+        }),
+      )
+      if (watermark) await injectImageWatermark(tab, watermark, { scripts: true, origins: opts.origins }, font.fontFaceCss)
       const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
       return enforceImageBytes(stampImage(image, outputDate([established.day])), opts.limits?.bytes)
     },

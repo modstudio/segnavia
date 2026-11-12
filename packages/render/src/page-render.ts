@@ -2,7 +2,7 @@ import type { FontFailure } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
-import type { Page as Tab } from 'playwright-core'
+import type { Frame, Page as Tab } from 'playwright-core'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { assetSetup, type ComposedRenderOptions, type RenderOptions } from './options.ts'
@@ -25,8 +25,8 @@ export interface PageFontFactsCapture {
   textRootSelector?: string
 }
 
-export async function pageFontFactsFromRoot(tab: Tab, capture: PageFontFactsCapture = {}): Promise<PageFontFacts> {
-  return tab.evaluate(({ printedPages, textRootSelector }) => {
+export async function pageFontFactsFromRoot(target: Tab | Frame, capture: PageFontFactsCapture = {}): Promise<PageFontFacts> {
+  return target.evaluate(({ printedPages, textRootSelector }) => {
     const rules: string[] = []
     const collect = (list: CSSRuleList) => {
       for (const rule of list) {
@@ -48,8 +48,8 @@ export async function pageFontFactsFromRoot(tab: Tab, capture: PageFontFactsCapt
   }, capture)
 }
 
-export async function pageFontFacts(tab: Tab, printedPages = false): Promise<PageFontFacts> {
-  return pageFontFactsFromRoot(tab, { printedPages })
+export async function pageFontFacts(target: Tab | Frame, printedPages = false): Promise<PageFontFacts> {
+  return pageFontFactsFromRoot(target, { printedPages })
 }
 
 export async function renderPagePdf(

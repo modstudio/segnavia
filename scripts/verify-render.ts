@@ -35,6 +35,7 @@ import { verifyDocumentPressGeometry } from './verify/press-geometry.ts'
 import { verifyPressRender } from './verify/press-render.ts'
 import { verifyRenderContainment } from './verify/render-containment.ts'
 import { verifyScriptFaces } from './verify/script-faces.ts'
+import { verifySlideImageRender } from './verify/slide-image-render.ts'
 
 const CHROMIUM = chromiumPath()
 const jsHeapMb = 128
@@ -307,21 +308,7 @@ try {
     tooTall instanceof RenderOversetError && tooTall.page === 0 && tooTall.papers > 1,
     tooTall instanceof RenderOversetError ? `${tooTall.name}: ${tooTall.message} (page ${tooTall.page}, papers ${tooTall.papers})` : String(tooTall),
   )
-  const slide = await renderer.slideImage(
-    screenDeck([{ type: 'slide', id: 'a', content: { kind: 'html', html: '<h1>x</h1>' } }], {
-      title: 'T',
-      layout: 'fixed',
-      fit: 'contain',
-      frame: false,
-      size: { width: 1280, height: 720 },
-      settings: { scripts: 'refuse' },
-    }),
-    0,
-    { scale: 1 },
-  )
-  const slideFile = path.join(work, 'slide.png')
-  writeFileSync(slideFile, slide)
-  check('a slide exports as an image at its canvas size', execFileSync('file', [slideFile], { encoding: 'utf8' }).includes('1280 x 720'))
+  await verifySlideImageRender(renderer, work, check)
 
   const fixedImage = execFileSync('file', [path.join(output, 'page-fixed.jpeg')], { encoding: 'utf8' })
   check('pageImage returns the page size in the requested format', fixedImage.includes('JPEG image data') && fixedImage.includes('420x240'), fixedImage.trim())

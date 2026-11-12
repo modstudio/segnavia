@@ -23,6 +23,7 @@ import {
   type OverflowEntry,
   pageCompositionCount,
   parseComposedRenderOptions,
+  parseImageRenderOptions,
   refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
@@ -217,7 +218,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
     async pageImage(input, opts = {}) {
-      const parsedOptions = parseComposedRenderOptions(opts)
+      const parsedOptions = parseImageRenderOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'screen')
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page]))
@@ -227,7 +228,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async coverImage(input, opts) {
       const cover = Cover.parse(input)
       const plan = coverImagePlan(cover, opts)
-      const options = parseComposedRenderOptions(plan.options)
+      const options = parseImageRenderOptions(plan.options)
       return await withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const established = await resolveRenderDayContext(cover.page, options, deadline.signal)
         const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, established, 'screen')
@@ -364,7 +365,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async slideImage(input, index, opts = {}) {
-      const options = parseAsOfInputs(parseComposedRenderOptions(opts))
+      const options = parseAsOfInputs(parseImageRenderOptions(opts))
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)

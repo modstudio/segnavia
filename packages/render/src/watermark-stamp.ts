@@ -214,7 +214,7 @@ export async function applyWatermark(
       ...assetSetup(options),
     },
     async (tab) => {
-      await tab.evaluate(fitWatermarkText)
+      await tab.evaluate(fitWatermarkText, undefined)
       return tab.pdf({
         printBackground: true,
         preferCSSPageSize: true,
