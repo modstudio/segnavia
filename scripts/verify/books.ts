@@ -115,7 +115,6 @@ export async function verifyBooks(h: Harness) {
   await verifyBookFill(h)
   await verifyPageLimit583(h)
 }
-
 async function paginatedFrame(h: Harness, id: string) {
   const element = await h.page.$(`#${id}`)
   const frame = await element?.contentFrame()
@@ -127,7 +126,6 @@ async function paginatedFrame(h: Harness, id: string) {
   )
   return frame
 }
-
 async function inspectPaginated(h: Harness, id: string): Promise<PaginatedReport> {
   const frame = await paginatedFrame(h, id)
   return frame.evaluate(inspectPaginatedBook)

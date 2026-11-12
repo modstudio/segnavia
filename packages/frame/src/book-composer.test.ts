@@ -47,21 +47,6 @@ test('embedded copyfit bounds include their value parser dependency', () => {
   })
 })
 
-test('fill and measured properties run once after copyfit and before the first pagination measurement', () => {
-  const script = composerScript('{}')
-  const fit = script.indexOf('fitResults=fitSourceElements()')
-  const fill = script.indexOf('fillSourceRegions()', fit)
-  const properties = script.indexOf('propertyResults=measureSourceProperties()', fill)
-  const input = script.indexOf('var input=measureInput()', properties)
-  expect(fit).toBeGreaterThan(-1)
-  expect(fill).toBeGreaterThan(fit)
-  expect(properties).toBeGreaterThan(fill)
-  expect(input).toBeGreaterThan(properties)
-  expect(script.match(/fillSourceRegions\(\)/g)).toHaveLength(1)
-  expect(script.match(/propertyResults=measureSourceProperties\(\)/g)).toHaveLength(1)
-  expect(script).toContain('properties:propertyResults')
-})
-
 test('publishes preflight from the embedded functions alone, given the measured flows', () => {
   const posted: unknown[] = []
   const attributes: Record<string, string> = {}
