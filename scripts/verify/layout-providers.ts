@@ -39,6 +39,8 @@ async function layoutBox(frame: FrameLike): Promise<{ x: number; y: number; widt
 const close = (left: number, right: number) => Math.abs(left - right) <= 0.5
 const boxesAgree = (left: Awaited<ReturnType<typeof layoutBox>>, right: Awaited<ReturnType<typeof layoutBox>>) =>
   close(left.x, right.x) && close(left.y, right.y) && close(left.width, right.width) && close(left.height, right.height)
+const boxEdgesAgree = (left: Awaited<ReturnType<typeof layoutBox>>, right: Awaited<ReturnType<typeof layoutBox>>) =>
+  close(left.x, right.x) && close(left.y, right.y) && close(left.x + left.width, right.x + right.width) && close(left.y + left.height, right.y + right.height)
 
 export async function verifyLayoutProviders(h: Harness): Promise<void> {
   const baseline = await bookFacts(h, 'baseline')
@@ -118,7 +120,7 @@ export async function verifyLayoutProviders(h: Harness): Promise<void> {
   })
   h.check(
     'vertical ink and lineBoxes agree with hand measurements',
-    boxesAgree(vertical.ink, vertical.hand) && vertical.lineBoxes === vertical.columns,
+    boxEdgesAgree(vertical.ink, vertical.hand) && vertical.lineBoxes === vertical.columns,
     JSON.stringify(vertical),
   )
 
