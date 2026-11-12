@@ -154,10 +154,7 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
         }
         return { locator: locator(element), box: { left: box.left, right: box.right }, clips }
       })
-    const fitMins = [...document.querySelectorAll('[data-segnavia-region-fit-min]')].map(
-      (element) => element.getAttribute('data-segnavia-region-fit-min') ?? '',
-    )
-    return { extent, endOverflow, extentClipped, rtl, elements, fitMins }
+    return { extent, endOverflow, extentClipped, rtl, elements }
   })
   const contributions: OverflowContribution[] = []
   let clippedStart = 0
@@ -171,11 +168,6 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
     if ((overflow.clippedStart > 0 || overflow.clippedEnd > 0) && contributions.length < 20) {
       contributions.push({ locator: element.locator, clippedStart: overflow.clippedStart, clippedEnd: overflow.clippedEnd })
     }
-  }
-  for (const attribute of measured.fitMins ?? []) {
-    const fitMin = regionFitMinContribution(attribute)
-    clippedEnd = Math.max(clippedEnd, fitMin.clippedEnd)
-    if (contributions.length < 20) contributions.push(fitMin)
   }
   return {
     overflow: {
@@ -191,15 +183,6 @@ async function measuredOverflow(tab: Tab, pageWidth: number): Promise<MeasuredOv
 
 function overflowEntry(measured: MeasuredOverflow, scale: number, part: OverflowPart, inputIndex?: number): OverflowEntry {
   return { part, ...(inputIndex === undefined ? {} : { inputIndex }), ...measured.overflow, scale }
-}
-
-export function regionFitMinContribution(attribute: string): OverflowContribution {
-  const valueAt = attribute.lastIndexOf(':')
-  const nameAt = attribute.lastIndexOf(':', valueAt - 1)
-  const template = attribute.slice(0, nameAt)
-  const name = attribute.slice(nameAt + 1, valueAt)
-  const value = attribute.slice(valueAt + 1)
-  return { locator: `template ${template} region ${name} data-fit-min ${value}`, clippedStart: 0, clippedEnd: 0 }
 }
 
 export async function measureOverflow(tab: Tab, pageWidth: number, part: OverflowPart, inputIndex?: number): Promise<OverflowEntry> {

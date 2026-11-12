@@ -1,6 +1,7 @@
 export { type BookPlanDocumentNumbers, bookPlanDocumentNumbers } from './book-plan-document-numbers.ts'
 export { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanPage, type BookPlanSection, bookPlanFolios } from './book-plan-folios.ts'
 export { type ConvergedLayout, convergeLayout, type LayoutStep, type LayoutWarning } from './converge-layout.ts'
+export { type FitProbe, type FitSearchResult, type FitSearchStrategy, fitSearch, reduceFitGroups } from './fit-search.ts'
 export { resolveHeadTemplate } from './head-template.ts'
 export { layoutScript } from './layout-script.ts'
 export { pageBlockRange } from './page-block-range.ts'

@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { BookOpens } from './book-section.ts'
 import { TextDirection } from './direction.ts'
+import { FitMeasurement } from './fit.ts'
 import { SectionNumbering } from './folio.ts'
 import { parentRules } from './parent-rules.ts'
 import { RecordFacts } from './record-facts.ts'
@@ -77,6 +78,7 @@ export const PaginateNoteSeriesGeometry = z.object({ name: z.string(), gap: z.nu
 export type PaginateNoteSeriesGeometry = z.infer<typeof PaginateNoteSeriesGeometry>
 
 export const Measurements = z.object({
+  fits: z.array(FitMeasurement).default([]),
   variables: z.array(Variable).default([]),
   document: VariableDocumentFacts.optional(),
   flows: z.array(PaginateFlow),

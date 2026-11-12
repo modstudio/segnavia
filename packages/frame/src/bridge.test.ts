@@ -308,7 +308,7 @@ describe('frame document', () => {
       },
       scrollHeight: 20,
       getClientRects: () => [{}],
-      getAttribute: () => 'name:shrink:8',
+      getAttribute: (name: string) => (name === 'data-slot-overflow' ? 'name:shrink:8' : null),
       style: { fontSize: '20px' },
     }
     let waiting = true
@@ -318,7 +318,7 @@ describe('frame document', () => {
       scrollWidth: 10,
       scrollHeight: 10,
       getClientRects: () => (waiting ? [] : [{}]),
-      getAttribute: () => 'role:refuse',
+      getAttribute: (name: string) => (name === 'data-slot-overflow' ? 'role:refuse' : null),
       style: {},
     }
     const frames: Array<() => void> = []

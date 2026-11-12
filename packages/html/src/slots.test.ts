@@ -354,6 +354,23 @@ test('only a slot the fill supplied is marked for measurement', async () => {
   expect(html).toContain('data-slot-overflow="role:refuse"')
 })
 
+test('a filled shrink slot is lowered to copyfit attributes', async () => {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'shrink', minSize: 8 }], {
+    fill: { id: 'x', values: { name: 'Alexandria' } },
+  })
+  const html = prepared.apply('<p data-slot-value="name">Name</p>')
+  expect(html).toContain('data-slot-overflow="name:shrink:8"')
+  expect(html).toContain('data-fit="size"')
+  expect(html).toContain('data-fit-min="8px"')
+})
+
+test('a shrink slot refuses any authored copyfit attribute on its element', async () => {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'shrink', minSize: 8 }], {
+    fill: { id: 'x', values: { name: 'Alexandria' } },
+  })
+  expect(() => prepared.apply('<p data-slot-value="name" data-fit-max="24px">Name</p>')).toThrow('slot "name" has both overflow shrink and authored data-fit')
+})
+
 test('slot application removes authored overflow markers before writing its own', async () => {
   const declared: SlotDeclaration[] = [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }]
   const prepared = await prepareSlots(declared, { fill: { id: 'x', values: { name: 'Ada' } } })
@@ -362,4 +379,11 @@ test('slot application removes authored overflow markers before writing its own'
   )
   expect(html).not.toContain('forged')
   expect(html).toContain('data-slot-overflow="name:refuse"')
+})
+
+test('slot application leaves authored copyfit on elements it does not lower', async () => {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'wrap' }], {
+    fill: { id: 'x', values: { name: 'Ada' } },
+  })
+  expect(prepared.apply('<div><p data-fit="size" data-fit-min="12px">Heading</p><p data-slot-value="name">Name</p></div>')).toContain('data-fit-min="12px"')
 })

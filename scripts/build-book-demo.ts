@@ -6,6 +6,7 @@ import { newNonce } from '@segnavia/frame/bridge'
 import { bookView, parseDocument } from '@segnavia/html'
 import { filledBook } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
+import { writeBookCopyfitDemo } from './build-book-copyfit-demo.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
@@ -297,6 +298,7 @@ export async function buildBookDemo(site: string): Promise<void> {
   )
 
   const hebrewFace = `${alefCss()}${notoCss()}`
+  await writeBookCopyfitDemo(site)
   for (const hebrew of [false, true]) {
     const book = bookFixtureValue(paginatedFixture(hebrew))
     const css = hebrew

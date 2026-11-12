@@ -13,7 +13,7 @@ import {
   resolvePreflightProfile,
 } from './preflight.ts'
 
-const facts = { pageCount: 1, pages: [{ folio: '1', first: 'a', last: 'z' }], fits: [{ group: 'sidebar', size: '9px' }] }
+const facts = { pageCount: 1, pages: [{ folio: '1', first: 'a', last: 'z' }], fits: [{ subject: 'held', group: 'sidebar', values: { size: '9px' } }] }
 const entry = (check: 'region-overset' | 'furniture-overset', subject = 'body') => ({ check, subject, message: `Shorten ${subject} to clear it.` })
 
 describe('preflight profiles', () => {
@@ -101,6 +101,15 @@ describe('boundPreflightReport', () => {
     expect(report.facts).toEqual(facts)
     expect(preflightRefusal(report)).toBeUndefined()
     expect(boundPreflightReport({ entries: [], facts: { pageCount: -1 } }, PREFLIGHT_PRESETS.default).facts).toEqual({ pageCount: 0, pages: [], fits: [] })
+  })
+
+  test('drops malformed fit facts and bounds their strategy count and text', () => {
+    const fits = [
+      { values: { size: '10px' } },
+      { subject: 'card', group: 'g'.repeat(300), values: { size: '1'.repeat(300), leading: '1.2', tracking: '-.1px', extra: 'drop' } },
+    ]
+    const report = boundPreflightReport({ entries: [], facts: { pageCount: 0, pages: [], fits } as never }, PREFLIGHT_PRESETS.default)
+    expect(report.facts.fits).toEqual([{ subject: 'card', group: 'g'.repeat(256), values: { size: '1'.repeat(64), leading: '1.2', tracking: '-.1px' } }])
   })
 
   test.each([

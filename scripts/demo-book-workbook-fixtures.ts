@@ -6,8 +6,10 @@ export const workbookCss =
 const lessonHtml = (alt: boolean) =>
   `<div class="lesson${alt ? ' lesson-alt' : ''}"><div class="lesson-heading" data-region="heading"></div><div class="lesson-reading" data-region="reading-text" style="block-size:3em;max-block-size:3em;overflow:visible"></div><div class="lesson-table" data-region="table" dir="rtl"></div></div>`
 
-const fitHtml =
-  '<div class="lesson"><div class="lesson-heading" data-region="heading"></div><div class="lesson-fit" data-region="lesson-text" data-fit-min="48pt" data-fit-step="1pt" data-pointed style="font-size:75pt;line-height:1.35;block-size:90pt;max-block-size:90pt;overflow:visible;white-space:nowrap"></div></div>'
+const fitHtml = '<div class="lesson"><div class="lesson-heading" data-region="heading"></div><div class="lesson-fit" data-region="lesson-text"></div></div>'
+
+const fittedRegion = (text: string) =>
+  `<p data-fit="size, leading" data-fit-min="48pt, 1.1" data-fit-step="1pt, 0.05" data-fit-axis="both" data-pointed style="font-size:75pt;line-height:1.35;block-size:90pt;max-block-size:90pt;overflow:visible;white-space:nowrap">${text}</p>`
 
 function lessonTable(hebrew: boolean): string {
   const head = hebrew ? '<th>אות</th><th>ערך</th>' : '<th>Letter</th><th>Value</th>'
@@ -78,7 +80,7 @@ export function workbookFixture(hebrew: boolean): DocumentInput {
               {
                 type: 'page',
                 template: 'lesson-fit',
-                regions: { heading: `<h1 id="lesson-4">${lesson} 4</h1>`, 'lesson-text': fitted },
+                regions: { heading: `<h1 id="lesson-4">${lesson} 4</h1>`, 'lesson-text': fittedRegion(fitted) },
               },
             ],
           },

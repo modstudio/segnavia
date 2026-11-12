@@ -253,6 +253,12 @@ describe('book document', () => {
     ])
   })
 
+  test('refuses an invalid copyfit unit while identifying chapter blocks', () => {
+    expect(() => parseBookFixture(input({ chapters: [chapter('One', '<p data-fit="size" data-fit-min="2em">Text</p>')] }))).toThrow(
+      'data-fit-min value "2em" is not an absolute CSS length',
+    )
+  })
+
   test('emits designed pages as hidden holders and lists their title and headings', () => {
     const book = parseBookFixture(
       input({

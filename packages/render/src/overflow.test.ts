@@ -1,18 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, horizontalOverflow, regionFitMinContribution, type ScaleMeasurement, solveScale } from './overflow.ts'
-
-test('a fit-min mark names the template, the region and the value, not a region locator', () => {
-  expect(regionFitMinContribution('lesson:lesson-text:80pt')).toEqual({
-    locator: 'template lesson region lesson-text data-fit-min 80pt',
-    clippedStart: 0,
-    clippedEnd: 0,
-  })
-  expect(regionFitMinContribution('unit:1:lesson-text:80pt')).toEqual({
-    locator: 'template unit:1 region lesson-text data-fit-min 80pt',
-    clippedStart: 0,
-    clippedEnd: 0,
-  })
-})
+import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, horizontalOverflow, type ScaleMeasurement, solveScale } from './overflow.ts'
 
 test('ancestor clip boxes limit the visible horizontal contribution', () => {
   expect(

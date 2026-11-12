@@ -1,6 +1,8 @@
+import { FIT_STRATEGIES } from './fit.ts'
 import type { FontFailure } from './fonts.ts'
 
 export const PREFLIGHT_CHECKS = [
+  'fit-limit',
   'region-overset',
   'furniture-overset',
   'slot-overset',
@@ -103,8 +105,9 @@ export interface PreflightPageFacts {
   readonly last?: string
 }
 export interface PreflightFit {
-  readonly group: string
-  readonly size: string
+  readonly subject: string
+  readonly group?: string
+  readonly values: Readonly<Record<string, string>>
 }
 export interface PreflightFacts {
   readonly pageCount: number
@@ -132,6 +135,7 @@ export const PREFLIGHT_PAGES_LIMIT = 10_000
 export const PREFLIGHT_FITS_LIMIT = 256
 export const PREFLIGHT_FIT_GROUP_LIMIT = 256
 export const PREFLIGHT_FIT_SIZE_LIMIT = 64
+export const PREFLIGHT_FIT_VALUES_LIMIT = FIT_STRATEGIES.length
 
 export function boundPreflightReport(
   input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown; readonly coverage?: unknown },
@@ -147,6 +151,7 @@ export function boundPreflightReport(
     readonly fits: number
     readonly fitGroup: number
     readonly fitSize: number
+    readonly fitValues: number
   },
 ): PreflightReport {
   const limits =
@@ -162,6 +167,7 @@ export function boundPreflightReport(
       fits: PREFLIGHT_FITS_LIMIT,
       fitGroup: PREFLIGHT_FIT_GROUP_LIMIT,
       fitSize: PREFLIGHT_FIT_SIZE_LIMIT,
+      fitValues: PREFLIGHT_FIT_VALUES_LIMIT,
     } as const)
   const boundedPreflightText = (value: unknown, limit: number): string | undefined => (typeof value === 'string' ? value.slice(0, limit) : undefined)
   const boundedPreflightLocation = (value: unknown): PreflightLocation | undefined => {
@@ -201,10 +207,19 @@ export function boundPreflightReport(
     })
     const fits = source.fits.slice(0, limits.fits).flatMap((held): PreflightFit[] => {
       if (!held || typeof held !== 'object' || Array.isArray(held)) return []
-      const fit = held as { group?: unknown; size?: unknown }
+      const fit = held as { subject?: unknown; group?: unknown; values?: unknown }
+      const subject = boundedPreflightText(fit.subject, limits.fitGroup)
       const group = boundedPreflightText(fit.group, limits.fitGroup)
-      const size = boundedPreflightText(fit.size, limits.fitSize)
-      return group === undefined || size === undefined ? [] : [{ group, size }]
+      if (subject === undefined || !fit.values || typeof fit.values !== 'object' || Array.isArray(fit.values)) return []
+      const values = Object.fromEntries(
+        Object.entries(fit.values)
+          .slice(0, limits.fitValues)
+          .flatMap(([strategy, value]) => {
+            const bounded = boundedPreflightText(value, limits.fitSize)
+            return bounded === undefined ? [] : [[strategy.slice(0, limits.fitGroup), bounded]]
+          }),
+      )
+      return [{ subject, ...(group === undefined ? {} : { group }), values }]
     })
     return { pageCount: Math.min(source.pageCount as number, limits.pages), pages, fits }
   }

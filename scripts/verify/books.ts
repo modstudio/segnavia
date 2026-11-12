@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { Document, PX_PER_PT } from '@segnavia/format'
 import { workbookFixture } from '../demo-book-workbook-fixtures.ts'
+import { verifyBookCopyfit } from './book-copyfit.ts'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
 import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
@@ -12,6 +13,7 @@ import { verifyPaginatedPageReferences } from './book-page-reference-screen.ts'
 import { verifyPaginatedBlocks, verifyPaginatedTableBook } from './book-paginated-tables.ts'
 import { verifyPartsBooks } from './book-parts.ts'
 import { verifyPlacedMediaBook } from './book-placed-media.ts'
+import { verifyBookSlotCopyfit } from './book-slot-copyfit.ts'
 import { verifyBookTitleHeads } from './book-title-heads.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import {
@@ -104,6 +106,8 @@ export async function verifyBooks(h: Harness) {
   await verifyNoteSeries(h)
   await verifyImportedIdmlTable(h)
   await verifyPlacedMediaBook(h)
+  await verifyBookSlotCopyfit(h)
+  await verifyBookCopyfit(h)
 }
 
 async function paginatedFrame(h: Harness, id: string) {
@@ -354,7 +358,7 @@ async function verifyWorkbooks(h: Harness) {
     check(`${id} host school name shows on the copyright page`, report.school.includes(expectedSchool), expectedSchool)
     check(`${id} table regions are right to left`, report.tableDir.length > 0 && report.tableDir.every((dir) => dir === 'rtl'), report.tableDir.join(','))
     const fit = await frame.evaluate(() => {
-      const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"]')
+      const el = document.querySelector('[data-segnavia-book-page] [data-region="lesson-text"] [data-fit]')
       if (!el) return { size: 0, overset: true, elements: -1 }
       return {
         size: Number.parseFloat(getComputedStyle(el).fontSize),
@@ -364,7 +368,7 @@ async function verifyWorkbooks(h: Harness) {
     const minPx = 48 * PX_PER_PT
     const maxPx = 75 * PX_PER_PT
     check(
-      `${id} a region of bare overflowing text fits between min and max`,
+      `${id} a pointed region fits between min and max`,
       fit.elements === 0 &&
         !preflightIssues.some((issue) => issue.check === 'region-overset' && issue.subject?.endsWith(':lesson-text')) &&
         fit.size >= minPx - 0.5 &&

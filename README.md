@@ -130,6 +130,20 @@ Server rendering draws diagram placeholders when `@segnavia/diagrams` is
 installed or a provider is registered. It loads the complete drawing script
 only for a page, book or deck that contains a diagram.
 
+Book, printed-page and page HTML can opt into copyfit before pagination:
+
+```html
+<p data-fit="size, leading" data-fit-min="12px, 1.1"
+   data-fit-step="0.5px, 0.05" data-fit-axis="both"
+   data-fit-box="parent" data-fit-group="flashcards">
+  Text shared at one fitted size across the group
+</p>
+```
+
+Strategies run in the listed order. An omitted maximum is the authored value,
+and `size` is the default strategy. A fit that reaches its bounds remains
+visible and is reported as `fit-limit`; strict preflight refuses it.
+
 Install `@segnavia/markdown-editor` and its required Tiptap, CodeMirror and
 Lezer peers only when the host edits Markdown:
 

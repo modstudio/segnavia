@@ -98,6 +98,7 @@ export {
 export { type RebaseResult, rebaseOps } from './document-rebase.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
+export { FIT_STRATEGIES, FitAxis, FitBox, FitMeasurement, type FitStrategy, FitValue } from './fit.ts'
 export { FOLD_KINDS, FOLD_TUCK_IN_MM, type FoldKind, foldCellPages, foldColumns, foldPageCountMessage, foldPanelMap } from './fold.ts'
 export {
   computeFolios,
