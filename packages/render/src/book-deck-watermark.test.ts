@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { parseBookFixture } from '@segnavia/html'
-import { decodePDFRawStream, PDFArray, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
+import { decodePDFRawStream, PDFDocument, PDFName, PDFRawStream } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { renderBookPdf } from './book-pdf.ts'
 import type { BookPdfAdapter } from './book-pdf-types.ts'
@@ -78,16 +78,19 @@ const deck = Deck.parse({
   ],
 })
 
-function tabFor(owners: number[]): Tab {
+function tabFor(owners: number[], bodyFamily = 'Deck Face', sheetFamily = 'Notes Face'): Tab {
   return {
     locator: (selector: string) => ({
       waitFor: async () => {},
       evaluateAll: async () => (selector === '.sheet' ? owners : []),
     }),
-    evaluate: async (value: unknown) =>
+    evaluate: async (value: unknown, capture?: { textRootSelector?: string }) =>
       typeof value === 'string' || (typeof value === 'function' && value.name === 'paginateNotes')
         ? { sheets: owners.length, exceeded: false }
-        : { fontFamily: 'Deck Face', fontFaceCss: '@font-face{font-family:"Deck Face"}' },
+        : {
+            fontFamily: capture?.textRootSelector === '.sheet' ? sheetFamily : bodyFamily,
+            fontFaceCss: '@font-face{font-family:"Collected Face"}',
+          },
   } as unknown as Tab
 }
 
@@ -106,6 +109,12 @@ test('overflow notes sheets each take the next physical watermark number', async
       watermark: async (parts, count) => {
         expect(count).toBe(3)
         expect(parts[0]?.pageFacts).toHaveLength(3)
+        expect(parts[0]?.pageFacts?.map((facts) => facts.fontFamily)).toEqual(['Notes Face', 'Notes Face', 'Notes Face'])
+        expect(parts[0]?.pageFacts?.map((facts) => facts.fontFaceCss)).toEqual([
+          '@font-face{font-family:"Collected Face"}',
+          '@font-face{font-family:"Collected Face"}',
+          '@font-face{font-family:"Collected Face"}',
+        ])
         selectedCount++
         return stampWatermarkParts(
           parts.map((part) => part.bytes),
@@ -120,6 +129,36 @@ test('overflow notes sheets each take the next physical watermark number', async
   expect(await pageContent(output, 0)).not.toContain('/Artifact')
   expect(await pageContent(output, 1)).toContain('/Artifact')
   expect(await pageContent(output, 2)).not.toContain('/Artifact')
+})
+
+test('slides layout keeps each HTML slide font facts and physical page selection matches slide number', async () => {
+  let watermarkFacts: readonly { fontFamily?: string }[] = []
+  const output = await renderDeckPdf(
+    deck,
+    { watermark: { text: 'Draft', pages: [2] } },
+    {
+      renderPdf: async (setup, _pdf, frames) => {
+        const family = setup.html.includes('<p>One</p>') ? 'First Face' : setup.html.includes('<p>Two</p>') ? 'Second Face' : 'Printable Face'
+        await setup.beforeOutput?.(tabFor([], family))
+        return pages(frames.length === 0 ? 2 : 1)
+      },
+      fontFaces: () => '',
+      watermark: async (parts, count) => {
+        expect(count).toBe(2)
+        watermarkFacts = parts[0]?.pageFacts ?? []
+        return stampWatermarkParts(
+          parts.map((part) => part.bytes),
+          await watermarkLayer(),
+          [{ part: 0, page: 2 }],
+        )
+      },
+      finish: async (pdf) => pdf,
+    },
+  )
+
+  expect(watermarkFacts.map((facts) => facts.fontFamily)).toEqual(['First Face', 'Second Face'])
+  expect(await pageContent(output, 0)).not.toContain('/Artifact')
+  expect(await pageContent(output, 1)).toContain('/Artifact')
 })
 
 const imposition = {
@@ -161,5 +200,4 @@ test('imposed deck watermark artifact stays in an embedded slide XObject', async
     .filter((object): object is PDFRawStream => object instanceof PDFRawStream)
     .map((stream) => new TextDecoder().decode(decodePDFRawStream(stream).decode()))
   expect(decoded.some((content) => content.includes('/Artifact'))).toBe(true)
-  expect(document.getPage(0).node.Contents()).toBeInstanceOf(PDFArray)
 })

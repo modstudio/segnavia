@@ -169,9 +169,9 @@ async function renderHtmlSlides(
             ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
             preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
             beforeOutput: async (tab) => {
-              font = await captureDeckFont(tab, Boolean(opts.watermark), (page) =>
-                waitForPrintReady(page, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
-              )
+              font = await captureDeckFont(tab, Boolean(opts.watermark), {
+                prepare: (page) => waitForPrintReady(page, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false)),
+              })
             },
           },
           {
@@ -253,7 +253,7 @@ async function regularDeckPdf(
             pageOwners = await tab.locator('.sheet').evaluateAll((sheets) => sheets.map((sheet) => Number((sheet as HTMLElement).dataset.slideIndex)))
           }
           await opts.beforeOutput?.(tab)
-          printableFont = await captureDeckFont(tab, Boolean(opts.watermark))
+          printableFont = await captureDeckFont(tab, Boolean(opts.watermark), notesGeometry ? { textRootSelector: '.sheet' } : {})
         },
       },
       deckPrintablePdfOptions(press),
@@ -317,13 +317,13 @@ async function imposedDeckPdf(
             beforeOutput:
               'kind' in slide.content && slide.content.kind === 'html'
                 ? async (tab) => {
-                    font = await captureDeckFont(tab, Boolean(opts.watermark), (page) =>
-                      waitForPrintReady(page, renderReadiness('refuse', diagrams, opts.waitForPageReady !== false)),
-                    )
+                    font = await captureDeckFont(tab, Boolean(opts.watermark), {
+                      prepare: (page) => waitForPrintReady(page, renderReadiness('refuse', diagrams, opts.waitForPageReady !== false)),
+                    })
                   }
                 : 'kind' in slide.content && slide.content.kind === 'image'
                   ? async (tab) => {
-                      font = await captureDeckFont(tab, Boolean(opts.watermark), placeRenderedImages)
+                      font = await captureDeckFont(tab, Boolean(opts.watermark), { prepare: placeRenderedImages })
                     }
                   : opts.watermark
                     ? async (tab) => {
