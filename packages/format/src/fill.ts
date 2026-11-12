@@ -6,10 +6,8 @@ export type FillMode = z.infer<typeof FillMode>
 export const RegionOverflow = z.enum(['grow', 'truncate', 'refuse'])
 export type RegionOverflow = z.infer<typeof RegionOverflow>
 
-export const PREFLIGHT_REGIONS_LIMIT = 256
-export const PREFLIGHT_DROPPED_IDS_LIMIT = 50
-export const PREFLIGHT_REGION_COUNT_LIMIT = 10_000
-export const PREFLIGHT_REGION_ID_LIMIT = 256
+export const FILL_MIN_DEFAULT = 1
+export const FILL_MAX_DEFAULT = 10_000
 
 export interface PreflightRegion {
   readonly subject: string

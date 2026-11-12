@@ -1,4 +1,4 @@
-import { PREFLIGHT_DROPPED_IDS_LIMIT, PREFLIGHT_REGION_COUNT_LIMIT, PREFLIGHT_REGION_ID_LIMIT, PREFLIGHT_REGIONS_LIMIT, type PreflightRegion } from './fill.ts'
+import type { PreflightRegion } from './fill.ts'
 import { FIT_STRATEGIES } from './fit.ts'
 import type { FontFailure } from './fonts.ts'
 
@@ -56,6 +56,10 @@ export function resolvePreflightProfile(input: PreflightProfileInput = 'default'
 
 export function preflightEnabled(profile: PreflightProfile): boolean {
   return PREFLIGHT_CHECKS.some((check) => profile[check] !== 'off')
+}
+
+export function regionOverflowRefusalEnabled(profile?: PreflightProfile): boolean {
+  return profile?.['region-overset'] !== 'off'
 }
 
 export interface PreflightLocation {
@@ -139,6 +143,9 @@ export const PREFLIGHT_FITS_LIMIT = 256
 export const PREFLIGHT_FIT_GROUP_LIMIT = 256
 export const PREFLIGHT_FIT_SIZE_LIMIT = 64
 export const PREFLIGHT_FIT_VALUES_LIMIT = FIT_STRATEGIES.length
+export const PREFLIGHT_REGIONS_LIMIT = 256
+export const PREFLIGHT_DROPPED_IDS_LIMIT = 50
+export const PREFLIGHT_REGION_FIELD_LIMIT = 10_000
 
 export function boundPreflightReport(
   input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown; readonly coverage?: unknown },
@@ -177,8 +184,8 @@ export function boundPreflightReport(
       fitValues: PREFLIGHT_FIT_VALUES_LIMIT,
       regions: PREFLIGHT_REGIONS_LIMIT,
       droppedIds: PREFLIGHT_DROPPED_IDS_LIMIT,
-      regionCount: PREFLIGHT_REGION_COUNT_LIMIT,
-      regionId: PREFLIGHT_REGION_ID_LIMIT,
+      regionCount: PREFLIGHT_REGION_FIELD_LIMIT,
+      regionId: PREFLIGHT_SUBJECT_LIMIT,
     } as const)
   const boundedPreflightText = (value: unknown, limit: number): string | undefined => (typeof value === 'string' ? value.slice(0, limit) : undefined)
   const boundedPreflightLocation = (value: unknown): PreflightLocation | undefined => {
@@ -202,11 +209,11 @@ export function boundPreflightReport(
     return { check, subject, message, id: `${check}:${subject}`, severity, ...(location ? { location } : {}), order }
   }
   const boundedRegionCount = (held: unknown): number | undefined =>
-    Number.isSafeInteger(held) && (held as number) >= 0 ? Math.min(held as number, limits.regionCount ?? PREFLIGHT_REGION_COUNT_LIMIT) : undefined
+    Number.isSafeInteger(held) && (held as number) >= 0 ? Math.min(held as number, limits.regionCount ?? PREFLIGHT_REGION_FIELD_LIMIT) : undefined
   const boundedPreflightRegion = (held: unknown): PreflightRegion[] => {
     if (!held || typeof held !== 'object' || Array.isArray(held)) return []
     const region = held as Record<string, unknown>
-    const subject = boundedPreflightText(region.subject, limits.regionId ?? PREFLIGHT_REGION_ID_LIMIT)
+    const subject = boundedPreflightText(region.subject, limits.regionId ?? PREFLIGHT_SUBJECT_LIMIT)
     if (subject === undefined) return []
     const fillCount = boundedRegionCount(region.fillCount)
     const droppedPages = boundedRegionCount(region.droppedPages)
@@ -215,7 +222,7 @@ export function boundPreflightReport(
     const droppedIds = Array.isArray(region.droppedIds)
       ? region.droppedIds
           .slice(0, limits.droppedIds ?? PREFLIGHT_DROPPED_IDS_LIMIT)
-          .flatMap((id) => (typeof id === 'string' ? [id.slice(0, limits.regionId ?? PREFLIGHT_REGION_ID_LIMIT)] : []))
+          .flatMap((id) => (typeof id === 'string' ? [id.slice(0, limits.regionId ?? PREFLIGHT_SUBJECT_LIMIT)] : []))
       : undefined
     return [
       {

@@ -15,6 +15,7 @@ import {
   type ParentRules,
   PX_PER_MM,
   preflightEnabled,
+  regionOverflowRefusalEnabled,
   printedFromDocument,
   resolveLimits,
   resolveParentPages,
@@ -150,6 +151,7 @@ export function printedPageValueDocument(
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),
     ...(options.screen ? { presentation: options.screen } : {}),
     progress,
+    overflowRefusal: regionOverflowRefusalEnabled(options.profile),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const sections = page.printedPages.sections

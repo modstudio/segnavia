@@ -52,7 +52,7 @@ export function identifyHtmlBlocks(
   node: string,
   newId: () => string,
   seen: Map<string, BlockIdLocation>,
-  options: { refuseMeasure?: boolean; insideNamedRegion?: string | boolean } = {},
+  options: { refuseMeasure?: boolean; insideNamedRegion?: string } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
   const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {

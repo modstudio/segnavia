@@ -99,11 +99,9 @@ export { type RebaseResult, rebaseOps } from './document-rebase.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
 export {
+  FILL_MAX_DEFAULT,
+  FILL_MIN_DEFAULT,
   FillMode,
-  PREFLIGHT_DROPPED_IDS_LIMIT,
-  PREFLIGHT_REGION_COUNT_LIMIT,
-  PREFLIGHT_REGION_ID_LIMIT,
-  PREFLIGHT_REGIONS_LIMIT,
   type PreflightRegion,
   RegionOverflow,
 } from './fill.ts'

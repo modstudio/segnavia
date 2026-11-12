@@ -10,6 +10,7 @@ import {
 import { embedFunction } from '@segnavia/html'
 import { type PaginateBookPage, type PaginateFlow, pageBlockRange, resolveHeadTemplate } from '@segnavia/layout'
 import { decideProgressYield } from './composer-progress.ts'
+import { overflowMode } from './composer-fill-policy.ts'
 
 interface ProgressPages {
   setAttribute(name: string, value: string): void
@@ -127,7 +128,7 @@ export function preflightPageFacts(
 }
 
 export function markFurnitureOverflow(region: HTMLElement, page: Element, entries: PreflightEntry[]): void {
-  if ((region.getAttribute('data-overflow') ?? 'grow') !== 'grow') return
+  if (overflowMode(region) !== 'grow') return
   const excess = region.scrollHeight - region.clientHeight
   if (excess <= 0.5) return
   const kind = region.getAttribute('data-segnavia-region') ?? ''
@@ -148,7 +149,7 @@ export function markRegionOverflow(root: Element, folio: string, excessOf: (elem
   for (const region of regions) {
     const name = region.getAttribute('data-region')
     if (!name) continue
-    if ((region.getAttribute('data-overflow') ?? 'grow') !== 'grow') continue
+    if (overflowMode(region) !== 'grow') continue
     const excess = excessOf(region)
     if (excess.block <= 0.5 && excess.inline <= 0.5) continue
     const subject = `${template}:${name}`

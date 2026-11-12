@@ -1,4 +1,4 @@
-import type { HeadTemplate, ResolvedParentPage, TextDirection } from '@segnavia/format'
+import type { HeadTemplate, PreflightRegion, ResolvedParentPage, TextDirection } from '@segnavia/format'
 import type { regionBox } from '@segnavia/layout'
 
 interface RegionPage {
@@ -30,6 +30,9 @@ export function placeParentRegions(
   ) => Record<string, string>,
   fill: (root: Element, html: string, heads: Record<string, string>, slots: Record<string, string | undefined>, dir?: string, lang?: string) => void,
   create: (tag: string) => HTMLElement,
+  repeat: (region: HTMLElement, definiteBlockSize: number) => PreflightRegion[],
+  facts: PreflightRegion[],
+  merge: (facts: PreflightRegion[], fact: PreflightRegion) => void,
 ): void {
   const slots = config.recordSlotsByFlow?.[page.flow] ?? {}
   const heads = headsFor(config.headTemplates ?? [], page.variables ?? {}, slots, config.dir, config.lang)
@@ -42,18 +45,7 @@ export function placeParentRegions(
     if (config.lang) held.setAttribute('lang', config.lang)
     held.style.cssText = `position:absolute;overflow:hidden;top:${box.top}px;left:${box.left}px;width:${box.width}px;height:${box.height}px`
     fill(held, region.html, heads, slots, config.dir, config.lang)
-    const overflow = held.querySelector?.<HTMLElement>('[data-overflow]')?.getAttribute('data-overflow')
-    if (overflow) held.setAttribute('data-overflow', overflow)
-    const repeat = (globalThis as typeof globalThis & { repeatFill?: (region: HTMLElement) => unknown }).repeatFill
-    if (repeat && typeof held.querySelector === 'function') {
-      const added = repeat(held) as Array<{ subject: string; fillCount?: number }>
-      const shared = globalThis as typeof globalThis & { preflightRegions?: Array<{ subject: string; fillCount?: number }> }
-      for (const fact of added) {
-        const existing = shared.preflightRegions?.find((candidate) => candidate.subject === fact.subject && candidate.fillCount !== undefined)
-        if (existing) existing.fillCount = fact.fillCount
-        else shared.preflightRegions?.push(fact)
-      }
-    }
     paper.append(held)
+    for (const fact of repeat(held, box.height)) merge(facts, fact)
   }
 }

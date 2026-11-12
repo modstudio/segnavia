@@ -10,6 +10,7 @@ import {
   type PreflightEntry,
   type PreflightProfile,
   preflightEnabled,
+  regionOverflowRefusalEnabled,
   resolveLimits,
   withLibraryEntries,
 } from '@segnavia/format'
@@ -35,10 +36,6 @@ export interface PaginatedDocumentOptions {
   preflightSeed?: PreflightEntry[]
   progress?: boolean
   progressCallback?: string
-}
-
-export function regionOverflowRefusalEnabled(profile?: PreflightProfile): boolean {
-  return profile?.['region-overset'] !== 'off'
 }
 
 export function paginatedViewDocument(view: BookView, pagination: BookViewPagination, options: PaginatedDocumentOptions): string {
