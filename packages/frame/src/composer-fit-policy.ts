@@ -1,4 +1,4 @@
-import type { FitMeasurement, FitStrategy, PreflightEntry } from '@segnavia/format'
+import type { FitAxis, FitMeasurement, FitStrategy, PreflightEntry } from '@segnavia/format'
 import type { FitSearchStrategy } from '@segnavia/layout'
 
 export interface FitDecision {
@@ -15,7 +15,11 @@ export interface FitApplication {
   shrunk: boolean
 }
 
-function fitValue(text: string, strategy: FitStrategy, absolutePx: Readonly<Record<string, number>>) {
+export function fitAxis(authored: string | null, slot: boolean): FitAxis {
+  return (authored ?? (slot ? 'both' : 'block')) as FitAxis
+}
+
+export function fitValue(text: string, strategy: FitStrategy, absolutePx: Readonly<Record<string, number>>) {
   const match = /^([+-]?(?:\d+(?:\.\d+)?|\.\d+))([a-z]+)?$/i.exec(text)
   if (!match) return undefined
   const amount = Number(match[1])

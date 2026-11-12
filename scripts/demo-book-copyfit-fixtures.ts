@@ -27,7 +27,7 @@ export function slotCopyfitFixture(): DocumentInput {
     :where([data-segnavia-book-page="1"] [data-slot-overflow]){inline-size:82px}
     :where([data-segnavia-book-page="2"] [data-slot-overflow]){inline-size:190px}`
   return {
-    ...book('Slot copyfit', `<div><span data-slot-value="name">Name</span><p>${copyText}</p></div>`, css),
+    ...book('Slot copyfit', `<p><span data-slot-value="name">Name</span>${copyText}</p>`, css),
     data: { slots: [{ key: 'name', label: 'Name', type: 'text', overflow: 'shrink', minSize: 8 }] },
   }
 }

@@ -1,7 +1,7 @@
 import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
 import { COPYFIT_GROUP } from '../demo-book-copyfit-fixtures.ts'
-import type { Harness } from './harness.ts'
 import { copyfitFrame } from './book-slot-copyfit.ts'
+import type { Harness } from './harness.ts'
 
 export async function verifyBookCopyfit(h: Harness): Promise<void> {
   const group = await (await copyfitFrame(h, 'copyfit-group')).evaluate(
@@ -47,20 +47,18 @@ export async function verifyBookCopyfit(h: Harness): Promise<void> {
 
   const defaultFrame = await copyfitFrame(h, 'copyfit-limit-default')
   const strictFrame = await copyfitFrame(h, 'copyfit-limit-strict')
-  const [defaultResult, strictResult] = await Promise.all(
-    [defaultFrame, strictFrame].map((frame) =>
-      frame.evaluate((attribute) => {
-        const report = JSON.parse(document.documentElement.getAttribute(attribute) ?? 'null') as {
-          issues?: Array<{ check: string; subject: string; severity: string; message: string }>
-        } | null
-        return {
-          composed: document.documentElement.hasAttribute('data-segnavia-composed'),
-          failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
-          issue: report?.issues?.find((candidate) => candidate.check === 'fit-limit'),
-        }
-      }, PREFLIGHT_ATTRIBUTE),
-    ),
-  )
+  const readResult = (frame: typeof defaultFrame) =>
+    frame.evaluate((attribute) => {
+      const report = JSON.parse(document.documentElement.getAttribute(attribute) ?? 'null') as {
+        issues?: Array<{ check: string; subject: string; severity: string; message: string }>
+      } | null
+      return {
+        composed: document.documentElement.hasAttribute('data-segnavia-composed'),
+        failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
+        issue: report?.issues?.find((candidate) => candidate.check === 'fit-limit'),
+      }
+    }, PREFLIGHT_ATTRIBUTE)
+  const [defaultResult, strictResult] = await Promise.all([readResult(defaultFrame), readResult(strictFrame)])
   const describesLimit = (result: typeof defaultResult) =>
     result.issue?.subject === 'fit-limit-probe' && /exhausted size at 28 with [\d.]+px excess/.test(result.issue.message)
   h.check(

@@ -1,7 +1,7 @@
 import type { FitStrategy } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
-import { fitApplication, fitBounds, fitLimitEntry, fitMeasurements, reduceDocumentFits } from './composer-fit-policy.ts'
+import { fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue, reduceDocumentFits } from './composer-fit-policy.ts'
 
 interface FitResult {
   element: HTMLElement
@@ -111,14 +111,14 @@ function fitElement(element: HTMLElement, absolutePx: Readonly<Record<string, nu
   const box = element.getAttribute('data-fit-box') === 'parent' ? element.parentElement : element
   if (!candidate || !box) return undefined
   const { bounds, units } = candidate
-  const axis = element.getAttribute('data-fit-axis') ?? 'block'
+  const slot = element.getAttribute('data-slot-overflow')
+  const axis = fitAxis(element.getAttribute('data-fit-axis'), slot !== null)
   const result = search(bounds, (values) => {
     for (const strategy of strategies) applyFitValue(element, strategy, values[strategy] ?? authored[strategy], units[strategy])
     const { block, inline } = fitExcess(element, box)
     const excess = axis === 'block' ? block : axis === 'inline' ? inline : Math.max(block, inline)
     return { fits: excess <= 0.5, excess }
   })
-  const slot = element.getAttribute('data-slot-overflow')
   const id = element.getAttribute('data-segnavia-id') ?? (slot ? decodeURIComponent(slot.split(':')[0] ?? '') : '')
   return {
     element,
@@ -172,6 +172,8 @@ export function embeddedComposerFitFunctions(): string {
   return `${embedFunction('fitSearch', fitSearch)}
 ${embedFunction('reduceFitGroups', reduceFitGroups)}
 ${embedFunction('fitList', fitList)}
+${embedFunction('fitValue', fitValue)}
+${embedFunction('fitAxis', fitAxis)}
 ${embedFunction('fitBounds', fitBounds)}
 ${embedFunction('fitApplication', fitApplication)}
 ${embedFunction('reduceDocumentFits', reduceDocumentFits)}

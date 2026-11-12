@@ -1,9 +1,15 @@
 import { expect, test } from 'bun:test'
 import { reduceFitGroups } from '@segnavia/layout'
-import { type FitDecision, fitApplication, fitBounds, fitLimitEntry, fitMeasurements, reduceDocumentFits } from './composer-fit-policy.ts'
+import { type FitDecision, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, reduceDocumentFits } from './composer-fit-policy.ts'
 
 const authored = { size: 32, leading: 1.4, tracking: 0 }
 const units = { size: 'px', leading: '', tracking: 'px' }
+
+test('slot fitting checks both axes while authored copyfit defaults to block', () => {
+  expect(fitAxis(null, true)).toBe('both')
+  expect(fitAxis(null, false)).toBe('block')
+  expect(fitAxis('inline', true)).toBe('inline')
+})
 
 test('builds candidate bounds from authored values and declared absolute units', () => {
   expect(fitBounds(['size', 'leading'], ['12pt', '1.1'], [], ['1pt', '0.05'], authored, { px: 1, pt: 4 / 3 })).toEqual({

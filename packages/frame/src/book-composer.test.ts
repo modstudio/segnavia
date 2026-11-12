@@ -17,6 +17,7 @@ import {
   partTitleValues,
   unmeasuredFlows,
 } from './composer.ts'
+import { embeddedComposerFitFunctions } from './composer-fit.ts'
 import { embeddedPreflightFunctions, PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
 test('embedded region geometry includes its physical-margin dependency', () => {
@@ -30,6 +31,21 @@ test('embedded region geometry includes its physical-margin dependency', () => {
   expect(
     embedded('blockStart', { blockStart: 10, blockEnd: 10, inlineStart: 30, inlineEnd: 40 }, { width: 100, height: 200 }, { direction: 'rtl', face: 'recto' }),
   ).toEqual({ top: 0, left: 40, width: 100, height: 10 })
+})
+
+test('embedded copyfit bounds include their value parser dependency', () => {
+  const embedded = new Function(`${embeddedComposerFitFunctions()};return fitBounds`)() as (
+    strategies: string[],
+    mins: string[],
+    maxes: string[],
+    steps: string[],
+    authored: Record<string, number>,
+    absolutePx: Record<string, number>,
+  ) => unknown
+  expect(embedded(['size'], ['12px'], [], [], { size: 24, leading: 1.2, tracking: 0 }, { px: 1 })).toEqual({
+    bounds: [{ strategy: 'size', authored: 24, min: 12, max: 24 }],
+    units: { size: 'px', leading: '', tracking: 'px' },
+  })
 })
 
 test('publishes preflight from the embedded functions alone, given the measured flows', () => {
