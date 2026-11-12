@@ -10,6 +10,7 @@ import {
   preflightEnabled,
   preflightRefusal,
   resolvePreflightProfile,
+  slotFitCoverage,
 } from '@segnavia/format'
 import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
 import type { Page as Tab } from 'playwright-core'
@@ -29,6 +30,8 @@ export interface ComposedPreflight {
 export interface SurfacePreflightCapture {
   readonly fontFailures: readonly FontFailure[]
   readonly slotFits: readonly Record<string, string>[]
+  readonly slotKeys?: readonly string[]
+  readonly refuseKeys?: ReadonlySet<string>
 }
 
 export interface SurfacePreflight {
@@ -36,10 +39,10 @@ export interface SurfacePreflight {
   complete(): void
 }
 
-function slotCoverage(slotFits: readonly Record<string, string>[]): { measured: number; total: number } {
+function capturedSlotStates(slotFits: readonly Record<string, string>[]): Record<string, string> {
   const states = new Map<string, string>()
   for (const fit of slotFits) for (const [key, state] of Object.entries(fit)) states.set(key, state)
-  return { measured: [...states.values()].filter((state) => state !== 'unmeasured').length, total: states.size }
+  return Object.fromEntries(states)
 }
 
 export function surfacePreflight(preflight: ComposedPreflight | undefined, total: number): SurfacePreflight | undefined {
@@ -58,8 +61,9 @@ export function surfacePreflight(preflight: ComposedPreflight | undefined, total
       let totalSlots = 0
       captures.sort((left, right) => left.order - right.order)
       for (const capture of captures) {
-        for (const slots of capture.slotFits) appendSlotOversetEntries(slots, entries, capture.location)
-        const coverage = slotCoverage(capture.slotFits)
+        for (const slots of capture.slotFits) appendSlotOversetEntries(slots, entries, { location: capture.location, refuseKeys: capture.refuseKeys })
+        const states = capturedSlotStates(capture.slotFits)
+        const coverage = slotFitCoverage(states, capture.slotKeys ?? Object.keys(states))
         totalSlots += coverage.total
         measuredSlots += coverage.measured
         for (const entry of fontMissingEntries(capture.fontFailures, capture.location)) {

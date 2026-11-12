@@ -2,6 +2,7 @@ import {
   appendSlotOversetEntries,
   boundPreflightReport,
   fontMissingEntries,
+  isMeasuredSlotFit,
   PREFLIGHT_BLOCK_LIMIT,
   PREFLIGHT_CHECKS,
   PREFLIGHT_DROPPED_IDS_LIMIT,
@@ -17,8 +18,10 @@ import {
   PREFLIGHT_REGIONS_LIMIT,
   PREFLIGHT_SLOTS_LIMIT,
   PREFLIGHT_SUBJECT_LIMIT,
+  slotFitCoverage,
+  unmeasuredSlotsRefusalMessage,
 } from '@segnavia/format'
-import { embedFunction } from '@segnavia/html'
+import { embedFunction, FITTED_SLOT_MODES, readSlotOverflowMarker } from '@segnavia/html'
 
 export const PREFLIGHT_ATTRIBUTE = 'data-segnavia-preflight'
 
@@ -31,29 +34,19 @@ interface SlotFitMark {
   getAttribute(name: string): string | null
 }
 
-export function slotPreflightFacts(
+export function slotMarkCoverage(
   slots: Record<string, string>,
   marked: Iterable<SlotFitMark>,
-): { coverage: { measured: number; total: number }; refuse: Set<string> } {
+): { coverage: { measured: number; total: number }; refuseKeys: Set<string> } {
   const keys = new Set<string>()
-  const refuse = new Set<string>()
+  const refuseKeys = new Set<string>()
   for (const element of marked) {
-    const parts = (element.getAttribute('data-slot-overflow') ?? '').split(':')
-    let key: string
-    try {
-      key = decodeURIComponent(parts[0] ?? '')
-    } catch {
-      continue
-    }
-    const mode = parts[1]
-    if (!key || (mode !== 'truncate' && mode !== 'shrink' && mode !== 'refuse')) continue
-    keys.add(key)
-    if (mode === 'refuse') refuse.add(key)
+    const marker = readSlotOverflowMarker(element.getAttribute('data-slot-overflow'))
+    if (!marker) continue
+    keys.add(marker.key)
+    if (marker.mode === 'refuse') refuseKeys.add(marker.key)
   }
-  return {
-    coverage: { measured: [...keys].filter((key) => slots[key] !== undefined && slots[key] !== 'unmeasured').length, total: keys.size },
-    refuse,
-  }
+  return { coverage: slotFitCoverage(slots, keys), refuseKeys }
 }
 
 export function embeddedPreflightBounds(): string {
@@ -64,10 +57,15 @@ var boundPreflightReport=function(input,profile){return boundPreflightReportImpl
 
 export function embeddedSurfacePreflight(profile: import('@segnavia/format').PreflightProfile, attribute: string, message: string): string {
   return `${embeddedPreflightBounds()}
+var FITTED_SLOT_MODES=${JSON.stringify(FITTED_SLOT_MODES)};
+${embedFunction('unmeasuredSlotsRefusalMessage', unmeasuredSlotsRefusalMessage)}
 ${embedFunction('appendSlotOversetEntries', appendSlotOversetEntries)}
 ${embedFunction('fontMissingEntries', fontMissingEntries)}
 ${embedFunction('publishPreflightReport', publishPreflightReport)}
-${embedFunction('slotPreflightFacts', slotPreflightFacts)}
+${embedFunction('isMeasuredSlotFit', isMeasuredSlotFit)}
+${embedFunction('slotFitCoverage', slotFitCoverage)}
+${embedFunction('readSlotOverflowMarker', readSlotOverflowMarker)}
+${embedFunction('slotMarkCoverage', slotMarkCoverage)}
 var surfacePreflightProfile=${JSON.stringify(profile)};
-var publishSurfacePreflight=function(slots,failures){slots=slots||{};var slotFacts=slotPreflightFacts(slots,document.querySelectorAll('[data-slot-overflow]'));var entries=[];if(surfacePreflightProfile['slot-overset']!=='off')appendSlotOversetEntries(slots,entries,undefined,slotFacts.refuse);if(surfacePreflightProfile['font-missing']!=='off')entries=entries.concat(fontMissingEntries(failures||[]));var report=boundPreflightReport({entries:entries,facts:{pageCount:1,pages:[],fits:[],regions:[]},coverage:{measured:1,total:1,slots:slotFacts.coverage}},surfacePreflightProfile);publishPreflightReport(report,'${attribute}','${message}',post);};`
+var publishSurfacePreflight=function(slots,failures){slots=slots||{};var slotMarks=slotMarkCoverage(slots,document.querySelectorAll('[data-slot-overflow]'));var entries=[];if(surfacePreflightProfile['slot-overset']!=='off')appendSlotOversetEntries(slots,entries,{refuseKeys:slotMarks.refuseKeys});if(surfacePreflightProfile['font-missing']!=='off')entries=entries.concat(fontMissingEntries(failures||[]));var report=boundPreflightReport({entries:entries,facts:{pageCount:1,pages:[],fits:[],regions:[]},coverage:{measured:1,total:1,slots:slotMarks.coverage}},surfacePreflightProfile);publishPreflightReport(report,'${attribute}','${message}',post);};`
 }

@@ -1,3 +1,4 @@
+import { isMeasuredSlotFit } from '@segnavia/format'
 import { slotFitMessageData } from '@segnavia/frame/bridge'
 import { type PreparedSlots, requiredSlotRefusal, unmeasuredSlotRefusal } from '@segnavia/html'
 import type { BrowserContext, Page } from 'playwright-core'
@@ -32,7 +33,7 @@ export async function mergeCapturedSlotFit(tab: Page, slots: PreparedSlots, time
     if (fit) {
       captured.push(Object.fromEntries(Object.entries(fit.slots).filter(([key]) => declared.has(key))))
       for (const [key, state] of Object.entries(fit.slots)) {
-        if (state !== 'unmeasured') measured.set(key, (measured.get(key) ?? 0) + 1)
+        if (isMeasuredSlotFit(state)) measured.set(key, (measured.get(key) ?? 0) + 1)
       }
       slots.mergeFit(fit.slots)
     }

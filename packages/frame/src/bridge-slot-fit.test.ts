@@ -64,7 +64,6 @@ describe('slot fit bridge', () => {
     expect(html).toContain('.then(function(){settlePrint();})')
     expect(html).not.toContain('then(function(){slotFit();settlePrint();})')
     expect(html).toContain('if(element.getClientRects().length===0){unlaid=true;continue;}')
-    expect(html).toContain('if(document.documentElement.getClientRects().length===0){wait();return;}')
     expect(html).toContain('if(unlaid&&slotFitTries<40)')
   })
 

@@ -197,20 +197,40 @@ describe('boundPreflightReport', () => {
 
   test('strict preflight turns an unmeasured refuse slot into a slot overset error', () => {
     const entries: PreflightEntry[] = []
-    appendSlotOversetEntries({ name: 'unmeasured' }, entries, undefined, new Set(['name']))
+    appendSlotOversetEntries({ name: 'unmeasured' }, entries, { refuseKeys: new Set(['name']) })
     const report = boundPreflightReport({ entries, facts, coverage: { measured: 1, total: 1, slots: { measured: 0, total: 1 } } }, PREFLIGHT_PRESETS.strict)
     expect(report).toMatchObject({
       status: 'errors',
       issues: [{ check: 'slot-overset', subject: 'name', severity: 'error' }],
     })
-    expect(report.issues[0]?.message).toContain('Overflow could not be measured for slot name')
+    expect(report.issues[0]?.message).toContain('overflow could not be measured for slots: "name"')
+  })
+
+  test('keeps a bounded slot coverage shortfall incomplete', () => {
+    expect(
+      boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 200, total: 240 } } }, PREFLIGHT_PRESETS.default),
+    ).toMatchObject({
+      status: 'incomplete',
+      coverage: { slots: { measured: 200, total: 240 } },
+    })
+  })
+
+  test('an unmeasured state without a refuse mark stays incomplete without an issue', () => {
+    const entries: PreflightEntry[] = []
+    appendSlotOversetEntries({ name: 'unmeasured' }, entries)
+    expect(
+      boundPreflightReport({ entries, facts, coverage: { measured: 1, total: 1, slots: { measured: 0, total: 1 } } }, PREFLIGHT_PRESETS.default),
+    ).toMatchObject({
+      status: 'incomplete',
+      issues: [],
+    })
   })
 })
 
 test('slot overset entries keep one subject and may carry a surface location', () => {
   const entries: PreflightEntry[] = [entry('region-overset')]
-  appendSlotOversetEntries({ title: 'overflowed', body: 'fit' }, entries, { folio: '2' })
-  appendSlotOversetEntries({ title: 'overflowed' }, entries, { folio: '3' })
+  appendSlotOversetEntries({ title: 'overflowed', body: 'fit' }, entries, { location: { folio: '2' } })
+  appendSlotOversetEntries({ title: 'overflowed' }, entries, { location: { folio: '3' } })
   expect(entries.at(-1)).toEqual({
     check: 'slot-overset',
     subject: 'title',

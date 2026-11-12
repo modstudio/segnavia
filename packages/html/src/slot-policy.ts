@@ -1,4 +1,4 @@
-import type { SlotDeclaration, SlotReport, SlotState } from '@segnavia/format'
+import { isMeasuredSlotFit, type SlotDeclaration, type SlotFitState, type SlotReport, type SlotState, unmeasuredSlotsRefusalMessage } from '@segnavia/format'
 
 export class RequiredSlotsRefusedError extends Error {
   readonly slots: ReadonlyArray<{ key: string; state: SlotState }>
@@ -16,9 +16,7 @@ export class UnmeasuredSlotsRefusedError extends Error {
   readonly keys: readonly string[]
 
   constructor(slots: readonly string[]) {
-    super(
-      `Output was refused because overflow could not be measured for slots: ${slots.map((key) => `"${key}"`).join(', ')}. Ensure each filled slot frame becomes ready before the output deadline, or change the slot's overflow from 'refuse'.`,
-    )
+    super(unmeasuredSlotsRefusalMessage(slots))
     this.name = 'UnmeasuredSlotsRefusedError'
     this.keys = slots
   }
@@ -53,16 +51,12 @@ export function unmeasuredSlotRefusal(
 }
 
 /** Merges measured fit states into filled declared slots; any other state, and any undeclared key, is left as it was. */
-export function mergeSlotFitResults(
-  declarations: readonly SlotDeclaration[],
-  report: SlotReport,
-  slots: Record<string, 'fit' | 'shrunk' | 'overflowed' | 'unmeasured'>,
-): SlotReport {
+export function mergeSlotFitResults(declarations: readonly SlotDeclaration[], report: SlotReport, slots: Record<string, SlotFitState>): SlotReport {
   const declared = new Set(declarations.map((slot) => slot.key))
   const merged = { ...report.slots }
   const rank = { fit: 0, shrunk: 1, overflowed: 2 } as const
   for (const [key, state] of Object.entries(slots)) {
-    if (!declared.has(key) || state === 'unmeasured') continue
+    if (!declared.has(key) || !isMeasuredSlotFit(state)) continue
     const previous = merged[key]
     if (previous === 'filled') merged[key] = state
     else if ((previous === 'fit' || previous === 'shrunk' || previous === 'overflowed') && rank[state] > rank[previous]) merged[key] = state

@@ -51,7 +51,7 @@ import {
 } from './print-document.ts'
 import { joinPrintDocuments } from './print-join.ts'
 import { PAINT_FALLBACK_MS, waitForAfterPrint, waitForPaint, waitForReadiness } from './print-lifecycle.ts'
-import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
+import { printDocumentSettled, recordSlotFitMeasurements, slotFitStillPending } from './print-settlement.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
 import {
@@ -131,7 +131,7 @@ async function printFrame(options: PrintFrameOptions): Promise<void> {
       images,
       deadline,
       (fit) => {
-        for (const key of Object.keys(fit)) measured.set(key, (measured.get(key) ?? 0) + 1)
+        recordSlotFitMeasurements(measured, fit)
         options.slots.mergeFit(fit)
       },
       () => slotFitStillPending(options.slots.marked, measured, refuseKeys),

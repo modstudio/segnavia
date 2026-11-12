@@ -19,10 +19,11 @@ import {
   type PreflightProfile,
   preflightEnabled,
   type Scripts,
+  type SlotFitState,
 } from '@segnavia/format'
 import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
-import { type FrameMessage, messageFromFrames, type SlotFitState, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
+import { type FrameMessage, messageFromFrames, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { slotFitBridgeScript } from './bridge-slot-fit.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
@@ -31,7 +32,7 @@ import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
 import { escapeHtml } from './svg.ts'
 
-export type { SlotFitState } from './bridge-message.ts'
+export type { SlotFitState } from '@segnavia/format'
 export { dispatchComposeProgress, dispatchFontFailures, dispatchPreflight } from './bridge-message.ts'
 export { headingMessage, type PageSelection, SELECTION_TEXT_LIMIT, type SelectionMessage, selectionMessage } from './bridge-selection.ts'
 export { documentNeedsSlotFit } from './document-slot-fit.ts'

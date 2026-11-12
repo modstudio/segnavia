@@ -1,4 +1,4 @@
-import type { SlotDeclaration, SlotReport } from '@segnavia/format'
+import type { SlotDeclaration, SlotFitState, SlotReport } from '@segnavia/format'
 
 export interface PreparedSlots {
   declarations: SlotDeclaration[]
@@ -8,5 +8,5 @@ export interface PreparedSlots {
   /** The measurement marks owned by each frame, in application order. */
   frames: ReadonlyArray<ReadonlyMap<string, number>>
   apply(html: string): string
-  mergeFit(slots: Record<string, 'fit' | 'shrunk' | 'overflowed' | 'unmeasured'>): SlotReport
+  mergeFit(slots: Record<string, SlotFitState>): SlotReport
 }

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
+import { UnmeasuredSlotsRefusedError, unmeasuredSlotRefusal } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
-import { printDocumentSettled, slotFitStillPending } from './print-settlement.ts'
+import { printDocumentSettled, recordSlotFitMeasurements, slotFitStillPending } from './print-settlement.ts'
 
 function deferred() {
   let resolve = () => {}
@@ -206,6 +207,21 @@ test('slotFitStillPending is true only while a marked key has fewer reports than
     ),
   ).toBeFalse()
   expect(slotFitStillPending(new Map(), new Map(), refuseKeys)).toBeFalse()
+})
+
+test('an unmeasured print report remains pending and refuses a refuse slot', () => {
+  const measured = new Map<string, number>()
+  const marked = new Map([['name', 1]])
+  recordSlotFitMeasurements(measured, { name: 'unmeasured' })
+  expect(slotFitStillPending(marked, measured, new Set(['name']))).toBeTrue()
+  expect(
+    unmeasuredSlotRefusal(
+      [{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }],
+      { fill: 'fill', slots: { name: 'filled' }, origins: {} },
+      marked,
+      measured,
+    ),
+  ).toBeInstanceOf(UnmeasuredSlotsRefusedError)
 })
 
 test('a missing shrink report does not hold printing until the deadline', async () => {

@@ -5,10 +5,11 @@ import {
   type FontFailure,
   type PreflightProfile,
   type PreflightReport,
+  SLOT_FIT_STATES,
+  SLOT_KEYS_LIMIT,
+  type SlotFitState,
 } from '@segnavia/format'
 import { boundedFontReportMessage } from './font-load.ts'
-
-export type SlotFitState = 'fit' | 'shrunk' | 'overflowed' | 'unmeasured'
 
 export interface FontFailureDetail {
   failures: FontFailure[]
@@ -78,8 +79,8 @@ export function slotFitMessageData(data: unknown, slotFit = 'segnavia:slot-fit')
   const slots = (data as { slots?: unknown }).slots
   if (!slots || typeof slots !== 'object' || Array.isArray(slots)) return null
   const entries = Object.entries(slots)
-  const valid = new Set<unknown>(['fit', 'shrunk', 'overflowed', 'unmeasured'])
-  if (entries.length > 200 || entries.some(([key, state]) => typeof key !== 'string' || !valid.has(state))) return null
+  const valid = new Set<unknown>(SLOT_FIT_STATES)
+  if (entries.length > SLOT_KEYS_LIMIT || entries.some(([key, state]) => typeof key !== 'string' || !valid.has(state))) return null
   return { type: slotFit, slots: Object.fromEntries(entries) as Record<string, SlotFitState> }
 }
 

@@ -236,7 +236,12 @@ export async function renderInBrowserTab<T>(
     setup.fontLoadReport?.({ failures: fontFailures })
   }
   const slotFits = (measureSlots ? await mergeCapturedSlotFit(tab, measureSlots, PAGE_READY_BOUND_MS) : undefined) ?? []
-  setup.preflightReport?.({ fontFailures, slotFits })
+  setup.preflightReport?.({
+    fontFailures,
+    slotFits,
+    slotKeys: [...(measureSlots?.marked.keys() ?? [])],
+    refuseKeys: new Set(measureSlots?.declarations.filter((slot) => slot.overflow === 'refuse').map((slot) => slot.key) ?? []),
+  })
   await setup.beforeOutput?.(tab)
   refuseMissing()
   try {
