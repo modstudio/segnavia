@@ -55,7 +55,7 @@ test.each([
   else await expect(rendering).resolves.toBeInstanceOf(Uint8Array)
   expect(reports).toHaveLength(1)
   expect(reports[0]?.issues[0]?.location).toEqual({ folio: '1' })
-  expect(reports[0]?.coverage).toEqual({ measured: 2, total: 2 })
+  expect(reports[0]?.coverage).toEqual({ measured: 2, total: 2, slots: { measured: 2, total: 2 } })
 })
 
 test('deck-wide font failures stay locationless when the same face also fails in a slide tab', async () => {

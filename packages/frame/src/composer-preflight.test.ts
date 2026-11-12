@@ -25,7 +25,10 @@ test('waits for slot fit before publishing its one report', () => {
     [],
     () => {},
     { parent: { postMessage: (message: unknown) => posted.push(message) }, segnaviaSlotFit: (done: typeof fitted) => (fitted = done) },
-    { documentElement: { setAttribute: () => {} } },
+    {
+      documentElement: { setAttribute: () => {} },
+      querySelectorAll: () => [{ getAttribute: () => 'name:refuse' }],
+    },
     mergeRegionFact,
     [],
   ) as (plan: unknown, flows: unknown[], done: () => void) => void
@@ -38,6 +41,37 @@ test('waits for slot fit before publishing its one report', () => {
     expect.objectContaining({ check: 'slot-overset', subject: 'name' }),
   )
   expect(done).toBe(true)
+})
+
+test('strict preflight refuses an unmeasured refuse slot', () => {
+  const posted: Array<{ report?: import('@segnavia/format').PreflightReport }> = []
+  const failures: string[] = []
+  const complete = new Function(
+    'config',
+    'planFolios',
+    'preflightEntries',
+    'preflightFits',
+    'fail',
+    'window',
+    'document',
+    'mergeRegionFact',
+    'preflightRegions',
+    `${embeddedPreflightFunctions()};return completePreflight`,
+  )(
+    { preflight: PREFLIGHT_PRESETS.strict },
+    { folios: [] },
+    [],
+    [],
+    (reason: string) => failures.push(reason),
+    { parent: { postMessage: (message: { report?: import('@segnavia/format').PreflightReport }) => posted.push(message) }, segnaviaSlotFit: (done: (slots: Record<string, string>) => void) => done({ name: 'unmeasured' }) },
+    { documentElement: { setAttribute: () => {} }, querySelectorAll: () => [{ getAttribute: () => 'name:refuse' }] },
+    mergeRegionFact,
+    [],
+  ) as (plan: { pages: unknown[] }, flows: unknown[], done: () => void) => void
+
+  complete({ pages: [] }, [], () => {})
+  expect(posted[0]?.report).toMatchObject({ status: 'errors', coverage: { slots: { measured: 0, total: 1 } } })
+  expect(failures[0]).toContain('Overflow could not be measured for slot name')
 })
 
 test('slot overset names its subject and remedy under warning and strict profiles', () => {

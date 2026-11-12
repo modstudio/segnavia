@@ -34,17 +34,21 @@ export function mergeSurfacePreflightReports<Key extends SurfacePreflightKey>(
   const pages: PreflightReport['facts']['pages'][number][] = []
   const fits: PreflightReport['facts']['fits'][number][] = []
   let measured = 0
+  let measuredSlots = 0
+  let totalSlots = 0
   for (const { key, folio } of surface) {
     const report = reports.get(key)
     if (!report) continue
     measured++
+    measuredSlots += report.coverage.slots.measured
+    totalSlots += report.coverage.slots.total
     for (const issue of report.issues) entries.push({ ...issue, location: { ...issue.location, folio } })
     for (const [check, count] of Object.entries(report.omitted)) omitted[check] = (omitted[check] ?? 0) + (count ?? 0)
     pages.push(...report.facts.pages)
     fits.push(...report.facts.fits)
   }
   const total = surface.length
-  return boundPreflightReport({ entries, omitted, facts: { pageCount: total, pages, fits }, coverage: { measured, total } }, profile)
+  return boundPreflightReport({ entries, omitted, facts: { pageCount: total, pages, fits }, coverage: { measured, total, slots: { measured: measuredSlots, total: totalSlots } } }, profile)
 }
 
 export class SurfacePreflightCoordinator<Key extends SurfacePreflightKey = SurfacePreflightKey> {

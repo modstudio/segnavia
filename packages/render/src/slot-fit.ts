@@ -31,7 +31,9 @@ export async function mergeCapturedSlotFit(tab: Page, slots: PreparedSlots, time
     const fit = slotFitMessageData(data)
     if (fit) {
       captured.push(Object.fromEntries(Object.entries(fit.slots).filter(([key]) => declared.has(key))))
-      for (const key of Object.keys(fit.slots)) measured.set(key, (measured.get(key) ?? 0) + 1)
+      for (const [key, state] of Object.entries(fit.slots)) {
+        if (state !== 'unmeasured') measured.set(key, (measured.get(key) ?? 0) + 1)
+      }
       slots.mergeFit(fit.slots)
     }
   }

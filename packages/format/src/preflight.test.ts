@@ -7,6 +7,7 @@ import {
   PREFLIGHT_ISSUES_PER_CHECK,
   PREFLIGHT_PAGES_LIMIT,
   PREFLIGHT_PRESETS,
+  PREFLIGHT_SLOTS_LIMIT,
   type PreflightEntry,
   preflightEnabled,
   preflightRefusal,
@@ -148,7 +149,7 @@ describe('boundPreflightReport', () => {
     expect(boundPreflightReport({ entries, facts, coverage }, resolvePreflightProfile(profile)).status).toBe(status)
   })
 
-  test('bounds coverage and treats missing or invalid coverage as complete', () => {
+  test('bounds page and slot coverage and defaults missing slot coverage to empty', () => {
     expect(
       boundPreflightReport(
         { entries: [], facts, coverage: { measured: PREFLIGHT_PAGES_LIMIT + 2, total: PREFLIGHT_PAGES_LIMIT + 1 } },
@@ -157,16 +158,55 @@ describe('boundPreflightReport', () => {
     ).toEqual({
       measured: PREFLIGHT_PAGES_LIMIT,
       total: PREFLIGHT_PAGES_LIMIT,
+      slots: { measured: 0, total: 0 },
     })
     expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 2, total: 1 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({
       measured: 1,
       total: 1,
+      slots: { measured: 0, total: 0 },
     })
-    expect(boundPreflightReport({ entries: [], facts }, PREFLIGHT_PRESETS.default).coverage).toEqual({ measured: 1, total: 1 })
+    expect(boundPreflightReport({ entries: [], facts }, PREFLIGHT_PRESETS.default).coverage).toEqual({
+      measured: 1,
+      total: 1,
+      slots: { measured: 0, total: 0 },
+    })
     expect(boundPreflightReport({ entries: [], facts, coverage: { measured: -1, total: 2 } }, PREFLIGHT_PRESETS.default).coverage).toEqual({
       measured: 1,
       total: 1,
+      slots: { measured: 0, total: 0 },
     })
+    expect(
+      boundPreflightReport(
+        { entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: PREFLIGHT_SLOTS_LIMIT + 2, total: PREFLIGHT_SLOTS_LIMIT + 1 } } },
+        PREFLIGHT_PRESETS.default,
+      ).coverage.slots,
+    ).toEqual({ measured: PREFLIGHT_SLOTS_LIMIT, total: PREFLIGHT_SLOTS_LIMIT })
+    expect(
+      boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: -1, total: 2 } } }, PREFLIGHT_PRESETS.default).coverage
+        .slots,
+    ).toEqual({ measured: 0, total: 0 })
+  })
+
+  test('reports incomplete when slot coverage falls short and leaves pages to decide when absent', () => {
+    expect(
+      boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 1, total: 2 } } }, PREFLIGHT_PRESETS.default).status,
+    ).toBe('incomplete')
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1 } }, PREFLIGHT_PRESETS.default).status).toBe('clean')
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.default).status).toBe('incomplete')
+  })
+
+  test('strict preflight turns an unmeasured refuse slot into a slot overset error', () => {
+    const entries: PreflightEntry[] = []
+    appendSlotOversetEntries({ name: 'unmeasured' }, entries, undefined, new Set(['name']))
+    const report = boundPreflightReport(
+      { entries, facts, coverage: { measured: 1, total: 1, slots: { measured: 0, total: 1 } } },
+      PREFLIGHT_PRESETS.strict,
+    )
+    expect(report).toMatchObject({
+      status: 'errors',
+      issues: [{ check: 'slot-overset', subject: 'name', severity: 'error' }],
+    })
+    expect(report.issues[0]?.message).toContain('Overflow could not be measured for slot name')
   })
 })
 

@@ -48,15 +48,21 @@ export function surfacePreflight(preflight: ComposedPreflight | undefined, total
       }),
     complete: () => {
       const entries: PreflightEntry[] = []
+      let measuredSlots = 0
+      let totalSlots = 0
       captures.sort((left, right) => left.order - right.order)
       for (const capture of captures) {
+        const slotStates = new Map<string, string>()
         for (const slots of capture.slotFits) appendSlotOversetEntries(slots, entries, capture.location)
+        for (const fit of capture.slotFits) for (const [key, state] of Object.entries(fit)) slotStates.set(key, state)
+        totalSlots += slotStates.size
+        measuredSlots += [...slotStates.values()].filter((state) => state !== 'unmeasured').length
         for (const entry of fontMissingEntries(capture.fontFailures, capture.location)) {
           if (!entries.some((held) => held.check === entry.check && held.subject === entry.subject)) entries.push(entry)
         }
       }
       const report = boundPreflightReport(
-        { entries, facts: { pageCount: total, pages: [], fits: [] }, coverage: { measured: total, total } },
+        { entries, facts: { pageCount: total, pages: [], fits: [] }, coverage: { measured: total, total, slots: { measured: measuredSlots, total: totalSlots } } },
         preflight.profile,
       )
       preflight.report?.(report)
@@ -86,13 +92,13 @@ export function withPreflightSeed(preflight: ComposedPreflight | undefined, seed
 
 export function handlePreflightAttribute(attribute: string | null, profile: PreflightProfile, report?: (report: PreflightReport) => void): void {
   if (attribute === null) return
-  let held: { issues?: unknown; facts?: unknown; omitted?: unknown } | null
+  let held: { issues?: unknown; facts?: unknown; omitted?: unknown; coverage?: unknown } | null
   try {
     held = JSON.parse(attribute) as typeof held
   } catch {
     throw new RenderRefusedError('The composed preflight report could not be read; compose the document again to clear this refusal.')
   }
-  const bounded = boundPreflightReport({ entries: held?.issues, facts: held?.facts, omitted: held?.omitted }, profile)
+  const bounded = boundPreflightReport({ entries: held?.issues, facts: held?.facts, omitted: held?.omitted, coverage: held?.coverage }, profile)
   report?.(bounded)
   const refusal = preflightRefusal(bounded)
   if (refusal) throw new RenderRefusedError(refusal)

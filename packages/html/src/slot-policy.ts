@@ -56,13 +56,13 @@ export function unmeasuredSlotRefusal(
 export function mergeSlotFitResults(
   declarations: readonly SlotDeclaration[],
   report: SlotReport,
-  slots: Record<string, 'fit' | 'shrunk' | 'overflowed'>,
+  slots: Record<string, 'fit' | 'shrunk' | 'overflowed' | 'unmeasured'>,
 ): SlotReport {
   const declared = new Set(declarations.map((slot) => slot.key))
   const merged = { ...report.slots }
   const rank = { fit: 0, shrunk: 1, overflowed: 2 } as const
   for (const [key, state] of Object.entries(slots)) {
-    if (!declared.has(key)) continue
+    if (!declared.has(key) || state === 'unmeasured') continue
     const previous = merged[key]
     if (previous === 'filled') merged[key] = state
     else if ((previous === 'fit' || previous === 'shrunk' || previous === 'overflowed') && rank[state] > rank[previous]) merged[key] = state

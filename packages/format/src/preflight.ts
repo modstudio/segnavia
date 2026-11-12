@@ -74,13 +74,23 @@ export interface PreflightEntry {
   readonly location?: PreflightLocation
 }
 
-export function appendSlotOversetEntries(slots: Record<string, string>, entries: PreflightEntry[], location?: PreflightLocation): void {
+export function appendSlotOversetEntries(
+  slots: Record<string, string>,
+  entries: PreflightEntry[],
+  location?: PreflightLocation,
+  refuseKeys: ReadonlySet<string> = new Set(),
+): void {
   for (const [key, state] of Object.entries(slots)) {
-    if (state !== 'overflowed' || entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)) continue
+    if ((state !== 'overflowed' && (state !== 'unmeasured' || !refuseKeys.has(key))) || entries.some((entry) => entry.check === 'slot-overset' && entry.subject === key)) {
+      continue
+    }
     entries.push({
       check: 'slot-overset',
       subject: key,
-      message: `Slot ${key} is overset; shorten its value or enlarge the slot to clear it.`,
+      message:
+        state === 'unmeasured'
+          ? `Overflow could not be measured for slot ${key}; ensure its filled slot frame becomes ready before the output deadline, or change the slot's overflow from 'refuse' to clear it.`
+          : `Slot ${key} is overset; shorten its value or enlarge the slot to clear it.`,
       ...(location === undefined ? {} : { location }),
     })
   }
@@ -121,9 +131,12 @@ export interface PreflightFacts {
   readonly fits: readonly PreflightFit[]
   readonly regions: readonly PreflightRegion[]
 }
-export interface PreflightCoverage {
+export interface PreflightCountCoverage {
   readonly measured: number
   readonly total: number
+}
+export interface PreflightCoverage extends PreflightCountCoverage {
+  readonly slots: PreflightCountCoverage
 }
 export interface PreflightReport {
   readonly status: 'clean' | 'incomplete' | 'warnings' | 'errors'
@@ -146,6 +159,7 @@ export const PREFLIGHT_FIT_VALUES_LIMIT = FIT_STRATEGIES.length
 export const PREFLIGHT_REGIONS_LIMIT = 256
 export const PREFLIGHT_DROPPED_IDS_LIMIT = 50
 export const PREFLIGHT_REGION_FIELD_LIMIT = 10_000
+export const PREFLIGHT_SLOTS_LIMIT = 200
 
 export function boundPreflightReport(
   input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown; readonly coverage?: unknown },
@@ -166,6 +180,7 @@ export function boundPreflightReport(
     readonly droppedIds?: number
     readonly regionCount?: number
     readonly regionId?: number
+    readonly slots?: number
   },
 ): PreflightReport {
   const limits =
@@ -186,6 +201,7 @@ export function boundPreflightReport(
       droppedIds: PREFLIGHT_DROPPED_IDS_LIMIT,
       regionCount: PREFLIGHT_REGION_FIELD_LIMIT,
       regionId: PREFLIGHT_SUBJECT_LIMIT,
+      slots: PREFLIGHT_SLOTS_LIMIT,
     } as const)
   const boundedPreflightText = (value: unknown, limit: number): string | undefined => (typeof value === 'string' ? value.slice(0, limit) : undefined)
   const boundedPreflightLocation = (value: unknown): PreflightLocation | undefined => {
@@ -307,21 +323,30 @@ export function boundPreflightReport(
   const cleanIssues = issues.map(({ order: _, ...issue }) => issue)
   const facts = boundedPreflightFacts(input.facts)
   const coverage = (() => {
-    if (!input.coverage || typeof input.coverage !== 'object' || Array.isArray(input.coverage)) {
-      return { measured: facts.pageCount, total: facts.pageCount }
+    const slotCoverage = (value: unknown): PreflightCountCoverage => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return { measured: 0, total: 0 }
+      const source = value as { measured?: unknown; total?: unknown }
+      if (!Number.isSafeInteger(source.measured) || (source.measured as number) < 0 || !Number.isSafeInteger(source.total) || (source.total as number) < 0) {
+        return { measured: 0, total: 0 }
+      }
+      const total = Math.min(source.total as number, limits.slots ?? PREFLIGHT_SLOTS_LIMIT)
+      return { measured: Math.min(source.measured as number, total), total }
     }
-    const source = input.coverage as { measured?: unknown; total?: unknown }
+    if (!input.coverage || typeof input.coverage !== 'object' || Array.isArray(input.coverage)) {
+      return { measured: facts.pageCount, total: facts.pageCount, slots: { measured: 0, total: 0 } }
+    }
+    const source = input.coverage as { measured?: unknown; total?: unknown; slots?: unknown }
     if (!Number.isSafeInteger(source.measured) || (source.measured as number) < 0 || !Number.isSafeInteger(source.total) || (source.total as number) < 0) {
-      return { measured: facts.pageCount, total: facts.pageCount }
+      return { measured: facts.pageCount, total: facts.pageCount, slots: slotCoverage(source.slots) }
     }
     const total = Math.min(source.total as number, limits.pages)
-    return { measured: Math.min(source.measured as number, total), total }
+    return { measured: Math.min(source.measured as number, total), total, slots: slotCoverage(source.slots) }
   })()
   const status = cleanIssues.some((issue) => issue.severity === 'error')
     ? 'errors'
     : cleanIssues.length
       ? 'warnings'
-      : coverage.measured < coverage.total
+      : coverage.measured < coverage.total || coverage.slots.measured < coverage.slots.total
         ? 'incomplete'
         : 'clean'
   return { status, issues: cleanIssues, omitted, facts, coverage }

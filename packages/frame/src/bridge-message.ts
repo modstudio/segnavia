@@ -8,7 +8,7 @@ import {
 } from '@segnavia/format'
 import { boundedFontReportMessage } from './font-load.ts'
 
-export type SlotFitState = 'fit' | 'shrunk' | 'overflowed'
+export type SlotFitState = 'fit' | 'shrunk' | 'overflowed' | 'unmeasured'
 
 export interface FontFailureDetail {
   failures: FontFailure[]
@@ -49,8 +49,8 @@ export function dispatchPreflight(target: EventTarget, message: FrameMessage | n
 
 function preflightMessage(data: Record<string, unknown>, type: string, profile: PreflightProfile): FrameMessage | null {
   if (data.type !== type || !('report' in data)) return null
-  const report = data.report as { issues?: unknown; facts?: unknown; omitted?: unknown } | undefined
-  return { type, report: boundPreflightReport({ entries: report?.issues, facts: report?.facts, omitted: report?.omitted }, profile) }
+  const report = data.report as { issues?: unknown; facts?: unknown; omitted?: unknown; coverage?: unknown } | undefined
+  return { type, report: boundPreflightReport({ entries: report?.issues, facts: report?.facts, omitted: report?.omitted, coverage: report?.coverage }, profile) }
 }
 
 function bookPlaceMessage(data: Record<string, unknown>, type: string): FrameMessage | null {
@@ -75,7 +75,7 @@ export function slotFitMessageData(data: unknown, slotFit = 'segnavia:slot-fit')
   const slots = (data as { slots?: unknown }).slots
   if (!slots || typeof slots !== 'object' || Array.isArray(slots)) return null
   const entries = Object.entries(slots)
-  const valid = new Set<unknown>(['fit', 'shrunk', 'overflowed'])
+  const valid = new Set<unknown>(['fit', 'shrunk', 'overflowed', 'unmeasured'])
   if (entries.length > 200 || entries.some(([key, state]) => typeof key !== 'string' || !valid.has(state))) return null
   return { type: slotFit, slots: Object.fromEntries(entries) as Record<string, SlotFitState> }
 }

@@ -30,6 +30,18 @@ test('server measurement refuses a filled refuse slot when no fit result arrives
   await expect(mergeCapturedSlotFit(tab, prepared, 100)).rejects.toBeInstanceOf(UnmeasuredSlotsRefusedError)
 })
 
+test('a posted unmeasured refuse slot still refuses as unmeasured', async () => {
+  const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'refuse' }], {
+    fill: { id: 'long', values: { name: 'A long name' } },
+  })
+  prepared.apply('<p data-slot-value="name">Name</p>')
+  const tab = {
+    waitForFunction: async () => {},
+    evaluate: async () => [{ type: MESSAGE.slotFit, slots: { name: 'unmeasured' } }],
+  } as unknown as Page
+  await expect(mergeCapturedSlotFit(tab, prepared, 100)).rejects.toBeInstanceOf(UnmeasuredSlotsRefusedError)
+})
+
 test('a foreign overflowed slot key produces no preflight issue', async () => {
   const prepared = await prepareSlots([{ key: 'name', label: 'Name', type: 'text', required: false, overflow: 'shrink' }], {
     fill: { id: 'long', values: { name: 'A long name' } },

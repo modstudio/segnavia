@@ -8,5 +8,5 @@ export interface PreparedSlots {
   /** The measurement marks owned by each frame, in application order. */
   frames: ReadonlyArray<ReadonlyMap<string, number>>
   apply(html: string): string
-  mergeFit(slots: Record<string, 'fit' | 'shrunk' | 'overflowed'>): SlotReport
+  mergeFit(slots: Record<string, 'fit' | 'shrunk' | 'overflowed' | 'unmeasured'>): SlotReport
 }

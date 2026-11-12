@@ -18,7 +18,7 @@ import {
   slotFitMessageData,
 } from './bridge.ts'
 
-function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Promise<unknown[]> {
+function startSlotFitBridge(elements: unknown[], frames?: Array<() => void>, rootRects: () => unknown[] = () => [{}]) {
   const messages: unknown[] = []
   let ready = () => {}
   const settled = new Promise<void>((resolve) => {
@@ -29,7 +29,7 @@ function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Prom
     fonts: null,
     images: [],
     readyState: 'complete',
-    documentElement: { getBoundingClientRect: () => ({ height: 0 }) },
+    documentElement: { getBoundingClientRect: () => ({ height: 0 }), getClientRects: rootRects },
     getAnimations: () => [],
     querySelector: () => null,
     querySelectorAll: (selector: string) => (selector === '[data-slot-overflow]' ? elements : []),
@@ -61,7 +61,12 @@ function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Prom
     () => 1,
     () => {},
   )
-  return settled.then(() => messages)
+  return { messages, settled }
+}
+
+function runSlotFitBridge(elements: unknown[], frames?: Array<() => void>): Promise<unknown[]> {
+  const run = startSlotFitBridge(elements, frames)
+  return run.settled.then(() => run.messages)
 }
 
 describe('frame document', () => {
@@ -281,6 +286,7 @@ describe('frame document', () => {
     expect(html).toContain('.then(function(){settlePrint();})')
     expect(html).not.toContain('then(function(){slotFit();settlePrint();})')
     expect(html).toContain('if(element.getClientRects().length===0){unlaid=true;continue;}')
+    expect(html).toContain("if(document.documentElement.getClientRects().length===0){wait();return;}")
     expect(html).toContain('if(unlaid&&slotFitTries<40)')
   })
 
@@ -331,6 +337,67 @@ describe('frame document', () => {
     expect(messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'shrunk', role: 'fit' } })
   })
 
+  test('a hidden document waits past the retry budget and posts once after layout appears', async () => {
+    let visible = false
+    const frames: Array<() => void> = []
+    const element = {
+      clientWidth: 10,
+      clientHeight: 10,
+      scrollWidth: 10,
+      scrollHeight: 10,
+      getClientRects: () => [{}],
+      getAttribute: () => 'name:refuse',
+      style: {},
+    }
+    const run = startSlotFitBridge([element], frames, () => (visible ? [{}] : []))
+    for (let turn = 0; turn < 45; turn++) frames.shift()?.()
+    expect(
+      run.messages.filter((message) => {
+        const type = (message as { type?: string }).type
+        return type === MESSAGE.slotFit || type === MESSAGE.ready
+      }),
+    ).toEqual([])
+    visible = true
+    frames.shift()?.()
+    await run.settled
+    expect(run.messages.filter((message) => (message as { type?: string }).type === MESSAGE.slotFit)).toEqual([
+      { type: MESSAGE.slotFit, slots: { name: 'fit' } },
+    ])
+  })
+
+  test('a laid-out document reports unmeasured after the retry budget', async () => {
+    const frames: Array<() => void> = []
+    const element = {
+      getClientRects: () => [],
+      getAttribute: () => 'name:refuse',
+      style: {},
+    }
+    const run = startSlotFitBridge([element], frames)
+    for (let turn = 0; turn < 4 && frames.length < 2; turn++) await Promise.resolve()
+    for (let turn = 0; turn < 100 && !run.messages.some((message) => (message as { type?: string }).type === MESSAGE.ready); turn++) frames.shift()?.()
+    await run.settled
+    expect(run.messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'unmeasured' } })
+  })
+
+  test('an unlaid duplicate does not override a measured state', async () => {
+    const frames: Array<() => void> = []
+    const measured = {
+      clientWidth: 10,
+      clientHeight: 10,
+      scrollWidth: 10,
+      scrollHeight: 10,
+      getClientRects: () => [{}],
+      getAttribute: () => 'name:refuse',
+      style: {},
+    }
+    const unlaid = { getClientRects: () => [], getAttribute: () => 'name:refuse', style: {} }
+    const run = startSlotFitBridge([measured, unlaid], frames)
+    for (let turn = 0; turn < 4 && frames.length < 2; turn++) await Promise.resolve()
+    for (let turn = 0; turn < 100 && !run.messages.some((message) => (message as { type?: string }).type === MESSAGE.ready); turn++) frames.shift()?.()
+    await run.settled
+    expect(run.messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'fit' } })
+  })
+
   test('print documents lift root backgrounds and wait for CSS background images', () => {
     const html = frameDocument('<html><body>print</body></html>', { scripts: 'refuse', nonce: 'n', printBackground: true })
     expect(html).toContain('data-segnavia-print-background')
@@ -352,9 +419,9 @@ describe('frame document', () => {
   })
 
   test('slot fit messages accept only bounded records of known states', () => {
-    expect(slotFitMessageData({ type: MESSAGE.slotFit, slots: { name: 'shrunk', role: 'fit', bio: 'overflowed' } })).toEqual({
+    expect(slotFitMessageData({ type: MESSAGE.slotFit, slots: { name: 'shrunk', role: 'fit', bio: 'overflowed', title: 'unmeasured' } })).toEqual({
       type: MESSAGE.slotFit,
-      slots: { name: 'shrunk', role: 'fit', bio: 'overflowed' },
+      slots: { name: 'shrunk', role: 'fit', bio: 'overflowed', title: 'unmeasured' },
     })
     expect(slotFitMessageData({ type: MESSAGE.slotFit, slots: [] })).toBeNull()
     expect(slotFitMessageData({ type: MESSAGE.slotFit, slots: { name: 'filled' } })).toBeNull()
