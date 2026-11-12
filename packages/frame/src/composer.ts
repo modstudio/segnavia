@@ -191,12 +191,10 @@ export function pageReferenceFolio(
   id: string,
   page: number,
   folios: readonly (Folio | null | string)[],
-  folioPrints: readonly (boolean | null)[] = folios.map(() => true),
-  division: BookNumberingDivision = 'body',
-  authored = true,
+  options: { folioPrints: readonly (boolean | null)[]; division: BookNumberingDivision; authored: boolean },
 ): PageReferenceFolio {
   const folio = folios[page - 1]
-  if (folioPrints[page - 1] === false) return authored ? { refusal: pageNotPrintedRefusal(id, division) } : { folio: '' }
+  if (options.folioPrints[page - 1] === false) return options.authored ? { refusal: pageNotPrintedRefusal(id, options.division) } : { folio: '' }
   if (folio !== undefined) return { folio: typeof folio === 'string' ? folio : (folio?.text ?? '') }
   return {
     refusal: `page reference target ${id} lands on page ${page}, beyond the ${folios.length} computed folios; shorten the book to ${folios.length} pages or fewer to clear this refusal`,
@@ -299,7 +297,7 @@ var noteSeries=function(){var series=[];var nodes=document.querySelectorAll('[da
 var measureInput=function(){var flows=[];var nodes=document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-flow]');for(var i=0;i<nodes.length;i++)flows.push(measureFlow(nodes[i]));var parents={};for(var p=0;p<defaultGeometry.parents.length;p++)parents[defaultGeometry.parents[p].name]=defaultGeometry.parents[p].textArea;var geometryParents={};var pageGeometries={};for(var g=1;g<configuredGeometries.length;g++){var geometry=configuredGeometries[g];var name=geometry.name;pageGeometries[name]={width:geometry.paperWidth,height:geometry.paperHeight};geometryParents[name]={};for(var gp=0;gp<geometry.parents.length;gp++)geometryParents[name][geometry.parents[gp].name]=geometry.parents[gp].textArea;}return measurementsWithBreaks({...config.document?{document:config.document}:{},fits:fitResults,variables:config.variables||[],flows:flows,notes:measureNotes(),geometry:{notesGap:config.notesGap,noteSeries:noteSeries()},parents:parents,geometryParents:geometryParents,pageGeometries:pageGeometries,settings:{orphans:config.orphans,widows:config.widows,rectoOpenings:config.rectoOpenings,direction:config.direction,endnotePlacement:config.endnotePlacement}},config.breaks||(config.plan&&config.plan.breaks)||[]);};
 var planFolios={folios:[],folioPrints:[],total:'0'};
 var folioOf=function(index){return planFolios.folios[index];};
-var pageForTarget=function(id,pages,authored){var element=document.getElementById(id);var index;if(!element){index=pageIndexForTarget(pages,{flow:id});}else{var flow=element.closest('[data-segnavia-flow]');if(!flow)return '';var flowId=flow.getAttribute('data-segnavia-flow')||'';var holder=element.closest('[data-segnavia-designed-page],[data-segnavia-templated-page]');var heldPage=holder?Number(holder.getAttribute('data-segnavia-designed-page')||holder.getAttribute('data-segnavia-templated-page')):undefined;var target={flow:flowId};if(heldPage)target.heldPage=heldPage;else target.top=element.getBoundingClientRect().top-originTop(flow);index=pageIndexForTarget(pages,target);}if(index===undefined)return '';var division=pages[index].sequence==='front'?'frontMatter':'body';var result=pageReferenceFolio(id,index+1,planFolios.folios,planFolios.folioPrints||[],division,authored);if(result.refusal){fail(result.refusal);return '';}return result.folio;};
+var pageForTarget=function(id,pages,authored){var element=document.getElementById(id);var index;if(!element){index=pageIndexForTarget(pages,{flow:id});}else{var flow=element.closest('[data-segnavia-flow]');if(!flow)return '';var flowId=flow.getAttribute('data-segnavia-flow')||'';var holder=element.closest('[data-segnavia-designed-page],[data-segnavia-templated-page]');var heldPage=holder?Number(holder.getAttribute('data-segnavia-designed-page')||holder.getAttribute('data-segnavia-templated-page')):undefined;var target={flow:flowId};if(heldPage)target.heldPage=heldPage;else target.top=element.getBoundingClientRect().top-originTop(flow);index=pageIndexForTarget(pages,target);}if(index===undefined)return '';var division=pages[index].sequence==='front'?'frontMatter':'body';var result=pageReferenceFolio(id,index+1,planFolios.folios,{folioPrints:planFolios.folioPrints,division:division,authored:authored});if(result.refusal){fail(result.refusal);return '';}return result.folio;};
 var pageReferences=function(){return document.querySelectorAll('${PAGE_REFERENCE_SELECTOR}');};
 var pageReferenceId=function(node){var href=node.getAttribute('href')||'';return href.charAt(0)==='#'?href.slice(1):href.slice('segnavia:target/'.length);};
 var authoredPageReference=function(node){return !node.matches('${CONTENTS_PAGE_REFERENCE_SELECTOR}');};

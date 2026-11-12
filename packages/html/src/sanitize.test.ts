@@ -1,6 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { assetOriginRefusals, findActiveContent, safeImageSource, sanitize } from './sanitize.ts'
 
+test('removes library-owned generated contents markers from author HTML', () => {
+  expect(sanitize('<a data-segnavia-generated-contents-page class="segnavia-contents-page" href="#topic">Topic</a>')).toBe(
+    '<a class="segnavia-contents-page" href="#topic">Topic</a>',
+  )
+})
+
 const fetches =
   '<svg><image href="https://outside.example/a.png"/><use xlink:href="https://outside.example/s.svg#x"/><filter><feImage href="https://outside.example/f.png"/></filter></svg>'
 

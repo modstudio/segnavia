@@ -5,10 +5,11 @@ export const PAGE_REFERENCE_ATTRIBUTE = 'data-ref'
 export const PAGE_REFERENCE_VALUE = 'page'
 export const PAGE_REFERENCE_SELECTOR = 'a[data-ref="page"]'
 export const CONTENTS_PAGE_REFERENCE_CLASS = 'segnavia-contents-page'
-export const CONTENTS_PAGE_REFERENCE_SELECTOR = `${PAGE_REFERENCE_SELECTOR}.${CONTENTS_PAGE_REFERENCE_CLASS}`
+export const CONTENTS_PAGE_REFERENCE_ATTRIBUTE = 'data-segnavia-generated-contents-page'
+export const CONTENTS_PAGE_REFERENCE_SELECTOR = `${PAGE_REFERENCE_SELECTOR}[${CONTENTS_PAGE_REFERENCE_ATTRIBUTE}]`
 
 export function isGeneratedContentsPageReference(attribs: Record<string, string>): boolean {
-  return attribs.class?.split(/\s+/).includes(CONTENTS_PAGE_REFERENCE_CLASS) ?? false
+  return CONTENTS_PAGE_REFERENCE_ATTRIBUTE in attribs
 }
 
 export function pageReferenceTarget(attribs: Record<string, string>): string | undefined {

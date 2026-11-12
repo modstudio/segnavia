@@ -3,10 +3,14 @@ import type { BookSectionInfo } from '@segnavia/html'
 import type { BookDestination } from './book-destinations.ts'
 import { RenderRefusedError } from './errors.ts'
 
-export function folioTextAt(folios: readonly Folio[], page: number): string {
+export function folioDisplayTextAt(folios: readonly Folio[], page: number): string {
   const folio = folios[page - 1]
   if (!folio) throw new RangeError(`Printed page ${page} has no computed folio.`)
   return folio.printed ? folio.text : ''
+}
+
+export function folioCountedTextAt(folios: readonly Folio[], page: number): string {
+  return folios[page - 1]?.text ?? '0'
 }
 
 function destinationOwner(id: string, destination: BookDestination, sections: BookSectionInfo[], destinations: Map<string, BookDestination>): string {

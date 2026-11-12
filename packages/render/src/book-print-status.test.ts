@@ -68,7 +68,7 @@ test('distinguishes a generated contents number from an authored reference on un
         { title: 'Preface', html: '<p id="front-target">Front</p>' },
         { kind: 'contents', title: 'Contents' },
       ],
-      chapters: [{ title: 'One', html: '<p>See <a href="#front-target" data-ref="page"></a></p>' }],
+      chapters: [{ title: 'One', html: '<p>See <a class="segnavia-contents-page" href="#front-target" data-ref="page"></a></p>' }],
     }),
   )
   const preface = document.headings.find((heading) => heading.text === 'Preface')

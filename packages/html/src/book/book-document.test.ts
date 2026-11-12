@@ -86,7 +86,7 @@ describe('book document', () => {
   test('fills contents page numbers only when enabled', () => {
     const withNumbers = parseBookFixture(input({ frontMatter: [{ kind: 'contents' }], chapters: [chapter('One', '<h2 id="topic">Topic</h2>')] }))
     expect(bookDocument(withNumbers, { pageNumbers: { 'section-2': '7', topic: '8' } }).html).toContain(
-      '<a class="segnavia-contents-page" href="#topic" data-ref="page" dir="ltr">8</a>',
+      '<a class="segnavia-contents-page" data-segnavia-generated-contents-page href="#topic" data-ref="page" dir="ltr">8</a>',
     )
     const withoutNumbers = parseBookFixture(
       input({ frontMatter: [{ kind: 'contents' }], chapters: [chapter('One', '<h2 id="topic">Topic</h2>')], contents: { pageNumbers: false } }),

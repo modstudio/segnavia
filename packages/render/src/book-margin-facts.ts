@@ -13,7 +13,7 @@ import {
 } from '@segnavia/format'
 import type { BookPageFacts, BookSectionInfo } from '@segnavia/html'
 import type { BookDestination } from './book-destinations.ts'
-import { folioTextAt } from './book-print-status.ts'
+import { folioCountedTextAt, folioDisplayTextAt } from './book-print-status.ts'
 
 interface MarginPageOwner {
   page: number
@@ -86,7 +86,7 @@ export function marginFactsFor(
       const value = variableValue(variable, {
         folio,
         documentFolio: numbers.documentFolios[documentIndex],
-        numberingTotal: folios[pages - 1]?.text ?? '0',
+        numberingTotal: folioCountedTextAt(folios, pages),
         documentTotal: numbers.documentTotal,
         recordIndex: owner?.section.record?.index,
         recordCount: owner?.section.record?.count,
@@ -104,7 +104,7 @@ export function marginFactsFor(
     const page = index + 1
     if (blanks.has(page)) return { blank: true, sectionOpening: false }
     const owner = owners[index]
-    const folio = folioTextAt(folios, page)
+    const folio = folioDisplayTextAt(folios, page)
     return {
       blank: false,
       sectionOpening: owner?.page === page,

@@ -1,7 +1,7 @@
 import { type Book, entryDirection, resolveDirection } from '@segnavia/format'
 import { isTag } from 'domhandler'
 import type { BuiltSection } from './book-held.ts'
-import { CONTENTS_PAGE_REFERENCE_CLASS, PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_VALUE } from './book-page-reference.ts'
+import { CONTENTS_PAGE_REFERENCE_ATTRIBUTE, CONTENTS_PAGE_REFERENCE_CLASS, PAGE_REFERENCE_ATTRIBUTE, PAGE_REFERENCE_VALUE } from './book-page-reference.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type BookDocumentOptions, type BookHeading, headingLabel } from './types.ts'
 
@@ -43,6 +43,7 @@ function contentsList(book: Book, headings: BookHeading[], options: BookDocument
             'a',
             {
               class: CONTENTS_PAGE_REFERENCE_CLASS,
+              [CONTENTS_PAGE_REFERENCE_ATTRIBUTE]: '',
               href: `#${heading.id}`,
               [PAGE_REFERENCE_ATTRIBUTE]: PAGE_REFERENCE_VALUE,
             },

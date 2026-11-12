@@ -1,4 +1,4 @@
-import { computeFolios, divisionPrints, type NumberSystem, type RecordFacts, type SectionNumbering } from '@segnavia/format'
+import { computeFolios, type divisionNumbering, divisionPrints, type NumberSystem, type RecordFacts, type SectionNumbering } from '@segnavia/format'
 
 export interface BookPlanPage {
   sequence: string
@@ -15,7 +15,7 @@ export interface BookPlanSection {
 export interface BookPlanNumbering {
   frontMatter: NumberSystem
   body: NumberSystem
-  printed?: { frontMatter: boolean; body: boolean }
+  printed?: ReturnType<typeof divisionNumbering>['printed']
 }
 
 export interface BookPlanFolioResult {
@@ -33,10 +33,11 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
   const computed = computeFolios(
     pages.map((page, index) => {
       const section = sectionNumbering.get(page.flow)
+      const division = page.sequence === 'front' ? 'frontMatter' : 'body'
       return {
         numbering: {
-          system: numbering[page.sequence === 'front' ? 'frontMatter' : 'body'],
-          printed: divisionPrints(numbering, page.sequence === 'front' ? 'frontMatter' : 'body'),
+          system: numbering[division],
+          printed: divisionPrints(numbering, division),
           start: section?.restart ?? 1,
           restart: section?.restart !== undefined ? firstNonBlankPage.get(page.flow) === index : index === 0 || page.sequence !== pages[index - 1]?.sequence,
           counted: section?.counted !== false,

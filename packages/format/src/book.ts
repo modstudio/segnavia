@@ -72,6 +72,8 @@ export type { PageGeometry } from './style-sheet.ts'
 export const BookMode = z.enum(['continuous', 'paginated'])
 export type BookMode = z.infer<typeof BookMode>
 
+const BookPrinted = z.object({ frontMatter: z.boolean().optional(), body: z.boolean().optional() })
+
 export const BookPage = z.object({
   paper: Paper,
   orientation: Orientation.default('portrait'),
@@ -109,7 +111,7 @@ export const BookShape = z.object({
     .object({
       frontMatter: NumberSystem.optional(),
       body: NumberSystem.optional(),
-      printed: z.object({ frontMatter: z.boolean().optional(), body: z.boolean().optional() }).optional(),
+      printed: BookPrinted.optional(),
     })
     .default({}),
   footnotes: z
@@ -151,10 +153,10 @@ export const BookViewPagination = z
     numbering: z.object({
       frontMatter: NumberSystem,
       body: NumberSystem,
-      printed: z
-        .object({ frontMatter: z.boolean().optional(), body: z.boolean().optional() })
-        .default({})
-        .transform((printed) => ({ frontMatter: divisionPrints({ printed }, 'frontMatter'), body: divisionPrints({ printed }, 'body') })),
+      printed: BookPrinted.default({}).transform((printed) => ({
+        frontMatter: divisionPrints({ printed }, 'frontMatter'),
+        body: divisionPrints({ printed }, 'body'),
+      })),
     }),
     rectoOpenings: z.boolean(),
     orphans: z.number().int().min(1),

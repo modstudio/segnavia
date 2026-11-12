@@ -6,7 +6,9 @@ export type NumberSystem = z.infer<typeof NumberSystem>
 
 export type BookNumberingDivision = 'frontMatter' | 'body'
 
-export function divisionPrints(numbering: { printed?: Partial<Record<BookNumberingDivision, boolean>> }, division: BookNumberingDivision): boolean {
+type BookPrinted = Partial<Record<BookNumberingDivision, boolean>>
+
+export function divisionPrints(numbering: { printed?: BookPrinted }, division: BookNumberingDivision): boolean {
   return numbering.printed?.[division] ?? true
 }
 
@@ -26,7 +28,7 @@ export function defaultPageNumbering(lang: string | undefined): NumberSystem {
 /** A book's division number systems: each configured system, or the language's default for that division. */
 export function divisionNumbering(
   lang: string | undefined,
-  configured: { frontMatter?: NumberSystem; body?: NumberSystem; printed?: { frontMatter?: boolean; body?: boolean } } = {},
+  configured: { frontMatter?: NumberSystem; body?: NumberSystem; printed?: BookPrinted } = {},
 ): { frontMatter: NumberSystem; body: NumberSystem; printed: { frontMatter: boolean; body: boolean } } {
   const hebrew = isHebrew(lang)
   return {

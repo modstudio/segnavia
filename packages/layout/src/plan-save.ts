@@ -319,7 +319,7 @@ function replayPlanWithVersion(measurements: Measurements, saved: SavedPlan, num
       version,
       pages: saved.pages,
       folios: saved.folios,
-      folioPrints: saved.folioPrints ?? saved.folios.map(() => true),
+      folioPrints: saved.folioPrints,
       total: saved.total,
       documentFolios: saved.documentFolios,
       documentTotal: saved.documentTotal,
