@@ -67,6 +67,7 @@ function templatePageFits(
 ): TemporaryFit[] {
   const clone = template.cloneNode(true) as HTMLElement
   clone.removeAttribute('hidden')
+  clone.removeAttribute('data-segnavia-template')
   clone.style.cssText = `position:absolute;inset-block-start:0;inset-inline-start:-10000px;inline-size:${area.width}px;block-size:${area.height}px;overflow:visible`
   for (const fragment of Array.from(holder.querySelectorAll<HTMLElement>('[data-region]'))) {
     const region = fragment.getAttribute('data-region')

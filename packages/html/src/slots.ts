@@ -16,6 +16,7 @@ import { LINK_ELEMENTS } from './link-policy.ts'
 import type { PreparedSlots } from './prepared-slots.ts'
 import { qrPayload, qrSvg } from './qr.ts'
 import { elements, parse, serialize } from './sanitize.ts'
+import { clearSlotOverflow, markSlotOverflow } from './slot-overflow.ts'
 
 export const MAX_SLOT_DECLARATIONS = 200
 const ASSET_RESOLUTION_CONCURRENCY = 4
@@ -168,33 +169,12 @@ function applyPresent(element: Element, name: string, report: SlotReport): boole
   return report.fill === null || report.slots[path] === 'filled'
 }
 
-function markOverflow(element: Element, names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): void {
-  if (resolved.report.fill === null) return
-  for (const binding of Object.values(names)) {
-    const key = element.attribs[binding]
-    if (key === undefined) continue
-    const declaration = resolved.declarations.get(key)
-    const overflow = declaration?.overflow ?? 'wrap'
-    // Only a value the fill supplied is measured: the design's placeholder text says nothing about the fill.
-    if (!declaration || overflow === 'wrap' || resolved.report.slots[key] !== 'filled') continue
-    element.attribs['data-slot-overflow'] = `${encodeURIComponent(key)}:${overflow}${overflow === 'shrink' ? `:${declaration.minSize ?? 6}` : ''}`
-    if (overflow === 'shrink') {
-      element.attribs['data-fit'] = 'size'
-      element.attribs['data-fit-min'] = `${declaration.minSize ?? 6}px`
-    }
-    resolved.markedHere.add(key)
-    return
-  }
-}
-
 function applyElements(elements: Element[], names: ReturnType<typeof bindingNames>, resolved: ResolvedSlots): Element[] {
   return elements.flatMap((element) => {
     if (!applyPresent(element, names.present, resolved.report)) return []
     // Overflow markers are bridge instructions owned by this library, so authored values cannot survive slot application.
-    delete element.attribs['data-slot-overflow']
-    delete element.attribs['data-fit']
-    delete element.attribs['data-fit-min']
-    markOverflow(element, names, resolved)
+    clearSlotOverflow(element)
+    markSlotOverflow(element, names, resolved)
     applyValue(element, names.value, resolved)
     applyUrl(element, 'href', names.href, resolved)
     applyUrl(element, 'src', names.src, resolved)
