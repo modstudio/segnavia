@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
-import { type DocumentInput, deterministicNewId } from '@segnavia/format'
+import { applyOps, type DocumentInput, deterministicNewId, fingerprintDocument, inverseBatch } from '@segnavia/format'
+import { setBlock } from './block-ops.ts'
+import { blockView } from './block-view.ts'
 import { BLOCK_ELEMENTS, pageBodyFromHtml, pageOrPrintedFromInput, parseDocument } from './document.ts'
 
 function counter() {
@@ -94,14 +96,21 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
   expect(new Set(documentIds).size).toBe(documentIds.length)
 })
 
-test('keeps Hebrew markdown and its direction through another parse', () => {
+test('keeps Hebrew markdown and its direction through an edit inverse and another parse', () => {
   const markdown = '> [!NOTE]\n> שלום'
   const parsed = parseDocument(
     { type: 'document', kind: 'page', settings: { dir: 'rtl', lang: 'he' }, children: [{ type: 'page', body: { markdown } }] },
     { newId: counter() },
   )
-  expect(parseDocument(parsed, { newId: counter() })).toEqual(parsed)
   expect(parsed.children[0]).toMatchObject({ body: { markdown, html: expect.stringContaining('<bdi>הערה</bdi>') } })
+  const paragraph = blockView(parsed).find(({ kind }) => kind === 'p')
+  if (!paragraph) throw new Error('Hebrew markdown paragraph missing')
+  const batch = { base: fingerprintDocument(parsed), ops: setBlock(parsed, paragraph.id, { text: 'חדש' }) }
+  const edited = applyOps(parsed, batch)
+  expect(edited.children[0]).not.toHaveProperty('body.markdown')
+  const restored = applyOps(edited, inverseBatch(batch, edited))
+  expect(restored).toEqual(parsed)
+  expect(parseDocument(restored, { newId: counter() })).toEqual(parsed)
 })
 
 test('uses host alert labels while converting markdown at the content edge', () => {
