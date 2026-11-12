@@ -19,8 +19,8 @@ interface PageRenderServices {
   withTab: TabRunner
 }
 
-async function watermarkFont(tab: Tab): Promise<Pick<PrintResult, 'fontFamily' | 'fontFaceCss'>> {
-  return tab.evaluate(() => {
+async function watermarkFont(tab: Tab, printedPages = false): Promise<Pick<PrintResult, 'fontFamily' | 'fontFaceCss'>> {
+  return tab.evaluate((fromPrintedPage) => {
     const rules: string[] = []
     const collect = (list: CSSRuleList) => {
       for (const rule of list) {
@@ -29,8 +29,11 @@ async function watermarkFont(tab: Tab): Promise<Pick<PrintResult, 'fontFamily' |
       }
     }
     for (const sheet of document.styleSheets) collect(sheet.cssRules)
-    return { fontFamily: getComputedStyle(document.body).fontFamily, fontFaceCss: rules.join('') }
-  })
+    const textRoot = fromPrintedPage
+      ? (document.querySelector('[data-segnavia-printed-page] [data-segnavia-text]') ?? document.querySelector('[data-segnavia-printed-page]'))
+      : document.body
+    return { fontFamily: getComputedStyle(textRoot ?? document.body).fontFamily, fontFaceCss: rules.join('') }
+  }, printedPages)
 }
 
 export async function renderPagePdf(
@@ -63,7 +66,7 @@ export async function renderPagePdf(
     async (tab) => {
       await awaitPrintedPageComposition(tab, page, opts.preflight)
       const captures = await prepareBackdropRasters(tab, opts.effects)
-      const font = await watermarkFont(tab)
+      const font = await watermarkFont(tab, Boolean(page.printedPages))
       if (page.print) {
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page))
         return { ...printed, ...font, bytes: await tagBackdropRasters(printed.bytes, captures) }
