@@ -18,6 +18,7 @@ import {
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { expandFramePage, expandPrintedFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import {
   type EstablishedPageDay,
@@ -212,6 +213,7 @@ export async function renderOptionsWithFontManifest(
 
 interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'origins' | 'css'> {
   diagramScript?: string
+  layoutScripts?: readonly LoadedLayoutScript[]
   nonce?: string
   relayKeys?: boolean
   reportHeight?: boolean
@@ -239,7 +241,8 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     relayKeys: options.relayKeys ?? false,
     reportHeight: options.reportHeight ?? false,
     origins: options.origins,
-    readyCallback: hasDiagram(page.html) ? RENDER_READY_BINDING : undefined,
+    readyCallback: hasDiagram(page.html) || (options.layoutScripts?.length ?? 0) > 0 ? RENDER_READY_BINDING : undefined,
+    layoutScripts: options.layoutScripts,
   })
 }
 
@@ -251,6 +254,7 @@ export function renderPageValueDocument(
   fontCss = '',
   diagramScript?: string,
   fontFailures: FontFailure[] = [],
+  layoutScripts?: readonly LoadedLayoutScript[],
 ): string {
   const page = 'html' in input ? input : resolvePageHtml(input, { origins: options.origins })
   const namedMeasure =
@@ -269,5 +273,6 @@ export function renderPageValueDocument(
     relayKeys: false,
     reportHeight: false,
     fontFailures,
+    layoutScripts,
   })
 }

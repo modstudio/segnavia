@@ -1,5 +1,6 @@
 import type { FontFailure } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
@@ -61,6 +62,7 @@ export async function renderPagePdf(
   diagramScript?: string,
   fontCss = '',
   fontFailures: FontFailure[] = [],
+  layoutScripts?: readonly LoadedLayoutScript[],
   captureFontFacts = false,
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
@@ -70,8 +72,8 @@ export async function renderPagePdf(
       viewport,
       scripts: true,
       slots,
-      html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures),
-      readiness: renderReadiness(page.scripts, hasDiagram(printedPageAuthorHtml(page)), opts.waitForPageReady !== false),
+      html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures, layoutScripts),
+      readiness: renderReadiness(page.scripts, hasDiagram(printedPageAuthorHtml(page)), opts.waitForPageReady !== false, (layoutScripts?.length ?? 0) > 0),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
@@ -118,16 +120,17 @@ export async function renderPiecePdf(
   services: PageRenderServices,
   deadline?: RenderDeadline,
   diagramScript?: string,
+  layoutScripts?: readonly LoadedLayoutScript[],
   captureFontFacts = false,
 ): Promise<PrintResult> {
-  const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, diagramScript })
+  const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, diagramScript, layoutScripts })
   return services.withTab(
     {
       viewport: geometry.viewport,
       scripts: true,
       slots,
       html,
-      readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false),
+      readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false, (layoutScripts?.length ?? 0) > 0),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,

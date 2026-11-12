@@ -22,6 +22,7 @@ import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
+import { LAYOUT_FRAME_ATTRIBUTE } from './layout.ts'
 import { requestSelection } from './selection-request.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
@@ -35,7 +36,6 @@ import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } fr
 import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
-
 export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
@@ -71,7 +71,6 @@ export class SegnaviaStage extends AsOfElement {
     super()
     upgradeProperties(this)
   }
-
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
   }
@@ -339,10 +338,12 @@ export class SegnaviaStage extends AsOfElement {
       if (slideId) surfacePreflightFor(this).receive(slideId, message.report)
     }
     if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
+    const failedFrame =
+      message?.type === MESSAGE.composeFailure && message.text ? this.pool.frames().find((frame) => frame.contentWindow === event.source) : undefined
+    if (failedFrame?.hasAttribute(LAYOUT_FRAME_ATTRIBUTE)) dispatchElementError(this, new Error(message?.text ?? ''))
     if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
     if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
   }
-
   private onResize = () => this.measure()
 
   private poolChanged() {
@@ -384,7 +385,6 @@ export class SegnaviaStage extends AsOfElement {
     const frame = [...this.pool.frames()].find((candidate) => candidate.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId === slideId)
     frame?.contentWindow?.postMessage({ type: MESSAGE.release }, '*')
   }
-
   authoringAnimationMessage(event: MessageEvent): { slideId: string; animated: boolean; lengthMs: number | null } | null {
     for (const frame of this.pool.frames()) {
       const report = animationMessage(event, frame)

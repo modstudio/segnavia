@@ -57,6 +57,7 @@ export class SegnaviaPage extends PageAsOfElement {
   private resolvedSlots: PreparedSlots | undefined
   private slotFrame: PageFrameIdentity | undefined
   private composedFrame: PageFrameIdentity | undefined
+  private layoutFrame: PageFrameIdentity | undefined
   private hostServed = false
   private documentWrites = 0
   private loadedDocument: number | undefined
@@ -97,7 +98,6 @@ export class SegnaviaPage extends PageAsOfElement {
     this.placementOptions = value
     if (this.pageValue) this.loadValue(this.pageValue)
   }
-
   protected asOfInputsChanged(): void {
     if (this.pageValue) this.loadValue(this.pageValue)
   }
@@ -234,19 +234,19 @@ export class SegnaviaPage extends PageAsOfElement {
           fontFailures,
           preflight: resolvePreflightProfile(this.profileInput),
         },
-        (document) => {
+        (document, hasLayoutScripts) => {
           if (!isCurrent()) return
           this.resolvedSlots = resolved
           this.slotFrame = resolved ? { frame: iframe, generation } : undefined
           this.cancelPostedSelectionRequests()
-          this.writeDocument(iframe, document)
+          this.writeDocument(iframe, document, false, hasLayoutScripts)
         },
         report,
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
-    const write = (document: string, provisional = false) => {
-      if (isCurrent()) this.writeDocument(iframe, document, provisional)
+    const write = (document: string, provisional: boolean, hasLayoutScripts: boolean) => {
+      if (isCurrent()) this.writeDocument(iframe, document, provisional, hasLayoutScripts)
     }
     const facts = {
       ...captureAsOfLoad(this),
@@ -333,6 +333,7 @@ export class SegnaviaPage extends PageAsOfElement {
     this.resolvedSlots = undefined
     this.slotFrame = undefined
     this.composedFrame = undefined
+    this.layoutFrame = undefined
     return ++this.loadGeneration
   }
 
@@ -353,10 +354,11 @@ export class SegnaviaPage extends PageAsOfElement {
     this.loadedDocument = undefined
     this.documentIsFinal = false
   }
-  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional = false) {
+  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional: boolean, hasLayoutScripts: boolean) {
     const written = ++this.documentWrites
     this.resetDocumentReadiness()
     this.documentIsFinal = !provisional
+    this.layoutFrame = hasLayoutScripts ? { frame: iframe, generation: this.loadGeneration } : undefined
     iframe.addEventListener(
       'load',
       () => {
@@ -372,7 +374,6 @@ export class SegnaviaPage extends PageAsOfElement {
     if (!page || !sheet) return
     fitPageFrame(this, page, sheet, this.frameHeight, this.bounded)
   }
-
   private onMessage = (event: MessageEvent) => {
     const frame = this.querySelector('iframe')
     const currentFrame = { frame, generation: this.loadGeneration }
@@ -383,6 +384,7 @@ export class SegnaviaPage extends PageAsOfElement {
       documentIsLoaded: this.loadedDocument === this.documentWrites,
       frameHeight: this.frameHeight,
       frameReady: this.frameReady,
+      layoutFrame: this.layoutFrame,
       page: this.pageValue,
       profile: resolvePreflightProfile(this.profileInput),
       resolvedSlots: this.resolvedSlots,

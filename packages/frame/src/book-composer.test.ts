@@ -102,10 +102,12 @@ test('wraps composer start-up exceptions in a bounded failure report', () => {
 
 test('applies region overflow without preflight and collects only its reports under the profile', () => {
   const script = composerScript('{}')
+  const alignedNotes = script.indexOf('if(!alignHeldNotes())return pages;')
+  const markedOverflow = script.indexOf('if(config.preflight)markComposedOverflow', alignedNotes)
   expect(script.match(/applyRegionOverflowTo\(/g)).toHaveLength(3)
   expect(script).toContain("var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]');applyRegionOverflowTo")
   expect(script).toContain('config.overflowRefusal!==false')
-  expect(script).toContain('if(config.preflight)markRegionOverflow')
+  expect(markedOverflow).toBeGreaterThan(alignedNotes)
 })
 
 test('publishes preflight before refusing or marking composition complete', () => {

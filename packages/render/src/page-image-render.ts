@@ -4,6 +4,7 @@ import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { enforceImageBytes } from './image-bytes.ts'
+import { layoutScripts } from './layout-scripts.ts'
 import { assetSetup, type ParsedPageImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import type { prepareRenderedPage } from './page-document.ts'
@@ -28,6 +29,7 @@ export async function renderPreparedPageImage(
   const plainPagePreflight = page.printedPages ? undefined : surfacePreflight
   const pageHtml = printedPageAuthorHtml(page)
   const diagramScript = await resolveDiagramScript(pageHtml)
+  const resolvedLayoutScripts = await layoutScripts(pageHtml)
   const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
   return withTab(
     {
@@ -42,8 +44,9 @@ export async function renderPreparedPageImage(
         diagramScript,
         prepared.fontCss,
         prepared.fontFailures,
+        resolvedLayoutScripts,
       ),
-      readiness: renderReadiness(page.scripts, hasDiagram(pageHtml), opts.waitForPageReady !== false),
+      readiness: renderReadiness(page.scripts, hasDiagram(pageHtml), opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,

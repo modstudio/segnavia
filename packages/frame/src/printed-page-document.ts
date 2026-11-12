@@ -39,6 +39,7 @@ import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { declaredFontLoads } from './font-load.ts'
+import type { LoadedLayoutScript } from './layout.ts'
 import { PrintedPagesRefusedError, printedPageGeometry } from './printed-page-geometry.ts'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
@@ -81,6 +82,7 @@ export function printedPageValueDocument(
     measure?: boolean
     printBackground?: boolean
     diagramScript?: string
+    layoutScripts?: readonly LoadedLayoutScript[]
     screen?: ScreenPresentation
     readyCallback?: string
     metadata?: DocumentMetadataValue
@@ -186,6 +188,7 @@ export function printedPageValueDocument(
     readyCallback: options.readyCallback,
     fontFailures: options.fontFailures,
     origins: options.origins,
+    layoutScripts: options.layoutScripts,
   })
 }
 

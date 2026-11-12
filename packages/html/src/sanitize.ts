@@ -94,6 +94,11 @@ export function elements(nodes: ChildNode[]): Element[] {
   return found
 }
 
+export function attributeValues(html: string, attribute: string): string[] {
+  const name = attribute.toLowerCase()
+  return elements(parse(html).children).flatMap((element) => (element.attribs[name] === undefined ? [] : [element.attribs[name]]))
+}
+
 function insideSvg(element: Element): boolean {
   for (let parent = element.parent; parent; parent = parent.parent) {
     if (isTag(parent) && parent.name.toLowerCase() === 'svg') return true
