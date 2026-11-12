@@ -177,11 +177,14 @@ stored HTML form, parses each content fragment structurally, and preserves or mi
 `data-segnavia-id` on paragraphs, headings, list items, figures, and table
 rows. One `newId` function supplies both node and block ids. Duplicate block
 ids are refused across the whole document. Hosts that need reproducible output
-pass a deterministic counter; stored ids make later parses idempotent. A host
-keeps ids by storing the Document that `parseDocument` returns (or reading back
-an element's Document getter where one exists); content reloaded without ids
-gets new ids. Active HTML remains present at this edge; the sandboxed realize
-policy sanitizes or refuses it when the content is shown.
+pass `deterministicNewId(input)`, which skips node and block ids already in the
+input. Its ids are stable across runs for the same input, not across edits: an
+id minted after an insertion depends on the ids minted before it. Stored ids
+make later parses idempotent. A host keeps ids by storing the Document that
+`parseDocument` returns (or reading back an element's Document getter where one
+exists); content reloaded without ids gets new ids. Active HTML remains present
+at this edge; the sandboxed realize policy sanitizes or refuses it when the
+content is shown.
 
 ### Migration from legacy deck and page input
 

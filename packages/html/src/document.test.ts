@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import type { DocumentInput } from '@segnavia/format'
+import { type DocumentInput, deterministicNewId } from '@segnavia/format'
 import { BLOCK_ELEMENTS, pageOrPrintedFromInput, parseDocument } from './document.ts'
 
 function counter() {
@@ -32,6 +32,32 @@ test('keeps existing block ids, converts markdown once, and parsing twice is the
   const existing = parseDocument(page({ html: '<p data-segnavia-id="kept">Text</p>' }), { newId: counter() })
   const existingBody = existing.children[0]?.type === 'page' ? existing.children[0].body : undefined
   expect(existingBody && 'html' in existingBody ? existingBody.html : '').toContain('data-segnavia-id="kept"')
+})
+
+test('deterministic ids are repeatable and skip existing node and Hebrew block ids', () => {
+  const input = {
+    type: 'document' as const,
+    kind: 'page' as const,
+    id: 'hebrew',
+    children: [
+      {
+        type: 'page' as const,
+        id: 'hebrew-1',
+        body: {
+          html: '<section dir="rtl" lang="he"><p data-segnavia-id="hebrew-2">קיים</p><h1>כותרת</h1><p>תוכן</p><figure>איור</figure></section>',
+        },
+      },
+    ],
+  }
+  const first = parseDocument(input, { newId: deterministicNewId(input) })
+  const second = parseDocument(input, { newId: deterministicNewId(input) })
+
+  expect(second).toEqual(first)
+  expect(first.children[0]?.id).toBe('hebrew-1')
+  const body = first.children[0]?.type === 'page' ? first.children[0].body : undefined
+  const ids = body && 'html' in body ? [...body.html.matchAll(/data-segnavia-id="([^"]+)"/g)].map((match) => match[1]) : []
+  expect(ids).toEqual(['hebrew-2', 'hebrew-3', 'hebrew-4', 'hebrew-5'])
+  expect(new Set(ids).size).toBe(ids.length)
 })
 
 test('uses host alert labels while converting markdown at the content edge', () => {
