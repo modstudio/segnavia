@@ -39,7 +39,8 @@ async function prepareDatedBookView(
   },
 ) {
   const diagram = await resolveBookDiagram(view, options.diagramSettled)
-  const layoutScripts = await loadLayoutScripts(`${view.html}${view.flow ?? ''}`)
+  const html = `${view.html}${view.flow ?? ''}`
+  const layoutScripts = layoutsUsed(html).length > 0 ? await loadLayoutScripts(html) : []
   const prepared =
     !options.motifs && !options.fonts && !options.placements
       ? prepareBookViewWithoutSources(view)
