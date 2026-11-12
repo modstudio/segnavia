@@ -178,10 +178,12 @@ describe('page keys', () => {
 })
 
 describe('in-window presentation', () => {
-  const realDocument = globalThis.document
+  // Restore the descriptor itself: redefining a missing document as a value would leave it read-only for later files.
+  const realDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
 
   afterEach(() => {
-    Object.defineProperty(globalThis, 'document', { configurable: true, value: realDocument })
+    if (realDocument) Object.defineProperty(globalThis, 'document', realDocument)
+    else Reflect.deleteProperty(globalThis, 'document')
   })
 
   test('sets state, locks and restores overflow, and Escape exits', () => {
