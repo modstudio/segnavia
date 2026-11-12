@@ -111,7 +111,7 @@ test('the PDF adapter writes collapsed UTF-16 outlines and document metadata', a
   const topicTitle = topic.get(PDFName.of('Title')) as PDFHexString
 
   expect(document.getTitle()).toBe('ספר')
-  expect(document.getAuthor()).toBe('אחת; Two')
+  expect(document.getAuthor()).toBe('אחת; \u200fTwo')
   expect(document.getSubject()).toBe('נושא')
   expect((document.catalog.get(PDFName.of('Lang')) as PDFHexString).decodeText()).toBe('he')
   expect(document.catalog.get(PDFName.of('PageMode'))).toEqual(PDFName.of('UseOutlines'))

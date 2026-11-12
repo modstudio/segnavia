@@ -22,8 +22,8 @@ import {
   type OverflowEntry,
   pageCompositionCount,
   parseComposedRenderOptions,
-  refuseProgressUnlessOneComposition,
   type RenderOptions,
+  refuseProgressUnlessOneComposition,
 } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { printWithOverflow } from './overflow.ts'
@@ -35,9 +35,9 @@ import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce, enforcePdfBytes } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
-import { protectPdf } from './protect-pdf.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
+import { createPdfProtector } from './protect-pdf.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
@@ -113,6 +113,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   let closed = false
   const queue = renderQueue(options.concurrency ?? 2)
   const { acquire, release } = queue
+  const protectPdf = createPdfProtector()
 
   async function withTab<T>(
     setup: BrowserTabSetup & {

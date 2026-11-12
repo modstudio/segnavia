@@ -1,7 +1,7 @@
 import { expect, spyOn, test } from 'bun:test'
+import { fileURLToPath } from 'node:url'
 import createQpdf, { type QpdfInstance } from '@neslinesli93/qpdf-wasm'
 import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFName, PDFString } from 'pdf-lib'
-import { fileURLToPath } from 'node:url'
 import { enforcePdfBytes } from './pdf-finish.ts'
 import { protectPdf } from './protect-pdf.ts'
 
@@ -45,7 +45,13 @@ async function fixture(): Promise<Uint8Array> {
   document.catalog.set(key('Lang'), PDFString.of('he'))
   const annotations = ['https://example.com/one', 'https://example.com/two'].map((uri, index) =>
     document.context.register(
-      document.context.obj({ Type: 'Annot', Subtype: 'Link', Rect: [10, 20 + index * 20, 100, 30 + index * 20], Border: [0, 0, 0], A: { S: 'URI', URI: PDFString.of(uri) } }),
+      document.context.obj({
+        Type: 'Annot',
+        Subtype: 'Link',
+        Rect: [10, 20 + index * 20, 100, 30 + index * 20],
+        Border: [0, 0, 0],
+        A: { S: 'URI', URI: PDFString.of(uri) },
+      }),
     ),
   )
   page.node.set(key('Annots'), document.context.obj(annotations))
@@ -99,8 +105,8 @@ test('requires the open password while the owner password can still decrypt', as
 test('does not expose a generated owner password in output or a byte-limit refusal', async () => {
   const generated = new Uint8Array(32).fill(23)
   const password = 'FxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxcXFxc'
-  const random = spyOn(crypto, 'getRandomValues').mockImplementation((value) => {
-    ;(value as Uint8Array).set(generated)
+  const random = spyOn(crypto, 'getRandomValues').mockImplementation(<T extends ArrayBufferView | null>(value: T): T => {
+    ;(value as Uint8Array<ArrayBuffer>).set(generated)
     return value
   })
   try {

@@ -23,7 +23,7 @@ import type { LocalFontsOptions } from './local-fonts.ts'
 import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
 import type { RenderProgressOptions } from './progress.ts'
-import { parseProtection, type Protection } from './protection-options.ts'
+import { type Protection, parseProtection } from './protection-options.ts'
 
 export type Font = FontFace
 
