@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test'
+import { MEASURE_KIND_MODEL } from '@segnavia/format'
 import { graphemeInlineExtent, propertySources } from './composer-properties.ts'
 import { embeddedComposerPropertyFunctions } from './composer-properties-embed.ts'
+
+test('the embedded measurer table covers every measure kind', () => {
+  const embeddedKinds = new Function(`${embeddedComposerPropertyFunctions()};return Object.keys(MEASURERS)`)() as string[]
+  expect(embeddedKinds.sort()).toEqual(Object.keys(MEASURE_KIND_MODEL).sort())
+})
 
 test('a direct child without text contributes its own logical inline box', () => {
   const previous = globalThis.NodeFilter

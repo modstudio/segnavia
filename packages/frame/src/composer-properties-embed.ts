@@ -3,6 +3,7 @@ import { embedFunction } from '@segnavia/html'
 import {
   directMeasurementNodes,
   graphemeInlineExtent,
+  MEASURERS,
   measuredValue,
   measurePropertyElement,
   measureSourcePropertiesImplementation,
@@ -11,9 +12,16 @@ import {
 } from './composer-properties.ts'
 import { measuredProperties, propertyCssValue } from './composer-properties-policy.ts'
 
+function embeddedMeasurers(): string {
+  const functions = [...new Set(Object.values(MEASURERS))]
+  const definitions = functions.map((measure) => embedFunction(measure.name, measure)).join('\n')
+  const entries = Object.entries(MEASURERS).map(([kind, measure]) => `${JSON.stringify(kind)}:${measure.name}`)
+  return `${definitions}\nvar MEASURERS={${entries.join(',')}};`
+}
+
 export function embeddedComposerPropertyFunctions(): string {
   return `var MEASURE_KIND_MODEL=${JSON.stringify(MEASURE_KIND_MODEL)};
-var MEASURERS={"max-content-inline:children":function(element,writingMode){return Math.max(0,...directMeasurementNodes(element).map(function(node){return graphemeInlineExtent(node,writingMode);}));},"block":function(element,writingMode){return logicalExtent(element.getBoundingClientRect(),writingMode,"block");},"line-count":function(element,_writingMode,lineBoxes){return lineBoxes(element).length;}};
+${embeddedMeasurers()}
 ${embedFunction('propertyCssValue', propertyCssValue)}
 ${embedFunction('measuredProperties', measuredProperties)}
 ${embedFunction('directMeasurementNodes', directMeasurementNodes)}

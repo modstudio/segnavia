@@ -35,11 +35,22 @@ export function graphemeInlineExtent(node: Node, writingMode: string): number {
   return total
 }
 
-const MEASURERS: Record<MeasureKind, (element: HTMLElement, writingMode: string, lineBoxes: LineBoxes) => number> = {
-  'max-content-inline:children': (element, writingMode) =>
-    Math.max(0, ...directMeasurementNodes(element).map((node) => graphemeInlineExtent(node, writingMode))),
-  block: (element, writingMode) => logicalExtent(element.getBoundingClientRect(), writingMode, 'block'),
-  'line-count': (element, _writingMode, lineBoxes) => lineBoxes(element).length,
+export function maxContentInlineChildren(element: HTMLElement, writingMode: string): number {
+  return Math.max(0, ...directMeasurementNodes(element).map((node) => graphemeInlineExtent(node, writingMode)))
+}
+
+export function measuredBlockExtent(element: HTMLElement, writingMode: string): number {
+  return logicalExtent(element.getBoundingClientRect(), writingMode, 'block')
+}
+
+export function measuredLineCount(element: HTMLElement, _writingMode: string, lineBoxes: LineBoxes): number {
+  return lineBoxes(element).length
+}
+
+export const MEASURERS: Record<MeasureKind, (element: HTMLElement, writingMode: string, lineBoxes: LineBoxes) => number> = {
+  'max-content-inline:children': maxContentInlineChildren,
+  block: measuredBlockExtent,
+  'line-count': measuredLineCount,
 }
 
 export function measuredValue(element: HTMLElement, kind: MeasureKind, lineBoxes: LineBoxes): number {
