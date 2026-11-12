@@ -23,6 +23,11 @@ describe('bookView', () => {
     expect(view.flow).toBeUndefined()
   })
 
+  test('carries the book as-of policy', () => {
+    const asOf = { kind: 'fixed' as const, date: '2026-11-14' as const, zone: 'America/New_York' }
+    expect(bookView(parseBookFixture(input({ asOf }))).asOf).toEqual(asOf)
+  })
+
   test('adds resolved pagination values for a paginated book', () => {
     const view = bookView(
       parseBookFixture(

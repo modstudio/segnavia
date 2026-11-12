@@ -1,4 +1,4 @@
-import type { BookView, FontFailure, PageWidths, PreflightEntry, PreflightProfile } from '@segnavia/format'
+import type { AsOfDay, BookView, FontFailure, PageWidths, PreflightEntry, PreflightProfile } from '@segnavia/format'
 import { bookViewMotifRefusal, expandFrameBookView, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
 import { expandedBookFontCss, type FontsOptions, refuseMissingFontSource } from './page-fonts.ts'
 
@@ -17,6 +17,7 @@ export async function prepareBookView(
   signal: AbortSignal,
   placements?: PlacementsOptions,
   pageWidths?: PageWidths,
+  day?: AsOfDay,
   profile?: PreflightProfile,
 ): Promise<{ view: BookView; css: string; failures: FontFailure[]; preflight: PreflightEntry[] }> {
   if (!motifs && !fonts && !placements) return prepareBookViewWithoutSources(view)
@@ -25,7 +26,7 @@ export async function prepareBookView(
     if (refusal) throw refusal
   }
   const expanded =
-    motifs || placements ? await expandFrameBookView(view, motifs, signal, placements, pageWidths, profile) : { book: view, fonts: [], preflight: [] }
+    motifs || placements ? await expandFrameBookView(view, motifs, signal, placements, pageWidths, day, profile) : { book: view, fonts: [], preflight: [] }
   const { css, failures } = await expandedBookFontCss(expanded, fonts, signal)
   return { view: expanded.book, css, failures, preflight: expanded.preflight ?? [] }
 }

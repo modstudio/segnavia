@@ -242,7 +242,7 @@ describe('book fonts', () => {
     spread = true
     await book.attributeChangedCallback('spread', null, '')
     pending.resolve()
-    for (let i = 0; i < 8; i += 1) await Promise.resolve()
+    for (let i = 0; i < 32; i += 1) await Promise.resolve()
 
     expect(errors).toEqual([])
     expect(mounted.at(-1)?.title).toBe('Latest')
@@ -271,7 +271,7 @@ describe('book fonts', () => {
     await book.attributeChangedCallback('spread', null, '')
     resolveResponse(Response.json({ html: '<main>Fetched</main>', title: 'Fetched' }))
     await loading
-    for (let i = 0; i < 4; i += 1) await Promise.resolve()
+    for (let i = 0; i < 32; i += 1) await Promise.resolve()
 
     expect(book.view?.title).toBe('Fetched')
     expect(mounted.at(-1)?.title).toBe('Fetched')
@@ -317,7 +317,7 @@ describe('book fonts', () => {
     expect(frames).toHaveLength(0)
     connected = true
     book.connectedCallback()
-    for (let i = 0; i < 8; i += 1) await Promise.resolve()
+    for (let i = 0; i < 32; i += 1) await Promise.resolve()
     globalThis.document = previousDocument
     globalThis.window = previousWindow
     expect(error).toBeUndefined()
@@ -354,7 +354,7 @@ describe('book fonts', () => {
       },
     }
     book.view = { html: '<main>Book</main>', title: 'Named book', style: { fonts: { serif: { faces: [{}] } } } }
-    for (let i = 0; i < 8; i += 1) await Promise.resolve()
+    for (let i = 0; i < 32; i += 1) await Promise.resolve()
     globalThis.document = previous
     expect(frames.at(-1)?.srcdoc).toContain('@font-face{font-family:"Body Serif";src:url(data:font/ttf;base64,AA==) format("truetype")')
     expect(frames.at(-1)?.srcdoc).toContain('--segnavia-font-serif:"Body Serif",serif')

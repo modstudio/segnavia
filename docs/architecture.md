@@ -637,8 +637,9 @@ A stored page, book or deck may say what day its data is for: a `fixed` date,
 `current` (the day of the moment it is shown), or an `anchor` that the host
 resolves to a date. The day is a calendar date in a zone and may retain the
 host-supplied instant it was read from. Its zone comes from the record, then the
-host's `asOf.zone`, then UTC, and never from the machine. The page, document,
-stage and thumbnail preview surfaces, browser page and deck print, and server
+host's `asOf.zone`, then UTC, and never from the machine. The page, paper,
+document, book, stage and thumbnail preview surfaces; the items a board draws;
+browser page and deck print; and the server
 renders `pagePdf`, `pagesPdf`, `pageImage`, `coverImage`, `deckPdf`,
 `slideImage`, `bookPdf` and `bookPlan` take a `moment`:
 now by default, or a stated moment for a replay. They resolve the day once at
@@ -653,7 +654,9 @@ moment. The elements report it in a non-bubbling `asof` event, while `printPages
 report it through `asOf.report`. A
 print or render whose pages resolve to distinct days under `slots.resolve` is
 refused so each day can be produced separately. An anchor the host cannot
-resolve refuses, naming the anchor. `<segnavia-book>` does not take the moment yet.
+resolve refuses, naming the anchor. A paper reports each distinct page day and
+refuses distinct days when one `slots.resolve` answer would have to serve them
+all. A board forwards its as-of inputs to its items and reports no day itself.
 
 The output of `pagePdf`, `pagesPdf`, `pageImage`, `coverImage`, `deckPdf`,
 `bookPdf` and `slideImage` records that one established as-of day as its
@@ -678,7 +681,9 @@ either mode. A paginated view also carries `flow`, a continuous build of the
 same content, and the resolved `pagination` object (paper size and margins in
 millimeters, direction, number systems, recto openings, orphans and widows,
 default parent pages, endnote placement, contents settings, variables and head
-templates). A continuous view has neither. The frame library validates that view and
+templates). A `BookView` carries the book's optional `asOf` policy so browser
+and server book output resolve the same day. A continuous view has neither
+pagination field. The frame library validates that view and
 shows it in one internally scrolling sandboxed frame. A continuous view scrolls
 as one document. A paginated screen uses separate sandboxed documents for pages
 and flow, so each build's author CSS and ids apply natively only to that view.
@@ -755,7 +760,7 @@ this adds no inbound frame message.
 | `addNavigationGuard` | `DeckController` | Register a load and cross-slide navigation guard. Guards are awaited in registration order; the returned function removes that guard. A rejection takes the controller's `error` path. Seek policy refuses a locked target before consulting guards. |
 | `readSelection()` | `<segnavia-page>`, `<segnavia-stage>` | The reader's current selection string and the document's `innerText` from a page or the stage's shown slide whose author scripts are refused. On a page, a read already posted to a document that slot filling replaces is cancelled, while a read still waiting is answered by the replacing document once it has loaded and reported ready. A stage read is refused during a pending turn and a pending read is cancelled when the shown slide changes. For a stage URL slide, resolved content declares `bridge: true` and `scripts: 'refuse'` to vouch that the host served it through `frameDocument` with author scripts refused. The bridge answers only a request from its parent. Both strings keep their document order without reordering for direction. |
 | `scrollToHeading()` | `<segnavia-page>` | Scrolls to an id returned by `markdownOutline(page.body)`, resolves false for an unknown id, and refuses host-served pages and pages whose author scripts run. |
-| `AnchorSource`, `anchors`; `slots.resolve` | `<segnavia-page>`, `<segnavia-document>`, `<segnavia-stage>`, `<segnavia-player>`, `<segnavia-thumbnail>`, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `coverImage`, `deckPdf`, `slideImage`, `bookPdf`, `bookPlan` | The host offers named anchors and resolves one from the surface moment, current calendar day and zone. The slots resolver receives the one established `AsOfDay` and returns the fill for that preview, print or render load. Missing, unoffered, null and invalid anchor answers refuse with the anchor and requested day. |
+| `AnchorSource`, `anchors`; `asOf`; `moment`; `slots.resolve` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, `<segnavia-stage>`, `<segnavia-player>`, `<segnavia-thumbnail>`, live `<segnavia-board>` items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `coverImage`, `deckPdf`, `slideImage`, `bookPdf`, `bookPlan` | The host offers named anchors and resolves one from the surface moment, current calendar day and zone. The slots resolver receives the one established `AsOfDay` and returns the fill for that preview, print or render load. Missing, unoffered, null and invalid anchor answers refuse with the anchor and requested day. |
 | `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, page `<segnavia-thumbnail>` views, live board page, paper and book items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Book section HTML expands motifs before its screen or PDF document is built; page and book parent-page furniture use the same printed-page context. Decks and slides do not expand motif placements. |
 | Printed document | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds one page or one or more flowing sections. Its folios come from the section plan's counted and restart settings; parent rules choose each page's parent, face and side. Named parent pages supply binding-relative logical margins and inherited named regions on `blockStart`, `blockEnd`, `inlineStart` (binding) or `inlineEnd` (outer). The built-in `head` and `foot` names use the two block edges. Each region becomes a `data-segnavia-region` box; this parent-page furniture is distinct from a template's `data-region` content target. The composer measures content in paper-sized boxes, resolves declared variables and named head templates for each planned page, and fills every parent region through `fillRegion`. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. |
 | `css`, `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style, and the host's own CSP emitted as a second policy that is enforced independently and can only narrow the frame's policy. |

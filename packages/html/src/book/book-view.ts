@@ -11,6 +11,7 @@ export function bookViewFromHtml(book: Book, html: string): BookView {
     ...(book.lang === undefined ? {} : { lang: book.lang }),
     ...(book.style === undefined ? {} : { style: book.style }),
     ...(book.limits === undefined ? {} : { limits: book.limits }),
+    ...(book.asOf === undefined ? {} : { asOf: book.asOf }),
   }
   const pagination = resolveBookPagination(book)
   return pagination ? { ...view, pagination } : view

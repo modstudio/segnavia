@@ -3,6 +3,7 @@ import {
   type Book,
   type BookChapterEntry,
   type BookFrontMatterEntry,
+  type BookView,
   type Deck,
   isDesignedSection,
   isPart,
@@ -13,6 +14,11 @@ import { bindRecordValues } from './record-values.ts'
 
 type BookEntry = BookFrontMatterEntry | BookChapterEntry
 type BookHtmlMapper = (html: string) => string
+type ParentRegions = Record<string, { html: string }>
+
+export function fillParentRegions<T extends ParentRegions>(regions: T, day: AsOfDay): T {
+  return Object.fromEntries(Object.entries(regions).map(([name, region]) => [name, { ...region, html: fillAsOfBindings(region.html, day) }])) as T
+}
 
 function mapBookEntry<T extends BookEntry>(entry: T, apply: BookHtmlMapper): T {
   if (isDesignedSection(entry)) return { ...entry, pages: entry.pages.map((page) => ({ ...page, html: apply(page.html) })) }
@@ -67,8 +73,28 @@ export function fillBookAsOfBindings(book: Book, day: AsOfDay): Book {
     ...filled,
     parentPages: book.parentPages.map((parent) => ({
       ...parent,
-      regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: fillAsOfBindings(region.html, day) }])),
+      regions: fillParentRegions(parent.regions, day),
     })),
+  }
+}
+
+/** Fills every author-HTML string carried by a lowered book view. */
+export function fillBookViewAsOfBindings(view: BookView, day: AsOfDay): BookView {
+  return {
+    ...view,
+    html: fillAsOfBindings(view.html, day),
+    ...(view.flow === undefined ? {} : { flow: fillAsOfBindings(view.flow, day) }),
+    ...(view.pagination === undefined
+      ? {}
+      : {
+          pagination: {
+            ...view.pagination,
+            parents: view.pagination.parents.map((parent) => ({
+              ...parent,
+              regions: fillParentRegions(parent.regions, day),
+            })),
+          },
+        }),
   }
 }
 

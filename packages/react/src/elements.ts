@@ -1,4 +1,4 @@
-import type { SegnaviaBook, SegnaviaDocument, SegnaviaPage, SegnaviaPaper, SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
+import type { SegnaviaBoard, SegnaviaBook, SegnaviaDocument, SegnaviaPage, SegnaviaPaper, SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
 import type {
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -17,6 +17,7 @@ import { ELEMENT_PROPERTIES as FRAME_ELEMENTS } from '@segnavia/frame/element-pr
 import type { SegnaviaItemSettings } from '@segnavia/frame/item-settings'
 import type { SegnaviaPlayer } from '@segnavia/frame/player'
 import type {
+  BoardProps,
   BookProps,
   CaptionProps,
   CaptionsProps,
@@ -97,6 +98,19 @@ export const ELEMENTS = {
   player: element<SegnaviaPlayer, PlayerProps, typeof FRAME_ELEMENTS.player.tag>({ ...FRAME_ELEMENTS.player, events: playerEvents }),
   stage: element<SegnaviaStage, StageProps, typeof FRAME_ELEMENTS.stage.tag>({ ...FRAME_ELEMENTS.stage, events: stageEvents }),
   thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof FRAME_ELEMENTS.thumbnail.tag>({ ...FRAME_ELEMENTS.thumbnail, events: thumbnailEvents }),
+  board: element<SegnaviaBoard, BoardProps, typeof FRAME_ELEMENTS.board.tag>({
+    ...FRAME_ELEMENTS.board,
+    events: reactEvents<BoardProps>()(FRAME_ELEMENTS.board.events, {
+      'segnavia-board-change': 'onSegnaviaBoardChange',
+      'segnavia-board-error': 'onSegnaviaBoardError',
+      'segnavia-board-icons': 'onSegnaviaBoardIcons',
+      'segnavia-board-item-action': 'onSegnaviaBoardItemAction',
+      'segnavia-board-names': 'onSegnaviaBoardNames',
+      'segnavia-board-open': 'onSegnaviaBoardOpen',
+      'segnavia-board-selection': 'onSegnaviaBoardSelection',
+      'segnavia-board-view': 'onSegnaviaBoardView',
+    }),
+  }),
   paperPicker: element<SegnaviaPaperPicker, PaperPickerProps, typeof FRAME_ELEMENTS.paperPicker.tag>({
     ...FRAME_ELEMENTS.paperPicker,
     events: paperPickerEvents,
@@ -119,6 +133,7 @@ export const ELEMENTS = {
   book: element<SegnaviaBook, BookProps, typeof FRAME_ELEMENTS.book.tag>({
     ...FRAME_ELEMENTS.book,
     events: reactEvents<BookProps>()(FRAME_ELEMENTS.book.events, {
+      asof: 'onAsof',
       preflight: 'onPreflight',
       fontfailure: 'onFontfailure',
       ready: 'onReady',
@@ -128,7 +143,7 @@ export const ELEMENTS = {
   }),
   paper: element<SegnaviaPaper, PaperProps, typeof FRAME_ELEMENTS.paper.tag>({
     ...FRAME_ELEMENTS.paper,
-    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, { fontfailure: 'onFontfailure', error: 'onError', change: 'onChange' }),
+    events: reactEvents<PaperProps>()(FRAME_ELEMENTS.paper.events, { asof: 'onAsof', fontfailure: 'onFontfailure', error: 'onError', change: 'onChange' }),
   }),
   document: element<SegnaviaDocument, DocumentProps, typeof FRAME_ELEMENTS.document.tag>({
     ...FRAME_ELEMENTS.document,

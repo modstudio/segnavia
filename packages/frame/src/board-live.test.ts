@@ -3,11 +3,19 @@ import { Deck, type OriginApproval, Page } from '@segnavia/format'
 
 class TestElement extends EventTarget {
   className = ''
+  children: TestElement[] = []
+  clientWidth = 320
   dataset: Record<string, string> = {}
+  dir = ''
+  events: Event[] = []
+  isConnected = true
   part = { add() {} }
-  style: Record<string, string> = {}
+  style = { removeProperty() {}, setProperty() {} } as unknown as CSSStyleDeclaration
+  title = ''
   private attributes = new Map<string, string>()
-  append() {}
+  append(...children: TestElement[]) {
+    this.children.push(...children)
+  }
   attachShadow() {
     return { append() {} }
   }
@@ -20,7 +28,22 @@ class TestElement extends EventTarget {
   removeAttribute(name: string) {
     this.attributes.delete(name)
   }
-  replaceChildren() {}
+  dispatchEvent(event: Event) {
+    this.events.push(event)
+    return super.dispatchEvent(event)
+  }
+  querySelector(selector: string): TestElement | null {
+    const matches = (element: TestElement) => (selector === 'iframe' ? element.attributes.has('sandbox') : element.className === selector.slice(1))
+    for (const child of this.children) {
+      if (matches(child)) return child
+      const nested = child.querySelector(selector)
+      if (nested) return nested
+    }
+    return null
+  }
+  replaceChildren(...children: TestElement[]) {
+    this.children = children
+  }
   setAttribute(name: string, value: string) {
     this.attributes.set(name, value)
   }
@@ -105,6 +128,73 @@ test('passes board motif and placement sources to a live book before its view', 
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')
+  }
+})
+
+test('passes a board moment through a live page and its asof event', async () => {
+  const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+  const previousDocument = Object.getOwnPropertyDescriptor(globalThis, 'document')
+  const previousCustomElements = Object.getOwnPropertyDescriptor(globalThis, 'customElements')
+  const previousResizeObserver = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver')
+  const definitions = new Map<string, new () => TestElement>()
+  Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: TestElement })
+  Object.defineProperty(globalThis, 'customElements', {
+    configurable: true,
+    value: {
+      define: (name: string, ElementConstructor: new () => TestElement) => definitions.set(name, ElementConstructor),
+      get: (name: string) => definitions.get(name),
+    },
+  })
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: {
+      createElement: (name: string) => {
+        const Constructor = definitions.get(name)
+        const element = Constructor ? new Constructor() : new TestElement()
+        Object.assign(element, new TestElement())
+        for (const method of [
+          'append',
+          'dispatchEvent',
+          'getAttribute',
+          'hasAttribute',
+          'querySelector',
+          'removeAttribute',
+          'replaceChildren',
+          'setAttribute',
+          'toggleAttribute',
+        ] as const) {
+          Object.defineProperty(element, method, { configurable: true, value: TestElement.prototype[method] })
+        }
+        return element
+      },
+    },
+  })
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    value: class {
+      disconnect() {}
+      observe() {}
+    },
+  })
+  try {
+    const { liveBoardItem } = await import('./board-live.ts')
+    const moment = Date.parse('2026-11-15T12:00:00Z')
+    const page = Page.parse({ html: '<p>Page</p>', size: { width: 320, height: 200 }, asOf: { kind: 'current' } })
+    const live = liveBoardItem({ kind: 'page', page, size: { width: 320, height: 200 } }, () => {}, { origins: [], moment })
+    const element = live.element as unknown as TestElement & { moment?: number }
+    const asof = element.events.find((event) => event.type === 'asof') as CustomEvent<{ date: string; moment?: number }> | undefined
+    expect(element.moment).toBe(moment)
+    expect(asof?.detail).toMatchObject({ date: '2026-11-15', moment })
+  } finally {
+    for (const [name, descriptor] of [
+      ['HTMLElement', previousHTMLElement],
+      ['document', previousDocument],
+      ['customElements', previousCustomElements],
+      ['ResizeObserver', previousResizeObserver],
+    ] as const) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+      else Reflect.deleteProperty(globalThis, name)
+    }
   }
 })
 

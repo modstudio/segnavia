@@ -5,7 +5,9 @@ export interface AsOfElementProperties extends Pick<AsOfInputs, 'anchors' | 'mom
   asOf: { zone?: Zone } | undefined
 }
 
-export abstract class AsOfElement extends HTMLElement {
+export const HTMLElementBase = globalThis.HTMLElement ?? (class extends EventTarget {} as typeof HTMLElement)
+
+export abstract class AsOfElement extends HTMLElementBase {
   static {
     defineAsOfPropertyAccessors(AsOfElement.prototype)
   }
@@ -40,6 +42,14 @@ export function captureAsOfLoad(element: object): { moment: number; hostMoment?:
     ...carryMoment('hostMoment', held.momentValue),
     hostZone: held.asOfOptions?.zone,
     anchors: held.anchorOptions,
+  }
+}
+
+export function asOfContextInputs(inputs: ReturnType<typeof captureAsOfLoad>): AsOfInputs {
+  return {
+    moment: inputs.moment,
+    anchors: inputs.anchors,
+    asOf: inputs.hostZone === undefined ? undefined : { zone: inputs.hostZone },
   }
 }
 

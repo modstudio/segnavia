@@ -76,6 +76,9 @@ export const ELEMENT_PROPERTIES = {
       'pageWidths',
       'fonts',
       'origins',
+      'anchors',
+      'asOf',
+      'moment',
       'brands',
       'view',
       'kindIcon',
@@ -123,8 +126,8 @@ export const ELEMENT_PROPERTIES = {
   ),
   paper: descriptor(
     HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths'],
-    ['fontfailure', 'error', 'change'],
+    ['paper', 'side', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment'],
+    ['asof', 'fontfailure', 'error', 'change'],
   ),
   document: descriptor(
     HEADLESS_ELEMENTS.document,
@@ -133,8 +136,8 @@ export const ELEMENT_PROPERTIES = {
   ),
   book: descriptor(
     HEADLESS_ELEMENTS.book,
-    ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'origins', 'profile'],
-    ['preflight', 'fontfailure', 'ready', 'error', 'composeprogress'],
+    ['view', 'fonts', 'motifs', 'placements', 'pageWidths', 'origins', 'anchors', 'asOf', 'moment', 'profile'],
+    ['asof', 'preflight', 'fontfailure', 'ready', 'error', 'composeprogress'],
   ),
   player: descriptor(
     STYLED_ELEMENTS.player,

@@ -1,6 +1,6 @@
 import type { AsOf, SlotDeclaration, SlotsOptions } from '@segnavia/format'
 import { type EstablishedPageDay, fillAsOfBindings, resolveDayContextsFor } from '@segnavia/html'
-import type { captureAsOfLoad } from './as-of-element.ts'
+import { asOfContextInputs, type captureAsOfLoad } from './as-of-element.ts'
 import { type PreparedSlots, prepareSlots } from './slot-render.ts'
 
 export async function resolveSurfaceDay(
@@ -9,16 +9,7 @@ export async function resolveSurfaceDay(
   slots: SlotsOptions | undefined,
   signal: AbortSignal,
 ): Promise<EstablishedPageDay> {
-  const contexts = await resolveDayContextsFor(
-    [record],
-    {
-      moment: inputs.moment,
-      anchors: inputs.anchors,
-      asOf: inputs.hostZone === undefined ? undefined : { zone: inputs.hostZone },
-    },
-    slots,
-    signal,
-  )
+  const contexts = await resolveDayContextsFor([record], asOfContextInputs(inputs), slots, signal)
   return contexts.pages[0] as EstablishedPageDay
 }
 

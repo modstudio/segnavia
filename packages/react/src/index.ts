@@ -61,6 +61,7 @@ export function createComponent<D extends AnyElementDescriptor>(descriptor: D) {
 export const Player = createComponent(ELEMENTS.player)
 export const Stage = createComponent(ELEMENTS.stage)
 export const Thumbnail = createComponent(ELEMENTS.thumbnail)
+export const Board = createComponent(ELEMENTS.board)
 export const PaperPicker = createComponent(ELEMENTS.paperPicker)
 export const ItemSettings = createComponent(ELEMENTS.itemSettings)
 export const Page = createComponent(ELEMENTS.page)

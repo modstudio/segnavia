@@ -13,7 +13,6 @@ test('rebuilds frame inputs when origins change and clears them with undefined',
       get inputs(): BoardFrameInputs {
         return this.frameInputs
       }
-
       get selection(): readonly string[] {
         return []
       }

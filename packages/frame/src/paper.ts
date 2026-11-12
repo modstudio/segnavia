@@ -15,6 +15,7 @@ import {
   type SlotsOptions,
 } from '@segnavia/format'
 import { type HtmlPage, parseDocument, resolvePageHtml } from '@segnavia/html'
+import { type AsOfElementProperties, captureAsOfLoad, defineAsOfPropertyAccessors, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
@@ -23,23 +24,28 @@ import { internalPaperPagesLoad } from './document-value-load.ts'
 import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
-import { expandFramePages, framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
-import { expandedPagesFontCss, type FontsOptions } from './page-fonts.ts'
+import { framePageMotifRefusal, type MotifsOptions } from './motif-expansion.ts'
+import type { FontsOptions } from './page-fonts.ts'
 import { parsePageWidths, samePageWidths } from './page-widths.ts'
+import { preparePaperDays } from './paper-day.ts'
 import { clampPaper, paperBoxSize, paperScale } from './paper-geometry.ts'
 import { printablePaper, refuseSectionedImpositionPage } from './print-document.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
 import { mergeOwnedSlotFit } from './slot-fit-owner.ts'
-import { hasSlotWork, type PreparedSlots, prepareSlotCollection, slotFillRefusal } from './slot-render.ts'
+import type { PreparedSlots } from './slot-render.ts'
 
 export class SegnaviaPaper extends HTMLElement {
   static observedAttributes = ['paper', 'side']
   static {
     defineStylesheetPropertyAccessors(SegnaviaPaper.prototype)
+    defineAsOfPropertyAccessors(SegnaviaPaper.prototype)
   }
   declare css: string
   declare cspExtra: string
   declare origins: Iterable<OriginApproval>
+  declare anchors: AsOfElementProperties['anchors']
+  declare asOf: AsOfElementProperties['asOf']
+  declare moment: AsOfElementProperties['moment']
   private pages: HtmlPage[] = []
   private brandDocuments: Document[] = []
   private imposition: Imposition | null = null
@@ -73,6 +79,11 @@ export class SegnaviaPaper extends HTMLElement {
   set slots(value: SlotsOptions | undefined) {
     this.slotGeneration++
     this.slotOptions = value
+    if (this.imposed) this.paint()
+  }
+
+  asOfInputsChanged() {
+    this.slotGeneration++
     if (this.imposed) this.paint()
   }
 
@@ -249,6 +260,7 @@ export class SegnaviaPaper extends HTMLElement {
     const imposed = this.imposed
     if (!imposition || !imposed) return
     const generation = ++this.slotGeneration
+    const asOfLoad = captureAsOfLoad(this)
     this.resolvedSlots = undefined
     this.resolvedGeneration = 0
     this.resolvedFontCss = ''
@@ -262,10 +274,11 @@ export class SegnaviaPaper extends HTMLElement {
       pages === this.pages &&
       imposition === this.imposition &&
       imposed === this.imposed
-    const commit = (shown: HtmlPage[], resolved?: PreparedSlots) => {
+    const commit = (shown: HtmlPage[], resolved: PreparedSlots | undefined, css: string) => {
       if (!current()) return
       this.resolvedSlots = resolved
       this.resolvedGeneration = resolved ? generation : 0
+      this.resolvedFontCss = css
       this.paintResolved(imposition, imposed, shown)
     }
     const report = (error: unknown, showOriginal = true) => {
@@ -288,40 +301,29 @@ export class SegnaviaPaper extends HTMLElement {
         .catch((error) => report(error, false))
       return
     }
-    const continuePaint = (shown: HtmlPage[]) => {
-      const refusal = shown.map((page) => slotFillRefusal(page.scripts, page.slots, this.slotOptions)).find((error) => error !== undefined)
-      if (refusal) throw refusal
-      const declarations = shown.map((page) => page.slots)
-      if (!declarations.some((item) => hasSlotWork(item, this.slotOptions))) {
-        if (this.motifOptions || this.fontOptions) commit(shown)
-        return
-      }
-      void prepareSlotCollection(declarations, this.slotOptions, controller.signal)
-        .then((resolved) => commit(shown, resolved))
-        .catch(report)
-    }
-    if (!this.motifOptions && !this.fontOptions && !this.placementOptions && !pages.some((page) => Object.keys(page.style?.fonts ?? {}).length > 0)) {
+    if (!this.motifOptions) {
       const motifRefusal = pages.map(framePageMotifRefusal).find((error) => error !== undefined)
       if (motifRefusal) {
         this.paintPlaceholder(imposed)
         report(motifRefusal, false)
         return
       }
-      this.paintResolved(imposition, imposed)
-      try {
-        continuePaint(pages)
-      } catch (error) {
-        report(error)
-      }
-      return
     }
     this.paintPlaceholder(imposed)
-    void expandFramePages(pages, this.motifOptions, controller.signal, this.placementOptions, 'screen', this.widthOptions)
-      .then(async (expanded) => {
-        const { css } = await expandedPagesFontCss(expanded, this.fontOptions, controller.signal)
+    void preparePaperDays(pages, asOfLoad, {
+      slots: this.slotOptions,
+      motifs: this.motifOptions,
+      placements: this.placementOptions,
+      pageWidths: this.widthOptions,
+      fonts: this.fontOptions,
+      signal: controller.signal,
+      established: (days) => {
+        if (current()) for (const day of days) dispatchAsof(this, day)
+      },
+    })
+      .then((prepared) => {
         if (!current()) return
-        this.resolvedFontCss = css
-        continuePaint(expanded.map((item) => item.page))
+        commit(prepared.pages, prepared.slots, prepared.css)
       })
       .catch(report)
   }
