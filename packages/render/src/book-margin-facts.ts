@@ -26,6 +26,11 @@ export interface MarginDocumentContext {
   system: Book['numbering']['body']
 }
 
+export interface MarginNumbering {
+  system: Book['numbering']['body']
+  printed: boolean
+}
+
 function marginPageOwners(
   sections: BookSectionInfo[],
   destinations: Map<string, BookDestination>,
@@ -65,14 +70,13 @@ export function marginFactsFor(
   destinations: Map<string, BookDestination>,
   pages: number,
   blanks: Set<number>,
-  system: Book['numbering']['body'],
+  numbering: MarginNumbering,
   variables: Book['variables'],
-  document: MarginDocumentContext = { pages: marginVariablePagesFor(sections, destinations, pages, blanks), offset: 0, system },
+  document: MarginDocumentContext = { pages: marginVariablePagesFor(sections, destinations, pages, blanks), offset: 0, system: numbering.system },
   documentFacts: VariableDocumentFacts = {},
   bookRules?: ParentRules,
-  printed = true,
 ): BookPageFacts[] {
-  const folios = sequenceFolios(pages, system, printed)
+  const folios = sequenceFolios(pages, numbering.system, numbering.printed)
   const owners = marginPageOwners(sections, destinations, pages, blanks)
   const numbers = bookVariablePageNumbers(document.pages, document.system)
   const variablesFor = (owner: MarginPageOwner | undefined, index: number, folio: string): Record<string, string> => {
@@ -82,7 +86,7 @@ export function marginFactsFor(
       const value = variableValue(variable, {
         folio,
         documentFolio: numbers.documentFolios[documentIndex],
-        numberingTotal: folioTextAt(folios, pages),
+        numberingTotal: folios[pages - 1]?.text ?? '0',
         documentTotal: numbers.documentTotal,
         recordIndex: owner?.section.record?.index,
         recordCount: owner?.section.record?.count,

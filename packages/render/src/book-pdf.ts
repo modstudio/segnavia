@@ -163,6 +163,7 @@ async function printFront(book: Book, slots: PreparedSlots, source: BookDocument
       numberIds,
       [{ destinations: body.destinations, system: book.numbering.body, printed: book.numbering.printed.body, division: 'body' }],
       headingIds,
+      new Set(source.pageReferenceTargets),
     )
     return { part, trailingBlank: false, numbers }
   }
@@ -315,7 +316,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
       front.destinations,
       front.pages,
       frontBlankPages,
-      book.numbering.frontMatter,
+      { system: book.numbering.frontMatter, printed: book.numbering.printed.frontMatter },
       book.variables,
       {
         pages: documentPages,
@@ -324,14 +325,13 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
       },
       documentFacts,
       book.parentRules,
-      book.numbering.printed.frontMatter,
     ),
     ...marginFactsFor(
       bodySections,
       printedBody.part.destinations,
       printedBody.part.pages,
       bodyBlankPages,
-      book.numbering.body,
+      { system: book.numbering.body, printed: book.numbering.printed.body },
       book.variables,
       {
         pages: documentPages,
@@ -340,7 +340,6 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
       },
       documentFacts,
       book.parentRules,
-      book.numbering.printed.body,
     ),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)

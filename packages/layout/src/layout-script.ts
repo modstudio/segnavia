@@ -1,5 +1,6 @@
 import {
   bookVariablePageNumbers,
+  divisionPrints,
   fingerprintScript,
   folioScript,
   LIBRARY_VARIABLES,
@@ -29,6 +30,7 @@ var measurementsWithBreaks=${measurementsWithBreaks.name};
 ${folioScript()}
 ${planPrintedPages.toString()}
 var planPrintedPages=${planPrintedPages.name};
+${divisionPrints.toString()}
 ${bookPlanFolios.toString()}
 var bookPlanFolios=${bookPlanFolios.name};
 ${bookVariablePageNumbers.toString()}

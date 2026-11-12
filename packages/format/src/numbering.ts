@@ -4,6 +4,16 @@ import { primitiveRoot } from './repeated-mark.ts'
 export const NumberSystem = z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew'])
 export type NumberSystem = z.infer<typeof NumberSystem>
 
+export type BookNumberingDivision = 'frontMatter' | 'body'
+
+export function divisionPrints(numbering: { printed?: Partial<Record<BookNumberingDivision, boolean>> }, division: BookNumberingDivision): boolean {
+  return numbering.printed?.[division] ?? true
+}
+
+export function pageNotPrintedRefusal(id: string, division: BookNumberingDivision): string {
+  return `Page reference target ${id} lands on a page whose number is not printed; point the reference at a printed page or set numbering.printed.${division} to true to clear this refusal.`
+}
+
 export function isHebrew(lang: string | undefined): boolean {
   const primary = lang?.split('-')[0]?.toLowerCase()
   return primary === 'he' || primary === 'iw'
@@ -22,7 +32,7 @@ export function divisionNumbering(
   return {
     frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
     body: configured.body ?? defaultPageNumbering(lang),
-    printed: { frontMatter: configured.printed?.frontMatter ?? true, body: configured.printed?.body ?? true },
+    printed: { frontMatter: divisionPrints(configured, 'frontMatter'), body: divisionPrints(configured, 'body') },
   }
 }
 

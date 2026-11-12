@@ -385,8 +385,9 @@ test('renders no contents folio for an uncounted target', () => {
 })
 
 test('refuses a page reference to an unprinted division and names its remedy', () => {
-  expect(pageReferenceFolio('preface-topic', 1, [null], false, 'frontMatter')).toEqual({
+  expect(pageReferenceFolio('preface-topic', 1, [null], [false], 'frontMatter')).toEqual({
     refusal:
-      'page reference target preface-topic lands on a page whose number is not printed; point the reference at a printed page or set numbering.printed.frontMatter to true to clear this refusal',
+      'Page reference target preface-topic lands on a page whose number is not printed; point the reference at a printed page or set numbering.printed.frontMatter to true to clear this refusal.',
   })
+  expect(pageReferenceFolio('preface-topic', 1, [null], [false], 'frontMatter', false)).toEqual({ folio: '' })
 })

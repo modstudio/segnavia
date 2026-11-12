@@ -1,4 +1,4 @@
-import { type Book, type Folio, sequenceFolios } from '@segnavia/format'
+import { type Book, type Folio, pageNotPrintedRefusal, sequenceFolios } from '@segnavia/format'
 import type { BookSectionInfo } from '@segnavia/html'
 import type { BookDestination } from './book-destinations.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -55,9 +55,7 @@ function numberFromSource(
   const folio = source.folios[page - 1]
   if (!folio) throw new RangeError(`Printed page ${page} has no computed folio.`)
   if (!folio.printed && (pageReferences.has(id) || !headings.has(id))) {
-    throw new RenderRefusedError(
-      `Page reference target ${id} lands on a page whose number is not printed; point the reference at a printed page or set numbering.printed.${source.division} to true to clear this refusal.`,
-    )
+    throw new RenderRefusedError(pageNotPrintedRefusal(id, source.division))
   }
   return folio.printed ? folio.text : ''
 }

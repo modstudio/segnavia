@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { BookSectionInfo } from '@segnavia/html'
+import { type BookSectionInfo, bookDocument, parseBookFixture } from '@segnavia/html'
 import type { BookDestination } from './book-destinations.ts'
 import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
 import { RenderRefusedError } from './errors.ts'
@@ -56,5 +56,35 @@ test('leaves an unprinted heading number empty and refuses an explicit page refe
   expect(finalNumbers(['preface'], sources, new Set(['preface']))).toEqual({ preface: '' })
   expect(() => finalNumbers(['preface'], sources)).toThrow(RenderRefusedError)
   expect(() => finalNumbers(['preface'], sources)).toThrow(/numbering\.printed\.frontMatter/)
-  expect(() => finalNumbers(['preface'], sources, new Set(['preface']), new Set(['preface']))).toThrow(RenderRefusedError)
+})
+
+test('distinguishes a generated contents number from an authored reference on unprinted front matter', () => {
+  const document = bookDocument(
+    parseBookFixture({
+      title: 'Book',
+      mode: 'continuous',
+      numbering: { printed: { frontMatter: false } },
+      frontMatter: [
+        { title: 'Preface', html: '<p id="front-target">Front</p>' },
+        { kind: 'contents', title: 'Contents' },
+      ],
+      chapters: [{ title: 'One', html: '<p>See <a href="#front-target" data-ref="page"></a></p>' }],
+    }),
+  )
+  const preface = document.headings.find((heading) => heading.text === 'Preface')
+  expect(preface).toBeDefined()
+  expect(document.pageReferenceTargets).toEqual(['front-target'])
+  const source = {
+    destinations: new Map([
+      [preface?.id ?? '', { page: 1, x: 0, y: 0 }],
+      ['front-target', { page: 1, x: 0, y: 0 }],
+    ]),
+    system: 'roman-lower' as const,
+    printed: false,
+    division: 'frontMatter' as const,
+  }
+  expect(finalNumbers([preface?.id ?? ''], [source], new Set([preface?.id ?? '']))).toEqual({ [preface?.id ?? '']: '' })
+  expect(() => finalNumbers(document.pageReferenceTargets, [source], new Set(), new Set(document.pageReferenceTargets))).toThrow(
+    /numbering\.printed\.frontMatter/,
+  )
 })

@@ -35,6 +35,7 @@ describe('saved book plans', () => {
         version: 5,
         pages: saved.pages,
         folios: saved.folios,
+        folioPrints: saved.folioPrints ?? saved.folios.map(() => true),
         total: saved.total,
         documentFolios: saved.documentFolios,
         documentTotal: saved.documentTotal,

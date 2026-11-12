@@ -1,4 +1,4 @@
-import { computeFolios, type NumberSystem, type RecordFacts, type SectionNumbering } from '@segnavia/format'
+import { computeFolios, divisionPrints, type NumberSystem, type RecordFacts, type SectionNumbering } from '@segnavia/format'
 
 export interface BookPlanPage {
   sequence: string
@@ -20,6 +20,7 @@ export interface BookPlanNumbering {
 
 export interface BookPlanFolioResult {
   folios: Array<string | null>
+  folioPrints: Array<boolean | null>
   total: string
 }
 
@@ -35,7 +36,7 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
       return {
         numbering: {
           system: numbering[page.sequence === 'front' ? 'frontMatter' : 'body'],
-          printed: numbering.printed?.[page.sequence === 'front' ? 'frontMatter' : 'body'] ?? true,
+          printed: divisionPrints(numbering, page.sequence === 'front' ? 'frontMatter' : 'body'),
           start: section?.restart ?? 1,
           restart: section?.restart !== undefined ? firstNonBlankPage.get(page.flow) === index : index === 0 || page.sequence !== pages[index - 1]?.sequence,
           counted: section?.counted !== false,
@@ -44,6 +45,7 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
     }),
   )
   const folios = computed.map((folio, index) => (pages[index]?.blank || !folio?.printed ? null : folio.text))
+  const folioPrints = computed.map((folio, index) => (pages[index]?.blank || folio === null ? null : folio.printed))
   let lastCounted: string | undefined
   let lastBody: string | undefined
   computed.forEach((folio, index) => {
@@ -52,5 +54,5 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
     if (pages[index]?.sequence === 'body') lastBody = folio.text
   })
   const total = lastBody ?? lastCounted ?? '0'
-  return { folios, total }
+  return { folios, folioPrints, total }
 }

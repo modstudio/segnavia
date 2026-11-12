@@ -16,7 +16,7 @@ describe('bookPlanFolios', () => {
           body: 'hebrew',
         },
       ),
-    ).toEqual({ folios: ['i', 'ii', 'א', 'ב'], total: 'ב' })
+    ).toEqual({ folios: ['i', 'ii', 'א', 'ב'], folioPrints: [true, true, true, true], total: 'ב' })
   })
 
   test('hides front-matter folios without changing Hebrew body folios', () => {
@@ -32,11 +32,27 @@ describe('bookPlanFolios', () => {
         body: 'hebrew',
         printed: { frontMatter: false, body: true },
       }),
-    ).toEqual({ folios: [null, null, 'א', 'ב'], total: 'ב' })
+    ).toEqual({ folios: [null, null, 'א', 'ב'], folioPrints: [false, false, true, true], total: 'ב' })
+  })
+
+  test('hides body folios without changing front folios or the counted body total', () => {
+    const pages = [
+      { sequence: 'front', flow: 'preface', blank: false },
+      { sequence: 'front', flow: 'contents', blank: false },
+      { sequence: 'body', flow: 'one', blank: false },
+      { sequence: 'body', flow: 'one', blank: false },
+    ] as const
+    expect(
+      bookPlanFolios(pages, {
+        frontMatter: 'roman-lower',
+        body: 'hebrew',
+        printed: { frontMatter: true, body: false },
+      }),
+    ).toEqual({ folios: ['i', 'ii', null, null], folioPrints: [true, true, false, false], total: 'ב' })
   })
 
   test('keeps the previous empty-plan total', () => {
-    expect(bookPlanFolios([], { frontMatter: 'roman-lower', body: 'hebrew' })).toEqual({ folios: [], total: '0' })
+    expect(bookPlanFolios([], { frontMatter: 'roman-lower', body: 'hebrew' })).toEqual({ folios: [], folioPrints: [], total: '0' })
   })
 
   test('skips uncounted sections and restarts a later section without Hebrew gaps', () => {
@@ -54,7 +70,7 @@ describe('bookPlanFolios', () => {
         { id: 'contents' },
         { id: 'appendix', numbering: { restart: 8 } },
       ]),
-    ).toEqual({ folios: [null, null, 'א', 'ב', 'ח'], total: 'ח' })
+    ).toEqual({ folios: [null, null, 'א', 'ב', 'ח'], folioPrints: [null, null, true, true, true], total: 'ח' })
   })
 
   test('restarts only the first non-blank page of a section', () => {
@@ -69,7 +85,7 @@ describe('bookPlanFolios', () => {
         { frontMatter: 'roman-lower', body: 'arabic' },
         [{ id: 'two', numbering: { restart: 8 } }],
       ),
-    ).toEqual({ folios: ['1', '8', '9', '10'], total: '10' })
+    ).toEqual({ folios: ['1', '8', '9', '10'], folioPrints: [true, true, true, true], total: '10' })
   })
 
   test('continues after an uncounted section from the last counted page', () => {
@@ -84,7 +100,7 @@ describe('bookPlanFolios', () => {
         { frontMatter: 'roman-lower', body: 'arabic' },
         [{ id: 'cover', numbering: { counted: false } }],
       ),
-    ).toEqual({ folios: ['1', null, null, '2'], total: '2' })
+    ).toEqual({ folios: ['1', null, null, '2'], folioPrints: [true, null, null, true], total: '2' })
   })
 
   test('counts an opener blank before restarting the first visible page', () => {
@@ -99,7 +115,7 @@ describe('bookPlanFolios', () => {
         { frontMatter: 'roman-lower', body: 'arabic' },
         [{ id: 'two', numbering: { restart: 8 } }],
       ),
-    ).toEqual({ folios: ['1', null, '8', '9'], total: '9' })
+    ).toEqual({ folios: ['1', null, '8', '9'], folioPrints: [true, null, true, true], total: '9' })
   })
 
   test('does not count an opener blank in an uncounted section', () => {
@@ -114,7 +130,7 @@ describe('bookPlanFolios', () => {
         { frontMatter: 'roman-lower', body: 'arabic' },
         [{ id: 'cover', numbering: { counted: false } }],
       ),
-    ).toEqual({ folios: ['1', null, null, '2'], total: '2' })
+    ).toEqual({ folios: ['1', null, null, '2'], folioPrints: [true, null, null, true], total: '2' })
   })
 
   test('counts an opener blank without showing its folio', () => {
@@ -127,7 +143,7 @@ describe('bookPlanFolios', () => {
         ],
         { frontMatter: 'roman-lower', body: 'arabic' },
       ),
-    ).toEqual({ folios: ['1', null, '3'], total: '3' })
+    ).toEqual({ folios: ['1', null, '3'], folioPrints: [true, null, true], total: '3' })
   })
 
   test('includes a trailing counted blank in the total', () => {
@@ -139,7 +155,7 @@ describe('bookPlanFolios', () => {
         ],
         { frontMatter: 'roman-lower', body: 'arabic' },
       ),
-    ).toEqual({ folios: ['1', null], total: '2' })
+    ).toEqual({ folios: ['1', null], folioPrints: [true, null], total: '2' })
   })
 
   test('uses the last body folio as the total after front matter', () => {
@@ -153,7 +169,7 @@ describe('bookPlanFolios', () => {
         ],
         { frontMatter: 'roman-lower', body: 'arabic' },
       ),
-    ).toEqual({ folios: ['i', 'ii', '1', '2'], total: '2' })
+    ).toEqual({ folios: ['i', 'ii', '1', '2'], folioPrints: [true, true, true, true], total: '2' })
   })
 
   test('keeps an uncounted cover out of Hebrew body folios and total', () => {
@@ -167,6 +183,6 @@ describe('bookPlanFolios', () => {
         { frontMatter: 'hebrew', body: 'hebrew' },
         [{ id: 'cover', numbering: { counted: false } }],
       ),
-    ).toEqual({ folios: [null, 'א', 'ב'], total: 'ב' })
+    ).toEqual({ folios: [null, 'א', 'ב'], folioPrints: [null, true, true], total: 'ב' })
   })
 })

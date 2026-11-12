@@ -21,7 +21,7 @@ import { HeadTemplates } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
-import { divisionNumbering, NoteMarker, NumberSystem } from './numbering.ts'
+import { divisionNumbering, divisionPrints, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { effectiveParentRules, FLOWING_PARENT_RULES, parentRules, textHoldingParentRules } from './parent-rules.ts'
 import { Placement } from './placement.ts'
@@ -109,9 +109,9 @@ export const BookShape = z.object({
     .object({
       frontMatter: NumberSystem.optional(),
       body: NumberSystem.optional(),
-      printed: z.object({ frontMatter: z.boolean().optional(), body: z.boolean().optional() }).default({}),
+      printed: z.object({ frontMatter: z.boolean().optional(), body: z.boolean().optional() }).optional(),
     })
-    .default({ printed: {} }),
+    .default({}),
   footnotes: z
     .object({
       marker: NoteMarker.optional(),
@@ -151,7 +151,10 @@ export const BookViewPagination = z
     numbering: z.object({
       frontMatter: NumberSystem,
       body: NumberSystem,
-      printed: z.object({ frontMatter: z.boolean().default(true), body: z.boolean().default(true) }).default({ frontMatter: true, body: true }),
+      printed: z
+        .object({ frontMatter: z.boolean().optional(), body: z.boolean().optional() })
+        .default({})
+        .transform((printed) => ({ frontMatter: divisionPrints({ printed }, 'frontMatter'), body: divisionPrints({ printed }, 'body') })),
     }),
     rectoOpenings: z.boolean(),
     orphans: z.number().int().min(1),
@@ -347,7 +350,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
     ctx.addIssue({
       code: 'custom',
       path: ['numbering'],
-      message: `front-matter and body numbering are both ${book.numbering.body}; the two must differ when front matter is present`,
+      message: `front-matter and body numbering are both ${book.numbering.body}; the two must differ when both divisions print their folios, or set numbering.printed.frontMatter or numbering.printed.body to false to share the system`,
     })
   }
   for (const issue of noteSeriesIssues(book.notes, book.mode)) ctx.addIssue({ code: 'custom', ...issue })
