@@ -7,7 +7,7 @@ import { captureImage } from './capture-image.ts'
 import { resolveDeckFonts } from './deck-pdf.ts'
 import { fontFaces } from './font-faces.ts'
 import { enforceImageBytes } from './image-bytes.ts'
-import { imageWatermarkPage, injectImageWatermark, nestedFrameFontFamily, selectedImageWatermarkMarkup } from './image-watermark.ts'
+import { imageWatermarkPage, injectImageWatermark, nestedFrameFontFacts, selectedImageWatermarkMarkup } from './image-watermark.ts'
 import { assetSetup, type ParsedComposedRenderOptions, type SlideImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { surfacePreflight } from './preflight.ts'
@@ -61,7 +61,7 @@ export async function renderSlideImage(
     async (tab) => {
       await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)
       preflight?.complete()
-      const fontFamily = opts.watermark ? await nestedFrameFontFamily(tab) : undefined
+      const font = opts.watermark ? await nestedFrameFontFacts(tab) : {}
       const watermark = selectedImageWatermarkMarkup(
         opts.watermark,
         index + 1,
@@ -69,10 +69,10 @@ export async function renderSlideImage(
           viewport: deck.size,
           direction: resolveDirection(deck.dir, deck.lang, deck.title),
           ...(deck.lang ? { lang: deck.lang } : {}),
-          ...(fontFamily ? { fontFamily } : {}),
+          ...(font.fontFamily ? { fontFamily: font.fontFamily } : {}),
         }),
       )
-      if (watermark) await injectImageWatermark(tab, watermark)
+      if (watermark) await injectImageWatermark(tab, watermark, font.fontFaceCss)
       const image = await proofCapturedImage(tab, await captureImage(tab, proofCaptureOptions(opts), false), opts)
       return enforceImageBytes(stampImage(image, outputDate([established.day])), opts.limits?.bytes)
     },

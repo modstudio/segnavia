@@ -1,7 +1,7 @@
 import type { FontFailure } from '@segnavia/format'
 import { hasDiagram } from '@segnavia/frame/diagrams'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
-import type { Page as Tab } from 'playwright-core'
+import type { Frame, Page as Tab } from 'playwright-core'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { assetSetup, type ComposedRenderOptions, type RenderOptions } from './options.ts'
@@ -19,8 +19,8 @@ interface PageRenderServices {
   withTab: TabRunner
 }
 
-export async function pageFontFacts(tab: Tab, printedPages = false): Promise<PageFontFacts> {
-  return tab.evaluate((fromPrintedPage) => {
+export async function pageFontFacts(target: Tab | Frame, printedPages = false): Promise<PageFontFacts> {
+  return target.evaluate((fromPrintedPage) => {
     const rules: string[] = []
     const collect = (list: CSSRuleList) => {
       for (const rule of list) {

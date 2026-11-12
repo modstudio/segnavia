@@ -1,6 +1,8 @@
 import { paperPixels, sheetMm, type TextDirection } from '@segnavia/format'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
+import type { PageFontFacts } from './overflow.ts'
+import { pageFontFacts } from './page-render.ts'
 import { fitWatermarkText } from './watermark-fit.ts'
 import { type WatermarkPage, watermarkMarkup } from './watermark-markup.ts'
 import { type Watermark, watermarkPageNumbers } from './watermark-options.ts'
@@ -45,9 +47,14 @@ const OVERLAY_STYLE = `
 *,*::before,*::after{box-sizing:border-box}
 `
 
-export async function injectImageWatermark(tab: Tab, markup: string): Promise<void> {
+export async function injectImageWatermark(tab: Tab, markup: string, fontFaceCss = ''): Promise<void> {
   const root = await tab.evaluateHandle(
-    ({ html, css }) => {
+    ({ html, css, faces }) => {
+      if (faces) {
+        const faceStyle = document.createElement('style')
+        faceStyle.textContent = faces
+        document.head.append(faceStyle)
+      }
       const host = document.createElement('div')
       const shadow = host.attachShadow({ mode: 'closed' })
       const style = document.createElement('style')
@@ -58,9 +65,10 @@ export async function injectImageWatermark(tab: Tab, markup: string): Promise<vo
       document.documentElement.append(host)
       return shadow
     },
-    { html: markup, css: OVERLAY_STYLE },
+    { html: markup, css: OVERLAY_STYLE, faces: fontFaceCss },
   )
   try {
+    await tab.evaluate(() => document.fonts.ready)
     await root.evaluate(fitWatermarkText)
     await root.evaluate(async (shadow) => {
       const images = [...(shadow as ShadowRoot).querySelectorAll('img')]
@@ -75,8 +83,7 @@ export async function injectImageWatermark(tab: Tab, markup: string): Promise<vo
   }
 }
 
-export async function nestedFrameFontFamily(tab: Tab): Promise<string | undefined> {
+export async function nestedFrameFontFacts(tab: Tab): Promise<PageFontFacts> {
   const frame = tab.frames().find((candidate) => candidate !== tab.mainFrame())
-  if (!frame) return undefined
-  return frame.evaluate(() => getComputedStyle(document.body).fontFamily)
+  return frame ? pageFontFacts(frame) : {}
 }
