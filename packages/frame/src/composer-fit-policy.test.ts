@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { reduceFitGroups } from '@segnavia/layout'
-import { type FitDecision, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, reduceDocumentFits } from './composer-fit-policy.ts'
+import { type FitDecision, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, runFitStageOnce } from './composer-fit-policy.ts'
 
 const authored = { size: 32, leading: 1.4, tracking: 0 }
 const units = { size: 'px', leading: '', tracking: 'px' }
@@ -37,9 +37,24 @@ test('reduces groups across the document and emits one measurement per block id'
     units,
   }))
   decisions.push({ id: 'card-1', group: 'flashcards', values: { ...authored, size: 10 }, authored, units })
-  const reduced = reduceDocumentFits(decisions, reduceFitGroups)
+  const reduced = reduceFitGroups(decisions) as FitDecision[]
   expect(reduced.every((decision) => decision.values.size === 10)).toBe(true)
   expect(fitMeasurements(reduced)).toHaveLength(16)
+})
+
+test('runs the copyfit stage once and reuses its facts on a retry', () => {
+  const facts: string[] = []
+  const state = { done: false, results: [] as string[] }
+  const run = () => runFitStageOnce(state, () => (facts.push('fit'), ['measurement']))
+  expect(run()).toEqual(['measurement'])
+  expect(run()).toEqual(['measurement'])
+  expect(facts).toEqual(['fit'])
+})
+
+test('normalizes absolute leading against fitted size and never applies below 1.0', () => {
+  expect(fitBounds(['leading'], ['12px'], ['48px'], [], authored, { px: 1 })?.bounds).toEqual([
+    { strategy: 'leading', authored: 1.4, min: 1, max: 1.5 },
+  ])
 })
 
 test('fit-limit names the block, exhausted strategy, bound and excess in its refusal text', () => {

@@ -27,7 +27,7 @@ export async function verifyBookSlotCopyfit(h: Harness): Promise<void> {
   const slotWidths = new Set(slot.copies.map((copy) => copy.width))
   h.check(
     'a slot shrunk in a composed book has the same size on every page copy',
-    slot.pages >= 2 && slotWidths.size >= 2 && slotSizes.size === 1,
+    slot.pages >= 2 && slotWidths.size >= 2 && slotSizes.size === 1 && [...slotSizes].every((size) => size > 8),
     JSON.stringify(slot),
   )
 }

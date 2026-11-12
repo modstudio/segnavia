@@ -2035,6 +2035,7 @@ Copyfit runs once after fonts, images and diagrams are ready and before the
 first pagination measurement. Authors mark source content with `data-fit`, an
 ordered list of `size`, `leading` and `tracking`; `data-fit-min`,
 `data-fit-max` and `data-fit-step` carry one bound per strategy. The optional
+strategy list defaults to `size`. The optional
 `data-fit-axis` chooses `block`, `inline` or `both`, `data-fit-box` chooses the
 element or its parent, and `data-fit-group` shares the smallest fitted values
 across every named member. The fitted inline styles remain on the galley source,

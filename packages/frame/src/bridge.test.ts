@@ -308,7 +308,7 @@ describe('frame document', () => {
       },
       scrollHeight: 20,
       getClientRects: () => [{}],
-      getAttribute: () => 'name:shrink:8',
+      getAttribute: (name: string) => (name === 'data-slot-overflow' ? 'name:shrink:8' : null),
       style: { fontSize: '20px' },
     }
     let waiting = true
@@ -318,7 +318,7 @@ describe('frame document', () => {
       scrollWidth: 10,
       scrollHeight: 10,
       getClientRects: () => (waiting ? [] : [{}]),
-      getAttribute: () => 'role:refuse',
+      getAttribute: (name: string) => (name === 'data-slot-overflow' ? 'role:refuse' : null),
       style: {},
     }
     const frames: Array<() => void> = []
@@ -329,6 +329,22 @@ describe('frame document', () => {
     frames.shift()?.()
     const messages = await pending
     expect(messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'shrunk', role: 'fit' } })
+  })
+
+  test('a composer-fitted slot reports its state without per-copy searching', async () => {
+    const style = { fontSize: '14px' }
+    const element = {
+      clientWidth: 40,
+      clientHeight: 20,
+      scrollWidth: 100,
+      scrollHeight: 20,
+      getClientRects: () => [{}],
+      getAttribute: (name: string) => (name === 'data-slot-overflow' ? 'name:shrink:8' : name === 'data-segnavia-fit-state' ? 'shrunk' : null),
+      style,
+    }
+    const messages = await runSlotFitBridge([element])
+    expect(messages).toContainEqual({ type: MESSAGE.slotFit, slots: { name: 'shrunk' } })
+    expect(style.fontSize).toBe('14px')
   })
 
   test('print documents lift root backgrounds and wait for CSS background images', () => {

@@ -32,3 +32,15 @@ test('reports the last exhausted bound and reduces every group strategy to its m
   expect(reduced).toHaveLength(16)
   expect(reduced.every((card) => card.values.size === 13 && card.values.leading === 1.2)).toBe(true)
 })
+
+test('group reduction shares only strategies each member declares', () => {
+  expect(
+    reduceFitGroups([
+      { group: 'cards', values: { size: 18 } },
+      { group: 'cards', values: { size: 16, leading: 1.1 } },
+    ]),
+  ).toEqual([
+    { group: 'cards', values: { size: 16 } },
+    { group: 'cards', values: { size: 16, leading: 1.1 } },
+  ])
+})

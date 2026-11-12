@@ -10,8 +10,6 @@ interface SlotOverflowContext {
 
 export function clearSlotOverflow(element: Element): void {
   delete element.attribs['data-slot-overflow']
-  delete element.attribs['data-fit']
-  delete element.attribs['data-fit-min']
 }
 
 export function markSlotOverflow(element: Element, names: ReturnType<typeof bindingNames>, context: SlotOverflowContext): void {
@@ -22,10 +20,14 @@ export function markSlotOverflow(element: Element, names: ReturnType<typeof bind
     const declaration = context.declarations.get(key)
     const overflow = declaration?.overflow ?? 'wrap'
     if (!declaration || overflow === 'wrap' || context.report.slots[key] !== 'filled') continue
-    element.attribs['data-slot-overflow'] = `${encodeURIComponent(key)}:${overflow}${overflow === 'shrink' ? `:${declaration.minSize ?? 6}` : ''}`
+    if (overflow === 'shrink' && (element.attribs['data-fit'] !== undefined || element.attribs['data-fit-min'] !== undefined)) {
+      throw new RangeError(`slot "${key}" has both overflow shrink and authored data-fit; remove data-fit or use another overflow mode to clear this refusal`)
+    }
+    const minSize = declaration.minSize
+    element.attribs['data-slot-overflow'] = `${encodeURIComponent(key)}:${overflow}${overflow === 'shrink' ? `:${minSize}` : ''}`
     if (overflow === 'shrink') {
       element.attribs['data-fit'] = 'size'
-      element.attribs['data-fit-min'] = `${declaration.minSize ?? 6}px`
+      element.attribs['data-fit-min'] = `${minSize}px`
     }
     context.markedHere.add(key)
     return

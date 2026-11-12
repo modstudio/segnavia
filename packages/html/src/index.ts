@@ -93,7 +93,7 @@ export {
 } from './document-day-context.ts'
 export { type EditDocumentFailure, type EditDocumentResult, type EditDocumentSuccess, editDocument } from './edit-document.ts'
 export { embedFunction } from './embed-function.ts'
-export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitAttributeIssues, lengthPx, parseCssLength } from './fit-attributes.ts'
+export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitAttributeIssues, fitList, lengthPx, parseCssLength } from './fit-attributes.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
 export { fontFormat } from './font-format.ts'
 export { fontReferenceRefusals } from './font-references.ts'

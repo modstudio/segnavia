@@ -1,4 +1,5 @@
 import type { FontFailure } from './fonts.ts'
+import { FIT_STRATEGIES } from './fit.ts'
 
 export const PREFLIGHT_CHECKS = [
   'fit-limit',
@@ -209,7 +210,7 @@ export function boundPreflightReport(
       if (subject === undefined || !fit.values || typeof fit.values !== 'object' || Array.isArray(fit.values)) return []
       const values = Object.fromEntries(
         Object.entries(fit.values)
-          .slice(0, 3)
+          .slice(0, FIT_STRATEGIES.length)
           .flatMap(([strategy, value]) => {
             const bounded = boundedPreflightText(value, limits.fitSize)
             return bounded === undefined ? [] : [[strategy.slice(0, limits.fitGroup), bounded]]

@@ -57,5 +57,10 @@ export function reduceFitGroups<T extends { group?: string; values: Readonly<Rec
     for (const [strategy, value] of Object.entries(result.values)) held[strategy] = Math.min(held[strategy] ?? value, value)
     minima.set(result.group, held)
   }
-  return results.map((result) => (result.group ? { ...result, values: { ...result.values, ...minima.get(result.group) } } : result))
+  return results.map((result) => {
+    if (!result.group) return result
+    const shared = minima.get(result.group) ?? {}
+    const values = Object.fromEntries(Object.keys(result.values).map((strategy) => [strategy, shared[strategy] ?? result.values[strategy]]))
+    return { ...result, values }
+  })
 }

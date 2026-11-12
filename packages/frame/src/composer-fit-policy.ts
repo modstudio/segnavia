@@ -1,4 +1,5 @@
-import type { FitAxis, FitMeasurement, FitStrategy, PreflightEntry } from '@segnavia/format'
+import { FitAxis, type FitMeasurement, type FitStrategy, type PreflightEntry } from '@segnavia/format'
+import { parseCssLength } from '@segnavia/html'
 import type { FitSearchStrategy } from '@segnavia/layout'
 
 export interface FitDecision {
@@ -10,23 +11,35 @@ export interface FitDecision {
   stopped?: { strategy: FitStrategy; bound: number; excess: number }
 }
 
+export const FIT_AXES: readonly FitAxis[] = FitAxis.options
+
 export interface FitApplication {
   styles: Partial<Record<'fontSize' | 'lineHeight' | 'letterSpacing', string>>
   shrunk: boolean
 }
 
-export function fitAxis(authored: string | null, slot: boolean): FitAxis {
-  return (authored ?? (slot ? 'both' : 'block')) as FitAxis
+export interface FitStageState<T> {
+  done: boolean
+  results: T
+}
+
+export function runFitStageOnce<T>(state: FitStageState<T>, execute: () => T): T {
+  if (state.done) return state.results
+  state.done = true
+  state.results = execute()
+  return state.results
+}
+
+export function fitAxis(authored: string | null, slot: boolean, axes: readonly FitAxis[] = FIT_AXES): FitAxis {
+  return axes.find((axis) => axis === authored) ?? (slot ? 'both' : 'block')
 }
 
 export function fitValue(text: string, strategy: FitStrategy, absolutePx: Readonly<Record<string, number>>) {
-  const match = /^([+-]?(?:\d+(?:\.\d+)?|\.\d+))([a-z]+)?$/i.exec(text)
-  if (!match) return undefined
-  const amount = Number(match[1])
-  const unit = (match[2] ?? '').toLowerCase()
-  if (strategy === 'leading' && unit === '') return { value: amount, unit }
-  const factor = absolutePx[unit]
-  return factor === undefined ? undefined : { value: amount * factor, unit: 'px' }
+  const parsed = parseCssLength(text)
+  if (!parsed) return undefined
+  if (strategy === 'leading' && parsed.unit === '') return { value: parsed.value, unit: parsed.unit }
+  const factor = absolutePx[parsed.unit]
+  return factor === undefined ? undefined : { value: parsed.value * factor, unit: 'px' }
 }
 
 export function fitBounds(
@@ -44,8 +57,10 @@ export function fitBounds(
     const max = maxes[index] ? fitValue(maxes[index] as string, strategy, absolutePx) : { value: authored[strategy], unit: units[strategy] }
     const step = steps[index] ? fitValue(steps[index] as string, strategy, absolutePx) : undefined
     if (!min || !max) return []
-    units[strategy] = min.unit
-    return [{ strategy, authored: authored[strategy], min: min.value, max: max.value, ...(step ? { step: step.value } : {}) }]
+    const normalize = (held: { value: number; unit: string }) =>
+      strategy === 'leading' && held.unit === 'px' ? Math.max(1, held.value / authored.size) : strategy === 'leading' ? Math.max(1, held.value) : held.value
+    const normalizedStep = step && strategy === 'leading' && step.unit === 'px' ? step.value / authored.size : step?.value
+    return [{ strategy, authored: authored[strategy], min: normalize(min), max: normalize(max), ...(normalizedStep ? { step: normalizedStep } : {}) }]
   })
   return bounds.length === strategies.length ? { bounds, units } : undefined
 }
@@ -58,13 +73,6 @@ export function fitApplication(decision: FitDecision): FitApplication {
     else styles.letterSpacing = `${value}px`
   }
   return { styles, shrunk: decision.values.size !== undefined && decision.values.size < decision.authored.size - 0.01 }
-}
-
-export function reduceDocumentFits(
-  decisions: readonly FitDecision[],
-  reduceGroups: <T extends { group?: string; values: Readonly<Record<string, number>> }>(results: readonly T[]) => T[],
-): FitDecision[] {
-  return reduceGroups(decisions) as FitDecision[]
 }
 
 export function fitMeasurements(decisions: readonly FitDecision[]): FitMeasurement[] {

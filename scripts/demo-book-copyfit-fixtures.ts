@@ -23,7 +23,7 @@ export function slotCopyfitFixture(): DocumentInput {
   const copyText = 'A paragraph long enough to cross page windows while retaining one source slot. '.repeat(180)
   const css = `
     :where(html){font:16px/24px serif}
-    :where([data-slot-value="name"],[data-slot-overflow]){display:block;box-sizing:border-box;inline-size:120px;block-size:38px;font-size:32px;line-height:38px;white-space:nowrap;overflow:hidden}
+    :where([data-slot-value="name"],[data-slot-overflow]){display:block;box-sizing:border-box;inline-size:82px;block-size:38px;font-size:32px;line-height:38px;white-space:nowrap;overflow:hidden}
     :where([data-segnavia-book-page="1"] [data-slot-overflow]){inline-size:82px}
     :where([data-segnavia-book-page="2"] [data-slot-overflow]){inline-size:190px}`
   return {

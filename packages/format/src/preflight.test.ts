@@ -103,6 +103,17 @@ describe('boundPreflightReport', () => {
     expect(boundPreflightReport({ entries: [], facts: { pageCount: -1 } }, PREFLIGHT_PRESETS.default).facts).toEqual({ pageCount: 0, pages: [], fits: [] })
   })
 
+  test('drops malformed fit facts and bounds their strategy count and text', () => {
+    const fits = [
+      { values: { size: '10px' } },
+      { subject: 'card', group: 'g'.repeat(300), values: { size: '1'.repeat(300), leading: '1.2', tracking: '-.1px', extra: 'drop' } },
+    ]
+    const report = boundPreflightReport({ entries: [], facts: { pageCount: 0, pages: [], fits } as never }, PREFLIGHT_PRESETS.default)
+    expect(report.facts.fits).toEqual([
+      { subject: 'card', group: 'g'.repeat(256), values: { size: '1'.repeat(64), leading: '1.2', tracking: '-.1px' } },
+    ])
+  })
+
   test.each([
     ['errors', [entry('region-overset')], { measured: 0, total: 1 }, { 'region-overset': 'error' }],
     ['warnings', [entry('region-overset')], { measured: 0, total: 1 }, { 'region-overset': 'warning' }],

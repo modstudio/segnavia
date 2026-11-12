@@ -22,3 +22,16 @@ test('refuses mismatched lists, reversed bounds, and unsafe unitless leading at 
   )
   expect(fitAttributeIssues('chapter <p>', { 'data-fit': 'leading', 'data-fit-min': '0.9' })[0]).toContain('unitless leading "0.9" is under 1.0')
 })
+
+test.each([
+  ['2em', 'absolute CSS length'],
+  ['wide', 'not valid'],
+  ['-2pt', 'not valid'],
+] as const)('refuses a size minimum of %s', (value, message) => {
+  expect(fitAttributeIssues('chapter <p>', { 'data-fit': 'size', 'data-fit-min': value })[0]).toContain(message)
+})
+
+test('refuses non-positive steps and unitless tracking', () => {
+  expect(fitAttributeIssues('chapter <p>', { 'data-fit': 'size', 'data-fit-step': '0pt' })[0]).toContain('not valid')
+  expect(fitAttributeIssues('chapter <p>', { 'data-fit': 'tracking', 'data-fit-min': '-0.2' })[0]).toContain('needs an absolute CSS unit')
+})
