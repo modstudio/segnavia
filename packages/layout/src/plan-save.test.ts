@@ -20,6 +20,19 @@ function hebrewMeasurements() {
 }
 
 describe('saved book plans', () => {
+  test('keeps a measured property kind, numeric value and unit in the saved input fingerprint', () => {
+    const measurements = input({
+      flows: [flow('chapter', 'chapter', [block('text', 'p', 1, 1, 1, 0)])],
+      properties: [{ id: 'words', name: '--widest', kind: 'max-content-inline:children', value: 84.25, unit: 'px' }],
+    })
+    const saved = savePlan(measurements, planned(measurements), numbering)
+    const changed = structuredClone(measurements)
+    changed.properties[0] = { id: 'words', name: '--widest', kind: 'block', value: 84.25, unit: 'px' }
+
+    expect(replayPlan(measurements, saved, numbering).ok).toBe(true)
+    expect(savePlan(changed, planned(changed), numbering).fingerprint).not.toBe(saved.fingerprint)
+  })
+
   test('saves line-index boundaries for pointed Hebrew and round-trips unchanged pages', () => {
     const measurements = hebrewMeasurements()
     const plan = planned(measurements)
