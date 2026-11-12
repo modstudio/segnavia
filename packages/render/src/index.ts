@@ -45,7 +45,7 @@ import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledBook, filledPage, filledPages } from './slot-fill.ts'
-import { applyWatermark, watermarkCopyStamper } from './watermark-stamp.ts'
+import { watermarkCopyStamper } from './watermark-stamp.ts'
 
 export { FontRefusedError } from '@segnavia/frame/fonts'
 export type { MotifsOptions } from '@segnavia/frame/motifs'
@@ -212,7 +212,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page], parsedOptions.slots))
-        let watermarkFont: Pick<Awaited<ReturnType<typeof renderPagePdf>>, 'fontFamily' | 'fontFaceCss'> = {}
+        const watermarkCopies = watermarkCopyStamper(parsedOptions, prepared.fontCss, deadline, withTab)
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, prepared.established.slots)
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
@@ -228,14 +228,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             diagramScript,
             prepared.fontCss,
             prepared.fontFailures,
+            Boolean(parsedOptions.watermark),
           )
           if (printed.overflow) overflows.push(printed.overflow)
-          watermarkFont = { fontFamily: printed.fontFamily, fontFaceCss: printed.fontFaceCss }
-          return printed.bytes
+          const [watermarked] = await watermarkCopies.stamp([{ ...printed, page }])
+          return watermarked as Uint8Array
         })
-        const [watermarked] = await applyWatermark([{ bytes, page: prepared.page, ...watermarkFont }], parsedOptions, prepared.fontCss, deadline, withTab)
+        watermarkCopies.validate()
         const output = await withDocumentMetadata(
-          await finishWithBrowser(watermarked as Uint8Array, prepared.options, deadline),
+          await finishWithBrowser(bytes, prepared.options, deadline),
           parsedOptions.metadata,
           outputDate([prepared.established.day]),
         )
@@ -305,8 +306,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   diagramScript,
                   prepared.fontCss,
                   prepared.fontFailures,
+                  Boolean(parsedOptions.watermark),
                 ),
-              piecePdf: (page, slots, geometry, css, options) => renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript),
+              piecePdf: (page, slots, geometry, css, options) =>
+                renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, diagramScript, Boolean(parsedOptions.watermark)),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
               watermark: watermarkCopies.stamp,

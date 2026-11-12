@@ -1,5 +1,4 @@
 import { resolveDirection, type TextDirection } from '@segnavia/format'
-import { watermarkTextTargetWidth } from './watermark-fit.ts'
 import type { Watermark, WatermarkPosition } from './watermark-options.ts'
 
 export interface WatermarkPage {
@@ -24,12 +23,43 @@ function cssString(value: string): string {
   return JSON.stringify(value).replace(/</g, '\\3c ')
 }
 
+const GENERIC_FAMILIES = new Set([
+  'serif',
+  'sans-serif',
+  'monospace',
+  'cursive',
+  'fantasy',
+  'system-ui',
+  'ui-serif',
+  'ui-sans-serif',
+  'ui-monospace',
+  'ui-rounded',
+  'math',
+  'emoji',
+  'fangsong',
+])
+
+function fontFamily(value: string): string {
+  return value
+    .split(',')
+    .map((family) => {
+      const trimmed = family.trim()
+      return GENERIC_FAMILIES.has(trimmed.toLowerCase()) ? trimmed : cssString(trimmed)
+    })
+    .join(', ')
+}
+
+export function watermarkTextTargetWidth(size: number | undefined, trimWidth: number): number {
+  return (size ?? 0.6) * trimWidth
+}
+
 function styleText(value: string): string {
   return value.replace(/</g, '\\3c ')
 }
 
 export function watermarkDirection(watermark: Watermark, page: WatermarkPage): TextDirection {
-  return resolveDirection(watermark.dir ?? page.direction, watermark.lang ?? page.lang, watermark.text ?? '')
+  if (watermark.dir !== undefined || watermark.lang !== undefined) return resolveDirection(watermark.dir, watermark.lang, watermark.text ?? '')
+  return page.direction
 }
 
 export function watermarkRotation(watermark: Watermark, page: WatermarkPage): number {
@@ -40,7 +70,7 @@ export function watermarkRotation(watermark: Watermark, page: WatermarkPage): nu
 
 export function watermarkMarkup(watermark: Watermark, page: WatermarkPage): string {
   const direction = watermarkDirection(watermark, page)
-  const fontFamily = watermark.font === undefined ? page.fontFamily : cssString(watermark.font)
+  const family = watermark.font === undefined ? page.fontFamily : fontFamily(watermark.font)
   const width = watermarkTextTargetWidth(watermark.size, page.trim.width)
   const top = page.media.height - page.trim.y - page.trim.height
   const box = [
@@ -63,7 +93,7 @@ export function watermarkMarkup(watermark: Watermark, page: WatermarkPage): stri
     `transform:rotate(${watermarkRotation(watermark, page)}deg)`,
     `opacity:${watermark.opacity ?? 0.15}`,
     `color:${watermark.color ?? '#777'}`,
-    ...(fontFamily ? [`font-family:${fontFamily}`] : []),
+    ...(family ? [`font-family:${family}`] : []),
   ].join(';')
   const language = watermark.lang ?? page.lang
   const attributes = ` dir="${direction}"${language ? ` lang="${attribute(language)}"` : ''}`
@@ -83,5 +113,5 @@ export function watermarkDocument(watermark: Watermark, pages: readonly Watermar
     )
     .join('')
   const sheets = pages.map((page) => `<section class="segnavia-watermark-sheet">${watermarkMarkup(watermark, page)}</section>`).join('')
-  return `<!doctype html><html><head><style>${styleText(css)}${pageRules}:where(html,body){margin:0;background:transparent}:where(.segnavia-watermark-sheet){position:relative;break-after:page;overflow:hidden}</style></head><body>${sheets}</body></html>`
+  return `<!doctype html><html><head><style>${styleText(css)}${pageRules}html,body{margin:0;background:transparent}.segnavia-watermark-sheet{position:relative;break-after:page;overflow:hidden}</style></head><body>${sheets}</body></html>`
 }

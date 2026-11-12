@@ -79,6 +79,9 @@ export function parseWatermark(value: unknown): Watermark | undefined {
   const content = hasText ? input.text : input.image
   if (typeof content !== 'string') refusal(hasText ? 'text' : 'image', 'needs to be a string')
   validateStrings(input)
+  if (typeof input.font === 'string' && input.font.split(',').some((family) => family.trim() === '')) {
+    refusal('font', 'needs a non-empty family name on each side of a comma')
+  }
   if (input.dir !== undefined && input.dir !== 'ltr' && input.dir !== 'rtl' && input.dir !== 'auto') {
     refusal('dir', 'needs to be ltr, rtl or auto')
   }
@@ -86,13 +89,13 @@ export function parseWatermark(value: unknown): Watermark | undefined {
   return { ...input, position: parsePosition(input.position), pages: parsePages(input.pages) } as Watermark
 }
 
-export function watermarkPageNumbers(watermark: Watermark, count: number): number[] {
+export function watermarkPageNumbers(watermark: Watermark, laidOutPageCount: number, validateRange = true): number[] {
   const pages = watermark.pages ?? 'all'
-  if (pages === 'all') return Array.from({ length: count }, (_, index) => index + 1)
-  const beyond = pages.find((page) => page > count)
-  if (beyond !== undefined) {
+  if (pages === 'all') return Array.from({ length: laidOutPageCount }, (_, index) => index + 1)
+  const beyond = pages.find((page) => page > laidOutPageCount)
+  if (validateRange && beyond !== undefined) {
     throw new RenderRefusedError(
-      `The watermark selects physical page ${beyond}, but the laid-out output has ${count} pages; select a page from 1 through ${count} to clear this refusal.`,
+      `The watermark selects physical page ${beyond}, but the laid-out output has ${laidOutPageCount} pages; select a page from 1 through ${laidOutPageCount} to clear this refusal.`,
     )
   }
   return [...new Set(pages)]

@@ -12,6 +12,7 @@ test.each([
   [{ text: 'Draft', rotation: Number.POSITIVE_INFINITY }, 'rotation'],
   [{ text: 'Draft', pages: [0] }, 'pages'],
   [{ text: 'Draft', pages: [1.5] }, 'pages'],
+  [{ text: 'Draft', font: 'Body, ' }, 'font'],
 ] as const)('refuses invalid watermark options %#', (input, message) => {
   expect(() => parseWatermark(input)).toThrow(message)
 })

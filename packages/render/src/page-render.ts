@@ -5,7 +5,7 @@ import type { Page as Tab } from 'playwright-core'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { assetSetup, type ComposedRenderOptions, type RenderOptions } from './options.ts'
-import { measureOverflow, type PrintResult, printWithOverflow } from './overflow.ts'
+import { measureOverflow, type PageFontFacts, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolvedPageDocument } from './page-document.ts'
 import { assertPrintOptions, printPage } from './page-paper.ts'
@@ -19,7 +19,9 @@ interface PageRenderServices {
   withTab: TabRunner
 }
 
-async function watermarkFont(tab: Tab, printedPages = false): Promise<Pick<PrintResult, 'fontFamily' | 'fontFaceCss'>> {
+export const shouldCapturePageFontFacts = (watermark: unknown): boolean => Boolean(watermark)
+
+export async function pageFontFacts(tab: Tab, printedPages = false): Promise<PageFontFacts> {
   return tab.evaluate((fromPrintedPage) => {
     const rules: string[] = []
     const collect = (list: CSSRuleList) => {
@@ -28,7 +30,11 @@ async function watermarkFont(tab: Tab, printedPages = false): Promise<Pick<Print
         else if ('cssRules' in rule) collect((rule as CSSGroupingRule).cssRules)
       }
     }
-    for (const sheet of document.styleSheets) collect(sheet.cssRules)
+    for (const sheet of document.styleSheets) {
+      try {
+        collect(sheet.cssRules)
+      } catch {}
+    }
     const textRoot = fromPrintedPage
       ? (document.querySelector('[data-segnavia-printed-page] [data-segnavia-text]') ?? document.querySelector('[data-segnavia-printed-page]'))
       : document.body
@@ -46,6 +52,7 @@ export async function renderPagePdf(
   diagramScript?: string,
   fontCss = '',
   fontFailures: FontFailure[] = [],
+  captureFontFacts = false,
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
   const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
@@ -66,7 +73,7 @@ export async function renderPagePdf(
     async (tab) => {
       await awaitPrintedPageComposition(tab, page, opts.preflight)
       const captures = await prepareBackdropRasters(tab, opts.effects)
-      const font = await watermarkFont(tab, Boolean(page.printedPages))
+      const font = shouldCapturePageFontFacts(captureFontFacts) ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page))
         return { ...printed, ...font, bytes: await tagBackdropRasters(printed.bytes, captures) }
@@ -102,6 +109,7 @@ export async function renderPiecePdf(
   services: PageRenderServices,
   deadline?: RenderDeadline,
   diagramScript?: string,
+  captureFontFacts = false,
 ): Promise<PrintResult> {
   const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, diagramScript })
   return services.withTab(
@@ -129,7 +137,7 @@ export async function renderPiecePdf(
         },
         opts.effects,
       ),
-      ...(await watermarkFont(tab)),
+      ...(shouldCapturePageFontFacts(captureFontFacts) ? await pageFontFacts(tab) : {}),
     }),
   )
 }

@@ -1,22 +1,20 @@
-import { frameStyleSheets } from '@segnavia/frame/bridge'
 import { type HtmlPage, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
 import { endMarkedContent, type PDFArray, PDFName, PDFNumber, PDFOperator } from 'pdf-lib'
 import type { TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import { assetSetup } from './options.ts'
-import { createPdf, loadPdf } from './pdf-load.ts'
+import type { PageFontFacts } from './overflow.ts'
+import { loadPdf } from './pdf-load.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import type { ParsedPagePdfOptions } from './renderer.ts'
 import { fitWatermarkText } from './watermark-fit.ts'
 import { type WatermarkPage, watermarkDocument } from './watermark-markup.ts'
 import { watermarkPageNumbers } from './watermark-options.ts'
 
-export interface WatermarkPart {
+export interface WatermarkPart extends PageFontFacts {
   bytes: Uint8Array
   page: HtmlPage | PrintedHtmlPage
   physicalPages?: readonly number[]
-  fontFamily?: string
-  fontFaceCss?: string
 }
 
 interface ApplyWatermarkOptions {
@@ -26,12 +24,15 @@ interface ApplyWatermarkOptions {
   validateSelection?: boolean
 }
 
-export function watermarkDocumentCss(parts: readonly WatermarkPart[]): string {
-  return [...new Set(parts.flatMap((part) => frameStyleSheets(part.page.style, part.page.brand)))].join('')
-}
-
-export function watermarkFontFaceCss(parts: readonly WatermarkPart[]): string {
-  return [...new Set(parts.flatMap((part) => (part.fontFaceCss ? [part.fontFaceCss] : [])))].join('')
+export function uniqueCss<T>(parts: readonly T[], select: (part: T) => string | undefined): string {
+  return [
+    ...new Set(
+      parts.flatMap((part) => {
+        const css = select(part)
+        return css ? [css] : []
+      }),
+    ),
+  ].join('')
 }
 
 export async function watermarkPages(pdf: Uint8Array): Promise<WatermarkPage[]> {
@@ -47,26 +48,26 @@ export async function watermarkPages(pdf: Uint8Array): Promise<WatermarkPage[]> 
   })
 }
 
-export async function stampWatermark(pdf: Uint8Array, layer: Uint8Array, pages: readonly number[]): Promise<Uint8Array> {
-  if (pages.length === 0) return pdf
+export interface WatermarkPlacement {
+  layerPage: number
+  outputPage: number
+}
+
+async function stampWatermarkMapped(pdf: Uint8Array, layer: Uint8Array, placements: readonly WatermarkPlacement[]): Promise<Uint8Array> {
+  if (placements.length === 0) return pdf
   const output = await loadPdf(pdf)
   const source = await loadPdf(layer)
-  if (source.getPageCount() !== pages.length) {
-    throw new RenderRefusedError(
-      `The watermark layer has ${source.getPageCount()} pages for ${pages.length} selected output pages; rebuild the watermark layer to clear this refusal.`,
-    )
-  }
-  for (const [layerIndex, pageNumber] of pages.entries()) {
-    const page = output.getPage(pageNumber - 1)
+  for (const { layerPage: layerIndex, outputPage } of placements) {
+    const page = output.getPage(outputPage - 1)
     const layerPage = source.getPage(layerIndex)
     if (!page || !layerPage) {
-      throw new RenderRefusedError(`The watermark layer could not be matched to physical page ${pageNumber}; rebuild the output to clear this refusal.`)
+      throw new RenderRefusedError(`The watermark layer could not be matched to output page ${outputPage}; rebuild the output to clear this refusal.`)
     }
     const media = page.getMediaBox()
     const trim = page.getTrimBox()
     const [embedded] = await output.embedPdf(source, [layerIndex])
     if (!embedded)
-      throw new RenderRefusedError(`The watermark layer page for physical page ${pageNumber} could not be embedded; rebuild it to clear this refusal.`)
+      throw new RenderRefusedError(`The watermark layer page for output page ${outputPage} could not be embedded; rebuild it to clear this refusal.`)
     const bbox = output.context.obj([
       PDFNumber.of(trim.x),
       PDFNumber.of(trim.y),
@@ -81,6 +82,16 @@ export async function stampWatermark(pdf: Uint8Array, layer: Uint8Array, pages: 
   return output.save()
 }
 
+export async function stampWatermark(pdf: Uint8Array, layer: Uint8Array, placements: readonly WatermarkPlacement[]): Promise<Uint8Array> {
+  const source = await loadPdf(layer)
+  if (source.getPageCount() !== placements.length) {
+    throw new RenderRefusedError(
+      `The watermark layer has ${source.getPageCount()} pages for ${placements.length} selected output pages; rebuild the watermark layer to clear this refusal.`,
+    )
+  }
+  return stampWatermarkMapped(pdf, layer, placements)
+}
+
 export async function stampWatermarkParts(
   parts: readonly Uint8Array[],
   layer: Uint8Array,
@@ -90,7 +101,7 @@ export async function stampWatermarkParts(
   const layerDocument = await loadPdf(layer)
   if (layerDocument.getPageCount() !== selected.length) {
     throw new RenderRefusedError(
-      `The watermark layer has ${layerDocument.getPageCount()} pages for ${selected.length} selected reader pages; rebuild the watermark layer to clear this refusal.`,
+      `The watermark layer has ${layerDocument.getPageCount()} pages for ${selected.length} selected output pages; rebuild the watermark layer to clear this refusal.`,
     )
   }
   const byPart = new Map<number, Array<{ page: number; layer: number }>>()
@@ -103,16 +114,10 @@ export async function stampWatermarkParts(
     parts.map(async (part, partIndex) => {
       const entries = byPart.get(partIndex)
       if (!entries) return part
-      const subset = await createPdf()
-      const copied = await subset.copyPages(
-        layerDocument,
-        entries.map((entry) => entry.layer),
-      )
-      for (const page of copied) subset.addPage(page)
-      return stampWatermark(
+      return stampWatermarkMapped(
         part,
-        await subset.save(),
-        entries.map((entry) => entry.page),
+        layer,
+        entries.map((entry) => ({ layerPage: entry.layer, outputPage: entry.page })),
       )
     }),
   )
@@ -146,22 +151,15 @@ export async function applyWatermark(
       },
     }))
   })
-  const count = pageCount ?? mapped.length
-  reportPageCount?.(count)
-  const selectedNumbers = new Set(
-    validateSelection
-      ? watermarkPageNumbers(options.watermark, physicalPageOffset + count)
-      : options.watermark.pages === undefined || options.watermark.pages === 'all'
-        ? mapped.map((entry) => entry.physical)
-        : options.watermark.pages,
-  )
+  const laidOutPageCount = pageCount ?? mapped.length
+  reportPageCount?.(laidOutPageCount)
+  const selectedNumbers = new Set(watermarkPageNumbers(options.watermark, physicalPageOffset + laidOutPageCount, validateSelection))
   const selected = mapped.filter((entry) => selectedNumbers.has(entry.physical))
   if (selected.length === 0) return parts.map((part) => part.bytes)
-  const documentCss = watermarkDocumentCss(parts)
   const html = watermarkDocument(
     options.watermark,
     selected.map((entry) => entry.geometry),
-    `${documentCss}${options.css ?? ''}${fontCss}${watermarkFontFaceCss(parts)}`,
+    `${fontCss}${uniqueCss(parts, (part) => part.fontFaceCss)}`,
   )
   const layer = await withTab(
     {

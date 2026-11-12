@@ -1,7 +1,3 @@
-export function watermarkTextTargetWidth(size: number | undefined, trimWidth: number): number {
-  return (size ?? 0.6) * trimWidth
-}
-
 export function fitWatermarkText(): void {
   for (const mark of document.querySelectorAll<HTMLElement>('.segnavia-watermark')) {
     const text = mark.querySelector<HTMLElement>('bdi')

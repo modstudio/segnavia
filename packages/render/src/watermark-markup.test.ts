@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { type WatermarkPage, watermarkDocument, watermarkMarkup, watermarkRotation } from './watermark-markup.ts'
+import { type WatermarkPage, watermarkDirection, watermarkDocument, watermarkMarkup, watermarkRotation } from './watermark-markup.ts'
 
 const page = (width: number, height: number, direction: 'ltr' | 'rtl' = 'ltr'): WatermarkPage => ({
   media: { width, height },
@@ -14,6 +14,16 @@ test('the default rotation follows A4 and letter diagonals', () => {
 
 test('rtl text mirrors the page diagonal', () => {
   expect(watermarkRotation({ text: 'טיוטה', dir: 'rtl' }, page(210, 297))).toBeCloseTo(54.73699, 5)
+})
+
+test('the default text width is sixty percent of trim', () => {
+  expect(watermarkMarkup({ text: 'Draft' }, page(210, 297))).toContain('inline-size:126pt')
+})
+
+test('watermark declarations precede inherited page direction', () => {
+  expect(watermarkDirection({ text: 'שלום', lang: 'he' }, page(210, 297, 'ltr'))).toBe('rtl')
+  expect(watermarkDirection({ text: 'Draft', lang: 'en' }, page(210, 297, 'rtl'))).toBe('ltr')
+  expect(watermarkDirection({ text: 'Draft' }, page(210, 297, 'rtl'))).toBe('rtl')
 })
 
 test.each([
@@ -48,6 +58,8 @@ test('each layer page uses its part family unless the watermark overrides it', (
   const overridden = watermarkDocument({ text: 'Draft', font: 'Watermark Face' }, pages)
   expect(overridden.match(/font-family:&quot;Watermark Face&quot;/g)).toHaveLength(2)
   expect(overridden).not.toContain('font-family:Page Two')
+
+  expect(watermarkMarkup({ text: 'Draft', font: 'Frank Ruhl Libre, serif' }, page(210, 297))).toContain('font-family:&quot;Frank Ruhl Libre&quot;, serif')
 })
 
 test('a quote in the watermark color stays inside the style attribute', () => {
