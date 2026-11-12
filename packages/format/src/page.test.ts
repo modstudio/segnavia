@@ -1,11 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { PAGE_WIDTHS, Page, PageSize, PageWidths, resolvePageWidth } from './page.ts'
+import { PAGE_WIDTHS, Page, PageSize, PageWidths, pageBodyFromHtml, resolvePageWidth } from './page.ts'
 
 describe('PageSize', () => {
   test('normalizes HTML and markdown shorthand to the page body', () => {
     expect(Page.parse({ html: '<p>HTML</p>' }).body).toEqual({ html: '<p>HTML</p>' })
     expect(Page.parse({ markdown: '# Markdown' }).body).toEqual({ markdown: '# Markdown' })
     expect(Page.parse({ body: { markdown: 'Body' } }).body).toEqual({ markdown: 'Body' })
+    expect(Page.parse({ body: { html: '<p>Body</p>', markdown: 'Body' } }).body).toEqual({ html: '<p>Body</p>', markdown: 'Body' })
+  })
+
+  test('builds stored bodies with only a current markdown source', () => {
+    expect(pageBodyFromHtml('<p>HTML</p>')).toEqual({ html: '<p>HTML</p>' })
+    expect(pageBodyFromHtml('<p>Markdown</p>', { markdown: '# Markdown' })).toEqual({ html: '<p>Markdown</p>', markdown: '# Markdown' })
   })
 
   test.each([

@@ -215,6 +215,7 @@ export {
   PageBody,
   PageSize,
   PageWidths,
+  pageBodyFromHtml,
   type ResolvedPageWidth,
   resolvePageWidth,
 } from './page.ts'

@@ -115,6 +115,7 @@ export {
   type PrintedHtmlPage,
   printedPageAuthorHtml,
   printedPageDirection,
+  type ResolvePageHtmlOptions,
   resolvePageHtml,
   resolvePrintedPageHtml,
 } from './markdown.ts'

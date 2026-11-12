@@ -78,6 +78,26 @@ describe('document operation properties', () => {
   })
 })
 
+test('diff and inversion carry a page body markdown source with the field', () => {
+  const before = Document.parse({
+    type: 'document',
+    id: 'document',
+    kind: 'page',
+    children: [{ type: 'page', id: 'page', body: { html: '<p data-segnavia-id="p">Body</p>', markdown: 'Body' } }],
+  })
+  const after = Document.parse({
+    ...before,
+    children: [{ type: 'page', id: 'page', body: { html: '<p data-segnavia-id="p">Changed</p>' } }],
+  })
+  const afterPage = after.children[0]
+  if (afterPage?.type !== 'page') throw new Error('test fixture has no page')
+  const ops = diffDocuments(before, after)
+  expect(ops).toMatchObject([{ type: 'setContent', id: 'page', field: 'body', content: afterPage.body }])
+  const forward = batch(before, ops)
+  expect(applyOps(before, forward)).toEqual(after)
+  expect(applyOps(after, inverseBatch(forward, after))).toEqual(before)
+})
+
 test('inverts absent content, structural fields, and style through JSON', () => {
   const before = generatedDocumentOfKind('book', 9)
   const part = firstNode(before)

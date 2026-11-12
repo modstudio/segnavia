@@ -22,11 +22,13 @@ test('the exported block table controls id minting and inline elements get no id
 })
 
 test('keeps existing block ids, converts markdown once, and parsing twice is the identity', () => {
+  const markdown = '# Heading\n\nParagraph'
   const newId = counter()
-  const parsed = parseDocument(page({ markdown: '# Heading\n\nParagraph' }), { newId })
+  const parsed = parseDocument(page({ markdown }), { newId })
   const twice = parseDocument(parsed, { newId })
   expect(twice).toEqual(parsed)
   const body = parsed.children[0]?.type === 'page' ? parsed.children[0].body : undefined
+  expect(body).toMatchObject({ markdown })
   expect(body && 'html' in body ? body.html : '').toContain('<h1 id="heading" data-segnavia-id="minted-3">')
 
   const existing = parseDocument(page({ html: '<p data-segnavia-id="kept">Text</p>' }), { newId: counter() })
@@ -85,6 +87,16 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
   const documentIds = [...nodeIds, ...blockIds, 'hebrew-6']
   expect(mintedIds).toEqual(['hebrew-3', 'hebrew-5', 'hebrew-7', 'hebrew-8', 'hebrew-9', 'hebrew-10', 'hebrew-11', 'hebrew-12', 'hebrew-13'])
   expect(new Set(documentIds).size).toBe(documentIds.length)
+})
+
+test('keeps Hebrew markdown and its direction through another parse', () => {
+  const markdown = '> [!NOTE]\n> שלום'
+  const parsed = parseDocument(
+    { type: 'document', kind: 'page', settings: { dir: 'rtl', lang: 'he' }, children: [{ type: 'page', body: { markdown } }] },
+    { newId: counter() },
+  )
+  expect(parseDocument(parsed, { newId: counter() })).toEqual(parsed)
+  expect(parsed.children[0]).toMatchObject({ body: { markdown, html: expect.stringContaining('<bdi>הערה</bdi>') } })
 })
 
 test('uses host alert labels while converting markdown at the content edge', () => {

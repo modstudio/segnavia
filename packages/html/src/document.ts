@@ -3,8 +3,10 @@ import {
   type DocumentInput,
   type DocumentParseOptions,
   defaultNewId,
+  type OriginApproval,
   type PageOrPrintedInput,
   type Document as ParsedDocument,
+  pageBodyFromHtml,
   pageOrPrintedFromDocument,
 } from '@segnavia/format'
 import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
@@ -14,6 +16,7 @@ export { BLOCK_ELEMENTS } from './block-context.ts'
 
 export interface ParseDocumentOptions extends DocumentParseOptions {
   alertLabels?: Partial<AlertLabels>
+  origins?: Iterable<OriginApproval>
 }
 
 type ContentHtml = (value: string, node: { type: string; id: string }) => string
@@ -25,14 +28,15 @@ function contentNodeLabel(node: { type: string; id: string }): string {
 export function pageBodyHtml(
   body: { html: string } | { markdown: string },
   document: Pick<ParsedDocument, 'settings'>,
-  alertLabels?: Partial<AlertLabels>,
+  options: Pick<ParseDocumentOptions, 'alertLabels' | 'origins'> = {},
 ): string {
   return 'html' in body
     ? body.html
     : markdownHtml(body, {
         dir: document.settings?.dir,
         lang: document.settings?.lang,
-        alertLabels,
+        alertLabels: options.alertLabels,
+        origins: options.origins,
       })
 }
 
@@ -43,8 +47,8 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const html: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen).html
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
-    const value = pageBodyHtml(node.body, document, options.alertLabels)
-    return { ...node, body: { html: html(value, node) } }
+    const value = pageBodyHtml(node.body, document, options)
+    return { ...node, body: pageBodyFromHtml(html(value, node), node.body) }
   }
   const nodeContent = (node: ParsedDocument['children'][number]): ParsedDocument['children'][number] => {
     if (node.type === 'flow') return { ...node, html: html(node.html, node) }

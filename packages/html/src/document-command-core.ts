@@ -9,6 +9,7 @@ import {
   fingerprintDocument,
   type OperationDocument,
   type OperationNode,
+  pageBodyFromHtml,
 } from '@segnavia/format'
 import { CONTENT_FIELD_SHAPES, contentFieldShape, type FragmentShape } from './block-fragments.ts'
 import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
@@ -60,7 +61,7 @@ function pageBodySource(value: object, context: DocumentCommandContext): string 
   const body = value as { html?: unknown; markdown?: unknown }
   if (typeof body.html === 'string') return body.html
   if (typeof body.markdown !== 'string') return undefined
-  return pageBodyHtml(body as { markdown: string }, context.document, context.options.alertLabels)
+  return pageBodyHtml(body as { markdown: string }, context.document, { alertLabels: context.options.alertLabels })
 }
 
 function identifiedField(
@@ -80,7 +81,7 @@ function identifiedField(
   if (!value || typeof value !== 'object') return value
   if (shape === 'pageBody') {
     const source = pageBodySource(value, context)
-    return source === undefined ? value : { html: identify(source) }
+    return source === undefined ? value : pageBodyFromHtml(identify(source), value as { markdown?: string })
   }
   if (shape === 'slideContent') {
     const held = value as { kind?: unknown; html?: unknown }

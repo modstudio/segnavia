@@ -39,9 +39,11 @@ test('resolves the rendered page root direction while preserving an authored dir
   expect(authoredHtml.match(/<html[^>]*\sdir\s*=/gi)).toHaveLength(1)
 })
 
-test('the value renderer refuses markdown that skipped the Document content edge', () => {
+test('the value renderer lowers a markdown-only page', () => {
   const markdown = Page.parse({ markdown: '# שלום\n\nEnglish text.', size: { width: 600, height: 400 } })
-  expect(() => renderPageValueDocument(markdown, {}, false, 'test')).toThrow('pass its Document input through @segnavia/html parseDocument')
+  const rendered = renderPageValueDocument(markdown, {}, false, 'test')
+  expect(rendered).toContain('<h1 id="שלום">שלום</h1>')
+  expect(rendered).toContain('<html dir="rtl">')
 })
 
 test('inlines the offline diagram renderer only for a diagram body', () => {
