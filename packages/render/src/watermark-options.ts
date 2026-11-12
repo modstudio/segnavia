@@ -22,69 +22,67 @@ function refusal(field: string, need: string): never {
   throw new RenderRefusedError(`The watermark ${field} ${need}; change watermark.${field} or omit the watermark to clear this refusal.`)
 }
 
-export function parseWatermark(value: unknown): Watermark | undefined {
+function parsePosition(value: unknown): Watermark['position'] {
   if (value === undefined) return undefined
-  if (!value || typeof value !== 'object' || Array.isArray(value)) refusal('option', 'needs to be an object')
-  const input = value as Record<string, unknown>
-  const hasText = typeof input.text === 'string'
-  const hasImage = typeof input.image === 'string'
-  if (hasText === hasImage) {
-    throw new RenderRefusedError(
-      'The watermark needs exactly one of text or image; pass one and remove the other, or omit the watermark, to clear this refusal.',
-    )
+  if (!value || typeof value !== 'object' || Array.isArray(value)) refusal('position', 'needs to be an object')
+  const position = value as Record<string, unknown>
+  for (const axis of ['inline', 'block'] as const) {
+    if (position[axis] !== undefined && !POSITIONS.has(position[axis] as WatermarkPosition)) {
+      refusal(`position.${axis}`, 'needs to be start, center or end')
+    }
   }
+  return {
+    ...(position.inline === undefined ? {} : { inline: position.inline as WatermarkPosition }),
+    ...(position.block === undefined ? {} : { block: position.block as WatermarkPosition }),
+  }
+}
+
+function parsePages(value: unknown): Watermark['pages'] {
+  if (value === undefined || value === 'all') return value
+  if (!Array.isArray(value)) refusal('pages', 'needs to be all or an array of physical page numbers')
+  if (value.some((page) => typeof page !== 'number' || !Number.isInteger(page) || page < 1)) {
+    refusal('pages', 'needs only integer physical page numbers of 1 or more')
+  }
+  return [...value] as number[]
+}
+
+function validateStrings(input: Record<string, unknown>): void {
   for (const field of ['lang', 'font', 'color'] as const) {
     if (input[field] !== undefined && typeof input[field] !== 'string') refusal(field, 'needs to be a string')
   }
-  if (input.dir !== undefined && input.dir !== 'ltr' && input.dir !== 'rtl' && input.dir !== 'auto') {
-    refusal('dir', 'needs to be ltr, rtl or auto')
-  }
+}
+
+function validateNumbers(input: Record<string, unknown>): void {
   for (const field of ['opacity', 'size'] as const) {
     const number = input[field]
     if (number !== undefined && (typeof number !== 'number' || !Number.isFinite(number) || number <= 0 || number > 1)) {
       refusal(field, 'needs to be greater than 0 and no greater than 1')
     }
   }
-  if (
-    input.rotation !== undefined &&
-    input.rotation !== 'diagonal' &&
-    (typeof input.rotation !== 'number' || !Number.isFinite(input.rotation))
-  ) {
+  if (input.rotation !== undefined && input.rotation !== 'diagonal' && (typeof input.rotation !== 'number' || !Number.isFinite(input.rotation))) {
     refusal('rotation', 'needs to be a finite number of degrees or diagonal')
   }
-  let position: Watermark['position']
-  if (input.position !== undefined) {
-    if (!input.position || typeof input.position !== 'object' || Array.isArray(input.position)) refusal('position', 'needs to be an object')
-    const candidate = input.position as Record<string, unknown>
-    for (const axis of ['inline', 'block'] as const) {
-      if (candidate[axis] !== undefined && !POSITIONS.has(candidate[axis] as WatermarkPosition)) {
-        refusal(`position.${axis}`, 'needs to be start, center or end')
-      }
-    }
-    position = candidate as Watermark['position']
+}
+
+export function parseWatermark(value: unknown): Watermark | undefined {
+  if (value === undefined) return undefined
+  if (!value || typeof value !== 'object' || Array.isArray(value)) refusal('option', 'needs to be an object')
+  const input = value as Record<string, unknown>
+  const hasText = input.text !== undefined
+  const hasImage = input.image !== undefined
+  if (hasText === hasImage) {
+    throw new RenderRefusedError(
+      'The watermark needs exactly one of text or image; pass one and remove the other, or omit the watermark, to clear this refusal.',
+    )
   }
-  let pages: Watermark['pages']
-  if (input.pages !== undefined) {
-    if (input.pages === 'all') pages = 'all'
-    else if (Array.isArray(input.pages)) {
-      if (input.pages.some((page) => typeof page !== 'number' || !Number.isInteger(page) || page < 1)) {
-        refusal('pages', 'needs only integer physical page numbers of 1 or more')
-      }
-      pages = [...input.pages] as number[]
-    } else refusal('pages', 'needs to be all or an array of physical page numbers')
+  const content = hasText ? input.text : input.image
+  if (typeof content !== 'string') refusal(hasText ? 'text' : 'image', 'needs to be a string')
+  validateStrings(input)
+  if (input.dir !== undefined && input.dir !== 'ltr' && input.dir !== 'rtl' && input.dir !== 'auto') {
+    refusal('dir', 'needs to be ltr, rtl or auto')
   }
-  return {
-    ...(hasText ? { text: input.text as string } : { image: input.image as string }),
-    ...(input.lang === undefined ? {} : { lang: input.lang as string }),
-    ...(input.dir === undefined ? {} : { dir: input.dir as Watermark['dir'] }),
-    ...(input.font === undefined ? {} : { font: input.font as string }),
-    ...(input.color === undefined ? {} : { color: input.color as string }),
-    ...(input.opacity === undefined ? {} : { opacity: input.opacity as number }),
-    ...(input.rotation === undefined ? {} : { rotation: input.rotation as Watermark['rotation'] }),
-    ...(input.size === undefined ? {} : { size: input.size as number }),
-    ...(position === undefined ? {} : { position }),
-    ...(pages === undefined ? {} : { pages }),
-  }
+  validateNumbers(input)
+  return { ...input, position: parsePosition(input.position), pages: parsePages(input.pages) } as Watermark
 }
 
 export function watermarkPageNumbers(watermark: Watermark, count: number): number[] {

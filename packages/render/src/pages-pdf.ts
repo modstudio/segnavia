@@ -23,6 +23,7 @@ import { joinPdfs } from './pdf-join.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import { slotsForDocument } from './slot-document.ts'
+import type { WatermarkPart } from './watermark-stamp.ts'
 
 export type PagesPdfOptions = ComposedRenderOptions & { imposition?: ImpositionInput }
 
@@ -36,12 +37,6 @@ interface PagesPdfServices {
 
 const watermarkParts = (services: PagesPdfServices, parts: readonly WatermarkPart[], pageCount?: number) =>
   services.watermark ? services.watermark(parts, pageCount) : Promise.resolve(parts.map((part) => part.bytes))
-
-export interface WatermarkPart {
-  bytes: Uint8Array
-  page: HtmlPage | PrintedHtmlPage
-  physicalPages?: readonly number[]
-}
 
 function namePageError(error: unknown, page: number): never {
   if (error instanceof Error) {

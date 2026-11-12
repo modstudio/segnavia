@@ -75,8 +75,6 @@ export function watermarkDocument(watermark: Watermark, pages: readonly Watermar
         `.segnavia-watermark-sheet:nth-of-type(${index + 1}){page:segnavia-watermark-${index + 1};width:${page.media.width}pt;height:${page.media.height}pt}`,
     )
     .join('')
-  const sheets = pages
-    .map((page) => `<section class="segnavia-watermark-sheet">${watermarkMarkup(watermark, page)}</section>`)
-    .join('')
+  const sheets = pages.map((page) => `<section class="segnavia-watermark-sheet">${watermarkMarkup(watermark, page)}</section>`).join('')
   return `<!doctype html><html><head><style>${css}${pageRules}:where(html,body){margin:0;background:transparent}:where(.segnavia-watermark-sheet){position:relative;break-after:page;overflow:hidden}</style></head><body>${sheets}</body></html>`
 }

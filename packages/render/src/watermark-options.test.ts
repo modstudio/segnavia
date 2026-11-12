@@ -5,6 +5,7 @@ import { parseWatermark, watermarkPageNumbers } from './watermark-options.ts'
 test.each([
   [{ text: 'Draft', image: 'data:image/png;base64,' }, 'exactly one'],
   [{ opacity: 0.5 }, 'exactly one'],
+  [{ text: 3 }, 'text'],
   [{ text: 'Draft', opacity: 0 }, 'opacity'],
   [{ text: 'Draft', opacity: 1.1 }, 'opacity'],
   [{ text: 'Draft', size: Number.NaN }, 'size'],
@@ -45,8 +46,6 @@ test('parses a watermark without changing its public option names', () => {
 
 test('refuses a selected physical page beyond the laid-out page count', () => {
   expect(() => watermarkPageNumbers({ text: 'Draft', pages: [4] }, 3)).toThrow(
-    new RenderRefusedError(
-      'The watermark selects physical page 4, but the laid-out output has 3 pages; select a page from 1 through 3 to clear this refusal.',
-    ),
+    new RenderRefusedError('The watermark selects physical page 4, but the laid-out output has 3 pages; select a page from 1 through 3 to clear this refusal.'),
   )
 })
