@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import type { BookSectionInfo } from '@segnavia/html'
 import type { BookDestination } from './book-destinations.ts'
-import { bookPartsPrintStatus, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
+import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
+import { RenderRefusedError } from './errors.ts'
 
 const sections: BookSectionInfo[] = [{ id: 'front-section', kind: 'front', division: 'front', title: 'Preface' }]
 const destinations = (page: number): Map<string, BookDestination> =>
@@ -46,4 +47,14 @@ test('bounds front and body alternation and names moving targets', () => {
     message:
       'Front and body page references to target did not converge after three alternations; shorten the referenced content or reserve fixed space for page references to clear this refusal.',
   })
+})
+
+test('leaves an unprinted heading number empty and refuses an explicit page reference', () => {
+  const sources = [
+    { destinations: new Map([['preface', { page: 1, x: 0, y: 0 }]]), system: 'arabic' as const, printed: false, division: 'frontMatter' as const },
+  ]
+  expect(finalNumbers(['preface'], sources, new Set(['preface']))).toEqual({ preface: '' })
+  expect(() => finalNumbers(['preface'], sources)).toThrow(RenderRefusedError)
+  expect(() => finalNumbers(['preface'], sources)).toThrow(/numbering\.printed\.frontMatter/)
+  expect(() => finalNumbers(['preface'], sources, new Set(['preface']), new Set(['preface']))).toThrow(RenderRefusedError)
 })

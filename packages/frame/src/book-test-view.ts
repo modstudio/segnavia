@@ -58,7 +58,7 @@ export function switchableBookView(): BookViewInput {
         },
       ],
       direction: 'ltr',
-      numbering: { frontMatter: 'roman-lower', body: 'arabic' },
+      numbering: { frontMatter: 'roman-lower', body: 'arabic', printed: { frontMatter: true, body: true } },
       rectoOpenings: false,
       orphans: 2,
       widows: 2,

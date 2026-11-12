@@ -81,9 +81,15 @@ describe('book', () => {
         endnotes: { marker: 'hebrew', placement: 'book' },
       }),
     )
-    expect(book.numbering).toEqual({ frontMatter: 'roman-upper', body: 'roman-lower' })
+    expect(book.numbering).toEqual({ frontMatter: 'roman-upper', body: 'roman-lower', printed: { frontMatter: true, body: true } })
     expect(book.footnotes).toEqual({ marker: 'symbols', restart: 'book' })
     expect(book.endnotes).toEqual({ marker: 'hebrew', placement: 'book', title: 'הערות' })
+  })
+
+  test('resolves division printing defaults and explicit blind front matter', () => {
+    expect(Book.parse(input()).numbering.printed).toEqual({ frontMatter: true, body: true })
+    expect(Book.parse(input({ numbering: { printed: { frontMatter: false } } })).numbering.printed).toEqual({ frontMatter: false, body: true })
+    expect(Book.safeParse(input({ numbering: { printed: { frontMatter: 'no' } } })).success).toBeFalse()
   })
 
   test('a parsed book resolves every defaulted field', () => {
@@ -161,6 +167,11 @@ describe('book', () => {
     expect(result.error?.issues[0]).toMatchObject({ path: ['numbering'] })
     expect(result.error?.issues[0]?.message).toContain('both arabic')
     expect(result.error?.issues[0]?.message).toContain('must differ')
+    expect(
+      Book.safeParse(
+        input({ frontMatter: [{ html: '<nav>Contents</nav>' }], numbering: { frontMatter: 'arabic', body: 'arabic', printed: { frontMatter: false } } }),
+      ).success,
+    ).toBeTrue()
   })
 
   test('chapter endnotes need paginated mode', () => {

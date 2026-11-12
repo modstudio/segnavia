@@ -16,10 +16,14 @@ export function defaultPageNumbering(lang: string | undefined): NumberSystem {
 /** A book's division number systems: each configured system, or the language's default for that division. */
 export function divisionNumbering(
   lang: string | undefined,
-  configured: { frontMatter?: NumberSystem; body?: NumberSystem } = {},
-): { frontMatter: NumberSystem; body: NumberSystem } {
+  configured: { frontMatter?: NumberSystem; body?: NumberSystem; printed?: { frontMatter?: boolean; body?: boolean } } = {},
+): { frontMatter: NumberSystem; body: NumberSystem; printed: { frontMatter: boolean; body: boolean } } {
   const hebrew = isHebrew(lang)
-  return { frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'), body: configured.body ?? defaultPageNumbering(lang) }
+  return {
+    frontMatter: configured.frontMatter ?? (hebrew ? 'arabic' : 'roman-lower'),
+    body: configured.body ?? defaultPageNumbering(lang),
+    printed: { frontMatter: configured.printed?.frontMatter ?? true, body: configured.printed?.body ?? true },
+  }
 }
 
 const NoteMark = z.string().regex(/^\S{1,8}$/u, 'a note mark must be 1 to 8 characters with no whitespace')

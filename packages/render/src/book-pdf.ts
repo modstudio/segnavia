@@ -130,16 +130,16 @@ async function convergeBody(
   if (ids.length === 0) return source.part
   let part = source.part
   let expected = finalNumbers(ids, [
-    { destinations: front.destinations, system: book.numbering.frontMatter },
-    { destinations: part.destinations, system: book.numbering.body },
+    { destinations: front.destinations, system: book.numbering.frontMatter, printed: book.numbering.printed.frontMatter, division: 'frontMatter' },
+    { destinations: part.destinations, system: book.numbering.body, printed: book.numbering.printed.body, division: 'body' },
   ])
   for (let reprints = 1; reprints <= 3; reprints += 1) {
     const document = bookDocument(book, { part: 'body', targets: true, crossLinks: true, blankBefore: source.blankBefore, pageNumbers: expected })
     const printed = await inspect(await adapter.print(document.html, book, slots, options, 'body'))
     requireTargets(printed, hashTargets(document))
     const actual = finalNumbers(ids, [
-      { destinations: front.destinations, system: book.numbering.frontMatter },
-      { destinations: printed.destinations, system: book.numbering.body },
+      { destinations: front.destinations, system: book.numbering.frontMatter, printed: book.numbering.printed.frontMatter, division: 'frontMatter' },
+      { destinations: printed.destinations, system: book.numbering.body, printed: book.numbering.printed.body, division: 'body' },
     ])
     part = printed
     const status = pageReferencePrintStatus(expected, actual, reprints)
@@ -159,7 +159,11 @@ async function printFront(book: Book, slots: PreparedSlots, source: BookDocument
   const numberIds = [...new Set([...headingIds, ...source.pageReferenceTargets])]
   if (sections.length === 0) {
     const part = { pages: 0, destinations: new Map() } as PrintedPart
-    const numbers = finalNumbers(numberIds, [{ destinations: body.destinations, system: book.numbering.body }], headingIds)
+    const numbers = finalNumbers(
+      numberIds,
+      [{ destinations: body.destinations, system: book.numbering.body, printed: book.numbering.printed.body, division: 'body' }],
+      headingIds,
+    )
     return { part, trailingBlank: false, numbers }
   }
   const ids: string[] = []
@@ -185,10 +189,11 @@ async function printFront(book: Book, slots: PreparedSlots, source: BookDocument
     numbers = finalNumbers(
       numberIds,
       [
-        { destinations: printed.destinations, system: book.numbering.frontMatter },
-        { destinations: body.destinations, system: book.numbering.body },
+        { destinations: printed.destinations, system: book.numbering.frontMatter, printed: book.numbering.printed.frontMatter, division: 'frontMatter' },
+        { destinations: body.destinations, system: book.numbering.body, printed: book.numbering.printed.body, division: 'body' },
       ],
       headingIds,
+      new Set(source.pageReferenceTargets),
     )
   }
   if (!final) throw new RenderRefusedError('The front print did not converge after three prints.')
@@ -196,10 +201,11 @@ async function printFront(book: Book, slots: PreparedSlots, source: BookDocument
   numbers = finalNumbers(
     numberIds,
     [
-      { destinations: final.destinations, system: book.numbering.frontMatter },
-      { destinations: body.destinations, system: book.numbering.body },
+      { destinations: final.destinations, system: book.numbering.frontMatter, printed: book.numbering.printed.frontMatter, division: 'frontMatter' },
+      { destinations: body.destinations, system: book.numbering.body, printed: book.numbering.printed.body, division: 'body' },
     ],
     headingIds,
+    new Set(source.pageReferenceTargets),
   )
   return { part: trailingBlank ? await appendBlank(final) : final, trailingBlank, numbers }
 }
@@ -221,10 +227,11 @@ async function convergeBookParts(
     const actual = finalNumbers(
       [...new Set([...body.document.headings.map((heading) => heading.id), ...body.document.pageReferenceTargets])],
       [
-        { destinations: front.part.destinations, system: book.numbering.frontMatter },
-        { destinations: body.part.destinations, system: book.numbering.body },
+        { destinations: front.part.destinations, system: book.numbering.frontMatter, printed: book.numbering.printed.frontMatter, division: 'frontMatter' },
+        { destinations: body.part.destinations, system: book.numbering.body, printed: book.numbering.printed.body, division: 'body' },
       ],
       new Set(body.document.headings.map((heading) => heading.id)),
+      new Set(body.document.pageReferenceTargets),
     )
     const status = bookPartsPrintStatus(front.numbers, actual, alternations)
     if (status.status === 'stable') return { front, body: body.part }
@@ -317,6 +324,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
       },
       documentFacts,
       book.parentRules,
+      book.numbering.printed.frontMatter,
     ),
     ...marginFactsFor(
       bodySections,
@@ -332,6 +340,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
       },
       documentFacts,
       book.parentRules,
+      book.numbering.printed.body,
     ),
   ]
   const direction = resolveDirection(book.dir, book.lang, book.title)

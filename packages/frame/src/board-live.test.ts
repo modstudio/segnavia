@@ -74,7 +74,7 @@ function bookItem(foot = '<span data-motif="held"></span>') {
           },
         ],
         direction: 'ltr' as const,
-        numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const },
+        numbering: { frontMatter: 'roman-lower' as const, body: 'arabic' as const, printed: { frontMatter: true, body: true } },
         rectoOpenings: false,
         orphans: 2,
         widows: 2,

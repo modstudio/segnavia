@@ -143,7 +143,7 @@ export function printedPageValueDocument(
     expectedCount: options.expectedCount ?? null,
     measure: options.measure ?? false,
     inlineOverflow: 'tile',
-    numbering: { frontMatter: numbering, body: numbering },
+    numbering: { frontMatter: numbering, body: numbering, printed: { frontMatter: true, body: true } },
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),

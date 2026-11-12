@@ -34,6 +34,14 @@ test('continuous margin facts select a host parent from the owning section rules
   expect(planBookPages(facts, 'ltr')[0]?.parent).toBe('host')
 })
 
+test('continuous margin facts leave an unprinted folio and its running variable empty', () => {
+  const sections = [{ id: 'preface', kind: 'front' as const, division: 'front' as const, title: 'Preface' }]
+  const destinations = new Map([['preface', { page: 1, x: 0, y: 0 }]])
+  const facts = marginFactsFor(sections, destinations, 1, new Set(), 'arabic', [], undefined, undefined, undefined, false)
+  expect(facts[0]).toMatchObject({ folio: '', variables: {} })
+  expect(facts[0]?.variables?.['segnavia:folio']).toBeUndefined()
+})
+
 test("continuous margin facts fall back to the book's parent rules", () => {
   const book = parseBookFixture({
     title: 'Book',

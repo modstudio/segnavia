@@ -15,6 +15,7 @@ export interface BookPlanSection {
 export interface BookPlanNumbering {
   frontMatter: NumberSystem
   body: NumberSystem
+  printed?: { frontMatter: boolean; body: boolean }
 }
 
 export interface BookPlanFolioResult {
@@ -34,6 +35,7 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
       return {
         numbering: {
           system: numbering[page.sequence === 'front' ? 'frontMatter' : 'body'],
+          printed: numbering.printed?.[page.sequence === 'front' ? 'frontMatter' : 'body'] ?? true,
           start: section?.restart ?? 1,
           restart: section?.restart !== undefined ? firstNonBlankPage.get(page.flow) === index : index === 0 || page.sequence !== pages[index - 1]?.sequence,
           counted: section?.counted !== false,
@@ -41,7 +43,7 @@ export function bookPlanFolios(pages: readonly BookPlanPage[], numbering: BookPl
       }
     }),
   )
-  const folios = computed.map((folio, index) => (pages[index]?.blank ? null : (folio?.text ?? null)))
+  const folios = computed.map((folio, index) => (pages[index]?.blank || !folio?.printed ? null : folio.text))
   let lastCounted: string | undefined
   let lastBody: string | undefined
   computed.forEach((folio, index) => {

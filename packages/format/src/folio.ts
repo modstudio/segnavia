@@ -6,6 +6,7 @@ export const Numbering = z.object({
   start: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   restart: z.boolean(),
   counted: z.boolean(),
+  printed: z.boolean().default(true),
 })
 export type Numbering = z.infer<typeof Numbering>
 
@@ -40,6 +41,7 @@ export interface NumberedPage {
 export interface Folio {
   number: number
   text: string
+  printed: boolean
 }
 
 export function computeFolios(pages: readonly NumberedPage[]): Array<Folio | null> {
@@ -49,14 +51,14 @@ export function computeFolios(pages: readonly NumberedPage[]): Array<Folio | nul
     if (!numbering.counted) return null
     const number = next
     next += 1
-    return { number, text: formatNumber(number, numbering.system) }
+    return { number, text: formatNumber(number, numbering.system), printed: numbering.printed }
   })
 }
 
-export function sequenceFolios(count: number, system: NumberSystem): Folio[] {
+export function sequenceFolios(count: number, system: NumberSystem, printed = true): Folio[] {
   return computeFolios(
     Array.from({ length: count }, () => ({
-      numbering: { system, start: 1, restart: false, counted: true },
+      numbering: { system, start: 1, restart: false, counted: true, printed },
     })),
   ).filter((folio): folio is Folio => folio !== null)
 }

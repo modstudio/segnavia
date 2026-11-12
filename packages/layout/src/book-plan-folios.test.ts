@@ -19,6 +19,22 @@ describe('bookPlanFolios', () => {
     ).toEqual({ folios: ['i', 'ii', 'א', 'ב'], total: 'ב' })
   })
 
+  test('hides front-matter folios without changing Hebrew body folios', () => {
+    const pages = [
+      { sequence: 'front', flow: 'preface', blank: false },
+      { sequence: 'front', flow: 'contents', blank: false },
+      { sequence: 'body', flow: 'one', blank: false },
+      { sequence: 'body', flow: 'one', blank: false },
+    ] as const
+    expect(
+      bookPlanFolios(pages, {
+        frontMatter: 'arabic',
+        body: 'hebrew',
+        printed: { frontMatter: false, body: true },
+      }),
+    ).toEqual({ folios: [null, null, 'א', 'ב'], total: 'ב' })
+  })
+
   test('keeps the previous empty-plan total', () => {
     expect(bookPlanFolios([], { frontMatter: 'roman-lower', body: 'hebrew' })).toEqual({ folios: [], total: '0' })
   })

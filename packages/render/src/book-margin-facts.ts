@@ -70,8 +70,9 @@ export function marginFactsFor(
   document: MarginDocumentContext = { pages: marginVariablePagesFor(sections, destinations, pages, blanks), offset: 0, system },
   documentFacts: VariableDocumentFacts = {},
   bookRules?: ParentRules,
+  printed = true,
 ): BookPageFacts[] {
-  const folios = sequenceFolios(pages, system)
+  const folios = sequenceFolios(pages, system, printed)
   const owners = marginPageOwners(sections, destinations, pages, blanks)
   const numbers = bookVariablePageNumbers(document.pages, document.system)
   const variablesFor = (owner: MarginPageOwner | undefined, index: number, folio: string): Record<string, string> => {

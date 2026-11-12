@@ -372,7 +372,7 @@ test('refuses a page reference beyond the computed folios', () => {
     pageReferenceFolio(
       'appendix',
       501,
-      Array.from({ length: 500 }, (_, index) => ({ number: index + 1, text: String(index + 1) })),
+      Array.from({ length: 500 }, (_, index) => ({ number: index + 1, text: String(index + 1), printed: true })),
     ),
   ).toEqual({
     refusal: 'page reference target appendix lands on page 501, beyond the 500 computed folios; shorten the book to 500 pages or fewer to clear this refusal',
@@ -382,4 +382,11 @@ test('refuses a page reference beyond the computed folios', () => {
 test('renders no contents folio for an uncounted target', () => {
   expect(pageReferenceFolio('cover', 1, [null, 'i'])).toEqual({ folio: '' })
   expect(pageReferenceFolio('contents', 2, [null, 'i'])).toEqual({ folio: 'i' })
+})
+
+test('refuses a page reference to an unprinted division and names its remedy', () => {
+  expect(pageReferenceFolio('preface-topic', 1, [null], false, 'frontMatter')).toEqual({
+    refusal:
+      'page reference target preface-topic lands on a page whose number is not printed; point the reference at a printed page or set numbering.printed.frontMatter to true to clear this refusal',
+  })
 })

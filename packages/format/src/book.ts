@@ -109,8 +109,9 @@ export const BookShape = z.object({
     .object({
       frontMatter: NumberSystem.optional(),
       body: NumberSystem.optional(),
+      printed: z.object({ frontMatter: z.boolean().optional(), body: z.boolean().optional() }).default({}),
     })
-    .default({}),
+    .default({ printed: {} }),
   footnotes: z
     .object({
       marker: NoteMarker.optional(),
@@ -147,7 +148,11 @@ export const BookViewPagination = z
       }),
     ),
     direction: TextDirection,
-    numbering: z.object({ frontMatter: NumberSystem, body: NumberSystem }),
+    numbering: z.object({
+      frontMatter: NumberSystem,
+      body: NumberSystem,
+      printed: z.object({ frontMatter: z.boolean().default(true), body: z.boolean().default(true) }).default({ frontMatter: true, body: true }),
+    }),
     rectoOpenings: z.boolean(),
     orphans: z.number().int().min(1),
     widows: z.number().int().min(1),
@@ -338,7 +343,7 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   if (book.mode === 'paginated' && !book.page) {
     ctx.addIssue({ code: 'custom', path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   }
-  if (book.frontMatter.length > 0 && book.numbering.frontMatter === book.numbering.body) {
+  if (book.frontMatter.length > 0 && book.numbering.printed.frontMatter && book.numbering.printed.body && book.numbering.frontMatter === book.numbering.body) {
     ctx.addIssue({
       code: 'custom',
       path: ['numbering'],
