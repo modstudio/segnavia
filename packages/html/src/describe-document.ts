@@ -4,6 +4,7 @@ import {
   DocumentCollection,
   type DocumentLocation,
   type Limits,
+  Measurements,
   type OperationDocument,
   type OperationNode,
   Plan,
@@ -16,6 +17,7 @@ import { type BlockViewEntry, blockView } from './block-view.ts'
 export interface DescribeDocumentOptions {
   detail?: 'concise' | 'full'
   limits?: Limits
+  measurements?: Measurements
   plan?: Plan
   preflight?: PreflightReport
 }
@@ -33,6 +35,8 @@ interface DocumentDescriptionPlan {
   breaks: string[]
   pages: DocumentDescriptionPlanPage[]
 }
+
+type DocumentDescriptionMeasured = Pick<Measurements, 'fits' | 'properties'>
 
 export interface DocumentDescriptionNode {
   id: string
@@ -53,6 +57,7 @@ export interface DocumentDescription {
     inheritance: 'none'
   }
   plan?: DocumentDescriptionPlan
+  measured?: DocumentDescriptionMeasured
   preflight?: PreflightReport
 }
 
@@ -107,6 +112,7 @@ export function describeDocument(document: Document, options: DescribeDocumentOp
   const limit = resolveLimits(document.limits, options.limits).descriptionTextChars
   const blocks = blockView(document).map((block) => (options.detail === 'full' ? block : conciseBlock(block, limit)))
   const plan = options.plan === undefined ? undefined : Plan.parse(options.plan, { limits: resolveLimits(document.limits, options.limits) })
+  const measurements = options.measurements === undefined ? undefined : Measurements.parse(options.measurements)
   return {
     structure,
     definitions,
@@ -128,5 +134,6 @@ export function describeDocument(document: Document, options: DescribeDocumentOp
           },
         }),
     ...(options.preflight === undefined ? {} : { preflight: options.preflight }),
+    ...(measurements === undefined ? {} : { measured: { fits: measurements.fits, properties: measurements.properties } }),
   }
 }

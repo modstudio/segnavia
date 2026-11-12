@@ -29,6 +29,20 @@ test('setBlock html keeps its id, mints nested ids, and preserves sibling serial
   expect(serialize(blockElements(parse(body(after)).children)[2] as NonNullable<ReturnType<typeof blockElements>[number]>)).toBe(sibling)
 })
 
+test('a block edit clears the markdown source and its inverse restores it', () => {
+  let next = 0
+  const document = parseDocument(
+    { type: 'document', kind: 'page', children: [{ type: 'page', id: 'page', body: { markdown: 'Old' } }] },
+    { newId: () => `source-${++next}` },
+  )
+  const ops = setBlock(document, 'source-2', { text: 'New' })
+  const batch = { base: fingerprintDocument(document), ops }
+  const after = applyOps(document, batch)
+  expect(body(after)).toContain('New')
+  expect(after.children[0]).not.toHaveProperty('body.markdown')
+  expect(applyOps(after, inverseBatch(batch, after))).toEqual(document)
+})
+
 test('setBlock html identifies block descendants exactly once with and without supplied ids', () => {
   const document = page('<figure data-segnavia-id="one">Old</figure>')
   let next = 0

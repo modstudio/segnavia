@@ -1,5 +1,7 @@
 import { expect, test } from 'bun:test'
-import { type DocumentInput, deterministicNewId } from '@segnavia/format'
+import { applyOps, type DocumentInput, deterministicNewId, fingerprintDocument, inverseBatch } from '@segnavia/format'
+import { setBlock } from './block-ops.ts'
+import { blockView } from './block-view.ts'
 import { BLOCK_ELEMENTS, pageOrPrintedFromInput, parseDocument } from './document.ts'
 
 function counter() {
@@ -22,11 +24,13 @@ test('the exported block table controls id minting and inline elements get no id
 })
 
 test('keeps existing block ids, converts markdown once, and parsing twice is the identity', () => {
+  const markdown = '# Heading\n\nParagraph'
   const newId = counter()
-  const parsed = parseDocument(page({ markdown: '# Heading\n\nParagraph' }), { newId })
+  const parsed = parseDocument(page({ markdown }), { newId })
   const twice = parseDocument(parsed, { newId })
   expect(twice).toEqual(parsed)
   const body = parsed.children[0]?.type === 'page' ? parsed.children[0].body : undefined
+  expect(body).toMatchObject({ markdown })
   expect(body && 'html' in body ? body.html : '').toContain('<h1 id="heading" data-segnavia-id="minted-3">')
 
   const existing = parseDocument(page({ html: '<p data-segnavia-id="kept">Text</p>' }), { newId: counter() })
@@ -85,6 +89,25 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
   const documentIds = [...nodeIds, ...blockIds, 'hebrew-6']
   expect(mintedIds).toEqual(['hebrew-3', 'hebrew-5', 'hebrew-7', 'hebrew-8', 'hebrew-9', 'hebrew-10', 'hebrew-11', 'hebrew-12', 'hebrew-13'])
   expect(new Set(documentIds).size).toBe(documentIds.length)
+})
+
+test('keeps Hebrew markdown and its direction through an edit inverse and another parse', () => {
+  const markdown = '> [!NOTE]\n> שלום'
+  const parsed = parseDocument(
+    { type: 'document', kind: 'page', settings: { dir: 'rtl', lang: 'he' }, children: [{ type: 'page', body: { markdown } }] },
+    { newId: counter() },
+  )
+  const body = parsed.children[0]?.type === 'page' ? parsed.children[0].body : undefined
+  expect(body?.markdown).toBe(markdown)
+  expect(body && 'html' in body ? body.html : '').toContain('<bdi>הערה</bdi>')
+  const paragraph = blockView(parsed).find(({ kind }) => kind === 'p')
+  if (!paragraph) throw new Error('Hebrew markdown paragraph missing')
+  const batch = { base: fingerprintDocument(parsed), ops: setBlock(parsed, paragraph.id, { text: 'חדש' }) }
+  const edited = applyOps(parsed, batch)
+  expect(edited.children[0]).not.toHaveProperty('body.markdown')
+  const restored = applyOps(edited, inverseBatch(batch, edited))
+  expect(restored).toEqual(parsed)
+  expect(parseDocument(restored, { newId: counter() })).toEqual(parsed)
 })
 
 test('uses host alert labels while converting markdown at the content edge', () => {

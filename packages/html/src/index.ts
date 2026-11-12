@@ -121,9 +121,11 @@ export {
   type PrintedHtmlPage,
   printedPageAuthorHtml,
   printedPageDirection,
+  type ResolvePageHtmlOptions,
   resolvePageHtml,
   resolvePrintedPageHtml,
 } from './markdown.ts'
+export { measureAttributeIssues } from './measure-attributes.ts'
 export {
   documentLanguage,
   type ExpandedMotifs,

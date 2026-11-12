@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import { reduceFitGroups } from '@segnavia/layout'
-import { type FitDecision, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, runFitStageOnce } from './composer-fit-policy.ts'
+import { type FitDecision, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements } from './composer-fit-policy.ts'
+import { runStageOnce } from './composer-stage-policy.ts'
 
 const authored = { size: 32, leading: 1.4, tracking: 0 }
 const units = { size: 'px', leading: '', tracking: 'px' }
@@ -46,7 +47,7 @@ test('runs the copyfit stage once and reuses its facts on a retry', () => {
   const facts: string[] = []
   const state = { done: false, results: [] as string[] }
   const run = () =>
-    runFitStageOnce(state, () => {
+    runStageOnce(state, () => {
       facts.push('fit')
       return ['measurement']
     })

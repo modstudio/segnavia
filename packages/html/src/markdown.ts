@@ -301,17 +301,19 @@ export type PrintedHtmlPage = Omit<Page, 'body' | 'printedPages'> & {
   }
 }
 
-export function resolvePageHtml(page: Page): HtmlPage {
+export type ResolvePageHtmlOptions = Pick<BodyHtmlOptions, 'alertLabels' | 'origins'>
+
+export function resolvePageHtml(page: Page): HtmlPage
+export function resolvePageHtml(page: Page, options: ResolvePageHtmlOptions): HtmlPage
+export function resolvePageHtml(page: Page, options: ResolvePageHtmlOptions = {}): HtmlPage {
   const { body, ...fields } = page
   if (body === undefined) {
     throw new Error(
       'a sectioned printed page has no single body; compose it through printedPageValueDocument with resolvePrintedPageHtml to clear this refusal',
     )
   }
-  if (!('html' in body)) {
-    throw new Error('a parsed page needs stored HTML; pass its Document input through @segnavia/html parseDocument to clear this refusal')
-  }
-  return { ...fields, html: body.html }
+  const html = bodyHtml(body, { ...options, dir: page.dir, lang: page.lang })
+  return { ...fields, html }
 }
 
 export function resolvePrintedPageHtml(page: Page | HtmlPage): PrintedHtmlPage {

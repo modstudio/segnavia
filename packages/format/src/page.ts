@@ -31,7 +31,7 @@ export interface ResolvedPageWidth {
   viewportWidth: number
 }
 
-export const PageBody = z.union([z.strictObject({ html: z.string() }), z.strictObject({ markdown: z.string() })])
+export const PageBody = z.union([z.strictObject({ html: z.string(), markdown: z.string().optional() }), z.strictObject({ markdown: z.string() })])
 export type PageBody = z.infer<typeof PageBody>
 
 export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): ResolvedPageWidth {

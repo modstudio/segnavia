@@ -3,6 +3,7 @@ import { BookOpens } from './book-section.ts'
 import { TextDirection } from './direction.ts'
 import { FitMeasurement } from './fit.ts'
 import { SectionNumbering } from './folio.ts'
+import { MeasuredProperty } from './measured-property.ts'
 import { parentRules } from './parent-rules.ts'
 import { RecordFacts } from './record-facts.ts'
 import { Variable } from './variable.ts'
@@ -79,6 +80,7 @@ export type PaginateNoteSeriesGeometry = z.infer<typeof PaginateNoteSeriesGeomet
 
 export const Measurements = z.object({
   fits: z.array(FitMeasurement).default([]),
+  properties: z.array(MeasuredProperty).default([]),
   variables: z.array(Variable).default([]),
   document: VariableDocumentFacts.optional(),
   flows: z.array(PaginateFlow),

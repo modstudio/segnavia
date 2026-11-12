@@ -13,7 +13,7 @@ import {
 import { CONTENT_FIELD_SHAPES, contentFieldShape, type FragmentShape } from './block-fragments.ts'
 import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
 import { blockView } from './block-view.ts'
-import { pageBodyHtml } from './document.ts'
+import { pageBodyFromHtml, pageBodyHtml } from './document.ts'
 import { DocumentCommandRefusal, resolveLocation, resolveNode } from './document-addresses.ts'
 import type { CommandContentAddress, DocumentCommand, DocumentCommandLocation } from './document-commands.ts'
 import type { AlertLabels } from './markdown.ts'
@@ -56,11 +56,12 @@ function blockLocations(document: Document, omitted?: { node: string; field: str
   )
 }
 
-function pageBodySource(value: object, context: DocumentCommandContext): string | undefined {
+function pageBodySource(value: object, context: DocumentCommandContext): { source: string; markdown?: string } | undefined {
   const body = value as { html?: unknown; markdown?: unknown }
-  if (typeof body.html === 'string') return body.html
-  if (typeof body.markdown !== 'string') return undefined
-  return pageBodyHtml(body as { markdown: string }, context.document, context.options.alertLabels)
+  const markdown = typeof body.markdown === 'string' ? body.markdown : undefined
+  if (typeof body.html === 'string') return { source: body.html, markdown }
+  if (markdown === undefined) return undefined
+  return { source: pageBodyHtml({ markdown }, context.document, { alertLabels: context.options.alertLabels }), markdown }
 }
 
 function identifiedField(
@@ -79,8 +80,8 @@ function identifiedField(
   if (shape === 'htmlString' && typeof value === 'string') return identify(value)
   if (!value || typeof value !== 'object') return value
   if (shape === 'pageBody') {
-    const source = pageBodySource(value, context)
-    return source === undefined ? value : { html: identify(source) }
+    const body = pageBodySource(value, context)
+    return body === undefined ? value : pageBodyFromHtml(identify(body.source), body.markdown)
   }
   if (shape === 'slideContent') {
     const held = value as { kind?: unknown; html?: unknown }

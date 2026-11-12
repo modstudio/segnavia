@@ -10,8 +10,10 @@ import {
   type TemplatedSection,
 } from '@segnavia/format'
 import type { ChildNode, Element } from 'domhandler'
-import { namedRegionFitIssues, templateRegionFitIssues } from '../fit-attributes.ts'
+import { FIT_ATTRIBUTE_FAMILY } from '../fit-attributes.ts'
+import { MEASURE_ATTRIBUTE_FAMILY } from '../measure-attributes.ts'
 import { elements, parse } from '../sanitize.ts'
+import { sourceAttributeIssues } from '../source-attributes.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
 import { element, headingText, linkChildren } from './dom.ts'
 import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
@@ -209,14 +211,32 @@ export function templateRegionNameIssues(template: string, regions: Element[]): 
 export function templateRegionIssues(templates: BookTemplate[]): string[] {
   return templates.flatMap((template) => {
     const regions = templateRegionElements(template.html)
-    return [...templateRegionNameIssues(template.name, regions), ...templateRegionFitIssues(template.name, regions)]
+    return [
+      ...templateRegionNameIssues(template.name, regions),
+      ...regions.flatMap((region) =>
+        sourceAttributeIssues([region], `template "${template.name}"`, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true }),
+      ),
+    ]
   })
 }
 
 function templatedPageRegionFitIssues(entry: TemplatedSection, id: string): string[] {
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) =>
-    Object.values(page.regions).flatMap((html) => namedRegionFitIssues(`section ${label} page ${index + 1}`, templateRegionElements(html))),
+    Object.values(page.regions).flatMap((html) => {
+      const where = `section ${label} page ${index + 1}`
+      const regions = templateRegionElements(html)
+      return regions.flatMap((region) => sourceAttributeIssues([region], where, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], { requireAuthoredId: true }))
+    }),
+  )
+}
+
+export function designedSectionAttributeIssues(entry: DesignedSection, id: string): string[] {
+  const label = entry.title ?? id
+  return entry.pages.flatMap((page, index) =>
+    sourceAttributeIssues(parse(page.html).children, `section ${label} page ${index + 1}`, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
+      requireAuthoredId: true,
+    }),
   )
 }
 

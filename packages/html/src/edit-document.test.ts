@@ -110,6 +110,21 @@ describe('editDocument command handlers', () => {
     expect(result.added).toEqual({ 0: ['new-value'] })
   })
 
+  test('keeps markdown on a markdown command value and clears it on an HTML value', () => {
+    const input = page()
+    const markdown = editDocument(input, [{ type: 'setContent', content: { node: { id: 'page' }, field: 'body' }, value: { markdown: 'New' } }], {
+      newId: () => 'markdown-value',
+    })
+    expectComposes(input, markdown)
+    expect(markdown.document.children[0]).toHaveProperty('body.markdown', 'New')
+
+    const html = editDocument(markdown.document, [{ type: 'setContent', content: { node: { id: 'page' }, field: 'body' }, value: { html: '<p>HTML</p>' } }], {
+      newId: () => 'html-value',
+    })
+    expectComposes(markdown.document, html)
+    expect(html.document.children[0]).not.toHaveProperty('body.markdown')
+  })
+
   test('moves a node and composes and inverts', () => {
     const input = parseDocument({
       type: 'document',

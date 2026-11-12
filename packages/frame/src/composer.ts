@@ -41,6 +41,7 @@ import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
 import { embeddedComposerProgressFunctions } from './composer-progress.ts'
+import { embeddedComposerPropertyFunctions } from './composer-properties-embed.ts'
 import { placeParentRegions } from './composer-regions.ts'
 import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
@@ -238,7 +239,7 @@ var resolveRegionHeads=function(templates,variables,recordSlots,direction,lang){
 var ${resolveRegionHeads.name}=resolveRegionHeads;
 ${embedFunction('markFurnitureOverflow', markFurnitureOverflow)}
 ${embedFunction('markRegionOverflow', markRegionOverflow)}
-${embeddedComposerProgressFunctions()}${embeddedDressPlanPagesFunctions('progressMacrotask')}${embeddedPreflightFunctions()}${embeddedComposerFitFunctions()}
+${embeddedComposerProgressFunctions()}${embeddedDressPlanPagesFunctions('progressMacrotask')}${embeddedPreflightFunctions()}${embeddedComposerFitFunctions()}${embeddedComposerPropertyFunctions()}
 ${embedFunction('decideLayoutSettle', decideLayoutSettle)}
 ${embeddedBookPresentationFunctions()}`
 }
@@ -251,7 +252,7 @@ export function composerScript(configJson: string): string {
 var composeStarted=performance.now();
 var fail=function(reason){var text=String(reason).slice(0,${COMPOSE_FAILURE_TEXT_LIMIT});document.documentElement.setAttribute('${COMPOSE_FAILURE_ATTRIBUTE}',text||'book composition failed without a reported reason');};
 var config=${configJson};
-var preflightEntries=[],fitPreflightEntries=[],preflightFits=[],fitResults=[];
+var preflightEntries=[],fitPreflightEntries=[],preflightFits=[],fitResults=[],propertyResults=[];
 var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};
 ${layoutScript()}
 ${embedFunction('flowSectionNumbering', flowSectionNumbering)}
@@ -294,7 +295,7 @@ var measureFlow=function(element){var id=element.getAttribute('data-segnavia-flo
 var measureNotes=function(){var notes=[];var nodes=document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-note]');for(var i=0;i<nodes.length;i++){var id=nodes[i].getAttribute('data-segnavia-note');var galley=nodes[i].closest('[data-segnavia-notes-galley]');var series=galley?galley.getAttribute('data-segnavia-note-series'):'';if(!id||!series)continue;notes.push({id:id,series:series,lines:blockLines(nodes[i],originTop(nodes[i]))});}return notes;};
 var noteGap=function(root){var style=getComputedStyle(root);return (parseFloat(style.borderBlockStartWidth)||0)+(parseFloat(style.paddingBlockStart)||0)+(parseFloat(style.marginBlockStart)||0);};
 var noteSeries=function(){var series=[];var nodes=document.querySelectorAll('[data-segnavia-notes-galley]');for(var i=0;i<nodes.length;i++){var name=nodes[i].getAttribute('data-segnavia-note-series');if(name)series.push({name:name,gap:noteGap(nodes[i])});}return series;};
-var measureInput=function(){var flows=[];var nodes=document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-flow]');for(var i=0;i<nodes.length;i++)flows.push(measureFlow(nodes[i]));var parents={};for(var p=0;p<defaultGeometry.parents.length;p++)parents[defaultGeometry.parents[p].name]=defaultGeometry.parents[p].textArea;var geometryParents={};var pageGeometries={};for(var g=1;g<configuredGeometries.length;g++){var geometry=configuredGeometries[g];var name=geometry.name;pageGeometries[name]={width:geometry.paperWidth,height:geometry.paperHeight};geometryParents[name]={};for(var gp=0;gp<geometry.parents.length;gp++)geometryParents[name][geometry.parents[gp].name]=geometry.parents[gp].textArea;}return measurementsWithBreaks({...config.document?{document:config.document}:{},fits:fitResults,variables:config.variables||[],flows:flows,notes:measureNotes(),geometry:{notesGap:config.notesGap,noteSeries:noteSeries()},parents:parents,geometryParents:geometryParents,pageGeometries:pageGeometries,settings:{orphans:config.orphans,widows:config.widows,rectoOpenings:config.rectoOpenings,direction:config.direction,endnotePlacement:config.endnotePlacement}},config.breaks||(config.plan&&config.plan.breaks)||[]);};
+var measureInput=function(){var flows=[];var nodes=document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-flow]');for(var i=0;i<nodes.length;i++)flows.push(measureFlow(nodes[i]));var parents={};for(var p=0;p<defaultGeometry.parents.length;p++)parents[defaultGeometry.parents[p].name]=defaultGeometry.parents[p].textArea;var geometryParents={};var pageGeometries={};for(var g=1;g<configuredGeometries.length;g++){var geometry=configuredGeometries[g];var name=geometry.name;pageGeometries[name]={width:geometry.paperWidth,height:geometry.paperHeight};geometryParents[name]={};for(var gp=0;gp<geometry.parents.length;gp++)geometryParents[name][geometry.parents[gp].name]=geometry.parents[gp].textArea;}return measurementsWithBreaks({...config.document?{document:config.document}:{},fits:fitResults,properties:propertyResults,variables:config.variables||[],flows:flows,notes:measureNotes(),geometry:{notesGap:config.notesGap,noteSeries:noteSeries()},parents:parents,geometryParents:geometryParents,pageGeometries:pageGeometries,settings:{orphans:config.orphans,widows:config.widows,rectoOpenings:config.rectoOpenings,direction:config.direction,endnotePlacement:config.endnotePlacement}},config.breaks||(config.plan&&config.plan.breaks)||[]);};
 var planFolios={folios:[],folioPrints:[],total:'0'};
 var folioOf=function(index){return planFolios.folios[index];};
 var pageForTarget=function(id,pages,authored){var element=document.getElementById(id);var index;if(!element){index=pageIndexForTarget(pages,{flow:id});}else{var flow=element.closest('[data-segnavia-flow]');if(!flow)return '';var flowId=flow.getAttribute('data-segnavia-flow')||'';var holder=element.closest('[data-segnavia-designed-page],[data-segnavia-templated-page]');var heldPage=holder?Number(holder.getAttribute('data-segnavia-designed-page')||holder.getAttribute('data-segnavia-templated-page')):undefined;var target={flow:flowId};if(heldPage)target.heldPage=heldPage;else target.top=element.getBoundingClientRect().top-originTop(flow);index=pageIndexForTarget(pages,target);}if(index===undefined)return '';var division=pages[index].sequence==='front'?'frontMatter':'body';var result=pageReferenceFolio(id,index+1,planFolios.folios,{folioPrints:planFolios.folioPrints,division:division,authored:authored});if(result.refusal){fail(result.refusal);return '';}return result.folio;};
@@ -349,6 +350,8 @@ var settleFlows=document.querySelectorAll('[data-segnavia-flow]:not([data-segnav
 var planBookOrFail=function(input){var held=planBook(input,config.numbering);if(!held.ok){fail(held.refusals[0].message);return null;}return applyPrintedRules(held.plan);};
 var planConverged=function(){var held=planBookOrFail(input);if(!held)return null;planFolios=held;var moved=[];var convergence=convergeLayout(held,function(previous){fillPageReferences(previous.pages);input=measureInput();var next=planBookOrFail(input);if(!next)return null;planFolios=next;moved=unsettledPageReferences(next.pages);return {plan:next,settled:moved.length===0};},3);if(!convergence)return null;if(!convergence.converged){fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal');return null;}return convergence.plan;};
 fitResults=fitSourceElements();
+// Measured properties run after source-shaping stages and before pagination.
+propertyResults=measureSourceProperties();
 var input=measureInput();
 var plan;
 var saved;

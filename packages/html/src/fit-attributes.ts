@@ -1,6 +1,5 @@
 import { FIT_STRATEGIES, FitAxis, FitBox, type FitStrategy } from '@segnavia/format'
-import { type ChildNode, type Element, isTag } from 'domhandler'
-import { BLOCK_KINDS } from './block-context.ts'
+import type { SourceAttributeFamily } from './source-attributes.ts'
 
 export const ABSOLUTE_UNITS = ['px', 'pt', 'pc', 'in', 'cm', 'mm', 'q'] as const
 export const ABSOLUTE_PX: Readonly<Record<string, number>> = { px: 1, pt: 4 / 3, pc: 16, in: 96, cm: 96 / 2.54, mm: 96 / 25.4, q: 96 / 101.6 }
@@ -81,27 +80,8 @@ export function fitAttributeIssues(where: string, attribs: Record<string, string
   return issues
 }
 
-export function fitIssuesIn(nodes: readonly ChildNode[], where: string): string[] {
-  const issues: string[] = []
-  const visit = (children: readonly ChildNode[], insideBlock: boolean) => {
-    for (const child of children) {
-      if (!isTag(child)) continue
-      issues.push(...fitAttributeIssues(`${where} <${child.name}>`, child.attribs))
-      const block = insideBlock || BLOCK_KINDS.has(child.name.toLowerCase())
-      if (!block && (child.attribs['data-fit'] !== undefined || child.attribs['data-fit-min'] !== undefined)) {
-        issues.push(`${where} <${child.name}> data-fit has no block subject; place it in a block element to clear this refusal`)
-      }
-      visit(child.children, block)
-    }
-  }
-  visit(nodes, false)
-  return issues
-}
-
-export function namedRegionFitIssues(where: string, regions: Element[]): string[] {
-  return regions.flatMap((region) => fitIssuesIn([region], where))
-}
-
-export function templateRegionFitIssues(template: string, regions: Element[]): string[] {
-  return namedRegionFitIssues(`template "${template}"`, regions)
+export const FIT_ATTRIBUTE_FAMILY: SourceAttributeFamily = {
+  name: 'data-fit',
+  subjectAttributes: ['data-fit', 'data-fit-min'],
+  issues: fitAttributeIssues,
 }

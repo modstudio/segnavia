@@ -178,6 +178,7 @@ export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export { withLibraryEntries } from './library-names.ts'
 export * from './limit-exports.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
+export { MEASURE_KIND_MODEL, MEASURE_KINDS, MeasuredProperty, MeasureKind } from './measured-property.ts'
 export * from './measurements.ts'
 export {
   MEDIA_FORMATS,

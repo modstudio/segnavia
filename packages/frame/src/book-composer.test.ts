@@ -13,7 +13,6 @@ import {
   noteFragmentExtent,
   noteSettlementOverlapsBody,
   noteStackTops,
-  pageReferenceFolio,
   partTitleValues,
   unmeasuredFlows,
 } from './composer.ts'
@@ -46,6 +45,18 @@ test('embedded copyfit bounds include their value parser dependency', () => {
     bounds: [{ strategy: 'size', authored: 24, min: 12, max: 24 }],
     units: { size: 'px', leading: '', tracking: 'px' },
   })
+})
+
+test('measured properties run once after copyfit and before the first pagination measurement', () => {
+  const script = composerScript('{}')
+  const fit = script.indexOf('fitResults=fitSourceElements()')
+  const properties = script.indexOf('propertyResults=measureSourceProperties()', fit)
+  const input = script.indexOf('var input=measureInput()', properties)
+  expect(fit).toBeGreaterThan(-1)
+  expect(properties).toBeGreaterThan(fit)
+  expect(input).toBeGreaterThan(properties)
+  expect(script.match(/propertyResults=measureSourceProperties\(\)/g)).toHaveLength(1)
+  expect(script).toContain('properties:propertyResults')
 })
 
 test('publishes preflight from the embedded functions alone, given the measured flows', () => {
@@ -365,31 +376,4 @@ test('stacks settled note pieces from the bottom and refuses only a new body ove
   expect(noteSettlementOverlapsBody(settledTop ?? Number.NaN, settledTop ?? Number.NaN, 490)).toBeFalse()
   expect(noteSettlementOverlapsBody(500, 499.6, 510)).toBeFalse()
   expect(noteSettlementOverlapsBody(500, 480, 470)).toBeFalse()
-})
-
-test('refuses a page reference beyond the computed folios', () => {
-  expect(
-    pageReferenceFolio(
-      'appendix',
-      501,
-      Array.from({ length: 500 }, (_, index) => ({ number: index + 1, text: String(index + 1), printed: true })),
-      { folioPrints: Array.from({ length: 500 }, () => true), division: 'body', authored: true },
-    ),
-  ).toEqual({
-    refusal: 'page reference target appendix lands on page 501, beyond the 500 computed folios; shorten the book to 500 pages or fewer to clear this refusal',
-  })
-})
-
-test('renders no contents folio for an uncounted target', () => {
-  const options = { folioPrints: [null, true], division: 'body' as const, authored: true }
-  expect(pageReferenceFolio('cover', 1, [null, 'i'], options)).toEqual({ folio: '' })
-  expect(pageReferenceFolio('contents', 2, [null, 'i'], options)).toEqual({ folio: 'i' })
-})
-
-test('refuses a page reference to an unprinted division and names its remedy', () => {
-  expect(pageReferenceFolio('preface-topic', 1, [null], { folioPrints: [false], division: 'frontMatter', authored: true })).toEqual({
-    refusal:
-      'Page reference target preface-topic lands on a page whose number is not printed; point the reference at a printed page or set numbering.printed.frontMatter to true to clear this refusal.',
-  })
-  expect(pageReferenceFolio('preface-topic', 1, [null], { folioPrints: [false], division: 'frontMatter', authored: false })).toEqual({ folio: '' })
 })

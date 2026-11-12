@@ -88,7 +88,7 @@ export async function prepareRenderedPageValue(
   established: EstablishedPageDay,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  const page = resolvePageHtml(input)
+  const page = resolvePageHtml(input, { origins: options.origins })
   const expanded = await expandFramePage(page, motifs, signal, options.placements, purpose, options.pageWidths, established.day, options.preflight?.profile)
   return preparedRender(expanded, options, signal, established)
 }
@@ -111,7 +111,16 @@ export function expandRenderedPageValue(
         day,
         options.preflight?.profile,
       )
-    : expandFramePage(resolvePageHtml(page), options.motifs, signal, options.placements, purpose, options.pageWidths, day, options.preflight?.profile)
+    : expandFramePage(
+        resolvePageHtml(page, { origins: options.origins }),
+        options.motifs,
+        signal,
+        options.placements,
+        purpose,
+        options.pageWidths,
+        day,
+        options.preflight?.profile,
+      )
 }
 
 async function prepareRenderedPrintedPageValue(
@@ -243,7 +252,7 @@ export function renderPageValueDocument(
   diagramScript?: string,
   fontFailures: FontFailure[] = [],
 ): string {
-  const page = 'html' in input ? input : resolvePageHtml(input)
+  const page = 'html' in input ? input : resolvePageHtml(input, { origins: options.origins })
   const namedMeasure =
     page.print && page.size.height === 'auto' && (page.size.width === 'standard' || page.size.width === 'wide')
       ? resolvePageWidth(page.size, options.pageWidths).measure
