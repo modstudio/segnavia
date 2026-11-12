@@ -55,17 +55,10 @@ function needsLibraryReadiness(readiness: RenderReadiness): boolean {
   return Boolean(readiness.diagrams || readiness.layouts)
 }
 
-async function waitForTabReadiness(
-  tab: Tab,
-  readiness: RenderReadiness,
-  waits: Promise<void>[],
-  established: () => RenderReadiness,
-): Promise<void> {
+async function waitForTabReadiness(tab: Tab, readiness: RenderReadiness, waits: Promise<void>[], established: () => RenderReadiness): Promise<void> {
   const genericRefusal = () => readinessRefusal(readiness, established(), PAGE_READY_BOUND_MS / 1000)
   const readinessWait = withinBound(PAGE_READY_BOUND_MS, Promise.all(waits)).catch(async () => {
-    const recorded = readiness.layouts
-      ? await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), COMPOSE_FAILURE_ATTRIBUTE)
-      : null
+    const recorded = readiness.layouts ? await tab.evaluate((attribute) => document.documentElement.getAttribute(attribute), COMPOSE_FAILURE_ATTRIBUTE) : null
     throw new RenderRefusedError(recordedLayoutRefusal(recorded, genericRefusal()))
   })
   const failureWait = readiness.layouts
