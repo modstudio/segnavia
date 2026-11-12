@@ -7,6 +7,7 @@ import { bookView, parseDocument } from '@segnavia/html'
 import { filledBook } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
+import { fitLimitFixture, groupCopyfitFixture, pageCountCopyfitFixture, slotCopyfitFixture } from './demo-book-copyfit-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup } from './demo-book-motifs.ts'
@@ -297,6 +298,33 @@ export async function buildBookDemo(site: string): Promise<void> {
   )
 
   const hebrewFace = `${alefCss()}${notoCss()}`
+  const copyfitDocuments = [
+    ['book-copyfit-group.html', groupCopyfitFixture(), PREFLIGHT_PRESETS.default],
+    ['book-copyfit-page-count-fitted.html', pageCountCopyfitFixture(true), PREFLIGHT_PRESETS.default],
+    ['book-copyfit-page-count-authored.html', pageCountCopyfitFixture(false), PREFLIGHT_PRESETS.default],
+    ['book-copyfit-limit-default.html', fitLimitFixture(), PREFLIGHT_PRESETS.default],
+    ['book-copyfit-limit-strict.html', fitLimitFixture(), PREFLIGHT_PRESETS.strict],
+  ] as const
+  for (const [name, fixture, profile] of copyfitDocuments) {
+    writeFileSync(path.join(site, name), paginatedBookDocument(bookFixtureValue(fixture), { nonce: newNonce(), profile }))
+  }
+  const { value: slotCopyfit } = await filledBook(bookFixtureValue(slotCopyfitFixture()), {
+    fill: { id: 'copyfit', values: { name: 'Alexandria Montgomery-Worthington' } },
+  })
+  writeFileSync(path.join(site, 'book-copyfit-slot.html'), paginatedBookDocument(slotCopyfit, { nonce: newNonce(), profile: PREFLIGHT_PRESETS.default }))
+  writeFileSync(
+    path.join(site, 'book-copyfit.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><title>Book copyfit</title><style>iframe{inline-size:600px;block-size:500px;border:0}</style></head><body>${[
+      'slot',
+      'group',
+      'page-count-fitted',
+      'page-count-authored',
+      'limit-default',
+      'limit-strict',
+    ]
+      .map((name) => `<iframe id="copyfit-${name}" sandbox="allow-scripts" src="book-copyfit-${name}.html"></iframe>`)
+      .join('')}</body></html>`,
+  )
   for (const hebrew of [false, true]) {
     const book = bookFixtureValue(paginatedFixture(hebrew))
     const css = hebrew

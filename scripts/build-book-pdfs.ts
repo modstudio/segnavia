@@ -1,8 +1,10 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
+import type { PreflightReport } from '@segnavia/format'
 import { buildLargeBookPdfs, buildNoteCasePdfs, paginatedFixture } from './build-book-demo.ts'
 import { type DemoBookPdf, type DemoBookPlan, replayBook } from './build-book-plan.ts'
 import { basicBookFixture } from './demo-book-basic-fixtures.ts'
+import { groupCopyfitFixture } from './demo-book-copyfit-fixtures.ts'
 import { alefCss, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture } from './demo-book-keep-fixtures.ts'
 import { bookMotifs } from './demo-book-motifs.ts'
@@ -10,6 +12,12 @@ import { haggadahHeadCss } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
 
 export async function buildBookPdfs(site: string, bookPdf: DemoBookPdf, bookPlan?: DemoBookPlan): Promise<void> {
+  let copyfitReport: PreflightReport | undefined
+  writeFileSync(
+    path.join(site, 'book-copyfit-group.pdf'),
+    await bookPdf(groupCopyfitFixture(), { preflight: { profile: 'default', report: (report) => (copyfitReport = report) } }),
+  )
+  writeFileSync(path.join(site, 'book-copyfit-group-preflight.json'), JSON.stringify(copyfitReport))
   for (const hebrew of [false, true]) {
     const css = hebrew
       ? `${alefCss()}${notoCss()}${designedCss}${haggadahHeadCss}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}`

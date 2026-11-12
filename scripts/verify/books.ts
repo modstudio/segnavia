@@ -2,6 +2,8 @@ import { execFileSync } from 'node:child_process'
 import path from 'node:path'
 import { Document, PX_PER_PT } from '@segnavia/format'
 import { workbookFixture } from '../demo-book-workbook-fixtures.ts'
+import { verifyBookCopyfit } from './book-copyfit.ts'
+import { verifyBookSlotCopyfit } from './book-slot-copyfit.ts'
 import { verifyPaginatedBookElements } from './book-elements.ts'
 import { verifyImportedIdmlTable } from './book-idml-table.ts'
 import { BOOK_BRIDGE_MESSAGES, verifyInlineBookKeeps, verifyPaginatedBookKeeps } from './book-keeps.ts'
@@ -104,6 +106,8 @@ export async function verifyBooks(h: Harness) {
   await verifyNoteSeries(h)
   await verifyImportedIdmlTable(h)
   await verifyPlacedMediaBook(h)
+  await verifyBookSlotCopyfit(h)
+  await verifyBookCopyfit(h)
 }
 
 async function paginatedFrame(h: Harness, id: string) {

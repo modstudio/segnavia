@@ -1,6 +1,7 @@
 import type { FitStrategy } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
+import { fitApplication, fitBounds, fitLimitEntry, fitMeasurements, reduceDocumentFits } from './composer-fit-policy.ts'
 
 interface FitResult {
   element: HTMLElement
@@ -18,16 +19,6 @@ interface TemporaryFit {
 }
 
 const fitList = (value: string | null) => (value === null ? [] : value.split(',').map((part) => part.trim()))
-
-function fitValue(text: string, strategy: FitStrategy, absolutePx: Readonly<Record<string, number>>) {
-  const match = /^([+-]?(?:\d+(?:\.\d+)?|\.\d+))([a-z]+)?$/i.exec(text)
-  if (!match) return undefined
-  const amount = Number(match[1])
-  const unit = (match[2] ?? '').toLowerCase()
-  if (strategy === 'leading' && unit === '') return { value: amount, unit }
-  const factor = absolutePx[unit]
-  return factor === undefined ? undefined : { value: amount * factor, unit: 'px' }
-}
 
 function applyFitValue(element: HTMLElement, strategy: FitStrategy, value: number, unit: string) {
   if (strategy === 'size') element.style.fontSize = `${value}px`
@@ -116,18 +107,10 @@ function fitElement(element: HTMLElement, absolutePx: Readonly<Record<string, nu
     leading: computed.lineHeight === 'normal' ? 1.2 : parseFloat(computed.lineHeight) / fontSize,
     tracking: computed.letterSpacing === 'normal' ? 0 : parseFloat(computed.letterSpacing),
   }
-  const units: Record<FitStrategy, string> = { size: 'px', leading: '', tracking: 'px' }
-  const bounds = strategies.flatMap((strategy, index) => {
-    const fallback = strategy === 'tracking' ? '0px' : strategy === 'leading' ? '1' : '1px'
-    const min = fitValue(mins[index] ?? fallback, strategy, absolutePx)
-    const max = maxes[index] ? fitValue(maxes[index] as string, strategy, absolutePx) : { value: authored[strategy], unit: units[strategy] }
-    const step = steps[index] ? fitValue(steps[index] as string, strategy, absolutePx) : undefined
-    if (!min || !max) return []
-    units[strategy] = min.unit
-    return [{ strategy, authored: authored[strategy], min: min.value, max: max.value, ...(step ? { step: step.value } : {}) }]
-  })
+  const candidate = fitBounds(strategies, mins, maxes, steps, authored, absolutePx)
   const box = element.getAttribute('data-fit-box') === 'parent' ? element.parentElement : element
-  if (bounds.length !== strategies.length || !box) return undefined
+  if (!candidate || !box) return undefined
+  const { bounds, units } = candidate
   const axis = element.getAttribute('data-fit-axis') ?? 'block'
   const result = search(bounds, (values) => {
     for (const strategy of strategies) applyFitValue(element, strategy, values[strategy] ?? authored[strategy], units[strategy])
@@ -150,9 +133,9 @@ function fitElement(element: HTMLElement, absolutePx: Readonly<Record<string, nu
 
 function applyFits(results: FitResult[]) {
   for (const result of results) {
-    for (const [strategy, value] of Object.entries(result.values) as Array<[FitStrategy, number]>)
-      applyFitValue(result.element, strategy, value, result.units[strategy])
-    if (result.values.size !== undefined && result.values.size < result.authored.size - 0.01) result.element.setAttribute('data-segnavia-fit-state', 'shrunk')
+    const application = fitApplication(result)
+    for (const [property, value] of Object.entries(application.styles)) result.element.style[property as 'fontSize'] = value
+    if (application.shrunk) result.element.setAttribute('data-segnavia-fit-state', 'shrunk')
   }
 }
 
@@ -179,23 +162,21 @@ function fitSourceElementsImplementation(
     const result = fitElement(element, absolutePx, search)
     return result ? [result] : []
   })
-  const reduced = reduceGroups(results) as FitResult[]
+  const reduced = reduceDocumentFits(results, reduceGroups) as FitResult[]
   applyFits(reduced)
   finishTemplateFits(temporary)
-  const unique = reduced.filter((result, index, all) => all.findIndex((candidate) => candidate.id === result.id) === index)
-  return unique.map((result) => ({
-    id: result.id,
-    ...(result.group ? { group: result.group } : {}),
-    values: Object.entries(result.values).map(([strategy, value]) => ({ strategy, value, unit: result.units[strategy as FitStrategy] })),
-    ...(result.stopped ? { stopped: result.stopped } : {}),
-  }))
+  return fitMeasurements(reduced)
 }
 
 export function embeddedComposerFitFunctions(): string {
   return `${embedFunction('fitSearch', fitSearch)}
 ${embedFunction('reduceFitGroups', reduceFitGroups)}
 ${embedFunction('fitList', fitList)}
-${embedFunction('fitValue', fitValue)}
+${embedFunction('fitBounds', fitBounds)}
+${embedFunction('fitApplication', fitApplication)}
+${embedFunction('reduceDocumentFits', reduceDocumentFits)}
+${embedFunction('fitMeasurements', fitMeasurements)}
+${embedFunction('fitLimitEntry', fitLimitEntry)}
 ${embedFunction('applyFitValue', applyFitValue)}
 ${embedFunction('fitExcess', fitExcess)}
 ${embedFunction('templatePageFits', templatePageFits)}
@@ -204,6 +185,6 @@ ${embedFunction('fitElement', fitElement)}
 ${embedFunction('applyFits', applyFits)}
 ${embedFunction('finishTemplateFits', finishTemplateFits)}
 ${embedFunction('fitSourceElementsImplementation', fitSourceElementsImplementation)}
-var fitSourceElements=function(){fitMeasurements=fitSourceElementsImplementation(document,ABSOLUTE_PX,defaultGeometry.parents[0].textArea,fitSearch,reduceFitGroups);for(var i=0;i<fitMeasurements.length;i++){var fit=fitMeasurements[i];if(fit.stopped){var stopped=fit.stopped;fitPreflightEntries.push({check:'fit-limit',subject:fit.id,message:'Fit '+fit.id+' exhausted '+stopped.strategy+' at '+stopped.bound+' with '+stopped.excess+'px excess; enlarge the fit box or lower the bound to clear it.'});}var values={};for(var v=0;v<fit.values.length;v++)values[fit.values[v].strategy]=fit.values[v].value+fit.values[v].unit;preflightFits.push({subject:fit.id,group:fit.group,values:values});}};
+var fitSourceElements=function(){fitMeasurements=fitSourceElementsImplementation(document,ABSOLUTE_PX,defaultGeometry.parents[0].textArea,fitSearch,reduceFitGroups);for(var i=0;i<fitMeasurements.length;i++){var fit=fitMeasurements[i];var entry=fitLimitEntry(fit);if(entry)fitPreflightEntries.push(entry);var values={};for(var v=0;v<fit.values.length;v++)values[fit.values[v].strategy]=fit.values[v].value+fit.values[v].unit;preflightFits.push({subject:fit.id,group:fit.group,values:values});}};
 var fitSourceSlots=function(){fitSourceElements();};`
 }
