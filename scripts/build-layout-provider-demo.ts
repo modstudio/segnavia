@@ -56,7 +56,7 @@ const measurementFixture: DocumentInput = {
           children: [
             {
               type: 'flow',
-              html: `<p dir="rtl" data-segnavia-layout="${LAYOUT_DEMO_PROVIDER}" data-layout-hebrew style="font:28px/1.5 NotoSerifHebrew,serif">בְּרֵאשִׁית<br>בראשית</p>`,
+              html: `<p dir="rtl" data-segnavia-layout="${LAYOUT_DEMO_PROVIDER}" data-layout-hebrew style="font:28px/1.5 NotoSerifHebrew,serif">בְּרֵאשִׁית<br>בראשית</p><p data-segnavia-layout="${LAYOUT_DEMO_PROVIDER}" data-layout-vertical style="writing-mode:vertical-rl;font:24px/1.5 serif;block-size:120px">vertical sample<br>second column</p>`,
             },
           ],
         },

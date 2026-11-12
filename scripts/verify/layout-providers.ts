@@ -85,6 +85,43 @@ export async function verifyLayoutProviders(h: Harness): Promise<void> {
   h.check('pointed and plain Hebrew have the same ink box', inkDelta <= 0.5, `max delta ${inkDelta.toFixed(3)}px`)
   h.check('layout lineBoxes agrees with the paragraph line count', hebrew.lineBoxes === hebrew.lines, `${hebrew.lineBoxes} and ${hebrew.lines} lines`)
 
+  const vertical = await h.page.locator('[data-segnavia-galley-source] [data-layout-vertical-measurements]').evaluate((element: HTMLElement) => {
+    const measured = JSON.parse(element.dataset.layoutVerticalMeasurements ?? 'null') as {
+      ink: { x: number; y: number; width: number; height: number }
+      lineBoxes: number
+    }
+    const text = element.firstChild as Text
+    const value = 'vertical'
+    const start = text.data.indexOf(value)
+    const range = document.createRange()
+    range.setStart(text, start)
+    range.setEnd(text, start + value.length)
+    const rects = Array.from(range.getClientRects())
+    const left = Math.min(...rects.map((rect) => rect.left))
+    const top = Math.min(...rects.map((rect) => rect.top))
+    const right = Math.max(...rects.map((rect) => rect.right))
+    const bottom = Math.max(...rects.map((rect) => rect.bottom))
+    const origin = element.getBoundingClientRect()
+    const columns = new Set<number>()
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    let node = walker.nextNode() as Text | null
+    while (node) {
+      for (let index = 0; index < node.length; index++) {
+        const character = document.createRange()
+        character.setStart(node, index)
+        character.setEnd(node, index + 1)
+        for (const rect of character.getClientRects()) columns.add(Math.round(rect.left * 2) / 2)
+      }
+      node = walker.nextNode() as Text | null
+    }
+    return { ...measured, hand: { x: left - origin.x, y: top - origin.y, width: right - left, height: bottom - top }, columns: columns.size }
+  })
+  h.check(
+    'vertical ink and lineBoxes agree with hand measurements',
+    boxesAgree(vertical.ink, vertical.hand) && vertical.lineBoxes === vertical.columns,
+    JSON.stringify(vertical),
+  )
+
   await h.page.goto(h.url('layout-provider.html'))
   await h.page.locator('#layout-page iframe').waitFor()
   const pageFrame = h.page.locator('#layout-page iframe').contentFrame()

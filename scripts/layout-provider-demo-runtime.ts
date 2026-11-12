@@ -26,6 +26,14 @@ const provider = `segnaviaLayout.define({
           lineBoxes: ctx.lineBoxes(node).length,
         })
       }
+      if (node.dataset.layoutVertical !== undefined) {
+        const ink = ctx.ink('vertical')
+        const origin = node.getBoundingClientRect()
+        node.dataset.layoutVerticalMeasurements = JSON.stringify({
+          ink: { x: ink.x - origin.x, y: ink.y - origin.y, width: ink.width, height: ink.height },
+          lineBoxes: ctx.lineBoxes(node).length,
+        })
+      }
     }
   },
   composed(ctx) {
