@@ -4,8 +4,8 @@ import { bookFromDocument, type DocumentInput, PREFLIGHT_PRESETS } from '@segnav
 import { bookValueDocument } from '@segnavia/frame/book-document'
 import { newNonce } from '@segnavia/frame/bridge'
 import { parseDocument } from '@segnavia/html'
-import { fillFixture, refuseOverflowFixture, truncateFixture } from './demo-book-fill-fixtures.ts'
 import { writeBookPageLimitDemo } from './build-book-page-limit-demo.ts'
+import { fillFixture, refuseOverflowFixture, truncateFixture } from './demo-book-fill-fixtures.ts'
 
 function value(input: DocumentInput) {
   let id = 0

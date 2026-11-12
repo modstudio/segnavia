@@ -8,6 +8,7 @@ import { filledBook } from '@segnavia/render'
 import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { writeBookFeatureDemos } from './build-book-feature-demos.ts'
 import { writeBookFillDemo } from './build-book-fill-demo.ts'
+import { fixtureIds } from './build-book-fixture-ids.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
@@ -21,10 +22,7 @@ import { PAGINATED_TABLE_FLOW_IDS, tableFixtureRows, writePaginatedTableBook } f
 import { writeTitleHeadDemo } from './demo-book-title-head-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
-export const fixtureIds = () => {
-  let id = 0
-  return () => `fixture-${++id}`
-}
+
 const bookFixtureValue = (input: DocumentInput) => bookFromDocument(parseDocument(input, { newId: fixtureIds() }))
 const flowSection = (title: string, html: string, fields: Record<string, unknown> = {}) => ({
   type: 'section' as const,
