@@ -7,6 +7,7 @@ export interface WatermarkPage {
   trim: { x: number; y: number; width: number; height: number }
   direction: TextDirection
   lang?: string
+  fontFamily?: string
 }
 
 const align = (position: WatermarkPosition | undefined) => (position === 'start' ? 'flex-start' : position === 'end' ? 'flex-end' : 'center')
@@ -35,6 +36,7 @@ export function watermarkRotation(watermark: Watermark, page: WatermarkPage): nu
 
 export function watermarkMarkup(watermark: Watermark, page: WatermarkPage): string {
   const direction = watermarkDirection(watermark, page)
+  const fontFamily = watermark.font === undefined ? page.fontFamily : cssString(watermark.font)
   const width = watermarkTextTargetWidth(watermark.size, page.trim.width)
   const top = page.media.height - page.trim.y - page.trim.height
   const box = [
@@ -57,7 +59,7 @@ export function watermarkMarkup(watermark: Watermark, page: WatermarkPage): stri
     `transform:rotate(${watermarkRotation(watermark, page)}deg)`,
     `opacity:${watermark.opacity ?? 0.15}`,
     `color:${watermark.color ?? '#777'}`,
-    ...(watermark.font === undefined ? [] : [`font-family:${cssString(watermark.font)}`]),
+    ...(fontFamily ? [`font-family:${fontFamily}`] : []),
   ].join(';')
   const language = watermark.lang ?? page.lang
   const attributes = ` dir="${direction}"${language ? ` lang="${attribute(language)}"` : ''}`

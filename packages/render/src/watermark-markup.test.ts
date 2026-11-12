@@ -35,3 +35,9 @@ test('text is escaped and isolated in its resolved direction', () => {
   const markup = watermarkMarkup({ text: '<טיוטה>', lang: 'he' }, page(210, 297, 'rtl'))
   expect(markup).toContain('<bdi dir="rtl" lang="he">&lt;טיוטה&gt;</bdi>')
 })
+
+test('each layer page uses its part family unless the watermark overrides it', () => {
+  expect(watermarkMarkup({ text: 'Draft' }, { ...page(210, 297), fontFamily: '"Page One", serif' })).toContain('font-family:"Page One", serif')
+  expect(watermarkMarkup({ text: 'Draft' }, { ...page(210, 297), fontFamily: 'Page Two' })).toContain('font-family:Page Two')
+  expect(watermarkMarkup({ text: 'Draft', font: 'Watermark Face' }, { ...page(210, 297), fontFamily: 'Page One' })).toContain('font-family:"Watermark Face"')
+})

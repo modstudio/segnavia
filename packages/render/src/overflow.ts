@@ -5,6 +5,8 @@ export type BookOverflowPart = Extract<OverflowPart, 'front' | 'body' | 'margin'
 
 export type PrintResult<Required extends boolean = false> = {
   bytes: Uint8Array
+  fontFamily?: string
+  fontFaceCss?: string
 } & (Required extends true ? { overflow: OverflowEntry } : { overflow?: OverflowEntry })
 
 /**

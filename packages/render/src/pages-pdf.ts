@@ -29,7 +29,7 @@ export type PagesPdfOptions = ComposedRenderOptions & { imposition?: ImpositionI
 
 interface PagesPdfServices {
   pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number): Promise<PrintResult>
-  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions): Promise<Uint8Array>
+  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions): Promise<PrintResult | Uint8Array>
   fontFaces(options: ComposedRenderOptions): string
   finish(pdf: Uint8Array, options: Pick<ComposedRenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
   watermark?(parts: readonly WatermarkPart[], pageCount?: number): Promise<Uint8Array[]>
@@ -83,16 +83,21 @@ async function composedPdf(
       const geometry = pieceGeometry(first)
       const css = `${page.print ? printProperties(page.print) : ''}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
       try {
+        const piece = await services.piecePdf(page, slotsForDocument(slots, [pageFrames]), geometry, css, {
+          ...opts,
+          limits: innerLimits(opts.limits),
+        })
+        const rendered = piece instanceof Uint8Array ? { bytes: piece } : piece
         return {
           group,
-          bytes: await setPdfPageSize(
-            await services.piecePdf(page, slotsForDocument(slots, [pageFrames]), geometry, css, {
-              ...opts,
-              limits: innerLimits(opts.limits),
-            }),
-            geometry.paper,
-            'An imposition piece prints at its paper, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
-          ),
+          rendered: {
+            ...rendered,
+            bytes: await setPdfPageSize(
+              rendered.bytes,
+              geometry.paper,
+              'An imposition piece prints at its paper, so the content or a CSS rule changed the paper Chromium produced; remove an @page size rule or the rule that resizes the page to clear this refusal.',
+            ),
+          },
         }
       } catch (error) {
         namePageError(error, group.page)
@@ -101,7 +106,11 @@ async function composedPdf(
   )
   const watermarked = await watermarkParts(
     services,
-    rendered.map(({ group, bytes }) => ({ bytes, page: pages[group.page] as HtmlPage, physicalPages: [group.page + 1] })),
+    rendered.map(({ group, rendered: part }) => ({
+      ...part,
+      page: pages[group.page] as HtmlPage,
+      physicalPages: [group.page + 1],
+    })),
     pages.length,
   )
   return composeImposedPdf(
@@ -140,7 +149,7 @@ export async function renderPagesPdf(
     )
     const watermarked = await watermarkParts(
       services,
-      rendered.map((part, index) => ({ bytes: part.bytes, page: pages[index] as HtmlPage | PrintedHtmlPage })),
+      rendered.map((part, index) => ({ ...part, page: pages[index] as HtmlPage | PrintedHtmlPage })),
     )
     const output = await services.finish(await joinPdfs(watermarked), opts)
     opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })

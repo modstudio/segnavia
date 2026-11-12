@@ -15,6 +15,8 @@ export interface WatermarkPart {
   bytes: Uint8Array
   page: HtmlPage | PrintedHtmlPage
   physicalPages?: readonly number[]
+  fontFamily?: string
+  fontFaceCss?: string
 }
 
 interface ApplyWatermarkOptions {
@@ -26,6 +28,10 @@ interface ApplyWatermarkOptions {
 
 export function watermarkDocumentCss(parts: readonly WatermarkPart[]): string {
   return [...new Set(parts.flatMap((part) => frameStyleSheets(part.page.style, part.page.brand)))].join('')
+}
+
+export function watermarkFontFaceCss(parts: readonly WatermarkPart[]): string {
+  return [...new Set(parts.flatMap((part) => (part.fontFaceCss ? [part.fontFaceCss] : [])))].join('')
 }
 
 export async function watermarkPages(pdf: Uint8Array): Promise<WatermarkPage[]> {
@@ -132,7 +138,12 @@ export async function applyWatermark(
       part: partIndex,
       page: pageIndex + 1,
       physical: physical[pageIndex] as number,
-      geometry: { ...page, direction: printedPageDirection(part.page), ...(part.page.lang ? { lang: part.page.lang } : {}) },
+      geometry: {
+        ...page,
+        direction: printedPageDirection(part.page),
+        ...(part.page.lang ? { lang: part.page.lang } : {}),
+        ...(part.fontFamily ? { fontFamily: part.fontFamily } : {}),
+      },
     }))
   })
   const count = pageCount ?? mapped.length
@@ -150,7 +161,7 @@ export async function applyWatermark(
   const html = watermarkDocument(
     options.watermark,
     selected.map((entry) => entry.geometry),
-    `${documentCss}${options.css ?? ''}${fontCss}`,
+    `${documentCss}${options.css ?? ''}${fontCss}${watermarkFontFaceCss(parts)}`,
   )
   const layer = await withTab(
     {

@@ -212,6 +212,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page], parsedOptions.slots))
+        let watermarkFont: Pick<Awaited<ReturnType<typeof renderPagePdf>>, 'fontFamily' | 'fontFaceCss'> = {}
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, prepared.established.slots)
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
@@ -229,9 +230,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             prepared.fontFailures,
           )
           if (printed.overflow) overflows.push(printed.overflow)
+          watermarkFont = { fontFamily: printed.fontFamily, fontFaceCss: printed.fontFaceCss }
           return printed.bytes
         })
-        const [watermarked] = await applyWatermark([{ bytes, page: prepared.page }], parsedOptions, prepared.fontCss, deadline, withTab)
+        const [watermarked] = await applyWatermark([{ bytes, page: prepared.page, ...watermarkFont }], parsedOptions, prepared.fontCss, deadline, withTab)
         const output = await withDocumentMetadata(
           await finishWithBrowser(watermarked as Uint8Array, prepared.options, deadline),
           parsedOptions.metadata,
