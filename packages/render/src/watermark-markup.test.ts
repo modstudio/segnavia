@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { type WatermarkPage, watermarkMarkup, watermarkRotation } from './watermark-markup.ts'
+import { watermarkDocument, type WatermarkPage, watermarkMarkup, watermarkRotation } from './watermark-markup.ts'
 
 const page = (width: number, height: number, direction: 'ltr' | 'rtl' = 'ltr'): WatermarkPage => ({
   media: { width, height },
@@ -37,7 +37,15 @@ test('text is escaped and isolated in its resolved direction', () => {
 })
 
 test('each layer page uses its part family unless the watermark overrides it', () => {
-  expect(watermarkMarkup({ text: 'Draft' }, { ...page(210, 297), fontFamily: '"Page One", serif' })).toContain('font-family:"Page One", serif')
-  expect(watermarkMarkup({ text: 'Draft' }, { ...page(210, 297), fontFamily: 'Page Two' })).toContain('font-family:Page Two')
-  expect(watermarkMarkup({ text: 'Draft', font: 'Watermark Face' }, { ...page(210, 297), fontFamily: 'Page One' })).toContain('font-family:"Watermark Face"')
+  const pages = [
+    { ...page(210, 297), fontFamily: '"Page One", serif' },
+    { ...page(210, 297), fontFamily: 'Page Two' },
+  ]
+  const inherited = watermarkDocument({ text: 'Draft' }, pages)
+  expect(inherited).toContain('font-family:"Page One", serif')
+  expect(inherited).toContain('font-family:Page Two')
+
+  const overridden = watermarkDocument({ text: 'Draft', font: 'Watermark Face' }, pages)
+  expect(overridden.match(/font-family:"Watermark Face"/g)).toHaveLength(2)
+  expect(overridden).not.toContain('font-family:Page Two')
 })
