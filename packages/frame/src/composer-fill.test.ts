@@ -17,7 +17,13 @@ test('truncate applies without a preflight profile', () => {
     closest: () => null,
   } as unknown as HTMLElement
 
-  const outcome = applyRegionOverflow(region, '4', false, () => ({ block: children.length > 1 ? 10 : 0 }))
+  const outcome = applyRegionOverflow(
+    region,
+    '4',
+    false,
+    () => ({ block: children.length > 1 ? 10 : 0 }),
+    () => false,
+  )
   expect(children.map((child) => child.id)).toEqual(['first'])
   expect(outcome).toEqual({ mode: 'truncate', droppedIds: ['second', 'third'] })
 })

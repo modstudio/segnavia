@@ -20,6 +20,14 @@ export function fillLimits(minimum: string | null, maximum: string | null): { mi
   return { min, max }
 }
 
+export function lastLineStart(blockPositions: readonly number[], tolerance = 0.5): number {
+  if (blockPositions.length === 0) return -1
+  const last = blockPositions[blockPositions.length - 1] as number
+  let index = blockPositions.length - 1
+  while (index > 0 && Math.abs((blockPositions[index - 1] as number) - last) <= tolerance) index -= 1
+  return index
+}
+
 export function truncatedRegion(
   subject: string,
   droppedIds: readonly string[],

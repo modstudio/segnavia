@@ -1,6 +1,6 @@
 import type { PreflightEntry, PreflightRegion } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
-import { fillLimits, recordTruncatedRegion, regionRefusal, runFillStageOnce, truncatedRegion } from './composer-fill-policy.ts'
+import { fillLimits, lastLineStart, recordTruncatedRegion, regionRefusal, runFillStageOnce, truncatedRegion } from './composer-fill-policy.ts'
 import { fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
 
 interface FillGeometry {
@@ -110,11 +110,54 @@ export interface RegionOverflowOutcome {
   droppedIds?: string[]
 }
 
+function truncateLastLine(block: HTMLElement): boolean {
+  const documentRoot = block.ownerDocument
+  const walker = documentRoot.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+  const nodes: Text[] = []
+  let text = walker.nextNode()
+  while (text) {
+    nodes.push(text as Text)
+    text = walker.nextNode()
+  }
+  const value = nodes.map((node) => node.data).join('')
+  if (!value || nodes.length === 0) return false
+  const starts: Array<{ node: Text; offset: number; block: number }> = []
+  const vertical = getComputedStyle(block).writingMode.startsWith('vertical')
+  const position = (offset: number): { node: Text; offset: number } => {
+    let remaining = offset
+    for (const node of nodes) {
+      if (remaining <= node.data.length) return { node, offset: remaining }
+      remaining -= node.data.length
+    }
+    const node = nodes[nodes.length - 1] as Text
+    return { node, offset: node.data.length }
+  }
+  for (const segment of new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(value)) {
+    const start = position(segment.index)
+    const end = position(segment.index + segment.segment.length)
+    const range = documentRoot.createRange()
+    range.setStart(start.node, start.offset)
+    range.setEnd(end.node, end.offset)
+    const rects = range.getClientRects()
+    const rect = rects[rects.length - 1]
+    if (rect) starts.push({ ...start, block: vertical ? rect.left : rect.top })
+  }
+  const cutIndex = lastLineStart(starts.map((start) => start.block))
+  if (cutIndex <= 0) return false
+  const cut = documentRoot.createRange()
+  cut.selectNodeContents(block)
+  const start = starts[cutIndex] as { node: Text; offset: number }
+  cut.setStart(start.node, start.offset)
+  cut.deleteContents()
+  return true
+}
+
 export function applyRegionOverflow(
   region: HTMLElement,
   folio: string,
   refusalEnabled: boolean,
   excessOf: (element: HTMLElement) => { block: number } = inkExcess,
+  truncateLine: (block: HTMLElement) => boolean = truncateLastLine,
 ): RegionOverflowOutcome {
   const mode = (region.getAttribute('data-overflow') ?? 'grow') as RegionOverflowOutcome['mode']
   if (mode === 'grow') return { mode }
@@ -125,8 +168,9 @@ export function applyRegionOverflow(
   const dropped: string[] = []
   while (excess > 0.5 && region.lastElementChild) {
     const child = region.lastElementChild as HTMLElement
-    dropped.unshift(child.getAttribute('data-segnavia-id') ?? child.id ?? `${subject}:${dropped.length + 1}`)
-    child.remove()
+    const id = child.getAttribute('data-segnavia-id') ?? child.id ?? `${subject}:${dropped.length + 1}`
+    if (!dropped.includes(id)) dropped.unshift(id)
+    if (!truncateLine(child)) child.remove()
     excess = excessOf(region).block
   }
   return { mode, droppedIds: dropped }
@@ -146,6 +190,7 @@ export function reportRegionOverflow(
 export function embeddedComposerFillFunctions(): string {
   return `${embedFunction('runFillStageOnce', runFillStageOnce)}
 ${embedFunction('fillLimits', fillLimits)}
+${embedFunction('lastLineStart', lastLineStart)}
 ${embedFunction('regionRefusal', regionRefusal)}
 ${embedFunction('truncatedRegion', truncatedRegion)}
 ${embedFunction('recordTruncatedRegion', recordTruncatedRegion)}
@@ -156,6 +201,7 @@ ${embedFunction('inkExcess', inkExcess)}
 ${embedFunction('fillTemplateHolder', fillTemplateHolder)}
 ${embedFunction('fillTemplateSourceRegions', fillTemplateSourceRegions)}
 ${embedFunction('fillSourceRegionsImplementation', fillSourceRegionsImplementation)}
+${embedFunction('truncateLastLine', truncateLastLine)}
 ${embedFunction('applyRegionOverflow', applyRegionOverflow)}
 ${embedFunction('reportRegionOverflow', reportRegionOverflow)}
 var fillStageState={done:false,results:[]};

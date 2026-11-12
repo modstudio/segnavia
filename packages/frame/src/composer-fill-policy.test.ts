@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { fillLimits, recordTruncatedRegion, regionRefusal, runFillStageOnce, truncatedRegion } from './composer-fill-policy.ts'
+import { fillLimits, lastLineStart, recordTruncatedRegion, regionRefusal, runFillStageOnce, truncatedRegion } from './composer-fill-policy.ts'
 
 test('runs fill once and reuses its first facts', () => {
   const state = { done: false, results: [] as number[] }
@@ -23,6 +23,12 @@ test('bounds dropped ids while retaining total counts', () => {
   expect(result.fact).toMatchObject({ droppedPages: 1, droppedBlocks: 54, droppedTotal: 54 })
   expect(result.fact.droppedIds).toHaveLength(50)
   expect(result.entry.message).toContain('54 blocks')
+})
+
+test('finds the first grapheme on the trailing line', () => {
+  expect(lastLineStart([10, 10, 24, 24, 24])).toBe(2)
+  expect(lastLineStart([10, 10])).toBe(0)
+  expect(lastLineStart([])).toBe(-1)
 })
 
 test('aggregates dropped page copies and blocks by region subject', () => {
