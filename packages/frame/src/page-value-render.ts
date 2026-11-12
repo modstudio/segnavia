@@ -32,7 +32,7 @@ export interface PageValueRenderOptions {
 export interface PageValueRenderHandlers {
   show(page: HtmlPage, resolved?: PreparedSlots, fontCss?: string, fontFailures?: import('@segnavia/format').FontFailure[]): void
   report(error: unknown): void
-  write(document: string, provisional?: boolean, hasLayoutScripts?: boolean): void
+  write(document: string, provisional: boolean, hasLayoutScripts: boolean): void
   composed(identity: PageFrameIdentity): void
   fit(): void
 }
@@ -56,7 +56,14 @@ export function renderPageValue(
       return
     }
     handlers.composed(identity)
-    loadPrintedPageFrame(page, { ...options, slots: effectiveSlots, day, signal, loaded: handlers.write, failed: handlers.report })
+    loadPrintedPageFrame(page, {
+      ...options,
+      slots: effectiveSlots,
+      day,
+      signal,
+      loaded: (document, hasLayoutScripts) => handlers.write(document, false, hasLayoutScripts),
+      failed: handlers.report,
+    })
     handlers.fit()
     return
   }

@@ -23,6 +23,22 @@ test('layout loading is byte-neutral without a selection and refuses unknown nam
   expect(loadLayoutScripts('<p data-segnavia-layout="missing"></p>')).rejects.toThrow('registerLayoutProvider("missing", …)')
 })
 
+test('layout selection reads only real author attributes in every HTML attribute form', () => {
+  expect(layoutsUsed('<p data-segnavia-layout=one></p><p\n data-segnavia-layout="two three"></p>')).toEqual(['one', 'two', 'three'])
+  expect(
+    layoutsUsed(
+      '<!-- <p data-segnavia-layout="comment"> --><script>"data-segnavia-layout=script"</script><style>[data-segnavia-layout="style"]{}</style><code>&lt;p data-segnavia-layout="code"&gt;</code>',
+    ),
+  ).toEqual([])
+})
+
+test('layout loading refuses a closing script sequence and names the provider', async () => {
+  registerLayoutProvider('unsafe', { script: async () => 'use();</ScRiPt><p>' })
+  expect(loadLayoutScripts('<p data-segnavia-layout=unsafe></p>')).rejects.toThrow(
+    'Layout provider unsafe returned a script containing </script; remove or escape that sequence',
+  )
+})
+
 test('registration defaults priority and the content selector', async () => {
   registerLayoutProvider('margin', { script: async () => 'MARGIN' })
   expect(await loadLayoutScripts('<aside data-segnavia-layout="margin"></aside>')).toEqual([

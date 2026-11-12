@@ -107,7 +107,6 @@ test('applies region overflow without preflight and collects only its reports un
   expect(script.match(/applyRegionOverflowTo\(/g)).toHaveLength(3)
   expect(script).toContain("var furnitureRegions=pages.querySelectorAll('[data-segnavia-region]');applyRegionOverflowTo")
   expect(script).toContain('config.overflowRefusal!==false')
-  expect(script).toContain('Boolean(config.preflight));}if(config.preflight)markComposedOverflow(pages,config.pageMarker,regionExcess,preflightEntries)')
   expect(markedOverflow).toBeGreaterThan(alignedNotes)
 })
 

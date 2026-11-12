@@ -199,13 +199,17 @@ export async function preparedDeckValuePrint(
         : slide,
     ),
   }
+  const layoutScripts = await loadLayoutScripts(
+    preparedDeck.slides.flatMap((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? [slide.content.html] : [])).join(''),
+  )
+  const preparedPrintOptions = { ...printOptions, layoutScripts }
   if (options.imposition) {
-    const printable = printableDeckValueDocument(preparedDeck, { ...printOptions, imposition: options.imposition })
+    const printable = printableDeckValueDocument(preparedDeck, { ...preparedPrintOptions, imposition: options.imposition })
     return { ...paperBoxSize(printable.imposed.paper), html: printable.html, ...options, slots: resolvedSlots }
   }
   const removedPressFields = Object.fromEntries(PRESS_GEOMETRY_FIELDS.map((field) => [field, undefined]))
   const browserOptions = {
-    ...printOptions,
+    ...preparedPrintOptions,
     notesPaper: printOptions.notesPaper ? { ...printOptions.notesPaper, ...removedPressFields } : undefined,
   }
   return { ...resolvedDeck.size, html: printableDeckValue({ ...preparedDeck, print: undefined }, browserOptions), ...options, slots: resolvedSlots }

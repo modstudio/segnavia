@@ -22,6 +22,7 @@ import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
+import { LAYOUT_FRAME_ATTRIBUTE } from './layout.ts'
 import { requestSelection } from './selection-request.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
@@ -340,7 +341,7 @@ export class SegnaviaStage extends AsOfElement {
     if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
     const failedFrame =
       message?.type === MESSAGE.composeFailure && message.text ? this.pool.frames().find((frame) => frame.contentWindow === event.source) : undefined
-    if (failedFrame?.hasAttribute('data-segnavia-layout-frame')) dispatchElementError(this, new Error(message?.text ?? ''))
+    if (failedFrame?.hasAttribute(LAYOUT_FRAME_ATTRIBUTE)) dispatchElementError(this, new Error(message?.text ?? ''))
     if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
     if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
   }

@@ -3,7 +3,7 @@ import { frameDocument, frameSandbox, frameStyleSheets, newNonce, StyleSheetRefu
 import type { DeckController, ResolvedContent } from './controller.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { annotationFocusBox, fitImage, imageFrameStyle } from './image-fit.ts'
-import { type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
+import { LAYOUT_FRAME_ATTRIBUTE, type LoadedLayoutScript, layoutsUsed, loadLayoutScripts } from './layout.ts'
 import { type PreparedSlots, slotHtml } from './slot-render.ts'
 import { annotationSvg } from './svg.ts'
 
@@ -46,20 +46,36 @@ function htmlFrameDocument(deck: Deck, html: string, options: StageCanvasOptions
   }
 }
 
+function writeFrame(iframe: HTMLIFrameElement, srcdoc: string, loaded: () => void): void {
+  iframe.addEventListener('load', loaded, { once: true })
+  iframe.srcdoc = srcdoc
+}
+
+function refusalLayoutScript(html: string, reason: unknown): LoadedLayoutScript {
+  const name = layoutsUsed(html)[0] ?? 'selected'
+  const message = reason instanceof Error ? reason.message : String(reason)
+  return { name, script: `throw new Error(${JSON.stringify(message)})`, priority: 0, order: 0, selects: '*' }
+}
+
 function writeHtmlFrame(iframe: HTMLIFrameElement, deck: Deck, html: string, options: StageCanvasOptions): boolean {
   if (layoutsUsed(html).length === 0) {
     const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts: [] })
-    if (srcdoc !== undefined) iframe.srcdoc = srcdoc
+    if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
     return srcdoc !== undefined
   }
   if (htmlFrameDocument(deck, html, { ...options, layoutScripts: [] }) === undefined) return false
-  iframe.dataset.segnaviaLayoutFrame = ''
+  iframe.setAttribute(LAYOUT_FRAME_ATTRIBUTE, '')
   void loadLayoutScripts(html).then(
     (layoutScripts) => {
       const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts })
-      if (srcdoc !== undefined) iframe.srcdoc = srcdoc
+      if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
     },
-    (error) => options.failed?.(error instanceof Error ? error : new Error(String(error))),
+    (error) => {
+      const failure = error instanceof Error ? error : new Error(String(error))
+      options.failed?.(failure)
+      const srcdoc = htmlFrameDocument(deck, html, { ...options, layoutScripts: [refusalLayoutScript(html, failure)] })
+      if (srcdoc !== undefined) writeFrame(iframe, srcdoc, options.loaded)
+    },
   )
   return true
 }
@@ -83,13 +99,15 @@ export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide
     // A URL slide's host-served document is outside the frame policy that blocks form submission.
     iframe.setAttribute('sandbox', options.bridge === false ? '' : frameSandbox(content.kind === 'url' ? 'refuse' : deck.scripts))
     iframe.title = options.frameTitle(deck.title, options.folio.number)
-    iframe.addEventListener('load', options.loaded, { once: true })
     if (content.kind === 'html') {
       if (!writeHtmlFrame(iframe, deck, content.html, options)) {
         layoutStageCanvas(canvas, deck.size)
         return canvas
       }
-    } else iframe.src = controller.url(content.src)
+    } else {
+      iframe.addEventListener('load', options.loaded, { once: true })
+      iframe.src = controller.url(content.src)
+    }
     canvas.append(iframe)
   } else {
     const layer = document.createElement('div')

@@ -38,9 +38,10 @@ import {
   htmlSlidePdfOptions,
   regularSlideDrawBox,
 } from './deck-paper.ts'
-import { layoutsForHtml, waitForPrintReady } from './deck-readiness.ts'
+import { waitForPrintReady } from './deck-readiness.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
+import { layoutsForHtml } from './layout-scripts.ts'
 import type { ComposedRenderOptions } from './options.ts'
 import { type Assets, assetSetup } from './options.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'

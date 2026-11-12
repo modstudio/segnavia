@@ -44,6 +44,7 @@ import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { imposedPaperBodies, imposedPaperDocument, placementBox } from './imposed-paper.ts'
+import { layoutsUsed } from './layout.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
@@ -188,8 +189,11 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   const content = slide.content
   if ('media' in content)
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
-  const frame = (html: string) =>
-    `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, diagramScript: options.diagramScript, layoutScripts: options.layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+  const frame = (html: string) => {
+    const selectedLayouts = new Set(layoutsUsed(html))
+    const layoutScripts = options.layoutScripts?.filter(({ name }) => selectedLayouts.has(name))
+    return `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, diagramScript: options.diagramScript, layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+  }
   switch (content.kind) {
     case 'html':
       return options.omitHtmlSlideFrames ? '' : frame(content.html)

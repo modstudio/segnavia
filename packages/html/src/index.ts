@@ -164,6 +164,7 @@ export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, f
 export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
 export {
   assetOriginRefusals,
+  attributeValues,
   findActiveContent,
   REFUSED_ELEMENTS,
   type SanitizeOptions,

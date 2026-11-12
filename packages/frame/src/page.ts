@@ -245,7 +245,7 @@ export class SegnaviaPage extends PageAsOfElement {
       )
     }
     const report = (error: unknown) => dispatchPageFailure(this, error, isCurrent())
-    const write = (document: string, provisional = false, hasLayoutScripts = false) => {
+    const write = (document: string, provisional: boolean, hasLayoutScripts: boolean) => {
       if (isCurrent()) this.writeDocument(iframe, document, provisional, hasLayoutScripts)
     }
     const facts = {
@@ -354,7 +354,7 @@ export class SegnaviaPage extends PageAsOfElement {
     this.loadedDocument = undefined
     this.documentIsFinal = false
   }
-  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional = false, hasLayoutScripts = false) {
+  private writeDocument(iframe: HTMLIFrameElement, srcdoc: string, provisional: boolean, hasLayoutScripts: boolean) {
     const written = ++this.documentWrites
     this.resetDocumentReadiness()
     this.documentIsFinal = !provisional

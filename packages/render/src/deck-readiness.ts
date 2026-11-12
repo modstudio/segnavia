@@ -1,6 +1,4 @@
 import { COMPOSE_FAILURE_ATTRIBUTE, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
-import type { LoadedLayoutScript } from '@segnavia/frame/layout'
-import { layoutsUsed } from '@segnavia/frame/layout'
 import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
@@ -16,7 +14,6 @@ async function watchForLayoutFailure(tab: Tab, waiting: () => boolean): Promise<
   }
   return null
 }
-
 export async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): Promise<void> {
   const printed = tab
     .locator(`html[${PRINT_READY_ATTRIBUTE}]`)
@@ -42,7 +39,3 @@ export async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): P
   await waitForDiagramReadiness(tab, readiness)
 }
 
-export function layoutsForHtml(html: string, scripts: readonly LoadedLayoutScript[]): readonly LoadedLayoutScript[] {
-  const names = new Set(layoutsUsed(html))
-  return scripts.filter((script) => names.has(script.name))
-}

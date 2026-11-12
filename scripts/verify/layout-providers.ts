@@ -118,6 +118,27 @@ export async function verifyLayoutProviders(h: Harness): Promise<void> {
     JSON.stringify({ screenBook, screenPage, screenSlide, printBook, printPage, printSlide }),
   )
 
+  await h.page.setViewportSize({ width: 100, height: 816 })
+  await h.page.goto(h.url('layout-provider-book-geometry.html'))
+  await h.page.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))
+  const narrow = await h.page.locator('[data-layout-geometry]').evaluate((element: HTMLElement) => {
+    const report = JSON.parse(document.documentElement.getAttribute('data-segnavia-preflight') ?? 'null') as {
+      issues?: Array<{ check?: string }>
+    } | null
+    return {
+      galley: JSON.parse(element.dataset.galleyMeasurements ?? 'null') as Awaited<ReturnType<typeof layoutBox>>,
+      composed: JSON.parse(element.dataset.composedMeasurements ?? 'null') as Awaited<ReturnType<typeof layoutBox>>,
+      overset: report?.issues?.some((issue) => issue.check === 'region-overset' || issue.check === 'furniture-overset') ?? false,
+    }
+  })
+  h.check(
+    'a narrow book measures composed providers before screen scaling and still reports composed overflow',
+    boxesAgree(narrow.galley, narrow.composed) && narrow.overset,
+    JSON.stringify(narrow),
+  )
+  await h.page.setViewportSize({ width: 1280, height: 816 })
+  await h.page.goto(h.url('layout-provider.html'))
+
   await h.waitFor('#reject-page', (data) => Boolean(data.error))
   await h.waitFor('#reject-slide', (data) => Boolean(data.error))
   const errors = await h.page.evaluate(() =>

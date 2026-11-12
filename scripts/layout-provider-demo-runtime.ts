@@ -14,6 +14,8 @@ const provider = `segnaviaLayout.define({
         box.dataset.layoutBox = ''
         box.style.cssText = 'position:fixed;inset-inline-start:40px;inset-block-start:52px;inline-size:36px;block-size:24px;background:#d22;z-index:20'
         document.body.append(box)
+        const measured = box.getBoundingClientRect()
+        node.dataset.galleyMeasurements = JSON.stringify({ x: measured.x, y: measured.y, width: measured.width, height: measured.height })
       }
       if (node.dataset.layoutHebrew !== undefined) {
         const pointed = ctx.ink('בְּרֵאשִׁית')
@@ -30,7 +32,11 @@ const provider = `segnaviaLayout.define({
     for (const element of ctx.elements) {
       const node = /** @type {HTMLElement} */ (element)
       node.dataset.composedRan = ''
-      if (node.dataset.layoutPhase === 'composed') {
+      if (node.dataset.layoutGeometry !== undefined) {
+        const box = document.querySelector('[data-layout-box]').getBoundingClientRect()
+        node.dataset.composedMeasurements = JSON.stringify({ x: box.x, y: box.y, width: box.width, height: box.height })
+      }
+      if (node.dataset.layoutPhase === 'composed' || node.dataset.layoutGeometry !== undefined) {
         node.style.fontSize = '32px'
         const region = document.querySelector('[data-segnavia-region]')
         if (region) {

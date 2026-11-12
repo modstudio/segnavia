@@ -1,4 +1,7 @@
+import { attributeValues } from '@segnavia/html'
+
 export const LAYOUT_ATTRIBUTE = 'data-segnavia-layout'
+export const LAYOUT_FRAME_ATTRIBUTE = 'data-segnavia-layout-frame'
 export const LAYOUT_PHASE_TIMEOUT_MS = 10_000
 
 export interface LayoutProvider {
@@ -41,7 +44,7 @@ function validName(name: string): boolean {
 export function registerLayoutProvider(name: string, provider: LayoutProvider): void {
   if (!validName(name)) throw new Error(`Layout provider name ${JSON.stringify(name)} is invalid; use a lowercase CSS identifier to clear this refusal.`)
   const priority = provider?.priority ?? 0
-  const selects = provider?.selects ?? `[data-segnavia-layout~="${name}"]`
+  const selects = provider?.selects ?? `[${LAYOUT_ATTRIBUTE}~="${name}"]`
   if (!provider || typeof provider.script !== 'function' || !Number.isFinite(priority) || typeof selects !== 'string' || !selects) {
     throw new Error(`Layout provider ${JSON.stringify(name)} is invalid; pass { script, priority, selects } to clear this refusal.`)
   }
@@ -53,9 +56,8 @@ export function registerLayoutProvider(name: string, provider: LayoutProvider): 
 function selectedLayoutNames(html: string): string[] {
   const names: string[] = []
   const seen = new Set<string>()
-  const pattern = /\bdata-segnavia-layout\s*=\s*(["'])(.*?)\1/gi
-  for (const match of html.matchAll(pattern)) {
-    for (const name of (match[2] ?? '').trim().split(/\s+/)) {
+  for (const value of attributeValues(html, LAYOUT_ATTRIBUTE)) {
+    for (const name of value.trim().split(/\s+/)) {
       if (!name || seen.has(name)) continue
       seen.add(name)
       names.push(name)
@@ -83,13 +85,13 @@ export async function loadLayoutScripts(html: string): Promise<LoadedLayoutScrip
   })
   selected.sort((left, right) => left.provider.priority - right.provider.priority || left.provider.order - right.provider.order)
   return Promise.all(
-    selected.map(async ({ name, provider }) => ({
-      name,
-      script: await provider.script(),
-      priority: provider.priority,
-      order: provider.order,
-      selects: provider.selects,
-    })),
+    selected.map(async ({ name, provider }) => {
+      const script = await provider.script()
+      if (/<\/script/i.test(script)) {
+        throw new Error(`Layout provider ${name} returned a script containing </script; remove or escape that sequence to clear this refusal.`)
+      }
+      return { name, script, priority: provider.priority, order: provider.order, selects: provider.selects }
+    }),
   )
 }
 
