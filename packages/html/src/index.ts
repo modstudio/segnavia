@@ -65,9 +65,7 @@ export {
   parseBookPositionKey,
 } from './book/book-flow.ts'
 export {
-  CONTENTS_PAGE_REFERENCE_CLASS,
   CONTENTS_PAGE_REFERENCE_SELECTOR,
-  isGeneratedContentsPageReference,
   PAGE_REFERENCE_ATTRIBUTE,
   PAGE_REFERENCE_SELECTOR,
   PAGE_REFERENCE_VALUE,
