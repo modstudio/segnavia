@@ -60,12 +60,12 @@ describe('book outline policy', () => {
 })
 
 test('direction marks appear only when natural and resolved directions differ', () => {
-  expect(outlineTitle('שלום', undefined, 'he')).toBe('שלום')
-  expect(outlineTitle('Introduction שלום', undefined, 'he')).toBe('\u200fIntroduction שלום')
-  expect(outlineTitle('שלום', undefined, 'en')).toBe('\u200eשלום')
-  expect(outlineTitle('Introduction', undefined, 'en')).toBe('Introduction')
-  expect(outlineTitle('1948', undefined, 'he')).toBe('\u200f1948')
-  expect(outlineTitle('1948', undefined, 'en')).toBe('1948')
+  expect(outlineTitle('שלום', 'rtl')).toBe('שלום')
+  expect(outlineTitle('Introduction שלום', 'rtl')).toBe('\u200fIntroduction שלום')
+  expect(outlineTitle('שלום', 'ltr')).toBe('\u200eשלום')
+  expect(outlineTitle('Introduction', 'ltr')).toBe('Introduction')
+  expect(outlineTitle('1948', 'rtl')).toBe('\u200f1948')
+  expect(outlineTitle('1948', 'ltr')).toBe('1948')
 })
 
 test('writes plan folios as PDF page labels, including an uncounted page', async () => {
@@ -81,12 +81,11 @@ test('writes plan folios as PDF page labels, including an uncounted page', async
   expect((numbers.lookup(5) as PDFDict).lookup(PDFName.of('P'), PDFHexString).decodeText()).toBe('ii')
 })
 
-test('the PDF adapter writes collapsed UTF-16 outlines and document metadata', async () => {
+test('the PDF adapter infers one direction from the title for outlines and metadata', async () => {
   const book = parseBookFixture({
     title: 'ספר',
     authors: ['אחת', 'Two'],
     subject: 'נושא',
-    lang: 'he',
     mode: 'continuous',
     chapters: [{ title: 'פרק', html: '<p>Text</p>' }],
   })
@@ -111,9 +110,8 @@ test('the PDF adapter writes collapsed UTF-16 outlines and document metadata', a
   const topicTitle = topic.get(PDFName.of('Title')) as PDFHexString
 
   expect(document.getTitle()).toBe('ספר')
-  expect(document.getAuthor()).toBe('אחת; Two')
+  expect(document.getAuthor()).toBe('אחת; \u200fTwo')
   expect(document.getSubject()).toBe('נושא')
-  expect((document.catalog.get(PDFName.of('Lang')) as PDFHexString).decodeText()).toBe('he')
   expect(document.catalog.get(PDFName.of('PageMode'))).toEqual(PDFName.of('UseOutlines'))
   expect((chapter.get(PDFName.of('Count')) as PDFNumber).asNumber()).toBe(-1)
   expect(chapterTitle.decodeText()).toBe('פרק')

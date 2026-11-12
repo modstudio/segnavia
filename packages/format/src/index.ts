@@ -61,6 +61,7 @@ export {
   firstStrongDirection,
   htmlTextSample,
   languageDirection,
+  markedTitle,
   resolveDirection,
   TextDirection,
   textDirection,

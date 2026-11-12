@@ -13,9 +13,7 @@ async function sheets(pdf: Uint8Array): Promise<number> {
 }
 
 export async function enforce(pdf: Uint8Array, limits: Limits | undefined): Promise<Uint8Array> {
-  if (limits?.bytes !== undefined && pdf.byteLength > limits.bytes) {
-    throw new RenderLimitError('bytes', pdf.byteLength, limits.bytes)
-  }
+  enforcePdfBytes(pdf, limits)
   if (limits?.sheets !== undefined) {
     const count = await sheets(pdf)
     if (count > limits.sheets) throw new RenderLimitError('sheets', count, limits.sheets)
@@ -23,8 +21,13 @@ export async function enforce(pdf: Uint8Array, limits: Limits | undefined): Prom
   return pdf
 }
 
+export function enforcePdfBytes(pdf: Uint8Array, limits: Limits | undefined): Uint8Array {
+  if (limits?.bytes !== undefined && pdf.byteLength > limits.bytes) throw new RenderLimitError('bytes', pdf.byteLength, limits.bytes)
+  return pdf
+}
+
 export async function finishPdf(pdf: Uint8Array, options: Pick<RenderOptions, 'effects' | 'limits' | 'press'>, decodeJpeg?: JpegDecoder): Promise<Uint8Array> {
-  if (options.limits?.bytes !== undefined && pdf.byteLength > options.limits.bytes) throw new RenderLimitError('bytes', pdf.byteLength, options.limits.bytes)
+  enforcePdfBytes(pdf, options.limits)
   let output = pdf
   if (options.effects !== false) {
     const rewritten = await rewriteEffectsPdf(output)

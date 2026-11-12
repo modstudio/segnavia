@@ -1,5 +1,5 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
-import { fillPageAsOfBindings, type PreparedSlots, parseAsOfInputs, parseDocument, printedPageAuthorHtml } from '@segnavia/html'
+import { fillPageAsOfBindings, type PreparedSlots, parseAsOfInputs, parseDocument, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
@@ -36,6 +36,8 @@ import { enforce } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
+import { createProtectPdf } from './protect-pdf.ts'
+import { parsePdfOptions } from './protection-options.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
@@ -44,55 +46,10 @@ import { DEFAULT_JS_HEAP_MB, RENDER_BOUND_MS, type Renderer, type RendererOption
 import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
-import { fillDeckForDay, filledBook, filledPage, filledPages } from './slot-fill.ts'
+import { fillDeckForDay, filledPage, filledPages } from './slot-fill.ts'
 import { watermarkCopyStamper } from './watermark-stamp.ts'
 
-export { FontRefusedError } from '@segnavia/frame/fonts'
-export type { MotifsOptions } from '@segnavia/frame/motifs'
-export type { PreparedSlots, ResolvedPlacement, ResolvePlacement } from '@segnavia/html'
-export { captureImage } from './capture-image.ts'
-export { COVER_IMAGE_OMITTED, type CoverImageOptions, type CoverImagePlan, coverImagePlan } from './cover-image.ts'
-export type { EffectsReport } from './effects/types.ts'
-export {
-  type ColorProfileUse,
-  RenderColorProfileError,
-  RendererUnavailableError,
-  RenderLimitError,
-  RenderOversetError,
-  RenderRefusedError,
-} from './errors.ts'
-export { fontFaces } from './font-faces.ts'
-export type { LocalFontsOptions, LocalFontsReport } from './local-fonts.ts'
-export type {
-  AssetAnswer,
-  Assets,
-  Font,
-  ImageOptions,
-  MarksReport,
-  OverflowContribution,
-  OverflowEntry,
-  OverflowPart,
-  OverflowReport,
-  PageImageOptions,
-  ProofImageOptions,
-  RenderOptions,
-  SlideImageOptions,
-} from './options.ts'
-export type { PressDestination, PressImage, PressReport } from './press/types.ts'
-export { RenderTimeoutError } from './render-deadline.ts'
-export {
-  type BookPdfOptions,
-  type BookPlanOptions,
-  CONTAINER_ARGS,
-  DEFAULT_JS_HEAP_MB,
-  PAGE_READY_BOUND_MS,
-  type PagePdfOptions,
-  RENDER_BOUND_MS,
-  type Renderer,
-  type RendererOptions,
-} from './renderer.ts'
-export type { Watermark } from './watermark-options.ts'
-export { filledBook }
+export * from './public.ts'
 
 const NO_NETWORK_ARGS = ['--proxy-server=socks5://127.0.0.1:9', '--proxy-bypass-list=<-loopback>', '--force-webrtc-ip-handling-policy=disable_non_proxied_udp']
 
@@ -112,6 +69,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   let closed = false
   const queue = renderQueue(options.concurrency ?? 2)
   const { acquire, release } = queue
+  const protectPdf = createProtectPdf()
 
   async function withTab<T>(
     setup: BrowserTabSetup & {
@@ -174,7 +132,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const { book, options, fontCss: resolvedFontCss, fontFailures, established, preflight } = await prepareRenderBook(input, parsedOptions, deadline.signal)
         const seededOptions = { ...options, preflight: withPreflightSeed(options.preflight, preflight) }
-        return renderBrowserBookPdf(
+        const output = await renderBrowserBookPdf(
           book,
           seededOptions,
           resolvedFontCss,
@@ -191,6 +149,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           },
           established.day,
         )
+        return protectPdf(output, parsedOptions, deadline)
       })
     },
     async bookPlan(input, opts = {}) {
@@ -239,9 +198,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           await finishWithBrowser(bytes, prepared.options, deadline),
           parsedOptions.metadata,
           outputDate([prepared.established.day]),
+          printedPageDirection(prepared.page),
         )
         if (overflows.length) parsedOptions.overflow?.report?.({ entries: overflows })
-        return enforce(output, parsedOptions.limits)
+        return protectPdf(await enforce(output, parsedOptions.limits), parsedOptions, deadline)
       })
     },
     async pageImage(input, opts = {}) {
@@ -263,7 +223,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         return renderPreparedPageImage(prepared, options, deadline, withTab, surfacePreflight(options.preflight, 1))
       })
     },
-
     async pagesPdf(inputs, opts = {}) {
       const parsedOptions = parsePagePdfOptions(opts ?? {})
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
@@ -318,15 +277,21 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           )
         })
         watermarkCopies.validate()
-        return enforce(
-          await withDocumentMetadata(await finishWithBrowser(bytes, parsedOptions, deadline), parsedOptions.metadata, outputDate(contexts.days)),
+        const output = await enforce(
+          await withDocumentMetadata(
+            await finishWithBrowser(bytes, parsedOptions, deadline),
+            parsedOptions.metadata,
+            outputDate(contexts.days),
+            expanded[0] ? printedPageDirection(expanded[0].page) : undefined,
+          ),
           parsedOptions.limits,
         )
+        return protectPdf(output, parsedOptions, deadline)
       })
     },
 
     async deckPdf(input, opts = {}) {
-      const options = parseAsOfInputs(parseComposedRenderOptions(opts))
+      const options = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(opts)))
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
@@ -363,7 +328,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             established.day,
           )
         })
-        return withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
+        const output = await withDocumentMetadata(await finishWithBrowser(bytes, options, deadline), undefined, outputDate([established.day]))
+        return protectPdf(output, options, deadline)
       })
     },
 
@@ -389,6 +355,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async close() {
       closed = true
       queue.close()
+      await protectPdf.dispose()
       await keeper.close()
     },
   }

@@ -14,6 +14,7 @@ import type {
   SlideImageOptions,
 } from './options.ts'
 import type { Watermark } from './watermark-options.ts'
+import type { PdfOptions } from './protection-options.ts'
 
 export const RENDER_BOUND_MS = 60_000
 export const PAGE_READY_BOUND_MS = 10_000
@@ -29,9 +30,9 @@ export interface RendererOptions {
   jsHeapMb?: number
 }
 
-export type PagePdfOptions = PageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
-export type ParsedPagePdfOptions = ParsedPageRenderOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
-export type BookPdfOptions = ComposedRenderInput & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[] }
+export type PagePdfOptions = PageRenderOptions & PdfOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
+export type ParsedPagePdfOptions = ParsedPageRenderOptions & PdfOptions & { motifs?: MotifsOptions; metadata?: DocumentMetadata; watermark?: Watermark }
+export type BookPdfOptions = ComposedRenderInput & PdfOptions & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[] }
 export type ParsedBookPdfOptions = ParsedComposedRenderOptions<BookPdfOptions>
 export type BookPlanOptions = RenderOptions & AsOfInputs & { motifs?: MotifsOptions; breaks?: string[] }
 export interface Renderer {
@@ -41,7 +42,7 @@ export interface Renderer {
   pagesPdf(pages: PageOrPrintedInput[], options?: PagePdfOptions & { imposition?: ImpositionInput }): Promise<Uint8Array>
   pageImage(page: PageOrPrintedInput, options?: PageImageOptions): Promise<Uint8Array>
   coverImage(cover: CoverInput, options: CoverImageOptions): Promise<Uint8Array>
-  deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PrintOptions & AsOfInputs): Promise<Uint8Array>
+  deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PdfOptions & PrintOptions & AsOfInputs): Promise<Uint8Array>
   slideImage(deck: DocumentInput, index: number, options?: SlideImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
   close(): Promise<void>
