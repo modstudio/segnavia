@@ -10,9 +10,9 @@ import {
   type TemplatedSection,
 } from '@segnavia/format'
 import type { ChildNode, Element } from 'domhandler'
+import { fillAttributeIssues } from '../fill-attributes.ts'
 import { FIT_ATTRIBUTE_FAMILY } from '../fit-attributes.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from '../measure-attributes.ts'
-import { fillAttributeIssues } from '../fill-attributes.ts'
 import { elements, parse } from '../sanitize.ts'
 import { sourceAttributeIssues } from '../source-attributes.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
@@ -246,7 +246,7 @@ function templatedPageRegionFillIssues(entry: TemplatedSection, id: string): str
   const label = entry.title ?? id
   return entry.pages.flatMap((page, index) =>
     Object.entries(page.regions).flatMap(([region, html]) =>
-      fillAttributeIssues(parse(html).children, `section ${label} page ${index + 1} region "${region}"`, true),
+      fillAttributeIssues(parse(html).children, `section ${label} page ${index + 1} region "${region}"`, region),
     ),
   )
 }

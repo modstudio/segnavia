@@ -6,17 +6,26 @@ function integer(value: string | undefined, fallback: number): number | undefine
   return /^(?:0|[1-9]\d*)$/.test(value) && Number.isSafeInteger(Number(value)) ? Number(value) : undefined
 }
 
-export function fillAttributeIssues(nodes: readonly ChildNode[], where: string, insideNamedRegion = false): string[] {
+export function fillAttributeIssues(nodes: readonly ChildNode[], where: string, insideNamedRegion: string | boolean = false): string[] {
   const issues: string[] = []
-  const visit = (children: readonly ChildNode[], inRegion: boolean) => {
+  const visit = (children: readonly ChildNode[], region: string | undefined, repeatedRegion: string | undefined) => {
     for (const child of children) {
       if (!isTag(child)) continue
-      const namedRegion = inRegion || child.attribs['data-region'] !== undefined || child.attribs['data-segnavia-region'] !== undefined
-      issues.push(...elementIssues(child.name, child.attribs, where, inRegion, namedRegion))
-      visit(child.children, namedRegion)
+      const declaredRegion = child.attribs['data-region'] ?? child.attribs['data-segnavia-region']
+      const currentRegion = declaredRegion ?? region
+      const inRegion = currentRegion !== undefined
+      issues.push(...elementIssues(child.name, child.attribs, where, region !== undefined, inRegion))
+      const currentRepeat = repeatedRegion ?? (child.attribs['data-fill'] === 'repeat' ? currentRegion : undefined)
+      if (currentRepeat !== undefined && child.attribs['data-measure'] !== undefined) {
+        const subject = child.attribs['data-segnavia-id'] ? `block "${child.attribs['data-segnavia-id']}"` : 'data-measure attribute'
+        issues.push(
+          `${where} <${child.name}> ${subject} is inside repeated fill region "${currentRepeat}"; move data-measure outside the repeated child to clear this refusal`,
+        )
+      }
+      visit(child.children, currentRegion, currentRepeat)
     }
   }
-  visit(nodes, insideNamedRegion)
+  visit(nodes, typeof insideNamedRegion === 'string' ? insideNamedRegion : insideNamedRegion ? 'named region' : undefined, undefined)
   return issues
 }
 

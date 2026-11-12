@@ -20,6 +20,15 @@ test('refuses zero repeat bounds by attribute name', () => {
   expect(maximum).toContain('data-fill-max is invalid')
 })
 
+test('refuses measured properties inside a repeated child by block and region', () => {
+  const result = issues(
+    '<main data-region="practice"><div data-fill="repeat"><p data-segnavia-id="measured-row" data-measure="block" data-measure-as="--row-height">row</p></div></main>',
+  ).join(' ')
+  expect(result).toContain('block "measured-row"')
+  expect(result).toContain('repeated fill region "practice"')
+  expect(result).toContain('move data-measure outside the repeated child')
+})
+
 test('refuses unknown overflow modes', () => {
   expect(issues('<main data-region="body" data-overflow="clip"></main>')[0]).toContain('grow, truncate or refuse')
 })

@@ -2082,9 +2082,11 @@ element or sits inside one. Book template and designed-page region HTML gets
 no minted block id, so a measure there needs an authored `data-segnavia-id` on
 the element or a block ancestor. A parent-page region is rebuilt on every page
 from its source, so a measure there could not take effect and is refused at
-the edge. An element with no layout boxes when the stage runs, such as one
-under `display: none`, refuses the composition by its block id rather than
-leaving the property unset.
+the edge. A measured element inside a `data-fill="repeat"` child is also
+refused at the edge: fill-index styling can make the copies differ, while
+measurement facts have one key per block. An element with no layout boxes when
+the stage runs, such as one under `display: none`, refuses the composition by
+its block id rather than leaving the property unset.
 
 An author derives a column count without another attribute by using the
 measured width in CSS, for example

@@ -36,7 +36,8 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockIdLocation>()
   const html: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen).html
-  const regionHtml: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { insideNamedRegion: true }).html
+  const regionHtml = (value: string, node: { type: string; id: string }, region: string) =>
+    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { insideNamedRegion: region }).html
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
     const value = pageBodyHtml(node.body, document, options)
@@ -49,7 +50,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
       const next = pageBody(node)
       return node.regions === undefined
         ? next
-        : { ...next, regions: Object.fromEntries(Object.entries(node.regions).map(([name, value]) => [name, regionHtml(value, node)])) }
+        : { ...next, regions: Object.fromEntries(Object.entries(node.regions).map(([name, value]) => [name, regionHtml(value, node, name)])) }
     }
     if (node.type === 'slide' && 'kind' in node.content && node.content.kind === 'html') {
       return { ...node, content: { ...node.content, html: html(node.content.html, node) } }
@@ -68,7 +69,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
         name,
         {
           ...region,
-          html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { refuseMeasure: true, insideNamedRegion: true }).html,
+          html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { refuseMeasure: true, insideNamedRegion: name }).html,
         },
       ]),
     ),
