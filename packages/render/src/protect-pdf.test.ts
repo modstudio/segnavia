@@ -119,7 +119,7 @@ test('does not expose a generated owner password and only that password decrypts
 })
 
 test('generated owner passwords never begin with a qpdf option prefix', () => {
-  for (let draw = 0; draw < 1_000; draw += 1) expect(generatedOwnerPassword()).not.toStartWith('-')
+  for (let draw = 0; draw < 1_000; draw += 1) expect(generatedOwnerPassword()).toStartWith('A')
 })
 
 test('restores the host process exit code after qpdf runs', async () => {
@@ -159,3 +159,4 @@ test('treats qpdf status 3 as success with warnings', async () => {
   const warningProtector = createPdfProtector({ loadQpdf: async () => warningInstance })
   expect(await warningProtector(new Uint8Array([1]), { ownerPassword: 'owner-warning' })).toEqual(new Uint8Array([3]))
 })
+
