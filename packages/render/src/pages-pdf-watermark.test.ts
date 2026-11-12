@@ -16,46 +16,61 @@ async function pdfPage(width: number, height: number): Promise<Uint8Array> {
   return document.save()
 }
 
+async function pdfPages(count: number, width: number, height: number): Promise<Uint8Array> {
+  const document = await PDFDocument.create()
+  for (let index = 0; index < count; index++) document.addPage([width, height]).drawText('page')
+  return document.save()
+}
+
 async function cssPiece(pixels: number, height = pixels): Promise<Uint8Array> {
   return pdfPage(pt(pixels / PX_PER_MM), pt(height / PX_PER_MM))
 }
 
-test('mixed identity imposition stamps each reader page exactly once', async () => {
-  const plain = Page.parse({ html: '<p>Plain</p>', size: 'fluid' })
+test('mixed identity imposition numbers every page in a sectioned printed part', async () => {
   const printed = Page.parse({
     html: '<p>Printed</p>',
     print: { paper: 'letter' },
     printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
   })
+  const plain = Page.parse({ html: '<p>Plain</p>', size: 'fluid' })
   const imposition = { paper: 'letter' as const, columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } }
   const render = async (pages: 'all' | number[]) =>
     renderPagesPdf(
-      [plain, printed],
+      [printed, plain],
       preparedSlots,
       { imposition },
       {
-        pagePdf: async (_page, _slots, _options, index) => ({ bytes: await cssPiece(100 + index) }),
+        pagePdf: async () => ({ bytes: await pdfPages(2, 612, 792) }),
         piecePdf: async () => ({ bytes: await pdfPage(612, 792) }),
         fontFaces: () => '',
         finish: async (pdf) => pdf,
         watermark: async (parts, count) => {
-          const selected = pages === 'all' ? parts : parts.filter((part) => pages.includes(part.physicalPages?.[0] ?? 0))
+          expect(count).toBeUndefined()
+          let nextPhysicalPage = 1
+          const selected: Array<{ part: number; page: number }> = []
+          for (const [partIndex, part] of parts.entries()) {
+            const pageCount = (await PDFDocument.load(part.bytes)).getPageCount()
+            const physicalPages = part.physicalPages ?? Array.from({ length: pageCount }, () => nextPhysicalPage++)
+            for (let page = 1; page <= pageCount; page++) {
+              if (pages === 'all' || pages.includes(physicalPages[page - 1] as number)) selected.push({ part: partIndex, page })
+            }
+          }
           const layer = await PDFDocument.create()
-          for (const _part of selected) layer.addPage([100, 100]).drawText('mark')
-          expect(count).toBe(2)
+          for (const _page of selected) layer.addPage([100, 100]).drawText('mark')
           return stampWatermarkParts(
             parts.map((part) => part.bytes),
             await layer.save(),
-            selected.map((part) => ({ part: parts.indexOf(part), page: 1 })),
+            selected,
           )
         },
       },
     )
-  const selected = await render([2])
+  const selected = await render([3])
   expect(await pageContent(selected, 0)).not.toContain('/Artifact')
-  expect(await pageContent(selected, 1)).toContain('/Artifact')
+  expect(await pageContent(selected, 1)).not.toContain('/Artifact')
+  expect(await pageContent(selected, 2)).toContain('/Artifact')
   const all = await render('all')
-  for (const index of [0, 1]) expect((await pageContent(all, index)).match(/\/Artifact/g)).toHaveLength(1)
+  for (const index of [0, 1, 2]) expect((await pageContent(all, index)).match(/\/Artifact/g)).toHaveLength(1)
 })
 
 test('imposed watermark parts identify their reader pages even when placements are reversed', async () => {

@@ -207,8 +207,7 @@ export async function renderPagesPdf(
     )
     const watermarked = await watermarkParts(
       services,
-      parts.map((part, index) => ({ ...part, page: pages[index] as HtmlPage | PrintedHtmlPage, physicalPages: [index + 1] })),
-      pages.length,
+      parts.map((part, index) => ({ ...part, page: pages[index] as HtmlPage | PrintedHtmlPage })),
     )
     const output = await services.finish(await joinPdfs(watermarked), opts)
     opts.overflow?.report?.({ entries: overflow })
