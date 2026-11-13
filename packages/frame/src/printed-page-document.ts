@@ -47,6 +47,11 @@ import { LINE_NUMBER_BASE_CSS, SIDE_NOTE_BASE_CSS } from './line-number-style.ts
 import { PrintedPagesRefusedError, printedPageGeometry } from './printed-page-geometry.ts'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
+
+function onlyImplicitSection(sections: PrintedHtmlPage['printedPages']['sections']) {
+  return sections.length === 1 && sections[0]?.implicit === true ? sections[0] : undefined
+}
+
 export {
   COMPOSE_FAILURE_ATTRIBUTE as PRINTED_PAGE_FAILURE_ATTRIBUTE,
   COMPOSED_ATTRIBUTE as PRINTED_PAGE_COMPOSED_ATTRIBUTE,
@@ -170,9 +175,9 @@ export function printedPageValueDocument(
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const sections = page.printedPages.sections
   const parts = sections.map((section) => pageParts(section.html))
-  const implicit = sections.length === 1 && sections[0]?.implicit === true
+  const implicit = onlyImplicitSection(sections)
   const flows = implicit
-    ? `<div data-segnavia-flow="${sections[0]?.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${printedSectionOutlineHtml({ ...sections[0], html: parts[0]?.body ?? '' })}</div>`
+    ? `<div data-segnavia-flow="${implicit.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${printedSectionOutlineHtml({ ...implicit, html: parts[0]?.body ?? '' })}</div>`
     : printedSectionFlows(
         sections.map((section, index) => ({ ...section, html: parts[index]?.body ?? '' })),
         parentRules,
