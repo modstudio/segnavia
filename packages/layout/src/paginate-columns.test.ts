@@ -2,8 +2,9 @@ import { expect, test } from 'bun:test'
 import { block, flow, input, win } from './paginate-book.test-helper.ts'
 import { paginateBook } from './paginate-book.ts'
 
-test('header repeat follows measured header height without a table kind', () => {
-  const measuredHeader = block('text', 'div', 1, 1, 6, 0, { headerHeight: 10 })
+test('header repeat follows the first placed line rather than its block', () => {
+  const measuredHeader = block('text', 'div', 1, 1, 6, 0)
+  measuredHeader.lines[5] = { top: 50, bottom: 60, headerHeight: 10 }
   const pages = paginateBook(input({ flows: [flow('c1', 'chapter', [measuredHeader])] })).pages
   expect(pages.map((page) => ({ window: page.windows[0], header: page.headerRepeat }))).toEqual([
     { window: win('c1', 0, 50, 0), header: undefined },

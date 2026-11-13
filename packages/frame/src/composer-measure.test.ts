@@ -1,7 +1,8 @@
 import { describe, expect, test } from 'bun:test'
+import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { COMPOSER_SCRIPT, decideVisibleMeasurement } from './composer.ts'
 import { lineNumberedLines, measuredBlockConstraints, measureLineBoxes, measurementRefusal } from './composer-measure.ts'
-import { linesWithDescendantTables, maximumTableHeaderStack, repeatedTableHeaderIndexes, tableRowLines } from './composer-table-measure.ts'
+import { linesWithDescendantTables, linesWithTableHeaderHeights, repeatedTableHeaderIndexes, tableRowLines } from './composer-table-measure.ts'
 
 test('a display table element carries no orphan or widow constraint', () => {
   expect(measuredBlockConstraints('table', 2, 2)).toEqual({})
@@ -114,15 +115,49 @@ test('a table inside a block replaces the range line spanning it with row bands'
   ])
 })
 
-test('table headers repeat for every containing table, outer first', () => {
-  const tables = [
-    { top: 10, bottom: 100, height: 12, nesting: 0 },
-    { top: 30, bottom: 80, height: 8, nesting: 1, parent: 0 },
-  ]
-  expect(repeatedTableHeaderIndexes(tables, 50)).toEqual([0, 1])
-  expect(repeatedTableHeaderIndexes(tables, 20)).toEqual([0])
-  expect(repeatedTableHeaderIndexes(tables, 110)).toEqual([])
-  expect(maximumTableHeaderStack(tables)).toBe(20)
+const nestedHeaderFacts = [
+  { top: 10, bottom: 100, height: 12, nesting: 0 },
+  { top: 30, bottom: 80, height: 8, nesting: 1, parent: 0 },
+]
+
+test('a paragraph line in a mixed block reserves no table header', () => {
+  expect(repeatedTableHeaderIndexes(nestedHeaderFacts, 5)).toEqual([])
+  expect(linesWithTableHeaderHeights([{ top: 5, bottom: 10 }], nestedHeaderFacts)).toEqual([{ top: 5, bottom: 10 }])
+})
+
+test('a line inside only the outer table reserves its header', () => {
+  expect(repeatedTableHeaderIndexes(nestedHeaderFacts, 20)).toEqual([0])
+  expect(linesWithTableHeaderHeights([{ top: 20, bottom: 25 }], nestedHeaderFacts)).toEqual([{ top: 20, bottom: 25, headerHeight: 12 }])
+})
+
+test('a line inside a nested table reserves both headers outer first', () => {
+  expect(repeatedTableHeaderIndexes(nestedHeaderFacts, 50)).toEqual([0, 1])
+  expect(linesWithTableHeaderHeights([{ top: 50, bottom: 60 }], nestedHeaderFacts)).toEqual([{ top: 50, bottom: 60, headerHeight: 20 }])
+})
+
+test('the embedded table measurement includes every helper it calls', () => {
+  const cell = { querySelectorAll: () => [] }
+  const row = {
+    closest: () => table,
+    getBoundingClientRect: () => ({ top: 10, bottom: 30 }),
+    querySelectorAll: (selector: string) => (selector.startsWith(':scope') ? [cell] : []),
+  }
+  const table = {
+    ownerDocument: { createTreeWalker: () => ({ nextNode: () => null }) },
+    getBoundingClientRect: () => ({ top: 10, bottom: 30 }),
+    querySelectorAll: (selector: string) => (selector === 'tr' ? [row] : []),
+  }
+  const rebuilt = new Function(`${embeddedComposerMeasureFunctions()}; return measureTableLines;`)() as (element: Element, origin: number) => unknown
+  const originalStyle = globalThis.getComputedStyle
+  const originalFilter = globalThis.NodeFilter
+  globalThis.NodeFilter = { SHOW_TEXT: 4 } as typeof NodeFilter
+  globalThis.getComputedStyle = (() => ({ borderCollapse: 'separate' })) as typeof getComputedStyle
+  try {
+    expect(rebuilt(table as unknown as Element, 0)).toEqual([{ top: 10, bottom: 30 }])
+  } finally {
+    globalThis.getComputedStyle = originalStyle
+    globalThis.NodeFilter = originalFilter
+  }
 })
 
 test('the repeated table header drops its block-start margin', () => {

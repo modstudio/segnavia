@@ -18,6 +18,8 @@ export const PaginateLine = z.object({
   decorationTop: z.number().optional(),
   /** The outer edge, in galley coordinates, of box decoration that closes on this line. */
   decorationBottom: z.number().optional(),
+  /** Space reserved for the table headers that repeat when a page starts at this line. */
+  headerHeight: z.number().optional(),
 })
 export type PaginateLine = z.infer<typeof PaginateLine>
 
@@ -42,7 +44,6 @@ const PaginateBlockBase = z.object({
   keepWithNextFrom: z.number().int().nonnegative().optional(),
   keepTogether: z.boolean().optional(),
   keepRuns: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() })).optional(),
-  headerHeight: z.number().optional(),
   footnoteRefs: z.array(PaginateNoteRef).optional(),
   variables: z.array(PaginateVariable).optional(),
 })

@@ -49,7 +49,7 @@ export function tableRowLines(rows: readonly TableRowMeasurement[]): MeasuredLin
   })
 }
 
-function cellTextBoxes(cell: Element, table: Element, origin: number): MeasuredLineBox[] {
+export function cellTextBoxes(cell: Element, table: Element, origin: number): MeasuredLineBox[] {
   const boxes: MeasuredLineBox[] = []
   const walker = table.ownerDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
   let node = walker.nextNode()
@@ -64,7 +64,7 @@ function cellTextBoxes(cell: Element, table: Element, origin: number): MeasuredL
   return boxes
 }
 
-function cellReplacedBoxes(cell: Element, table: Element, origin: number): MeasuredLineBox[] {
+export function cellReplacedBoxes(cell: Element, table: Element, origin: number): MeasuredLineBox[] {
   const boxes: MeasuredLineBox[] = []
   for (const replaced of cell.querySelectorAll('img,svg,video,canvas,picture,iframe,object,embed,math')) {
     if (insideSideNote(replaced) || replaced.closest('table') !== table) continue
@@ -74,7 +74,7 @@ function cellReplacedBoxes(cell: Element, table: Element, origin: number): Measu
   return boxes
 }
 
-function cellTables(cell: Element, table: Element, origin: number): DescendantTableMeasurement[] {
+export function cellTables(cell: Element, table: Element, origin: number): DescendantTableMeasurement[] {
   const tables: DescendantTableMeasurement[] = []
   for (const nested of cell.querySelectorAll('table')) {
     if (insideSideNote(nested) || nested.parentElement?.closest('table') !== table || !tableRenderedInFlow(nested)) continue
@@ -84,7 +84,7 @@ function cellTables(cell: Element, table: Element, origin: number): DescendantTa
   return tables
 }
 
-function measureTableRow(row: Element, table: Element, origin: number): TableRowMeasurement {
+export function measureTableRow(row: Element, table: Element, origin: number): TableRowMeasurement {
   const rowBox = row.getBoundingClientRect()
   const cells = Array.from(row.querySelectorAll(':scope > th, :scope > td'))
   return {
@@ -131,24 +131,6 @@ export function tableRenderedInFlow(element: Element, styleOf: (element: Element
   return element.getClientRects().length > 0 && style.display !== 'none' && style.position !== 'absolute' && style.position !== 'fixed'
 }
 
-export function headerTableFor(element: Element, styleOf: (element: Element) => CSSStyleDeclaration = getComputedStyle): Element | null {
-  if (element.tagName === 'TABLE') return tableRenderedInFlow(element, styleOf) ? element : null
-  let table: Element | null = null
-  for (const node of element.childNodes) {
-    if (node.nodeType === 3) {
-      if ((node.textContent ?? '').trim() !== '') return null
-      continue
-    }
-    if (node.nodeType !== 1) continue
-    const child = node as Element
-    if (!tableRenderedInFlow(child, styleOf)) continue
-    if (table) return null
-    table = headerTableFor(child, styleOf)
-    if (!table) return null
-  }
-  return table
-}
-
 export function repeatedTableHeaderIndexes(tables: readonly TableHeaderFact[], start: number): number[] {
   return tables
     .map((table, index) => ({ table, index }))
@@ -157,18 +139,15 @@ export function repeatedTableHeaderIndexes(tables: readonly TableHeaderFact[], s
     .map(({ index }) => index)
 }
 
-export function maximumTableHeaderStack(tables: readonly TableHeaderFact[]): number {
-  return tables.reduce((maximum, _table, index) => {
-    let height = 0
-    let cursor: number | undefined = index
-    while (cursor !== undefined) {
-      const table: TableHeaderFact | undefined = tables[cursor]
-      if (!table) break
-      height += table.height
-      cursor = table.parent
-    }
-    return Math.max(maximum, height)
-  }, 0)
+export function repeatedTableHeaderHeight(tables: readonly TableHeaderFact[], start: number): number {
+  return repeatedTableHeaderIndexes(tables, start).reduce((height, index) => height + (tables[index]?.height ?? 0), 0)
+}
+
+export function linesWithTableHeaderHeights(lines: readonly MeasuredLineBox[], tables: readonly TableHeaderFact[]): MeasuredLineBox[] {
+  return lines.map((line) => {
+    const headerHeight = repeatedTableHeaderHeight(tables, line.top)
+    return headerHeight > 0 ? { ...line, headerHeight } : line
+  })
 }
 
 export function headerTablesFor(
@@ -199,9 +178,4 @@ export function headerTablesFor(
     }
   })
   return { tables: candidates, facts }
-}
-
-export function headerHeightFor(element: Element, styleOf: (element: Element) => CSSStyleDeclaration = getComputedStyle): number {
-  const origin = element.getBoundingClientRect().top
-  return maximumTableHeaderStack(headerTablesFor(element, origin, styleOf).facts)
 }

@@ -23,6 +23,7 @@ export interface MeasuredLineBox {
   counted?: boolean
   decorationTop?: number
   decorationBottom?: number
+  headerHeight?: number
 }
 
 export function lineNumberedLines(lines: readonly MeasuredLineBox[], element: Element, origin: number): MeasuredLineBox[] {
