@@ -12,8 +12,11 @@ export interface ComposerTagEntry {
   direction: TextDirection
 }
 
-export function composerTagEntries(source: OutlineSource | undefined): ComposerTagEntry[] {
-  if (!source) return []
+export function composerTagEntries(source: OutlineSource): ComposerTagEntry[]
+export function composerTagEntries(source: undefined): undefined
+export function composerTagEntries(source: OutlineSource | undefined): ComposerTagEntry[] | undefined
+export function composerTagEntries(source: OutlineSource | undefined): ComposerTagEntry[] | undefined {
+  if (!source) return undefined
   const blocks = new Map(source.headings.map((heading) => [heading.id, heading.block]))
   return documentOutline(source).map((entry) => ({
     id: entry.id,
@@ -40,13 +43,14 @@ export function addMissingComposerHeadings(
   clone: Element,
   source: Pick<Document, 'getElementById' | 'createElement'>,
   rootId: string,
+  opening: boolean,
   entries: readonly ComposerTagEntry[],
 ): void {
   const missing = entries.filter((entry) => !source.getElementById(entry.id)?.matches('h1,h2,h3,h4,h5,h6'))
   for (let index = missing.length - 1; index >= 0; index -= 1) {
     const entry = missing[index]
     if (!entry) continue
-    const target = entry.block === rootId ? clone : clone.querySelector(`[id="${CSS.escape(entry.block)}"]`)
+    const target = entry.block === rootId ? (opening ? clone : null) : clone.querySelector(`[id="${CSS.escape(entry.block)}"]`)
     if (!target) continue
     const heading = source.createElement('span')
     heading.setAttribute('data-segnavia-outline-heading', '')

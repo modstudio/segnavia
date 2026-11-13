@@ -128,6 +128,16 @@ describe('composer outline tags', () => {
     expect(fixture.unlisted.getAttribute('role')).toBe('none')
   })
 
+  test('leaves heading semantics unchanged without an outline (mutation: always run tagComposerHeadings)', () => {
+    const fixture = composedFixture()
+    const entries = composerTagEntries(undefined)
+    if (entries) tagComposerHeadings(fixture.document as unknown as Document, entries)
+    expect(fixture.one.getAttribute('role')).toBeNull()
+    expect(fixture.one.getAttribute('aria-level')).toBeNull()
+    expect(fixture.unlisted.getAttribute('role')).toBeNull()
+    expect(fixture.unlisted.getAttribute('aria-level')).toBeNull()
+  })
+
   test('adds a direction-isolated hidden heading for a titled part with no heading block', () => {
     const fixture = composedFixture('rtl')
     const outline: OutlineSource = {
@@ -137,12 +147,30 @@ describe('composer outline tags', () => {
     }
     const entries = composerTagEntries(outline)
     tagComposerHeadings(fixture.document as unknown as Document, entries)
-    addMissingComposerHeadings(fixture.flow as unknown as Element, fixture.document as unknown as Document, 'chapter', entries)
+    addMissingComposerHeadings(fixture.flow as unknown as Element, fixture.document as unknown as Document, 'chapter', true, entries)
     const heading = fixture.flow.children[0]
     expect(heading?.getAttribute('role')).toBe('heading')
     expect(heading?.getAttribute('aria-level')).toBe('1')
     expect(heading?.getAttribute('dir')).toBe('rtl')
     expect(heading?.textContent).toBe('חלק ראשון')
+  })
+
+  test('adds a flow-root hidden heading only to its opening window (mutation: drop the opening condition)', () => {
+    const fixture = composedFixture()
+    const outline: OutlineSource = {
+      ...source(),
+      blocks: ['chapter', ...source().blocks],
+      headings: [{ id: 'chapter', title: 'Part One', level: 1, listed, block: 'chapter' }, ...source().headings],
+    }
+    const entries = composerTagEntries(outline)
+    const opening = new FixtureElement('section')
+    const continuation = new FixtureElement('section')
+    addMissingComposerHeadings(opening as unknown as Element, fixture.document as unknown as Document, 'chapter', true, entries)
+    addMissingComposerHeadings(continuation as unknown as Element, fixture.document as unknown as Document, 'chapter', false, entries)
+    const hidden = [...opening.children, ...continuation.children].filter((node) => node.getAttribute('data-segnavia-outline-heading') !== null)
+    expect(hidden).toHaveLength(1)
+    expect(opening.children).toHaveLength(1)
+    expect(continuation.children).toHaveLength(0)
   })
 
   test('hides a non-home clone when it drops the source id', () => {
