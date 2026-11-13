@@ -25,7 +25,6 @@ import {
   bookValueDocument as paginatedBookDocument,
 } from '@segnavia/frame/book-document'
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
-import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { bookDocument, type PreparedSlots } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
@@ -109,8 +108,9 @@ export function continuousBookNeedsScripts(
   hostCss: string | undefined,
   scripts: Book['scripts'],
   marginLayer: boolean,
+  layoutScripts: readonly LoadedLayoutScript[],
 ): boolean {
-  return (!marginLayer && scripts === 'sandboxed') || hasDiagram(html) || usesKeepWith(html, ...sheets, hostCss)
+  return (!marginLayer && scripts === 'sandboxed') || layoutScripts.length > 0 || usesKeepWith(html, ...sheets, hostCss)
 }
 
 function bookSrcdoc(
@@ -250,7 +250,7 @@ async function printBook(
       }
     : {
         viewport: { width: Math.round(size.width * PX_PER_MM), height: Math.round(size.height * PX_PER_MM) },
-        scripts: continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer),
+        scripts: continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer, resolvedLayoutScripts),
         html: srcdoc,
         slots,
         readiness: renderReadiness(marginLayer ? 'refuse' : book.scripts, renderOptions.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
