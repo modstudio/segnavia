@@ -34,6 +34,7 @@ import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce } from './pdf-finish.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
+import { pagesTagged } from './pdf-tagging.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
 import { createProtectPdf } from './protect-pdf.ts'
@@ -196,7 +197,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             prepared.fontFailures,
             resolvedLayoutScripts,
             Boolean(parsedOptions.watermark),
-            isPrintedHtmlPage(page),
+            pagesTagged([isPrintedHtmlPage(page)], false),
           )
           if (printed.overflow) overflows.push(printed.overflow)
           const [watermarked] = await watermarkCopies.stamp([{ ...printed, page }])

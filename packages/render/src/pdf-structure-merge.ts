@@ -91,17 +91,15 @@ function annotationRefs(page: PDFPage): PDFObject[] {
   return annotations ? arrayItems(annotations) : []
 }
 
-function pageReplacements(part: CopiedPart): Map<PDFObject, PDFObject> {
+function sourceToTarget(part: CopiedPart): Map<PDFObject, PDFObject> {
   const replacements = new Map<PDFObject, PDFObject>()
   for (const [index, sourcePage] of part.document.getPages().entries()) {
-    const targetPage = part.pages[index]
-    if (!targetPage) continue
+    const targetPage = part.pages[index] as PDFPage
     replacements.set(sourcePage.ref, targetPage.ref)
     const sourceAnnotations = annotationRefs(sourcePage)
     const targetAnnotations = annotationRefs(targetPage)
     sourceAnnotations.forEach((annotation, annotationIndex) => {
-      const target = targetAnnotations[annotationIndex]
-      if (target) replacements.set(annotation, target)
+      replacements.set(annotation, targetAnnotations[annotationIndex] as PDFObject)
     })
   }
   return replacements
@@ -112,19 +110,18 @@ function mergeMap(target: PDFDict, source: PDFDict | undefined, copier: Structur
   for (const [name, value] of source.entries()) target.set(name, copier.copy(value))
 }
 
-function parentKeys(part: CopiedPart): Array<{ target: PDFDict; name: PDFName; oldKey: number }> {
+function parentKeys(part: CopiedPart, replacements: ReadonlyMap<PDFObject, PDFObject>): Array<{ target: PDFDict; name: PDFName; oldKey: number }> {
   return part.document.getPages().flatMap((sourcePage, pageIndex) => {
     const keys: Array<{ target: PDFDict; name: PDFName; oldKey: number }> = []
     const targetPage = part.pages[pageIndex] as PDFPage
     const pageKey = sourcePage.node.lookupMaybe(key('StructParents'), PDFNumber)
     if (pageKey) keys.push({ target: targetPage.node, name: key('StructParents'), oldKey: pageKey.asNumber() })
-    for (const [annotationIndex, annotationObject] of annotationRefs(sourcePage).entries()) {
+    for (const annotationObject of annotationRefs(sourcePage)) {
       const annotation = part.document.context.lookup(annotationObject, PDFDict)
       const annotationKey = annotation.lookupMaybe(key('StructParent'), PDFNumber)
-      const targetObject = annotationRefs(targetPage)[annotationIndex]
-      if (annotationKey && targetObject) {
-        keys.push({ target: targetPage.doc.context.lookup(targetObject, PDFDict), name: key('StructParent'), oldKey: annotationKey.asNumber() })
-      }
+      if (!annotationKey) continue
+      const targetObject = replacements.get(annotationObject) as PDFObject
+      keys.push({ target: targetPage.doc.context.lookup(targetObject, PDFDict), name: key('StructParent'), oldKey: annotationKey.asNumber() })
     }
     return keys
   })
@@ -143,16 +140,29 @@ function mergeTaggedStructure(target: PDFDocument, parts: CopiedPart[], roots: A
 
   parts.forEach((part, partIndex) => {
     const sourceRoot = roots[partIndex] as { object: PDFObject; dictionary: PDFDict }
-    const replacements = pageReplacements(part)
+    const replacements = sourceToTarget(part)
     replacements.set(sourceRoot.object, documentReference)
     replacements.set(sourceRoot.dictionary, documentReference)
+    const topLevel = rootChildren(sourceRoot.dictionary, part.document)
+    const topLevelDocument = topLevel.length === 1 ? part.document.context.lookup(topLevel[0]) : undefined
+    const sourceChildren =
+      topLevelDocument instanceof PDFDict && topLevelDocument.lookupMaybe(key('S'), PDFName) === key('Document')
+        ? rootChildren(topLevelDocument, part.document)
+        : topLevel
+    if (topLevelDocument instanceof PDFDict && topLevelDocument.lookupMaybe(key('S'), PDFName) === key('Document')) {
+      replacements.set(topLevel[0] as PDFObject, documentReference)
+      replacements.set(topLevelDocument, documentReference)
+    }
     const copier = new StructureCopier(part.document, target, replacements)
-    for (const child of rootChildren(sourceRoot.dictionary, part.document)) children.push(copier.copy(child))
+    for (const child of sourceChildren) children.push(copier.copy(child))
 
     const parentTree = new Map(numberTreeEntries(part.document, sourceRoot.dictionary.get(key('ParentTree'))))
-    for (const parent of parentKeys(part)) {
+    for (const parent of parentKeys(part, replacements)) {
       const value = parentTree.get(parent.oldKey)
-      if (!value) continue
+      if (!value) {
+        parent.target.delete(parent.name)
+        continue
+      }
       parent.target.set(parent.name, PDFNumber.of(nextParentKey))
       parentNumbers.push(PDFNumber.of(nextParentKey), copier.copy(value))
       nextParentKey += 1
@@ -171,11 +181,13 @@ function mergeTaggedStructure(target: PDFDocument, parts: CopiedPart[], roots: A
 }
 
 export async function copyPdfParts(target: PDFDocument, parts: PdfPart[]): Promise<void> {
-  const roots = parts.map((part) => structureRoot(part.document))
-  const tagged = roots.map(Boolean)
-  if (tagged.some(Boolean) && !tagged.every(Boolean)) {
-    const untagged = parts[tagged.findIndex((value) => !value)] as PdfPart
-    throw new RenderRefusedError(`Cannot join tagged and untagged PDFs; ${untagged.name} is untagged.`)
+  const classified = parts.map((part) => ({ part, root: structureRoot(part.document) }))
+  const tagged = classified.filter((item): item is { part: PdfPart; root: { object: PDFObject; dictionary: PDFDict } } => item.root !== undefined)
+  const untagged = classified.filter((item) => item.root === undefined)
+  if (tagged.length > 0 && untagged.length > 0) {
+    throw new RenderRefusedError(
+      `Cannot join tagged and untagged PDFs; ${(untagged[0] as (typeof untagged)[number]).part.name} is untagged. Print every part tagged, or every part untagged.`,
+    )
   }
   const copied: CopiedPart[] = []
   for (const part of parts) {
@@ -183,7 +195,10 @@ export async function copyPdfParts(target: PDFDocument, parts: PdfPart[]): Promi
     for (const page of pages) target.addPage(page)
     copied.push({ ...part, pages })
   }
-  if (roots.length > 0 && roots.every((root) => root !== undefined)) {
-    mergeTaggedStructure(target, copied, roots as Array<{ object: PDFObject; dictionary: PDFDict }>)
-  }
+  if (tagged.length > 0)
+    mergeTaggedStructure(
+      target,
+      copied,
+      tagged.map(({ root }) => root),
+    )
 }

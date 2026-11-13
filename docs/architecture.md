@@ -1061,6 +1061,27 @@ does not fit the opener's text area is refused, naming the opener parent and its
 height, rather than moved to a body page. Only a page that leftover notes from
 the previous section fill takes a body parent before the opener.
 
+### Tagged PDF structure
+
+PDF tagging follows one print policy: books and printed documents are tagged,
+while plain pages are not. A `pagesPdf` join is tagged only when every input is
+a printed document; if any input is plain or becomes a composed sheet, every
+part is printed untagged. This keeps the decision on document facts rather than
+on the render entry point.
+
+Chromium creates each tagged part's structure. The PDF join owns preserving it:
+it puts every part's top-level elements under one `Document` element, hoisting
+a part's sole `Document` element, renumbers every page `StructParents` and link
+annotation `StructParent` into one `ParentTree`, merges `RoleMap` and `ClassMap`,
+and sets `MarkInfo /Marked true`. Marked-content ids remain page-local. A join
+containing both tagged and untagged parts refuses and asks the caller to print
+every part tagged or every part untagged instead of producing a partial tree.
+
+Two drawn layers are outside that tree. Imposed press sheets are untagged
+because composition draws their pieces as form XObjects. A continuous book's
+margin-layer furniture is likewise drawn as form XObjects and is not part of
+the book's structure tree.
+
 ### Printed book structure
 
 Part depth is added to the heading level inside a section for both contents and PDF outlines. `contents.depth` continues to count only levels inside each section, so adding parts does not remove chapter h2 entries and parts always appear when included.

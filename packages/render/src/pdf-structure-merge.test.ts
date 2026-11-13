@@ -5,7 +5,11 @@ import { joinPdfs } from './pdf-join.ts'
 const key = (value: string) => PDFName.of(value)
 const resolved = (document: PDFDocument, object: PDFObject | undefined) => (object ? document.context.lookup(object) : undefined)
 
-async function taggedPart(label: string, mapSuffix: string): Promise<Uint8Array> {
+async function taggedPart(
+  label: string,
+  mapSuffix: string,
+  options: { documentElement?: boolean; missingPageParent?: boolean; parentTreeKids?: boolean } = {},
+): Promise<Uint8Array> {
   const document = await PDFDocument.create()
   const page = document.addPage([300, 400])
   page.node.set(key('StructParents'), PDFNumber.of(0))
@@ -26,8 +30,16 @@ async function taggedPart(label: string, mapSuffix: string): Promise<Uint8Array>
     C: `class${mapSuffix}`,
   })
   const leafReference = document.context.register(leaf)
-  root.set(key('K'), leafReference)
-  root.set(key('ParentTree'), document.context.obj({ Nums: [0, [leafReference], 1, leafReference] }))
+  if (options.documentElement) {
+    const documentElement = document.context.obj({ Type: 'StructElem', S: 'Document', P: rootReference, K: [leafReference] })
+    const documentReference = document.context.register(documentElement)
+    leaf.set(key('P'), documentReference)
+    root.set(key('K'), documentReference)
+  } else {
+    root.set(key('K'), leafReference)
+  }
+  const parentNumbers = [...(options.missingPageParent ? [] : [0, [leafReference]]), 1, leafReference]
+  root.set(key('ParentTree'), options.parentTreeKids ? document.context.obj({ Kids: [document.context.obj({ Nums: parentNumbers })] }) : document.context.obj({ Nums: parentNumbers }))
   root.set(key('ParentTreeNextKey'), PDFNumber.of(2))
   root.set(key('RoleMap'), document.context.obj({ [`Role${mapSuffix}`]: 'H1' }))
   root.set(key('ClassMap'), document.context.obj({ [`class${mapSuffix}`]: { O: 'Layout' } }))
@@ -50,8 +62,10 @@ function parentTree(document: PDFDocument, root: PDFDict): Map<number, PDFObject
   return entries
 }
 
-test('merges tagged leaves and renumbers page and annotation parents (mutation: skip StructParents renumbering)', async () => {
-  const output = await PDFDocument.load(await joinPdfs([await taggedPart('First leaf', 'One'), await taggedPart('Second leaf', 'Two')]))
+test('merges tagged leaves and renumbers page and annotation parents (mutation: skip StructParents renumbering or ParentTree Kids)', async () => {
+  const output = await PDFDocument.load(
+    await joinPdfs([await taggedPart('First leaf', 'One'), await taggedPart('Second leaf', 'Two', { parentTreeKids: true })]),
+  )
   const root = resolved(output, output.catalog.get(key('StructTreeRoot'))) as PDFDict
   const documentElement = resolved(output, root.get(key('K'))) as PDFDict
   const children = resolved(output, documentElement.get(key('K'))) as PDFArray
@@ -78,8 +92,29 @@ test('merges tagged leaves and renumbers page and annotation parents (mutation: 
 
 test('refuses a mix of tagged and untagged parts and names the untagged part', async () => {
   expect(joinPdfs([await taggedPart('Tagged', 'Tagged'), await untaggedPart()])).rejects.toThrow(
-    'Cannot join tagged and untagged PDFs; PDF part at index 1 is untagged.',
+    'Cannot join tagged and untagged PDFs; PDF part at index 1 is untagged. Print every part tagged, or every part untagged.',
   )
+})
+
+test('hoists a part Document element beneath the merged Document (mutation: retain the part Document)', async () => {
+  const output = await PDFDocument.load(await joinPdfs([await taggedPart('Hoisted leaf', 'Hoisted', { documentElement: true })]))
+  const root = resolved(output, output.catalog.get(key('StructTreeRoot'))) as PDFDict
+  const documentElement = resolved(output, root.get(key('K'))) as PDFDict
+  const children = resolved(output, documentElement.get(key('K'))) as PDFArray
+  const leaf = resolved(output, children.get(0)) as PDFDict
+
+  expect(children.size()).toBe(1)
+  expect(leaf.lookup(key('S'), PDFName)).toEqual(key('H1'))
+  expect(leaf.lookup(key('Alt'), PDFHexString).decodeText()).toBe('Hoisted leaf')
+})
+
+test('deletes a copied page StructParents key without a ParentTree entry (mutation: retain the stale key)', async () => {
+  const output = await PDFDocument.load(await joinPdfs([await taggedPart('Missing page parent', 'Missing', { missingPageParent: true })]))
+  const [page] = output.getPages()
+  const root = resolved(output, output.catalog.get(key('StructTreeRoot'))) as PDFDict
+
+  expect(page?.node.get(key('StructParents'))).toBeUndefined()
+  expect([...parentTree(output, root).keys()]).toEqual([0])
 })
 
 test('leaves an all-untagged join untagged', async () => {

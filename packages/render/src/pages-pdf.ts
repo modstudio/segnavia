@@ -22,6 +22,7 @@ import { pdfBox, pt } from './pdf-geometry.ts'
 import { joinPdfs } from './pdf-join.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
+import { pagesTagged } from './pdf-tagging.ts'
 import { slotsForDocument } from './slot-document.ts'
 import type { WatermarkPart } from './watermark-stamp.ts'
 
@@ -104,7 +105,7 @@ async function composedPdf(
             ...opts,
             limits: innerLimits(opts.limits),
           },
-          true,
+          pagesTagged([isPrintedHtmlPage(page)], true),
         )
         return {
           group,
@@ -162,6 +163,7 @@ export async function renderPagesPdf(
   opts = parseRenderOptions(opts)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {
+    const tagged = pagesTagged(pages.map(isPrintedHtmlPage), false)
     const rendered = await Promise.all(
       pages.map((page, inputIndex) =>
         services.pagePdf(
@@ -169,7 +171,7 @@ export async function renderPagesPdf(
           slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
           { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
           inputIndex,
-          true,
+          tagged,
         ),
       ),
     )
@@ -196,6 +198,10 @@ export async function renderPagesPdf(
         'Printed pages could not establish one unchanged page per paper under this imposition; print without imposition to clear this refusal.',
       )
     }
+    const tagged = pagesTagged(
+      pages.map(isPrintedHtmlPage),
+      pages.some((page) => !isPrintedHtmlPage(page)),
+    )
     const overflow: NonNullable<PrintResult['overflow']>[] = []
     const parts = await Promise.all(
       pages.map(async (page, inputIndex) => {
@@ -207,7 +213,7 @@ export async function renderPagesPdf(
           slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
           { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
           inputIndex,
-          true,
+          tagged,
         )
         if (rendered.overflow) overflow.push(rendered.overflow)
         if (!page.print) throw new Error('An identity-imposed printed page has no print geometry.')
