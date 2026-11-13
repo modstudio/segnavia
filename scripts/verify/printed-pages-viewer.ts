@@ -69,20 +69,23 @@ export async function verifyPrintedPagesViewer(h: Harness): Promise<void> {
     JSON.stringify(facing),
   )
 
-  const failure = await page.evaluate(() => {
-    const viewer = (window as unknown as { viewer: HTMLElement & { document: unknown } }).viewer
-    const shown = viewer.querySelectorAll('iframe').length
-    viewer.document = { kind: 'printed' }
+  await page.waitForFunction(() => [...document.querySelectorAll<HTMLIFrameElement>('segnavia-printed-pages iframe')].some((frame) => !frame.style.visibility))
+  const failure = await page.evaluate(async () => {
+    const viewer = (window as unknown as { viewer: HTMLElement & { fonts: unknown } }).viewer
+    const shown = [...viewer.querySelectorAll<HTMLIFrameElement>('iframe')].filter((frame) => !frame.style.visibility)
+    viewer.fonts = { source: { font: async () => Promise.reject(new Error('fixture font refusal')) } }
+    await new Promise((resolve) => setTimeout(resolve, 300))
     return {
-      shown,
-      after: viewer.querySelectorAll('iframe').length,
+      shown: shown.length,
+      after: [...viewer.querySelectorAll<HTMLIFrameElement>('iframe')].filter((frame) => !frame.style.visibility).length,
+      retained: shown.every((frame) => frame.isConnected && !frame.style.visibility),
       failure: viewer.hasAttribute('failure'),
       text: viewer.querySelector('[part="failure"]')?.textContent,
     }
   })
   check(
-    'a refused input shows an alert while keeping earlier papers visible',
-    failure.shown > 0 && failure.after === failure.shown && failure.failure && Boolean(failure.text),
+    'a refused option shows an alert while keeping earlier papers visible',
+    failure.shown > 0 && failure.after >= failure.shown && failure.retained && failure.failure && Boolean(failure.text),
     JSON.stringify(failure),
   )
 }
