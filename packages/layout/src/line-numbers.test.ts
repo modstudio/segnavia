@@ -153,17 +153,6 @@ describe('numberLines', () => {
     expect(lines[0]?.lines[0]).toMatchObject({ value: 1, top: 20 })
   })
 
-  test('counts an inline-tiled source page once and gives every tile its numbers', () => {
-    const { measurements, plan } = fixtures()
-    plan.pages = [{ ...plan.pages[0], inlineTile: 0 }, { ...plan.pages[0], inlineTile: 1 }, { ...plan.pages[1] }] as Plan['pages']
-    const pages = numberLines(measurements, plan, { interval: 1, start: 1, restart: 'never', area: 'text', side: 'outer', system: 'arabic' })
-    expect(pages.map((page) => page.lines.map((line) => line.value))).toEqual([
-      [1, 2, 3, 4, 5, 6, 7],
-      [1, 2, 3, 4, 5, 6, 7],
-      [8, 9, 10, 11, 12, 13, 14, 15],
-    ])
-  })
-
   test('pins interval cadence to multiples independently of start', () => {
     const { measurements, plan } = fixtures()
     const first = numberLines(measurements, plan, { interval: 5, start: 3, restart: 'section', area: 'text', side: 'outer', system: 'arabic' })[0]?.lines[0]

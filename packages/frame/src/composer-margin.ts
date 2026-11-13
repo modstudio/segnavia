@@ -259,7 +259,7 @@ export function drawSideNotes(placed: readonly PageSideNotes[], config: DrawConf
 
 export function drawMarginContent(measurements: Measurements, plan: Plan, config: DrawConfig, entries: PreflightEntry[], doc: Document): void {
   if (config.lineNumbers) drawLineNumbers(numberLines(measurements, plan, config.lineNumbers), { ...config, area: config.lineNumbers.area }, entries, doc)
-  if (config.sideNotes) drawSideNotes(placeSideNotes(measurements, plan, config.sideNotes, config.direction), config, entries, doc)
+  if (config.sideNotes) drawSideNotes(placeSideNotes(measurements, plan, config.sideNotes), config, entries, doc)
 }
 
 export function drawPageLineNumbers(

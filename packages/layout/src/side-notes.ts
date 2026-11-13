@@ -32,8 +32,7 @@ function placePageSideNotes(measurements: Measurements, page: Plan['pages'][numb
   }
 }
 
-export function placeSideNotes(measurements: Measurements, plan: Plan, settings: SideNotes, direction: 'ltr' | 'rtl'): readonly PageSideNotes[] {
-  void direction
+export function placeSideNotes(measurements: Measurements, plan: Plan, settings: SideNotes): readonly PageSideNotes[] {
   const result = plan.pages.map((_page, page) => ({ page, notes: [] as PlacedSideNote[] }))
   for (const [pageIndex, page] of plan.pages.entries()) placePageSideNotes(measurements, page, pageIndex, settings, result)
   return result

@@ -22,7 +22,7 @@ test('places side notes on the page containing their anchor', () => {
     windows: [{ flow: 'flow', start, end, top: 5, column: 0, columns: 1 }],
   })
   const plan = { pages: [page(0, 60, 'right'), page(60, 100, 'left')] } as unknown as Plan
-  const placed = placeSideNotes(measurements, plan, { area: 'margin', side: 'start' }, 'ltr')
+  const placed = placeSideNotes(measurements, plan, { area: 'margin', side: 'start' })
   expect(placed[0]?.notes.map((note) => note.id)).toEqual(['start', 'end'])
   expect(placed[1]).toEqual({ page: 1, notes: [{ id: 'second', top: 25, column: 0, columns: 1, side: 'right' }] })
 })

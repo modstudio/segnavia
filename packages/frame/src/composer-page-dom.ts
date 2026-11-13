@@ -10,7 +10,11 @@ export function fillTemplateRegions(clone: HTMLElement, holder: HTMLElement): vo
   }
 }
 
-export function inkExcess(element: HTMLElement, box: HTMLElement = element): { block: number; inline: number } {
+export function inkExcess(
+  element: HTMLElement,
+  box: HTMLElement = element,
+  writingMode = getComputedStyle(box).writingMode,
+): { block: number; inline: number } {
   const bounds = box.getBoundingClientRect()
   let top = bounds.top
   let right = bounds.right
@@ -29,7 +33,6 @@ export function inkExcess(element: HTMLElement, box: HTMLElement = element): { b
   for (const child of Array.from(element.querySelectorAll<HTMLElement>('*'))) include(child.getBoundingClientRect())
   const block = Math.max(bottom - bounds.bottom, bounds.top - top, element === box ? box.scrollHeight - bounds.height : 0)
   const inline = Math.max(right - bounds.right, bounds.left - left, element === box ? box.scrollWidth - bounds.width : 0)
-  const writingMode = getComputedStyle(box).writingMode
   return {
     block: logicalExtent({ width: inline, height: block }, writingMode, 'block'),
     inline: logicalExtent({ width: inline, height: block }, writingMode, 'inline'),
