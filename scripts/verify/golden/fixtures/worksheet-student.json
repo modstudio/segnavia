@@ -1,0 +1,43 @@
+{
+  "pages": [
+    {
+      "size": [612, 792],
+      "text": "Contents\nEnglish and Hebrew worksheet\n‫דף עבודה‬\n\ni\n\n1\n1"
+    },
+    {
+      "size": [612, 792],
+      "text": "Worksheet\nCapital of France:\n\n‫דף עבודה‬\n:‫עיר הבירה של צרפת‬\n\n1"
+    }
+  ],
+  "outline": [
+    {
+      "title": "English and Hebrew worksheet",
+      "page": 2,
+      "depth": 0
+    },
+    {
+      "title": "‎דף עבודה",
+      "page": 2,
+      "depth": 1
+    }
+  ],
+  "structure": {
+    "tree": true,
+    "marked": true
+  },
+  "fonts": ["LiberationSerif", "LiberationSerif-Bold"],
+  "info": {
+    "Title": "Bilingual answer key",
+    "Custom Metadata": "no",
+    "Metadata Stream": "yes",
+    "Tagged": "yes",
+    "UserProperties": "no",
+    "Suspects": "no",
+    "Form": "none",
+    "JavaScript": "no",
+    "Encrypted": "no",
+    "Optimized": "no",
+    "PDF version": "1.7"
+  },
+  "xmp": "<?xpacket begin=\"﻿\" id=\"W5M0MpCehiHzreSzNTczkc9d\"?>\n<x:xmpmeta xmlns:x=\"adobe:ns:meta/\">\n<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\">\n<rdf:Description rdf:about=\"\" xmlns:dc=\"http://purl.org/dc/elements/1.1/\" xmlns:pdfx=\"http://ns.adobe.com/pdfx/1.3/\">\n<dc:title><rdf:Alt><rdf:li xml:lang=\"x-default\">Bilingual answer key</rdf:li></rdf:Alt></dc:title>\n</rdf:Description>\n</rdf:RDF>\n</x:xmpmeta>\n<?xpacket end=\"w\"?>"
+}
