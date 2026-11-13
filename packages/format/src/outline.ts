@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { closedObject } from './closed-object.ts'
-import type { TextDirection } from './direction.ts'
+import { TextDirection } from './direction.ts'
 import type { Plan } from './plan.ts'
 
 export const DEFAULT_OUTLINE_DEPTH = 6
@@ -24,12 +24,13 @@ export const OutlineHeading = closedObject({
 })
 export type OutlineHeading = z.infer<typeof OutlineHeading>
 
-export interface OutlineSource {
-  direction: z.infer<typeof TextDirection>
-  depth: number
-  headings: readonly OutlineHeading[]
-  blocks: readonly string[]
-}
+export const OutlineSource = closedObject({
+  direction: TextDirection,
+  depth: z.number().int().min(1).max(MAX_HEADING_LEVEL),
+  headings: z.array(OutlineHeading),
+  blocks: z.array(z.string()),
+})
+export type OutlineSource = z.infer<typeof OutlineSource>
 
 export interface OutlineEntry {
   id: string

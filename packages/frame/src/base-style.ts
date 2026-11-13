@@ -22,6 +22,7 @@
 
 // Non-zero keeps Chromium drawing a loading frame; the minimum alpha leaves no visible trace through a transparent active slide.
 export const LOADING_CANVAS_OPACITY = 1 / 255
+export const OUTLINE_HEADING_BASE_CSS = ':where([data-segnavia-outline-heading]){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;white-space:nowrap}'
 
 // transform-origin has no logical keywords, so printed spreads select a physical origin from their direction.
 export const BASE_CSS = `
@@ -111,6 +112,7 @@ export const BASE_CSS = `
 :where(segnavia-printed-pages:not([unstyled]) [part~="failure"]){position:sticky;inset-block-start:0;color:var(--segnavia-failure,currentColor)}
 :where(segnavia-book:not([unstyled])){display:block;overflow:hidden}
 :where(segnavia-book:not([unstyled]) iframe){display:block;border:0;inline-size:100%;block-size:100%}
+${OUTLINE_HEADING_BASE_CSS}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}
 :where(segnavia-paper:not([unstyled]) .segnavia-paper__paper){position:absolute;inset:0;transform-origin:0 0;background:var(--segnavia-paper,#fff)}
 :where(segnavia-document:not([unstyled])){display:block}

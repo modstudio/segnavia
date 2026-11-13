@@ -1,4 +1,5 @@
 import { type Book, type BookView, resolveBookPagination } from '@segnavia/format'
+import { bookOutlineSource } from '../document-outline.ts'
 import { bookDocument } from './book-document.ts'
 
 export function bookViewFromHtml(book: Book, html: string): BookView {
@@ -23,5 +24,6 @@ export function bookView(book: Book): BookView {
   const issues = document.issues.length > 0 ? document.issues : (flow?.issues ?? [])
   if (issues.length > 0) throw new Error(`The book cannot be shown: ${issues.join('; ')}.`)
   const view = bookViewFromHtml(book, document.html)
-  return flow ? { ...view, flow: flow.html } : view
+  const pagination = view.pagination === undefined ? undefined : { ...view.pagination, outline: bookOutlineSource(book, document) }
+  return { ...view, ...(pagination === undefined ? {} : { pagination }), ...(flow ? { flow: flow.html } : {}) }
 }

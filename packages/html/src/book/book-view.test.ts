@@ -60,6 +60,10 @@ describe('bookView', () => {
       BOOK_PARENT_NAMES.opener,
       BOOK_PARENT_NAMES.blank,
     ])
+    expect(view.pagination?.outline).toMatchObject({
+      direction: 'rtl',
+      headings: [{ id: 'section-1', title: 'One', level: 1 }],
+    })
   })
 
   test('refuses a book whose document has issues', () => {
