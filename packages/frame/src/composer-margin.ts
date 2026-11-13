@@ -112,12 +112,13 @@ export function appendMissingSideNote(entries: PreflightEntry[], id: string, fol
   )
 }
 
-export function widestLineNumber(page: HTMLElement, side: 'left' | 'right'): number {
-  let width = 0
+export function lineNumberInnerEdge(page: HTMLElement, side: 'left' | 'right'): number | undefined {
+  let edge: number | undefined
   for (const number of page.querySelectorAll(marginLineNumberSelector(side))) {
-    width = Math.max(width, number.getBoundingClientRect().width)
+    const rect = number.getBoundingClientRect()
+    edge = side === 'left' ? Math.max(edge ?? Number.NEGATIVE_INFINITY, rect.right) : Math.min(edge ?? Number.POSITIVE_INFINITY, rect.left)
   }
-  return width
+  return edge
 }
 
 interface DrawnSideNote {
@@ -134,18 +135,30 @@ export function prepareSideNote(
   textRect: DOMRect,
   pageRect: DOMRect,
   gap: number,
+  entries: PreflightEntry[],
+  folio: string,
 ): DrawnSideNote {
   if (!note.hasAttribute('dir')) note.setAttribute('dir', resolveDirection(undefined, note.getAttribute('lang') ?? undefined, note.textContent ?? ''))
   note.setAttribute('data-segnavia-side', placement.side)
   note.style.top = `${placement.top}px`
-  const numberWidth = widestLineNumber(page, placement.side)
-  const reserve = numberWidth > 0 ? numberWidth + gap : 0
+  const numberEdge = lineNumberInnerEdge(page, placement.side)
+  let availableWidth: number
   if (placement.side === 'left') {
-    note.style.left = `${pageRect.left - textRect.left + gap + reserve}px`
-    note.style.width = `${Math.max(0, textRect.left - pageRect.left - 2 * gap - reserve)}px`
+    const left = (numberEdge ?? pageRect.left) + gap
+    note.style.left = `${left - textRect.left}px`
+    availableWidth = textRect.left - gap - left
   } else {
     note.style.left = `${textRect.width + gap}px`
-    note.style.width = `${Math.max(0, pageRect.right - textRect.right - 2 * gap - reserve)}px`
+    availableWidth = (numberEdge ?? pageRect.right) - gap - (textRect.right + gap)
+  }
+  note.style.width = `${Math.max(0, availableWidth)}px`
+  if (availableWidth <= 0) {
+    appendMarginOversetEntry(
+      entries,
+      `side-note:${placement.id}`,
+      `The margin is too narrow for side note ${placement.id}; widen the margin, change sideNotes.side, or remove margin line numbers on that side to clear it.`,
+      folio,
+    )
   }
   return { id: placement.id, top: placement.top, side: placement.side, element: note }
 }
@@ -209,7 +222,7 @@ export function drawPageSideNotes(
       appendMissingSideNote(entries, placement.id, folio)
       continue
     }
-    const item = prepareSideNote(placement, note, page, textRect, pageRect, gap)
+    const item = prepareSideNote(placement, note, page, textRect, pageRect, gap, entries, folio)
     container.append(item.element)
     drawn.push(item)
   }
