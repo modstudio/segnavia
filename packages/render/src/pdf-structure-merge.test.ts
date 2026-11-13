@@ -39,7 +39,10 @@ async function taggedPart(
     root.set(key('K'), leafReference)
   }
   const parentNumbers = [...(options.missingPageParent ? [] : [0, [leafReference]]), 1, leafReference]
-  root.set(key('ParentTree'), options.parentTreeKids ? document.context.obj({ Kids: [document.context.obj({ Nums: parentNumbers })] }) : document.context.obj({ Nums: parentNumbers }))
+  root.set(
+    key('ParentTree'),
+    options.parentTreeKids ? document.context.obj({ Kids: [document.context.obj({ Nums: parentNumbers })] }) : document.context.obj({ Nums: parentNumbers }),
+  )
   root.set(key('ParentTreeNextKey'), PDFNumber.of(2))
   root.set(key('RoleMap'), document.context.obj({ [`Role${mapSuffix}`]: 'H1' }))
   root.set(key('ClassMap'), document.context.obj({ [`class${mapSuffix}`]: { O: 'Layout' } }))
