@@ -211,6 +211,7 @@ test("a frame's ready window message clears its bridge timeout refusal", () => {
   const frame = { contentWindow } as unknown as HTMLIFrameElement
   const stage = new SegnaviaStage() as Stage & Record<string, unknown>
   Object.assign(stage, {
+    dataset: {},
     attached: { state, key() {} },
     slotDeck: deck,
     resolvedSlots: undefined,
