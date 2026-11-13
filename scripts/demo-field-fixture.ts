@@ -33,29 +33,35 @@ export const editionWorksheet: DocumentInput = {
   ],
   defaultEdition: 'student',
   children: [
-    { type: 'contents', title: 'Contents' },
+    { type: 'division', name: 'front', children: [{ type: 'contents', title: 'Contents' }] },
     {
-      type: 'section',
-      title: 'English and Hebrew worksheet',
-      conditions: ['student', 'teacher'],
+      type: 'division',
+      name: 'body',
       children: [
         {
-          type: 'flow',
-          html: '<section lang="en"><h1>Worksheet</h1><p>Capital of France:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> Paris</span></p><div data-segnavia-condition="teacher"><strong>Answer key</strong></div></section><section lang="he" dir="rtl"><h2>דף עבודה</h2><p>עיר הבירה של צרפת:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> פריז</span></p></section>',
+          type: 'section',
+          title: 'English and Hebrew worksheet',
+          conditions: ['student', 'teacher'],
+          children: [
+            {
+              type: 'flow',
+              html: '<section lang="en"><h1>Worksheet</h1><p>Capital of France:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> Paris</span></p><div data-segnavia-condition="teacher"><strong>Answer key</strong></div></section><section lang="he" dir="rtl"><h2>דף עבודה</h2><p>עיר הבירה של צרפת:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> פריז</span></p></section>',
+            },
+          ],
+        },
+        {
+          type: 'section',
+          title: 'Teacher notes',
+          conditions: ['teacher'],
+          children: [{ type: 'flow', html: '<p>Accept the answer in either language.</p>' }],
+        },
+        {
+          type: 'section',
+          title: 'Omitted placement',
+          conditions: ['omitted-placement'],
+          children: [{ type: 'placed', kind: 'page', address: 'not-resolved' }],
         },
       ],
-    },
-    {
-      type: 'section',
-      title: 'Teacher notes',
-      conditions: ['teacher'],
-      children: [{ type: 'flow', html: '<p>Accept the answer in either language.</p>' }],
-    },
-    {
-      type: 'section',
-      title: 'Omitted placement',
-      conditions: ['omitted-placement'],
-      children: [{ type: 'placed', kind: 'page', address: 'not-resolved' }],
     },
   ],
 }
