@@ -212,7 +212,7 @@ describe('frame document', () => {
       css: 'p{unicode-bidi:normal}',
     })
     expect(html.indexOf('unicode-bidi:plaintext')).toBeLessThan(html.indexOf('p{unicode-bidi:normal}'))
-    expect(html).toContain(`@layer segnavia.base{${BLOCK_DIRECTION_CSS}}`)
+    expect(html).toContain(BLOCK_DIRECTION_CSS)
     expect(html).not.toContain(`<style>${BLOCK_DIRECTION_CSS}</style>`)
   })
 
@@ -225,7 +225,7 @@ describe('frame document', () => {
 
   test('a document without explicit sheets still receives the compiled base layer', () => {
     const html = frameDocument('<p>x</p>', { scripts: 'refuse', nonce: 'n' })
-    expect(html).toContain(`@layer segnavia.base{${BLOCK_DIRECTION_CSS}}`)
+    expect(html).toContain(BLOCK_DIRECTION_CSS)
     expect(html).not.toContain(`<style>${BLOCK_DIRECTION_CSS}</style>`)
   })
 

@@ -27,11 +27,9 @@ export function fieldSizeCss(html: string): string {
     }
   }
   return [
-    ...[...lengths].sort().map(
-      (value) => `:where([data-segnavia-field="line"][data-segnavia-field-length="${value}"]){inline-size:${value}}`,
-    ),
-    ...[...lines].sort((a, b) => a - b).map(
-      (value) => `:where([data-segnavia-field="box"][data-segnavia-field-lines="${value}"]){block-size:calc(${value} * 1lh)}`,
-    ),
+    ...[...lengths].sort().map((value) => `:where([data-segnavia-field="line"][data-segnavia-field-length="${value}"]){inline-size:${value}}`),
+    ...[...lines]
+      .sort((a, b) => a - b)
+      .map((value) => `:where([data-segnavia-field="box"][data-segnavia-field-lines="${value}"]){block-size:calc(${value} * 1lh)}`),
   ].join('')
 }
