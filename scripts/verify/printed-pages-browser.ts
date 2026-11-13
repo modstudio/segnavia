@@ -326,7 +326,7 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       motifs: Array<{ key: string }>
       sectioned: unknown
     }
-    await verifyPrintedPageInlineOverflow(page, fixtures.inlineOverflow, check)
+    await verifyPrintedPageInlineOverflow(page, fixtures.inlineOverflow, fixtures.motifs, check)
     await page.evaluate(async (documentInput) => {
       await customElements.whenDefined('segnavia-page')
       const shown = document.createElement('segnavia-page') as HTMLElement & { page: unknown }
