@@ -8,6 +8,7 @@ something else.
 |---|---|
 | **Page** | A body of HTML or markdown at any size, designed for viewing on screen: a flowing width, a fixed width and height, or an exact width that grows with its content. |
 | **Page body** | A page's rendered HTML and, when authored as markdown, that markdown source beside it. Markdown is a body format, not a type: the asset types remain page, deck, book and board. |
+| **Record body** | The one flow owned by a record. It is the record's HTML when no template is present, or is inserted into the template's `data-record-body` element before record values bind. |
 | **Page geometry** | A named paper, orientation, margins and columns declared in `style.pageGeometries`. A book section names one to print on that paper; without one it uses the book's `page`. Press fields such as bleed stay document-wide. |
 | **Flowing width** | A page width that grows with its content: `full` follows the viewer, `standard` caps and centers at 1024 CSS pixels, `wide` caps and centers at 1440 CSS pixels, and a number is an exact width. Named caps reflow below their measure. A host may override the two named measures. Legacy `fluid` page data reads as `full`. |
 | **Cover** | A page with scripts refused and no bleed, safe area or marks, designed to represent an asset at thumbnail size. Its sheet follows its print setting and defaults to 160 × 100 mm when that setting is absent. |
