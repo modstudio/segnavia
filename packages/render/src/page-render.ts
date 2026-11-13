@@ -13,7 +13,7 @@ import { addPressBoxesByPage, assertPrintOptions, printPage } from './page-paper
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { setPdfPageSizes } from './pdf-page-size.ts'
-import { printedPagePdfPlan, usesPrintedPagePdfPlan } from './printed-page-pdf-plan.ts'
+import { printedPagePdfPlan, printedPagePdfPlanWidth, usesPrintedPagePdfPlan } from './printed-page-pdf-plan.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
@@ -75,12 +75,12 @@ export async function renderPagePdf(
           page.print,
         )
       : undefined
-  // Keep the legacy no-press, one-paper path so single-geometry printed goldens remain byte-identical.
+  // Keep no-press composition at one paper size on printPage so its established PDF output remains byte-identical.
   const perPagePlan = geometryPlan && usesPrintedPagePdfPlan(geometryPlan) ? geometryPlan : undefined
   const { grows: _grows, ...defaultViewport } = pageViewport(page, undefined, opts.pageWidths)
   const viewport = perPagePlan
     ? {
-        width: Math.round(Math.max(...perPagePlan.sizes.map((paper) => paper.width)) * PX_PER_MM),
+        width: printedPagePdfPlanWidth(perPagePlan),
         height: Math.round(Math.max(...perPagePlan.sizes.map((paper) => paper.height)) * PX_PER_MM),
       }
     : defaultViewport
@@ -116,7 +116,7 @@ export async function renderPagePdf(
           const plan = printedPagePdfPlan(papers, print)
           const printed = await printWithOverflow(
             tab,
-            Math.max(...plan.sizes.map((paper) => paper.width)) * PX_PER_MM,
+            printedPagePdfPlanWidth(plan),
             'page',
             {
               printBackground: true,

@@ -1,4 +1,4 @@
-import { type Print, type PrintBoxes, printBoxes, usesPressLayout } from '@segnavia/format'
+import { type Print, type PrintBoxes, paperPixels, printBoxes, usesPressLayout } from '@segnavia/format'
 
 interface Paper {
   width: number
@@ -15,6 +15,10 @@ export function printedPagePdfPlan(papers: readonly Paper[], print: Print): Prin
     printBoxes({ ...print, paper: { ...paper, unit: 'mm' }, orientation: paper.width > paper.height ? 'landscape' : 'portrait' }),
   )
   return { sizes: boxes.map((item) => item.bleedBox), pressBoxes: boxes, sourceBox: 'bleed' }
+}
+
+export function printedPagePdfPlanWidth(plan: PrintedPagePdfPlan): number {
+  return Math.max(...plan.sizes.map((paper) => paperPixels(paper.width)))
 }
 
 export function usesPrintedPagePdfPlan(plan: PrintedPagePdfPlan): boolean {

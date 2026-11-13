@@ -1,4 +1,5 @@
 import type { Page as Tab } from 'playwright-core'
+import { RenderRefusedError } from './errors.ts'
 import type { OverflowContribution, OverflowEntry, OverflowPart } from './options.ts'
 
 export type BookOverflowPart = Extract<OverflowPart, 'front' | 'body' | 'margin'>
@@ -202,6 +203,8 @@ export async function printWithOverflow(
   pdf: Parameters<Tab['pdf']>[0],
   inputIndex?: number,
 ): Promise<PrintResult<true>> {
+  if (!Number.isInteger(pageWidth))
+    throw new RenderRefusedError(`Print overflow received page width ${pageWidth}; callers must pass a whole number of CSS pixels to clear this refusal.`)
   await tab.emulateMedia({ media: 'print' })
   const viewport = tab.viewportSize()
   if (!viewport) throw new Error('The print tab has no viewport.')

@@ -160,7 +160,7 @@ test('an unnamed composed press page selects the per-page bleed plan', async () 
     },
   )
   await expect(rendered).rejects.toThrow('stop after setup')
-  expect(viewport).toEqual({ width: 816, height: 1145 })
+  expect(viewport).toEqual({ width: 817, height: 1145 })
 })
 
 test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor host declarations', async () => {

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Print } from '@segnavia/format'
-import { printedPagePdfPlan, usesPrintedPagePdfPlan } from './printed-page-pdf-plan.ts'
+import { printedPagePdfPlan, printedPagePdfPlanWidth, usesPrintedPagePdfPlan } from './printed-page-pdf-plan.ts'
 
 test('plans bleed-sized composed papers and press boxes from their bleed source', () => {
   const plan = printedPagePdfPlan(
@@ -24,6 +24,12 @@ test('plans bleed-sized composed papers and press boxes from their bleed source'
 test('keeps trim papers and omits press boxes without press layout', () => {
   const papers = [{ width: 210, height: 297 }]
   expect(printedPagePdfPlan(papers, Print.parse({ paper: 'a4' }))).toEqual({ sizes: papers })
+})
+
+test('measures composed letter papers in whole CSS pixels', () => {
+  const papers = [{ width: 215.9, height: 279.4 }]
+  expect(printedPagePdfPlanWidth(printedPagePdfPlan(papers, Print.parse({ paper: 'letter', bleed: 3 })))).toBe(839)
+  expect(printedPagePdfPlanWidth(printedPagePdfPlan(papers, Print.parse({ paper: 'letter' })))).toBe(816)
 })
 
 test('uses per-page printing for press or multiple composed paper geometries', () => {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, horizontalOverflow, type ScaleMeasurement, solveScale } from './overflow.ts'
+import { RenderRefusedError } from './errors.ts'
+import { CHROMIUM_MAX_SHRINK, clippedHorizontalBox, horizontalOverflow, printWithOverflow, type ScaleMeasurement, solveScale } from './overflow.ts'
 
 test('ancestor clip boxes limit the visible horizontal contribution', () => {
   expect(
@@ -25,6 +26,12 @@ test('overflow visible through an ancestor clip margin raises the print scale', 
     clippedEnd: 60,
     rightOverflow: 60,
   })
+})
+
+test('refuses a fractional print-overflow page width before using the tab', async () => {
+  await expect(printWithOverflow({} as never, 816.1, 'page', {})).rejects.toEqual(
+    new RenderRefusedError('Print overflow received page width 816.1; callers must pass a whole number of CSS pixels to clear this refusal.'),
+  )
 })
 
 function solved(pageWidth: number, widthAt: (layoutWidth: number) => number): { scale: number; layouts: number[] } {
