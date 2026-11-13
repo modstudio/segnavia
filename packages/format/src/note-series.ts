@@ -12,6 +12,8 @@ export type NoteNumbering = z.infer<typeof NoteNumbering>
 
 export const NoteSeries = closedObject({
   name: z.string().regex(REGION_NAME, 'a note series name must be an HTML name token'),
+  key: z.enum(['counter', 'line']).default('counter'),
+  lemmaSeparator: z.string().default(']'),
   placement: NotePlacement.optional(),
   numbering: NoteNumbering.optional(),
   marker: NoteMarker.optional(),
@@ -21,6 +23,9 @@ export type NoteSeriesInput = z.input<typeof NoteSeries>
 
 export interface ResolvedNoteSeries {
   name: string
+  key: 'counter' | 'line'
+  lemmaSeparator: string
+  lineNumberSystem?: NumberSystem
   placement: NotePlacement
   numbering: NoteNumbering
   marker: NoteMarkerValue
@@ -70,6 +75,7 @@ type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker'> & { marker?: Note
 
 interface NoteSeriesSettings {
   lang?: string
+  lineNumberSystem?: NumberSystem
   footnotes: { marker?: NoteMarkerValue; restart: 'chapter' | 'book' }
   endnotes: { marker?: NoteMarkerValue; placement: 'book' | 'chapter'; title?: string }
   notes: NoteSeriesInput[]
@@ -199,6 +205,16 @@ function resolveCustomSeries(series: NoteSeriesInput): ResolvableNoteSeries {
   }
 }
 
+/** Resolves the number system printed by a line-keyed series. */
+export function resolveLineKeyedNoteSystem(marker: NoteMarkerValue | undefined, lineNumberSystem: NumberSystem): NumberSystem {
+  if (marker === undefined) return lineNumberSystem
+  const source = noteMarkerSource(marker)
+  if (source.kind !== 'number') {
+    throw new RangeError('a line-keyed note series marker must be a number system; use arabic, roman-lower, roman-upper or hebrew to clear this refusal')
+  }
+  return source.system
+}
+
 export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSeries[] {
   const hebrew = isHebrew(settings.lang)
   const declared = new Map(settings.notes.map((series) => [series.name, series]))
@@ -252,10 +268,18 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
   const explicitMarkers = inputs.flatMap(({ marker }) => (marker === undefined ? [] : [marker]))
   const used: NoteMarkerValue[] = []
   return inputs.map((series) => {
+    const key = series.key ?? 'counter'
+    const lineNumberSystem =
+      key === 'line' && settings.lineNumberSystem !== undefined
+        ? resolveLineKeyedNoteSystem(series.marker, settings.lineNumberSystem)
+        : undefined
     const marker = series.marker ?? unusedMarker(series.preferredMarker, settings.lang, [...used, ...explicitMarkers])
     used.push(marker)
     return {
       name: series.name,
+      key,
+      lemmaSeparator: series.lemmaSeparator ?? ']',
+      ...(lineNumberSystem === undefined ? {} : { lineNumberSystem }),
       placement: series.placement,
       numbering: series.numbering,
       marker,
@@ -287,7 +311,7 @@ export function noteSeriesIssues(series: ResolvedNoteSeries[], mode: 'continuous
 }
 
 export function noteMarkerIssues(series: ResolvedNoteSeries[], used: ReadonlySet<string>): string[] {
-  const active = series.filter(({ name }) => used.has(name))
+  const active = series.filter(({ name, key }) => key === 'counter' && used.has(name))
   const issues: string[] = []
   for (let left = 0; left < active.length; left += 1) {
     for (let right = left + 1; right < active.length; right += 1) {

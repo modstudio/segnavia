@@ -85,8 +85,11 @@ export function resolveBookBuild(book: Book, requested: BookBuild | undefined): 
 
 export function bookDocumentCss(book: Book, build: BookBuild): string {
   const fragmentation = fragmentationCss(book.fragmentation)
-  if (build === 'galley') return `${fragmentation}${contentsCss(book)}${SECTION_BOUNDARY}${GALLEY_SUFFIX}`
-  return `${fragmentation}${SECTION_BOUNDARY}${build === 'flow' ? flowCss(book) : printCss(book)}`
+  const lineNoteAnchors = book.notes.some(({ key }) => key === 'line')
+    ? ':where([data-segnavia-line-note]){display:inline-block;inline-size:0;block-size:0;overflow:hidden}'
+    : ''
+  if (build === 'galley') return `${fragmentation}${contentsCss(book)}${SECTION_BOUNDARY}${GALLEY_SUFFIX}${lineNoteAnchors}`
+  return `${fragmentation}${SECTION_BOUNDARY}${build === 'flow' ? flowCss(book) : printCss(book)}${lineNoteAnchors}`
 }
 
 export function flowPageStyle(geometry: BookFlowPageGeometry, recto: boolean): string {

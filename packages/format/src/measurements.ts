@@ -71,6 +71,8 @@ const PaginateFlowBase = {
       }),
     )
     .optional(),
+  /** The galley top and containing block for each line-keyed note's lemma start, or its note anchor when it has no lemma. */
+  lineNoteAnchors: z.array(z.object({ id: z.string(), top: z.number(), block: z.number().int().positive() })).optional(),
 }
 
 export const PaginateFlow = z.discriminatedUnion('kind', [

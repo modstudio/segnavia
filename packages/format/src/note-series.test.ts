@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { noteMarkerIssues, resolveNoteSeries } from './note-series.ts'
+import { noteMarkerIssues, resolveLineKeyedNoteSystem, resolveNoteSeries } from './note-series.ts'
 import type { NoteMarker } from './numbering.ts'
 
 const settings = (lang?: string) => ({
@@ -10,6 +10,18 @@ const settings = (lang?: string) => ({
 })
 
 describe('note series', () => {
+  test('resolves line keys, separators and their number system', () => {
+    expect(resolveLineKeyedNoteSystem(undefined, 'hebrew')).toBe('hebrew')
+    expect(resolveLineKeyedNoteSystem('roman-upper', 'hebrew')).toBe('roman-upper')
+    expect(() => resolveLineKeyedNoteSystem('symbols', 'arabic')).toThrow('marker must be a number system')
+    expect(
+      resolveNoteSeries({
+        ...settings(),
+        lineNumberSystem: 'hebrew',
+        notes: [{ name: 'sources', key: 'line', lemmaSeparator: ':', placement: 'page', numbering: 'book' }],
+      })[2],
+    ).toMatchObject({ name: 'sources', key: 'line', lemmaSeparator: ':', lineNumberSystem: 'hebrew' })
+  })
   test('resolves compatible defaults and id stems', () => {
     expect(resolveNoteSeries(settings())).toMatchObject([
       { name: 'footnote', placement: 'page', numbering: 'chapter', marker: 'symbols', title: 'Footnotes', idStem: 'fn', idScope: 'chapter' },

@@ -18,10 +18,22 @@ export interface PageLineNumbers {
 
 type NumberWindow = Plan['pages'][number]['windows'][number]
 
+interface CountedPlanLine {
+  value: number
+  page: number
+  window: NumberWindow
+  line: { top: number; bottom: number }
+  direction: 'ltr' | 'rtl'
+  chapter: number
+  block: number
+}
+
+export type LineKeyedLabelDecision = { id: string; value: number } | { id: string; refusal: string }
+
 function windowLines(
   measurements: Measurements,
   window: NumberWindow,
-): Array<{ line: { top: number; bottom: number }; direction: 'ltr' | 'rtl'; chapter: number }> {
+): Array<{ line: { top: number; bottom: number }; direction: 'ltr' | 'rtl'; chapter: number; block: number }> {
   const flow = measurements.flows.find((candidate) => candidate.id === window.flow)
   if (!flow || !('blocks' in flow)) return []
   return flow.blocks.flatMap((block) =>
@@ -29,12 +41,16 @@ function windowLines(
       ? []
       : block.lines
           .filter((line) => line.counted !== false && line.top >= window.start && line.top < window.end)
-          .map((line) => ({ line, direction: block.direction, chapter: block.position.chapter })),
+          .map((line) => ({ line, direction: block.direction, chapter: block.position.chapter, block: block.position.block })),
   )
 }
 
 export function numberLinesScript(): string {
-  return `${tiledPageGroups.toString()}\n${windowAnchorTop.toString()}\n${windowLines.toString()}\n${resolveMarginSide.toString()}\n${numberLabel.toString()}\n${expandLineNumberTiles.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
+  return `${tiledPageGroups.toString()}\n${windowAnchorTop.toString()}\n${windowLines.toString()}\n${countedPlanLines.toString()}\n${resolveMarginSide.toString()}\n${numberLabel.toString()}\n${expandLineNumberTiles.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
+}
+
+export function lineKeyedLabelsScript(): string {
+  return `${lineKeyedLabels.toString()}\nvar lineKeyedLabels=${lineKeyedLabels.name};`
 }
 
 function expandLineNumberTiles(plan: Plan, groups: ReturnType<typeof tiledPageGroups>, source: readonly PageLineNumbers[]): PageLineNumbers[] {
@@ -62,35 +78,60 @@ function numberLabel(value: number, system: ResolvedLineNumbers['system']): stri
   return formatNumber(value, system)
 }
 
-export function numberLines(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): readonly PageLineNumbers[] {
+function countedPlanLines(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): CountedPlanLine[] {
   const groups = tiledPageGroups(plan)
-  const sourceResult = groups.map((_group, page) => ({ page, lines: [] as NumberedLine[] }))
+  const result: CountedPlanLine[] = []
   let counter = settings.start
   let previousFlow: string | undefined
   let previousChapter: number | undefined
   for (const [pageIndex, group] of groups.entries()) {
     const page = group.tiles[0].page
     if (settings.restart === 'page') counter = settings.start
-    const windows = page.windows
-    for (const window of windows) {
-      for (const { line, direction, chapter } of windowLines(measurements, window)) {
-        if (settings.restart === 'section' && (window.flow !== previousFlow || chapter !== previousChapter)) counter = settings.start
-        const value = counter
+    for (const window of page.windows) {
+      for (const held of windowLines(measurements, window)) {
+        if (settings.restart === 'section' && (window.flow !== previousFlow || held.chapter !== previousChapter)) counter = settings.start
+        result.push({ value: counter, page: pageIndex, window, ...held })
         counter += 1
         previousFlow = window.flow
-        previousChapter = chapter
-        if (value % settings.interval !== 0) continue
-        sourceResult[pageIndex]?.lines.push({
-          value,
-          label: numberLabel(value, settings.system),
-          top: windowAnchorTop(window, line.top),
-          height: line.bottom - line.top,
-          column: window.column,
-          columns: window.columns,
-          side: resolveMarginSide(settings.side, page, direction),
-        })
+        previousChapter = held.chapter
       }
     }
+  }
+  return result
+}
+
+/** Assigns each measured line-note anchor the value of the counted line that contains its start. */
+export function lineKeyedLabels(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): LineKeyedLabelDecision[] {
+  const lines = countedPlanLines(measurements, plan, settings)
+  return measurements.flows.flatMap((flow) =>
+    (flow.lineNoteAnchors ?? []).map((anchor): LineKeyedLabelDecision => {
+      const candidates = lines.filter((held) => held.window.flow === flow.id && held.block === anchor.block)
+      const matched = candidates.find((held) => Math.abs(anchor.top - held.line.top) <= 0.5) ?? candidates.find((held) => anchor.top >= held.line.top && anchor.top < held.line.bottom)
+      if (matched) return { id: anchor.id, value: matched.value }
+      return {
+        id: anchor.id,
+        refusal: `line-keyed note ${anchor.id} starts on a line that line numbering does not count; move its lemma to a counted text line or remove line keying to clear this refusal`,
+      }
+    }),
+  )
+}
+
+export function numberLines(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): readonly PageLineNumbers[] {
+  const groups = tiledPageGroups(plan)
+  const sourceResult = groups.map((_group, page) => ({ page, lines: [] as NumberedLine[] }))
+  for (const { value, page: pageIndex, window, line, direction } of countedPlanLines(measurements, plan, settings)) {
+    if (value % settings.interval !== 0) continue
+    const page = groups[pageIndex]?.tiles[0].page
+    if (!page) continue
+    sourceResult[pageIndex]?.lines.push({
+      value,
+      label: numberLabel(value, settings.system),
+      top: windowAnchorTop(window, line.top),
+      height: line.bottom - line.top,
+      column: window.column,
+      columns: window.columns,
+      side: resolveMarginSide(settings.side, page, direction),
+    })
   }
   return expandLineNumberTiles(plan, groups, sourceResult)
 }

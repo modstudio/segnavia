@@ -22,8 +22,8 @@ import { HeadTemplates } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { RequiredLogicalMargin } from './margins.ts'
-import { NoteSeriesEntries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
-import { divisionNumbering, divisionPrints, NoteMarker, NumberSystem } from './numbering.ts'
+import { NoteSeriesEntries, noteSeriesIssues, resolveLineKeyedNoteSystem, resolveNoteSeries } from './note-series.ts'
+import { defaultPageNumbering, divisionNumbering, divisionPrints, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { effectiveParentRules, FLOWING_PARENT_RULES, parentRules, textHoldingParentRules } from './parent-rules.ts'
 import { Placement } from './placement.ts'
@@ -98,6 +98,7 @@ export const BookShape = closedObject({
   lang: z.string().optional(),
   lineNumbers: LineNumbers.optional(),
   sideNotes: SideNotes.optional(),
+  lineNoteSeries: z.array(closedObject({ name: z.string(), system: NumberSystem })).optional(),
   frontMatter: z.array(BookItem).default([]),
   body: z.array(BookItem).optional(),
   endMatter: z.array(BookItem).default([]),
@@ -206,6 +207,23 @@ const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
       ctx.addIssue({ code: 'custom', path: ['notes', index, 'name'], message: `note series ${name} is duplicated; give every series a unique name` })
     }
     seen.add(name)
+    const authored = book.notes[index]
+    if (authored?.key === 'line') {
+      if (book.lineNumbers === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['notes', index, 'key'],
+          message: `note series ${name} is keyed to lines but the document has no lineNumbers setting; add lineNumbers to clear this refusal`,
+        })
+      }
+      if (authored.marker !== undefined) {
+        try {
+          resolveLineKeyedNoteSystem(authored.marker, book.lineNumbers?.system ?? defaultPageNumbering(book.lang))
+        } catch (error) {
+          ctx.addIssue({ code: 'custom', path: ['notes', index, 'marker'], message: error instanceof Error ? error.message : String(error) })
+        }
+      }
+    }
     if (name !== 'footnote' && name !== 'endnote') {
       if (book.notes[index]?.placement === undefined) {
         ctx.addIssue({ code: 'custom', path: ['notes', index, 'placement'], message: `note series ${name} needs placement` })
@@ -223,7 +241,13 @@ export const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
     ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
     ctx.addIssue({ code: 'custom', path: ['chapters'], message: 'chapters and body were both given; keep body and remove chapters' })
   }
-  const notes = resolveNoteSeries({ lang: book.lang, footnotes: book.footnotes, endnotes: book.endnotes, notes: book.notes })
+  const notes = resolveNoteSeries({
+    lang: book.lang,
+    lineNumberSystem: book.lineNumbers?.system ?? book.numbering?.body ?? defaultPageNumbering(book.lang),
+    footnotes: book.footnotes,
+    endnotes: book.endnotes,
+    notes: book.notes,
+  })
   const footnote = notes[0]
   const endnote = notes[1]
   if (!footnote || !endnote) throw new Error('note series resolution did not produce the two default series')
@@ -393,6 +417,9 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     headTemplates: book.headTemplates,
     ...(book.lineNumbers === undefined ? {} : { lineNumbers: book.lineNumbers }),
     ...(book.sideNotes === undefined ? {} : { sideNotes: book.sideNotes }),
+    ...(book.notes.some(({ key }) => key === 'line')
+      ? { lineNoteSeries: book.notes.flatMap(({ key, name, lineNumberSystem }) => (key === 'line' && lineNumberSystem ? [{ name, system: lineNumberSystem }] : [])) }
+      : {}),
     recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),
     ...(book.variables.some(variableReadsDocumentFacts) ? { document: bookVariableDocumentFacts(book) } : {}),
   }

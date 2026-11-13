@@ -53,5 +53,6 @@ export {
   type NoteSeriesInput,
   noteMarkerIssues,
   type ResolvedNoteSeries,
+  resolveLineKeyedNoteSystem,
   resolveNoteSeries,
 } from './note-series.ts'

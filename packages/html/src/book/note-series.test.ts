@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { Book } from '@segnavia/format'
 import { bookDocument } from './book-document.ts'
 import { parseBookFixture } from './book-test-fixture.ts'
 
@@ -310,6 +311,52 @@ describe('note series document', () => {
     expect(result.html.match(/id="segnavia-en-1"/g)).toHaveLength(1)
     expect(result.html.match(/href="#segnavia-en-1"/g)).toHaveLength(2)
     expect(result.html).toContain('data-segnavia-note-repeat')
+  })
+
+  test('builds line-keyed labels from a lemma without leaving a call', () => {
+    const result = bookDocument(
+      Book.parse(
+        input({
+          lineNumbers: {},
+          notes: [{ name: 'sources', key: 'line', placement: 'page', numbering: 'book', marker: 'arabic' }],
+          body: [{ id: 'one', ...chapter('One', '<p data-line-numbers>Before <em data-lemma>long lemma</em> <span data-note="sources">body</span> after</p>') }],
+        }),
+      ),
+    )
+    expect(result.issues).toEqual([])
+    expect(result.html).not.toContain('class="segnavia-note-ref"')
+    expect(result.html).toContain('data-segnavia-line-note-anchor="segnavia-note-sources-1"')
+    expect(result.html).toContain('data-segnavia-line-note="segnavia-note-sources-1"')
+    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> <bdi>long lemma</bdi>] body')
+  })
+
+  test('keeps the separator as plain note-direction text and omits a missing lemma', () => {
+    const result = bookDocument(
+      Book.parse(
+        input({
+          lang: 'he',
+          lineNumbers: {},
+          notes: [{ name: 'sources', key: 'line', placement: 'page', numbering: 'book' }],
+          body: [{ id: 'one', ...chapter('א', '<p data-line-numbers dir="rtl">טקסט <span data-note="sources">הערה</span></p>') }],
+        }),
+      ),
+    )
+    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> הערה')
+    expect(result.html).not.toContain('<bdi>]</bdi>')
+  })
+
+  test('refuses an unnumbered anchor and a repeat reference to a line-keyed note', () => {
+    const result = bookDocument(
+      parseBookFixture(
+        input({
+          lineNumbers: {},
+          notes: [{ name: 'sources', key: 'line', placement: 'page', numbering: 'book' }],
+          body: [chapter('One', '<p><span id="source" data-note="sources">body</span> <a data-note-ref="source">again</a></p>')],
+        }),
+      ),
+    )
+    expect(result.issues).toContainEqual(expect.stringContaining('mark its containing block or container with data-line-numbers'))
+    expect(result.issues).toContainEqual(expect.stringContaining('write a separate note at this place or move it to a counter-keyed series'))
   })
 
   test('renders supplied footnote symbols and fixed unnumbered endnotes through the book build', () => {
