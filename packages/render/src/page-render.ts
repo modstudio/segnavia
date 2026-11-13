@@ -1,4 +1,4 @@
-import { type FontFailure, printedPageGeometries, printBoxes, usesPressLayout } from '@segnavia/format'
+import { type FontFailure, printBoxes, printedPageGeometries, usesPressLayout } from '@segnavia/format'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
 import type { Frame, Page as Tab } from 'playwright-core'
@@ -9,9 +9,9 @@ import { measureOverflow, type PageFontFacts, type PrintResult, printWithOverflo
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolvedPageDocument } from './page-document.ts'
 import { addPressBoxesByPage, assertPrintOptions, printPage } from './page-paper.ts'
-import { setPdfPageSizes } from './pdf-page-size.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
+import { setPdfPageSizes } from './pdf-page-size.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
@@ -86,6 +86,7 @@ export async function renderPagePdf(
       const captures = await prepareBackdropRasters(tab, opts.effects)
       const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
+        const print = page.print
         const perGeometry = Boolean(page.printedPages?.sections?.some((section) => section.pageGeometry !== undefined))
         if (perGeometry) {
           const names = await tab.evaluate(() =>
@@ -97,13 +98,15 @@ export async function renderPagePdf(
             if (!geometry) throw new Error(`The composed paper names unknown page geometry ${JSON.stringify(name)}.`)
             return geometry.paper
           })
-          const printed = await printPage(tab, page.print, true, inputIndex, printedPageDirection(page), tagged)
+          const printed = await printPage(tab, print, true, inputIndex, printedPageDirection(page), tagged)
           const exact = await setPdfPageSizes(printed.bytes, papers)
-          const bytes = usesPressLayout(page.print)
+          const bytes = usesPressLayout(print)
             ? await addPressBoxesByPage(
                 exact,
-                papers.map((paper) => printBoxes({ ...page.print, paper: { ...paper, unit: 'mm' }, orientation: 'portrait' })),
-                page.print.markColor,
+                papers.map((paper) =>
+                  printBoxes({ ...print, paper: { ...paper, unit: 'mm' }, orientation: paper.width > paper.height ? 'landscape' : 'portrait' }),
+                ),
+                print.markColor,
                 'trim',
               )
             : exact

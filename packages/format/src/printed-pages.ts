@@ -26,7 +26,7 @@ export const ParentPage = closedObject({
   regions: ParentRegions.default({}),
 })
 
-const PrintedFlowSection = closedObject({
+const PrintedSection = closedObject({
   id: z.string(),
   title: z.string().optional(),
   opens: BookOpens.optional(),
@@ -34,23 +34,23 @@ const PrintedFlowSection = closedObject({
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
   pageGeometry: z.string().optional(),
-  html: z.string(),
+  html: z.string().default(''),
+  kind: z.literal('fixed').optional(),
+  pages: z
+    .array(closedObject({ html: z.string() }))
+    .min(1)
+    .optional(),
   values: RecordValues.optional(),
   record: RecordFacts.optional(),
   recordTemplate: closedObject({ name: z.string(), slots: z.array(closedObject({ key: z.string() })) }).optional(),
   recordBody: z.string().optional(),
-})
-
-const PrintedDesignedSection = closedObject({
-  id: z.string(),
-  title: z.string().optional(),
-  opens: BookOpens.optional(),
-  numbering: SectionNumbering.optional(),
-  parentRules: parentRules.optional(),
-  parents: z.unknown().optional(),
-  pageGeometry: z.string().optional(),
-  kind: z.literal('fixed'),
-  pages: z.array(closedObject({ html: z.string() })).min(1),
+}).superRefine((section, ctx) => {
+  if (section.kind === 'fixed' && section.pages === undefined) {
+    ctx.addIssue({ code: 'custom', path: ['pages'], message: 'a fixed printed section needs one or more pages; add pages to clear this refusal' })
+  }
+  if (section.kind === undefined && section.pages !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['kind'], message: 'printed section pages need kind fixed; set kind to fixed to clear this refusal' })
+  }
 })
 
 export const PrintedPages = closedObject({
@@ -65,7 +65,7 @@ export const PrintedPages = closedObject({
   numbering: NumberSystem.optional(),
   fragmentation: Fragmentation.default('safe'),
   sections: z
-    .array(z.union([PrintedFlowSection, PrintedDesignedSection]))
+    .array(PrintedSection)
     .min(1)
     .superRefine((sections, ctx) => {
       if (sections[0]?.opens !== 'continue') return

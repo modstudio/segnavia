@@ -16,8 +16,8 @@ import {
   type ParentRules,
   PX_PER_MM,
   preflightEnabled,
-  printedPageGeometries,
   printedFromDocument,
+  printedPageGeometries,
   regionOverflowRefusalEnabled,
   resolveLimits,
   resolveLineNumbers,
@@ -36,8 +36,8 @@ import {
   resolvePrintedPageHtml,
   TARGET_LINKS_CSS,
 } from '@segnavia/html'
+import { type ComposerPageGeometry, composerPageRules } from './book-page-geometries.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
-import { composerPageRules, type ComposerPageGeometry } from './book-page-geometries.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
@@ -50,7 +50,7 @@ export type { PageOrPrintedInput } from '@segnavia/format'
 
 function onlyImplicitSection(sections: PrintedHtmlPage['printedPages']['sections']) {
   const section = sections[0]
-  return sections.length === 1 && section?.implicit === true && !('pages' in section) ? section : undefined
+  return sections.length === 1 && section?.implicit === true && section.pages === undefined ? section : undefined
 }
 
 export {
@@ -180,9 +180,9 @@ export function printedPageValueDocument(
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const sections = page.printedPages.sections
-  const parts = sections.map((section) => ('pages' in section ? section.pages.map((held) => pageParts(held.html)) : [pageParts(section.html)]))
+  const parts = sections.map((section) => (section.pages ? section.pages.map((held) => pageParts(held.html)) : [pageParts(section.html)]))
   const normalizedSections = sections.map((section, index) =>
-    'pages' in section
+    section.pages
       ? { ...section, pages: section.pages.map((held, pageIndex) => ({ html: parts[index]?.[pageIndex]?.body ?? held.html })) }
       : { ...section, html: parts[index]?.[0]?.body ?? section.html },
   )
@@ -191,7 +191,10 @@ export function printedPageValueDocument(
     ? `<div data-segnavia-flow="${implicit.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${printedSectionOutlineHtml({ ...implicit, html: parts[0]?.[0]?.body ?? '' })}</div>`
     : printedSectionFlows(normalizedSections, parentRules)
   const flow = `<div data-segnavia-galleys>${flows}</div>`
-  const body = `${parts.flat().map((part) => part.head).join('')}${flow}<script nonce="${options.nonce}">${composerScript(json)}</script>`
+  const body = `${parts
+    .flat()
+    .map((part) => part.head)
+    .join('')}${flow}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,

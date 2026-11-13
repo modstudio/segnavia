@@ -30,22 +30,27 @@ export function printedHeadingDestinations(html: string, prefix?: string): strin
 }
 
 export function printedSectionOutlineHtml(section: PrintedSection): string {
-  if ('pages' in section) return section.pages.map((page) => printedHeadingDestinations(page.html)).join('')
+  if (section.pages) return section.pages.map((page) => printedHeadingDestinations(page.html)).join('')
   const bound = bindRecordValues(section)
   return printedHeadingDestinations(bound.html, bound.record ? bound.id : undefined)
 }
 
 export function printedSectionFlows(sections: readonly PrintedSection[], rules: ParentRules): string {
   const built: BuiltSection[] = sections.map((section) => {
-    const fixed = 'pages' in section
+    const fixed = section.pages !== undefined
     const document = parse(fixed ? '' : printedSectionOutlineHtml(section))
-    const attribs = flowAttribs(section.opens, section.parentRules ?? rules, {
-      ...numberingAttribs(section.numbering),
-      'data-sequence': 'body',
-      ...(!fixed && 'record' in section ? recordAttribs(section.record) : {}),
-      ...(fixed ? { 'data-segnavia-kind': 'fixed' } : {}),
-    }, section.pageGeometry)
-    const children = fixed
+    const attribs = flowAttribs(
+      section.opens,
+      section.parentRules ?? rules,
+      {
+        ...numberingAttribs(section.numbering),
+        'data-sequence': 'body',
+        ...(!fixed && 'record' in section ? recordAttribs(section.record) : {}),
+        ...(fixed ? { 'data-segnavia-kind': 'fixed' } : {}),
+      },
+      section.pageGeometry,
+    )
+    const children = section.pages
       ? section.pages.map((page, index) =>
           element('div', { 'data-segnavia-designed-page': String(index + 1), hidden: '' }, parse(printedHeadingDestinations(page.html)).children),
         )

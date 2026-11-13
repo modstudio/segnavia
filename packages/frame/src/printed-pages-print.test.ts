@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 import type { TextDirection } from '@segnavia/format'
 import { DEFAULT_PAGE_LIMIT, Imposition, type LimitExceededError, limitRefusal, Page, PX_PER_MM } from '@segnavia/format'
-import { resolvePageHtml } from '@segnavia/html'
+import { resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
 import { measurePrintedPageCount } from './printed-page-count.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
@@ -68,6 +68,34 @@ function fakeMeasurement(height: number): { styles: Array<{ cssText: string }>; 
 }
 
 describe('printedPagesPrintDocument', () => {
+  test('refuses identity imposition across differing section papers by the first pair', async () => {
+    const mixed = resolvePrintedPageHtml(
+      Page.parse({
+        print: { paper: 'letter' },
+        style: {
+          pageGeometries: {
+            wide: {
+              paper: 'letter',
+              orientation: 'landscape',
+              margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+            },
+          },
+        },
+        printedPages: {
+          parents: [{ name: 'body' }],
+          parentRules: [{ parent: 'body' }],
+          sections: [
+            { id: 'one', kind: 'fixed', pages: [{ html: '<p>One</p>' }] },
+            { id: 'two', kind: 'fixed', pageGeometry: 'wide', pages: [{ html: '<p>Two</p>' }] },
+          ],
+        },
+      }),
+    )
+    await expect(printedPagesPrintDocument([mixed], identity, { deadlineAt: Date.now() + 100 })).rejects.toThrow(
+      'page 1 geometry 215.9mm by 279.4mm and page 2 geometry 279.4mm by 215.9mm',
+    )
+  })
+
   test('refuses a non-identity imposition with its remedy', async () => {
     const imposed = Imposition.parse({ paper: 'letter', columns: 2, rows: 1, cell: { width: 100, height: 279.4 } })
     await expect(printedPagesPrintDocument([printed()], imposed, { deadlineAt: Date.now() + 100 })).rejects.toThrow(

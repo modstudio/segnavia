@@ -6,10 +6,10 @@ import {
   impositionMarks,
   isPrintedPageIdentityImposition,
   mixedImpositionGeometryRefusal,
-  printedPageGeometries,
   type OutlineSource,
   type Print,
   printBoxes,
+  printedPageGeometries,
   printPadding,
   printProperties,
   sharedImpositionPress,
@@ -195,8 +195,10 @@ export async function renderPagesPdf(
     const pieces = page.printedPages.sections.flatMap((section) => {
       const print = byName.get(section.pageGeometry)
       if (!print) return []
-      const count = 'pages' in section ? section.pages.length : 1
-      return Array.from({ length: count }, () => ({ print: { paper: { ...print, unit: 'mm' as const }, orientation: 'portrait' as const } }))
+      const count = section.pages?.length ?? 1
+      return Array.from({ length: count }, () => ({
+        print: { paper: { ...print, unit: 'mm' as const }, orientation: print.width > print.height ? ('landscape' as const) : ('portrait' as const) },
+      }))
     })
     const refusal = mixedImpositionGeometryRefusal(pieces)
     if (refusal) throw new RenderRefusedError(refusal)

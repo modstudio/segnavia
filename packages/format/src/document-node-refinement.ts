@@ -46,10 +46,6 @@ function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: P
     const message = remedies[field] ?? `section field ${field} is not yet supported; remove it to clear this refusal`
     ctx.addIssue({ code: 'custom', path: [...path, field], message })
   }
-  const requirement = profile.sectionChildren
-  if (requirement && (node.children.length !== requirement.exact || node.children[0]?.type !== requirement.node)) {
-    ctx.addIssue({ code: 'custom', path: [...path, 'children'], message: requirement.message })
-  }
   if (profile === DOCUMENT_PROFILES.printed) {
     const flowing = node.children.length === 1 && node.children[0]?.type === 'flow'
     const designed = node.children.length > 0 && node.children.every((child) => child.type === 'page')

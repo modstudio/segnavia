@@ -1,6 +1,6 @@
-import type { Print } from './print.ts'
-import { resolveParentPages, type ParentPage, type ResolvedParentPage } from './printed-pages.ts'
 import { sheetMm } from './paper.ts'
+import type { Print } from './print.ts'
+import { type ParentPage, type ResolvedParentPage, resolveParentPages } from './printed-pages.ts'
 import type { PageGeometry, StyleSheet } from './style-sheet.ts'
 
 const ZERO_MARGIN = { blockStart: 0, blockEnd: 0, inlineStart: 0, inlineEnd: 0 }

@@ -1,5 +1,13 @@
-import { type Imposition, impose, isPrintedPageIdentityImposition, mixedImpositionGeometryRefusal, paperViewport, sheetMm } from '@segnavia/format'
-import { type HtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
+import {
+  type Imposition,
+  impose,
+  isPrintedPageIdentityImposition,
+  mixedImpositionGeometryRefusal,
+  paperViewport,
+  printedPageGeometries,
+  sheetMm,
+} from '@segnavia/format'
+import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { frameSandbox, newNonce } from './bridge.ts'
 import { layoutsForHtml } from './layout.ts'
 import { imposedPaperDocument, type PrintablePagesOptions, type PrintablePaperBody, printablePaper } from './print-document.ts'
@@ -7,7 +15,7 @@ import { measurePrintedPageCount } from './printed-page-count.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
 import { escapeHtml } from './svg.ts'
 
-function composedFrame(page: HtmlPage, index: number, expectedCount: number, options: PrintablePagesOptions): string {
+function composedFrame(page: HtmlPage | PrintedHtmlPage, index: number, expectedCount: number, options: PrintablePagesOptions): string {
   const viewport = paperViewport(page.print as NonNullable<HtmlPage['print']>)
   const resolved = resolvePrintedPageHtml(page)
   const srcdoc = printedPageValueDocument(resolved, {
@@ -24,7 +32,7 @@ function composedFrame(page: HtmlPage, index: number, expectedCount: number, opt
 }
 
 export async function printedPagesPrintDocument(
-  pages: HtmlPage[],
+  pages: Array<HtmlPage | PrintedHtmlPage>,
   imposition: Imposition,
   options: PrintablePagesOptions & { deadlineAt: number },
 ): Promise<{ html: string; paper: { width: number; height: number }; sheets: number }> {
@@ -32,13 +40,24 @@ export async function printedPagesPrintDocument(
   if (geometryRefusal) throw new RangeError(geometryRefusal)
   const printed = pages.filter((page) => page.printedPages)
   for (const page of printed) {
+    const resolved = resolvePrintedPageHtml(page)
+    const byName = new Map(printedPageGeometries(resolved).map((geometry) => [geometry.name, geometry.paper]))
+    const pieces = resolved.printedPages.sections.flatMap((section) => {
+      const paper = byName.get(section.pageGeometry)
+      if (!paper) return []
+      return Array.from({ length: section.pages?.length ?? 1 }, () => ({
+        print: { paper: { ...paper, unit: 'mm' as const }, orientation: paper.width > paper.height ? ('landscape' as const) : ('portrait' as const) },
+      }))
+    })
+    const sectionRefusal = mixedImpositionGeometryRefusal(pieces)
+    if (sectionRefusal) throw new RangeError(sectionRefusal)
     if (!page.print || !isPrintedPageIdentityImposition(page.print, imposition)) {
       throw new RangeError(
         'Printed pages could not establish one unchanged page per paper under this imposition; print without imposition to clear this refusal.',
       )
     }
   }
-  const counts = new Map<HtmlPage, number>()
+  const counts = new Map<HtmlPage | PrintedHtmlPage, number>()
   for (const page of printed) {
     counts.set(
       page,
@@ -57,7 +76,7 @@ export async function printedPagesPrintDocument(
   }
   const paper = sheetMm(imposition)
   const bodies: PrintablePaperBody[] = pages.flatMap((page) => {
-    if (page.printedPages) {
+    if (isPrintedHtmlPage(page) || page.printedPages) {
       const count = counts.get(page) ?? 0
       return Array.from({ length: count }, (_, index) => ({ body: composedFrame(page, index + 1, count, options), side: 'front' as const }))
     }

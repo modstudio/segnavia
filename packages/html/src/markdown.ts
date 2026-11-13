@@ -331,7 +331,8 @@ export function resolvePageHtml(page: Page, options: ResolvePageHtmlOptions = {}
   return { ...fields, html }
 }
 
-export function resolvePrintedPageHtml(page: Page | HtmlPage): PrintedHtmlPage {
+export function resolvePrintedPageHtml(page: Page | HtmlPage | PrintedHtmlPage): PrintedHtmlPage {
+  if (isPrintedHtmlPage(page)) return page
   const printedPages = page.printedPages
   if (!printedPages) throw new Error('a resolved printed page needs printedPages')
   const sections = printedPages.sections
@@ -360,9 +361,7 @@ export function isPrintedHtmlPage(page: Page | HtmlPage | PrintedHtmlPage): page
 
 export function printedPageAuthorHtml(page: HtmlPage | PrintedHtmlPage): string {
   return isPrintedHtmlPage(page)
-    ? page.printedPages.sections
-        .flatMap((section) => ('pages' in section ? section.pages.map((held) => held.html) : [section.html]))
-        .join('')
+    ? page.printedPages.sections.flatMap((section) => (section.pages ? section.pages.map((held) => held.html) : [section.html])).join('')
     : page.html
 }
 

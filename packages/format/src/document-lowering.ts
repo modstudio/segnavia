@@ -170,7 +170,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
       return [
         {
           path,
-          value: { id: node.id ?? `children.${index}`, kind: 'fixed', pages: [{ html: printedPageHtml(node) }] },
+          value: { id: node.id ?? `children.${index}`, html: '', kind: 'fixed', pages: [{ html: printedPageHtml(node) }] },
         },
       ]
     }
@@ -188,6 +188,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
             numbering: fields.numbering,
             parentRules: fields.parentRules,
             pageGeometry: fields.pageGeometry,
+            html: '',
             kind: 'fixed' as const,
             pages: pages.map((page) => ({ html: printedPageHtml(page) })),
           }),
@@ -216,7 +217,8 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
 export function pageLoweringFromDocument(document: DocumentShapeValue, brand?: Brand) {
   const printed = document.kind === 'printed'
   const singlePrintedPage = printed && document.children.length === 1 && document.children[0]?.type === 'page' ? document.children[0] : undefined
-  const child = singlePrintedPage ?? (!printed ? document.children.find((node): node is Extract<ShapeNode, { type: 'page' }> => node.type === 'page') : undefined)
+  const child =
+    singlePrintedPage ?? (!printed ? document.children.find((node): node is Extract<ShapeNode, { type: 'page' }> => node.type === 'page') : undefined)
   const sectionEntries = printed && !singlePrintedPage ? printedSectionEntries(document) : []
   const sections = sectionEntries.map((entry) => entry.value)
   if (!child?.body && sections.length === 0) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')

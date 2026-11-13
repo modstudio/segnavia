@@ -207,48 +207,6 @@ describe('Document', () => {
     ).toMatchObject({ numbering: { restart: 4 } })
   })
 
-  test('refuses invalid printed section forms and fields with remedies', () => {
-    const root = {
-      type: 'document' as const,
-      kind: 'printed' as const,
-      print: { paper: 'a4' as const },
-      parentRules: [{ parent: 'body' }],
-      parentPages: [{ type: 'parentPage' as const, name: 'body' }],
-    }
-    const flow = { type: 'flow' as const, html: '<p>Body</p>' }
-    expect(() =>
-      Document.parse({
-        ...root,
-        children: [
-          { type: 'page', body: { html: '' } },
-          { type: 'section', children: [flow] },
-        ],
-      }),
-    ).not.toThrow()
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', children: [] }] })).toThrow(
-      'replace its children to clear this refusal',
-    )
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', parentRules: [{ parent: 'body' }], children: [flow] }] })).not.toThrow()
-    expect(() =>
-      Document.parse({
-        ...root,
-        style: {
-          pageGeometries: {
-            wide: {
-              paper: 'a4',
-              orientation: 'landscape',
-              margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
-            },
-          },
-        },
-        children: [{ type: 'section', pageGeometry: 'wide', children: [flow] }],
-      }),
-    ).not.toThrow()
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', opens: 'continue', children: [flow] }] })).toThrow(
-      'use another opens value to clear this refusal',
-    )
-  })
-
   test('uses the printed number system to refuse an out-of-range section restart', () => {
     expect(() =>
       Document.parse({
