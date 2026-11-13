@@ -20,25 +20,17 @@ recaptured screen, an edited sentence or a re-voiced line changes only itself.
 
 | Need | Package |
 |---|---|
-| The shared shapes: page, book, slide, deck, narration, cue, shot, manifest, a helper turning a host's slide rows into a deck, plus JSON Schema for hosts that do not run TypeScript | `@segnavia/format` |
-| Pure page planning for books and printed pages: pagination with keeps and notes, folios, `planBook` and a capped `convergeLayout`, testable in process and embeddable in a frame as `layoutScript()` | `@segnavia/layout` |
-| The active-content rule for authored HTML, and attribute bindings that fill a page from data with no script | `@segnavia/html` |
-| An IDML package read into a validated Book: document setup, master parent pages with marks and folios, opener title blocks with outlined SVG art and claimed headers, story styles and columns, and host-mapped fonts and SVG assets; unmapped features and linked resources are reported, and linked files are never fetched | `@segnavia/idml` |
-| Optional offline Mermaid drawing for page and book diagram placeholders | `@segnavia/diagrams` |
-| Optional Markdown source and rich-text editing through `<segnavia-markdown-editor>` | `@segnavia/markdown-editor` |
-| Headless viewing: `DeckController` (paging, play and pause in place, a deck timeline with seek, segmented or continuous playback, cues, keys, prefetch) with `<segnavia-stage>`, `<segnavia-page>` and `<segnavia-paper>`, which bring no appearance; printing from the browser | `@segnavia/frame` |
-| Slim headless deck viewing: `DeckController`, `HEADLESS_ELEMENTS` and `formatTime`, defining only `<segnavia-stage>` and `<segnavia-thumbnail>` (a page thumbnail defines `<segnavia-page>` when it mounts one), without board, book, paper or document code | `@segnavia/frame/deck` |
-| The deck's types and pure helpers on a server: `ControllerOptions`, `DeckState`, `ResolvedContent`, `SeekPolicy`, `WatchedState`, `HEADLESS_ELEMENTS` and `formatTime`, defining no elements | `@segnavia/frame/deck-model` |
-| Slim headless page viewing: `SegnaviaPage`, `createPageElement`, `HEADLESS_ELEMENTS`, `SELECTION_REPLY_MS` and the types for the page's host-set properties, defining only `<segnavia-page>` | `@segnavia/frame/page` |
-| Styled components to place beside your own UI: `<segnavia-play>`, `-step`, `-track`, `-counter`, `-time`, `-mute`, `-captions`, `-caption`, `-notes`, `-fullscreen` | `@segnavia/frame/controls` |
-| The controls' icons (Lucide, ISC) as typed SVG strings, optional for headless hosts | `@segnavia/frame/icons` |
-| A finished player, a layout of those components, with an optional thumbnail rail: `<segnavia-player>` | `@segnavia/frame/player` |
-| Opt-in editing for a host's own app: reorder slides and edit notes, with the host owning every write | `@segnavia/frame/authoring` |
-| React components for the player and controls, with `useDeckController` and `useAuthoring` | `@segnavia/react` |
-| Opt-in Vue template props and custom-event types, with Vue supplied by the consumer | `@segnavia/frame/vue`, `@segnavia/markdown-editor/vue` |
-| Pages, slides and decks to PDF or PNG/WebP/JPEG, offline, at their own size or on paper | `@segnavia/render` |
-| Scripted capture of a real app: flows, steps, shots, measured annotations, clean and annotated images | `@segnavia/capture` |
-| Narration text to words with timings, and audio: ElevenLabs, any engine plus an aligner, or a paced offline timing, with the host's pronunciation list applied to any of them | `@segnavia/voice` |
+| Shared document models, validation, and JSON Schema | [`@segnavia/format`](packages/format/README.md) |
+| Pure page planning and pagination | [`@segnavia/layout`](packages/layout/README.md) |
+| Safe authored HTML, Markdown conversion, and data binding | [`@segnavia/html`](packages/html/README.md) |
+| IDML import and conversion into validated books | [`@segnavia/idml`](packages/idml/README.md) |
+| Optional offline Mermaid diagrams | [`@segnavia/diagrams`](packages/diagrams/README.md) |
+| Markdown source and rich-text editing elements | [`@segnavia/markdown-editor`](packages/markdown-editor/README.md) |
+| Headless and styled browser elements for viewing and authoring documents | [`@segnavia/frame`](packages/frame/README.md) |
+| React components and hooks for viewers and editors | [`@segnavia/react`](packages/react/README.md) |
+| Offline PDF and image rendering | [`@segnavia/render`](packages/render/README.md) |
+| Scripted browser capture for flows, screenshots, and measured annotations | [`@segnavia/capture`](packages/capture/README.md) |
+| Narration audio, word timing, and alignment | [`@segnavia/voice`](packages/voice/README.md) |
 
 ## Document style
 

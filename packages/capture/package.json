@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/capture",
+  "description": "Scripted browser capture for flows, screenshots, and measured annotations.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",

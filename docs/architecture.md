@@ -345,8 +345,8 @@ books admit records at the root, inside divisions and inside parts wherever they
 admit flowing sections; a body record needs a title, while front- and end-matter
 records follow those divisions' untitled flowing-section rule. The HTML layer
 binds record values into `data-slot-value` elements before a host fill runs.
-Record templates cannot set parent pages, and records require paginated layout
-because their page numbers restart.
+Record templates cannot set parent pages. Records lower to per-record sections
+in paginated layout and compose once per record in a printed document.
 
 Parent-page furniture is filled from declared variables through named head
 templates. `record` variables expose a record's `index` or `count`; they print

@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/html",
+  "description": "Safe authored HTML, Markdown conversion, and data binding for Segnavia documents.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",

@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/react",
+  "description": "React components and hooks for Segnavia viewers and editors.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",

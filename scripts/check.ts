@@ -9,6 +9,7 @@ import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../architec
 import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
 import { checkRandomUuidSource } from './checks/random-uuid-source.ts'
+import type { PackageExports } from './checks/readme.ts'
 import { type ChangesetRelease, checkReleasePlan, type DeclaredChangeset } from './checks/release-plan.ts'
 import {
   checkBunEngine,
@@ -19,7 +20,9 @@ import {
   checkImports,
   checkManifest,
   checkReactDependencies,
+  checkReadme,
   checkSourceResolution,
+  checkTrackerKeys,
   checkTypeScriptSuppressions,
   checkVueDependencies,
   type Finding,
@@ -92,6 +95,20 @@ function testFiles(): string[] {
   return [...found].sort()
 }
 
+function packageReadmeFindings(packageName: string, names: string[]): Finding[] {
+  const manifestPath = `packages/${packageName}/package.json`
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, manifestPath), 'utf8')) as {
+    name: string
+    exports: PackageExports
+  }
+  const readmePath = `packages/${packageName}/README.md`
+  const readme = existsSync(path.join(ROOT, readmePath)) ? readFileSync(path.join(ROOT, readmePath), 'utf8') : null
+  const findings = checkReadme(manifest.name, manifest.exports, PACKAGES[packageName] as Workspace['rule'], readme)
+  if (readme === null) return findings
+  const file = { path: readmePath, text: readme, imports: [] }
+  return [...findings, ...checkHostNames(file, names), ...checkTrackerKeys(file)]
+}
+
 function structural(names: string[]): Finding[] {
   const all = workspaces()
   const findings: Finding[] = []
@@ -121,6 +138,7 @@ function structural(names: string[]): Finding[] {
   for (const name of Object.keys(PACKAGES)) {
     const manifestPath = `packages/${name}/package.json`
     const manifest = JSON.parse(readFileSync(path.join(ROOT, manifestPath), 'utf8')) as { sideEffects?: boolean | string[] }
+    findings.push(...packageReadmeFindings(name, names))
     if (!Array.isArray(manifest.sideEffects)) continue
     const sourcePattern = `packages/${name}/src/**/*.ts`
     const sideEffectsPackage: SideEffectsPackage = {

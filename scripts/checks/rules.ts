@@ -3,6 +3,7 @@
 
 import { BUN_SUPPORTED_PACKAGES, FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
+import { ENTRIES_END, ENTRIES_START, entryRows, entryTable, firstDifferingEntry, type PackageExports } from './readme.ts'
 import { blankComments, comments, stripComments } from './source-text.ts'
 
 export interface SourceFile {
@@ -46,6 +47,24 @@ export interface PackageManifestDependencies {
   peerDependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
   devDependencies?: Record<string, string>
+}
+
+export function checkReadme(name: string, exports: PackageExports, rule: PackageRule, readme: string | null): Finding[] {
+  const packageName = name.replace(/^@segnavia\//, '')
+  const path = `packages/${packageName}/README.md`
+  if (readme === null) {
+    return [{ rule: 'readme', path, message: `${name} has no README; add it, then run bun run readmes.` }]
+  }
+  const start = readme.indexOf(ENTRIES_START)
+  const end = readme.indexOf(ENTRIES_END)
+  if (start === -1 || end === -1 || end < start) {
+    return [{ rule: 'readme', path, message: `${name} is missing its entry markers; add them, then run bun run readmes.` }]
+  }
+  const rows = entryRows(name, exports, rule)
+  const actual = readme.slice(start + ENTRIES_START.length, end).trim()
+  if (actual === entryTable(rows)) return []
+  const entry = firstDifferingEntry(actual, rows)
+  return [{ rule: 'readme', path, message: `${name} entry ${entry} is stale; run bun run readmes.` }]
 }
 
 export function checkBunEngine(workflow: string, manifests: PackageManifestDependencies[]): Finding[] {
@@ -276,6 +295,8 @@ export function checkHostNames(file: SourceFile, names: string[]): Finding[] {
 
 // A comment states what the code does now and why. These phrases tell how it
 // came to be, which git already records.
+export const TRACKER_KEY = /\b[A-Z][A-Z0-9]+-\d+\b/
+
 export const NARRATION = [
   /\bused to (?:be|have)\b/i,
   /\bformerly\b/i,
@@ -285,8 +306,15 @@ export const NARRATION = [
   /\bthis replaces?d?\b/i,
   /\bthe first draft\b/i,
   /\brestores? the (?:earlier|old|previous)\b/i,
-  /\b[A-Z][A-Z0-9]+-\d+\b/,
+  TRACKER_KEY,
 ]
+
+export function checkTrackerKeys(file: SourceFile): Finding[] {
+  const key = file.text.match(TRACKER_KEY)?.[0]
+  return key
+    ? [{ rule: 'tracker-key', path: file.path, message: `names tracker key ${key}; docs describe the current design without tracker references.` }]
+    : []
+}
 
 export function checkComments(file: SourceFile): Finding[] {
   const findings: Finding[] = []

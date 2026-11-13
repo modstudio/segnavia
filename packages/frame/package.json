@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/frame",
+  "description": "Headless and styled browser elements for viewing and authoring Segnavia documents.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",
