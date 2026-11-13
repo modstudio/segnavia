@@ -41,7 +41,22 @@ export async function printedPagesPrintDocument(
     }
   }
   const counts = new Map<HtmlPage, number>()
-  for (const page of printed) counts.set(page, await measurePrintedPageCount(page, options, options.deadlineAt))
+  for (const page of printed) {
+    counts.set(
+      page,
+      await measurePrintedPageCount(
+        page,
+        {
+          nonce: options.nonce,
+          css: options.css,
+          layoutScripts: options.layoutScripts,
+          limits: options.limits,
+          origins: options.origins,
+        },
+        options.deadlineAt,
+      ),
+    )
+  }
   const paper = sheetMm(imposition)
   const bodies: PrintablePaperBody[] = pages.flatMap((page) => {
     if (page.printedPages) {

@@ -109,7 +109,8 @@ export function composePrintedPaper(
   generation: number,
   options: { css: string; csp?: string; origins: Iterable<OriginApproval>; profile: PreflightProfile },
 ): void {
-  if (state.pending) return
+  const belongsToGeneration = (frame: HTMLIFrameElement | undefined) => frame?.dataset.generation === String(generation)
+  if (belongsToGeneration(state.shown) || belongsToGeneration(state.pending)) return
   const build = (nonce: string) =>
     printedPageValueDocument(prepared.page, {
       nonce,

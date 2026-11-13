@@ -23,6 +23,7 @@
 // Non-zero keeps Chromium drawing a loading frame; the minimum alpha leaves no visible trace through a transparent active slide.
 export const LOADING_CANVAS_OPACITY = 1 / 255
 
+// transform-origin has no logical keywords, so printed spreads select a physical origin from their direction.
 export const BASE_CSS = `
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--_segnavia-shot-backdrop,var(--segnavia-shot-backdrop,transparent));opacity:0;pointer-events:none}
@@ -103,7 +104,8 @@ export const BASE_CSS = `
 :where(segnavia-page:not([unstyled])[data-composed-papers] .segnavia-page__sheet){inline-size:100%;block-size:100%}
 :where(segnavia-printed-pages:not([unstyled])){display:block;position:relative;overflow:auto}
 :where(segnavia-printed-pages:not([unstyled]) .segnavia-printed-pages__spread){position:relative;margin-inline:auto}
-:where(segnavia-printed-pages:not([unstyled]) .segnavia-printed-pages__spread-content){display:flex;flex-direction:row;transform-origin:inline-start block-start}
+:where(segnavia-printed-pages:not([unstyled])[dir="ltr"] .segnavia-printed-pages__spread-content){display:flex;flex-direction:row;transform-origin:0 0}
+:where(segnavia-printed-pages:not([unstyled])[dir="rtl"] .segnavia-printed-pages__spread-content){display:flex;flex-direction:row;transform-origin:100% 0}
 :where(segnavia-printed-pages:not([unstyled]) .segnavia-printed-pages__paper[data-page]){position:relative;flex:none;background:var(--segnavia-paper,#fff)}
 :where(segnavia-printed-pages:not([unstyled]) .segnavia-printed-pages__paper iframe){position:absolute;inset:0;display:block;border:0;inline-size:100%;block-size:100%}
 :where(segnavia-printed-pages:not([unstyled]) [part~="failure"]){position:sticky;inset-block-start:0;color:var(--segnavia-failure,currentColor)}

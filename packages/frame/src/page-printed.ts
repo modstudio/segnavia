@@ -7,12 +7,12 @@ import {
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
-import { fillPageAsOfBindings, type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
-import { expandPrintedFramePage, type MotifsOptions, type PlacementsOptions } from './motif-expansion.ts'
+import { type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
+import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import { loadPrintedPageDocument } from './page-document-loading.ts'
 import type { FontsOptions } from './page-fonts.ts'
-import { pageFontCss } from './page-fonts.ts'
 import { type PageFrameIdentity, samePageFrame } from './page-frame.ts'
+import { preparePrintedPage } from './printed-page-preparation.ts'
 import { fillsSlotValues } from './slot-render.ts'
 
 export const PRINTED_SLOT_REFUSAL =
@@ -40,10 +40,8 @@ export function loadPrintedPageFrame(page: Page | HtmlPage, options: PrintedPage
   if (fillsSlotValues(page.slots, options.slots)) options.failed(new Error(PRINTED_SLOT_REFUSAL))
   const printed = resolvePrintedPageHtml(page)
   const profile = resolvePreflightProfile(options.profile)
-  void expandPrintedFramePage(printed, options.motifs, options.signal, options.placements, 'screen', options.widths, options.day, profile)
-    .then(async (expanded) => {
-      expanded.page = fillPageAsOfBindings(expanded.page, options.day)
-      const fonts = await pageFontCss(expanded.page, expanded.fonts, options.fonts, options.signal)
+  void preparePrintedPage(printed, { ...options, profile })
+    .then(async ({ expanded, fonts }) => {
       loadPrintedPageDocument(
         expanded.page,
         {

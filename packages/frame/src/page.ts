@@ -2,19 +2,17 @@ import {
   type AsOfDay,
   type Document,
   type DocumentInput,
-  dayWithHostMoment,
   type FontFailure,
   FULL_PAGE_SIZE,
   Page,
   type PageWidths,
   type PreflightProfileInput,
-  resolveAsOfDay,
-  resolveDocumentDayResult,
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
+import { type EstablishedPageDay, type HtmlPage, parseDocument } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
+import { resolvePageDayLoad } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
@@ -243,10 +241,7 @@ export class SegnaviaPage extends PageParseOptionsElement {
     const write = (document: string, provisional: boolean, hasLayoutScripts: boolean) => {
       if (isCurrent()) this.writeDocument(iframe, document, provisional, hasLayoutScripts)
     }
-    const facts = {
-      ...captureAsOfLoad(this),
-      signal: controller.signal,
-    }
+    const asOfLoad = captureAsOfLoad(this)
     const render = (day: AsOfDay, slots: SlotsOptions) => {
       if (!isCurrent()) return
       if (!established) dispatchAsof(this, day)
@@ -269,16 +264,12 @@ export class SegnaviaPage extends PageParseOptionsElement {
         { show, report, write, composed: (identity) => (this.composedFrame = identity), fit: () => this.fit() },
       )
     }
-    const policy = resolveAsOfDay(page.asOf, facts)
     if (established) {
       render(established.day, established.slots)
-    } else if (policy.kind === 'day' && !this.slotOptions?.resolve) {
-      render(dayWithHostMoment(policy.day, facts.hostMoment), { ...this.slotOptions, resolve: undefined, source: this.slotOptions?.source })
     } else {
-      void resolveDocumentDayResult(policy, facts)
-        .then(async (day) => ({ day, slots: await slotsForDay(this.slotOptions, day, controller.signal) }))
-        .then(({ day, slots }) => render(day, slots))
-        .catch(report)
+      const resolved = resolvePageDayLoad(page, asOfLoad, this.slotOptions, controller.signal)
+      if (resolved instanceof Promise) void resolved.then(({ day, slots }) => render(day, slots)).catch(report)
+      else render(resolved.day, resolved.slots)
     }
     this.fit()
   }

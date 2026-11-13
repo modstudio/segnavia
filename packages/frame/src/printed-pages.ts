@@ -10,6 +10,8 @@ import {
   type SlotsOptions,
 } from '@segnavia/format'
 import { parseDocument, printedPageDirection } from '@segnavia/html'
+import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
+import { resolvePageDayLoad } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom } from './bridge.ts'
 import { upgradeProperties } from './element-properties.ts'
@@ -257,6 +259,7 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
     const keepPage = this.reloadAnchor ?? this.currentPage
     this.reloadAnchor = undefined
     const generation = ++this.generation
+    const asOfLoad = captureAsOfLoad(this)
     for (const state of this.papers.values()) {
       state.pending?.remove()
       state.pending = undefined
@@ -269,6 +272,9 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
       const source = pageOrPrintedFromDocument(document, brand)
       if (fillsSlotValues(source.slots, this.slotsValue)) throw new Error(PRINTED_SLOT_REFUSAL)
       const profile = resolvePreflightProfile(this.profileValue)
+      const established = await Promise.resolve(resolvePageDayLoad(source, asOfLoad, this.slotsValue, controller.signal))
+      if (generation !== this.generation || controller.signal.aborted) return
+      dispatchAsof(this, established.day)
       const prepared = await preparePrintedPages(source, {
         signal: controller.signal,
         motifs: this.motifsValue,
@@ -279,6 +285,7 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
         csp: this.cspExtra || undefined,
         origins: this.origins,
         profile,
+        day: established.day,
         report: (report) => this.dispatchEvent(new CustomEvent('preflight', { detail: report, bubbles: true, composed: true })),
       })
       if (generation !== this.generation || controller.signal.aborted) return

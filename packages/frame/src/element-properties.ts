@@ -153,7 +153,7 @@ export const ELEMENT_PROPERTIES = {
       'moment',
       'profile',
     ],
-    ['page', 'record', 'preflight', 'fontfailure', 'error'],
+    ['page', 'record', 'asof', 'preflight', 'fontfailure', 'error'],
   ),
   paper: descriptor(
     HEADLESS_ELEMENTS.paper,

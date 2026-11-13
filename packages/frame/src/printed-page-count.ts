@@ -18,7 +18,9 @@ import { printedPageValueDocument } from './printed-page-document.ts'
 export const PRINTED_PAGE_COUNT_REFUSAL =
   'The browser could not establish the composed page count because parent-page geometry or content composition failed, or page resources did not settle; correct the parent-page geometry or content failure, or wait for its resources, to clear this refusal.'
 
-export interface PrintedPageCountOptions extends PrintablePagesOptions {
+export interface PrintedPageCountOptions extends Pick<PrintablePagesOptions, 'nonce' | 'css' | 'layoutScripts' | 'limits' | 'origins'> {
+  baseCss?: string
+  csp?: string
   fontFailures?: FontFailure[]
   preflightSeed?: PreflightEntry[]
   profile?: PreflightProfile
@@ -36,7 +38,7 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
     nonce: options.nonce ?? newNonce(),
     baseCss: options.baseCss,
     css: options.css,
-    csp: options.cspExtra,
+    csp: options.csp,
     measure: true,
     layoutScripts: layoutsForHtml(printedPageAuthorHtml(resolved), options.layoutScripts ?? []),
     limits: options.limits,

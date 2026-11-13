@@ -69,6 +69,20 @@ export async function verifyPrintedPagesViewer(h: Harness): Promise<void> {
     JSON.stringify(facing),
   )
 
+  const zoomOrigin = await page.evaluate(async () => {
+    const viewer = (window as unknown as { viewer: HTMLElement & { zoom: number } }).viewer
+    viewer.zoom = 0.5
+    await new Promise((resolve) => setTimeout(resolve, 700))
+    const spread = viewer.querySelector<HTMLElement>('.segnavia-printed-pages__spread')
+    const content = spread?.querySelector<HTMLElement>('.segnavia-printed-pages__spread-content')
+    return { spread: spread?.getBoundingClientRect().right, content: content?.getBoundingClientRect().right }
+  })
+  check(
+    'RTL zoom keeps the spread content inline-start edge at its spread element inline-start edge',
+    Math.abs(Number(zoomOrigin.spread) - Number(zoomOrigin.content)) < 1,
+    JSON.stringify(zoomOrigin),
+  )
+
   await page.waitForFunction(() => [...document.querySelectorAll<HTMLIFrameElement>('segnavia-printed-pages iframe')].some((frame) => !frame.style.visibility))
   const failure = await page.evaluate(async () => {
     const viewer = (window as unknown as { viewer: HTMLElement & { fonts: unknown } }).viewer

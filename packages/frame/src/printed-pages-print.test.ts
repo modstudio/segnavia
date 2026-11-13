@@ -114,4 +114,15 @@ describe('printedPagesPrintDocument', () => {
     expect(documents[0]).toMatch(/img-src [^;]*https:\/\/images\.example/)
     expect(result.html).toMatch(/img-src [^;]*https:\/\/images\.example/)
   })
+
+  test('does not carry the host print base CSS into count measurement', async () => {
+    const { documents } = fakeMeasurement(279.4 * PX_PER_MM)
+    await printedPagesPrintDocument([printed()], identity, {
+      deadlineAt: Date.now() + 100,
+      baseCss: '.print-host-marker{break-before:page}',
+    })
+
+    expect(documents).toHaveLength(1)
+    expect(documents[0]).not.toContain('print-host-marker')
+  })
 })
