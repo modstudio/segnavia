@@ -20,10 +20,13 @@ describe('collectHeadings', () => {
     )
     expect(collectHeadings(document.children, 'section', 6, 1).map(({ id, listed }) => ({ id, listed }))).toEqual([
       { id: 'both', listed: { contents: true, outline: true } },
-      { id: 'none', listed: { contents: false, outline: false } },
       { id: 'outline', listed: { contents: false, outline: true } },
       { id: 'contents', listed: { contents: true, outline: false } },
     ])
+  })
+  test('skips an unlisted id-less heading but refuses an id-less listed heading (mutation: require every heading id first)', () => {
+    expect(collectHeadings(parse('<h3 data-segnavia-listed="none">Hidden</h3>').children, 'section', 6, 1)).toEqual([])
+    expect(() => collectHeadings(parse('<h3>Listed</h3>').children, 'section', 6, 1)).toThrow('heading <h3> in section "section" has no id')
   })
   test('separates line breaks and block children in heading text', () => {
     const document = parse(

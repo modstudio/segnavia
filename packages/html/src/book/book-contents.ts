@@ -7,7 +7,7 @@ import { type BookDocumentOptions, type BookHeading, headingLabel } from './type
 
 function contentsList(book: Book, headings: BookHeading[], options: BookDocumentOptions) {
   const entries = headings
-    .filter((heading) => heading.listed?.contents !== false && heading.level <= book.contents.depth)
+    .filter((heading) => heading.listed.contents && heading.level <= book.contents.depth)
     .map((heading) => {
       const page = book.contents.pageNumbers ? (options.pageNumbers?.[heading.id] ?? '') : ''
       const label = headingLabel(heading)

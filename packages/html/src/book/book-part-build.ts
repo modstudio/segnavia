@@ -1,4 +1,4 @@
-import { type BookSectionEntry, isPart, type ParentRules } from '@segnavia/format'
+import { type BookSectionEntry, DEFAULT_HEADING_LISTING, isPart, type ParentRules } from '@segnavia/format'
 import type { DocumentBuild } from './book-document.ts'
 import { partSection } from './book-held.ts'
 
@@ -20,7 +20,7 @@ export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bo
   if (entry.contents && entry.title !== undefined) {
     const heading = { level: 1, depth: sectionEntry.depth, text: entry.title }
     if (entry.html === undefined) build.pendingPartHeadings.push({ ...heading, partId: id })
-    else build.headings.push({ ...heading, id, block: id, sectionId: id, listed: { contents: true, outline: true } })
+    else build.headings.push({ ...heading, id, block: id, sectionId: id, listed: DEFAULT_HEADING_LISTING })
   }
   return true
 }
@@ -28,8 +28,6 @@ export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bo
 export function attachPendingPartHeadings(build: DocumentBuild, sectionEntry: BookSectionEntry, id: string): void {
   const ancestryIds = new Set(sectionEntry.ancestry.map((part) => part.id))
   const attached = build.pendingPartHeadings.filter((heading) => ancestryIds.has(heading.partId))
-  build.headings.push(
-    ...attached.map(({ partId: _partId, ...heading }) => ({ ...heading, id, block: id, sectionId: id, listed: { contents: true, outline: true } })),
-  )
+  build.headings.push(...attached.map(({ partId: _partId, ...heading }) => ({ ...heading, id, block: id, sectionId: id, listed: DEFAULT_HEADING_LISTING })))
   build.pendingPartHeadings = build.pendingPartHeadings.filter((heading) => !ancestryIds.has(heading.partId))
 }

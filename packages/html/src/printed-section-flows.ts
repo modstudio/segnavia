@@ -1,8 +1,9 @@
 import type { ParentRules, PrintedPages } from '@segnavia/format'
 import { type ChildNode, isTag } from 'domhandler'
 import { continuingFlowRoots } from './book/book-continue.ts'
+import { targetLinksForIds } from './book/book-document-nodes.ts'
 import { type BuiltSection, flowAttribs, numberingAttribs, recordAttribs } from './book/book-held.ts'
-import { element, text } from './book/dom.ts'
+import { element } from './book/dom.ts'
 import { bindRecordValues } from './record-values.ts'
 import { parse, serialize } from './sanitize.ts'
 
@@ -24,19 +25,7 @@ function headingDestinations(nodes: readonly ChildNode[], prefix?: string): stri
 export function printedHeadingDestinations(html: string, prefix?: string): string {
   const document = parse(html)
   const ids = headingDestinations(document.children, prefix)
-  if (ids.length > 0) {
-    document.children.push(
-      element(
-        'div',
-        {
-          'aria-hidden': 'true',
-          class: 'segnavia-targets',
-          style: 'position:absolute;color:transparent;font-size:1px',
-        },
-        ids.map((id) => element('a', { href: `#${id}`, tabindex: '-1' }, [text('\u200b')])),
-      ),
-    )
-  }
+  if (ids.length > 0) document.children.push(targetLinksForIds(ids))
   return serialize(document.children)
 }
 
@@ -47,8 +36,7 @@ export function printedSectionOutlineHtml(section: PrintedSection): string {
 
 export function printedSectionFlows(sections: readonly PrintedSection[], rules: ParentRules): string {
   const built: BuiltSection[] = sections.map((section) => {
-    section = bindRecordValues(section)
-    const document = parse(printedHeadingDestinations(section.html, section.record ? section.id : undefined))
+    const document = parse(printedSectionOutlineHtml(section))
     const attribs = flowAttribs(section.opens, section.parentRules ?? rules, {
       ...numberingAttribs(section.numbering),
       'data-sequence': 'body',

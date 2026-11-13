@@ -32,19 +32,14 @@ describe('book document', () => {
     expect([...result.html.matchAll(/<section[^>]+id="([^"]+)"/g)].map((match) => match[1])).toEqual(result.sections.map((section) => section.id))
   })
 
-  test('lists contents levels through depth, excluding opted-out and chapter h1 headings while keeping an author id', () => {
+  test('lists contents levels through depth, excluding opted-out and chapter h1 headings while keeping an author id (mutation: omit the depth cut)', () => {
     const html =
       '<h1>Author chapter title</h1><h2 id="kept">Alpha <span data-note="footnote">not in heading</span></h2><h3 data-segnavia-id="heading-beta">Beta</h3><h3 data-segnavia-listed="none">No</h3><h4>Deep</h4>'
-    const result = bookDocument(parseBookFixture(input({ chapters: [chapter('Chapter title', html)], contents: { depth: 3 } })))
-    expect(
-      result.headings
-        .filter((heading) => heading.listed.contents && heading.level <= 3)
-        .map(({ id, level, text, sectionId }) => ({ id, level, text, sectionId })),
-    ).toEqual([
-      { id: 'section-1', level: 1, text: 'Chapter title', sectionId: 'section-1' },
-      { id: 'kept', level: 2, text: 'Alpha', sectionId: 'section-1' },
-      { id: 'heading-beta', level: 3, text: 'Beta', sectionId: 'section-1' },
-    ])
+    const result = bookDocument(
+      parseBookFixture(input({ frontMatter: [{ kind: 'contents', title: 'Contents' }], chapters: [chapter('Chapter title', html)], contents: { depth: 3 } })),
+    )
+    expect(result.html).toContain('href="#heading-beta"')
+    expect(result.html).not.toMatch(/<a[^>]+href="#[^"]+"[^>]*>Deep<\/a>/)
     expect(result.html).toMatch(/<h1[^>]*>Author chapter title<\/h1>/)
     expect(result.html).toMatch(/<h2 id="kept"[^>]*>/)
     expect(result.html).not.toContain('href="#segnavia-h-1-3"')

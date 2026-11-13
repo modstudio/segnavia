@@ -1,4 +1,4 @@
-import type { HeadingListing } from '@segnavia/format'
+import { DEFAULT_HEADING_LISTING, type HeadingListing } from '@segnavia/format'
 import type { Element } from 'domhandler'
 
 const VALUES = ['none', 'outline', 'contents'] as const
@@ -10,7 +10,7 @@ export function headingListing(heading: Pick<Element, 'attribs'>): HeadingListin
     )
   }
   const value = heading.attribs['data-segnavia-listed']
-  if (value === undefined) return { contents: true, outline: true }
+  if (value === undefined) return DEFAULT_HEADING_LISTING
   if (value === 'none') return { contents: false, outline: false }
   if (value === 'outline') return { contents: false, outline: true }
   if (value === 'contents') return { contents: true, outline: false }

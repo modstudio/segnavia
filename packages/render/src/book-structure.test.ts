@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test'
 import { parseBookFixture } from '@segnavia/html'
 import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName, type PDFNumber, PDFRef } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
-import { outlineTitle, writeDocumentStructure, writePlanFolios } from './book-structure.ts'
+import { outlineTitle, writeDocumentOutlines, writeDocumentStructure, writePlanFolios } from './book-structure.ts'
 
 const at = (page: number): BookDestination => ({ page, x: 0, y: 700 })
 
@@ -13,6 +13,23 @@ test('direction marks appear only when natural and resolved directions differ', 
   expect(outlineTitle('Introduction', 'ltr')).toBe('Introduction')
   expect(outlineTitle('1948', 'rtl')).toBe('\u200f1948')
   expect(outlineTitle('1948', 'ltr')).toBe('1948')
+})
+
+test('refuses an outline heading without a printed destination and names its id (mutation: skip it)', async () => {
+  const document = await PDFDocument.create()
+  expect(() =>
+    writeDocumentOutlines(document, [
+      {
+        source: {
+          direction: 'ltr',
+          depth: 6,
+          blocks: ['missing-heading'],
+          headings: [{ id: 'missing-heading', block: 'missing-heading', level: 1, title: 'Missing', listed: { contents: true, outline: true } }],
+        },
+        destinations: new Map(),
+      },
+    ]),
+  ).toThrow('The heading missing-heading has no printed destination.')
 })
 
 test('writes plan folios as PDF page labels, including an uncounted page', async () => {

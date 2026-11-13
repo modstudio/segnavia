@@ -10,7 +10,7 @@ import {
   type TextDirection,
   usesPressLayout,
 } from '@segnavia/format'
-import { PDFName } from 'pdf-lib'
+import { PDFName, type PDFRef } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { remapNamedDestinationPages, translateNamedDestinations } from './book-destinations.ts'
 import { RenderOversetError, RenderRefusedError } from './errors.ts'
@@ -76,7 +76,7 @@ async function addDocumentPressBoxes(
       `The PDF has ${sources.length} pages where the press plan names ${boxesByPage.length}; compute a new plan to clear this refusal.`,
     )
   }
-  const replacements = new Map<string, { page: import('pdf-lib').PDFRef; x: number; y: number }>()
+  const replacements = new Map<string, { page: PDFRef; x: number; y: number }>()
   for (const [index, source] of sources.entries()) {
     const boxes = boxesByPage[index]
     if (!boxes) throw new RenderRefusedError(`The press plan has no geometry for page ${index + 1}; compute a new plan to clear this refusal.`)

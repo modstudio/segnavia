@@ -56,6 +56,19 @@ test('gathers headings from a printed document with an implicit section', () => 
   expect(documentOutline(documentOutlineSource(document)).map(({ title }) => title)).toEqual(['Printed heading'])
 })
 
+test('uses the printed page body direction when Latin headings do not establish it (mutation: infer from heading titles)', () => {
+  const document = parseDocument({
+    type: 'document',
+    kind: 'printed',
+    print: { paper: 'a4' },
+    parentPages: [{ type: 'parentPage', name: 'body', geometry: {} }],
+    parentRules: [{ parent: 'body' }],
+    children: [{ type: 'page', body: { html: '<p>תוכן בעברית</p><h1>Introduction</h1>' } }],
+  })
+
+  expect(documentOutlineSource(document).direction).toBe('rtl')
+})
+
 test('binds record headings and gives each printed destination a unique id', () => {
   const document = parseDocument({
     type: 'document',

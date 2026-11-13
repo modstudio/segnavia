@@ -4,13 +4,17 @@ import { elements } from '../sanitize.ts'
 import type { BuiltSection } from './book-held.ts'
 import { element, text } from './dom.ts'
 
-export function targetLinks(sections: BuiltSection[]): ReturnType<typeof element> {
-  const ids = sections.flatMap((section) => [section.info.id, ...elements(section.node.children).flatMap((node) => (node.attribs.id ? [node.attribs.id] : []))])
+export function targetLinksForIds(ids: readonly string[]): ReturnType<typeof element> {
   return element(
     'div',
     { class: 'segnavia-targets', 'aria-hidden': 'true' },
     [...new Set(ids)].map((id) => element('a', { href: `#${id}`, tabindex: '-1' }, [text('\u200b')])),
   )
+}
+
+export function targetLinks(sections: BuiltSection[]): ReturnType<typeof element> {
+  const ids = sections.flatMap((section) => [section.info.id, ...elements(section.node.children).flatMap((node) => (node.attribs.id ? [node.attribs.id] : []))])
+  return targetLinksForIds(ids)
 }
 
 function notesGalley(series: string, paragraphs: Element[]): ReturnType<typeof element> {

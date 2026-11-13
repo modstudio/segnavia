@@ -3,6 +3,7 @@ import {
   type Book,
   type BookSection,
   type BookTemplate,
+  DEFAULT_HEADING_LISTING,
   type DesignedSection,
   REGION_NAME,
   type RecordFacts,
@@ -127,6 +128,8 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
     if (!match) return []
     const level = Number(match[1])
     if (level < firstLevel || level > depth) return []
+    const listed = headingListing(heading)
+    if (!listed.contents && !listed.outline) return []
     const id = heading.attribs.id ?? heading.attribs['data-segnavia-id']
     if (!id) {
       throw new Error(
@@ -142,7 +145,7 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
         level,
         text: headingText(heading).replace(/\s+/g, ' ').trim(),
         sectionId,
-        listed: headingListing(heading),
+        listed,
       },
     ]
   })
@@ -157,7 +160,7 @@ export function sectionHeading(entry: { title: string; contentsLabel?: string; s
     ...(entry.contentsLabel === undefined ? {} : { contentsLabel: entry.contentsLabel }),
     ...(entry.subtitle === undefined ? {} : { subtitle: entry.subtitle }),
     sectionId: id,
-    listed: { contents: true, outline: true },
+    listed: DEFAULT_HEADING_LISTING,
   }
 }
 

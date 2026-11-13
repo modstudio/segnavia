@@ -17,6 +17,7 @@ import {
   type BookDocument,
   type BookSectionInfo,
   bookDocument,
+  bookOutlineSource,
   bookPrintPart,
   PAGE_REFERENCE_ATTRIBUTE,
   PAGE_REFERENCE_VALUE,
@@ -25,7 +26,6 @@ import {
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
-import { bookOutlineSource } from './book-outline-source.ts'
 import { joinBookPdf } from './book-pdf-join.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
 import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
@@ -258,7 +258,7 @@ async function renderPaginatedBookPdf(
   rewriteBookLinks(document, 0, new Map(), printed.destinations)
   const built = bookDocument(book)
   if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
-  writeDocumentStructure(document, { metadata: book, source: bookOutlineSource(book, built.headings), destinations: printed.destinations }, date)
+  writeDocumentStructure(document, { metadata: book, source: bookOutlineSource(book, built), destinations: printed.destinations }, date)
   const joined = await document.save()
   const watermarked = adapter.watermark ? await adapter.watermark(joined, bookWatermarkPageFacts(book, [printed])) : joined
   const output = await adapter.finish(watermarked, options)
@@ -324,7 +324,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   const plan = planBookPages(marginFacts, direction)
   const parents = bookParents(book.page.margin, book.parentPages)
   const margin = await adapter.print(marginDocument(book, plan, parents), book, slotsForDocument(slots, []), options, 'margin', marginCss(book, plan, parents))
-  const joined = await joinBookPdf(book, printedBody.document.headings, front, printedBody.part, margin.bytes, date)
+  const joined = await joinBookPdf(book, bookDocument(book), front, printedBody.part, margin.bytes, date)
   const watermarked = adapter.watermark ? await adapter.watermark(joined, bookWatermarkPageFacts(book, [front, printedBody.part])) : joined
   const output = await finishBookPdf(book, watermarked, options, adapter)
   options.overflow?.report?.({

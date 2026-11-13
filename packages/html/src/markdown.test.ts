@@ -163,6 +163,17 @@ test('resolvePrintedPageHtml keeps the stored-HTML requirement for an implicit b
   expect(() => resolvePrintedPageHtml(page)).toThrow('pass its Document input through @segnavia/html parseDocument')
 })
 
+test('an implicit printed section emits exactly one target block whose href equals its heading id (mutation: append targets twice)', () => {
+  const page = Page.parse({
+    html: '<h1 id="heading" data-segnavia-id="heading">Heading</h1>',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+  })
+  const html = resolvePrintedPageHtml(page).printedPages.sections[0]?.html ?? ''
+  expect(html.match(/class="segnavia-targets"/g)).toHaveLength(1)
+  expect([...html.matchAll(/<a href="#([^"]+)" tabindex="-1">/g)].map((match) => match[1])).toEqual(['heading'])
+})
+
 test('markdownOutline preserves Hebrew and suffixes duplicate headings at every level', () => {
   expect(markdownOutline('---\ntitle: "# skipped"\n---\n# שלום עולם\n## שלום עולם\n```md\n# skipped\n```\n### English')).toEqual([
     { id: 'שלום-עולם', level: 1, title: 'שלום עולם' },

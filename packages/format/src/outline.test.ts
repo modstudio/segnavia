@@ -35,6 +35,17 @@ test('outline pages follow each physical page first block through document order
   ])
 })
 
+test('an id-less page start is a barrier instead of guessing the previous page (mutation: ignore the barrier)', () => {
+  const barrierPlan = {
+    pages: [{ start: { id: 'one' } }, { start: {} }, { start: { id: 'three' } }],
+  } as unknown as Plan
+  expect(documentOutline(source([heading('one', 1), heading('text', 2), heading('three', 2)]), barrierPlan)).toEqual([
+    { id: 'one', title: 'one', level: 1, depth: 1, page: 1 },
+    { id: 'text', title: 'text', level: 2, depth: 2 },
+    { id: 'three', title: 'three', level: 2, depth: 2, page: 3 },
+  ])
+})
+
 test('a right-to-left outline preserves Hebrew and digit-only titles', () => {
   const outline = documentOutline({
     direction: 'rtl',
