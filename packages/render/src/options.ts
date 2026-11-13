@@ -23,6 +23,7 @@ import type { LocalFontsOptions } from './local-fonts.ts'
 import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
 import type { RenderProgressOptions } from './progress.ts'
+import type { RenderCall } from './renderer.ts'
 import { parseWatermark, type Watermark } from './watermark-options.ts'
 
 export type Font = FontFace
@@ -229,9 +230,12 @@ export type ParsedPageRenderOptions = ComposedRenderOptions & AsOfInputs
 
 export type ParsedPageImageOptions = ParsedComposedRenderOptions<PageImageOptions>
 
-export function parseImageRenderOptions<T extends ImageOptions & ComposedRenderInput>(options: T): ParsedComposedRenderOptions<T> {
+export function parseImageRenderOptions<T extends ImageOptions & ComposedRenderInput>(
+  options: T,
+  call: Extract<RenderCall, 'pageImage' | 'coverImage' | 'slideImage'>,
+): ParsedComposedRenderOptions<T> {
   const parsed = parseComposedRenderOptions(options)
-  return { ...parsed, watermark: parseWatermark(parsed.watermark) }
+  return { ...parsed, watermark: parseWatermark(parsed.watermark, call) }
 }
 
 export interface ProofImageOptions {
