@@ -79,7 +79,7 @@ export function fontCoverageGaps(declaration: FontCoverageDeclaration, faces: re
     return value.map(([start, end]) => (start === end ? `U+${point(start)}` : `U+${point(start)}-${point(end)}`)).join(',')
   }
   const unreadableGap = (weight: Range | null, parsedRanges: Range[] | null): FontCoverageGap => {
-    const gapWeight = weight === null ? [1, 1000] : weight[0] === weight[1] ? weight[0] : weight
+    const gapWeight: FontCoverageGap['weight'] = weight === null ? [1, 1000] : weight[0] === weight[1] ? weight[0] : weight
     const unicodeRange = declaration.unicodeRange === undefined ? undefined : parsedRanges === null ? declaration.unicodeRange : formatRanges(parsedRanges)
     return {
       weight: gapWeight,

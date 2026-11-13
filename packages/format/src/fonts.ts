@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { closedObject } from './closed-object.ts'
-import { fontCoverageGaps } from './font-coverage.ts'
+import { type FontCoverageGap, fontCoverageGaps } from './font-coverage.ts'
 
 export const APP_FONT_NAME = /^[a-z0-9-]+$/
 export const APP_FONT_NAME_MESSAGE = 'app font names are lowercase letters, digits and hyphens'
