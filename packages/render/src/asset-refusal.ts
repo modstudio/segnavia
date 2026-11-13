@@ -9,10 +9,8 @@ export function collectedAssetRefusal(
   if (causes.size > 0) {
     const refusals = [...causes.values()]
     const message = refusals.map((refusal) => refusal.message).join('; ')
-    const limitEntries = refusals.flatMap((refusal) => {
-      const entry = refusal.subject ? exceeded.get(refusal.subject) : undefined
-      return entry ? [entry] : []
-    })
+    // One limit fact per URL, however many causes name that URL.
+    const limitEntries = [...exceeded.values()]
     if (limitEntries.length > 0) {
       return RenderLimitError.collected(limitEntries as [LimitExceeded, ...LimitExceeded[]], message, { refusals })
     }

@@ -29,6 +29,22 @@ test('asset refusals and limits retain all causes and the existing message', () 
   })
 })
 
+test('a URL named by several causes contributes its limit fact once', () => {
+  const url = 'https://one.example/a'
+  const rejected = { code: 'host-rejected', subject: url, message: 'rejected refusal' }
+  const limit = { code: 'asset-limit', subject: url, message: 'limit refusal' }
+  const exceeded: LimitExceeded = { measure: 'assets.each', actual: 6, limit: 5, where: url, message: limit.message }
+  const error = collectedAssetRefusal(
+    new Map<string, RefusalCause>([
+      [rejected.message, rejected],
+      [limit.message, limit],
+    ]),
+    new Map([[url, exceeded]]),
+    [],
+  )
+  expect(error).toMatchObject({ exceeded: [exceeded] })
+})
+
 test('no collected asset problem returns no error', () => {
   expect(collectedAssetRefusal(new Map(), new Map(), [])).toBeUndefined()
 })
