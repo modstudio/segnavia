@@ -858,7 +858,7 @@ this adds no inbound frame message.
 | `scrollToHeading()` | `<segnavia-page>` | Scrolls to an id returned by `markdownOutline(page.body)`, resolves false for an unknown id, and refuses host-served pages and pages whose author scripts run. |
 | `AnchorSource`, `anchors`; `asOf`; `moment`; `slots.resolve` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, `<segnavia-stage>`, `<segnavia-player>`, `<segnavia-thumbnail>`, live `<segnavia-board>` items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `coverImage`, `deckPdf`, `slideImage`, `bookPdf`, `bookPlan` | The host offers named anchors and resolves one from the surface moment, current calendar day and zone. The slots resolver receives the one established `AsOfDay` and returns the fill for that preview, print or render load. Missing, unoffered, null and invalid anchor answers refuse with the anchor and requested day. |
 | `MotifSource`, `motifs` | `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-document>`, `<segnavia-book>`, page `<segnavia-thumbnail>` views, live board page, paper and book items, `printPages`, `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | Reusable designed content by key and optional pinned revision, plus per-placement live data and allowed authored link origins. The optional `placed` callback receives the chosen versions, motif fonts and unavailable binding paths. Book section HTML expands motifs before its screen or PDF document is built; page and book parent-page furniture use the same printed-page context. Decks and slides do not expand motif placements. |
-| Printed document | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds one page or one or more flowing sections. Its folios come from the section plan's counted and restart settings; parent rules choose each page's parent, face and side. Named parent pages supply binding-relative logical margins and inherited named regions on `blockStart`, `blockEnd`, `inlineStart` (binding) or `inlineEnd` (outer). The built-in `head` and `foot` names use the two block edges. Each region becomes a `data-segnavia-region` box; this parent-page furniture is distinct from a template's `data-region` content target. The composer measures content in paper-sized boxes, resolves declared variables and named head templates for each planned page, and fills every parent region through `fillRegion`. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. |
+| Printed document | `<segnavia-page>`, `pagePdf`, `pagesPdf` and browser `printPages` | A printed document holds designed pages, flowing sections and records in author order. A section may name a geometry from `style.pageGeometries`, so the document can compose several papers. Its folios come from the section plan's counted and restart settings; parent rules choose each page's parent, face and side. Named parent pages supply binding-relative logical margins and inherited named regions on `blockStart`, `blockEnd`, `inlineStart` (binding) or `inlineEnd` (outer). The built-in `head` and `foot` names use the two block edges. Each region becomes a `data-segnavia-region` box; this parent-page furniture is distinct from a template's `data-region` content target. The composer measures content in each section's paper-sized boxes, resolves declared variables and named head templates for each planned page, and fills every parent region through `fillRegion`. Composition waits for fonts and images, and printing waits for the composer; failures and page-limit overruns are refused. |
 | `css` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>`, render options | House style. |
 | `cspExtra` | `<segnavia-stage>`, `<segnavia-page>`, `<segnavia-paper>`, `<segnavia-player>` | The host's own CSP emitted as a second policy that is enforced independently and can only narrow the frame's policy. |
 | `scripts` | thumbnails, page preview, playback and render | A thumbnail always uses `refuse`; `<segnavia-page>` uses the page's mode, playback uses the deck's mode, and render uses the document's mode except that its margin layer uses `refuse`. A registered layout provider runs in every mode, including `refuse`, because its script carries the frame nonce, so layout-measuring code belongs in a provider. |
@@ -1265,9 +1265,9 @@ refuses the render.
 Two-sided imposition, crop marks and folds are built.
 
 After the browser prints a plain page (one without bleed or marks and without
-`preferCssPageSize`), a book, a page with bleed or marks, or an imposition
+`preferCssPageSize`), a printed document, a book, a page with bleed or marks, or an imposition
 piece, the renderer sets every page box to the exact size it asked for at
-origin 0: the paper, the bleed box, or the piece's paper. A book page is set to its own section geometry's paper, or to that paper's bleed box; the refusal for a page that differs names the page and its geometry. Chromium snaps printed paper dimensions to its own grid
+origin 0: the paper, the bleed box, or the piece's paper. A printed-document or book page is set to its own section geometry's paper, or to that paper's bleed box; the refusal for a page that differs names the page and its geometry. Chromium snaps printed paper dimensions to its own grid
 regardless of the unit it is given, so the renderer moves the page content and
 link annotations with the box to keep the top edge fixed. The zero origin is
 required because a PDF embedder such as pdf-lib's ignores a MediaBox origin.
@@ -1277,8 +1277,10 @@ corrected before it is embedded, so both are drawn at scale 1. A browser page wh
 paper is refused rather than treated as a rounding difference.
 
 **Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
-`paper` is the trim, the finished size after cutting. The page lays out inside
-the trim. A page's root background continues through the bleed. A book's
+`paper` is the trim, the finished size after cutting. These settings are
+document-wide and apply separately to every paper in a printed document.
+Identity imposition refuses mixed papers. The page lays out inside the trim. A
+page's root background continues through the bleed. A book's
 bleed is part of its CSS page box, so an `@page` background paints it and a
 root background stops at the trim. In both,
 `--segnavia-bleed` and `--segnavia-safe` give author CSS the two distances, so
@@ -1289,9 +1291,11 @@ refused unless `marks` is enabled. The PDF page grows by the bleed and the
 marks and carries the trim and bleed boxes, so a print shop's software finds
 the cut. The two properties are set wherever the page is shown; the bleed is
 painted only in a PDF. Viewport units measure the bleed box. With bleed or
-marks, a page is one printed piece; content that needs a second paper is
-refused. Without them, a page prints as before. A postcard face is one such
-page. `pagesPdf` can join several pieces in one PDF without putting them on the
+marks, every composed paper in a printed document is its own printed piece and
+receives the document's press settings. A designed page remains fixed to one
+piece, while a flowing section may compose several pieces. Without press
+settings, each paper prints at its trim size. A postcard face is one such
+piece. `pagesPdf` can join several pieces in one PDF without putting them on the
 same paper; putting several pages on one paper belongs to imposition.
 
 Every printable Document carries its press geometry in `print`. Its `bleed`,

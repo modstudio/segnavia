@@ -10,7 +10,7 @@ import {
   type TextDirection,
   usesPressLayout,
 } from '@segnavia/format'
-import { PDFName, type PDFRef } from 'pdf-lib'
+import { PDFName, type PDFPage, type PDFRef, popGraphicsState, pushGraphicsState, translate } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import { remapNamedDestinationPages, translateNamedDestinations } from './book-destinations.ts'
 import { RenderOversetError, RenderRefusedError } from './errors.ts'
@@ -124,7 +124,7 @@ export async function addPressBoxesByPage(
     if (!boxes) throw new RenderRefusedError(`The press plan has no geometry for page ${index + 1}; compute a new plan to clear this refusal.`)
     const target = sourceBox === 'trim' ? pdfBox(boxes.trim, boxes.media.height) : pdfBox(boxes.bleedBox, boxes.media.height)
     const translation = { x: target.x, y: target.y }
-    page.translateContent(translation.x, translation.y)
+    translateExistingPageContent(page, translation.x, translation.y)
     translatePdfAnnotations(page.node.Annots(), translation.x, translation.y)
     translations.set(page.ref.toString(), translation)
     page.setMediaBox(0, 0, pt(boxes.media.width), pt(boxes.media.height))
@@ -144,6 +144,16 @@ export async function addPressBoxesByPage(
   }
   translateNamedDestinations(document, translations)
   return document.save()
+}
+
+function translateExistingPageContent(page: PDFPage, x: number, y: number): void {
+  page.node.normalize()
+  if (!page.node.Contents()) return
+  // pdf-lib's translateContent creates its drawing stream before wrapping the
+  // page, which would also translate crop marks drawn after this operation.
+  const start = page.doc.context.register(page.doc.context.contentStream([pushGraphicsState(), translate(x, y)]))
+  const end = page.doc.context.register(page.doc.context.contentStream([popGraphicsState()]))
+  page.node.wrapContentStreams(start, end)
 }
 
 export function pressContentPlacement(source: { width: number; height: number }, bleedBox: PdfRectangle): PdfRectangle {

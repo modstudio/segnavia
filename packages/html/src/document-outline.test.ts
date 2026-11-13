@@ -56,6 +56,24 @@ test('gathers headings from a printed document with an implicit section', () => 
   expect(documentOutline(documentOutlineSource(document)).map(({ title }) => title)).toEqual(['Printed heading'])
 })
 
+test('gathers designed-page headings in author order', () => {
+  const document = parseDocument({
+    type: 'document',
+    kind: 'printed',
+    print: { paper: 'a4' },
+    parentPages: [{ type: 'parentPage', name: 'body', geometry: {} }],
+    parentRules: [{ parent: 'body' }],
+    children: [
+      {
+        type: 'section',
+        children: [{ type: 'page', body: { html: '<h2>First designed heading</h2><h2>Second designed heading</h2>' } }],
+      },
+    ],
+  })
+
+  expect(documentOutlineSource(document).headings.map(({ title }) => title)).toEqual(['First designed heading', 'Second designed heading'])
+})
+
 test('uses the printed page body direction when Latin headings do not establish it (mutation: infer from heading titles)', () => {
   const document = parseDocument({
     type: 'document',

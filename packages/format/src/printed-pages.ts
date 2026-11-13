@@ -26,6 +26,32 @@ export const ParentPage = closedObject({
   regions: ParentRegions.default({}),
 })
 
+const PrintedSectionFields = {
+  id: z.string(),
+  title: z.string().optional(),
+  opens: BookOpens.optional(),
+  numbering: SectionNumbering.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
+  pageGeometry: z.string().optional(),
+}
+
+const PrintedFlowSection = closedObject({
+  ...PrintedSectionFields,
+  html: z.string(),
+  values: RecordValues.optional(),
+  record: RecordFacts.optional(),
+  recordTemplate: closedObject({ name: z.string(), slots: z.array(closedObject({ key: z.string() })) }).optional(),
+  recordBody: z.string().optional(),
+})
+
+const PrintedDesignedSection = closedObject({
+  ...PrintedSectionFields,
+  pages: z.array(closedObject({ html: z.string() })).min(1),
+})
+
+const PrintedSection = z.union([PrintedFlowSection, PrintedDesignedSection])
+
 export const PrintedPages = closedObject({
   outline: DefaultOutline,
   lineNumbers: LineNumbers.optional(),
@@ -38,21 +64,7 @@ export const PrintedPages = closedObject({
   numbering: NumberSystem.optional(),
   fragmentation: Fragmentation.default('safe'),
   sections: z
-    .array(
-      closedObject({
-        id: z.string(),
-        title: z.string().optional(),
-        opens: BookOpens.optional(),
-        numbering: SectionNumbering.optional(),
-        parentRules: parentRules.optional(),
-        parents: z.unknown().optional(),
-        html: z.string(),
-        values: RecordValues.optional(),
-        record: RecordFacts.optional(),
-        recordTemplate: closedObject({ name: z.string(), slots: z.array(closedObject({ key: z.string() })) }).optional(),
-        recordBody: z.string().optional(),
-      }),
-    )
+    .array(PrintedSection)
     .min(1)
     .superRefine((sections, ctx) => {
       if (sections[0]?.opens !== 'continue') return

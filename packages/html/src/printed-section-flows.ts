@@ -9,6 +9,16 @@ import { parse, serialize } from './sanitize.ts'
 
 type PrintedSection = NonNullable<PrintedPages['sections']>[number]
 
+export function printedSectionBodies(section: PrintedSection): string[] {
+  return 'pages' in section ? section.pages.map((page) => page.html) : [section.html]
+}
+
+export function withPrintedSectionBodies(section: PrintedSection, bodies: string[]): PrintedSection {
+  return 'pages' in section
+    ? { ...section, pages: section.pages.map((page, index) => ({ ...page, html: bodies[index] ?? page.html })) }
+    : { ...section, html: bodies[0] ?? section.html }
+}
+
 function headingDestinations(nodes: readonly ChildNode[], prefix?: string): string[] {
   const ids: string[] = []
   for (const node of nodes) {
@@ -30,21 +40,35 @@ export function printedHeadingDestinations(html: string, prefix?: string): strin
 }
 
 export function printedSectionOutlineHtml(section: PrintedSection): string {
+  if ('pages' in section) return section.pages.map((page) => printedHeadingDestinations(page.html)).join('')
   const bound = bindRecordValues(section)
   return printedHeadingDestinations(bound.html, bound.record ? bound.id : undefined)
 }
 
 export function printedSectionFlows(sections: readonly PrintedSection[], rules: ParentRules): string {
   const built: BuiltSection[] = sections.map((section) => {
-    const document = parse(printedSectionOutlineHtml(section))
-    const attribs = flowAttribs(section.opens, section.parentRules ?? rules, {
-      ...numberingAttribs(section.numbering),
-      'data-sequence': 'body',
-      ...recordAttribs(section.record),
-    })
+    const fixed = 'pages' in section
+    const document = parse(fixed ? '' : printedSectionOutlineHtml(section))
+    const attribs = flowAttribs(
+      section.opens,
+      section.parentRules ?? rules,
+      {
+        ...numberingAttribs(section.numbering),
+        'data-sequence': 'body',
+        ...(!fixed && section.record ? recordAttribs(section.record) : {}),
+        ...(fixed ? { 'data-segnavia-kind': 'fixed' } : {}),
+      },
+      section.pageGeometry,
+    )
+    const children =
+      'pages' in section
+        ? section.pages.map((page, index) =>
+            element('div', { 'data-segnavia-designed-page': String(index + 1), hidden: '' }, parse(printedHeadingDestinations(page.html)).children),
+          )
+        : document.children
     return {
       info: { id: section.id, kind: 'chapter', division: 'body', title: section.title, opens: section.opens },
-      node: element('div', { 'data-segnavia-flow': section.id, id: section.id, ...attribs }, document.children),
+      node: element('div', { 'data-segnavia-flow': section.id, id: section.id, ...attribs }, children),
     }
   })
   return continuingFlowRoots(built)

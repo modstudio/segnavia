@@ -16,7 +16,9 @@ export const DOCUMENT_PROFILES = {
     topology: 'book',
     pageFields: ['body', 'template', 'regions'],
     sectionFields: ['title', 'contentsLabel', 'subtitle', 'contents', 'opens', 'numbering', 'parentRules', 'pageGeometry', 'template'],
-    sectionFieldRemedies: {},
+    sectionFieldRemedies: {
+      orientation: 'section field orientation is not allowed in a book; name a pageGeometry declared in style.pageGeometries to clear this refusal',
+    },
     sectionChildren: null,
     numbering: 'book',
     canonicalChildren: null,
@@ -58,28 +60,26 @@ export const DOCUMENT_PROFILES = {
     childIds: false,
     childCount: null,
     childForms: {
-      forms: [
-        { exact: 1, node: 'page' },
-        { min: 1, node: 'section' },
-      ],
-      message: 'a printed document needs either exactly one page or one or more sections; remove the page or the sections to clear this refusal',
+      forms: [{ min: 1, nodes: ['page', 'section', 'record'] }],
+      message: 'a printed document needs one or more page, section or record children; add one to clear this refusal',
     },
     topology: null,
     pageFields: ['body'],
-    sectionFields: ['title', 'opens', 'numbering', 'parentRules'],
+    sectionFields: ['title', 'opens', 'numbering', 'parentRules', 'pageGeometry'],
     sectionFieldRemedies: {
       contents: 'section field contents is not allowed in a printed document; remove it to clear this refusal',
       contentsLabel:
         'section field contentsLabel is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
       subtitle: 'section field subtitle is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
-      pageGeometry:
-        'section field pageGeometry is not allowed in a printed document; remove it because printed sections share the document paper to clear this refusal',
       template: 'section field template is not allowed in a printed document; remove it to clear this refusal',
+      orientation: 'section field orientation is not allowed in a printed document; name a pageGeometry declared in style.pageGeometries to clear this refusal',
     },
     sectionChildren: {
-      exact: 1,
-      node: 'flow',
-      message: 'a printed section needs exactly one flow child; replace its children with one flow child to clear this refusal',
+      forms: [
+        { exact: 1, nodes: ['flow'] },
+        { min: 1, nodes: ['page'] },
+      ],
+      message: 'a printed section needs exactly one flow child or one or more page children; replace its children to clear this refusal',
     },
     numbering: 'printed',
     canonicalChildren: null,
@@ -180,6 +180,19 @@ export const DOCUMENT_KINDS = Object.keys(DOCUMENT_PROFILES) as [DocumentKind, .
 export type DocumentNodeType = (typeof DOCUMENT_PROFILES)[DocumentKind]['children'][number]
 export type DocumentDefinition = (typeof DOCUMENT_PROFILES)[DocumentKind]['definitions'][number]
 export type DocumentField = (typeof DOCUMENT_PROFILES)[DocumentKind]['fields'][number]
+
+interface ChildForm {
+  nodes: readonly string[]
+  exact?: number
+  min?: number
+}
+
+export function matchesChildForms(children: readonly { type: string }[], forms: readonly ChildForm[]): boolean {
+  return forms.some((form) => {
+    if (children.some((node) => !form.nodes.includes(node.type))) return false
+    return form.exact === undefined ? form.min !== undefined && children.length >= form.min : children.length === form.exact
+  })
+}
 
 export function profileRefusal(value: string, kind: DocumentKind, allowed: readonly string[], subject = 'node'): string {
   return `${subject} ${value} is not allowed in a ${kind} document; use one of ${allowed.join(', ')} to clear this refusal`

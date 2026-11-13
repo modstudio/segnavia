@@ -20,8 +20,9 @@ test('keeps a Hebrew record value through lowering and binds it with automatic d
       children: [{ type: 'record', template: 'row', values: section.values }],
     }),
   ).printedPages?.sections?.[0]
-  expect(lowered?.values).toEqual({ name: 'שָׁלוֹם' })
-  expect(bindRecordValues(lowered as NonNullable<typeof lowered>).html).toBe('<p dir="auto">שָׁלוֹם</p>')
+  if (!lowered || 'pages' in lowered) throw new Error('record lowering did not produce a flowing section')
+  expect(lowered.values).toEqual({ name: 'שָׁלוֹם' })
+  expect(bindRecordValues(lowered).html).toBe('<p dir="auto">שָׁלוֹם</p>')
 })
 
 test('refuses a declared template slot that its HTML never binds', () => {

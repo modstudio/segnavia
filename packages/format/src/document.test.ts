@@ -169,6 +169,12 @@ describe('Document', () => {
       { ...root, children: [{ type: 'section', title: 'One', children: [{ type: 'flow', title: 'Two', html: '' }] }] },
     ]
     for (const value of values) expect(() => Document.parse(value)).toThrow('clear this refusal')
+    expect(() =>
+      Document.parse({
+        ...root,
+        children: [{ type: 'section', title: 'One', orientation: 'landscape', children: [{ type: 'flow', html: '' }] }],
+      }),
+    ).toThrow('name a pageGeometry declared in style.pageGeometries to clear this refusal')
   })
 
   test('accepts section numbering and refuses contradictory or invalid values with a remedy', () => {
@@ -205,36 +211,6 @@ describe('Document', () => {
         children: [section],
       }).children[0],
     ).toMatchObject({ numbering: { restart: 4 } })
-  })
-
-  test('refuses invalid printed section forms and fields with remedies', () => {
-    const root = {
-      type: 'document' as const,
-      kind: 'printed' as const,
-      print: { paper: 'a4' as const },
-      parentRules: [{ parent: 'body' }],
-      parentPages: [{ type: 'parentPage' as const, name: 'body' }],
-    }
-    const flow = { type: 'flow' as const, html: '<p>Body</p>' }
-    expect(() =>
-      Document.parse({
-        ...root,
-        children: [
-          { type: 'page', body: { html: '' } },
-          { type: 'section', children: [flow] },
-        ],
-      }),
-    ).toThrow('remove the page or the sections to clear this refusal')
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', children: [] }] })).toThrow(
-      'replace its children with one flow child to clear this refusal',
-    )
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', parentRules: [{ parent: 'body' }], children: [flow] }] })).not.toThrow()
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', pageGeometry: 'wide', children: [flow] }] })).toThrow(
-      'remove it because printed sections share the document paper to clear this refusal',
-    )
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', opens: 'continue', children: [flow] }] })).toThrow(
-      'use another opens value to clear this refusal',
-    )
   })
 
   test('uses the printed number system to refuse an out-of-range section restart', () => {

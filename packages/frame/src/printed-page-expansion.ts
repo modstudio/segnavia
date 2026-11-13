@@ -1,5 +1,5 @@
 import type { AsOfDay, FontReference, PageWidths, PreflightEntry, PreflightProfile } from '@segnavia/format'
-import { documentLanguage, type PrintedHtmlPage } from '@segnavia/html'
+import { documentLanguage, type PrintedHtmlPage, printedSectionBodies, withPrintedSectionBodies } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import { expandedPageParents, expandPageMotifs, type MotifsOptions, pageMotifRefusal, pageParentRegions } from './page-motif-expansion.ts'
 import { type PlacementPreflight, resolvePrintedPagePlacements } from './placement-resolution.ts'
@@ -22,11 +22,9 @@ export async function expandPrintedFramePage(
 ): Promise<ExpandedPrintedFramePage> {
   const preflight: PlacementPreflight | undefined = profile ? { profile, entries: [] } : undefined
   const regions = pageParentRegions(page)
+  const bodies = page.printedPages.sections.flatMap(printedSectionBodies)
   if (!motifs) {
-    const refusal = pageMotifRefusal(
-      page.printedPages.sections.map((section) => section.html),
-      regions,
-    )
+    const refusal = pageMotifRefusal(bodies, regions)
     if (refusal) throw refusal
     return {
       page: await resolvePrintedPagePlacements(page, placements, purpose, signal, pageWidths, day, preflight),
@@ -34,21 +32,27 @@ export async function expandPrintedFramePage(
       preflight: preflight?.entries ?? [],
     }
   }
-  const parentLang = page.lang?.trim() || documentLanguage(page.printedPages.sections.map((section) => section.html).join(''))
+  const parentLang = page.lang?.trim() || documentLanguage(bodies.join(''))
   const { bodyResults, parentResults, fonts } = await expandPageMotifs(
     page,
-    page.printedPages.sections.map((section) => ({ html: section.html, lang: page.lang?.trim() || documentLanguage(section.html) })),
+    bodies.map((html) => ({ html, lang: page.lang?.trim() || documentLanguage(html) })),
     regions,
     parentLang,
     motifs,
     signal,
     day,
   )
+  let bodyIndex = 0
   const expandedPage: PrintedHtmlPage = {
     ...page,
     printedPages: {
       ...page.printedPages,
-      sections: page.printedPages.sections.map((section, index) => ({ ...section, html: bodyResults[index]?.html ?? section.html })),
+      sections: page.printedPages.sections.map((section) =>
+        withPrintedSectionBodies(
+          section,
+          printedSectionBodies(section).map((html) => bodyResults[bodyIndex++]?.html ?? html),
+        ),
+      ),
       parents: expandedPageParents(page, parentResults),
     },
   }

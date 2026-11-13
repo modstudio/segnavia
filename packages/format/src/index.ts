@@ -316,6 +316,7 @@ export {
   type PrintInput,
   pressSafeAreaIssues,
 } from './print.ts'
+export * from './printed-page-geometries.ts'
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'
 export { RecordFacts, RecordValues } from './record-facts.ts'

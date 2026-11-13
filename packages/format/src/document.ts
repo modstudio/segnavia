@@ -14,7 +14,7 @@ import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, EditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
-import { DOCUMENT_KINDS, DOCUMENT_PROFILES, type DocumentKind, profileRefusal, requiredFieldRefusal } from './document-profile.ts'
+import { DOCUMENT_KINDS, DOCUMENT_PROFILES, type DocumentKind, matchesChildForms, profileRefusal, requiredFieldRefusal } from './document-profile.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
@@ -206,14 +206,7 @@ function refineRequirements(document: DocumentShapeValue, profile: DocumentProfi
 
 function refineChildCount(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
   if (profile.childForms) {
-    const recordSections =
-      document.kind === 'printed' && document.children.length > 0 && document.children.every((node) => node.type === 'section' || node.type === 'record')
-    const matches =
-      recordSections ||
-      profile.childForms.forms.some((form) => {
-        if (document.children.some((node) => node.type !== form.node)) return false
-        return 'exact' in form ? document.children.length === form.exact : document.children.length >= form.min
-      })
+    const matches = matchesChildForms(document.children, profile.childForms.forms)
     if (!matches) ctx.addIssue({ code: 'custom', path: ['children'], message: profile.childForms.message })
   }
   if (

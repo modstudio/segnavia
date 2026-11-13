@@ -13,10 +13,12 @@ import {
   type PrintedHtmlPage,
   prepareSlotCollection,
   prepareSlots,
+  printedSectionBodies,
   requiredSlotRefusal,
   resolvePageHtml,
   type SlotPrintOptions,
   slotFillRefusal,
+  withPrintedSectionBodies,
 } from '@segnavia/html'
 
 export function fillDeckForDay(deck: Deck, day: AsOfDay, slots: SlotPrintOptions | undefined, signal?: AbortSignal) {
@@ -56,8 +58,11 @@ export async function filledPage(
     refuseRequired(prepared)
     const sections = hasSlotWork(input.slots, slots)
       ? input.printedPages.sections.map((section) => {
-          const bound = bindRecordValues(section)
-          return { ...bound, html: prepared.apply(bound.html) }
+          const bound = 'pages' in section ? section : bindRecordValues(section)
+          return withPrintedSectionBodies(
+            bound,
+            printedSectionBodies(bound).map((html) => prepared.apply(html)),
+          )
         })
       : input.printedPages.sections
     return { value: { ...input, printedPages: { ...input.printedPages, sections } }, slots: prepared }
@@ -109,8 +114,11 @@ export async function filledPages(
               printedPages: {
                 ...page.printedPages,
                 sections: page.printedPages.sections.map((section) => {
-                  const bound = bindRecordValues(section)
-                  return { ...bound, html: prepared.apply(bound.html) }
+                  const bound = 'pages' in section ? section : bindRecordValues(section)
+                  return withPrintedSectionBodies(
+                    bound,
+                    printedSectionBodies(bound).map((html) => prepared.apply(html)),
+                  )
                 }),
               },
             }

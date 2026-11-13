@@ -7,9 +7,7 @@ import { FillValues } from './slots.ts'
 describe('Document closed objects', () => {
   test('refuses unknown keys throughout the document model with their full paths', () => {
     const root = { type: 'document' as const, kind: 'book' as const, title: 'Book', mode: 'continuous' as const }
-    const flow = { type: 'flow' as const, html: '<p>Text</p>' }
     const cases = [
-      [{ ...root, children: [{ type: 'section', orientation: 'landscape', children: [flow] }] }, 'children[0].orientation'],
       [{ ...root, children: [{ type: 'contents', contentsDepth: 3 }] }, 'children[0].contentsDepth'],
       [{ ...root, children: [{ type: 'part', name: 'one', contentsLabel: 'One', number: 1, children: [] }] }, 'children[0]'],
       [

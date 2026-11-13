@@ -28,6 +28,16 @@ export interface PrintedPageCountOptions extends Pick<PrintablePagesOptions, 'no
   signal?: AbortSignal
 }
 
+function completedPageCount(
+  message: ReturnType<typeof messageFrom>,
+  page: HtmlPage | PrintedHtmlPage,
+  options: PrintedPageCountOptions,
+): number | LimitExceededError | undefined {
+  if (message?.type !== MESSAGE.composeProgress || message.pages === undefined || message.pages !== message.total) return undefined
+  const limits = resolveLimits(page.limits, options.limits)
+  return message.total > limits.pages ? new LimitExceededError('pages', message.total, limits.pages, { pagesSource: limits.pagesSource }) : message.total
+}
+
 export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, options: PrintedPageCountOptions, deadlineAt: number): Promise<number> {
   const paper = sheetMm(page.print as NonNullable<HtmlPage['print']>)
   const viewport = paperViewport(page.print as NonNullable<HtmlPage['print']>)
@@ -69,6 +79,8 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
         options.report?.(message.report)
       }
       if (message?.type === MESSAGE.composeFailure && message.text) return finish(new Error(message.text), true)
+      const progressCount = completedPageCount(message, page, options)
+      if (progressCount !== undefined) return finish(progressCount, progressCount instanceof Error)
       if (message?.type !== MESSAGE.height || message.height === undefined || message.height < (paper.height * PX_PER_MM) / 2) return
       const count = Math.round(message.height / (paper.height * PX_PER_MM))
       const limits = resolveLimits(page.limits, options.limits)

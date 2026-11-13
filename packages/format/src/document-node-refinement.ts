@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { DocumentNode } from './document-nodes.ts'
-import { type DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { type DOCUMENT_PROFILES, type DocumentKind, matchesChildForms, profileRefusal } from './document-profile.ts'
 import { renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { refineRecords } from './record-refinement.ts'
 
@@ -33,6 +33,7 @@ export const PROFILED_SECTION_FIELDS = [
   'parentRules',
   'pageGeometry',
   'template',
+  'orientation',
 ] as const
 export const UNRESTRICTED_SECTION_FIELDS = ['dir', 'lang'] as const
 
@@ -46,9 +47,9 @@ function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: P
     const message = remedies[field] ?? `section field ${field} is not yet supported; remove it to clear this refusal`
     ctx.addIssue({ code: 'custom', path: [...path, field], message })
   }
-  const requirement = profile.sectionChildren
-  if (requirement && (node.children.length !== requirement.exact || node.children[0]?.type !== requirement.node)) {
-    ctx.addIssue({ code: 'custom', path: [...path, 'children'], message: requirement.message })
+  if (profile.sectionChildren) {
+    const matches = matchesChildForms(node.children, profile.sectionChildren.forms)
+    if (!matches) ctx.addIssue({ code: 'custom', path: [...path, 'children'], message: profile.sectionChildren.message })
   }
 }
 

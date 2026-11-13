@@ -8,6 +8,7 @@ import remarkRehype from 'remark-rehype'
 import { unified } from 'unified'
 import { parse as parseYaml } from 'yaml'
 import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
+import { printedSectionBodies } from './printed-section-flows.ts'
 import { sanitize } from './sanitize.ts'
 
 export type MarkdownHeading = { id: string; level: number; title: string }
@@ -331,7 +332,8 @@ export function resolvePageHtml(page: Page, options: ResolvePageHtmlOptions = {}
   return { ...fields, html }
 }
 
-export function resolvePrintedPageHtml(page: Page | HtmlPage): PrintedHtmlPage {
+export function resolvePrintedPageHtml(page: Page | HtmlPage | PrintedHtmlPage): PrintedHtmlPage {
+  if (isPrintedHtmlPage(page)) return page
   const printedPages = page.printedPages
   if (!printedPages) throw new Error('a resolved printed page needs printedPages')
   const sections = printedPages.sections
@@ -359,7 +361,7 @@ export function isPrintedHtmlPage(page: Page | HtmlPage | PrintedHtmlPage): page
 }
 
 export function printedPageAuthorHtml(page: HtmlPage | PrintedHtmlPage): string {
-  return isPrintedHtmlPage(page) ? page.printedPages.sections.map((section) => section.html).join('') : page.html
+  return isPrintedHtmlPage(page) ? page.printedPages.sections.flatMap(printedSectionBodies).join('') : page.html
 }
 
 export function printedPageDirection(page: HtmlPage | PrintedHtmlPage): TextDirection {

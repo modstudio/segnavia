@@ -24,7 +24,9 @@ test('fills the day throughout a printed page and leaves host bindings untouched
   )
 
   const filled = fillPageAsOfBindings(page, { date: '2026-11-14', zone: 'UTC', kind: 'current' })
-  const parts = [filled.printedPages.sections[0]?.html, filled.printedPages.parents[0]?.regions.head?.html, filled.printedPages.parents[0]?.regions.foot?.html]
+  const section = filled.printedPages.sections[0]
+  if (!section || 'pages' in section) throw new Error('the fixture did not produce a flowing section')
+  const parts = [section.html, filled.printedPages.parents[0]?.regions.head?.html, filled.printedPages.parents[0]?.regions.foot?.html]
   for (const part of parts) {
     expect(part).toContain('2026-11-14')
     expect(part).toContain('data-slot-value="person.name">Person</b>')

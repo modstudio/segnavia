@@ -135,6 +135,34 @@ test('a structurally cloned filled value renders with its explicit slots', async
   expect(renderedSlots).toBe(result.slots)
 })
 
+test('an unnamed composed press page selects the per-page bleed plan', async () => {
+  const page = resolvePrintedPageHtml(
+    Page.parse({
+      html: '<p>Two-page body</p><p style="break-before:page">Second page</p>',
+      print: { paper: 'a4', bleed: 3, marks: true },
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+        parentRules: [{ parent: 'body' }],
+      },
+    }),
+  )
+  const filled = await filledPage(page, {})
+  let viewport: { width: number; height: number } | undefined
+  const rendered = renderPagePdf(
+    filled.value,
+    filled.slots,
+    {},
+    {
+      withTab: async (setup) => {
+        viewport = setup.viewport
+        throw new Error('stop after setup')
+      },
+    },
+  )
+  await expect(rendered).rejects.toThrow('stop after setup')
+  expect(viewport).toEqual({ width: 817, height: 1145 })
+})
+
 test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor host declarations', async () => {
   const page = Page.parse({ html: '<p data-slot-value="host.name">Design text</p>' })
   const { value: filledPageResult } = await filledPage(page, slots)
@@ -153,7 +181,7 @@ test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor hos
   expect(filledDeckResult.slides[0]?.content).toEqual({ kind: 'html', html: '<p dir="auto">Filled by host</p>' })
 })
 
-test('sectioned printed pages fill every section and refuse multiple copies', async () => {
+test('sectioned printed pages fill every designed and flowing body and refuse multiple copies', async () => {
   const page = resolvePrintedPageHtml(
     Page.parse({
       scripts: 'refuse',
@@ -163,16 +191,30 @@ test('sectioned printed pages fill every section and refuse multiple copies', as
         parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
         parentRules: [{ parent: 'body' }],
         sections: [
-          { id: 'one', html: '<p data-slot-value="name">One</p>' },
-          { id: 'two', html: '<p data-slot-value="name">Two</p>' },
+          {
+            id: 'one',
+            pages: [{ html: '<p data-slot-value="name">First designed</p>' }, { html: '<p data-slot-value="name">Second designed</p><p>Second marker</p>' }],
+          },
+          { id: 'two', html: '<p data-slot-value="name">Flow</p>' },
         ],
       },
     }),
   )
   const fill = { fill: { id: 'host', values: { name: 'Ada' } } }
   const { value, slots: prepared } = await filledPage(page, fill)
-  expect(value.printedPages.sections.map((section) => section.html)).toEqual(['<p dir="auto">Ada</p>', '<p dir="auto">Ada</p>'])
-  expect(prepared.frames).toHaveLength(2)
+  expect(value.printedPages.sections.flatMap((section) => ('pages' in section ? section.pages.map((held) => held.html) : [section.html]))).toEqual([
+    '<p dir="auto">Ada</p>',
+    '<p dir="auto">Ada</p><p>Second marker</p>',
+    '<p dir="auto">Ada</p>',
+  ])
+  expect(prepared.frames).toHaveLength(3)
+  const collection = await filledPages([page], fill)
+  const collected = collection.value[0]
+  expect(collected && 'printedPages' in collected ? collected.printedPages?.sections?.[0] : undefined).toMatchObject({
+    pages: [{ html: '<p dir="auto">Ada</p>' }, { html: '<p dir="auto">Ada</p><p>Second marker</p>' }],
+  })
+  expect(collection.slots.frames).toHaveLength(3)
+  expect(collection.frameGroups).toEqual([[0, 1, 2]])
   await expect(filledPage(page, { fills: [fill, fill] })).rejects.toThrow('Pass fill or source for a single copy')
 })
 
@@ -198,8 +240,10 @@ test('record values bind before a different host slot fill', async () => {
     }),
   )
   const { value } = await filledPage(page, { fill: { id: 'host', values: { 'host.name': 'School' } } })
-  expect(value.printedPages.sections[0]?.html).toBe('<p dir="auto">Ada</p><p dir="auto">School</p>')
-  expect(value.printedPages.sections[0]?.values).toBeUndefined()
+  const section = value.printedPages.sections[0]
+  if (!section || 'pages' in section) throw new Error('the fixture did not produce a flowing section')
+  expect(section.html).toBe('<p dir="auto">Ada</p><p dir="auto">School</p>')
+  expect(section.values).toBeUndefined()
 })
 
 test('filledDeck aligns slot measurement frames with non-HTML slides', async () => {

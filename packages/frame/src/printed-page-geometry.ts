@@ -23,15 +23,16 @@ function assertCandidate(
   normalSize: { width: number; height: number },
   candidate: { width: number; height: number },
   solelyFirst: boolean,
+  context = '',
 ): void {
   if (candidate.width <= 0) {
     throw new PrintedPagesRefusedError(
-      `Parent page "${parent.name}" could not establish a positive text width; reduce its inner plus outer margins to clear this refusal.`,
+      `Parent page "${parent.name}" could not establish a positive text width${context}; reduce its inner plus outer margins to clear this refusal.`,
     )
   }
   if (candidate.height <= 0) {
     throw new PrintedPagesRefusedError(
-      `Parent page "${parent.name}" could not establish a positive text height; reduce its top plus bottom margins to clear this refusal.`,
+      `Parent page "${parent.name}" could not establish a positive text height${context}; reduce its top plus bottom margins to clear this refusal.`,
     )
   }
   if (Math.abs(candidate.width - normalSize.width) > 0.001) {
@@ -86,20 +87,29 @@ function assertLastMargins(rules: ParentRules, byName: ReadonlyMap<string, Resol
   }
 }
 
-export function printedPageGeometry(page: PrintedHtmlPage, parents: ResolvedParentPage[], width: number, height: number): PrintedPageGeometry {
+export function printedPageGeometry(
+  page: PrintedHtmlPage,
+  parents: ResolvedParentPage[],
+  width: number,
+  height: number,
+  geometryName?: string,
+): PrintedPageGeometry {
   const printed = page.printedPages as NonNullable<Page['printedPages']>
   const byName = new Map(parents.map((parent) => [parent.name, parent]))
   const normal = byName.get(printed.parentRules.at(-1)?.parent ?? '') as ResolvedParentPage
   const paper = { width, height }
   const normalSize = textArea(normal, paper)
-  assertCandidate(normal, normal, normalSize, normalSize, false)
-  const ruleLists = [printed.parentRules, ...(printed.sections?.flatMap((section) => (section.parentRules ? [section.parentRules] : [])) ?? [])]
+  const matchingSections = printed.sections?.filter((section) => section.pageGeometry === geometryName) ?? []
+  const section = matchingSections[0]
+  const context = section ? ` for section "${section.title ?? section.id}" on paper ${width}mm by ${height}mm` : ''
+  assertCandidate(normal, normal, normalSize, normalSize, false, context)
+  const ruleLists = [printed.parentRules, ...matchingSections.flatMap((section) => (section.parentRules ? [section.parentRules] : []))]
   let openingHeight = normalSize.height
   for (const rules of ruleLists) {
     for (const name of new Set(rules.map((rule) => rule.parent))) {
       const parent = byName.get(name) as ResolvedParentPage
       const solelyFirst = rules.every((rule) => rule.parent !== name || rule.when?.position === 'documentFirst')
-      assertCandidate(parent, normal, normalSize, textArea(parent, paper), solelyFirst)
+      assertCandidate(parent, normal, normalSize, textArea(parent, paper), solelyFirst, context)
     }
     openingHeight = Math.min(openingHeight, firstHeight(rules, byName, normal, height, normalSize.height))
     assertLastMargins(rules, byName, normal)

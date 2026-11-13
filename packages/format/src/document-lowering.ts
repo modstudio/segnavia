@@ -142,6 +142,11 @@ export interface PrintedSectionEntry {
   path: (string | number)[]
 }
 
+function printedPageHtml(node: Extract<DocumentShapeValue['children'][number], { type: 'page' }>): string {
+  if (node.body && 'html' in node.body) return node.body.html
+  throw new Error('a printed designed page needs an HTML body; provide body.html to clear this refusal')
+}
+
 export function printedSectionEntries(document: DocumentShapeValue): PrintedSectionEntry[] {
   const expanded = recordExpansion(document)
   return document.children.flatMap((node, index): PrintedSectionEntry[] => {
@@ -162,10 +167,35 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
         },
       ]
     }
+    if (node.type === 'page') {
+      return [
+        {
+          path,
+          value: { id: node.id ?? `children.${index}`, pages: [{ html: printedPageHtml(node) }] },
+        },
+      ]
+    }
     if (node.type !== 'section') return []
+    const fields = documentSectionFields(node, ['children', index])
+    const pages = node.children.filter((child): child is Extract<typeof child, { type: 'page' }> => child.type === 'page')
+    if (pages.length > 0) {
+      return [
+        {
+          path,
+          value: defined({
+            id: fields.id,
+            title: fields.title,
+            opens: fields.opens,
+            numbering: fields.numbering,
+            parentRules: fields.parentRules,
+            pageGeometry: fields.pageGeometry,
+            pages: pages.map((page) => ({ html: printedPageHtml(page) })),
+          }),
+        },
+      ]
+    }
     const flow = node.children[0]
     if (flow?.type !== 'flow') throw new Error(DOCUMENT_PROFILES.printed.sectionChildren.message)
-    const fields = documentSectionFields(node, ['children', index])
     return [
       {
         path,
@@ -175,6 +205,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
           opens: fields.opens,
           numbering: fields.numbering,
           parentRules: fields.parentRules,
+          pageGeometry: fields.pageGeometry,
           html: flow.html,
         }),
       },
@@ -184,8 +215,10 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
 
 export function pageLoweringFromDocument(document: DocumentShapeValue, brand?: Brand) {
   const printed = document.kind === 'printed'
-  const child = document.children.find((node): node is Extract<ShapeNode, { type: 'page' }> => node.type === 'page')
-  const sectionEntries = printed ? printedSectionEntries(document) : []
+  const singlePrintedPage = printed && document.children.length === 1 && document.children[0]?.type === 'page' ? document.children[0] : undefined
+  const child =
+    singlePrintedPage ?? (!printed ? document.children.find((node): node is Extract<ShapeNode, { type: 'page' }> => node.type === 'page') : undefined)
+  const sectionEntries = printed && !singlePrintedPage ? printedSectionEntries(document) : []
   const sections = sectionEntries.map((entry) => entry.value)
   if (!child?.body && sections.length === 0) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')
   const printedPages = printed
