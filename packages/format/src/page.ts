@@ -44,42 +44,41 @@ export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): Re
 }
 
 const PageShape = closedObject({
-    brand: Brand.optional(),
-    id: z.string().optional(),
-    body: PageBody.optional(),
-    html: z.string().optional(),
-    markdown: z.string().optional(),
-    size: PageSize.default(FULL_PAGE_SIZE),
-    scripts: Scripts.default('refuse'),
-    dir: Direction.optional(),
-    lang: z.string().optional(),
-    asOf: AsOf.optional(),
-    print: Print.optional(),
-    printedPages: PrintedPages.optional(),
-    limits: DocumentLimitsValue.optional(),
-    slots: Slots.optional(),
-    style: StyleSheet.optional(),
-  })
-  .superRefine((page, ctx) => {
-    const fields = bodyChoices(page).map(({ field }) => field)
-    const sections = page.printedPages?.sections
-    if (fields.length === 0 && !sections) {
-      ctx.addIssue({ code: 'custom', path: ['body'], message: 'body, html or markdown is required; provide exactly one page body' })
-    }
-    if (fields.length > 0 && sections) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['printedPages', 'sections'],
-        message: 'page body and printedPages.sections were both given; remove the body or sections to clear this refusal',
-      })
-    }
-    if (fields.length > 1) {
-      const names = fields.join(', ')
-      for (const field of fields)
-        ctx.addIssue({ code: 'custom', path: [field], message: `${names} were all given; provide exactly one of body, html or markdown` })
-    }
-    for (const issue of pagePrintedPagesIssues(page)) ctx.addIssue({ code: 'custom', ...issue })
-  })
+  brand: Brand.optional(),
+  id: z.string().optional(),
+  body: PageBody.optional(),
+  html: z.string().optional(),
+  markdown: z.string().optional(),
+  size: PageSize.default(FULL_PAGE_SIZE),
+  scripts: Scripts.default('refuse'),
+  dir: Direction.optional(),
+  lang: z.string().optional(),
+  asOf: AsOf.optional(),
+  print: Print.optional(),
+  printedPages: PrintedPages.optional(),
+  limits: DocumentLimitsValue.optional(),
+  slots: Slots.optional(),
+  style: StyleSheet.optional(),
+}).superRefine((page, ctx) => {
+  const fields = bodyChoices(page).map(({ field }) => field)
+  const sections = page.printedPages?.sections
+  if (fields.length === 0 && !sections) {
+    ctx.addIssue({ code: 'custom', path: ['body'], message: 'body, html or markdown is required; provide exactly one page body' })
+  }
+  if (fields.length > 0 && sections) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['printedPages', 'sections'],
+      message: 'page body and printedPages.sections were both given; remove the body or sections to clear this refusal',
+    })
+  }
+  if (fields.length > 1) {
+    const names = fields.join(', ')
+    for (const field of fields)
+      ctx.addIssue({ code: 'custom', path: [field], message: `${names} were all given; provide exactly one of body, html or markdown` })
+  }
+  for (const issue of pagePrintedPagesIssues(page)) ctx.addIssue({ code: 'custom', ...issue })
+})
 
 const BODY_SHORTHANDS = [
   { field: 'html', body: (value: string) => ({ html: value }) },

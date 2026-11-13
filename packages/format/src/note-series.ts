@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { closedObject } from './closed-object.ts'
 import { REGION_NAME } from './book-section.ts'
+import { closedObject } from './closed-object.ts'
 import { isHebrew, NoteMarker, type NoteMarkerSource, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarkerSource } from './numbering.ts'
 import { primitiveRoot } from './repeated-mark.ts'
 
@@ -35,6 +35,46 @@ export interface ResolvedNoteSeries {
   markerConflictSuffixes: Readonly<Record<string, string>>
   markBlockSeries: boolean
 }
+
+export const ResolvedNoteSeries = closedObject({
+  name: NoteSeries.shape.name,
+  placement: NotePlacement,
+  numbering: NoteNumbering,
+  marker: NoteMarker,
+  title: z.string(),
+  idStem: z.string(),
+  idScope: z.enum(['chapter', 'numbering']),
+  blockClass: z.string(),
+  bodyClass: z.string(),
+  titleClass: z.string(),
+  sectionIdPrefix: z.string(),
+  markerLabel: z.string(),
+  markerConflictSuffixes: z.record(z.string(), z.string()),
+  markBlockSeries: z.boolean(),
+})
+
+const noteSeriesEntrySchema = (value: unknown) => (typeof value === 'object' && value !== null && 'idStem' in value ? ResolvedNoteSeries : NoteSeries)
+
+export const NoteSeriesEntries = z
+  .array(z.unknown())
+  .superRefine((values, ctx) => {
+    values.forEach((value, index) => {
+      const result = noteSeriesEntrySchema(value).safeParse(value)
+      if (!result.success) {
+        for (const issue of result.error.issues) {
+          ctx.addIssue({ ...issue, path: [index, ...issue.path], message: `notes[${index}].${issue.message}` })
+        }
+      }
+    })
+  })
+  .transform((values) =>
+    values.map((value) => {
+      const result = noteSeriesEntrySchema(value).safeParse(value)
+      if (!result.success) return { name: 'invalid', placement: 'book' as const, numbering: 'book' as const }
+      const { name, placement, numbering, marker, title } = result.data
+      return { name, placement, numbering, marker, title }
+    }),
+  )
 
 type SeriesPresentation = Pick<
   ResolvedNoteSeries,

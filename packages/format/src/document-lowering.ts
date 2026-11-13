@@ -120,7 +120,13 @@ function printedSections(document: DocumentValue) {
     if (node.type === 'record') {
       const section = expanded.get(node)
       if (!section) throw new Error('record expansion was not established during lowering')
-      return [{ ...section, id: section.id ?? `children.${index}` }]
+      return [
+        {
+          ...section,
+          id: section.id ?? `children.${index}`,
+          recordTemplate: { name: section.recordTemplate.name, slots: section.recordTemplate.slots.map(({ key }) => ({ key })) },
+        },
+      ]
     }
     if (node.type !== 'section') return []
     const flow = node.children[0]

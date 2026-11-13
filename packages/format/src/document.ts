@@ -1,9 +1,9 @@
 import { z } from 'zod'
 import { AsOf } from './as-of.ts'
 import { BookMode, BookPage, BookShape } from './book.ts'
-import { closedObject } from './closed-object.ts'
 import { resolveBookPageGeometry } from './book-page-geometry.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
+import { closedObject } from './closed-object.ts'
 import { DeckShape, deckTrim } from './deck.ts'
 import { documentBookProjectionForRefinement, documentSourcePath, SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
@@ -33,7 +33,16 @@ import { StyleSheet } from './style-sheet.ts'
 
 const DocumentSettings = closedObject({ scripts: Scripts.optional(), dir: DeckShape.shape.dir, lang: z.string().optional(), lineNumbers: LineNumbers.optional() })
 const DocumentData = closedObject({ slots: Slots.optional() })
-const DocumentPrint = PressGeometry.and(closedObject({ paper: Paper.optional(), orientation: Orientation.optional(), margin: LogicalMargin.optional() }))
+const DocumentPrint = closedObject({
+  ...PressGeometry.shape,
+  paper: Paper.optional(),
+  orientation: Orientation.optional(),
+  margin: LogicalMargin.optional(),
+}).superRefine((print, ctx) => {
+  if (print.markColor === 'registration' && !print.marks) {
+    ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
+  }
+})
 
 export const DocumentShape = closedObject({
   type: z.literal('document'),

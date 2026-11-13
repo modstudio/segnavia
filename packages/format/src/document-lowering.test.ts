@@ -45,7 +45,6 @@ const hebrewBookFixture = {
   page: { paper: 'a5' as const, margin: { blockStart: 16, blockEnd: 16, inlineStart: 18, inlineEnd: 12 } },
   dir: 'rtl' as const,
   lang: 'he',
-  css: ':where(html){font:16px/1.7 serif}',
   numbering: { frontMatter: 'arabic' as const, body: 'hebrew' as const, printed: { frontMatter: true, body: true } },
   parentPages: [
     {

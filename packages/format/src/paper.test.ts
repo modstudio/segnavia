@@ -91,9 +91,9 @@ describe('paper', () => {
     expect(Paper.safeParse({ width: Number.POSITIVE_INFINITY, height: 10, unit: 'mm' }).success).toBe(false)
   })
 
-  test('stored print settings validate writes strictly and read history tolerantly', () => {
+  test('print settings refuse unknown keys at every edge', () => {
     const stored = { paper: 'a4', orientation: 'portrait', future: true }
-    expect(PrintSetting.parse(stored)).toEqual({ paper: 'a4', orientation: 'portrait' })
+    expect(PrintSetting.safeParse(stored).success).toBe(false)
     expect(PrintSettingInput.safeParse(stored).success).toBe(false)
   })
 

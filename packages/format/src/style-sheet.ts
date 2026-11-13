@@ -85,31 +85,29 @@ export type PageGeometry = z.infer<typeof PageGeometry>
 const NamedRecord = <T extends z.ZodType>(value: T) => z.record(StyleName, value)
 
 export const StyleSheet = closedObject({
-    tokens: closedObject({
-        colors: NamedRecord(HexColor).optional(),
-        dimensions: NamedRecord(Dimension).optional(),
-        fontFamilies: NamedRecord(z.array(z.string().min(1)).min(1)).optional(),
+  tokens: closedObject({
+    colors: NamedRecord(HexColor).optional(),
+    dimensions: NamedRecord(Dimension).optional(),
+    fontFamilies: NamedRecord(z.array(z.string().min(1)).min(1)).optional(),
+  }).optional(),
+  textStyles: NamedRecord(TextStyle).optional(),
+  pageGeometries: NamedRecord(PageGeometry).optional(),
+  motifs: z.array(Motif).optional(),
+  fonts: FontManifest.optional(),
+  css: z.string().optional(),
+}).superRefine((sheet, ctx) => {
+  const seen = new Map<string, number>()
+  for (const [index, motif] of (sheet.motifs ?? []).entries()) {
+    const previous = seen.get(motif.key)
+    if (previous !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['motifs', index, 'key'],
+        message: `motif key ${JSON.stringify(motif.key)} duplicates motifs.${previous}.key; give every motif a unique key to clear this refusal`,
       })
-      .optional(),
-    textStyles: NamedRecord(TextStyle).optional(),
-    pageGeometries: NamedRecord(PageGeometry).optional(),
-    motifs: z.array(Motif).optional(),
-    fonts: FontManifest.optional(),
-    css: z.string().optional(),
-  })
-  .superRefine((sheet, ctx) => {
-    const seen = new Map<string, number>()
-    for (const [index, motif] of (sheet.motifs ?? []).entries()) {
-      const previous = seen.get(motif.key)
-      if (previous !== undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['motifs', index, 'key'],
-          message: `motif key ${JSON.stringify(motif.key)} duplicates motifs.${previous}.key; give every motif a unique key to clear this refusal`,
-        })
-      } else seen.set(motif.key, index)
-    }
-  })
+    } else seen.set(motif.key, index)
+  }
+})
 export type StyleSheet = z.infer<typeof StyleSheet>
 
 export const Brand = StyleSheet

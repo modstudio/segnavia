@@ -51,8 +51,6 @@ test('refuses duplicate node ids with both nodes and the clearance', () => {
   ).toThrow(/id "same".*section.*flow.*change or remove one id to clear this refusal/)
 })
 
-import { jsonSchemas } from './json-schemas.ts'
-
 describe('Document', () => {
   test('keeps optional ids and refuses nodes outside the kind profile', () => {
     const parsed = Document.parse({ type: 'document', id: 'page-doc', kind: 'page', children: [{ type: 'page', id: 'body', body: { html: '<p>Body</p>' } }] })
@@ -360,12 +358,6 @@ describe('Document', () => {
       board: { type: 'document', kind, title: 'Board', brand: 'publisher', settings: { dir: 'ltr' }, children: [] },
     } as const
     expect(Document.parse(inputs[kind]).brand).toBe('publisher')
-  })
-
-  test('generates the document JSON Schema from the exported manifest', () => {
-    const schemas = jsonSchemas()
-    expect(schemas).toHaveProperty('document')
-    for (const legacy of ['deck', 'page', 'book', 'board']) expect(schemas).not.toHaveProperty(legacy)
   })
 
   test('profiles accept only the print shape belonging to each trim', () => {

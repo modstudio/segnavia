@@ -56,8 +56,9 @@ const FontDeclarationShape = {
   script: z.enum(['hebrew']).optional(),
 } as const
 
-export const FontDeclaration = closedObject({ ...FontDeclarationShape, unicodeRange: FontDeclarationShape.unicodeRange.optional() })
-  .transform((face) => (face.script === 'hebrew' && face.unicodeRange === undefined ? { ...face, unicodeRange: HEBREW_UNICODE_RANGE } : face))
+export const FontDeclaration = closedObject({ ...FontDeclarationShape, unicodeRange: FontDeclarationShape.unicodeRange.optional() }).transform((face) =>
+  face.script === 'hebrew' && face.unicodeRange === undefined ? { ...face, unicodeRange: HEBREW_UNICODE_RANGE } : face,
+)
 export type FontDeclaration = z.infer<typeof FontDeclaration>
 
 export const AppFontDeclaration = closedObject({ faces: z.array(FontDeclaration).min(1), generic: z.enum(FONT_GENERICS).optional() })

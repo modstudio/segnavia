@@ -2,13 +2,12 @@ import { z } from 'zod'
 import { closedObject } from './closed-object.ts'
 
 export const ParentRuleWhen = closedObject({
-    position: z.enum(['documentFirst', 'documentLast', 'sectionFirst', 'sectionLast']).optional(),
-    face: z.enum(['recto', 'verso']).optional(),
-    blank: z.boolean().optional(),
-  })
-  .refine((when) => when.position !== undefined || when.face !== undefined || when.blank !== undefined, {
-    message: 'a parent rule when states no condition; state a position, face or blank condition, or remove when to clear this refusal',
-  })
+  position: z.enum(['documentFirst', 'documentLast', 'sectionFirst', 'sectionLast']).optional(),
+  face: z.enum(['recto', 'verso']).optional(),
+  blank: z.boolean().optional(),
+}).refine((when) => when.position !== undefined || when.face !== undefined || when.blank !== undefined, {
+  message: 'a parent rule when states no condition; state a position, face or blank condition, or remove when to clear this refusal',
+})
 
 export const ParentRule = closedObject({
   when: ParentRuleWhen.optional(),

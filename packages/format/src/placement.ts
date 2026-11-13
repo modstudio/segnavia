@@ -51,15 +51,19 @@ function addCropAxisIssue(crop: Partial<Record<CropSide, string>>, first: CropSi
   })
 }
 
-export const PlacementCrop = closedObject({ top: CropEdge.optional(), right: CropEdge.optional(), bottom: CropEdge.optional(), left: CropEdge.optional() })
-  .superRefine((crop, ctx) => {
-    for (const [first, second] of [
-      ['top', 'bottom'],
-      ['left', 'right'],
-    ] as const) {
-      addCropAxisIssue(crop, first, second, ctx)
-    }
-  })
+export const PlacementCrop = closedObject({
+  top: CropEdge.optional(),
+  right: CropEdge.optional(),
+  bottom: CropEdge.optional(),
+  left: CropEdge.optional(),
+}).superRefine((crop, ctx) => {
+  for (const [first, second] of [
+    ['top', 'bottom'],
+    ['left', 'right'],
+  ] as const) {
+    addCropAxisIssue(crop, first, second, ctx)
+  }
+})
 export type PlacementCrop = z.infer<typeof PlacementCrop>
 
 export const PlacementShape = closedObject({

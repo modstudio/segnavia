@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { Box, MeasuredSize } from './deck.ts'
 import { closedObject } from './closed-object.ts'
+import { Box, MeasuredSize } from './deck.ts'
 import { TextDirection } from './direction.ts'
 import { AssetKind } from './placement.ts'
 

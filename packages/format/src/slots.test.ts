@@ -11,7 +11,7 @@ describe('slot declarations', () => {
   })
 
   test('writes are strict while stored declarations tolerate newer fields', () => {
-    expect(SlotDeclaration.parse({ ...name, future: true })).toEqual({ ...name, required: false, overflow: 'wrap' })
+    expect(SlotDeclaration.safeParse({ ...name, future: true }).success).toBe(false)
     expect(SlotDeclarationInput.safeParse({ ...name, future: true }).success).toBe(false)
   })
 
