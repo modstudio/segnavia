@@ -133,10 +133,7 @@ describe('FontManifest', () => {
     }
     expect(matchFaces([{ weight: [100, 900] }], [regular])).toEqual({
       faces: [regular],
-      unsupplied: [
-        { weight: [100, 399] },
-        { weight: [401, 900] },
-      ],
+      unsupplied: [{ weight: [100, 399] }, { weight: [401, 900] }],
     })
   })
 

@@ -1,11 +1,4 @@
-import {
-  type FontFailure,
-  type FontManifest,
-  type FontWeight,
-  fontCoverageGaps,
-  HEBREW_UNICODE_RANGE,
-  rangeSample,
-} from '@segnavia/format'
+import { type FontFailure, type FontManifest, type FontWeight, fontCoverageGaps, HEBREW_UNICODE_RANGE, rangeSample } from '@segnavia/format'
 
 export const FONT_FAILURE_ATTRIBUTE = 'data-segnavia-font-failures'
 export const FONT_FAILURE_LIMIT = 64

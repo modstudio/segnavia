@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { fontCoverageGaps } from './font-coverage.ts'
+import { type FontCoverageGap, fontCoverageGaps } from './font-coverage.ts'
 
 describe('fontCoverageGaps', () => {
   test('covers a declared weight band by the union of supplied bands', () => {
@@ -9,19 +9,14 @@ describe('fontCoverageGaps', () => {
   })
 
   test('covers a declared code-point set by value', () => {
-    expect(
-      fontCoverageGaps(
-        { unicodeRange: 'U+0000-05FF' },
-        [{ unicodeRange: 'u+0000-00ff' }, { unicodeRange: 'U+01??,U+0200-05FF,U+0180-02FF' }],
-      ),
-    ).toEqual([])
+    expect(fontCoverageGaps({ unicodeRange: 'U+0000-05FF' }, [{ unicodeRange: 'u+0000-00ff' }, { unicodeRange: 'U+01??,U+0200-05FF,U+0180-02FF' }])).toEqual([])
     expect(fontCoverageGaps({ unicodeRange: 'U+0000-05FF' }, [{ unicodeRange: 'U+0000-00FF,U+0200-05FF' }])).toEqual([
       { weight: 400, unicodeRange: 'U+0100-01FF' },
     ])
   })
 
   test('combines weight and code-point coverage and merges equal adjacent slices', () => {
-    const declaration = { weight: [100, 900] as const, style: 'italic', unicodeRange: 'U+0000-01FF' }
+    const declaration = { weight: [100, 900] as const, style: 'italic' as const, unicodeRange: 'U+0000-01FF' }
     const faces = [
       { weight: '100 300', style: 'italic', unicodeRange: 'U+0000-00FF' },
       { weight: '301 700', style: 'italic', unicodeRange: 'U+0000-01FF' },
@@ -30,7 +25,7 @@ describe('fontCoverageGaps', () => {
     const expected = [
       { weight: [100, 300], style: 'italic', unicodeRange: 'U+0100-01FF' },
       { weight: [701, 900], style: 'italic', unicodeRange: 'U+0100-01FF' },
-    ]
+    ] satisfies FontCoverageGap[]
     expect(fontCoverageGaps(declaration, faces)).toEqual(expected)
     expect(fontCoverageGaps(declaration, [...faces].reverse())).toEqual(expected)
   })
@@ -42,8 +37,6 @@ describe('fontCoverageGaps', () => {
   })
 
   test('reports a Hebrew declaration not covered by a Latin face', () => {
-    expect(fontCoverageGaps({ unicodeRange: 'U+0590-05FF' }, [{ unicodeRange: 'U+0000-007F' }])).toEqual([
-      { weight: 400, unicodeRange: 'U+0590-05FF' },
-    ])
+    expect(fontCoverageGaps({ unicodeRange: 'U+0590-05FF' }, [{ unicodeRange: 'U+0000-007F' }])).toEqual([{ weight: 400, unicodeRange: 'U+0590-05FF' }])
   })
 })

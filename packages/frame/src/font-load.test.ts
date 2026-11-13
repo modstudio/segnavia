@@ -229,7 +229,10 @@ describe('font load', () => {
         FONT_FAILURE_LIMIT,
         FONT_FAILURE_FIELD_LIMIT,
       )
-      expect(failures.map(({ font: _, family: __, reason: ___, ...gap }) => gap), `case ${caseIndex}`).toEqual(expected)
+      expect(
+        failures.map(({ font: _, family: __, reason: ___, ...gap }) => gap),
+        `case ${caseIndex}`,
+      ).toEqual(expected)
     }
 
     const failures = await loadDeclaredFonts(
