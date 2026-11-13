@@ -1,3 +1,5 @@
+import { OUTLINE_HEADING_BASE_CSS } from './composer-tags.ts'
+
 // The only styles the headless elements bring: the geometry a slide, thumbnail, board, page, paper or book
 // needs to display at all. Every selector sits inside :where(), so it has no
 // specificity and any rule a host writes wins over it. Appearance (colors,
@@ -22,7 +24,6 @@
 
 // Non-zero keeps Chromium drawing a loading frame; the minimum alpha leaves no visible trace through a transparent active slide.
 export const LOADING_CANVAS_OPACITY = 1 / 255
-export const OUTLINE_HEADING_BASE_CSS = ':where([data-segnavia-outline-heading]){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;white-space:nowrap}'
 
 // transform-origin has no logical keywords, so printed spreads select a physical origin from their direction.
 export const BASE_CSS = `

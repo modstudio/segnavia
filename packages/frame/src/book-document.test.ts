@@ -73,7 +73,7 @@ describe('bookDocument', () => {
     const html = bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held' })
     expect(html).toContain('"limit":600')
     expect(html).toContain('"refusalSubject":"The book"')
-    expect(html).toContain('"outline":{"direction":"ltr"')
+    expect(html).toContain('"outline":{"direction":"rtl"')
     const capped = bookDocument(parseBookFixture({ ...book, limits: { pages: 600 } }), { nonce: 'held', limits: { pages: 300 } })
     expect(capped).toContain('"limit":300')
     expect(capped).toContain("raise the host's limits.pages")

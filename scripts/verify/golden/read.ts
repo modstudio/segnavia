@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { PDFBool, PDFDict, PDFDocument, PDFName } from 'pdf-lib'
+import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFName, PDFRef } from 'pdf-lib'
 import { pdfOutlineItems } from '../book-pdf-readback.ts'
 import type { GoldenPdf } from './model.ts'
 
 const run = (command: string, arguments_: string[]): string => execFileSync(command, arguments_, { encoding: 'utf8' }).replaceAll('\r\n', '\n')
+const resolve = (document: PDFDocument, value: unknown): unknown => (value instanceof PDFRef ? document.context.lookup(value) : value)
 
 const normalizedText = (value: string): string =>
   value
@@ -58,6 +59,25 @@ export function parsePdfFonts(output: string): string[] {
       ]
     })
   return [...new Set(fonts)].sort()
+}
+
+export function pdfStructureHeadingLevels(document: PDFDocument): number[] {
+  const levels: number[] = []
+  const visit = (value: unknown): void => {
+    const object = resolve(document, value)
+    if (object instanceof PDFArray) {
+      for (let index = 0; index < object.size(); index += 1) visit(object.get(index))
+      return
+    }
+    if (!(object instanceof PDFDict)) return
+    const role = resolve(document, object.get(PDFName.of('S')))
+    const level = role instanceof PDFName ? /^H([1-6])$/.exec(role.asString().slice(1))?.[1] : undefined
+    if (level !== undefined) levels.push(Number(level))
+    visit(object.get(PDFName.of('K')))
+  }
+  const root = resolve(document, document.catalog.get(PDFName.of('StructTreeRoot')))
+  if (root instanceof PDFDict) visit(root.get(PDFName.of('K')))
+  return levels
 }
 
 function embeddedFonts(file: string): string[] {

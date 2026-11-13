@@ -148,7 +148,9 @@ describe('composer outline tags', () => {
   test('hides a non-home clone when it drops the source id', () => {
     const sourceHeading = new FixtureElement('h2', { id: 'continued' }, 120)
     const clone = new FixtureElement('h2', { id: 'continued' }, 0)
-    stripCloneIds(clone as unknown as Element, sourceHeading as unknown as Element, 0, 100, 0, (element) => [{ top: (element as unknown as FixtureElement).top }])
+    stripCloneIds(clone as unknown as Element, sourceHeading as unknown as Element, 0, 100, 0, (element) => [
+      { top: (element as unknown as FixtureElement).top },
+    ])
     expect(clone.getAttribute('id')).toBeNull()
     expect(clone.getAttribute('aria-hidden')).toBe('true')
   })

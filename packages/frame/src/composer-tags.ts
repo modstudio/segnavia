@@ -1,6 +1,9 @@
 import { documentOutline, entryDirection, type OutlineSource, type TextDirection } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
 
+export const OUTLINE_HEADING_BASE_CSS =
+  ':where([data-segnavia-outline-heading]){position:absolute;inline-size:1px;block-size:1px;overflow:hidden;white-space:nowrap}'
+
 export interface ComposerTagEntry {
   id: string
   block: string

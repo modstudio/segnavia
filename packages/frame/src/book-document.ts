@@ -1,5 +1,5 @@
 import { type Book, type BookView, bookFromDocument, type DocumentInput, Refusal } from '@segnavia/format'
-import { bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
+import { bookOutlineSource, bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
 import { COMPOSER_SCRIPT } from './composer.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
@@ -71,7 +71,7 @@ export function bookValueDocument(
   }
   const built = htmlBookDocument(book, { targets: true })
   if (built.issues.length > 0) throw new PaginatedBookRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
-  const view = bookViewFromHtml(book, built.html)
+  const view = bookViewFromHtml(book, built.html, bookOutlineSource(book, built))
   if (!view.pagination) throw new PaginatedBookRefusedError('A paginated book document could not resolve pagination.')
   return paginatedViewDocument(view, view.pagination, options)
 }

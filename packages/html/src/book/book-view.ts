@@ -1,8 +1,8 @@
-import { type Book, type BookView, resolveBookPagination } from '@segnavia/format'
+import { type Book, type BookView, type OutlineSource, resolveBookPagination } from '@segnavia/format'
 import { bookOutlineSource } from '../document-outline.ts'
 import { bookDocument } from './book-document.ts'
 
-export function bookViewFromHtml(book: Book, html: string): BookView {
+export function bookViewFromHtml(book: Book, html: string, outline?: OutlineSource): BookView {
   const view: BookView = {
     html,
     title: book.title,
@@ -15,7 +15,7 @@ export function bookViewFromHtml(book: Book, html: string): BookView {
     ...(book.asOf === undefined ? {} : { asOf: book.asOf }),
   }
   const pagination = resolveBookPagination(book)
-  return pagination ? { ...view, pagination } : view
+  return pagination ? { ...view, pagination: { ...pagination, ...(outline === undefined ? {} : { outline }) } } : view
 }
 
 export function bookView(book: Book): BookView {
@@ -23,7 +23,6 @@ export function bookView(book: Book): BookView {
   const flow = book.mode === 'paginated' ? bookDocument(book, { build: 'flow' }) : undefined
   const issues = document.issues.length > 0 ? document.issues : (flow?.issues ?? [])
   if (issues.length > 0) throw new Error(`The book cannot be shown: ${issues.join('; ')}.`)
-  const view = bookViewFromHtml(book, document.html)
-  const pagination = view.pagination === undefined ? undefined : { ...view.pagination, outline: bookOutlineSource(book, document) }
-  return { ...view, ...(pagination === undefined ? {} : { pagination }), ...(flow ? { flow: flow.html } : {}) }
+  const view = bookViewFromHtml(book, document.html, bookOutlineSource(book, document))
+  return { ...view, ...(flow ? { flow: flow.html } : {}) }
 }
