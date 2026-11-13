@@ -776,7 +776,7 @@ A host that serves a URL slide resolves the deck's manifest through the
 server-safe bridge entry, includes both the resulting CSS and the bridge in
 the served page. Its `resolveSlide` seam returns the URL as resolved content
 with `bridge: true`; `bridge` is not part of a deck document and
-`Document.parse` drops such a key. The complete host recipe is in
+`Document.parse` refuses such a key. The complete host recipe is in
 [Host-served URL slide fonts](../README.md#host-served-url-slide-fonts).
 
 The host reports the resolver's `unsupplied` failures at its own boundary.
