@@ -82,6 +82,40 @@ test('refuses a data-motif field on an element without data-motif', () => {
   ).toThrow(/children\[0\]: data-motif-title needs data-motif on the same element; add data-motif or remove data-motif-title to clear this refusal/)
 })
 
+test('ignores data-motif field text in comments and attribute values', () => {
+  expect(() =>
+    Document.parse({
+      type: 'document',
+      kind: 'page',
+      children: [
+        {
+          type: 'page',
+          body: { html: '<!-- data-motif-comment --><a href="/x?data-motif-link=1" title="data-motif-title=x">Link</a>' },
+        },
+      ],
+    }),
+  ).not.toThrow()
+})
+
+test('names template html holding an undeclared data-variable', () => {
+  const result = Document.safeParse({
+    type: 'document',
+    kind: 'book',
+    title: 'Book',
+    mode: 'continuous',
+    templates: [{ type: 'template', name: 'layout', html: '<main data-variable="missing"></main>' }],
+    children: [{ type: 'flow', title: 'Body', html: '<p>Body</p>' }],
+  })
+  expect(result.success).toBe(false)
+  if (result.success) return
+  expect((result.error as { issues: Array<{ path: PropertyKey[]; message: string }> }).issues).toContainEqual(
+    expect.objectContaining({
+      path: ['templates', 0],
+      message: expect.stringContaining('templates[0]: data-variable names undeclared variable "missing"'),
+    }),
+  )
+})
+
 test('validates head template placements and parts at parse', () => {
   const base = {
     type: 'document' as const,

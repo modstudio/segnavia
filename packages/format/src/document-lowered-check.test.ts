@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { ZodError } from 'zod'
 import { Document } from './document.ts'
 
 type Issue = { path: PropertyKey[]; message: string }
@@ -77,6 +78,32 @@ describe('lowered document checks', () => {
       issue.message.includes('use another opens value to clear this refusal'),
     )
     expect(opens).toHaveLength(1)
+  })
+
+  test('reports an earlier variable refusal and a lowered book refusal once each', () => {
+    const found = issues(
+      book({
+        parentRules: [{ parent: 'missing' }],
+        variables: [{ type: 'variable', name: 'm', kind: 'meta', field: 'nope' }],
+      }),
+    )
+    expect(found.filter((issue) => issue.message.includes('unknown metadata field "nope"'))).toHaveLength(1)
+    expect(found.filter((issue) => issue.message.includes('unknown parent page "missing"'))).toHaveLength(1)
+  })
+
+  test('turns a printed page-body lowering error into a Zod issue', () => {
+    const result = Document.safeParse({
+      type: 'document',
+      kind: 'printed',
+      print: { paper: 'a4' },
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      parentRules: [{ parent: 'body' }],
+      children: [{ type: 'page' }],
+    })
+    expect(result.success).toBe(false)
+    if (result.success) return
+    expect(result.error).toBeInstanceOf(ZodError)
+    expect((result.error as ZodError).issues).toContainEqual(expect.objectContaining({ message: expect.stringContaining('the document needs a page body') }))
   })
 
   test('keeps valid book and printed documents parseable', () => {

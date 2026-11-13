@@ -1,4 +1,4 @@
-import type { DocumentOp } from '@segnavia/format'
+import { Document, type DocumentOp } from '@segnavia/format'
 import { type ContentAddress, contentFieldShape, type FragmentShape, fragmentShapeTakesKey, writeFragment } from './block-fragments.ts'
 import { type BlockPosition, insertBlock, moveBlock, removeBlock, type SetBlockChange, setBlock } from './block-ops.ts'
 import { DocumentCommandRefusal, resolveNode } from './document-addresses.ts'
@@ -20,6 +20,15 @@ type Handler<Type extends DocumentCommand['type']> = (
   command: Extract<DocumentCommand, { type: Type }>,
 ) => ReturnType<DocumentCommandHandler>
 
+function refuseEmptyPart(document: Document): void {
+  const parsed = Document.safeParse(document)
+  if (parsed.success) return
+  const issue = (parsed.error as { issues?: Array<{ message: string }> }).issues?.find(({ message }) => message.includes('has no section'))
+  if (!issue) return
+  const [problem, clearing = 'add a section to the part to clear this refusal'] = issue.message.split('; ')
+  throw new DocumentCommandRefusal(problem as string, clearing)
+}
+
 function setChange(target: Record<string, unknown>, fields: Record<string, unknown>) {
   const names = Object.keys(fields)
   return {
@@ -40,7 +49,9 @@ const add: Handler<'add'> = (context, command) => {
 const remove: Handler<'remove'> = (context, command) => {
   const found = resolveNode(context.document, command.node)
   if (found.node.id === context.document.id) throw new DocumentCommandRefusal('the document root cannot be removed', 'remove one of its child nodes instead')
-  return applyCommandOps(context, [{ type: 'remove', id: found.node.id, prior: found.node as never, parent: found.parent, index: found.index }])
+  const result = applyCommandOps(context, [{ type: 'remove', id: found.node.id, prior: found.node as never, parent: found.parent, index: found.index }])
+  refuseEmptyPart(result.document)
+  return result
 }
 
 const move: Handler<'move'> = (context, command) => {
@@ -58,7 +69,9 @@ const move: Handler<'move'> = (context, command) => {
   if (location.parent.kind === 'node' && descendants.has(location.parent.id)) {
     throw new DocumentCommandRefusal(`node "${found.node.id}" cannot move into its own subtree`, 'choose a location outside that node')
   }
-  return applyCommandOps(context, [{ type: 'move', id: found.node.id, ...location, priorParent: found.parent, priorIndex: found.index }])
+  const result = applyCommandOps(context, [{ type: 'move', id: found.node.id, ...location, priorParent: found.parent, priorIndex: found.index }])
+  refuseEmptyPart(result.document)
+  return result
 }
 
 const set: Handler<'set'> = (context, command) => {

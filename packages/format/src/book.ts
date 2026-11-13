@@ -215,7 +215,7 @@ const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
   })
 })
 
-const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
+export const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
   const { chapters, ...fields } = book
   if (book.body !== undefined && chapters !== undefined) {
     ctx.addIssue({ code: 'custom', path: ['body'], message: 'body and chapters were both given; keep body and remove chapters' })
@@ -309,7 +309,7 @@ function refineParentPageGeometry(book: ResolvedBookValue, ctx: z.RefinementCtx)
   })
 }
 
-const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
+function refineBookVariables(book: ResolvedBookValue, ctx: z.RefinementCtx): void {
   refineDocumentVariables(
     {
       variables: book.variables,
@@ -324,6 +324,9 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
     },
     ctx,
   )
+}
+
+export function refineBookPolicies(book: ResolvedBookValue, ctx: z.RefinementCtx): void {
   for (const issue of structuralBookIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   const sections = bookSections(book)
   const geometryByPath = new Map(sections.map((section) => [section.path.join('.'), sectionPageGeometry(book as Book, section)]))
@@ -354,6 +357,11 @@ const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
   for (const issue of noteSeriesIssues(book.notes, book.mode)) ctx.addIssue({ code: 'custom', ...issue })
   for (const issue of bookParentIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   refineParentPageGeometry(book, ctx)
+}
+
+const RefinedBook = ResolvedBook.superRefine((book, ctx) => {
+  refineBookVariables(book, ctx)
+  refineBookPolicies(book, ctx)
 })
 
 const DepthCheckedBook = z.preprocess((value, ctx) => {

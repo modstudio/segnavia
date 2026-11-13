@@ -155,7 +155,7 @@ function refinePrintedSectionNumbering(document: DocumentShapeValue, ctx: z.Refi
   }
 }
 
-type DocumentShapeValue = z.infer<typeof DocumentShape>
+export type DocumentShapeValue = z.infer<typeof DocumentShape>
 type DocumentProfile = (typeof DOCUMENT_PROFILES)[DocumentKind]
 
 function refineRootFields(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
@@ -306,6 +306,21 @@ export function defaultSectionContents(nodes: DocumentNodeValue[], enabled: bool
   })
 }
 
+function normalizedDocument(document: DocumentShapeValue): DocumentShapeValue {
+  const profile = DOCUMENT_PROFILES[document.kind]
+  const withSectionDefaults = {
+    ...document,
+    children: defaultSectionContents(document.children, (profile.sectionFields as readonly string[]).includes('contents')),
+  }
+  const withScripts =
+    withSectionDefaults.settings === undefined || !(profile.settings as readonly string[]).includes('scripts')
+      ? withSectionDefaults
+      : { ...withSectionDefaults, settings: { scripts: 'refuse' as const, ...withSectionDefaults.settings } }
+  if (!profile.canonicalChildren) return withScripts
+  const children = profile.canonicalChildren.flatMap((type) => withScripts.children.filter((node) => node.type === type))
+  return { ...withScripts, children }
+}
+
 const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
   refinePrintedSectionNumbering(document, ctx)
@@ -317,22 +332,8 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   refineDocumentVariables({ ...document, lang: document.settings?.lang }, ctx)
   refineProfileShape(document, profile, ctx)
   refinePrint(document, profile, ctx)
-})
-  .transform((document) => {
-    const profile = DOCUMENT_PROFILES[document.kind]
-    const withSectionDefaults = {
-      ...document,
-      children: defaultSectionContents(document.children, (profile.sectionFields as readonly string[]).includes('contents')),
-    }
-    const withScripts =
-      withSectionDefaults.settings === undefined || !(profile.settings as readonly string[]).includes('scripts')
-        ? withSectionDefaults
-        : { ...withSectionDefaults, settings: { scripts: 'refuse' as const, ...withSectionDefaults.settings } }
-    if (!profile.canonicalChildren) return withScripts
-    const children = profile.canonicalChildren.flatMap((type) => withScripts.children.filter((node) => node.type === type))
-    return { ...withScripts, children }
-  })
-  .superRefine((document, ctx) => refineLoweredDocument(document as Parameters<typeof refineLoweredDocument>[0], ctx))
+  refineLoweredDocument(normalizedDocument(document), ctx)
+}).transform(normalizedDocument)
 
 export type DocumentInput = z.input<typeof DocumentSchema>
 export type Document = IdentifiedDocument<z.infer<typeof DocumentSchema>>

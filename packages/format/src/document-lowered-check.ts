@@ -1,11 +1,11 @@
 import type { z } from 'zod'
-import { Book } from './book.ts'
-import { documentBookProjection, documentSourcePath } from './document-book-items.ts'
-import { bookInputFromDocument, pageInputFromDocument } from './document-lowering.ts'
+import type { DocumentShapeValue } from './document.ts'
+import { type DocumentBookProjection, documentSourcePath } from './document-book-items.ts'
+import { DocumentLoweredBook } from './document-lowered-book.ts'
+import { bookLoweringFromDocument, pageLoweringFromDocument } from './document-lowering.ts'
 import { Page } from './page.ts'
 
 type Path = (string | number)[]
-type LowerableDocument = Parameters<typeof bookInputFromDocument>[0]
 
 const BOOK_ROOT_PATHS: Readonly<Record<string, Path>> = {
   title: ['title'],
@@ -72,8 +72,7 @@ function startsWith(left: Path, right: Path): boolean {
   return right.every((part, index) => left[index] === part)
 }
 
-function bookIssuePath(document: LowerableDocument, issuePath: Path): Path {
-  const projection = documentBookProjection(document)
+function bookIssuePath(projection: DocumentBookProjection, issuePath: Path): Path {
   const normalized = issuePath[0] === 'chapters' ? ['body', ...issuePath.slice(1)] : issuePath
   for (let length = normalized.length; length > 0; length -= 1) {
     const prefix = normalized.slice(0, length)
@@ -84,15 +83,14 @@ function bookIssuePath(document: LowerableDocument, issuePath: Path): Path {
   return root ? [...root, ...issuePath.slice(1)] : ['book', ...issuePath]
 }
 
-function printedSectionPath(document: LowerableDocument, issuePath: Path): Path | undefined {
+function printedSectionPath(sectionPaths: Path[], issuePath: Path): Path | undefined {
   if (issuePath[0] !== 'printedPages' || issuePath[1] !== 'sections' || typeof issuePath[2] !== 'number') return undefined
-  const sectionPaths = document.children.flatMap((node, index) => (node.type === 'section' || node.type === 'record' ? [['children', index] as Path] : []))
   const section = sectionPaths[issuePath[2]]
   return section ? [...section, ...issuePath.slice(3)] : undefined
 }
 
-function printedIssuePath(document: LowerableDocument, issuePath: Path): Path {
-  const section = printedSectionPath(document, issuePath)
+function printedIssuePath(sectionPaths: Path[], issuePath: Path): Path {
+  const section = printedSectionPath(sectionPaths, issuePath)
   if (section) return section
   if (issuePath[0] === 'printedPages' && typeof issuePath[1] === 'string') {
     const root = PRINTED_PAGES_PATHS[issuePath[1]]
@@ -103,24 +101,36 @@ function printedIssuePath(document: LowerableDocument, issuePath: Path): Path {
 }
 
 function addResultIssues(
-  result: ReturnType<typeof Book.safeParse> | ReturnType<typeof Page.safeParse>,
+  result: { success: true } | { success: false; error: { issues: Array<{ path: PropertyKey[]; message: string }> } },
   path: (issuePath: Path) => Path,
   ctx: z.RefinementCtx,
 ): void {
   if (result.success) return
   for (const issue of result.error.issues) {
     const issuePath = issue.path.map((part) => (typeof part === 'symbol' ? String(part) : part))
-    ctx.addIssue({ code: 'custom', path: path(issuePath), message: issue.message })
+    const mappedPath = path(issuePath)
+    ctx.addIssue({ code: 'custom', path: mappedPath, message: issue.message })
   }
 }
 
-export function refineLoweredDocument(document: LowerableDocument, ctx: z.RefinementCtx): void {
+type LoweredCheck = (document: DocumentShapeValue, ctx: z.RefinementCtx) => void
+
+const LOWERED_CHECKS: Partial<Record<DocumentShapeValue['kind'], LoweredCheck>> = {
+  book(document, ctx) {
+    const lowering = bookLoweringFromDocument(document)
+    addResultIssues(DocumentLoweredBook.safeParse(lowering.value), (path) => bookIssuePath(lowering.projection, path), ctx)
+  },
+  printed(document, ctx) {
+    const lowering = pageLoweringFromDocument(document)
+    addResultIssues(Page.safeParse(lowering.value), (path) => printedIssuePath(lowering.sectionPaths, path), ctx)
+  },
+}
+
+export function refineLoweredDocument(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
+  const check = LOWERED_CHECKS[document.kind]
+  if (!check) return
   try {
-    if (document.kind === 'book') {
-      addResultIssues(Book.safeParse(bookInputFromDocument(document)), (path) => bookIssuePath(document, path), ctx)
-    } else if (document.kind === 'printed') {
-      addResultIssues(Page.safeParse(pageInputFromDocument(document, true)), (path) => printedIssuePath(document, path), ctx)
-    }
+    check(document, ctx)
   } catch (error) {
     ctx.addIssue({ code: 'custom', path: [document.kind], message: error instanceof Error ? error.message : String(error) })
   }
