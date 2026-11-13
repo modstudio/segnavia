@@ -1,5 +1,6 @@
 import {
   boundPreflightReport,
+  type PreflightCoverageUnit,
   type PreflightEntry,
   type PreflightProfile,
   type PreflightProfileInput,
@@ -19,7 +20,10 @@ export function surfacePreflightProfile(input: PreflightProfileInput): Preflight
   const resolved = resolvePreflightProfile(input)
   return Object.freeze(
     Object.fromEntries(
-      Object.entries(resolved).map(([check, severity]) => [check, check === 'slot-overset' || check === 'font-missing' ? severity : 'off']),
+      Object.entries(resolved).map(([check, severity]) => [
+        check,
+        check === 'slot-overset' || check === 'font-missing' || check === 'coverage-incomplete' ? severity : 'off',
+      ]),
     ) as unknown as PreflightProfile,
   )
 }
@@ -27,6 +31,7 @@ export function surfacePreflightProfile(input: PreflightProfileInput): Preflight
 export function mergeSurfacePreflightReports<Key extends SurfacePreflightKey>(
   reports: ReadonlyMap<Key, PreflightReport>,
   surface: readonly SurfacePreflightItem<Key>[],
+  unit: PreflightCoverageUnit,
   profile: PreflightProfile,
 ): PreflightReport {
   const entries: PreflightEntry[] = []
@@ -51,6 +56,7 @@ export function mergeSurfacePreflightReports<Key extends SurfacePreflightKey>(
   return boundPreflightReport(
     { entries, omitted, facts: { pageCount: total, pages, fits }, coverage: { measured, total, slots: { measured: measuredSlots, total: totalSlots } } },
     profile,
+    { unit },
   )
 }
 
@@ -59,6 +65,7 @@ export class SurfacePreflightCoordinator<Key extends SurfacePreflightKey = Surfa
   private resolved = surfacePreflightProfile(this.input)
   private reports = new Map<Key, PreflightReport>()
   private surface: readonly SurfacePreflightItem<Key>[] = []
+  private unit: PreflightCoverageUnit = 'page'
 
   constructor(private target: EventTarget) {}
 
@@ -81,8 +88,9 @@ export class SurfacePreflightCoordinator<Key extends SurfacePreflightKey = Surfa
     return this.resolved
   }
 
-  setSurface(surface: readonly SurfacePreflightItem<Key>[], retainReports: boolean): void {
+  setSurface(surface: readonly SurfacePreflightItem<Key>[], unit: PreflightCoverageUnit, retainReports: boolean): void {
     this.surface = surface
+    this.unit = unit
     if (!retainReports) {
       this.reports.clear()
       return
@@ -94,7 +102,7 @@ export class SurfacePreflightCoordinator<Key extends SurfacePreflightKey = Surfa
   receive(key: Key, report: PreflightReport): void {
     if (!this.enabled || !this.surface.some((item) => item.key === key)) return
     this.reports.set(key, report)
-    const merged = mergeSurfacePreflightReports(this.reports, this.surface, this.resolved)
+    const merged = mergeSurfacePreflightReports(this.reports, this.surface, this.unit, this.resolved)
     this.target.dispatchEvent(new CustomEvent('preflight', { detail: merged, bubbles: true, composed: true }))
   }
 }

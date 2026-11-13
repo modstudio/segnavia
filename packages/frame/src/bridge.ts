@@ -134,7 +134,7 @@ export interface FrameOptions {
   // Calls a host-provided binding after the library has established that the
   // document is ready. Server render uses this independently of author code.
   readyCallback?: string
-  // Plain page and slide frames establish only slot and font preflight facts.
+  // Plain page and slide frames establish slot, font and coverage preflight facts.
   preflight?: PreflightProfile
   layoutScripts?: readonly LoadedLayoutScript[]
 }

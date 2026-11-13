@@ -140,13 +140,81 @@ describe('boundPreflightReport', () => {
     expect(report.facts.regions[0]?.droppedIds?.[0]).toHaveLength(256)
   })
 
-  test.each([
-    ['errors', [entry('region-overset')], { measured: 0, total: 1 }, { 'region-overset': 'error' }],
-    ['warnings', [entry('region-overset')], { measured: 0, total: 1 }, { 'region-overset': 'warning' }],
-    ['incomplete', [], { measured: 0, total: 1 }, {}],
-    ['clean', [], { measured: 1, total: 1 }, {}],
-  ] as const)('gives %s precedence over lower report states', (status, entries, coverage, profile) => {
-    expect(boundPreflightReport({ entries, facts, coverage }, resolvePreflightProfile(profile)).status).toBe(status)
+  test('reports short coverage as a profile check alongside other issues', () => {
+    const pageMessage = 'Preflight measured 1 of 2 pages; a page that is never laid out cannot be checked. Lay out every page to clear this.'
+    const slotMessage = 'Preflight measured 1 of 3 marked slots; a slot that is never laid out cannot be checked. Lay out every marked slot to clear this.'
+    const warned = boundPreflightReport({ entries: [entry('region-overset')], facts, coverage: { measured: 1, total: 2 } }, PREFLIGHT_PRESETS.default)
+    expect(warned).toMatchObject({ status: 'warnings', issues: [{ check: 'region-overset' }, { check: 'coverage-incomplete', subject: 'pages' }] })
+    expect(warned.issues[1]?.message).toBe(pageMessage)
+
+    const shortPages = boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 2 } }, PREFLIGHT_PRESETS.strict)
+    expect(shortPages.status).toBe('errors')
+    expect(preflightRefusal(shortPages)).toBe(pageMessage)
+
+    const shortSlots = boundPreflightReport(
+      { entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 1, total: 3 } } },
+      PREFLIGHT_PRESETS.strict,
+    )
+    expect(shortSlots.status).toBe('errors')
+    expect(preflightRefusal(shortSlots)).toBe(slotMessage)
+
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.default).issues[0]?.message).toBe(
+      'Preflight measured 0 of 1 page; a page that is never laid out cannot be checked. Lay out every page to clear this.',
+    )
+
+    expect(boundPreflightReport({ entries: [entry('region-overset')], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.off)).toMatchObject({
+      status: 'clean',
+      issues: [],
+    })
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1 } }, PREFLIGHT_PRESETS.default).issues).toEqual([])
+  })
+
+  test('sorts a coverage error before an earlier warning', () => {
+    const report = boundPreflightReport(
+      {
+        entries: [{ check: 'slot-overset', subject: 'name', message: 'Name is overset.' }],
+        facts,
+        coverage: { measured: 1, total: 2 },
+      },
+      resolvePreflightProfile({ 'coverage-incomplete': 'error' }),
+    )
+    expect(report.issues.map(({ check, severity }) => [check, severity])).toEqual([
+      ['coverage-incomplete', 'error'],
+      ['slot-overset', 'warning'],
+    ])
+  })
+
+  test('recomputes forged coverage issues from bounded coverage', () => {
+    const report = boundPreflightReport(
+      {
+        entries: [{ check: 'coverage-incomplete', subject: 'forged', message: 'Forged.' }],
+        facts,
+        coverage: { measured: 1, total: 2 },
+      },
+      PREFLIGHT_PRESETS.default,
+    )
+    expect(report.issues).toEqual([
+      {
+        check: 'coverage-incomplete',
+        subject: 'pages',
+        message: 'Preflight measured 1 of 2 pages; a page that is never laid out cannot be checked. Lay out every page to clear this.',
+        id: 'coverage-incomplete:pages',
+        severity: 'warning',
+      },
+    ])
+  })
+
+  test('uses singular and plural slide wording when the counted unit is a slide', () => {
+    const singular = boundPreflightReport({ entries: [], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.default, { unit: 'slide' })
+    const plural = boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 2 } }, PREFLIGHT_PRESETS.default, { unit: 'slide' })
+    expect(singular.issues[0]).toMatchObject({
+      subject: 'slides',
+      message: 'Preflight measured 0 of 1 slide; a slide that is never laid out cannot be checked. Lay out every slide to clear this.',
+    })
+    expect(plural.issues[0]).toMatchObject({
+      subject: 'slides',
+      message: 'Preflight measured 1 of 2 slides; a slide that is never laid out cannot be checked. Lay out every slide to clear this.',
+    })
   })
 
   test('bounds page and slot coverage and defaults missing slot coverage to empty', () => {
@@ -187,12 +255,15 @@ describe('boundPreflightReport', () => {
     ).toEqual({ measured: 0, total: 0 })
   })
 
-  test('reports incomplete when slot coverage falls short and leaves pages to decide when absent', () => {
+  test('reports coverage issues when slot or page coverage falls short', () => {
     expect(
-      boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 1, total: 2 } } }, PREFLIGHT_PRESETS.default).status,
-    ).toBe('incomplete')
+      boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 1, total: 2 } } }, PREFLIGHT_PRESETS.default).issues[0],
+    ).toMatchObject({ check: 'coverage-incomplete', subject: 'slots', severity: 'warning' })
     expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1 } }, PREFLIGHT_PRESETS.default).status).toBe('clean')
-    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.default).status).toBe('incomplete')
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.default).issues[0]).toMatchObject({
+      check: 'coverage-incomplete',
+      subject: 'pages',
+    })
   })
 
   test('strict preflight turns an unmeasured refuse slot into a slot overset error', () => {
@@ -201,28 +272,34 @@ describe('boundPreflightReport', () => {
     const report = boundPreflightReport({ entries, facts, coverage: { measured: 1, total: 1, slots: { measured: 0, total: 1 } } }, PREFLIGHT_PRESETS.strict)
     expect(report).toMatchObject({
       status: 'errors',
-      issues: [{ check: 'slot-overset', subject: 'name', severity: 'error' }],
+      issues: [
+        { check: 'slot-overset', subject: 'name', severity: 'error' },
+        { check: 'coverage-incomplete', subject: 'slots', severity: 'error' },
+      ],
     })
     expect(report.issues[0]?.message).toContain('overflow could not be measured for slots: "name"')
+    expect(report.issues[1]).toMatchObject({ check: 'coverage-incomplete', subject: 'slots', severity: 'error' })
+    expect(preflightRefusal(report)).toBe(report.issues[0]?.message)
   })
 
-  test('keeps a bounded slot coverage shortfall incomplete', () => {
+  test('keeps a bounded slot coverage shortfall as an issue', () => {
     expect(
       boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 200, total: 240 } } }, PREFLIGHT_PRESETS.default),
     ).toMatchObject({
-      status: 'incomplete',
+      status: 'warnings',
       coverage: { slots: { measured: 200, total: 240 } },
+      issues: [{ check: 'coverage-incomplete', subject: 'slots' }],
     })
   })
 
-  test('an unmeasured state without a refuse mark stays incomplete without an issue', () => {
+  test('an unmeasured state without a refuse mark reports only incomplete coverage', () => {
     const entries: PreflightEntry[] = []
     appendSlotOversetEntries({ name: 'unmeasured' }, entries)
     expect(
       boundPreflightReport({ entries, facts, coverage: { measured: 1, total: 1, slots: { measured: 0, total: 1 } } }, PREFLIGHT_PRESETS.default),
     ).toMatchObject({
-      status: 'incomplete',
-      issues: [],
+      status: 'warnings',
+      issues: [{ check: 'coverage-incomplete', subject: 'slots' }],
     })
   })
 })
