@@ -6,6 +6,7 @@ import { SegnaviaCaption, SegnaviaNotes } from './caption.ts'
 import { SegnaviaCaptions, SegnaviaCounter, SegnaviaFullscreen, SegnaviaMute, SegnaviaPlay, SegnaviaStep, SegnaviaTime, SegnaviaTrack } from './controls.ts'
 import { SegnaviaPaperPicker } from './paper-picker.ts'
 import { SegnaviaRail } from './rail.ts'
+import { SegnaviaRefusal } from './refusal.ts'
 import { STYLED_ELEMENTS } from './styled-elements.ts'
 
 export { SegnaviaCaption, SegnaviaNotes } from './caption.ts'
@@ -18,10 +19,12 @@ export * from './index.ts'
 export { ENGLISH_LABELS, type PlayerLabels } from './labels.ts'
 export { ENGLISH_PAPER_PICKER_LABELS, type PaperPickerLabelOverrides, type PaperPickerLabels, SegnaviaPaperPicker } from './paper-picker.ts'
 export { SegnaviaRail } from './rail.ts'
+export { SegnaviaRefusal } from './refusal.ts'
 export { STYLED_ELEMENT_NAMES, STYLED_ELEMENTS } from './styled-elements.ts'
 export { trackMsAt } from './track-mapping.ts'
 
 const COMPONENTS: Array<[string, CustomElementConstructor]> = [
+  [STYLED_ELEMENTS.refusal, SegnaviaRefusal],
   [STYLED_ELEMENTS.play, SegnaviaPlay],
   [STYLED_ELEMENTS.step, SegnaviaStep],
   [STYLED_ELEMENTS.counter, SegnaviaCounter],

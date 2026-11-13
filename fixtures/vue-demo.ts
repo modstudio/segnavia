@@ -59,6 +59,7 @@ const replayValues = {
   document: ['css', ':root{--vue-replay:document}'],
   book: ['pageWidths', { standard: 777, wide: 999 }],
   player: ['labels', { player: 'Vue player' }],
+  refusal: ['labels', { refused: 'Vue refusal' }],
   play: ['labels', { play: 'Vue play' }],
   step: ['labels', { next: 'Vue next' }],
   track: ['labels', { seek: 'Vue seek' }],

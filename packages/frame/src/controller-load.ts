@@ -21,6 +21,8 @@ export function stateForDeckLoad(current: DeckState, deck: Deck, captionsVisible
     direction: resolveDirection(deck.dir, deck.lang, deck.title),
     playing: false,
     index,
+    slide: deck.slides[index] ?? null,
+    content: null,
     totalMs: deckTimeline(deck).totalMs,
   }
 }

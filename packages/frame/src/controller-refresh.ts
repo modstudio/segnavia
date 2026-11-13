@@ -1,5 +1,7 @@
 import type { Slide } from '@segnavia/format'
 import type { ResolvedContent } from './controller-types.ts'
+import { SlideRefusedError } from './deck-refusal.ts'
+import { dispatchElementError } from './element-error.ts'
 
 export type ContentRefreshResult = 'refreshed' | 'superseded' | 'failed'
 
@@ -19,8 +21,8 @@ export async function refreshControllerContent(
     if (!navigationIsCurrent()) return 'superseded'
     const newer = supersedingRefresh()
     if (newer !== undefined) return newer ?? 'superseded'
-    const message = error instanceof Error ? error.message : String(error)
-    errors.dispatchEvent(new CustomEvent('error', { detail: { index, message } }))
+    const refusal = new SlideRefusedError(index, slide.id, error)
+    dispatchElementError(errors, refusal)
     return 'failed'
   }
   if (!navigationIsCurrent()) return 'superseded'

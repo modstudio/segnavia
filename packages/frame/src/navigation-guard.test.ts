@@ -89,7 +89,7 @@ test('the first rejecting guard takes the controller error path and stops the li
   controller.addNavigationGuard(() => {
     calls.push('second')
   })
-  controller.addEventListener('error', (event) => errors.push((event as CustomEvent).detail.message))
+  controller.addEventListener('error', (event) => errors.push((event as ErrorEvent).error.cause.message))
 
   await expect(controller.go(1)).rejects.toThrow('stay here')
   expect(calls).toEqual(['first'])

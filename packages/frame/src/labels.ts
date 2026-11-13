@@ -5,6 +5,7 @@ import { isHebrew } from '@segnavia/format'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 
 export interface PlayerLabels {
+  refused: string
   play: string
   pause: string
   previous: string
@@ -67,6 +68,7 @@ export function boardLabels(labels: Partial<BoardLabels>): BoardLabels {
 }
 
 export const ENGLISH_LABELS: PlayerLabels = {
+  refused: 'This could not be shown',
   play: 'Play',
   pause: 'Pause',
   previous: 'Previous slide',

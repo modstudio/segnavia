@@ -1,3 +1,9 @@
+import { Deck } from '@segnavia/format'
+import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
+import { initialDeckState } from './controller-types.ts'
+import { FramePool } from './frame-pool.ts'
+import type { PoolOptions } from './frame-pool-options.ts'
+
 type Listener = () => void
 
 export class FramePoolTestElement {
@@ -92,7 +98,7 @@ export class FramePoolTestElement {
     const slideId = selector.match(/^\[data-slide-id="(.+)"\]$/)?.[1]
     let candidate: FramePoolTestElement | null = this
     while (candidate) {
-      if (slideId && candidate.dataset.slideId === slideId) return candidate
+      if ((slideId && candidate.dataset.slideId === slideId) || candidate.matches(selector)) return candidate
       candidate = candidate.parent
     }
     return null
@@ -104,6 +110,7 @@ export class FramePoolTestElement {
 
   private matches(selector: string): boolean {
     if (selector === 'iframe') return this.tagName === 'iframe'
+    if (selector === 'img') return this.tagName === 'img'
     if (!selector.startsWith('.segnavia-stage__canvas')) return false
     if (this.className !== 'segnavia-stage__canvas') return false
     return !selector.includes('[data-active]') || 'active' in this.dataset
@@ -125,4 +132,52 @@ export function installFramePoolTestDocument(): () => void {
   const previous = { document: Reflect.get(globalThis, 'document'), window: Reflect.get(globalThis, 'window') }
   Object.assign(globalThis, { document: { createElement: (name: string) => new FramePoolTestElement(name) }, window: {} })
   return () => Object.assign(globalThis, previous)
+}
+
+export type FrameEvent = { kind: 'mounted' | 'released'; slideId: string; content: ResolvedContent; connected?: boolean }
+
+const deck = Deck.parse({
+  title: 'Frames',
+  scripts: 'refuse',
+  slides: [
+    { id: 'one', content: { kind: 'url', src: 'one.html' } },
+    { id: 'two', content: { kind: 'url', src: 'two.html' } },
+  ],
+})
+
+export function state(index: number, content: ResolvedContent): DeckState {
+  return { ...initialDeckState(), deck, index, slide: deck.slides[index] ?? null, content }
+}
+
+export function harness(contents: ResolvedContent[], timeout = 10) {
+  const host = new FramePoolTestElement('host')
+  host.isConnected = true
+  const errors: Error[] = []
+  const events: FrameEvent[] = []
+  const pool = new FramePool(host as unknown as HTMLElement, () => {}, {
+    mounted: (slideId, content) =>
+      events.push({
+        kind: 'mounted',
+        slideId,
+        content,
+        connected: host.querySelectorAll('iframe').some((frame) => frame.closest(`[data-slide-id="${slideId}"]`)?.isConnected),
+      }),
+    released: (slideId, content) => events.push({ kind: 'released', slideId, content }),
+  })
+  const controller = {
+    state: state(0, contents[0] as ResolvedContent),
+    url: (path: string) => new URL(path, 'https://example.test/').href,
+    contentFor: async (index: number) => contents[index] as ResolvedContent,
+    forgetContent: () => {},
+  } as unknown as DeckController
+  const options: PoolOptions = {
+    neighbors: true,
+    css: '',
+    csp: '',
+    frameTitle: () => '',
+    reducedMotion: true,
+    bridgeReadyTimeoutMs: timeout,
+    reportSlideError: (_slideId: string, error: Error) => errors.push(error),
+  }
+  return { host, pool, controller, options, errors, events }
 }

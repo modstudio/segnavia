@@ -1,6 +1,7 @@
 import type { Deck, PublishedShot, Slide } from '@segnavia/format'
 import { emitControllerComplete, emitControllerState } from './controller-events.ts'
 import { stateForDeckLoad } from './controller-load.ts'
+import { controllerUrl, loadControllerUrl } from './controller-load-url.ts'
 import { controllerHashIndex, goControllerToSlide, handleControllerHash, prefetchControllerNeighbors, writeControllerHash } from './controller-navigation.ts'
 import { captionsPolicy, type PlayerOptions, playerOptionState } from './controller-options.ts'
 import { handleControllerPageKey } from './controller-page-key.ts'
@@ -10,8 +11,10 @@ import { type ContentRefreshResult, refreshControllerContent } from './controlle
 import { resolveFreshContent } from './controller-resolution.ts'
 import { type ControllerOptions, type DeckState, initialDeckState, type ResolvedContent } from './controller-types.ts'
 import { internalDeckLoad, resolveDeckLoad } from './deck-load-origin.ts'
+import { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'
+import { dispatchElementError } from './element-error.ts'
 import { type DeckAction, keyAction } from './keys.ts'
-import { navigationError } from './navigation-error.ts'
+import { navigationError, slideIdAt } from './navigation-error.ts'
 import { addNavigationGuard, type NavigationGuardReason, runNavigationGuard } from './navigation-guard.ts'
 import { limitNavigation, slideRequest } from './navigation-limit.ts'
 import { hasWindow } from './schedule.ts'
@@ -107,10 +110,7 @@ export class DeckController extends EventTarget {
     this.listening = false
   }
   async loadUrl(src: string): Promise<void> {
-    const url = new URL(src, hasWindow ? location.href : undefined).href
-    const response = await fetch(url)
-    if (!response.ok) throw new Error(`The deck at ${url} answered ${response.status}.`)
-    await this.load(await response.json(), url)
+    await loadControllerUrl(this, src, (input, base) => this.load(input, base))
   }
   async load(input: unknown, base?: string): Promise<void> {
     await this.loadDeck(input, base, false)
@@ -132,6 +132,8 @@ export class DeckController extends EventTarget {
       deck = await resolveDeckLoad(input, this.options.brands?.source, lifetime.signal, guarded, internal)
     } catch (error) {
       if (lifetime.signal.aborted) return
+      const refusal = new DeckRefusedError(error, base)
+      dispatchElementError(this, refusal)
       throw error
     }
     if (lifetime.signal.aborted) return
@@ -144,7 +146,14 @@ export class DeckController extends EventTarget {
       deck.slides.map((slide) => slideDurationMs(slide)),
       { index: loaded.index, ms: 0 },
     )
-    await this.show(loaded.index)
+    try {
+      await this.show(loaded.index)
+    } catch (error) {
+      if (lifetime.signal.aborted || this.current.deck !== deck) throw error
+      const refusal = new SlideRefusedError(loaded.index, slideIdAt(deck, loaded.index), error)
+      dispatchElementError(this, refusal)
+      throw error
+    }
   }
   async go(index: number): Promise<void> {
     if (!limitNavigation(this.current.seek, this.current.watched.reach, slideRequest(index))) return
@@ -292,7 +301,7 @@ export class DeckController extends EventTarget {
     this.settings.muted = muted
     if (this.playback.clock) this.playback.clock.muted = muted
     this.current = { ...this.current, muted }
-    this.persistSettings()
+    writeViewerSettings(this.options.persist !== false, this.settings)
     this.emit()
   }
 
@@ -300,7 +309,7 @@ export class DeckController extends EventTarget {
     if (this.captionsPolicy !== 'viewer') return
     this.settings.captionsVisible = visible
     this.current = { ...this.current, captionsVisible: visible }
-    this.persistSettings()
+    writeViewerSettings(this.options.persist !== false, this.settings)
     this.emit()
   }
   toggle(): Promise<void> | void {
@@ -376,11 +385,7 @@ export class DeckController extends EventTarget {
     )
   }
   url(path: string): string {
-    return new URL(path, this.options.base ?? (hasWindow ? location.href : undefined)).href
-  }
-
-  private persistSettings() {
-    writeViewerSettings(this.options.persist !== false, this.settings)
+    return controllerUrl(path, this.options.base, hasWindow ? location.href : undefined)
   }
 
   private emit() {

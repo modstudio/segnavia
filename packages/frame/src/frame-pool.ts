@@ -87,6 +87,22 @@ export class FramePool {
     }
   }
 
+  markFailed(slideId: string, cause: Error) {
+    this.entries.get(slideId)?.markFailed(cause)
+  }
+
+  slideIdFor(source: MessageEventSource | null): string | undefined {
+    const frame = this.frames().find((candidate) => candidate.contentWindow === source)
+    return frame?.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId
+  }
+
+  failureFor(state: DeckState): Error | null {
+    const slideId = state.slide?.id
+    if (!slideId || !state.content) return null
+    const entry = this.entries.get(slideId)
+    return entry?.content === state.content ? entry.failure : null
+  }
+
   cancelPending() {
     this.pending?.cancel()
     this.pending = null

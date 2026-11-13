@@ -30,13 +30,15 @@ import {
   playerControls,
   playerFit,
 } from './player-layout.ts'
+import { connectPlayerRefusal } from './player-refusal.ts'
 import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
+import type { SegnaviaRefusal } from './refusal.ts'
 import type { SegnaviaStage } from './stage.ts'
-import { STYLED_ELEMENTS } from './styled-elements.ts'
+import { CONTROLLER_STYLED_ELEMENTS, STYLED_ELEMENTS } from './styled-elements.ts'
 
 const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="player" part="player">
-  <div class="body"><div class="screen"><segnavia-stage part="stage"></segnavia-stage></div><segnavia-notes part="notes"></segnavia-notes></div>
+  <div class="body"><div class="screen"><segnavia-stage part="stage"></segnavia-stage><segnavia-refusal part="refusal" exportparts="panel:refusal-panel,heading:refusal-heading,message:refusal-message"></segnavia-refusal></div><segnavia-notes part="notes"></segnavia-notes></div>
   <segnavia-caption part="caption" exportparts="caption,word,word-spoken,word-current"></segnavia-caption>
   <div class="bar" part="bar">
     <segnavia-track exportparts="track,segment"></segnavia-track>
@@ -50,6 +52,7 @@ const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="pl
 const COMPONENTS = Object.values(STYLED_ELEMENTS)
   .filter((tag) => tag !== STYLED_ELEMENTS.player)
   .join(',')
+const CONTROLS = CONTROLLER_STYLED_ELEMENTS.join(',')
 
 function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
   const presentation = player.getAttribute('presentation')
@@ -87,6 +90,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     })
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
+    connectPlayerRefusal(this.root, this.stage)
     for (const control of this.controlElements()) if (control.tagName !== 'SEGNAVIA-RAIL' || this.rail) control.controller = this.controller
     ;(this.root.querySelector('segnavia-fullscreen') as SegnaviaFullscreen).targetElement = this
     this.controller.addEventListener('change', (event) => this.update((event as CustomEvent<DeckState>).detail))
@@ -115,7 +119,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   set labels(labels: Partial<PlayerLabels>) {
     this.words = playerLabels(labels)
     this.stage.frameTitle = this.words.frameTitle
-    for (const control of this.controlElements()) control.labels = this.words
+    for (const component of this.componentElements()) component.labels = this.words
     if (this.controller.state.deck) this.update(this.controller.state)
     this.dispatchEvent(new CustomEvent('segnavia-labels'))
   }
@@ -205,7 +209,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
     if (name === 'src' && value) {
       this.passPlayerOptions()
-      void this.controller.loadUrl(value)
+      void this.controller.loadUrl(value).catch(() => {})
     }
     if (name === 'playback' || name === 'captions') this.passPlayerOptions()
     if (name === 'notes' && this.controller.state.deck) {
@@ -248,7 +252,11 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   }
 
   private controlElements(): SegnaviaControl[] {
-    return [...this.root.querySelectorAll<SegnaviaControl>(COMPONENTS)]
+    return [...this.root.querySelectorAll<SegnaviaControl>(CONTROLS)]
+  }
+
+  private componentElements(): Array<SegnaviaControl | SegnaviaRefusal> {
+    return [...this.root.querySelectorAll<SegnaviaControl | SegnaviaRefusal>(COMPONENTS)]
   }
 
   private configureRail() {

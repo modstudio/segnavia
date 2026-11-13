@@ -6,14 +6,14 @@
 // address alone) and prefetch create one. `unstyled` drops even the geometry. Keys pressed on the stage, or inside
 // a slide (through the bridge), go to the controller in reading direction.
 // State is mirrored as data attributes for styling: data-slide, data-playing,
-// data-word, data-shown, data-direction. A visible canvas has data-active, and
+// data-word, data-shown, data-direction and data-refused. A visible canvas has data-active, and
 // a pending incoming canvas on any swap has data-incoming. Motion uses
 // data-transition, data-entering, data-leaving, data-running and data-axis.
 
-import type { OriginApproval, PreflightProfileInput, SlotsOptions, TransitionInput } from '@segnavia/format'
+import { type OriginApproval, type PreflightProfileInput, Refusal, type SlotsOptions, type TransitionInput } from '@segnavia/format'
 import { AsOfElement, captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
-import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
+import { animationMessage, MESSAGE, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
 import { dispatchElementError } from './element-error.ts'
@@ -21,18 +21,19 @@ import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
 import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
-import { LAYOUT_FRAME_ATTRIBUTE } from './layout.ts'
 import { requestSelection } from './selection-request.ts'
-import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
 import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
+import { recordFrameRefusal, shownFrameRefusal } from './stage-frame-refusal.ts'
 import { measureStage } from './stage-measure.ts'
+import { handleStageMessage } from './stage-message.ts'
 import { setStagePreflightSurface } from './stage-preflight-surface.ts'
 import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
 import { StageFrameRebuilder } from './stage-rebuild.ts'
+import { StageRefusalState } from './stage-refusal-state.ts'
 import type { StageReserve } from './stage-reserve.ts'
-import { SLIDE_CHANGED_SELECTION_ERROR, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
+import { cancelStageSelectionRequests, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
 import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
@@ -67,6 +68,7 @@ export class SegnaviaStage extends AsOfElement {
     (state) => this.update(state),
   )
   private selectionRequests = new Map<(reason: Error) => void, { frame: HTMLIFrameElement; slideId: string }>()
+  private refused = new StageRefusalState(this, (state) => shownFrameRefusal(this.pool, state))
   constructor() {
     super()
     upgradeProperties(this)
@@ -148,6 +150,10 @@ export class SegnaviaStage extends AsOfElement {
     return this.attached
   }
 
+  get refusal(): Refusal | null {
+    return this.refused.refusal
+  }
+
   set controller(controller: DeckController | null) {
     const controllerUnchanged = controller === this.attached
     this.cancelSelectionRequests()
@@ -156,10 +162,14 @@ export class SegnaviaStage extends AsOfElement {
     this.slotDeck = null
     this.resolvedSlots = undefined
     this.attached?.removeEventListener('change', this.onChange)
+    this.attached?.removeEventListener('error', this.onControllerError)
     this.attached = controller
     if (this.isConnected) controller?.connectWindow()
     else controller?.disconnectWindow()
     controller?.addEventListener('change', this.onChange)
+    controller?.addEventListener('error', this.onControllerError)
+    if (controllerUnchanged && controller) this.refused.update(controller.state)
+    else this.refused.clear()
     this.frameRebuilder.rebuild(controller, controllerUnchanged)
     // Styled components pointing at this stage with `for` connect on this.
     this.dispatchEvent(new CustomEvent('segnavia-controller', { bubbles: true, composed: true }))
@@ -216,6 +226,11 @@ export class SegnaviaStage extends AsOfElement {
     this.update(state)
   }
 
+  private onControllerError = (event: Event) => {
+    const refusal = (event as ErrorEvent).error
+    if (refusal instanceof Refusal && this.attached) this.refused.arrive(refusal, this.attached.state)
+  }
+
   private loadSource() {
     const src = this.getAttribute('src')
     if (!src || !this.isConnected) return
@@ -225,7 +240,7 @@ export class SegnaviaStage extends AsOfElement {
       this.controller = this.owned
     }
     this.owned.brands = this.brands
-    void this.owned.loadUrl(src)
+    void this.owned.loadUrl(src).catch(() => {})
   }
 
   readSelection(): Promise<PageSelection> {
@@ -245,6 +260,7 @@ export class SegnaviaStage extends AsOfElement {
   }
 
   private update(state: DeckState) {
+    this.refused?.update(state)
     const deck = state.deck
     if (!deck || !state.content) return
     if (this.slotDeck !== deck) {
@@ -290,11 +306,9 @@ export class SegnaviaStage extends AsOfElement {
       slots: this.resolvedSlots,
       bridgeReadyTimeoutMs: this.bridgeReadyTimeoutMs,
       preflight: surfacePreflightFor(this).resolvedProfile(),
-      reportSlideError: (slideId, message) => {
-        const error = new SlideFrameError(message, slideId, this.attached?.state.deck?.slides.findIndex((slide) => slide.id === slideId) ?? -1)
-        dispatchElementError(this, error)
-      },
+      reportSlideError: this.reportFrameRefusal,
     })
+    this.refused?.update(state)
     const visible = this.querySelector<HTMLElement>('.segnavia-stage__canvas[data-active]')
     for (const group of visible?.querySelectorAll<SVGGElement>('[data-annotation]') ?? []) {
       const shown = state.shown === null || state.shown.includes(Number(group.dataset.annotation))
@@ -326,41 +340,28 @@ export class SegnaviaStage extends AsOfElement {
 
   // A key pressed inside the slide reaches the stage only through the bridge.
   private onMessage = (event: MessageEvent) => {
-    const message = messageFrom(event, this.pool.frames(), surfacePreflightFor(this).resolvedProfile())
-    dispatchFontFailures(this, message)
-    if (message?.type === MESSAGE.preflight && message.report && surfacePreflightFor(this).enabled) {
-      const frame = this.pool.frames().find((candidate) => candidate.contentWindow === event.source)
-      const slideId = frame?.closest<HTMLElement>('.segnavia-stage__canvas')?.dataset.slideId
-      if (slideId) surfacePreflightFor(this).receive(slideId, message.report)
-    }
-    if (message?.type === MESSAGE.ready) this.pool.markReady(event.source)
-    const failedFrame =
-      message?.type === MESSAGE.composeFailure && message.text ? this.pool.frames().find((frame) => frame.contentWindow === event.source) : undefined
-    if (failedFrame?.hasAttribute(LAYOUT_FRAME_ATTRIBUTE)) dispatchElementError(this, new Error(message?.text ?? ''))
-    if (message?.type === MESSAGE.slotFit && message.slots) this.resolvedSlots?.mergeFit(message.slots)
-    if (message?.type === MESSAGE.key && message.key && event.source === this.pool.activeFrame()?.contentWindow) this.attached?.key(message.key)
+    handleStageMessage(this, this.pool, this.resolvedSlots, this.attached, this.reportFrameRefusal, this.onFrameReady, event)
   }
+  private reportFrameRefusal = (slideId: string, cause: unknown) => {
+    const error = recordFrameRefusal(this.pool, this.attached, slideId, cause)
+    this.refused.update(this.attached?.state)
+    dispatchElementError(this, error)
+  }
+  private onFrameReady = () => this.refused.update(this.attached?.state)
   private onResize = () => this.measure()
 
   private poolChanged() {
     const active = this.pool.activeFrame()
-    const reason = new Error(SLIDE_CHANGED_SELECTION_ERROR)
-    for (const [cancel, { frame }] of this.selectionRequests) {
-      if (frame !== active) cancel(reason)
-    }
+    cancelStageSelectionRequests(this.selectionRequests, ({ frame }) => frame === active)
     this.measure()
   }
 
   private cancelSelectionRequests() {
-    const reason = new Error(SLIDE_CHANGED_SELECTION_ERROR)
-    for (const cancel of [...this.selectionRequests.keys()]) cancel(reason)
+    cancelStageSelectionRequests(this.selectionRequests)
   }
 
   private cancelSelectionRequestsExcept(slideId: string | undefined) {
-    const reason = new Error(SLIDE_CHANGED_SELECTION_ERROR)
-    for (const [cancel, request] of this.selectionRequests) {
-      if (request.slideId !== slideId) cancel(reason)
-    }
+    cancelStageSelectionRequests(this.selectionRequests, (request) => request.slideId === slideId)
   }
 
   private cancelSlotPreparation() {

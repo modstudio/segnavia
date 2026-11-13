@@ -22,6 +22,7 @@ import type {
   SegnaviaPaperPicker,
   SegnaviaPlay,
   SegnaviaRail,
+  SegnaviaRefusal,
   SegnaviaStep,
   SegnaviaTime,
   SegnaviaTrack,
@@ -57,6 +58,7 @@ type ElementClasses = {
   document: SegnaviaDocument
   book: SegnaviaBook
   player: SegnaviaPlayer
+  refusal: SegnaviaRefusal
   play: SegnaviaPlay
   step: SegnaviaStep
   track: SegnaviaTrack
@@ -78,6 +80,7 @@ export interface FrameVueEventDetails {
   preflight: PreflightReport
   ready: PlainEvent
   error: NativeEvent<ErrorEvent>
+  refusalchange: PlainEvent
   composeprogress: ComposeProgress
   page: { page: number; pageCount: number }
   record: { record: string | undefined }

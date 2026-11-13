@@ -119,6 +119,7 @@ export function stageCanvas(controller: DeckController, deck: Deck, slide: Slide
     image.className = 'segnavia-stage__image'
     image.alt = content.kind === 'image' ? content.alt : content.shot.title
     image.dir = firstStrongDirection(image.alt) ?? 'auto'
+    image.addEventListener('error', () => options.failed?.(new Error(`The image for slide "${slide.id}" could not be loaded.`)), { once: true })
     image.style.display = 'block'
     let imageSize: PixelSize | undefined = content.kind === 'image' ? undefined : content.shot.size
     let slideSize: PixelSize = deck.size
