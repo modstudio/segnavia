@@ -15,7 +15,7 @@
   ],
   "outline": [],
   "structure": { "tree": true, "marked": true },
-  "fonts": ["Helvetica", "Times-Roman"],
+  "fonts": ["LiberationSans", "LiberationSerif"],
   "info": {
     "Custom Metadata": "no",
     "Metadata Stream": "no",

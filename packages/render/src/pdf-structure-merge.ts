@@ -14,13 +14,13 @@ interface CopiedPart extends PdfPart {
 
 class StructureCopier {
   private readonly copied = new Map<PDFObject, PDFObject>()
+  private readonly source: PDFDocument
+  private readonly target: PDFDocument
 
-  constructor(
-    private readonly source: PDFDocument,
-    private readonly target: PDFDocument,
-    replacements: ReadonlyMap<PDFObject, PDFObject>,
-  ) {
-    for (const [source, target] of replacements) this.copied.set(source, target)
+  constructor(source: PDFDocument, target: PDFDocument, replacements: ReadonlyMap<PDFObject, PDFObject>) {
+    this.source = source
+    this.target = target
+    for (const [from, to] of replacements) this.copied.set(from, to)
   }
 
   copy = (source: PDFObject): PDFObject => {
