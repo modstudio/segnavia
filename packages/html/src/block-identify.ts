@@ -1,4 +1,4 @@
-import { DOCUMENT_PROFILES } from '@segnavia/format'
+import { DOCUMENT_PROFILES, type Document } from '@segnavia/format'
 import type { ChildNode, Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
@@ -36,6 +36,11 @@ function hasLineNumbers(children: readonly import('domhandler').ChildNode[]): bo
 }
 
 export type LineNumbersState = 'set' | 'unset' | 'unsupported'
+
+export function lineNumbersState(document: Pick<Document, 'kind' | 'settings'>): LineNumbersState {
+  if (!(DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes('lineNumbers')) return 'unsupported'
+  return document.settings?.lineNumbers === undefined ? 'unset' : 'set'
+}
 
 function lineNumberDocumentKinds(): string {
   const kinds = Object.entries(DOCUMENT_PROFILES)

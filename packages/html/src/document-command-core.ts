@@ -1,7 +1,6 @@
 import {
   applyOps,
   DOCUMENT_NODE_MODEL,
-  DOCUMENT_PROFILES,
   type Document,
   type DocumentBatch,
   type DocumentOp,
@@ -12,7 +11,7 @@ import {
   type OperationNode,
 } from '@segnavia/format'
 import { CONTENT_FIELD_SHAPES, contentFieldShape, type FragmentShape } from './block-fragments.ts'
-import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
+import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState } from './block-identify.ts'
 import { blockView } from './block-view.ts'
 import { pageBodyFromHtml, pageBodyHtml } from './document.ts'
 import { DocumentCommandRefusal, resolveLocation, resolveNode } from './document-addresses.ts'
@@ -37,11 +36,6 @@ export interface DocumentCommandResult {
 }
 
 export type DocumentCommandHandler = (context: DocumentCommandContext, command: DocumentCommand) => DocumentCommandResult
-
-function lineNumbersState(document: Document): import('./block-identify.ts').LineNumbersState {
-  const supported = (DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes('lineNumbers')
-  return supported ? (document.settings?.lineNumbers === undefined ? 'unset' : 'set') : 'unsupported'
-}
 
 function uniqueId(context: DocumentCommandContext, supplied: unknown, used: Set<string>, subject: string): string {
   const id = typeof supplied === 'string' && supplied.length > 0 ? supplied : (context.options.newId ?? defaultNewId)()
