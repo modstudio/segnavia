@@ -186,6 +186,13 @@ test('checks only no-fallback inline furniture variables and skips computed styl
   expect(composerScript('{}')).toContain("if(config.preflight['css-var-invalid']!=='off')markFurnitureInvalidVariables")
 })
 
+test('embedded custom property messages carry their font remedy', () => {
+  const message = new Function(`${embeddedPreflightFunctions()};return cssVarInvalidMessage('--segnavia-font-heading')`)() as string
+  expect(message).toBe(
+    'Custom property --segnavia-font-heading is invalid; declare font heading in style.fonts and supply it from the font source to clear it.',
+  )
+})
+
 test('seeds every compose from a fresh copy', () => {
   expect(composerScript('{}')).toContain('preflightEntries=(config.preflightSeed||[]).slice()')
 })

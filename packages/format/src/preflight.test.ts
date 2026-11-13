@@ -326,11 +326,12 @@ test('font missing entries distinguish failure remedies and collapse repeated fa
       message: 'Font face Body (weight 700, italic) was not supplied; supply that face to clear it.',
       location: { folio: '2' },
     },
+  ])
+  expect(fontMissingEntries([{ ...unsupplied, reason: 'unloaded' }])).toEqual([
     {
       check: 'font-missing',
       subject: 'Body (weight 700, italic)',
-      message: 'Font face Body (weight 700, italic) was supplied but did not load; supply a face file the browser can load to clear it.',
-      location: { folio: '2' },
+      message: 'Font face Body (weight 700, italic) did not load in the frame; supply a face file the browser can load to clear it.',
     },
   ])
   expect(fontMissingEntries([{ font: 'body', family: 'Body', weight: [100, 900], reason: 'unsupplied' }])[0]?.subject).toBe('Body (weight 100–900)')

@@ -131,13 +131,12 @@ export function fontMissingEntries(failures: readonly FontFailure[], location?: 
     const weight = Array.isArray(failure.weight) ? failure.weight.join('–') : failure.weight
     const details = [weight === undefined ? undefined : `weight ${weight}`, failure.style].filter(Boolean)
     const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
-    const key = `${subject}\0${failure.reason}`
-    if (seen.has(key)) return []
-    seen.add(key)
+    if (seen.has(subject)) return []
+    seen.add(subject)
     const message =
       failure.reason === 'unsupplied'
         ? `Font face ${subject} was not supplied; supply that face to clear it.`
-        : `Font face ${subject} was supplied but did not load; supply a face file the browser can load to clear it.`
+        : `Font face ${subject} did not load in the frame; supply a face file the browser can load to clear it.`
     return [{ check: 'font-missing', subject, message, ...(location === undefined ? {} : { location }) }]
   })
 }

@@ -22,6 +22,7 @@ function refineRecord(
   hostSlots: ReadonlySet<string>,
   ctx: z.RefinementCtx,
 ): void {
+  const recordName = record.id ?? path.join('.')
   if (!template) {
     ctx.addIssue({
       code: 'custom',
@@ -39,14 +40,14 @@ function refineRecord(
   }
   if (!template.slots?.length) {
     const valueKeys = Object.keys(record.values)
-    const recordName = record.id ?? path.join('.')
+    const namedValueKeys = valueKeys.map((key) => JSON.stringify(key)).join(', ')
     ctx.addIssue({
       code: 'custom',
       path: [...path, 'values'],
       message:
         valueKeys.length === 0
           ? `template ${template.name} has no slots for record ${recordName}; declare slots on template ${template.name} to clear this refusal`
-          : `template ${template.name} has no slots, so record ${recordName}'s values ${valueKeys.join(', ')} cannot be placed; declare slots ${valueKeys.join(', ')} on template ${template.name} to clear this refusal`,
+          : `template ${template.name} has no slots, so record ${recordName}'s values ${namedValueKeys} cannot be placed; declare slots ${namedValueKeys} on template ${template.name} to clear this refusal`,
     })
     return
   }
@@ -60,17 +61,18 @@ function refineRecord(
       })
   }
   const templatePath = ['templates', document.templates.indexOf(template)]
-  for (const slot of template.slots) refineSlot(record, path, template, templatePath, slot, hostSlots, ctx)
+  for (const slot of template.slots) refineSlot(record, recordName, path, template, templatePath, slot, hostSlots, ctx)
   if (document.kind === 'book' && document.mode === 'continuous')
     ctx.addIssue({
       code: 'custom',
       path,
-      message: `record ${record.id ?? path.join('.')} restarts page numbering, which continuous layout cannot apply; use the paginated layout to clear this refusal`,
+      message: `record ${recordName} restarts page numbering, which continuous layout cannot apply; use the paginated layout to clear this refusal`,
     })
 }
 
 function refineSlot(
   record: Extract<DocumentNode, { type: 'record' }>,
+  recordName: string,
   recordPath: DocumentNodePath,
   template: TemplateNode,
   templatePath: DocumentNodePath,
@@ -82,7 +84,7 @@ function refineSlot(
     ctx.addIssue({
       code: 'custom',
       path: [...recordPath, 'values'],
-      message: `record ${record.id ?? recordPath.join('.')} has no value for required template slot ${JSON.stringify(slot.key)}; provide that value to clear this refusal`,
+      message: `record ${recordName} has no value for required template slot ${JSON.stringify(slot.key)}; provide that value to clear this refusal`,
     })
   if (slot.type !== 'text')
     ctx.addIssue({
