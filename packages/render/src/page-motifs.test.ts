@@ -204,7 +204,7 @@ test('deckPdf reports an unsupplied declared face', async () => {
   } finally {
     await renderer.close()
   }
-  expect(reports).toContainEqual({ failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }] })
+  expect(reports).toContainEqual({ failures: [{ font: 'missing', family: 'missing', weight: 400, reason: 'unsupplied' }] })
 })
 
 test('pagePdf embeds only named transported local faces and retains no decoded buffer', async () => {

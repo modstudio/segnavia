@@ -26,7 +26,7 @@ describe('book motifs', () => {
     book.fonts = { source: { font: async () => undefined } }
     book.view = { html: '<main>Book</main>', style: { fonts: { missing: { faces: [{}] } } } }
     for (let i = 0; i < 40; i += 1) await Promise.resolve()
-    expect(detail).toEqual({ failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }] })
+    expect(detail).toEqual({ failures: [{ font: 'missing', family: 'missing', weight: 400, reason: 'unsupplied' }] })
   })
 
   test('a later flow frame uses the motif-expanded prepared view', async () => {

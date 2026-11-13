@@ -86,6 +86,6 @@ test('deck-wide font failures stay locationless when the same face also fails in
   )
   expect(reports).toHaveLength(1)
   expect(reports[0]?.issues).toHaveLength(1)
-  expect(reports[0]?.issues[0]).toMatchObject({ check: 'font-missing', subject: 'body' })
+  expect(reports[0]?.issues[0]).toMatchObject({ check: 'font-missing', subject: 'body (weight 400)' })
   expect(reports[0]?.issues[0]?.location).toBeUndefined()
 })

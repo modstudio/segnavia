@@ -16,7 +16,10 @@ export interface FontCoverageGap {
   unicodeRange?: string
 }
 
-/** Its source text is embedded in frames by declaredFontLoadExpression, so this function must remain self-contained. */
+/**
+ * Its source text is embedded in frames by declaredFontLoadExpression, so this function must remain self-contained.
+ * An unreadable declaration fails closed as one gap over its whole declared region.
+ */
 export function fontCoverageGaps(declaration: FontCoverageDeclaration, faces: readonly FontCoverageFace[]): FontCoverageGap[] {
   type Range = [number, number]
   const fullRange: Range = [0, 0x10ffff]
@@ -75,10 +78,19 @@ export function fontCoverageGaps(declaration: FontCoverageDeclaration, faces: re
     const point = (codePoint: number) => codePoint.toString(16).toUpperCase().padStart(4, '0')
     return value.map(([start, end]) => (start === end ? `U+${point(start)}` : `U+${point(start)}-${point(end)}`)).join(',')
   }
+  const unreadableGap = (weight: Range | null, parsedRanges: Range[] | null): FontCoverageGap => {
+    const gapWeight = weight === null ? [1, 1000] : weight[0] === weight[1] ? weight[0] : weight
+    const unicodeRange = declaration.unicodeRange === undefined ? undefined : parsedRanges === null ? declaration.unicodeRange : formatRanges(parsedRanges)
+    return {
+      weight: gapWeight,
+      ...(declaration.style === undefined ? {} : { style: declaration.style }),
+      ...(unicodeRange === undefined ? {} : { unicodeRange }),
+    }
+  }
 
   const declaredWeight = weightRange(declaration.weight)
   const declaredRanges = ranges(declaration.unicodeRange)
-  if (declaredWeight === null || declaredRanges === null) return []
+  if (declaredWeight === null || declaredRanges === null) return [unreadableGap(declaredWeight, declaredRanges)]
   const candidates = faces.flatMap((face) => {
     const faceWeight = weightRange(face.weight)
     const faceRanges = ranges(face.unicodeRange)

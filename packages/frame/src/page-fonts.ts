@@ -2,12 +2,14 @@ import {
   APP_FONT_NAME,
   type AppFont,
   type BookView,
+  type FontCoverageGap,
   type FontDeclaration,
   type FontFace,
   type FontFailure,
   type FontManifest,
   type FontReference,
   type FontSource,
+  fontCoverageGaps,
   fontManifestReferences,
   fontManifestWithReferences,
   type LimitExceeded,
@@ -86,8 +88,12 @@ export function requireAppFontName(name: string, place: string): void {
   )
 }
 
-function unsupplied(font: string, family: string, faces: readonly FontDeclaration[]): FontFailure[] {
-  return faces.map(({ script: _script, ...face }) => ({ font, family, ...face, reason: 'unsupplied' as const }))
+function unsupplied(font: string, family: string, gaps: readonly FontCoverageGap[]): FontFailure[] {
+  return gaps.map((gap) => ({ font, family, ...gap, reason: 'unsupplied' as const }))
+}
+
+function declarationGaps(faces: readonly FontDeclaration[]): FontCoverageGap[] {
+  return faces.flatMap((face) => fontCoverageGaps(face, []))
 }
 
 function matchedFaces(declaration: { faces: FontDeclaration[] } | undefined, font: AppFont) {
@@ -103,7 +109,7 @@ function unusablePresentFailures(
   targetDocumentCanUsePresentFaces: boolean,
 ): FontFailure[] {
   if (!font.present || targetDocumentCanUsePresentFaces) return []
-  return declaration ? unsupplied(name, font.family, declaration.faces) : [{ font: name, family: font.family, reason: 'unsupplied' }]
+  return declaration ? unsupplied(name, font.family, declarationGaps(declaration.faces)) : [{ font: name, family: font.family, reason: 'unsupplied' }]
 }
 
 export async function resolveFontReferences(
@@ -127,7 +133,9 @@ export async function resolveFontReferences(
     const font = await fonts.source.font(name, { signal })
     signal.throwIfAborted()
     if (!font) {
-      failures.push(...(declaration ? unsupplied(name, name, declaration.faces) : [{ font: name, family: name, reason: 'unsupplied' as const }]))
+      failures.push(
+        ...(declaration ? unsupplied(name, name, declarationGaps(declaration.faces)) : [{ font: name, family: name, reason: 'unsupplied' as const }]),
+      )
       continue
     }
     failures.push(...unusablePresentFailures(name, declaration, font, targetDocumentCanUsePresentFaces))

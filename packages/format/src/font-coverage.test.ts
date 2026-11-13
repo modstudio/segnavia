@@ -39,4 +39,11 @@ describe('fontCoverageGaps', () => {
   test('reports a Hebrew declaration not covered by a Latin face', () => {
     expect(fontCoverageGaps({ unicodeRange: 'U+0590-05FF' }, [{ unicodeRange: 'U+0000-007F' }])).toEqual([{ weight: 400, unicodeRange: 'U+0590-05FF' }])
   })
+
+  test('fails closed over an unreadable declaration', () => {
+    expect(fontCoverageGaps({ weight: [900, 100], style: 'italic', unicodeRange: 'u+0590-05ff' }, [])).toEqual([
+      { weight: [1, 1000], style: 'italic', unicodeRange: 'U+0590-05FF' },
+    ])
+    expect(fontCoverageGaps({ weight: 700, unicodeRange: 'not-a-range' }, [])).toEqual([{ weight: 700, unicodeRange: 'not-a-range' }])
+  })
 })

@@ -56,6 +56,7 @@ export async function loadDeclaredFonts(
     const loaded = await Promise.all(
       intersecting.map(async (face) => {
         try {
+          // FontFace.load fetches the face's source whatever text it receives, so this exercises every intersecting face.
           await face.load(declaration.sample)
           return face.status !== 'error' ? face : undefined
         } catch {

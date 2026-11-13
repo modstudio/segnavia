@@ -58,7 +58,7 @@ describe('font load', () => {
       expect(fontFailuresData([{ ...valid, weight }])).toBeNull()
   })
 
-  test('loads a variable face only when it covers the declared range', async () => {
+  test('loads a partially covering variable face and reports its uncovered weight band', async () => {
     let loads = 0
     const variable = { family: 'Body', weight: '100 900', style: 'normal', status: 'loaded', load: async () => loads++ }
     const failures = await loadDeclaredFonts(
@@ -90,6 +90,16 @@ describe('font load', () => {
       () => ({ getPropertyValue: () => 'Body' }),
     )
     expect(failures).toEqual([])
+
+    const rangeDeclarations = JSON.stringify([{ font: 'body', unicodeRange: 'U+0590-05FF', sample: 'א' }])
+    const rangeFailures = await compile(rangeDeclarations)(
+      {
+        fonts: [{ family: 'Body', weight: 'normal', style: 'normal', unicodeRange: 'U+0000-007F', status: 'loaded', load: async () => undefined }],
+        documentElement: { setAttribute: () => {} },
+      },
+      () => ({ getPropertyValue: () => 'Body' }),
+    )
+    expect(rangeFailures).toEqual([{ font: 'body', family: 'Body', weight: 400, unicodeRange: 'U+0590-05FF', reason: 'unloaded' }])
   })
 
   test('attempts every declaration while bounding the report', async () => {
@@ -209,6 +219,10 @@ describe('font load', () => {
       {
         declaration: { weight: [100, 900] as [number, number] },
         faces: [{ weight: '100' }, { weight: '900' }],
+      },
+      {
+        declaration: { unicodeRange: 'u+0590-05ff' },
+        faces: [],
       },
     ]
     for (const [caseIndex, coverageCase] of cases.entries()) {

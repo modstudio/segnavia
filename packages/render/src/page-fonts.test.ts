@@ -76,7 +76,7 @@ describe('prepareRenderedPageValue', () => {
   test('reports an unknown name without refusing', async () => {
     const page = Page.parse({ html: '<p></p>', style: { fonts: { missing: { faces: [{}] } } } })
     const prepared = await prepareRenderedPageValue(page, { fontSource: source }, undefined, signal, established)
-    expect(prepared.fontFailures).toEqual([{ font: 'missing', family: 'missing', reason: 'unsupplied' }])
+    expect(prepared.fontFailures).toEqual([{ font: 'missing', family: 'missing', weight: 400, reason: 'unsupplied' }])
   })
 
   test('keeps an already-present font as a property without embedding it', async () => {
@@ -235,7 +235,7 @@ describe('@segnavia/frame/fonts', () => {
     const page = Page.parse({ html: '<p></p>', style: { fonts: { missing: { faces: [{}] } } } })
     expect(await resolvePageFonts(page, [], { source }, signal)).toEqual({
       css: '',
-      failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }],
+      failures: [{ font: 'missing', family: 'missing', weight: 400, reason: 'unsupplied' }],
     })
   })
 })
