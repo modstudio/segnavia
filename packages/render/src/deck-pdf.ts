@@ -13,7 +13,6 @@ import {
   pagePlacementLayout,
 } from '@segnavia/format'
 import { newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
-import { hasDiagram } from '@segnavia/frame/diagrams'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import {
@@ -140,8 +139,7 @@ async function renderHtmlSlides(
             preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
             beforeOutput: async (tab) => {
               font = await captureDeckFont(tab, Boolean(opts.watermark), {
-                prepare: (page) =>
-                  waitForPrintReady(page, renderReadiness('refuse', opts.waitForPageReady !== false, slideLayouts.length > 0)),
+                prepare: (page) => waitForPrintReady(page, renderReadiness('refuse', opts.waitForPageReady !== false, slideLayouts.length > 0)),
               })
             },
           },

@@ -7,7 +7,6 @@ import type { Page as Tab } from 'playwright-core'
 import { firstNotesPages, renderDeckPdf } from './deck-pdf.ts'
 import { RenderRefusedError } from './errors.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
-import { PAGE_READY_BOUND_MS } from './renderer.ts'
 
 async function onePage(width = 300, height = 150): Promise<Uint8Array> {
   const pdf = await PDFDocument.create()

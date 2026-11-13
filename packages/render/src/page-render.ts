@@ -1,7 +1,6 @@
 import type { FontFailure } from '@segnavia/format'
-import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
-import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
+import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
 import type { Frame, Page as Tab } from 'playwright-core'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'

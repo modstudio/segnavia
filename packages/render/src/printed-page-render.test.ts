@@ -48,7 +48,7 @@ test('embeds resolved app font CSS and carries failures in a printed-page frame'
     ...composed,
     style: { fonts: { body: { faces: [{}] } } },
   }
-  const html = renderedPageDocument(page, {}, true, undefined, '@font-face{font-family:"Body";src:url(data:font/ttf;base64,AA==)}', [
+  const html = renderedPageDocument(page, {}, true, '@font-face{font-family:"Body";src:url(data:font/ttf;base64,AA==)}', [
     { font: 'body', family: 'body', reason: 'unsupplied' },
   ])
   expect(html).toContain('@font-face{font-family:"Body";src:url(data:font/ttf;base64,AA==)}')

@@ -253,11 +253,7 @@ async function printBook(
         scripts: continuousBookNeedsScripts(html, sheets ?? [], renderOptions.css, book.scripts, marginLayer),
         html: srcdoc,
         slots,
-        readiness: renderReadiness(
-          marginLayer ? 'refuse' : book.scripts,
-          renderOptions.waitForPageReady !== false,
-          resolvedLayoutScripts.length > 0,
-        ),
+        readiness: renderReadiness(marginLayer ? 'refuse' : book.scripts, renderOptions.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
         boundMs: renderOptions.boundMs,
         beforeOutput:
           renderOptions.beforeOutput || (renderOptions.watermark && !marginLayer)
@@ -334,18 +330,7 @@ export async function renderBrowserBookPdf(
     {
       print: async (html, book, slots, renderOptions, part, layerCss = '') => {
         resolvedLayouts ??= resolveRenderLayoutScripts(bookDocument(book).html)
-        return printBook(
-          html,
-          book,
-          slots,
-          renderOptions,
-          part,
-          layerCss,
-          fontCss,
-          await resolvedLayouts,
-          dependencies.fontFailures ?? [],
-          dependencies,
-        )
+        return printBook(html, book, slots, renderOptions, part, layerCss, fontCss, await resolvedLayouts, dependencies.fontFailures ?? [], dependencies)
       },
       watermark: dependencies.watermark,
       finish: dependencies.finish,

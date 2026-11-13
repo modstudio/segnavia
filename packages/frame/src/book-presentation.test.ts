@@ -12,9 +12,7 @@ import {
 
 describe('book place', () => {
   test('waits for diagram drawing before its first report', () => {
-    expect(bookPresentationScript('document', '', JSON.stringify('data-segnavia-book-page'))).toContain(
-      'settleBookPlace();',
-    )
+    expect(bookPresentationScript('document', '', JSON.stringify('data-segnavia-book-page'))).toContain('settleBookPlace();')
   })
 
   test('uses the first block crossing or following the viewport top', () => {

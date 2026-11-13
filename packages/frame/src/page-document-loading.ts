@@ -53,13 +53,7 @@ export function loadPageDocument(
   failed: (error: unknown) => void,
   loadLayouts = loadLayoutScripts,
 ): void {
-  loadLayoutDocument(
-    page.html,
-    (nonce, layoutScripts) => frameDocument(page.html, { ...options, nonce, layoutScripts }),
-    loaded,
-    failed,
-    loadLayouts,
-  )
+  loadLayoutDocument(page.html, (nonce, layoutScripts) => frameDocument(page.html, { ...options, nonce, layoutScripts }), loaded, failed, loadLayouts)
 }
 
 export function loadShownPageDocument(
@@ -70,11 +64,5 @@ export function loadShownPageDocument(
   failed: (error: unknown) => void,
   loadLayouts = loadLayoutScripts,
 ): void {
-  loadLayoutDocument(
-    page.html,
-    (nonce, layoutScripts) => shownPageDocument(page, resolved, { ...options, nonce, layoutScripts }),
-    loaded,
-    failed,
-    loadLayouts,
-  )
+  loadLayoutDocument(page.html, (nonce, layoutScripts) => shownPageDocument(page, resolved, { ...options, nonce, layoutScripts }), loaded, failed, loadLayouts)
 }

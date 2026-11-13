@@ -1,4 +1,4 @@
-import { attributeValues, htmlElementAttributes, type HtmlElementAttributes } from '@segnavia/html'
+import { attributeValues, type HtmlElementAttributes, htmlElementAttributes } from '@segnavia/html'
 
 export const LAYOUT_ATTRIBUTE = 'data-segnavia-layout'
 export const LAYOUT_FRAME_ATTRIBUTE = 'data-segnavia-layout-frame'

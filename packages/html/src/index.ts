@@ -165,9 +165,9 @@ export { type BoundRecordSection, bindRecordValues, type RecordValueSection } fr
 export {
   assetOriginRefusals,
   attributeValues,
-  htmlElementAttributes,
-  type HtmlElementAttributes,
   findActiveContent,
+  type HtmlElementAttributes,
+  htmlElementAttributes,
   REFUSED_ELEMENTS,
   type SanitizeOptions,
   safeImageSource,

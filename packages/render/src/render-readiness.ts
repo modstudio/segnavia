@@ -1,7 +1,5 @@
 import type { Scripts } from '@segnavia/format'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from '@segnavia/frame/bridge'
-import { RenderRefusedError } from './errors.ts'
-import { PAGE_READY_BOUND_MS } from './renderer.ts'
 
 export const RENDER_READY_BINDING = '__segnaviaRenderReady'
 
@@ -38,4 +36,3 @@ export function readinessRefusal(readiness: RenderReadiness, established: Render
   const remedy = clearing.join('; ')
   return `${facts[0]?.toUpperCase()}${facts.slice(1)} within ${seconds}s. ${remedy[0]?.toUpperCase()}${remedy.slice(1)} to clear this refusal.`
 }
-

@@ -19,4 +19,3 @@ const DIAGRAM_PATTERN = new RegExp(`<${diagramTag}\\b[^>]*\\b${diagramAttribute}
 export function hasDiagram(html: string): boolean {
   return DIAGRAM_PATTERN.test(html)
 }
-

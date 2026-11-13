@@ -277,17 +277,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   Boolean(parsedOptions.watermark),
                 ),
               piecePdf: (page, slots, geometry, css, options) =>
-                renderPiecePdf(
-                  page,
-                  slots,
-                  geometry,
-                  css,
-                  options,
-                  { withTab },
-                  deadline,
-                  resolvedLayoutScripts,
-                  Boolean(parsedOptions.watermark),
-                ),
+                renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, resolvedLayoutScripts, Boolean(parsedOptions.watermark)),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
               watermark: watermarkCopies.stamp,
@@ -368,9 +358,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async proofImage(input, opts) {
       opts = parseProofImageOptions(opts)
       return withinRenderPermit(RENDER_BOUND_MS, acquire, release, (deadline) =>
-        withTab(
-          { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false), deadline },
-          (tab) => proofRasterImage(tab, input, opts),
+        withTab({ viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false), deadline }, (tab) =>
+          proofRasterImage(tab, input, opts),
         ),
       )
     },

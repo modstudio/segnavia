@@ -269,11 +269,7 @@ export class SegnaviaBook extends BookSourcesElement {
     this.preflightSeed = preflight
     if (fontFailures.length > 0) dispatchFontFailures(this, { type: MESSAGE.fontFailures, failures: fontFailures })
     if (!view.pagination) {
-      this.replaceChildren(
-        this.mountFrame(
-          bookFrame(view, { css, layout: 'pages', origins: this.origins, layoutScripts: this.layoutScripts }),
-        ),
-      )
+      this.replaceChildren(this.mountFrame(bookFrame(view, { css, layout: 'pages', origins: this.origins, layoutScripts: this.layoutScripts })))
       return
     }
     const pages = this.mountFrame(this.renderFrame(view, css, 'pages'), 'pages')

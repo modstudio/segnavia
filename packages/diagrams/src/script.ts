@@ -1,10 +1,5 @@
 import { firstStrongDirection, textDirection } from '@segnavia/format'
-import {
-  DIAGRAM_ERROR_ATTRIBUTE,
-  DIAGRAM_FAILED_ATTRIBUTE,
-  DIAGRAM_ID_PREFIX,
-  DIAGRAM_SELECTOR,
-} from '@segnavia/frame/diagrams'
+import { DIAGRAM_ERROR_ATTRIBUTE, DIAGRAM_FAILED_ATTRIBUTE, DIAGRAM_ID_PREFIX, DIAGRAM_SELECTOR } from '@segnavia/frame/diagrams'
 import mermaidBundle from 'mermaid/dist/mermaid.min.js' with { type: 'text' }
 import { diagramErrorFirstLine, diagramFailureIssue, diagramLabelDirection } from './runtime.ts'
 
