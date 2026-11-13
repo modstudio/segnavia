@@ -146,7 +146,9 @@ describe('numberLines', () => {
     if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
     const text = flow.blocks[1]
     if (!text) throw new Error('The fixture has no text block.')
-    text.lines[0] = { ...text.lines[0]!, counted: false }
+    const headingLine = text.lines[0]
+    if (!headingLine) throw new Error('The fixture text block has no first line.')
+    text.lines[0] = { ...headingLine, counted: false }
     const lines = numberLines(measurements, plan, { interval: 1, start: 1, restart: 'section', area: 'text', side: 'outer', system: 'arabic' })
     expect(lines[0]?.lines[0]).toMatchObject({ value: 1, top: 20 })
   })
