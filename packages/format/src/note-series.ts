@@ -36,50 +36,35 @@ export interface ResolvedNoteSeries {
   markBlockSeries: boolean
 }
 
-export const ResolvedNoteSeries = closedObject({
-  name: NoteSeries.shape.name,
-  placement: NotePlacement,
-  numbering: NoteNumbering,
-  marker: NoteMarker,
-  title: z.string(),
-  idStem: z.string(),
-  idScope: z.enum(['chapter', 'numbering']),
-  blockClass: z.string(),
-  bodyClass: z.string(),
-  titleClass: z.string(),
-  sectionIdPrefix: z.string(),
-  markerLabel: z.string(),
-  markerConflictSuffixes: z.record(z.string(), z.string()),
-  markBlockSeries: z.boolean(),
-})
-
-const noteSeriesEntrySchema = (value: unknown) => (typeof value === 'object' && value !== null && 'idStem' in value ? ResolvedNoteSeries : NoteSeries)
-
-export const NoteSeriesEntries = z
-  .array(z.unknown())
-  .superRefine((values, ctx) => {
-    values.forEach((value, index) => {
-      const result = noteSeriesEntrySchema(value).safeParse(value)
-      if (!result.success) {
-        for (const issue of result.error.issues) {
-          ctx.addIssue({ ...issue, path: [index, ...issue.path], message: `notes[${index}].${issue.message}` })
-        }
-      }
-    })
-  })
-  .transform((values) =>
-    values.map((value) => {
-      const result = noteSeriesEntrySchema(value).safeParse(value)
-      if (!result.success) return { name: 'invalid', placement: 'book' as const, numbering: 'book' as const }
-      const { name, placement, numbering, marker, title } = result.data
-      return { name, placement, numbering, marker, title }
-    }),
-  )
-
 type SeriesPresentation = Pick<
   ResolvedNoteSeries,
   'idStem' | 'idScope' | 'blockClass' | 'bodyClass' | 'titleClass' | 'sectionIdPrefix' | 'markerLabel' | 'markerConflictSuffixes' | 'markBlockSeries'
 >
+
+const SERIES_PRESENTATION_KEYS = [
+  'idStem',
+  'idScope',
+  'blockClass',
+  'bodyClass',
+  'titleClass',
+  'sectionIdPrefix',
+  'markerLabel',
+  'markerConflictSuffixes',
+  'markBlockSeries',
+] as const satisfies readonly (keyof SeriesPresentation)[]
+
+type CompletePresentationKeys<Keys extends readonly (keyof SeriesPresentation)[]> = Exclude<keyof SeriesPresentation, Keys[number]> extends never ? Keys : never
+
+const RESOLVED_PRESENTATION_KEYS: CompletePresentationKeys<typeof SERIES_PRESENTATION_KEYS> = SERIES_PRESENTATION_KEYS
+
+function withoutResolvedPresentation(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || !RESOLVED_PRESENTATION_KEYS.every((key) => key in value)) return value
+  const authored: Record<string, unknown> = { ...value }
+  for (const key of RESOLVED_PRESENTATION_KEYS) delete authored[key]
+  return authored
+}
+
+export const NoteSeriesEntries = z.array(z.preprocess(withoutResolvedPresentation, NoteSeries))
 
 type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker'> & { marker?: NoteMarkerValue; preferredMarker?: NoteMarkerValue }
 
