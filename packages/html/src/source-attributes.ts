@@ -13,6 +13,10 @@ interface SourceAttributeOptions {
   refusedFamilies?: readonly string[]
 }
 
+export function parentRegionAttributeIssue(where: string, family: string): string {
+  return `${where} ${family} cannot take effect in a parent-page region; remove it to clear this refusal`
+}
+
 function familyIssues(
   family: SourceAttributeFamily,
   where: string,
@@ -24,7 +28,7 @@ function familyIssues(
   const issues = family.issues(where, attribs)
   if (!family.subjectAttributes.some((attribute) => attribs[attribute] !== undefined)) return issues
   if (options.refusedFamilies?.includes(family.name)) {
-    issues.push(`${where} ${family.name} cannot take effect in a parent-page region; remove it to clear this refusal`)
+    issues.push(parentRegionAttributeIssue(where, family.name))
   } else if (!block) {
     issues.push(`${where} ${family.name} has no block subject; place it in a block element to clear this refusal`)
   } else if (options.requireAuthoredId && !identified) {

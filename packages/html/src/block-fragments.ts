@@ -41,6 +41,11 @@ export const CONTENT_FIELD_SHAPES: Readonly<Record<DocumentNodeType, FieldShapes
   condition: {},
 }
 
+export function contentFieldFlows(documentKind: Document['kind'], nodeType: DocumentNodeType, shape: FragmentShape): boolean {
+  if (shape === 'htmlString') return nodeType === 'flow' || nodeType === 'part'
+  return shape === 'pageBody' && documentKind === 'printed'
+}
+
 interface FragmentAccessor {
   keyed: boolean
   read: (value: unknown, key?: string) => string | undefined

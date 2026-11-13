@@ -12,6 +12,7 @@ import { fixtureIds } from './build-book-fixture-ids.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
+import { writeNumberedBookDemo } from './demo-book-line-number-fixtures.ts'
 import { BOOK_FOLIO_MOTIF_KEY, BOOK_MOTIF_KEY, bookMotifSetup } from './demo-book-motifs.ts'
 import { noteCasesCss, noteCasesFixture } from './demo-book-note-fixtures.ts'
 import { noteSeriesFixture, twoPageSeriesFixture, twoPageSeriesRelayoutCss } from './demo-book-note-series-fixtures.ts'
@@ -168,7 +169,6 @@ export const paginatedFixture = (hebrew: boolean): DocumentInput => ({
     },
   ],
 })
-
 function writeNoteCaseBook(site: string, hebrew: boolean, hebrewFace: string): void {
   const css = hebrew ? `${hebrewFace}${noteCasesCss()}:where(html){font:16px/1.7 Alef,serif}` : `${noteCasesCss()}:where(html){font:16px/1.5 Georgia,serif}`
   writeFileSync(
@@ -364,6 +364,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}segnavia-book{display:block;block-size:70vh;background:#fff}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-screen-en" src="book-paginated-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-screen-he" spread src="book-paginated-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script>${bookMotifSetup}</body></html>`,
   )
+  writeNumberedBookDemo(site)
   writeHiddenBookDemo(site)
   writeFileSync(
     path.join(site, 'book-paginated-large.html'),

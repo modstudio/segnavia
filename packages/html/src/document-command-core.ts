@@ -10,8 +10,8 @@ import {
   type OperationDocument,
   type OperationNode,
 } from '@segnavia/format'
-import { CONTENT_FIELD_SHAPES, contentFieldShape, type FragmentShape } from './block-fragments.ts'
-import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
+import { CONTENT_FIELD_SHAPES, contentFieldFlows, contentFieldShape, type FragmentShape } from './block-fragments.ts'
+import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState } from './block-identify.ts'
 import { blockView } from './block-view.ts'
 import { pageBodyFromHtml, pageBodyHtml } from './document.ts'
 import { DocumentCommandRefusal, resolveLocation, resolveNode } from './document-addresses.ts'
@@ -70,31 +70,38 @@ function identifiedField(
   context: DocumentCommandContext,
   usedBlocks: Map<string, BlockIdLocation>,
   added: string[],
+  nodeType: string,
   nodeLabel: string,
 ): unknown {
-  const identify = (html: string, options: { insideNamedRegion?: string; refuseMeasure?: boolean } = {}): string => {
-    const result = identifyHtmlBlocks(html, nodeLabel, context.options.newId ?? defaultNewId, usedBlocks, options)
+  const identify = (html: string, options: { insideNamedRegion?: string; parentRegion?: boolean; flowing?: boolean } = {}): string => {
+    const result = identifyHtmlBlocks(html, nodeLabel, context.options.newId ?? defaultNewId, usedBlocks, {
+      ...options,
+      lineNumbers: lineNumbersState(context.document),
+    })
     added.push(...result.added)
     return result.html
   }
-  if (shape === 'htmlString' && typeof value === 'string') return identify(value)
+  const flowing = contentFieldFlows(context.document.kind, nodeType as keyof typeof CONTENT_FIELD_SHAPES, shape)
+  if (shape === 'htmlString' && typeof value === 'string') return identify(value, { flowing })
   if (!value || typeof value !== 'object') return value
   if (shape === 'pageBody') {
     const body = pageBodySource(value, context)
-    return body === undefined ? value : pageBodyFromHtml(identify(body.source), body.markdown)
+    return body === undefined ? value : pageBodyFromHtml(identify(body.source, { flowing }), body.markdown)
   }
   if (shape === 'slideContent') {
     const held = value as { kind?: unknown; html?: unknown }
-    return held.kind === 'html' && typeof held.html === 'string' ? { ...value, html: identify(held.html) } : value
+    return held.kind === 'html' && typeof held.html === 'string' ? { ...value, html: identify(held.html, { flowing }) } : value
   }
   if (shape === 'record')
-    return Object.fromEntries(Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identify(html, { insideNamedRegion: key }) : html]))
+    return Object.fromEntries(
+      Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identify(html, { insideNamedRegion: key, flowing }) : html]),
+    )
   if (shape === 'regionRecord') {
     return Object.fromEntries(
       Object.entries(value).map(([key, region]) => {
         if (!region || typeof region !== 'object') return [key, region]
         const held = region as Record<string, unknown>
-        return [key, typeof held.html === 'string' ? { ...held, html: identify(held.html, { insideNamedRegion: key, refuseMeasure: true }) } : held]
+        return [key, typeof held.html === 'string' ? { ...held, html: identify(held.html, { insideNamedRegion: key, parentRegion: true }) } : held]
       }),
     )
   }
@@ -104,7 +111,7 @@ function identifiedField(
 function identifyContent(node: Record<string, unknown>, context: DocumentCommandContext, usedBlocks: Map<string, BlockIdLocation>, added: string[]): void {
   const shapes = CONTENT_FIELD_SHAPES[node.type as keyof typeof CONTENT_FIELD_SHAPES] ?? {}
   const label = `${String(node.type)} node "${String(node.id)}"`
-  for (const [field, shape] of Object.entries(shapes)) node[field] = identifiedField(node[field], shape, context, usedBlocks, added, label)
+  for (const [field, shape] of Object.entries(shapes)) node[field] = identifiedField(node[field], shape, context, usedBlocks, added, String(node.type), label)
 }
 
 export function identifyAddedNode(context: DocumentCommandContext, input: Record<string, unknown>): { node: OperationNode; added: string[] } {
@@ -162,7 +169,9 @@ export function htmlWithIds(
   const region = replacing?.key
   return identifyHtmlBlocks(html, node ? `${node.type} node "${node.id}"` : 'supplied content', context.options.newId ?? defaultNewId, used, {
     ...(region && (shape === 'record' || shape === 'regionRecord') ? { insideNamedRegion: region } : {}),
-    ...(shape === 'regionRecord' ? { refuseMeasure: true } : {}),
+    ...(shape === 'regionRecord' ? { parentRegion: true } : {}),
+    flowing: node && shape ? contentFieldFlows(context.document.kind, node.type as keyof typeof CONTENT_FIELD_SHAPES, shape) : false,
+    lineNumbers: lineNumbersState(context.document),
   })
 }
 
@@ -179,6 +188,7 @@ export function identifiedContentValue(
     context,
     blockLocations(context.document, { node: address.node.id, field: address.field, ...(address.key === undefined ? {} : { key: address.key }) }),
     added,
+    address.node.type,
     `${address.node.type} node "${address.node.id}"`,
   )
   return { value: held, added }

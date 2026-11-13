@@ -8,7 +8,8 @@ import {
   type Document as ParsedDocument,
   pageOrPrintedFromDocument,
 } from '@segnavia/format'
-import { type BlockIdLocation, identifyHtmlBlocks } from './block-identify.ts'
+import { contentFieldFlows, type FragmentShape } from './block-fragments.ts'
+import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState } from './block-identify.ts'
 import { type AlertLabels, type BodyHtmlOptions, bodyHtml } from './markdown.ts'
 
 export { BLOCK_ELEMENTS } from './block-context.ts'
@@ -16,8 +17,6 @@ export { BLOCK_ELEMENTS } from './block-context.ts'
 export interface ParseDocumentOptions extends DocumentParseOptions {
   alertLabels?: Partial<AlertLabels>
 }
-
-type ContentHtml = (value: string, node: { type: string; id: string }) => string
 
 function contentNodeLabel(node: { type: string; id: string }): string {
   return `${node.type} node "${node.id}"`
@@ -35,17 +34,21 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const newId = options.newId ?? defaultNewId
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockIdLocation>()
-  const html: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen).html
-  const regionHtml = (value: string, node: { type: string; id: string }, region: string) =>
-    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { insideNamedRegion: region }).html
+  const identifyOptions = { lineNumbers: lineNumbersState(document) }
+  const html = (value: string, node: { type: string; id: string }, flowing: boolean): string =>
+    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing }).html
+  const contentHtml = (value: string, node: ParsedDocument['children'][number], shape: FragmentShape): string =>
+    html(value, node, contentFieldFlows(document.kind, node.type, shape))
+  const regionHtml = (value: string, node: Extract<ParsedDocument['children'][number], { type: 'page' }>, region: string) =>
+    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing: false, insideNamedRegion: region }).html
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
     const value = pageBodyHtml(node.body, document, options)
-    return { ...node, body: pageBodyFromHtml(html(value, node), 'markdown' in node.body ? node.body.markdown : undefined) }
+    return { ...node, body: pageBodyFromHtml(contentHtml(value, node, 'pageBody'), 'markdown' in node.body ? node.body.markdown : undefined) }
   }
   const nodeContent = (node: ParsedDocument['children'][number]): ParsedDocument['children'][number] => {
-    if (node.type === 'flow') return { ...node, html: html(node.html, node) }
-    if (node.type === 'part' && node.html !== undefined) return { ...node, html: html(node.html, node) }
+    if (node.type === 'flow') return { ...node, html: contentHtml(node.html, node, 'htmlString') }
+    if (node.type === 'part' && node.html !== undefined) return { ...node, html: contentHtml(node.html, node, 'htmlString') }
     if (node.type === 'page') {
       const next = pageBody(node)
       return node.regions === undefined
@@ -53,7 +56,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
         : { ...next, regions: Object.fromEntries(Object.entries(node.regions).map(([name, value]) => [name, regionHtml(value, node, name)])) }
     }
     if (node.type === 'slide' && 'kind' in node.content && node.content.kind === 'html') {
-      return { ...node, content: { ...node.content, html: html(node.content.html, node) } }
+      return { ...node, content: { ...node.content, html: contentHtml(node.content.html, node, 'slideContent') } }
     }
     return node
   }
@@ -69,12 +72,12 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
         name,
         {
           ...region,
-          html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { refuseMeasure: true, insideNamedRegion: name }).html,
+          html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { ...identifyOptions, parentRegion: true, insideNamedRegion: name }).html,
         },
       ]),
     ),
   }))
-  const templates = document.templates.map((node) => ({ ...node, html: html(node.html, node) }))
+  const templates = document.templates.map((node) => ({ ...node, html: html(node.html, node, false) }))
   return { ...document, children: nodes(document.children), parentPages, templates }
 }
 

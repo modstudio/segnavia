@@ -17,6 +17,7 @@ import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document
 import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
+import { LineNumbers } from './line-numbers.ts'
 import { LogicalMargin } from './margins.ts'
 import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
@@ -29,7 +30,7 @@ import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
-const DocumentSettings = z.object({ scripts: Scripts.optional(), dir: DeckShape.shape.dir, lang: z.string().optional() })
+const DocumentSettings = z.object({ scripts: Scripts.optional(), dir: DeckShape.shape.dir, lang: z.string().optional(), lineNumbers: LineNumbers.optional() })
 const DocumentData = z.object({ slots: Slots.optional() })
 const DocumentPrint = PressGeometry.and(z.object({ paper: Paper.optional(), orientation: Orientation.optional(), margin: LogicalMargin.optional() }))
 

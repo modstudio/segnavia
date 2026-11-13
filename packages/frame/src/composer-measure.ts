@@ -18,8 +18,21 @@ export interface MeasuredKeeps {
 export interface MeasuredLineBox {
   top: number
   bottom: number
+  counted?: boolean
   decorationTop?: number
   decorationBottom?: number
+}
+
+export function lineNumberedLines(lines: readonly MeasuredLineBox[], element: Element, origin: number): MeasuredLineBox[] {
+  const excluded: Array<{ top: number; bottom: number }> = []
+  for (const candidate of element.querySelectorAll('h1,h2,h3,h4,h5,h6,table,figure,img')) {
+    const range = element.ownerDocument.createRange()
+    range.selectNodeContents(candidate)
+    const rects = Array.from(range.getClientRects())
+    const boxes = rects.length > 0 ? rects : [candidate.getBoundingClientRect()]
+    for (const box of boxes) excluded.push({ top: box.top - origin, bottom: box.bottom - origin })
+  }
+  return lines.map((line) => (excluded.some((box) => lineWithinBox(line, box)) ? { ...line, counted: false } : { ...line }))
 }
 
 export interface KeepSignalValues {

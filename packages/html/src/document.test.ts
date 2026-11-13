@@ -125,6 +125,85 @@ test('refuses duplicate block ids with both blocks and the clearance', () => {
   )
 })
 
+test('accepts line numbers in flowing content and refuses fixed page and template content', () => {
+  const settings = { lineNumbers: {} }
+  expect(() =>
+    parseDocument({
+      type: 'document',
+      kind: 'printed',
+      settings,
+      parentRules: [{ parent: 'body' }],
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      children: [{ type: 'page', body: { html: '<p data-line-numbers>Printed text</p>' } }],
+    }),
+  ).not.toThrow()
+  const fixedBook = {
+    type: 'document' as const,
+    kind: 'book' as const,
+    metadata: { title: 'Book' },
+    mode: 'paginated' as const,
+    settings,
+    page: { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+    children: [{ type: 'section' as const, title: 'Pages', children: [{ type: 'page' as const, body: { html: '<p data-line-numbers>Designed text</p>' } }] }],
+  }
+  expect(() => parseDocument(fixedBook)).toThrow('line numbers number flowing text')
+  expect(() =>
+    parseDocument({
+      ...fixedBook,
+      children: [{ type: 'section', title: 'Text', children: [{ type: 'flow', html: '<p>Flowing text</p>' }] }],
+      templates: [{ type: 'template', name: 'plate', html: '<main data-line-numbers></main>' }],
+    }),
+  ).toThrow('line numbers number flowing text')
+})
+
+test('refuses line numbers in a non-flowing designed page region', () => {
+  expect(() =>
+    parseDocument({
+      type: 'document',
+      kind: 'book',
+      metadata: { title: 'Book' },
+      mode: 'paginated',
+      settings: { lineNumbers: {} },
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+      templates: [{ type: 'template', name: 'plate', html: '<main data-region="body"></main>' }],
+      children: [
+        {
+          type: 'section',
+          title: 'Pages',
+          template: 'plate',
+          children: [{ type: 'page', regions: { body: '<p data-line-numbers>Region text</p>' } }],
+        },
+      ],
+    }),
+  ).toThrow('line numbers number flowing text')
+})
+
+test('accepts measured blocks with authored ids in a designed page region', () => {
+  expect(() =>
+    parseDocument({
+      type: 'document',
+      kind: 'book',
+      metadata: { title: 'Book' },
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+      templates: [{ type: 'template', name: 'plate', html: '<main data-region="body"></main>' }],
+      children: [
+        {
+          type: 'section',
+          title: 'Pages',
+          template: 'plate',
+          children: [
+            {
+              type: 'page',
+              regions: { body: '<p data-segnavia-id="measured" data-measure="block" data-measure-as="--h">Region text</p>' },
+            },
+          ],
+        },
+      ],
+    }),
+  ).not.toThrow()
+})
+
 test('keeps active content for the later realize policy', () => {
   const source =
     '<link rel="stylesheet" href="https://fonts.example/css?family=Fixture"><style>@font-face{font-family:x;src:url(https://fonts.example/x/v1/font.woff2)}</style><form><button>Send</button></form><script src="https://cdn.example/library@1.0.0/index.js"></script>'

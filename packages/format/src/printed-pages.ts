@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
 import { SectionNumbering } from './folio.ts'
 import { HeadTemplates } from './head-template.ts'
+import { LineNumbers } from './line-numbers.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { headTemplatePlacement } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
@@ -24,6 +25,7 @@ export const ParentPage = z.object({
 })
 
 export const PrintedPages = z.object({
+  lineNumbers: LineNumbers.optional(),
   variables: Variables,
   headTemplates: HeadTemplates,
   parents: z.array(ParentPage).min(1),

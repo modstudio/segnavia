@@ -10,6 +10,7 @@ import {
   LIMIT_ACTUAL_PLACEHOLDER,
   type Limits,
   limitRefusalTemplate,
+  type NumberSystem,
   type OriginApproval,
   type Page,
   type ParentRules,
@@ -18,6 +19,7 @@ import {
   printedFromDocument,
   regionOverflowRefusalEnabled,
   resolveLimits,
+  resolveLineNumbers,
   resolveParentPages,
   sheetMm,
   textArea,
@@ -40,6 +42,7 @@ import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { declaredFontLoads } from './font-load.ts'
 import type { LoadedLayoutScript } from './layout.ts'
+import { LINE_NUMBER_BASE_CSS } from './line-number-style.ts'
 import { PrintedPagesRefusedError, printedPageGeometry } from './printed-page-geometry.ts'
 
 export type { PageOrPrintedInput } from '@segnavia/format'
@@ -50,6 +53,11 @@ export {
 export { PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
 export { PrintedPagesRefusedError }
+
+function printedLineNumbers(page: PrintedHtmlPage, system: NumberSystem) {
+  const settings = page.printedPages.lineNumbers
+  return settings === undefined ? {} : { lineNumbers: resolveLineNumbers(settings, system) }
+}
 
 function printedHeightReporting(options: { measure?: boolean; screen?: ScreenPresentation }): boolean | 'body' {
   if (options.measure === true) return true
@@ -114,7 +122,7 @@ export function printedPageValueDocument(
     }
   })
   const parentRules: ParentRules = page.printedPages.parentRules
-  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
+  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_BASE_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const preflightSeed = [...(options.preflightSeed ?? [])]
   const sheets = frameStyleSheets(
     page.style,
@@ -148,6 +156,7 @@ export function printedPageValueDocument(
     measure: options.measure ?? false,
     inlineOverflow: 'tile',
     numbering: divisionNumbering(undefined, { frontMatter: numbering, body: numbering }),
+    ...printedLineNumbers(page, numbering),
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),

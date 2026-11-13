@@ -96,6 +96,7 @@ export {
   type OperationDocument,
   type OperationNode,
 } from './document-op-model.ts'
+export { DOCUMENT_PROFILES } from './document-profile.ts'
 export { type RebaseResult, rebaseOps } from './document-rebase.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'
@@ -185,6 +186,7 @@ export { jsonSchemas } from './json-schemas.ts'
 export { Lexicon, lexiconVersion, PronunciationEntry } from './lexicon.ts'
 export { withLibraryEntries } from './library-names.ts'
 export * from './limit-exports.ts'
+export * from './line-numbers.ts'
 export { LogicalMargin, type PageSide, PhysicalMargin, physicalMargins } from './margins.ts'
 export { MEASURE_KIND_MODEL, MEASURE_KINDS, MeasuredProperty, MeasureKind } from './measured-property.ts'
 export * from './measurements.ts'

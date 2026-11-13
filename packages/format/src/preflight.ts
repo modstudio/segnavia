@@ -8,6 +8,7 @@ export const PREFLIGHT_CHECKS = [
   'region-truncated',
   'region-overset',
   'furniture-overset',
+  'margin-overset',
   'slot-overset',
   'font-missing',
   'placement-missing',

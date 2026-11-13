@@ -16,7 +16,7 @@ export function block(
   start: number,
   extra: Partial<PaginateBlock> = {},
 ): PaginateBlock {
-  return { kind, tag, position: { chapter, block: index }, lines: lines(count, start), ...extra }
+  return { kind, tag, position: { chapter, block: index }, lines: lines(count, start), ...extra } as PaginateBlock
 }
 
 export function flow(id: string, kind: Exclude<PaginateFlow['kind'], 'fixed'>, blocks: PaginateBlock[], _title?: string): PaginateFlow {

@@ -6,6 +6,7 @@ import {
   inlineLevelDisplay,
   type KeepSignalValues,
   keepSignals,
+  lineNumberedLines,
   linesWithDescendantTables,
   type MeasuredKeepCandidate,
   measuredBlockConstraints,
@@ -318,6 +319,36 @@ test('a figure with an in-flow table uses the table row bands', () => {
   } finally {
     globalThis.getComputedStyle = original
   }
+})
+
+test('a numbered container marks heading lines as uncounted while keeping paragraph lines counted', () => {
+  const heading = { getBoundingClientRect: () => ({ top: 10, bottom: 20 }) }
+  const ranges = new Map<unknown, Array<{ top: number; bottom: number }>>([[heading, [{ top: 10, bottom: 20 }]]])
+  let selected: unknown
+  const element = {
+    ownerDocument: {
+      createRange: () => ({
+        selectNodeContents: (candidate: unknown) => {
+          selected = candidate
+        },
+        getClientRects: () => ranges.get(selected) ?? [],
+      }),
+    },
+    querySelectorAll: () => [heading],
+  }
+  expect(
+    lineNumberedLines(
+      [
+        { top: 10, bottom: 20 },
+        { top: 20, bottom: 30 },
+      ],
+      element as unknown as Element,
+      0,
+    ),
+  ).toEqual([
+    { top: 10, bottom: 20, counted: false },
+    { top: 20, bottom: 30 },
+  ])
 })
 
 test('an unmeasurable printed-page galley refuses with its own subject', () => {
