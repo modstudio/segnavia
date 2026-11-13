@@ -167,7 +167,11 @@ child, and definition id; without that option it uses
 `globalThis.crypto.randomUUID()`, falling back outside a secure context to a
 version 4 UUID built with `globalThis.crypto.getRandomValues()`. Its parsed
 `Document` type therefore requires an id on every node. Duplicate node ids are
-refused with both node locations. Cover SHA-256 digests require `crypto.subtle`;
+refused with both node locations. A book or printed `Document` is also lowered
+during parsing, with the same lowering render uses, and checked against the
+`Book` or `Page` policies, so an error that would refuse the render refuses the
+parse instead. Each such issue names a path in the document; one the mapping
+cannot place keeps the lowered path under the document kind. Cover SHA-256 digests require `crypto.subtle`;
 call `coverDigest` on a server or over HTTPS because browsers expose it only in
 a secure context.
 
@@ -1993,7 +1997,10 @@ no metadata (a printed document), and a document `lang` that `Intl` rejects
 while a `meta` variable needs it. These document values are identical on every page.
 Content refers to a variable with `data-variable`; `Document.parse` refuses an
 undeclared reference, a repeated name and a name under the reserved
-`segnavia:` prefix. The plan resolves every declared variable for each page
+`segnavia:` prefix, naming the node or template whose HTML holds the reference.
+It also refuses a `data-motif-*` field on an element without `data-motif`;
+checking a field against the motif's declared fields stays with motif expansion.
+The plan resolves every declared variable for each page
 into `PlanPage.variables`, and a blank page carries none and leaves the
 carried values unchanged.
 
