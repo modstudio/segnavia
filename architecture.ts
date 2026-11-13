@@ -144,6 +144,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/composer-page-dom.ts',
       'src/composer-measure.ts',
       'src/composer-measure-embed.ts',
+      'src/composer-side-note-measure.ts',
       'src/composer-margin.ts',
       'src/composer-margin-embed.ts',
       'src/line-number-style.ts',

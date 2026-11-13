@@ -104,6 +104,79 @@ export function widestLineNumber(page: HTMLElement, side: 'left' | 'right'): num
   return width
 }
 
+interface DrawnSideNote {
+  id: string
+  top: number
+  side: 'left' | 'right'
+  element: HTMLElement
+}
+
+export function prepareSideNote(
+  placement: PageSideNotes['notes'][number],
+  page: HTMLElement,
+  textRect: DOMRect,
+  pageRect: DOMRect,
+  gap: number,
+  doc: Document,
+): DrawnSideNote | undefined {
+  const note = matchingSideNote(page, placement.id)
+  if (!note) return undefined
+  const copies = Array.from(doc.querySelectorAll('[data-side-note][data-segnavia-id]')).filter(
+    (candidate) => candidate.getAttribute('data-segnavia-id') === placement.id,
+  ) as HTMLElement[]
+  const preservedId = note.id || copies.find((copy) => copy.id)?.id
+  for (const copy of copies) if (copy !== note) copy.remove()
+  if (preservedId) note.id = preservedId
+  if (!note.hasAttribute('dir')) note.setAttribute('dir', resolveDirection(undefined, note.getAttribute('lang') ?? undefined, note.textContent ?? ''))
+  note.setAttribute('data-segnavia-side', placement.side)
+  note.style.top = `${placement.top}px`
+  const numberWidth = widestLineNumber(page, placement.side)
+  const reserve = gap + (numberWidth > 0 ? numberWidth + gap : 0)
+  if (placement.side === 'left') {
+    note.style.left = `${pageRect.left - textRect.left + reserve}px`
+    note.style.width = `${Math.max(0, textRect.left - pageRect.left - gap - reserve)}px`
+  } else {
+    note.style.left = `${textRect.width + gap}px`
+    note.style.width = `${Math.max(0, pageRect.right - textRect.right - gap - reserve)}px`
+  }
+  return { id: placement.id, top: placement.top, side: placement.side, element: note }
+}
+
+export function sideNoteCrossing(rect: DOMRect, pageRect: DOMRect, furniture: NodeListOf<Element>, numbers: NodeListOf<Element>): string {
+  if (rect.left < pageRect.left || rect.right > pageRect.right || rect.top < pageRect.top || rect.bottom > pageRect.bottom) return 'the page edge'
+  for (const region of furniture) {
+    if (intersects(rect, region.getBoundingClientRect())) return `region ${region.getAttribute('data-segnavia-region') || 'furniture'}`
+  }
+  for (const number of numbers) {
+    if (intersects(rect, number.getBoundingClientRect())) return `line number ${number.getAttribute('data-segnavia-line-number') || ''}`
+  }
+  return ''
+}
+
+export function stackPageSideNotes(
+  drawn: DrawnSideNote[],
+  side: 'left' | 'right',
+  gap: number,
+  pageRect: DOMRect,
+  furniture: NodeListOf<Element>,
+  numbers: NodeListOf<Element>,
+  entries: PreflightEntry[],
+  folio: string,
+): void {
+  const items = drawn.filter((item) => item.side === side).sort((a, b) => a.top - b.top)
+  const tops = stackDownward(
+    items.map((item) => ({ top: item.top, height: item.element.getBoundingClientRect().height })),
+    gap,
+  )
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index]
+    if (!item) continue
+    item.element.style.top = `${tops[index] ?? item.top}px`
+    const crossed = sideNoteCrossing(item.element.getBoundingClientRect(), pageRect, furniture, numbers)
+    if (crossed) appendSideNoteOverset(entries, item.id, crossed, folio)
+  }
+}
+
 export function drawPageSideNotes(
   held: PageSideNotes | undefined,
   page: HTMLElement | undefined,
@@ -121,50 +194,19 @@ export function drawPageSideNotes(
   const geometryName = page.getAttribute('data-segnavia-page-geometry')
   const geometry = config.geometries.find((candidate) => (candidate.name ?? null) === geometryName) ?? config.geometries[0]
   const gap = geometry?.columnGap ?? 0
-  const drawn: Array<{ id: string; top: number; side: 'left' | 'right'; element: HTMLElement }> = []
+  const drawn: DrawnSideNote[] = []
   for (const placement of held.notes) {
-    const note = matchingSideNote(page, placement.id)
-    if (!note) continue
-    let preservedId = note.id
-    const copies = Array.from(doc.querySelectorAll('[data-side-note][data-segnavia-id]')).filter(
-      (candidate) => candidate.getAttribute('data-segnavia-id') === placement.id,
-    ) as HTMLElement[]
-    for (const copy of copies) if (!preservedId && copy.id) preservedId = copy.id
-    for (const copy of copies) if (copy !== note) copy.remove()
-    if (preservedId) note.id = preservedId
-    if (!note.hasAttribute('dir')) note.setAttribute('dir', resolveDirection(undefined, note.getAttribute('lang') ?? config.lang, note.textContent ?? ''))
-    note.setAttribute('data-segnavia-side', placement.side)
-    note.style.top = `${placement.top}px`
-    const reserve = widestLineNumber(page, placement.side) + gap
-    if (placement.side === 'left') {
-      note.style.left = `${pageRect.left - textRect.left + reserve}px`
-      note.style.width = `${Math.max(0, textRect.left - pageRect.left - gap - reserve)}px`
-    } else {
-      note.style.left = `${textRect.width + gap}px`
-      note.style.width = `${Math.max(0, pageRect.right - textRect.right - gap - reserve)}px`
+    const item = prepareSideNote(placement, page, textRect, pageRect, gap, doc)
+    if (item) {
+      container.append(item.element)
+      drawn.push(item)
     }
-    container.append(note)
-    drawn.push({ id: placement.id, top: placement.top, side: placement.side, element: note })
   }
   text.append(container)
   const furniture = page.querySelectorAll('[data-segnavia-region]')
   const numbers = page.querySelectorAll('[data-segnavia-line-number]')
   const folio = page.getAttribute('data-segnavia-folio') || ''
-  for (const side of ['left', 'right'] as const) {
-    const items = drawn.filter((item) => item.side === side).sort((a, b) => a.top - b.top)
-    const tops = stackDownward(
-      items.map((item) => ({ top: item.top, height: item.element.getBoundingClientRect().height })),
-      gap,
-    )
-    items.forEach((item, index) => {
-      item.element.style.top = `${tops[index] ?? item.top}px`
-      const rect = item.element.getBoundingClientRect()
-      let crossed = rect.left < pageRect.left || rect.right > pageRect.right || rect.top < pageRect.top || rect.bottom > pageRect.bottom ? 'the page edge' : ''
-      for (const region of furniture) if (!crossed && intersects(rect, region.getBoundingClientRect())) crossed = `region ${region.getAttribute('data-segnavia-region') || 'furniture'}`
-      for (const number of numbers) if (!crossed && intersects(rect, number.getBoundingClientRect())) crossed = `line number ${number.getAttribute('data-segnavia-line-number') || ''}`
-      if (crossed) appendSideNoteOverset(entries, item.id, crossed, folio)
-    })
-  }
+  for (const side of ['left', 'right'] as const) stackPageSideNotes(drawn, side, gap, pageRect, furniture, numbers, entries, folio)
 }
 
 export function drawSideNotes(placed: ReturnType<typeof placeSideNotes>, config: DrawConfig, entries: PreflightEntry[], doc: Document): void {

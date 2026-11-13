@@ -23,7 +23,7 @@ import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { declaredFontLoads } from './font-load.ts'
 import type { LoadedLayoutScript } from './layout.ts'
-import { LINE_NUMBER_BASE_CSS } from './line-number-style.ts'
+import { LINE_NUMBER_BASE_CSS, SIDE_NOTE_BASE_CSS } from './line-number-style.ts'
 
 export interface PaginatedDocumentOptions {
   nonce: string
@@ -58,6 +58,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([${BOOK_PAGE_ATTRIBUTE}]:last-child){break-after:auto}` +
     GALLEY_PRINT_CSS +
     LINE_NUMBER_BASE_CSS +
+    (pagination.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS) +
     (options.fontCss ?? '')
   const regionProfile = options.profile
   const preflightSeed = [...(options.preflightSeed ?? [])]

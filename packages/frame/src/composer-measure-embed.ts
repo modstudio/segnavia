@@ -24,10 +24,10 @@ import {
   outermostKeepValue,
   sizeFlowGalley,
   skippableDescendantBoxDisplay,
-  sideNoteAnchorTop,
   tableRenderedInFlow,
   tableRowLines,
 } from './composer-measure.ts'
+import { sideNoteAnchorTop } from './composer-side-note-measure.ts'
 
 export function embeddedComposerMeasureFunctions(): string {
   return [

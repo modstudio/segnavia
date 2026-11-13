@@ -30,5 +30,14 @@ test('places block and inline anchors in their page windows and copies placement
 })
 
 test('stacks overlapping side notes downward with a gap', () => {
-  expect(stackDownward([{ top: 10, height: 20 }, { top: 15, height: 10 }, { top: 50, height: 5 }], 4)).toEqual([10, 34, 50])
+  expect(
+    stackDownward(
+      [
+        { top: 10, height: 20 },
+        { top: 15, height: 10 },
+        { top: 50, height: 5 },
+      ],
+      4,
+    ),
+  ).toEqual([10, 34, 50])
 })

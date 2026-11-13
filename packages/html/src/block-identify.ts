@@ -64,6 +64,15 @@ function sideNoteDocumentKinds(): string {
   return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
 }
 
+function sideNotePlacementIssue(nodeWhere: string, parentRegion: boolean, flowing: boolean, nested: boolean): string | undefined {
+  if (parentRegion) return parentRegionAttributeIssue(nodeWhere, 'data-side-note')
+  if (!flowing) {
+    return `${nodeWhere} data-side-note cannot take effect because side notes belong to flowing content; move it to a flow or part's HTML, or a printed document's page body, to clear this refusal`
+  }
+  if (nested) return `${nodeWhere} data-side-note is nested inside another side note; remove one data-side-note attribute to clear this refusal`
+  return undefined
+}
+
 function sideNoteAttributeIssues(children: readonly ChildNode[], where: string, parentRegion: boolean, flowing: boolean): string[] {
   const issues: string[] = []
   const visit = (nodes: readonly ChildNode[], insideSideNote: boolean): void => {
@@ -73,14 +82,8 @@ function sideNoteAttributeIssues(children: readonly ChildNode[], where: string, 
       const sideNote = node.attribs['data-side-note'] !== undefined
       if (sideNote) {
         issues.push(...SIDE_NOTE_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs))
-        if (parentRegion) issues.push(parentRegionAttributeIssue(nodeWhere, 'data-side-note'))
-        else if (!flowing) {
-          issues.push(
-            `${nodeWhere} data-side-note cannot take effect because side notes belong to flowing content; move it to a flow or part's HTML, or a printed document's page body, to clear this refusal`,
-          )
-        } else if (insideSideNote) {
-          issues.push(`${nodeWhere} data-side-note is nested inside another side note; remove one data-side-note attribute to clear this refusal`)
-        }
+        const placement = sideNotePlacementIssue(nodeWhere, parentRegion, flowing, insideSideNote)
+        if (placement) issues.push(placement)
       }
       visit(node.children, insideSideNote || sideNote)
     }
