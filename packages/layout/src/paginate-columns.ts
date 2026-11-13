@@ -9,7 +9,7 @@ export function paginateColumns(placed: PaginateUnit[]): { windows: PaginateWind
   function headerFor(): number {
     const first = placed[0]
     if (!first || first.index === 0) return 0
-    return first.block.headerHeight ?? 0
+    return first.headerHeight ?? 0
   }
 
   function sizes(count: number, columns: number): number[] {

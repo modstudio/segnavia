@@ -1,13 +1,14 @@
 import { expect, test } from 'bun:test'
 import { Measurements, PaginateBlock, PaginateLine } from './measurements.ts'
 
-test('a measured line accepts optional numbering and decoration facts', () => {
-  expect(PaginateLine.parse({ top: 10, bottom: 20, counted: false, decorationTop: 2, decorationBottom: 28 })).toEqual({
+test('a measured line accepts optional numbering, decoration, and repeated-header facts', () => {
+  expect(PaginateLine.parse({ top: 10, bottom: 20, counted: false, decorationTop: 2, decorationBottom: 28, headerHeight: 12 })).toEqual({
     top: 10,
     bottom: 20,
     counted: false,
     decorationTop: 2,
     decorationBottom: 28,
+    headerHeight: 12,
   })
 })
 
