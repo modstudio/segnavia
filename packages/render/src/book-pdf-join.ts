@@ -1,8 +1,8 @@
 import type { Book } from '@segnavia/format'
-import type { BookHeading } from '@segnavia/html'
+import { type BookDocument, bookOutlineSource } from '@segnavia/html'
 import { joinedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import type { PrintedPart } from './book-pdf-types.ts'
-import { writeBookStructure } from './book-structure.ts'
+import { writeDocumentStructure } from './book-structure.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OutputDate } from './output-date.ts'
 import { createPdf, loadPdf } from './pdf-load.ts'
@@ -10,7 +10,7 @@ import { copyPdfParts } from './pdf-structure-merge.ts'
 
 export async function joinBookPdf(
   book: Book,
-  headings: BookHeading[],
+  built: Pick<BookDocument, 'html' | 'headings'>,
   front: PrintedPart,
   body: PrintedPart,
   marginBytes: Uint8Array,
@@ -31,6 +31,6 @@ export async function joinBookPdf(
     if (embedded) output.getPage(index).drawPage(embedded, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() })
   }
   rewriteBookLinks(output, front.pages, front.destinations, body.destinations)
-  writeBookStructure(output, { book, headings, destinations: joinedDestinations(front, body) }, date)
+  writeDocumentStructure(output, { metadata: book, source: bookOutlineSource(book, built), destinations: joinedDestinations(front, body) }, date)
   return output.save()
 }

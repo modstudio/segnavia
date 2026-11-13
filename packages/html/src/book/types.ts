@@ -1,4 +1,4 @@
-import type { BookOpens, ParentRules, SectionNumbering } from '@segnavia/format'
+import type { BookOpens, HeadingListing, ParentRules, SectionNumbering } from '@segnavia/format'
 
 export interface BookDocumentOptions {
   pageNumbers?: Record<string, string>
@@ -32,12 +32,14 @@ export function bookPrintPart(division: BookSectionInfo['division']): BookPrintP
 
 export interface BookHeading {
   id: string
+  block: string
   level: number
   text: string
   contentsLabel?: string
   subtitle?: string
   sectionId: string
   depth?: number
+  listed: HeadingListing
 }
 
 export function headingLabel(heading: BookHeading): string {

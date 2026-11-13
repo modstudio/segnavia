@@ -1,9 +1,19 @@
-import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
-import { fillPageAsOfBindings, isPrintedHtmlPage, type PreparedSlots, parseDocument, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
+import { Cover, type OutlineSource, pageOrPrintedFromDocument } from '@segnavia/format'
+import {
+  documentOutlineSource,
+  fillPageAsOfBindings,
+  isPrintedHtmlPage,
+  type PreparedSlots,
+  parseDocument,
+  printedPageAuthorHtml,
+  printedPageDirection,
+} from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
+import { namedDestinations } from './book-destinations.ts'
 import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
+import { writeDocumentStructure } from './book-structure.ts'
 import { resolveRenderBrand, resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { keepBrowser } from './browser-keeper.ts'
@@ -33,6 +43,7 @@ import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce } from './pdf-finish.ts'
+import { loadPdf } from './pdf-load.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { pagesTagged } from './pdf-tagging.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
@@ -71,6 +82,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const queue = renderQueue(options.concurrency ?? 2)
   const { acquire, release } = queue
   const protectPdf = createProtectPdf()
+  const addOutline = async (bytes: Uint8Array, source: OutlineSource | undefined): Promise<Uint8Array> => {
+    if (!source) return bytes
+    const document = await loadPdf(bytes)
+    writeDocumentStructure(document, { source, destinations: namedDestinations(document) })
+    return document.save()
+  }
 
   async function withTab<T>(
     setup: BrowserTabSetup & {
@@ -205,7 +222,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         })
         watermarkCopies.validate()
         const output = await withDocumentMetadata(
-          await finishWithBrowser(bytes, prepared.options, deadline),
+          await finishWithBrowser(await addOutline(bytes, prepared.outlineSource), prepared.options, deadline),
           parsedOptions.metadata,
           outputDate([prepared.established.day]),
           printedPageDirection(prepared.page),
@@ -237,14 +254,15 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     async pagesPdf(inputs, opts = {}) {
       const parsedOptions = parsePagePdfOptions(opts ?? {}, 'pagesPdf')
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const parsed = await Promise.all(
+        const parsedDocuments = await Promise.all(
           inputs.map(async (input) => {
             const document = parseDocument(input, { newId: parsedOptions.newId })
             const brand = await resolveRenderBrand(document, parsedOptions.brandSource, deadline.signal)
             const page = pageOrPrintedFromDocument(document, brand)
-            return page
+            return { page, outlineSource: document.kind === 'printed' ? documentOutlineSource(document) : undefined }
           }),
         )
+        const parsed = parsedDocuments.map(({ page }) => page)
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount(parsed, parsedOptions.slots))
         const contexts = await resolveRenderDayContexts(parsed, parsedOptions, deadline.signal)
         const expanded = await Promise.all(
@@ -286,6 +304,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               watermark: watermarkCopies.stamp,
             },
             frameGroups,
+            parsedDocuments.map(({ outlineSource }) => outlineSource),
           )
         })
         watermarkCopies.validate()

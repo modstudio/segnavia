@@ -9,6 +9,7 @@ import {
   isDesignedSection,
   isPart,
   isTemplatedSection,
+  MAX_HEADING_LEVEL,
   noteMarkerIssues,
   resolveDirection,
   type TemplatedSection,
@@ -60,7 +61,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
     kind,
     sectionEntry.division,
     build.build,
-    book.contents.depth,
+    MAX_HEADING_LEVEL,
     build.build === 'flow' ? bookFlowPageGeometry(book, entry.pageGeometry) : undefined,
   )
   build.sections.push(held.built)
@@ -78,7 +79,7 @@ function appendTemplated(entry: TemplatedSection, id: string, kind: 'front' | 't
     kind,
     sectionEntry.division,
     build.build,
-    book.contents.depth,
+    MAX_HEADING_LEVEL,
     build.templates,
     build.build === 'flow' ? bookFlowPageGeometry(book, entry.pageGeometry) : undefined,
   )
@@ -244,7 +245,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     build.sections.push(section)
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
-    appendChapterHeadings(entry, section, sectionEntry.depth, book.contents.depth, build.headings)
+    appendChapterHeadings(entry, section, sectionEntry.depth, MAX_HEADING_LEVEL, build.headings)
     transformNotes(
       section.node,
       book,

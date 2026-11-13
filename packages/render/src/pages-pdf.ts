@@ -6,6 +6,7 @@ import {
   impositionMarks,
   isPrintedPageIdentityImposition,
   mixedImpositionGeometryRefusal,
+  type OutlineSource,
   type Print,
   printBoxes,
   printPadding,
@@ -13,6 +14,8 @@ import {
   sharedImpositionPress,
 } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PreparedSlots, type PrintedHtmlPage } from '@segnavia/html'
+import { type BookDestination, namedDestinations } from './book-destinations.ts'
+import { writeDocumentOutlines } from './book-structure.ts'
 import { RenderRefusedError } from './errors.ts'
 import { type ComposedRenderOptions, innerLimits, parseRenderOptions } from './options.ts'
 import type { PrintResult } from './overflow.ts'
@@ -159,6 +162,7 @@ export async function renderPagesPdf(
   opts: PagesPdfOptions,
   services: PagesPdfServices,
   frameGroups: ReadonlyArray<readonly number[]> = pages.map((_, index) => [index]),
+  outlineSources: ReadonlyArray<OutlineSource | undefined> = [],
 ): Promise<Uint8Array> {
   opts = parseRenderOptions(opts)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
@@ -179,7 +183,7 @@ export async function renderPagesPdf(
       services,
       rendered.map((part, index) => ({ ...part, page: pages[index] as HtmlPage | PrintedHtmlPage })),
     )
-    const output = await services.finish(await joinPdfs(watermarked), opts)
+    const output = await services.finish(await joinWithOutlines(watermarked, outlineSources), opts)
     opts.overflow?.report?.({ entries: rendered.flatMap((part) => (part.overflow ? [part.overflow] : [])) })
     return output
   }
@@ -224,7 +228,7 @@ export async function renderPagesPdf(
       services,
       parts.map((part, index) => ({ ...part, page: pages[index] as HtmlPage | PrintedHtmlPage })),
     )
-    const output = await services.finish(await joinPdfs(watermarked), opts)
+    const output = await services.finish(await joinWithOutlines(watermarked, outlineSources), opts)
     opts.overflow?.report?.({ entries: overflow })
     return output
   }
@@ -232,4 +236,21 @@ export async function renderPagesPdf(
     throw new RenderRefusedError('A sectioned printed page could not be imposed with other pages; print without imposition to clear this refusal.')
   }
   return services.finish((await composedPdf(pages, slots, imposition, opts, services, frameGroups)).bytes, opts)
+}
+
+async function joinWithOutlines(parts: Uint8Array[], sources: ReadonlyArray<OutlineSource | undefined>): Promise<Uint8Array> {
+  const inputs: Array<{ source: OutlineSource; destinations: Map<string, BookDestination> }> = []
+  let offset = 0
+  for (const [index, bytes] of parts.entries()) {
+    const source = sources[index]
+    const document = await loadPdf(bytes)
+    if (source) {
+      const destinations = new Map([...namedDestinations(document)].map(([id, destination]) => [id, { ...destination, page: destination.page + offset }]))
+      inputs.push({ source, destinations })
+    }
+    offset += document.getPageCount()
+  }
+  const joined = await loadPdf(await joinPdfs(parts))
+  writeDocumentOutlines(joined, inputs)
+  return joined.save()
 }

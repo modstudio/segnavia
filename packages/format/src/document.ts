@@ -20,6 +20,7 @@ import { DocumentLimitsValue } from './limits.ts'
 import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { LogicalMargin } from './margins.ts'
 import { defaultPageNumbering, NumberSystem } from './numbering.ts'
+import { DEFAULT_OUTLINE_DEPTH, Outline } from './outline.ts'
 import { PageSize } from './page.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { parentRules } from './parent-rules.ts'
@@ -65,6 +66,7 @@ export const DocumentShape = closedObject({
   playback: DeckShape.shape.playback,
   captions: DeckShape.shape.captions,
   mode: BookMode.optional(),
+  outline: Outline.optional(),
   page: BookPage.optional(),
   numbering: z.union([BookShape.shape.numbering.unwrap(), NumberSystem]).optional(),
   footnotes: BookShape.shape.footnotes.unwrap().optional(),
@@ -312,6 +314,7 @@ function normalizedDocument(document: DocumentShapeValue): DocumentShapeValue {
   const profile = DOCUMENT_PROFILES[document.kind]
   const withSectionDefaults = {
     ...document,
+    ...((document.kind === 'book' || document.kind === 'printed') && document.outline === undefined ? { outline: { depth: DEFAULT_OUTLINE_DEPTH } } : {}),
     children: defaultSectionContents(document.children, (profile.sectionFields as readonly string[]).includes('contents')),
   }
   const withScripts =

@@ -32,15 +32,14 @@ describe('book document', () => {
     expect([...result.html.matchAll(/<section[^>]+id="([^"]+)"/g)].map((match) => match[1])).toEqual(result.sections.map((section) => section.id))
   })
 
-  test('lists contents levels through depth, excluding opted-out and chapter h1 headings while keeping an author id', () => {
+  test('lists contents levels through depth, excluding opted-out and chapter h1 headings while keeping an author id (mutation: omit the depth cut)', () => {
     const html =
-      '<h1>Author chapter title</h1><h2 id="kept">Alpha <span data-note="footnote">not in heading</span></h2><h3 data-segnavia-id="heading-beta">Beta</h3><h3 data-contents="exclude">No</h3><h4>Deep</h4>'
-    const result = bookDocument(parseBookFixture(input({ chapters: [chapter('Chapter title', html)], contents: { depth: 3 } })))
-    expect(result.headings).toEqual([
-      { id: 'section-1', level: 1, text: 'Chapter title', sectionId: 'section-1' },
-      { id: 'kept', level: 2, text: 'Alpha', sectionId: 'section-1' },
-      { id: 'heading-beta', level: 3, text: 'Beta', sectionId: 'section-1' },
-    ])
+      '<h1>Author chapter title</h1><h2 id="kept">Alpha <span data-note="footnote">not in heading</span></h2><h3 data-segnavia-id="heading-beta">Beta</h3><h3 data-segnavia-listed="none">No</h3><h4>Deep</h4>'
+    const result = bookDocument(
+      parseBookFixture(input({ frontMatter: [{ kind: 'contents', title: 'Contents' }], chapters: [chapter('Chapter title', html)], contents: { depth: 3 } })),
+    )
+    expect(result.html).toContain('href="#heading-beta"')
+    expect(result.html).not.toMatch(/<a[^>]+href="#[^"]+"[^>]*>Deep<\/a>/)
     expect(result.html).toMatch(/<h1[^>]*>Author chapter title<\/h1>/)
     expect(result.html).toMatch(/<h2 id="kept"[^>]*>/)
     expect(result.html).not.toContain('href="#segnavia-h-1-3"')
@@ -287,7 +286,7 @@ describe('book document', () => {
     expect(result.html).toContain('data-segnavia-designed-page="1"')
     expect(result.html).toContain('data-segnavia-designed-page="2"')
     expect(result.html).toContain('hidden')
-    expect(result.headings).toEqual([
+    expect(result.headings.map(({ id, level, text, sectionId }) => ({ id, level, text, sectionId }))).toEqual([
       { id: 'section-2', level: 1, text: 'Spread', sectionId: 'section-2' },
       { id: 'open', level: 1, text: 'Open', sectionId: 'section-2' },
       { id: 'heading-inside', level: 2, text: 'Inside', sectionId: 'section-2' },
@@ -338,7 +337,7 @@ describe('book document', () => {
     expect(result.html).toContain('data-segnavia-templated-page="1"')
     expect(result.html).toContain('data-segnavia-templated-page="2"')
     expect(result.html).toContain('data-template="lesson"')
-    expect(result.headings).toEqual([
+    expect(result.headings.map(({ id, level, text, sectionId }) => ({ id, level, text, sectionId }))).toEqual([
       { id: 'section-2', level: 1, text: 'Lessons', sectionId: 'section-2' },
       { id: 'lesson-1', level: 1, text: 'One', sectionId: 'section-2' },
       { id: 'heading-two', level: 2, text: 'Two', sectionId: 'section-2' },

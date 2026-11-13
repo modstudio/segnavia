@@ -60,7 +60,7 @@ function fixture(hebrew: boolean, opens: 'any' | 'continue'): DocumentInput {
             id: 'opening-two',
             title: titles[1],
             opens,
-            children: [{ type: 'flow', html: `<h2 data-contents="exclude">TWO_HEADING</h2>${`<p>${'two '.repeat(45)}</p>`.repeat(9)}<p>TWO_END</p>` }],
+            children: [{ type: 'flow', html: `<h2 data-segnavia-listed="outline">TWO_HEADING</h2>${`<p>${'two '.repeat(45)}</p>`.repeat(9)}<p>TWO_END</p>` }],
           },
           {
             type: 'section',

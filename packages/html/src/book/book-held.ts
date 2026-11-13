@@ -3,6 +3,7 @@ import {
   type Book,
   type BookSection,
   type BookTemplate,
+  DEFAULT_HEADING_LISTING,
   type DesignedSection,
   REGION_NAME,
   type RecordFacts,
@@ -12,6 +13,7 @@ import {
 import type { ChildNode, Element } from 'domhandler'
 import { fillAttributeIssues } from '../fill-attributes.ts'
 import { FIT_ATTRIBUTE_FAMILY } from '../fit-attributes.ts'
+import { headingListing } from '../heading-listing.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from '../measure-attributes.ts'
 import { elements, parse } from '../sanitize.ts'
 import { sourceAttributeIssues } from '../source-attributes.ts'
@@ -123,9 +125,11 @@ function flowPage(page: number, kind: 'designed' | 'templated', children: ChildN
 export function collectHeadings(children: ChildNode[], sectionId: string, depth: number, firstLevel: number): BookHeading[] {
   return elements(children).flatMap((heading): BookHeading[] => {
     const match = /^h([1-6])$/.exec(heading.name)
-    if (!match || heading.attribs['data-contents'] === 'exclude') return []
+    if (!match) return []
     const level = Number(match[1])
     if (level < firstLevel || level > depth) return []
+    const listed = headingListing(heading)
+    if (!listed.contents && !listed.outline) return []
     const id = heading.attribs.id ?? heading.attribs['data-segnavia-id']
     if (!id) {
       throw new Error(
@@ -134,18 +138,29 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
     }
     heading.attribs['data-segnavia-id'] ??= id
     heading.attribs.id = id
-    return [{ id, level, text: headingText(heading).replace(/\s+/g, ' ').trim(), sectionId }]
+    return [
+      {
+        id,
+        block: heading.attribs['data-segnavia-id'] as string,
+        level,
+        text: headingText(heading).replace(/\s+/g, ' ').trim(),
+        sectionId,
+        listed,
+      },
+    ]
   })
 }
 
 export function sectionHeading(entry: { title: string; contentsLabel?: string; subtitle?: string }, id: string): BookHeading {
   return {
     id,
+    block: id,
     level: 1,
     text: entry.title,
     ...(entry.contentsLabel === undefined ? {} : { contentsLabel: entry.contentsLabel }),
     ...(entry.subtitle === undefined ? {} : { subtitle: entry.subtitle }),
     sectionId: id,
+    listed: DEFAULT_HEADING_LISTING,
   }
 }
 

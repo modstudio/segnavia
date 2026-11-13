@@ -10,9 +10,9 @@ import {
   type TextDirection,
   usesPressLayout,
 } from '@segnavia/format'
-import { PDFName } from 'pdf-lib'
+import { PDFName, type PDFRef } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
-import { translateNamedDestinations } from './book-destinations.ts'
+import { remapNamedDestinationPages, translateNamedDestinations } from './book-destinations.ts'
 import { RenderOversetError, RenderRefusedError } from './errors.ts'
 import { type PrintResult, printWithOverflow } from './overflow.ts'
 import { type PdfRectangle, pdfBox, pdfPoint, pt } from './pdf-geometry.ts'
@@ -76,6 +76,7 @@ async function addDocumentPressBoxes(
       `The PDF has ${sources.length} pages where the press plan names ${boxesByPage.length}; compute a new plan to clear this refusal.`,
     )
   }
+  const replacements = new Map<string, { page: PDFRef; x: number; y: number }>()
   for (const [index, source] of sources.entries()) {
     const boxes = boxesByPage[index]
     if (!boxes) throw new RenderRefusedError(`The press plan has no geometry for page ${index + 1}; compute a new plan to clear this refusal.`)
@@ -84,7 +85,9 @@ async function addDocumentPressBoxes(
     const content = await document.embedPage(source)
     const page = document.addPage([pt(boxes.media.width), pt(boxes.media.height)])
     const target = sourceBox === 'trim' ? trimBox : bleedBox
-    page.drawPage(content, pressContentPlacement({ width: source.getWidth(), height: source.getHeight() }, target))
+    const placement = pressContentPlacement({ width: source.getWidth(), height: source.getHeight() }, target)
+    page.drawPage(content, placement)
+    replacements.set(source.ref.toString(), { page: page.ref, x: placement.x, y: placement.y })
     page.node.delete(PDFName.of('CropBox'))
     page.setBleedBox(bleedBox.x, bleedBox.y, bleedBox.width, bleedBox.height)
     page.setTrimBox(trimBox.x, trimBox.y, trimBox.width, trimBox.height)
@@ -97,6 +100,7 @@ async function addDocumentPressBoxes(
       markColor,
     )
   }
+  remapNamedDestinationPages(document, replacements)
   for (let index = 0; index < sources.length; index++) document.removePage(0)
   return document.save()
 }

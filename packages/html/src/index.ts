@@ -63,6 +63,7 @@ export {
   BOOK_FLOW_COLUMN_MIN_PX,
   type BookPositionKey,
   parseBookPositionKey,
+  TARGET_LINKS_CSS,
 } from './book/book-flow.ts'
 export {
   CONTENTS_PAGE_REFERENCE_SELECTOR,
@@ -97,6 +98,7 @@ export {
   resolveDayContextsFor,
   resolveDocumentDayContexts,
 } from './document-day-context.ts'
+export { bookOutlineSource, documentOutlineSource } from './document-outline.ts'
 export { type EditDocumentFailure, type EditDocumentResult, type EditDocumentSuccess, editDocument } from './edit-document.ts'
 export { embedFunction } from './embed-function.ts'
 export { fillAttributeIssues } from './fill-attributes.ts'
@@ -159,7 +161,7 @@ export {
   type ResolvePlacement,
   resolvePlacements,
 } from './placements.ts'
-export { printedSectionFlows } from './printed-section-flows.ts'
+export { printedSectionFlows, printedSectionOutlineHtml } from './printed-section-flows.ts'
 export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, fillDeckAsOfBindings, mapBookHtml } from './record-as-of.ts'
 export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
 export {

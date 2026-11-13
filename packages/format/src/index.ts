@@ -220,6 +220,17 @@ export {
   originSet,
 } from './origin-policy.ts'
 export {
+  DEFAULT_HEADING_LISTING,
+  DEFAULT_OUTLINE_DEPTH,
+  documentOutline,
+  HeadingListing,
+  MAX_HEADING_LEVEL,
+  Outline,
+  type OutlineEntry,
+  OutlineHeading,
+  type OutlineSource,
+} from './outline.ts'
+export {
   FlowingWidth,
   FULL_PAGE_SIZE,
   PAGE_WIDTHS,

@@ -38,6 +38,16 @@ test('keeps existing block ids, converts markdown once, and parsing twice is the
   expect(existingBody && 'html' in existingBody ? existingBody.html : '').toContain('data-segnavia-id="kept"')
 })
 
+test('refuses unknown heading listing values with the accepted list', () => {
+  expect(() => parseDocument(page({ html: '<h1 data-segnavia-listed="somewhere">Heading</h1>' }), { newId: counter() })).toThrow(
+    'data-segnavia-listed value "somewhere" is not accepted; use one of none, outline, contents to clear this refusal',
+  )
+})
+
+test('refuses data-contents=exclude and names the replacement attribute', () => {
+  expect(() => parseDocument(page({ html: '<h1 data-contents="exclude">Heading</h1>' }), { newId: counter() })).toThrow(/data-segnavia-listed="outline"/)
+})
+
 test('deterministic ids are repeatable and unique across missing nodes and Hebrew blocks', () => {
   const input = {
     type: 'document' as const,
