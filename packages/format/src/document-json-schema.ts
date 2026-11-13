@@ -1,13 +1,12 @@
 import { z } from 'zod'
-import { DocumentShape } from './document.ts'
-import { discriminatedNodeUnion } from './document-node-discriminator.ts'
-import { DivisionNodeSchema, DocumentNodeMembers, PartNodeSchema, SectionNodeSchema } from './document-nodes.ts'
-import { DOCUMENT_PROFILES, type DocumentKind } from './document-profile.ts'
+import { DocumentShape, documentStructuralFields } from './document.ts'
+import { discriminatedNodeUnion, documentNodeType, type NodeUnionMember } from './document-node-discriminator.ts'
+import { UNRESTRICTED_SECTION_FIELDS } from './document-node-refinement.ts'
+import { DocumentNodeMembers } from './document-nodes.ts'
+import { DOCUMENT_KINDS, DOCUMENT_PROFILES, type DocumentKind } from './document-profile.ts'
 
 type ObjectSchema = z.ZodObject<Record<string, z.ZodType>>
-type DiscriminableSchema = z.core.$ZodTypeDiscriminable
 
-const STRUCTURAL_ROOT_FIELDS = ['type', 'id', 'kind', 'children'] as const
 const STRUCTURAL_NODE_FIELDS = ['type', 'id', 'children'] as const
 
 function pickObject(schema: ObjectSchema, fields: readonly string[]): ObjectSchema {
@@ -21,29 +20,42 @@ function requiredInput(schema: z.ZodType): z.ZodType {
   return schema
 }
 
-function nodeType(schema: DiscriminableSchema): string {
-  const values = [...(schema._zod.propValues?.type ?? [])]
-  const value = values.find((candidate): candidate is string => typeof candidate === 'string')
-  if (value === undefined) throw new Error('a document node schema needs a literal type')
-  return value
+function requiredProfileInput(field: string): z.ZodType {
+  const input = requiredInput(DocumentShape.shape[field as keyof typeof DocumentShape.shape])
+  return field === 'parentPages' && input instanceof z.ZodArray ? input.min(1) : input
+}
+
+function selectedNode(member: NodeUnionMember, kind: DocumentKind): ObjectSchema {
+  const profile = DOCUMENT_PROFILES[kind]
+  const schema = member as ObjectSchema
+  const selections: Partial<Record<string, readonly string[]>> = {
+    page: profile.pageFields,
+    section: [...UNRESTRICTED_SECTION_FIELDS, ...profile.sectionFields],
+  }
+  const selected = selections[documentNodeType(member)]
+  const structural = STRUCTURAL_NODE_FIELDS.filter((field) => field in schema.shape)
+  return selected ? pickObject(schema, [...structural, ...selected]) : schema
 }
 
 function nodeSchema(kind: DocumentKind): z.ZodType {
   const profile = DOCUMENT_PROFILES[kind]
   let union: z.ZodType
   const children = z.lazy(() => z.array(union))
-  const members = DocumentNodeMembers.filter((member) => (profile.children as readonly string[]).includes(nodeType(member))).map((member) => {
-    const type = nodeType(member)
-    if (type === 'division') return DivisionNodeSchema.extend({ children })
-    if (type === 'part') return PartNodeSchema.extend({ children })
-    if (type !== 'section') return member
-    return pickObject(SectionNodeSchema, [...STRUCTURAL_NODE_FIELDS, ...profile.sectionFields]).extend({ children })
-  }) as unknown as [DiscriminableSchema, ...DiscriminableSchema[]]
+  const members = DocumentNodeMembers.filter((member) => (profile.children as readonly string[]).includes(documentNodeType(member))).map((member) => {
+    const selected = selectedNode(member, kind)
+    return 'children' in selected.shape ? selected.extend({ children }) : selected
+  }) as unknown as [NodeUnionMember, ...NodeUnionMember[]]
   union = discriminatedNodeUnion(members)
   return union
 }
 
-function restrictedObject(field: 'settings' | 'metadata' | 'style', allowed: readonly string[]): ObjectSchema {
+const restrictedRootFields = {
+  settings: (profile: (typeof DOCUMENT_PROFILES)[DocumentKind]) => ({ allowed: profile.settings, extra: { dir: z.enum(profile.settingsDir).optional() } }),
+  metadata: (profile: (typeof DOCUMENT_PROFILES)[DocumentKind]) => ({ allowed: profile.metadata, extra: {} }),
+  style: (profile: (typeof DOCUMENT_PROFILES)[DocumentKind]) => ({ allowed: profile.style, extra: {} }),
+} as const
+
+function restrictedObject(field: keyof typeof restrictedRootFields, allowed: readonly string[]): ObjectSchema {
   const schema = DocumentShape.shape[field].unwrap() as ObjectSchema
   // Zod refuses .pick() on objects carrying refinements, so retain the existing
   // field schemas while rebuilding only this closed profile-selected object.
@@ -61,23 +73,22 @@ function childArray(kind: DocumentKind): z.ZodArray {
 
 function documentSchema(kind: DocumentKind): ObjectSchema {
   const profile = DOCUMENT_PROFILES[kind]
-  const rootFields = [...STRUCTURAL_ROOT_FIELDS, ...profile.definitions, ...profile.fields]
-  let schema = pickObject(DocumentShape, rootFields).extend({ kind: z.literal(kind), children: childArray(kind) })
+  const rootFields = [...documentStructuralFields, ...profile.definitions, ...profile.fields]
+  let schema: ObjectSchema = pickObject(DocumentShape, rootFields).extend({ kind: z.literal(kind), children: childArray(kind) })
 
-  if ((profile.fields as readonly string[]).includes('settings')) {
-    const settings = restrictedObject('settings', profile.settings)
-    schema = schema.extend({ settings: settings.extend({ dir: z.enum(profile.settingsDir).optional() }).optional() })
+  for (const field of Object.keys(restrictedRootFields) as Array<keyof typeof restrictedRootFields>) {
+    if (!rootFields.includes(field)) continue
+    const restriction = restrictedRootFields[field](profile)
+    schema = schema.extend({ [field]: restrictedObject(field, restriction.allowed).extend(restriction.extra).optional() })
   }
-  if ((profile.fields as readonly string[]).includes('metadata'))
-    schema = schema.extend({ metadata: restrictedObject('metadata', profile.metadata).optional() })
-  if ((profile.fields as readonly string[]).includes('style')) schema = schema.extend({ style: restrictedObject('style', profile.style).optional() })
 
-  const required = profile.required.filter((field) => !field.includes('.'))
-  const requiredShape = Object.fromEntries(required.map((field) => [field, requiredInput(DocumentShape.shape[field as keyof typeof DocumentShape.shape])]))
-  // Dotted requirements and childForms describe relationships that remain enforced only by Document.parse.
+  const required = profile.required.filter((field) => field !== 'title' && !field.includes('.'))
+  const requiredShape = Object.fromEntries(required.map((field) => [field, requiredProfileInput(field)]))
+  // Dotted requirements, visible title, childForms and cross-references describe
+  // relationships that remain enforced only by Document.parse.
   return schema.extend(requiredShape)
 }
 
-const documentSchemas = Object.keys(DOCUMENT_PROFILES).map((kind) => documentSchema(kind as DocumentKind)) as [ObjectSchema, ...ObjectSchema[]]
+const documentSchemas = DOCUMENT_KINDS.map((kind) => documentSchema(kind)) as [ObjectSchema, ...ObjectSchema[]]
 
 export const DocumentJsonSchema = z.discriminatedUnion('kind', documentSchemas)

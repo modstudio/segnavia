@@ -9,7 +9,7 @@ import {
   DivisionSettings,
   FlowNode,
   LabelNode,
-  PageNode,
+  PageNode as PageNodeSchema,
   PlacedNode,
   RecordNode,
   SlideNode,
@@ -52,7 +52,7 @@ export type DocumentNode =
   | PartNode
   | SectionNode
   | z.infer<typeof FlowNode>
-  | z.infer<typeof PageNode>
+  | z.infer<typeof PageNodeSchema>
   | z.infer<typeof SlideNode>
   | z.infer<typeof PlacedNode>
   | z.infer<typeof ContentsNode>
@@ -81,7 +81,7 @@ export const DivisionNodeFields = {
   settings: DivisionSettings.optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-export const DivisionNodeSchema = closedObject(DivisionNodeFields)
+const DivisionNodeSchema = closedObject(DivisionNodeFields)
 export const DivisionNode = DivisionNodeSchema as z.ZodType<DivisionNode>
 
 export const PartNodeFields = {
@@ -96,7 +96,7 @@ export const PartNodeFields = {
   parents: z.unknown().optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-export const PartNodeSchema = closedObject(PartNodeFields)
+const PartNodeSchema = closedObject(PartNodeFields)
 export const PartNode = PartNodeSchema as z.ZodType<PartNode>
 
 export const SectionNodeFields = {
@@ -114,7 +114,7 @@ export const DocumentNodeMembers = [
   PartNodeSchema,
   SectionNodeSchema,
   FlowNode,
-  PageNode,
+  PageNodeSchema,
   SlideNode,
   PlacedNode,
   ContentsNode,
@@ -123,5 +123,7 @@ export const DocumentNodeMembers = [
   LabelNode,
   BoardSectionNode,
 ] as const
+
+export { PageNodeSchema }
 
 export const DocumentNode: z.ZodType<DocumentNode> = z.lazy(() => discriminatedNodeUnion(DocumentNodeMembers))

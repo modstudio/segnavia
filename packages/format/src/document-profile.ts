@@ -172,6 +172,7 @@ export const DOCUMENT_PROFILES = {
 } as const
 
 export type DocumentKind = keyof typeof DOCUMENT_PROFILES
+export const DOCUMENT_KINDS = Object.keys(DOCUMENT_PROFILES) as [DocumentKind, ...DocumentKind[]]
 export type DocumentNodeType = (typeof DOCUMENT_PROFILES)[DocumentKind]['children'][number]
 export type DocumentDefinition = (typeof DOCUMENT_PROFILES)[DocumentKind]['definitions'][number]
 export type DocumentField = (typeof DOCUMENT_PROFILES)[DocumentKind]['fields'][number]
