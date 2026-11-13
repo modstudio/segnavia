@@ -1,6 +1,8 @@
 # @segnavia/markdown-editor
 
-Markdown source and rich-text editing elements for Segnavia.
+`@segnavia/markdown-editor` provides a browser editing element for Markdown source and rich-text authoring, with a types-only Vue opt-in. A host uses it when document editing needs to preserve authored Markdown while offering either source or structured editing controls.
+
+See the [architecture guide](../../docs/architecture.md) for the full design.
 
 ## Entry points
 

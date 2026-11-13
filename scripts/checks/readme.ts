@@ -1,4 +1,4 @@
-import { bunSource, type PackageRule, type SourceExport } from '../../architecture.ts'
+import { bunSource, type PackageRule, type SourceExport, sourceRuntime } from '../../architecture.ts'
 
 export interface EntryRow {
   entry: string
@@ -13,10 +13,9 @@ export const ENTRIES_END = '<!-- /segnavia:entries -->'
 export function entryRows(name: string, exports: PackageExports, rule: PackageRule): EntryRow[] {
   return Object.entries(exports).map(([subpath, conditions]) => {
     const source = bunSource(conditions['@segnavia/source']).replace(/^\.\//, '')
-    const runtime = rule.runtime === 'browser' && rule.serverSafe?.includes(source) ? 'universal' : rule.runtime
     return {
       entry: subpath === '.' ? name : `${name}${subpath.slice(1)}`,
-      runtime,
+      runtime: sourceRuntime(rule, source),
     }
   })
 }

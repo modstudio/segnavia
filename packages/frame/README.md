@@ -1,6 +1,14 @@
 # @segnavia/frame
 
-Headless and styled browser elements for viewing and authoring Segnavia documents.
+`@segnavia/frame` provides the controller, headless and styled custom elements, browser printing, and server-safe document builders for viewing and authoring documents. A host uses the entries that match its surface, from an unstyled page or deck stage to a complete player or document editor.
+
+The deck accepts `resolveSlide` for host resolution of a slide's content and `css` for host styling.
+
+Placement-capable surfaces use `placements.resolve` to ask the host for placed assets.
+
+Printing accepts `inline` to let the host turn a slide image path into loadable content.
+
+See the [architecture guide](../../docs/architecture.md) for the full design.
 
 ## Entry points
 

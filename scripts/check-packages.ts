@@ -5,7 +5,16 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { bunSource, PACKAGES, RUNTIME_EMPTY_TYPE_ENTRIES, SOURCE_CONDITION, type SourceExport, VUE_MODULE_NAMES, VUE_TYPE_ENTRIES } from '../architecture.ts'
+import {
+  bunSource,
+  PACKAGES,
+  RUNTIME_EMPTY_TYPE_ENTRIES,
+  SOURCE_CONDITION,
+  type SourceExport,
+  sourceRuntime,
+  VUE_MODULE_NAMES,
+  VUE_TYPE_ENTRIES,
+} from '../architecture.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const WORK = path.join(ROOT, 'out/package-check')
@@ -168,7 +177,7 @@ for (const { name, directory, manifest } of installed) {
 
     const rule = PACKAGES[name]
     const source = bunSource(conditions[SOURCE_CONDITION]).replace(/^\.\//, '')
-    if (rule?.runtime !== 'browser' || rule.serverSafe?.includes(source)) serverImports.push(target)
+    if (rule && sourceRuntime(rule, source) !== 'browser') serverImports.push(target)
   }
 }
 

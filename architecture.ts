@@ -42,6 +42,10 @@ export interface PackageRule {
   serverSafe?: string[]
 }
 
+export function sourceRuntime(rule: PackageRule, source: string): Runtime {
+  return rule.runtime === 'browser' && rule.serverSafe?.includes(source) ? 'universal' : rule.runtime
+}
+
 export const PACKAGES: Record<string, PackageRule> = {
   // Board placement geometry stays universal because callers supply every measured shape.
   format: { runtime: 'universal', imports: ['zod'] },

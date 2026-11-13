@@ -1,6 +1,8 @@
 # @segnavia/layout
 
-Pure page planning and pagination for Segnavia documents.
+`@segnavia/layout` contains pure page planning and pagination policy shared by browser composition and server preparation. A host uses it when it needs the same deterministic plan calculations outside a rendered frame.
+
+See the [architecture guide](../../docs/architecture.md) for the full design.
 
 ## Entry points
 
