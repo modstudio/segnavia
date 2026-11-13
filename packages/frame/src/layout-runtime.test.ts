@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 import { boundPreflightReport, PREFLIGHT_ISSUES_PER_CHECK, PREFLIGHT_MESSAGE_LIMIT, PREFLIGHT_PRESETS, PREFLIGHT_SUBJECT_LIMIT } from '@segnavia/format'
+import { embeddedInkFunctions } from './composer-page-dom.ts'
 import { LAYOUT_PHASE_TIMEOUT_MS } from './layout.ts'
 import { installLayoutRuntime, layoutRuntimeScript, withLayoutScripts } from './layout-runtime.ts'
 
@@ -21,6 +22,24 @@ test('serialized provider registrations escape less-than characters', () => {
   const runtime = layoutRuntimeScript([{ name: 'margin', script: '', priority: 1, order: 0, selects: '[title="<"]' }])
   expect(runtime).toContain('title=\\"\\u003c\\"')
   expect(runtime).not.toContain('title=\\"<\\"')
+})
+
+test('layout runtime carries the self-contained ink measurement bundle', () => {
+  const embedded = embeddedInkFunctions()
+  const document = { createRange: () => ({ selectNodeContents() {}, collapsed: true }) }
+  const excess = new Function('document', 'getComputedStyle', `${embedded};return inkExcess`)(document, () => ({
+    direction: 'ltr',
+    writingMode: 'horizontal-tb',
+  })) as (element: HTMLElement) => { block: number; inline: number }
+  const rect = { top: 0, right: 100, bottom: 50, left: 0, width: 100, height: 50 }
+  const element = {
+    getBoundingClientRect: () => rect,
+    querySelectorAll: () => [],
+    scrollHeight: 50,
+    scrollWidth: 100,
+  } as unknown as HTMLElement
+  expect(excess(element)).toEqual({ block: 0, inline: 0 })
+  expect(layoutRuntimeScript(scripts)).toContain(embedded)
 })
 
 function harness(names = ['first', 'second']) {

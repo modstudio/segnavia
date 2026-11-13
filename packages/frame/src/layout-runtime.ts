@@ -1,9 +1,9 @@
 import { PREFLIGHT_ISSUES_PER_CHECK, PREFLIGHT_MESSAGE_LIMIT, PREFLIGHT_SUBJECT_LIMIT } from '@segnavia/format'
 import { embedFunction } from '@segnavia/html'
-import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
+import { logicalExtent } from './composer-axis-policy.ts'
 import { type MeasuredLineBox, measureLineBoxes } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
-import { inkExcess } from './composer-page-dom.ts'
+import { embeddedInkFunctions, inkExcess } from './composer-page-dom.ts'
 import { graphemeInlineExtent } from './composer-properties.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 import { LAYOUT_PHASE_TIMEOUT_MS, type LoadedLayoutScript } from './layout.ts'
@@ -195,7 +195,7 @@ export function layoutRuntimeScript(scripts: readonly LoadedLayoutScript[]): str
     )
     .join('\n')
   const serializedRegistrations = JSON.stringify(registrations).replace(/</g, '\\u003c')
-  return `${embeddedComposerMeasureFunctions()}\n${embedFunction('verticalWritingMode', verticalWritingMode)}\n${embedFunction('logicalExtent', logicalExtent)}\n${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}\n${embedFunction('inkExcess', inkExcess)}\n${embedFunction('layoutRange', layoutRange)}\n${embedFunction('layoutMeasurementNode', layoutMeasurementNode)}\n${embedFunction('layoutInkRect', layoutInkRect)}\n${embedFunction('boundedLayoutText', boundedLayoutText)}\n${embedFunction('installLayoutRuntime', installLayoutRuntime)}\ninstallLayoutRuntime(window,document,setTimeout,clearTimeout,${LAYOUT_PHASE_TIMEOUT_MS},${serializedRegistrations},{issues:${PREFLIGHT_ISSUES_PER_CHECK},subject:${PREFLIGHT_SUBJECT_LIMIT},message:${PREFLIGHT_MESSAGE_LIMIT}},measureLineBoxes,graphemeInlineExtent,inkExcess);\n${definitions}`
+  return `${embeddedComposerMeasureFunctions()}\n${embeddedInkFunctions()}\n${embedFunction('graphemeInlineExtent', graphemeInlineExtent)}\n${embedFunction('layoutRange', layoutRange)}\n${embedFunction('layoutMeasurementNode', layoutMeasurementNode)}\n${embedFunction('layoutInkRect', layoutInkRect)}\n${embedFunction('boundedLayoutText', boundedLayoutText)}\n${embedFunction('installLayoutRuntime', installLayoutRuntime)}\ninstallLayoutRuntime(window,document,setTimeout,clearTimeout,${LAYOUT_PHASE_TIMEOUT_MS},${serializedRegistrations},{issues:${PREFLIGHT_ISSUES_PER_CHECK},subject:${PREFLIGHT_SUBJECT_LIMIT},message:${PREFLIGHT_MESSAGE_LIMIT}},measureLineBoxes,graphemeInlineExtent,inkExcess);\n${definitions}`
 }
 
 export function withLayoutScripts(html: string, nonce: string, scripts: readonly LoadedLayoutScript[]): string {

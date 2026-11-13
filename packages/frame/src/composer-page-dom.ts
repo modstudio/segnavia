@@ -1,4 +1,5 @@
-import { logicalExtent } from './composer-axis-policy.ts'
+import { embedFunction } from '@segnavia/html'
+import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
 
 export function fillTemplateRegions(clone: HTMLElement, holder: HTMLElement): void {
   for (const fragment of Array.from(holder.querySelectorAll<HTMLElement>('[data-region]'))) {
@@ -51,4 +52,11 @@ export function inkExcess(element: HTMLElement, box: HTMLElement = element): { b
     block: logicalExtent({ width: inline, height: block }, getComputedStyle(box).writingMode, 'block'),
     inline: logicalExtent({ width: inline, height: block }, getComputedStyle(box).writingMode, 'inline'),
   }
+}
+
+export function embeddedInkFunctions(): string {
+  return `${embedFunction('verticalWritingMode', verticalWritingMode)}
+${embedFunction('logicalExtent', logicalExtent)}
+${embedFunction('inkBounds', inkBounds)}
+${embedFunction('inkExcess', inkExcess)}`
 }
