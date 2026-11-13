@@ -1,4 +1,4 @@
-import { type LimitExceeded, LimitExceededError, type LimitMeasure, type LimitRefusalOptions } from '@segnavia/format'
+import { type LimitExceeded, LimitExceededError, type LimitMeasure, type LimitRefusalOptions, Refusal, type RefusalOptions } from '@segnavia/format'
 import { ProfileUnsupportedError } from './color/types.ts'
 
 export class RendererUnavailableError extends Error {
@@ -24,26 +24,35 @@ export function browserExited(): RendererUnavailableError {
 
 // A render that produced something the host's limits refuse, a page that never
 // said it was ready, or a page that crashed. The message names which.
-export class RenderRefusedError extends Error {
+export class RenderRefusedError extends Refusal {
   override name = 'RenderRefusedError'
+
+  constructor(message: string, options: RefusalOptions & { code?: string } = {}) {
+    super(options.code ?? 'render', message, options)
+  }
 }
 export class RenderLimitError extends RenderRefusedError {
   override name = 'RenderLimitError'
   readonly exceeded: readonly LimitExceeded[]
 
   constructor(measure: LimitMeasure, actual: number, limit: number, options?: LimitRefusalOptions)
-  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]], message?: string)
+  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]], message?: string, refusalOptions?: RefusalOptions)
   constructor(
     measureOrExceeded: LimitMeasure | readonly [LimitExceeded, ...LimitExceeded[]],
     actualOrMessage?: number | string,
-    limit?: number,
+    limitOrRefusalOptions?: number | RefusalOptions,
     options: LimitRefusalOptions = {},
   ) {
     const structured =
       typeof measureOrExceeded === 'string'
-        ? new LimitExceededError(measureOrExceeded, actualOrMessage as number, limit as number, options)
+        ? new LimitExceededError(measureOrExceeded, actualOrMessage as number, limitOrRefusalOptions as number, options)
         : new LimitExceededError(measureOrExceeded, actualOrMessage as string | undefined)
-    super(structured.message)
+    const refusalOptions = typeof measureOrExceeded === 'string' ? undefined : (limitOrRefusalOptions as RefusalOptions | undefined)
+    super(structured.message, {
+      code: 'render-limit',
+      ...refusalOptions,
+      refusals: refusalOptions?.refusals ?? structured.exceeded.map((entry) => ({ code: 'limit', subject: entry.measure, message: entry.message })),
+    })
     this.exceeded = structured.exceeded
   }
 }
@@ -56,6 +65,7 @@ export class RenderOversetError extends RenderRefusedError {
   constructor(page: number, papers: number) {
     super(
       `A page with bleed or marks is one printed piece, but page ${page + 1} needs ${papers} papers. Shorten the content, or remove the bleed and marks, to clear this refusal.`,
+      { code: 'render-overset' },
     )
     this.page = page
     this.papers = papers
@@ -76,7 +86,10 @@ export class RenderColorProfileError extends RenderRefusedError {
   readonly supported: string
 
   constructor(profile: ColorProfileUse, found: string, supported: string) {
-    super(`The ${profile} profile has unsupported ${found}; supported: ${supported}. Supply ${PROFILE_CLEARS[profile]} to clear this refusal.`)
+    super(`The ${profile} profile has unsupported ${found}; supported: ${supported}. Supply ${PROFILE_CLEARS[profile]} to clear this refusal.`, {
+      code: 'render-color-profile',
+      subject: profile,
+    })
     this.profile = profile
     this.found = found
     this.supported = supported

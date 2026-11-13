@@ -6,6 +6,7 @@ import {
   FontFaceRefusedError,
   type FontFormat,
   fontWeightRange,
+  Refusal,
   type ResolvedFontFace,
   resolveFontFace,
 } from '@segnavia/format'
@@ -13,9 +14,9 @@ import { bytesToBase64 } from './base64.ts'
 import { quoteFamily } from './css-family.ts'
 import { parseUnicodeRange, UNICODE_RANGE_CLEARANCE } from './unicode-range.ts'
 
-export class FontCssRefusedError extends Error {
+export class FontCssRefusedError extends Refusal {
   constructor(message: string) {
-    super(message)
+    super('font-css', message)
     this.name = 'FontCssRefusedError'
   }
 }

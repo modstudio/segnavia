@@ -1,4 +1,5 @@
 import { type AsOf, type AsOfDay, CalendarDate, type Zone } from './as-of.ts'
+import { Refusal, type RefusalOptions } from './refusal.ts'
 import { zonedParts } from './zoned-parts.ts'
 
 export interface AsOfFacts {
@@ -32,6 +33,10 @@ export function asOfRefusal(anchor: string, reason: string): string {
   return `As-of anchor ${JSON.stringify(anchor)} could not resolve to a calendar date: ${reason}; resolve the anchor to a calendar date to clear this refusal.`
 }
 
-export class AsOfRefusedError extends Error {
+export class AsOfRefusedError extends Refusal {
   override name = 'AsOfRefusedError'
+
+  constructor(message: string, options?: RefusalOptions) {
+    super('as-of', message, options)
+  }
 }

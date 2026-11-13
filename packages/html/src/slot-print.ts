@@ -1,4 +1,4 @@
-import type { Fill, SlotReport, SlotsOptions } from '@segnavia/format'
+import { type Fill, Refusal, type SlotReport, type SlotsOptions } from '@segnavia/format'
 import { RequiredSlotsRefusedError, UnmeasuredSlotsRefusedError } from './slot-policy.ts'
 import { SlotFillRefusedError } from './slots.ts'
 
@@ -14,9 +14,12 @@ export interface SlotPrintOptions extends SlotsOptions {
   skipRefused?: boolean
 }
 
-export class SlotFillsConflictError extends Error {
+export class SlotFillsConflictError extends Refusal {
   constructor() {
-    super('slots.fills cannot be given together with slots.fill or slots.source. Pass only fills, or only fill and source, to clear this refusal.')
+    super(
+      'slot-fills-conflict',
+      'slots.fills cannot be given together with slots.fill or slots.source. Pass only fills, or only fill and source, to clear this refusal.',
+    )
     this.name = 'SlotFillsConflictError'
   }
 }
@@ -28,11 +31,13 @@ export interface SlotFillRefusal {
   error: Error
 }
 
-export class SlotFillsRefusedError extends Error {
+export class SlotFillsRefusedError extends Refusal {
   readonly entries: readonly SlotFillRefusal[]
 
   constructor(entries: readonly SlotFillRefusal[]) {
-    super(slotFillsRefusedMessage(entries))
+    super('slot-fills', slotFillsRefusedMessage(entries), {
+      refusals: entries.map((entry) => ({ code: 'slot-fill', subject: entry.id, message: entry.error.message })),
+    })
     this.name = 'SlotFillsRefusedError'
     this.entries = entries
   }

@@ -30,7 +30,12 @@ describe('asset route decision', () => {
     }
     expect(await assetRouteDecision('https://evil.example/a.js', 'script', origins, lookup, new AbortController().signal)).toEqual({
       action: 'abort',
-      reason: expect.stringContaining('https://evil.example'),
+      cause: {
+        code: 'unapproved-origin',
+        subject: 'https://evil.example/a.js',
+        message:
+          'https://evil.example/a.js at origin https://evil.example is not approved for script; add { origin: "https://evil.example", kinds: ["script"] } to origins to clear this refusal',
+      },
     })
     expect(lookups).toBe(0)
   })
@@ -47,7 +52,12 @@ describe('asset route decision', () => {
     expect(await assetRouteDecision(allowed, 'font', approvals, lookup, new AbortController().signal)).toEqual({ action: 'fulfill', ...answer })
     expect(await assetRouteDecision(refused, 'style', approvals, lookup, new AbortController().signal)).toEqual({
       action: 'abort',
-      reason: expect.stringContaining('outside the approved style path prefixes'),
+      cause: {
+        code: 'outside-approved-path',
+        subject: refused,
+        message:
+          'https://cdn.jsdelivr.net/npm/x@1.2.3/x.css is outside the approved style path prefixes at https://cdn.jsdelivr.net: "/fontsource/css", "/fontsource"; add { origin: "https://cdn.jsdelivr.net", kinds: ["style"], pathname: "/npm/x@1.2.3/x.css" } to origins to clear this refusal',
+      },
     })
     expect(requested).toEqual([allowed])
   })
@@ -63,7 +73,14 @@ describe('asset route decision', () => {
         },
         new AbortController().signal,
       ),
-    ).toEqual({ action: 'abort', reason: expect.stringContaining(`${url}: storage unavailable`) })
+    ).toEqual({
+      action: 'abort',
+      cause: {
+        code: 'host-rejected',
+        subject: url,
+        message: `The host assets option rejected ${url}: storage unavailable; answer the approved asset to clear this refusal`,
+      },
+    })
 
     const controller = new AbortController()
     expect(
@@ -77,7 +94,14 @@ describe('asset route decision', () => {
         },
         controller.signal,
       ),
-    ).toEqual({ action: 'abort', reason: expect.stringContaining(`${url} answered after its asset request was aborted`) })
+    ).toEqual({
+      action: 'abort',
+      cause: {
+        code: 'late-answer',
+        subject: url,
+        message: `${url} answered after its asset request was aborted; settle assets before the render ends to clear this refusal`,
+      },
+    })
   })
 })
 
@@ -250,7 +274,12 @@ test("a missing asset refusal takes precedence over the body's resulting error",
     },
   )
 
-  await expect(rendering).rejects.toEqual(new RenderRefusedError(`The host assets option did not answer approved requests: ${url}.`))
+  await expect(rendering).rejects.toEqual(
+    new RenderRefusedError(`The host assets option did not answer approved requests: ${url}.`, {
+      code: 'asset',
+      refusals: [{ code: 'unanswered', subject: url, message: `${url} was not answered by the host assets option` }],
+    }),
+  )
 })
 
 test('font load reports merge supplied-resolution and frame-load failures', () => {

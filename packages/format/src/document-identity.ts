@@ -1,5 +1,14 @@
 import { bytesToHex } from './bytes-to-hex.ts'
 import type { DivisionNode, DocumentNode, PartNode, SectionNode } from './document-nodes.ts'
+import { Refusal } from './refusal.ts'
+
+export class DocumentIdRefusedError extends Refusal {
+  override name = 'DocumentIdRefusedError'
+
+  constructor(code: 'duplicate-id' | 'unminted-id', subject: string, message: string) {
+    super(code, message, { subject })
+  }
+}
 
 export interface DocumentParseOptions {
   newId?: () => string
@@ -83,9 +92,18 @@ export function identifyDocument<
   const seen = new Map<string, string>()
   const claim = <N extends { type: string; id?: string; name?: string }>(node: N, path: string): N & { id: string } => {
     const id = node.id ?? newId()
-    if (!id) throw new Error(`${describe(node, path)} could not mint an id; return a non-empty id from newId to clear this refusal`)
+    if (!id) {
+      const subject = describe(node, path)
+      throw new DocumentIdRefusedError('unminted-id', subject, `${subject} could not mint an id; return a non-empty id from newId to clear this refusal`)
+    }
     const first = seen.get(id)
-    if (first) throw new Error(`id "${id}" is shared by ${first} and ${describe(node, path)}; change or remove one id to clear this refusal`)
+    if (first) {
+      throw new DocumentIdRefusedError(
+        'duplicate-id',
+        id,
+        `id "${id}" is shared by ${first} and ${describe(node, path)}; change or remove one id to clear this refusal`,
+      )
+    }
     seen.set(id, describe(node, path))
     return { ...node, id }
   }

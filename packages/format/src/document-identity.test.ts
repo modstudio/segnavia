@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import { withCrypto } from './crypto-test-helper.ts'
 import { Document } from './document.ts'
-import { defaultNewId } from './document-identity.ts'
+import { DocumentIdRefusedError, defaultNewId } from './document-identity.ts'
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
 
@@ -41,4 +41,35 @@ test('parses missing document ids without randomUUID', async () => {
 
 test('names the newId remedy when no cryptographic id source exists', async () => {
   await expect(withCrypto(undefined, defaultNewId)).rejects.toThrow(/crypto\.randomUUID.*crypto\.getRandomValues.*pass newId to clear this refusal/)
+})
+
+function caught(work: () => unknown): unknown {
+  try {
+    work()
+  } catch (error) {
+    return error
+  }
+  throw new Error('expected work to throw')
+}
+
+test('duplicate and unminted ids are structured refusals', () => {
+  const duplicate = caught(() =>
+    Document.parse(
+      {
+        type: 'document',
+        kind: 'book',
+        id: 'document',
+        title: 'Book',
+        mode: 'continuous',
+        children: [{ type: 'section', id: 'same', title: 'Section', children: [{ type: 'flow', id: 'same', html: '' }] }],
+      },
+      { newId: () => 'minted' },
+    ),
+  )
+  expect(duplicate).toBeInstanceOf(DocumentIdRefusedError)
+  expect(duplicate).toMatchObject({ code: 'duplicate-id', subject: 'same' })
+
+  const unminted = caught(() => Document.parse({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '' } }] }, { newId: () => '' }))
+  expect(unminted).toBeInstanceOf(DocumentIdRefusedError)
+  expect(unminted).toMatchObject({ code: 'unminted-id', subject: 'document at document' })
 })

@@ -2238,6 +2238,35 @@ and block ids; and `assets` resolves an address to bytes within a budget.
 Existing seams remain. A host continues to own storage, its agent, sharing,
 tenancy and UI.
 
+### Refusals
+
+Every refusal extends `Refusal` from `@segnavia/format`. Its `code` identifies
+the refusal kind, its optional `subject` identifies the value or resource, and
+its `refusals` array carries structured causes when one operation collected
+several refusals. An empty `refusals` array means the error itself is the one
+cause.
+
+| Code | Refusal |
+|---|---|
+| `as-of` | As-of anchor resolution |
+| `font-face` | Font face parsing |
+| `placement` | Media placement |
+| `duplicate-id`, `unminted-id` | Document identity |
+| `motif` | Motif expansion |
+| `font-css` | Font CSS generation |
+| `required-slots`, `unmeasured-slots`, `slot-fill`, `slot-fills-conflict`, `slot-fills` | Slot filling |
+| `paginated-book` | Paginated book construction |
+| `style-sheet` | Style sheet compilation |
+| `font` | Font resolution |
+| `printed-pages` | Printed-page geometry |
+| `lexicon` | Voice lexicon publication |
+| `render`, `render-limit`, `render-overset`, `render-color-profile` | Rendering |
+| `asset` | Collected asset refusal or unanswered asset request |
+
+Asset causes use the origin-policy reason, `unsupported-fetch`,
+`host-rejected`, `late-answer`, `asset-limit`, or `unanswered`. A render-limit
+cause uses `limit`.
+
 ### Target delivery roadmap
 
 This roadmap associates every slice with its child task and every existing

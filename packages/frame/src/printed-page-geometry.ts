@@ -1,10 +1,10 @@
-import { type Page, type ParentRules, PX_PER_MM, type ResolvedParentPage, textArea } from '@segnavia/format'
+import { type Page, type ParentRules, PX_PER_MM, Refusal, type ResolvedParentPage, textArea } from '@segnavia/format'
 import type { PrintedHtmlPage } from '@segnavia/html'
 import { selectParent } from '@segnavia/layout'
 
-export class PrintedPagesRefusedError extends Error {
+export class PrintedPagesRefusedError extends Refusal {
   constructor(message: string) {
-    super(message)
+    super('printed-pages', message)
     this.name = 'PrintedPagesRefusedError'
   }
 }

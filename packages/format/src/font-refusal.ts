@@ -1,6 +1,8 @@
-export class FontFaceRefusedError extends Error {
+import { Refusal } from './refusal.ts'
+
+export class FontFaceRefusedError extends Refusal {
   constructor(message: string) {
-    super(message)
+    super('font-face', message)
     this.name = 'FontFaceRefusedError'
   }
 }
