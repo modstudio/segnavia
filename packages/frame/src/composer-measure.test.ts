@@ -257,6 +257,8 @@ test('text or a second in-flow element within a wrapper chain prevents a header 
   const withSibling = { nodeType: 1, tagName: 'FIGURE', childNodes: [headerTable, paragraph], getClientRects: () => [{}] }
   expect(headerHeightFor({ tagName: 'DIV', childNodes: [withText] } as unknown as Element, headerStyleOf)).toBe(0)
   expect(headerHeightFor({ tagName: 'DIV', childNodes: [withSibling] } as unknown as Element, headerStyleOf)).toBe(0)
+  const twoTables = { nodeType: 1, tagName: 'FIGURE', childNodes: [headerTable, headerTable], getClientRects: () => [{}] }
+  expect(headerHeightFor({ tagName: 'DIV', childNodes: [twoTables] } as unknown as Element, headerStyleOf)).toBe(0)
 })
 
 test('out-of-flow elements within a wrapper chain do not prevent a header height', () => {
