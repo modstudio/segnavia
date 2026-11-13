@@ -20,6 +20,7 @@ test('slotless templates name the record values and slots that clear the refusal
 const base = {
   type: 'document',
   kind: 'printed',
+  print: { paper: 'letter' },
   parentRules: [{ parent: 'body' }],
   parentPages: [{ type: 'parentPage', name: 'body' }],
   templates: [
@@ -54,6 +55,12 @@ test.each([
 
 test.each([
   ['no marker', '<article></article>', 'has no data-record-body elements'],
+  ['comment-only marker', '<article><!-- <div data-record-body></div> --></article>', 'has no data-record-body elements'],
+  [
+    'script and style markers',
+    '<article><script>const marker = "<div data-record-body></div>"</script><style>.x::after { content: "<div data-record-body></div>" }</style></article>',
+    'has no data-record-body elements',
+  ],
   ['several markers', '<div data-record-body></div><div data-record-body></div>', 'has 2 data-record-body elements'],
 ])('refuses a record body when its template has %s', (_name, html, message) => {
   expect(() =>
@@ -71,4 +78,34 @@ test.each([
       ],
     }),
   ).toThrow(`record entry has a flow, but template row ${message}; add exactly one data-record-body element to template row to clear this refusal`)
+})
+
+test.each([
+  ['a comment naming the marker', '<article><div data-record-body></div><!-- <div data-record-body></div> --></article>'],
+  ['a quoted greater-than sign before the marker', '<div title="a > b" data-record-body></div>'],
+  ['no whitespace before the marker', '<div class="x"data-record-body></div>'],
+])('accepts one body marker alongside %s', (_name, html) => {
+  expect(() =>
+    Document.parse({
+      ...base,
+      templates: [{ ...base.templates[0], html }],
+      children: [
+        {
+          id: 'entry',
+          type: 'record',
+          template: 'row',
+          values: {},
+          children: [{ type: 'flow', html: '<p>Body</p>' }],
+        },
+      ],
+    }),
+  ).not.toThrow()
+})
+
+test('handles an explicitly undefined record children property without throwing a TypeError', () => {
+  const parsed = Document.parse({
+    ...base,
+    children: [{ id: 'entry', type: 'record', template: 'row', values: {}, children: undefined }],
+  })
+  expect(parsed.children[0]).toMatchObject({ id: 'entry', type: 'record', template: 'row', children: undefined })
 })

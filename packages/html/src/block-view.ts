@@ -16,7 +16,7 @@ export interface BlockViewEntry {
 
 function textContent(node: ChildNode): string {
   if (isText(node)) return node.data
-  if (!('children' in node)) return ''
+  if (!('children' in node) || node.children === undefined) return ''
   return node.children.map(textContent).join('')
 }
 

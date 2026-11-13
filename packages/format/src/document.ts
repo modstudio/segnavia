@@ -139,7 +139,7 @@ function documentNumberedSections(document: DocumentShapeValue): SectionNumberin
         const id = node.id ?? node.title ?? nodePath.join('.')
         sections.push({ id, title: node.title, division: heldDivision, path: nodePath, numbering: node.numbering })
       }
-      if ('children' in node) collect(node.children, heldDivision, [...nodePath, 'children'])
+      if ('children' in node && node.children !== undefined) collect(node.children, heldDivision, [...nodePath, 'children'])
     })
   }
   collect(document.children, 'body', ['children'])
@@ -303,7 +303,7 @@ function refinePrint(document: DocumentShapeValue, profile: DocumentProfile, ctx
 
 export function defaultSectionContents(nodes: DocumentNodeValue[], enabled: boolean): DocumentNodeValue[] {
   return nodes.map((node) => {
-    if (!('children' in node)) return node
+    if (!('children' in node) || node.children === undefined) return node
     const children = defaultSectionContents(node.children, enabled)
     if (node.type === 'section' && enabled && node.contents === undefined) return { ...node, contents: SECTION_CONTENTS_DEFAULT, children }
     return { ...node, children }

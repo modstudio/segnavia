@@ -75,7 +75,7 @@ function contentsOptions(document: DocumentShapeValue) {
   const find = (nodes: ShapeNode[]): void => {
     for (const node of nodes) {
       if (node.type === 'contents' && !contents) contents = node
-      if ('children' in node) find(node.children)
+      if ('children' in node && node.children !== undefined) find(node.children)
     }
   }
   find(document.children)

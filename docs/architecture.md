@@ -323,11 +323,11 @@ template body point stays empty when that record has no flow. The body point
 takes the flow's resolved text direction so its content does not inherit an
 unrelated template direction.
 
-A named record template declares text `slots`; lowering replaces each record in
-reading order with one flowing section that opens on a new page, restarts at page
-one, and carries the record index, count and values. Paginated books admit
-records at the root, inside divisions and inside parts wherever they admit
-flowing sections; a body record needs a title, while front- and end-matter
+When present, a named record template declares text `slots`. Lowering replaces
+each record in reading order with one flowing section that opens on a new page,
+restarts at page one, and carries the record index, count and values. Paginated
+books admit records at the root, inside divisions and inside parts wherever they
+admit flowing sections; a body record needs a title, while front- and end-matter
 records follow those divisions' untitled flowing-section rule. The HTML layer
 binds record values into `data-slot-value` elements before a host fill runs.
 Record templates cannot set parent pages, and records require paginated layout

@@ -1,6 +1,7 @@
 import { collectRecords, type DocumentNode } from './document-nodes.ts'
 import type { TemplateNode } from './document-nodes-book.ts'
 import type { RecordFacts, RecordValues } from './record-facts.ts'
+import { recordBodyFlow } from './record-refinement.ts'
 
 export interface ExpandedRecordSection {
   id?: string
@@ -23,8 +24,7 @@ function expandRecord(
   const template = record.template === undefined ? undefined : templates.get(record.template)
   if (record.template !== undefined && !template?.slots)
     throw new Error(`record template ${JSON.stringify(record.template)} was not established during parsing`)
-  const child = 'children' in record ? record.children[0] : undefined
-  const body = child?.type === 'flow' ? child : undefined
+  const body = recordBodyFlow(record)
   if (!template && !body) throw new Error('record flow was not established during parsing')
   return {
     id: record.id,

@@ -51,7 +51,7 @@ export function documentPageGeometryIssues(document: DocumentPageGeometryFacts):
         const label = node.title ?? node.id ?? nodePath.join('.')
         facts.push({ label, path: nodePath, pageGeometry: node.pageGeometry, declaredNames, mode: document.mode })
       }
-      if ('children' in node) visit(node.children, [...nodePath, 'children'])
+      if ('children' in node && node.children !== undefined) visit(node.children, [...nodePath, 'children'])
     })
   }
   visit(document.children, ['children'])

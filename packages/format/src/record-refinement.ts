@@ -14,8 +14,73 @@ export function refineRecords(
   }
 }
 
+interface ScannedHtmlTag {
+  attributes: string
+  end: number
+  name: string
+}
+
+function scanOpeningTag(html: string, start: number): ScannedHtmlTag | undefined {
+  const name = html
+    .slice(start + 1)
+    .match(/^([a-z][\w:-]*)/i)?.[1]
+    ?.toLowerCase()
+  if (!name) return undefined
+  let quote: '"' | "'" | undefined
+  let tag = ''
+  let end = start + 1
+  for (; end < html.length; end++) {
+    const char = html[end] ?? ''
+    if (quote !== undefined) {
+      if (char === quote) {
+        quote = undefined
+        tag += char
+      } else tag += ' '
+    } else if (char === '"' || char === "'") {
+      quote = char
+      tag += char
+    } else {
+      tag += char
+      if (char === '>') break
+    }
+  }
+  return { attributes: tag.replace(/^[a-z][\w:-]*/i, ''), end, name }
+}
+
+function contentEnd(html: string, tag: ScannedHtmlTag): number {
+  if (tag.name !== 'script' && tag.name !== 'style') return tag.end + 1
+  const closeStart = html.toLowerCase().indexOf(`</${tag.name}`, tag.end + 1)
+  const closeEnd = closeStart < 0 ? -1 : html.indexOf('>', closeStart + tag.name.length + 2)
+  return closeEnd < 0 ? html.length : closeEnd + 1
+}
+
+// This scanner approximates the HTML parser while keeping format independent of
+// an HTML runtime. Composition checks the parsed tree again before inserting.
 function recordBodyMarkerCount(html: string): number {
-  return [...html.matchAll(/<[a-z][^>]*\sdata-record-body(?:\s|=|\/?>)/gi)].length
+  let count = 0
+  let offset = 0
+  while (offset < html.length) {
+    const start = html.indexOf('<', offset)
+    if (start < 0) break
+    if (html.startsWith('<!--', start)) {
+      const end = html.indexOf('-->', start + 4)
+      offset = end < 0 ? html.length : end + 3
+      continue
+    }
+    const tag = scanOpeningTag(html, start)
+    if (!tag) {
+      offset = start + 1
+      continue
+    }
+    if (/(?:^|[^\w-])data-record-body(?:\s|=|\/?>)/i.test(tag.attributes)) count++
+    offset = contentEnd(html, tag)
+  }
+  return count
+}
+
+export function recordBodyFlow(record: Extract<DocumentNode, { type: 'record' }>): Extract<DocumentNode, { type: 'flow' }> | undefined {
+  const children = record.children
+  return children?.length === 1 && children[0]?.type === 'flow' ? children[0] : undefined
 }
 
 function refineRecord(
@@ -44,10 +109,10 @@ function refineRecord(
 }
 
 function refineRecordShape(record: Extract<DocumentNode, { type: 'record' }>, recordName: string, path: DocumentNodePath, ctx: z.RefinementCtx): boolean {
-  const children = 'children' in record ? record.children : undefined
-  const body = children?.[0]
-  const hasBody = children?.length === 1 && body?.type === 'flow'
-  if (children !== undefined && (children.length !== 1 || body?.type !== 'flow')) {
+  const children = record.children
+  const body = recordBodyFlow(record)
+  const hasBody = body !== undefined
+  if (children !== undefined && body === undefined) {
     ctx.addIssue({
       code: 'custom',
       path: [...path, 'children'],

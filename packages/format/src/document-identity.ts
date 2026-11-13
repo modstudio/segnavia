@@ -116,7 +116,7 @@ export function identifyDocument<
   const nodes = (values: DocumentNode[], path: string): IdentifiedNode[] =>
     values.map((value, index) => {
       const identified = claim(value, `${path}[${index}]`)
-      return 'children' in identified
+      return 'children' in identified && identified.children !== undefined
         ? ({ ...identified, children: nodes(identified.children, `${path}[${index}].children`) } as IdentifiedNode)
         : (identified as IdentifiedNode)
     })

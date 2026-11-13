@@ -47,7 +47,7 @@ export interface SectionNode extends SectionFieldValues {
   children: DocumentNode[]
 }
 
-export type RecordNode = z.infer<typeof RecordNodeBase> | (z.infer<typeof RecordNodeBase> & { children: DocumentNode[] })
+export type RecordNode = z.infer<typeof RecordNodeBase> & { children?: DocumentNode[] }
 
 export type DocumentNode =
   | DivisionNode
@@ -69,7 +69,7 @@ export function collectRecords(nodes: DocumentNode[], path: DocumentNodePath = [
   return nodes.flatMap((node, index) => {
     const nodePath = [...path, index]
     const own = node.type === 'record' ? [{ node, path: nodePath }] : []
-    return 'children' in node ? [...own, ...collectRecords(node.children, [...nodePath, 'children'])] : own
+    return 'children' in node && node.children !== undefined ? [...own, ...collectRecords(node.children, [...nodePath, 'children'])] : own
   })
 }
 

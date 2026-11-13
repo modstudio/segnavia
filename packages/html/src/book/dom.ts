@@ -97,7 +97,7 @@ export function append(parent: ParentNode, addition: ChildNode): void {
 
 export function headingText(node: ChildNode): string {
   if (isText(node)) return node.data
-  if (!('children' in node)) return ''
+  if (!('children' in node) || node.children === undefined) return ''
   if (isTag(node) && node.name === 'span' && node.attribs['data-note'] !== undefined) return ''
   if (isTag(node) && HEADING_TEXT_HIDDEN_ELEMENTS.has(node.name)) return ''
   if (isTag(node) && node.name === 'br') return ' '

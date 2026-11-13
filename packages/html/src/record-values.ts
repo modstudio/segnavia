@@ -1,16 +1,19 @@
-import { htmlTextSample, resolveDirection, type SlotDeclaration } from '@segnavia/format'
+import { htmlTextSample, type SlotDeclaration, textDirection } from '@segnavia/format'
 import { Text } from 'domhandler'
 import { elements, parse, serialize } from './sanitize.ts'
 
 export interface RecordValueSection {
+  id?: string
   html: string
   values?: Record<string, string>
+  record?: { index: number }
   recordTemplate?: { name: string; slots: readonly Pick<SlotDeclaration, 'key'>[] }
   recordBody?: string
 }
 
-export type BoundRecordSection<T extends RecordValueSection> = Omit<T, 'recordBody' | 'values'> & {
+export type BoundRecordSection<T extends RecordValueSection> = Omit<T, 'recordBody' | 'recordTemplate' | 'values'> & {
   recordBody?: never
+  recordTemplate?: never
   values?: never
 }
 
@@ -19,13 +22,21 @@ type HtmlElement = ReturnType<typeof elements>[number]
 
 function composeRecordBody(section: RecordValueSection, document: HtmlDocument): HtmlElement | undefined {
   const bodyPoints = elements(document.children).filter((element) => element.attribs['data-record-body'] !== undefined)
+  if (section.recordBody !== undefined && bodyPoints.length !== 1) {
+    const recordName = section.id === undefined ? `at index ${section.record?.index ?? 'unknown'}` : JSON.stringify(section.id)
+    const templateName = JSON.stringify(section.recordTemplate?.name ?? 'unknown')
+    throw new RangeError(
+      `Record ${recordName} has a body, but template ${templateName} has ${bodyPoints.length === 0 ? 'no' : bodyPoints.length} data-record-body ${bodyPoints.length === 1 ? 'element' : 'elements'}; add exactly one data-record-body element to template ${templateName} to clear this refusal.`,
+    )
+  }
   const bodyPoint = bodyPoints[0]
   if (bodyPoint && section.recordTemplate) {
     const body = section.recordBody === undefined ? [] : parse(section.recordBody).children
     for (const child of body) child.parent = bodyPoint
     bodyPoint.children = body
     delete bodyPoint.attribs['data-record-body']
-    if (section.recordBody !== undefined) bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(section.recordBody))
+    const direction = section.recordBody === undefined ? null : textDirection(undefined, undefined, htmlTextSample(section.recordBody))
+    if (direction !== null) bodyPoint.attribs.dir = direction
   }
   return bodyPoint
 }
@@ -65,17 +76,20 @@ function fillRecordValues(values: Record<string, string>, bindings: ReadonlyMap<
 }
 
 export function bindRecordValues<T extends RecordValueSection>(section: T): BoundRecordSection<T> {
+  if (section.recordTemplate === undefined && section.recordBody === undefined) return section as BoundRecordSection<T>
   const document = parse(section.html)
   const bodyPoint = composeRecordBody(section, document)
-  if (!section.values || !section.recordTemplate) {
+  if (!section.recordTemplate) {
     const { recordBody: _recordBody, ...composed } = section
     return { ...composed, html: serialize(document) } as BoundRecordSection<T>
   }
   const bindings = recordBindings(document)
   refuseUnboundSlots(section.recordTemplate, bindings)
-  fillRecordValues(section.values, bindings)
-  if (bodyPoint && section.recordBody !== undefined)
-    bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(serialize(bodyPoint.children)))
-  const { recordBody: _recordBody, values: _values, ...bound } = section
+  if (section.values) fillRecordValues(section.values, bindings)
+  if (bodyPoint && section.recordBody !== undefined) {
+    const direction = textDirection(undefined, undefined, htmlTextSample(serialize(bodyPoint.children)))
+    if (direction !== null) bodyPoint.attribs.dir = direction
+  }
+  const { recordBody: _recordBody, recordTemplate: _recordTemplate, values: _values, ...bound } = section
   return { ...bound, html: serialize(document) } as BoundRecordSection<T>
 }
