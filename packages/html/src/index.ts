@@ -63,6 +63,7 @@ export {
   BOOK_FLOW_COLUMN_MIN_PX,
   type BookPositionKey,
   parseBookPositionKey,
+  TARGET_LINKS_CSS,
 } from './book/book-flow.ts'
 export {
   CONTENTS_PAGE_REFERENCE_SELECTOR,

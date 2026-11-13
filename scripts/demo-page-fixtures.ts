@@ -345,7 +345,9 @@ export const printedSectionDocument: DocumentInput = {
       title: 'Cover',
       opens: 'any',
       numbering: { counted: false },
-      children: [{ type: 'flow', html: '<div style="block-size:243.4mm;font:24px sans-serif"><h1 id="sectioned-cover">SECTIONED COVER</h1></div>' }],
+      children: [
+        { type: 'flow', html: '<div style="block-size:243.4mm;overflow:hidden;font:24px sans-serif"><h1 id="sectioned-cover">SECTIONED COVER</h1></div>' },
+      ],
     },
     {
       type: 'section',
@@ -355,7 +357,7 @@ export const printedSectionDocument: DocumentInput = {
       children: [
         {
           type: 'flow',
-          html: '<div style="block-size:243.4mm;font:18px sans-serif"><h1 id="sectioned-body-one">SECTIONED BODY ONE</h1><h2 id="sectioned-body-detail">BODY DETAIL</h2><h3 id="sectioned-body-two">DEEP BODY DETAIL</h3></div><div style="block-size:243.4mm;font:18px sans-serif">SECTIONED BODY TWO</div>',
+          html: '<div style="block-size:243.4mm;overflow:hidden;font:18px sans-serif"><h1 id="sectioned-body-one">SECTIONED BODY ONE</h1><h2 id="sectioned-body-detail">BODY DETAIL</h2><h3 id="sectioned-body-two">DEEP BODY DETAIL</h3></div><div style="block-size:243.4mm;overflow:hidden;font:18px sans-serif">SECTIONED BODY TWO</div>',
         },
       ],
     },
