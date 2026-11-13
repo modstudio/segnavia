@@ -1,14 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { COMPOSER_SCRIPT, decideVisibleMeasurement } from './composer.ts'
-import {
-  headerHeightFor,
-  lineNumberedLines,
-  linesWithDescendantTables,
-  measuredBlockConstraints,
-  measureLineBoxes,
-  measurementRefusal,
-  tableRowLines,
-} from './composer-measure.ts'
+import { lineNumberedLines, measuredBlockConstraints, measureLineBoxes, measurementRefusal } from './composer-measure.ts'
+import { linesWithDescendantTables, maximumTableHeaderStack, repeatedTableHeaderIndexes, tableRowLines } from './composer-table-measure.ts'
 
 test('a display table element carries no orphan or widow constraint', () => {
   expect(measuredBlockConstraints('table', 2, 2)).toEqual({})
@@ -63,6 +56,33 @@ describe('tableRowLines', () => {
   test('an empty row is one line', () => {
     expect(tableRowLines([{ top: 10, bottom: 30, boxes: [] }])).toEqual([{ top: 10, bottom: 30 }])
   })
+
+  test('a nested table contributes its own row bands to the outer row', () => {
+    expect(
+      tableRowLines([
+        {
+          top: 10,
+          bottom: 70,
+          boxes: [{ top: 14, bottom: 24 }],
+          tables: [
+            {
+              top: 10,
+              bottom: 70,
+              lines: [
+                { top: 10, bottom: 30 },
+                { top: 30, bottom: 50 },
+                { top: 50, bottom: 70 },
+              ],
+            },
+          ],
+        },
+      ]),
+    ).toEqual([
+      { top: 10, bottom: 30 },
+      { top: 30, bottom: 50 },
+      { top: 50, bottom: 70 },
+    ])
+  })
 })
 
 test('a table inside a block replaces the range line spanning it with row bands', () => {
@@ -94,48 +114,21 @@ test('a table inside a block replaces the range line spanning it with row bands'
   ])
 })
 
-const headerHead = { getBoundingClientRect: () => ({ height: 18 }) }
-const headerTable = { nodeType: 1, tagName: 'TABLE', tHead: headerHead, getClientRects: () => [{}] }
-const headerWhitespace = { nodeType: 3, textContent: ' \n ' }
-const headerStyleOf = (element: Element) =>
-  ({ display: 'block', position: (element as unknown as { position?: string }).position ?? 'static' }) as CSSStyleDeclaration
-
-test('only a block whose in-flow content is one table receives its header height', () => {
-  const paragraph = { nodeType: 1, tagName: 'P', childNodes: [], getClientRects: () => [{}] }
-  const wrapper = { tagName: 'DIV', childNodes: [headerWhitespace, headerTable] }
-  const mixed = { tagName: 'DIV', childNodes: [paragraph, headerTable] }
-  expect(headerHeightFor(wrapper as unknown as Element, headerStyleOf)).toBe(18)
-  expect(headerHeightFor(mixed as unknown as Element, headerStyleOf)).toBe(0)
-})
-
-test('a table inside a chain of single-content wrappers receives its header height', () => {
-  const inner = { nodeType: 1, tagName: 'FIGURE', childNodes: [headerWhitespace, headerTable], getClientRects: () => [{}] }
-  const outer = { tagName: 'DIV', childNodes: [headerWhitespace, inner] }
-  expect(headerHeightFor(outer as unknown as Element, headerStyleOf)).toBe(18)
-})
-
-test('text or a second in-flow element within a wrapper chain prevents a header height', () => {
-  const paragraph = { nodeType: 1, tagName: 'P', childNodes: [], getClientRects: () => [{}] }
-  const text = { nodeType: 3, textContent: 'caption' }
-  const withText = { nodeType: 1, tagName: 'FIGURE', childNodes: [text, headerTable], getClientRects: () => [{}] }
-  const withSibling = { nodeType: 1, tagName: 'FIGURE', childNodes: [headerTable, paragraph], getClientRects: () => [{}] }
-  expect(headerHeightFor({ tagName: 'DIV', childNodes: [withText] } as unknown as Element, headerStyleOf)).toBe(0)
-  expect(headerHeightFor({ tagName: 'DIV', childNodes: [withSibling] } as unknown as Element, headerStyleOf)).toBe(0)
-  const twoTables = { nodeType: 1, tagName: 'FIGURE', childNodes: [headerTable, headerTable], getClientRects: () => [{}] }
-  expect(headerHeightFor({ tagName: 'DIV', childNodes: [twoTables] } as unknown as Element, headerStyleOf)).toBe(0)
-})
-
-test('out-of-flow elements within a wrapper chain do not prevent a header height', () => {
-  const hidden = { nodeType: 1, tagName: 'ASIDE', childNodes: [], getClientRects: () => [] }
-  const absolute = { nodeType: 1, tagName: 'ASIDE', position: 'absolute', childNodes: [], getClientRects: () => [{}] }
-  const inner = { nodeType: 1, tagName: 'FIGURE', childNodes: [hidden, headerTable, absolute], getClientRects: () => [{}] }
-  const outer = { tagName: 'DIV', childNodes: [inner] }
-  expect(headerHeightFor(outer as unknown as Element, headerStyleOf)).toBe(18)
+test('table headers repeat for every containing table, outer first', () => {
+  const tables = [
+    { top: 10, bottom: 100, height: 12, nesting: 0 },
+    { top: 30, bottom: 80, height: 8, nesting: 1, parent: 0 },
+  ]
+  expect(repeatedTableHeaderIndexes(tables, 50)).toEqual([0, 1])
+  expect(repeatedTableHeaderIndexes(tables, 20)).toEqual([0])
+  expect(repeatedTableHeaderIndexes(tables, 110)).toEqual([])
+  expect(maximumTableHeaderStack(tables)).toBe(20)
 })
 
 test('the repeated table header drops its block-start margin', () => {
   const placeHeader = COMPOSER_SCRIPT.slice(COMPOSER_SCRIPT.indexOf('var placeHeader='))
   const source = placeHeader.slice(0, placeHeader.indexOf('\nvar ', 1))
+  expect(source).toContain('copyComputedStyle(table,held)')
   expect(source).toContain("held.style.marginBlockStart='0'")
 })
 

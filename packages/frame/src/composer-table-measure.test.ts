@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
-import { measuredDecorationBoxes, measureTableLines } from './composer-measure.ts'
+import { measuredDecorationBoxes } from './composer-measure.ts'
+import { measureTableLines } from './composer-table-measure.ts'
 
 test('a collapsed cell decoration starts after its shared block-start border', () => {
   const table = {}

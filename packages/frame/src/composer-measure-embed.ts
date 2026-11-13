@@ -8,13 +8,9 @@ import {
   decorationBoxTop,
   descendantKeepSignals,
   forcedPageBreak,
-  headerHeightFor,
-  headerTableFor,
   inlineLevelDisplay,
   keepSignals,
   lineNumberedLines,
-  linesWithDescendantTables,
-  lineWithinBox,
   measuredBlockConstraints,
   measuredCandidateKeeps,
   measuredCandidateRun,
@@ -22,14 +18,23 @@ import {
   measuredKeepRuns,
   measureLineBoxes,
   measurementRefusal,
-  measureTableLines,
   outermostKeepValue,
   sizeFlowGalley,
   skippableDescendantBoxDisplay,
-  tableRenderedInFlow,
-  tableRowLines,
 } from './composer-measure.ts'
 import { inlineSideNoteAnchorTop, measureSideNotes, sideNoteAnchorTop, sideNoteKind } from './composer-side-note-measure.ts'
+import {
+  headerHeightFor,
+  headerTableFor,
+  headerTablesFor,
+  linesWithDescendantTables,
+  lineWithinBox,
+  maximumTableHeaderStack,
+  measureTableLines,
+  repeatedTableHeaderIndexes,
+  tableRenderedInFlow,
+  tableRowLines,
+} from './composer-table-measure.ts'
 
 export function embeddedComposerMeasureFunctions(lineNotes = false): string {
   return [
@@ -66,6 +71,9 @@ export function embeddedComposerMeasureFunctions(lineNotes = false): string {
     embedFunction('measureTableLines', measureTableLines),
     embedFunction('tableRenderedInFlow', tableRenderedInFlow),
     embedFunction('headerTableFor', headerTableFor),
+    embedFunction('repeatedTableHeaderIndexes', repeatedTableHeaderIndexes),
+    embedFunction('maximumTableHeaderStack', maximumTableHeaderStack),
+    embedFunction('headerTablesFor', headerTablesFor),
     embedFunction('headerHeightFor', headerHeightFor),
     embedFunction('measureLineBoxes', measureLineBoxes),
     embedFunction('measurementRefusal', measurementRefusal),
