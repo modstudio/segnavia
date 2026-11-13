@@ -1320,8 +1320,8 @@ the current `{ pageId }`; the host opens its own settings element wherever it
 placed it. `useDocumentAuthoring` exposes the same attachment and option
 through `@segnavia/react`.
 
-`@segnavia/react` exports `Page`, `Paper`, and `Document` wrappers in addition
-to `Thumbnail`; object values are assigned as element properties rather than
+`@segnavia/react` exports `Page`, `PrintedPages`, `Book`, `Paper`, and `Document`
+wrappers in addition to `Thumbnail`; object values are assigned as element properties rather than
 serialized as attributes.
 
 A label template is an imposition: label stock is a grid. The host supplies
