@@ -15,6 +15,7 @@ import { expectedBookLinkPages } from './book-render-links.ts'
 import { verifySectionNumbering } from './book-section-numbering.ts'
 import { verifyBookSectionPaper } from './book-section-paper.ts'
 import { compact, decodeXml, pagesText, pageWith } from './book-text.ts'
+import { verifyBookWindowPlacement } from './book-window-placement.ts'
 import { verifyPaginatedBookWithoutContents } from './paginated-book-outline.ts'
 
 type Check = (what: string, ok: boolean, detail?: string) => void
@@ -295,6 +296,7 @@ export async function verifyBookRender(renderer: Renderer, work: string, check: 
   await verifyBookSectionPaper(renderer, work, check)
   await verifySectionNumbering(renderer, check)
   await verifyBookCssRender(renderer, work, check)
+  await verifyBookWindowPlacement(renderer, work, check)
   await verifyFixture(renderer, work, bookRenderFixture('english'), check)
   await verifyFixture(renderer, work, bookRenderFixture('hebrew'), check)
   await verifyPaginatedContentsLinks(renderer, work, check)
