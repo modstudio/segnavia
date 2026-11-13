@@ -2,8 +2,10 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { bookFromDocument, type DocumentInput } from '@segnavia/format'
 import { bookView, parseDocument } from '@segnavia/html'
+import { PDFDocument } from 'pdf-lib'
 import { fixtureIds } from './build-book-fixture-ids.ts'
 import type { DemoBookPdf } from './build-book-plan.ts'
+import { pdfOutlineItems } from './verify/book-pdf-readback.ts'
 
 export interface LineNumberGeometry {
   page: number
@@ -14,9 +16,11 @@ export interface LineNumberGeometry {
 
 export interface SideNoteGeometry {
   id: string
+  kind: string
   page: number
   x: number
   y: number
+  anchorY: number
 }
 
 export function sideNoteGeometry(): SideNoteGeometry[] {
@@ -25,11 +29,18 @@ export function sideNoteGeometry(): SideNoteGeometry[] {
     const scale = pageBox.width / page.offsetWidth
     return Array.from(page.querySelectorAll<HTMLElement>('[data-segnavia-side-notes] [data-side-note]')).map((note) => {
       const box = note.getBoundingClientRect()
+      const kind = note.getAttribute('data-side-note-kind') ?? ''
+      const anchor = page.querySelector(`[data-side-note-anchor="${kind}"]`)
+      const range = document.createRange()
+      if (anchor) range.selectNodeContents(anchor)
+      const anchorBox = range.getClientRects()[0]
       return {
         id: note.dataset.segnaviaId ?? '',
+        kind,
         page: Number(page.dataset.segnaviaBookPage),
         x: (box.left - pageBox.left) / scale,
         y: (box.top - pageBox.top) / scale,
+        anchorY: anchorBox ? (anchorBox.top - pageBox.top) / scale : Number.NaN,
       }
     })
   })
@@ -96,6 +107,11 @@ export function sideNoteBookFixture(hebrew: boolean): DocumentInput {
     children: [
       {
         type: 'division',
+        name: 'front',
+        children: [{ type: 'contents', title: hebrew ? 'תוכן' : 'Contents' }],
+      },
+      {
+        type: 'division',
         name: 'body',
         children: [
           {
@@ -104,7 +120,7 @@ export function sideNoteBookFixture(hebrew: boolean): DocumentInput {
             children: [
               {
                 type: 'flow',
-                html: `<p>${text}</p><h2 id="side-heading" data-side-note>${note} <em>${hebrew ? 'מודגשת' : 'emphasized'}</em></h2><p>${text} <span data-side-note>${note}</span><br>${text}</p>`,
+                html: `<p>${text}</p><h2 id="side-heading" data-side-note data-side-note-kind="block">${note} <em>${hebrew ? 'מודגשת' : 'emphasized'}</em></h2><p><span data-side-note-anchor="block">${text}</span></p><p>${text}<br><span data-side-note-anchor="inline">${text}</span> <span data-side-note data-side-note-kind="inline">${note}</span></p><p>${text}</p>`,
               },
             ],
           },
@@ -159,5 +175,7 @@ export async function buildNumberedBookPdfs(site: string, bookPdf: DemoBookPdf):
     const language = hebrew ? 'he' : 'en'
     writeFileSync(path.join(site, `book-side-notes-${language}.pdf`), pdf)
     writeFileSync(path.join(site, `book-side-notes-${language}-pdf-geometry.json`), JSON.stringify(geometry))
+    const outline = pdfOutlineItems(await PDFDocument.load(pdf))
+    writeFileSync(path.join(site, `book-side-notes-${language}-pdf-outline.json`), JSON.stringify(outline))
   }
 }

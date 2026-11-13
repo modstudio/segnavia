@@ -10,6 +10,7 @@ import {
   lineNumberEdge,
   physicalColumn,
   prepareSideNote,
+  widestLineNumber,
 } from './composer-margin.ts'
 
 const rect = (left: number, top: number, width: number, height: number) => ({ left, top, width, height, right: left + width, bottom: top + height }) as DOMRect
@@ -175,9 +176,50 @@ test('keeps one heading instance with its id and resolves its own Hebrew directi
     querySelectorAll: (selector: string) => (selector.startsWith('[data-side-note]') ? [selected] : []),
   } as unknown as HTMLElement
   const doc = { querySelectorAll: () => [selected, duplicate] } as unknown as Document
-  const drawn = prepareSideNote({ id: 'note', top: 10, side: 'left', column: 0, columns: 1 }, page, rect(20, 0, 60, 100), rect(0, 0, 100, 100), 4, doc)
+  const drawn = prepareSideNote({ id: 'note', top: 10, side: 'left', column: 0, columns: 1 }, page, rect(20, 0, 60, 100), rect(0, 0, 100, 100), 4, doc, [], '1')
   expect(drawn?.element.tagName).toBe('H2')
   expect(drawn?.element.id).toBe('side-heading')
   expect(drawn?.element.getAttribute('dir')).toBe('rtl')
   expect(duplicateRemoved).toBe(true)
+})
+
+test('takes a side-note copy from elsewhere in the document and reports when none exists', () => {
+  const attributes = new Map([
+    ['data-side-note', ''],
+    ['data-segnavia-id', 'elsewhere'],
+  ])
+  const elsewhere = {
+    id: '',
+    style: {} as Record<string, string>,
+    textContent: 'Note',
+    getAttribute: (name: string) => attributes.get(name) ?? null,
+    hasAttribute: (name: string) => attributes.has(name),
+    setAttribute: (name: string, value: string) => attributes.set(name, value),
+    remove: () => {},
+  } as unknown as HTMLElement
+  const page = { querySelectorAll: () => [] } as unknown as HTMLElement
+  const entries: PreflightEntry[] = []
+  const doc = { querySelectorAll: () => [elsewhere] } as unknown as Document
+  const placement = { id: 'elsewhere', top: 10, side: 'right' as const, column: 0, columns: 1 }
+  expect(prepareSideNote(placement, page, rect(20, 0, 60, 100), rect(0, 0, 100, 100), 4, doc, entries, '2')?.element).toBe(elsewhere)
+  expect(entries).toEqual([])
+
+  const missing = { ...placement, id: 'missing' }
+  expect(prepareSideNote(missing, page, rect(20, 0, 60, 100), rect(0, 0, 100, 100), 4, doc, entries, '2')).toBeUndefined()
+  expect(entries).toContainEqual(
+    expect.objectContaining({
+      check: 'margin-overset',
+      subject: 'side-note:missing',
+      message: expect.stringContaining('source flow'),
+      location: { folio: '2' },
+    }),
+  )
+})
+
+test('reserves only margin-area line numbers beside side notes', () => {
+  const marginNumber = { getBoundingClientRect: () => rect(0, 0, 8, 10) }
+  const page = {
+    querySelectorAll: (selector: string) => (selector.includes('data-segnavia-area="margin"') ? [marginNumber] : []),
+  } as unknown as HTMLElement
+  expect(widestLineNumber(page, 'left')).toBe(8)
 })

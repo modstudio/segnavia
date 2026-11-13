@@ -27,7 +27,7 @@ import {
   tableRenderedInFlow,
   tableRowLines,
 } from './composer-measure.ts'
-import { sideNoteAnchorTop } from './composer-side-note-measure.ts'
+import { sideNoteAnchorTop, sideNoteKind } from './composer-side-note-measure.ts'
 
 export function embeddedComposerMeasureFunctions(): string {
   return [
@@ -55,6 +55,7 @@ export function embeddedComposerMeasureFunctions(): string {
     embedFunction('linesWithDescendantTables', linesWithDescendantTables),
     embedFunction('lineNumberedLines', lineNumberedLines),
     embedFunction('sideNoteAnchorTop', sideNoteAnchorTop),
+    embedFunction('sideNoteKind', sideNoteKind),
     embedFunction('measureTableLines', measureTableLines),
     embedFunction('tableRenderedInFlow', tableRenderedInFlow),
     embedFunction('headerTableFor', headerTableFor),

@@ -1,5 +1,9 @@
 import type { MeasuredLineBox } from './composer-measure.ts'
 
+export function sideNoteKind(note: { parentElement: Element | null }, flow: Element): 'block' | 'inline' {
+  return note.parentElement === flow ? 'block' : 'inline'
+}
+
 export function sideNoteAnchorTop(
   kind: 'block' | 'inline',
   staticTop: number,

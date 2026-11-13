@@ -90,6 +90,17 @@ export function appendSideNoteOverset(entries: PreflightEntry[], id: string, cro
   })
 }
 
+export function appendMissingSideNote(entries: PreflightEntry[], id: string, folio: string): void {
+  const subject = `side-note:${id}`
+  if (entries.some((entry) => entry.check === 'margin-overset' && entry.subject === subject && entry.location?.folio === folio)) return
+  entries.push({
+    check: 'margin-overset',
+    subject,
+    message: `Side note ${id} has no composed copy; keep the side note in its source flow so a page or galley copy is available to clear it.`,
+    location: { folio },
+  })
+}
+
 export function matchingSideNote(root: ParentNode, id: string): HTMLElement | undefined {
   return Array.from(root.querySelectorAll('[data-side-note][data-segnavia-id]')).find((candidate) => candidate.getAttribute('data-segnavia-id') === id) as
     | HTMLElement
@@ -98,7 +109,9 @@ export function matchingSideNote(root: ParentNode, id: string): HTMLElement | un
 
 export function widestLineNumber(page: HTMLElement, side: 'left' | 'right'): number {
   let width = 0
-  for (const number of page.querySelectorAll(`[data-segnavia-line-number][data-segnavia-side="${side}"]`)) {
+  for (const number of page.querySelectorAll(
+    `[data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-line-number][data-segnavia-side="${side}"]`,
+  )) {
     width = Math.max(width, number.getBoundingClientRect().width)
   }
   return width
@@ -118,9 +131,14 @@ export function prepareSideNote(
   pageRect: DOMRect,
   gap: number,
   doc: Document,
+  entries: PreflightEntry[],
+  folio: string,
 ): DrawnSideNote | undefined {
-  const note = matchingSideNote(page, placement.id)
-  if (!note) return undefined
+  const note = matchingSideNote(page, placement.id) ?? matchingSideNote(doc, placement.id)
+  if (!note) {
+    appendMissingSideNote(entries, placement.id, folio)
+    return undefined
+  }
   const copies = Array.from(doc.querySelectorAll('[data-side-note][data-segnavia-id]')).filter(
     (candidate) => candidate.getAttribute('data-segnavia-id') === placement.id,
   ) as HTMLElement[]
@@ -195,8 +213,9 @@ export function drawPageSideNotes(
   const geometry = config.geometries.find((candidate) => (candidate.name ?? null) === geometryName) ?? config.geometries[0]
   const gap = geometry?.columnGap ?? 0
   const drawn: DrawnSideNote[] = []
+  const folio = page.getAttribute('data-segnavia-folio') || ''
   for (const placement of held.notes) {
-    const item = prepareSideNote(placement, page, textRect, pageRect, gap, doc)
+    const item = prepareSideNote(placement, page, textRect, pageRect, gap, doc, entries, folio)
     if (item) {
       container.append(item.element)
       drawn.push(item)
@@ -204,8 +223,7 @@ export function drawPageSideNotes(
   }
   text.append(container)
   const furniture = page.querySelectorAll('[data-segnavia-region]')
-  const numbers = page.querySelectorAll('[data-segnavia-line-number]')
-  const folio = page.getAttribute('data-segnavia-folio') || ''
+  const numbers = page.querySelectorAll('[data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-line-number]')
   for (const side of ['left', 'right'] as const) stackPageSideNotes(drawn, side, gap, pageRect, furniture, numbers, entries, folio)
 }
 

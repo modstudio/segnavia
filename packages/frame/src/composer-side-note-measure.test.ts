@@ -1,5 +1,13 @@
 import { expect, test } from 'bun:test'
-import { sideNoteAnchorTop } from './composer-side-note-measure.ts'
+import { sideNoteAnchorTop, sideNoteKind } from './composer-side-note-measure.ts'
+
+test('side-note kind follows its structure rather than its blockified display', () => {
+  const flow = {} as Element
+  const block = { parentElement: flow }
+  const inline = { parentElement: {} as Element }
+  expect(sideNoteKind(block, flow)).toBe('block')
+  expect(sideNoteKind(inline, flow)).toBe('inline')
+})
 
 test('side-note anchors use the following text line for blocks and their containing line inline', () => {
   const first = { top: 10, bottom: 20 }
