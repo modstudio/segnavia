@@ -131,6 +131,43 @@ export function sideNoteBookFixture(hebrew: boolean): DocumentInput {
   }
 }
 
+export function lineKeyedBookFixture(hebrew: boolean): DocumentInput {
+  const firstLemma = hebrew ? 'מילים ארוכות שנעטפות בסוף השורה' : 'several long words wrapping at the line end'
+  const sharedOne = hebrew ? 'אחד' : 'one'
+  const sharedTwo = hebrew ? 'שניים' : 'two'
+  const nextWord = hebrew ? 'המשך' : 'continues'
+  const spaceBefore = hebrew ? 'רווח' : 'single'
+  const spaceAfter = hebrew ? 'רגיל' : 'space'
+  return {
+    type: 'document',
+    kind: 'book',
+    metadata: { title: hebrew ? 'ספר הערות שורה' : 'A Line-Keyed Book' },
+    mode: 'paginated',
+    settings: { lang: hebrew ? 'he' : 'en', lineNumbers: { interval: 1, restart: 'page', area: 'text', side: 'outer' } },
+    style: { css: ':where(html){font:18px/1.5 serif}:where([data-line-numbers]){margin:0;max-inline-size:17em}' },
+    page: { paper: 'a5', margin: { blockStart: 25, blockEnd: 25, inlineStart: 25, inlineEnd: 25 } },
+    noteSeries: [{ type: 'noteSeries', name: 'apparatus', key: 'line', placement: 'page', numbering: 'book', marker: hebrew ? 'hebrew' : 'arabic' }],
+    children: [
+      {
+        type: 'division',
+        name: 'body',
+        children: [
+          {
+            type: 'section',
+            title: hebrew ? 'פרק' : 'Chapter',
+            children: [
+              {
+                type: 'flow',
+                html: `<p data-line-numbers>${hebrew ? 'פתיחה של הקטע ' : 'The passage opens with enough text to place '}<span data-lemma data-line-keyed-case="wrapping">${firstLemma}</span> <span data-note="apparatus">${hebrew ? 'הערה ראשונה' : 'First note'}</span> <span data-line-keyed-next>${nextWord}</span><br><span data-lemma data-line-keyed-case="shared-one">${sharedOne}</span><span data-note="apparatus">${hebrew ? 'הערה שנייה' : 'Second note'}</span> <span data-lemma data-line-keyed-case="shared-two">${sharedTwo}</span><span data-note="apparatus">${hebrew ? 'הערה שלישית' : 'Third note'}</span><br><span data-line-keyed-case="no-lemma"></span><span data-note="apparatus">${hebrew ? 'ללא דיבור המתחיל' : 'Without a lemma'}</span><br><span data-line-keyed-space-before>${spaceBefore}</span> <span data-line-keyed-space-after>${spaceAfter}</span></p>`,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+}
+
 const numberedBookValue = (hebrew: boolean) => bookFromDocument(parseDocument(numberedBookFixture(hebrew), { newId: fixtureIds() }))
 
 export function writeNumberedBookDemo(site: string): void {
@@ -141,6 +178,14 @@ export function writeNumberedBookDemo(site: string): void {
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Numbered books</title><style>
       html,body{margin:0}body{box-sizing:border-box;padding:16px;background:#d9d5cc;font:16px system-ui,sans-serif}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}.book h2{margin:0 0 8px}segnavia-book{display:block;block-size:70vh;background:#fff}
     </style></head><body><main class="books"><section class="book"><h2>English</h2><segnavia-book id="book-line-numbers-en" src="book-line-numbers-en.json"></segnavia-book></section><section class="book"><h2>עברית</h2><segnavia-book id="book-line-numbers-he" src="book-line-numbers-he.json"></segnavia-book></section></main><script type="module" src="segnavia.js"></script></body></html>`,
+  )
+  for (const hebrew of [false, true]) {
+    const value = bookFromDocument(parseDocument(lineKeyedBookFixture(hebrew), { newId: fixtureIds() }))
+    writeFileSync(path.join(site, `book-line-keyed-${hebrew ? 'he' : 'en'}.json`), JSON.stringify(bookView(value)))
+  }
+  writeFileSync(
+    path.join(site, 'book-line-keyed.html'),
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Line-keyed apparatus</title><style>html,body{margin:0}body{padding:16px;background:#d9d5cc}.books{display:grid;grid-template-columns:1fr 1fr;gap:16px}segnavia-book{display:block;block-size:70vh;background:#fff}</style></head><body><main class="books"><segnavia-book id="book-line-keyed-en" src="book-line-keyed-en.json"></segnavia-book><segnavia-book id="book-line-keyed-he" src="book-line-keyed-he.json"></segnavia-book></main><script type="module" src="segnavia.js"></script></body></html>`,
   )
   for (const hebrew of [false, true]) {
     const value = bookFromDocument(parseDocument(sideNoteBookFixture(hebrew), { newId: fixtureIds() }))

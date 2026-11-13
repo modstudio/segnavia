@@ -29,6 +29,7 @@ export {
   isPart,
   isPlacedSection,
   isTemplatedSection,
+  LineNoteSeries,
   MAX_PART_DEPTH,
   Part,
   PlacedSection,
@@ -53,5 +54,6 @@ export {
   type NoteSeriesInput,
   noteMarkerIssues,
   type ResolvedNoteSeries,
+  resolveLineKeyedNoteSystem,
   resolveNoteSeries,
 } from './note-series.ts'

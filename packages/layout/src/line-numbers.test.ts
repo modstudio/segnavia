@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Measurements, Plan } from '@segnavia/format'
-import { numberLines, resolveMarginSide } from './line-numbers.ts'
+import { lineKeyedLabels, numberLines, resolveMarginSide } from './line-numbers.ts'
 
 function fixtures() {
   const blocks = [
@@ -175,6 +175,71 @@ describe('numberLines', () => {
     expect(() => numberLines(measurements, plan, { interval: 1, start: 4000, restart: 'never', area: 'text', side: 'outer', system: 'roman-lower' })).toThrow(
       'settings.lineNumbers value 4000 exceeds the roman-lower numbering system maximum of 3999; use arabic numbering or restart line numbers by section or page to clear this refusal',
     )
+  })
+})
+
+describe('lineKeyedLabels', () => {
+  test('uses restart policy, repeats shared lines and keys a wrapping lemma to its start', () => {
+    for (const [restart, expected] of [
+      ['never', 8],
+      ['section', 8],
+      ['page', 1],
+    ] as const) {
+      const { measurements, plan } = fixtures()
+      const flow = measurements.flows[0]
+      if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+      flow.lineNoteAnchors = [
+        { id: 'first', top: 80, block: 1 },
+        { id: 'second', top: 80, block: 1 },
+      ]
+      expect(lineKeyedLabels(measurements, plan, { interval: 5, start: 1, restart, area: 'text', side: 'outer', system: 'arabic' })).toEqual([
+        { id: 'first', value: expected },
+        { id: 'second', value: expected },
+      ])
+    }
+  })
+
+  test('labels a split block on its first page and continuation under page and never restarts', () => {
+    for (const [restart, expected] of [
+      ['never', [7, 8]],
+      ['page', [7, 1]],
+    ] as const) {
+      const { measurements, plan } = fixtures()
+      const flow = measurements.flows[0]
+      if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+      flow.lineNoteAnchors = [
+        { id: 'first-page', top: 70, block: 1 },
+        { id: 'continuation', top: 80, block: 1 },
+      ]
+      expect(lineKeyedLabels(measurements, plan, { interval: 1, start: 1, restart, area: 'text', side: 'outer', system: 'arabic' })).toEqual([
+        { id: 'first-page', value: expected[0] },
+        { id: 'continuation', value: expected[1] },
+      ])
+    }
+  })
+
+  test('keys a lemma whose start falls inside a line to that containing line', () => {
+    const { measurements, plan } = fixtures()
+    const flow = measurements.flows[0]
+    if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+    flow.lineNoteAnchors = [{ id: 'spanning', top: 85, block: 1 }]
+    expect(lineKeyedLabels(measurements, plan, { interval: 1, start: 1, restart: 'never', area: 'text', side: 'outer', system: 'arabic' })).toEqual([
+      { id: 'spanning', value: 8 },
+    ])
+  })
+
+  test('refuses an anchor on an uncounted line', () => {
+    const { measurements, plan } = fixtures()
+    const flow = measurements.flows[0]
+    if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+    const block = flow.blocks[1]
+    if (!block) throw new Error('The fixture has no text block.')
+    block.lines[0] = { top: 10, bottom: 20, counted: false }
+    flow.lineNoteAnchors = [{ id: 'held', top: 10, block: 1 }]
+    expect(lineKeyedLabels(measurements, plan, { interval: 1, start: 1, restart: 'never', area: 'text', side: 'outer', system: 'arabic' })[0]).toMatchObject({
+      id: 'held',
+      refusal: expect.stringContaining('line numbering does not count'),
+    })
   })
 })
 

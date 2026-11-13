@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
-import { noteMarkerIssues, resolveNoteSeries } from './note-series.ts'
+import { Book } from './book.ts'
+import { noteMarkerIssues, resolveLineKeyedNoteSystem, resolveNoteSeries } from './note-series.ts'
 import type { NoteMarker } from './numbering.ts'
 
 const settings = (lang?: string) => ({
@@ -10,6 +11,42 @@ const settings = (lang?: string) => ({
 })
 
 describe('note series', () => {
+  test('resolves line keys, separators and their number system', () => {
+    expect(resolveLineKeyedNoteSystem(undefined, 'hebrew')).toBe('hebrew')
+    expect(resolveLineKeyedNoteSystem('roman-upper', 'hebrew')).toBe('roman-upper')
+    expect(() => resolveLineKeyedNoteSystem('symbols', 'arabic')).toThrow('marker must be a number system')
+    expect(
+      resolveNoteSeries({
+        ...settings(),
+        lineNumberSystem: 'hebrew',
+        notes: [{ name: 'sources', key: 'line', lemmaSeparator: ':', placement: 'page', numbering: 'book' }],
+      })[2],
+    ).toMatchObject({ name: 'sources', key: 'line', lemmaSeparator: ':', lineNumberSystem: 'hebrew' })
+  })
+
+  test('refuses line keying without line numbers and with a nonnumeric marker', () => {
+    const base = {
+      title: 'Book',
+      mode: 'paginated' as const,
+      page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      body: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+      notes: [{ name: 'sources', key: 'line' as const, placement: 'page' as const, numbering: 'book' as const }],
+    }
+    expect(() => Book.parse(base)).toThrow('add lineNumbers to clear this refusal')
+    expect(() => Book.parse({ ...base, lineNumbers: {}, notes: [{ ...base.notes[0], marker: 'symbols' }] })).toThrow('marker must be a number system')
+  })
+
+  test('refuses line keying outside paginated mode', () => {
+    expect(() =>
+      Book.parse({
+        title: 'Book',
+        mode: 'continuous',
+        lineNumbers: {},
+        body: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+        notes: [{ name: 'sources', key: 'line', placement: 'page', numbering: 'book' }],
+      }),
+    ).toThrow("line-keyed series need paginated mode; use mode 'paginated' or key 'counter' to clear this refusal")
+  })
   test('resolves compatible defaults and id stems', () => {
     expect(resolveNoteSeries(settings())).toMatchObject([
       { name: 'footnote', placement: 'page', numbering: 'chapter', marker: 'symbols', title: 'Footnotes', idStem: 'fn', idScope: 'chapter' },

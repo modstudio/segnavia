@@ -1,5 +1,5 @@
 import { type Book, type BookDivision, noteMarker, type ResolvedNoteSeries } from '@segnavia/format'
-import { type ChildNode, type Element, isTag } from 'domhandler'
+import { type ChildNode, type Element, isTag, isText } from 'domhandler'
 import { elements } from '../sanitize.ts'
 import { append, element, insertAfter, replace, text } from './dom.ts'
 
@@ -34,6 +34,8 @@ interface AuthoredNote {
   noteId: string
   refId: string
   marker: string
+  series: string
+  key: 'counter' | 'line'
 }
 
 export interface NoteState {
@@ -61,6 +63,46 @@ function markerLink(id: string, href: string, marker: string): Element {
 
 function noteParagraph(className: string, noteId: string, refId: string, marker: string, content: ChildNode[]): Element {
   return element('p', { class: className, id: noteId }, [element('a', { href: `#${refId}` }, [element('bdi', {}, [text(marker)])]), text(' '), ...content])
+}
+
+function nodeText(node: ChildNode): string {
+  if (isText(node)) return node.data
+  return 'children' in node ? node.children.map(nodeText).join('') : ''
+}
+
+function precedingLemma(note: Element): Element | undefined {
+  let previous = note.prev
+  while (previous && isText(previous) && previous.data.trim() === '') previous = previous.prev
+  return previous && isTag(previous) && previous.attribs['data-lemma'] !== undefined ? previous : undefined
+}
+
+function insideNumberedBlock(node: Element): boolean {
+  for (let current: ChildNode | null = node; current; current = current.parent) {
+    if (isTag(current) && current.attribs['data-line-numbers'] !== undefined) return true
+  }
+  return false
+}
+
+function lineLabel(noteId: string, series: string, lemma: string | undefined, separator: string): Element {
+  const children: ChildNode[] = [element('bdi', { 'data-segnavia-line-label-number': '' }), text(' ')]
+  if (lemma !== undefined) children.push(element('bdi', {}, [text(lemma)]), text(separator), text(' '))
+  return element('span', { 'data-segnavia-line-label': noteId, 'data-segnavia-line-series': series }, children)
+}
+
+function lineNoteParagraph(series: ResolvedNoteSeries, noteId: string, content: ChildNode[], lemma: string | undefined): Element {
+  return element('p', { class: series.bodyClass, id: noteId }, [lineLabel(noteId, series.name, lemma, series.lemmaSeparator), ...content])
+}
+
+function authoredNoteReplacement(series: ResolvedNoteSeries, noteId: string, refId: string, marker: string, lemma: Element | undefined): Element {
+  if (series.key !== 'line') return element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)])
+  return element('a', {
+    id: refId,
+    href: `#${noteId}`,
+    tabindex: '-1',
+    'data-segnavia-line-note': noteId,
+    ...(lemma ? {} : { 'data-segnavia-line-note-anchor': noteId }),
+    'aria-hidden': 'true',
+  })
 }
 
 function scopeKey(series: ResolvedNoteSeries, context: NoteSectionContext): string {
@@ -169,8 +211,18 @@ function transformAuthoredNote(
   const marker = noteMarker(number, series.marker)
   const authoredId = note.attribs.id
   const content = [...note.children]
-  replace(note, element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)]))
-  const paragraph = noteParagraph(series.bodyClass, noteId, refId, marker, content)
+  const lemma = series.key === 'line' ? precedingLemma(note) : undefined
+  if (series.key === 'line' && !insideNumberedBlock(lemma ?? note)) {
+    state.issues.push(
+      `line-keyed note ${noteId} in series ${series.name} is not inside data-line-numbers; mark its containing block or container with data-line-numbers to clear this refusal`,
+    )
+  }
+  if (lemma) lemma.attribs['data-segnavia-line-note-anchor'] = noteId
+  replace(note, authoredNoteReplacement(series, noteId, refId, marker, lemma))
+  const paragraph =
+    series.key === 'line'
+      ? lineNoteParagraph(series, noteId, content, lemma ? nodeText(lemma) : undefined)
+      : noteParagraph(series.bodyClass, noteId, refId, marker, content)
   if (series.placement === 'page') {
     if (galley) {
       const paragraphs = state.pageParagraphs.get(series.name) ?? []
@@ -183,7 +235,7 @@ function transformAuthoredNote(
     if (run?.scopeKey === scope) run.paragraphs.push(paragraph)
     else collected.runs.push({ scopeKey: scope, heading: runHeading(series, context), paragraphs: [paragraph] })
   }
-  if (authoredId) state.authored.set(authoredId, { noteId, refId, marker })
+  if (authoredId) state.authored.set(authoredId, { noteId, refId, marker, series: series.name, key: series.key })
   state.used.add(series.name)
 }
 
@@ -192,6 +244,12 @@ function transformRepeat(node: Element, state: NoteState): void {
   const note = state.authored.get(authoredId)
   if (!note) {
     state.issues.push(`data-note-ref ${authoredId} names no earlier note; place the note before its repeated call`)
+    return
+  }
+  if (note.key === 'line') {
+    state.issues.push(
+      `data-note-ref ${authoredId} repeats line-keyed note ${note.noteId} in series ${note.series}; write a separate note at this place or move it to a counter-keyed series to clear this refusal`,
+    )
     return
   }
   state.repeatCount += 1
