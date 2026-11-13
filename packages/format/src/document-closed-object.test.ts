@@ -33,7 +33,7 @@ describe('Document closed objects', () => {
         },
         'page.paper.unknown',
       ],
-      [{ ...root, children: [{ type: 'section', children: [{ type: 'flow', html: '', htlm: '' }] }] }, 'children[0].children[0].htlm'],
+      [{ ...root, children: [{ type: 'section', children: [{ type: 'flow', html: '', htnl: '' }] }] }, 'children[0].children[0].htnl'],
     ] as const
     for (const [value, path] of cases) {
       const result = Document.safeParse(value)
