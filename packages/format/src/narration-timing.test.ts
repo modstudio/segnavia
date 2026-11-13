@@ -9,6 +9,22 @@ const content = { kind: 'html' as const, html: '' }
 const textNarration = { kind: 'text' as const, text: 'Hello there' }
 
 describe('text narration timing', () => {
+  test('keeps an existing voiced narration unchanged when kind is absent', () => {
+    const voiced = {
+      text: 'Hello there',
+      words: [
+        { text: 'Hello', startMs: 0, endMs: 300 },
+        { text: 'there', startMs: 360, endMs: 700 },
+      ],
+      durationMs: 1100,
+      audio: null,
+      live: false,
+      cues: [],
+    }
+    const deck = Deck.parse({ title: 'Voiced', slides: [{ id: 'one', content, narration: voiced }] })
+    expect(deck.slides[0]?.narration).toEqual(voiced)
+  })
+
   test('parses text alone and defaults to 180 words per minute without storing the default', () => {
     const deck = Deck.parse({
       title: 'Text',

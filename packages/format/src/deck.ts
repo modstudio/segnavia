@@ -187,28 +187,34 @@ export function annotationCueIssues(narration: Slide['narration'], annotations: 
     .map((cue) => `a cue names annotation ${cue.annotation}, but the slide has ${annotations}`)
 }
 
-function narrationIssues(slide: Slide, deck: Pick<Deck, 'readingSpeed'>): string[] {
+interface NarrationIssue {
+  field?: 'cues'
+  message: string
+}
+
+function narrationIssues(slide: Slide, deck: Pick<Deck, 'readingSpeed'>): NarrationIssue[] {
   const narration = slide.narration
   if (!narration) return []
   // A shot named by reference has its annotations only once resolved, and a
   // live narration learns its words while it speaks, so neither is checked here.
   const annotations = 'kind' in slide.content && slide.content.kind === 'shot' ? slide.content.shot.annotations.length : null
   const words = narration.kind !== 'text' && narration.live ? null : narrationTiming(narration, deck).words.length
-  const issues: string[] = []
+  const issues: NarrationIssue[] = []
   for (const cue of narration.cues) {
     for (const word of [cue.word, cue.untilWord]) {
-      if (word !== undefined && words !== null && word >= words) issues.push(`a cue names word ${word}, but the narration has ${words} words`)
+      if (word !== undefined && words !== null && word >= words)
+        issues.push({ field: 'cues', message: `a cue names word ${word}, but the narration has ${words} words` })
     }
     if (!('kind' in slide.content) || (slide.content.kind !== 'shot' && slide.content.kind !== 'shot-ref'))
-      issues.push('a cue names an annotation, but only a shot carries annotations')
+      issues.push({ field: 'cues', message: 'a cue names an annotation, but only a shot carries annotations' })
   }
-  if (annotations !== null) issues.push(...annotationCueIssues(narration, annotations))
+  if (annotations !== null) issues.push(...annotationCueIssues(narration, annotations).map((message) => ({ field: 'cues' as const, message })))
   if (narration.kind === 'text') {
     const computed = narrationTiming(narration, deck).durationMs
     if (computed > MAX_SLIDE_TIMING_MS)
-      issues.push(
-        `the text narration computes to ${computed} ms, above the ${MAX_SLIDE_TIMING_MS} ms cap; shorten the text or raise readingSpeed to clear this refusal`,
-      )
+      issues.push({
+        message: `the text narration computes to ${computed} ms, above the ${MAX_SLIDE_TIMING_MS} ms cap; shorten the text or raise readingSpeed to clear this refusal`,
+      })
   }
   return issues
 }
@@ -222,7 +228,8 @@ export const Deck = DeckShape.superRefine((deck, ctx) => {
         ctx.addIssue({ code: 'custom', path: ['slides', index, 'content', 'media'], message: error instanceof Error ? error.message : String(error) })
       }
     }
-    for (const message of narrationIssues(slide, deck)) ctx.addIssue({ code: 'custom', path: ['slides', index, 'narration'], message })
+    for (const issue of narrationIssues(slide, deck))
+      ctx.addIssue({ code: 'custom', path: ['slides', index, 'narration', ...(issue.field === undefined ? [] : [issue.field])], message: issue.message })
     for (const field of slideTimingIssues(slide)) {
       const kind = field === 'holdMs' ? 'without' : 'with'
       ctx.addIssue({ code: 'custom', path: ['slides', index, field], message: `${field} is allowed only ${kind} narration` })

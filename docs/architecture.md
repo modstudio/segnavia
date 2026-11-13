@@ -974,13 +974,17 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    answers approved requests from the host through route fulfillment within `limits.assets`;
    an absent answer refuses the render by URL, and Chromium never reaches the
    network.
-4. `slideDurationMs` adds `beforeMs`, narration duration and `afterMs`, or
+4. `narrationTiming` reads a voiced narration's stored words and duration, or
+   derives a text narration's words and duration with pure `pacedWords` at the
+   deck's `readingSpeed` (180 words per minute when absent). Pacing counts
+   Unicode characters other than combining marks, so pointing does not alter
+   Hebrew timing. `slideDurationMs` adds `beforeMs`, narration duration and `afterMs`, or
    reads `holdMs` for an unnarrated slide. Without either narration or a hold
    the slide is untimed. `deckTimeline` gives every slide its start and
    duration, marks untimed entries and totals timed durations, and
    `positionAt` maps a deck-wide time back to a slide and an offset within it.
    Pure `slideStateAt`, built on `phaseBounds`, gives export and playback the
-   same word, cues and phase, including a distinct `untimed` phase for slides
+   same computed word, cues and phase, including a distinct `untimed` phase for slides
    without a duration. A slide without narration shows all its annotations.
 5. A timed slide gets a positionable clock. `timedClock` uses wall time for
    before, after and hold phases, audio time during recorded narration, and
