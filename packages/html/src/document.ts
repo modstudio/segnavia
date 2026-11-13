@@ -10,6 +10,7 @@ import {
 } from '@segnavia/format'
 import { contentFieldFlows, type FragmentShape } from './block-fragments.ts'
 import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState, sideNotesState } from './block-identify.ts'
+import { CONDITION_ATTRIBUTE, conditionNames } from './condition-attributes.ts'
 import { headingListing } from './heading-listing.ts'
 import { type AlertLabels, type BodyHtmlOptions, bodyHtml } from './markdown.ts'
 import { elements, parse } from './sanitize.ts'
@@ -35,17 +36,35 @@ export function pageBodyFromHtml(html: string, markdown?: string): Extract<PageB
 export function parseDocument(input: DocumentInput | unknown, options: ParseDocumentOptions = {}): ParsedDocument {
   const newId = options.newId ?? defaultNewId
   const document = Document.parse(input, { newId })
+  const declaredConditions = new Set(document.conditions.map((condition) => condition.name))
   const seen = new Map<string, BlockIdLocation>()
   const identifyOptions = { lineNumbers: lineNumbersState(document), sideNotes: sideNotesState(document) }
+  const validateHtmlConditions = (identified: string, node: { type: string; id: string }): string => {
+    for (const element of elements(parse(identified).children)) {
+      if (/^h[1-6]$/.test(element.name)) headingListing(element)
+      const marker = element.attribs[CONDITION_ATTRIBUTE]
+      if (marker === undefined) continue
+      for (const name of conditionNames(marker)) {
+        if (!declaredConditions.has(name)) {
+          throw new RangeError(
+            `${contentNodeLabel(node)} <${element.name}> names unknown condition ${JSON.stringify(name)}; declare it or remove the reference to clear this refusal`,
+          )
+        }
+      }
+    }
+    return identified
+  }
   const html = (value: string, node: { type: string; id: string }, flowing: boolean): string => {
     const identified = identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing }).html
-    for (const element of elements(parse(identified).children)) if (/^h[1-6]$/.test(element.name)) headingListing(element)
-    return identified
+    return validateHtmlConditions(identified, node)
   }
   const contentHtml = (value: string, node: ParsedDocument['children'][number], shape: FragmentShape): string =>
     html(value, node, contentFieldFlows(document.kind, node.type, shape))
   const regionHtml = (value: string, node: Extract<ParsedDocument['children'][number], { type: 'page' }>, region: string) =>
-    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing: false, insideNamedRegion: region }).html
+    validateHtmlConditions(
+      identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing: false, insideNamedRegion: region }).html,
+      node,
+    )
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
     const value = pageBodyHtml(node.body, document, options)
@@ -77,7 +96,10 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
         name,
         {
           ...region,
-          html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { ...identifyOptions, parentRegion: true, insideNamedRegion: name }).html,
+          html: validateHtmlConditions(
+            identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { ...identifyOptions, parentRegion: true, insideNamedRegion: name }).html,
+            node,
+          ),
         },
       ]),
     ),

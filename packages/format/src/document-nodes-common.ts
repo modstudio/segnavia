@@ -17,6 +17,7 @@ export const FlowNode = NodeId.extend({
 
 export const PageNode = NodeId.extend({
   type: z.literal('page'),
+  conditions: z.array(z.string()).optional(),
   body: PageBody.optional(),
   template: z.string().min(1).optional(),
   regions: z.record(z.string(), z.string()).optional(),
@@ -24,7 +25,7 @@ export const PageNode = NodeId.extend({
 
 export const SlideNode = Slide.omit({ id: true }).extend({ type: z.literal('slide'), id: z.string().optional() })
 
-export const PlacedNode = PlacementShape.extend({ type: z.literal('placed'), id: z.string().optional() })
+export const PlacedNode = PlacementShape.extend({ type: z.literal('placed'), id: z.string().optional(), conditions: z.array(z.string()).optional() })
 
 export const RecordNodeBase = NodeId.extend({
   type: z.literal('record'),

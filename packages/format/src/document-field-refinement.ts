@@ -4,7 +4,6 @@ import { renamedParentRulesFieldIssue } from './parent-rules.ts'
 interface UnsupportedDocumentFields {
   rules?: unknown
   templates: readonly { parents?: unknown }[]
-  conditions: readonly { name: string }[]
 }
 
 export function refineUnsupportedDocumentFields(document: UnsupportedDocumentFields, ctx: z.RefinementCtx): void {
@@ -15,8 +14,5 @@ export function refineUnsupportedDocumentFields(document: UnsupportedDocumentFie
     if (template.parents !== undefined) {
       ctx.addIssue({ code: 'custom', ...renamedParentRulesFieldIssue('template field parents', ['templates', index, 'parents']) })
     }
-  })
-  document.conditions.forEach((condition, index) => {
-    ctx.addIssue({ code: 'custom', path: ['conditions', index], message: `condition ${condition.name} is not yet supported; remove it to clear this refusal` })
   })
 }

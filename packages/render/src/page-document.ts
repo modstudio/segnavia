@@ -26,6 +26,7 @@ import {
   type HtmlPage,
   type PrintedHtmlPage,
   parseDocument,
+  resolveEdition,
   resolvePageHtml,
   resolvePrintedPageHtml,
 } from '@segnavia/html'
@@ -71,7 +72,7 @@ export async function prepareRenderedPage(
   signal: AbortSignal,
   purpose: 'screen' | 'print' = 'print',
 ) {
-  const document = parseDocument(input, { newId: options.newId })
+  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
   const brand = await resolveRenderBrand(document, options.brandSource, signal)
   const page = pageOrPrintedFromDocument(document, brand)
   const established = await resolveRenderDayContext(page, options, signal)

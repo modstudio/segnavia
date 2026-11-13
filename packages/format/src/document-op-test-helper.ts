@@ -45,6 +45,7 @@ export const DOCUMENT_NODE_SAMPLES: Record<DocumentNodeType, Sample> = {
   variable: (seed) => ({ type: 'variable', id: `variable-${seed}`, name: 'folio', kind: 'folio' }),
   headTemplate: (seed) => ({ type: 'headTemplate', id: `head-template-${seed}`, name: `head-${seed}`, parts: [{ variable: 'folio' }] }),
   condition: (seed) => ({ type: 'condition', id: `condition-${seed}`, name: 'edition' }),
+  edition: (seed) => ({ type: 'edition', id: `edition-${seed}`, name: 'teacher', conditions: [] }),
 }
 
 function base(kind: DocumentKind, seed: number): Record<string, unknown> {
@@ -112,8 +113,13 @@ export function generatedCandidateDocuments(seed: number): DocumentValue[] {
     const collection = nodeModel(type)?.collection
     for (const [kind, profile] of Object.entries(DOCUMENT_PROFILES) as [DocumentKind, (typeof DOCUMENT_PROFILES)[DocumentKind]][]) {
       const candidate = base(kind, seed)
-      if (collection && (profile.definitions as readonly string[]).includes(collection))
+      if (collection && (profile.definitions as readonly string[]).includes(collection)) {
         (candidate[collection] as unknown[]) = [DOCUMENT_NODE_SAMPLES[type](seed)]
+        if (collection === 'conditions') {
+          candidate.editions = [{ type: 'edition', id: `condition-edition-${seed}`, name: 'default', conditions: ['edition'] }]
+          candidate.defaultEdition = 'default'
+        }
+      }
       else if (!collection && (profile.children as readonly string[]).includes(type)) {
         candidate.children =
           kind === 'book' && type === 'contents'

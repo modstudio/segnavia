@@ -15,7 +15,7 @@ export async function prepareRenderBook<T extends ComposedRenderOptions & AsOfIn
   options: T,
   signal: AbortSignal,
 ) {
-  const book = await resolveRenderBook(input, options.newId, options.brandSource, signal)
+  const book = await resolveRenderBook(input, options.newId, options.brandSource, signal, options.edition)
   const established = await resolveRenderDayContext(book, options, signal)
   const expanded = await expandRenderBook(book, options, signal, established.day)
   const prepared = await renderOptionsWithBookFonts(expanded.book, { ...options, slots: established.slots }, signal, expanded.fonts)

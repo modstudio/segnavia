@@ -39,6 +39,7 @@ export const CONTENT_FIELD_SHAPES: Readonly<Record<DocumentNodeType, FieldShapes
   variable: {},
   headTemplate: {},
   condition: {},
+  edition: {},
 }
 
 export function contentFieldFlows(documentKind: Document['kind'], nodeType: DocumentNodeType, shape: FragmentShape): boolean {

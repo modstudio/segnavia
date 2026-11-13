@@ -81,6 +81,7 @@ export { type BrandSpecimenOptions, brandSpecimen } from './brand-specimen.ts'
 export { asOfValues, slotsForDay, slotsOptionsRefusal, slotsWithDay } from './day-slots.ts'
 export { type DescribeDocumentOptions, type DocumentDescription, type DocumentDescriptionNode, describeDocument } from './describe-document.ts'
 export { BLOCK_ELEMENTS, type ParseDocumentOptions, pageOrPrintedFromInput, parseDocument } from './document.ts'
+export { resolveEdition } from './resolve-edition.ts'
 export type { EditDocumentOptions } from './document-command-core.ts'
 export {
   type CommandContentAddress,

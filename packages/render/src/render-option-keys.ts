@@ -14,6 +14,7 @@ import type {
 
 const RENDER_KEYS = {
   newId: true,
+  edition: true,
   origins: true,
   assets: true,
   assetBudget: true,

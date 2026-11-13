@@ -15,6 +15,7 @@ import { ContentTextVariable, MetaVariable, NumberVariable, PartTitleTextVariabl
 export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTemplate'), id: z.string().optional() })
 
 export const SectionFields = {
+  conditions: z.array(z.string()).optional(),
   title: z.string().optional(),
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
@@ -70,8 +71,9 @@ export const VariableNode = z.discriminatedUnion('kind', [
 ])
 
 export const ConditionNode = NodeId.extend({ type: z.literal('condition'), name: z.string() })
+export const EditionNode = NodeId.extend({ type: z.literal('edition'), name: z.string(), conditions: z.array(z.string()) })
 
-export const DocumentDefinitionNodeMembers = [ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, HeadTemplateNode, ConditionNode] as const
+export const DocumentDefinitionNodeMembers = [ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, HeadTemplateNode, ConditionNode, EditionNode] as const
 
 export type ContentsNode = z.infer<typeof ContentsNode>
 export type ParentPageNode = z.infer<typeof ParentPageNode>
@@ -80,3 +82,4 @@ export type NoteSeriesNode = z.infer<typeof NoteSeriesNode>
 export type VariableNode = z.infer<typeof VariableNode>
 export type HeadTemplateNode = z.infer<typeof HeadTemplateNode>
 export type ConditionNode = z.infer<typeof ConditionNode>
+export type EditionNode = z.infer<typeof EditionNode>

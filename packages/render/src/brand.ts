@@ -1,5 +1,5 @@
 import { type BrandSource, bookFromDocument, type Document, type DocumentInput, deckFromDocument, resolveBrand } from '@segnavia/format'
-import { parseDocument } from '@segnavia/html'
+import { parseDocument, resolveEdition } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 
 export async function resolveRenderBrand(document: Document, source: BrandSource | undefined, signal: AbortSignal) {
@@ -10,12 +10,24 @@ export async function resolveRenderBrand(document: Document, source: BrandSource
   }
 }
 
-export async function resolveRenderBook(input: DocumentInput, newId: (() => string) | undefined, source: BrandSource | undefined, signal: AbortSignal) {
-  const document = parseDocument(input, { newId })
+export async function resolveRenderBook(
+  input: DocumentInput,
+  newId: (() => string) | undefined,
+  source: BrandSource | undefined,
+  signal: AbortSignal,
+  edition?: string,
+) {
+  const document = resolveEdition(parseDocument(input, { newId }), edition)
   return bookFromDocument(document, await resolveRenderBrand(document, source, signal))
 }
 
-export async function resolveRenderDeck(input: DocumentInput, newId: (() => string) | undefined, source: BrandSource | undefined, signal: AbortSignal) {
-  const document = parseDocument(input, { newId })
+export async function resolveRenderDeck(
+  input: DocumentInput,
+  newId: (() => string) | undefined,
+  source: BrandSource | undefined,
+  signal: AbortSignal,
+  edition?: string,
+) {
+  const document = resolveEdition(parseDocument(input, { newId }), edition)
   return deckFromDocument(document, await resolveRenderBrand(document, source, signal))
 }

@@ -7,6 +7,7 @@ import {
   parseDocument,
   printedPageAuthorHtml,
   printedPageDirection,
+  resolveEdition,
 } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { namedDestinations } from './book-destinations.ts'
@@ -256,7 +257,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const parsedDocuments = await Promise.all(
           inputs.map(async (input) => {
-            const document = parseDocument(input, { newId: parsedOptions.newId })
+            const document = resolveEdition(parseDocument(input, { newId: parsedOptions.newId }), parsedOptions.edition)
             const brand = await resolveRenderBrand(document, parsedOptions.brandSource, deadline.signal)
             const page = pageOrPrintedFromDocument(document, brand)
             return { page, outlineSource: document.kind === 'printed' ? documentOutlineSource(document) : undefined }
@@ -325,7 +326,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const options = parseDeckPdfOptions(opts)
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
+        const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal, options.edition)
         const established = await resolveRenderDayContext(deck, options, deadline.signal)
         enforceDeckLimits(deck, options.limits)
         const watermarkCopies = watermarkCopyStamper(options, '', deadline, withTab)
@@ -370,7 +371,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       const options = parseSlideImageOptions(opts)
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
-        const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
+        const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal, options.edition)
         const established = await resolveRenderDayContext(deck, options, deadline.signal)
         enforceDeckLimits(deck, options.limits)
         return renderSlideImage(deck, index, options, { withTab, layoutScripts: resolveRenderLayoutScripts }, deadline, established)

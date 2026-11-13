@@ -46,7 +46,7 @@ function pageHtml(node: Extract<DocumentNode, { type: 'page' }>): string {
 }
 
 function placement(node: Extract<DocumentNode, { type: 'placed' }>) {
-  const { type: _type, id: _id, ...value } = node
+  const { type: _type, id: _id, conditions: _conditions, ...value } = node
   return value
 }
 

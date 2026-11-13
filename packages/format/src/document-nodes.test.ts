@@ -71,7 +71,7 @@ describe('document node discrimination', () => {
       expect.objectContaining({
         path: ['type'],
         message:
-          'node type got "mystery"; use one of "division", "part", "section", "flow", "page", "slide", "placed", "contents", "record", "item", "label", "boardSection", "parentPage", "template", "noteSeries", "variable", "headTemplate", "condition" to clear this refusal',
+          'node type got "mystery"; use one of "division", "part", "section", "flow", "page", "slide", "placed", "contents", "record", "item", "label", "boardSection", "parentPage", "template", "noteSeries", "variable", "headTemplate", "condition", "edition" to clear this refusal',
       }),
     )
   })
