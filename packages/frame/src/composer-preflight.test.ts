@@ -80,6 +80,7 @@ test('strict preflight refuses an unmeasured refuse slot', () => {
 
 test('measures slot coverage without reporting slot overset when that check is off', () => {
   const posted: Array<{ report?: import('@segnavia/format').PreflightReport }> = []
+  const failures: string[] = []
   const profile = { ...PREFLIGHT_PRESETS.default, 'slot-overset': 'off', 'coverage-incomplete': 'error' } as const
   const complete = new Function(
     'config',
@@ -97,7 +98,7 @@ test('measures slot coverage without reporting slot overset when that check is o
     { folios: [] },
     [],
     [],
-    () => {},
+    (reason: string) => failures.push(reason),
     {
       parent: { postMessage: (message: { report?: import('@segnavia/format').PreflightReport }) => posted.push(message) },
       segnaviaSlotFit: (done: (slots: Record<string, string>) => void) => done({ name: 'unmeasured' }),
@@ -113,7 +114,7 @@ test('measures slot coverage without reporting slot overset when that check is o
     coverage: { slots: { measured: 0, total: 1 } },
     issues: [{ check: 'coverage-incomplete', subject: 'slots', severity: 'error' }],
   })
-  expect(posted[0]?.report?.issues.some(({ check }) => check === 'slot-overset')).toBe(false)
+  expect(failures).toEqual(['Preflight measured 0 of 1 marked slot; a slot that is never laid out cannot be checked. Lay out every marked slot to clear this.'])
 })
 
 test('slot preflight coverage counts distinct marked keys and only measured states', () => {
