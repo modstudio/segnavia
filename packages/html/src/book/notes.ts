@@ -97,6 +97,8 @@ function authoredNoteReplacement(series: ResolvedNoteSeries, noteId: string, ref
   if (series.key !== 'line') return element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)])
   return element('a', {
     id: refId,
+    href: `#${noteId}`,
+    tabindex: '-1',
     'data-segnavia-line-note': noteId,
     ...(lemma ? {} : { 'data-segnavia-line-note-anchor': noteId }),
     'aria-hidden': 'true',

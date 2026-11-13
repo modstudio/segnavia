@@ -30,6 +30,7 @@ describe('line-keyed note series document', () => {
     expect(result.html).not.toContain('class="segnavia-note-ref"')
     expect(result.html).toContain('data-segnavia-line-note-anchor="segnavia-note-sources-1"')
     expect(result.html).toContain('data-segnavia-line-note="segnavia-note-sources-1"')
+    expect(result.html).toMatch(/<a [^>]*href="#segnavia-note-sources-1"[^>]*tabindex="-1"[^>]*data-segnavia-line-note=/)
     expect(result.html).toContain('<bdi data-segnavia-line-label-number></bdi> <bdi>long lemma</bdi>] </span>body')
   })
 
