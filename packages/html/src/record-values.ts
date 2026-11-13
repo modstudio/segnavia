@@ -9,9 +9,8 @@ export interface RecordValueSection {
   recordBody?: string
 }
 
-export type BoundRecordSection<T extends RecordValueSection> = Omit<T, 'recordBody' | 'recordTemplate' | 'values'> & {
+export type BoundRecordSection<T extends RecordValueSection> = Omit<T, 'recordBody' | 'values'> & {
   recordBody?: never
-  recordTemplate?: never
   values?: never
 }
 
@@ -25,6 +24,7 @@ function composeRecordBody(section: RecordValueSection, document: HtmlDocument):
     const body = section.recordBody === undefined ? [] : parse(section.recordBody).children
     for (const child of body) child.parent = bodyPoint
     bodyPoint.children = body
+    delete bodyPoint.attribs['data-record-body']
     if (section.recordBody !== undefined) bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(section.recordBody))
   }
   return bodyPoint
@@ -68,7 +68,7 @@ export function bindRecordValues<T extends RecordValueSection>(section: T): Boun
   const document = parse(section.html)
   const bodyPoint = composeRecordBody(section, document)
   if (!section.values || !section.recordTemplate) {
-    const { recordBody: _recordBody, recordTemplate: _recordTemplate, ...composed } = section
+    const { recordBody: _recordBody, ...composed } = section
     return { ...composed, html: serialize(document) } as BoundRecordSection<T>
   }
   const bindings = recordBindings(document)
@@ -76,6 +76,6 @@ export function bindRecordValues<T extends RecordValueSection>(section: T): Boun
   fillRecordValues(section.values, bindings)
   if (bodyPoint && section.recordBody !== undefined)
     bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(serialize(bodyPoint.children)))
-  const { recordBody: _recordBody, recordTemplate: _recordTemplate, values: _values, ...bound } = section
+  const { recordBody: _recordBody, values: _values, ...bound } = section
   return { ...bound, html: serialize(document) } as BoundRecordSection<T>
 }

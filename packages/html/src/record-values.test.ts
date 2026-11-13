@@ -35,7 +35,7 @@ test('inserts a record body before binding values across the composed HTML', () 
       html: '<article><h1>Profile</h1><main data-record-body>Fallback</main></article>',
       recordBody: '<p data-slot-value="name"></p>',
     }).html,
-  ).toBe('<article><h1>Profile</h1><main data-record-body dir="rtl"><p dir="auto">שָׁלוֹם</p></main></article>')
+  ).toBe('<article><h1>Profile</h1><main dir="rtl"><p dir="auto">שָׁלוֹם</p></main></article>')
 })
 
 test('still refuses a declared slot bound in neither the template nor its body', () => {
@@ -54,7 +54,7 @@ test('leaves a template body point empty when the record has no body', () => {
       html: '<article><main data-record-body><p>Fallback</p></main></article>',
       recordTemplate: { name: 'row', slots: [] },
     }).html,
-  ).toBe('<article><main data-record-body></main></article>')
+  ).toBe('<article><main></main></article>')
 })
 
 test('keeps a composed body when record binding is applied again', () => {
@@ -73,5 +73,5 @@ test.each(['ltr', 'rtl'])('gives a Hebrew record body its resolved direction ins
       recordTemplate: { name: 'row', slots: [] },
       recordBody: '<p>שָׁלוֹם</p>',
     }).html,
-  ).toContain('<main data-record-body dir="rtl"><p>שָׁלוֹם</p></main>')
+  ).toContain('<main dir="rtl"><p>שָׁלוֹם</p></main>')
 })
