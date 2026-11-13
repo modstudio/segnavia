@@ -58,4 +58,18 @@ describe('held section contents', () => {
       { id: 'topic', level: 2, text: 'Topic' },
     ])
   })
+
+  test('lists every end-matter flowing-section heading only when contents is enabled', () => {
+    const book = (contents: boolean) =>
+      parseBookFixture({
+        title: 'Book',
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+        chapters: [{ title: 'One', html: '<p>Body</p>' }],
+        endMatter: [{ title: 'Index', contents, html: '<h2 id="entries">Entries</h2>' }],
+      })
+
+    expect(bookDocument(book(false)).headings.map(({ text }) => text)).toEqual(['One'])
+    expect(bookDocument(book(true)).headings.map(({ text }) => text)).toEqual(['One', 'Index', 'Entries'])
+  })
 })

@@ -24,7 +24,6 @@ import {
   authoredSection,
   authoredSectionAttributeIssues,
   type BuiltSection,
-  collectHeadings,
   designedSection,
   designedSectionAttributeIssues,
   flowAttribs,
@@ -39,6 +38,7 @@ import {
 import { duplicateIdIssues, pageReferenceIssues, reservedIdIssues } from './book-issues.ts'
 import { pageReferenceNodes, pageReferenceTarget, pageReferenceTargets, removeAuthoredContentsPageReferenceMarkers } from './book-page-reference.ts'
 import { addPart, attachPendingPartHeadings, partNames } from './book-part-build.ts'
+import { appendChapterHeadings, appendHeldHeadings, withSectionDepth } from './book-section-headings.ts'
 import { element, linkChildren, text } from './dom.ts'
 import { type CollectedNotes, type NoteSectionContext, noteState, transformNotes } from './notes.ts'
 import { type BookBuild, type BookDocument, type BookDocumentOptions, type BookHeading, bookPrintPart } from './types.ts'
@@ -66,7 +66,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)
   build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...designedSectionAttributeIssues(entry, id))
-  appendHeldHeadings(entry, held.headings, sectionEntry.depth, build)
+  appendHeldHeadings(entry, held.headings, sectionEntry.depth, build.headings)
   const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')
 }
@@ -85,21 +85,9 @@ function appendTemplated(entry: TemplatedSection, id: string, kind: 'front' | 't
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)
   build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...templatedSectionIssues(entry, id, build.templates))
-  appendHeldHeadings(entry, held.headings, sectionEntry.depth, build)
+  appendHeldHeadings(entry, held.headings, sectionEntry.depth, build.headings)
   const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')
-}
-
-function appendHeldHeadings(entry: Pick<DesignedSection | TemplatedSection, 'contents'>, headings: BookHeading[], depth: number, build: DocumentBuild): void {
-  if (entry.contents) build.headings.push(...withSectionDepth(headings, depth))
-}
-
-function withSectionDepth(headings: BookHeading[], depth: number): BookHeading[] {
-  return depth > 0 ? headings.map((heading) => ({ ...heading, depth })) : headings
-}
-
-function chapterHeadings(section: BuiltSection, depth: number): BookHeading[] {
-  return collectHeadings(section.node.children, section.info.id, depth, 2)
 }
 
 function columnsValueOk(value: string): boolean {
@@ -256,10 +244,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     build.sections.push(section)
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
-    if (entry.title !== undefined) {
-      build.headings.push(...withSectionDepth([sectionHeading({ ...entry, title: entry.title }, section.info.id)], sectionEntry.depth))
-    }
-    build.headings.push(...withSectionDepth(chapterHeadings(section, book.contents.depth), sectionEntry.depth))
+    appendChapterHeadings(entry, section, sectionEntry.depth, book.contents.depth, build.headings)
     transformNotes(
       section.node,
       book,
