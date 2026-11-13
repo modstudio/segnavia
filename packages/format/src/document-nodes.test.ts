@@ -53,6 +53,16 @@ describe('document node discrimination', () => {
     )
   })
 
+  test('names the value when a node is not an object', () => {
+    const found = issues(Document.safeParse(book(['text'])))
+    expect(found).toContainEqual(
+      expect.objectContaining({
+        path: ['children', 0],
+        message: expect.stringMatching(/^node got "text"; a node is an object whose type is one of "division", /),
+      }),
+    )
+  })
+
   test('reports a variable kind through its inner discriminator', () => {
     const result = DocumentDefinitionNode.safeParse({ type: 'variable', name: 'running-head', kind: 'unknown' })
     expect(result.success).toBeFalse()

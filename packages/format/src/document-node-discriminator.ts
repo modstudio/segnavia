@@ -19,8 +19,12 @@ export function discriminatedNodeUnion<const Members extends NodeUnionMembers>(m
   const types = documentNodeTypes(members)
   return z.discriminatedUnion('type', members, {
     error: (issue) => {
-      const value = typeof issue.input === 'object' && issue.input !== null ? (issue.input as Record<string, unknown>).type : undefined
-      return `node type got ${shown(value)}; use one of ${types.map(shown).join(', ')} to clear this refusal`
+      const accepted = types.map(shown).join(', ')
+      if (typeof issue.input !== 'object' || issue.input === null || Array.isArray(issue.input)) {
+        return `node got ${shown(issue.input)}; a node is an object whose type is one of ${accepted}`
+      }
+      const value = (issue.input as Record<string, unknown>).type
+      return `node type got ${shown(value)}; use one of ${accepted} to clear this refusal`
     },
   })
 }
