@@ -48,7 +48,6 @@ import { embeddedPreflightFunctions } from './composer-preflight.ts'
 import { embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { embeddedComposerPropertyFunctions } from './composer-properties-embed.ts'
 import { placeParentRegions } from './composer-regions.ts'
-import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
 import { LAYOUT_ATTRIBUTE } from './layout.ts'
 import { advanceVisibleTime, decideLayoutSettle, LAYOUT_SETTLE_MS } from './layout-settle.ts'
@@ -343,7 +342,7 @@ var publishPlan=function(plan){var previous=document.querySelectorAll('script[da
 var loaded=document.readyState==='complete'?Promise.resolve():new Promise(function(resolve){window.addEventListener('load',resolve,{once:true});});
 var loadedFontFailures=[];var fontLoads=loaded.then(function(){var declarations=config.fontLoads||[];return ${declaredFontLoadExpression('declarations')};}).then(function(failures){loadedFontFailures=failures||[];return failures;});
 var fontsReady=fontLoads.then(function(){return document.fonts?document.fonts.ready:undefined;});
-Promise.all([loaded,${DIAGRAM_READY_EXPR},fontsReady,readyImages(document)]).then(function(){
+Promise.all([loaded,fontsReady,readyImages(document)]).then(function(){
 var visibleElapsed=0;
 var visibleStartedAt=performance.now();
 var settleVisibleElapsed=0;

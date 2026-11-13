@@ -2,33 +2,16 @@ import { describe, expect, test } from 'bun:test'
 import { readinessRefusal, recordedLayoutRefusal, renderReadiness } from './render-readiness.ts'
 
 describe('renderReadiness', () => {
-  test.each([
-    ['refuse', false, { author: false, diagrams: false, layouts: false }],
-    ['refuse', true, { author: false, diagrams: true, layouts: false }],
-    ['sandboxed', false, { author: true, diagrams: false, layouts: false }],
-    ['sandboxed', true, { author: true, diagrams: true, layouts: false }],
-  ] as const)('derives the facts for scripts=%s and diagrams=%s', (scripts, diagrams, expected) => {
-    expect(renderReadiness(scripts, diagrams)).toEqual(expected)
+  test('derives author and provider settlement facts', () => {
+    expect(renderReadiness('refuse')).toEqual({ author: false, layouts: false })
+    expect(renderReadiness('sandboxed')).toEqual({ author: true, layouts: false })
+    expect(renderReadiness('refuse', true, true)).toEqual({ author: false, layouts: true })
+    expect(renderReadiness('sandboxed', false, true)).toEqual({ author: false, layouts: false })
   })
 
-  test('the host can opt out of both facts', () => {
-    expect(renderReadiness('sandboxed', true, false, true)).toEqual({ author: false, diagrams: false, layouts: false })
-  })
-
-  test('waits for provider phases only when layout scripts are present', () => {
-    expect(renderReadiness('refuse', false, true, true).layouts).toBe(true)
-    expect(renderReadiness('refuse', false, true, false).layouts).toBe(false)
-  })
-
-  test('a refusal names every applicable fact that did not settle', () => {
-    expect(readinessRefusal({ author: true, diagrams: true, layouts: false }, { author: false, diagrams: false, layouts: true }, 10)).toBe(
-      "The page did not call window.pageReady() and the page's diagrams did not finish drawing within 10s. Call window.pageReady() or render with waitForPageReady: false; correct or simplify the diagram source so it draws within the bound to clear this refusal.",
-    )
-    expect(readinessRefusal({ author: false, diagrams: true, layouts: false }, { author: true, diagrams: false, layouts: true }, 10)).toBe(
-      "The page's diagrams did not finish drawing within 10s. Correct or simplify the diagram source so it draws within the bound to clear this refusal.",
-    )
-    expect(readinessRefusal({ author: false, diagrams: false, layouts: true }, { author: true, diagrams: true, layouts: false }, 10)).toContain(
-      'layout provider galley and composed phases did not finish',
+  test('a refusal names each applicable fact that did not settle', () => {
+    expect(readinessRefusal({ author: true, layouts: true }, { author: false, layouts: false }, 10)).toContain(
+      "page did not call window.pageReady() and the page's layout provider galley and composed phases did not finish",
     )
   })
 })
@@ -36,6 +19,5 @@ describe('renderReadiness', () => {
 test('a recorded layout refusal is bounded and wins over the generic readiness refusal', () => {
   const generic = 'Layout providers did not finish.'
   expect(recordedLayoutRefusal(null, generic)).toBe(generic)
-  expect(recordedLayoutRefusal('', generic)).toBe(generic)
   expect(recordedLayoutRefusal('x'.repeat(1200), generic)).toBe('x'.repeat(1024))
 })

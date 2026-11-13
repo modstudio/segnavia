@@ -105,36 +105,34 @@ if (staticDiagramScript) {
 
 const diagramsScript = path.join(ROOT, 'packages/diagrams/dist/script.js')
 const diagramsScriptDeclarationsPath = path.join(ROOT, 'packages/diagrams/dist/script.d.ts')
-const diagramScriptModule = await import(pathToFileURL(diagramsScript).href)
-const diagramScriptExports = Object.keys(diagramScriptModule).sort()
-const diagramScriptDeclarations = [
+const diagramProviderModule = await import(pathToFileURL(diagramsScript).href)
+const diagramProviderExports = Object.keys(diagramProviderModule).sort()
+const diagramProviderDeclarations = [
   ...readFileSync(diagramsScriptDeclarationsPath, 'utf8').matchAll(
     /^export declare (?:const|let|var|function|class|interface|type|enum|namespace)\s+([A-Za-z_$][\w$]*)/gm,
   ),
 ]
   .map((match) => match[1] as string)
   .sort()
-if (JSON.stringify(diagramScriptExports) !== JSON.stringify(diagramScriptDeclarations)) {
+if (JSON.stringify(diagramProviderExports) !== JSON.stringify(diagramProviderDeclarations)) {
   throw new Error(
-    `@segnavia/diagrams/script exports must match its declarations; JavaScript has ${diagramScriptExports.join(', ') || 'none'}, declarations have ${diagramScriptDeclarations.join(', ') || 'none'}.`,
+    `@segnavia/diagrams/script exports must match its declarations; JavaScript has ${diagramProviderExports.join(', ') || 'none'}, declarations have ${diagramProviderDeclarations.join(', ') || 'none'}.`,
   )
 }
-if (typeof diagramScriptModule.diagramScript !== 'string' || diagramScriptModule.diagramScript.length === 0) {
-  throw new Error('@segnavia/diagrams/script must export a non-empty diagramScript string.')
+if (typeof diagramProviderModule.diagramProviderScript !== 'string' || diagramProviderModule.diagramProviderScript.length === 0) {
+  throw new Error('@segnavia/diagrams/script must export a non-empty diagramProviderScript string.')
 }
 
-const diagramProviderKey = Symbol.for('segnavia.diagrams')
-const diagramRegistry = globalThis as typeof globalThis & { [diagramProviderKey]?: () => Promise<string> }
-if (typeof diagramRegistry[diagramProviderKey] === 'function') {
+const builtLayout = await import(pathToFileURL(path.join(ROOT, 'packages/frame/dist/layout.js')).href)
+if (builtLayout.hasLayoutProvider('diagram')) {
   throw new Error('@segnavia/diagrams/auto must be the entry that registers the diagram provider.')
 }
 await import(pathToFileURL(path.join(ROOT, 'packages/diagrams/dist/auto.js')).href)
-const builtDiagramProvider: unknown = Reflect.get(diagramRegistry, diagramProviderKey)
-if (typeof builtDiagramProvider !== 'function') {
+const providedLayoutScripts = await builtLayout.loadLayoutScripts('<pre data-segnavia-diagram="mermaid"></pre>')
+if (providedLayoutScripts.length !== 1 || providedLayoutScripts[0]?.name !== 'diagram') {
   throw new Error('@segnavia/diagrams/auto must register a diagram provider when imported.')
 }
-const providedDiagramScript = await builtDiagramProvider()
-if (typeof providedDiagramScript !== 'string' || providedDiagramScript.length === 0) {
+if (typeof providedLayoutScripts[0].script !== 'string' || providedLayoutScripts[0].script.length === 0) {
   throw new Error('@segnavia/diagrams/auto must register a provider that resolves to a non-empty diagram script.')
 }
 

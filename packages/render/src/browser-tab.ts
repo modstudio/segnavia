@@ -54,7 +54,7 @@ async function exposeLibraryReadiness(tab: Tab, enabled: boolean, ready: () => v
 }
 
 function needsLibraryReadiness(readiness: RenderReadiness): boolean {
-  return Boolean(readiness.diagrams || readiness.layouts)
+  return Boolean(readiness.layouts)
 }
 
 async function waitForTabReadiness(tab: Tab, readiness: RenderReadiness, waits: Promise<void>[], established: () => RenderReadiness): Promise<void> {
@@ -234,15 +234,14 @@ export async function renderInBrowserTab<T>(
   const tab = await context.newPage()
   tab.on('crash', state.crashed)
   let authorReady = !setup.readiness.author
-  let diagramsReady = !setup.readiness.diagrams
   let layoutsReady = !setup.readiness.layouts
   let resolveAuthor: (() => void) | undefined
-  let resolveDiagrams: (() => void) | undefined
+  let resolveLayouts: (() => void) | undefined
   const authorPromise = new Promise<void>((resolve) => {
     resolveAuthor = resolve
   })
-  const diagramPromise = new Promise<void>((resolve) => {
-    resolveDiagrams = resolve
+  const layoutPromise = new Promise<void>((resolve) => {
+    resolveLayouts = resolve
   })
   if (setup.readiness.author) {
     await tab.exposeFunction('pageReady', () => {
@@ -251,9 +250,8 @@ export async function renderInBrowserTab<T>(
     })
   }
   await exposeLibraryReadiness(tab, needsLibraryReadiness(setup.readiness), () => {
-    diagramsReady = true
     layoutsReady = true
-    resolveDiagrams?.()
+    resolveLayouts?.()
   })
   if (setup.progressReport) {
     await tab.exposeFunction(RENDER_PROGRESS_BINDING, (progress: unknown) => reportRenderProgress(progress, setup.progressReport))
@@ -267,8 +265,8 @@ export async function renderInBrowserTab<T>(
   if (waitsForReadiness(setup.readiness)) {
     const waits: Promise<void>[] = []
     if (setup.readiness.author) waits.push(authorPromise)
-    if (needsLibraryReadiness(setup.readiness)) waits.push(diagramPromise)
-    await waitForTabReadiness(tab, setup.readiness, waits, () => ({ author: authorReady, diagrams: diagramsReady, layouts: layoutsReady }))
+    if (needsLibraryReadiness(setup.readiness)) waits.push(layoutPromise)
+    await waitForTabReadiness(tab, setup.readiness, waits, () => ({ author: authorReady, layouts: layoutsReady }))
   }
   await tab.evaluate(() => document.fonts.ready.then(() => true)).catch(() => {})
   let fontFailures = setup.fontFailures ?? []

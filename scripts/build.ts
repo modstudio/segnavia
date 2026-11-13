@@ -12,7 +12,7 @@ async function run(command: string[]): Promise<void> {
 }
 
 await run(['bunx', 'tsdown'])
-const { diagramScript } = await import('../packages/diagrams/src/script.ts')
-writeFileSync(path.join(ROOT, 'packages/diagrams/dist/script.js'), `export const diagramScript=${JSON.stringify(diagramScript)};\n`)
+const { diagramProviderScript } = await import('../packages/diagrams/src/script.ts')
+writeFileSync(path.join(ROOT, 'packages/diagrams/dist/script.js'), `export const diagramProviderScript=${JSON.stringify(diagramProviderScript)};\n`)
 await run(['bunx', 'tsdown', '--config', 'tsdown.browser.config.ts'])
 for (const name of Object.keys(PACKAGES)) copyFileSync(path.join(ROOT, 'LICENSE'), path.join(ROOT, 'packages', name, 'LICENSE'))

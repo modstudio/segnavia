@@ -106,7 +106,6 @@ export const DECK_PDF_OPTION_KEYS = {
   baseCss: true,
   nonce: true,
   omitHtmlSlideFrames: true,
-  diagramScript: true,
   layoutScripts: true,
   ...AS_OF_KEYS,
   watermark: true,

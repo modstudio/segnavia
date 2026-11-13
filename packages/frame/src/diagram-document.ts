@@ -1,54 +1,19 @@
-export const DIAGRAM_SELECTOR = 'pre[data-segnavia-diagram="mermaid"]'
+import { htmlElementAttributes } from '@segnavia/html'
+import { registerLayoutProvider } from './layout.ts'
+import { DIAGRAM_LAYOUT_MARKER, matchingLayoutMarkers } from './layout-markers.ts'
+
+export const DIAGRAM_SELECTOR = DIAGRAM_LAYOUT_MARKER.selects
+export const DIAGRAM_PROVIDER_NAME = DIAGRAM_LAYOUT_MARKER.name
 export const DIAGRAM_FAILED_ATTRIBUTE = 'data-segnavia-diagram-failed'
 export const DIAGRAM_ERROR_ATTRIBUTE = 'data-segnavia-diagram-error'
-export const DIAGRAMS_DRAWN_ATTRIBUTE = 'data-segnavia-diagrams-drawn'
 export const DIAGRAM_ID_PREFIX = 'segnavia-diagram-'
-export const DIAGRAM_READY_NAME = '__segnaviaDiagramReady'
-export const DIAGRAM_READY_EXPR = `window.${DIAGRAM_READY_NAME}||null`
-const DIAGRAM_PROVIDER_KEY = Symbol.for('segnavia.diagrams')
 
 export type DiagramProvider = () => Promise<string>
 
-type DiagramRegistry = typeof globalThis & { [DIAGRAM_PROVIDER_KEY]?: DiagramProvider }
-
 export function registerDiagramProvider(provider: DiagramProvider): void {
-  ;(globalThis as DiagramRegistry)[DIAGRAM_PROVIDER_KEY] = provider
+  registerLayoutProvider(DIAGRAM_PROVIDER_NAME, { script: provider, selects: DIAGRAM_SELECTOR })
 }
-
-export function diagramProvider(): DiagramProvider | undefined {
-  return (globalThis as DiagramRegistry)[DIAGRAM_PROVIDER_KEY]
-}
-
-const selector = /^([a-z]+)\[([a-z-]+)="([^"]+)"\]$/.exec(DIAGRAM_SELECTOR)
-if (!selector) throw new Error('The diagram selector must be an element with one exact attribute value.')
-const [, diagramTag, diagramAttribute, diagramValue] = selector
-const DIAGRAM_PATTERN = new RegExp(`<${diagramTag}\\b[^>]*\\b${diagramAttribute}\\s*=\\s*(["'])${diagramValue}\\1`, 'i')
 
 export function hasDiagram(html: string): boolean {
-  return DIAGRAM_PATTERN.test(html)
-}
-
-export function withDiagramScript(html: string, nonce: string, script: string | undefined): string {
-  if (!script || !hasDiagram(html)) return html
-  const tag = `<script nonce="${nonce}">${script}</script>`
-  return /<\/body\s*>/i.test(html) ? html.replace(/<\/body\s*>/i, () => `${tag}</body>`) : `${html}${tag}`
-}
-
-export async function loadDiagramScript(html: string): Promise<string | undefined> {
-  if (!hasDiagram(html)) return undefined
-  const provider = diagramProvider()
-  if (!provider) {
-    throw new Error(
-      "This page draws a diagram, but no diagram provider is registered. Call registerDiagramProvider(diagrams) from '@segnavia/diagrams', or import '@segnavia/diagrams/auto', to draw it.",
-    )
-  }
-  return provider()
-}
-
-export async function loadDiagramScriptResult(html: string): Promise<{ script?: string; error?: unknown }> {
-  try {
-    return { script: await loadDiagramScript(html) }
-  } catch (error) {
-    return { error }
-  }
+  return matchingLayoutMarkers(htmlElementAttributes(html)).includes(DIAGRAM_LAYOUT_MARKER)
 }

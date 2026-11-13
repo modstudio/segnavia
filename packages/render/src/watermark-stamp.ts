@@ -209,7 +209,7 @@ export async function applyWatermark(
       viewport: { width: 1024, height: 768 },
       scripts: false,
       html,
-      readiness: { author: false, diagrams: false },
+      readiness: { author: false },
       deadline,
       ...assetSetup(options),
     },

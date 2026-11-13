@@ -16,20 +16,18 @@ export function renderedPageDocument(
   page: HtmlPage | PrintedHtmlPage,
   options: ComposedRenderOptions,
   printing = false,
-  diagramScript?: string,
   fontCss = '',
   fontFailures: FontFailure[] = [],
   layoutScripts?: readonly LoadedLayoutScript[],
 ): string {
   try {
     if (!isPrintedHtmlPage(page) && !page.printedPages) {
-      return renderPageValueDocument(page, options, printing, undefined, fontCss, diagramScript, fontFailures, layoutScripts)
+      return renderPageValueDocument(page, options, printing, undefined, fontCss, fontFailures, layoutScripts)
     }
     return printedPageValueDocument(page, {
       nonce: newNonce(),
       baseCss: `${fontCss}${fontFaces(options.fonts)}`,
       css: options.css,
-      diagramScript,
       layoutScripts,
       readyCallback: RENDER_READY_BINDING,
       limits: options.limits,

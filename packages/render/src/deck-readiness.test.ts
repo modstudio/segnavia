@@ -16,7 +16,7 @@ test('deck readiness watches layout failures only for decks with layout provider
       },
     ],
   } as unknown as Tab
-  await waitForPrintReady(withoutLayouts, { author: false, diagrams: false, layouts: false })
+  await waitForPrintReady(withoutLayouts, { author: false, layouts: false })
   expect(failureReads).toBe(0)
 
   const failure = 'Layout provider margin refused its composed phase: broken'
@@ -24,7 +24,7 @@ test('deck readiness watches layout failures only for decks with layout provider
     locator: () => ({ waitFor: () => new Promise<void>(() => {}) }),
     frames: () => [{ evaluate: async () => failure }],
   } as unknown as Tab
-  const waiting = waitForPrintReady(withLayouts, { author: false, diagrams: false, layouts: true })
+  const waiting = waitForPrintReady(withLayouts, { author: false, layouts: true })
   await expect(waiting).rejects.toEqual(expect.objectContaining({ message: failure }))
   await expect(waiting).rejects.toBeInstanceOf(RenderRefusedError)
 })

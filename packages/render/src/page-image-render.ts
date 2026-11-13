@@ -1,11 +1,8 @@
-import { hasDiagram } from '@segnavia/frame/diagrams'
 import { fillPageAsOfBindings, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
-import { resolveDiagramScript } from './diagram-script.ts'
 import { enforceImageBytes } from './image-bytes.ts'
 import { imageWatermarkPage, injectImageWatermark, printedImageTrim, selectedImageWatermarkMarkup } from './image-watermark.ts'
-import { layoutScripts } from './layout-scripts.ts'
 import { assetSetup, type ParsedPageImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import type { prepareRenderedPage } from './page-document.ts'
@@ -15,6 +12,7 @@ import type { SurfacePreflight } from './preflight.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
+import { resolveRenderLayoutScripts } from './render-layout-scripts.ts'
 import { renderReadiness } from './render-readiness.ts'
 import { filledPage } from './slot-fill.ts'
 import { stampImage } from './stamp-image.ts'
@@ -30,8 +28,7 @@ export async function renderPreparedPageImage(
   const { value: page, slots } = await filledPage(pageWithDay, prepared.established.slots, deadline.signal)
   const plainPagePreflight = page.printedPages ? undefined : surfacePreflight
   const pageHtml = printedPageAuthorHtml(page)
-  const diagramScript = await resolveDiagramScript(pageHtml)
-  const resolvedLayoutScripts = await layoutScripts(pageHtml)
+  const resolvedLayoutScripts = await resolveRenderLayoutScripts(pageHtml)
   const { grows, ...viewport } = pageViewport(page, opts.width, opts.pageWidths)
   return withTab(
     {
@@ -43,12 +40,11 @@ export async function renderPreparedPageImage(
         page,
         plainPagePreflight ? { ...prepared.options, preflight: undefined } : prepared.options,
         false,
-        diagramScript,
         prepared.fontCss,
         prepared.fontFailures,
         resolvedLayoutScripts,
       ),
-      readiness: renderReadiness(page.scripts, hasDiagram(pageHtml), opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
+      readiness: renderReadiness(page.scripts, opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,

@@ -134,7 +134,7 @@ test('markup asset refusals expose their asset code and structured causes', asyn
   const message = `${url} at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal`
   const rendering = renderInBrowserTab(
     { newContext: async () => Promise.reject(new Error('markup refusal did not stop browser setup')) } as unknown as Browser,
-    { viewport: { width: 100, height: 100 }, scripts: false, html: `<img src="${url}">`, readiness: { author: false, diagrams: false } },
+    { viewport: { width: 100, height: 100 }, scripts: false, html: `<img src="${url}">`, readiness: { author: false } },
     undefined,
     { settled: () => false, opened: () => {}, crashed: () => {} },
     async () => undefined,
@@ -159,7 +159,7 @@ test('the browser tab exposes and re-bounds the progress reporter only when supp
     close: async () => {},
   }
   const browser = { newContext: async () => context } as unknown as Browser
-  const setup = { viewport: { width: 100, height: 100 }, scripts: true, html: '<p>progress</p>', readiness: { author: false, diagrams: false } }
+  const setup = { viewport: { width: 100, height: 100 }, scripts: true, html: '<p>progress</p>', readiness: { author: false } }
   const state = { settled: () => false, opened: () => {}, crashed: () => {} }
   await renderInBrowserTab(browser, setup, undefined, state, async () => undefined)
   expect(exposed.has(RENDER_PROGRESS_BINDING)).toBe(false)
@@ -191,7 +191,7 @@ test('a recorded layout failure wins over the readiness timeout', async () => {
   const browser = { newContext: async () => context } as unknown as Browser
   const rendering = renderInBrowserTab(
     browser,
-    { viewport: { width: 100, height: 100 }, scripts: true, html: '<p>layout</p>', readiness: { author: false, diagrams: false, layouts: true } },
+    { viewport: { width: 100, height: 100 }, scripts: true, html: '<p>layout</p>', readiness: { author: false, layouts: true } },
     undefined,
     { settled: () => false, opened: () => {}, crashed: () => {} },
     async () => undefined,
@@ -238,7 +238,7 @@ test('asset limits stay structured when another asset refusal precedes them', as
       viewport: { width: 100, height: 100 },
       scripts: true,
       html: '<p>asset refusal</p>',
-      readiness: { author: false, diagrams: false },
+      readiness: { author: false },
       origins: [{ origin: 'https://images.example', kinds: ['image'] }],
       assets: async () => ({ body: new Uint8Array(6), contentType: 'image/png' }),
       limits: { assets: { each: 5, bytes: 10 } },
@@ -284,7 +284,7 @@ test("a missing asset refusal takes precedence over the body's resulting error",
       viewport: { width: 100, height: 100 },
       scripts: true,
       html: '<p>watermark</p>',
-      readiness: { author: false, diagrams: false },
+      readiness: { author: false },
       origins: [{ origin: 'https://images.example', kinds: ['image'] }],
     },
     undefined,

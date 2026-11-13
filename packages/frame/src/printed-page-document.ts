@@ -38,7 +38,6 @@ import {
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
-import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { declaredFontLoads } from './font-load.ts'
 import type { LoadedLayoutScript } from './layout.ts'
@@ -93,7 +92,6 @@ export function printedPageValueDocument(
     expectedCount?: number
     measure?: boolean
     printBackground?: boolean
-    diagramScript?: string
     layoutScripts?: readonly LoadedLayoutScript[]
     screen?: ScreenPresentation
     readyCallback?: string
@@ -179,8 +177,7 @@ export function printedPageValueDocument(
         parentRules,
       )
   const flow = `<div data-segnavia-galleys>${flows}</div>`
-  const drawn = withDiagramScript(`${parts.map((part) => part.head).join('')}${flow}`, options.nonce, options.diagramScript)
-  const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
+  const body = `${parts.map((part) => part.head).join('')}${flow}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,

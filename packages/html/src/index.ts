@@ -166,6 +166,8 @@ export {
   assetOriginRefusals,
   attributeValues,
   findActiveContent,
+  type HtmlElementAttributes,
+  htmlElementAttributes,
   REFUSED_ELEMENTS,
   type SanitizeOptions,
   safeImageSource,

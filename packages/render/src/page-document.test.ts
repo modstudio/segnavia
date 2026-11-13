@@ -46,15 +46,17 @@ test('the value renderer lowers a markdown-only page', () => {
   expect(rendered).toContain('<html dir="rtl">')
 })
 
-test('inlines the offline diagram renderer only for a diagram body', () => {
-  const plain = renderPageValueDocument(Page.parse({ html: markdownHtml({ markdown: '# Plain' }) }), {}, false, 'test', '', 'DRAW')
+test('inlines a resolved provider only for selected content', () => {
+  const scripts = [{ name: 'diagram', script: 'DRAW', priority: 0, order: 0, selects: 'pre[data-segnavia-diagram="mermaid"]' }]
+  const plain = renderPageValueDocument(Page.parse({ html: markdownHtml({ markdown: '# Plain' }) }), {}, false, 'test', '', [], [])
   const diagram = renderPageValueDocument(
     Page.parse({ html: markdownHtml({ markdown: '```mermaid\nflowchart TD\n  A --> B\n```' }) }),
     {},
     false,
     'test',
     '',
-    'DRAW',
+    [],
+    scripts,
   )
   expect(plain).not.toContain('DRAW')
   expect(diagram).toContain('DRAW')

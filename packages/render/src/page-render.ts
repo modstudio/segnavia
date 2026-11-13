@@ -1,7 +1,6 @@
 import type { FontFailure } from '@segnavia/format'
-import { hasDiagram } from '@segnavia/frame/diagrams'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
-import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
+import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
 import type { Frame, Page as Tab } from 'playwright-core'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
@@ -59,7 +58,6 @@ export async function renderPagePdf(
   services: PageRenderServices,
   inputIndex?: number,
   deadline?: RenderDeadline,
-  diagramScript?: string,
   fontCss = '',
   fontFailures: FontFailure[] = [],
   layoutScripts?: readonly LoadedLayoutScript[],
@@ -72,8 +70,8 @@ export async function renderPagePdf(
       viewport,
       scripts: true,
       slots,
-      html: renderedPageDocument(page, opts, true, diagramScript, fontCss, fontFailures, layoutScripts),
-      readiness: renderReadiness(page.scripts, hasDiagram(printedPageAuthorHtml(page)), opts.waitForPageReady !== false, (layoutScripts?.length ?? 0) > 0),
+      html: renderedPageDocument(page, opts, true, fontCss, fontFailures, layoutScripts),
+      readiness: renderReadiness(page.scripts, opts.waitForPageReady !== false, (layoutScripts?.length ?? 0) > 0),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
@@ -119,18 +117,17 @@ export async function renderPiecePdf(
   opts: RenderOptions,
   services: PageRenderServices,
   deadline?: RenderDeadline,
-  diagramScript?: string,
   layoutScripts?: readonly LoadedLayoutScript[],
   captureFontFacts = false,
 ): Promise<PrintResult> {
-  const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, diagramScript, layoutScripts })
+  const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, layoutScripts })
   return services.withTab(
     {
       viewport: geometry.viewport,
       scripts: true,
       slots,
       html,
-      readiness: renderReadiness(page.scripts, hasDiagram(page.html), opts.waitForPageReady !== false, (layoutScripts?.length ?? 0) > 0),
+      readiness: renderReadiness(page.scripts, opts.waitForPageReady !== false, (layoutScripts?.length ?? 0) > 0),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,

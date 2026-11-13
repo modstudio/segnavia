@@ -40,11 +40,10 @@ import {
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
 import { type DeckSheetGeometry, deckPressSettings } from './deck-press.ts'
-import { withDiagramScript } from './diagram-document.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
 import { annotationFocusBox, fitImage, type ImagePlacement, imageFrameStyle, imageLayerStyles } from './image-fit.ts'
 import { imposedPaperBodies, imposedPaperDocument, placementBox } from './imposed-paper.ts'
-import { layoutsUsed } from './layout.ts'
+import { layoutsForHtml } from './layout.ts'
 import { notesDocument } from './notes-layout.ts'
 import { FontRefusedError } from './page-fonts.ts'
 import type { PageOrPrintedInput } from './printed-page-document.ts'
@@ -142,7 +141,6 @@ export interface PrintOptions {
   omitHtmlSlideFrames?: boolean
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
-  diagramScript?: string
   layoutScripts?: readonly import('./layout.ts').LoadedLayoutScript[]
   limits?: Limits
 }
@@ -186,9 +184,8 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
   if ('media' in content)
     return naturalImage(width, height, placementPlaceholderSource(), content.media.alt?.text ?? '', content.media.fit ?? deck.fit, deck.frame)
   const frame = (html: string) => {
-    const selectedLayouts = new Set(layoutsUsed(html))
-    const layoutScripts = options.layoutScripts?.filter(({ name }) => selectedLayouts.has(name))
-    return `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, diagramScript: options.diagramScript, layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
+    const layoutScripts = layoutsForHtml(html, options.layoutScripts ?? [])
+    return `<iframe sandbox="${frameSandbox(deck.scripts)}" srcdoc="${escapeHtml(htmlSlideDocument(deck, html, { nonce: options.nonce ?? newNonce(), baseCss: options.baseCss, css: options.css, printAtMs: slide.printAtMs ?? 0, origins: options.origins, layoutScripts }))}" style="width:${width}px;height:${height}px;border:0;display:block"></iframe>`
   }
   switch (content.kind) {
     case 'html':
@@ -253,7 +250,6 @@ export interface PrintablePagesOptions {
   slots?: SlotsOptions
   origins?: Iterable<OriginApproval>
   pageWidths?: PageWidths
-  diagramScript?: string
   layoutScripts?: readonly import('./layout.ts').LoadedLayoutScript[]
   limits?: Limits
 }
@@ -309,7 +305,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
   const properties = page.print ? printProperties(page.print) : ''
   const padding = layout.inset ? printPadding(placement.bleed) : ''
   const nonce = options.nonce ?? newNonce()
-  const srcdoc = frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
+  const srcdoc = frameDocument(page.html, {
     scripts: page.scripts,
     nonce,
     dir: pageDirection(page),
@@ -320,7 +316,7 @@ function pageFrame(page: HtmlPage, imposition: Imposition, placement: ReturnType
     csp: options.cspExtra || undefined,
     reportHeight: false,
     relayKeys: false,
-    layoutScripts: options.layoutScripts,
+    layoutScripts: layoutsForHtml(page.html, options.layoutScripts ?? []),
     printBackground: true,
     origins: options.origins,
   })

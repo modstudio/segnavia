@@ -26,7 +26,6 @@ import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { slotFitBridgeScript } from './bridge-slot-fit.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
-import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
@@ -280,8 +279,8 @@ function ready(){animationReport();${options.printBackground ? 'printBackground(
 ${options.printAtMs === undefined ? '' : 'freeze();dispatchPrint();'}
 var declarations=${fontDeclarations};var initialFontFailures=${initialFontFailures};
 var reportFontFailures=function(failures){var merged=initialFontFailures.concat(failures).slice(0,${FONT_FAILURE_LIMIT});if(merged.length)post({type:'${MESSAGE.fontFailures}',failures:merged});return merged;};
-${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});var diagrams=${DIAGRAM_READY_EXPR};${layoutReady.declaration}
-Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed,diagrams${layoutReady.join}]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
+${composerFontFailures}var composed=${compositionWait(options, MESSAGE, COMPOSE_FAILURE_TEXT_LIMIT, COMPOSE_PROGRESS_PAGES_LIMIT)};var loadedFontFailures=[];var fontLoads=${fontLoads}.then(function(failures){loadedFontFailures=failures;return failures;});${layoutReady.declaration}
+Promise.all(imgs.concat([document.fonts?document.fonts.ready:null,fontLoads,composed${layoutReady.join}]${options.printAtMs === undefined ? '' : ',printWaits'})).then(function(){${reportComposerFontFailures}${options.printAtMs === undefined ? `slotFit(function(slots){${surfacePreflight ? 'publishSurfacePreflight(slots,loadedFontFailures);' : ''}${readyCallback}post({type:'${MESSAGE.ready}'});});` : 'settlePrint();'}});}
 if(document.readyState==='complete'){ready();}else{window.addEventListener('load',ready);}
 })();`
 }

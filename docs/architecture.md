@@ -365,14 +365,13 @@ bundle is wholly inlined so screen, browser print and server rendering stay
 offline. It loads only when the final body contains a
 `pre[data-segnavia-diagram="mermaid"]` placeholder, whether that body came from
 markdown conversion or was supplied as HTML; plain documents carry none of it.
-The optional `@segnavia/diagrams` package owns Mermaid. Its explicit
-`@segnavia/diagrams/script` entry exports the complete `diagramScript`, containing Mermaid
-12.2.0 and the drawing adapter, measures 5,496,971 bytes minified and 1,600,754
-bytes gzip. Drawing
-settles before bridge readiness and before book or printed-page composition.
+The optional `@segnavia/diagrams` package owns Mermaid. Its complete provider
+script contains Mermaid 12.2.0 and the drawing adapter. The `diagram` layout
+provider selects Mermaid placeholders and draws them in its galley phase, so
+drawing settles before bridge readiness and before pagination.
 Each diagram is rendered independently, its SVG text resolves its own
 direction, and a parse failure leaves the source with the parser's first
-message line instead of delaying readiness.
+message line and reports one `layout-report` issue.
 
 Each browser entry is one self-contained file with no static sibling imports,
 so a page without a diagram loads exactly that file. The one permitted sibling
@@ -385,22 +384,25 @@ text.
 
 Ordinary hosts opt into drawing by calling `registerDiagramProvider(diagrams)`,
 where `diagrams` is the lazy provider from `@segnavia/diagrams`, or by importing
-`@segnavia/diagrams/auto`. The registry is shared through
-`globalThis[Symbol.for('segnavia.diagrams')]`, so duplicate copies of frame see
-the same provider. The diagrams package's main entry exports only the lazy
-provider: it has no import side effect and does not statically load the script
-module. Only its `./auto` entry registers. A page, book or browser print containing a
-diagram refuses through its existing load-error path when no provider is
-registered. Server render first asks that provider, then dynamically loads the
-optional diagrams package when no provider is registered. It refuses diagram
-content when neither source is available, and imports no diagram module for
-content without a diagram.
+`@segnavia/diagrams/auto`. The registry lives at
+`globalThis[Symbol.for('segnavia.layout-providers')]`, so duplicate copies of
+frame see the same provider. The diagrams package's main entry exports only the
+lazy provider: it has no import side effect and does not statically load the
+script module. Only its `./auto` entry registers. A page, book or browser print
+containing a diagram refuses through its existing load-error path when no
+provider is registered. Server render dynamically loads the optional diagrams
+package when no provider is registered. It refuses diagram content when neither
+source is available, and imports no diagram module for content without a diagram.
 
 Layout providers are host-supplied, offline scripts registered through the
-server-safe `@segnavia/frame/layout` entry. Content selects a provider with
-`data-segnavia-layout="name"`. Names are read from parsed element attributes,
-so text in comments, scripts, styles or code samples selects nothing. Only
-selected providers are loaded. They are injected under the frame nonce, after
+server-safe `@segnavia/frame/layout` entry. A provider's `selects` value is one
+compound selector made from an optional tag and attribute presence, exact-value
+or token tests. A provider is used when content names it in
+`data-segnavia-layout`, matches its `selects` value or matches a library marker.
+Names and matches come from parsed element attributes, so text in comments,
+scripts, styles or code samples selects nothing. A provider used through a
+library marker that is not registered refuses with that marker's remedy. Only
+used providers are loaded. They are injected under the frame nonce, after
 the runtime and ahead of any document script, so the runtime exists before the
 composer or bridge reaches a phase. A provider script containing `</script`
 refuses at load, naming the provider. Each provider's definition loads in its
@@ -800,7 +802,7 @@ this adds no inbound frame message.
 
 | Seam | Where | What the host supplies |
 |---|---|---|
-| `registerDiagramProvider` | `@segnavia/frame/diagrams` | A `() => Promise<string>` provider for the complete offline diagram script. `@segnavia/diagrams` exports the lazy provider and its `/auto` entry registers it. |
+| `registerDiagramProvider` | `@segnavia/frame/diagrams` | A compatibility wrapper that registers the supplied offline script as the `diagram` layout provider. `@segnavia/diagrams` exports the lazy provider and its `/auto` entry registers it. |
 | `Host` and `HostSession` | `capture/src/host.ts` | Session setup (`context`, `contextFor(flow)`), CSS to hide account details, per-flow `extras` (an API client, seeded data, a CLI bridge), `beforeNavigate` (wait for capacity), `observe` (watch responses), `refuseShot` (veto a broken screen), `close`. |
 | `resolveSlide` | `DeckController` option and property; `<segnavia-player>` property | Content minted when a slide is shown: a single-use ticket URL, a signed image, a fresh shot. |
 | `resolveFonts` | `@segnavia/frame/bridge` | Resolves a deck font manifest through the host's `FontSource` into embeddable CSS and bounded `unsupplied` failures for a host-served URL slide. |
@@ -1854,12 +1856,13 @@ Every render runs in its own context, offline, with requests that leave the
 page refused, WebSockets closed and the browser's own sockets sent to a dead
 proxy. Author scripts run only when the page or deck allows them. A render
 waits for the conjunction of the facts its document requires: a page that runs
-code must call `window.pageReady()`, and a document that carries a diagram
-placeholder must receive the library bridge's signal after every diagram has
-settled. These signals are independent, so an author's early ready call cannot
-stand in for unfinished diagrams and a drawn diagram cannot stand in for the
-author's call. Refused-script documents require only the diagram fact when they
-carry a placeholder. `waitForPageReady: false` opts out of both waits. Renders
+code must call `window.pageReady()`, and a document that carries layout
+providers must receive the library bridge's signal after the layout runtime's
+`galley` and `composed` phases settle. The diagram provider is one such layout
+provider. These facts are independent, so an author's early ready call cannot
+stand in for unsettled layout and settled layout cannot stand in for the
+author's call. Refused-script documents require only the layout fact when their
+profile enables it. `waitForPageReady: false` opts out of both waits. Renders
 call `beforeOutput` with the live page after that readiness and before output;
 the hook runs under the page's deliberate script policy, where `scripts:
 'refuse'` permits only nonce-bearing scripts and therefore refuses an inline
@@ -2150,8 +2153,9 @@ content, selects parent-page regions and adds furniture and marginal material.
 Layout providers run in priority order at two phases: `galley`, before the
 first pagination measurement, and `composed`, after note settlement.
 
-Copyfit runs once after fonts, images and diagrams are ready and before the
-first pagination measurement. Authors mark source content with `data-fit`, an
+Copyfit runs once after fonts and images are ready. Layout providers, including
+the `diagram` provider, then run their `galley` phase before the first pagination
+measurement. Authors mark source content with `data-fit`, an
 ordered list of `size`, `leading` and `tracking`; `data-fit-min`,
 `data-fit-max` and `data-fit-step` carry one bound per strategy. The optional
 strategy list defaults to `size`. The optional

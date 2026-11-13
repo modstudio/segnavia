@@ -1,23 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import {
-  BOOK_PLACE_KEY_LIMIT,
-  bookPlace,
-  bookPlaceKey,
-  bookPlaceOffset,
-  bookPresentationScript,
-  pageGrid,
-  pageScale,
-  spreadSlots,
-} from './book-presentation.ts'
-import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
+import { BOOK_PLACE_KEY_LIMIT, bookPlace, bookPlaceKey, bookPlaceOffset, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
 
 describe('book place', () => {
-  test('waits for diagram drawing before its first report', () => {
-    expect(bookPresentationScript('document', '', JSON.stringify('data-segnavia-book-page'))).toContain(
-      `Promise.resolve(${DIAGRAM_READY_EXPR}).then(function(){settleBookPlace();})`,
-    )
-  })
-
   test('uses the first block crossing or following the viewport top', () => {
     expect(
       bookPlace([

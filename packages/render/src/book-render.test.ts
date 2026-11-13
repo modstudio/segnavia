@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { type Plan, PREFLIGHT_PRESETS, StyleSheet } from '@segnavia/format'
 import { PREFLIGHT_ATTRIBUTE } from '@segnavia/frame/book-document'
 import { frameStyleSheets } from '@segnavia/frame/bridge'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { parseBookFixture } from '@segnavia/html'
 import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName } from 'pdf-lib'
 import { awaitBookComposition, continuousBookNeedsScripts, lastBookPlanText, renderBrowserBookPdf, renderBrowserBookPlan, usesKeepWith } from './book-render.ts'
@@ -53,8 +54,13 @@ test('enables the continuous print bridge only when markup or a stylesheet decla
 
 test('typed paragraph keeps enable scripts for continuous books', () => {
   const kept = frameStyleSheets(StyleSheet.parse({ textStyles: { heading: { kind: 'paragraph', keepWithNext: true } } }), undefined)
-  expect(continuousBookNeedsScripts('<p class="segnavia-style-heading">Heading</p>', kept, undefined, 'refuse', false)).toBe(true)
-  expect(continuousBookNeedsScripts('<p>Ordinary</p>', frameStyleSheets(undefined, undefined), undefined, 'refuse', false)).toBe(false)
+  expect(continuousBookNeedsScripts('<p class="segnavia-style-heading">Heading</p>', kept, undefined, 'refuse', false, [])).toBe(true)
+  expect(continuousBookNeedsScripts('<p>Ordinary</p>', frameStyleSheets(undefined, undefined), undefined, 'refuse', false, [])).toBe(false)
+})
+
+test('a continuous book layer enables scripts when it carries a layout provider runtime', () => {
+  const layoutScripts: LoadedLayoutScript[] = [{ name: 'test', script: 'DRAW', priority: 0, order: 0, selects: '[data-layout]' }]
+  expect(continuousBookNeedsScripts('<div>Margin layer without provider content</div>', [], undefined, 'refuse', true, layoutScripts)).toBe(true)
 })
 
 test('bookPlan turns a style sheet that cannot merge into a render refusal before opening a tab', async () => {

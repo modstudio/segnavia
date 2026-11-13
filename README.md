@@ -124,12 +124,11 @@ import { registerDiagramProvider } from '@segnavia/frame/diagrams'
 registerDiagramProvider(diagrams)
 ```
 
-The main diagrams entry exports only this lazy provider. Code that needs the
-complete payload string directly imports `diagramScript` from
-`@segnavia/diagrams/script`.
+The main diagrams entry exports only this lazy provider. The provider defines
+the `diagram` layout provider and draws during its galley phase.
 
 Server rendering draws diagram placeholders when `@segnavia/diagrams` is
-installed or a provider is registered. It loads the complete drawing script
+installed or a provider is registered. It loads the complete provider script
 only for a page, book or deck that contains a diagram.
 
 Book, printed-page and page HTML can opt into copyfit before pagination:

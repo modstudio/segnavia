@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { diagramErrorFirstLine, diagramLabelDirection } from './runtime.ts'
+import { diagramErrorFirstLine, diagramFailureIssue, diagramLabelDirection } from './runtime.ts'
 
 describe('diagram drawing runtime', () => {
   test('keeps only the parser error first line', () => {
@@ -13,5 +13,9 @@ describe('diagram drawing runtime', () => {
     expect(diagramLabelDirection('42 English שלום')).toBe('ltr')
     expect(diagramLabelDirection('42 العربية')).toBe('rtl')
     expect(diagramLabelDirection('42')).toBe('ltr')
+  })
+
+  test('turns a parse failure into one layout report issue', () => {
+    expect(diagramFailureIssue('chart', new Error('Parse error\nDetails'))).toEqual({ subject: 'chart', message: 'Parse error' })
   })
 })

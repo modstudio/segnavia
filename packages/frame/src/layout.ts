@@ -1,4 +1,6 @@
-import { attributeValues } from '@segnavia/html'
+import { type HtmlElementAttributes, htmlElementAttributes } from '@segnavia/html'
+import { matchingLayoutMarkers } from './layout-markers.ts'
+import { type LayoutSelection, parseSelection, selectionMatches } from './layout-selection.ts'
 
 export const LAYOUT_ATTRIBUTE = 'data-segnavia-layout'
 export const LAYOUT_FRAME_ATTRIBUTE = 'data-segnavia-layout-frame'
@@ -23,6 +25,7 @@ interface RegisteredLayoutProvider {
   readonly priority: number
   readonly selects: string
   readonly order: number
+  readonly selection: LayoutSelection
 }
 
 const LAYOUT_PROVIDERS_KEY = Symbol.for('segnavia.layout-providers')
@@ -45,18 +48,25 @@ export function registerLayoutProvider(name: string, provider: LayoutProvider): 
   if (!validName(name)) throw new Error(`Layout provider name ${JSON.stringify(name)} is invalid; use a lowercase CSS identifier to clear this refusal.`)
   const priority = provider?.priority ?? 0
   const selects = provider?.selects ?? `[${LAYOUT_ATTRIBUTE}~="${name}"]`
-  if (!provider || typeof provider.script !== 'function' || !Number.isFinite(priority) || typeof selects !== 'string' || !selects) {
-    throw new Error(`Layout provider ${JSON.stringify(name)} is invalid; pass { script, priority, selects } to clear this refusal.`)
+  const selection = typeof selects === 'string' ? parseSelection(selects) : undefined
+  if (!provider || typeof provider.script !== 'function' || !Number.isFinite(priority) || !selection) {
+    throw new Error(
+      `Layout provider ${JSON.stringify(name)} is invalid; pass { script, priority, selects } with selects as one compound tag and attribute selector to clear this refusal.`,
+    )
   }
   const providers = registry()
   const previous = providers.get(name)
-  providers.set(name, { script: provider.script, priority, selects, order: previous?.order ?? providers.size })
+  providers.set(name, { script: provider.script, priority, selects, selection, order: previous?.order ?? providers.size })
 }
 
-function selectedLayoutNames(html: string): string[] {
+export function hasLayoutProvider(name: string): boolean {
+  return registry().has(name)
+}
+
+function selectedLayoutNames(elements: readonly HtmlElementAttributes[]): string[] {
   const names: string[] = []
   const seen = new Set<string>()
-  for (const value of attributeValues(html, LAYOUT_ATTRIBUTE)) {
+  for (const value of elements.flatMap((element) => element.attributes[LAYOUT_ATTRIBUTE] ?? [])) {
     for (const name of value.trim().split(/\s+/)) {
       if (!name || seen.has(name)) continue
       seen.add(name)
@@ -66,17 +76,46 @@ function selectedLayoutNames(html: string): string[] {
   return names
 }
 
+function layoutsForElements(elements: readonly HtmlElementAttributes[], markers = matchingLayoutMarkers(elements)): string[] {
+  const names = selectedLayoutNames(elements)
+  const seen = new Set(names)
+  for (const marker of markers) {
+    if (seen.has(marker.name)) continue
+    seen.add(marker.name)
+    names.push(marker.name)
+  }
+  for (const [name, provider] of registry()) {
+    if (!seen.has(name) && elements.some((element) => selectionMatches(provider.selection, element))) {
+      seen.add(name)
+      names.push(name)
+    }
+  }
+  return names
+}
+
 export function layoutsUsed(html: string): string[] {
-  return selectedLayoutNames(html)
+  return layoutsForElements(htmlElementAttributes(html))
+}
+
+export function layoutsForHtml(html: string, scripts: readonly LoadedLayoutScript[]): readonly LoadedLayoutScript[] {
+  const names = new Set(layoutsUsed(html))
+  return scripts.filter((script) => names.has(script.name))
 }
 
 export async function loadLayoutScripts(html: string): Promise<LoadedLayoutScript[]> {
-  const names = selectedLayoutNames(html)
+  const elements = htmlElementAttributes(html)
+  const matchedMarkers = matchingLayoutMarkers(elements)
+  const names = layoutsForElements(elements, matchedMarkers)
   if (names.length === 0) return []
   const providers = registry()
+  const markers = new Map(matchedMarkers.map((marker) => [marker.name, marker]))
   const selected = names.map((name) => {
     const provider = providers.get(name)
     if (!provider) {
+      const marker = markers.get(name)
+      if (marker) {
+        throw new Error(`This content uses layout provider ${JSON.stringify(name)}, but it is not registered. To clear this refusal: ${marker.remedy}.`)
+      }
       throw new Error(
         `This content selects layout provider ${JSON.stringify(name)}, but it is not registered. Call registerLayoutProvider(${JSON.stringify(name)}, …) from '@segnavia/frame/layout' to clear this refusal.`,
       )

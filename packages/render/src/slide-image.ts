@@ -1,27 +1,44 @@
 import { type Deck, resolveDirection } from '@segnavia/format'
-import { hasDiagram } from '@segnavia/frame/diagrams'
+import { COMPOSE_FAILURE_ATTRIBUTE, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
+import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type PrintOptions, printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
 import type { EstablishedPageDay } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDeckFonts } from './deck-pdf.ts'
+import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { enforceImageBytes } from './image-bytes.ts'
 import { imageWatermarkPage, injectImageWatermark, nestedFrameFontFacts, selectedImageWatermarkMarkup } from './image-watermark.ts'
-import { layoutScripts } from './layout-scripts.ts'
 import { assetSetup, type ParsedComposedRenderOptions, type SlideImageOptions } from './options.ts'
 import { outputDate } from './output-date.ts'
 import { surfacePreflight } from './preflight.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
-import { renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
+import { readinessRefusal, recordedLayoutRefusal, renderReadiness } from './render-readiness.ts'
+import { PAGE_READY_BOUND_MS } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay } from './slot-fill.ts'
 import { stampImage } from './stamp-image.ts'
 
 interface SlideImageServices {
   withTab: TabRunner
-  diagramScript(html: string): Promise<string | undefined>
+  layoutScripts(html: string): Promise<LoadedLayoutScript[]>
+}
+
+async function waitForSlideLayout(tab: Parameters<Parameters<TabRunner>[1]>[0]): Promise<void> {
+  const frame = tab.locator('iframe').contentFrame()
+  const readiness = renderReadiness('refuse', true, true)
+  try {
+    await frame.locator(`html[${PRINT_READY_ATTRIBUTE}]`).waitFor({ timeout: PAGE_READY_BOUND_MS })
+  } catch {
+    const recorded = await frame
+      .locator('html')
+      .getAttribute(COMPOSE_FAILURE_ATTRIBUTE)
+      .catch(() => null)
+    const generic = readinessRefusal(readiness, { author: true, layouts: false }, PAGE_READY_BOUND_MS / 1000)
+    throw new RenderRefusedError(recordedLayoutRefusal(recorded, generic))
+  }
 }
 
 export async function renderSlideImage(
@@ -40,11 +57,9 @@ export async function renderSlideImage(
   const resolvedFonts = await resolveDeckFonts(preparedDeck, opts, deadline.signal)
   const preflight = surfacePreflight(opts.preflight, 1)
   const slideHtml = 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : ''
-  const diagramScript = await services.diagramScript(slideHtml)
-  const resolvedLayoutScripts = await layoutScripts(slideHtml)
-  const diagramReadiness = renderReadiness('refuse', hasDiagram(slideHtml), opts.waitForPageReady !== false, resolvedLayoutScripts.length > 0)
+  const resolvedLayoutScripts = await services.layoutScripts(slideHtml)
   const css = `${resolvedFonts.fontCss}${fontFaces(opts.fonts)}${opts.css ?? ''}`
-  const html = printableDeckValue(single, { inline: opts.inline, css, origins: opts.origins, diagramScript, layoutScripts: resolvedLayoutScripts })
+  const html = printableDeckValue(single, { inline: opts.inline, css, origins: opts.origins, layoutScripts: resolvedLayoutScripts })
   return services.withTab(
     {
       viewport: deck.size,
@@ -52,7 +67,7 @@ export async function renderSlideImage(
       scale: opts.scale,
       html,
       slots: slotsForDocument(slots, [[index]]),
-      readiness: renderReadiness('refuse', false, false),
+      readiness: renderReadiness('refuse', false),
       boundMs: opts.boundMs,
       deadline,
       beforeOutput: opts.beforeOutput,
@@ -61,7 +76,7 @@ export async function renderSlideImage(
       preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
     },
     async (tab) => {
-      await waitForDiagramReadiness(tab.locator('iframe').contentFrame(), diagramReadiness)
+      if (opts.waitForPageReady !== false && resolvedLayoutScripts.length > 0) await waitForSlideLayout(tab)
       preflight?.complete()
       const font = opts.watermark ? await nestedFrameFontFacts(tab) : {}
       const watermark = selectedImageWatermarkMarkup(
