@@ -28,6 +28,12 @@ function refineRecord(
 ): void {
   const recordName = record.id ?? path.join('.')
   const hasBody = refineRecordShape(record, recordName, path, ctx)
+  if (record.template !== undefined && !template)
+    ctx.addIssue({
+      code: 'custom',
+      path: [...path, 'template'],
+      message: `record template ${JSON.stringify(record.template)} is not defined; define template ${JSON.stringify(record.template)} to clear this refusal`,
+    })
   refineRecordBody(template, hasBody, recordName, path, ctx)
   if (!template) {
     refineContinuousRecord(document, recordName, path, ctx)
@@ -37,15 +43,11 @@ function refineRecord(
   refineContinuousRecord(document, recordName, path, ctx)
 }
 
-function refineRecordShape(
-  record: Extract<DocumentNode, { type: 'record' }>,
-  recordName: string,
-  path: DocumentNodePath,
-  ctx: z.RefinementCtx,
-): boolean {
-  const body = record.children?.[0]
-  const hasBody = record.children?.length === 1 && body?.type === 'flow'
-  if (record.children !== undefined && (record.children.length !== 1 || body?.type !== 'flow')) {
+function refineRecordShape(record: Extract<DocumentNode, { type: 'record' }>, recordName: string, path: DocumentNodePath, ctx: z.RefinementCtx): boolean {
+  const children = 'children' in record ? record.children : undefined
+  const body = children?.[0]
+  const hasBody = children?.length === 1 && body?.type === 'flow'
+  if (children !== undefined && (children.length !== 1 || body?.type !== 'flow')) {
     ctx.addIssue({
       code: 'custom',
       path: [...path, 'children'],
@@ -65,19 +67,12 @@ function refineRecordShape(
       path: [...path, 'values'],
       message: `record ${recordName} has values but no template to declare them; provide a template or remove the values to clear this refusal`,
     })
+  }
   return hasBody
 }
 
-function refineRecordBody(
-  template: TemplateNode | undefined,
-  hasBody: boolean,
-  recordName: string,
-  path: DocumentNodePath,
-  ctx: z.RefinementCtx,
-): void {
-  const templateName = template?.name
-  if (!template && templateName === undefined) return
-  if (!hasBody) return
+function refineRecordBody(template: TemplateNode | undefined, hasBody: boolean, recordName: string, path: DocumentNodePath, ctx: z.RefinementCtx): void {
+  if (!template || !hasBody) return
   const markers = recordBodyMarkerCount(template.html)
   if (markers !== 1)
     ctx.addIssue({
@@ -96,13 +91,6 @@ function refineRecordTemplate(
   hostSlots: ReadonlySet<string>,
   ctx: z.RefinementCtx,
 ): void {
-  if (record.template !== undefined && !template) {
-    ctx.addIssue({
-      code: 'custom',
-      path: [...path, 'template'],
-      message: `record template ${JSON.stringify(record.template)} is not defined; define template ${JSON.stringify(record.template)} to clear this refusal`,
-    })
-  }
   if (template.parentRules !== undefined) {
     ctx.addIssue({
       code: 'custom',

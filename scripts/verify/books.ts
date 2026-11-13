@@ -307,7 +307,6 @@ async function checkOversizeBooks(h: Harness) {
   }
   await page.goto(h.url('book-paginated.html'))
 }
-
 async function verifyWorkbooks(h: Harness) {
   const { page, check } = h
   await page.goto(h.url('book-workbook.html'))
@@ -315,7 +314,8 @@ async function verifyWorkbooks(h: Harness) {
     let minted = 0
     const parsed = Document.parse(workbookFixture(id === 'book-workbook-he'), { newId: () => `fixture-${++minted}` })
     const body = parsed.children.find((node) => node.type === 'division' && node.name === 'body')
-    const flowId = body && 'children' in body ? body.children.find((node) => node.type === 'section' && node.template === 'lesson')?.id : undefined
+    const children = body?.type === 'division' ? body.children : []
+    const flowId = children.find((node) => node.type === 'section' && node.template === 'lesson')?.id
     if (!flowId) throw new Error(`${id} has no templated section id.`)
     const frame = await paginatedFrame(h, id)
     const preflightIssues = await readPreflightIssues(frame)

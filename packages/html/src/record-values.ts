@@ -15,8 +15,10 @@ export type BoundRecordSection<T extends RecordValueSection> = Omit<T, 'recordBo
   values?: never
 }
 
-export function bindRecordValues<T extends RecordValueSection>(section: T): BoundRecordSection<T> {
-  const document = parse(section.html)
+type HtmlDocument = ReturnType<typeof parse>
+type HtmlElement = ReturnType<typeof elements>[number]
+
+function composeRecordBody(section: RecordValueSection, document: HtmlDocument): HtmlElement | undefined {
   const bodyPoints = elements(document.children).filter((element) => element.attribs['data-record-body'] !== undefined)
   const bodyPoint = bodyPoints[0]
   if (bodyPoint && section.recordTemplate) {
@@ -25,11 +27,11 @@ export function bindRecordValues<T extends RecordValueSection>(section: T): Boun
     bodyPoint.children = body
     if (section.recordBody !== undefined) bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(section.recordBody))
   }
-  if (!section.values || !section.recordTemplate) {
-    const { recordBody: _recordBody, recordTemplate: _recordTemplate, ...composed } = section
-    return { ...composed, html: serialize(document) } as BoundRecordSection<T>
-  }
-  const bindings = new Map<string, ReturnType<typeof elements>[number][]>()
+  return bodyPoint
+}
+
+function recordBindings(document: HtmlDocument): Map<string, HtmlElement[]> {
+  const bindings = new Map<string, HtmlElement[]>()
   for (const element of elements(document.children)) {
     const key = element.attribs['data-slot-value']
     if (key === undefined) continue
@@ -37,14 +39,21 @@ export function bindRecordValues<T extends RecordValueSection>(section: T): Boun
     held.push(element)
     bindings.set(key, held)
   }
-  for (const slot of section.recordTemplate.slots) {
+  return bindings
+}
+
+function refuseUnboundSlots(template: NonNullable<RecordValueSection['recordTemplate']>, bindings: ReadonlyMap<string, HtmlElement[]>): void {
+  for (const slot of template.slots) {
     if (!bindings.has(slot.key)) {
       throw new RangeError(
-        `Template ${JSON.stringify(section.recordTemplate.name)} declares slot ${JSON.stringify(slot.key)} but its HTML never binds it; add data-slot-value=${JSON.stringify(slot.key)} to clear this refusal.`,
+        `Template ${JSON.stringify(template.name)} declares slot ${JSON.stringify(slot.key)} but its HTML never binds it; add data-slot-value=${JSON.stringify(slot.key)} to clear this refusal.`,
       )
     }
   }
-  for (const [key, value] of Object.entries(section.values)) {
+}
+
+function fillRecordValues(values: Record<string, string>, bindings: ReadonlyMap<string, HtmlElement[]>): void {
+  for (const [key, value] of Object.entries(values)) {
     for (const element of bindings.get(key) ?? []) {
       delete element.attribs['data-slot-value']
       const text = new Text(value)
@@ -53,7 +62,20 @@ export function bindRecordValues<T extends RecordValueSection>(section: T): Boun
       if (element.attribs.dir === undefined) element.attribs.dir = 'auto'
     }
   }
-  if (bodyPoint && section.recordBody !== undefined) bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(serialize(bodyPoint.children)))
+}
+
+export function bindRecordValues<T extends RecordValueSection>(section: T): BoundRecordSection<T> {
+  const document = parse(section.html)
+  const bodyPoint = composeRecordBody(section, document)
+  if (!section.values || !section.recordTemplate) {
+    const { recordBody: _recordBody, recordTemplate: _recordTemplate, ...composed } = section
+    return { ...composed, html: serialize(document) } as BoundRecordSection<T>
+  }
+  const bindings = recordBindings(document)
+  refuseUnboundSlots(section.recordTemplate, bindings)
+  fillRecordValues(section.values, bindings)
+  if (bodyPoint && section.recordBody !== undefined)
+    bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(serialize(bodyPoint.children)))
   const { recordBody: _recordBody, recordTemplate: _recordTemplate, values: _values, ...bound } = section
   return { ...bound, html: serialize(document) } as BoundRecordSection<T>
 }

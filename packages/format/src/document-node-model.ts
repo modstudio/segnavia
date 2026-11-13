@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DivisionNodeFields, type DocumentNode, PartNodeFields, RecordNode, SectionNodeFields } from './document-nodes.ts'
+import { DivisionNodeFields, type DocumentNode, PartNodeFields, RecordNodeSchema, SectionNodeFields } from './document-nodes.ts'
 import { ConditionNode, ContentsNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode } from './document-nodes-book.ts'
 import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, SlideNode } from './document-nodes-common.ts'
 import { ContentTextVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
@@ -57,7 +57,7 @@ export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> 
   slide: model(SlideNode, ['content', 'notes']),
   placed: model(PlacedNode),
   contents: model(ContentsNode),
-  record: model(RecordNode),
+  record: model(RecordNodeSchema),
   item: model(BoardItemNode),
   label: model(LabelNode),
   boardSection: boardSectionModel(),

@@ -68,7 +68,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const nodes = (values: ParsedDocument['children']): ParsedDocument['children'] =>
     values.map((node) => {
       const next = nodeContent(node)
-      return 'children' in next ? { ...next, children: nodes(next.children) } : next
+      return 'children' in next && next.children !== undefined ? { ...next, children: nodes(next.children) } : next
     })
   const parentPages = document.parentPages.map((node) => ({
     ...node,

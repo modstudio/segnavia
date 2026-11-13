@@ -1,5 +1,5 @@
 import { bytesToHex } from './bytes-to-hex.ts'
-import type { DivisionNode, DocumentNode, PartNode, SectionNode } from './document-nodes.ts'
+import type { DivisionNode, DocumentNode, PartNode, RecordNode, SectionNode } from './document-nodes.ts'
 import { Refusal } from './refusal.ts'
 
 export class DocumentIdRefusedError extends Refusal {
@@ -28,7 +28,11 @@ export const defaultNewId = (): string => {
 }
 
 type IdentifiedLeaf =
-  Exclude<DocumentNode, DivisionNode | PartNode | SectionNode> extends infer N ? (N extends DocumentNode ? Omit<N, 'id'> & { id: string } : never) : never
+  Exclude<DocumentNode, DivisionNode | PartNode | RecordNode | SectionNode> extends infer N
+    ? N extends DocumentNode
+      ? Omit<N, 'id'> & { id: string }
+      : never
+    : never
 
 interface IdentifiedDivisionNode extends Omit<DivisionNode, 'id' | 'children'> {
   id: string
@@ -45,7 +49,9 @@ interface IdentifiedSectionNode extends Omit<SectionNode, 'id' | 'children'> {
   children: IdentifiedNode[]
 }
 
-export type IdentifiedNode = IdentifiedLeaf | IdentifiedDivisionNode | IdentifiedPartNode | IdentifiedSectionNode
+type IdentifiedRecordNode = Omit<RecordNode, 'id' | 'children'> & { id: string; children?: IdentifiedNode[] }
+
+export type IdentifiedNode = IdentifiedLeaf | IdentifiedDivisionNode | IdentifiedPartNode | IdentifiedSectionNode | IdentifiedRecordNode
 
 type DefinitionNode = { type: string; id?: string; name?: string }
 
