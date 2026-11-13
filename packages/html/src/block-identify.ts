@@ -1,3 +1,4 @@
+import { DOCUMENT_PROFILES } from '@segnavia/format'
 import type { ChildNode, Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
@@ -35,6 +36,13 @@ function hasLineNumbers(children: readonly import('domhandler').ChildNode[]): bo
 }
 
 export type LineNumbersState = 'set' | 'unset' | 'unsupported'
+
+function lineNumberDocumentKinds(): string {
+  const kinds = Object.entries(DOCUMENT_PROFILES)
+    .filter(([, profile]) => (profile.settings as readonly string[]).includes('lineNumbers'))
+    .map(([kind]) => kind)
+  return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
+}
 
 function lineNumberAttributeIssues(children: readonly ChildNode[], where: string, refuse: boolean): string[] {
   const issues: string[] = []
@@ -97,7 +105,7 @@ export function identifyHtmlBlocks(
       issues.push(`${node} data-line-numbers needs the document settings.lineNumbers setting; add that setting to clear this refusal`)
     } else if (options.lineNumbers === 'unsupported') {
       issues.push(
-        `${node} data-line-numbers cannot take effect because this document kind does not number lines; use a book or printed document to clear this refusal`,
+        `${node} data-line-numbers cannot take effect because this document kind does not number lines; use a ${lineNumberDocumentKinds()} document to clear this refusal`,
       )
     }
   }
