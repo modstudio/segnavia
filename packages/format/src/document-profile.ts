@@ -70,8 +70,7 @@ export const DOCUMENT_PROFILES = {
         'section field contentsLabel is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
       subtitle: 'section field subtitle is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
       template: 'section field template is not allowed in a printed document; remove it to clear this refusal',
-      orientation:
-        'section field orientation is not allowed in a printed document; name a pageGeometry declared in style.pageGeometries to clear this refusal',
+      orientation: 'section field orientation is not allowed in a printed document; name a pageGeometry declared in style.pageGeometries to clear this refusal',
     },
     sectionChildren: {
       forms: [

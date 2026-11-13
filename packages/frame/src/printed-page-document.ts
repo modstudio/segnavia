@@ -36,7 +36,7 @@ import {
   resolvePrintedPageHtml,
   TARGET_LINKS_CSS,
 } from '@segnavia/html'
-import { type ComposerPageGeometry, composerPageRules } from './book-page-geometries.ts'
+import { composerPageRules } from './book-page-geometries.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
@@ -50,7 +50,7 @@ export type { PageOrPrintedInput } from '@segnavia/format'
 
 function onlyImplicitSection(sections: PrintedHtmlPage['printedPages']['sections']) {
   const section = sections[0]
-  return sections.length === 1 && section?.implicit === true && section.pages === undefined ? section : undefined
+  return sections.length === 1 && section?.implicit === true && !('pages' in section) ? section : undefined
 }
 
 export {
@@ -81,6 +81,62 @@ function pageParts(html: string): { head: string; body: string } {
   const body = html.match(/<body\b[^>]*>([\s\S]*?)<\/body\s*>/i)?.[1] ?? ''
   const safeHead = [...head.matchAll(/<(?:style\b[^>]*>[\s\S]*?<\/style\s*|link\b[^>]*|meta\b[^>]*)>/gi)].map((match) => match[0]).join('')
   return { head: safeHead, body }
+}
+
+function printedComposerGeometries(page: PrintedHtmlPage) {
+  return printedPageGeometries(page).map((geometry, index) => {
+    const measured = printedPageGeometry(page, geometry.parents, geometry.paper.width, geometry.paper.height, geometry.name)
+    const parents = geometry.parents.map((parent) => {
+      const margin = Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])) as typeof parent.margin
+      return { ...parent, margin, textArea: textArea({ margin }, { width: measured.paperWidth, height: measured.paperHeight }) }
+    })
+    return {
+      ...measured,
+      name: geometry.name,
+      pageName: `segnavia-page-${index + 1}`,
+      paper: geometry.paper,
+      columnGap: geometry.columns.gap * PX_PER_MM,
+      columnCount: geometry.columns.count,
+      parents,
+    }
+  })
+}
+
+function legacyGeometry(geometry: ReturnType<typeof printedComposerGeometries>[number]) {
+  return {
+    paperWidth: geometry.paperWidth,
+    paperHeight: geometry.paperHeight,
+    textWidth: geometry.textWidth,
+    textHeight: geometry.textHeight,
+    firstHeight: geometry.firstHeight,
+    columnGap: 0,
+    parents: geometry.parents,
+  }
+}
+
+function printedSectionParts(sections: PrintedHtmlPage['printedPages']['sections']) {
+  return sections.map((section) => ('pages' in section ? section.pages.map((held) => pageParts(held.html)) : [pageParts(section.html)]))
+}
+
+function normalizedPrintedSections(sections: PrintedHtmlPage['printedPages']['sections'], parts: ReturnType<typeof printedSectionParts>) {
+  return sections.map((section, index) =>
+    'pages' in section
+      ? { ...section, pages: section.pages.map((held, pageIndex) => ({ html: parts[index]?.[pageIndex]?.body ?? held.html })) }
+      : { ...section, html: parts[index]?.[0]?.body ?? section.html },
+  )
+}
+
+function printedRecordSlots(sections: PrintedHtmlPage['printedPages']['sections']) {
+  return Object.fromEntries(sections.map((section) => [section.id, 'pages' in section ? {} : (section.values ?? {})]))
+}
+
+function printedGeometryConfig(geometries: ReturnType<typeof printedComposerGeometries>) {
+  if (geometries.length !== 1) return { pageRules: composerPageRules(geometries), geometries }
+  const geometry = geometries[0] as (typeof geometries)[number]
+  return {
+    pageRules: `@page{size:${geometry.paper.width}mm ${geometry.paper.height}mm;margin:0}`,
+    geometries: [legacyGeometry(geometry)],
+  }
 }
 
 export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1] & { newId?: () => string }): string {
@@ -117,31 +173,13 @@ export function printedPageValueDocument(
   const progress = options.progress !== false
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
-  const geometries: ComposerPageGeometry[] = printedPageGeometries(page).map((geometry, index) => {
-    const measured = printedPageGeometry(page, geometry.parents, geometry.paper.width, geometry.paper.height, geometry.name)
-    const parents = geometry.parents.map((parent) => {
-      const margin = Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])) as typeof parent.margin
-      return { ...parent, margin, textArea: textArea({ margin }, { width: measured.paperWidth, height: measured.paperHeight }) }
-    })
-    return {
-      ...measured,
-      name: geometry.name,
-      pageName: `segnavia-page-${index + 1}`,
-      paper: geometry.paper,
-      columnGap: geometry.columns.gap * PX_PER_MM,
-      columnCount: geometry.columns.count,
-      parents,
-    }
-  })
+  const geometries = printedComposerGeometries(page)
   const direction = printedPageDirection(page)
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
   const parentRules: ParentRules = page.printedPages.parentRules
-  const singleGeometry = geometries.length === 1 ? geometries[0] : undefined
-  const pageRules = singleGeometry
-    ? `@page{size:${singleGeometry.paper.width}mm ${singleGeometry.paper.height}mm;margin:0}`
-    : composerPageRules(geometries)
-  const baseCss = `${pageRules}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${Math.max(...geometries.map((geometry) => geometry.paper.width))}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_BASE_CSS}${page.printedPages.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS}${TARGET_LINKS_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
+  const geometryConfig = printedGeometryConfig(geometries)
+  const baseCss = `${geometryConfig.pageRules}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${Math.max(...geometries.map((geometry) => geometry.paper.width))}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_BASE_CSS}${page.printedPages.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS}${TARGET_LINKS_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const preflightSeed = [...(options.preflightSeed ?? [])]
   const sheets = frameStyleSheets(
     page.style,
@@ -153,9 +191,7 @@ export function printedPageValueDocument(
     direction,
     dir: page.dir,
     lang: page.lang,
-    geometries: singleGeometry
-      ? [{ paperWidth: singleGeometry.paperWidth, paperHeight: singleGeometry.paperHeight, textWidth: singleGeometry.textWidth, textHeight: singleGeometry.textHeight, firstHeight: singleGeometry.firstHeight, columnGap: 0, parents: singleGeometry.parents }]
-      : geometries,
+    geometries: geometryConfig.geometries,
     notesGap: 0,
     orphans: 2,
     widows: 2,
@@ -163,7 +199,7 @@ export function printedPageValueDocument(
     endnotePlacement: 'chapter',
     variables: withLibraryEntries(LIBRARY_VARIABLES, page.printedPages.variables),
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, page.printedPages.headTemplates),
-    recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.pages === undefined ? (section.values ?? {}) : {}])),
+    recordSlotsByFlow: printedRecordSlots(page.printedPages.sections),
     pageMarker: 'data-segnavia-printed-page',
     pageAttributes: ['data-segnavia-page-view'],
     refusalSubject: 'The printed page',
@@ -186,12 +222,8 @@ export function printedPageValueDocument(
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const sections = page.printedPages.sections
-  const parts = sections.map((section) => (section.pages ? section.pages.map((held) => pageParts(held.html)) : [pageParts(section.html)]))
-  const normalizedSections = sections.map((section, index) =>
-    section.pages
-      ? { ...section, pages: section.pages.map((held, pageIndex) => ({ html: parts[index]?.[pageIndex]?.body ?? held.html })) }
-      : { ...section, html: parts[index]?.[0]?.body ?? section.html },
-  )
+  const parts = printedSectionParts(sections)
+  const normalizedSections = normalizedPrintedSections(sections, parts)
   const implicit = onlyImplicitSection(sections)
   const flows = implicit
     ? `<div data-segnavia-flow="${implicit.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${printedSectionOutlineHtml({ ...implicit, html: parts[0]?.[0]?.body ?? '' })}</div>`

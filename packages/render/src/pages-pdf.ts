@@ -195,7 +195,7 @@ export async function renderPagesPdf(
     const pieces = page.printedPages.sections.flatMap((section) => {
       const print = byName.get(section.pageGeometry)
       if (!print) return []
-      const count = section.pages?.length ?? 1
+      const count = 'pages' in section ? section.pages.length : 1
       return Array.from({ length: count }, () => ({
         print: { paper: { ...print, unit: 'mm' as const }, orientation: print.width > print.height ? ('landscape' as const) : ('portrait' as const) },
       }))

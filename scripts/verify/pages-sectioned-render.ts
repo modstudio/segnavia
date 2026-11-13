@@ -23,17 +23,12 @@ export function verifySectionedRender(output: string, check: Check): void {
 
   const mixedPath = path.join(output, 'pages-mixed-paper.pdf')
   const mixedInfo = execFileSync('pdfinfo', ['-box', '-f', '1', '-l', '4', mixedPath], { encoding: 'utf8' })
-  const boxes = [...mixedInfo.matchAll(/Page\s+\d+\s+MediaBox:\s+0\.00\s+0\.00\s+([\d.]+)\s+([\d.]+)/g)].map((match) =>
-    match.slice(1).map(Number),
-  )
+  const boxes = [...mixedInfo.matchAll(/Page\s+\d+\s+MediaBox:\s+0\.00\s+0\.00\s+([\d.]+)\s+([\d.]+)/g)].map((match) => match.slice(1).map(Number))
   const close = (actual: number[] | undefined, expected: number[]) =>
     actual?.every((value, index) => Math.abs(value - (expected[index] ?? Number.NaN)) < 0.1) ?? false
   check(
     'designed and flowing sections print on their A4 portrait, A4 landscape, Letter, and landscape papers in author order',
-    close(boxes[0], [595.28, 841.89]) &&
-      close(boxes[1], [841.89, 595.28]) &&
-      close(boxes[2], [612, 792]) &&
-      close(boxes[3], [841.89, 595.28]),
+    close(boxes[0], [595.28, 841.89]) && close(boxes[1], [841.89, 595.28]) && close(boxes[2], [612, 792]) && close(boxes[3], [841.89, 595.28]),
     JSON.stringify(boxes),
   )
   const mixedText = execFileSync('pdftotext', ['-layout', mixedPath, '-'], { encoding: 'utf8' })

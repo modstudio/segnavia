@@ -2,6 +2,7 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { MotifsOptions, Renderer } from '@segnavia/render'
 import { editionWorksheet, worksheetPage } from './demo-field-fixture.ts'
+import { printedMixedPaperDocument } from './demo-mixed-paper-fixture.ts'
 import {
   bleedGridImposition,
   bleedGridPages,
@@ -23,7 +24,6 @@ import {
   postcardPage,
   printedPageMotifSource,
   printedPageMotifs,
-  printedMixedPaperDocument,
   printedParentPageCases,
   printedSectionDocument,
   twoSidedCardImposition,

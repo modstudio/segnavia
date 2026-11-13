@@ -56,6 +56,7 @@ export async function filledPage(
     refuseRequired(prepared)
     const sections = hasSlotWork(input.slots, slots)
       ? input.printedPages.sections.map((section) => {
+          if ('pages' in section) return section
           const bound = bindRecordValues(section)
           return { ...bound, html: prepared.apply(bound.html) }
         })
@@ -109,6 +110,7 @@ export async function filledPages(
               printedPages: {
                 ...page.printedPages,
                 sections: page.printedPages.sections.map((section) => {
+                  if ('pages' in section) return section
                   const bound = bindRecordValues(section)
                   return { ...bound, html: prepared.apply(bound.html) }
                 }),

@@ -361,7 +361,7 @@ export function isPrintedHtmlPage(page: Page | HtmlPage | PrintedHtmlPage): page
 
 export function printedPageAuthorHtml(page: HtmlPage | PrintedHtmlPage): string {
   return isPrintedHtmlPage(page)
-    ? page.printedPages.sections.flatMap((section) => (section.pages ? section.pages.map((held) => held.html) : [section.html])).join('')
+    ? page.printedPages.sections.flatMap((section) => ('pages' in section ? section.pages.map((held) => held.html) : [section.html])).join('')
     : page.html
 }
 

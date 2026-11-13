@@ -22,9 +22,10 @@ export async function expandPrintedFramePage(
 ): Promise<ExpandedPrintedFramePage> {
   const preflight: PlacementPreflight | undefined = profile ? { profile, entries: [] } : undefined
   const regions = pageParentRegions(page)
+  const bodies = page.printedPages.sections.flatMap((section) => ('pages' in section ? section.pages : [{ html: section.html }]))
   if (!motifs) {
     const refusal = pageMotifRefusal(
-      page.printedPages.sections.map((section) => section.html),
+      bodies.map((body) => body.html),
       regions,
     )
     if (refusal) throw refusal
@@ -34,21 +35,28 @@ export async function expandPrintedFramePage(
       preflight: preflight?.entries ?? [],
     }
   }
-  const parentLang = page.lang?.trim() || documentLanguage(page.printedPages.sections.map((section) => section.html).join(''))
+  const parentLang = page.lang?.trim() || documentLanguage(bodies.map((body) => body.html).join(''))
   const { bodyResults, parentResults, fonts } = await expandPageMotifs(
     page,
-    page.printedPages.sections.map((section) => ({ html: section.html, lang: page.lang?.trim() || documentLanguage(section.html) })),
+    bodies.map((body) => ({ html: body.html, lang: page.lang?.trim() || documentLanguage(body.html) })),
     regions,
     parentLang,
     motifs,
     signal,
     day,
   )
+  let bodyIndex = 0
   const expandedPage: PrintedHtmlPage = {
     ...page,
     printedPages: {
       ...page.printedPages,
-      sections: page.printedPages.sections.map((section, index) => ({ ...section, html: bodyResults[index]?.html ?? section.html })),
+      sections: page.printedPages.sections.map((section) => {
+        if ('pages' in section) {
+          const pages = section.pages.map((held) => ({ html: bodyResults[bodyIndex++]?.html ?? held.html }))
+          return { ...section, pages }
+        }
+        return { ...section, html: bodyResults[bodyIndex++]?.html ?? section.html }
+      }),
       parents: expandedPageParents(page, parentResults),
     },
   }

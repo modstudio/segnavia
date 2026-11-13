@@ -45,7 +45,7 @@ export async function printedPagesPrintDocument(
     const pieces = resolved.printedPages.sections.flatMap((section) => {
       const paper = byName.get(section.pageGeometry)
       if (!paper) return []
-      return Array.from({ length: section.pages?.length ?? 1 }, () => ({
+      return Array.from({ length: 'pages' in section ? section.pages.length : 1 }, () => ({
         print: { paper: { ...paper, unit: 'mm' as const }, orientation: paper.width > paper.height ? ('landscape' as const) : ('portrait' as const) },
       }))
     })

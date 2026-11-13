@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { DocumentNode } from './document-nodes.ts'
-import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { type DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { refineRecords } from './record-refinement.ts'
 
