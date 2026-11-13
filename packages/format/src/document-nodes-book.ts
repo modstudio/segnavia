@@ -71,7 +71,7 @@ export const VariableNode = z.discriminatedUnion('kind', [
 
 export const ConditionNode = NodeId.extend({ type: z.literal('condition'), name: z.string() })
 
-export const DocumentDefinitionNode = z.union([ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, HeadTemplateNode, ConditionNode])
+export const DocumentDefinitionNodeMembers = [ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, HeadTemplateNode, ConditionNode] as const
 
 export type ContentsNode = z.infer<typeof ContentsNode>
 export type ParentPageNode = z.infer<typeof ParentPageNode>
@@ -80,4 +80,3 @@ export type NoteSeriesNode = z.infer<typeof NoteSeriesNode>
 export type VariableNode = z.infer<typeof VariableNode>
 export type HeadTemplateNode = z.infer<typeof HeadTemplateNode>
 export type ConditionNode = z.infer<typeof ConditionNode>
-export type DocumentDefinitionNode = z.infer<typeof DocumentDefinitionNode>
