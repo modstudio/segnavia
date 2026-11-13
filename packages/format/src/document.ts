@@ -31,7 +31,12 @@ import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
-const DocumentSettings = closedObject({ scripts: Scripts.optional(), dir: DeckShape.shape.dir, lang: z.string().optional(), lineNumbers: LineNumbers.optional() })
+const DocumentSettings = closedObject({
+  scripts: Scripts.optional(),
+  dir: DeckShape.shape.dir,
+  lang: z.string().optional(),
+  lineNumbers: LineNumbers.optional(),
+})
 const DocumentData = closedObject({ slots: Slots.optional() })
 const DocumentPrint = closedObject({
   ...PressGeometry.shape,

@@ -21,6 +21,7 @@ describe('Document closed objects', () => {
         'children[0].children',
       ],
       [{ ...root, settings: { unknown: true }, children: [] }, 'settings.unknown'],
+      [{ ...root, settings: { lineNumbers: { interval: 5, every: 5 } }, children: [] }, 'settings.lineNumbers.every'],
       [{ ...root, metadata: { title: 'Book', unknown: true }, children: [] }, 'metadata.unknown'],
       [{ ...root, print: { unknown: true }, children: [] }, 'print.unknown'],
       [
