@@ -35,6 +35,18 @@ describe('note series', () => {
     expect(() => Book.parse(base)).toThrow('add lineNumbers to clear this refusal')
     expect(() => Book.parse({ ...base, lineNumbers: {}, notes: [{ ...base.notes[0], marker: 'symbols' }] })).toThrow('marker must be a number system')
   })
+
+  test('refuses line keying outside paginated mode', () => {
+    expect(() =>
+      Book.parse({
+        title: 'Book',
+        mode: 'continuous',
+        lineNumbers: {},
+        body: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+        notes: [{ name: 'sources', key: 'line', placement: 'page', numbering: 'book' }],
+      }),
+    ).toThrow("line-keyed series need paginated mode; use mode 'paginated' or key 'counter' to clear this refusal")
+  })
   test('resolves compatible defaults and id stems', () => {
     expect(resolveNoteSeries(settings())).toMatchObject([
       { name: 'footnote', placement: 'page', numbering: 'chapter', marker: 'symbols', title: 'Footnotes', idStem: 'fn', idScope: 'chapter' },

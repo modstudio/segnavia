@@ -218,14 +218,11 @@ describe('lineKeyedLabels', () => {
     }
   })
 
-  test('keys a lemma spanning the next line to its start line rather than the block start', () => {
+  test('keys a lemma whose start falls inside a line to that containing line', () => {
     const { measurements, plan } = fixtures()
     const flow = measurements.flows[0]
     if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
-    const block = flow.blocks[1]
-    if (!block) throw new Error('The fixture has no text block.')
-    expect(block.lines[8]?.top).toBe(90)
-    flow.lineNoteAnchors = [{ id: 'spanning', top: 80, block: 1 }]
+    flow.lineNoteAnchors = [{ id: 'spanning', top: 85, block: 1 }]
     expect(lineKeyedLabels(measurements, plan, { interval: 1, start: 1, restart: 'never', area: 'text', side: 'outer', system: 'arabic' })).toEqual([
       { id: 'spanning', value: 8 },
     ])

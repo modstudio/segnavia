@@ -3,6 +3,7 @@ import { defaultPageNumbering, type NumberSystem } from './numbering.ts'
 
 interface LineKeyedSeriesSettings {
   lang?: string
+  mode: 'continuous' | 'paginated'
   lineNumbers?: { system?: NumberSystem }
   notes: NoteSeriesInput[]
 }
@@ -17,6 +18,12 @@ export function lineKeyedNoteSeriesIssues(settings: LineKeyedSeriesSettings): No
   const issues: NoteSeriesIssue[] = []
   settings.notes.forEach((series, index) => {
     if (series.key !== 'line') return
+    if (settings.mode !== 'paginated') {
+      issues.push({
+        path: ['notes', index, 'key'],
+        message: `note series ${series.name} is keyed to lines but line-keyed series need paginated mode; use mode 'paginated' or key 'counter' to clear this refusal`,
+      })
+    }
     if (settings.lineNumbers === undefined) {
       issues.push({
         path: ['notes', index, 'key'],

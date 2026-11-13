@@ -1,19 +1,42 @@
-import { formatNumber, type Measurements, type NumberSystem, type Plan, type ResolvedLineNumbers, resolveDirection } from '@segnavia/format'
-import { lineKeyedLabels } from '@segnavia/layout'
+import {
+  formatNumber,
+  type LineNoteSeries,
+  type Measurements,
+  type NumberSystem,
+  type Plan,
+  type ResolvedLineNumbers,
+  resolveDirection,
+} from '@segnavia/format'
+import { type LineKeyedLabelDecision, lineKeyedLabels } from '@segnavia/layout'
 
-interface LineNoteSeries {
-  name: string
+interface ResolvedLineLabel {
+  number: Element
   system: NumberSystem
+  value: string
 }
 
-interface LineLabelValue {
-  id: string
-  value?: number
-  refusal?: string
+export function galleyLineLabels(doc: Document): Map<string, Element> {
+  const result = new Map<string, Element>()
+  const labels = doc.querySelectorAll('[data-segnavia-galleys] [data-segnavia-line-label]')
+  for (const label of labels) {
+    const id = label.getAttribute('data-segnavia-line-label')
+    if (id !== null) result.set(id, label)
+  }
+  return result
 }
 
-export function lineLabelValues(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): LineLabelValue[] {
-  return lineKeyedLabels(measurements, plan, settings)
+export function resolvedLineLabel(
+  labels: ReadonlyMap<string, Element>,
+  decision: LineKeyedLabelDecision,
+  series: readonly LineNoteSeries[],
+): ResolvedLineLabel | undefined {
+  if ('refusal' in decision) return undefined
+  const label = labels.get(decision.id)
+  const number = label?.querySelector('[data-segnavia-line-label-number]')
+  const seriesName = label?.getAttribute('data-segnavia-line-series')
+  const system = series.find((candidate) => candidate.name === seriesName)?.system
+  if (!number || system === undefined) return undefined
+  return { number, system, value: formatNumber(decision.value, system) }
 }
 
 export function applyLineLabels(
@@ -23,30 +46,26 @@ export function applyLineLabels(
   series: readonly LineNoteSeries[],
   doc: Document,
 ): { refusals: string[]; missing: string[] } {
-  const decisions = lineLabelValues(measurements, plan, settings)
+  const decisions = lineKeyedLabels(measurements, plan, settings)
+  const labels = galleyLineLabels(doc)
   const refusals: string[] = []
   const missing: string[] = []
+  const decided = new Set<string>()
   for (const decision of decisions) {
-    if (decision.refusal) {
+    decided.add(decision.id)
+    if ('refusal' in decision) {
       refusals.push(decision.refusal)
       continue
     }
-    const labels = doc.querySelectorAll('[data-segnavia-line-label]')
-    let label: Element | undefined
-    for (let index = 0; index < labels.length; index += 1) {
-      if (labels[index]?.getAttribute('data-segnavia-line-label') === decision.id) label = labels[index]
-    }
-    const number = label?.querySelector('[data-segnavia-line-number]')
-    const seriesName = label?.getAttribute('data-segnavia-line-series')
-    const system = series.find((candidate) => candidate.name === seriesName)?.system
-    if (!number || system === undefined || decision.value === undefined) {
+    const resolved = resolvedLineLabel(labels, decision, series)
+    if (!resolved) {
       missing.push(decision.id)
       continue
     }
-    const value = formatNumber(decision.value, system)
-    number.textContent = value
-    number.setAttribute('dir', resolveDirection(undefined, undefined, value))
+    resolved.number.textContent = resolved.value
+    resolved.number.setAttribute('dir', resolveDirection(undefined, undefined, resolved.value))
   }
+  for (const id of labels.keys()) if (!decided.has(id)) missing.push(id)
   return { refusals, missing }
 }
 
@@ -57,23 +76,17 @@ export function unsettledLineLabels(
   series: readonly LineNoteSeries[],
   doc: Document,
 ): { refusals: string[]; moved: string[] } {
-  const decisions = lineLabelValues(measurements, plan, settings)
+  const decisions = lineKeyedLabels(measurements, plan, settings)
+  const labels = galleyLineLabels(doc)
   const refusals: string[] = []
   const moved: string[] = []
-  const labels = doc.querySelectorAll('[data-segnavia-line-label]')
   for (const decision of decisions) {
-    if (decision.refusal) {
+    if ('refusal' in decision) {
       refusals.push(decision.refusal)
       continue
     }
-    let label: Element | undefined
-    for (let index = 0; index < labels.length; index += 1) {
-      if (labels[index]?.getAttribute('data-segnavia-line-label') === decision.id) label = labels[index]
-    }
-    const number = label?.querySelector('[data-segnavia-line-number]')
-    const seriesName = label?.getAttribute('data-segnavia-line-series')
-    const system = series.find((candidate) => candidate.name === seriesName)?.system
-    if (!number || system === undefined || decision.value === undefined || number.textContent !== formatNumber(decision.value, system)) moved.push(decision.id)
+    const resolved = resolvedLineLabel(labels, decision, series)
+    if (!resolved || resolved.number.textContent !== resolved.value) moved.push(decision.id)
   }
   return { refusals, moved }
 }

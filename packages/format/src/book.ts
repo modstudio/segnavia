@@ -135,6 +135,9 @@ export const BookShape = closedObject({
   contents: closedObject({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
 
+export const LineNoteSeries = closedObject({ name: z.string(), system: NumberSystem })
+export type LineNoteSeries = z.infer<typeof LineNoteSeries>
+
 export const BookViewPagination = closedObject({
   paper: closedObject({ width: z.number().positive(), height: z.number().positive() }),
   margin: BookPage.shape.margin,
@@ -169,7 +172,7 @@ export const BookViewPagination = closedObject({
   document: VariableDocumentFacts.optional(),
   lineNumbers: LineNumbers.optional(),
   sideNotes: SideNotes.optional(),
-  lineNoteSeries: z.array(closedObject({ name: z.string(), system: NumberSystem })).optional(),
+  lineNoteSeries: z.array(LineNoteSeries).optional(),
 }).superRefine((pagination, ctx) =>
   refineDocumentVariables(
     {
@@ -203,7 +206,7 @@ const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
       ctx.addIssue({ code: 'custom', path: [...path, 'placement'], message: error instanceof Error ? error.message : String(error) })
     }
   }
-  for (const issue of lineKeyedNoteSeriesIssues({ lang: book.lang, lineNumbers: book.lineNumbers, notes: book.notes })) {
+  for (const issue of lineKeyedNoteSeriesIssues({ lang: book.lang, mode: book.mode, lineNumbers: book.lineNumbers, notes: book.notes })) {
     ctx.addIssue({ code: 'custom', ...issue })
   }
   const seen = new Set<string>()

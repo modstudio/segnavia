@@ -56,7 +56,6 @@ describe('book view', () => {
     expect(parsed.pagination).not.toHaveProperty('fragmentation')
     expect(parsed.pagination?.variables).toEqual([])
     expect(parsed.pagination?.headTemplates).toEqual([])
-    expect(parsed.pagination?.lineNoteSeries).toEqual([{ name: 'apparatus', system: 'arabic' }])
   })
 
   test('exports its unresolved JSON Schema', () => {

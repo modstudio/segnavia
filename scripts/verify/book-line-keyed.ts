@@ -32,7 +32,7 @@ function lineKeyedFacts(): LineKeyedFact[] {
           (left, right) => Math.abs(left.getBoundingClientRect().top - anchorBox.top) - Math.abs(right.getBoundingClientRect().top - anchorBox.top),
         )[0]
       : undefined
-    const number = label.querySelector<HTMLElement>('[data-segnavia-line-number]')?.textContent ?? ''
+    const number = label.querySelector<HTMLElement>('[data-segnavia-line-label-number]')?.textContent ?? ''
     const bdis = label.querySelectorAll('bdi')
     const text = label.textContent ?? ''
     return {

@@ -30,7 +30,7 @@ describe('line-keyed note series document', () => {
     expect(result.html).not.toContain('class="segnavia-note-ref"')
     expect(result.html).toContain('data-segnavia-line-note-anchor="segnavia-note-sources-1"')
     expect(result.html).toContain('data-segnavia-line-note="segnavia-note-sources-1"')
-    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> <bdi>long lemma</bdi>] </span>body')
+    expect(result.html).toContain('<bdi data-segnavia-line-label-number></bdi> <bdi>long lemma</bdi>] </span>body')
   })
 
   test('keeps a Hebrew lemma separator as plain note-direction text', () => {
@@ -44,7 +44,7 @@ describe('line-keyed note series document', () => {
         }),
       ),
     )
-    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> <bdi>דיבור</bdi>] </span>הערה')
+    expect(result.html).toContain('<bdi data-segnavia-line-label-number></bdi> <bdi>דיבור</bdi>] </span>הערה')
     expect(result.html).not.toContain('<bdi>]</bdi>')
   })
 
@@ -59,7 +59,7 @@ describe('line-keyed note series document', () => {
         }),
       ),
     )
-    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> </span>הערה')
+    expect(result.html).toContain('<bdi data-segnavia-line-label-number></bdi> </span>הערה')
   })
 
   test('refuses an unnumbered anchor and a repeat reference', () => {

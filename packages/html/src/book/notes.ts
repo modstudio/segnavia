@@ -84,7 +84,7 @@ function insideNumberedBlock(node: Element): boolean {
 }
 
 function lineLabel(noteId: string, series: string, lemma: string | undefined, separator: string): Element {
-  const children: ChildNode[] = [element('bdi', { 'data-segnavia-line-number': '' }), text(' ')]
+  const children: ChildNode[] = [element('bdi', { 'data-segnavia-line-label-number': '' }), text(' ')]
   if (lemma !== undefined) children.push(element('bdi', {}, [text(lemma)]), text(separator), text(' '))
   return element('span', { 'data-segnavia-line-label': noteId, 'data-segnavia-line-series': series }, children)
 }
@@ -97,7 +97,6 @@ function authoredNoteReplacement(series: ResolvedNoteSeries, noteId: string, ref
   if (series.key !== 'line') return element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)])
   return element('a', {
     id: refId,
-    href: `#${noteId}`,
     'data-segnavia-line-note': noteId,
     ...(lemma ? {} : { 'data-segnavia-line-note-anchor': noteId }),
     'aria-hidden': 'true',

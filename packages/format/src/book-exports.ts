@@ -29,6 +29,7 @@ export {
   isPart,
   isPlacedSection,
   isTemplatedSection,
+  LineNoteSeries,
   MAX_PART_DEPTH,
   Part,
   PlacedSection,

@@ -4,6 +4,9 @@ import { closedObject } from './closed-object.ts'
 import { isHebrew, NoteMarker, type NoteMarkerSource, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarkerSource } from './numbering.ts'
 import { primitiveRoot } from './repeated-mark.ts'
 
+const DEFAULT_NOTE_KEY = 'counter'
+const DEFAULT_LEMMA_SEPARATOR = ']'
+
 export const NotePlacement = z.enum(['page', 'chapter', 'part', 'book'])
 export type NotePlacement = z.infer<typeof NotePlacement>
 
@@ -190,8 +193,8 @@ function resolveCustomSeries(series: NoteSeriesInput): ResolvableNoteSeries {
   }
   return {
     ...series,
-    key: series.key ?? 'counter',
-    lemmaSeparator: series.lemmaSeparator ?? ']',
+    key: series.key ?? DEFAULT_NOTE_KEY,
+    lemmaSeparator: series.lemmaSeparator ?? DEFAULT_LEMMA_SEPARATOR,
     placement: series.placement,
     numbering: series.numbering,
     title: series.title ?? series.name,
@@ -244,8 +247,8 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
   }
   const footnote: ResolvableNoteSeries = {
     name: 'footnote',
-    key: 'counter',
-    lemmaSeparator: ']',
+    key: DEFAULT_NOTE_KEY,
+    lemmaSeparator: DEFAULT_LEMMA_SEPARATOR,
     placement: 'page',
     numbering: settings.footnotes.restart,
     marker: settings.footnotes.marker,
@@ -256,8 +259,8 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
   }
   const endnote: ResolvableNoteSeries = {
     name: 'endnote',
-    key: 'counter',
-    lemmaSeparator: ']',
+    key: DEFAULT_NOTE_KEY,
+    lemmaSeparator: DEFAULT_LEMMA_SEPARATOR,
     placement: settings.endnotes.placement,
     numbering: 'book',
     marker: settings.endnotes.marker,
@@ -274,7 +277,7 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
   const explicitMarkers = inputs.flatMap(({ marker }) => (marker === undefined ? [] : [marker]))
   const used: NoteMarkerValue[] = []
   return inputs.map((series) => {
-    const key = series.key ?? 'counter'
+    const key = series.key ?? DEFAULT_NOTE_KEY
     const lineNumberSystem =
       key === 'line' && settings.lineNumberSystem !== undefined ? resolveLineKeyedNoteSystem(series.marker, settings.lineNumberSystem) : undefined
     const marker = series.marker ?? unusedMarker(series.preferredMarker, settings.lang, [...used, ...explicitMarkers])
@@ -282,7 +285,7 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
     return {
       name: series.name,
       key,
-      lemmaSeparator: series.lemmaSeparator ?? ']',
+      lemmaSeparator: series.lemmaSeparator ?? DEFAULT_LEMMA_SEPARATOR,
       ...(lineNumberSystem === undefined ? {} : { lineNumberSystem }),
       placement: series.placement,
       numbering: series.numbering,

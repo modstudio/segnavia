@@ -50,7 +50,7 @@ export function numberLinesScript(): string {
 }
 
 export function lineKeyedLabelsScript(): string {
-  return `${lineKeyedLabels.toString()}\nvar lineKeyedLabels=${lineKeyedLabels.name};`
+  return `${tiledPageGroups.toString()}\n${windowLines.toString()}\n${countedPlanLines.toString()}\n${lineKeyedLabels.toString()}\nvar lineKeyedLabels=${lineKeyedLabels.name};`
 }
 
 function expandLineNumberTiles(plan: Plan, groups: ReturnType<typeof tiledPageGroups>, source: readonly PageLineNumbers[]): PageLineNumbers[] {
