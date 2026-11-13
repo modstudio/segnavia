@@ -313,8 +313,9 @@ export function headerTableFor(element: Element, styleOf: (element: Element) => 
     if (node.nodeType !== 1) continue
     const child = node as Element
     if (!tableRenderedInFlow(child, styleOf)) continue
-    if (child.tagName !== 'TABLE' || table) return null
-    table = child
+    if (table) return null
+    table = headerTableFor(child, styleOf)
+    if (!table) return null
   }
   return table
 }

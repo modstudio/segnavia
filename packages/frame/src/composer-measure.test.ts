@@ -230,17 +230,41 @@ test('a table inside a block replaces the range line spanning it with row bands'
   ])
 })
 
-test('only a block whose in-flow content is one table receives its header height', () => {
-  const head = { getBoundingClientRect: () => ({ height: 18 }) }
-  const table = { nodeType: 1, tagName: 'TABLE', tHead: head, getClientRects: () => [{}] }
-  const whitespace = { nodeType: 3, textContent: ' \n ' }
-  const paragraph = { nodeType: 1, tagName: 'P', getClientRects: () => [{}] }
-  const wrapper = { tagName: 'DIV', childNodes: [whitespace, table] }
-  const mixed = { tagName: 'DIV', childNodes: [paragraph, table] }
-  const styleOf = () => ({ display: 'block', position: 'static' }) as CSSStyleDeclaration
+const headerHead = { getBoundingClientRect: () => ({ height: 18 }) }
+const headerTable = { nodeType: 1, tagName: 'TABLE', tHead: headerHead, getClientRects: () => [{}] }
+const headerWhitespace = { nodeType: 3, textContent: ' \n ' }
+const headerStyleOf = (element: Element) =>
+  ({ display: 'block', position: (element as unknown as { position?: string }).position ?? 'static' }) as CSSStyleDeclaration
 
-  expect(headerHeightFor(wrapper as unknown as Element, styleOf)).toBe(18)
-  expect(headerHeightFor(mixed as unknown as Element, styleOf)).toBe(0)
+test('only a block whose in-flow content is one table receives its header height', () => {
+  const paragraph = { nodeType: 1, tagName: 'P', childNodes: [], getClientRects: () => [{}] }
+  const wrapper = { tagName: 'DIV', childNodes: [headerWhitespace, headerTable] }
+  const mixed = { tagName: 'DIV', childNodes: [paragraph, headerTable] }
+  expect(headerHeightFor(wrapper as unknown as Element, headerStyleOf)).toBe(18)
+  expect(headerHeightFor(mixed as unknown as Element, headerStyleOf)).toBe(0)
+})
+
+test('a table inside a chain of single-content wrappers receives its header height', () => {
+  const inner = { nodeType: 1, tagName: 'FIGURE', childNodes: [headerWhitespace, headerTable], getClientRects: () => [{}] }
+  const outer = { tagName: 'DIV', childNodes: [headerWhitespace, inner] }
+  expect(headerHeightFor(outer as unknown as Element, headerStyleOf)).toBe(18)
+})
+
+test('text or a second in-flow element within a wrapper chain prevents a header height', () => {
+  const paragraph = { nodeType: 1, tagName: 'P', childNodes: [], getClientRects: () => [{}] }
+  const text = { nodeType: 3, textContent: 'caption' }
+  const withText = { nodeType: 1, tagName: 'FIGURE', childNodes: [text, headerTable], getClientRects: () => [{}] }
+  const withSibling = { nodeType: 1, tagName: 'FIGURE', childNodes: [headerTable, paragraph], getClientRects: () => [{}] }
+  expect(headerHeightFor({ tagName: 'DIV', childNodes: [withText] } as unknown as Element, headerStyleOf)).toBe(0)
+  expect(headerHeightFor({ tagName: 'DIV', childNodes: [withSibling] } as unknown as Element, headerStyleOf)).toBe(0)
+})
+
+test('out-of-flow elements within a wrapper chain do not prevent a header height', () => {
+  const hidden = { nodeType: 1, tagName: 'ASIDE', childNodes: [], getClientRects: () => [] }
+  const absolute = { nodeType: 1, tagName: 'ASIDE', position: 'absolute', childNodes: [], getClientRects: () => [{}] }
+  const inner = { nodeType: 1, tagName: 'FIGURE', childNodes: [hidden, headerTable, absolute], getClientRects: () => [{}] }
+  const outer = { tagName: 'DIV', childNodes: [inner] }
+  expect(headerHeightFor(outer as unknown as Element, headerStyleOf)).toBe(18)
 })
 
 test('the repeated table header drops its block-start margin', () => {
