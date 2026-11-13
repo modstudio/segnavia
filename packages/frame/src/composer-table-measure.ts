@@ -1,5 +1,5 @@
 import { insideSideNote } from './composer-line-range.ts'
-import type { MeasuredLineBox } from './composer-measure.ts'
+import { lineWithinBox, type MeasuredLineBox } from './composer-measure.ts'
 
 export interface DescendantTableMeasurement {
   top: number
@@ -19,12 +19,24 @@ export interface TableHeaderFact {
   bottom: number
   height: number
   nesting: number
-  parent?: number
 }
 
-export function lineWithinBox(line: MeasuredLineBox, box: Pick<MeasuredLineBox, 'top' | 'bottom'>): boolean {
-  const middle = (line.top + line.bottom) / 2
-  return middle >= box.top - 0.5 && middle <= box.bottom + 0.5
+export interface RepeatedHeaderPlacement {
+  tableIndex: number
+  top: number
+  height: number
+}
+
+export function stackedTableHeaders(indexes: readonly number[], facts: readonly { height: number }[], top: number): RepeatedHeaderPlacement[] {
+  const placements: RepeatedHeaderPlacement[] = []
+  let nextTop = top
+  for (const tableIndex of indexes) {
+    const fact = facts[tableIndex]
+    if (!fact) continue
+    placements.push({ tableIndex, top: nextTop, height: fact.height })
+    nextTop += fact.height
+  }
+  return placements
 }
 
 export function linesWithDescendantTables(rangeLines: readonly MeasuredLineBox[], tables: readonly DescendantTableMeasurement[]): MeasuredLineBox[] {
@@ -34,7 +46,7 @@ export function linesWithDescendantTables(rangeLines: readonly MeasuredLineBox[]
 
 export function tableRowLines(rows: readonly TableRowMeasurement[]): MeasuredLineBox[] {
   return rows.flatMap((row) => {
-    const boxes = linesWithDescendantTables(row.boxes, row.tables ?? [])
+    const boxes = [...row.boxes, ...(row.tables ?? []).flatMap((table) => table.lines)].sort((left, right) => left.top - right.top)
     const groups: MeasuredLineBox[] = []
     for (const box of boxes) {
       const group = groups.at(-1)
@@ -74,10 +86,10 @@ export function cellReplacedBoxes(cell: Element, table: Element, origin: number)
   return boxes
 }
 
-export function cellTables(cell: Element, table: Element, origin: number): DescendantTableMeasurement[] {
+export function descendantTables(container: Element, outerTable: Element | undefined, origin: number): DescendantTableMeasurement[] {
   const tables: DescendantTableMeasurement[] = []
-  for (const nested of cell.querySelectorAll('table')) {
-    if (insideSideNote(nested) || nested.parentElement?.closest('table') !== table || !tableRenderedInFlow(nested)) continue
+  for (const nested of container.querySelectorAll('table')) {
+    if (insideSideNote(nested) || (nested.parentElement?.closest('table') ?? undefined) !== outerTable || !tableRenderedInFlow(nested)) continue
     const box = nested.getBoundingClientRect()
     tables.push({ top: box.top - origin, bottom: box.bottom - origin, lines: measureTableLines(nested, origin) })
   }
@@ -91,7 +103,7 @@ export function measureTableRow(row: Element, table: Element, origin: number): T
     top: rowBox.top - origin,
     bottom: rowBox.bottom - origin,
     boxes: cells.flatMap((cell) => [...cellTextBoxes(cell, table, origin), ...cellReplacedBoxes(cell, table, origin)]),
-    tables: cells.flatMap((cell) => cellTables(cell, table, origin)),
+    tables: cells.flatMap((cell) => descendantTables(cell, table, origin)),
   }
 }
 
@@ -174,7 +186,6 @@ export function headerTablesFor(
       bottom: box.bottom - origin,
       height: (table as HTMLTableElement).tHead?.getBoundingClientRect().height ?? 0,
       nesting,
-      ...(parent >= 0 ? { parent } : {}),
     }
   })
   return { tables: candidates, facts }

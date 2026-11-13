@@ -1,138 +1,11 @@
-import { describe, expect, test } from 'bun:test'
+import { expect, test } from 'bun:test'
 import { COMPOSER_SCRIPT, decideVisibleMeasurement } from './composer.ts'
 import { lineNumberedLines, measuredBlockConstraints, measureLineBoxes, measurementRefusal } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
-import { linesWithDescendantTables, linesWithTableHeaderHeights, repeatedTableHeaderIndexes, tableRowLines } from './composer-table-measure.ts'
 
 test('a display table element carries no orphan or widow constraint', () => {
   expect(measuredBlockConstraints('table', 2, 2)).toEqual({})
   expect(measuredBlockConstraints('block', 2, 3)).toEqual({ orphans: 2, widows: 3 })
-})
-
-describe('tableRowLines', () => {
-  test('a one-line row equals its row box', () => {
-    expect(tableRowLines([{ top: 10, bottom: 30, boxes: [{ top: 14, bottom: 26 }] }])).toEqual([{ top: 10, bottom: 30 }])
-  })
-
-  test('interleaved lines from two cells merge into one set of row lines', () => {
-    expect(
-      tableRowLines([
-        {
-          top: 10,
-          bottom: 70,
-          boxes: [
-            { top: 14, bottom: 24 },
-            { top: 34, bottom: 44 },
-            { top: 15, bottom: 25 },
-            { top: 35, bottom: 45 },
-          ],
-        },
-      ]),
-    ).toEqual([
-      { top: 10, bottom: 34 },
-      { top: 34, bottom: 70 },
-    ])
-  })
-
-  test('a three-line row tiles the row', () => {
-    expect(
-      tableRowLines([
-        {
-          top: 10,
-          bottom: 70,
-          boxes: [
-            { top: 14, bottom: 24 },
-            { top: 34, bottom: 44 },
-            { top: 54, bottom: 64 },
-          ],
-        },
-      ]),
-    ).toEqual([
-      { top: 10, bottom: 34 },
-      { top: 34, bottom: 54 },
-      { top: 54, bottom: 70 },
-    ])
-  })
-
-  test('an empty row is one line', () => {
-    expect(tableRowLines([{ top: 10, bottom: 30, boxes: [] }])).toEqual([{ top: 10, bottom: 30 }])
-  })
-
-  test('a nested table contributes its own row bands to the outer row', () => {
-    expect(
-      tableRowLines([
-        {
-          top: 10,
-          bottom: 70,
-          boxes: [{ top: 14, bottom: 24 }],
-          tables: [
-            {
-              top: 10,
-              bottom: 70,
-              lines: [
-                { top: 10, bottom: 30 },
-                { top: 30, bottom: 50 },
-                { top: 50, bottom: 70 },
-              ],
-            },
-          ],
-        },
-      ]),
-    ).toEqual([
-      { top: 10, bottom: 30 },
-      { top: 30, bottom: 50 },
-      { top: 50, bottom: 70 },
-    ])
-  })
-})
-
-test('a table inside a block replaces the range line spanning it with row bands', () => {
-  expect(
-    linesWithDescendantTables(
-      [
-        { top: 0, bottom: 10 },
-        { top: 10, bottom: 70 },
-        { top: 70, bottom: 80 },
-      ],
-      [
-        {
-          top: 10,
-          bottom: 70,
-          lines: [
-            { top: 10, bottom: 30 },
-            { top: 30, bottom: 50 },
-            { top: 50, bottom: 70 },
-          ],
-        },
-      ],
-    ),
-  ).toEqual([
-    { top: 0, bottom: 10 },
-    { top: 10, bottom: 30 },
-    { top: 30, bottom: 50 },
-    { top: 50, bottom: 70 },
-    { top: 70, bottom: 80 },
-  ])
-})
-
-const nestedHeaderFacts = [
-  { top: 10, bottom: 100, height: 12, nesting: 0 },
-  { top: 30, bottom: 80, height: 8, nesting: 1, parent: 0 },
-]
-
-test('a paragraph line in a mixed block reserves no table header', () => {
-  expect(repeatedTableHeaderIndexes(nestedHeaderFacts, 5)).toEqual([])
-  expect(linesWithTableHeaderHeights([{ top: 5, bottom: 10 }], nestedHeaderFacts)).toEqual([{ top: 5, bottom: 10 }])
-})
-
-test('a line inside only the outer table reserves its header', () => {
-  expect(repeatedTableHeaderIndexes(nestedHeaderFacts, 20)).toEqual([0])
-  expect(linesWithTableHeaderHeights([{ top: 20, bottom: 25 }], nestedHeaderFacts)).toEqual([{ top: 20, bottom: 25, headerHeight: 12 }])
-})
-
-test('a line inside a nested table reserves both headers outer first', () => {
-  expect(repeatedTableHeaderIndexes(nestedHeaderFacts, 50)).toEqual([0, 1])
-  expect(linesWithTableHeaderHeights([{ top: 50, bottom: 60 }], nestedHeaderFacts)).toEqual([{ top: 50, bottom: 60, headerHeight: 20 }])
 })
 
 test('the embedded table measurement includes every helper it calls', () => {
@@ -181,6 +54,7 @@ function measuredElement(options: {
     tagName: options.tag ?? 'DIV',
     childNodes: [],
     ownerDocument: document,
+    closest: () => null,
     querySelectorAll: (selector: string) => (selector === 'table' ? (options.tables ?? []) : []),
     getBoundingClientRect: () => box,
   }

@@ -1,7 +1,7 @@
 import { defaultParentRules, type PaginateLine, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
 import { backgroundPaints, decorationEdges, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
 import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
-import { linesWithDescendantTables, lineWithinBox, measureTableLines, tableRenderedInFlow } from './composer-table-measure.ts'
+import { descendantTables, linesWithDescendantTables, measureTableLines, tableRenderedInFlow } from './composer-table-measure.ts'
 
 export interface MeasuredKeepCandidate {
   top: number
@@ -24,6 +24,11 @@ export interface MeasuredLineBox {
   decorationTop?: number
   decorationBottom?: number
   headerHeight?: number
+}
+
+export function lineWithinBox(line: MeasuredLineBox, box: Pick<MeasuredLineBox, 'top' | 'bottom'>): boolean {
+  const middle = (line.top + line.bottom) / 2
+  return middle >= box.top - 0.5 && middle <= box.bottom + 0.5
 }
 
 export function lineNumberedLines(lines: readonly MeasuredLineBox[], element: Element, origin: number): MeasuredLineBox[] {
@@ -223,21 +228,7 @@ export function measureLineBoxes(element: Element, origin: number): MeasuredLine
   if (display === 'table' || display === 'inline-table') {
     return tableRenderedInFlow(element) ? measureTableLines(element, origin) : []
   }
-  const tables = Array.from(element.querySelectorAll('table'))
-    .filter((table) => {
-      if (insideSideNote(table)) return false
-      if (!tableRenderedInFlow(table)) return false
-      let ancestor = table.parentElement
-      while (ancestor && ancestor !== element) {
-        if (ancestor.tagName === 'TABLE') return false
-        ancestor = ancestor.parentElement
-      }
-      return true
-    })
-    .map((table) => {
-      const box = table.getBoundingClientRect()
-      return { top: box.top - origin, bottom: box.bottom - origin, lines: measureTableLines(table, origin) }
-    })
+  const tables = descendantTables(element, undefined, origin)
   if (tag === 'figure' && tables.length === 0) {
     const box = element.getBoundingClientRect()
     return [{ top: box.top - origin, bottom: box.bottom - origin }]
