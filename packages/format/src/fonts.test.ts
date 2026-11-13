@@ -131,7 +131,20 @@ describe('FontManifest', () => {
     for (const declaration of [{ weight: 400 }, { weight: [100, 900] as [number, number] }, { weight: [300, 700] as [number, number] }]) {
       expect(matchFaces([declaration], [variable])).toEqual({ faces: [variable], unsupplied: [] })
     }
-    expect(matchFaces([{ weight: [100, 900] }], [regular])).toEqual({ faces: [regular], unsupplied: [{ weight: [100, 900] }] })
+    expect(matchFaces([{ weight: [100, 900] }], [regular])).toEqual({
+      faces: [regular],
+      unsupplied: [{ weight: [100, 399] }, { weight: [401, 900] }],
+    })
+  })
+
+  test('matches one declaration against the union of supplied faces', () => {
+    const face = { family: 'Body', data: new Uint8Array(), format: 'truetype' as const }
+    const supplied = [
+      { ...face, weight: '100 500', unicodeRange: 'U+0000-00FF' },
+      { ...face, weight: '100 500', unicodeRange: 'U+0100-05FF' },
+      { ...face, weight: '501 900', unicodeRange: 'U+0000-05FF' },
+    ]
+    expect(matchFaces([{ weight: [100, 900], unicodeRange: 'U+0000-05FF' }], supplied)).toEqual({ faces: supplied, unsupplied: [] })
   })
 
   test('lets one supplied variable face satisfy multiple declarations', () => {

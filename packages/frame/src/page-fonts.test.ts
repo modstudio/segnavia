@@ -55,7 +55,7 @@ describe('resolveFonts', () => {
     const mismatched = await resolveFonts(manifest, {
       source: source({ hebrew: { family: 'Body Serif', faces: [{ ...serifFace, unicodeRange: nonHebrewRange }], generic: 'serif' } }),
     })
-    expect(mismatched.failures).toEqual([{ font: 'hebrew', family: 'Body Serif', unicodeRange: HEBREW_UNICODE_RANGE, reason: 'unsupplied' }])
+    expect(mismatched.failures).toEqual([{ font: 'hebrew', family: 'Body Serif', weight: 400, unicodeRange: HEBREW_UNICODE_RANGE, reason: 'unsupplied' }])
   })
 
   test('returns no CSS or failures for an absent manifest', async () => {
@@ -111,7 +111,7 @@ describe('resolvePageFonts', () => {
     const page = PageSchema.parse({ id: 'cover', html: '<p></p>', style: { fonts: { missing: { faces: [{}] } } } })
     expect(await resolvePageFonts(page, [], { source: source({ serif }) }, signal)).toEqual({
       css: '',
-      failures: [{ font: 'missing', family: 'missing', reason: 'unsupplied' }],
+      failures: [{ font: 'missing', family: 'missing', weight: 400, reason: 'unsupplied' }],
     })
   })
 

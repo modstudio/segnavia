@@ -260,7 +260,7 @@ describe('printed pages in SegnaviaPage', () => {
     })
     await new Promise((resolve) => setTimeout(resolve, 0))
 
-    const failure = { font: 'body', family: 'body', reason: 'unsupplied' }
+    const failure = { font: 'body', family: 'body', weight: 400, reason: 'unsupplied' }
     expect(errors).toEqual([])
     expect(frame().srcdoc).toContain(`initialFontFailures=[${JSON.stringify(failure)}]`)
     const element = new SegnaviaPage() as unknown as EventTarget & { onMessage(event: MessageEvent): void; querySelector(): unknown }

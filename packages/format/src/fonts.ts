@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { closedObject } from './closed-object.ts'
+import { type FontCoverageGap, fontCoverageGaps } from './font-coverage.ts'
 
 export const APP_FONT_NAME = /^[a-z0-9-]+$/
 export const APP_FONT_NAME_MESSAGE = 'app font names are lowercase letters, digits and hyphens'
@@ -202,7 +203,6 @@ export interface FontSource {
 
 export type FontWeightRange = readonly [number, number]
 
-/** Its source text is embedded in frames by declaredFontLoadExpression, so this function must remain self-contained. */
 export function fontWeightRange(weight: FontDeclaration['weight'] | FontFace['weight']): FontWeightRange | null {
   const checkedRange = (min: number, max: number): FontWeightRange | null =>
     Number.isInteger(min) && Number.isInteger(max) && min >= 1 && max <= 1000 && min <= max ? [min, max] : null
@@ -215,7 +215,6 @@ export function fontWeightRange(weight: FontDeclaration['weight'] | FontFace['we
   return checkedRange(Number(match[1]), Number(match[2] ?? match[1]))
 }
 
-/** Its source text is embedded in frames by declaredFontLoadExpression, so this function must remain self-contained. */
 export function fontWeightRangeCovers(candidate: FontWeightRange | null, declaration: FontWeightRange | null): boolean {
   return candidate !== null && declaration !== null && candidate[0] <= declaration[0] && candidate[1] >= declaration[1]
 }
@@ -241,14 +240,15 @@ function faceMatches(declaration: FontDeclaration, supplied: FontFace): boolean 
   return supplied.unicodeRange === undefined || faceKey(declaration) === faceKey(supplied)
 }
 
-export function matchFaces(declared: readonly FontDeclaration[], supplied: readonly FontFace[]): { faces: FontFace[]; unsupplied: FontDeclaration[] } {
+export function matchFaces(declared: readonly FontDeclaration[], supplied: readonly FontFace[]): { faces: FontFace[]; unsupplied: FontCoverageGap[] } {
   const used = new Set<number>()
   const faces: FontFace[] = []
-  const unsupplied: FontDeclaration[] = []
+  const unsupplied: FontCoverageGap[] = []
   for (const declaration of declared) {
+    unsupplied.push(...fontCoverageGaps(declaration, supplied))
+    // This spelling-based match only orders emitted faces; fontCoverageGaps decides coverage.
     const index = supplied.findIndex((face) => faceMatches(declaration, face))
-    if (index < 0) unsupplied.push(declaration)
-    else if (!used.has(index)) {
+    if (index >= 0 && !used.has(index)) {
       used.add(index)
       faces.push(supplied[index] as FontFace)
     }

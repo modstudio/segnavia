@@ -1,13 +1,4 @@
-import {
-  type FontFailure,
-  type FontManifest,
-  type FontWeight,
-  type FontWeightRange,
-  fontWeightRange,
-  fontWeightRangeCovers,
-  HEBREW_UNICODE_RANGE,
-  rangeSample,
-} from '@segnavia/format'
+import { type FontFailure, type FontManifest, type FontWeight, fontCoverageGaps, HEBREW_UNICODE_RANGE, rangeSample } from '@segnavia/format'
 
 export const FONT_FAILURE_ATTRIBUTE = 'data-segnavia-font-failures'
 export const FONT_FAILURE_LIMIT = 64
@@ -52,60 +43,42 @@ export async function loadDeclaredFonts(
   failureAttribute: string,
   failureLimit: number,
   fieldLimit: number,
-  weightRange: (value: FontWeight | string | undefined) => FontWeightRange | null = fontWeightRange,
-  weightRangeCovers: (candidate: FontWeightRange | null, declaration: FontWeightRange | null) => boolean = fontWeightRangeCovers,
+  coverageGaps: typeof fontCoverageGaps = fontCoverageGaps,
 ): Promise<FontFailure[]> {
   const available = Array.from(faces)
   const failures: FontFailure[] = []
-  const parsedRange = (value: string | undefined): [number, number][] | null => {
-    if (value === undefined) return []
-    const parts: [number, number][] = []
-    for (const raw of value.split(',')) {
-      const match = /^\s*U\+([\dA-F?]{1,6})(?:-([\dA-F]{1,6}))?\s*$/i.exec(raw)
-      if (!match) return null
-      const rangeStart = match[1]
-      if (rangeStart === undefined) return null
-      const start = Number.parseInt(rangeStart.replace(/\?/g, '0'), 16)
-      const end = Number.parseInt(match[2] ?? rangeStart.replace(/\?/g, 'F'), 16)
-      parts.push([start, end])
-    }
-    return parts.sort(([leftStart, leftEnd], [rightStart, rightEnd]) => leftStart - rightStart || leftEnd - rightEnd)
-  }
-  const rangesMatch = (candidate: string | undefined, declaration: string | undefined) => {
-    const candidateParts = parsedRange(candidate)
-    if (candidateParts === null) return false
-    const firstCandidate = candidateParts[0]
-    if (firstCandidate === undefined || (candidateParts.length === 1 && firstCandidate[0] === 0 && firstCandidate[1] === 0x10ffff)) return true
-    const declarationParts = parsedRange(declaration)
-    return (
-      declarationParts !== null &&
-      candidateParts.length === declarationParts.length &&
-      candidateParts.every(([start, end], index) => {
-        const declared = declarationParts[index]
-        return declared !== undefined && start === declared[0] && end === declared[1]
-      })
-    )
-  }
   for (const declaration of declarations) {
     const family = familyValue(declaration.font).slice(0, fieldLimit)
-    const face = available.find(
-      (candidate) =>
-        candidate.family.replace(/^['"]|['"]$/g, '') === family &&
-        weightRangeCovers(weightRange(candidate.weight), weightRange(declaration.weight)) &&
-        (candidate.style || 'normal') === (declaration.style ?? 'normal') &&
-        rangesMatch(candidate.unicodeRange, declaration.unicodeRange),
+    const wholeGap = JSON.stringify(coverageGaps(declaration, []))
+    const intersecting = available.filter(
+      (candidate) => candidate.family.replace(/^['"]|['"]$/g, '') === family && JSON.stringify(coverageGaps(declaration, [candidate])) !== wholeGap,
     )
-    if (face) await face.load(declaration.sample).catch(() => undefined)
-    if (face && face.status !== 'error') continue
-    if (failures.length < failureLimit)
+    const loaded = await Promise.all(
+      intersecting.map(async (face) => {
+        try {
+          // FontFace.load fetches the face's source whatever text it receives, so this exercises every intersecting face.
+          await face.load(declaration.sample)
+          return face.status !== 'error' ? face : undefined
+        } catch {
+          return undefined
+        }
+      }),
+    )
+    const gaps = coverageGaps(
+      declaration,
+      loaded.filter((face) => face !== undefined),
+    )
+    for (const gap of gaps) {
+      if (failures.length >= failureLimit) break
       failures.push({
         font: declaration.font.slice(0, fieldLimit),
         family,
-        ...(declaration.weight === undefined ? {} : { weight: declaration.weight }),
-        ...(declaration.style === undefined ? {} : { style: declaration.style }),
-        ...(declaration.unicodeRange === undefined ? {} : { unicodeRange: declaration.unicodeRange.slice(0, fieldLimit) }),
+        weight: gap.weight,
+        ...(gap.style === undefined ? {} : { style: gap.style }),
+        ...(gap.unicodeRange === undefined ? {} : { unicodeRange: gap.unicodeRange.slice(0, fieldLimit) }),
         reason: 'unloaded',
       })
+    }
   }
   root.setAttribute(failureAttribute, JSON.stringify(failures))
   return failures
@@ -113,7 +86,7 @@ export async function loadDeclaredFonts(
 
 /** Builds the shared in-frame expression that loads every declared face. */
 export function declaredFontLoadExpression(declarations: string): string {
-  return `(!document.fonts||!${declarations}.length?Promise.resolve([]):(${loadDeclaredFonts.toString()})(${declarations},document.fonts,document.documentElement,function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');},'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT},(${fontWeightRange.toString()}),(${fontWeightRangeCovers.toString()})))`
+  return `(!document.fonts||!${declarations}.length?Promise.resolve([]):(${loadDeclaredFonts.toString()})(${declarations},document.fonts,document.documentElement,function(font){var value=getComputedStyle(document.documentElement).getPropertyValue('--segnavia-font-'+font).trim();var family=(value.split(',')[0]||font).trim();return family.replace(/^['"]|['"]$/g,'');},'${FONT_FAILURE_ATTRIBUTE}',${FONT_FAILURE_LIMIT},${FONT_FAILURE_FIELD_LIMIT},(${fontCoverageGaps.toString()})))`
 }
 
 function boundedField(value: unknown, optional = false): boolean {

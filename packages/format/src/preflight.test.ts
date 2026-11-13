@@ -335,4 +335,7 @@ test('font missing entries distinguish failure remedies and collapse repeated fa
     },
   ])
   expect(fontMissingEntries([{ font: 'body', family: 'Body', weight: [100, 900], reason: 'unsupplied' }])[0]?.subject).toBe('Body (weight 100–900)')
+  expect(fontMissingEntries([{ font: 'body', family: 'Body', weight: [101, 899], unicodeRange: 'U+05D0-05FF', reason: 'unsupplied' }])[0]?.subject).toBe(
+    'Body (weight 101–899, U+05D0-05FF)',
+  )
 })

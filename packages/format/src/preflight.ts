@@ -130,7 +130,7 @@ export function fontMissingEntries(failures: readonly FontFailure[], location?: 
   const seen = new Set<string>()
   return failures.flatMap((failure) => {
     const weight = Array.isArray(failure.weight) ? failure.weight.join('–') : failure.weight
-    const details = [weight === undefined ? undefined : `weight ${weight}`, failure.style].filter(Boolean)
+    const details = [weight === undefined ? undefined : `weight ${weight}`, failure.style, failure.unicodeRange].filter(Boolean)
     const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
     if (seen.has(subject)) return []
     seen.add(subject)
