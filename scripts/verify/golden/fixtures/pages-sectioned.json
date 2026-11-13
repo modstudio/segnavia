@@ -1,0 +1,32 @@
+{
+  "pages": [
+    {
+      "size": [612, 792],
+      "text": "SECTIONED COVER"
+    },
+    {
+      "size": [612, 792],
+      "text": "SECTIONED BODY ONE\n\nPage 1 of 2"
+    },
+    {
+      "size": [612, 792],
+      "text": "SECTIONED BODY TWO\n\nPage 2 of 2"
+    }
+  ],
+  "outline": [],
+  "structure": { "tree": true, "marked": true },
+  "fonts": ["LiberationSans", "LiberationSerif"],
+  "info": {
+    "Custom Metadata": "no",
+    "Metadata Stream": "no",
+    "Tagged": "yes",
+    "UserProperties": "no",
+    "Suspects": "no",
+    "Form": "none",
+    "JavaScript": "no",
+    "Encrypted": "no",
+    "Optimized": "no",
+    "PDF version": "1.7"
+  },
+  "xmp": ""
+}

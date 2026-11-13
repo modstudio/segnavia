@@ -62,6 +62,7 @@ export async function renderPagePdf(
   fontFailures: FontFailure[] = [],
   layoutScripts?: readonly LoadedLayoutScript[],
   captureFontFacts = false,
+  tagged = false,
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
   const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
@@ -84,7 +85,7 @@ export async function renderPagePdf(
       const captures = await prepareBackdropRasters(tab, opts.effects)
       const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
-        const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page))
+        const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page), tagged)
         return { ...printed, ...font, bytes: await tagBackdropRasters(printed.bytes, captures) }
       }
       const fixedHeight = typeof page.size === 'object' && page.size.height !== 'auto' ? page.size.height : null
@@ -92,7 +93,7 @@ export async function renderPagePdf(
       if (fixedHeight !== null) {
         const overflow = await measureOverflow(tab, viewport.width, 'page', inputIndex)
         return {
-          bytes: await tagBackdropRasters(await tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true }), captures),
+          bytes: await tagBackdropRasters(await tab.pdf({ width: `${viewport.width}px`, height: `${height}px`, printBackground: true, tagged }), captures),
           ...font,
           overflow,
         }
@@ -101,7 +102,7 @@ export async function renderPagePdf(
         tab,
         viewport.width,
         'page',
-        { width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: '1' },
+        { width: `${viewport.width}px`, height: `${height}px`, printBackground: true, pageRanges: '1', tagged },
         inputIndex,
       )
       return { ...printed, ...font, bytes: await tagBackdropRasters(printed.bytes, captures) }
@@ -119,6 +120,7 @@ export async function renderPiecePdf(
   deadline?: RenderDeadline,
   layoutScripts?: readonly LoadedLayoutScript[],
   captureFontFacts = false,
+  tagged = false,
 ): Promise<PrintResult> {
   const html = resolvedPageDocument(page, containFixedPageOverflow(css), { ...opts, layoutScripts })
   return services.withTab(
@@ -140,6 +142,7 @@ export async function renderPiecePdf(
           width: geometry.pdf.width,
           height: geometry.pdf.height,
           printBackground: true,
+          tagged,
           preferCSSPageSize: false,
           pageRanges: '1',
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },

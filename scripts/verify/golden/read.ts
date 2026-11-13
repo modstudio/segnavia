@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { PDFDocument } from 'pdf-lib'
+import { PDFBool, PDFDict, PDFDocument, PDFName } from 'pdf-lib'
 import { pdfOutlineItems } from '../book-pdf-readback.ts'
 import type { GoldenPdf } from './model.ts'
 
@@ -66,6 +66,7 @@ function embeddedFonts(file: string): string[] {
 
 export async function readGoldenPdf(file: string): Promise<GoldenPdf> {
   const document = await PDFDocument.load(readFileSync(file), { updateMetadata: false })
+  const markInfo = document.catalog.lookupMaybe(PDFName.of('MarkInfo'), PDFDict)
   const sizes = pageSizes(file)
   const extracted = run('pdftotext', ['-enc', 'UTF-8', file, '-']).split('\f')
   if (extracted.at(-1)?.trim() === '') extracted.pop()
@@ -73,6 +74,10 @@ export async function readGoldenPdf(file: string): Promise<GoldenPdf> {
   return {
     pages: sizes.map((size, index) => ({ size, text: normalizedText(extracted[index] as string) })),
     outline: pdfOutlineItems(document),
+    structure: {
+      tree: document.catalog.has(PDFName.of('StructTreeRoot')),
+      marked: markInfo?.lookupMaybe(PDFName.of('Marked'), PDFBool) === PDFBool.True,
+    },
     fonts: embeddedFonts(file),
     info: infoFields(file),
     xmp: normalizedText(run('pdfinfo', ['-meta', file])),

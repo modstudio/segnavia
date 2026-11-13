@@ -166,12 +166,13 @@
       "depth": 0
     }
   ],
+  "structure": { "tree": true, "marked": true },
   "fonts": ["Alef-Regular", "DejaVuSans", "DejaVuSansMono", "LiberationSerif", "NotoSerifHebrew-Regular"],
   "info": {
     "Title": "הגדת הדף",
     "Custom Metadata": "no",
     "Metadata Stream": "yes",
-    "Tagged": "no",
+    "Tagged": "yes",
     "UserProperties": "no",
     "Suspects": "no",
     "Form": "none",

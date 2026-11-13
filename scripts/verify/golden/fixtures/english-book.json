@@ -291,6 +291,7 @@
       "depth": 2
     }
   ],
+  "structure": { "tree": true, "marked": true },
   "fonts": ["LiberationSerif", "LiberationSerif-Bold"],
   "info": {
     "Title": "The Book of Parts",
@@ -298,7 +299,7 @@
     "Author": "Author",
     "Custom Metadata": "no",
     "Metadata Stream": "yes",
-    "Tagged": "no",
+    "Tagged": "yes",
     "UserProperties": "no",
     "Suspects": "no",
     "Form": "none",

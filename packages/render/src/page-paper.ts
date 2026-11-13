@@ -161,6 +161,7 @@ export async function printPage(
   preferCssPageSize: boolean | undefined,
   inputIndex: number | undefined,
   direction: TextDirection,
+  tagged = false,
 ): Promise<PrintResult<true>> {
   const pageWidth = paperViewport(print).width
   if (!usesPressLayout(print)) {
@@ -173,6 +174,7 @@ export async function printPage(
       {
         ...pagePdfSize(mm, margin),
         printBackground: true,
+        tagged,
         preferCSSPageSize: preferCssPageSize ?? false,
       },
       inputIndex,
@@ -189,6 +191,7 @@ export async function printPage(
       width: `${boxes.bleedBox.width}mm`,
       height: `${boxes.bleedBox.height}mm`,
       printBackground: true,
+      tagged,
       preferCSSPageSize: false,
       margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
     },

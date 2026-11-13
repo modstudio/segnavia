@@ -22,14 +22,15 @@ import { pdfBox, pt } from './pdf-geometry.ts'
 import { joinPdfs } from './pdf-join.ts'
 import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
+import { pagesTagged } from './pdf-tagging.ts'
 import { slotsForDocument } from './slot-document.ts'
 import type { WatermarkPart } from './watermark-stamp.ts'
 
 export type PagesPdfOptions = ComposedRenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
-  pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number): Promise<PrintResult>
-  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions): Promise<PrintResult>
+  pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number, tagged: boolean): Promise<PrintResult>
+  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions, tagged: boolean): Promise<PrintResult>
   fontFaces(options: ComposedRenderOptions): string
   finish(pdf: Uint8Array, options: Pick<ComposedRenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
   watermark?(parts: readonly WatermarkPart[], pageCount?: number): Promise<Uint8Array[]>
@@ -95,10 +96,17 @@ async function composedPdf(
       const geometry = pieceGeometry(first)
       const css = `${page.print ? printProperties(page.print) : ''}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
       try {
-        const piece = await services.piecePdf(page, slotsForDocument(slots, [pageFrames]), geometry, css, {
-          ...opts,
-          limits: innerLimits(opts.limits),
-        })
+        const piece = await services.piecePdf(
+          page,
+          slotsForDocument(slots, [pageFrames]),
+          geometry,
+          css,
+          {
+            ...opts,
+            limits: innerLimits(opts.limits),
+          },
+          pagesTagged([isPrintedHtmlPage(page)], true),
+        )
         return {
           group,
           rendered: {
@@ -155,6 +163,7 @@ export async function renderPagesPdf(
   opts = parseRenderOptions(opts)
   if (pages.length === 0) throw new RenderRefusedError('There is nothing to render. Pass at least one page to clear this refusal.')
   if (!opts.imposition) {
+    const tagged = pagesTagged(pages.map(isPrintedHtmlPage), false)
     const rendered = await Promise.all(
       pages.map((page, inputIndex) =>
         services.pagePdf(
@@ -162,6 +171,7 @@ export async function renderPagesPdf(
           slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
           { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
           inputIndex,
+          tagged,
         ),
       ),
     )
@@ -188,6 +198,10 @@ export async function renderPagesPdf(
         'Printed pages could not establish one unchanged page per paper under this imposition; print without imposition to clear this refusal.',
       )
     }
+    const tagged = pagesTagged(
+      pages.map(isPrintedHtmlPage),
+      pages.some((page) => !isPrintedHtmlPage(page)),
+    )
     const overflow: NonNullable<PrintResult['overflow']>[] = []
     const parts = await Promise.all(
       pages.map(async (page, inputIndex) => {
@@ -199,6 +213,7 @@ export async function renderPagesPdf(
           slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
           { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
           inputIndex,
+          tagged,
         )
         if (rendered.overflow) overflow.push(rendered.overflow)
         if (!page.print) throw new Error('An identity-imposed printed page has no print geometry.')

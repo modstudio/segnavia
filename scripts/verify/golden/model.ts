@@ -12,6 +12,7 @@ export interface GoldenPage {
 export interface GoldenPdf {
   pages: GoldenPage[]
   outline: GoldenOutlineItem[]
+  structure: { tree: boolean; marked: boolean }
   fonts: string[]
   info: Record<string, string>
   xmp: string
@@ -34,4 +35,5 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   { id: 'n-up-cards', pdf: 'pages-two-sided-long.pdf' },
   { id: 'deck', pdf: 'deck.pdf' },
   { id: 'printed-pages-bleed', pdf: 'pages-bleed-grid.pdf' },
+  { id: 'pages-sectioned', pdf: 'pages-sectioned.pdf' },
 ]

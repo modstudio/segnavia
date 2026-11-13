@@ -15,7 +15,6 @@ import {
 import type { PreparedSlots } from '@segnavia/html'
 import {
   type BookDocument,
-  type BookHeading,
   type BookSectionInfo,
   bookDocument,
   bookPrintPart,
@@ -23,9 +22,10 @@ import {
   PAGE_REFERENCE_VALUE,
   planBookPages,
 } from '@segnavia/html'
-import { type BookDestination, joinedDestinations, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
+import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
+import { joinBookPdf } from './book-pdf-join.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
 import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
 import { writeBookStructure } from './book-structure.ts'
@@ -35,7 +35,7 @@ import type { OverflowEntry } from './options.ts'
 import { type OutputDate, outputDate } from './output-date.ts'
 import type { PrintResult } from './overflow.ts'
 import { addPressBoxes } from './page-paper.ts'
-import { createPdf, loadPdf } from './pdf-load.ts'
+import { loadPdf } from './pdf-load.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
 import type { ParsedBookPdfOptions } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
@@ -243,33 +243,6 @@ async function convergeBookParts(
   throw new RenderRefusedError('The front and body page references did not converge after three alternations.')
 }
 
-async function join(
-  book: Book,
-  headings: BookHeading[],
-  front: PrintedPart,
-  body: PrintedPart,
-  marginBytes: Uint8Array,
-  date?: OutputDate,
-): Promise<Uint8Array> {
-  const output = await createPdf()
-  for (const part of [front, body]) {
-    if (!part.bytes) continue
-    const source = await loadPdf(part.bytes)
-    for (const page of await output.copyPages(source, source.getPageIndices())) output.addPage(page)
-  }
-  const layer = await loadPdf(marginBytes)
-  if (layer.getPageCount() !== output.getPageCount()) {
-    throw new RenderRefusedError(`The margin layer has ${layer.getPageCount()} pages, but the book has ${output.getPageCount()}.`)
-  }
-  for (const [index, page] of layer.getPages().entries()) {
-    const [embedded] = await output.embedPdf(layer, [index])
-    if (embedded) output.getPage(index).drawPage(embedded, { x: 0, y: 0, width: page.getWidth(), height: page.getHeight() })
-  }
-  rewriteBookLinks(output, front.pages, front.destinations, body.destinations)
-  writeBookStructure(output, { book, headings, destinations: joinedDestinations(front, body) }, date)
-  return output.save()
-}
-
 async function renderPaginatedBookPdf(
   book: Book,
   slots: PreparedSlots,
@@ -350,7 +323,7 @@ export async function renderBookPdf(input: Book, options: ParsedBookPdfOptions, 
   const plan = planBookPages(marginFacts, direction)
   const parents = bookParents(book.page.margin, book.parentPages)
   const margin = await adapter.print(marginDocument(book, plan, parents), book, slotsForDocument(slots, []), options, 'margin', marginCss(book, plan, parents))
-  const joined = await join(book, printedBody.document.headings, front, printedBody.part, margin.bytes, date)
+  const joined = await joinBookPdf(book, printedBody.document.headings, front, printedBody.part, margin.bytes, date)
   const watermarked = adapter.watermark ? await adapter.watermark(joined, bookWatermarkPageFacts(book, [front, printedBody.part])) : joined
   const output = await finishBookPdf(book, watermarked, options, adapter)
   options.overflow?.report?.({

@@ -38,6 +38,7 @@ import { addPressBoxesByPage } from './page-paper.ts'
 import { pageFontFacts } from './page-render.ts'
 import { loadPdf } from './pdf-load.ts'
 import { pagePdfSize, setPdfPageSizes } from './pdf-page-size.ts'
+import { printTagged } from './pdf-tagging.ts'
 import { awaitPreflightReport } from './preflight.ts'
 import { renderProgressDocumentOptions } from './progress.ts'
 import { resolveRenderLayoutScripts } from './render-layout-scripts.ts'
@@ -270,12 +271,14 @@ async function printBook(
     paginated
       ? {
           printBackground: true,
+          tagged: printTagged({ book: true, composed: false, printedDocument: false }),
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
         }
       : {
           ...pagePdfSize(size),
           printBackground: true,
+          tagged: printTagged({ book: true, composed: false, printedDocument: false }),
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
         },

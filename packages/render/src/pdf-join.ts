@@ -1,11 +1,9 @@
 import { createPdf, loadPdf } from './pdf-load.ts'
+import { copyPdfParts } from './pdf-structure-merge.ts'
 
 export async function joinPdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
   const joined = await createPdf()
-  for (const bytes of pdfs) {
-    const source = await loadPdf(bytes)
-    const pages = await joined.copyPages(source, source.getPageIndices())
-    for (const page of pages) joined.addPage(page)
-  }
+  const parts = await Promise.all(pdfs.map(async (bytes, index) => ({ document: await loadPdf(bytes), name: `PDF part at index ${index}` })))
+  await copyPdfParts(joined, parts)
   return joined.save()
 }

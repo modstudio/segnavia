@@ -5,6 +5,7 @@ import { assertGoldenRecordable } from './record-policy.ts'
 const golden = (text: string, fonts: string[]): GoldenPdf => ({
   pages: [{ size: [100, 200], text }],
   outline: [],
+  structure: { tree: false, marked: false },
   fonts,
   info: {},
   xmp: '',

@@ -319,14 +319,16 @@ test('pagesPdf refuses a non-identity imposition for printed pages with its reme
   await expect(render).rejects.toThrow('print without imposition to clear this refusal')
 })
 
-test('identity-imposed printed pages use full page rendering while plain neighbors keep their placement path', async () => {
-  const printed = Page.parse({
-    html: '<p>Flow</p>',
-    print: { paper: 'letter' },
-    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
-  })
+test('identity-imposed mixed pages use their routes with all parts untagged (mutation: tag the printed neighbor)', async () => {
+  const printed = resolvePrintedPageHtml(
+    PageSchema.parse({
+      html: '<p>Flow</p>',
+      print: { paper: 'letter' },
+      printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+    }),
+  )
   const plain = Page.parse({ html: '<p>Plain</p>', size: 'fluid' })
-  const calls: string[] = []
+  const calls: Array<{ route: string; tagged: boolean }> = []
   const onePage = async () => {
     const pdf = await PDFDocument.create()
     pdf.addPage([612, 792])
@@ -337,17 +339,53 @@ test('identity-imposed printed pages use full page rendering while plain neighbo
     preparedSlots,
     { imposition: { paper: 'letter', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } } },
     {
-      pagePdf: async () => {
-        calls.push('page')
+      pagePdf: async (_page, _slots, _options, _inputIndex, tagged) => {
+        calls.push({ route: 'page', tagged })
         return { bytes: await onePage() }
       },
-      piecePdf: async () => {
-        calls.push('piece')
+      piecePdf: async (_page, _slots, _geometry, _css, _options, tagged) => {
+        calls.push({ route: 'piece', tagged })
         return { bytes: await onePage() }
       },
       fontFaces: () => '',
       finish: async (pdf) => pdf,
     },
   )
-  expect(calls).toEqual(['page', 'piece'])
+  expect(calls).toEqual([
+    { route: 'page', tagged: false },
+    { route: 'piece', tagged: false },
+  ])
+})
+
+test('pagesPdf requests tagging when every standalone page is printed (mutation: leave joined prints untagged)', async () => {
+  const printed = resolvePrintedPageHtml(
+    PageSchema.parse({
+      html: '<p>Flow</p>',
+      print: { paper: 'letter' },
+      printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+    }),
+  )
+  const tagged: boolean[] = []
+  const onePage = async () => {
+    const pdf = await PDFDocument.create()
+    pdf.addPage([612, 792])
+    return pdf.save()
+  }
+
+  await renderPagesPdf(
+    [printed, printed],
+    preparedSlots,
+    {},
+    {
+      pagePdf: async (_page, _slots, _options, _inputIndex, requested) => {
+        tagged.push(requested)
+        return { bytes: await onePage() }
+      },
+      piecePdf: async () => ({ bytes: new Uint8Array() }),
+      fontFaces: () => '',
+      finish: async (pdf) => pdf,
+    },
+  )
+
+  expect(tagged).toEqual([true, true])
 })
