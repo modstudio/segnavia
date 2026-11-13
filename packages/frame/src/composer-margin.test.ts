@@ -1,7 +1,16 @@
 import { expect, test } from 'bun:test'
 import { boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal } from '@segnavia/format'
 import type { NumberedLine, PageLineNumbers } from '@segnavia/layout'
-import { appendMarginOverset, createLineNumber, crossedLimit, drawLineNumbers, drawPageLineNumbers, lineNumberEdge, physicalColumn } from './composer-margin.ts'
+import {
+  appendMarginOverset,
+  createLineNumber,
+  crossedLimit,
+  drawLineNumbers,
+  drawPageLineNumbers,
+  lineNumberEdge,
+  physicalColumn,
+  prepareSideNote,
+} from './composer-margin.ts'
 
 const rect = (left: number, top: number, width: number, height: number) => ({ left, top, width, height, right: left + width, bottom: top + height }) as DOMRect
 
@@ -137,4 +146,38 @@ test('reports colliding margin-area numbers', () => {
   expect(entries).toContainEqual(
     expect.objectContaining({ check: 'margin-overset', subject: 'line:5', message: expect.stringContaining('line number 4'), location: { folio: '7' } }),
   )
+})
+
+test('keeps one heading instance with its id and resolves its own Hebrew direction', () => {
+  const attributes = new Map([
+    ['data-side-note', ''],
+    ['data-segnavia-id', 'note'],
+  ])
+  const selected = {
+    id: '',
+    tagName: 'H2',
+    style: {} as Record<string, string>,
+    textContent: 'הערה',
+    getAttribute: (name: string) => attributes.get(name) ?? null,
+    hasAttribute: (name: string) => attributes.has(name),
+    setAttribute: (name: string, value: string) => attributes.set(name, value),
+    remove: () => {},
+  } as unknown as HTMLElement
+  let duplicateRemoved = false
+  const duplicate = {
+    ...selected,
+    id: 'side-heading',
+    remove: () => {
+      duplicateRemoved = true
+    },
+  } as HTMLElement
+  const page = {
+    querySelectorAll: (selector: string) => (selector.startsWith('[data-side-note]') ? [selected] : []),
+  } as unknown as HTMLElement
+  const doc = { querySelectorAll: () => [selected, duplicate] } as unknown as Document
+  const drawn = prepareSideNote({ id: 'note', top: 10, side: 'left', column: 0, columns: 1 }, page, rect(20, 0, 60, 100), rect(0, 0, 100, 100), 4, doc)
+  expect(drawn?.element.tagName).toBe('H2')
+  expect(drawn?.element.id).toBe('side-heading')
+  expect(drawn?.element.getAttribute('dir')).toBe('rtl')
+  expect(duplicateRemoved).toBe(true)
 })
