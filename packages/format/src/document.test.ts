@@ -52,6 +52,12 @@ test('refuses duplicate node ids with both nodes and the clearance', () => {
 })
 
 describe('Document', () => {
+  test('names a missing required field and the field that clears the refusal', () => {
+    expect(() => Document.parse({ type: 'document', kind: 'board', settings: { dir: 'ltr' }, children: [] })).toThrow(
+      'required field title is missing from a board document; add title to clear this refusal',
+    )
+  })
+
   test('keeps optional ids and refuses nodes outside the kind profile', () => {
     const parsed = Document.parse({ type: 'document', id: 'page-doc', kind: 'page', children: [{ type: 'page', id: 'body', body: { html: '<p>Body</p>' } }] })
     expect(parsed.id).toBe('page-doc')

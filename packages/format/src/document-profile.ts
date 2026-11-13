@@ -179,3 +179,7 @@ export type DocumentField = (typeof DOCUMENT_PROFILES)[DocumentKind]['fields'][n
 export function profileRefusal(value: string, kind: DocumentKind, allowed: readonly string[], subject = 'node'): string {
   return `${subject} ${value} is not allowed in a ${kind} document; use one of ${allowed.join(', ')} to clear this refusal`
 }
+
+export function requiredFieldRefusal(field: string, kind: DocumentKind): string {
+  return `required field ${field} is missing from a ${kind} document; add ${field} to clear this refusal`
+}

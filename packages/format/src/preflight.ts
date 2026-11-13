@@ -126,16 +126,18 @@ export function appendSlotOversetEntries(
 }
 
 export function fontMissingEntries(failures: readonly FontFailure[], location?: PreflightLocation): PreflightEntry[] {
-  return failures.map((failure) => {
+  const seen = new Set<string>()
+  return failures.flatMap((failure) => {
     const weight = Array.isArray(failure.weight) ? failure.weight.join('–') : failure.weight
     const details = [weight === undefined ? undefined : `weight ${weight}`, failure.style].filter(Boolean)
     const subject = details.length === 0 ? failure.family : `${failure.family} (${details.join(', ')})`
-    return {
-      check: 'font-missing',
-      subject,
-      message: `Font face ${subject} is missing; supply and load that face to clear it.`,
-      ...(location === undefined ? {} : { location }),
-    }
+    if (seen.has(subject)) return []
+    seen.add(subject)
+    const message =
+      failure.reason === 'unsupplied'
+        ? `Font face ${subject} was not supplied; supply that face to clear it.`
+        : `Font face ${subject} did not load in the frame; supply a face file the browser can load to clear it.`
+    return [{ check: 'font-missing', subject, message, ...(location === undefined ? {} : { location }) }]
   })
 }
 

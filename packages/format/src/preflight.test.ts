@@ -317,13 +317,21 @@ test('slot overset entries keep one subject and may carry a surface location', (
   expect(entries).toHaveLength(2)
 })
 
-test('font missing entries keep the face text and may carry a surface location', () => {
-  expect(fontMissingEntries([{ font: 'body', family: 'Body', weight: 700, style: 'italic', reason: 'unsupplied' }], { folio: '2' })).toEqual([
+test('font missing entries distinguish failure remedies and collapse repeated faces', () => {
+  const unsupplied = { font: 'body', family: 'Body', weight: 700 as const, style: 'italic', reason: 'unsupplied' as const }
+  expect(fontMissingEntries([unsupplied, unsupplied, { ...unsupplied, reason: 'unloaded' }], { folio: '2' })).toEqual([
     {
       check: 'font-missing',
       subject: 'Body (weight 700, italic)',
-      message: 'Font face Body (weight 700, italic) is missing; supply and load that face to clear it.',
+      message: 'Font face Body (weight 700, italic) was not supplied; supply that face to clear it.',
       location: { folio: '2' },
+    },
+  ])
+  expect(fontMissingEntries([{ ...unsupplied, reason: 'unloaded' }])).toEqual([
+    {
+      check: 'font-missing',
+      subject: 'Body (weight 700, italic)',
+      message: 'Font face Body (weight 700, italic) did not load in the frame; supply a face file the browser can load to clear it.',
     },
   ])
   expect(fontMissingEntries([{ font: 'body', family: 'Body', weight: [100, 900], reason: 'unsupplied' }])[0]?.subject).toBe('Body (weight 100–900)')
