@@ -50,6 +50,7 @@ export const PrintedPages = closedObject({
         values: RecordValues.optional(),
         record: RecordFacts.optional(),
         recordTemplate: closedObject({ name: z.string(), slots: z.array(closedObject({ key: z.string() })) }).optional(),
+        recordBody: z.string().optional(),
       }),
     )
     .min(1)

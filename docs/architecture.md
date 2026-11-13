@@ -326,16 +326,27 @@ Node `id` is accepted and preserved; deck slides and board children require one
 until the id-minting slice lands, while a lowering may omit it where the current
 internal value has no id.
 
-A record node is `{ type: 'record', id?, title?, template, values }`. Its named
-template declares text `slots`; lowering replaces each record in reading order
-with one flowing section that opens on a new page, restarts at page one, and
-carries the record index, count and values. Paginated books admit records at the
-root, inside divisions and inside parts wherever they admit flowing sections; a
-body record needs a title, while front- and end-matter records follow those
-divisions' untitled flowing-section rule. The HTML layer binds record values
-into the template's `data-slot-value` elements before a host fill runs. Record
-templates cannot set parent pages, and records require paginated layout because
-their page numbers restart.
+A record node is `{ type: 'record', id?, title?, template?, values?, children? }`,
+where `children`, when present, is exactly one flow. A record may use a template,
+a flow, or both. With both, the HTML layer inserts the flow into the template's
+single `data-record-body` element and then binds values across the composed HTML;
+without a template, the flow is the record's HTML and values must be empty. A
+record with a flow and a template whose HTML holds no body point, or more than
+one, is refused at parse and again when the template is resolved at composition.
+A template body point stays empty when that record has no flow. When the flow has
+a strong first letter, the body point takes that direction so its content does
+not inherit an unrelated template direction; a flow of only weak or neutral text
+leaves the direction unset and inherits the template's.
+
+When present, a named record template declares text `slots`. Lowering replaces
+each record in reading order with one flowing section that opens on a new page,
+restarts at page one, and carries the record index, count and values. Paginated
+books admit records at the root, inside divisions and inside parts wherever they
+admit flowing sections; a body record needs a title, while front- and end-matter
+records follow those divisions' untitled flowing-section rule. The HTML layer
+binds record values into `data-slot-value` elements before a host fill runs.
+Record templates cannot set parent pages, and records require paginated layout
+because their page numbers restart.
 
 Parent-page furniture is filled from declared variables through named head
 templates. `record` variables expose a record's `index` or `count`; they print

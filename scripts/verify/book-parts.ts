@@ -12,14 +12,16 @@ export async function verifyPartsBooks(h: Harness): Promise<void> {
     let minted = 0
     const parsed = Document.parse(partsFixture(hebrew), { newId: () => `fixture-${++minted}` })
     const nodes = parsed.children.flatMap((node) =>
-      'children' in node ? [node, ...node.children.flatMap((child) => ('children' in child ? [child, ...child.children] : [child]))] : [node],
+      'children' in node && node.children !== undefined
+        ? [node, ...node.children.flatMap((child) => ('children' in child && child.children !== undefined ? [child, ...child.children] : [child]))]
+        : [node],
     )
     const idFor = (title: string) => nodes.find((node) => 'title' in node && node.title === title)?.id
     const openingPartId = idFor(labels.openingPart)
     const chapterIds = [labels.chapterOne, labels.chapterTwo, labels.chapterThree].map(idFor)
     const appendixId = idFor(labels.appendix)
     const front = parsed.children.find((node) => node.type === 'division' && node.name === 'front')
-    const frontIds = front && 'children' in front ? front.children.map(({ id }) => id) : []
+    const frontIds = front && 'children' in front && front.children !== undefined ? front.children.map(({ id }) => id) : []
     if (!openingPartId || chapterIds.some((chapterId) => !chapterId) || !appendixId) throw new Error('The parts fixture has an unidentified section.')
     const report = await frame.evaluate(
       ({ expected, openingPartId, chapterIds, appendixId, frontIds }) => {

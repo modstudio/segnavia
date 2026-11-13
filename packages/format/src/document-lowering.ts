@@ -75,7 +75,7 @@ function contentsOptions(document: DocumentShapeValue) {
   const find = (nodes: ShapeNode[]): void => {
     for (const node of nodes) {
       if (node.type === 'contents' && !contents) contents = node
-      if ('children' in node) find(node.children)
+      if ('children' in node && node.children !== undefined) find(node.children)
     }
   }
   find(document.children)
@@ -155,7 +155,9 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
           value: {
             ...section,
             id: section.id ?? `children.${index}`,
-            recordTemplate: { name: section.recordTemplate.name, slots: section.recordTemplate.slots.map(({ key }) => ({ key })) },
+            ...(section.recordTemplate
+              ? { recordTemplate: { name: section.recordTemplate.name, slots: section.recordTemplate.slots.map(({ key }) => ({ key })) } }
+              : {}),
           },
         },
       ]

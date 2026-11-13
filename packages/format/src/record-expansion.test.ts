@@ -23,6 +23,54 @@ function input(overrides: Record<string, unknown> = {}) {
 }
 
 describe('record expansion', () => {
+  test('keeps a template-only record lowering unchanged', () => {
+    const section = printedFromDocument(Document.parse(input({ children: [{ type: 'record', id: 'entry', template: 'row', values: { name: 'Ada' } }] })))
+      .printedPages?.sections?.[0]
+    expect(section).toMatchObject({
+      id: 'entry',
+      html: '<p data-slot-value="name"></p>',
+      values: { name: 'Ada' },
+      record: { index: 1, count: 1 },
+      numbering: { restart: 1 },
+    })
+    expect(section).not.toHaveProperty('recordBody')
+  })
+
+  test('lowers template and body records and body-only records as counted sections', () => {
+    const template = {
+      type: 'template',
+      name: 'row',
+      html: '<article><div data-record-body></div></article>',
+      slots: [slot('name')],
+    }
+    const sections = printedFromDocument(
+      Document.parse({
+        ...input(),
+        templates: [template],
+        children: [
+          {
+            type: 'record',
+            id: 'wrapped',
+            template: 'row',
+            values: { name: 'Ada' },
+            children: [{ type: 'flow', html: '<p data-slot-value="name"></p>' }],
+          },
+          { type: 'record', id: 'body', children: [{ type: 'flow', html: '<p>Body</p>' }] },
+        ],
+      }),
+    ).printedPages?.sections
+    expect(sections).toMatchObject([
+      {
+        id: 'wrapped',
+        html: template.html,
+        recordBody: '<p data-slot-value="name"></p>',
+        record: { index: 1, count: 2 },
+        numbering: { restart: 1 },
+      },
+      { id: 'body', html: '<p>Body</p>', record: { index: 2, count: 2 }, numbering: { restart: 1 } },
+    ])
+  })
+
   test('carries values and gives records their reading-order index and count', () => {
     const page = printedFromDocument(Document.parse(input()))
     expect(page.printedPages?.sections).toMatchObject([
@@ -62,6 +110,22 @@ describe('record expansion', () => {
         parentPages: [],
       }),
     ).toThrow('continuous layout cannot apply')
+  })
+
+  test('refuses a body-only record in a continuous book', () => {
+    expect(() =>
+      Document.parse({
+        ...input(),
+        kind: 'book',
+        title: 'Records',
+        mode: 'continuous',
+        print: undefined,
+        parentRules: undefined,
+        parentPages: [],
+        templates: [],
+        children: [{ type: 'record', id: 'entry', title: 'Entry', children: [{ type: 'flow', html: '<p>Body</p>' }] }],
+      }),
+    ).toThrow('record entry restarts page numbering')
   })
 
   test('lowers records at the book root, in a division and in a part', () => {

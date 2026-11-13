@@ -117,9 +117,11 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
 
   expect(second).toEqual(first)
   expect(first.children[0]?.id).toBe('hebrew-1')
-  const nodeIds = first.children.flatMap((node) => ('children' in node ? [node.id, ...node.children.map((child) => child.id)] : [node.id]))
+  const nodeIds = first.children.flatMap((node) =>
+    'children' in node && node.children !== undefined ? [node.id, ...node.children.map((child) => child.id)] : [node.id],
+  )
   const blockIds = first.children.flatMap((node) =>
-    'children' in node
+    'children' in node && node.children !== undefined
       ? node.children.flatMap((child) =>
           child.type === 'page' && child.body && 'html' in child.body
             ? [...child.body.html.matchAll(/data-segnavia-id="([^"]+)"/g)].flatMap((match) => (match[1] ? [match[1]] : []))

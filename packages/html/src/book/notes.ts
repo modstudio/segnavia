@@ -67,7 +67,7 @@ function noteParagraph(className: string, noteId: string, refId: string, marker:
 
 function nodeText(node: ChildNode): string {
   if (isText(node)) return node.data
-  return 'children' in node ? node.children.map(nodeText).join('') : ''
+  return 'children' in node && node.children !== undefined ? node.children.map(nodeText).join('') : ''
 }
 
 function precedingLemma(note: Element): Element | undefined {

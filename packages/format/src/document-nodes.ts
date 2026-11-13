@@ -11,7 +11,7 @@ import {
   LabelNode,
   PageNode as PageNodeSchema,
   PlacedNode,
-  RecordNode,
+  RecordNodeBase,
   SlideNode,
 } from './document-nodes-common.ts'
 import type { ParentRules } from './parent-rules.ts'
@@ -47,6 +47,8 @@ export interface SectionNode extends SectionFieldValues {
   children: DocumentNode[]
 }
 
+export type RecordNode = z.infer<typeof RecordNodeBase> & { children?: DocumentNode[] }
+
 export type DocumentNode =
   | DivisionNode
   | PartNode
@@ -56,21 +58,18 @@ export type DocumentNode =
   | z.infer<typeof SlideNode>
   | z.infer<typeof PlacedNode>
   | z.infer<typeof ContentsNode>
-  | z.infer<typeof RecordNode>
+  | RecordNode
   | z.infer<typeof BoardItemNode>
   | z.infer<typeof LabelNode>
   | z.infer<typeof BoardSectionNode>
 
 export type DocumentNodePath = Array<string | number>
 
-export function collectRecords(
-  nodes: DocumentNode[],
-  path: DocumentNodePath = ['children'],
-): Array<{ node: z.infer<typeof RecordNode>; path: DocumentNodePath }> {
+export function collectRecords(nodes: DocumentNode[], path: DocumentNodePath = ['children']): Array<{ node: RecordNode; path: DocumentNodePath }> {
   return nodes.flatMap((node, index) => {
     const nodePath = [...path, index]
     const own = node.type === 'record' ? [{ node, path: nodePath }] : []
-    return 'children' in node ? [...own, ...collectRecords(node.children, [...nodePath, 'children'])] : own
+    return 'children' in node && node.children !== undefined ? [...own, ...collectRecords(node.children, [...nodePath, 'children'])] : own
   })
 }
 
@@ -109,6 +108,9 @@ export const SectionNodeFields = {
 export const SectionNodeSchema = closedObject(SectionNodeFields)
 export const SectionNode = SectionNodeSchema as z.ZodType<SectionNode>
 
+export const RecordNodeSchema = RecordNodeBase.extend({ children: z.lazy(() => z.array(DocumentNode)).optional() })
+export const RecordNode = RecordNodeSchema as z.ZodType<RecordNode>
+
 export const DocumentNodeMembers = [
   DivisionNodeSchema,
   PartNodeSchema,
@@ -118,7 +120,7 @@ export const DocumentNodeMembers = [
   SlideNode,
   PlacedNode,
   ContentsNode,
-  RecordNode,
+  RecordNodeSchema,
   BoardItemNode,
   LabelNode,
   BoardSectionNode,

@@ -11,7 +11,7 @@ export function walkDocumentNodes(nodes: DocumentNode[], visit: (node: DocumentN
   nodes.forEach((node, index) => {
     const nodePath = [...path, index]
     visit(node, nodePath)
-    if ('children' in node) walkDocumentNodes(node.children, visit, [...nodePath, 'children'])
+    if ('children' in node && node.children !== undefined) walkDocumentNodes(node.children, visit, [...nodePath, 'children'])
   })
 }
 
