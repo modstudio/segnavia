@@ -124,6 +124,12 @@ export { type ResolvedFontFace, resolveFontFace } from './font-face.ts'
 export { FontFaceRefusedError } from './font-refusal.ts'
 export { COLLECTION_TAG, classifyFont } from './font-signature.ts'
 export {
+  type FontCoverageDeclaration,
+  type FontCoverageFace,
+  type FontCoverageGap,
+  fontCoverageGaps,
+} from './font-coverage.ts'
+export {
   APP_FONT_NAME,
   APP_FONT_NAME_MESSAGE,
   type AppFont,

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { closedObject } from './closed-object.ts'
+import { fontCoverageGaps } from './font-coverage.ts'
 
 export const APP_FONT_NAME = /^[a-z0-9-]+$/
 export const APP_FONT_NAME_MESSAGE = 'app font names are lowercase letters, digits and hyphens'
@@ -246,9 +247,9 @@ export function matchFaces(declared: readonly FontDeclaration[], supplied: reado
   const faces: FontFace[] = []
   const unsupplied: FontDeclaration[] = []
   for (const declaration of declared) {
+    unsupplied.push(...(fontCoverageGaps(declaration, supplied) as FontDeclaration[]))
     const index = supplied.findIndex((face) => faceMatches(declaration, face))
-    if (index < 0) unsupplied.push(declaration)
-    else if (!used.has(index)) {
+    if (index >= 0 && !used.has(index)) {
       used.add(index)
       faces.push(supplied[index] as FontFace)
     }

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { fontCoverageGaps, matchFaces } from '@segnavia/format'
 import {
   declaredFontLoadExpression,
   declaredFontLoads,
@@ -35,7 +36,7 @@ describe('font load', () => {
     expect(samples[0]).toMatch(/[\u0591-\u05af]/)
     expect(failures).toEqual([
       { font: 'alef', family: 'Alef', weight: 700, reason: 'unloaded' },
-      { font: 'alef', family: 'Alef', style: 'italic', reason: 'unloaded' },
+      { font: 'alef', family: 'Alef', weight: 400, style: 'italic', reason: 'unloaded' },
     ])
     expect(fontFailuresAttribute(attributes.get(FONT_FAILURE_ATTRIBUTE) ?? null)).toEqual(failures)
   })
@@ -69,11 +70,11 @@ describe('font load', () => {
       FONT_FAILURE_LIMIT,
       FONT_FAILURE_FIELD_LIMIT,
     )
-    expect(loads).toBe(1)
-    expect(failures).toEqual([{ font: 'body', family: 'Body', weight: [100, 1000], reason: 'unloaded' }])
+    expect(loads).toBe(2)
+    expect(failures).toEqual([{ font: 'body', family: 'Body', weight: [901, 1000], reason: 'unloaded' }])
   })
 
-  test('embeds self-contained weight helpers in the declared font expression', async () => {
+  test('embeds the self-contained coverage helper in the declared font expression', async () => {
     const compile = (declarations: string) =>
       new Function('document', 'getComputedStyle', `return ${declaredFontLoadExpression(declarations)}`) as (
         document: { fonts: unknown[]; documentElement: { setAttribute(): void } },
@@ -192,6 +193,57 @@ describe('font load', () => {
       FONT_FAILURE_FIELD_LIMIT,
     )
     expect(loads).toBe(0)
-    expect(failures).toEqual([{ font: 'hebrew', family: 'Hebrew', unicodeRange: 'U+0590-05FF,U+FB1D-FB4F', reason: 'unloaded' }])
+    expect(failures).toEqual([{ font: 'hebrew', family: 'Hebrew', weight: 400, unicodeRange: 'U+0590-05FF,U+FB1D-FB4F', reason: 'unloaded' }])
+  })
+
+  test('uses the same coverage table as the resolver and opens a failed face gap', async () => {
+    const cases = [
+      {
+        declaration: { weight: [100, 900] as [number, number], unicodeRange: 'U+0000-05FF' },
+        faces: [
+          { weight: '100 500', unicodeRange: 'U+0000-00FF' },
+          { weight: '100 500', unicodeRange: 'U+0100-05FF' },
+          { weight: '501 900', unicodeRange: 'U+0000-05FF' },
+        ],
+      },
+      {
+        declaration: { weight: [100, 900] as [number, number] },
+        faces: [{ weight: '100' }, { weight: '900' }],
+      },
+    ]
+    for (const [caseIndex, coverageCase] of cases.entries()) {
+      const sourceFaces = coverageCase.faces.map((face) => ({
+        family: 'Body',
+        data: new Uint8Array(),
+        format: 'truetype' as const,
+        ...face,
+      }))
+      const expected = fontCoverageGaps(coverageCase.declaration, coverageCase.faces)
+      expect(matchFaces([coverageCase.declaration], sourceFaces).unsupplied).toEqual(expected)
+      const failures = await loadDeclaredFonts(
+        [{ font: 'body', ...coverageCase.declaration, sample: 'A' }],
+        coverageCase.faces.map((face) => ({ family: 'Body', style: 'normal', status: 'loaded', load: async () => undefined, ...face })),
+        { setAttribute: () => {} },
+        () => 'Body',
+        FONT_FAILURE_ATTRIBUTE,
+        FONT_FAILURE_LIMIT,
+        FONT_FAILURE_FIELD_LIMIT,
+      )
+      expect(failures.map(({ font: _, family: __, reason: ___, ...gap }) => gap), `case ${caseIndex}`).toEqual(expected)
+    }
+
+    const failures = await loadDeclaredFonts(
+      [{ font: 'body', weight: [100, 900], sample: 'A' }],
+      [
+        { family: 'Body', weight: '100 500', style: 'normal', status: 'loaded', load: async () => undefined },
+        { family: 'Body', weight: '501 900', style: 'normal', status: 'unloaded', load: async () => Promise.reject(new Error('bad font')) },
+      ],
+      { setAttribute: () => {} },
+      () => 'Body',
+      FONT_FAILURE_ATTRIBUTE,
+      FONT_FAILURE_LIMIT,
+      FONT_FAILURE_FIELD_LIMIT,
+    )
+    expect(failures).toEqual([{ font: 'body', family: 'Body', weight: [501, 900], reason: 'unloaded' }])
   })
 })
