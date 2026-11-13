@@ -38,6 +38,6 @@ export type {
 export * from './parent-selection.ts'
 export { type BookPlan, type Measurements, planBook } from './plan-book.ts'
 export { type ReplayPlanResult, replayPlan, savePlan } from './plan-save.ts'
+export { windowAnchorTop } from './plan-windows.ts'
 export * from './printed-pages.ts'
 export { type PageSideNotes, type PlacedSideNote, placeSideNotes, stackDownward } from './side-notes.ts'
-export { windowAnchorTop } from './tiled-pages.ts'

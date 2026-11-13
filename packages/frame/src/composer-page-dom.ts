@@ -10,11 +10,14 @@ export function fillTemplateRegions(clone: HTMLElement, holder: HTMLElement): vo
   }
 }
 
-export function inkExcess(
-  element: HTMLElement,
-  box: HTMLElement = element,
-  writingMode = getComputedStyle(box).writingMode,
-): { block: number; inline: number } {
+export interface InkBounds {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+export function inkBounds(element: HTMLElement, box: HTMLElement = element): InkBounds {
   const bounds = box.getBoundingClientRect()
   let top = bounds.top
   let right = bounds.right
@@ -31,10 +34,21 @@ export function inkExcess(
   range.selectNodeContents(element)
   if (!range.collapsed) include(range.getBoundingClientRect())
   for (const child of Array.from(element.querySelectorAll<HTMLElement>('*'))) include(child.getBoundingClientRect())
-  const block = Math.max(bottom - bounds.bottom, bounds.top - top, element === box ? box.scrollHeight - bounds.height : 0)
-  const inline = Math.max(right - bounds.right, bounds.left - left, element === box ? box.scrollWidth - bounds.width : 0)
+  if (element === box) {
+    bottom = Math.max(bottom, bounds.top + box.scrollHeight)
+    if (getComputedStyle(box).direction === 'rtl') left = Math.min(left, bounds.right - box.scrollWidth)
+    else right = Math.max(right, bounds.left + box.scrollWidth)
+  }
+  return { top, right, bottom, left }
+}
+
+export function inkExcess(element: HTMLElement, box: HTMLElement = element): { block: number; inline: number } {
+  const bounds = box.getBoundingClientRect()
+  const ink = inkBounds(element, box)
+  const block = Math.max(ink.bottom - bounds.bottom, bounds.top - ink.top)
+  const inline = Math.max(ink.right - bounds.right, bounds.left - ink.left)
   return {
-    block: logicalExtent({ width: inline, height: block }, writingMode, 'block'),
-    inline: logicalExtent({ width: inline, height: block }, writingMode, 'inline'),
+    block: logicalExtent({ width: inline, height: block }, getComputedStyle(box).writingMode, 'block'),
+    inline: logicalExtent({ width: inline, height: block }, getComputedStyle(box).writingMode, 'inline'),
   }
 }

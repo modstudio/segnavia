@@ -1,6 +1,6 @@
 import type { Measurements, Plan, SideNotes } from '@segnavia/format'
 import { resolveMarginSide } from './line-numbers.ts'
-import { windowAnchorTop } from './tiled-pages.ts'
+import { windowAnchorTop } from './plan-windows.ts'
 
 export interface PlacedSideNote {
   id: string

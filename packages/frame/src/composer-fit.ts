@@ -3,7 +3,7 @@ import { embedFunction, fitList, fittedSlotModes, parseCssLength, readSlotOverfl
 import { fitSearch, reduceFitGroups } from '@segnavia/layout'
 import { logicalExtent, verticalWritingMode } from './composer-axis-policy.ts'
 import { FIT_AXES, fitApplication, fitAxis, fitBounds, fitLimitEntry, fitMeasurements, fitValue } from './composer-fit-policy.ts'
-import { fillTemplateRegions, inkExcess } from './composer-page-dom.ts'
+import { fillTemplateRegions, inkBounds, inkExcess } from './composer-page-dom.ts'
 import { blockSubject, type SourceGeometry, type StagedSource, stagedSourceExcluded } from './composer-source-staging.ts'
 import { runStageOnce } from './composer-stage-policy.ts'
 
@@ -253,6 +253,7 @@ ${embedFunction('applyFitStyles', applyFitStyles)}
 ${embedFunction('fillTemplateRegions', fillTemplateRegions)}
 ${embedFunction('verticalWritingMode', verticalWritingMode)}
 ${embedFunction('logicalExtent', logicalExtent)}
+${embedFunction('inkBounds', inkBounds)}
 ${embedFunction('inkExcess', inkExcess)}
 ${embedFunction('blockSubject', blockSubject)}
 ${embedFunction('stagedSourceExcluded', stagedSourceExcluded)}

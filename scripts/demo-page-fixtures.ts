@@ -301,6 +301,11 @@ export const parentPageMixed: DocumentInput = printedDocument({
   dir: 'rtl',
 })
 
+export const parentPageInlineOverflow: DocumentInput = printedDocument({
+  html: `${flowingCss}<div data-segnavia-id="wide-demo-block" style="inline-size:464.75mm">WIDE BLOCK</div>`,
+  lang: 'en',
+})
+
 export const printedParentPageCases = [
   { name: 'english', page: parentPageEnglish },
   { name: 'hebrew', page: parentPageHebrew },

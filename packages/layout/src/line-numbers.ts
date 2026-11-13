@@ -1,5 +1,5 @@
 import { formatNumber, type LineNumbers, type Measurements, numberSystemMaximum, type Plan, type ResolvedLineNumbers } from '@segnavia/format'
-import { windowAnchorTop } from './tiled-pages.ts'
+import { windowAnchorTop } from './plan-windows.ts'
 
 export interface NumberedLine {
   value: number
