@@ -332,13 +332,20 @@ A Document declares named conditions in `conditions` and named editions in
 is required when conditions are declared. HTML marks a block or inline range
 with `data-segnavia-condition="name name"`; page, section, division, part and
 placed nodes use `conditions: string[]`. A marked item is kept when any named
-condition is on.
+condition is on. `Document.parse` refuses a marker or node that names an
+undeclared condition, and a marker that names none.
 
 `resolveEdition` removes hidden nodes and elements and strips the markers before
-contents, outline, notes, folios or pagination run. The removed element is exact:
+contents, outline, notes, folios or pagination run. It refuses an edition the
+document does not declare. The removed element is exact:
 authors put an adjoining space inside a conditional inline range when that space
 should disappear with it. Kept text retains its own `dir` and `lang`; removing a
 whole element leaves no directional isolate behind.
+
+A section, division or part whose children the edition removes entirely, and
+which carries no HTML of its own, is removed with them, so a lowering never
+receives an empty container. An edition that removes every top-level child is
+refused, because it leaves nothing to render.
 
 A record node is `{ type: 'record', id?, title?, template?, values?, children? }`,
 where `children`, when present, is exactly one flow. A record may use a template,
