@@ -319,9 +319,12 @@ where `children`, when present, is exactly one flow. A record may use a template
 a flow, or both. With both, the HTML layer inserts the flow into the template's
 single `data-record-body` element and then binds values across the composed HTML;
 without a template, the flow is the record's HTML and values must be empty. A
-template body point stays empty when that record has no flow. The body point
-takes the flow's resolved text direction so its content does not inherit an
-unrelated template direction.
+record with a flow and a template whose HTML holds no body point, or more than
+one, is refused at parse and again when the template is resolved at composition.
+A template body point stays empty when that record has no flow. When the flow has
+a strong first letter, the body point takes that direction so its content does
+not inherit an unrelated template direction; a flow of only weak or neutral text
+leaves the direction unset and inherits the template's.
 
 When present, a named record template declares text `slots`. Lowering replaces
 each record in reading order with one flowing section that opens on a new page,
