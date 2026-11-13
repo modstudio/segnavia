@@ -115,6 +115,7 @@ export const ELEMENT_PROPERTIES = {
       'fonts',
       'brands',
       'alertLabels',
+      'newId',
       'placements',
       'pageWidths',
       'anchors',
