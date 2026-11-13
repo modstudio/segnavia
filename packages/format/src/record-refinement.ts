@@ -38,10 +38,15 @@ function refineRecord(
     })
   }
   if (!template.slots?.length) {
+    const valueKeys = Object.keys(record.values)
+    const recordName = record.id ?? path.join('.')
     ctx.addIssue({
       code: 'custom',
       path: [...path, 'values'],
-      message: `template ${template.name} has no slots for record ${record.id ?? path.join('.')}'s values; declare slots on template ${template.name} to clear this refusal`,
+      message:
+        valueKeys.length === 0
+          ? `template ${template.name} has no slots for record ${recordName}; declare slots on template ${template.name} to clear this refusal`
+          : `template ${template.name} has no slots, so record ${recordName}'s values ${valueKeys.join(', ')} cannot be placed; declare slots ${valueKeys.join(', ')} on template ${template.name} to clear this refusal`,
     })
     return
   }

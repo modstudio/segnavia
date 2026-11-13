@@ -13,7 +13,7 @@ import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
-import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal, requiredFieldRefusal } from './document-profile.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
@@ -190,7 +190,7 @@ function refineRequirements(document: DocumentShapeValue, profile: DocumentProfi
       ctx.addIssue({
         code: 'custom',
         path: requirement.split('.'),
-        message: profileRefusal(requirement, document.kind, [requirement], 'required field'),
+        message: requiredFieldRefusal(requirement, document.kind),
       })
     }
   }

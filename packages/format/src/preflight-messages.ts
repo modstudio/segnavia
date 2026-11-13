@@ -1,7 +1,16 @@
 import type { PreflightCoverage, PreflightCoverageUnit, PreflightEntry, PreflightReport } from './preflight.ts'
 
+const CSS_VAR_REMEDIES = [
+  {
+    prefix: '--segnavia-font-',
+    remedy: (name: string) => `declare font ${name} in style.fonts`,
+  },
+] as const
+
 export function cssVarInvalidMessage(subject: string): string {
-  return `Custom property ${subject} is invalid; define it or add a var() fallback to clear it.`
+  const rule = CSS_VAR_REMEDIES.find(({ prefix }) => subject.startsWith(prefix))
+  const remedy = rule ? rule.remedy(subject.slice(rule.prefix.length)) : 'define it or add a var() fallback'
+  return `Custom property ${subject} is invalid; ${remedy} to clear it.`
 }
 
 export function coverageIncompleteMessage(measured: number, total: number, unit: PreflightCoverageUnit): string {

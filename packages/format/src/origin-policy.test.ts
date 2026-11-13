@@ -243,6 +243,17 @@ describe('origin policy', () => {
         advice: 'add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
       },
     })
+    expect(originDecision('http://outside.example/a.png', 'image', [{ origin: 'http://outside.example', kinds: ['image'] }], false)).toEqual({
+      allowed: false,
+      refusal: {
+        url: 'http://outside.example/a.png',
+        origin: 'http://outside.example',
+        kind: 'image',
+        reason: 'unapproved-origin',
+        message: 'http://outside.example/a.png is not https',
+        advice: 'serve it over https from an approved origin to clear this refusal',
+      },
+    })
     expect(originDecision('https://cdn.jsdelivr.net/npm/example/index.js', 'script', [], true)).toEqual({
       allowed: false,
       refusal: {

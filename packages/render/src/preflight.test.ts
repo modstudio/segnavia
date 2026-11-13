@@ -64,7 +64,7 @@ test('surface preflight reports bounded slide issues with full coverage', () => 
         {
           check: 'font-missing',
           subject: 'Body',
-          message: 'Font face Body is missing; supply and load that face to clear it.',
+          message: 'Font face Body was not supplied; supply that face to clear it.',
           id: 'font-missing:Body',
           severity: 'warning',
           location: { folio: '2' },

@@ -166,6 +166,36 @@ function pathRefusal(value: string, url: URL, origin: string, kind: FetchKind, c
   }
 }
 
+function unapprovedOriginRefusal(value: string, url: URL, origin: string | undefined, kind: FetchKind): AssetRefusal {
+  if (origin !== undefined && url.protocol !== 'https:') {
+    return {
+      url: value,
+      origin,
+      kind,
+      reason: 'unapproved-origin',
+      message: `${url.href} is not https`,
+      advice: 'serve it over https from an approved origin to clear this refusal',
+    }
+  }
+  if (origin !== undefined) {
+    return {
+      url: value,
+      origin,
+      kind,
+      reason: 'unapproved-origin',
+      message: `${url.href} at origin ${origin} is not approved for ${kind}`,
+      advice: `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`,
+    }
+  }
+  return {
+    url: value,
+    kind,
+    reason: 'unapproved-origin',
+    message: `${url.href} has no origin approved for ${kind}`,
+    advice: 'use an absolute https URL at an approved origin to clear this refusal',
+  }
+}
+
 export function originDecision(value: string, kind: FetchKind, approvals: Iterable<OriginApproval> | undefined, scripts: boolean): OriginDecision {
   let url: URL
   try {
@@ -185,19 +215,7 @@ export function originDecision(value: string, kind: FetchKind, approvals: Iterab
   const origin = authoredOrigin(url)
   const candidates = origin ? approvalsFor(approvals, kind, scripts).filter((approval) => approval.origin === origin) : []
   if (!origin || url.protocol !== 'https:' || candidates.length === 0) {
-    return {
-      allowed: false,
-      refusal: {
-        url: value,
-        ...(origin === undefined ? {} : { origin }),
-        kind,
-        reason: 'unapproved-origin',
-        message: origin ? `${url.href} at origin ${origin} is not approved for ${kind}` : `${url.href} has no origin approved for ${kind}`,
-        advice: origin
-          ? `add { origin: ${JSON.stringify(origin)}, kinds: [${JSON.stringify(kind)}] } to origins to clear this refusal`
-          : 'use an absolute https URL at an approved origin to clear this refusal',
-      },
-    }
+    return { allowed: false, refusal: unapprovedOriginRefusal(value, url, origin, kind) }
   }
   const outsidePath = pathRefusal(value, url, origin, kind, candidates)
   if (outsidePath) return { allowed: false, refusal: outsidePath }
