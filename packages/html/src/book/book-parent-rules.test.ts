@@ -30,6 +30,21 @@ test('book parentRules reach contents and part flows', () => {
   expect(sectionOpen(html, 'part')).toContain('data-segnavia-parent-rules="[{&quot;parent&quot;:&quot;segnavia:verso&quot;}]"')
 })
 
+test('a designed section without its own rules carries the book list, and none without book rules', () => {
+  const base = {
+    mode: 'paginated',
+    page: { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+    body: [{ kind: 'designed', title: 'Plate', pages: [{ html: '<p>Art</p>' }] }],
+    chapters: undefined,
+  }
+  const withBook = bookDocument(parseBookFixture(input({ ...base, parentRules: [{ parent: 'segnavia:verso' }] }))).html
+  expect(sectionOpen(withBook, 'section-1')).toContain('data-segnavia-parent-rules="[{&quot;parent&quot;:&quot;segnavia:verso&quot;}]"')
+
+  const withoutBook = bookDocument(parseBookFixture(input(base))).html
+  expect(sectionOpen(withoutBook, 'section-1')).not.toBe('')
+  expect(sectionOpen(withoutBook, 'section-1')).not.toContain('data-segnavia-parent-rules')
+})
+
 test('templated flow rules preserve section then template then book precedence', () => {
   const templateRules = [{ parent: 'segnavia:verso' }]
   const sectionRules = [{ parent: 'segnavia:recto' }]
