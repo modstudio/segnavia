@@ -123,13 +123,18 @@ if (typeof diagramProviderModule.diagramProviderScript !== 'string' || diagramPr
   throw new Error('@segnavia/diagrams/script must export a non-empty diagramProviderScript string.')
 }
 
-const diagramProviderKey = Symbol.for('segnavia.diagrams')
-const diagramRegistry = globalThis as typeof globalThis & { [diagramProviderKey]?: () => Promise<string> }
-if (typeof diagramRegistry[diagramProviderKey] === 'function') {
+const layoutProvidersKey = Symbol.for('segnavia.layout-providers')
+const registeredDiagramScript = (): unknown => {
+  const providers: unknown = Reflect.get(globalThis, layoutProvidersKey)
+  if (!(providers instanceof Map)) return undefined
+  const diagram: unknown = providers.get('diagram')
+  return typeof diagram === 'object' && diagram !== null ? Reflect.get(diagram, 'script') : undefined
+}
+if (typeof registeredDiagramScript() === 'function') {
   throw new Error('@segnavia/diagrams/auto must be the entry that registers the diagram provider.')
 }
 await import(pathToFileURL(path.join(ROOT, 'packages/diagrams/dist/auto.js')).href)
-const builtDiagramProvider: unknown = Reflect.get(diagramRegistry, diagramProviderKey)
+const builtDiagramProvider = registeredDiagramScript()
 if (typeof builtDiagramProvider !== 'function') {
   throw new Error('@segnavia/diagrams/auto must register a diagram provider when imported.')
 }
