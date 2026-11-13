@@ -14,6 +14,8 @@ A line length is a positive `em` or `ch` value. Without a length, a line fills t
 
 An answer box is one writing line high by default. `data-segnavia-field-lines` accepts 1 through 99, and `data-segnavia-field-rule` is `plain` (the default) or `ruled`. Text inside a line or box is the filled answer. Checkbox size follows the surrounding text; the checked attribute is a presence attribute.
 
+Answers take their direction from the normal rules: `dir`, then `lang`, then the first strong letter. In a right-to-left block, a filling line runs leftward to the block's inline end. Checkbox marks and boxes follow logical sides.
+
 Markdown task items (`- [ ]` and `- [x]`) become the same checkbox field spans. They never create an HTML `input`.
 
 Field appearance can be set with `--segnavia-field-rule-color`, `--segnavia-field-rule-width`, `--segnavia-field-box-color`, `--segnavia-field-answer-color`, `--segnavia-field-answer-font`, and `--segnavia-field-mark-color`.

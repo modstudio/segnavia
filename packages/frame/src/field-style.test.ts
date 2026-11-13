@@ -8,6 +8,7 @@ describe('form field base style', () => {
     const selectors = [...FIELD_BASE_CSS.matchAll(/(?:^|\n)([^{}]+)\{/g)].map((match) => match[1] ?? '')
     expect(selectors.length).toBeGreaterThan(5)
     expect(selectors.every((selector) => selector.startsWith(':where('))).toBe(true)
+    expect(FIELD_BASE_CSS).not.toMatch(/:where\([^{]*::[^{]*\)\{/)
     expect(FIELD_BASE_CSS).not.toMatch(/(?:^|[;{])(left|right|top|bottom|width|height|margin-left|margin-right|padding-left|padding-right):/)
     for (const property of ['rule-color', 'rule-width', 'box-color', 'answer-color', 'answer-font', 'mark-color'])
       expect(FIELD_BASE_CSS).toContain(`var(--segnavia-field-${property},`)
@@ -27,6 +28,6 @@ describe('form field base style', () => {
   test('the frame includes base and size styles', () => {
     expect(frameStyleSheets(undefined, undefined).join('')).toContain('data-segnavia-field="checkbox"')
     const html = frameDocument('<p><span data-segnavia-field="line" data-segnavia-field-length="8ch"></span></p>', { scripts: 'refuse', nonce: 'n' })
-    expect(html).toContain('inline-size:8ch')
+    expect(html).toContain('<style>@layer segnavia.base{:where([data-segnavia-field="line"][data-segnavia-field-length="8ch"]){inline-size:8ch}}</style>')
   })
 })

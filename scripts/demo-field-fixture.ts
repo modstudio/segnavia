@@ -11,5 +11,5 @@ export const worksheetPage: DocumentInput = {
   kind: 'page',
   size: 'fluid',
   print: { paper: 'letter', orientation: 'portrait', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } },
-  children: [{ type: 'page', body: { markdown: worksheetTasks, html: worksheetHtml } }],
+  children: [{ type: 'page', body: { html: worksheetHtml } }],
 }
