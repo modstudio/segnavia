@@ -89,6 +89,11 @@ function inRange(value: number, maximum: number, system: NumberSystem): void {
   if (value > maximum) throw new RangeError(`${system} value ${value} is outside the range 1 to ${maximum}`)
 }
 
+export function numberSystemMaximum(system: NumberSystem): number | undefined {
+  if (system === 'arabic') return undefined
+  return system === 'hebrew' ? 9999 : 3999
+}
+
 function roman(value: number): string {
   const digits = [
     [1000, 'M'],
@@ -138,18 +143,18 @@ function hebrew(value: number): string {
 export function formatNumber(value: number, system: NumberSystem): string {
   positiveInteger(value)
   if (system === 'arabic') return String(value)
+  const maximum = numberSystemMaximum(system)
+  if (maximum !== undefined) inRange(value, maximum, system)
   if (system === 'hebrew') {
-    inRange(value, 9999, system)
     return hebrew(value)
   }
-  inRange(value, 3999, system)
   const result = roman(value)
   return system === 'roman-lower' ? result.toLowerCase() : result
 }
 
 export function numberingScript(): string {
-  const functions = [positiveInteger, inRange, roman, hebrewBelowThousand, hebrew, formatNumber]
-  return `${functions.map((fn) => fn.toString()).join('\n')}\nvar formatNumber=${formatNumber.name};`
+  const functions = [positiveInteger, inRange, numberSystemMaximum, roman, hebrewBelowThousand, hebrew, formatNumber]
+  return `${functions.map((fn) => fn.toString()).join('\n')}\nvar numberSystemMaximum=${numberSystemMaximum.name};\nvar formatNumber=${formatNumber.name};`
 }
 
 export function noteMarker(index: number, marker: NoteMarker): string {

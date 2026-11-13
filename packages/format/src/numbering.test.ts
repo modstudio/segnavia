@@ -1,10 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { formatNumber, NoteMarker, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarker } from './numbering.ts'
+import { formatNumber, NoteMarker, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarker, numberSystemMaximum } from './numbering.ts'
 
 describe('number formatting', () => {
   test('arabic numbers use decimal digits at their boundary', () => {
     expect(formatNumber(1, 'arabic')).toBe('1')
     expect(formatNumber(Number.MAX_SAFE_INTEGER, 'arabic')).toBe(String(Number.MAX_SAFE_INTEGER))
+  })
+
+  test('numbering systems expose their finite maximum', () => {
+    expect(numberSystemMaximum('arabic')).toBeUndefined()
+    expect(numberSystemMaximum('hebrew')).toBe(9999)
+    expect(numberSystemMaximum('roman-lower')).toBe(3999)
+    expect(numberSystemMaximum('roman-upper')).toBe(3999)
   })
 
   test('Roman numbers use standard subtractive notation at their boundaries', () => {

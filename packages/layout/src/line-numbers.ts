@@ -1,4 +1,4 @@
-import { formatNumber, type LineNumbers, type Measurements, type Plan, type ResolvedLineNumbers } from '@segnavia/format'
+import { formatNumber, type LineNumbers, type Measurements, numberSystemMaximum, type Plan, type ResolvedLineNumbers } from '@segnavia/format'
 
 export interface NumberedLine {
   value: number
@@ -44,15 +44,13 @@ export function resolveLineNumberSide(side: LineNumbers['side'], page: Pick<Plan
 }
 
 function numberLabel(value: number, system: ResolvedLineNumbers['system']): string {
-  try {
-    return formatNumber(value, system)
-  } catch (error) {
-    if (!(error instanceof RangeError)) throw error
-    const maximum = system === 'hebrew' ? 9999 : 3999
+  const maximum = numberSystemMaximum(system)
+  if (maximum !== undefined && value > maximum) {
     throw new RangeError(
       `settings.lineNumbers value ${value} exceeds the ${system} numbering system maximum of ${maximum}; use arabic numbering or restart line numbers by section or page to clear this refusal`,
     )
   }
+  return formatNumber(value, system)
 }
 
 type TiledPage = Plan['pages'][number] & { inlineTile?: number }

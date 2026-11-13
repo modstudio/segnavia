@@ -8,6 +8,7 @@ import {
   type Document as ParsedDocument,
   pageOrPrintedFromDocument,
 } from '@segnavia/format'
+import { contentFieldFlows, type FragmentShape } from './block-fragments.ts'
 import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState } from './block-identify.ts'
 import { type AlertLabels, type BodyHtmlOptions, bodyHtml } from './markdown.ts'
 
@@ -36,16 +37,18 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const identifyOptions = { lineNumbers: lineNumbersState(document) }
   const html = (value: string, node: { type: string; id: string }, flowing: boolean): string =>
     identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing }).html
-  const regionHtml = (value: string, node: { type: string; id: string }, region: string) =>
-    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, parentRegion: true, insideNamedRegion: region }).html
+  const contentHtml = (value: string, node: ParsedDocument['children'][number], shape: FragmentShape): string =>
+    html(value, node, contentFieldFlows(document.kind, node.type, shape))
+  const regionHtml = (value: string, node: Extract<ParsedDocument['children'][number], { type: 'page' }>, region: string) =>
+    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing: false, insideNamedRegion: region }).html
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
     const value = pageBodyHtml(node.body, document, options)
-    return { ...node, body: pageBodyFromHtml(html(value, node, document.kind === 'printed'), 'markdown' in node.body ? node.body.markdown : undefined) }
+    return { ...node, body: pageBodyFromHtml(contentHtml(value, node, 'pageBody'), 'markdown' in node.body ? node.body.markdown : undefined) }
   }
   const nodeContent = (node: ParsedDocument['children'][number]): ParsedDocument['children'][number] => {
-    if (node.type === 'flow') return { ...node, html: html(node.html, node, true) }
-    if (node.type === 'part' && node.html !== undefined) return { ...node, html: html(node.html, node, true) }
+    if (node.type === 'flow') return { ...node, html: contentHtml(node.html, node, 'htmlString') }
+    if (node.type === 'part' && node.html !== undefined) return { ...node, html: contentHtml(node.html, node, 'htmlString') }
     if (node.type === 'page') {
       const next = pageBody(node)
       return node.regions === undefined
@@ -53,7 +56,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
         : { ...next, regions: Object.fromEntries(Object.entries(node.regions).map(([name, value]) => [name, regionHtml(value, node, name)])) }
     }
     if (node.type === 'slide' && 'kind' in node.content && node.content.kind === 'html') {
-      return { ...node, content: { ...node.content, html: html(node.content.html, node, false) } }
+      return { ...node, content: { ...node.content, html: contentHtml(node.content.html, node, 'slideContent') } }
     }
     return node
   }

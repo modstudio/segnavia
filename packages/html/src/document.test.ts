@@ -156,7 +156,7 @@ test('accepts line numbers in flowing content and refuses fixed page and templat
   ).toThrow('line numbers number flowing text')
 })
 
-test('refuses line numbers in a designed page region as parent-page content', () => {
+test('refuses line numbers in a non-flowing designed page region', () => {
   expect(() =>
     parseDocument({
       type: 'document',
@@ -175,7 +175,33 @@ test('refuses line numbers in a designed page region as parent-page content', ()
         },
       ],
     }),
-  ).toThrow('data-line-numbers cannot take effect in a parent-page region')
+  ).toThrow('line numbers number flowing text')
+})
+
+test('accepts measured blocks with authored ids in a designed page region', () => {
+  expect(() =>
+    parseDocument({
+      type: 'document',
+      kind: 'book',
+      metadata: { title: 'Book' },
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+      templates: [{ type: 'template', name: 'plate', html: '<main data-region="body"></main>' }],
+      children: [
+        {
+          type: 'section',
+          title: 'Pages',
+          template: 'plate',
+          children: [
+            {
+              type: 'page',
+              regions: { body: '<p data-segnavia-id="measured" data-measure="block" data-measure-as="--h">Region text</p>' },
+            },
+          ],
+        },
+      ],
+    }),
+  ).not.toThrow()
 })
 
 test('keeps active content for the later realize policy', () => {
