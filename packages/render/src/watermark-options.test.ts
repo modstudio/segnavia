@@ -46,6 +46,12 @@ test('parses a watermark without changing its public option names', () => {
   })
 })
 
+test('refuses unknown nested watermark options with the render call path', () => {
+  expect(() => parseWatermark({ text: 'Draft', position: { inline: 'start', extra: true } }, 'pagePdf')).toThrow(
+    'pagePdf options.watermark.position.extra: unknown option "extra"; remove it to clear this refusal',
+  )
+})
+
 test('refuses a selected physical page beyond the laid-out page count', () => {
   expect(() => watermarkPageNumbers({ text: 'Draft', pages: [4] }, 3)).toThrow(
     new RenderRefusedError('The watermark selects physical page 4, but the laid-out output has 3 pages; select a page from 1 through 3 to clear this refusal.'),

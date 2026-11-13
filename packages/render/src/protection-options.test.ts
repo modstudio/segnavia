@@ -41,4 +41,10 @@ describe('PDF protection options', () => {
       expect(String(error)).not.toContain(secret)
     }
   })
+
+  test('refuses unknown nested options with the render call path', () => {
+    expect(() => parseProtection({ permissions: { extra: true } }, 'bookPdf')).toThrow(
+      'bookPdf options.protection.permissions.extra: unknown option "extra"; remove it to clear this refusal',
+    )
+  })
 })

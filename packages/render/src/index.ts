@@ -1,5 +1,5 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
-import { fillPageAsOfBindings, type PreparedSlots, parseAsOfInputs, parseDocument, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
+import { fillPageAsOfBindings, type PreparedSlots, parseDocument, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
@@ -13,6 +13,7 @@ import { renderDeckPdf } from './deck-pdf.ts'
 import { resolveDiagramScript } from './diagram-script.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
+import { parseCoverImageOptions, parseDeckPdfOptions, parsePageImageOptions, parseProofImageOptions, parseSlideImageOptions } from './entry-options.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { layoutScripts } from './layout-scripts.ts'
@@ -22,7 +23,6 @@ import {
   innerLimits,
   type OverflowEntry,
   pageCompositionCount,
-  parseComposedRenderOptions,
   parseImageRenderOptions,
   refuseProgressUnlessOneComposition,
 } from './options.ts'
@@ -39,7 +39,6 @@ import { finishPdfWithBrowser } from './pdf-output.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
 import { createProtectPdf } from './protect-pdf.ts'
-import { parsePdfOptions } from './protection-options.ts'
 import { type RenderDeadline, withinBound, withinRenderPermit } from './render-deadline.ts'
 import { renderFailure } from './render-failure.ts'
 import { renderQueue } from './render-queue.ts'
@@ -49,7 +48,6 @@ import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledPage, filledPages } from './slot-fill.ts'
-import { parseWatermarkOption } from './watermark-options.ts'
 import { watermarkCopyStamper, watermarkPartFromFacts } from './watermark-stamp.ts'
 
 export * from './public.ts'
@@ -218,7 +216,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
     async pageImage(input, opts = {}) {
-      const parsedOptions = parseImageRenderOptions(opts)
+      const parsedOptions = parsePageImageOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'screen')
         refuseProgressUnlessOneComposition(parsedOptions, pageCompositionCount([prepared.page]))
@@ -226,9 +224,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
     async coverImage(input, opts) {
+      opts = parseCoverImageOptions(opts)
       const cover = Cover.parse(input)
       const plan = coverImagePlan(cover, opts)
-      const options = parseImageRenderOptions(plan.options)
+      const options = parseImageRenderOptions(plan.options, 'coverImage')
       return await withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const established = await resolveRenderDayContext(cover.page, options, deadline.signal)
         const prepared = await prepareRenderedPageValue(cover.page, options, options.motifs, deadline.signal, established, 'screen')
@@ -237,7 +236,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
     async pagesPdf(inputs, opts = {}) {
-      const parsedOptions = parsePagePdfOptions(opts ?? {})
+      const parsedOptions = parsePagePdfOptions(opts ?? {}, 'pagesPdf')
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const parsed = await Promise.all(
           inputs.map(async (input) => {
@@ -317,8 +316,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async deckPdf(input, opts = {}) {
-      const parsed = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(opts)))
-      const options = parseWatermarkOption(parsed)
+      const options = parseDeckPdfOptions(opts)
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
@@ -365,7 +363,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     async slideImage(input, index, opts = {}) {
-      const options = parseAsOfInputs(parseImageRenderOptions(opts))
+      const options = parseSlideImageOptions(opts)
       refuseProgressUnlessOneComposition(options, 0)
       return withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
@@ -376,6 +374,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
 
     proofImage(input, opts) {
+      opts = parseProofImageOptions(opts)
       return withinRenderPermit(RENDER_BOUND_MS, acquire, release, (deadline) =>
         withTab(
           { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false, false), deadline },

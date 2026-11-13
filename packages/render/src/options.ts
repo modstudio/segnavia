@@ -229,9 +229,9 @@ export type ParsedPageRenderOptions = ComposedRenderOptions & AsOfInputs
 
 export type ParsedPageImageOptions = ParsedComposedRenderOptions<PageImageOptions>
 
-export function parseImageRenderOptions<T extends ImageOptions & ComposedRenderInput>(options: T): ParsedComposedRenderOptions<T> {
+export function parseImageRenderOptions<T extends ImageOptions & ComposedRenderInput>(options: T, call = 'render'): ParsedComposedRenderOptions<T> {
   const parsed = parseComposedRenderOptions(options)
-  return { ...parsed, watermark: parseWatermark(parsed.watermark) }
+  return { ...parsed, watermark: parseWatermark(parsed.watermark, call) }
 }
 
 export interface ProofImageOptions {
