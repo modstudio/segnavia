@@ -142,6 +142,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/composer-fill.ts',
       'src/composer-fill-policy.ts',
       'src/composer-page-dom.ts',
+      'src/composer-line-range.ts',
       'src/composer-measure.ts',
       'src/composer-measure-embed.ts',
       'src/composer-side-note-measure.ts',

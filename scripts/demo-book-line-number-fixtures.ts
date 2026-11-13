@@ -31,9 +31,7 @@ export function sideNoteGeometry(): SideNoteGeometry[] {
       const box = note.getBoundingClientRect()
       const kind = note.getAttribute('data-side-note-kind') ?? ''
       const anchor = page.querySelector(`[data-side-note-anchor="${kind}"]`)
-      const range = document.createRange()
-      if (anchor) range.selectNodeContents(anchor)
-      const anchorBox = range.getClientRects()[0]
+      const anchorBox = anchor?.getBoundingClientRect()
       return {
         id: note.dataset.segnaviaId ?? '',
         kind,
@@ -123,7 +121,7 @@ export function sideNoteBookFixture(hebrew: boolean): DocumentInput {
             children: [
               {
                 type: 'flow',
-                html: `<p>${text}</p><h2 id="side-heading" data-side-note data-side-note-kind="block">${note} <em>${hebrew ? 'מודגשת' : 'emphasized'}</em></h2><p><span data-side-note-anchor="block">${text}</span></p><p data-side-note-holder>${text}<br><span data-side-note-anchor="inline">${text}</span> <span data-side-note data-side-note-kind="inline">${inlineNote}</span></p><p data-side-note-control>${text}<br><span>${text}</span></p><p>${text}</p>`,
+                html: `<p>${text}</p><h2 id="side-heading" data-side-note data-side-note-kind="block">${note} <em>${hebrew ? 'מודגשת' : 'emphasized'}</em></h2><p><span data-side-note-anchor="block">${text}</span></p><p data-side-note-holder>${text}<br><span>${text}</span> <span data-side-note data-side-note-kind="inline" data-side-note-anchor="inline">${inlineNote}</span></p><p data-side-note-control>${text}<br><span>${text}</span></p><p>${text}</p>`,
               },
             ],
           },
