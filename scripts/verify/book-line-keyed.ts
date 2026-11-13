@@ -54,10 +54,22 @@ function lineKeyedSpacing(): LineKeyedSpacing {
   const next = source?.querySelector<HTMLElement>('[data-line-keyed-next]')
   const before = source?.querySelector<HTMLElement>('[data-line-keyed-space-before]')
   const after = source?.querySelector<HTMLElement>('[data-line-keyed-space-after]')
+  const characterBox = (element: HTMLElement, end: boolean) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    const nodes: Text[] = []
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) if (node instanceof Text && node.data.length > 0) nodes.push(node)
+    const node = end ? nodes.at(-1) : nodes[0]
+    if (!node) return element.getBoundingClientRect()
+    const range = document.createRange()
+    const offset = end ? node.data.length : 0
+    range.setStart(node, end ? offset - 1 : offset)
+    range.setEnd(node, end ? offset : offset + 1)
+    return range.getBoundingClientRect()
+  }
   const gap = (left: HTMLElement | null | undefined, right: HTMLElement | null | undefined) => {
     if (!left || !right) return Number.NaN
-    const leftBox = left.getBoundingClientRect()
-    const rightBox = right.getBoundingClientRect()
+    const leftBox = characterBox(left, true)
+    const rightBox = characterBox(right, false)
     return Math.max(leftBox.left, rightBox.left) - Math.min(leftBox.right, rightBox.right)
   }
   return { noteGap: gap(lemma, next), ordinaryGap: gap(before, after) }
