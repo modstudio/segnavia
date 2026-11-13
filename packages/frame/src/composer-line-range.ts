@@ -1,3 +1,7 @@
+export function insideSideNote(element: Element | null): boolean {
+  return element !== null && element.closest('[data-side-note]') !== null
+}
+
 export function contentRangesExcludingSideNotes(element: Element): Range[] {
   const notes = Array.from(element.querySelectorAll('[data-side-note]'))
   if (notes.length === 0) {

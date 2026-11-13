@@ -36,32 +36,39 @@ function hasLineNumbers(children: readonly import('domhandler').ChildNode[]): bo
   return false
 }
 
+function hasSideNotes(children: readonly import('domhandler').ChildNode[]): boolean {
+  for (const node of children) {
+    if (!isTag(node)) continue
+    if (node.attribs['data-side-note'] !== undefined || hasSideNotes(node.children)) return true
+  }
+  return false
+}
+
+type DocumentSetting = 'lineNumbers' | 'sideNotes'
+type SettingsState = 'set' | 'unset' | 'unsupported'
+
+function settingsState(document: Pick<Document, 'kind' | 'settings'>, key: DocumentSetting): SettingsState {
+  if (!(DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes(key)) return 'unsupported'
+  return document.settings?.[key] === undefined ? 'unset' : 'set'
+}
+
+function documentKindsWithSetting(key: DocumentSetting): string {
+  const kinds = Object.entries(DOCUMENT_PROFILES)
+    .filter(([, profile]) => (profile.settings as readonly string[]).includes(key))
+    .map(([kind]) => kind)
+  return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
+}
+
 export type LineNumbersState = 'set' | 'unset' | 'unsupported'
 
 export function lineNumbersState(document: Pick<Document, 'kind' | 'settings'>): LineNumbersState {
-  if (!(DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes('lineNumbers')) return 'unsupported'
-  return document.settings?.lineNumbers === undefined ? 'unset' : 'set'
+  return settingsState(document, 'lineNumbers')
 }
 
 export type SideNotesState = 'set' | 'unset' | 'unsupported'
 
 export function sideNotesState(document: Pick<Document, 'kind' | 'settings'>): SideNotesState {
-  if (!(DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes('sideNotes')) return 'unsupported'
-  return document.settings?.sideNotes === undefined ? 'unset' : 'set'
-}
-
-function lineNumberDocumentKinds(): string {
-  const kinds = Object.entries(DOCUMENT_PROFILES)
-    .filter(([, profile]) => (profile.settings as readonly string[]).includes('lineNumbers'))
-    .map(([kind]) => kind)
-  return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
-}
-
-function sideNoteDocumentKinds(): string {
-  const kinds = Object.entries(DOCUMENT_PROFILES)
-    .filter(([, profile]) => (profile.settings as readonly string[]).includes('sideNotes'))
-    .map(([kind]) => kind)
-  return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
+  return settingsState(document, 'sideNotes')
 }
 
 function sideNotePlacementIssue(nodeWhere: string, parentRegion: boolean, flowing: boolean, nested: boolean): string | undefined {
@@ -174,16 +181,16 @@ export function identifyHtmlBlocks(
       issues.push(`${node} data-line-numbers needs the document settings.lineNumbers setting; add that setting to clear this refusal`)
     } else if (options.lineNumbers === 'unsupported') {
       issues.push(
-        `${node} data-line-numbers cannot take effect because this document kind does not number lines; use a ${lineNumberDocumentKinds()} document to clear this refusal`,
+        `${node} data-line-numbers cannot take effect because this document kind does not number lines; use a ${documentKindsWithSetting('lineNumbers')} document to clear this refusal`,
       )
     }
   }
-  if (sideNoteElements(tree.children).length > 0 || blockElements(tree.children).some((element) => element.attribs['data-side-note'] !== undefined)) {
+  if (hasSideNotes(tree.children)) {
     if ((options.sideNotes ?? 'unset') === 'unset') {
       issues.push(`${node} data-side-note needs the document settings.sideNotes setting; add that setting to clear this refusal`)
     } else if (options.sideNotes === 'unsupported') {
       issues.push(
-        `${node} data-side-note cannot take effect because this document kind does not place side notes; use a ${sideNoteDocumentKinds()} document to clear this refusal`,
+        `${node} data-side-note cannot take effect because this document kind does not place side notes; use a ${documentKindsWithSetting('sideNotes')} document to clear this refusal`,
       )
     }
   }

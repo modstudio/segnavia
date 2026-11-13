@@ -1,5 +1,6 @@
 import type { Measurements, Plan, SideNotes } from '@segnavia/format'
 import { resolveMarginSide } from './line-numbers.ts'
+import { tiledPageGroups, windowAnchorTop } from './tiled-pages.ts'
 
 export interface PlacedSideNote {
   id: string
@@ -14,33 +15,37 @@ export interface PageSideNotes {
   notes: PlacedSideNote[]
 }
 
-type TiledPage = Plan['pages'][number] & { inlineTile?: number }
-
-export function placeSideNotes(measurements: Measurements, plan: Plan, settings: SideNotes): readonly PageSideNotes[] {
-  const sourcePages = (plan.pages as readonly TiledPage[]).filter((page) => page.inlineTile === undefined || page.inlineTile === 0)
-  const sourceResult = sourcePages.map((_page, page) => ({ page, notes: [] as PlacedSideNote[] }))
-  for (let pageIndex = 0; pageIndex < sourcePages.length; pageIndex += 1) {
-    const page = sourcePages[pageIndex]
-    if (!page) continue
-    for (const window of page.windows) {
-      const flow = measurements.flows.find((candidate) => candidate.id === window.flow)
-      for (const note of flow?.sideNotes ?? []) {
-        if (note.top < window.start || note.top >= window.end) continue
-        sourceResult[pageIndex]?.notes.push({
-          id: note.id,
-          top: window.top + note.top - window.start,
-          column: window.column,
-          columns: window.columns,
-          side: resolveMarginSide(settings.side, page, note.direction),
-        })
-      }
+function placeSourcePageSideNotes(
+  measurements: Measurements,
+  group: ReturnType<typeof tiledPageGroups>[number],
+  settings: SideNotes,
+  direction: 'ltr' | 'rtl',
+  result: PageSideNotes[],
+): void {
+  const page = group.tiles[0]!.page
+  for (const window of page.windows) {
+    const flow = measurements.flows.find((candidate) => candidate.id === window.flow)
+    for (const note of flow?.sideNotes ?? []) {
+      if (note.top < window.start || note.top >= window.end) continue
+      const side = resolveMarginSide(settings.side, page, note.direction)
+      const inlineStart = direction === 'ltr' ? 'left' : 'right'
+      const tile = side === inlineStart ? group.tiles[0]! : group.tiles.at(-1)!
+      result[tile.index]?.notes.push({
+        id: note.id,
+        top: windowAnchorTop(window, note.top),
+        column: window.column,
+        columns: window.columns,
+        side,
+      })
     }
   }
-  let sourceIndex = -1
-  return (plan.pages as readonly TiledPage[]).map((page, pageIndex) => {
-    if (page.inlineTile === undefined || page.inlineTile === 0) sourceIndex += 1
-    return { page: pageIndex, notes: sourceResult[sourceIndex]?.notes.map((note) => ({ ...note })) ?? [] }
-  })
+}
+
+export function placeSideNotes(measurements: Measurements, plan: Plan, settings: SideNotes, direction: 'ltr' | 'rtl'): readonly PageSideNotes[] {
+  const groups = tiledPageGroups(plan)
+  const result = plan.pages.map((_page, page) => ({ page, notes: [] as PlacedSideNote[] }))
+  for (const group of groups) placeSourcePageSideNotes(measurements, group, settings, direction, result)
+  return result
 }
 
 export function stackDownward(items: ReadonlyArray<{ top: number; height: number }>, gap = 0): number[] {
@@ -53,5 +58,5 @@ export function stackDownward(items: ReadonlyArray<{ top: number; height: number
 }
 
 export function placeSideNotesScript(): string {
-  return `${placeSideNotes.toString()}\n${stackDownward.toString()}\nvar placeSideNotes=${placeSideNotes.name};var stackDownward=${stackDownward.name};`
+  return `${tiledPageGroups.toString()}\n${windowAnchorTop.toString()}\n${resolveMarginSide.toString()}\n${placeSourcePageSideNotes.toString()}\n${placeSideNotes.toString()}\n${stackDownward.toString()}\nvar placeSideNotes=${placeSideNotes.name};var stackDownward=${stackDownward.name};`
 }

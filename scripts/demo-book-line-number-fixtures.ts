@@ -121,7 +121,7 @@ export function sideNoteBookFixture(hebrew: boolean): DocumentInput {
             children: [
               {
                 type: 'flow',
-                html: `<p>${text}</p><h2 id="side-heading" data-side-note data-side-note-kind="block">${note} <em>${hebrew ? 'מודגשת' : 'emphasized'}</em></h2><p><span data-side-note-anchor="block">${text}</span></p><p data-side-note-holder>${text}<br><span>${text}</span> <span data-side-note data-side-note-kind="inline" data-side-note-anchor="inline">${inlineNote}</span></p><p data-side-note-control>${text}<br><span>${text}</span></p><p>${text}</p>`,
+                html: `<p>${text}</p><h2 id="side-heading" data-side-note data-side-note-kind="block">${note} <em>${hebrew ? 'מודגשת' : 'emphasized'}</em></h2><p><span data-side-note-anchor="block">${text}</span></p><p data-side-note-holder>${text}<br><span>${text}</span> <span data-side-note data-side-note-kind="inline" data-side-note-anchor="inline">${inlineNote}<em style="break-inside:avoid"> ${hebrew ? 'נשמרת' : 'kept'}</em></span></p><p data-side-note-control>${text}<br><span>${text}</span></p><p>${text}</p>`,
               },
             ],
           },

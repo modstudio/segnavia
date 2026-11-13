@@ -3,6 +3,7 @@ import { boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflight
 import type { NumberedLine, PageLineNumbers } from '@segnavia/layout'
 import {
   appendMarginOverset,
+  claimSideNotes,
   createLineNumber,
   crossedLimit,
   drawLineNumbers,
@@ -10,6 +11,7 @@ import {
   lineNumberEdge,
   physicalColumn,
   prepareSideNote,
+  stackPageSideNotes,
   widestLineNumber,
 } from './composer-margin.ts'
 
@@ -149,11 +151,12 @@ test('reports colliding margin-area numbers', () => {
   )
 })
 
-test('keeps one heading instance with its id and resolves its own Hebrew direction', () => {
+test('claims one heading instance document-wide and keeps its id', () => {
   const attributes = new Map([
     ['data-side-note', ''],
     ['data-segnavia-id', 'note'],
   ])
+  let selectedRemoved = false
   const selected = {
     id: '',
     tagName: 'H2',
@@ -162,64 +165,83 @@ test('keeps one heading instance with its id and resolves its own Hebrew directi
     getAttribute: (name: string) => attributes.get(name) ?? null,
     hasAttribute: (name: string) => attributes.has(name),
     setAttribute: (name: string, value: string) => attributes.set(name, value),
-    remove: () => {},
+    remove: () => {
+      selectedRemoved = true
+    },
   } as unknown as HTMLElement
-  let duplicateRemoved = false
   const duplicate = {
     ...selected,
     id: 'side-heading',
-    remove: () => {
-      duplicateRemoved = true
-    },
+    remove: () => {},
   } as HTMLElement
-  const page = {
-    querySelectorAll: (selector: string) => (selector.startsWith('[data-side-note]') ? [selected] : []),
-  } as unknown as HTMLElement
   const doc = { querySelectorAll: () => [selected, duplicate] } as unknown as Document
-  const drawn = prepareSideNote({ id: 'note', top: 10, side: 'left', column: 0, columns: 1 }, page, rect(20, 0, 60, 100), rect(0, 0, 100, 100), 4, doc, [], '1')
-  expect(drawn?.element.tagName).toBe('H2')
-  expect(drawn?.element.id).toBe('side-heading')
-  expect(drawn?.element.getAttribute('dir')).toBe('rtl')
-  expect(duplicateRemoved).toBe(true)
+  const claimed = claimSideNotes([{ page: 0, notes: [{ id: 'note', top: 10, side: 'left', column: 0, columns: 1 }] }], doc)
+  expect(claimed.get('note')).toBe(duplicate)
+  expect(claimed.get('note')?.id).toBe('side-heading')
+  expect(selectedRemoved).toBe(true)
 })
 
-test('takes a side-note copy from elsewhere in the document and reports when none exists', () => {
+test('reserves margin-area line-number width on each physical side only', () => {
   const attributes = new Map([
     ['data-side-note', ''],
     ['data-segnavia-id', 'elsewhere'],
   ])
-  const elsewhere = {
+  const note = {
     id: '',
     style: {} as Record<string, string>,
-    textContent: 'Note',
+    textContent: 'הערה',
     getAttribute: (name: string) => attributes.get(name) ?? null,
     hasAttribute: (name: string) => attributes.has(name),
     setAttribute: (name: string, value: string) => attributes.set(name, value),
     remove: () => {},
   } as unknown as HTMLElement
-  const page = { querySelectorAll: () => [] } as unknown as HTMLElement
-  const entries: PreflightEntry[] = []
-  const doc = { querySelectorAll: () => [elsewhere] } as unknown as Document
-  const placement = { id: 'elsewhere', top: 10, side: 'right' as const, column: 0, columns: 1 }
-  expect(prepareSideNote(placement, page, rect(20, 0, 60, 100), rect(0, 0, 100, 100), 4, doc, entries, '2')?.element).toBe(elsewhere)
-  expect(entries).toEqual([])
-
-  const missing = { ...placement, id: 'missing' }
-  expect(prepareSideNote(missing, page, rect(20, 0, 60, 100), rect(0, 0, 100, 100), 4, doc, entries, '2')).toBeUndefined()
-  expect(entries).toContainEqual(
-    expect.objectContaining({
-      check: 'margin-overset',
-      subject: 'side-note:missing',
-      message: expect.stringContaining('source flow'),
-      location: { folio: '2' },
-    }),
-  )
+  const marginNumber = { getBoundingClientRect: () => rect(0, 0, 8, 10) }
+  const exact = '[data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-line-number]'
+  const page = {
+    querySelectorAll: (selector: string) => (selector === `${exact}[data-segnavia-side="left"]` ? [marginNumber] : []),
+  } as unknown as HTMLElement
+  const text = rect(20, 0, 60, 100)
+  const paper = rect(0, 0, 100, 100)
+  const left = prepareSideNote({ id: 'elsewhere', top: 10, side: 'left', column: 0, columns: 1 }, note, page, text, paper, 4)
+  expect(left.element.style.left).toBe('-4px')
+  expect(left.element.style.width).toBe('4px')
+  expect(left.element.getAttribute('dir')).toBe('rtl')
+  const right = prepareSideNote({ id: 'elsewhere', top: 10, side: 'right', column: 0, columns: 1 }, note, page, text, paper, 4)
+  expect(right.element.style.left).toBe('64px')
+  expect(right.element.style.width).toBe('16px')
+  expect(widestLineNumber(page, 'left')).toBe(8)
+  expect(widestLineNumber(page, 'right')).toBe(0)
 })
 
-test('reserves only margin-area line numbers beside side notes', () => {
-  const marginNumber = { getBoundingClientRect: () => rect(0, 0, 8, 10) }
-  const page = {
-    querySelectorAll: (selector: string) => (selector.includes('data-segnavia-area="margin"') ? [marginNumber] : []),
-  } as unknown as HTMLElement
-  expect(widestLineNumber(page, 'left')).toBe(8)
+test('reports and deduplicates side notes crossing edges, furniture and margin numbers, including stacking overflow', () => {
+  const drawn = (id: string, top: number, height: number) => {
+    const style: Record<string, string> = {}
+    const element = {
+      style,
+      getBoundingClientRect() {
+        return rect(10, Number.parseFloat(style.top ?? String(top)), 10, height)
+      },
+    } as unknown as HTMLElement
+    return { id, top, side: 'left' as const, element }
+  }
+  const items = [drawn('furniture', 30, 10), drawn('number', 60, 10), drawn('stack-a', 80, 15), drawn('stack-b', 82, 15)]
+  const furniture = [{ getBoundingClientRect: () => rect(0, 30, 30, 20), getAttribute: () => 'head' }] as unknown as NodeListOf<Element>
+  const numbers = [
+    { getBoundingClientRect: () => rect(5, 60, 20, 10), getAttribute: (name: string) => (name === 'data-segnavia-line-number' ? '10' : null) },
+  ] as unknown as NodeListOf<Element>
+  const entries: PreflightEntry[] = []
+  stackPageSideNotes(items, 'left', 4, rect(0, 0, 100, 100), furniture, numbers, entries, '12')
+  stackPageSideNotes(items, 'left', 4, rect(0, 0, 100, 100), furniture, numbers, entries, '12')
+  expect(entries.map((entry) => [entry.subject, entry.location?.folio])).toEqual([
+    ['side-note:furniture', '12'],
+    ['side-note:number', '12'],
+    ['side-note:stack-b', '12'],
+  ])
+  expect(entries.map((entry) => entry.message)).toEqual([
+    expect.stringContaining('region head'),
+    expect.stringContaining('line number 10'),
+    expect.stringContaining('page edge'),
+  ])
+  const report = boundPreflightReport({ entries, facts: { pageCount: 1, pages: [], fits: [] } }, PREFLIGHT_PRESETS.strict)
+  expect(preflightRefusal(report)).toContain('Side note furniture crosses region head')
 })

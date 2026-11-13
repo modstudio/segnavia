@@ -1,6 +1,6 @@
 import { defaultParentRules, type PaginateLine, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
 import { backgroundPaints, decorationEdges, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
-import { contentRangesExcludingSideNotes } from './composer-line-range.ts'
+import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
 
 export interface MeasuredKeepCandidate {
   top: number
@@ -27,7 +27,7 @@ export interface MeasuredLineBox {
 export function lineNumberedLines(lines: readonly MeasuredLineBox[], element: Element, origin: number): MeasuredLineBox[] {
   const excluded: Array<{ top: number; bottom: number }> = []
   for (const candidate of element.querySelectorAll('h1,h2,h3,h4,h5,h6,table,figure,img')) {
-    if (candidate.closest('[data-side-note]')) continue
+    if (insideSideNote(candidate)) continue
     const range = element.ownerDocument.createRange()
     range.selectNodeContents(candidate)
     const rects = Array.from(range.getClientRects())
@@ -260,7 +260,7 @@ export function measureTableLines(element: Element, origin: number): MeasuredLin
       const walker = element.ownerDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
       let node = walker.nextNode()
       while (node) {
-        if (node.parentElement?.closest('[data-side-note]')) {
+        if (insideSideNote(node.parentElement)) {
           node = walker.nextNode()
           continue
         }
@@ -270,7 +270,7 @@ export function measureTableLines(element: Element, origin: number): MeasuredLin
         node = walker.nextNode()
       }
       for (const replaced of cell.querySelectorAll('img,svg,video,canvas,picture,iframe,object,embed,math')) {
-        if (replaced.closest('[data-side-note]')) continue
+        if (insideSideNote(replaced)) continue
         const box = replaced.getBoundingClientRect()
         boxes.push({ top: box.top - origin, bottom: box.bottom - origin })
       }
@@ -343,7 +343,7 @@ export function measureLineBoxes(element: Element, origin: number): MeasuredLine
   }
   const tables = Array.from(element.querySelectorAll('table'))
     .filter((table) => {
-      if (table.closest('[data-side-note]')) return false
+      if (insideSideNote(table)) return false
       if (!tableRenderedInFlow(table)) return false
       let ancestor = table.parentElement
       while (ancestor && ancestor !== element) {

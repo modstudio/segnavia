@@ -66,6 +66,7 @@ const PaginateFlowBase = {
         id: z.string(),
         kind: z.enum(['block', 'inline']),
         top: z.number(),
+        /** The computed direction of the block that anchors this note. */
         direction: TextDirection,
       }),
     )
