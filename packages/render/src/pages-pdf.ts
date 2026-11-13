@@ -28,8 +28,8 @@ import type { WatermarkPart } from './watermark-stamp.ts'
 export type PagesPdfOptions = ComposedRenderOptions & { imposition?: ImpositionInput }
 
 interface PagesPdfServices {
-  pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number): Promise<PrintResult>
-  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions): Promise<PrintResult>
+  pagePdf(page: HtmlPage | PrintedHtmlPage, slots: PreparedSlots, options: ComposedRenderOptions, inputIndex: number, tagged: boolean): Promise<PrintResult>
+  piecePdf(page: HtmlPage, slots: PreparedSlots, geometry: PieceGeometry, css: string, options: ComposedRenderOptions, tagged: boolean): Promise<PrintResult>
   fontFaces(options: ComposedRenderOptions): string
   finish(pdf: Uint8Array, options: Pick<ComposedRenderOptions, 'effects' | 'limits' | 'press'>): Promise<Uint8Array>
   watermark?(parts: readonly WatermarkPart[], pageCount?: number): Promise<Uint8Array[]>
@@ -95,10 +95,17 @@ async function composedPdf(
       const geometry = pieceGeometry(first)
       const css = `${page.print ? printProperties(page.print) : ''}${geometry.padding ? printPadding(geometry.padding) : ''}${baseCss}`
       try {
-        const piece = await services.piecePdf(page, slotsForDocument(slots, [pageFrames]), geometry, css, {
-          ...opts,
-          limits: innerLimits(opts.limits),
-        })
+        const piece = await services.piecePdf(
+          page,
+          slotsForDocument(slots, [pageFrames]),
+          geometry,
+          css,
+          {
+            ...opts,
+            limits: innerLimits(opts.limits),
+          },
+          true,
+        )
         return {
           group,
           rendered: {
@@ -162,6 +169,7 @@ export async function renderPagesPdf(
           slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
           { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
           inputIndex,
+          true,
         ),
       ),
     )
@@ -199,6 +207,7 @@ export async function renderPagesPdf(
           slotsForDocument(slots, [frameGroups[inputIndex] ?? []]),
           { ...opts, limits: innerLimits(opts.limits), press: undefined, overflow: undefined },
           inputIndex,
+          true,
         )
         if (rendered.overflow) overflow.push(rendered.overflow)
         if (!page.print) throw new Error('An identity-imposed printed page has no print geometry.')

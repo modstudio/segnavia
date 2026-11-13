@@ -270,12 +270,14 @@ async function printBook(
     paginated
       ? {
           printBackground: true,
+          tagged: true,
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
         }
       : {
           ...pagePdfSize(size),
           printBackground: true,
+          tagged: true,
           preferCSSPageSize: true,
           margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
         },

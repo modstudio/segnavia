@@ -263,7 +263,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             slots,
             { ...prepared.options, limits: innerLimits(prepared.options.limits), press: undefined },
             {
-              pagePdf: (page, slots, options, inputIndex) =>
+              pagePdf: (page, slots, options, inputIndex, tagged) =>
                 renderPagePdf(
                   page,
                   slots,
@@ -275,9 +275,10 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   prepared.fontFailures,
                   resolvedLayoutScripts,
                   Boolean(parsedOptions.watermark),
+                  tagged,
                 ),
-              piecePdf: (page, slots, geometry, css, options) =>
-                renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, resolvedLayoutScripts, Boolean(parsedOptions.watermark)),
+              piecePdf: (page, slots, geometry, css, options, tagged) =>
+                renderPiecePdf(page, slots, geometry, css, options, { withTab }, deadline, resolvedLayoutScripts, Boolean(parsedOptions.watermark), tagged),
               fontFaces: (options) => `${prepared.fontCss}${fontFaces(options.fonts)}`,
               finish: async (pdf) => pdf,
               watermark: watermarkCopies.stamp,
