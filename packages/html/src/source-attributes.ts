@@ -5,7 +5,7 @@ import { BLOCK_KINDS } from './block-context.ts'
 export interface SourceAttributeFamily {
   name: string
   subjectAttributes: readonly string[]
-  issues: (where: string, attribs: Record<string, string>) => string[]
+  issues: (where: string, attribs: Record<string, string>, element: string) => string[]
 }
 
 interface SourceAttributeOptions {
@@ -21,11 +21,12 @@ function familyIssues(
   family: SourceAttributeFamily,
   where: string,
   attribs: Record<string, string>,
+  element: string,
   block: boolean,
   identified: boolean,
   options: SourceAttributeOptions,
 ): string[] {
-  const issues = family.issues(where, attribs)
+  const issues = family.issues(where, attribs, element)
   if (!family.subjectAttributes.some((attribute) => attribs[attribute] !== undefined)) return issues
   if (options.refusedFamilies?.includes(family.name)) {
     issues.push(parentRegionAttributeIssue(where, family.name))
@@ -51,7 +52,8 @@ export function sourceAttributeIssues(
       const block = insideBlock || BLOCK_KINDS.has(child.name.toLowerCase())
       const authoredId = child.attribs['data-segnavia-id'] !== undefined
       const identified = authoredId || identifiedBlock
-      for (const family of families) issues.push(...familyIssues(family, childWhere, child.attribs, block, identified, options))
+      const element = child.name.toLowerCase()
+      for (const family of families) issues.push(...familyIssues(family, childWhere, child.attribs, element, block, identified, options))
       visit(child.children, block, BLOCK_KINDS.has(child.name.toLowerCase()) ? identified : identifiedBlock)
     }
   }

@@ -10,9 +10,9 @@ Content HTML can include print-safe fields without native form controls. A check
 <div data-segnavia-field="box" data-segnavia-field-lines="3" data-segnavia-field-rule="ruled">worked answer</div>
 ```
 
-A line length is a positive `em` or `ch` value. Without a length, a line fills to the end of its containing line and therefore belongs last on that line. The filling line gives its enclosing block `position: relative` and `overflow-x: clip` through `:has()`; author CSS that positions children from that block must account for that containing-block side effect.
+A line length is a positive `em` or `ch` value in canonical form, such as `1.5em` or `12ch`. Equivalent spellings such as `1.50em` are refused because the size sheet matches the attribute's text. Without a length, a filling line sits directly in its block, such as a `p`, `li`, or `td`; inside inline formatting such as `strong` or `a`, give the line a length. The filling line gives its parent `position: relative` and `overflow-x: clip` through `:has()`; author CSS that positions children from that block must account for that containing-block side effect. Its rule starts where the answer starts and runs to the block's inline end.
 
-An answer box is one writing line high by default. `data-segnavia-field-lines` accepts 1 through 99, and `data-segnavia-field-rule` is `plain` (the default) or `ruled`. Text inside a line or box is the filled answer. Checkbox size follows the surrounding text; the checked attribute is a presence attribute.
+An answer box is one writing line high by default. `data-segnavia-field-lines` accepts a whole number from 1 through 99 without leading zeros, and `data-segnavia-field-rule` is `plain` (the default) or `ruled`. Equivalent line-count spellings such as `05` are refused because the size sheet matches the attribute's text. Text inside a line or box is the filled answer. Checkbox size follows the surrounding text; the checked attribute is a presence attribute.
 
 Answers take their direction from the normal rules: `dir`, then `lang`, then the first strong letter. In a right-to-left block, a filling line runs leftward to the block's inline end. Checkbox marks and boxes follow logical sides.
 

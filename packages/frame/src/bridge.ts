@@ -4,7 +4,6 @@
 // admits only our nonce keeps them from running while the bridge still can:
 // a key pressed inside a slide still pages the deck, a fluid page still
 // reports its height, and print still learns when the slide is painted.
-//
 // Pure string building, so the browser and a server produce the same bytes.
 
 import {
@@ -21,6 +20,7 @@ import {
   type Scripts,
   type SlotFitState,
 } from '@segnavia/format'
+import { baseLayerCss } from '@segnavia/html'
 import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
@@ -349,7 +349,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
     bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     ...(options.sheets ?? frameStyleSheets(undefined, undefined)).map((sheet) => `<style>${sheet}</style>`),
-    ...(fieldSizes ? [`<style>@layer segnavia.base{${fieldSizes}}</style>`] : []),
+    ...(fieldSizes ? [`<style>${baseLayerCss(fieldSizes)}</style>`] : []),
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')
   // An author's root dir and lang win, so library values fill only missing

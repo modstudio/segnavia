@@ -12,13 +12,20 @@ describe('form field base style', () => {
     expect(FIELD_BASE_CSS).not.toMatch(/(?:^|[;{])(left|right|top|bottom|width|height|margin-left|margin-right|padding-left|padding-right):/)
     for (const property of ['rule-color', 'rule-width', 'box-color', 'answer-color', 'answer-font', 'mark-color'])
       expect(FIELD_BASE_CSS).toContain(`var(--segnavia-field-${property},`)
+    expect(FIELD_BASE_CSS).not.toContain(':is(p,li')
+    expect(FIELD_BASE_CSS).toContain(':where([data-segnavia-field="line"]:not([data-segnavia-field-length]))::before')
+    expect(FIELD_BASE_CSS).toContain('block-size:1lh')
+    expect(FIELD_BASE_CSS).toContain('content:"" / "unchecked"')
+    expect(FIELD_BASE_CSS).toContain('content:"" / "checked"')
   })
 
   test('emits one canonical rule per distinct validated size', () => {
     const css = fieldSizeCss(
-      '<span data-segnavia-field="line" data-segnavia-field-length="01.50em"></span><span data-segnavia-field="line" data-segnavia-field-length="1.5em"></span><span data-segnavia-field="line" data-segnavia-field-length="12px"></span><div data-segnavia-field="box" data-segnavia-field-lines="3"></div><div data-segnavia-field="box" data-segnavia-field-lines="100"></div>',
+      '<span data-segnavia-field="line" data-segnavia-field-length="01.50em"></span><span data-segnavia-field="line" data-segnavia-field-length="1.5em"></span><span data-segnavia-field="line" data-segnavia-field-length="8ch"></span><span data-segnavia-field="line" data-segnavia-field-length="12px"></span><div data-segnavia-field="box" data-segnavia-field-lines="2"></div><div data-segnavia-field="box" data-segnavia-field-lines="3"></div><div data-segnavia-field="box" data-segnavia-field-lines="100"></div>',
     )
     expect(css.match(/inline-size:1\.5em/g)).toHaveLength(1)
+    expect(css.match(/inline-size:8ch/g)).toHaveLength(1)
+    expect(css.match(/block-size:calc\(2 \* 1lh\)/g)).toHaveLength(1)
     expect(css.match(/block-size:calc\(3 \* 1lh\)/g)).toHaveLength(1)
     expect(css).not.toContain('01.50em')
     expect(css).not.toContain('12px')

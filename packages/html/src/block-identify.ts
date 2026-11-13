@@ -90,7 +90,7 @@ function sideNoteAttributeIssues(children: readonly ChildNode[], where: string, 
       const nodeWhere = `${where} <${node.name}>`
       const sideNote = node.attribs['data-side-note'] !== undefined
       if (sideNote) {
-        issues.push(...SIDE_NOTE_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs))
+        issues.push(...SIDE_NOTE_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs, node.name.toLowerCase()))
         const placement = sideNotePlacementIssue(nodeWhere, parentRegion, flowing, insideSideNote)
         if (placement) issues.push(placement)
       }
@@ -132,7 +132,7 @@ function lineNumberAttributeIssues(children: readonly ChildNode[], where: string
       if (!isTag(node)) continue
       const nodeWhere = `${where} <${node.name}>`
       if (node.attribs['data-line-numbers'] !== undefined) {
-        issues.push(...LINE_NUMBER_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs))
+        issues.push(...LINE_NUMBER_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs, node.name.toLowerCase()))
         const placement = lineNumberPlacementIssue(nodeWhere, parentRegion, flowing, topLevel)
         if (placement) issues.push(placement)
       }

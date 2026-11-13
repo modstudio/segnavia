@@ -106,6 +106,10 @@ function layer(name: string, css: string): string {
   return `@layer segnavia.${name}{${css}}`
 }
 
+export function baseLayerCss(css: string): string {
+  return layer('base', css)
+}
+
 function balanceBlocks(css: string): string {
   let depth = 0
   let copiedUntil = 0
@@ -141,7 +145,7 @@ export function compileStyleSheet(options: CompileStyleSheetOptions): CompileSty
   const brandCss = balanceBlocks(sanitizeBookCss(sheet.css.brand, options.preflight, definitions).css)
   const authorCss = balanceBlocks(sanitizeBookCss(sheet.css.document, options.preflight, definitions).css)
   const sheets = [
-    `${LAYER_ORDER}${layer('base', options.baseCss ?? DEFAULT_BASE_CSS)}${layer('brand', brandTypedCss)}`,
+    `${LAYER_ORDER}${baseLayerCss(options.baseCss ?? DEFAULT_BASE_CSS)}${layer('brand', brandTypedCss)}`,
     ...(brandCss === '' ? [] : [layer('brand', brandCss)]),
     layer('document', documentCss),
     ...(authorCss === '' ? [] : [layer('author', authorCss)]),

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { StyleSheet } from '@segnavia/format'
-import { compileStyleSheet } from './style-compile.ts'
+import { baseLayerCss, compileStyleSheet } from './style-compile.ts'
 
 const sheet = (value: unknown) => StyleSheet.parse(value)
 
@@ -11,6 +11,10 @@ function compiled(brand: unknown, document: unknown): string[] {
 }
 
 describe('compileStyleSheet', () => {
+  test('wraps base CSS with the compiler-owned layer name', () => {
+    expect(baseLayerCss('.base{color:red}')).toBe('@layer segnavia.base{.base{color:red}}')
+  })
+
   test('orders layers, emits origin tokens and flattens styles with logical properties', () => {
     const sheets = compiled(
       {

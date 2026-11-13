@@ -65,6 +65,17 @@ test('accepts valid form fields and refuses each malformed field value', () => {
     ['<span data-segnavia-field="checkbox" data-segnavia-field-checked="yes"></span>', 'data-segnavia-field-checked is a presence attribute'],
     ['<p data-segnavia-field="line"></p>', 'data-segnavia-field line needs a span'],
     ['<span data-segnavia-field="box"></span>', 'data-segnavia-field box needs a div'],
+    ['<div data-segnavia-field="box" data-segnavia-field-length="10ch"></div>', 'data-segnavia-field-length belongs only to a line field'],
+    ['<span data-segnavia-field="line" data-segnavia-field-lines="2"></span>', 'data-segnavia-field-lines belongs only to a box field'],
+    ['<span data-segnavia-field="checkbox" data-segnavia-field-rule="ruled"></span>', 'data-segnavia-field-rule belongs only to a box field'],
+    ['<div data-segnavia-field="box" data-segnavia-field-checked></div>', 'data-segnavia-field-checked belongs only to a checkbox field'],
+    ['<span data-segnavia-field-length="10ch"></span>', 'field options have no field'],
+    ['<span data-segnavia-field="line" data-segnavia-field-length="0em"></span>', 'data-segnavia-field-length value "0em" is not accepted'],
+    [
+      '<span data-segnavia-field="line" data-segnavia-field-length="1.50em"></span>',
+      'use a positive number in canonical form followed by em or ch, like 1.5em or 12ch',
+    ],
+    ['<div data-segnavia-field="box" data-segnavia-field-lines="05"></div>', 'use a whole number from 1 to 99 without leading zeros'],
   ] as const
   for (const [html, message] of refusals) expect(() => parseDocument(page({ html }), { newId: counter() })).toThrow(message)
 })
