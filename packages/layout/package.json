@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/layout",
+  "description": "Pure page planning and pagination for Segnavia documents.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",

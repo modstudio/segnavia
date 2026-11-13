@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/markdown-editor",
+  "description": "Markdown source and rich-text editing elements for Segnavia.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",

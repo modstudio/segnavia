@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/idml",
+  "description": "IDML import and conversion into validated Segnavia books.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",

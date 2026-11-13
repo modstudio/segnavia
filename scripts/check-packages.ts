@@ -5,7 +5,17 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { bunSource, PACKAGES, RUNTIME_EMPTY_TYPE_ENTRIES, SOURCE_CONDITION, type SourceExport, VUE_MODULE_NAMES, VUE_TYPE_ENTRIES } from '../architecture.ts'
+import {
+  bunSource,
+  entrySpecifier,
+  PACKAGES,
+  RUNTIME_EMPTY_TYPE_ENTRIES,
+  SOURCE_CONDITION,
+  type SourceExport,
+  sourceRuntime,
+  VUE_MODULE_NAMES,
+  VUE_TYPE_ENTRIES,
+} from '../architecture.ts'
 
 const ROOT = path.resolve(import.meta.dirname, '..')
 const WORK = path.join(ROOT, 'out/package-check')
@@ -59,10 +69,6 @@ function assertEmptyTypeEntry(packageName: string, exportName: string, javascrip
   }
 }
 
-function specifier(packageName: string, exportName: string): string {
-  return exportName === '.' ? packageName : `${packageName}${exportName.slice(1)}`
-}
-
 await run(['bun', 'run', 'build'])
 rmSync(WORK, { recursive: true, force: true })
 mkdirSync(TARBALLS, { recursive: true })
@@ -90,7 +96,7 @@ for (const [exportName, conditions] of Object.entries(frame.manifest.exports).fi
   const imports = new Bun.Transpiler({ loader: 'js' }).scan(readFileSync(file, 'utf8')).imports
   const staticImports = imports.filter(({ kind }) => kind === 'import-statement')
   if (staticImports.length > 0) {
-    throw new Error(`${specifier(frame.manifest.name, exportName)} must be one self-contained browser entry; found ${staticImports[0]?.path}.`)
+    throw new Error(`${entrySpecifier(frame.manifest.name, exportName)} must be one self-contained browser entry; found ${staticImports[0]?.path}.`)
   }
 }
 
@@ -151,7 +157,7 @@ const serverImports: string[] = []
 let alias = 0
 for (const { name, directory, manifest } of installed) {
   for (const [exportName, conditions] of Object.entries(manifest.exports)) {
-    const target = specifier(manifest.name, exportName)
+    const target = entrySpecifier(manifest.name, exportName)
     const javascript = readFileSync(path.join(directory, conditions.default), 'utf8')
     assertEmptyTypeEntry(name, exportName, javascript)
     const names = new Bun.Transpiler({ loader: 'js' }).scan(javascript).exports
@@ -168,7 +174,7 @@ for (const { name, directory, manifest } of installed) {
 
     const rule = PACKAGES[name]
     const source = bunSource(conditions[SOURCE_CONDITION]).replace(/^\.\//, '')
-    if (rule?.runtime !== 'browser' || rule.serverSafe?.includes(source)) serverImports.push(target)
+    if (!rule || sourceRuntime(rule, source) !== 'browser') serverImports.push(target)
   }
 }
 

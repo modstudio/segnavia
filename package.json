@@ -8,6 +8,7 @@
   "scripts": {
     "setup": "git config core.hooksPath .githooks",
     "build": "bun scripts/build.ts",
+    "readmes": "bun --conditions=@segnavia/source scripts/readmes.ts",
     "check": "bun --conditions=@segnavia/source scripts/check.ts",
     "lint": "biome check .",
     "format": "biome check --write .",

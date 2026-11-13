@@ -1,8 +1,10 @@
 // The repository's own rules as pure decisions over a file's path, text and
 // imports, so the gate can test them and the runner only gathers facts.
 
+import { readFileSync } from 'node:fs'
 import { BUN_SUPPORTED_PACKAGES, FILE_CEILING_LINES, type PackageRule } from '../../architecture.ts'
 import { CHROMIUM_ENVIRONMENT_VARIABLE, CHROMIUM_PATH_MODULE } from '../chromium-path.ts'
+import { entriesRegion, entryRows, entryTable, firstDifferingEntry, missingSourceCondition, type PackageExports, sourceConditionRefusal } from './readme.ts'
 import { blankComments, comments, stripComments } from './source-text.ts'
 
 export interface SourceFile {
@@ -46,6 +48,25 @@ export interface PackageManifestDependencies {
   peerDependencies?: Record<string, string>
   optionalDependencies?: Record<string, string>
   devDependencies?: Record<string, string>
+}
+
+export function checkReadme(name: string, exports: PackageExports, rule: PackageRule, readme: string | null): Finding[] {
+  const packageName = name.replace(/^@segnavia\//, '')
+  const path = `packages/${packageName}/README.md`
+  if (readme === null) {
+    return [{ rule: 'readme', path, message: `${name} has no README; add it, then run bun run readmes.` }]
+  }
+  const region = entriesRegion(readme)
+  if (!region) {
+    return [{ rule: 'readme', path, message: `${name} is missing its entry markers; add them, then run bun run readmes.` }]
+  }
+  const missing = missingSourceCondition(exports)
+  if (missing) return [{ rule: 'readme', path, message: sourceConditionRefusal(name, missing) }]
+  const rows = entryRows(name, exports, rule)
+  const actual = readme.slice(region.start, region.end).trim()
+  if (actual === entryTable(rows)) return []
+  const entry = firstDifferingEntry(actual, rows)
+  return [{ rule: 'readme', path, message: `${name} entry ${entry} is stale; run bun run readmes.` }]
 }
 
 export function checkBunEngine(workflow: string, manifests: PackageManifestDependencies[]): Finding[] {
@@ -276,6 +297,10 @@ export function checkHostNames(file: SourceFile, names: string[]): Finding[] {
 
 // A comment states what the code does now and why. These phrases tell how it
 // came to be, which git already records.
+export const TRACKER_KEY = /\b[A-Z][A-Z0-9]+-\d+\b/
+const TRACKER_PREFIX = readFileSync(new URL('../../.githooks/key-prefix', import.meta.url), 'utf8').trim()
+const README_TRACKER_KEY = new RegExp(`\\b${TRACKER_PREFIX.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}-\\d+\\b`)
+
 export const NARRATION = [
   /\bused to (?:be|have)\b/i,
   /\bformerly\b/i,
@@ -285,8 +310,35 @@ export const NARRATION = [
   /\bthis replaces?d?\b/i,
   /\bthe first draft\b/i,
   /\brestores? the (?:earlier|old|previous)\b/i,
-  /\b[A-Z][A-Z0-9]+-\d+\b/,
+  TRACKER_KEY,
 ]
+
+export function checkTrackerKeys(file: SourceFile): Finding[] {
+  const key = file.text.match(README_TRACKER_KEY)?.[0]
+  return key
+    ? [{ rule: 'tracker-key', path: file.path, message: `names tracker key ${key}; docs describe the current design without tracker references.` }]
+    : []
+}
+
+export function readmeFindings({
+  name,
+  exports,
+  rule,
+  readme,
+  hostNames,
+}: {
+  name: string
+  exports: PackageExports
+  rule: PackageRule
+  readme: string | null
+  hostNames: string[]
+}): Finding[] {
+  const findings = checkReadme(name, exports, rule, readme)
+  if (readme === null) return findings
+  const packageName = name.replace(/^@segnavia\//, '')
+  const file = { path: `packages/${packageName}/README.md`, text: readme, imports: [] }
+  return [...findings, ...checkHostNames(file, hostNames), ...checkTrackerKeys(file)]
+}
 
 export function checkComments(file: SourceFile): Finding[] {
   const findings: Finding[] = []

@@ -9,6 +9,7 @@ import { PACKAGES, REACT_PACKAGE_ALLOWLIST, SOURCE_CONDITION } from '../architec
 import { selectChangedTests } from './checks/changed.ts'
 import { hostNamesFile } from './checks/host-names.ts'
 import { checkRandomUuidSource } from './checks/random-uuid-source.ts'
+import type { PackageExports } from './checks/readme.ts'
 import { type ChangesetRelease, checkReleasePlan, type DeclaredChangeset } from './checks/release-plan.ts'
 import {
   checkBunEngine,
@@ -24,6 +25,7 @@ import {
   checkVueDependencies,
   type Finding,
   packageOf,
+  readmeFindings,
   type Workspace,
 } from './checks/rules.ts'
 import { checkSideEffects, type SideEffectsPackage } from './checks/side-effects.ts'
@@ -92,6 +94,17 @@ function testFiles(): string[] {
   return [...found].sort()
 }
 
+function packageReadmeFindings(packageName: string, names: string[]): Finding[] {
+  const manifestPath = `packages/${packageName}/package.json`
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, manifestPath), 'utf8')) as {
+    name: string
+    exports: PackageExports
+  }
+  const readmePath = `packages/${packageName}/README.md`
+  const readme = existsSync(path.join(ROOT, readmePath)) ? readFileSync(path.join(ROOT, readmePath), 'utf8') : null
+  return readmeFindings({ name: manifest.name, exports: manifest.exports, rule: PACKAGES[packageName] as Workspace['rule'], readme, hostNames: names })
+}
+
 function structural(names: string[]): Finding[] {
   const all = workspaces()
   const findings: Finding[] = []
@@ -121,6 +134,7 @@ function structural(names: string[]): Finding[] {
   for (const name of Object.keys(PACKAGES)) {
     const manifestPath = `packages/${name}/package.json`
     const manifest = JSON.parse(readFileSync(path.join(ROOT, manifestPath), 'utf8')) as { sideEffects?: boolean | string[] }
+    findings.push(...packageReadmeFindings(name, names))
     if (!Array.isArray(manifest.sideEffects)) continue
     const sourcePattern = `packages/${name}/src/**/*.ts`
     const sideEffectsPackage: SideEffectsPackage = {
@@ -210,8 +224,8 @@ if (names.length === 0) console.log('! host-name rule was not enforced; create h
 if (findings.length === 0) {
   const rules =
     names.length === 0
-      ? 'architecture, chromium-path, comments, file ceiling, test vacuity'
-      : 'architecture, chromium-path, host names, comments, file ceiling, test vacuity'
+      ? 'architecture, chromium-path, comments, file ceiling, readme, tracker keys, test vacuity'
+      : 'architecture, chromium-path, host names, comments, file ceiling, readme, tracker keys, test vacuity'
   console.log(`✓ ${rules} (${sources().length} files)`)
 }
 

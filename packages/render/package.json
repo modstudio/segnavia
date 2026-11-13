@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/render",
+  "description": "Offline PDF and image rendering for Segnavia documents.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",

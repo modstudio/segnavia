@@ -1,5 +1,6 @@
 {
   "name": "@segnavia/voice",
+  "description": "Narration audio, word timing, and alignment for Segnavia.",
   "version": "0.56.0",
   "type": "module",
   "license": "MIT",

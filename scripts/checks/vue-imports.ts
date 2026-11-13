@@ -1,11 +1,11 @@
 import path from 'node:path'
 import ts from 'typescript'
-import { VUE_TYPE_ENTRIES } from '../../architecture.ts'
+import { entrySpecifier, VUE_TYPE_ENTRIES } from '../../architecture.ts'
 import type { Finding, SourceFile } from './rules.ts'
 
 const vueEntries = Object.entries(VUE_TYPE_ENTRIES).map(([packageName, entry]) => ({
   path: `packages/${packageName}/${entry.source}`,
-  specifier: `@segnavia/${packageName}${entry.exportName.slice(1)}`,
+  specifier: entrySpecifier(`@segnavia/${packageName}`, entry.exportName),
 }))
 
 function resolvesVueEntry(filePath: string, specifier: string): boolean {
