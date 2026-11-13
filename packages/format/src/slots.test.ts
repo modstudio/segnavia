@@ -10,7 +10,7 @@ describe('slot declarations', () => {
     expect(Page.parse({ html: '', slots: [name] }).slots).toEqual([{ ...name, required: false, overflow: 'wrap' }])
   })
 
-  test('writes are strict while stored declarations tolerate newer fields', () => {
+  test('refuses unknown declaration keys at every edge', () => {
     expect(SlotDeclaration.safeParse({ ...name, future: true }).success).toBe(false)
     expect(SlotDeclarationInput.safeParse({ ...name, future: true }).success).toBe(false)
   })

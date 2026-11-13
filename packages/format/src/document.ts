@@ -24,7 +24,7 @@ import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numberi
 import { PageSize } from './page.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { parentRules } from './parent-rules.ts'
-import { PressGeometry, Print, pressSafeAreaIssues } from './print.ts'
+import { Print, pressGeometryFields, pressSafeAreaIssues, refinePressGeometry } from './print.ts'
 import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
@@ -39,15 +39,11 @@ const DocumentSettings = closedObject({
 })
 const DocumentData = closedObject({ slots: Slots.optional() })
 const DocumentPrint = closedObject({
-  ...PressGeometry.shape,
+  ...pressGeometryFields,
   paper: Paper.optional(),
   orientation: Orientation.optional(),
   margin: LogicalMargin.optional(),
-}).superRefine((print, ctx) => {
-  if (print.markColor === 'registration' && !print.marks) {
-    ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
-  }
-})
+}).superRefine(refinePressGeometry)
 
 export const DocumentShape = closedObject({
   type: z.literal('document'),

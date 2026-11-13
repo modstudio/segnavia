@@ -22,10 +22,26 @@ describe('closedObject', () => {
     )
   })
 
-  test('directs parent page margin to its defined home', () => {
-    const schema = closedObject({ parentPages: z.array(closedObject({ geometry: closedObject({}) })) })
+  test('applies remedies only to the object that defines them', () => {
+    const schema = closedObject({
+      parentPages: z.array(
+        closedObject(
+          {
+            geometry: closedObject({}),
+            regions: z.record(z.string(), closedObject({ html: z.string() })).default({}),
+          },
+          { margin: 'move it to geometry.margin' },
+        ),
+      ),
+    })
     expect(schema.safeParse({ parentPages: [{ geometry: {}, margin: 12 }] }).error?.issues[0]?.message).toBe(
       'parentPages[0].margin: unknown key "margin"; the model does not define it here; move it to geometry.margin to clear this refusal',
+    )
+    expect(schema.safeParse({ parentPages: [{ geometry: {}, regions: { head: { html: '', margin: 12 } } }] }).error?.issues[0]?.message).toBe(
+      'parentPages[0].regions.head.margin: unknown key "margin"; the model does not define it here; remove it to clear this refusal',
+    )
+    expect(schema.safeParse({ parentPages: [{ geometry: {}, margin: 12, future: true }] }).error?.issues[0]?.message).toBe(
+      'parentPages[0]: unknown keys "margin", "future"; the model does not define them here; move "margin" to geometry.margin and remove "future" to clear this refusal',
     )
   })
 })

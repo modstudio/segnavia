@@ -4,7 +4,7 @@ import { FOLD_KINDS, refineFold, resolveImposition } from './fold.ts'
 import { refuseOverflow } from './imposition-fit.ts'
 import { PhysicalMargin } from './margins.ts'
 import { Orientation, Paper, PaperUnit, sheetMm, toMillimeters } from './paper.ts'
-import { MarkColor } from './print.ts'
+import { MarkColor, refinePressGeometry } from './print.ts'
 
 const ImpositionGap = z.object({
   column: z.number().nonnegative().default(0),
@@ -47,9 +47,7 @@ export const Imposition = z
   })
   .superRefine((imposition, ctx) => {
     refineRemovedPiecePress(imposition, ctx)
-    if (imposition.markColor === 'registration' && !imposition.marks) {
-      ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
-    }
+    refinePressGeometry(imposition, ctx)
     if (imposition.cornerMarks && !imposition.marks) {
       ctx.addIssue({ code: 'custom', path: ['cornerMarks'], message: 'cornerMarks requires marks to be true' })
     }

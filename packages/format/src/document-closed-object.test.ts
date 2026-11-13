@@ -52,6 +52,24 @@ describe('Document closed objects', () => {
         'parentPages[0].margin: unknown key "margin"; the model does not define it here; move it to geometry.margin',
       )
 
+    const regionMargin = Document.safeParse({
+      ...root,
+      parentPages: [{ type: 'parentPage', name: 'body', regions: { head: { edge: 'blockStart', html: '', margin: 12 } } }],
+    })
+    expect(regionMargin.success).toBeFalse()
+    if (!regionMargin.success && regionMargin.error instanceof z.ZodError)
+      expect(regionMargin.error.issues[0]?.message).toContain(
+        'parentPages[0].regions.head.margin: unknown key "margin"; the model does not define it here; remove it',
+      )
+
+    const marginAndUnknown = Document.safeParse({
+      ...root,
+      parentPages: [{ type: 'parentPage', name: 'body', margin: 12, future: true }],
+    })
+    expect(marginAndUnknown.success).toBeFalse()
+    if (!marginAndUnknown.success && marginAndUnknown.error instanceof z.ZodError)
+      expect(marginAndUnknown.error.issues[0]?.message).toContain('move "margin" to geometry.margin and remove "future"')
+
     const multiple = Document.safeParse({ ...root, children: [{ type: 'part', name: 'one', number: 1, contentsLabel: 'One', children: [] }] })
     expect(multiple.success).toBeFalse()
     if (!multiple.success && multiple.error instanceof z.ZodError) {

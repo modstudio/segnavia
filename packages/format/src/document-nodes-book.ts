@@ -39,14 +39,18 @@ export const ContentsNode = NodeId.extend({
   numbering: SectionNumbering.optional(),
 })
 
-export const ParentPageNode = NodeId.extend({
-  ...RemovedParentPageFields,
-  type: z.literal('parentPage'),
-  name: z.string().min(1),
-  basedOn: z.string().min(1).optional(),
-  geometry: closedObject({ margin: RequiredLogicalMargin.optional() }).default({}),
-  regions: ParentRegions.default({}),
-})
+export const ParentPageNode = closedObject(
+  {
+    ...NodeId.shape,
+    ...RemovedParentPageFields,
+    type: z.literal('parentPage'),
+    name: z.string().min(1),
+    basedOn: z.string().min(1).optional(),
+    geometry: closedObject({ margin: RequiredLogicalMargin.optional() }).default({}),
+    regions: ParentRegions.default({}),
+  },
+  { margin: 'move it to geometry.margin' },
+)
 export const TemplateNode = BookTemplate.extend({ type: z.literal('template'), id: z.string().optional() })
 export const NoteSeriesNode = NoteSeries.extend({ type: z.literal('noteSeries'), id: z.string().optional() })
 

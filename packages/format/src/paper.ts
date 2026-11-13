@@ -100,7 +100,8 @@ export const Paper = z.union([z.enum(NAMED_PAPERS), CustomPaper])
 export type Paper = z.infer<typeof Paper>
 
 const PrintSettingShape = { paper: Paper, orientation: Orientation } as const
-export const PrintSetting = closedObject(PrintSettingShape)
+// Reading stored history ignores fields added by a newer host. Writes use the strict form so a typo cannot silently enter storage.
+export const PrintSetting = z.object(PrintSettingShape)
 export type PrintSetting = z.infer<typeof PrintSetting>
 export const PrintSettingInput = closedObject(PrintSettingShape)
 export type PrintSettingInput = z.input<typeof PrintSettingInput>
