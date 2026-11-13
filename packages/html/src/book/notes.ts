@@ -208,7 +208,13 @@ function transformAuthoredNote(
   if (lemma) lemma.attribs['data-segnavia-line-note-anchor'] = noteId
   const replacement =
     series.key === 'line'
-      ? element('span', { id: refId, 'data-segnavia-line-note': noteId, ...(lemma ? {} : { 'data-segnavia-line-note-anchor': noteId }), 'aria-hidden': 'true' })
+      ? element('a', {
+          id: refId,
+          href: `#${noteId}`,
+          'data-segnavia-line-note': noteId,
+          ...(lemma ? {} : { 'data-segnavia-line-note-anchor': noteId }),
+          'aria-hidden': 'true',
+        })
       : element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)])
   replace(note, replacement)
   const paragraph =

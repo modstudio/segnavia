@@ -98,7 +98,6 @@ export const BookShape = closedObject({
   lang: z.string().optional(),
   lineNumbers: LineNumbers.optional(),
   sideNotes: SideNotes.optional(),
-  lineNoteSeries: z.array(closedObject({ name: z.string(), system: NumberSystem })).optional(),
   frontMatter: z.array(BookItem).default([]),
   body: z.array(BookItem).optional(),
   endMatter: z.array(BookItem).default([]),
@@ -168,6 +167,7 @@ export const BookViewPagination = closedObject({
   document: VariableDocumentFacts.optional(),
   lineNumbers: LineNumbers.optional(),
   sideNotes: SideNotes.optional(),
+  lineNoteSeries: z.array(closedObject({ name: z.string(), system: NumberSystem })).optional(),
 }).superRefine((pagination, ctx) =>
   refineDocumentVariables(
     {

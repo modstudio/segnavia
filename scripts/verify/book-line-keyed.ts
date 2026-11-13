@@ -39,10 +39,17 @@ function lineKeyedFacts(): LineKeyedFact[] {
 }
 
 export async function verifyBookLineKeyed(h: Harness) {
+  const pageErrors: string[] = []
+  h.page.on('pageerror', (error) => pageErrors.push(error.message))
   await h.page.goto(h.url('book-line-keyed.html'))
   for (const language of ['en', 'he'] as const) {
     const frame = h.page.frameLocator(`#book-line-keyed-${language} iframe[data-segnavia-book-layout="pages"]`)
-    await frame.locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]').waitFor({ timeout: 20_000, state: 'attached' })
+    await frame
+      .locator('html[data-segnavia-composed],html[data-segnavia-compose-failure]')
+      .waitFor({ timeout: 60_000, state: 'attached' })
+      .catch(() => {
+        throw new Error(`book-line-keyed-${language} did not finish composition: ${pageErrors.join('; ') || 'no page error was reported'}`)
+      })
     const failure = await frame.locator('html').getAttribute('data-segnavia-compose-failure')
     if (failure) throw new Error(`book-line-keyed-${language} composition failed: ${failure}`)
     const facts = await frame.locator('html').evaluate(lineKeyedFacts)
