@@ -1,8 +1,9 @@
 import { z } from 'zod'
 import { GridCell } from './board.ts'
 import { definitionCollections } from './document.ts'
-import { DocumentNode } from './document-nodes.ts'
-import { DocumentDefinitionNode } from './document-nodes-book.ts'
+import { discriminatedNodeUnion } from './document-node-discriminator.ts'
+import { DocumentNodeMembers } from './document-nodes.ts'
+import { DocumentDefinitionNodeMembers } from './document-nodes-book.ts'
 
 export const DocumentCollection = z.enum(definitionCollections)
 export type DocumentCollection = z.infer<typeof DocumentCollection>
@@ -21,7 +22,7 @@ const SetChange = {
   priorAbsent: z.array(z.string()),
 }
 const ContentTarget = { type: z.literal('setContent'), id: z.string().min(1), field: z.string().min(1) }
-const OperableNode = z.union([DocumentNode, DocumentDefinitionNode])
+const OperableNode = discriminatedNodeUnion([...DocumentNodeMembers, ...DocumentDefinitionNodeMembers])
 const Positioned = z.object({ after: z.string().nullable() })
 
 export const DocumentOp = z.union([

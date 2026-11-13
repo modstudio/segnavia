@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { closedObject } from './closed-object.ts'
+import { discriminatedNodeUnion } from './document-node-discriminator.ts'
 import { ContentsNode, SectionFields } from './document-nodes-book.ts'
 import {
   BoardItemNode,
@@ -80,7 +81,8 @@ export const DivisionNodeFields = {
   settings: DivisionSettings.optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-export const DivisionNode = closedObject(DivisionNodeFields) as z.ZodType<DivisionNode>
+const DivisionNodeSchema = closedObject(DivisionNodeFields)
+export const DivisionNode = DivisionNodeSchema as z.ZodType<DivisionNode>
 
 export const PartNodeFields = {
   type: z.literal('part'),
@@ -94,7 +96,8 @@ export const PartNodeFields = {
   parents: z.unknown().optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-export const PartNode = closedObject(PartNodeFields) as z.ZodType<PartNode>
+const PartNodeSchema = closedObject(PartNodeFields)
+export const PartNode = PartNodeSchema as z.ZodType<PartNode>
 
 export const SectionNodeFields = {
   type: z.literal('section'),
@@ -103,21 +106,22 @@ export const SectionNodeFields = {
   template: z.string().min(1).optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-export const SectionNode = closedObject(SectionNodeFields) as z.ZodType<SectionNode>
+const SectionNodeSchema = closedObject(SectionNodeFields)
+export const SectionNode = SectionNodeSchema as z.ZodType<SectionNode>
 
-export const DocumentNode: z.ZodType<DocumentNode> = z.lazy(() =>
-  z.union([
-    DivisionNode,
-    PartNode,
-    SectionNode,
-    FlowNode,
-    PageNode,
-    SlideNode,
-    PlacedNode,
-    ContentsNode,
-    RecordNode,
-    BoardItemNode,
-    LabelNode,
-    BoardSectionNode,
-  ]),
-)
+export const DocumentNodeMembers = [
+  DivisionNodeSchema,
+  PartNodeSchema,
+  SectionNodeSchema,
+  FlowNode,
+  PageNode,
+  SlideNode,
+  PlacedNode,
+  ContentsNode,
+  RecordNode,
+  BoardItemNode,
+  LabelNode,
+  BoardSectionNode,
+] as const
+
+export const DocumentNode: z.ZodType<DocumentNode> = z.lazy(() => discriminatedNodeUnion(DocumentNodeMembers))

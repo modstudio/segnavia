@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { BookOpens, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
+import { discriminatedNodeUnion } from './document-node-discriminator.ts'
 import { NodeId } from './document-nodes-common.ts'
 import { SectionNumbering } from './folio.ts'
 import { HeadTemplate } from './head-template.ts'
@@ -71,7 +72,8 @@ export const VariableNode = z.discriminatedUnion('kind', [
 
 export const ConditionNode = NodeId.extend({ type: z.literal('condition'), name: z.string() })
 
-export const DocumentDefinitionNode = z.union([ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, HeadTemplateNode, ConditionNode])
+export const DocumentDefinitionNodeMembers = [ParentPageNode, TemplateNode, NoteSeriesNode, VariableNode, HeadTemplateNode, ConditionNode] as const
+export const DocumentDefinitionNode = discriminatedNodeUnion(DocumentDefinitionNodeMembers)
 
 export type ContentsNode = z.infer<typeof ContentsNode>
 export type ParentPageNode = z.infer<typeof ParentPageNode>

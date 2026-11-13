@@ -158,9 +158,12 @@ host contract.
 
 The common root fields are `type: 'document'`, `kind`, optional `id`, `metadata`,
 `title`, `limits`, `settings`, `style`, `data`, `children`, and the named
-definition collections. A node has a `type` and optional `id`. The profile for
-the document kind determines which other root fields, node types and definition
-collections are accepted.
+definition collections. A node has a `type` and optional `id`. Node schemas are
+discriminated by `type`, so a known type reports its own field errors at their
+full document paths. A missing or unknown type is refused with the received
+value and the complete stable list of types accepted at that location. The
+profile for the document kind determines which other root fields, node types
+and definition collections are accepted.
 
 `Document.parse(input, { newId })` is the structural edge. It preserves every
 supplied node id and uses the host's `newId` function for every missing root,
