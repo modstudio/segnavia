@@ -178,10 +178,10 @@ export const PREFLIGHT_REGIONS_LIMIT = 256
 export const PREFLIGHT_DROPPED_IDS_LIMIT = 50
 export const PREFLIGHT_REGION_FIELD_LIMIT = 10_000
 export const PREFLIGHT_SLOTS_LIMIT = 10_000
-
 export function boundPreflightReport(
   input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown; readonly coverage?: unknown },
   profile: PreflightProfile,
+  options: { readonly unit?: 'page' | 'slide' } = {},
   bounds?: {
     readonly checks: readonly PreflightCheck[]
     readonly issuesPerCheck: number
@@ -201,6 +201,8 @@ export function boundPreflightReport(
     readonly slots?: number
   },
 ): PreflightReport {
+  const coverageUnits = { page: ['page', 'pages'], slide: ['slide', 'slides'] } as const
+  const [coverageUnit, coverageUnitsPlural] = coverageUnits[options.unit ?? 'page']
   const isCoverageIncompleteEntry = (value: unknown): boolean =>
     !!value && typeof value === 'object' && !Array.isArray(value) && (value as { check?: unknown }).check === 'coverage-incomplete'
   const coverageIncompleteEntries = (coverage: PreflightCoverage): PreflightEntry[] => {
@@ -208,8 +210,8 @@ export function boundPreflightReport(
     if (coverage.measured < coverage.total) {
       entries.push({
         check: 'coverage-incomplete',
-        subject: 'pages',
-        message: `Preflight measured ${coverage.measured} of ${coverage.total} ${coverage.total === 1 ? 'page' : 'pages'}; a page that is never laid out cannot be checked. Lay out every page to clear this.`,
+        subject: coverageUnitsPlural,
+        message: `Preflight measured ${coverage.measured} of ${coverage.total} ${coverage.total === 1 ? coverageUnit : coverageUnitsPlural}; a ${coverageUnit} that is never laid out cannot be checked. Lay out every ${coverageUnit} to clear this.`,
       })
     }
     if (coverage.slots.measured < coverage.slots.total) {

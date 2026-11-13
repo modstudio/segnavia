@@ -196,6 +196,19 @@ describe('boundPreflightReport', () => {
     ])
   })
 
+  test('uses singular and plural slide wording when the counted unit is a slide', () => {
+    const singular = boundPreflightReport({ entries: [], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.default, { unit: 'slide' })
+    const plural = boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 2 } }, PREFLIGHT_PRESETS.default, { unit: 'slide' })
+    expect(singular.issues[0]).toMatchObject({
+      subject: 'slides',
+      message: 'Preflight measured 0 of 1 slide; a slide that is never laid out cannot be checked. Lay out every slide to clear this.',
+    })
+    expect(plural.issues[0]).toMatchObject({
+      subject: 'slides',
+      message: 'Preflight measured 1 of 2 slides; a slide that is never laid out cannot be checked. Lay out every slide to clear this.',
+    })
+  })
+
   test('bounds page and slot coverage and defaults missing slot coverage to empty', () => {
     expect(
       boundPreflightReport(

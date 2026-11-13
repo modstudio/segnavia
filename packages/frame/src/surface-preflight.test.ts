@@ -5,7 +5,8 @@ import { mergeSurfacePreflightReports, SurfacePreflightCoordinator, type Surface
 const facts = { pageCount: 1, pages: [], fits: [] }
 const report = (entries: PreflightEntry[] = []) => boundPreflightReport({ entries, facts }, PREFLIGHT_PRESETS.default)
 const overset = (subject: string): PreflightEntry => ({ check: 'slot-overset', subject, message: `${subject} is overset` })
-const surface = (...keys: string[]): SurfacePreflightItem<string>[] => keys.map((key, index) => ({ key, folio: String(index + 1) }))
+const surface = (...keys: string[]): SurfacePreflightItem<string>[] => keys.map((key, index) => ({ key, folio: String(index + 1), kind: 'page' }))
+const slideSurface = (...keys: string[]): SurfacePreflightItem<string>[] => keys.map((key, index) => ({ key, folio: String(index + 1), kind: 'slide' }))
 
 function coordinator() {
   const target = new EventTarget()
@@ -112,14 +113,14 @@ test('an off profile ignores received reports', () => {
 
 test('reports incomplete coverage after other issues at their profile severity', () => {
   const warned = new Map([['slide', report([overset('warning')])]])
-  const slides = surface('slide', 'unmeasured')
+  const slides = slideSurface('slide', 'unmeasured')
   expect(mergeSurfacePreflightReports(warned, slides, PREFLIGHT_PRESETS.default)).toMatchObject({
     status: 'warnings',
-    issues: [{ check: 'slot-overset' }, { check: 'coverage-incomplete', subject: 'pages', severity: 'warning' }],
+    issues: [{ check: 'slot-overset' }, { check: 'coverage-incomplete', subject: 'slides', severity: 'warning' }],
   })
   expect(mergeSurfacePreflightReports(warned, slides, PREFLIGHT_PRESETS.strict)).toMatchObject({
     status: 'errors',
-    issues: [{ check: 'slot-overset' }, { check: 'coverage-incomplete', subject: 'pages', severity: 'error' }],
+    issues: [{ check: 'slot-overset' }, { check: 'coverage-incomplete', subject: 'slides', severity: 'error' }],
   })
 })
 

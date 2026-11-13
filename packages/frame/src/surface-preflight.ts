@@ -13,6 +13,7 @@ export type SurfacePreflightKey = number | string
 export interface SurfacePreflightItem<Key extends SurfacePreflightKey = SurfacePreflightKey> {
   key: Key
   folio: string
+  kind: 'page' | 'slide'
 }
 
 export function surfacePreflightProfile(input: PreflightProfileInput): PreflightProfile {
@@ -51,9 +52,11 @@ export function mergeSurfacePreflightReports<Key extends SurfacePreflightKey>(
     fits.push(...report.facts.fits)
   }
   const total = surface.length
+  const unit = surface[0]?.kind ?? 'page'
   return boundPreflightReport(
     { entries, omitted, facts: { pageCount: total, pages, fits }, coverage: { measured, total, slots: { measured: measuredSlots, total: totalSlots } } },
     profile,
+    { unit },
   )
 }
 

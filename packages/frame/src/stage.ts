@@ -279,7 +279,7 @@ export class SegnaviaStage extends AsOfElement {
     const scripts = shownScripts(deck.scripts, this.authoringRefusesScripts)
     const folios = deckFolios(deck)
     surfacePreflightFor(this).setSurface(
-      deck.slides.map((slide, index) => ({ key: slide.id, folio: deckFolioAt(folios, index).text })),
+      deck.slides.map((slide, index) => ({ key: slide.id, folio: deckFolioAt(folios, index).text, kind: 'slide' })),
       true,
     )
     const shownState = scripts === deck.scripts ? state : { ...state, deck: { ...deck, scripts } }

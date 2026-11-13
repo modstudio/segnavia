@@ -78,6 +78,44 @@ test('strict preflight refuses an unmeasured refuse slot', () => {
   expect(failures[0]).toContain('overflow could not be measured for slots: "name"')
 })
 
+test('measures slot coverage without reporting slot overset when that check is off', () => {
+  const posted: Array<{ report?: import('@segnavia/format').PreflightReport }> = []
+  const profile = { ...PREFLIGHT_PRESETS.default, 'slot-overset': 'off', 'coverage-incomplete': 'error' } as const
+  const complete = new Function(
+    'config',
+    'planFolios',
+    'preflightEntries',
+    'preflightFits',
+    'fail',
+    'window',
+    'document',
+    'mergeRegionFact',
+    'preflightRegions',
+    `${embeddedPreflightFunctions()};return completePreflight`,
+  )(
+    { preflight: profile },
+    { folios: [] },
+    [],
+    [],
+    () => {},
+    {
+      parent: { postMessage: (message: { report?: import('@segnavia/format').PreflightReport }) => posted.push(message) },
+      segnaviaSlotFit: (done: (slots: Record<string, string>) => void) => done({ name: 'unmeasured' }),
+    },
+    { documentElement: { setAttribute: () => {} }, querySelectorAll: () => [{ getAttribute: () => 'name:refuse' }] },
+    mergeRegionFact,
+    [],
+  ) as (plan: { pages: unknown[] }, flows: unknown[], done: () => void) => void
+
+  complete({ pages: [] }, [], () => {})
+  expect(posted[0]?.report).toMatchObject({
+    status: 'errors',
+    coverage: { slots: { measured: 0, total: 1 } },
+    issues: [{ check: 'coverage-incomplete', subject: 'slots', severity: 'error' }],
+  })
+  expect(posted[0]?.report?.issues.some(({ check }) => check === 'slot-overset')).toBe(false)
+})
+
 test('slot preflight coverage counts distinct marked keys and only measured states', () => {
   const mark = (value: string) => ({ getAttribute: () => value })
   const facts = slotMarkCoverage({ name: 'fit', title: 'unmeasured' }, [mark('name:refuse'), mark('name:refuse'), mark('title:shrink:8')])
