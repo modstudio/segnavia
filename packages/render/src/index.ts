@@ -175,7 +175,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
     async pagePdf(input, opts = {}) {
-      const parsedOptions = parsePagePdfOptions(opts ?? {})
+      const parsedOptions = parsePagePdfOptions(opts ?? {}, 'pagePdf')
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const overflows: OverflowEntry[] = []
         const prepared = await prepareRenderedPage(input, parsedOptions, parsedOptions.motifs, deadline.signal, 'print')
@@ -373,7 +373,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       })
     },
 
-    proofImage(input, opts) {
+    async proofImage(input, opts) {
       opts = parseProofImageOptions(opts)
       return withinRenderPermit(RENDER_BOUND_MS, acquire, release, (deadline) =>
         withTab(

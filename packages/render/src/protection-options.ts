@@ -1,5 +1,6 @@
 import { RenderRefusedError } from './errors.ts'
 import { refuseUnknownOptions } from './render-option-keys.ts'
+import type { RenderCall } from './renderer.ts'
 
 export interface PdfPermissions {
   print?: 'none' | 'low' | 'high'
@@ -32,16 +33,21 @@ const PERMISSION_TABLE = {
   annotate: { argument: 'annotate', defaultValue: false, enabledValue: 'y', disabledValue: 'n' },
   fillForms: { argument: 'form', defaultValue: false, enabledValue: 'y', disabledValue: 'n' },
   assemble: { argument: 'assemble', defaultValue: false, enabledValue: 'y', disabledValue: 'n' },
-} as const
-export const PERMISSION_OPTION_KEYS = {
-  print: true,
-  copy: true,
-  modify: true,
-  annotate: true,
-  fillForms: true,
-  assemble: true,
-} as const satisfies Record<keyof PdfPermissions, true>
+} as const satisfies Record<keyof PdfPermissions, PermissionRule>
+type Same<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false
+const exactPermissionTableKeys: Same<keyof typeof PERMISSION_TABLE, keyof PdfPermissions> = true
+void exactPermissionTableKeys
+export const PERMISSION_OPTION_KEYS = Object.fromEntries(Object.keys(PERMISSION_TABLE).map((field) => [field, true])) as Record<
+  keyof typeof PERMISSION_TABLE,
+  true
+>
 type BooleanPermission = Exclude<keyof PdfPermissions, 'print'>
+type PermissionRule = { argument: string; defaultValue: PdfPermissions[keyof PdfPermissions]; enabledValue: string; disabledValue: string }
+type PdfRenderCall = Extract<RenderCall, 'bookPdf' | 'pagePdf' | 'pagesPdf' | 'deckPdf'>
+
+function entries<T extends object>(value: T): { [Key in keyof T]: [Key, T[Key]] }[keyof T][] {
+  return Object.entries(value) as { [Key in keyof T]: [Key, T[Key]] }[keyof T][]
+}
 
 function object(value: unknown, field: string): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
@@ -76,7 +82,7 @@ function password(value: unknown, field: 'ownerPassword' | 'openPassword'): stri
   return value
 }
 
-function permissions(value: unknown, call: string): PdfPermissions | undefined {
+function permissions(value: unknown, call: PdfRenderCall): PdfPermissions | undefined {
   if (value === undefined) return undefined
   const input = object(value, 'protection.permissions')
   refuseUnknownOptions(call, input, PERMISSION_OPTION_KEYS, ['protection', 'permissions'])
@@ -99,14 +105,14 @@ function permissions(value: unknown, call: string): PdfPermissions | undefined {
 }
 
 export function permissionArguments(permissions: PdfPermissions = {}): string[] {
-  return Object.entries(PERMISSION_TABLE).map(([field, rule]) => {
-    const value = permissions[field as keyof PdfPermissions] ?? rule.defaultValue
+  return entries(PERMISSION_TABLE).map(([field, rule]) => {
+    const value = permissions[field] ?? rule.defaultValue
     const argumentValue = field === 'print' ? (value === 'high' ? 'full' : value) : value ? rule.enabledValue : rule.disabledValue
     return `--${rule.argument}=${argumentValue}`
   })
 }
 
-export function parseProtection(value: unknown, call = 'render'): Protection | undefined {
+export function parseProtection(value: unknown, call: PdfRenderCall): Protection | undefined {
   if (value === undefined) return undefined
   const input = object(value, 'protection')
   refuseUnknownOptions(call, input, PROTECTION_OPTION_KEYS, ['protection'])
@@ -117,6 +123,6 @@ export function parseProtection(value: unknown, call = 'render'): Protection | u
   }
 }
 
-export function parsePdfOptions<T extends PdfOptions>(options: T, call = 'render'): T {
+export function parsePdfOptions<T extends PdfOptions>(options: T, call: PdfRenderCall): T {
   return { ...options, protection: parseProtection(options.protection, call) }
 }

@@ -5,8 +5,14 @@ import { PAGE_PDF_OPTION_KEYS, PAGES_PDF_OPTION_KEYS, refuseUnknownOptions } fro
 import type { PagePdfOptions, ParsedPagePdfOptions } from './renderer.ts'
 import { parseWatermarkOption } from './watermark-options.ts'
 
-export function parsePagePdfOptions(options: PagePdfOptions, call: 'pagePdf' | 'pagesPdf' = 'pagePdf'): ParsedPagePdfOptions {
-  refuseUnknownOptions(call, options, call === 'pagePdf' ? PAGE_PDF_OPTION_KEYS : PAGES_PDF_OPTION_KEYS)
+type PagePdfCall = 'pagePdf' | 'pagesPdf'
+const PAGE_PDF_OPTION_KEYS_BY_CALL = { pagePdf: PAGE_PDF_OPTION_KEYS, pagesPdf: PAGES_PDF_OPTION_KEYS } as const satisfies Record<
+  PagePdfCall,
+  typeof PAGE_PDF_OPTION_KEYS | typeof PAGES_PDF_OPTION_KEYS
+>
+
+export function parsePagePdfOptions(options: PagePdfOptions, call: PagePdfCall): ParsedPagePdfOptions {
+  refuseUnknownOptions(call, options, PAGE_PDF_OPTION_KEYS_BY_CALL[call])
   const parsed = parsePdfOptions(parseComposedRenderOptions(options), call)
   return parseWatermarkOption(
     {

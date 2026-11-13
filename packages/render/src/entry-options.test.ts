@@ -5,7 +5,7 @@ import { parsePagePdfOptions } from './page-render-options.ts'
 
 test.each([
   ['bookPlan', () => parseBookPlanOptions({ extra: true } as never)],
-  ['pagePdf', () => parsePagePdfOptions({ extra: true } as never)],
+  ['pagePdf', () => parsePagePdfOptions({ extra: true } as never, 'pagePdf')],
   ['pagesPdf', () => parsePagePdfOptions({ extra: true } as never, 'pagesPdf')],
   ['pageImage', () => parsePageImageOptions({ extra: true } as never)],
   ['coverImage', () => parseCoverImageOptions({ extra: true } as never)],

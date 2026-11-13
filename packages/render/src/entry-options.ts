@@ -10,11 +10,8 @@ import {
   refuseUnknownOptions,
   SLIDE_IMAGE_OPTION_KEYS,
 } from './render-option-keys.ts'
-import type { Renderer } from './renderer.ts'
+import type { DeckPdfInputOptions, SlideImageInputOptions } from './renderer.ts'
 import { parseWatermarkOption } from './watermark-options.ts'
-
-type DeckPdfOptions = NonNullable<Parameters<Renderer['deckPdf']>[1]>
-type SlideImageOptions = NonNullable<Parameters<Renderer['slideImage']>[2]>
 
 export function parsePageImageOptions(options: PageImageOptions) {
   refuseUnknownOptions('pageImage', options, PAGE_IMAGE_OPTION_KEYS)
@@ -26,13 +23,13 @@ export function parseCoverImageOptions(options: CoverImageOptions): CoverImageOp
   return options
 }
 
-export function parseDeckPdfOptions(options: DeckPdfOptions) {
+export function parseDeckPdfOptions(options: DeckPdfInputOptions) {
   refuseUnknownOptions('deckPdf', options, DECK_PDF_OPTION_KEYS)
   const parsed = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(options), 'deckPdf'))
   return parseWatermarkOption(parsed, 'deckPdf')
 }
 
-export function parseSlideImageOptions(options: SlideImageOptions) {
+export function parseSlideImageOptions(options: SlideImageInputOptions) {
   refuseUnknownOptions('slideImage', options, SLIDE_IMAGE_OPTION_KEYS)
   return parseAsOfInputs(parseImageRenderOptions(options, 'slideImage'))
 }

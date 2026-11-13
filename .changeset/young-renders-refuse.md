@@ -2,4 +2,4 @@
 '@segnavia/render': minor
 ---
 
-Refuse unknown render option keys at every public render entry point, including unknown PDF protection and watermark keys.
+Breaking for hosts: an option key a render entry point does not define is now refused with the call and option path. Protection, permissions and watermark refusals are also reworded to use those paths.

@@ -2,10 +2,15 @@ import { renderIssuePath } from '@segnavia/format'
 import type { CoverImageOptions } from './cover-image.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { PageImageOptions, ProofImageOptions } from './options.ts'
-import type { BookPdfOptions, BookPlanOptions, PagePdfOptions, Renderer } from './renderer.ts'
-
-type PublicOptions<Call extends 'pagesPdf' | 'deckPdf'> = NonNullable<Parameters<Renderer[Call]>[1]>
-type IndexedPublicOptions<Call extends 'slideImage'> = NonNullable<Parameters<Renderer[Call]>[2]>
+import type {
+  BookPdfOptions,
+  BookPlanOptions,
+  DeckPdfInputOptions,
+  PagePdfOptions,
+  PagesPdfInputOptions,
+  RenderCall,
+  SlideImageInputOptions,
+} from './renderer.ts'
 
 const RENDER_KEYS = {
   newId: true,
@@ -67,7 +72,7 @@ export const PAGE_PDF_OPTION_KEYS = {
 export const PAGES_PDF_OPTION_KEYS = {
   ...PAGE_PDF_OPTION_KEYS,
   imposition: true,
-} as const satisfies Record<keyof PublicOptions<'pagesPdf'>, true>
+} as const satisfies Record<keyof PagesPdfInputOptions, true>
 
 export const PAGE_IMAGE_OPTION_KEYS = {
   ...RENDER_KEYS,
@@ -105,7 +110,7 @@ export const DECK_PDF_OPTION_KEYS = {
   layoutScripts: true,
   ...AS_OF_KEYS,
   watermark: true,
-} as const satisfies Record<keyof PublicOptions<'deckPdf'>, true>
+} as const satisfies Record<keyof DeckPdfInputOptions, true>
 
 export const SLIDE_IMAGE_OPTION_KEYS = {
   ...RENDER_KEYS,
@@ -113,7 +118,7 @@ export const SLIDE_IMAGE_OPTION_KEYS = {
   preflight: true,
   ...AS_OF_KEYS,
   inline: true,
-} as const satisfies Record<keyof IndexedPublicOptions<'slideImage'>, true>
+} as const satisfies Record<keyof SlideImageInputOptions, true>
 
 export const PROOF_IMAGE_OPTION_KEYS = {
   profile: true,
@@ -122,14 +127,14 @@ export const PROOF_IMAGE_OPTION_KEYS = {
 
 export type KnownOptionKeys = Readonly<Record<string, true>>
 
-export function unknownOptionIssues(call: string, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[] = []): string[] {
+export function unknownOptionIssues(call: RenderCall, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[] = []): string[] {
   if (!options || typeof options !== 'object' || Array.isArray(options)) return []
   return Object.keys(options)
-    .filter((key) => known[key] !== true)
+    .filter((key) => !Object.hasOwn(known, key))
     .map((key) => `${call} ${renderIssuePath(['options', ...path, key])}: unknown option ${JSON.stringify(key)}; remove it to clear this refusal`)
 }
 
-export function refuseUnknownOptions(call: string, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[] = []): void {
+export function refuseUnknownOptions(call: RenderCall, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[] = []): void {
   const issues = unknownOptionIssues(call, options, known, path)
   if (issues.length > 0) throw new RenderRefusedError(issues.join('; '))
 }
