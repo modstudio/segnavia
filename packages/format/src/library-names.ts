@@ -7,9 +7,18 @@ export function libraryNameIssue(kind: string, name: string): string | undefined
 }
 
 export function refineLibraryNames(kind: string, entries: readonly { name: string }[], ctx: z.RefinementCtx): void {
+  const seen = new Set<string>()
   entries.forEach((entry, index) => {
     const message = libraryNameIssue(kind, entry.name)
     if (message) ctx.addIssue({ code: 'custom', path: [index, 'name'], message })
+    if (seen.has(entry.name)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [index, 'name'],
+        message: `${kind} name ${JSON.stringify(entry.name)} is declared more than once; keep one declaration or rename one to clear this refusal`,
+      })
+    }
+    seen.add(entry.name)
   })
 }
 

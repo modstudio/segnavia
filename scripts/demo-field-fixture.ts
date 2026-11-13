@@ -13,3 +13,55 @@ export const worksheetPage: DocumentInput = {
   print: { paper: 'letter', orientation: 'portrait', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } },
   children: [{ type: 'page', body: { html: worksheetHtml } }],
 }
+
+const editionConditions = [
+  { type: 'condition' as const, name: 'student' },
+  { type: 'condition' as const, name: 'teacher' },
+  { type: 'condition' as const, name: 'omitted-placement' },
+]
+
+export const editionWorksheet: DocumentInput = {
+  type: 'document',
+  kind: 'book',
+  title: 'Bilingual answer key',
+  mode: 'paginated',
+  page: { paper: 'letter', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } },
+  conditions: editionConditions,
+  editions: [
+    { type: 'edition', name: 'student', conditions: ['student'] },
+    { type: 'edition', name: 'teacher', conditions: ['teacher'] },
+  ],
+  defaultEdition: 'student',
+  children: [
+    { type: 'division', name: 'front', children: [{ type: 'contents', title: 'Contents' }] },
+    {
+      type: 'division',
+      name: 'body',
+      children: [
+        {
+          type: 'section',
+          title: 'English and Hebrew worksheet',
+          conditions: ['student', 'teacher'],
+          children: [
+            {
+              type: 'flow',
+              html: '<h1 lang="en">Worksheet</h1><p lang="en">Capital of France:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> Paris</span></p><p lang="en" data-segnavia-condition="teacher"><strong>Answer key</strong></p><h2 lang="he" dir="rtl">דף עבודה</h2><p lang="he" dir="rtl">עיר הבירה של צרפת:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> פריז</span></p>',
+            },
+          ],
+        },
+        {
+          type: 'section',
+          title: 'Teacher notes',
+          conditions: ['teacher'],
+          children: [{ type: 'flow', html: '<p>Accept the answer in either language.</p>' }],
+        },
+        {
+          type: 'section',
+          title: 'Omitted placement',
+          conditions: ['omitted-placement'],
+          children: [{ type: 'placed', kind: 'page', address: 'not-resolved' }],
+        },
+      ],
+    },
+  ],
+}

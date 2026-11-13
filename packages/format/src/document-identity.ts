@@ -65,8 +65,9 @@ export type IdentifiedDocument<
     variables: DefinitionNode[]
     headTemplates: DefinitionNode[]
     conditions: DefinitionNode[]
+    editions: DefinitionNode[]
   },
-> = Omit<T, 'id' | 'children' | 'parentPages' | 'templates' | 'noteSeries' | 'variables' | 'headTemplates' | 'conditions'> & {
+> = Omit<T, 'id' | 'children' | 'parentPages' | 'templates' | 'noteSeries' | 'variables' | 'headTemplates' | 'conditions' | 'editions'> & {
   id: string
   children: IdentifiedNode[]
   parentPages: Array<T['parentPages'][number] & { id: string }>
@@ -75,6 +76,7 @@ export type IdentifiedDocument<
   variables: Array<T['variables'][number] & { id: string }>
   headTemplates: Array<T['headTemplates'][number] & { id: string }>
   conditions: Array<T['conditions'][number] & { id: string }>
+  editions: Array<T['editions'][number] & { id: string }>
 }
 
 function describe(node: { type: string; name?: string }, path: string): string {
@@ -92,6 +94,7 @@ export function identifyDocument<
     variables: DefinitionNode[]
     headTemplates: DefinitionNode[]
     conditions: DefinitionNode[]
+    editions: DefinitionNode[]
   },
 >(document: T, options: DocumentParseOptions = {}): IdentifiedDocument<T> {
   const newId = options.newId ?? defaultNewId
@@ -132,5 +135,6 @@ export function identifyDocument<
     variables: definitions(document.variables, 'variables'),
     headTemplates: definitions(document.headTemplates, 'headTemplates'),
     conditions: definitions(document.conditions, 'conditions'),
+    editions: definitions(document.editions, 'editions'),
   } as IdentifiedDocument<T>
 }

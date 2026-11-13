@@ -20,8 +20,11 @@ void sharedCoverInput
 
 let slotFit = { type: 'segnavia:slot-fit', slots: { title: 'fit' } }
 let composedPreflight: string | null = null
+let framedHtml = ''
 const tab = {
-  setContent: async () => {},
+  setContent: async (html: string) => {
+    framedHtml = html
+  },
   evaluate(callback: (...args: never[]) => unknown, argument?: string) {
     if (String(callback).includes('document.fonts')) return Promise.resolve(true)
     if (String(callback).includes('__segnaviaSlotFit')) return Promise.resolve([slotFit])
@@ -30,6 +33,9 @@ const tab = {
   },
   waitForFunction: async () => {},
   screenshot: async () => new Uint8Array([1, 2, 3]),
+  context: () => ({
+    newCDPSession: async () => ({ send: async () => ({ data: 'AQID' }), detach: async () => {} }),
+  }),
   on: () => tab,
 }
 const context = {
@@ -57,6 +63,30 @@ test('renderer coverImage refuses an invalid input through the returned promise'
   expect(rendered).toBeInstanceOf(Promise)
   await expect(rendered).rejects.toThrow('page')
   await renderer.close()
+})
+
+test('renderer coverImage resolves its accepted edition before lowering the cover page', async () => {
+  const { openRenderer } = await import('./index.ts')
+  const renderer = await openRenderer({ executablePath: '/fake/chromium' })
+  const page = {
+    type: 'document' as const,
+    kind: 'page' as const,
+    conditions: [{ type: 'condition' as const, name: 'teacher' }],
+    editions: [
+      { type: 'edition' as const, name: 'student', conditions: [] },
+      { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+    children: [{ type: 'page' as const, body: { html: '<p>Question<span data-segnavia-condition="teacher"> Answer</span></p>' } }],
+  }
+  try {
+    await renderer.coverImage({ page }, { width: 160, edition: 'student' })
+    expect(framedHtml).not.toContain('Answer')
+    await renderer.coverImage({ page }, { width: 160, edition: 'teacher' })
+    expect(framedHtml).toContain('Answer')
+  } finally {
+    await renderer.close()
+  }
 })
 
 test.each([

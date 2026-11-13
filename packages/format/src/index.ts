@@ -89,7 +89,7 @@ export {
 } from './document-lowering.ts'
 export * from './document-metadata.ts'
 export { DocumentNodeInput } from './document-node-input.ts'
-export { HeadTemplateNode, VariableNode } from './document-nodes-book.ts'
+export { EditionNode, HeadTemplateNode, VariableNode } from './document-nodes-book.ts'
 export { DocumentBatch, DocumentCollection, DocumentLocation, DocumentOp } from './document-op.ts'
 export {
   DOCUMENT_NODE_MODEL,

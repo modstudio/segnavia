@@ -37,15 +37,20 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockIdLocation>()
   const identifyOptions = { lineNumbers: lineNumbersState(document), sideNotes: sideNotesState(document) }
+  const listHeadings = (identified: string): string => {
+    for (const element of elements(parse(identified).children)) {
+      if (/^h[1-6]$/.test(element.name)) headingListing(element)
+    }
+    return identified
+  }
   const html = (value: string, node: { type: string; id: string }, flowing: boolean): string => {
     const identified = identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing }).html
-    for (const element of elements(parse(identified).children)) if (/^h[1-6]$/.test(element.name)) headingListing(element)
-    return identified
+    return listHeadings(identified)
   }
   const contentHtml = (value: string, node: ParsedDocument['children'][number], shape: FragmentShape): string =>
     html(value, node, contentFieldFlows(document.kind, node.type, shape))
   const regionHtml = (value: string, node: Extract<ParsedDocument['children'][number], { type: 'page' }>, region: string) =>
-    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing: false, insideNamedRegion: region }).html
+    listHeadings(identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing: false, insideNamedRegion: region }).html)
   const pageBody = (node: Extract<ParsedDocument['children'][number], { type: 'page' }>) => {
     if (node.body === undefined) return node
     const value = pageBodyHtml(node.body, document, options)
@@ -77,7 +82,9 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
         name,
         {
           ...region,
-          html: identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { ...identifyOptions, parentRegion: true, insideNamedRegion: name }).html,
+          html: listHeadings(
+            identifyHtmlBlocks(region.html, contentNodeLabel(node), newId, seen, { ...identifyOptions, parentRegion: true, insideNamedRegion: name }).html,
+          ),
         },
       ]),
     ),

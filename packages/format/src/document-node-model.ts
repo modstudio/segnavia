@@ -1,18 +1,18 @@
 import { z } from 'zod'
 import { DivisionNodeFields, type DocumentNode, PartNodeFields, RecordNodeSchema, SectionNodeFields } from './document-nodes.ts'
-import { ConditionNode, ContentsNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode } from './document-nodes-book.ts'
+import { ConditionNode, ContentsNode, EditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode } from './document-nodes-book.ts'
 import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, SlideNode } from './document-nodes-common.ts'
 import { ContentTextVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
 
 type ObjectSchema = z.ZodObject<z.ZodRawShape>
-export type DocumentNodeType = DocumentNode['type'] | 'parentPage' | 'template' | 'noteSeries' | 'variable' | 'headTemplate' | 'condition'
+export type DocumentNodeType = DocumentNode['type'] | 'parentPage' | 'template' | 'noteSeries' | 'variable' | 'headTemplate' | 'condition' | 'edition'
 
 export interface NodeModel {
   fields: ReadonlySet<string>
   content: ReadonlySet<string>
   settable: ReadonlySet<string>
   children: boolean
-  collection?: 'parentPages' | 'templates' | 'noteSeries' | 'variables' | 'headTemplates' | 'conditions'
+  collection?: 'parentPages' | 'templates' | 'noteSeries' | 'variables' | 'headTemplates' | 'conditions' | 'editions'
 }
 
 const schemaFields = (schema: ObjectSchema): string[] => schema.keyof().options
@@ -67,6 +67,7 @@ export const DOCUMENT_NODE_MODEL: Readonly<Record<DocumentNodeType, NodeModel>> 
   variable: variableModel(),
   headTemplate: model(HeadTemplateNode, [], 'headTemplates'),
   condition: model(ConditionNode, [], 'conditions'),
+  edition: model(EditionNode, [], 'editions'),
 }
 
 export function nodeModel(type: string): NodeModel | undefined {

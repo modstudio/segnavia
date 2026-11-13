@@ -8,6 +8,7 @@ import { PlacementShape } from './placement.ts'
 import { RecordValues } from './record-facts.ts'
 
 export const NodeId = closedObject({ id: z.string().optional() })
+export const NodeConditions = { conditions: z.array(z.string()).optional() }
 
 export const FlowNode = NodeId.extend({
   type: z.literal('flow'),
@@ -17,6 +18,7 @@ export const FlowNode = NodeId.extend({
 
 export const PageNode = NodeId.extend({
   type: z.literal('page'),
+  ...NodeConditions,
   body: PageBody.optional(),
   template: z.string().min(1).optional(),
   regions: z.record(z.string(), z.string()).optional(),
@@ -24,7 +26,7 @@ export const PageNode = NodeId.extend({
 
 export const SlideNode = Slide.omit({ id: true }).extend({ type: z.literal('slide'), id: z.string().optional() })
 
-export const PlacedNode = PlacementShape.extend({ type: z.literal('placed'), id: z.string().optional() })
+export const PlacedNode = PlacementShape.extend({ type: z.literal('placed'), id: z.string().optional(), ...NodeConditions })
 
 export const RecordNodeBase = NodeId.extend({
   type: z.literal('record'),

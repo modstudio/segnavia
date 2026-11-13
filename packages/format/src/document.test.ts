@@ -67,17 +67,6 @@ describe('Document', () => {
     )
   })
 
-  test('refuses reserved conditions with a remedy', () => {
-    expect(() =>
-      Document.parse({
-        type: 'document',
-        kind: 'page',
-        children: [{ type: 'page', body: { html: '' } }],
-        conditions: [{ type: 'condition', name: 'edition' }],
-      }),
-    ).toThrow('condition edition is not yet supported; remove it to clear this refusal')
-  })
-
   test('refuses root fields outside the kind profile', () => {
     expect(() => Document.parse({ type: 'document', kind: 'book', transition: { kind: 'fade' }, children: [] })).toThrow(
       /root field transition is not allowed in a book document; use one of .*mode.* to clear this refusal/,

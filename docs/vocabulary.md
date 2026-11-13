@@ -8,6 +8,8 @@ something else.
 |---|---|
 | **Page** | A body of HTML or markdown at any size, designed for viewing on screen: a flowing width, a fixed width and height, or an exact width that grows with its content. |
 | **Page body** | A page's rendered HTML and, when authored as markdown, that markdown source beside it. Markdown is a body format, not a type: the asset types remain page, deck, book and board. |
+| **Condition** | A declared name that marks optional HTML or document nodes. Marked content is present when any of its named conditions is on. |
+| **Edition** | A named selection of conditions that are on for one rendering of a Document. |
 | **Record body** | The one flow owned by a record. It is the record's HTML when no template is present, or is inserted into the template's `data-record-body` element before record values bind. |
 | **Body point** | The single element marked `data-record-body` in a record template. It receives that record's body flow before record values bind. |
 | **Page geometry** | A named paper, orientation, margins and columns declared in `style.pageGeometries`. A book section names one to print on that paper; without one it uses the book's `page`. Press fields such as bleed stay document-wide. |

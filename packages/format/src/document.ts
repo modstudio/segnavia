@@ -5,13 +5,14 @@ import { closedObject } from './closed-object.ts'
 import { DeckShape, deckTrim } from './deck.ts'
 import { SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
+import { refineDocumentEditions } from './document-edition-refinement.ts'
 import { refineUnsupportedDocumentFields } from './document-field-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { refineLoweredDocument } from './document-lowered-check.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
-import { ConditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
+import { ConditionNode, EditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
 import { DOCUMENT_KINDS, DOCUMENT_PROFILES, type DocumentKind, profileRefusal, requiredFieldRefusal } from './document-profile.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
@@ -82,18 +83,20 @@ export const DocumentShape = closedObject({
   parentPages: z.array(ParentPageNode).default([]),
   templates: z.array(TemplateNode).default([]),
   noteSeries: z.array(NoteSeriesNode).default([]),
-  variables: z
-    .array(VariableNode)
+  variables: z.array(VariableNode).default([]),
+  headTemplates: z.array(HeadTemplateNode).default([]),
+  conditions: z
+    .array(ConditionNode)
     .default([])
-    .superRefine((variables, ctx) => refineLibraryNames('variable', variables, ctx)),
-  headTemplates: z
-    .array(HeadTemplateNode)
+    .superRefine((conditions, ctx) => refineLibraryNames('condition', conditions, ctx)),
+  editions: z
+    .array(EditionNode)
     .default([])
-    .superRefine((templates, ctx) => refineLibraryNames('head template', templates, ctx)),
-  conditions: z.array(ConditionNode).default([]),
+    .superRefine((editions, ctx) => refineLibraryNames('edition', editions, ctx)),
+  defaultEdition: z.string().optional(),
 })
 
-export const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'headTemplates', 'conditions'] as const
+export const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'headTemplates', 'conditions', 'editions'] as const
 export const documentStructuralFields = ['type', 'id', 'kind', 'children'] as const
 const structuralFields: ReadonlySet<string> = new Set([...documentStructuralFields, ...definitionCollections])
 
@@ -334,6 +337,7 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   refineRootFields(document, profile, ctx)
   refineDocumentNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)
+  refineDocumentEditions(document, ctx)
   refineUnsupportedDocumentFields(document, ctx)
   refineDocumentVariables({ ...document, lang: document.settings?.lang }, ctx)
   refineProfileShape(document, profile, ctx)

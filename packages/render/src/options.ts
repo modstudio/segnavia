@@ -80,6 +80,7 @@ export interface MarksReport {
 
 export interface RenderOptions {
   newId?: () => string
+  edition?: string
   origins?: Iterable<OriginApproval>
   assets?: Assets
   /** @internal Shared by every browser tab opened for one render call. */

@@ -306,6 +306,8 @@ test('the schema-derived candidate generator covers every currently parseable mo
       'template',
       'noteSeries',
       'variable',
+      'condition',
+      'edition',
     ]),
   )
 })

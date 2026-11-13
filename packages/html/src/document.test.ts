@@ -80,6 +80,16 @@ test('accepts valid form fields and refuses each malformed field value', () => {
   for (const [html, message] of refusals) expect(() => parseDocument(page({ html }), { newId: counter() })).toThrow(message)
 })
 
+test('refuses an HTML condition that is not declared', () => {
+  expect(() =>
+    parseDocument({
+      type: 'document',
+      kind: 'page',
+      children: [{ type: 'page', body: { html: '<p data-segnavia-condition="missing">Hidden</p>' } }],
+    }),
+  ).toThrow(/data-segnavia-condition.*missing/)
+})
+
 test('deterministic ids are repeatable and unique across missing nodes and Hebrew blocks', () => {
   const input = {
     type: 'document' as const,

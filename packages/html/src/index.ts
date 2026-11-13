@@ -165,6 +165,7 @@ export {
 export { printedSectionFlows, printedSectionOutlineHtml } from './printed-section-flows.ts'
 export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, fillDeckAsOfBindings, mapBookHtml } from './record-as-of.ts'
 export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
+export { resolveEdition } from './resolve-edition.ts'
 export {
   assetOriginRefusals,
   attributeValues,

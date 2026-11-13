@@ -60,7 +60,8 @@
     "noteSeries": [],
     "variables": [],
     "headTemplates": [],
-    "conditions": []
+    "conditions": [],
+    "editions": []
   },
   "description": {
     "structure": [
@@ -134,7 +135,8 @@
       "noteSeries": [],
       "variables": [],
       "headTemplates": [],
-      "conditions": []
+      "conditions": [],
+      "editions": []
     },
     "blocks": [
       {
