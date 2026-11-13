@@ -19,8 +19,15 @@ test.each([
   expect(error.code).toBe(code)
 })
 
-test('slot fill entries remain structured', () => {
-  const cause = new SlotFillRefusedError('sandboxed')
-  const error = new SlotFillsRefusedError([{ index: 0, id: 'cover', slots: [], error: cause }])
-  expect(error.refusals).toEqual([{ code: 'slot-fill', subject: 'cover', message: cause.message }])
+test('slot fill entries retain each refusal code', () => {
+  const scripts = new SlotFillRefusedError('sandboxed')
+  const required = new RequiredSlotsRefusedError([{ key: 'title', state: 'invalid' }])
+  const error = new SlotFillsRefusedError([
+    { index: 0, id: 'cover', slots: [], error: scripts },
+    { index: 1, id: 'inside', slots: required.slots, error: required },
+  ])
+  expect(error.refusals).toEqual([
+    { code: 'slot-fill', subject: 'cover', message: scripts.message },
+    { code: 'required-slots', subject: 'inside', message: required.message },
+  ])
 })

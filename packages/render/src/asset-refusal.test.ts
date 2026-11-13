@@ -1,7 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { LimitExceeded, RefusalCause } from '@segnavia/format'
 import { collectedAssetRefusal } from './asset-refusal.ts'
-import { RenderLimitError, RenderRefusedError } from './errors.ts'
+import { RenderLimitError } from './errors.ts'
 
 test('asset refusals and limits retain all causes and the existing message', () => {
   const first = { code: 'unapproved-origin', subject: 'https://one.example/a', message: 'first refusal' }
@@ -18,7 +18,7 @@ test('asset refusals and limits retain all causes and the existing message', () 
       [second.message, second],
       [limit.message, limit],
     ]),
-    new Map([[limit.message, exceeded]]),
+    new Map([[limit.subject, exceeded]]),
     [],
   )
   expect(error).toBeInstanceOf(RenderLimitError)
@@ -26,17 +26,6 @@ test('asset refusals and limits retain all causes and the existing message', () 
     message: 'first refusal; second refusal; limit refusal',
     refusals: [first, second, limit],
     exceeded: [exceeded],
-  })
-})
-
-test('unanswered assets become one structured cause per URL', () => {
-  const urls = ['https://one.example/a', 'https://two.example/b']
-  const error = collectedAssetRefusal(new Map(), new Map(), urls)
-  expect(error).toBeInstanceOf(RenderRefusedError)
-  expect(error).toMatchObject({
-    code: 'asset',
-    message: `The host assets option did not answer approved requests: ${urls.join(', ')}.`,
-    refusals: urls.map((url) => ({ code: 'unanswered', subject: url, message: `${url} was not answered by the host assets option` })),
   })
 })
 

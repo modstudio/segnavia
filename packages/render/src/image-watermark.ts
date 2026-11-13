@@ -50,7 +50,9 @@ const OVERLAY_STYLE = `
 
 export async function injectImageWatermark(tab: Tab, markup: string, options: Pick<BrowserTabSetup, 'scripts' | 'origins'>, fontFaceCss = ''): Promise<void> {
   const assetRefusal = markupAssetRefusal(markup, options)
-  if (assetRefusal) throw new RenderRefusedError(assetRefusal)
+  if (assetRefusal) {
+    throw new RenderRefusedError(assetRefusal.map((refusal) => refusal.message).join('; '), { code: 'asset', refusals: assetRefusal })
+  }
   const root = await tab.evaluateHandle(
     ({ html, css, faces }) => {
       if (faces) {

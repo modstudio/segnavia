@@ -100,12 +100,12 @@ function assetRefusalKey(refusal: AssetRefusal): string {
   return JSON.stringify([refusal.url, refusal.kind, refusal.reason])
 }
 
-export function markupAssetRefusal(html: string, options: Pick<BrowserTabSetup, 'scripts' | 'origins'>): string | undefined {
+export function markupAssetRefusal(html: string, options: Pick<BrowserTabSetup, 'scripts' | 'origins'>): RefusalCause[] | undefined {
   // The refused-script frame's nonce CSP prevents author script fetches.
   const refusals = assetOriginRefusals(html, { keepScripts: options.scripts, origins: options.origins }).filter((refusal) => refusal.reason !== 'scripts-off')
   if (refusals.length === 0) return undefined
   const unique = new Map(refusals.map((refusal) => [assetRefusalKey(refusal), refusal]))
-  return [...unique.values()].map(assetRefusalText).join('; ')
+  return [...unique.values()].map((refusal) => ({ code: refusal.reason, subject: refusal.url, message: assetRefusalText(refusal) }))
 }
 
 export async function assetRouteDecision(
@@ -185,7 +185,9 @@ export async function renderInBrowserTab<T>(
   body: (tab: Tab) => Promise<T>,
 ): Promise<T> {
   const markupRefusal = markupAssetRefusal(setup.html, setup)
-  if (markupRefusal) throw new RenderRefusedError(markupRefusal)
+  if (markupRefusal) {
+    throw new RenderRefusedError(markupRefusal.map((refusal) => refusal.message).join('; '), { code: 'asset', refusals: markupRefusal })
+  }
   const context = await browser.newContext(browserContextOptions(setup))
   state.opened(context)
   if (state.settled()) {
@@ -212,7 +214,7 @@ export async function renderInBrowserTab<T>(
       const limitRefusal = assetLimitRefusal(url, bytes, assetBudget.bytes, assetLimits)
       if (limitRefusal) {
         refused.set(limitRefusal.message, { code: 'asset-limit', subject: url, message: limitRefusal.message })
-        exceeded.set(limitRefusal.message, limitRefusal)
+        exceeded.set(url, limitRefusal)
         await route.abort('blockedbyclient')
       } else {
         assetBudget.bytes += bytes

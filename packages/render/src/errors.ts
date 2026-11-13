@@ -36,24 +36,27 @@ export class RenderLimitError extends RenderRefusedError {
   readonly exceeded: readonly LimitExceeded[]
 
   constructor(measure: LimitMeasure, actual: number, limit: number, options?: LimitRefusalOptions)
-  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]], message?: string, refusalOptions?: RefusalOptions)
+  constructor(exceeded: readonly [LimitExceeded, ...LimitExceeded[]], message?: string)
   constructor(
     measureOrExceeded: LimitMeasure | readonly [LimitExceeded, ...LimitExceeded[]],
     actualOrMessage?: number | string,
-    limitOrRefusalOptions?: number | RefusalOptions,
+    limit?: number,
     options: LimitRefusalOptions = {},
   ) {
     const structured =
       typeof measureOrExceeded === 'string'
-        ? new LimitExceededError(measureOrExceeded, actualOrMessage as number, limitOrRefusalOptions as number, options)
+        ? new LimitExceededError(measureOrExceeded, actualOrMessage as number, limit as number, options)
         : new LimitExceededError(measureOrExceeded, actualOrMessage as string | undefined)
-    const refusalOptions = typeof measureOrExceeded === 'string' ? undefined : (limitOrRefusalOptions as RefusalOptions | undefined)
     super(structured.message, {
       code: 'render-limit',
-      ...refusalOptions,
-      refusals: refusalOptions?.refusals ?? structured.exceeded.map((entry) => ({ code: 'limit', subject: entry.measure, message: entry.message })),
+      refusals: structured.exceeded.map((entry) => ({ code: 'limit', subject: entry.measure, message: entry.message })),
     })
     this.exceeded = structured.exceeded
+  }
+
+  static collected(exceeded: readonly [LimitExceeded, ...LimitExceeded[]], message: string, refusalOptions: RefusalOptions): RenderLimitError {
+    const error = new RenderLimitError(exceeded, message)
+    return Object.assign(error, refusalOptions, { refusals: refusalOptions.refusals ?? error.refusals })
   }
 }
 

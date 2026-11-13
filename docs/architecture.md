@@ -833,7 +833,7 @@ this adds no inbound frame message.
 | `localFonts` | frame `packLocalFaces`; render `pagePdf`, `pagesPdf`, `pageImage`, `bookPdf` | JSON-safe local faces sent with one render: family, format, optional weight, style and PostScript name, and base64 bytes. Their host-set count and decoded-byte ceilings are `limits.localFonts`; `DEFAULT_LIMITS` supplies 64 faces and 32 MiB when either is absent. Frame and render enforce the resolved values, and render also validates each signature. Render embeds only families named by the page, its motifs or the book, and releases the decoded faces when that call ends. A `FontSource` is still required to establish each local reference's app-font fallback. The report callback lists each named local family that used its fallback; a missing local face never refuses the render. Neither the render library nor a host may persist, cache or log the transport, its bytes or its installed-font metadata. |
 | `fontReferenceRefusals` | `@segnavia/html`; host save path | The host calls it at save with the page HTML, its fonts references and the known app names, and shows the refusal strings as-is. |
 | `readLocalFonts`, `packLocalFaces` | `@segnavia/frame/local-fonts` | Named local fonts from the Local Font Access API, where the browser offers it (Chromium desktop with permission). Both functions accept a document's optional `FontManifest` directly or an array of `FontReference`s; `fontManifestReferences` from `@segnavia/format` (re-exported from `@segnavia/frame/fonts`) performs the browser-independent conversion. The host calls `readLocalFonts` from a user gesture and passes returned `faces` as `fonts.local` for browser output alongside the `FontSource` that establishes every app-font fallback. The API's PostScript name selects a face when its blob contains a collection; the extracted bytes, rather than the collection size, count toward the transport limit. Unavailable entries (`unsupported`, `denied`, `not-installed`, `unreadable`) carry the declared fallback so the host can tell the author before printing; the library never prints the notice. `packLocalFaces(faces, fonts, limits?)` selects only faces named by the page and motifs and produces the JSON-safe transport for one server render; it refuses past the bound, naming the face and the limit. Callers without the API, permission or a named face get the fallback. |
-| `Limits`, `limits` | page and book documents; browser print, render options, `packLocalFaces`, `exceedsLimits`, document descriptions | One value models the measured ceiling (`pages`, `sheets`, `bytes`, `slides`, `slideBytes`, `notesBytes`, concise-description block-text Unicode code points, local-font count and bytes, and `assets.bytes`/`assets.each`) separately from its source. A document may declare `pages` and `descriptionTextChars`; asset limits are host-only and default to 50 MiB per document and 10 MiB per asset. `resolveLimits` takes the smaller document/default and host ceiling for both, records which source binds pages, supplies local-font, asset and description-text defaults, and leaves other absent host measures unbounded. `parseLimits` validates each source at its entry edge. `bytes` applies to files the renderer produces; browser printing has no file bytes to measure. Every enforcement path obtains its text or in-frame template from the format-owned limit refusal formatter, which names the measure, value, binding setting and clearing action. Direct refusals carry their ordered measure, limit, actual value, optional location and unchanged sentence in an `exceeded` list; that list names the limit refusals among all reasons when a render refusal aggregates limit and non-limit reasons. Format exposes `LimitExceededError`, frame keeps local-font limit refusals catchable as `FontRefusedError`, and render exposes `RenderLimitError`, which remains a `RenderRefusedError`; `isLimitExceeded` recognizes each through the same structured list. Refusals composed inside sandboxed frames remain bounded text across the frame boundary. Concise document descriptions are the exception: they bound a view and refuse nothing. |
+| `Limits`, `limits` | page and book documents; browser print, render options, `packLocalFaces`, `exceedsLimits`, document descriptions | One value models the measured ceiling (`pages`, `sheets`, `bytes`, `slides`, `slideBytes`, `notesBytes`, concise-description block-text Unicode code points, local-font count and bytes, and `assets.bytes`/`assets.each`) separately from its source. A document may declare `pages` and `descriptionTextChars`; asset limits are host-only and default to 50 MiB per document and 10 MiB per asset. `resolveLimits` takes the smaller document/default and host ceiling for both, records which source binds pages, supplies local-font, asset and description-text defaults, and leaves other absent host measures unbounded. `parseLimits` validates each source at its entry edge. `bytes` applies to files the renderer produces; browser printing has no file bytes to measure. Every enforcement path obtains its text or in-frame template from the format-owned limit refusal formatter, which names the measure, value, binding setting and clearing action. Direct refusals carry their ordered measure, limit, actual value, optional location and unchanged sentence in an `exceeded` list; that list names the limit refusals among all reasons when a render refusal aggregates limit and non-limit reasons. Limit refusal classes that extend `Refusal` also carry one `limit` cause per exceeded entry in `refusals`. Format exposes `LimitExceededError`, frame keeps local-font limit refusals catchable as `FontRefusedError`, and render exposes `RenderLimitError`, which remains a `RenderRefusedError`; `isLimitExceeded` recognizes each through the same structured list. Refusals composed inside sandboxed frames remain bounded text across the frame boundary. Concise document descriptions are the exception: they bound a view and refuse nothing. |
 | `Imposition` | print and render options | The paper, grid, sides and flip of the host's label stock or card. Optional crop marks stay outside every cell bleed, shorten or report omission when paper margins are narrow, and may add corner marks in usable gaps. A `fold` makes the cells panels of a single two-sided piece. `markColor` is black by default or registration color so the marks print on every plate. Imposed marks are drawn by PDF rendering, as single-page marks are; browser printing does not draw either. |
 | `Watermark`, `watermark` | `pagePdf`, `pagesPdf`, `bookPdf`, `deckPdf`, `pageImage`, `slideImage`, `coverImage` | A text or image overlay on all or selected 1-based physical reader pages. Text inherits the document CSS, resolved fonts and direction unless `lang`, `dir` or `font` overrides it; generated text is isolated. Opacity defaults to 0.15, size to 60% of trim width, position to the center on both logical axes, and rotation to the trim diagonal mirrored for right-to-left text. The separate layer uses the ordinary offline asset policy. It is stamped over each selected reader page as a PDF `/Artifact` with pagination/watermark properties before finishing; imposed output is stamped before reader pages are placed on press sheets. An image render draws the same markup in a top-layer overlay immediately before capture, and an unapproved watermark image or one that fails to decode refuses the render. Book numbering includes front matter. Each deck notes sheet, including an overflow sheet, takes its own physical number; without notes, the physical number is the slide number. |
 | `PAPER_METADATA`, `PAPER_GROUPS`, `PrintSetting`, `PrintSettingInput` | `format`, paper picker and hosts | Display names, sold-unit sizes and stable picker groups for every named paper; a tolerant stored-setting reader and a strict writer. Custom paper sides are normalized to millimeters and limited to 10–2000 mm by `Paper` itself. Picker labels can replace every displayed string. |
@@ -1864,6 +1864,43 @@ renders fail as `RendererUnavailableError` as soon as it exits, without waiting
 for the render bound, and the next render relaunches it.
 A render after `close()` is refused. Every render entry point refuses an option key it does not define, including a key nested in `protection`, `protection.permissions` or `watermark`, before any browser work; the `RenderRefusedError` names the call and the option path, such as `bookPdf options.protection.extra`. A press-layout page printed onto more than one paper is refused as `RenderOversetError`, carrying its zero-based input `page` and printed `papers`; an unusable press or proof ICC profile is refused as `RenderColorProfileError`, carrying its `profile` use plus the `found` and `supported` facts. Both remain `RenderRefusedError`s so a host can read those facts without parsing their messages.
 
+### Refusals
+
+The coded refusal classes in this table extend `Refusal` from
+`@segnavia/format`. Their `code` identifies the refusal kind, their optional
+`subject` identifies the value or resource, and their `refusals` array carries
+structured causes when one operation collected several refusals. An empty
+`refusals` array means the error itself is the one cause.
+
+| Code | Refusal |
+|---|---|
+| `as-of` | As-of anchor resolution |
+| `font-face` | Font face parsing |
+| `placement` | Media placement |
+| `duplicate-id`, `unminted-id` | Document identity |
+| `motif` | Motif expansion |
+| `font-css` | Font CSS generation |
+| `required-slots`, `unmeasured-slots`, `slot-fill`, `slot-fills-conflict`, `slot-fills` | Slot filling |
+| `paginated-book` | Paginated book construction |
+| `style-sheet` | Style sheet compilation |
+| `font` | Font resolution |
+| `printed-pages` | Printed-page geometry |
+| `lexicon` | Voice lexicon publication |
+| `render`, `render-limit`, `render-overset`, `render-color-profile` | Rendering |
+| `asset` | Collected non-limit asset refusal or unanswered asset request |
+
+Asset causes use the origin-policy reasons `not-absolute`, `unapproved-origin`,
+`outside-approved-path`, `unversioned-script`, `scripts-off` and
+`unreadable-srcset`, or `unanswered`, `host-rejected`, `late-answer`,
+`unsupported-fetch` and `asset-limit`. An asset limit surfaces as
+`render-limit` with an `asset-limit` cause. A render or font limit cause uses
+`limit`, while the error keeps its complete facts in `exceeded`.
+
+`LimitExceededError` remains a `RangeError` and is identified by its
+`exceeded` list. `BoardCommandRefusal` and `DocumentCommandRefusal` remain
+outside the base because they carry `clearing`. Block-level id refusals and
+other uncoded refusals remain plain `Error` instances.
+
 ## Data the host keeps
 
 The library keeps no storage. A host stores decks and pages, its shot library
@@ -2237,35 +2274,6 @@ The document model adds `BrandSource.brand` to resolve a brand by name;
 and block ids; and `assets` resolves an address to bytes within a budget.
 Existing seams remain. A host continues to own storage, its agent, sharing,
 tenancy and UI.
-
-### Refusals
-
-Every refusal extends `Refusal` from `@segnavia/format`. Its `code` identifies
-the refusal kind, its optional `subject` identifies the value or resource, and
-its `refusals` array carries structured causes when one operation collected
-several refusals. An empty `refusals` array means the error itself is the one
-cause.
-
-| Code | Refusal |
-|---|---|
-| `as-of` | As-of anchor resolution |
-| `font-face` | Font face parsing |
-| `placement` | Media placement |
-| `duplicate-id`, `unminted-id` | Document identity |
-| `motif` | Motif expansion |
-| `font-css` | Font CSS generation |
-| `required-slots`, `unmeasured-slots`, `slot-fill`, `slot-fills-conflict`, `slot-fills` | Slot filling |
-| `paginated-book` | Paginated book construction |
-| `style-sheet` | Style sheet compilation |
-| `font` | Font resolution |
-| `printed-pages` | Printed-page geometry |
-| `lexicon` | Voice lexicon publication |
-| `render`, `render-limit`, `render-overset`, `render-color-profile` | Rendering |
-| `asset` | Collected asset refusal or unanswered asset request |
-
-Asset causes use the origin-policy reason, `unsupported-fetch`,
-`host-rejected`, `late-answer`, `asset-limit`, or `unanswered`. A render-limit
-cause uses `limit`.
 
 ### Target delivery roadmap
 

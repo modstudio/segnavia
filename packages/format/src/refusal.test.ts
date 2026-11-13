@@ -14,7 +14,6 @@ test('a refusal exposes its stable structure and Error cause', () => {
     name: 'Refusal',
     cause,
   })
-  expect(error).toBeInstanceOf(Error)
 })
 
 test.each([

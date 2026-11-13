@@ -14,6 +14,7 @@ import {
   matchFaces,
   type Page,
   Refusal,
+  type RefusalOptions,
 } from '@segnavia/format'
 import { fontCss } from '@segnavia/html'
 import { FONT_FAILURE_LIMIT } from './font-load.ts'
@@ -37,8 +38,11 @@ export interface ResolvedFonts {
 export class FontRefusedError extends Refusal {
   readonly exceeded?: readonly LimitExceeded[]
 
-  constructor(message: string, exceeded?: readonly LimitExceeded[]) {
-    super('font', message)
+  constructor(message: string, exceeded?: readonly LimitExceeded[], options: RefusalOptions = {}) {
+    super('font', message, {
+      ...options,
+      refusals: options.refusals ?? exceeded?.map((entry) => ({ code: 'limit', subject: entry.measure, message: entry.message })),
+    })
     this.name = 'FontRefusedError'
     this.exceeded = exceeded
   }

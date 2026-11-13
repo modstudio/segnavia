@@ -119,9 +119,27 @@ test('browser contexts are offline and block service workers', () => {
 
 test('markup preflight ignores scripts-off sources and refuses unapproved images', () => {
   expect(markupAssetRefusal('<script src="https://cdn.jsdelivr.net/npm/x@1.2.3/x.js"></script>', { scripts: false })).toBeUndefined()
-  expect(markupAssetRefusal('<img src="https://outside.example/a.png">', { scripts: false })).toBe(
-    'https://outside.example/a.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+  expect(markupAssetRefusal('<img src="https://outside.example/a.png">', { scripts: false })).toEqual([
+    {
+      code: 'unapproved-origin',
+      subject: 'https://outside.example/a.png',
+      message:
+        'https://outside.example/a.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
+    },
+  ])
+})
+
+test('markup asset refusals expose their asset code and structured causes', async () => {
+  const url = 'https://outside.example/a.png'
+  const message = `${url} at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal`
+  const rendering = renderInBrowserTab(
+    { newContext: async () => Promise.reject(new Error('markup refusal did not stop browser setup')) } as unknown as Browser,
+    { viewport: { width: 100, height: 100 }, scripts: false, html: `<img src="${url}">`, readiness: { author: false, diagrams: false } },
+    undefined,
+    { settled: () => false, opened: () => {}, crashed: () => {} },
+    async () => undefined,
   )
+  await expect(rendering).rejects.toEqual(new RenderRefusedError(message, { code: 'asset', refusals: [{ code: 'unapproved-origin', subject: url, message }] }))
 })
 
 test('the browser tab exposes and re-bounds the progress reporter only when supplied', async () => {
@@ -235,6 +253,10 @@ test('asset limits stay structured when another asset refusal precedes them', as
     expect.objectContaining({
       message: `${originReason}; ${limitReason}`,
       exceeded: [{ measure: 'assets.each', limit: 5, actual: 6, where: oversized, message: limitReason }],
+      refusals: [
+        { code: 'unapproved-origin', subject: blocked, message: originReason },
+        { code: 'asset-limit', subject: oversized, message: limitReason },
+      ],
     }),
   )
   await expect(rendering).rejects.toBeInstanceOf(RenderLimitError)
@@ -277,7 +299,13 @@ test("a missing asset refusal takes precedence over the body's resulting error",
   await expect(rendering).rejects.toEqual(
     new RenderRefusedError(`The host assets option did not answer approved requests: ${url}.`, {
       code: 'asset',
-      refusals: [{ code: 'unanswered', subject: url, message: `${url} was not answered by the host assets option` }],
+      refusals: [
+        {
+          code: 'unanswered',
+          subject: url,
+          message: `${url} was not answered by the host assets option; answer the approved asset to clear this refusal`,
+        },
+      ],
     }),
   )
 })

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from 'bun:test'
-import { type AppFont, type FontSource, isLimitExceeded, limitRefusal, Page } from '@segnavia/format'
+import { type AppFont, FontFaceRefusedError, type FontSource, isLimitExceeded, limitRefusal, Page } from '@segnavia/format'
 import { packLocalFaces, readLocalFonts } from './local-fonts.ts'
 import { FontRefusedError, resolvePageFonts } from './page-fonts.ts'
 
@@ -150,6 +150,15 @@ describe('readLocalFonts', () => {
     const work = readLocalFonts([{ local: 'Local Face', fallback: 'serif' }], { signal })
     await expect(work).rejects.toBeInstanceOf(FontRefusedError)
     await expect(work).rejects.toThrow('LocalFace-Regular: font collection header is malformed')
+    const error = await work.catch((refusal: unknown) => refusal)
+    expect((error as FontRefusedError).cause).toBeInstanceOf(FontFaceRefusedError)
+    expect((error as FontRefusedError).refusals).toEqual([
+      {
+        code: 'font-face',
+        subject: undefined,
+        message: 'font collection header is malformed at byte 0; supply a complete font collection to clear this refusal.',
+      },
+    ])
   })
 
   test('extracts an installed collection before applying the transport byte limit', async () => {
@@ -267,6 +276,13 @@ describe('packLocalFaces', () => {
           limit: 3,
           actual: 4,
           where: '"Local Family"',
+          message: limitRefusal('localFonts.bytes', 4, 3, { where: '"Local Family"' }),
+        },
+      ])
+      expect((error as FontRefusedError).refusals).toEqual([
+        {
+          code: 'limit',
+          subject: 'localFonts.bytes',
           message: limitRefusal('localFonts.bytes', 4, 3, { where: '"Local Family"' }),
         },
       ])
