@@ -1,5 +1,6 @@
 import { embedFunction } from '@segnavia/html'
 import { backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from './composer-decoration.ts'
+import { measureLineNoteAnchors } from './composer-line-label-measure.ts'
 import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
 import {
   applyBoxDecorations,
@@ -29,7 +30,6 @@ import {
   tableRowLines,
 } from './composer-measure.ts'
 import { inlineSideNoteAnchorTop, measureSideNotes, sideNoteAnchorTop, sideNoteKind } from './composer-side-note-measure.ts'
-import { measureLineNoteAnchors } from './composer-line-label-measure.ts'
 
 export function embeddedComposerMeasureFunctions(lineNotes = false): string {
   return [

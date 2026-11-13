@@ -1,6 +1,5 @@
 import { formatNumber, type Measurements, type NumberSystem, type Plan, type ResolvedLineNumbers, resolveDirection } from '@segnavia/format'
-import { embedFunction } from '@segnavia/html'
-import { lineKeyedLabels, lineKeyedLabelsScript } from '@segnavia/layout'
+import { lineKeyedLabels } from '@segnavia/layout'
 
 interface LineNoteSeries {
   name: string
@@ -77,11 +76,4 @@ export function unsettledLineLabels(
     if (!number || system === undefined || decision.value === undefined || number.textContent !== formatNumber(decision.value, system)) moved.push(decision.id)
   }
   return { refusals, moved }
-}
-
-export function embeddedComposerLineLabelFunctions(): string {
-  return `${lineKeyedLabelsScript()}\n${embedFunction('lineLabelValues', lineLabelValues)}\n${embedFunction('applyLineLabels', applyLineLabels)}\n${embedFunction(
-    'unsettledLineLabels',
-    unsettledLineLabels,
-  )}`
 }

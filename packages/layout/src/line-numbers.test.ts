@@ -199,6 +199,38 @@ describe('lineKeyedLabels', () => {
     }
   })
 
+  test('labels a split block on its first page and continuation under page and never restarts', () => {
+    for (const [restart, expected] of [
+      ['never', [7, 8]],
+      ['page', [7, 1]],
+    ] as const) {
+      const { measurements, plan } = fixtures()
+      const flow = measurements.flows[0]
+      if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+      flow.lineNoteAnchors = [
+        { id: 'first-page', top: 70, block: 1 },
+        { id: 'continuation', top: 80, block: 1 },
+      ]
+      expect(lineKeyedLabels(measurements, plan, { interval: 1, start: 1, restart, area: 'text', side: 'outer', system: 'arabic' })).toEqual([
+        { id: 'first-page', value: expected[0] },
+        { id: 'continuation', value: expected[1] },
+      ])
+    }
+  })
+
+  test('keys a lemma spanning the next line to its start line rather than the block start', () => {
+    const { measurements, plan } = fixtures()
+    const flow = measurements.flows[0]
+    if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+    const block = flow.blocks[1]
+    if (!block) throw new Error('The fixture has no text block.')
+    expect(block.lines[8]?.top).toBe(90)
+    flow.lineNoteAnchors = [{ id: 'spanning', top: 80, block: 1 }]
+    expect(lineKeyedLabels(measurements, plan, { interval: 1, start: 1, restart: 'never', area: 'text', side: 'outer', system: 'arabic' })).toEqual([
+      { id: 'spanning', value: 8 },
+    ])
+  })
+
   test('refuses an anchor on an uncounted line', () => {
     const { measurements, plan } = fixtures()
     const flow = measurements.flows[0]

@@ -106,7 +106,9 @@ export function lineKeyedLabels(measurements: Measurements, plan: Plan, settings
   return measurements.flows.flatMap((flow) =>
     (flow.lineNoteAnchors ?? []).map((anchor): LineKeyedLabelDecision => {
       const candidates = lines.filter((held) => held.window.flow === flow.id && held.block === anchor.block)
-      const matched = candidates.find((held) => Math.abs(anchor.top - held.line.top) <= 0.5) ?? candidates.find((held) => anchor.top >= held.line.top && anchor.top < held.line.bottom)
+      const matched =
+        candidates.find((held) => Math.abs(anchor.top - held.line.top) <= 0.5) ??
+        candidates.find((held) => anchor.top >= held.line.top && anchor.top < held.line.bottom)
       if (matched) return { id: anchor.id, value: matched.value }
       return {
         id: anchor.id,

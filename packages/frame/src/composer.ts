@@ -24,6 +24,7 @@ import {
   windowPageIndex,
 } from '@segnavia/html'
 import { layoutScript, regionBox } from '@segnavia/layout'
+import type { ScreenPresentation } from './book-presentation.ts'
 import { BOOK_LAYOUTS, bookPresentationScript, embeddedBookPresentationFunctions, pageGrid, pageScale, spreadSlots } from './book-presentation.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSE_FAILURE_TEXT_LIMIT } from './bridge.ts'
 import {
@@ -39,8 +40,8 @@ import {
 } from './composer-dress.ts'
 import { embeddedComposerFillFunctions } from './composer-fill.ts'
 import { embeddedComposerFitFunctions } from './composer-fit.ts'
+import { embeddedComposerLineLabelFunctions } from './composer-line-labels-embed.ts'
 import { embeddedComposerMarginFunctions } from './composer-margin-embed.ts'
-import { embeddedComposerLineLabelFunctions } from './composer-line-labels.ts'
 import { flowTextArea, type MeasuredLineBox } from './composer-measure.ts'
 import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { embeddedPreflightFunctions } from './composer-preflight.ts'
@@ -59,12 +60,8 @@ export const GALLEY_PRINT_CSS = '@media print{:where([data-segnavia-galley-sourc
 // A valid book normally establishes its line boxes in one layout frame. One second admits throttled or deferred browser layout while still reporting a bounded measurement failure.
 export const BOOK_MEASUREMENT_WAIT_MS = 1_000
 export const WINDOW_EDGE_INSET_PX = 0.25
+export type { ScreenPresentation } from './book-presentation.ts'
 export { fillRegion, resolveRegionHeads } from './composer-dress.ts'
-export interface ScreenPresentation {
-  spread: boolean
-  reportPlace?: boolean
-}
-
 export function flowSectionNumbering(element: Pick<Element, 'getAttribute'>): { counted?: false; restart?: number } | undefined {
   const counted = element.getAttribute('data-numbering-counted')
   const restart = element.getAttribute('data-numbering-restart')
@@ -208,7 +205,6 @@ export function pageReferenceFolio(
 }
 
 export { flowTextArea }
-
 export function embeddedComposerFunctions(lineNotes = false): string {
   return `${embedFunction('textHoldingParentRules', textHoldingParentRules)}
 ${embedFunction('flowTextArea', flowTextArea)}
@@ -360,7 +356,8 @@ try{
 sizeGalleys();
 var settleFlows=document.querySelectorAll('[data-segnavia-flow]:not([data-segnavia-kind="fixed"]):not([data-segnavia-kind="templated"])');var hasLayout=settleFlows.length===0||composerLayoutReady(settleFlows[0]);var visibleNow=performance.now();var visibility=decideVisibleMeasurement({visibleElapsedMs:visibleElapsed,frameElapsedMs:visibleNow-visibleStartedAt,hasLayout:hasLayout,measured:true},${BOOK_MEASUREMENT_WAIT_MS});visibleElapsed=visibility.visibleElapsedMs;visibleStartedAt=visibleNow;if(settleStartedAt===undefined){if(hasLayout)settleStartedAt=visibleNow;}else{settleVisibleElapsed=advanceVisibleTime({visibleElapsedMs:settleVisibleElapsed,frameElapsedMs:visibleNow-settleStartedAt,hasLayout:hasLayout});settleStartedAt=visibleNow;}if(!hasLayout)return nextLayoutFrame().then(composeWhenMeasurable);if(!layoutFontsReady)return (document.fonts?document.fonts.ready:Promise.resolve()).then(function(){layoutFontsReady=true;return composeWhenMeasurable();});var settled=true;for(var settleIndex=0;settleIndex<settleFlows.length;settleIndex++){var settleFlow=settleFlows[settleIndex];var settleSample={inlineSize:settleFlow.getBoundingClientRect().width,scrollWidth:settleFlow.scrollWidth};var previousSettleSample=settlePrevious[settleIndex];var settleDecision=decideLayoutSettle(settleSample,previousSettleSample,{textWidth:parseFloat(settleFlow.style.inlineSize)},settleVisibleElapsed,${LAYOUT_SETTLE_MS});settlePrevious[settleIndex]=settleSample;if(settleDecision==='refuse'){fail('the measure box did not hold the configured text width with a stable scroll width within ${LAYOUT_SETTLE_MS} ms; remove author CSS that changes the composer measure box size, such as padding, border, transform or inline-size on every element, or let content whose layout keeps changing settle, to clear this refusal');return;}if(settleDecision!=='settled')settled=false;}if(!settled)return nextLayoutFrame().then(composeWhenMeasurable);
 var planBookOrFail=function(input){var held=planBook(input,config.numbering);if(!held.ok){fail(held.refusals[0].message);return null;}return applyPrintedRules(held.plan);};
-${lineNotes
+${
+  lineNotes
     ? "var planConverged=function(){var held=planBookOrFail(input);if(!held)return null;planFolios=held;var moved=[];var movedLabels=[];var convergence=convergeLayout(held,function(previous){fillPageReferences(previous.pages);var filled=applyLineLabels(input,previous,config.lineNumbers,config.lineNoteSeries,document);if(filled.refusals.length){fail(filled.refusals[0]);return null;}if(filled.missing.length){fail('line-keyed note labels for '+filled.missing.join(', ')+' could not be matched to their note bodies and series; keep each generated line label and its declared series to clear this refusal');return null;}input=measureInput();var next=planBookOrFail(input);if(!next)return null;planFolios=next;moved=unsettledPageReferences(next.pages);var labels=unsettledLineLabels(input,next,config.lineNumbers,config.lineNoteSeries,document);if(labels.refusals.length){fail(labels.refusals[0]);return null;}movedLabels=labels.moved;return {plan:next,settled:moved.length===0&&movedLabels.length===0};},3);if(!convergence)return null;if(!convergence.converged){if(movedLabels.length)fail('line-keyed note labels for '+movedLabels.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for line labels to clear this refusal');else fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal');return null;}return convergence.plan;};"
     : "var planConverged=function(){var held=planBookOrFail(input);if(!held)return null;planFolios=held;var moved=[];var convergence=convergeLayout(held,function(previous){fillPageReferences(previous.pages);input=measureInput();var next=planBookOrFail(input);if(!next)return null;planFolios=next;moved=unsettledPageReferences(next.pages);return {plan:next,settled:moved.length===0};},3);if(!convergence)return null;if(!convergence.converged){fail('page references to '+moved.join(', ')+' would not settle after three additional compositions; shorten the content or reserve fixed space for page references to clear this refusal');return null;}return convergence.plan;};"
 }

@@ -12,8 +12,8 @@ export type NoteNumbering = z.infer<typeof NoteNumbering>
 
 export const NoteSeries = closedObject({
   name: z.string().regex(REGION_NAME, 'a note series name must be an HTML name token'),
-  key: z.enum(['counter', 'line']).default('counter'),
-  lemmaSeparator: z.string().default(']'),
+  key: z.enum(['counter', 'line']).optional(),
+  lemmaSeparator: z.string().optional(),
   placement: NotePlacement.optional(),
   numbering: NoteNumbering.optional(),
   marker: NoteMarker.optional(),
@@ -276,9 +276,7 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
   return inputs.map((series) => {
     const key = series.key ?? 'counter'
     const lineNumberSystem =
-      key === 'line' && settings.lineNumberSystem !== undefined
-        ? resolveLineKeyedNoteSystem(series.marker, settings.lineNumberSystem)
-        : undefined
+      key === 'line' && settings.lineNumberSystem !== undefined ? resolveLineKeyedNoteSystem(series.marker, settings.lineNumberSystem) : undefined
     const marker = series.marker ?? unusedMarker(series.preferredMarker, settings.lang, [...used, ...explicitMarkers])
     used.push(marker)
     return {

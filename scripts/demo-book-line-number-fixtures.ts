@@ -135,6 +135,9 @@ export function lineKeyedBookFixture(hebrew: boolean): DocumentInput {
   const firstLemma = hebrew ? 'מילים ארוכות שנעטפות בסוף השורה' : 'several long words wrapping at the line end'
   const sharedOne = hebrew ? 'אחד' : 'one'
   const sharedTwo = hebrew ? 'שניים' : 'two'
+  const nextWord = hebrew ? 'המשך' : 'continues'
+  const spaceBefore = hebrew ? 'רווח' : 'single'
+  const spaceAfter = hebrew ? 'רגיל' : 'space'
   return {
     type: 'document',
     kind: 'book',
@@ -155,7 +158,7 @@ export function lineKeyedBookFixture(hebrew: boolean): DocumentInput {
             children: [
               {
                 type: 'flow',
-                html: `<p data-line-numbers>${hebrew ? 'פתיחה של הקטע ' : 'The passage opens with enough text to place '}<span data-lemma data-line-keyed-case="wrapping">${firstLemma}</span><span data-note="apparatus">${hebrew ? 'הערה ראשונה' : 'First note'}</span><br><span data-lemma data-line-keyed-case="shared-one">${sharedOne}</span><span data-note="apparatus">${hebrew ? 'הערה שנייה' : 'Second note'}</span> <span data-lemma data-line-keyed-case="shared-two">${sharedTwo}</span><span data-note="apparatus">${hebrew ? 'הערה שלישית' : 'Third note'}</span><br><span data-line-keyed-case="no-lemma"></span><span data-note="apparatus">${hebrew ? 'ללא דיבור המתחיל' : 'Without a lemma'}</span></p>`,
+                html: `<p data-line-numbers>${hebrew ? 'פתיחה של הקטע ' : 'The passage opens with enough text to place '}<span data-lemma data-line-keyed-case="wrapping">${firstLemma}</span> <span data-note="apparatus">${hebrew ? 'הערה ראשונה' : 'First note'}</span> <span data-line-keyed-next>${nextWord}</span><br><span data-lemma data-line-keyed-case="shared-one">${sharedOne}</span><span data-note="apparatus">${hebrew ? 'הערה שנייה' : 'Second note'}</span> <span data-lemma data-line-keyed-case="shared-two">${sharedTwo}</span><span data-note="apparatus">${hebrew ? 'הערה שלישית' : 'Third note'}</span><br><span data-line-keyed-case="no-lemma"></span><span data-note="apparatus">${hebrew ? 'ללא דיבור המתחיל' : 'Without a lemma'}</span><br><span data-line-keyed-space-before>${spaceBefore}</span> <span data-line-keyed-space-after>${spaceAfter}</span></p>`,
               },
             ],
           },

@@ -7,6 +7,11 @@ export const BOOK_PAGE_ATTRIBUTE = 'data-segnavia-book-page'
 
 export type BookLayout = (typeof BOOK_LAYOUTS)[number]
 
+export interface ScreenPresentation {
+  spread: boolean
+  reportPlace?: boolean
+}
+
 export const BOOK_PLACE_KEY_LIMIT = 256
 
 export interface VisibleBookBlock {

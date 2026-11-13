@@ -93,6 +93,17 @@ function lineNoteParagraph(series: ResolvedNoteSeries, noteId: string, content: 
   return element('p', { class: series.bodyClass, id: noteId }, [lineLabel(noteId, series.name, lemma, series.lemmaSeparator), ...content])
 }
 
+function authoredNoteReplacement(series: ResolvedNoteSeries, noteId: string, refId: string, marker: string, lemma: Element | undefined): Element {
+  if (series.key !== 'line') return element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)])
+  return element('a', {
+    id: refId,
+    href: `#${noteId}`,
+    'data-segnavia-line-note': noteId,
+    ...(lemma ? {} : { 'data-segnavia-line-note-anchor': noteId }),
+    'aria-hidden': 'true',
+  })
+}
+
 function scopeKey(series: ResolvedNoteSeries, context: NoteSectionContext): string {
   if (series.numbering === 'book') return 'book'
   if (series.numbering === 'part') return context.part?.id ?? 'book'
@@ -206,19 +217,11 @@ function transformAuthoredNote(
     )
   }
   if (lemma) lemma.attribs['data-segnavia-line-note-anchor'] = noteId
-  const replacement =
-    series.key === 'line'
-      ? element('a', {
-          id: refId,
-          href: `#${noteId}`,
-          'data-segnavia-line-note': noteId,
-          ...(lemma ? {} : { 'data-segnavia-line-note-anchor': noteId }),
-          'aria-hidden': 'true',
-        })
-      : element('sup', { class: 'segnavia-note-ref' }, [markerLink(refId, noteId, marker)])
-  replace(note, replacement)
+  replace(note, authoredNoteReplacement(series, noteId, refId, marker, lemma))
   const paragraph =
-    series.key === 'line' ? lineNoteParagraph(series, noteId, content, lemma ? nodeText(lemma) : undefined) : noteParagraph(series.bodyClass, noteId, refId, marker, content)
+    series.key === 'line'
+      ? lineNoteParagraph(series, noteId, content, lemma ? nodeText(lemma) : undefined)
+      : noteParagraph(series.bodyClass, noteId, refId, marker, content)
   if (series.placement === 'page') {
     if (galley) {
       const paragraphs = state.pageParagraphs.get(series.name) ?? []

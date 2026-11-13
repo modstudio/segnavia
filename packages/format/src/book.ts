@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { AsOf } from './as-of.ts'
-import { bookPageGeometries, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
+import { lineKeyedNoteSeriesIssues } from './book-note-series.ts'
+import { resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 import { parentPaperIssues } from './book-parent-geometry-policy.ts'
 import {
   BookChapterEntry,
@@ -15,29 +16,30 @@ import {
 } from './book-section.ts'
 import { partDepthIssues, structuralBookIssues } from './book-structure-policy.ts'
 import { closedObject } from './closed-object.ts'
-import { Direction, resolveDirection, TextDirection } from './direction.ts'
+import { Direction, TextDirection } from './direction.ts'
 import { pageGeometryIssues } from './document-page-geometry-policy.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { HeadTemplates } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { RequiredLogicalMargin } from './margins.ts'
-import { NoteSeriesEntries, noteSeriesIssues, resolveLineKeyedNoteSystem, resolveNoteSeries } from './note-series.ts'
+import { NoteSeriesEntries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { defaultPageNumbering, divisionNumbering, divisionPrints, NoteMarker, NumberSystem } from './numbering.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { effectiveParentRules, FLOWING_PARENT_RULES, parentRules, textHoldingParentRules } from './parent-rules.ts'
 import { Placement } from './placement.ts'
 import { PressGeometry } from './print.ts'
-import { bookParentPages, bookParents, Fragmentation, ParentPage, textArea } from './printed-pages.ts'
+import { bookParentPages, Fragmentation, ParentPage, textArea } from './printed-pages.ts'
 import { Scripts } from './scripts.ts'
 import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
 import { Variables } from './variable.ts'
-import { bookVariableDocumentFacts, VariableDocumentFacts, variableReadsDocumentFacts } from './variable-document-facts.ts'
+import { VariableDocumentFacts } from './variable-document-facts.ts'
 
 export { bookPageGeometries, bookPageName, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
+export { resolveBookPagination } from './book-pagination.ts'
 export {
   BookChapterEntry,
   BookContents,
@@ -201,29 +203,15 @@ const ValidatedBookShape = BookShape.superRefine((book, ctx) => {
       ctx.addIssue({ code: 'custom', path: [...path, 'placement'], message: error instanceof Error ? error.message : String(error) })
     }
   }
+  for (const issue of lineKeyedNoteSeriesIssues({ lang: book.lang, lineNumbers: book.lineNumbers, notes: book.notes })) {
+    ctx.addIssue({ code: 'custom', ...issue })
+  }
   const seen = new Set<string>()
   book.notes.forEach(({ name }, index) => {
     if (seen.has(name)) {
       ctx.addIssue({ code: 'custom', path: ['notes', index, 'name'], message: `note series ${name} is duplicated; give every series a unique name` })
     }
     seen.add(name)
-    const authored = book.notes[index]
-    if (authored?.key === 'line') {
-      if (book.lineNumbers === undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['notes', index, 'key'],
-          message: `note series ${name} is keyed to lines but the document has no lineNumbers setting; add lineNumbers to clear this refusal`,
-        })
-      }
-      if (authored.marker !== undefined) {
-        try {
-          resolveLineKeyedNoteSystem(authored.marker, book.lineNumbers?.system ?? defaultPageNumbering(book.lang))
-        } catch (error) {
-          ctx.addIssue({ code: 'custom', path: ['notes', index, 'marker'], message: error instanceof Error ? error.message : String(error) })
-        }
-      }
-    }
     if (name !== 'footnote' && name !== 'endnote') {
       if (book.notes[index]?.placement === undefined) {
         ctx.addIssue({ code: 'custom', path: ['notes', index, 'placement'], message: `note series ${name} needs placement` })
@@ -397,30 +385,3 @@ const DepthCheckedBook = z.preprocess((value, ctx) => {
 
 export const Book = DepthCheckedBook.transform(({ bodyKey: _bodyKey, ...book }) => book)
 export type Book = z.infer<typeof Book>
-
-export function resolveBookPagination(book: Book): BookViewPagination | undefined {
-  if (book.mode !== 'paginated' || !book.page) return undefined
-  return {
-    paper: sheetMm(book.page),
-    margin: book.page.margin,
-    columnGap: book.page.columnGap,
-    geometries: bookPageGeometries(book),
-    direction: resolveDirection(book.dir, book.lang, book.title),
-    numbering: book.numbering,
-    rectoOpenings: book.rectoOpenings,
-    orphans: book.orphans,
-    widows: book.widows,
-    parents: bookParents(book.page.margin, book.parentPages),
-    endnotePlacement: book.endnotes.placement,
-    contents: book.contents,
-    variables: book.variables,
-    headTemplates: book.headTemplates,
-    ...(book.lineNumbers === undefined ? {} : { lineNumbers: book.lineNumbers }),
-    ...(book.sideNotes === undefined ? {} : { sideNotes: book.sideNotes }),
-    ...(book.notes.some(({ key }) => key === 'line')
-      ? { lineNoteSeries: book.notes.flatMap(({ key, name, lineNumberSystem }) => (key === 'line' && lineNumberSystem ? [{ name, system: lineNumberSystem }] : [])) }
-      : {}),
-    recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),
-    ...(book.variables.some(variableReadsDocumentFacts) ? { document: bookVariableDocumentFacts(book) } : {}),
-  }
-}
