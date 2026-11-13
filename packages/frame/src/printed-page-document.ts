@@ -33,6 +33,7 @@ import {
   parseDocument,
   printedPageDirection,
   printedSectionFlows,
+  printedSectionOutlineHtml,
   resolvePrintedPageHtml,
   TARGET_LINKS_CSS,
 } from '@segnavia/html'
@@ -171,7 +172,7 @@ export function printedPageValueDocument(
   const parts = sections.map((section) => pageParts(section.html))
   const implicit = sections.length === 1 && sections[0]?.implicit === true
   const flows = implicit
-    ? `<div data-segnavia-flow="${sections[0]?.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${parts[0]?.body ?? ''}</div>`
+    ? `<div data-segnavia-flow="${sections[0]?.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${printedSectionOutlineHtml({ ...sections[0], html: parts[0]?.body ?? '' })}</div>`
     : printedSectionFlows(
         sections.map((section, index) => ({ ...section, html: parts[index]?.body ?? '' })),
         parentRules,

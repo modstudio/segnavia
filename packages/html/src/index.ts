@@ -161,7 +161,7 @@ export {
   type ResolvePlacement,
   resolvePlacements,
 } from './placements.ts'
-export { printedSectionFlows } from './printed-section-flows.ts'
+export { printedSectionFlows, printedSectionOutlineHtml } from './printed-section-flows.ts'
 export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, fillDeckAsOfBindings, mapBookHtml } from './record-as-of.ts'
 export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
 export {

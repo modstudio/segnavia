@@ -1,4 +1,6 @@
 import { expect, test } from 'bun:test'
+import { Page } from '@segnavia/format'
+import { resolvePrintedPageHtml } from './markdown.ts'
 import { printedSectionFlows } from './printed-section-flows.ts'
 
 test('binds record values and marks the printed flow', () => {
@@ -54,4 +56,15 @@ test('a printed record emits exactly one prefixed target block whose hrefs equal
     [{ parent: 'body' }],
   )
   expect(destinationFacts(html)).toEqual({ targetBlocks: 1, headingIds: ['row-1-name'], hrefs: ['row-1-name'] })
+})
+
+test('an implicit printed section emits exactly one target block whose hrefs equal its heading ids (mutation: add targets while resolving it)', () => {
+  const page = Page.parse({
+    html: '<h1 id="heading" data-segnavia-id="heading">Heading</h1>',
+    print: { paper: 'letter' },
+    printedPages: { parents: [{ name: 'body' }], parentRules: [{ parent: 'body' }] },
+  })
+  const resolved = resolvePrintedPageHtml(page)
+  const html = printedSectionFlows(resolved.printedPages.sections, resolved.printedPages.parentRules)
+  expect(destinationFacts(html)).toEqual({ targetBlocks: 1, headingIds: ['heading'], hrefs: ['heading'] })
 })
