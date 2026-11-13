@@ -181,7 +181,7 @@ export function designedSection(
       ? flowPage(offset + 1, 'designed', document.children, geometry, offset % 2 === 0 ? firstRecto : !firstRecto)
       : element('div', { 'data-segnavia-designed-page': String(offset + 1), hidden: '' }, document.children)
   })
-  if (entry.contents && entry.title !== undefined) {
+  if (entry.title !== undefined) {
     headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
   }
   return {
@@ -319,7 +319,7 @@ export function templatedSection(
     }
     return element('div', { 'data-segnavia-templated-page': String(offset + 1), 'data-template': name, hidden: '' }, regions)
   })
-  if (entry.contents && entry.title !== undefined) {
+  if (entry.title !== undefined) {
     headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
   }
   return {

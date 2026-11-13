@@ -52,6 +52,23 @@ describe('book outline policy', () => {
     expect(bookOutline(built.headings, destinations)[0]?.children.map((item) => item.id)).toEqual(['kept'])
   })
 
+  test('omits the headings of a contents-disabled section', () => {
+    const book = parseBookFixture({
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      chapters: [
+        { id: 'hidden-section', kind: 'designed', title: 'Hidden', contents: false, pages: [{ html: '<h1 id="hidden-heading">Hidden heading</h1>' }] },
+        { id: 'visible-section', title: 'Visible', html: '<h2 id="visible-heading">Visible heading</h2>' },
+      ],
+    })
+    const built = bookDocument(book)
+    const destinations = new Map(built.headings.map((heading, index) => [heading.id, at(index + 1)]))
+
+    expect(bookOutline(built.headings, destinations).map((item) => item.id)).toEqual(['visible-section'])
+    expect(bookOutline(built.headings, destinations)[0]?.children.map((item) => item.id)).toEqual(['visible-heading'])
+  })
+
   test('refuses a heading without a printed destination and names its id', () => {
     expect(() => bookOutline([{ id: 'missing', level: 1, text: 'Missing', sectionId: 'one' }], new Map())).toThrow(
       'The heading missing has no printed destination.',

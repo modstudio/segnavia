@@ -1,6 +1,17 @@
 import { describe, expect, test } from 'bun:test'
 import { parse } from '../sanitize.ts'
+import { bookDocument } from './book-document.ts'
 import { collectHeadings } from './book-held.ts'
+import { parseBookFixture } from './book-test-fixture.ts'
+
+const paginatedBook = (chapter: Record<string, unknown>, templates: Record<string, unknown>[] = []) =>
+  parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    templates,
+    chapters: [chapter],
+  })
 
 describe('collectHeadings', () => {
   test('separates line breaks and block children in heading text', () => {
@@ -16,5 +27,49 @@ describe('collectHeadings', () => {
       'PartOne',
       'PartOne',
     ])
+  })
+})
+
+describe('held section contents', () => {
+  test('lists every designed-section heading only when contents is enabled', () => {
+    const section = { kind: 'designed', title: 'Gallery', pages: [{ html: '<h1 id="art">Art</h1><h2 id="detail">Detail</h2>' }] }
+
+    expect(bookDocument(paginatedBook({ ...section, contents: false })).headings).toEqual([])
+    expect(bookDocument(paginatedBook({ ...section, contents: true })).headings.map(({ id, level, text }) => ({ id, level, text }))).toEqual([
+      { id: 'section-1', level: 1, text: 'Gallery' },
+      { id: 'art', level: 1, text: 'Art' },
+      { id: 'detail', level: 2, text: 'Detail' },
+    ])
+  })
+
+  test('lists every templated-section heading only when contents is enabled', () => {
+    const section = {
+      kind: 'templated',
+      title: 'Lessons',
+      template: 'lesson',
+      pages: [{ regions: { heading: '<h1 id="lesson">Lesson</h1><h2 id="topic">Topic</h2>' } }],
+    }
+    const templates = [{ name: 'lesson', html: '<div data-region="heading"></div>' }]
+
+    expect(bookDocument(paginatedBook({ ...section, contents: false }, templates)).headings).toEqual([])
+    expect(bookDocument(paginatedBook({ ...section, contents: true }, templates)).headings.map(({ id, level, text }) => ({ id, level, text }))).toEqual([
+      { id: 'section-1', level: 1, text: 'Lessons' },
+      { id: 'lesson', level: 1, text: 'Lesson' },
+      { id: 'topic', level: 2, text: 'Topic' },
+    ])
+  })
+
+  test('lists every end-matter flowing-section heading only when contents is enabled', () => {
+    const book = (contents: boolean) =>
+      parseBookFixture({
+        title: 'Book',
+        mode: 'paginated',
+        page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+        chapters: [{ title: 'One', html: '<p>Body</p>' }],
+        endMatter: [{ title: 'Index', contents, html: '<h2 id="entries">Entries</h2>' }],
+      })
+
+    expect(bookDocument(book(false)).headings.map(({ text }) => text)).toEqual(['One'])
+    expect(bookDocument(book(true)).headings.map(({ text }) => text)).toEqual(['One', 'Index', 'Entries'])
   })
 })
