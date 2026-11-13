@@ -2,7 +2,7 @@
 // annotations whose cues have arrived. Pure, so the viewer, a test and a
 // future video export all read the same answer from the same narration.
 
-import type { Cue, Deck, Narration, Slide } from '@segnavia/format'
+import { type Cue, type Deck, type Narration, type NarrationPacing, narrationTiming, type Slide, splitWords, type Word } from '@segnavia/format'
 
 export interface Moment {
   word: number | null
@@ -40,20 +40,20 @@ export interface TimelinePosition {
   untimed: boolean
 }
 
-export function slideDurationMs(slide: Slide): number | null {
-  if (slide.narration) return (slide.beforeMs ?? 0) + slide.narration.durationMs + (slide.afterMs ?? 0)
+export function slideDurationMs(slide: Slide, deck: NarrationPacing): number | null {
+  if (slide.narration) return (slide.beforeMs ?? 0) + narrationTiming(slide.narration, deck).durationMs + (slide.afterMs ?? 0)
   return slide.holdMs ?? null
 }
 
-export function phaseBounds(slide: Pick<Slide, 'beforeMs' | 'narration'>): PhaseBounds {
+export function phaseBounds(slide: Pick<Slide, 'beforeMs' | 'narration'>, deck: NarrationPacing): PhaseBounds {
   const beforeMs = slide.beforeMs ?? 0
-  return { beforeMs, narrationEndMs: beforeMs + (slide.narration?.durationMs ?? 0) }
+  return { beforeMs, narrationEndMs: beforeMs + (slide.narration ? narrationTiming(slide.narration, deck).durationMs : 0) }
 }
 
-export function deckTimeline(deck: Pick<Deck, 'slides'>): DeckTimeline {
+export function deckTimeline(deck: Pick<Deck, 'slides' | 'readingSpeed'>): DeckTimeline {
   let totalMs = 0
   const slides = deck.slides.map((slide) => {
-    const durationMs = slideDurationMs(slide)
+    const durationMs = slideDurationMs(slide, deck)
     const entry = { startMs: totalMs, durationMs, untimed: durationMs === null }
     totalMs += durationMs ?? 0
     return entry
@@ -70,23 +70,24 @@ export function positionAt(timeline: DeckTimeline, deckMs: number): TimelinePosi
   return { index, localMs: entry?.untimed ? 0 : target - (entry?.startMs ?? 0), untimed: entry?.untimed ?? true }
 }
 
-export function slideStateAt(slide: Slide, ms: number): SlideMoment {
+export function slideStateAt(slide: Slide, ms: number, deck: NarrationPacing): SlideMoment {
   const position = Math.max(0, ms)
   if (!slide.narration) return { word: null, shown: null, phase: slide.holdMs === undefined ? 'untimed' : 'hold' }
-  const { beforeMs } = phaseBounds(slide)
+  const timing = narrationTiming(slide.narration, deck)
+  const beforeMs = slide.beforeMs ?? 0
   if (position < beforeMs) return { word: null, shown: [], phase: 'before' }
   const narrationMs = position - beforeMs
-  if (narrationMs < slide.narration.durationMs) {
-    const word = wordAt(slide.narration, narrationMs)
+  if (narrationMs < timing.durationMs) {
+    const word = wordAt(timing, narrationMs)
     return { word, shown: annotationsAt(slide.narration.cues, word), phase: 'narration' }
   }
-  const word = wordAt(slide.narration, slide.narration.durationMs)
+  const word = wordAt(timing, timing.durationMs)
   return { word, shown: annotationsAt(slide.narration.cues, word), phase: 'after' }
 }
 
 // The word whose span holds the time, or during a pause the word just spoken,
 // so the caption never blinks off between words.
-export function wordAt(narration: Pick<Narration, 'words'>, ms: number): number | null {
+export function wordAt(narration: { words: Word[] }, ms: number): number | null {
   let spoken: number | null = null
   for (const [index, word] of narration.words.entries()) {
     if (word.startMs > ms) break
@@ -101,13 +102,14 @@ export function annotationsAt(cues: Cue[], word: number | null): number[] {
   return [...new Set(shown)].sort((a, b) => a - b)
 }
 
-export function momentAt(narration: Narration, ms: number): Moment {
-  const state = slideStateAt({ id: '', content: { kind: 'html', html: '' }, narration }, ms)
-  return { word: state.word, annotations: state.shown, ended: ms >= narration.durationMs }
+export function momentAt(narration: Narration, ms: number, deck: NarrationPacing): Moment {
+  const timing = narrationTiming(narration, deck)
+  const word = wordAt(timing, ms)
+  return { word, annotations: annotationsAt(narration.cues, word), ended: ms >= timing.durationMs }
 }
 
 export function words(text: string): string[] {
-  return text.split(/\s+/).filter(Boolean)
+  return splitWords(text)
 }
 
 // Character offset of each word in the text, so a speech engine reporting a
@@ -130,8 +132,11 @@ export function wordAtOffset(offsets: number[], charIndex: number): number | nul
 
 // Cues are written against words a person reads, so authoring names a word by
 // its text and occurrence rather than counting to an index by hand.
-export function wordIndex(narration: Pick<Narration, 'words'> | { text: string }, text: string, occurrence = 1): number {
-  const list = 'words' in narration && narration.words.length > 0 ? narration.words.map((word) => word.text) : words('text' in narration ? narration.text : '')
+export function wordIndex(narration: { words: Word[] } | { text: string; words?: Word[] }, text: string, occurrence = 1): number {
+  const list =
+    'words' in narration && narration.words && narration.words.length > 0
+      ? narration.words.map((word) => word.text)
+      : words('text' in narration ? narration.text : '')
   const normalize = (value: string) => value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
   let seen = 0
   for (const [index, word] of list.entries()) {

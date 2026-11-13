@@ -143,7 +143,7 @@ export class DeckController extends EventTarget {
     this.current = { ...this.current, ...loaded }
     this.completeEmitted = false
     this.playback.resetWatched(
-      deck.slides.map((slide) => slideDurationMs(slide)),
+      deck.slides.map((slide) => slideDurationMs(slide, deck)),
       { index: loaded.index, ms: 0 },
     )
     try {
@@ -240,8 +240,8 @@ export class DeckController extends EventTarget {
   async play(): Promise<void> {
     const { deck, index, slide } = this.current
     this.current = { ...this.current, playing: true }
-    if (slide && index + 1 === deck?.slides.length && (this.playback.clock?.ended() || slideDurationMs(slide) === null)) return this.go(0)
-    if (!slide || slideDurationMs(slide) === null) return this.next()
+    if (slide && deck && index + 1 === deck.slides.length && (this.playback.clock?.ended() || slideDurationMs(slide, deck) === null)) return this.go(0)
+    if (!slide || !deck || slideDurationMs(slide, deck) === null) return this.next()
     if (this.playback.clock) {
       this.playback.clock.resume()
       this.playback.scheduleTick()
@@ -285,7 +285,7 @@ export class DeckController extends EventTarget {
     }
     const slide = deck.slides[index]
     if (!slide) return
-    const local = slide.narration?.live && localMs > 0 ? 0 : localMs
+    const local = slide.narration?.kind !== 'text' && slide.narration?.live && localMs > 0 ? 0 : localMs
     if (!this.playback.clock) this.playback.startClock(local)
     else {
       this.playback.clock.seek(local)
@@ -350,7 +350,7 @@ export class DeckController extends EventTarget {
       this.current = { ...this.current, index }
       writeControllerHash(this.options.hash, index)
     }
-    const duration = slideDurationMs(slide)
+    const duration = slideDurationMs(slide, deck)
     const playing = this.current.playing && duration !== null
     const timeline = deckTimeline(deck)
     const startMs = timeline.slides[index]?.startMs ?? 0

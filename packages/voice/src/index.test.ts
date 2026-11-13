@@ -13,7 +13,9 @@ describe('voice', () => {
   })
 
   test('paced timings never overlap and the duration covers the last word', async () => {
-    const speech = await pacedProvider().synthesize('One, two. Three four.')
+    const provider = pacedProvider()
+    const speech = await provider.synthesize('One, two. Three four.')
+    expect(provider.id).toBe('paced-v2-160')
     for (const [i, word] of speech.words.entries()) {
       expect(word.endMs).toBeGreaterThan(word.startMs)
       if (i > 0) expect(word.startMs).toBeGreaterThan(speech.words[i - 1]?.endMs ?? 0)

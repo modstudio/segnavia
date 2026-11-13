@@ -1,4 +1,4 @@
-import type { Deck, PlaybackMode, Slide, SlideContent, TextDirection } from '@segnavia/format'
+import type { Deck, NarrationPacing, PlaybackMode, Slide, SlideContent, TextDirection } from '@segnavia/format'
 import type { AssetPlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import type { Clock } from './clock.ts'
@@ -45,7 +45,7 @@ export interface ControllerOptions {
   prefetch?: boolean
   keys?: 'stage' | 'page'
   hash?: string | null
-  clock?: (slide: Slide, audio: string | null) => Clock
+  clock?: (slide: Slide, audio: string | null, deck: NarrationPacing) => Clock
   playback?: PlaybackMode
   captions?: 'on' | 'off' | 'viewer'
   persist?: boolean

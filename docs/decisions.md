@@ -51,9 +51,10 @@ re-voicing a line or recapturing a screen changes only that piece. Every
 comparable tool surveyed compiles to a video file, which is the gap this
 fills.
 
-**Narration drives the pace.** A slide's length comes from its narration's
-word timings, and cues are bound to words. Fixed durations drift from the
-voice. That drift is where tools like this usually fail.
+**Narration drives the pace.** A voiced slide's length comes from its stored
+word timings; a text narration derives the same timeline from the deck's
+reading speed. Cues are bound to those words. Fixed durations drift from the
+voice or reading pace. That drift is where tools like this usually fail.
 
 **A tutorial is a deck.** There are static slides and slides that play.
 Speaker notes are already on every slide in both studios, so they are close

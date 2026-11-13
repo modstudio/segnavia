@@ -1,7 +1,7 @@
 // A positionable clock for one whole slide. Recorded audio is authoritative
 // while narration plays; pauses around it and unnarrated holds use wall time.
 
-import type { Narration, Slide } from '@segnavia/format'
+import type { NarrationPacing, Slide } from '@segnavia/format'
 import { phaseBounds, slideDurationMs, slideStateAt, wordAtOffset, wordOffsets } from './timeline.ts'
 
 export interface Clock {
@@ -16,15 +16,15 @@ export interface Clock {
   stop(): void
 }
 
-function wallClock(slide: Slide): Clock {
-  const duration = slideDurationMs(slide) ?? 0
+function wallClock(slide: Slide, deck: NarrationPacing): Clock {
+  const duration = slideDurationMs(slide, deck) ?? 0
   let position = 0
   let anchor = performance.now()
   let running = true
   let muted = false
   const elapsed = () => Math.min(duration, position + (running ? performance.now() - anchor : 0))
   return {
-    word: () => slideStateAt(slide, elapsed()).word,
+    word: () => slideStateAt(slide, elapsed(), deck).word,
     ended: () => elapsed() >= duration,
     elapsed,
     progress: () => (duration === 0 ? 1 : elapsed() / duration),
@@ -54,12 +54,12 @@ function wallClock(slide: Slide): Clock {
   }
 }
 
-export function timedClock(slide: Slide, audioSrc: string | null): Clock {
-  if (!audioSrc || !slide.narration) return wallClock(slide)
+export function timedClock(slide: Slide, audioSrc: string | null, deck: NarrationPacing): Clock {
+  if (!audioSrc || !slide.narration || slide.narration.kind === 'text') return wallClock(slide, deck)
   const narration = slide.narration
   const audio = new Audio(audioSrc)
-  const duration = slideDurationMs(slide) ?? 0
-  const { beforeMs, narrationEndMs: narrationEnd } = phaseBounds(slide)
+  const duration = slideDurationMs(slide, deck) ?? 0
+  const { beforeMs, narrationEndMs: narrationEnd } = phaseBounds(slide, deck)
   let position = 0
   let anchor = performance.now()
   let running = true
@@ -108,7 +108,7 @@ export function timedClock(slide: Slide, audioSrc: string | null): Clock {
     playAudio()
   }
   const clock: Clock = {
-    word: () => slideStateAt(slide, elapsed()).word,
+    word: () => slideStateAt(slide, elapsed(), deck).word,
     ended: () => elapsed() >= duration,
     elapsed,
     progress: () => (duration === 0 ? 1 : elapsed() / duration),
@@ -148,12 +148,13 @@ export function timedClock(slide: Slide, audioSrc: string | null): Clock {
 
 // Browser speech cannot seek or change volume mid-utterance. Muting cancels
 // it and leaves the declared slide timing to pace the remainder.
-export function speechClock(slide: Slide, voiceName?: string): Clock {
-  const narration = slide.narration as Narration
+export function speechClock(slide: Slide, voiceName: string | undefined, deck: NarrationPacing): Clock {
+  if (!slide.narration || slide.narration.kind === 'text') return wallClock(slide, deck)
+  const narration = slide.narration
   const synth = window.speechSynthesis
   const offsets = wordOffsets(narration.text)
-  const duration = slideDurationMs(slide) ?? 0
-  const { beforeMs, narrationEndMs: narrationEnd } = phaseBounds(slide)
+  const duration = slideDurationMs(slide, deck) ?? 0
+  const { beforeMs, narrationEndMs: narrationEnd } = phaseBounds(slide, deck)
   const utterance = new SpeechSynthesisUtterance(narration.text)
   if (narration.lang) utterance.lang = narration.lang
   const voice = voiceName ? synth.getVoices().find((candidate) => candidate.name === voiceName) : undefined
@@ -198,7 +199,7 @@ export function speechClock(slide: Slide, voiceName?: string): Clock {
     word: () => {
       const now = elapsed()
       if (!speaking && now >= beforeMs) begin()
-      return abandoned ? slideStateAt(slide, now).word : spokenWord
+      return abandoned ? slideStateAt(slide, now, deck).word : spokenWord
     },
     ended: () => (abandoned || speechDone) && elapsed() >= duration,
     elapsed,

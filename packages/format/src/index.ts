@@ -51,6 +51,8 @@ export {
   Shot,
   Slide,
   SlideContent,
+  type TextNarration,
+  type VoicedNarration,
   Word,
 } from './deck.ts'
 export { type DeckFromSlidesOptions, deckFromSlides, type SlideRow } from './deck-from-slides.ts'
@@ -209,6 +211,7 @@ export {
   PointSize,
 } from './media.ts'
 export * from './motif.ts'
+export { DEFAULT_READING_SPEED, type NarrationPacing, narrationTiming } from './narration-timing.ts'
 export * from './numbering.ts'
 export {
   type AssetRefusal,
@@ -236,6 +239,7 @@ export {
   OutlineHeading,
   OutlineSource,
 } from './outline.ts'
+export { type NarrationTiming, pacedWords, splitWords } from './paced-words.ts'
 export {
   FlowingWidth,
   FULL_PAGE_SIZE,

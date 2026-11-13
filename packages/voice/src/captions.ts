@@ -1,7 +1,7 @@
-import type { Word } from '@segnavia/format'
+import { splitWords as splitPacedWords, type Word } from '@segnavia/format'
 
 export function splitWords(text: string): string[] {
-  return text.split(/\s+/).filter(Boolean)
+  return splitPacedWords(text)
 }
 
 export function remapCaptionWords(words: Word[], script: string, captionWords = splitWords(script)): Word[] {

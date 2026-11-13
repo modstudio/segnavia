@@ -7,7 +7,7 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Word } from '@segnavia/format'
+import { pacedWords, type Word } from '@segnavia/format'
 import { remapCaptionWords, splitWords } from './captions.ts'
 
 export { splitWords } from './captions.ts'
@@ -75,26 +75,15 @@ export function wordsFromCharacters(characters: string[], startsSec: number[], e
   return words
 }
 
-// Sentence and clause ends in Latin, Hebrew (sof pasuk) and Arabic script.
-const SENTENCE_END = /[.!?\u05C3\u061F\u06D4\u0964]["'\u05F4\u201D)]*$/u
-const CLAUSE_END = /[,;:\u060C\u061B\u05C0]["'\u05F4\u201D)]*$/u
-
 // Timings from a speaking rate, with no audio: deterministic, offline, and
 // enough to drive a player and prove the sync. Longer words take longer, and
 // a sentence end adds a pause.
 export function pacedProvider(options: { wordsPerMinute?: number } = {}): VoiceProvider {
-  const msPerChar = 60000 / ((options.wordsPerMinute ?? 160) * 5.5)
+  const wordsPerMinute = options.wordsPerMinute ?? 160
   return {
-    id: `paced-${options.wordsPerMinute ?? 160}`,
+    id: `paced-v2-${wordsPerMinute}`,
     async synthesize(text) {
-      let clock = 0
-      const words = splitWords(text).map((word) => {
-        const startMs = clock
-        const endMs = startMs + Math.max(140, word.length * msPerChar)
-        clock = endMs + (SENTENCE_END.test(word) ? 350 : CLAUSE_END.test(word) ? 150 : 60)
-        return { text: word, startMs: Math.round(startMs), endMs: Math.round(endMs) }
-      })
-      return { words, durationMs: Math.round(clock + 400), audio: null }
+      return { ...pacedWords(text, wordsPerMinute), audio: null }
     },
   }
 }

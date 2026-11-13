@@ -121,6 +121,7 @@ export const DOCUMENT_PROFILES = {
       'transition',
       'playback',
       'captions',
+      'readingSpeed',
       'limits',
     ],
   },
