@@ -51,7 +51,7 @@ test('every heading in a designed section inside a part carries the part depth',
       { name: 'part', title: 'Part', children: [{ kind: 'designed', title: 'Plate', pages: [{ html: '<h2 data-segnavia-id="detail-heading">Detail</h2>' }] }] },
     ],
   })
-  expect(bookDocument(book).headings).toEqual([
+  expect(bookDocument(book).headings.map(({ id, level, depth, text, sectionId }) => ({ id, level, depth, text, sectionId }))).toEqual([
     { id: 'section-2', level: 1, depth: 0, text: 'Part', sectionId: 'section-2' },
     { id: 'section-2', level: 1, depth: 1, text: 'Plate', sectionId: 'section-2' },
     { id: 'detail-heading', level: 2, depth: 1, text: 'Detail', sectionId: 'section-2' },

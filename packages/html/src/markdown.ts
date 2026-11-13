@@ -8,6 +8,7 @@ import remarkRehype from 'remark-rehype'
 import { unified } from 'unified'
 import { parse as parseYaml } from 'yaml'
 import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
+import { printedHeadingDestinations } from './printed-section-flows.ts'
 import { sanitize } from './sanitize.ts'
 
 export type MarkdownHeading = { id: string; level: number; title: string }
@@ -335,7 +336,7 @@ export function resolvePrintedPageHtml(page: Page | HtmlPage): PrintedHtmlPage {
   const { body: _body, html: _html, ...fields } = page as Page & { html?: string }
   return {
     ...fields,
-    printedPages: { ...printedPages, sections: [{ id: 'printed-page', html, implicit: true }] },
+    printedPages: { ...printedPages, sections: [{ id: 'printed-page', html: printedHeadingDestinations(html), implicit: true }] },
   }
 }
 

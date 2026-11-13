@@ -178,10 +178,16 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: BookRend
     { title: fixture.frontTitle, page: pageWith(pages, fixture.frontMarker) },
     ...fixture.chapterMarkers.flatMap((marker, chapter) => [
       { title: fixture.chapterTitles[chapter] ?? '', page: pageWith(pages, marker) },
-      ...Array.from({ length: 6 }, (_, topic) => {
-        const title = `${tag}-${chapter + 1}-H2-${topic}`
+      ...Array.from({ length: 12 }, (_, index) => {
+        const topic = Math.floor(index / 2)
+        const level = (index % 2) + 2
+        const title = `${tag}-${chapter + 1}-H${level}-${topic}`
         return { title: fixture.key === 'hebrew' ? `\u200f${title}` : title, page: frontPages + pageWith(pages.slice(frontPages), title) }
       }),
+      (() => {
+        const title = `EXCLUDED-${tag}-${chapter + 1}`
+        return { title: fixture.key === 'hebrew' ? `\u200f${title}` : title, page: frontPages + pageWith(pages.slice(frontPages), title) }
+      })(),
     ]),
   ]
   verifyPdfStructure(document, bookFromDocument(Document.parse(fixture.document)), expectedOutline, `${fixture.key} continuous`, check)

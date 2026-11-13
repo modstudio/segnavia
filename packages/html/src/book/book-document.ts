@@ -60,7 +60,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
     kind,
     sectionEntry.division,
     build.build,
-    book.contents.depth,
+    6,
     build.build === 'flow' ? bookFlowPageGeometry(book, entry.pageGeometry) : undefined,
   )
   build.sections.push(held.built)
@@ -78,7 +78,7 @@ function appendTemplated(entry: TemplatedSection, id: string, kind: 'front' | 't
     kind,
     sectionEntry.division,
     build.build,
-    book.contents.depth,
+    6,
     build.templates,
     build.build === 'flow' ? bookFlowPageGeometry(book, entry.pageGeometry) : undefined,
   )
@@ -244,7 +244,7 @@ function addChapters(book: Book, build: DocumentBuild, division: 'body' | 'end' 
     build.sections.push(section)
     decorateSection(sectionEntry, build)
     build.issues.push(...reservedIdIssues(section), ...columnIssues(section), ...authoredSectionAttributeIssues(entry, sectionEntry.id))
-    appendChapterHeadings(entry, section, sectionEntry.depth, book.contents.depth, build.headings)
+    appendChapterHeadings(entry, section, sectionEntry.depth, 6, build.headings)
     transformNotes(
       section.node,
       book,

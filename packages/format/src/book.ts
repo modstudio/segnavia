@@ -25,6 +25,7 @@ import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeriesEntries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { defaultPageNumbering, divisionNumbering, divisionPrints, NoteMarker, NumberSystem } from './numbering.ts'
+import { Outline } from './outline.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { effectiveParentRules, FLOWING_PARENT_RULES, parentRules, textHoldingParentRules } from './parent-rules.ts'
 import { Placement } from './placement.ts'
@@ -93,6 +94,7 @@ export const BookShape = closedObject({
   subject: z.string().optional(),
   extra: z.record(z.string(), z.string()).optional(),
   mode: BookMode,
+  outline: Outline.default({ depth: 6 }),
   limits: DocumentLimitsValue.optional(),
   page: BookPage.optional(),
   scripts: Scripts.default('refuse'),

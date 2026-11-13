@@ -13,7 +13,16 @@ test('uses a section contents label and independently resolves its subtitle dire
   })
   const result = bookDocument(book)
   expect(result.headings).toEqual([
-    { id: 'section-2', level: 1, text: 'Chapter', contentsLabel: 'פרק ראשון', subtitle: 'Introduction', sectionId: 'section-2' },
+    {
+      id: 'section-2',
+      block: 'section-2',
+      level: 1,
+      text: 'Chapter',
+      contentsLabel: 'פרק ראשון',
+      subtitle: 'Introduction',
+      sectionId: 'section-2',
+      listed: { contents: true, outline: true },
+    },
   ])
   expect(result.html).toContain('<a href="#section-2" dir="rtl">פרק ראשון<span class="segnavia-contents-subtitle" dir="ltr">Introduction</span></a>')
 })

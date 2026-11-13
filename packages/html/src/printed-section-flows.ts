@@ -1,15 +1,54 @@
 import type { ParentRules, PrintedPages } from '@segnavia/format'
+import { type ChildNode, isTag } from 'domhandler'
 import { continuingFlowRoots } from './book/book-continue.ts'
 import { type BuiltSection, flowAttribs, numberingAttribs, recordAttribs } from './book/book-held.ts'
-import { element } from './book/dom.ts'
+import { element, text } from './book/dom.ts'
 import { bindRecordValues } from './record-values.ts'
 import { parse, serialize } from './sanitize.ts'
 
 type PrintedSection = NonNullable<PrintedPages['sections']>[number]
 
+function headingDestinations(nodes: readonly ChildNode[], prefix?: string): string[] {
+  const ids: string[] = []
+  for (const node of nodes) {
+    if (!isTag(node)) continue
+    if (/^h[1-6]$/.test(node.name) && node.attribs['data-segnavia-id']) {
+      node.attribs.id = prefix ? `${prefix}-${node.attribs['data-segnavia-id']}` : (node.attribs.id ?? node.attribs['data-segnavia-id'])
+      ids.push(node.attribs.id)
+    }
+    ids.push(...headingDestinations(node.children, prefix))
+  }
+  return ids
+}
+
+export function printedHeadingDestinations(html: string, prefix?: string): string {
+  const document = parse(html)
+  const ids = headingDestinations(document.children, prefix)
+  if (ids.length > 0) {
+    document.children.push(
+      element(
+        'div',
+        {
+          'aria-hidden': 'true',
+          class: 'segnavia-targets',
+          style: 'position:absolute;color:transparent;font-size:1px',
+        },
+        ids.map((id) => element('a', { href: `#${id}`, tabindex: '-1' }, [text('\u200b')])),
+      ),
+    )
+  }
+  return serialize(document.children)
+}
+
+export function printedSectionOutlineHtml(section: PrintedSection): string {
+  const bound = bindRecordValues(section)
+  return printedHeadingDestinations(bound.html, bound.record ? bound.id : undefined)
+}
+
 export function printedSectionFlows(sections: readonly PrintedSection[], rules: ParentRules): string {
   const built: BuiltSection[] = sections.map((section) => {
     section = bindRecordValues(section)
+    const document = parse(printedHeadingDestinations(section.html, section.record ? section.id : undefined))
     const attribs = flowAttribs(section.opens, section.parentRules ?? rules, {
       ...numberingAttribs(section.numbering),
       'data-sequence': 'body',
@@ -17,7 +56,7 @@ export function printedSectionFlows(sections: readonly PrintedSection[], rules: 
     })
     return {
       info: { id: section.id, kind: 'chapter', division: 'body', title: section.title, opens: section.opens },
-      node: element('div', { 'data-segnavia-flow': section.id, id: section.id, ...attribs }, parse(section.html).children),
+      node: element('div', { 'data-segnavia-flow': section.id, id: section.id, ...attribs }, document.children),
     }
   })
   return continuingFlowRoots(built)

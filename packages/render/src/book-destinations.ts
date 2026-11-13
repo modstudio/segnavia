@@ -94,6 +94,40 @@ export function translateNamedDestinations(document: PDFDocument, translations: 
   if (direct instanceof PDFDict) for (const [, value] of direct.entries()) translateDestination(document, value, translations)
 }
 
+function remapDestination(
+  document: PDFDocument,
+  value: PDFObject | undefined,
+  replacements: ReadonlyMap<string, { page: PDFRef; x: number; y: number }>,
+): void {
+  let found = resolve(document, value)
+  if (found instanceof PDFDict) found = resolve(document, found.get(key('D')))
+  if (!(found instanceof PDFArray)) return
+  const reference = found.get(0)
+  if (!(reference instanceof PDFRef)) return
+  const replacement = replacements.get(reference.toString())
+  if (!replacement) return
+  found.set(0, replacement.page)
+  for (const [index, amount] of [replacement.x, replacement.y].entries()) {
+    const coordinate = resolve(document, found.get(index + 2))
+    if (coordinate instanceof PDFNumber) found.set(index + 2, PDFNumber.of(coordinate.asNumber() + amount))
+  }
+}
+
+export function remapNamedDestinationPages(document: PDFDocument, replacements: ReadonlyMap<string, { page: PDFRef; x: number; y: number }>): void {
+  const visit = (value: PDFObject | undefined): void => {
+    const dictionary = resolve(document, value)
+    if (!(dictionary instanceof PDFDict)) return
+    const names = resolve(document, dictionary.get(key('Names')))
+    if (names instanceof PDFArray) for (let index = 1; index < names.size(); index += 2) remapDestination(document, names.get(index), replacements)
+    const kids = resolve(document, dictionary.get(key('Kids')))
+    if (kids instanceof PDFArray) for (let index = 0; index < kids.size(); index += 1) visit(kids.get(index))
+  }
+  const names = resolve(document, document.catalog.get(key('Names')))
+  if (names instanceof PDFDict) visit(names.get(key('Dests')))
+  const direct = resolve(document, document.catalog.get(key('Dests')))
+  if (direct instanceof PDFDict) for (const [, value] of direct.entries()) remapDestination(document, value, replacements)
+}
+
 export function namedDestinations(document: PDFDocument): Map<string, BookDestination> {
   const output = new Map<string, BookDestination>()
   const names = resolve(document, document.catalog.get(key('Names')))

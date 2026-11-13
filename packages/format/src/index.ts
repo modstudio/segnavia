@@ -219,6 +219,7 @@ export {
   originDecision,
   originSet,
 } from './origin-policy.ts'
+export { documentOutline, HeadingListing, Outline, type OutlineEntry, OutlineHeading, type OutlineSource } from './outline.ts'
 export {
   FlowingWidth,
   FULL_PAGE_SIZE,

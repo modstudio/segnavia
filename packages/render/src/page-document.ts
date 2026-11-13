@@ -20,6 +20,7 @@ import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, reso
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { expandFramePage, expandPrintedFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
 import {
+  documentOutlineSource,
   type EstablishedPageDay,
   FontCssRefusedError,
   type HtmlPage,
@@ -77,7 +78,7 @@ export async function prepareRenderedPage(
   const prepared = page.printedPages?.sections
     ? await prepareRenderedPrintedPageValue(page, options, motifs, signal, established, purpose)
     : await prepareRenderedPageValue(page, options, motifs, signal, established, purpose)
-  return prepared
+  return { ...prepared, ...(document.kind === 'printed' ? { outlineSource: documentOutlineSource(document) } : {}) }
 }
 
 export async function prepareRenderedPageValue(

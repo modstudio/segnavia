@@ -13,7 +13,7 @@ export interface BookRenderFixture {
 }
 
 const topics = (key: string, chapter: number) =>
-  `<div class="topics">${Array.from({ length: 6 }, (_, index) => `<h2>${key}-${chapter}-H2-${index}</h2><h3>${key}-${chapter}-H3-${index}</h3>`).join('')}<h2 data-contents="exclude">EXCLUDED-${key}-${chapter}</h2></div>`
+  `<div class="topics">${Array.from({ length: 6 }, (_, index) => `<h2>${key}-${chapter}-H2-${index}</h2><h3>${key}-${chapter}-H3-${index}</h3>`).join('')}<h2 data-segnavia-listed="outline">EXCLUDED-${key}-${chapter}</h2></div>`
 
 export function bookRenderFixture(key: 'english' | 'hebrew'): BookRenderFixture {
   const hebrew = key === 'hebrew'

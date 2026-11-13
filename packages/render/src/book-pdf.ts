@@ -25,10 +25,11 @@ import {
 import { type BookDestination, namedDestinations, rewriteBookLinks } from './book-destinations.ts'
 import { marginFactsFor, marginVariablePagesFor } from './book-margin-facts.ts'
 import { marginCss, marginDocument } from './book-margins.ts'
+import { bookOutlineSource } from './book-outline-source.ts'
 import { joinBookPdf } from './book-pdf-join.ts'
 import type { BookPdfAdapter, PrintedPart } from './book-pdf-types.ts'
 import { bookPartsPrintStatus, finalNumbers, frontPrintStatus, pageReferencePrintStatus } from './book-print-status.ts'
-import { writeBookStructure } from './book-structure.ts'
+import { writeDocumentStructure } from './book-structure.ts'
 import { bookWatermarkPageFacts } from './book-watermark.ts'
 import { RenderRefusedError } from './errors.ts'
 import type { OverflowEntry } from './options.ts'
@@ -257,7 +258,7 @@ async function renderPaginatedBookPdf(
   rewriteBookLinks(document, 0, new Map(), printed.destinations)
   const built = bookDocument(book)
   if (built.issues.length > 0) throw new RenderRefusedError(`The book cannot be printed: ${built.issues.join('; ')}.`)
-  writeBookStructure(document, { book, headings: built.headings, destinations: printed.destinations }, date)
+  writeDocumentStructure(document, { metadata: book, source: bookOutlineSource(book, built.headings), destinations: printed.destinations }, date)
   const joined = await document.save()
   const watermarked = adapter.watermark ? await adapter.watermark(joined, bookWatermarkPageFacts(book, [printed])) : joined
   const output = await adapter.finish(watermarked, options)

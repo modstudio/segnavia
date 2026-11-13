@@ -97,6 +97,7 @@ export {
   resolveDayContextsFor,
   resolveDocumentDayContexts,
 } from './document-day-context.ts'
+export { documentOutlineSource } from './document-outline.ts'
 export { type EditDocumentFailure, type EditDocumentResult, type EditDocumentSuccess, editDocument } from './edit-document.ts'
 export { embedFunction } from './embed-function.ts'
 export { fillAttributeIssues } from './fill-attributes.ts'

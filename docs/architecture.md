@@ -1084,9 +1084,13 @@ the book's structure tree.
 
 ### Printed book structure
 
-Part depth is added to the heading level inside a section for both contents and PDF outlines. `contents.depth` continues to count only levels inside each section, so adding parts does not remove chapter h2 entries and parts always appear when included.
+Part depth is added to the heading level inside a section for both contents and PDF outlines. `contents.depth`, which defaults to 2, continues to count only levels inside each section, so adding parts does not remove chapter h2 entries and parts always appear when included. The separate root `outline.depth` accepts 1 through 6, defaults to 6, and is available only on book and printed documents.
 
-A printed book's outline is the same ordered `BookDocument.headings` model as its contents, through `book.contents.depth`, with `data-contents="exclude"` honored and headings owned by a `contents: false` section omitted. Each entry nests under the nearest earlier entry with a lower heading level. Outline branches open collapsed, and every bookmark uses a UTF-16BE text string and an explicit page destination retained across the continuous join. A viewer reads a bookmark title by its first strong letter, or left to right when it has none. When that direction differs from the direction resolved from the book's `dir`, `lang`, and that title, the renderer prefixes the matching RLM or LRM, so a title with no strong letter in a right-to-left book is marked RLM. A PDF with an outline opens its outline pane.
+Every heading carries independent `listed.contents` and `listed.outline` facts. Author HTML sets both with `data-segnavia-listed`: an absent attribute means both, `contents` means only the printed contents, `outline` means only the PDF outline, and `none` means neither. Other values are refused with that accepted list. The removed `data-contents="exclude"` is refused with `data-segnavia-listed="outline"` and `data-segnavia-listed="none"` as its replacements. A book section with `contents: false` still omits its title and owned headings from both lists.
+
+`documentOutline(source, plan?)` is the pure shared outline policy. HTML gathers its plain `OutlineSource`: document direction, resolved depth, headings in document order and block ids in document order. Each `OutlineEntry` carries `id`, `title`, heading `level`, structural `depth`, and an optional physical 1-based `page`. Structural depth nests under the nearest earlier lower heading rank, so missing ranks do not create missing depths. When a saved plan is supplied, the page comes from the last page-first block at or before the heading's block in document order.
+
+One PDF outline writer consumes that policy for both books and printed documents. Outline branches open collapsed, and every bookmark uses a UTF-16BE text string and an explicit page destination retained across joins. A viewer reads a bookmark title by its first strong letter, or left to right when it has none. When that direction differs from the document direction, the renderer prefixes exactly one matching RLM or LRM, so a title with no strong letter in a right-to-left document is marked RLM. A PDF with an outline opens its outline pane.
 
 The outline uses the same `contentsLabel` choice as the contents entry, but omits the subtitle. The bookmark keeps its own direction rule after that choice; `entryDirection` applies to the contents label and subtitle.
 
@@ -2041,6 +2045,9 @@ included and block boundaries add no spaces. This deliberately differs from
 the visible-text rule for headings, contents and head-template values. The fragment
 accessor models HTML strings, page bodies, HTML slide content and records of
 strings in one table. Speaker notes are plain text and hold no blocks.
+Heading author attributes are parsed at the same edge. `data-segnavia-listed`
+accepts `none`, `outline` or `contents`; omission lists the heading in both the
+printed contents and PDF outline.
 
 `insertBlock`, `setBlock`, `moveBlock` and `removeBlock` parse and serialize
 the affected fragment and compile the result to prior-valued `setContent`

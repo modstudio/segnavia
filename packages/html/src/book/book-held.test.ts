@@ -14,6 +14,17 @@ const paginatedBook = (chapter: Record<string, unknown>, templates: Record<strin
   })
 
 describe('collectHeadings', () => {
+  test('turns every listing attribute value into independent contents and outline facts', () => {
+    const document = parse(
+      '<h1 data-segnavia-id="both">Both</h1><h2 data-segnavia-id="none" data-segnavia-listed="none">None</h2><h2 data-segnavia-id="outline" data-segnavia-listed="outline">Outline</h2><h2 data-segnavia-id="contents" data-segnavia-listed="contents">Contents</h2>',
+    )
+    expect(collectHeadings(document.children, 'section', 6, 1).map(({ id, listed }) => ({ id, listed }))).toEqual([
+      { id: 'both', listed: { contents: true, outline: true } },
+      { id: 'none', listed: { contents: false, outline: false } },
+      { id: 'outline', listed: { contents: false, outline: true } },
+      { id: 'contents', listed: { contents: true, outline: false } },
+    ])
+  })
   test('separates line breaks and block children in heading text', () => {
     const document = parse(
       '<h1 data-segnavia-id="heading-1">Part<br>One</h1><h1 data-segnavia-id="heading-2">חלק<br>ראשון</h1><h1 data-segnavia-id="heading-3">Before<div>Middle</div>After</h1><h1 data-segnavia-id="heading-4">Part<!--note-->One</h1><h1 data-segnavia-id="heading-5">Part<style>p{color:red}</style>One</h1><h1 data-segnavia-id="heading-6">Part<template>hidden</template>One</h1>',
@@ -31,6 +42,17 @@ describe('collectHeadings', () => {
 })
 
 describe('held section contents', () => {
+  test('keeps an outline-only heading out of the printed contents without dropping its heading fact', () => {
+    const book = parseBookFixture({
+      title: 'Book',
+      mode: 'continuous',
+      frontMatter: [{ kind: 'contents', title: 'Contents' }],
+      chapters: [{ title: 'One', html: '<h2 data-segnavia-id="outline-only" data-segnavia-listed="outline">Outline only</h2>' }],
+    })
+    const built = bookDocument(book)
+    expect(built.headings.find((heading) => heading.id === 'outline-only')?.listed).toEqual({ contents: false, outline: true })
+    expect(built.html).not.toContain('href="#outline-only"')
+  })
   test('lists every designed-section heading only when contents is enabled', () => {
     const section = { kind: 'designed', title: 'Gallery', pages: [{ html: '<h1 id="art">Art</h1><h2 id="detail">Detail</h2>' }] }
 

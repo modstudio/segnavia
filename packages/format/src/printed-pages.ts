@@ -7,6 +7,7 @@ import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { headTemplatePlacement } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
+import { Outline } from './outline.ts'
 import { RemovedParentPageFields } from './parent-page-fields.ts'
 import { ParentRegions } from './parent-regions.ts'
 import { BOOK_PARENT_NAMES, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
@@ -26,6 +27,7 @@ export const ParentPage = closedObject({
 })
 
 export const PrintedPages = closedObject({
+  outline: Outline.default({ depth: 6 }),
   lineNumbers: LineNumbers.optional(),
   sideNotes: SideNotes.optional(),
   variables: Variables,

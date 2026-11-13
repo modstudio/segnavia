@@ -1,80 +1,10 @@
-import { describe, expect, test } from 'bun:test'
-import { bookDocument, parseBookFixture } from '@segnavia/html'
+import { expect, test } from 'bun:test'
+import { parseBookFixture } from '@segnavia/html'
 import { type PDFArray, type PDFDict, PDFDocument, PDFHexString, PDFName, type PDFNumber, PDFRef } from 'pdf-lib'
 import type { BookDestination } from './book-destinations.ts'
-import { bookOutline, outlineTitle, writeBookStructure, writePlanFolios } from './book-structure.ts'
+import { outlineTitle, writeDocumentStructure, writePlanFolios } from './book-structure.ts'
 
 const at = (page: number): BookDestination => ({ page, x: 0, y: 700 })
-
-describe('book outline policy', () => {
-  test('nests under the nearest earlier lower level', () => {
-    const headings = [
-      { id: 'one', level: 1, text: 'One', sectionId: 'one' },
-      { id: 'deep', level: 3, text: 'Deep', sectionId: 'one' },
-      { id: 'middle', level: 2, text: 'Middle', sectionId: 'one' },
-      { id: 'two', level: 1, text: 'Two', sectionId: 'two' },
-    ]
-    const destinations = new Map(headings.map((heading, index) => [heading.id, at(index + 1)]))
-    expect(bookOutline(headings, destinations)).toEqual([
-      {
-        id: 'one',
-        title: 'One',
-        destination: at(1),
-        children: [
-          { id: 'deep', title: 'Deep', destination: at(2), children: [] },
-          { id: 'middle', title: 'Middle', destination: at(3), children: [] },
-        ],
-      },
-      { id: 'two', title: 'Two', destination: at(4), children: [] },
-    ])
-  })
-
-  test('keeps a Hebrew title unmarked in the pure outline tree', () => {
-    expect(bookOutline([{ id: 'one', level: 1, text: 'Introduction שלום', sectionId: 'one' }], new Map([['one', at(1)]]))[0]?.title).toBe('Introduction שלום')
-  })
-
-  test('uses the contents label as the bookmark title', () => {
-    expect(
-      bookOutline([{ id: 'one', level: 1, text: 'Full title', contentsLabel: 'Short label', sectionId: 'one' }], new Map([['one', at(1)]]))[0]?.title,
-    ).toBe('Short label')
-  })
-
-  test('uses contents depth and excludes opted-out headings', () => {
-    const book = parseBookFixture({
-      title: 'Book',
-      mode: 'continuous',
-      contents: { depth: 2 },
-      chapters: [{ id: 'body-section', title: 'One', html: '<h2 id="kept">Kept</h2><h2 id="excluded" data-contents="exclude">No</h2><h3 id="deep">Deep</h3>' }],
-    })
-    const built = bookDocument(book)
-    expect(built.headings.map((heading) => heading.id)).toEqual(['body-section', 'kept'])
-    const destinations = new Map(built.headings.map((heading, index) => [heading.id, at(index + 1)]))
-    expect(bookOutline(built.headings, destinations)[0]?.children.map((item) => item.id)).toEqual(['kept'])
-  })
-
-  test('omits the headings of a contents-disabled section', () => {
-    const book = parseBookFixture({
-      title: 'Book',
-      mode: 'paginated',
-      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-      chapters: [
-        { id: 'hidden-section', kind: 'designed', title: 'Hidden', contents: false, pages: [{ html: '<h1 id="hidden-heading">Hidden heading</h1>' }] },
-        { id: 'visible-section', title: 'Visible', html: '<h2 id="visible-heading">Visible heading</h2>' },
-      ],
-    })
-    const built = bookDocument(book)
-    const destinations = new Map(built.headings.map((heading, index) => [heading.id, at(index + 1)]))
-
-    expect(bookOutline(built.headings, destinations).map((item) => item.id)).toEqual(['visible-section'])
-    expect(bookOutline(built.headings, destinations)[0]?.children.map((item) => item.id)).toEqual(['visible-heading'])
-  })
-
-  test('refuses a heading without a printed destination and names its id', () => {
-    expect(() => bookOutline([{ id: 'missing', level: 1, text: 'Missing', sectionId: 'one' }], new Map())).toThrow(
-      'The heading missing has no printed destination.',
-    )
-  })
-})
 
 test('direction marks appear only when natural and resolved directions differ', () => {
   expect(outlineTitle('שלום', 'rtl')).toBe('שלום')
@@ -108,12 +38,17 @@ test('the PDF adapter infers one direction from the title for outlines and metad
   })
   const document = await PDFDocument.create()
   document.addPage([400, 700])
-  writeBookStructure(document, {
-    book,
-    headings: [
-      { id: 'chapter', level: 1, text: 'פרק', sectionId: 'chapter' },
-      { id: 'topic', level: 2, text: 'Latin topic', sectionId: 'chapter' },
-    ],
+  writeDocumentStructure(document, {
+    metadata: book,
+    source: {
+      direction: 'rtl',
+      depth: 6,
+      blocks: ['chapter', 'topic'],
+      headings: [
+        { id: 'chapter', block: 'chapter', level: 1, title: 'פרק', listed: { contents: true, outline: true } },
+        { id: 'topic', block: 'topic', level: 2, title: 'Latin topic', listed: { contents: true, outline: true } },
+      ],
+    },
     destinations: new Map([
       ['chapter', at(1)],
       ['topic', at(1)],

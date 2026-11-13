@@ -28,6 +28,7 @@ export const DOCUMENT_PROFILES = {
       'style',
       'data',
       'mode',
+      'outline',
       'page',
       'numbering',
       'footnotes',
@@ -81,7 +82,7 @@ export const DOCUMENT_PROFILES = {
     },
     numbering: 'printed',
     canonicalChildren: null,
-    fields: ['brand', 'settings', 'style', 'data', 'size', 'asOf', 'print', 'numbering', 'fragmentation', 'parentRules', 'limits'],
+    fields: ['brand', 'settings', 'style', 'data', 'size', 'asOf', 'print', 'numbering', 'fragmentation', 'parentRules', 'outline', 'limits'],
   },
   deck: {
     printShape: 'press',

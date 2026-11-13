@@ -15,6 +15,9 @@
       "css": ":root { direction: rtl; }"
     },
     "mode": "continuous",
+    "outline": {
+      "depth": 6
+    },
     "children": [
       {
         "type": "part",

@@ -101,6 +101,7 @@ export function bookLoweringFromDocument(document: DocumentShapeValue, brand?: B
     extra: metadata?.extra,
     limits: document.limits,
     mode: document.mode,
+    outline: document.outline,
     page: document.page,
     asOf: document.asOf,
     print: document.print,
@@ -187,6 +188,7 @@ export function pageLoweringFromDocument(document: DocumentShapeValue, brand?: B
   if (!child?.body && sections.length === 0) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')
   const printedPages = printed
     ? {
+        outline: document.outline,
         parents: document.parentPages.map(parentPage),
         parentRules: document.parentRules,
         numbering: typeof document.numbering === 'string' ? document.numbering : undefined,

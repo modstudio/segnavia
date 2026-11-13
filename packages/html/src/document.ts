@@ -10,7 +10,10 @@ import {
 } from '@segnavia/format'
 import { contentFieldFlows, type FragmentShape } from './block-fragments.ts'
 import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState, sideNotesState } from './block-identify.ts'
+import { headingListing } from './heading-listing.ts'
 import { type AlertLabels, type BodyHtmlOptions, bodyHtml } from './markdown.ts'
+import { printedHeadingDestinations } from './printed-section-flows.ts'
+import { elements, parse } from './sanitize.ts'
 
 export { BLOCK_ELEMENTS } from './block-context.ts'
 
@@ -35,8 +38,11 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockIdLocation>()
   const identifyOptions = { lineNumbers: lineNumbersState(document), sideNotes: sideNotesState(document) }
-  const html = (value: string, node: { type: string; id: string }, flowing: boolean): string =>
-    identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing }).html
+  const html = (value: string, node: { type: string; id: string }, flowing: boolean): string => {
+    const identified = identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing }).html
+    for (const element of elements(parse(identified).children)) if (/^h[1-6]$/.test(element.name)) headingListing(element)
+    return document.kind === 'printed' ? printedHeadingDestinations(identified) : identified
+  }
   const contentHtml = (value: string, node: ParsedDocument['children'][number], shape: FragmentShape): string =>
     html(value, node, contentFieldFlows(document.kind, node.type, shape))
   const regionHtml = (value: string, node: Extract<ParsedDocument['children'][number], { type: 'page' }>, region: string) =>
