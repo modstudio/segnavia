@@ -1,4 +1,5 @@
 import type { z } from 'zod'
+import { renderIssuePath } from './closed-object.ts'
 import { DOCUMENT_NODE_MODEL, type DocumentNodeType } from './document-node-model.ts'
 import { walkDocumentNodes } from './document-node-refinement.ts'
 import type { DocumentNode } from './document-nodes.ts'
@@ -31,9 +32,14 @@ function htmlValues(node: { type: DocumentNodeType } & Record<string, unknown>):
   })
 }
 
-function contentHtml(nodes: DocumentNode[]): string[] {
-  const result: string[] = []
-  walkDocumentNodes(nodes, (node) => result.push(...htmlValues(node as typeof node & Record<string, unknown>)))
+interface HtmlLocation {
+  html: string
+  path: PropertyKey[]
+}
+
+function contentHtml(nodes: DocumentNode[]): HtmlLocation[] {
+  const result: HtmlLocation[] = []
+  walkDocumentNodes(nodes, (node, path) => result.push(...htmlValues(node as typeof node & Record<string, unknown>).map((html) => ({ html, path }))))
   return result
 }
 
@@ -42,6 +48,15 @@ function dataVariableNames(html: string): string[] {
   const attribute = /\bdata-variable\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi
   for (const match of html.matchAll(attribute)) names.push(match[1] ?? match[2] ?? match[3] ?? '')
   return names
+}
+
+export function motifFieldsWithoutPlacement(html: string): string[] {
+  const fields: string[] = []
+  for (const element of html.matchAll(/<[^>]+>/g)) {
+    if (/\bdata-motif\s*=/i.test(element[0])) continue
+    for (const attribute of element[0].matchAll(/\b(data-motif-[\w:.-]+)(?=\s|=|\/?>)/gi)) fields.push(attribute[1] as string)
+  }
+  return fields
 }
 
 export function refineDocumentVariables(
@@ -109,16 +124,27 @@ export function refineDocumentVariables(
     authoredVariables.add(variable.name)
   })
   const templates = document.templates ?? []
-  const referenced = [...contentHtml(document.children ?? []), ...templates.flatMap((template) => htmlValues({ ...template, type: 'template' }))].flatMap(
-    dataVariableNames,
-  )
-  for (const name of referenced) {
-    if (declared.has(name)) continue
-    ctx.addIssue({
-      code: 'custom',
-      path: ['children'],
-      message: `data-variable names undeclared variable ${JSON.stringify(name)}; declare that variable or remove data-variable to clear this refusal`,
-    })
+  const html = [
+    ...contentHtml(document.children ?? []),
+    ...templates.flatMap((template, index) => htmlValues({ ...template, type: 'template' }).map((value) => ({ html: value, path: ['templates', index] }))),
+  ]
+  for (const location of html) {
+    const renderedPath = renderIssuePath(location.path)
+    for (const name of dataVariableNames(location.html)) {
+      if (declared.has(name)) continue
+      ctx.addIssue({
+        code: 'custom',
+        path: location.path,
+        message: `${renderedPath}: data-variable names undeclared variable ${JSON.stringify(name)}; declare that variable or remove data-variable to clear this refusal`,
+      })
+    }
+    for (const field of motifFieldsWithoutPlacement(location.html)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: location.path,
+        message: `${renderedPath}: ${field} needs data-motif on the same element; add data-motif or remove ${field} to clear this refusal`,
+      })
+    }
   }
   const slots = new Set([...templates.flatMap((template) => template.slots?.map((slot) => slot.key) ?? []), ...(document.recordSlotNames ?? [])])
   const heads = new Set(withLibraryEntries(LIBRARY_HEAD_TEMPLATES, document.headTemplates).map((template) => template.name))

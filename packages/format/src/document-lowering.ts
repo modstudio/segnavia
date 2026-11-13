@@ -80,7 +80,7 @@ function contentsOptions(document: DocumentValue) {
   return contents ? defined({ pageNumbers: contents.pageNumbers, depth: contents.depth }) : undefined
 }
 
-export function bookFromDocument(document: DocumentValue, brand?: Brand): BookValue {
+export function bookInputFromDocument(document: DocumentValue, brand?: Brand) {
   requireKind(document, 'book')
   const metadata = document.metadata
   const divisions = documentBookDivisions(document)
@@ -90,8 +90,7 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
     ...(simpleBody ? { chapters: divisions.body } : { body: divisions.body }),
     endMatter: divisions.endMatter,
   }
-  return Book.parse(
-    defined({
+  return defined({
       title: title(document),
       brand,
       authors: metadata?.authors,
@@ -121,8 +120,11 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       fragmentation: document.fragmentation,
       lineNumbers: document.settings?.lineNumbers,
       contents: contentsOptions(document),
-    }),
-  )
+    })
+}
+
+export function bookFromDocument(document: DocumentValue, brand?: Brand): BookValue {
+  return Book.parse(bookInputFromDocument(document, brand))
 }
 
 function printedSections(document: DocumentValue) {
@@ -147,7 +149,7 @@ function printedSections(document: DocumentValue) {
   })
 }
 
-function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): PageValue {
+export function pageInputFromDocument(document: DocumentValue, printed: boolean, brand?: Brand) {
   const child = document.children.find((node): node is Extract<ParsedNode, { type: 'page' }> => node.type === 'page')
   const sections = printed ? printedSections(document) : []
   if (!child?.body && sections.length === 0) throw new Error('the document needs a page body; provide body on its page node to clear this refusal')
@@ -163,8 +165,7 @@ function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): Pa
         ...(sections.length > 0 ? { sections } : {}),
       }
     : undefined
-  return Page.parse(
-    defined({
+  return defined({
       id: child?.id,
       brand,
       body: child?.body,
@@ -176,18 +177,17 @@ function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): Pa
       style: document.style,
       ...data(document),
       printedPages,
-    }),
-  )
+    })
 }
 
 export function printedFromDocument(document: DocumentValue, brand?: Brand): PageValue {
   requireKind(document, 'printed')
-  return pageValue(document, true, brand)
+  return Page.parse(pageInputFromDocument(document, true, brand))
 }
 
 export function pageFromDocument(document: DocumentValue, brand?: Brand): PageValue {
   requireKind(document, 'page')
-  return pageValue(document, false, brand)
+  return Page.parse(pageInputFromDocument(document, false, brand))
 }
 
 export const PAGE_OR_PRINTED_KINDS = ['page', 'printed'] as const
