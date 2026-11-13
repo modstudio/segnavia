@@ -59,9 +59,13 @@ export class ControllerPlayback {
     const slide = current.slide
     if (!slide || slideDurationMs(slide) === null) return
     const narration = slide.narration
-    const audio = narration?.audio ? this.host.url(narration.audio) : null
+    const audio = narration?.kind !== 'text' && narration?.audio ? this.host.url(narration.audio) : null
     const options = this.host.options()
-    this.clock = options.clock ? options.clock(slide, audio) : narration?.live ? speechClock(slide, narration.voice) : timedClock(slide, audio)
+    this.clock = options.clock
+      ? options.clock(slide, audio)
+      : narration?.kind !== 'text' && narration?.live
+        ? speechClock(slide, narration.voice, current.deck ?? {})
+        : timedClock(slide, audio, current.deck ?? {})
     this.clock.muted = current.muted
     if (!current.playing) this.clock.pause()
     this.clock.seek(position)
@@ -92,8 +96,8 @@ export class ControllerPlayback {
     if (!clock || !slide || !deck) return
     const slideElapsedMs = clock.elapsed()
     this.observe({ index: current.index, ms: slideElapsedMs })
-    let moment = slideStateAt(slide, slideElapsedMs)
-    const live = slide.narration?.live ? slide.narration : null
+    let moment = slideStateAt(slide, slideElapsedMs, deck)
+    const live = slide.narration?.kind !== 'text' && slide.narration?.live ? slide.narration : null
     const word = live ? clock.word() : moment.word
     if (live) moment = { ...moment, word, shown: annotationsAt(live.cues, word) }
     const startMs = deckTimeline(deck).slides[current.index]?.startMs ?? 0

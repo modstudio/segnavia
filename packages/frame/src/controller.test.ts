@@ -19,7 +19,7 @@ function harness(options: { playback?: 'segmented' | 'continuous'; persist?: boo
         word: () => state.word,
         ended: () => state.ended,
         elapsed: () => state.elapsed,
-        progress: () => (state.ended ? 1 : (state.word ?? 0) / (narration?.words.length ?? 1)),
+        progress: () => (state.ended ? 1 : (state.word ?? 0) / (narration && narration.kind !== 'text' ? narration.words.length : 1)),
         pause: () => {
           state.pauses++
         },

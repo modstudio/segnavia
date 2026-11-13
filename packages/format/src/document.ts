@@ -65,6 +65,7 @@ export const DocumentShape = closedObject({
   transition: DeckShape.shape.transition,
   playback: DeckShape.shape.playback,
   captions: DeckShape.shape.captions,
+  readingSpeed: DeckShape.shape.readingSpeed,
   mode: BookMode.optional(),
   outline: Outline.optional(),
   page: BookPage.optional(),

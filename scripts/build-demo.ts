@@ -3,7 +3,7 @@ import './source-guard.ts'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { capture } from '@segnavia/capture'
-import { Document, jsonSchemas, type Narration, type PublishedShot, type Shot } from '@segnavia/format'
+import { Document, jsonSchemas, type Narration, type PublishedShot, type Shot, type VoicedNarration } from '@segnavia/format'
 import { wordIndex } from '@segnavia/frame/timeline'
 import { fill } from '@segnavia/html'
 import { openRenderer, RenderRefusedError } from '@segnavia/render'
@@ -85,7 +85,7 @@ writeFileSync(
 )
 const voice = pacedProvider({ wordsPerMinute: 170 })
 const cache = path.join(OUT, 'voice')
-async function narration(text: string, cues: (n: Pick<Narration, 'words'>) => Narration['cues'], lang?: string): Promise<Narration> {
+async function narration(text: string, cues: (n: Pick<VoicedNarration, 'words'>) => Narration['cues'], lang?: string): Promise<Narration> {
   const spoken = await narrate(voice, text, { cacheDirectory: cache })
   return { text, lang, ...spoken, live: false, cues: cues(spoken) }
 }

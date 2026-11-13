@@ -255,6 +255,7 @@ export function deckFromDocument(document: DocumentValue, brand?: Brand): DeckVa
       transition: document.transition,
       playback: document.playback,
       captions: document.captions,
+      readingSpeed: document.readingSpeed,
       asOf: document.asOf,
       print: document.print,
       ...pageAndDeckSettings(document),

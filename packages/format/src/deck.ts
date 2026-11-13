@@ -5,13 +5,14 @@ import { Direction, TextDirection } from './direction.ts'
 import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
 import { type LimitExceeded, type Limits, limitExceeded } from './limits.ts'
+import { narrationTiming } from './narration-timing.ts'
 import { PX_PER_MM } from './paper.ts'
 import { Placement, PlacementShape } from './placement.ts'
 import { PressGeometry } from './print.ts'
 import { Scripts } from './scripts.ts'
 import { Slots } from './slots.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
-import { SlideTiming, slideTimingIssues } from './timing.ts'
+import { MAX_SLIDE_TIMING_MS, SlideTiming, slideTimingIssues } from './timing.ts'
 import { Transition } from './transition.ts'
 
 export { Box, ImageFit, MeasuredSize, PixelSize, Point }
@@ -68,20 +69,49 @@ export const Cue = closedObject({
 })
 export type Cue = z.infer<typeof Cue>
 
-// `words` empty with `live` set means the viewer speaks the text itself and
-// learns the timings as it goes; cues still name words by position.
-export const Narration = closedObject({
+const SharedNarration = {
   text: z.string(),
-  // The language spoken, for the voice and the caption; dir defaults from it.
   lang: z.string().optional(),
   dir: Direction.optional(),
+  cues: z.array(Cue).default([]),
+}
+
+const TextNarration = closedObject({
+  kind: z.literal('text'),
+  ...SharedNarration,
+})
+export type TextNarration = z.infer<typeof TextNarration>
+
+// `words` empty with `live` set means the viewer speaks the text itself and
+// learns the timings as it goes; cues still name words by position.
+const VoicedNarration = closedObject({
+  kind: z.literal('voiced').optional(),
+  ...SharedNarration,
+  // The language spoken, for the voice and the caption; dir defaults from it.
   voice: z.string().optional(),
   words: z.array(Word),
   durationMs: z.number().nonnegative(),
   audio: z.string().nullable(),
   live: z.boolean().default(false),
-  cues: z.array(Cue).default([]),
 })
+export type VoicedNarration = z.infer<typeof VoicedNarration>
+
+function narrationUnionMessage(input: unknown): string | undefined {
+  if (typeof input !== 'object' || input === null) return undefined
+  const value = input as Record<string, unknown>
+  if (value.kind === 'text') {
+    const voicedFields = ['audio', 'words', 'durationMs', 'live'].filter((field) => field in value)
+    if (voicedFields.length > 0) return `a text narration does not accept ${voicedFields.join(', ')}; remove ${voicedFields.join(', ')} to clear this refusal`
+  }
+  if (value.kind === undefined) {
+    const missing = ['words', 'durationMs', 'audio'].filter((field) => !(field in value))
+    if (missing.length > 0)
+      return `a voiced narration requires ${missing.join(', ')}; supply ${missing.join(', ')}, or set kind: 'text' and supply text to clear this refusal`
+  }
+  return undefined
+}
+
+export const Narration = z.union([TextNarration, VoicedNarration], { error: (issue) => narrationUnionMessage(issue.input) })
 export type Narration = z.infer<typeof Narration>
 
 const DirectSlideContent = z.discriminatedUnion('kind', [
@@ -136,6 +166,7 @@ export const DeckShape = closedObject({
   layout: z.enum(['fixed', 'responsive']).default('fixed'),
   fit: ImageFit.default('contain'),
   frame: z.boolean().default(false),
+  readingSpeed: z.number().finite().positive().optional(),
   scripts: Scripts.default('refuse'),
   dir: Direction.optional(),
   lang: z.string().optional(),
@@ -156,13 +187,13 @@ export function annotationCueIssues(narration: Slide['narration'], annotations: 
     .map((cue) => `a cue names annotation ${cue.annotation}, but the slide has ${annotations}`)
 }
 
-function cueIssues(slide: Slide): string[] {
+function narrationIssues(slide: Slide, deck: Pick<Deck, 'readingSpeed'>): string[] {
   const narration = slide.narration
   if (!narration) return []
   // A shot named by reference has its annotations only once resolved, and a
   // live narration learns its words while it speaks, so neither is checked here.
   const annotations = 'kind' in slide.content && slide.content.kind === 'shot' ? slide.content.shot.annotations.length : null
-  const words = narration.live ? null : narration.words.length
+  const words = narration.kind !== 'text' && narration.live ? null : narrationTiming(narration, deck).words.length
   const issues: string[] = []
   for (const cue of narration.cues) {
     for (const word of [cue.word, cue.untilWord]) {
@@ -172,6 +203,13 @@ function cueIssues(slide: Slide): string[] {
       issues.push('a cue names an annotation, but only a shot carries annotations')
   }
   if (annotations !== null) issues.push(...annotationCueIssues(narration, annotations))
+  if (narration.kind === 'text') {
+    const computed = narrationTiming(narration, deck).durationMs
+    if (computed > MAX_SLIDE_TIMING_MS)
+      issues.push(
+        `the text narration computes to ${computed} ms, above the ${MAX_SLIDE_TIMING_MS} ms cap; shorten the text or raise readingSpeed to clear this refusal`,
+      )
+  }
   return issues
 }
 
@@ -184,7 +222,7 @@ export const Deck = DeckShape.superRefine((deck, ctx) => {
         ctx.addIssue({ code: 'custom', path: ['slides', index, 'content', 'media'], message: error instanceof Error ? error.message : String(error) })
       }
     }
-    for (const message of cueIssues(slide)) ctx.addIssue({ code: 'custom', path: ['slides', index, 'narration', 'cues'], message })
+    for (const message of narrationIssues(slide, deck)) ctx.addIssue({ code: 'custom', path: ['slides', index, 'narration'], message })
     for (const field of slideTimingIssues(slide)) {
       const kind = field === 'holdMs' ? 'without' : 'with'
       ctx.addIssue({ code: 'custom', path: ['slides', index, field], message: `${field} is allowed only ${kind} narration` })

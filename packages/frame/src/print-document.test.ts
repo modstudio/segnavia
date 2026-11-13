@@ -87,7 +87,7 @@ describe('printableDeckValue', () => {
     })
     const withNarration = Deck.parse({
       ...deck,
-      slides: [{ ...deck.slides[0], notes: undefined, narration: narration('Narration fallback') }],
+      slides: [{ ...deck.slides[0], notes: undefined, narration: { kind: 'text', text: 'Narration fallback' } }],
     })
     expect(printableDeckValue(withBoth, { layout: 'notes' })).toContain('Speaker notes win')
     expect(printableDeckValue(withBoth, { layout: 'notes' })).not.toContain('Narration loses')

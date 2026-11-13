@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { Deck, type Narration } from '@segnavia/format'
+import { Deck, type Narration, narrationTiming } from '@segnavia/format'
 import { deckTimeline, momentAt, phaseBounds, positionAt, slideDurationMs, slideStateAt, wordAt, wordIndex } from './timeline.ts'
 
 const narration: Narration = {
@@ -30,7 +30,7 @@ describe('timeline', () => {
         { id: 'c', content: { kind: 'html', html: '' } },
       ],
     })
-    expect(deck.slides.map(slideDurationMs)).toEqual([2500, 500, null])
+    expect(deck.slides.map((slide) => slideDurationMs(slide))).toEqual([2500, 500, null])
     expect(deckTimeline(deck)).toEqual({
       slides: [
         { startMs: 0, durationMs: 2500, untimed: false },
@@ -39,6 +39,39 @@ describe('timeline', () => {
       ],
       totalMs: 3000,
     })
+  })
+
+  test('text narration uses deck reading speed for duration, words and cues', () => {
+    const deck = Deck.parse({
+      title: 'Text',
+      readingSpeed: 240,
+      slides: [
+        {
+          id: 'one',
+          content: {
+            kind: 'shot',
+            src: 'cue.png',
+            shot: {
+              key: 'cue.shot',
+              title: 'Cue',
+              file: 'cue.png',
+              size: { width: 100, height: 100 },
+              scale: 1,
+              capturedAt: 'now',
+              annotations: [{ ring: null, badge: null, arrow: null }],
+            },
+          },
+          narration: { kind: 'text', text: 'Hello there', cues: [{ word: 1, annotation: 0 }] },
+          beforeMs: 100,
+          afterMs: 200,
+        },
+      ],
+    })
+    const slide = deck.slides[0]
+    if (!slide?.narration) throw new Error('fixture has no narration')
+    const timing = narrationTiming(slide.narration, deck)
+    expect(slideDurationMs(slide, deck)).toBe(100 + timing.durationMs + 200)
+    expect(slideStateAt(slide, 100 + (timing.words[1]?.startMs ?? 0), deck)).toMatchObject({ word: 1, shown: [0] })
   })
 
   test('a deck position resolves to its slide and local offset', () => {

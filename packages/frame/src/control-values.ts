@@ -16,7 +16,7 @@ export function deckHasNarration(state: Pick<DeckState, 'deck'>): boolean {
 
 // Play advances on durations; a deck where no slide has one has nothing to play.
 export function deckPlayable(state: Pick<DeckState, 'deck'>): boolean {
-  return state.deck?.slides.some((slide) => slideDurationMs(slide) !== null) ?? false
+  return state.deck?.slides.some((slide) => slideDurationMs(slide, state.deck ?? {}) !== null) ?? false
 }
 
 // Playback runs through the deck in both modes, so the time is the deck's.
@@ -52,11 +52,11 @@ export function trackReach(state: NavigationState): number {
   if (state.seek === 'free' || reach.index >= slides.length) return 1
   if (state.playback === 'continuous') {
     if (state.totalMs === 0) return slides.length === 0 ? 1 : reach.index / slides.length
-    const startMs = deckTimeline({ slides }).slides[reach.index]?.startMs ?? state.totalMs
+    const startMs = deckTimeline(state.deck ?? { slides }).slides[reach.index]?.startMs ?? state.totalMs
     return (startMs + reach.ms) / state.totalMs
   }
   const reachSlide = slides[reach.index]
-  const durationMs = reachSlide ? slideDurationMs(reachSlide) : null
+  const durationMs = reachSlide ? slideDurationMs(reachSlide, state.deck ?? {}) : null
   const slideProgress = durationMs && durationMs > 0 ? reach.ms / durationMs : 0
   return slides.length === 0 ? 1 : (reach.index + slideProgress) / slides.length
 }

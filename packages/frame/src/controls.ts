@@ -263,7 +263,7 @@ export class SegnaviaTrack extends SegnaviaControl {
     if (this.count !== slides.length || this.mode !== state.playback) {
       this.count = slides.length
       this.mode = state.playback
-      list.innerHTML = continuous ? this.continuousSegments(slides) : this.stepSegments(slides)
+      list.innerHTML = state.deck ? (continuous ? this.continuousSegments(state.deck) : this.stepSegments(state.deck)) : ''
     }
     this.renderSegments(list, state, continuous)
   }
@@ -282,20 +282,20 @@ export class SegnaviaTrack extends SegnaviaControl {
     list.setAttribute('aria-valuetext', this.labels.time(formatTime(state.elapsedMs), formatTime(state.totalMs)))
   }
 
-  private continuousSegments(slides: NonNullable<DeckState['deck']>['slides']): string {
-    return slides
+  private continuousSegments(deck: NonNullable<DeckState['deck']>): string {
+    return deck.slides
       .map((slide, index) => {
-        const duration = slideDurationMs(slide)
+        const duration = slideDurationMs(slide, deck)
         return `<li class="${duration === null ? 'marker' : 'timed'}" data-go="${index}" style="--duration:${duration ?? 0}"><span class="segment" part="segment"><span class="fill"></span></span></li>`
       })
       .join('')
   }
 
-  private stepSegments(slides: NonNullable<DeckState['deck']>['slides']): string {
-    return slides
+  private stepSegments(deck: NonNullable<DeckState['deck']>): string {
+    return deck.slides
       .map(
         (slide, index) =>
-          `<li><button part="segment" data-go="${index}"${slideDurationMs(slide) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`,
+          `<li><button part="segment" data-go="${index}"${slideDurationMs(slide, deck) !== null ? ' data-plays' : ''}><span class="fill"></span></button></li>`,
       )
       .join('')
   }

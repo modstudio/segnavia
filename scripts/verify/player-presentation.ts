@@ -120,11 +120,13 @@ async function seekToCaptionStates(h: Harness) {
   await h.page.locator(PLAYER).evaluate(async (player: HTMLElement & { controller: { state: { deck: Deck }; seek(ms: number): Promise<void> } }) => {
     const { controller } = player
     const deck = controller.state.deck
-    const index = deck.slides.findIndex((slide) => (slide.narration?.words.length ?? 0) > 3)
+    const index = deck.slides.findIndex((slide) => slide.narration?.kind !== 'text' && (slide.narration?.words.length ?? 0) > 3)
     const slide = deck.slides[index]
-    const word = slide?.narration?.words[2]
-    if (!slide?.narration || !word) throw new Error('The continuous deck needs a narrated slide with four words.')
+    const narration = slide?.narration
+    const word = narration?.kind !== 'text' ? narration?.words[2] : undefined
+    if (!narration || !word) throw new Error('The continuous deck needs a narrated slide with four words.')
     const startMs = deck.slides.slice(0, index).reduce((total, item) => {
+      if (item.narration?.kind === 'text') throw new Error('The presentation fixture expects voiced narration before the caption slide.')
       if (item.narration) return total + (item.beforeMs ?? 0) + item.narration.durationMs + (item.afterMs ?? 0)
       return total + (item.holdMs ?? 0)
     }, 0)
