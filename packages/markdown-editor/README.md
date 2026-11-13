@@ -10,5 +10,5 @@ See the [architecture guide](../../docs/architecture.md) for the full design.
 | Entry point | Runtime |
 |---|---|
 | `@segnavia/markdown-editor` | browser |
-| `@segnavia/markdown-editor/vue` | browser |
+| `@segnavia/markdown-editor/vue` | types only |
 <!-- /segnavia:entries -->

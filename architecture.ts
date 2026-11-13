@@ -21,6 +21,10 @@ export const VUE_MODULE_NAMES = ['vue', 'vue-tsc', '@vue'] as const
 
 export type SourceExport = string | { bun: string; node: string; default: string }
 
+export function entrySpecifier(packageName: string, exportName: string): string {
+  return exportName === '.' ? packageName : `${packageName}${exportName.slice(1)}`
+}
+
 export function bunSource(source: SourceExport): string {
   return typeof source === 'string' ? source : source.bun
 }
@@ -44,6 +48,12 @@ export interface PackageRule {
 
 export function sourceRuntime(rule: PackageRule, source: string): Runtime {
   return rule.runtime === 'browser' && rule.serverSafe?.includes(source) ? 'universal' : rule.runtime
+}
+
+export function entryRuntime(packageName: string, exportName: string, rule: PackageRule, source: string): Runtime | 'types only' {
+  return RUNTIME_EMPTY_TYPE_ENTRIES.some((entry) => entry.packageName === packageName && entry.exportName === exportName)
+    ? 'types only'
+    : sourceRuntime(rule, source)
 }
 
 export const PACKAGES: Record<string, PackageRule> = {

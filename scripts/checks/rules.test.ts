@@ -18,6 +18,7 @@ import {
   checkVueDependencies,
   type PackageManifestDependencies,
   type ResolutionInputs,
+  readmeFindings,
   type Workspace,
 } from './rules.ts'
 import { checkVueImports } from './vue-imports.ts'
@@ -57,6 +58,22 @@ describe('architecture rules', () => {
     ])
   })
 
+  test('a types-only entry is documented without a runtime', () => {
+    const exports = { './vue-types': { '@segnavia/source': './src/vue-types.ts' } }
+    expect(entryRows('@segnavia/frame', exports, PACKAGES.frame as Workspace['rule'])).toEqual([{ entry: '@segnavia/frame/vue-types', runtime: 'types only' }])
+  })
+
+  test('a missing source condition is a README refusal', () => {
+    const exports = { '.': { default: './dist/index.js' } }
+    const readme = '# Frame\n\n<!-- segnavia:entries -->\nold\n<!-- /segnavia:entries -->\n'
+    const finding = checkReadme('@segnavia/frame', exports, PACKAGES.frame as Workspace['rule'], readme)[0]
+    expect(finding).toEqual({
+      rule: 'readme',
+      path: 'packages/frame/README.md',
+      message: '@segnavia/frame export . has no @segnavia/source condition; add it to clear this refusal.',
+    })
+  })
+
   test('README refusals name the package and the entry that differs', () => {
     const exports = {
       '.': { '@segnavia/source': './src/index.ts' },
@@ -72,6 +89,24 @@ describe('architecture rules', () => {
       expect(finding?.message).toContain('@segnavia/frame entry @segnavia/frame/svg')
       expect(finding?.message).toContain('bun run readmes')
     }
+    const changedHeader = valid.replace('| Entry point | Runtime |', '| Public entry | Runtime |')
+    expect(checkReadme('@segnavia/frame', exports, rule, changedHeader)[0]?.message).toContain('entry "| Public entry | Runtime |"')
+  })
+
+  test('README wiring joins the table, host-name and project tracker-key rules', () => {
+    const exports = { '.': { '@segnavia/source': './src/index.ts' } }
+    const rule = PACKAGES.frame as Workspace['rule']
+    const table = entryTable(entryRows('@segnavia/frame', exports, rule))
+    const readme = `# Frame\n\n<!-- segnavia:entries -->\n${table}\n<!-- /segnavia:entries -->\n`
+    expect(readmeFindings({ name: '@segnavia/frame', exports, rule, readme, hostNames: ['Acme'] })).toEqual([])
+    const findings = readmeFindings({
+      name: '@segnavia/frame',
+      exports,
+      rule,
+      readme: readme.replace('# Frame', '# Acme integration\n\nSee SEGNA-12.'),
+      hostNames: ['Acme'],
+    })
+    expect(findings.map((finding) => finding.rule)).toEqual(['host-names', 'tracker-key'])
   })
   test('a declared Bun floor must match the version verify-render proves', () => {
     const manifests = bunManifests()
@@ -320,8 +355,9 @@ describe('writing rules', () => {
     expect(checkComments({ path: 'x.ts', text: '// see AB-2954', imports: [] })).toHaveLength(1)
   })
 
-  test('a tracker key in README prose is caught', () => {
-    expect(checkTrackerKeys({ path: 'packages/frame/README.md', text: 'See AB-2954.', imports: [] })).toHaveLength(1)
+  test('only a project tracker key in README prose is caught', () => {
+    expect(checkTrackerKeys({ path: 'packages/frame/README.md', text: 'UTF-8, SHA-256 and ISO-8601.', imports: [] })).toEqual([])
+    expect(checkTrackerKeys({ path: 'packages/frame/README.md', text: 'See SEGNA-12.', imports: [] })).toHaveLength(1)
   })
 
   test('TypeScript suppression directives are caught in packages and scripts', () => {

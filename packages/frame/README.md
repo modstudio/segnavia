@@ -36,8 +36,8 @@ See the [architecture guide](../../docs/architecture.md) for the full design.
 | `@segnavia/frame/styled-elements` | universal |
 | `@segnavia/frame/headless-elements` | universal |
 | `@segnavia/frame/element-properties` | universal |
-| `@segnavia/frame/vue` | browser |
-| `@segnavia/frame/vue-types` | browser |
+| `@segnavia/frame/vue` | types only |
+| `@segnavia/frame/vue-types` | types only |
 | `@segnavia/frame/player` | browser |
 | `@segnavia/frame/controls` | browser |
 | `@segnavia/frame/authoring` | browser |

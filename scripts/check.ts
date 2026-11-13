@@ -20,13 +20,12 @@ import {
   checkImports,
   checkManifest,
   checkReactDependencies,
-  checkReadme,
   checkSourceResolution,
-  checkTrackerKeys,
   checkTypeScriptSuppressions,
   checkVueDependencies,
   type Finding,
   packageOf,
+  readmeFindings,
   type Workspace,
 } from './checks/rules.ts'
 import { checkSideEffects, type SideEffectsPackage } from './checks/side-effects.ts'
@@ -103,10 +102,7 @@ function packageReadmeFindings(packageName: string, names: string[]): Finding[] 
   }
   const readmePath = `packages/${packageName}/README.md`
   const readme = existsSync(path.join(ROOT, readmePath)) ? readFileSync(path.join(ROOT, readmePath), 'utf8') : null
-  const findings = checkReadme(manifest.name, manifest.exports, PACKAGES[packageName] as Workspace['rule'], readme)
-  if (readme === null) return findings
-  const file = { path: readmePath, text: readme, imports: [] }
-  return [...findings, ...checkHostNames(file, names), ...checkTrackerKeys(file)]
+  return readmeFindings({ name: manifest.name, exports: manifest.exports, rule: PACKAGES[packageName] as Workspace['rule'], readme, hostNames: names })
 }
 
 function structural(names: string[]): Finding[] {
@@ -228,8 +224,8 @@ if (names.length === 0) console.log('! host-name rule was not enforced; create h
 if (findings.length === 0) {
   const rules =
     names.length === 0
-      ? 'architecture, chromium-path, comments, file ceiling, test vacuity'
-      : 'architecture, chromium-path, host names, comments, file ceiling, test vacuity'
+      ? 'architecture, chromium-path, comments, file ceiling, readme, tracker keys, test vacuity'
+      : 'architecture, chromium-path, host names, comments, file ceiling, readme, tracker keys, test vacuity'
   console.log(`✓ ${rules} (${sources().length} files)`)
 }
 
