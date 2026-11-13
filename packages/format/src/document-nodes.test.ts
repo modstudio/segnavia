@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { z } from 'zod'
 import { Document } from './document.ts'
-import { DocumentDefinitionNode } from './document-nodes-book.ts'
+import { DocumentNodeInput } from './document-node-input.ts'
 
 function issues(result: ReturnType<typeof Document.safeParse>): z.core.$ZodIssue[] {
   expect(result.success).toBeFalse()
@@ -48,7 +48,7 @@ describe('document node discrimination', () => {
       expect.objectContaining({
         path: ['children', 0, 'type'],
         message:
-          'node type got undefined; use one of "division", "part", "section", "flow", "page", "slide", "placed", "contents", "record", "item", "label", "boardSection" to clear this refusal',
+          'node type got absent; use one of "division", "part", "section", "flow", "page", "slide", "placed", "contents", "record", "item", "label", "boardSection" to clear this refusal',
       }),
     )
   })
@@ -63,8 +63,21 @@ describe('document node discrimination', () => {
     )
   })
 
+  test('lists every node type a command may carry, definitions included', () => {
+    const result = DocumentNodeInput.safeParse({ type: 'mystery' })
+    expect(result.success).toBeFalse()
+    if (result.success) throw new Error('expected node input parsing to fail')
+    expect(result.error.issues).toContainEqual(
+      expect.objectContaining({
+        path: ['type'],
+        message:
+          'node type got "mystery"; use one of "division", "part", "section", "flow", "page", "slide", "placed", "contents", "record", "item", "label", "boardSection", "parentPage", "template", "noteSeries", "variable", "headTemplate", "condition" to clear this refusal',
+      }),
+    )
+  })
+
   test('reports a variable kind through its inner discriminator', () => {
-    const result = DocumentDefinitionNode.safeParse({ type: 'variable', name: 'running-head', kind: 'unknown' })
+    const result = DocumentNodeInput.safeParse({ type: 'variable', name: 'running-head', kind: 'unknown' })
     expect(result.success).toBeFalse()
     if (result.success) throw new Error('expected variable parsing to fail')
     expect(result.error.issues).toContainEqual(expect.objectContaining({ path: ['kind'] }))

@@ -15,6 +15,7 @@ import {
   type OperationNode,
 } from './document-op-model.ts'
 import { DOCUMENT_PROFILES, type DocumentKind } from './document-profile.ts'
+import { shownValue } from './shown-value.ts'
 
 type Held = Record<string, unknown>
 type HeldNode = OperationNode
@@ -22,7 +23,6 @@ type HeldDocument = OperationDocument
 type Found = DocumentEntry
 
 const clearance = 'rebuild the batch against the current document'
-const shown = (value: unknown): string => (value === undefined ? 'absent' : JSON.stringify(value))
 
 function refuse(index: number, op: DocumentOp, reason: string): never {
   throw new Error(`document op ${index} (${op.type}) refused: ${reason}; ${clearance}`)
@@ -69,7 +69,7 @@ function checkPrior(
   for (const field of fields) {
     const expected = op.priorAbsent.includes(field) ? undefined : op.prior[field]
     if (!sameValue(target[field], expected))
-      refuse(index, op, `node "${targetId}" field "${field}" expected ${shown(expected)} but found ${shown(target[field])}`)
+      refuse(index, op, `node "${targetId}" field "${field}" expected ${shownValue(expected)} but found ${shownValue(target[field])}`)
   }
 }
 
@@ -128,7 +128,7 @@ function applyNodeSet(op: Extract<DocumentOp, { type: 'setFields' | 'setContent'
     if (!model.content.has(op.field)) refuse(index, op, `field "${op.field}" is not content on node type "${found.node.type}"`)
     const expected = 'priorAbsent' in op ? undefined : op.prior
     if (!sameValue(found.node[op.field], expected))
-      refuse(index, op, `node "${op.id}" field "${op.field}" expected ${shown(expected)} but found ${shown(found.node[op.field])}`)
+      refuse(index, op, `node "${op.id}" field "${op.field}" expected ${shownValue(expected)} but found ${shownValue(found.node[op.field])}`)
     if ('unset' in op) delete found.node[op.field]
     else found.node[op.field] = structuredClone(op.content)
     return
