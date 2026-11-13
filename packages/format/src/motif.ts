@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { AsOfDay } from './as-of.ts'
+import { closedObject } from './closed-object.ts'
 import { TextDirection } from './direction.ts'
 import { FontReference, FontReferenceInput } from './fonts.ts'
 import { SlotKey } from './slots.ts'
@@ -95,9 +96,9 @@ const MotifFieldShape = {
   required: z.boolean().default(false),
 } as const
 
-export const MotifField = z.object(MotifFieldShape).superRefine(uniqueChoices)
+export const MotifField = closedObject(MotifFieldShape).superRefine(uniqueChoices)
 export type MotifField = z.infer<typeof MotifField>
-export const MotifFieldInput = z.strictObject(MotifFieldShape).superRefine(uniqueChoices)
+export const MotifFieldInput = closedObject(MotifFieldShape).superRefine(uniqueChoices)
 export type MotifFieldInput = z.input<typeof MotifFieldInput>
 
 const MotifVersionShape = {
@@ -107,9 +108,9 @@ const MotifVersionShape = {
   html: z.string(),
 } as const
 
-export const MotifVersion = z.object(MotifVersionShape)
+export const MotifVersion = closedObject(MotifVersionShape)
 export type MotifVersion = z.infer<typeof MotifVersion>
-export const MotifVersionInput = z.strictObject(MotifVersionShape)
+export const MotifVersionInput = closedObject(MotifVersionShape)
 export type MotifVersionInput = z.input<typeof MotifVersionInput>
 
 const validateMotif = (motif: { fields: MotifField[]; versions: MotifVersion[] }, ctx: z.RefinementCtx) => {
@@ -160,9 +161,9 @@ const MotifInputShape = {
   fonts: z.array(FontReferenceInput).default([]),
 } as const
 
-export const Motif = z.object(MotifShape).superRefine(validateMotif)
+export const Motif = closedObject(MotifShape).superRefine(validateMotif)
 export type Motif = z.infer<typeof Motif>
-export const MotifInput = z.strictObject(MotifInputShape).superRefine(validateMotif)
+export const MotifInput = closedObject(MotifInputShape).superRefine(validateMotif)
 export type MotifInput = z.input<typeof MotifInput>
 
 export interface MotifPlacement {

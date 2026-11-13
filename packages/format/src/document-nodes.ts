@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { ContentsNode, SectionFields } from './document-nodes-book.ts'
 import {
   BoardItemNode,
@@ -79,7 +80,7 @@ export const DivisionNodeFields = {
   settings: DivisionSettings.optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-export const DivisionNode = z.object(DivisionNodeFields) as z.ZodType<DivisionNode>
+export const DivisionNode = closedObject(DivisionNodeFields) as z.ZodType<DivisionNode>
 
 export const PartNodeFields = {
   type: z.literal('part'),
@@ -93,7 +94,7 @@ export const PartNodeFields = {
   parents: z.unknown().optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-export const PartNode = z.object(PartNodeFields) as z.ZodType<PartNode>
+export const PartNode = closedObject(PartNodeFields) as z.ZodType<PartNode>
 
 export const SectionNodeFields = {
   type: z.literal('section'),
@@ -102,7 +103,7 @@ export const SectionNodeFields = {
   template: z.string().min(1).optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-export const SectionNode = z.object(SectionNodeFields) as z.ZodType<SectionNode>
+export const SectionNode = closedObject(SectionNodeFields) as z.ZodType<SectionNode>
 
 export const DocumentNode: z.ZodType<DocumentNode> = z.lazy(() =>
   z.union([

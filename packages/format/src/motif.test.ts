@@ -14,8 +14,8 @@ const input = {
 }
 
 describe('Motif', () => {
-  test('reads stored motifs tolerantly and accepts strict input', () => {
-    expect(Motif.parse({ ...input, future: true }).fonts).toEqual([])
+  test('refuses unknown motif keys at every edge', () => {
+    expect(Motif.safeParse({ ...input, future: true }).success).toBe(false)
     expect(MotifInput.parse(input).key).toBe('letterhead')
     expect(() => MotifInput.parse({ ...input, future: true })).toThrow()
   })

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { refineLibraryNames } from './library-names.ts'
 
 export const TextVariableBase = {
@@ -8,22 +9,22 @@ export const TextVariableBase = {
 }
 export const TextVariableFrom = z.enum(['content', 'section-title', 'part-title'])
 
-export const ContentTextVariable = z.object({ ...TextVariableBase, from: z.literal('content'), part: z.never().optional() })
-export const SectionTitleTextVariable = z.object({ ...TextVariableBase, from: z.literal('section-title'), part: z.never().optional() })
-export const PartTitleTextVariable = z.object({ ...TextVariableBase, from: z.literal('part-title'), part: z.string().min(1) })
+export const ContentTextVariable = closedObject({ ...TextVariableBase, from: z.literal('content'), part: z.never().optional() })
+export const SectionTitleTextVariable = closedObject({ ...TextVariableBase, from: z.literal('section-title'), part: z.never().optional() })
+export const PartTitleTextVariable = closedObject({ ...TextVariableBase, from: z.literal('part-title'), part: z.string().min(1) })
 export const TextVariable = z.discriminatedUnion('from', [ContentTextVariable, SectionTitleTextVariable, PartTitleTextVariable])
-export const NumberVariable = z.object({
+export const NumberVariable = closedObject({
   name: z.string().min(1),
   kind: z.enum(['folio', 'pages']),
   of: z.enum(['numbering', 'document', 'record']).default('numbering'),
 })
-export const RecordVariable = z.object({
+export const RecordVariable = closedObject({
   name: z.string().min(1),
   kind: z.literal('record'),
   value: z.enum(['index', 'count']),
   system: z.enum(['arabic', 'roman-lower', 'roman-upper', 'hebrew']).optional(),
 })
-export const MetaVariable = z.object({ name: z.string().min(1), kind: z.literal('meta'), field: z.string().min(1) })
+export const MetaVariable = closedObject({ name: z.string().min(1), kind: z.literal('meta'), field: z.string().min(1) })
 export const Variable = z.union([TextVariable, NumberVariable, RecordVariable, MetaVariable])
 
 export type Variable = z.infer<typeof Variable>

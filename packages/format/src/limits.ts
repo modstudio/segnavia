@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 
 const TOP_LEVEL_LIMITS = [
   { measure: 'pages', subject: 'composed flow', unit: 'papers' },
@@ -104,7 +105,7 @@ function documentLimits(value: unknown, ctx: z.RefinementCtx): unknown {
   }
 }
 
-export const DocumentLimitsValue = z.preprocess(documentLimits, z.object({ pages: z.number().optional(), descriptionTextChars: z.number().optional() }))
+export const DocumentLimitsValue = z.preprocess(documentLimits, closedObject({ pages: z.number().optional(), descriptionTextChars: z.number().optional() }))
 
 export function resolveLimits(document: DocumentLimits | undefined, host: Limits | undefined): ResolvedLimits {
   const documentPages = document?.pages ?? DEFAULT_LIMITS.pages

@@ -3,6 +3,7 @@ import { AsOf } from './as-of.ts'
 import { BookMode, BookPage, BookShape } from './book.ts'
 import { resolveBookPageGeometry } from './book-page-geometry.ts'
 import { bookSectionOpensFacts } from './book-section.ts'
+import { closedObject } from './closed-object.ts'
 import { DeckShape, deckTrim } from './deck.ts'
 import { documentBookProjectionForRefinement, documentSourcePath, SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
@@ -23,18 +24,28 @@ import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numberi
 import { PageSize } from './page.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { parentRules } from './parent-rules.ts'
-import { PressGeometry, Print, pressSafeAreaIssues } from './print.ts'
+import { Print, pressGeometryFields, pressSafeAreaIssues, refinePressGeometry } from './print.ts'
 import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
-const DocumentSettings = z.object({ scripts: Scripts.optional(), dir: DeckShape.shape.dir, lang: z.string().optional(), lineNumbers: LineNumbers.optional() })
-const DocumentData = z.object({ slots: Slots.optional() })
-const DocumentPrint = PressGeometry.and(z.object({ paper: Paper.optional(), orientation: Orientation.optional(), margin: LogicalMargin.optional() }))
+const DocumentSettings = closedObject({
+  scripts: Scripts.optional(),
+  dir: DeckShape.shape.dir,
+  lang: z.string().optional(),
+  lineNumbers: LineNumbers.optional(),
+})
+const DocumentData = closedObject({ slots: Slots.optional() })
+const DocumentPrint = closedObject({
+  ...pressGeometryFields,
+  paper: Paper.optional(),
+  orientation: Orientation.optional(),
+  margin: LogicalMargin.optional(),
+}).superRefine(refinePressGeometry)
 
-export const DocumentShape = z.object({
+export const DocumentShape = closedObject({
   type: z.literal('document'),
   id: z.string().optional(),
   kind: z.enum(['deck', 'page', 'printed', 'book', 'board']),

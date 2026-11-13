@@ -9,6 +9,9 @@ import { recordExpansion } from './record-expansion.ts'
 import type { Brand } from './style-sheet.ts'
 
 type ParsedNode = DocumentValue['children'][number]
+const PAGE_AND_DECK_SETTINGS = ['scripts', 'dir', 'lang'] as const satisfies readonly (keyof NonNullable<DocumentValue['settings']> &
+  keyof PageValue &
+  keyof DeckValue)[]
 
 function requireKind(document: DocumentValue, kind: DocumentValue['kind']): void {
   if (document.kind !== kind) {
@@ -18,6 +21,14 @@ function requireKind(document: DocumentValue, kind: DocumentValue['kind']): void
 
 function settings(document: DocumentValue) {
   return document.settings ?? {}
+}
+
+function pageAndDeckSettings(document: DocumentValue): Pick<NonNullable<DocumentValue['settings']>, (typeof PAGE_AND_DECK_SETTINGS)[number]> {
+  const source = settings(document)
+  return Object.fromEntries(PAGE_AND_DECK_SETTINGS.flatMap((key) => (source[key] === undefined ? [] : [[key, source[key]]]))) as Pick<
+    NonNullable<DocumentValue['settings']>,
+    (typeof PAGE_AND_DECK_SETTINGS)[number]
+  >
 }
 
 function data(document: DocumentValue) {
@@ -120,7 +131,13 @@ function printedSections(document: DocumentValue) {
     if (node.type === 'record') {
       const section = expanded.get(node)
       if (!section) throw new Error('record expansion was not established during lowering')
-      return [{ ...section, id: section.id ?? `children.${index}` }]
+      return [
+        {
+          ...section,
+          id: section.id ?? `children.${index}`,
+          recordTemplate: { name: section.recordTemplate.name, slots: section.recordTemplate.slots.map(({ key }) => ({ key })) },
+        },
+      ]
     }
     if (node.type !== 'section') return []
     const flow = node.children[0]
@@ -155,7 +172,7 @@ function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): Pa
       asOf: document.asOf,
       print: document.print,
       limits: document.limits,
-      ...settings(document),
+      ...pageAndDeckSettings(document),
       style: document.style,
       ...data(document),
       printedPages,
@@ -200,7 +217,7 @@ export function deckFromDocument(document: DocumentValue, brand?: Brand): DeckVa
       captions: document.captions,
       asOf: document.asOf,
       print: document.print,
-      ...settings(document),
+      ...pageAndDeckSettings(document),
       style: document.style,
       ...data(document),
       slides,

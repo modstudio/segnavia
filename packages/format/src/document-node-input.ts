@@ -1,13 +1,14 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { DivisionNodeFields, PartNodeFields, SectionNodeFields } from './document-nodes.ts'
 import { ConditionNode, ContentsNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, RecordNode, SlideNode } from './document-nodes-common.ts'
 
 /** Every node shape accepted at a document command input edge. */
 export const DocumentNodeInput = z.discriminatedUnion('type', [
-  z.object(DivisionNodeFields),
-  z.object(PartNodeFields),
-  z.object(SectionNodeFields),
+  closedObject(DivisionNodeFields),
+  closedObject(PartNodeFields),
+  closedObject(SectionNodeFields),
   FlowNode,
   PageNode,
   SlideNode,

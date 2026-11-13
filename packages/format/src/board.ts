@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { Box, MeasuredSize } from './deck.ts'
 import { TextDirection } from './direction.ts'
 import { AssetKind } from './placement.ts'
@@ -9,7 +10,7 @@ const BoardKind = AssetKind
 const BOARD_MIN_WIDTH = 16
 export const LABEL_MIN_WIDTH = BOARD_MIN_WIDTH
 
-export const BoardItem = z.object({
+export const BoardItem = closedObject({
   id: z.string(),
   kind: BoardKind,
   address: z.string().min(1, 'item address is empty; provide a non-empty address'),
@@ -19,7 +20,7 @@ export const BoardItem = z.object({
 })
 export type BoardItem = z.infer<typeof BoardItem>
 
-export const BoardLabel = z.object({
+export const BoardLabel = closedObject({
   id: z.string(),
   text: z.string(),
   x: z.number(),
@@ -29,14 +30,14 @@ export const BoardLabel = z.object({
 })
 export type BoardLabel = z.infer<typeof BoardLabel>
 
-export const GridCell = z.object({
+export const GridCell = closedObject({
   id: z.string(),
   row: z.number(),
   column: z.number(),
 })
 export type GridCell = z.infer<typeof GridCell>
 
-export const BoardSection = z.object({
+export const BoardSection = closedObject({
   id: z.string(),
   title: z.string(),
   rectangle: Box,
@@ -46,7 +47,7 @@ export const BoardSection = z.object({
 })
 export type BoardSection = z.infer<typeof BoardSection>
 
-export const BoardProperties = z.object({
+export const BoardProperties = closedObject({
   title: z.string(),
   direction: TextDirection,
 })

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { FontManifest } from './fonts.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { Motif } from './motif.ts'
@@ -10,13 +11,13 @@ const StyleName = z.string().regex(STYLE_NAME, 'names must start with a lowercas
 export const HexColor = z.string().regex(/^#(?:[\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i, 'colors must be #rgb, #rrggbb or #rrggbbaa')
 export type HexColor = z.infer<typeof HexColor>
 
-export const Dimension = z.strictObject({
+export const Dimension = closedObject({
   value: z.number(),
   unit: z.enum(['pt', 'px', 'mm', 'cm', 'in', 'em', 'rem']),
 })
 export type Dimension = z.infer<typeof Dimension>
 
-export const TokenReference = z.strictObject({ token: StyleName })
+export const TokenReference = closedObject({ token: StyleName })
 export type TokenReference = z.infer<typeof TokenReference>
 
 export type TextStyleKind = 'paragraph' | 'character'
@@ -60,7 +61,7 @@ export const TEXT_STYLE_PROPERTIES = {
   keepWithNext: { kinds: ['paragraph'], cssProperty: KEEP_WITH_CUSTOM_PROPERTY },
 } as const satisfies Record<TextStyleProperty, TextStylePropertyFact>
 
-export const TextStyle = z.strictObject(TextStyleShape).superRefine((style, ctx) => {
+export const TextStyle = closedObject(TextStyleShape).superRefine((style, ctx) => {
   for (const [property, fact] of Object.entries(TEXT_STYLE_PROPERTIES)) {
     if (style[property as keyof typeof style] !== undefined && !fact.kinds.some((kind) => kind === style.kind)) {
       ctx.addIssue({
@@ -73,44 +74,40 @@ export const TextStyle = z.strictObject(TextStyleShape).superRefine((style, ctx)
 })
 export type TextStyle = z.infer<typeof TextStyle>
 
-export const PageGeometry = z.strictObject({
+export const PageGeometry = closedObject({
   paper: Paper,
   orientation: Orientation,
   margin: RequiredLogicalMargin,
-  columns: z.strictObject({ count: z.number().int().min(1), gap: z.number().nonnegative() }).optional(),
+  columns: closedObject({ count: z.number().int().min(1), gap: z.number().nonnegative() }).optional(),
 })
 export type PageGeometry = z.infer<typeof PageGeometry>
 
 const NamedRecord = <T extends z.ZodType>(value: T) => z.record(StyleName, value)
 
-export const StyleSheet = z
-  .strictObject({
-    tokens: z
-      .strictObject({
-        colors: NamedRecord(HexColor).optional(),
-        dimensions: NamedRecord(Dimension).optional(),
-        fontFamilies: NamedRecord(z.array(z.string().min(1)).min(1)).optional(),
+export const StyleSheet = closedObject({
+  tokens: closedObject({
+    colors: NamedRecord(HexColor).optional(),
+    dimensions: NamedRecord(Dimension).optional(),
+    fontFamilies: NamedRecord(z.array(z.string().min(1)).min(1)).optional(),
+  }).optional(),
+  textStyles: NamedRecord(TextStyle).optional(),
+  pageGeometries: NamedRecord(PageGeometry).optional(),
+  motifs: z.array(Motif).optional(),
+  fonts: FontManifest.optional(),
+  css: z.string().optional(),
+}).superRefine((sheet, ctx) => {
+  const seen = new Map<string, number>()
+  for (const [index, motif] of (sheet.motifs ?? []).entries()) {
+    const previous = seen.get(motif.key)
+    if (previous !== undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['motifs', index, 'key'],
+        message: `motif key ${JSON.stringify(motif.key)} duplicates motifs.${previous}.key; give every motif a unique key to clear this refusal`,
       })
-      .optional(),
-    textStyles: NamedRecord(TextStyle).optional(),
-    pageGeometries: NamedRecord(PageGeometry).optional(),
-    motifs: z.array(Motif).optional(),
-    fonts: FontManifest.optional(),
-    css: z.string().optional(),
-  })
-  .superRefine((sheet, ctx) => {
-    const seen = new Map<string, number>()
-    for (const [index, motif] of (sheet.motifs ?? []).entries()) {
-      const previous = seen.get(motif.key)
-      if (previous !== undefined) {
-        ctx.addIssue({
-          code: 'custom',
-          path: ['motifs', index, 'key'],
-          message: `motif key ${JSON.stringify(motif.key)} duplicates motifs.${previous}.key; give every motif a unique key to clear this refusal`,
-        })
-      } else seen.set(motif.key, index)
-    }
-  })
+    } else seen.set(motif.key, index)
+  }
+})
 export type StyleSheet = z.infer<typeof StyleSheet>
 
 export const Brand = StyleSheet

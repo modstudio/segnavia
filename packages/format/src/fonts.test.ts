@@ -16,9 +16,9 @@ import {
 import { Book, jsonSchemas, Page } from './index.ts'
 
 describe('FontReference', () => {
-  test('reads stored references tolerantly and writes them strictly', () => {
-    expect(FontReference.parse({ app: 'body', future: true })).toEqual({ app: 'body' })
-    expect(FontReference.parse({ local: 'Arial', fallback: 'body', future: true })).toEqual({ local: 'Arial', fallback: 'body' })
+  test('refuses unknown reference keys at every edge', () => {
+    expect(FontReference.safeParse({ app: 'body', future: true }).success).toBe(false)
+    expect(FontReference.safeParse({ local: 'Arial', fallback: 'body', future: true }).success).toBe(false)
     expect(() => FontReferenceInput.parse({ app: 'body', future: true })).toThrow()
   })
 

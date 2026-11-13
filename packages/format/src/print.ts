@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { LogicalMargin } from './margins.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 
@@ -10,18 +11,20 @@ export type MarkColor = z.infer<typeof MarkColor>
 export const PRESS_GEOMETRY_FIELDS = ['bleed', 'safe', 'marks', 'markColor'] as const
 export type PressGeometryField = (typeof PRESS_GEOMETRY_FIELDS)[number]
 
-const pressGeometryFields = {
+export const pressGeometryFields = {
   bleed: z.number().nonnegative().default(0),
   safe: z.number().nonnegative().default(0),
   marks: z.boolean().default(false),
   markColor: MarkColor.default('black'),
 }
 
-export const PressGeometry = z.object(pressGeometryFields).superRefine((press, ctx) => {
+export function refinePressGeometry(press: { marks: boolean; markColor: MarkColor }, ctx: z.RefinementCtx): void {
   if (press.markColor === 'registration' && !press.marks) {
     ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
   }
-})
+}
+
+export const PressGeometry = closedObject(pressGeometryFields).superRefine(refinePressGeometry)
 export type PressGeometry = z.infer<typeof PressGeometry>
 export type PressGeometryInput = z.input<typeof PressGeometry>
 
@@ -36,7 +39,7 @@ export function pressSafeAreaIssues(press: Pick<PressGeometry, 'safe'>, trim: { 
   return issues
 }
 
-const PrintShape = z.object({
+const PrintShape = closedObject({
   paper: Paper,
   orientation: Orientation.default('portrait'),
   margin: LogicalMargin.optional(),
@@ -44,9 +47,7 @@ const PrintShape = z.object({
 })
 
 export const Print = PrintShape.superRefine((print, ctx) => {
-  if (print.markColor === 'registration' && !print.marks) {
-    ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
-  }
+  refinePressGeometry(print, ctx)
   for (const message of pressSafeAreaIssues(print, sheetMm(print))) ctx.addIssue({ code: 'custom', path: ['safe'], message })
 })
 export type Print = z.infer<typeof Print>

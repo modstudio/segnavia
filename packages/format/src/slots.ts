@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { AsOfDay } from './as-of.ts'
+import { closedObject } from './closed-object.ts'
 
 export const SLOT_TYPES = ['text', 'phone', 'email', 'link', 'qr', 'image'] as const
 export const SlotType = z.enum(SLOT_TYPES)
@@ -32,10 +33,9 @@ function validateOverflow(slot: { type: SlotType; overflow: 'shrink' | 'truncate
 const withOverflowDefaults = <T extends { overflow: 'shrink' | 'truncate' | 'wrap' | 'refuse'; minSize?: number }>(slot: T) =>
   slot.overflow === 'shrink' ? { ...slot, minSize: slot.minSize ?? 6 } : slot
 
-// Stored items are read tolerantly. SlotDeclarationInput is the strict write edge.
-export const SlotDeclaration = z.object(SlotDeclarationShape).superRefine(validateOverflow).transform(withOverflowDefaults)
+export const SlotDeclaration = closedObject(SlotDeclarationShape).superRefine(validateOverflow).transform(withOverflowDefaults)
 export type SlotDeclaration = Omit<z.infer<typeof SlotDeclaration>, 'overflow'> & { overflow?: z.infer<typeof SlotDeclaration>['overflow'] }
-export const SlotDeclarationInput = z.strictObject(SlotDeclarationShape).superRefine(validateOverflow).transform(withOverflowDefaults)
+export const SlotDeclarationInput = closedObject(SlotDeclarationShape).superRefine(validateOverflow).transform(withOverflowDefaults)
 export type SlotDeclarationInput = z.input<typeof SlotDeclarationInput>
 
 export const Slots = z.array(SlotDeclaration).superRefine((slots, ctx) => {
@@ -56,7 +56,7 @@ export const SlotsInput = z.array(SlotDeclarationInput).superRefine((slots, ctx)
 })
 export type SlotsInput = z.input<typeof SlotsInput>
 
-export const SlotValue = z.union([z.string(), z.object({ asset: z.string() })])
+export const SlotValue = z.union([z.string(), closedObject({ asset: z.string() })])
 export type SlotValue = z.infer<typeof SlotValue>
 
 export const FillValues = z.record(SlotKey, SlotValue)

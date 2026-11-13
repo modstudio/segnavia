@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AsOf } from './as-of.ts'
+import { closedObject } from './closed-object.ts'
 import { Direction, TextDirection } from './direction.ts'
 import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
@@ -18,16 +19,16 @@ export { Box, ImageFit, MeasuredSize, PixelSize, Point }
 // One annotation as measured on its element at capture time, in the shot's
 // CSS pixels. It belongs to the image it was measured on: a recapture that
 // moves the element moves the annotation with it.
-export const Annotation = z.object({
+export const Annotation = closedObject({
   ring: Box.nullable(),
-  badge: z.object({ center: Point, number: z.number().int() }).nullable(),
-  arrow: z.object({ head: Point, tail: Point, label: z.string().nullable() }).nullable(),
+  badge: closedObject({ center: Point, number: z.number().int() }).nullable(),
+  arrow: closedObject({ head: Point, tail: Point, label: z.string().nullable() }).nullable(),
 })
 export type Annotation = z.infer<typeof Annotation>
 
 export const SHOT_KEY = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/
 
-export const Shot = z.object({
+export const Shot = closedObject({
   key: z.string().regex(SHOT_KEY),
   title: z.string(),
   description: z.string().nullable().default(null),
@@ -48,10 +49,10 @@ export type Shot = z.infer<typeof Shot>
 
 // What a host serves at a shot's address: the image of one version and the
 // geometry measured on that same image, so the two can never disagree.
-export const PublishedShot = z.object({ src: z.string(), shot: Shot })
+export const PublishedShot = closedObject({ src: z.string(), shot: Shot })
 export type PublishedShot = z.infer<typeof PublishedShot>
 
-export const Word = z.object({
+export const Word = closedObject({
   text: z.string(),
   startMs: z.number().nonnegative(),
   endMs: z.number().nonnegative(),
@@ -60,7 +61,7 @@ export type Word = z.infer<typeof Word>
 
 // A cue shows an annotation from the moment its word is spoken until the
 // slide ends, or until the word named by `untilWord`.
-export const Cue = z.object({
+export const Cue = closedObject({
   word: z.number().int().nonnegative(),
   annotation: z.number().int().nonnegative(),
   untilWord: z.number().int().nonnegative().optional(),
@@ -69,7 +70,7 @@ export type Cue = z.infer<typeof Cue>
 
 // `words` empty with `live` set means the viewer speaks the text itself and
 // learns the timings as it goes; cues still name words by position.
-export const Narration = z.object({
+export const Narration = closedObject({
   text: z.string(),
   // The language spoken, for the voice and the caption; dir defaults from it.
   lang: z.string().optional(),
@@ -84,21 +85,21 @@ export const Narration = z.object({
 export type Narration = z.infer<typeof Narration>
 
 const DirectSlideContent = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('html'), html: z.string() }),
+  closedObject({ kind: z.literal('html'), html: z.string() }),
   // HTML the host serves itself, under its own headers: a single-use ticket,
   // a CSP, a URL that expires.
-  z.object({ kind: z.literal('url'), src: z.string() }),
-  z.object({ kind: z.literal('shot'), src: z.string(), shot: Shot, fit: ImageFit.optional(), frame: z.boolean().optional() }),
+  closedObject({ kind: z.literal('url'), src: z.string() }),
+  closedObject({ kind: z.literal('shot'), src: z.string(), shot: Shot, fit: ImageFit.optional(), frame: z.boolean().optional() }),
   // A shot named by its permanent address, resolved when the deck is shown,
   // so a recapture reaches every deck that names it.
-  z.object({ kind: z.literal('shot-ref'), href: z.string(), fit: ImageFit.optional(), frame: z.boolean().optional() }),
-  z.object({ kind: z.literal('image'), src: z.string(), alt: z.string(), fit: ImageFit.optional(), frame: z.boolean().optional() }),
+  closedObject({ kind: z.literal('shot-ref'), href: z.string(), fit: ImageFit.optional(), frame: z.boolean().optional() }),
+  closedObject({ kind: z.literal('image'), src: z.string(), alt: z.string(), fit: ImageFit.optional(), frame: z.boolean().optional() }),
 ])
-export const SlideContent = z.union([DirectSlideContent, z.object({ media: PlacementShape })])
+export const SlideContent = z.union([DirectSlideContent, closedObject({ media: PlacementShape })])
 export type SlideContent = z.infer<typeof SlideContent>
 
 // A slide plays for its narration and surrounding pauses, or for its hold.
-export const Slide = z.object({
+export const Slide = closedObject({
   id: z.string(),
   content: SlideContent,
   notes: z.string().optional(),
@@ -128,7 +129,7 @@ export function parsePlayback(value: unknown): PlaybackMode | undefined {
   return parsed.success ? parsed.data : undefined
 }
 
-export const DeckShape = z.object({
+export const DeckShape = closedObject({
   brand: Brand.optional(),
   title: z.string(),
   size: PixelSize.default(DECK_SIZE),
@@ -197,7 +198,7 @@ export const Deck = DeckShape.superRefine((deck, ctx) => {
 })
 export type Deck = z.infer<typeof Deck>
 
-export const Manifest = z.object({
+export const Manifest = closedObject({
   shots: z.record(z.string(), Shot),
   updatedAt: z.string(),
 })
