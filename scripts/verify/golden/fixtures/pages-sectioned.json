@@ -6,16 +6,42 @@
     },
     {
       "size": [612, 792],
-      "text": "SECTIONED BODY ONE\n\nPage 1 of 2"
+      "text": "SECTIONED BODY ONE\nBODY DETAIL\nDEEP BODY DETAIL\nFirst body page.\n\nPage 1 of 2"
     },
     {
       "size": [612, 792],
-      "text": "SECTIONED BODY TWO\n\nPage 2 of 2"
+      "text": "SECTIONED BODY TWO\nSecond body page.\n\nPage 2 of 2"
     }
   ],
-  "outline": [],
+  "outline": [
+    {
+      "title": "SECTIONED COVER",
+      "page": 1,
+      "depth": 0
+    },
+    {
+      "title": "SECTIONED BODY ONE",
+      "page": 2,
+      "depth": 0
+    },
+    {
+      "title": "BODY DETAIL",
+      "page": 2,
+      "depth": 1
+    },
+    {
+      "title": "DEEP BODY DETAIL",
+      "page": 2,
+      "depth": 2
+    },
+    {
+      "title": "SECTIONED BODY TWO",
+      "page": 3,
+      "depth": 0
+    }
+  ],
   "structure": { "tree": true, "marked": true },
-  "fonts": ["LiberationSans", "LiberationSerif"],
+  "fonts": ["LiberationSans-Bold", "LiberationSerif", "LiberationSerif-Bold"],
   "info": {
     "Custom Metadata": "no",
     "Metadata Stream": "no",
