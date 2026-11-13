@@ -109,7 +109,6 @@ async function renderHtmlSlides(
   press: DeckPressContext,
   slideBaseCss: string,
   fontFailures: FontFailure[],
-  diagramScript: string | undefined,
   layoutScripts: readonly LoadedLayoutScript[],
   preflight: SurfacePreflight | undefined,
 ): Promise<RenderedDeckPage[]> {
@@ -133,7 +132,6 @@ async function renderHtmlSlides(
               css: opts.css,
               printAtMs,
               origins: opts.origins,
-              diagramScript,
               layoutScripts: slideLayouts,
             }),
             boundMs: opts.boundMs,
@@ -143,7 +141,7 @@ async function renderHtmlSlides(
             beforeOutput: async (tab) => {
               font = await captureDeckFont(tab, Boolean(opts.watermark), {
                 prepare: (page) =>
-                  waitForPrintReady(page, renderReadiness('refuse', hasDiagram(html), opts.waitForPageReady !== false, slideLayouts.length > 0)),
+                  waitForPrintReady(page, renderReadiness('refuse', opts.waitForPageReady !== false, slideLayouts.length > 0)),
               })
             },
           },
@@ -190,7 +188,6 @@ async function regularDeckPdf(
   opts: DeckPdfOptions,
   services: DeckPdfServices,
   pressSettings: ReturnType<typeof deckPressSettings>,
-  diagramScript?: string,
   layoutScripts: readonly LoadedLayoutScript[] = [],
   preflight?: SurfacePreflight,
 ): Promise<Uint8Array> {
@@ -211,7 +208,7 @@ async function regularDeckPdf(
       {
         viewport: deckPrintableViewport(deck.size, notesGeometry, press),
         scripts: true,
-        html: printableDeckValue(deck, { ...opts, baseCss, notesSheetFont, omitHtmlSlideFrames: true, diagramScript, layoutScripts }),
+        html: printableDeckValue(deck, { ...opts, baseCss, notesSheetFont, omitHtmlSlideFrames: true, layoutScripts }),
         boundMs: opts.boundMs,
         ...assetSetup(opts),
         ...fontLoadSetup(fontFailures, opts.fontLoad?.report),
@@ -233,7 +230,7 @@ async function regularDeckPdf(
       deckPrintablePdfOptions(press),
       [],
     ),
-    renderHtmlSlides(deck, opts, services, press, slideBaseCss, fontFailures, diagramScript, layoutScripts, preflight),
+    renderHtmlSlides(deck, opts, services, press, slideBaseCss, fontFailures, layoutScripts, preflight),
   ])
   const output = await loadPdf(printable)
   await composeRegularSlides(output, deck, rendered, notesGeometry, pageOwners, press)
@@ -251,7 +248,6 @@ async function imposedDeckPdf(
   imposition: ParsedImposition,
   opts: DeckPdfOptions,
   services: DeckPdfServices,
-  diagramScript?: string,
   layoutScripts: readonly LoadedLayoutScript[] = [],
   preflight?: SurfacePreflight,
 ): Promise<Uint8Array> {
@@ -278,10 +274,9 @@ async function imposedDeckPdf(
                 css: opts.css,
                 printAtMs: slide.printAtMs ?? 0,
                 origins: opts.origins,
-                diagramScript,
                 layoutScripts: slideLayouts,
               })
-            : printableDeckValue({ ...single, print: undefined }, { ...opts, layout: 'slides', imposition: undefined, baseCss, diagramScript, layoutScripts })
+            : printableDeckValue({ ...single, print: undefined }, { ...opts, layout: 'slides', imposition: undefined, baseCss, layoutScripts })
         const bytes = await services.renderPdf(
           {
             viewport: deck.size,
@@ -334,7 +329,6 @@ export async function renderDeckPdf(
   deck: Deck,
   opts: DeckPdfOptions,
   services: DeckPdfServices,
-  diagramScript?: string,
   day?: AsOfDay,
   layoutScripts: readonly LoadedLayoutScript[] = [],
 ): Promise<Uint8Array> {
@@ -356,14 +350,14 @@ export async function renderDeckPdf(
   const preflight = surfacePreflight(opts.preflight, deck.slides.length)
   opts = { ...opts, ...resolvedFonts.options }
   if (!opts.imposition) {
-    const output = await regularDeckPdf(resolvedDeck, opts, resolvedServices, pressSettings, diagramScript, layoutScripts, preflight)
+    const output = await regularDeckPdf(resolvedDeck, opts, resolvedServices, pressSettings, layoutScripts, preflight)
     preflight?.complete()
     return output
   }
   if (opts.layout === 'notes') {
     throw new RenderRefusedError("layout: 'notes' and imposition cannot be combined. Remove either layout: 'notes' or imposition to clear this refusal.")
   }
-  const output = await imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, resolvedServices, diagramScript, layoutScripts, preflight)
+  const output = await imposedDeckPdf(resolvedDeck, Imposition.parse(opts.imposition), opts, resolvedServices, layoutScripts, preflight)
   preflight?.complete()
   return output
 }

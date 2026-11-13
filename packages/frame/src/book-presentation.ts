@@ -1,6 +1,5 @@
 import { embedFunction, parseBookPositionKey } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
-import { DIAGRAM_READY_EXPR } from './diagram-document.ts'
 
 export const BOOK_LAYOUTS = ['pages', 'flow'] as const
 export const BOOK_PAGE_ATTRIBUTE = 'data-segnavia-book-page'
@@ -83,7 +82,7 @@ var flushBookPlace=function(){if(bookPlaceTimer!==undefined){clearTimeout(bookPl
 var settleBookPlace=function(key){${beforeSettle}scrollTo(0,key?bookPlaceOffset(targetBookBlocks(),key):0);var report=function(){if(window.requestAnimationFrame)window.requestAnimationFrame(reportBookPlace);else setTimeout(reportBookPlace,0);};if(window.requestAnimationFrame)window.requestAnimationFrame(report);else setTimeout(report,0);};
 window.addEventListener('scroll',scheduleBookPlace,{passive:true});
 window.addEventListener('message',function(event){var data=event.data;if(event.source!==parent||!data||data.type!=='${MESSAGE.bookLayout}'||BOOK_LAYOUTS.indexOf(data.layout)<0)return;var place=data.place===undefined?undefined:bookPlaceKey(data.place);if(data.place!==undefined&&place===undefined)return;flushBookPlace();if(data.layout!==bookLayout)return;var settle=function(){settleBookPlace(place);};if(window.requestAnimationFrame)window.requestAnimationFrame(settle);else setTimeout(settle,0);});
-Promise.resolve(${DIAGRAM_READY_EXPR}).then(function(){settleBookPlace();});`
+settleBookPlace();`
 }
 
 export function spreadSlots(pageCount: number): number {

@@ -20,7 +20,6 @@ import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBook
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
-import { withDiagramScript } from './diagram-document.ts'
 import { declaredFontLoads } from './font-load.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 import { LINE_NUMBER_BASE_CSS, SIDE_NOTE_BASE_CSS } from './line-number-style.ts'
@@ -31,7 +30,6 @@ export interface PaginatedDocumentOptions {
   css?: string
   printBackground?: boolean
   screen?: Omit<ScreenPresentation, 'reportPlace'>
-  diagramScript?: string
   layoutScripts?: readonly LoadedLayoutScript[]
   limits?: Limits
   plan?: Plan
@@ -106,8 +104,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     ...(options.breaks === undefined ? {} : { breaks: options.breaks }),
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
-  const drawn = withDiagramScript(view.html, options.nonce, options.diagramScript)
-  const body = `${drawn}<script nonce="${options.nonce}">${composerScript(json)}</script>`
+  const body = `${view.html}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,
@@ -129,11 +126,11 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
 
 export function flowViewDocument(
   view: BookView,
-  options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'diagramScript' | 'layoutScripts'>,
+  options: Pick<PaginatedDocumentOptions, 'nonce' | 'fontCss' | 'css' | 'layoutScripts'>,
 ): string {
   if (!view.flow || !view.pagination) throw new Error('A flow frame requires a paginated view built with its flow.')
   const script = `var BOOK_LAYOUTS=${JSON.stringify(BOOK_LAYOUTS)};${embeddedBookPresentationFunctions()}${bookPresentationScript('document', '', JSON.stringify(BOOK_PAGE_ATTRIBUTE))}`
-  return frameDocument(`${withDiagramScript(view.flow, options.nonce, options.diagramScript)}<script nonce="${options.nonce}">${script}</script>`, {
+  return frameDocument(`${view.flow}<script nonce="${options.nonce}">${script}</script>`, {
     scripts: 'refuse',
     nonce: options.nonce,
     dir: view.pagination.direction,

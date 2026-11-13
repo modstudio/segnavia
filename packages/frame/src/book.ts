@@ -26,7 +26,6 @@ export class SegnaviaBook extends BookSourcesElement {
   private layoutHandoff: { from: BookLayout; to: BookLayout; timer: ReturnType<typeof setTimeout> } | null = null
   private resolvedFontCss: string | undefined
   private preflightSeed: PreflightEntry[] = []
-  private diagramDrawing = { script: undefined as string | undefined, settled: false }
   private layoutScripts: readonly LoadedLayoutScript[] = []
   private reflectingLayout = false
   private loadGeneration = 0
@@ -248,7 +247,6 @@ export class SegnaviaBook extends BookSourcesElement {
       spread: this.spread,
       layout,
       origins: this.origins,
-      diagramScript: this.diagramDrawing.script,
       layoutScripts: this.layoutScripts,
       profile: this.profileInput,
       preflightSeed: this.preflightSeed,
@@ -273,7 +271,7 @@ export class SegnaviaBook extends BookSourcesElement {
     if (!view.pagination) {
       this.replaceChildren(
         this.mountFrame(
-          bookFrame(view, { css, layout: 'pages', origins: this.origins, diagramScript: this.diagramDrawing.script, layoutScripts: this.layoutScripts }),
+          bookFrame(view, { css, layout: 'pages', origins: this.origins, layoutScripts: this.layoutScripts }),
         ),
       )
       return
@@ -322,13 +320,8 @@ export class SegnaviaBook extends BookSourcesElement {
       pageWidths: this.widthOptions,
       profile: resolvePreflightProfile(this.profileInput),
       signal: controller.signal,
-      diagramSettled: this.diagramDrawing.settled,
       current: () => generation === this.loadGeneration && !controller.signal.aborted,
       day: (day) => dispatchAsof(this, day),
-      diagram: ({ script, error }) => {
-        this.diagramDrawing = { script, settled: true }
-        if (error) bookElement.reportBookError(this, error)
-      },
       layout: (scripts) => {
         this.layoutScripts = scripts
       },

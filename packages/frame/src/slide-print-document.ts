@@ -1,6 +1,5 @@
 import type { Deck, OriginApproval } from '@segnavia/format'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
-import { withDiagramScript } from './diagram-document.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 
 export const PRINT_COLOR_CSS = '*,*::before,*::after{print-color-adjust:exact;-webkit-print-color-adjust:exact}'
@@ -14,11 +13,10 @@ export function htmlSlideDocument(
     nonce: string
     printAtMs?: number
     origins?: Iterable<OriginApproval>
-    diagramScript?: string
     layoutScripts?: readonly LoadedLayoutScript[]
   },
 ): string {
-  return frameDocument(withDiagramScript(html, options.nonce, options.diagramScript), {
+  return frameDocument(html, {
     scripts: deck.scripts,
     nonce: options.nonce,
     dir: deck.dir,

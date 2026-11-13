@@ -6,6 +6,10 @@ export function diagramErrorFirstLine(error: unknown): string {
   return message.split(/\r?\n/, 1)[0] || 'Diagram could not be drawn.'
 }
 
+export function diagramFailureIssue(subject: string, error: unknown): { subject: string; message: string } {
+  return { subject: subject || 'diagram', message: diagramErrorFirstLine(error) }
+}
+
 export function diagramLabelDirection(text: string): TextDirection {
   return firstStrongDirection(text) ?? 'ltr'
 }

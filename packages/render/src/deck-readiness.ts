@@ -1,11 +1,10 @@
 import type { Deck, ImageFit } from '@segnavia/format'
 import { COMPOSE_FAILURE_ATTRIBUTE, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
-import { hasDiagram } from '@segnavia/frame/diagrams'
 import { fitImage, imageLayerStyles } from '@segnavia/frame/image-fit'
 import { SLIDES_READY_DEADLINE_MS } from '@segnavia/frame/print-document'
 import type { Page as Tab } from 'playwright-core'
 import { RenderRefusedError } from './errors.ts'
-import { type RenderReadiness, readinessRefusal, renderReadiness, waitForDiagramReadiness } from './render-readiness.ts'
+import { type RenderReadiness, readinessRefusal, renderReadiness } from './render-readiness.ts'
 
 async function watchForLayoutFailure(tab: Tab, waiting: () => boolean): Promise<string | null> {
   while (waiting()) {
@@ -37,9 +36,8 @@ export async function waitForPrintReady(tab: Tab, readiness: RenderReadiness): P
   }
   if (outcome.reason) throw new RenderRefusedError(outcome.reason)
   if (!outcome.ready && readiness.layouts) {
-    throw new RenderRefusedError(readinessRefusal(readiness, { author: true, diagrams: true, layouts: false }, SLIDES_READY_DEADLINE_MS / 1000))
+    throw new RenderRefusedError(readinessRefusal(readiness, { author: true, layouts: false }, SLIDES_READY_DEADLINE_MS / 1000))
   }
-  await waitForDiagramReadiness(tab, readiness)
 }
 
 export async function placeRenderedImages(tab: Tab): Promise<void> {
@@ -74,10 +72,10 @@ export async function placeRenderedImages(tab: Tab): Promise<void> {
   }, styles)
 }
 
-// The step that makes a slide's tab ready to print: an HTML slide waits for its bridge, diagrams and layout providers; an image slide places its image layers.
+// The step that makes a slide's tab ready to print: an HTML slide waits for its bridge and layout providers; an image slide places its image layers.
 export function slidePrepare(content: Deck['slides'][number]['content'], layouts: boolean, author: boolean): ((tab: Tab) => Promise<void>) | undefined {
   if (!('kind' in content)) return undefined
-  if (content.kind === 'html') return (tab) => waitForPrintReady(tab, renderReadiness('refuse', hasDiagram(content.html), author, layouts))
+  if (content.kind === 'html') return (tab) => waitForPrintReady(tab, renderReadiness('refuse', author, layouts))
   if (content.kind === 'image') return placeRenderedImages
   return undefined
 }

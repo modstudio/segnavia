@@ -136,8 +136,8 @@ describe('printableDeckValue', () => {
   })
 
   test('inlines a resolved diagram script only into HTML slides that contain diagrams', () => {
-    const plain = htmlSlideDocument(deck, '<p>Plain</p>', { nonce: 'known', diagramScript: 'DRAW' })
-    const diagram = htmlSlideDocument(deck, '<pre data-segnavia-diagram="mermaid"></pre>', { nonce: 'known', diagramScript: 'DRAW' })
+    const plain = htmlSlideDocument(deck, '<p>Plain</p>', { nonce: 'known' })
+    const diagram = htmlSlideDocument(deck, '<pre data-segnavia-diagram="mermaid"></pre>', { nonce: 'known' })
     expect(plain).not.toContain('DRAW')
     expect(diagram).toContain('<script nonce="known">DRAW</script>')
   })

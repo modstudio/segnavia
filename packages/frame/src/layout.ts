@@ -1,4 +1,4 @@
-import { attributeValues } from '@segnavia/html'
+import { attributeValues, htmlElementAttributes, type HtmlElementAttributes } from '@segnavia/html'
 
 export const LAYOUT_ATTRIBUTE = 'data-segnavia-layout'
 export const LAYOUT_FRAME_ATTRIBUTE = 'data-segnavia-layout-frame'
@@ -23,6 +23,34 @@ interface RegisteredLayoutProvider {
   readonly priority: number
   readonly selects: string
   readonly order: number
+  readonly selection: ProviderSelection
+}
+
+interface ProviderSelection {
+  readonly tag?: string
+  readonly attributes: readonly { name: string; operator: 'present' | 'exact' | 'token'; value?: string }[]
+}
+
+function parseSelection(selects: string): ProviderSelection | undefined {
+  const match = /^([a-z][a-z0-9-]*)?((?:\[[a-z][a-z0-9-]*(?:(?:=|~=)"[^"]*")?\])+)$/i.exec(selects)
+  if (!match) return undefined
+  const attributes = Array.from(match[2]?.matchAll(/\[([a-z][a-z0-9-]*)(?:(=|~=)"([^"]*)")?\]/gi) ?? [], (held) => ({
+    name: held[1]?.toLowerCase() ?? '',
+    operator: held[2] === '=' ? ('exact' as const) : held[2] === '~=' ? ('token' as const) : ('present' as const),
+    ...(held[3] === undefined ? {} : { value: held[3] }),
+  }))
+  return attributes.length > 0 ? { ...(match[1] ? { tag: match[1].toLowerCase() } : {}), attributes } : undefined
+}
+
+function selectionMatches(selection: ProviderSelection, element: HtmlElementAttributes): boolean {
+  if (selection.tag && selection.tag !== element.name) return false
+  return selection.attributes.every(({ name, operator, value }) => {
+    const held = element.attributes[name]
+    if (held === undefined) return false
+    if (operator === 'present') return true
+    if (operator === 'exact') return held === value
+    return held.split(/\s+/).includes(value ?? '')
+  })
 }
 
 const LAYOUT_PROVIDERS_KEY = Symbol.for('segnavia.layout-providers')
@@ -45,12 +73,15 @@ export function registerLayoutProvider(name: string, provider: LayoutProvider): 
   if (!validName(name)) throw new Error(`Layout provider name ${JSON.stringify(name)} is invalid; use a lowercase CSS identifier to clear this refusal.`)
   const priority = provider?.priority ?? 0
   const selects = provider?.selects ?? `[${LAYOUT_ATTRIBUTE}~="${name}"]`
-  if (!provider || typeof provider.script !== 'function' || !Number.isFinite(priority) || typeof selects !== 'string' || !selects) {
-    throw new Error(`Layout provider ${JSON.stringify(name)} is invalid; pass { script, priority, selects } to clear this refusal.`)
+  const selection = typeof selects === 'string' ? parseSelection(selects) : undefined
+  if (!provider || typeof provider.script !== 'function' || !Number.isFinite(priority) || !selection) {
+    throw new Error(
+      `Layout provider ${JSON.stringify(name)} is invalid; pass { script, priority, selects } with selects as one compound tag and attribute selector to clear this refusal.`,
+    )
   }
   const providers = registry()
   const previous = providers.get(name)
-  providers.set(name, { script: provider.script, priority, selects, order: previous?.order ?? providers.size })
+  providers.set(name, { script: provider.script, priority, selects, selection, order: previous?.order ?? providers.size })
 }
 
 function selectedLayoutNames(html: string): string[] {
@@ -67,11 +98,20 @@ function selectedLayoutNames(html: string): string[] {
 }
 
 export function layoutsUsed(html: string): string[] {
-  return selectedLayoutNames(html)
+  const names = selectedLayoutNames(html)
+  const seen = new Set(names)
+  const elements = htmlElementAttributes(html)
+  for (const [name, provider] of registry()) {
+    if (!seen.has(name) && elements.some((element) => selectionMatches(provider.selection, element))) {
+      seen.add(name)
+      names.push(name)
+    }
+  }
+  return names
 }
 
 export async function loadLayoutScripts(html: string): Promise<LoadedLayoutScript[]> {
-  const names = selectedLayoutNames(html)
+  const names = layoutsUsed(html)
   if (names.length === 0) return []
   const providers = registry()
   const selected = names.map((name) => {

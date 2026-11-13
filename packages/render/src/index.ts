@@ -10,13 +10,12 @@ import { keepBrowser } from './browser-keeper.ts'
 import { type BrowserTabSetup, renderInBrowserTab } from './browser-tab.ts'
 import { coverImagePlan } from './cover-image.ts'
 import { renderDeckPdf } from './deck-pdf.ts'
-import { resolveDiagramScript } from './diagram-script.ts'
+import { resolveRenderLayoutScripts } from './diagram-script.ts'
 import { withDocumentMetadata } from './document-metadata.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
 import { parseCoverImageOptions, parseDeckPdfOptions, parsePageImageOptions, parseProofImageOptions, parseSlideImageOptions } from './entry-options.ts'
 import { launchUnavailable, relaunchUnavailable } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { layoutScripts } from './layout-scripts.ts'
 import {
   copyLimits,
   enforceDeckLimits,
@@ -185,8 +184,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, prepared.established.slots)
           const pageWithDay = fillPageAsOfBindings(prepared.page, prepared.established.day)
           const { value: page, slots } = await filledPage(pageWithDay, effectiveSlots, deadline.signal)
-          const diagramScript = await resolveDiagramScript(printedPageAuthorHtml(page))
-          const resolvedLayoutScripts = await layoutScripts(printedPageAuthorHtml(page))
+          const resolvedLayoutScripts = await resolveRenderLayoutScripts(printedPageAuthorHtml(page))
           const printed = await renderPagePdf(
             page,
             slots,
@@ -194,7 +192,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             { withTab },
             undefined,
             deadline,
-            diagramScript,
             prepared.fontCss,
             prepared.fontFailures,
             resolvedLayoutScripts,
@@ -260,8 +257,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const bytes = await renderSlotCopyPdfs(parsedOptions.slots, async (copySlots) => {
           const effectiveSlots = effectiveCopySlots(parsedOptions.slots, copySlots, contexts.pages[0]?.slots)
           const { value: pages, slots, frameGroups } = await filledPages(expandedPages, effectiveSlots, deadline.signal)
-          const diagramScript = await resolveDiagramScript(pages.map(printedPageAuthorHtml).join(''))
-          const resolvedLayoutScripts = await layoutScripts(pages.map(printedPageAuthorHtml).join(''))
+          const resolvedLayoutScripts = await resolveRenderLayoutScripts(pages.map(printedPageAuthorHtml).join(''))
           return renderPagesPdf(
             pages,
             slots,
@@ -275,7 +271,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   { withTab },
                   inputIndex,
                   deadline,
-                  diagramScript,
                   prepared.fontCss,
                   prepared.fontFailures,
                   resolvedLayoutScripts,
@@ -290,7 +285,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                   options,
                   { withTab },
                   deadline,
-                  diagramScript,
                   resolvedLayoutScripts,
                   Boolean(parsedOptions.watermark),
                 ),
@@ -327,8 +321,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
           const effectiveSlots = effectiveCopySlots(options.slots, copySlots, established.slots)
           const { value: prepared, slots } = await fillDeckForDay(deck, established.day, effectiveSlots, deadline.signal)
           const htmlSlides = prepared.slides.map((slide) => ('kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : '')).join('')
-          const diagramScript = await resolveDiagramScript(htmlSlides)
-          const resolvedLayoutScripts = await layoutScripts(htmlSlides)
+          const resolvedLayoutScripts = await resolveRenderLayoutScripts(htmlSlides)
           return renderDeckPdf(
             prepared,
             { ...options, limits: copyLimits(options.limits, options.slots), press: undefined },
@@ -341,7 +334,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
                       slots,
                       frames.map((frame) => [frame]),
                     ),
-                    readiness: renderReadiness('refuse', false, false),
+                    readiness: renderReadiness('refuse', false),
                     deadline,
                   },
                   (tab) => pdfWithBackdropRasters(tab, pdf, options.effects),
@@ -351,7 +344,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
               watermark: options.watermark ? watermarkCopies.stamp : undefined,
               signal: deadline.signal,
             },
-            diagramScript,
             established.day,
             resolvedLayoutScripts,
           )
@@ -369,7 +361,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         const deck = await resolveRenderDeck(input, options.newId, options.brandSource, deadline.signal)
         const established = await resolveRenderDayContext(deck, options, deadline.signal)
         enforceDeckLimits(deck, options.limits)
-        return renderSlideImage(deck, index, options, { withTab, diagramScript: resolveDiagramScript }, deadline, established)
+        return renderSlideImage(deck, index, options, { withTab, layoutScripts: resolveRenderLayoutScripts }, deadline, established)
       })
     },
 
@@ -377,7 +369,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
       opts = parseProofImageOptions(opts)
       return withinRenderPermit(RENDER_BOUND_MS, acquire, release, (deadline) =>
         withTab(
-          { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false, false), deadline },
+          { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: renderReadiness('refuse', false), deadline },
           (tab) => proofRasterImage(tab, input, opts),
         ),
       )

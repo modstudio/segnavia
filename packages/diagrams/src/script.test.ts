@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
-import { diagramScript } from './script.ts'
+import { diagramProviderScript } from './script.ts'
 
 describe('diagram drawing runtime', () => {
   test('is valid JavaScript after the bundle and adapter are assembled', () => {
-    expect(() => new Function(diagramScript)).not.toThrow()
+    expect(() => new Function(diagramProviderScript)).not.toThrow()
   })
 })

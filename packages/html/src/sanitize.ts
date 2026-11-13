@@ -99,6 +99,15 @@ export function attributeValues(html: string, attribute: string): string[] {
   return elements(parse(html).children).flatMap((element) => (element.attribs[name] === undefined ? [] : [element.attribs[name]]))
 }
 
+export interface HtmlElementAttributes {
+  readonly name: string
+  readonly attributes: Readonly<Record<string, string>>
+}
+
+export function htmlElementAttributes(html: string): HtmlElementAttributes[] {
+  return elements(parse(html).children).map((element) => ({ name: element.name.toLowerCase(), attributes: element.attribs }))
+}
+
 function insideSvg(element: Element): boolean {
   for (let parent = element.parent; parent; parent = parent.parent) {
     if (isTag(parent) && parent.name.toLowerCase() === 'svg') return true

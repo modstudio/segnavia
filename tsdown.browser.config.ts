@@ -12,9 +12,9 @@ const file = path.join(import.meta.dirname, 'packages/frame/package.json')
 const diagramEntry = path.join(import.meta.dirname, 'packages/diagrams/src/script.ts')
 const diagramDocument = path.join(import.meta.dirname, 'packages/frame/src/diagram-document.ts')
 const diagramModule = readFileSync(path.join(import.meta.dirname, 'packages/diagrams/dist/script.js'), 'utf8')
-const diagramExport = 'export const diagramScript='
+const diagramExport = 'export const diagramProviderScript='
 const diagramOffset = diagramModule.indexOf(diagramExport)
-if (diagramOffset < 0) throw new Error('The built diagram entry does not export diagramScript.')
+if (diagramOffset < 0) throw new Error('The built diagram entry does not export diagramProviderScript.')
 const diagramPayload = diagramModule.slice(diagramOffset)
 const manifest = JSON.parse(readFileSync(file, 'utf8')) as { exports: Record<string, ExportConditions> }
 const entries: Record<string, string> = {}
@@ -48,7 +48,7 @@ export default defineConfig(
           },
           transform(code, id) {
             if (id !== entryFile) return
-            return `${code}\nimport { registerDiagramProvider as registerBrowserDiagramProvider } from ${JSON.stringify(diagramDocument)};\nregisterBrowserDiagramProvider(() => import(${JSON.stringify(diagramEntry)}).then((module) => module.diagramScript));\n`
+            return `${code}\nimport { registerDiagramProvider as registerBrowserDiagramProvider } from ${JSON.stringify(diagramDocument)};\nregisterBrowserDiagramProvider(() => import(${JSON.stringify(diagramEntry)}).then((module) => module.diagramProviderScript));\n`
           },
         },
       ],

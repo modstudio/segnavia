@@ -32,7 +32,6 @@ import {
 } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
-import { loadDiagramScript } from './diagram-document.ts'
 import { loadLayoutScripts } from './layout.ts'
 import { expandFramePages, type MotifsOptions } from './motif-expansion.ts'
 import { expandedPagesFontCss, type FontsOptions, resolveNotesFontCss } from './page-fonts.ts'
@@ -235,9 +234,8 @@ async function preparedPagesPrint(
   const requiredRefusal = requiredSlotRefusal(resolvedSlots.declarations, resolvedSlots.report)
   if (requiredRefusal) throw requiredRefusal
   const filled = pages.map((page) => ({ ...page, html: resolvedSlots.apply(page.html) }))
-  const diagramScript = await loadDiagramScript(filled.map((page) => page.html).join(''))
   const layoutScripts = await loadLayoutScripts(filled.map((page) => page.html).join(''))
-  options = { ...options, diagramScript, layoutScripts }
+  options = { ...options, layoutScripts }
   if (filled.some((page) => page.printedPages)) {
     const printable = await printedPagesPrintDocument(filled, imposition, {
       ...options,

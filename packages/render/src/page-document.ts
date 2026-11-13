@@ -16,7 +16,6 @@ import {
   resolvePageWidth,
 } from '@segnavia/format'
 import { frameDocument, frameStyleSheets, newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
-import { hasDiagram, withDiagramScript } from '@segnavia/frame/diagrams'
 import { FontRefusedError, fontManifestReferences, refuseMissingFontSource, resolveFontReferences } from '@segnavia/frame/fonts'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { expandFramePage, expandPrintedFramePage, type MotifsOptions } from '@segnavia/frame/motifs'
@@ -212,7 +211,6 @@ export async function renderOptionsWithFontManifest(
 }
 
 interface ResolvedPageDocumentOptions extends Pick<RenderOptions, 'origins' | 'css'> {
-  diagramScript?: string
   layoutScripts?: readonly LoadedLayoutScript[]
   nonce?: string
   relayKeys?: boolean
@@ -229,7 +227,7 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     if (error instanceof StyleSheetRefusedError) throw new RenderRefusedError(error.message)
     throw error
   }
-  return frameDocument(withDiagramScript(page.html, nonce, options.diagramScript), {
+  return frameDocument(page.html, {
     scripts: page.scripts,
     nonce,
     dir: pageDirection(page),
@@ -241,7 +239,7 @@ export function resolvedPageDocument(page: HtmlPage, baseCss: string, options: R
     relayKeys: options.relayKeys ?? false,
     reportHeight: options.reportHeight ?? false,
     origins: options.origins,
-    readyCallback: hasDiagram(page.html) || (options.layoutScripts?.length ?? 0) > 0 ? RENDER_READY_BINDING : undefined,
+    readyCallback: (options.layoutScripts?.length ?? 0) > 0 ? RENDER_READY_BINDING : undefined,
     layoutScripts: options.layoutScripts,
   })
 }
@@ -252,7 +250,6 @@ export function renderPageValueDocument(
   printing = false,
   nonce?: string,
   fontCss = '',
-  diagramScript?: string,
   fontFailures: FontFailure[] = [],
   layoutScripts?: readonly LoadedLayoutScript[],
 ): string {
@@ -268,7 +265,6 @@ export function renderPageValueDocument(
   return resolvedPageDocument(page, css, {
     css: options.css,
     origins: options.origins,
-    diagramScript,
     nonce,
     relayKeys: false,
     reportHeight: false,

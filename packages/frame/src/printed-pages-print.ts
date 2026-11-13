@@ -26,7 +26,7 @@ function composedFrame(page: HtmlPage, index: number, expectedCount: number, opt
     only: index,
     expectedCount,
     printBackground: true,
-    diagramScript: options.diagramScript,
+    layoutScripts: options.layoutScripts,
     limits: options.limits,
     origins: options.origins,
   })
@@ -43,7 +43,7 @@ function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, dead
     nonce: options.nonce ?? newNonce(),
     css: options.css,
     measure: true,
-    diagramScript: options.diagramScript,
+    layoutScripts: options.layoutScripts,
     limits: options.limits,
     origins: options.origins,
   })
