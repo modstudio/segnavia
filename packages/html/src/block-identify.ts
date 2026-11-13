@@ -7,7 +7,7 @@ import { FIT_ATTRIBUTE_FAMILY } from './fit-attributes.ts'
 import { LINE_NUMBER_ATTRIBUTE_FAMILY } from './line-number-attributes.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from './measure-attributes.ts'
 import { parse, serialize } from './sanitize.ts'
-import { sourceAttributeIssues } from './source-attributes.ts'
+import { parentRegionAttributeIssue, sourceAttributeIssues } from './source-attributes.ts'
 
 export interface BlockIdLocation {
   block: string
@@ -49,7 +49,18 @@ function lineNumberDocumentKinds(): string {
   return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
 }
 
-function lineNumberAttributeIssues(children: readonly ChildNode[], where: string, refuse: boolean): string[] {
+function lineNumberPlacementIssue(nodeWhere: string, parentRegion: boolean, flowing: boolean, topLevel: Element | undefined): string | undefined {
+  if (parentRegion) return parentRegionAttributeIssue(nodeWhere, 'data-line-numbers')
+  if (!flowing) {
+    return `${nodeWhere} data-line-numbers cannot take effect because line numbers number flowing text; move it to a flow or part's HTML, or a printed document's page body, to clear this refusal`
+  }
+  if (topLevel) {
+    return `${nodeWhere} data-line-numbers is nested inside <${topLevel.name}>; move it to the containing top-level <${topLevel.name}> to clear this refusal`
+  }
+  return undefined
+}
+
+function lineNumberAttributeIssues(children: readonly ChildNode[], where: string, parentRegion: boolean, flowing: boolean): string[] {
   const issues: string[] = []
   const visit = (nodes: readonly ChildNode[], topLevel: Element | undefined): void => {
     for (const node of nodes) {
@@ -57,12 +68,8 @@ function lineNumberAttributeIssues(children: readonly ChildNode[], where: string
       const nodeWhere = `${where} <${node.name}>`
       if (node.attribs['data-line-numbers'] !== undefined) {
         issues.push(...LINE_NUMBER_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs))
-        if (refuse) issues.push(`${nodeWhere} data-line-numbers cannot take effect in a parent-page region; remove it to clear this refusal`)
-        else if (topLevel) {
-          issues.push(
-            `${nodeWhere} data-line-numbers is nested inside <${topLevel.name}>; move it to the containing top-level <${topLevel.name}> to clear this refusal`,
-          )
-        }
+        const placement = lineNumberPlacementIssue(nodeWhere, parentRegion, flowing, topLevel)
+        if (placement) issues.push(placement)
       }
       visit(node.children, topLevel ?? node)
     }
@@ -98,13 +105,13 @@ export function identifyHtmlBlocks(
   node: string,
   newId: () => string,
   seen: Map<string, BlockIdLocation>,
-  options: { refuseMeasure?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState } = {},
+  options: { parentRegion?: boolean; flowing?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
   const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
-    ...(options.refuseMeasure ? { refusedFamilies: ['data-measure'] } : {}),
+    ...(options.parentRegion ? { refusedFamilies: ['data-measure'] } : {}),
   })
-  issues.push(...lineNumberAttributeIssues(tree.children, node, options.refuseMeasure === true))
+  issues.push(...lineNumberAttributeIssues(tree.children, node, options.parentRegion === true, options.flowing ?? true))
   if (hasLineNumbers(tree.children)) {
     if ((options.lineNumbers ?? 'unset') === 'unset') {
       issues.push(`${node} data-line-numbers needs the document settings.lineNumbers setting; add that setting to clear this refusal`)

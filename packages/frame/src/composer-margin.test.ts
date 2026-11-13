@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { boundPreflightReport, PREFLIGHT_PRESETS, type PreflightEntry, preflightRefusal } from '@segnavia/format'
-import type { NumberedLine, NumberedPage } from '@segnavia/layout'
+import type { NumberedLine, PageLineNumbers } from '@segnavia/layout'
 import { appendMarginOverset, createLineNumber, crossedLimit, drawLineNumbers, drawPageLineNumbers, lineNumberEdge, physicalColumn } from './composer-margin.ts'
 
 const rect = (left: number, top: number, width: number, height: number) => ({ left, top, width, height, right: left + width, bottom: top + height }) as DOMRect
@@ -70,7 +70,7 @@ const config = (area: 'text' | 'margin' = 'text', direction: 'ltr' | 'rtl' = 'lt
 
 test('draws a separately composed page from its own plan page', () => {
   const { doc, text } = fakePage(2)
-  const numbered: NumberedPage[] = [
+  const numbered: PageLineNumbers[] = [
     { page: 0, lines: [line(1, 'left')] },
     { page: 1, lines: [line(8, 'left')] },
   ]
@@ -83,18 +83,15 @@ test('anchors text numbers on their physical column edge', () => {
   const text = rect(0, 0, 100, 100)
   const page = rect(-20, 0, 140, 100)
   const cases = [
-    { held: line(1, 'left'), direction: 'ltr' as const, anchor: 0, edge: 'outer', drawn: rect(-8, 5, 6, 10) },
-    { held: line(1, 'right'), direction: 'ltr' as const, anchor: 100, edge: 'outer', drawn: rect(102, 5, 6, 10) },
-    { held: line(1, 'right', 0, 2), direction: 'ltr' as const, anchor: 45, edge: 'interior', drawn: rect(45, 5, 6, 10) },
-    { held: line(1, 'left', 0, 2), direction: 'rtl' as const, anchor: 55, edge: 'interior', drawn: rect(49, 5, 6, 10) },
+    { held: line(1, 'left'), direction: 'ltr' as const, anchor: 0, edge: 'outer' },
+    { held: line(1, 'right'), direction: 'ltr' as const, anchor: 100, edge: 'outer' },
+    { held: line(1, 'right', 0, 2), direction: 'ltr' as const, anchor: 45, edge: 'interior' },
+    { held: line(1, 'left', 0, 2), direction: 'rtl' as const, anchor: 55, edge: 'interior' },
   ]
   for (const item of cases) {
     const number = createLineNumber(item.held, config('text', item.direction), text, page, 10, doc)
     expect(number.style.left).toBe(`${item.anchor}px`)
     expect(number.getAttribute('data-segnavia-edge')).toBe(item.edge)
-    const columns = [rect(0, 0, 45, 100), rect(55, 0, 45, 100)]
-    if (item.held.columns === 1) columns.splice(0, columns.length, rect(0, 0, 100, 100))
-    expect(columns.some((column) => item.drawn.left < column.right && item.drawn.right > column.left)).toBe(false)
   }
 })
 

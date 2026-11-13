@@ -1,10 +1,10 @@
 import type { PreflightEntry } from '@segnavia/format'
-import type { NumberedLine, NumberedPage, numberLines } from '@segnavia/layout'
+import type { NumberedLine, numberLines, PageLineNumbers } from '@segnavia/layout'
 
 interface DrawConfig {
   area: 'text' | 'margin'
   direction: 'ltr' | 'rtl'
-  geometries: Array<{ name?: string; columnGap: number; parents: Array<{ name: string }> }>
+  geometries: ReadonlyArray<{ name?: string; columnGap: number }>
   pageMarker: string
 }
 
@@ -76,7 +76,7 @@ export function appendMarginOverset(entries: PreflightEntry[], source: NumberedL
 }
 
 export function drawPageLineNumbers(
-  held: NumberedPage | undefined,
+  held: PageLineNumbers | undefined,
   page: HTMLElement | undefined,
   config: DrawConfig,
   entries: PreflightEntry[],

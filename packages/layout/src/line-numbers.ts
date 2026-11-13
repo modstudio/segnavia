@@ -1,4 +1,4 @@
-import { formatNumber, type LineNumbers, type Measurements, type NumberSystem, type Plan } from '@segnavia/format'
+import { formatNumber, type LineNumbers, type Measurements, type Plan, type ResolvedLineNumbers } from '@segnavia/format'
 
 export interface NumberedLine {
   value: number
@@ -10,12 +10,10 @@ export interface NumberedLine {
   side: 'left' | 'right'
 }
 
-export interface NumberedPage {
+export interface PageLineNumbers {
   page: number
   lines: NumberedLine[]
 }
-
-export type NumberLinesSettings = LineNumbers & { system: NumberSystem }
 
 type NumberWindow = Plan['pages'][number]['windows'][number]
 
@@ -29,13 +27,13 @@ function windowLines(
     !block.numbered || block.kind !== 'text'
       ? []
       : block.lines
-          .filter((line) => line.top >= window.start && line.top < window.end)
+          .filter((line) => line.counted !== false && line.top >= window.start && line.top < window.end)
           .map((line) => ({ line, direction: block.direction, chapter: block.position.chapter })),
   )
 }
 
 export function numberLinesScript(): string {
-  return `${windowLines.toString()}\n${resolveLineNumberSide.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
+  return `${windowLines.toString()}\n${resolveLineNumberSide.toString()}\n${numberLabel.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
 }
 
 export function resolveLineNumberSide(side: LineNumbers['side'], page: Pick<Plan['pages'][number], 'side'>, direction: 'ltr' | 'rtl'): 'left' | 'right' {
@@ -45,13 +43,28 @@ export function resolveLineNumberSide(side: LineNumbers['side'], page: Pick<Plan
   return direction === 'ltr' ? 'right' : 'left'
 }
 
-export function numberLines(measurements: Measurements, plan: Plan, settings: NumberLinesSettings): readonly NumberedPage[] {
-  const result = plan.pages.map((_page, page) => ({ page, lines: [] as NumberedLine[] }))
+function numberLabel(value: number, system: ResolvedLineNumbers['system']): string {
+  try {
+    return formatNumber(value, system)
+  } catch (error) {
+    if (!(error instanceof RangeError)) throw error
+    const maximum = system === 'hebrew' ? 9999 : 3999
+    throw new RangeError(
+      `settings.lineNumbers value ${value} exceeds the ${system} numbering system maximum of ${maximum}; use arabic numbering or restart line numbers by section or page to clear this refusal`,
+    )
+  }
+}
+
+type TiledPage = Plan['pages'][number] & { inlineTile?: number }
+
+export function numberLines(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): readonly PageLineNumbers[] {
+  const sourcePages = (plan.pages as readonly TiledPage[]).filter((page) => page.inlineTile === undefined || page.inlineTile === 0)
+  const sourceResult = sourcePages.map((_page, page) => ({ page, lines: [] as NumberedLine[] }))
   let counter = settings.start
   let previousFlow: string | undefined
   let previousChapter: number | undefined
-  for (let pageIndex = 0; pageIndex < plan.pages.length; pageIndex += 1) {
-    const page = plan.pages[pageIndex]
+  for (let pageIndex = 0; pageIndex < sourcePages.length; pageIndex += 1) {
+    const page = sourcePages[pageIndex]
     if (!page) continue
     if (settings.restart === 'page') counter = settings.start
     const windows = page.windows
@@ -63,9 +76,9 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Nu
         previousFlow = window.flow
         previousChapter = chapter
         if (value % settings.interval !== 0) continue
-        result[pageIndex]?.lines.push({
+        sourceResult[pageIndex]?.lines.push({
           value,
-          label: formatNumber(value, settings.system),
+          label: numberLabel(value, settings.system),
           top: window.top + line.top - window.start,
           height: line.bottom - line.top,
           column: window.column,
@@ -75,5 +88,9 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Nu
       }
     }
   }
-  return result
+  let sourceIndex = -1
+  return (plan.pages as readonly TiledPage[]).map((page, pageIndex) => {
+    if (page.inlineTile === undefined || page.inlineTile === 0) sourceIndex += 1
+    return { page: pageIndex, lines: sourceResult[sourceIndex]?.lines.map((line) => ({ ...line })) ?? [] }
+  })
 }

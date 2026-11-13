@@ -139,6 +139,41 @@ describe('numberLines', () => {
     const lines = numberLines(measurements, plan, { interval: 1, start: 3, restart: 'section', area: 'text', side: 'outer', system: 'arabic' })[0]?.lines
     expect(lines?.at(-1)?.value).toBe(3)
   })
+
+  test('skips uncounted lines measured inside a numbered container', () => {
+    const { measurements, plan } = fixtures()
+    const flow = measurements.flows[0]
+    if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+    const text = flow.blocks[1]
+    if (!text) throw new Error('The fixture has no text block.')
+    text.lines[0] = { ...text.lines[0]!, counted: false }
+    const lines = numberLines(measurements, plan, { interval: 1, start: 1, restart: 'section', area: 'text', side: 'outer', system: 'arabic' })
+    expect(lines[0]?.lines[0]).toMatchObject({ value: 1, top: 20 })
+  })
+
+  test('counts an inline-tiled source page once and gives every tile its numbers', () => {
+    const { measurements, plan } = fixtures()
+    plan.pages = [{ ...plan.pages[0], inlineTile: 0 }, { ...plan.pages[0], inlineTile: 1 }, { ...plan.pages[1] }] as Plan['pages']
+    const pages = numberLines(measurements, plan, { interval: 1, start: 1, restart: 'never', area: 'text', side: 'outer', system: 'arabic' })
+    expect(pages.map((page) => page.lines.map((line) => line.value))).toEqual([
+      [1, 2, 3, 4, 5, 6, 7],
+      [1, 2, 3, 4, 5, 6, 7],
+      [8, 9, 10, 11, 12, 13, 14, 15],
+    ])
+  })
+
+  test('pins interval cadence to multiples independently of start', () => {
+    const { measurements, plan } = fixtures()
+    const first = numberLines(measurements, plan, { interval: 5, start: 3, restart: 'section', area: 'text', side: 'outer', system: 'arabic' })[0]?.lines[0]
+    expect(first).toMatchObject({ value: 5, top: 30 })
+  })
+
+  test('names the line-number setting and clearance when its numbering system runs out', () => {
+    const { measurements, plan } = fixtures()
+    expect(() => numberLines(measurements, plan, { interval: 1, start: 4000, restart: 'never', area: 'text', side: 'outer', system: 'roman-lower' })).toThrow(
+      'settings.lineNumbers value 4000 exceeds the roman-lower numbering system maximum of 3999; use arabic numbering or restart line numbers by section or page to clear this refusal',
+    )
+  })
 })
 
 test('resolves physical and directional sides', () => {

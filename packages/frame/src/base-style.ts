@@ -1,5 +1,3 @@
-import { LINE_NUMBER_BASE_CSS } from './line-number-style.ts'
-
 // The only styles the headless elements bring: the geometry a slide, thumbnail, board, page, paper or book
 // needs to display at all. Every selector sits inside :where(), so it has no
 // specificity and any rule a host writes wins over it. Appearance (colors,
@@ -26,7 +24,6 @@ import { LINE_NUMBER_BASE_CSS } from './line-number-style.ts'
 export const LOADING_CANVAS_OPACITY = 1 / 255
 
 export const BASE_CSS = `
-${LINE_NUMBER_BASE_CSS}
 :where(segnavia-stage:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-aspect,16/9)}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas){position:absolute;inset-inline-start:50%;inset-block-start:50%;transform-origin:center;background:var(--_segnavia-shot-backdrop,var(--segnavia-shot-backdrop,transparent));opacity:0;pointer-events:none}
 :where(segnavia-stage:not([unstyled]) .segnavia-stage__canvas[data-active]){opacity:1;pointer-events:auto;z-index:1}

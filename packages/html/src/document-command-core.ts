@@ -70,9 +70,10 @@ function identifiedField(
   context: DocumentCommandContext,
   usedBlocks: Map<string, BlockIdLocation>,
   added: string[],
+  nodeType: string,
   nodeLabel: string,
 ): unknown {
-  const identify = (html: string, options: { insideNamedRegion?: string; refuseMeasure?: boolean } = {}): string => {
+  const identify = (html: string, options: { insideNamedRegion?: string; parentRegion?: boolean; flowing?: boolean } = {}): string => {
     const result = identifyHtmlBlocks(html, nodeLabel, context.options.newId ?? defaultNewId, usedBlocks, {
       ...options,
       lineNumbers: lineNumbersState(context.document),
@@ -80,24 +81,26 @@ function identifiedField(
     added.push(...result.added)
     return result.html
   }
-  if (shape === 'htmlString' && typeof value === 'string') return identify(value)
+  if (shape === 'htmlString' && typeof value === 'string') return identify(value, { flowing: nodeType === 'flow' || nodeType === 'part' })
   if (!value || typeof value !== 'object') return value
   if (shape === 'pageBody') {
     const body = pageBodySource(value, context)
-    return body === undefined ? value : pageBodyFromHtml(identify(body.source), body.markdown)
+    return body === undefined ? value : pageBodyFromHtml(identify(body.source, { flowing: context.document.kind === 'printed' }), body.markdown)
   }
   if (shape === 'slideContent') {
     const held = value as { kind?: unknown; html?: unknown }
-    return held.kind === 'html' && typeof held.html === 'string' ? { ...value, html: identify(held.html) } : value
+    return held.kind === 'html' && typeof held.html === 'string' ? { ...value, html: identify(held.html, { flowing: false }) } : value
   }
   if (shape === 'record')
-    return Object.fromEntries(Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identify(html, { insideNamedRegion: key }) : html]))
+    return Object.fromEntries(
+      Object.entries(value).map(([key, html]) => [key, typeof html === 'string' ? identify(html, { insideNamedRegion: key, parentRegion: true }) : html]),
+    )
   if (shape === 'regionRecord') {
     return Object.fromEntries(
       Object.entries(value).map(([key, region]) => {
         if (!region || typeof region !== 'object') return [key, region]
         const held = region as Record<string, unknown>
-        return [key, typeof held.html === 'string' ? { ...held, html: identify(held.html, { insideNamedRegion: key, refuseMeasure: true }) } : held]
+        return [key, typeof held.html === 'string' ? { ...held, html: identify(held.html, { insideNamedRegion: key, parentRegion: true }) } : held]
       }),
     )
   }
@@ -107,7 +110,7 @@ function identifiedField(
 function identifyContent(node: Record<string, unknown>, context: DocumentCommandContext, usedBlocks: Map<string, BlockIdLocation>, added: string[]): void {
   const shapes = CONTENT_FIELD_SHAPES[node.type as keyof typeof CONTENT_FIELD_SHAPES] ?? {}
   const label = `${String(node.type)} node "${String(node.id)}"`
-  for (const [field, shape] of Object.entries(shapes)) node[field] = identifiedField(node[field], shape, context, usedBlocks, added, label)
+  for (const [field, shape] of Object.entries(shapes)) node[field] = identifiedField(node[field], shape, context, usedBlocks, added, String(node.type), label)
 }
 
 export function identifyAddedNode(context: DocumentCommandContext, input: Record<string, unknown>): { node: OperationNode; added: string[] } {
@@ -165,7 +168,8 @@ export function htmlWithIds(
   const region = replacing?.key
   return identifyHtmlBlocks(html, node ? `${node.type} node "${node.id}"` : 'supplied content', context.options.newId ?? defaultNewId, used, {
     ...(region && (shape === 'record' || shape === 'regionRecord') ? { insideNamedRegion: region } : {}),
-    ...(shape === 'regionRecord' ? { refuseMeasure: true } : {}),
+    ...(shape === 'record' || shape === 'regionRecord' ? { parentRegion: true } : {}),
+    flowing: shape === 'pageBody' ? context.document.kind === 'printed' : node?.type === 'flow' || node?.type === 'part',
     lineNumbers: lineNumbersState(context.document),
   })
 }
@@ -183,6 +187,7 @@ export function identifiedContentValue(
     context,
     blockLocations(context.document, { node: address.node.id, field: address.field, ...(address.key === undefined ? {} : { key: address.key }) }),
     added,
+    address.node.type,
     `${address.node.type} node "${address.node.id}"`,
   )
   return { value: held, added }

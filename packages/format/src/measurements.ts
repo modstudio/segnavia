@@ -12,6 +12,8 @@ import { VariableDocumentFacts } from './variable-document-facts.ts'
 export const PaginateLine = z.object({
   top: z.number(),
   bottom: z.number(),
+  /** Whether this text line participates in line numbering when its containing block is numbered. */
+  counted: z.boolean().optional(),
   /** The outer edge, in galley coordinates, of box decoration that opens on this line. */
   decorationTop: z.number().optional(),
   /** The outer edge, in galley coordinates, of box decoration that closes on this line. */
