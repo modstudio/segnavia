@@ -33,7 +33,6 @@ function completedPageCount(
   page: HtmlPage | PrintedHtmlPage,
   options: PrintedPageCountOptions,
 ): number | LimitExceededError | undefined {
-  return undefined
   if (message?.type !== MESSAGE.composeProgress || message.pages === undefined || message.pages !== message.total) return undefined
   const limits = resolveLimits(page.limits, options.limits)
   return message.total > limits.pages ? new LimitExceededError('pages', message.total, limits.pages, { pagesSource: limits.pagesSource }) : message.total
