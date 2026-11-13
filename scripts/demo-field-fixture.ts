@@ -45,7 +45,7 @@ export const editionWorksheet: DocumentInput = {
           children: [
             {
               type: 'flow',
-              html: '<section lang="en"><h1>Worksheet</h1><p>Capital of France:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> Paris</span></p><div data-segnavia-condition="teacher"><strong>Answer key</strong></div></section><section lang="he" dir="rtl"><h2>דף עבודה</h2><p>עיר הבירה של צרפת:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> פריז</span></p></section>',
+              html: '<h1 lang="en">Worksheet</h1><p lang="en">Capital of France:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> Paris</span></p><p lang="en" data-segnavia-condition="teacher"><strong>Answer key</strong></p><h2 lang="he" dir="rtl">דף עבודה</h2><p lang="he" dir="rtl">עיר הבירה של צרפת:<span data-segnavia-condition="student"> <span data-segnavia-field="line"></span></span><span data-segnavia-condition="teacher"> פריז</span></p>',
             },
           ],
         },
