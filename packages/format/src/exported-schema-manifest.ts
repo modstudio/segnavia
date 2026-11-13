@@ -3,7 +3,7 @@ import { BoardCommand } from './board-commands.ts'
 import { BookView } from './book.ts'
 import { Cover } from './cover.ts'
 import { Manifest, PublishedShot } from './deck.ts'
-import { Document } from './document.ts'
+import { DocumentJsonSchema } from './document-json-schema.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { DocumentBatch, DocumentOp } from './document-op.ts'
 import { FontDeclaration, FontManifest, FontReference, FontReferenceInput, LocalFacesTransport, LocalFaceTransport } from './fonts.ts'
@@ -20,7 +20,7 @@ export const EXPORTED_SCHEMAS = {
   zone: Zone,
   asOf: AsOf,
   bookView: BookView,
-  document: Document,
+  document: DocumentJsonSchema,
   documentOp: DocumentOp,
   documentBatch: DocumentBatch,
   documentMetadata: DocumentMetadata,

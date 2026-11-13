@@ -81,7 +81,7 @@ export const DivisionNodeFields = {
   settings: DivisionSettings.optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-const DivisionNodeSchema = closedObject(DivisionNodeFields)
+export const DivisionNodeSchema = closedObject(DivisionNodeFields)
 export const DivisionNode = DivisionNodeSchema as z.ZodType<DivisionNode>
 
 export const PartNodeFields = {
@@ -96,7 +96,7 @@ export const PartNodeFields = {
   parents: z.unknown().optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-const PartNodeSchema = closedObject(PartNodeFields)
+export const PartNodeSchema = closedObject(PartNodeFields)
 export const PartNode = PartNodeSchema as z.ZodType<PartNode>
 
 export const SectionNodeFields = {
@@ -106,7 +106,7 @@ export const SectionNodeFields = {
   template: z.string().min(1).optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-const SectionNodeSchema = closedObject(SectionNodeFields)
+export const SectionNodeSchema = closedObject(SectionNodeFields)
 export const SectionNode = SectionNodeSchema as z.ZodType<SectionNode>
 
 export const DocumentNodeMembers = [
