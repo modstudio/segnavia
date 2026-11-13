@@ -20,6 +20,7 @@ import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBook
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
+import { OUTLINE_HEADING_BASE_CSS } from './composer-tags.ts'
 import { declaredFontLoads } from './font-load.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 import { LINE_NUMBER_BASE_CSS, SIDE_NOTE_BASE_CSS } from './line-number-style.ts'
@@ -55,6 +56,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-pages]){inline-size:${Math.max(...pagination.geometries.map((item) => item.paper.width))}mm}` +
     `:where([${BOOK_PAGE_ATTRIBUTE}]:last-child){break-after:auto}` +
     GALLEY_PRINT_CSS +
+    OUTLINE_HEADING_BASE_CSS +
     LINE_NUMBER_BASE_CSS +
     (pagination.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS) +
     (options.fontCss ?? '')
@@ -77,6 +79,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     rectoOpenings: pagination.rectoOpenings,
     endnotePlacement: pagination.endnotePlacement,
     variables: withLibraryEntries(LIBRARY_VARIABLES, pagination.variables),
+    ...(pagination.outline === undefined ? {} : { outline: pagination.outline }),
     ...(pagination.document === undefined ? {} : { document: pagination.document }),
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, pagination.headTemplates),
     recordSlotsByFlow: pagination.recordSlotsByFlow ?? {},

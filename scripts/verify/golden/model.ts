@@ -21,6 +21,7 @@ export interface GoldenPdf {
 export interface GoldenFixture {
   id: string
   pdf: string
+  taggedOutline?: true
 }
 
 export const GOLDEN_FIXTURES_DIRECTORY = 'scripts/verify/golden/fixtures'
@@ -29,7 +30,7 @@ export const goldenFixturePath = (fixture: GoldenFixture): string => `${GOLDEN_F
 
 export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   { id: 'hebrew-sefer', pdf: 'site/book-paginated-he.pdf' },
-  { id: 'english-book', pdf: 'site/book-parts-en.pdf' },
+  { id: 'english-book', pdf: 'site/book-parts-en.pdf', taggedOutline: true },
   { id: 'records-table', pdf: 'site/book-paginated-en.pdf' },
   { id: 'measured-sheet', pdf: 'page-letter.pdf' },
   { id: 'n-up-cards', pdf: 'pages-two-sided-long.pdf' },

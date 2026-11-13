@@ -68,6 +68,15 @@ describe('headless base styles', () => {
     }
   })
 
+  test('keeps generated outline headings in the structure tree without visible geometry', () => {
+    const rule = BASE_CSS.match(/:where\(\[data-segnavia-outline-heading\]\)\{([^}]*)\}/)?.[1]
+    expect(rule).toContain('inline-size:1px')
+    expect(rule).toContain('block-size:1px')
+    expect(rule).toContain('overflow:hidden')
+    expect(rule).toContain('white-space:nowrap')
+    expect(rule).not.toContain('clip:')
+  })
+
   test('the board exposes geometry for every documented part without a surface scale', () => {
     for (const part of ['surface', 'item', 'cover', 'placeholder', 'label', 'section', 'section-title']) expect(BASE_CSS).toContain(`[part~="${part}"]`)
     expect(BASE_CSS).toContain(':host(segnavia-board:not([unstyled]))')

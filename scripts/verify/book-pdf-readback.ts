@@ -12,7 +12,7 @@ export interface OutlineItem extends ExpectedOutlineItem {
   depth: number
 }
 
-const resolve = (document: PDFDocument, value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)
+export const resolve = (document: PDFDocument, value: unknown) => (value instanceof PDFRef ? document.context.lookup(value) : value)
 
 function annotationDestination(document: PDFDocument, value: unknown): number | undefined {
   const annotation = resolve(document, value)

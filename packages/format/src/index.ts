@@ -228,7 +228,7 @@ export {
   Outline,
   type OutlineEntry,
   OutlineHeading,
-  type OutlineSource,
+  OutlineSource,
 } from './outline.ts'
 export {
   FlowingWidth,

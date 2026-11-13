@@ -1,3 +1,5 @@
+import { OUTLINE_HEADING_BASE_CSS } from './composer-tags.ts'
+
 // The only styles the headless elements bring: the geometry a slide, thumbnail, board, page, paper or book
 // needs to display at all. Every selector sits inside :where(), so it has no
 // specificity and any rule a host writes wins over it. Appearance (colors,
@@ -111,6 +113,7 @@ export const BASE_CSS = `
 :where(segnavia-printed-pages:not([unstyled]) [part~="failure"]){position:sticky;inset-block-start:0;color:var(--segnavia-failure,currentColor)}
 :where(segnavia-book:not([unstyled])){display:block;overflow:hidden}
 :where(segnavia-book:not([unstyled]) iframe){display:block;border:0;inline-size:100%;block-size:100%}
+${OUTLINE_HEADING_BASE_CSS}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}
 :where(segnavia-paper:not([unstyled]) .segnavia-paper__paper){position:absolute;inset:0;transform-origin:0 0;background:var(--segnavia-paper,#fff)}
 :where(segnavia-document:not([unstyled])){display:block}
