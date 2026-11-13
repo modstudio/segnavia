@@ -3,12 +3,13 @@ import {
   LimitExceededError,
   type PreflightEntry,
   type PreflightProfile,
+  type PreflightReport,
   PX_PER_MM,
   paperViewport,
   resolveLimits,
   sheetMm,
 } from '@segnavia/format'
-import { type HtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
+import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { layoutsForHtml } from './layout.ts'
 import type { PrintablePagesOptions } from './print-document.ts'
@@ -21,7 +22,7 @@ export interface PrintedPageCountOptions extends PrintablePagesOptions {
   fontFailures?: FontFailure[]
   preflightSeed?: PreflightEntry[]
   profile?: PreflightProfile
-  report?: (report: NonNullable<ReturnType<typeof messageFrom>>['report']) => void
+  report?: (report: PreflightReport) => void
 }
 
 export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, options: PrintedPageCountOptions, deadlineAt: number): Promise<number> {
@@ -30,7 +31,7 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', frameSandbox('refuse'))
   frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${viewport.width}px;height:${viewport.height}px;border:0;opacity:0;pointer-events:none`
-  const resolved = resolvePrintedPageHtml(page)
+  const resolved = isPrintedHtmlPage(page) ? page : resolvePrintedPageHtml(page)
   const srcdoc = printedPageValueDocument(resolved, {
     nonce: options.nonce ?? newNonce(),
     baseCss: options.baseCss,

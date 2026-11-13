@@ -11,37 +11,27 @@ import {
 } from '@segnavia/format'
 import { parseDocument, printedPageDirection } from '@segnavia/html'
 import { ensureBaseStyle } from './base-style.ts'
-import { dispatchFontFailures, dispatchPreflight, frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
-import { dispatchElementError } from './element-error.ts'
+import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom } from './bridge.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
 import type { FontsOptions } from './page-fonts.ts'
 import { type PageParseOption, PageParseOptionsElement } from './page-parse-options-element.ts'
 import { PRINTED_SLOT_REFUSAL } from './page-printed.ts'
-import { printedPageValueDocument } from './printed-page-document.ts'
-import { type PreparedPrintedPages, preparePrintedPages } from './printed-pages-load.ts'
 import {
-  currentPrintedPage,
-  type PaperExtent,
-  type PrintedPagesFit,
-  type PrintedSpread,
-  printedPageSpreads,
-  printedPagesScale,
-  printedPagesWindow,
-  shouldReusePrintedPageSrcdoc,
-} from './printed-pages-policy.ts'
+  buildPrintedPagesDom,
+  composePrintedPaper,
+  type PrintedPaperState,
+  printedPaperExtents,
+  refitPrintedPagesDom,
+  renderPrintedPagesFailure,
+  scrollToPrintedPaper,
+} from './printed-pages-dom.ts'
+import { type PreparedPrintedPages, preparePrintedPages } from './printed-pages-load.ts'
+import { currentPrintedPage, type PrintedPagesFit, printedPagesWindow } from './printed-pages-policy.ts'
 import { ReloadCoalescer } from './reload-coalescer.ts'
 import { fillsSlotValues } from './slot-render.ts'
 
 export type PrintedPagesLayout = 'single' | 'facing'
-interface PaperState {
-  page: number
-  slot: HTMLElement
-  shown?: HTMLIFrameElement
-  pending?: HTMLIFrameElement
-  srcdoc?: string
-  nonce?: string
-}
 const positive = (value: number, name: string) => {
   if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${name} must be a positive number.`)
   return value
@@ -53,12 +43,14 @@ const nonNegative = (value: number, name: string) => {
 
 export class SegnaviaPrintedPages extends PageParseOptionsElement {
   private documentValue: Document | null = null
-  private papers = new Map<number, PaperState>()
+  private papers = new Map<number, PrintedPaperState>()
   private abort: AbortController | undefined
   private generation = 0
   private currentPage = 1
   private count = 0
   private currentRecord: string | undefined
+  private reloadAnchor: number | undefined
+  private programmaticScrollTop: number | undefined
   private composeCurrent: ((page: number) => void) | undefined
   private layoutValue: PrintedPagesLayout = 'single'
   private fitValue: PrintedPagesFit = 'width'
@@ -98,7 +90,7 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
       this.schedule()
     } catch (error) {
       this.documentValue = null
-      this.showFailure(error)
+      renderPrintedPagesFailure(this, error)
     }
   }
   get page(): number {
@@ -254,11 +246,16 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
   }
 
   private schedule(): void {
-    if (this.isConnected && this.documentValue) this.reloads.schedule(this.reloadDelayValue)
+    if (this.isConnected && this.documentValue) {
+      this.reloadAnchor ??= this.currentPage
+      this.reloads.schedule(this.reloadDelayValue)
+    }
   }
   private async reload(): Promise<void> {
     const document = this.documentValue
     if (!document) return
+    const keepPage = this.reloadAnchor ?? this.currentPage
+    this.reloadAnchor = undefined
     const generation = ++this.generation
     for (const state of this.papers.values()) {
       state.pending?.remove()
@@ -285,91 +282,35 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
         report: (report) => this.dispatchEvent(new CustomEvent('preflight', { detail: report, bubbles: true, composed: true })),
       })
       if (generation !== this.generation || controller.signal.aborted) return
-      this.applyPrepared(prepared, generation)
+      this.applyPrepared(prepared, generation, keepPage)
     } catch (error) {
-      if (generation === this.generation && !controller.signal.aborted) this.showFailure(error)
+      if (generation === this.generation && !controller.signal.aborted) renderPrintedPagesFailure(this, error)
     }
   }
 
-  private applyPrepared(prepared: PreparedPrintedPages, generation: number): void {
+  private applyPrepared(prepared: PreparedPrintedPages, generation: number, readingPage: number): void {
     const viewport = paperViewport(prepared.page.print as NonNullable<PreparedPrintedPages['page']['print']>)
     const direction = printedPageDirection(prepared.page)
-    const keepPage = Math.min(this.currentPage, prepared.count)
+    const keepPage = Math.min(readingPage, prepared.count)
     const geometry = `${prepared.count}:${direction}:${viewport.width}:${viewport.height}:${this.layoutValue}`
-    if (this.dataset.geometry !== geometry) this.buildPapers(prepared.count, direction, viewport)
+    if (this.dataset.geometry !== geometry) this.papers = buildPrintedPagesDom(this, prepared.count, direction, viewport, this.layoutValue)
     this.dataset.geometry = geometry
     this.count = prepared.count
-    this.removeFailure()
+    renderPrintedPagesFailure(this)
     this.refit()
-    this.composeCurrent = (page) => this.composePaper(prepared, page, generation)
+    this.composeCurrent = (page) => {
+      const state = this.papers.get(page)
+      if (state)
+        composePrintedPaper(state, prepared, page, generation, {
+          css: this.css,
+          csp: this.cspExtra || undefined,
+          origins: this.origins,
+          profile: resolvePreflightProfile(this.profileValue),
+        })
+    }
     this.updateWindow()
     this.updateCurrent(keepPage)
     this.scrollIfMoved(keepPage)
-  }
-
-  private buildPapers(count: number, direction: 'ltr' | 'rtl', viewport: { width: number; height: number }): void {
-    this.papers.clear()
-    this.replaceChildren()
-    this.dir = direction
-    const spreads: PrintedSpread[] =
-      this.layoutValue === 'facing' ? printedPageSpreads(count, direction) : Array.from({ length: count }, (_, index) => ({ inlineStart: index + 1 }))
-    for (const spread of spreads) {
-      const outer = document.createElement('div')
-      outer.className = 'segnavia-printed-pages__spread'
-      const inner = document.createElement('div')
-      inner.className = 'segnavia-printed-pages__spread-content'
-      for (const page of [spread.inlineStart, spread.inlineEnd]) {
-        const slot = document.createElement('div')
-        slot.className = 'segnavia-printed-pages__paper'
-        slot.style.inlineSize = `${viewport.width}px`
-        slot.style.blockSize = `${viewport.height}px`
-        if (page) {
-          slot.dataset.page = String(page)
-          this.papers.set(page, { page, slot })
-        }
-        inner.append(slot)
-      }
-      inner.style.inlineSize = `${viewport.width * (this.layoutValue === 'facing' ? 2 : 1)}px`
-      inner.style.blockSize = `${viewport.height}px`
-      outer.append(inner)
-      this.append(outer)
-    }
-  }
-
-  private composePaper(prepared: PreparedPrintedPages, index: number, generation: number): void {
-    const state = this.papers.get(index)
-    if (!state || state.pending) return
-    const build = (nonce: string) =>
-      printedPageValueDocument(prepared.page, {
-        nonce,
-        baseCss: prepared.fontCss,
-        css: this.css,
-        csp: this.cspExtra || undefined,
-        origins: this.origins,
-        only: index,
-        expectedCount: prepared.count,
-        layoutScripts: prepared.layouts,
-        fontFailures: prepared.fontFailures,
-        profile: resolvePreflightProfile(this.profileValue),
-        preflightSeed: prepared.preflightSeed,
-        screen: { spread: false },
-      })
-    const candidateNonce = state.nonce ?? newNonce()
-    const candidate = build(candidateNonce)
-    if (shouldReusePrintedPageSrcdoc(state.srcdoc, candidate)) {
-      if (state.shown) state.shown.dataset.generation = String(generation)
-      return
-    }
-    state.nonce = state.srcdoc === undefined ? candidateNonce : newNonce()
-    const srcdoc = state.nonce === candidateNonce ? candidate : build(state.nonce)
-    const frame = document.createElement('iframe')
-    frame.setAttribute('sandbox', frameSandbox('refuse'))
-    frame.title = `Page ${index}`
-    frame.dataset.generation = String(generation)
-    frame.style.visibility = 'hidden'
-    frame.srcdoc = srcdoc
-    state.pending = frame
-    state.slot.append(frame)
   }
 
   private readonly onMessage = (event: MessageEvent) => {
@@ -380,7 +321,7 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
     const message = messageFrom(event, frame, resolvePreflightProfile(this.profileValue))
     dispatchFontFailures(this, message)
     if (dispatchPreflight(this, message)) return
-    if (message?.type === MESSAGE.composeFailure && message.text) return this.showFailure(new Error(message.text))
+    if (message?.type === MESSAGE.composeFailure && message.text) return renderPrintedPagesFailure(this, new Error(message.text))
     if (message?.type !== MESSAGE.ready || frame !== state.pending) return
     state.shown?.remove()
     frame.style.visibility = ''
@@ -390,15 +331,12 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
   }
   private readonly onScroll = () => {
     this.updateWindow()
+    if (this.programmaticScrollTop !== undefined && Math.abs(this.scrollTop - this.programmaticScrollTop) < 2) return
+    this.programmaticScrollTop = undefined
     this.updateCurrent()
   }
-  private extents(): PaperExtent[] {
-    const top = this.getBoundingClientRect().top
-    return [...this.papers.values()].map(({ page, slot }) => ({
-      page,
-      start: slot.getBoundingClientRect().top - top + this.scrollTop,
-      end: slot.getBoundingClientRect().bottom - top + this.scrollTop,
-    }))
+  private extents() {
+    return printedPaperExtents(this, this.papers.values())
   }
   private updateWindow(): void {
     if (!this.papers.size) return
@@ -417,27 +355,14 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
       }
   }
   private refit(): void {
-    for (const outer of this.querySelectorAll<HTMLElement>('.segnavia-printed-pages__spread')) {
-      const inner = outer.firstElementChild as HTMLElement
-      const scale = printedPagesScale(
-        this.fitValue,
-        { inline: inner.offsetWidth, block: inner.offsetHeight },
-        { inline: this.clientWidth, block: this.clientHeight },
-        this.zoomValue,
-      )
-      inner.style.transform = `scale(${scale})`
-      outer.style.inlineSize = `${inner.offsetWidth * scale}px`
-      outer.style.blockSize = `${inner.offsetHeight * scale}px`
-    }
+    refitPrintedPagesDom(this, this.fitValue, this.zoomValue)
     this.updateWindow()
   }
   private navigate(delta: number): void {
     this.scrollToPage(Math.max(1, Math.min(this.count, this.currentPage + delta)))
   }
   private scrollToPage(page: number): void {
-    const slot = this.papers.get(page)?.slot
-    const spread = slot?.parentElement?.parentElement
-    if (spread) this.scrollTo({ top: spread.offsetTop })
+    this.programmaticScrollTop = scrollToPrintedPaper(this, this.papers, page)
     this.updateCurrent(page)
   }
   private scrollIfMoved(page: number): void {
@@ -455,30 +380,12 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
       this.dispatchEvent(new CustomEvent('record', { detail: { record } }))
     }
   }
-  private showFailure(reason: unknown): void {
-    const error = reason instanceof Error ? reason : new Error(String(reason))
-    this.setAttribute('failure', '')
-    let part = this.querySelector<HTMLElement>('[part="failure"]')
-    if (!part) {
-      part = document.createElement('div')
-      part.setAttribute('part', 'failure')
-      part.setAttribute('role', 'alert')
-      part.dir = 'auto'
-      this.append(part)
-    }
-    part.textContent = error.message
-    dispatchElementError(this, error)
-  }
-  private removeFailure(): void {
-    this.removeAttribute('failure')
-    this.querySelector('[part="failure"]')?.remove()
-  }
   private clear(): void {
     this.abort?.abort()
     this.generation++
     this.count = 0
     this.papers.clear()
     this.replaceChildren()
-    this.removeFailure()
+    renderPrintedPagesFailure(this)
   }
 }
