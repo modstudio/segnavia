@@ -9,7 +9,7 @@ import {
   DivisionSettings,
   FlowNode,
   LabelNode,
-  PageNode,
+  PageNode as PageNodeSchema,
   PlacedNode,
   RecordNode,
   SlideNode,
@@ -52,7 +52,7 @@ export type DocumentNode =
   | PartNode
   | SectionNode
   | z.infer<typeof FlowNode>
-  | z.infer<typeof PageNode>
+  | z.infer<typeof PageNodeSchema>
   | z.infer<typeof SlideNode>
   | z.infer<typeof PlacedNode>
   | z.infer<typeof ContentsNode>
@@ -106,7 +106,7 @@ export const SectionNodeFields = {
   template: z.string().min(1).optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }
-const SectionNodeSchema = closedObject(SectionNodeFields)
+export const SectionNodeSchema = closedObject(SectionNodeFields)
 export const SectionNode = SectionNodeSchema as z.ZodType<SectionNode>
 
 export const DocumentNodeMembers = [
@@ -114,7 +114,7 @@ export const DocumentNodeMembers = [
   PartNodeSchema,
   SectionNodeSchema,
   FlowNode,
-  PageNode,
+  PageNodeSchema,
   SlideNode,
   PlacedNode,
   ContentsNode,
@@ -123,5 +123,7 @@ export const DocumentNodeMembers = [
   LabelNode,
   BoardSectionNode,
 ] as const
+
+export { PageNodeSchema }
 
 export const DocumentNode: z.ZodType<DocumentNode> = z.lazy(() => discriminatedNodeUnion(DocumentNodeMembers))

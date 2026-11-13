@@ -23,15 +23,26 @@ function refinePage(node: Extract<DocumentNode, { type: 'page' }>, path: Path, k
   }
 }
 
-const SECTION_FIELDS = ['title', 'contentsLabel', 'subtitle', 'contents', 'opens', 'numbering', 'parentRules', 'pageGeometry', 'template'] as const
+export const PROFILED_SECTION_FIELDS = [
+  'title',
+  'contentsLabel',
+  'subtitle',
+  'contents',
+  'opens',
+  'numbering',
+  'parentRules',
+  'pageGeometry',
+  'template',
+] as const
+export const UNRESTRICTED_SECTION_FIELDS = ['dir', 'lang'] as const
 
 function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: Path, profile: DocumentProfile, ctx: z.RefinementCtx): void {
   if (node.parents !== undefined) {
     ctx.addIssue({ code: 'custom', ...renamedParentRulesFieldIssue('section field parents', [...path, 'parents']) })
   }
-  for (const field of SECTION_FIELDS) {
+  for (const field of PROFILED_SECTION_FIELDS) {
     if (node[field] === undefined || (profile.sectionFields as readonly string[]).includes(field)) continue
-    const remedies = profile.sectionFieldRemedies as Partial<Record<(typeof SECTION_FIELDS)[number], string>>
+    const remedies = profile.sectionFieldRemedies as Partial<Record<(typeof PROFILED_SECTION_FIELDS)[number], string>>
     const message = remedies[field] ?? `section field ${field} is not yet supported; remove it to clear this refusal`
     ctx.addIssue({ code: 'custom', path: [...path, field], message })
   }

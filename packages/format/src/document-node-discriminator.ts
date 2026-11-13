@@ -1,10 +1,17 @@
 import { z } from 'zod'
 import { shownValue } from './shown-value.ts'
 
-type NodeUnionMembers = readonly [z.core.$ZodTypeDiscriminable, ...z.core.$ZodTypeDiscriminable[]]
+export type NodeUnionMember = z.core.$ZodTypeDiscriminable
+type NodeUnionMembers = readonly [NodeUnionMember, ...NodeUnionMember[]]
 
-function documentNodeTypes(members: readonly z.core.$ZodTypeDiscriminable[]): string[] {
-  return members.flatMap((member) => [...(member._zod.propValues?.type ?? [])]).filter((value): value is string => typeof value === 'string')
+export function documentNodeType(member: NodeUnionMember): string {
+  const value = [...(member._zod.propValues?.type ?? [])].find((candidate): candidate is string => typeof candidate === 'string')
+  if (value === undefined) throw new Error('a document node schema needs a literal type')
+  return value
+}
+
+function documentNodeTypes(members: readonly NodeUnionMember[]): string[] {
+  return members.map(documentNodeType)
 }
 
 export function discriminatedNodeUnion<const Members extends NodeUnionMembers>(members: Members): z.ZodDiscriminatedUnion<Members, 'type'> {

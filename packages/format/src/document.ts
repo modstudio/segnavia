@@ -13,7 +13,7 @@ import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
-import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal, requiredFieldRefusal } from './document-profile.ts'
+import { DOCUMENT_KINDS, DOCUMENT_PROFILES, type DocumentKind, profileRefusal, requiredFieldRefusal } from './document-profile.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
@@ -47,7 +47,7 @@ const DocumentPrint = closedObject({
 export const DocumentShape = closedObject({
   type: z.literal('document'),
   id: z.string().optional(),
-  kind: z.enum(['deck', 'page', 'printed', 'book', 'board']),
+  kind: z.enum(DOCUMENT_KINDS),
   metadata: DocumentMetadata.optional(),
   title: z.string().optional(),
   brand: z.string().optional(),
@@ -91,7 +91,8 @@ export const DocumentShape = closedObject({
 })
 
 export const definitionCollections = ['parentPages', 'templates', 'noteSeries', 'variables', 'headTemplates', 'conditions'] as const
-const structuralFields = new Set(['type', 'id', 'kind', 'children', ...definitionCollections])
+export const documentStructuralFields = ['type', 'id', 'kind', 'children'] as const
+const structuralFields: ReadonlySet<string> = new Set([...documentStructuralFields, ...definitionCollections])
 
 function refineSettings(document: z.infer<typeof DocumentShape>, profile: (typeof DOCUMENT_PROFILES)[DocumentKind], ctx: z.RefinementCtx): void {
   if (document.settings?.dir !== undefined && !(profile.settingsDir as readonly string[]).includes(document.settings.dir)) {

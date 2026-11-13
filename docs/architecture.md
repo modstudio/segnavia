@@ -148,8 +148,11 @@ by live, thumbnail and print documents.
 A host writes one `Document` and sets `kind` to `deck`, `page`, `printed`,
 `book` or `board`. Every public viewing, printing and rendering edge parses that
 document once, refuses a kind it does not accept, and lowers the parsed value to
-the pipeline's internal value. `jsonSchemas().document` is the host schema;
-the former book, page, deck and board schemas are no longer published.
+the pipeline's internal value. `jsonSchemas().document` is one `oneOf` host
+schema keyed on `kind` and derived from the kind profiles; the former book,
+page, deck and board schemas are no longer published. Dotted requirements, a
+title given at the root or in metadata, child forms and cross-references are
+relationships checked only by `Document.parse`.
 
 Element properties that take a `Document` return the parsed `Document` that the
 host set. Lowered values stay private. Frame's symbol-named load methods are the
