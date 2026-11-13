@@ -18,6 +18,8 @@
     "./dist/index.js",
     "./src/deck.ts",
     "./dist/deck.js",
+    "./src/page-entry.ts",
+    "./dist/page-entry.js",
     "./src/player-entry.ts",
     "./dist/player-entry.js",
     "./src/controls-entry.ts",
@@ -53,6 +55,11 @@
       "@segnavia/source": "./src/deck-model.ts",
       "types": "./dist/deck-model.d.ts",
       "default": "./dist/deck-model.js"
+    },
+    "./page": {
+      "@segnavia/source": "./src/page-entry.ts",
+      "types": "./dist/page-entry.d.ts",
+      "default": "./dist/page-entry.js"
     },
     "./svg": {
       "@segnavia/source": "./src/svg.ts",

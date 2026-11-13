@@ -13,14 +13,13 @@ import {
   resolvePreflightProfile,
   type SlotsOptions,
 } from '@segnavia/format'
-import { type AlertLabels, type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
+import { type EstablishedPageDay, type HtmlPage, parseDocument, slotsForDay } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import type { PageSelection } from './bridge.ts'
 import { internalPageDayLoad, internalPageLoad } from './document-value-load.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
-import { PageAsOfElement } from './page-as-of-element.ts'
 import { loadBrandedPage } from './page-brand.ts'
 import { loadShownPageDocument } from './page-document-loading.ts'
 import { clearPageFrame, fitPageFrame, mountPageFrame, type PageFrameHeightState } from './page-element-layout.ts'
@@ -29,6 +28,7 @@ import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
 import { handlePageFrameMessage } from './page-frame-message.ts'
 import { scrollPageToHeading } from './page-heading.ts'
+import { PageParseOptionsElement } from './page-parse-options-element.ts'
 import { printedPageRequestRefusal } from './page-printed.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
@@ -38,9 +38,8 @@ import { parsePageWidths, samePageWidths } from './page-widths.ts'
 import type { PreparedSlots } from './slot-render.ts'
 
 export { SELECTION_REPLY_MS } from './selection-request.ts'
-export class SegnaviaPage extends PageAsOfElement {
+export class SegnaviaPage extends PageParseOptionsElement {
   static observedAttributes = ['src', 'bounded', 'label']
-  private alertLabelOptions: Partial<AlertLabels> | undefined
   private pageInput: DocumentInput | unknown
   private pageValue: Page | null = null
   private documentValue: Document | null = null
@@ -69,13 +68,9 @@ export class SegnaviaPage extends PageAsOfElement {
     super()
     upgradeProperties(this)
   }
-  get alertLabels(): Partial<AlertLabels> | undefined {
-    return this.alertLabelOptions
-  }
-  set alertLabels(value: Partial<AlertLabels> | undefined) {
-    this.alertLabelOptions = value
+  protected pageParseOptionsChanged(reloadValue: boolean): void {
     if (this.pageInput !== undefined) this.load(this.pageInput)
-    else if (this.pageValue) this.loadValue(this.pageValue)
+    else if (reloadValue && this.pageValue) this.loadValue(this.pageValue)
   }
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -183,7 +178,7 @@ export class SegnaviaPage extends PageAsOfElement {
   }
 
   load(input: DocumentInput | unknown) {
-    const document = parseDocument(input, { alertLabels: this.alertLabels })
+    const document = parseDocument(input, { alertLabels: this.alertLabels, newId: this.newId })
     this.brandResolution?.abort()
     const controller = new AbortController()
     this.brandResolution = controller
