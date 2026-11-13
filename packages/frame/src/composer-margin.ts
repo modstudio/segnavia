@@ -11,8 +11,8 @@ interface DrawConfig {
 }
 
 export function marginLineNumberSelector(side?: 'left' | 'right'): string {
-  const selector = '[data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-line-number]'
-  return side ? `${selector}[data-segnavia-side="${side}"]` : selector
+  const MARGIN_LINE_NUMBER_SELECTOR = '[data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-line-number]'
+  return side ? `${MARGIN_LINE_NUMBER_SELECTOR}[data-segnavia-side="${side}"]` : MARGIN_LINE_NUMBER_SELECTOR
 }
 
 export function intersects(a: DOMRect, b: DOMRect): boolean {
