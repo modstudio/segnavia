@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import { renderIssuePath } from './closed-object.ts'
-import { DOCUMENT_NODE_MODEL, type DocumentNodeType } from './document-node-model.ts'
+import { contentHtml, dataAttributeValues, htmlValues } from './document-html.ts'
 import { walkDocumentNodes } from './document-node-refinement.ts'
 import type { DocumentNode } from './document-nodes.ts'
 import type { HeadTemplateNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
@@ -22,32 +22,8 @@ function intlAcceptsLanguage(lang: string | undefined): boolean {
   }
 }
 
-function htmlValues(node: { type: DocumentNodeType } & Record<string, unknown>): string[] {
-  return [...DOCUMENT_NODE_MODEL[node.type].content].flatMap((field) => {
-    const value = node[field]
-    if (typeof value === 'string') return [value]
-    if (!value || typeof value !== 'object' || Array.isArray(value) || 'kind' in value) return []
-    const values = Object.values(value)
-    return values.every((entry) => typeof entry === 'string') ? values : []
-  })
-}
-
-interface HtmlLocation {
-  html: string
-  path: PropertyKey[]
-}
-
-function contentHtml(nodes: DocumentNode[]): HtmlLocation[] {
-  const result: HtmlLocation[] = []
-  walkDocumentNodes(nodes, (node, path) => result.push(...htmlValues(node as typeof node & Record<string, unknown>).map((html) => ({ html, path }))))
-  return result
-}
-
 function dataVariableNames(html: string): string[] {
-  const names: string[] = []
-  const attribute = /\bdata-variable\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi
-  for (const match of html.matchAll(attribute)) names.push(match[1] ?? match[2] ?? match[3] ?? '')
-  return names
+  return dataAttributeValues(html, 'data-variable')
 }
 
 function skipSpace(html: string, from: number): number {
@@ -138,7 +114,6 @@ export function refineDocumentVariables(
   const declared = new Set(withLibraryEntries(LIBRARY_VARIABLES, document.variables).map((variable) => variable.name))
   const parts = new Set(document.partNames ?? [])
   if (document.children) walkDocumentNodes(document.children, (node) => node.type === 'part' && parts.add(node.name))
-  const authoredVariables = new Set<string>()
   const readsDocumentFacts = document.variables.some((variable) => variable.kind === 'meta')
   if (readsDocumentFacts && !intlAcceptsLanguage(document.lang))
     ctx.addIssue({
@@ -147,13 +122,6 @@ export function refineDocumentVariables(
       message: `document language tag ${JSON.stringify(document.lang)} is not accepted by Intl; set a valid BCP 47 lang to clear this refusal`,
     })
   document.variables.forEach((variable, index) => {
-    if (authoredVariables.has(variable.name)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['variables', index, 'name'],
-        message: `variable name ${JSON.stringify(variable.name)} is declared more than once; keep one declaration or rename one to clear this refusal`,
-      })
-    }
     const textVariable = variable.kind === 'text' ? (variable as Extract<Variable, { kind: 'text' }>) : undefined
     if (textVariable?.from === 'part-title' && (document.children !== undefined || document.partNames !== undefined) && !parts.has(textVariable.part)) {
       ctx.addIssue({
@@ -182,7 +150,6 @@ export function refineDocumentVariables(
         message: `meta variable ${JSON.stringify(variable.name)} names unknown metadata field ${JSON.stringify(variable.field)}; ${remedy} to clear this refusal`,
       })
     }
-    authoredVariables.add(variable.name)
   })
   const templates = document.templates ?? []
   const html = [
@@ -209,15 +176,7 @@ export function refineDocumentVariables(
   }
   const slots = new Set([...templates.flatMap((template) => template.slots?.map((slot) => slot.key) ?? []), ...(document.recordSlotNames ?? [])])
   const heads = new Set(withLibraryEntries(LIBRARY_HEAD_TEMPLATES, document.headTemplates).map((template) => template.name))
-  const authoredHeads = new Set<string>()
   document.headTemplates.forEach((template, index) => {
-    if (authoredHeads.has(template.name))
-      ctx.addIssue({
-        code: 'custom',
-        path: ['headTemplates', index, 'name'],
-        message: `head template name ${JSON.stringify(template.name)} is declared more than once; keep one declaration or rename one to clear this refusal`,
-      })
-    authoredHeads.add(template.name)
     template.parts.forEach((part, partIndex) => {
       if ('variable' in part && !declared.has(part.variable))
         ctx.addIssue({

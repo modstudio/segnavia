@@ -87,7 +87,7 @@ test('refuses an HTML condition that is not declared', () => {
       kind: 'page',
       children: [{ type: 'page', body: { html: '<p data-segnavia-condition="missing">Hidden</p>' } }],
     }),
-  ).toThrow('names unknown condition "missing"; declare it or remove the reference to clear this refusal')
+  ).toThrow(/data-segnavia-condition.*missing/)
 })
 
 test('deterministic ids are repeatable and unique across missing nodes and Hebrew blocks', () => {

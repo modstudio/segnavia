@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { bookFromDocument } from '@segnavia/format'
+import { bookFromDocument, Document } from '@segnavia/format'
 import { bookDocument } from './book/book-document.ts'
 import { parseDocument } from './document.ts'
 import { documentOutlineSource } from './document-outline.ts'
@@ -82,6 +82,132 @@ test('selects a requested edition, strips markers, and refuses an unknown editio
 test('returns the same document when no conditions are declared', () => {
   const document = parseDocument({ type: 'document', kind: 'page', children: [{ type: 'page', body: { html: '<p>Body</p>' } }] })
   expect(resolveEdition(document)).toBe(document)
+  expect(() => resolveEdition(document, 'missing')).toThrow('requested edition "missing" is unknown')
+})
+
+test('removes an edition-emptied container and refuses an edition-empty document', () => {
+  const conditions = [{ type: 'condition' as const, name: 'teacher' }]
+  const editions = [
+    { type: 'edition' as const, name: 'student', conditions: [] },
+    { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+  ]
+  const document = parseDocument({
+    type: 'document',
+    kind: 'book',
+    title: 'Worksheet',
+    mode: 'continuous',
+    conditions,
+    editions,
+    defaultEdition: 'student',
+    children: [
+      { type: 'section', title: 'Visible', children: [{ type: 'flow', html: '<p>Question</p>' }] },
+      {
+        type: 'section',
+        title: 'Teacher placement',
+        children: [{ type: 'placed', kind: 'page', address: 'answer', conditions: ['teacher'] }],
+      },
+    ],
+  })
+  const resolved = resolveEdition(document, 'student')
+  expect(resolved.children.map((node) => ('title' in node ? node.title : undefined))).toEqual(['Visible'])
+  expect(() => bookFromDocument(resolved)).not.toThrow()
+
+  const onlyHidden = Document.parse({
+    type: 'document',
+    kind: 'book',
+    title: 'Worksheet',
+    mode: 'continuous',
+    conditions,
+    editions,
+    defaultEdition: 'student',
+    children: [
+      {
+        type: 'section',
+        title: 'Teacher placement',
+        children: [{ type: 'placed', kind: 'page', address: 'answer', conditions: ['teacher'] }],
+      },
+    ],
+  })
+  expect(() => resolveEdition(onlyHidden, 'student')).toThrow(
+    'edition "student" leaves the document with no content; mark at least one child for it to clear this refusal',
+  )
+})
+
+test('resolves exact HTML in every book carrier', () => {
+  const marked = '<span dir="rtl" lang="he" data-field="answer" data-segnavia-condition="teacher">Answer</span>'
+  const document = parseDocument({
+    type: 'document',
+    kind: 'book',
+    title: 'Carriers',
+    mode: 'paginated',
+    page: { paper: 'letter', margin: { blockStart: 15, blockEnd: 15, inlineStart: 15, inlineEnd: 15 } },
+    conditions: [{ type: 'condition', name: 'teacher' }],
+    editions: [
+      { type: 'edition', name: 'student', conditions: [] },
+      { type: 'edition', name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+    parentPages: [{ type: 'parentPage', name: 'parent', regions: { head: { edge: 'blockStart', html: marked } } }],
+    templates: [{ type: 'template', name: 'template', html: marked }],
+    children: [
+      { type: 'part', name: 'part', html: marked, children: [{ type: 'flow', title: 'Visible', html: '<p>Visible</p>' }] },
+      { type: 'section', title: 'Page', template: 'template', children: [{ type: 'page', regions: { head: marked } }] },
+    ],
+  })
+  const expected = '<span dir="rtl" lang="he" data-field="answer">Answer</span>'
+  for (const [edition, html] of [
+    ['student', ''],
+    ['teacher', expected],
+  ] as const) {
+    const resolved = resolveEdition(document, edition)
+    const part = resolved.children[0]
+    const section = resolved.children[1]
+    const page = section && 'children' in section ? section.children?.[0] : undefined
+    expect(part?.type === 'part' ? part.html : undefined).toBe(html)
+    expect(page?.type === 'page' ? page.regions?.head : undefined).toBe(html)
+    expect(resolved.templates[0]?.html).toBe(html)
+    expect(resolved.parentPages[0]?.regions.head?.html).toBe(html)
+  }
+
+  const pageDocument = parseDocument({
+    type: 'document',
+    kind: 'page',
+    conditions: [{ type: 'condition', name: 'teacher' }],
+    editions: [
+      { type: 'edition', name: 'student', conditions: [] },
+      { type: 'edition', name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+    children: [{ type: 'page', body: { html: marked } }],
+  })
+  const bodyHtml = (edition: string) => {
+    const page = resolveEdition(pageDocument, edition).children[0]
+    return page?.type === 'page' && page.body && 'html' in page.body ? page.body.html : undefined
+  }
+  expect(bodyHtml('student')).toBe('')
+  expect(bodyHtml('teacher')).toBe(expected)
+})
+
+test('resolves exact HTML in slide content', () => {
+  const marked = '<span dir="rtl" lang="he" data-field="answer" data-segnavia-condition="teacher">Answer</span>'
+  const document = parseDocument({
+    type: 'document',
+    kind: 'deck',
+    title: 'Slides',
+    conditions: [{ type: 'condition', name: 'teacher' }],
+    editions: [
+      { type: 'edition', name: 'student', conditions: [] },
+      { type: 'edition', name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+    children: [{ type: 'slide', id: 'slide', content: { kind: 'html', html: marked } }],
+  })
+  const slideHtml = (edition: string) => {
+    const slide = resolveEdition(document, edition).children[0]
+    return slide?.type === 'slide' && 'kind' in slide.content && slide.content.kind === 'html' ? slide.content.html : undefined
+  }
+  expect(slideHtml('student')).toBe('')
+  expect(slideHtml('teacher')).toBe('<span dir="rtl" lang="he" data-field="answer">Answer</span>')
 })
 
 test('removes hidden headings from outlines and contents and hidden notes from numbering', () => {

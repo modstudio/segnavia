@@ -83,14 +83,8 @@ export const DocumentShape = closedObject({
   parentPages: z.array(ParentPageNode).default([]),
   templates: z.array(TemplateNode).default([]),
   noteSeries: z.array(NoteSeriesNode).default([]),
-  variables: z
-    .array(VariableNode)
-    .default([])
-    .superRefine((variables, ctx) => refineLibraryNames('variable', variables, ctx)),
-  headTemplates: z
-    .array(HeadTemplateNode)
-    .default([])
-    .superRefine((templates, ctx) => refineLibraryNames('head template', templates, ctx)),
+  variables: z.array(VariableNode).default([]),
+  headTemplates: z.array(HeadTemplateNode).default([]),
   conditions: z
     .array(ConditionNode)
     .default([])

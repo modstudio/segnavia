@@ -242,7 +242,8 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
     },
     async coverImage(input, opts) {
       opts = parseCoverImageOptions(opts)
-      const cover = Cover.parse(input)
+      const page = resolveEdition(parseDocument(input.page, { newId: opts.newId }), opts.edition)
+      const cover = Cover.parse({ ...input, page })
       const plan = coverImagePlan(cover, opts)
       const options = parseImageRenderOptions(plan.options, 'coverImage')
       return await withinRenderPermit(options.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {

@@ -39,13 +39,19 @@ function resolveNode(node: Document['children'][number], enabled: ReadonlySet<st
     next = { ...next, content: { ...next.content, html: resolveHtml(next.content.html, enabled) } }
   }
   if ('children' in next && next.children !== undefined) {
-    next = { ...next, children: next.children.flatMap((child) => resolveNode(child, enabled) ?? []) } as typeof next
+    const children = next.children.flatMap((child) => resolveNode(child, enabled) ?? [])
+    const emptiedContainer =
+      next.children.length > 0 &&
+      children.length === 0 &&
+      (next.type === 'section' || next.type === 'division' || (next.type === 'part' && next.html === undefined))
+    if (emptiedContainer) return undefined
+    next = { ...next, children } as typeof next
   }
   return next
 }
 
 export function resolveEdition(document: Document, edition?: string): Document {
-  if (document.conditions.length === 0) return document
+  if (document.conditions.length === 0 && edition === undefined) return document
   const selected = edition ?? document.defaultEdition
   const declared = document.editions.map((entry) => entry.name)
   const entry = document.editions.find((candidate) => candidate.name === selected)
@@ -54,9 +60,13 @@ export function resolveEdition(document: Document, edition?: string): Document {
     throw new RangeError(`requested edition ${JSON.stringify(selected)} is unknown; use one of ${names} to clear this refusal`)
   }
   const enabled = new Set(entry.conditions)
+  const children = document.children.flatMap((node) => resolveNode(node, enabled) ?? [])
+  if (document.children.length > 0 && children.length === 0) {
+    throw new RangeError(`edition ${JSON.stringify(entry.name)} leaves the document with no content; mark at least one child for it to clear this refusal`)
+  }
   return {
     ...document,
-    children: document.children.flatMap((node) => resolveNode(node, enabled) ?? []),
+    children,
     templates: document.templates.map((template) => ({ ...template, html: resolveHtml(template.html, enabled) })),
     parentPages: document.parentPages.map((parent) => ({
       ...parent,

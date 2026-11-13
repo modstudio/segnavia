@@ -9,6 +9,7 @@ import {
   DivisionSettings,
   FlowNode,
   LabelNode,
+  NodeConditions,
   PageNode as PageNodeSchema,
   PlacedNode,
   RecordNodeBase,
@@ -22,7 +23,7 @@ export interface DivisionNode {
   id?: string
   name: z.infer<typeof DivisionName>
   settings?: z.infer<typeof DivisionSettings>
-  conditions?: string[]
+  conditions?: z.infer<(typeof NodeConditions)['conditions']>
   children: DocumentNode[]
 }
 
@@ -36,7 +37,7 @@ export interface PartNode {
   opens?: 'recto' | 'verso' | 'any'
   parentRules?: ParentRules
   parents?: unknown
-  conditions?: string[]
+  conditions?: z.infer<(typeof NodeConditions)['conditions']>
   children: DocumentNode[]
 }
 
@@ -80,7 +81,7 @@ export const DivisionNodeFields = {
   id: z.string().optional(),
   name: DivisionName,
   settings: DivisionSettings.optional(),
-  conditions: z.array(z.string()).optional(),
+  ...NodeConditions,
   children: z.lazy(() => z.array(DocumentNode)),
 }
 const DivisionNodeSchema = closedObject(DivisionNodeFields)
@@ -96,7 +97,7 @@ export const PartNodeFields = {
   opens: z.enum(['recto', 'verso', 'any']).optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
-  conditions: z.array(z.string()).optional(),
+  ...NodeConditions,
   children: z.lazy(() => z.array(DocumentNode)),
 }
 const PartNodeSchema = closedObject(PartNodeFields)

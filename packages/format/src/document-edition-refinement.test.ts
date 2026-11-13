@@ -33,3 +33,42 @@ test('validates condition and edition names and references', () => {
   )
   expect(() => Document.parse({ ...valid, editions: [...valid.editions, ...valid.editions] })).toThrow(/edition name.*student.*is declared more than once/)
 })
+
+test.each([
+  ['an unknown name', 'missing', 'children[0]: data-segnavia-condition names unknown condition "missing"'],
+  ['an empty value', '', 'children[0]: data-segnavia-condition names no condition'],
+  ['a whitespace-only value', '   ', 'children[0]: data-segnavia-condition names no condition'],
+])('refuses HTML condition markers with %s through Document.parse', (_case, marker, message) => {
+  const result = Document.safeParse({
+    type: 'document',
+    kind: 'page',
+    children: [{ type: 'page', body: { html: `<p data-segnavia-condition="${marker}">Hidden</p>` } }],
+    conditions: [{ type: 'condition', name: 'student' }],
+    editions: [{ type: 'edition', name: 'student', conditions: ['student'] }],
+    defaultEdition: 'student',
+  })
+  expect(result.success).toBeFalse()
+  if (!result.success) {
+    const error = result.error as { issues: Array<{ message: string }> }
+    expect(error.issues.map((issue) => issue.message)).toContainEqual(expect.stringContaining(message))
+  }
+})
+
+test('reports a duplicate variable name exactly once', () => {
+  const result = Document.safeParse({
+    type: 'document',
+    kind: 'book',
+    title: 'Variables',
+    mode: 'continuous',
+    children: [{ type: 'section', title: 'Section', children: [{ type: 'flow', html: '' }] }],
+    variables: [
+      { type: 'variable', kind: 'text', name: 'v', from: 'content' },
+      { type: 'variable', kind: 'text', name: 'v', from: 'content' },
+    ],
+  })
+  expect(result.success).toBeFalse()
+  if (!result.success) {
+    const error = result.error as { issues: Array<{ message: string }> }
+    expect(error.issues.filter((issue) => issue.message.includes('variable name "v" is declared more than once'))).toHaveLength(1)
+  }
+})

@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { BookOpens, BookTemplate, ContentsLabel, Subtitle } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
-import { NodeId } from './document-nodes-common.ts'
+import { NodeConditions, NodeId } from './document-nodes-common.ts'
 import { SectionNumbering } from './folio.ts'
 import { HeadTemplate } from './head-template.ts'
 import { RequiredLogicalMargin } from './margins.ts'
@@ -15,7 +15,7 @@ import { ContentTextVariable, MetaVariable, NumberVariable, PartTitleTextVariabl
 export const HeadTemplateNode = HeadTemplate.extend({ type: z.literal('headTemplate'), id: z.string().optional() })
 
 export const SectionFields = {
-  conditions: z.array(z.string()).optional(),
+  ...NodeConditions,
   title: z.string().optional(),
   contentsLabel: ContentsLabel.optional(),
   subtitle: Subtitle.optional(),
