@@ -43,3 +43,9 @@ export const printedMixedPaperDocument: DocumentInput = {
     },
   ],
 }
+
+export const printedMixedPaperBleedDocument: DocumentInput = {
+  ...printedMixedPaperDocument,
+  print: { paper: 'a4', bleed: 3, marks: true },
+  children: printedMixedPaperDocument.children?.slice(0, 3),
+}

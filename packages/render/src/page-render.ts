@@ -1,9 +1,10 @@
-import { type FontFailure, printBoxes, printedPageGeometries, usesPressLayout } from '@segnavia/format'
+import { type FontFailure, PX_PER_MM, printedPageGeometries, printedPageGeometryByName, unknownPrintedPageGeometryRefusal } from '@segnavia/format'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
 import type { Frame, Page as Tab } from 'playwright-core'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { pdfWithBackdropRasters, prepareBackdropRasters, tagBackdropRasters } from './effects/raster.ts'
+import { RenderRefusedError } from './errors.ts'
 import { assetSetup, type ComposedRenderOptions, type RenderOptions } from './options.ts'
 import { measureOverflow, type PageFontFacts, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
@@ -12,6 +13,7 @@ import { addPressBoxesByPage, assertPrintOptions, printPage } from './page-paper
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { setPdfPageSizes } from './pdf-page-size.ts'
+import { printedPagePdfPlan } from './printed-page-pdf-plan.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
@@ -66,7 +68,21 @@ export async function renderPagePdf(
   tagged = false,
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
-  const { grows: _grows, ...viewport } = pageViewport(page, undefined, opts.pageWidths)
+  const perGeometry = Boolean(page.print && page.printedPages?.sections?.some((section) => section.pageGeometry !== undefined))
+  const geometryPlan =
+    page.print && perGeometry
+      ? printedPagePdfPlan(
+          printedPageGeometries(page).map((geometry) => geometry.paper),
+          page.print,
+        )
+      : undefined
+  const { grows: _grows, ...defaultViewport } = pageViewport(page, undefined, opts.pageWidths)
+  const viewport = geometryPlan
+    ? {
+        width: Math.round(Math.max(...geometryPlan.sizes.map((paper) => paper.width)) * PX_PER_MM),
+        height: Math.round(Math.max(...geometryPlan.sizes.map((paper) => paper.height)) * PX_PER_MM),
+      }
+    : defaultViewport
   return services.withTab(
     {
       viewport,
@@ -87,29 +103,35 @@ export async function renderPagePdf(
       const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
         const print = page.print
-        const perGeometry = Boolean(page.printedPages?.sections?.some((section) => section.pageGeometry !== undefined))
         if (perGeometry) {
           const names = await tab.evaluate(() =>
             [...document.querySelectorAll('[data-segnavia-printed-page]')].map((paper) => paper.getAttribute('data-segnavia-page-geometry') ?? ''),
           )
-          const byName = new Map(printedPageGeometries(page).map((geometry) => [geometry.name ?? '', geometry]))
           const papers = names.map((name) => {
-            const geometry = byName.get(name)
-            if (!geometry) throw new Error(`The composed paper names unknown page geometry ${JSON.stringify(name)}.`)
+            const geometry = printedPageGeometryByName(page, name || undefined)
+            if (!geometry) throw new RenderRefusedError(unknownPrintedPageGeometryRefusal(page, name))
             return geometry.paper
           })
-          const printed = await printPage(tab, print, true, inputIndex, printedPageDirection(page), tagged)
-          const exact = await setPdfPageSizes(printed.bytes, papers)
-          const bytes = usesPressLayout(print)
-            ? await addPressBoxesByPage(
-                exact,
-                papers.map((paper) =>
-                  printBoxes({ ...print, paper: { ...paper, unit: 'mm' }, orientation: paper.width > paper.height ? 'landscape' : 'portrait' }),
-                ),
-                print.markColor,
-                'trim',
-              )
-            : exact
+          const plan = printedPagePdfPlan(papers, print)
+          const printed = await printWithOverflow(
+            tab,
+            Math.max(...plan.sizes.map((paper) => paper.width)) * PX_PER_MM,
+            'page',
+            {
+              printBackground: true,
+              tagged,
+              preferCSSPageSize: true,
+              margin: { top: '0mm', right: '0mm', bottom: '0mm', left: '0mm' },
+            },
+            inputIndex,
+          )
+          const remedy = (index: number) => {
+            const name = names[index]
+            const geometry = name ? `geometry ${JSON.stringify(name)}` : 'the default geometry'
+            return `Page ${index + 1} uses ${geometry}; check that geometry's paper to clear this refusal.`
+          }
+          const exact = await setPdfPageSizes(printed.bytes, plan.sizes, remedy)
+          const bytes = plan.pressBoxes ? await addPressBoxesByPage(exact, plan.pressBoxes, print.markColor, plan.sourceBox) : exact
           return { ...printed, ...font, bytes: await tagBackdropRasters(bytes, captures) }
         }
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page), tagged)

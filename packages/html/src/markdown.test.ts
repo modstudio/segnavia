@@ -1,15 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import {
-  bodyHtml,
-  isGithubAlertBlock,
-  markdownHtml,
-  markdownOutline,
-  printedSectionBodies,
-  resolvePageHtml,
-  resolvePrintedPageHtml,
-  withPrintedSectionBodies,
-} from './markdown.ts'
+import { bodyHtml, isGithubAlertBlock, markdownHtml, markdownOutline, resolvePageHtml, resolvePrintedPageHtml } from './markdown.ts'
+import { printedSectionBodies, withPrintedSectionBodies } from './printed-section-flows.ts'
 import { findActiveContent } from './sanitize.ts'
 
 describe('bodyHtml', () => {

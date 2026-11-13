@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { DocumentNode } from './document-nodes.ts'
-import { type DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { type DOCUMENT_PROFILES, type DocumentKind, matchesChildForms, profileRefusal } from './document-profile.ts'
 import { renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { refineRecords } from './record-refinement.ts'
 
@@ -48,10 +48,7 @@ function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: P
     ctx.addIssue({ code: 'custom', path: [...path, field], message })
   }
   if (profile.sectionChildren) {
-    const matches = profile.sectionChildren.forms.some((form) => {
-      if (node.children.some((child) => !(form.nodes as readonly string[]).includes(child.type))) return false
-      return 'exact' in form ? node.children.length === form.exact : node.children.length >= form.min
-    })
+    const matches = matchesChildForms(node.children, profile.sectionChildren.forms)
     if (!matches) ctx.addIssue({ code: 'custom', path: [...path, 'children'], message: profile.sectionChildren.message })
   }
 }

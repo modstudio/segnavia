@@ -1,4 +1,5 @@
 import {
+  bookPageName,
   type DocumentInput,
   DocumentMetadata,
   type DocumentMetadata as DocumentMetadataValue,
@@ -21,7 +22,6 @@ import {
   regionOverflowRefusalEnabled,
   resolveLimits,
   resolveLineNumbers,
-  textArea,
   withLibraryEntries,
 } from '@segnavia/format'
 import {
@@ -38,7 +38,7 @@ import {
   TARGET_LINKS_CSS,
   withPrintedSectionBodies,
 } from '@segnavia/html'
-import { composerPageRules } from './book-page-geometries.ts'
+import { type ComposerPageGeometry, composerPageRules, composerParentGeometry } from './book-page-geometries.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
@@ -85,17 +85,16 @@ function pageParts(html: string): { head: string; body: string } {
   return { head: safeHead, body }
 }
 
-function printedComposerGeometries(page: PrintedHtmlPage) {
+type PrintedComposerGeometry = ComposerPageGeometry & ReturnType<typeof printedPageGeometry>
+
+function printedComposerGeometries(page: PrintedHtmlPage): PrintedComposerGeometry[] {
   return printedPageGeometries(page).map((geometry, index) => {
     const measured = printedPageGeometry(page, geometry.parents, geometry.paper.width, geometry.paper.height, geometry.name)
-    const parents = geometry.parents.map((parent) => {
-      const margin = Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])) as typeof parent.margin
-      return { ...parent, margin, textArea: textArea({ margin }, { width: measured.paperWidth, height: measured.paperHeight }) }
-    })
+    const parents = geometry.parents.map((parent) => composerParentGeometry(parent, { width: measured.paperWidth, height: measured.paperHeight }))
     return {
       ...measured,
       name: geometry.name,
-      pageName: `segnavia-page-${index + 1}`,
+      pageName: bookPageName(index),
       paper: geometry.paper,
       columnGap: geometry.columns.gap * PX_PER_MM,
       columnCount: geometry.columns.count,
@@ -133,8 +132,8 @@ function printedRecordSlots(sections: PrintedHtmlPage['printedPages']['sections'
   return Object.fromEntries(sections.map((section) => [section.id, 'pages' in section ? {} : (section.values ?? {})]))
 }
 
-function printedGeometryConfig(geometries: ReturnType<typeof printedComposerGeometries>) {
-  if (geometries.length !== 1) return { pageRules: composerPageRules(geometries), geometries }
+function printedGeometryConfig(geometries: ReturnType<typeof printedComposerGeometries>, print: PrintedHtmlPage['print']) {
+  if (geometries.length !== 1) return { pageRules: composerPageRules(geometries, print), geometries }
   const geometry = geometries[0] as (typeof geometries)[number]
   return {
     pageRules: `@page{size:${geometry.paper.width}mm ${geometry.paper.height}mm;margin:0}`,
@@ -181,7 +180,7 @@ export function printedPageValueDocument(
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
   const parentRules: ParentRules = page.printedPages.parentRules
-  const geometryConfig = printedGeometryConfig(geometries)
+  const geometryConfig = printedGeometryConfig(geometries, page.print)
   const baseCss = `${geometryConfig.pageRules}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${Math.max(...geometries.map((geometry) => geometry.paper.width))}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_BASE_CSS}${page.printedPages.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS}${TARGET_LINKS_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const preflightSeed = [...(options.preflightSeed ?? [])]
   const sheets = frameStyleSheets(

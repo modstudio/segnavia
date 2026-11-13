@@ -9,6 +9,16 @@ import { parse, serialize } from './sanitize.ts'
 
 type PrintedSection = NonNullable<PrintedPages['sections']>[number]
 
+export function printedSectionBodies(section: PrintedSection): string[] {
+  return 'pages' in section ? section.pages.map((page) => page.html) : [section.html]
+}
+
+export function withPrintedSectionBodies(section: PrintedSection, bodies: string[]): PrintedSection {
+  return 'pages' in section
+    ? { ...section, pages: section.pages.map((page, index) => ({ ...page, html: bodies[index] ?? page.html })) }
+    : { ...section, html: bodies[0] ?? section.html }
+}
+
 function headingDestinations(nodes: readonly ChildNode[], prefix?: string): string[] {
   const ids: string[] = []
   for (const node of nodes) {

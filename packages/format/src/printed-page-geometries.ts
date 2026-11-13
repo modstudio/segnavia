@@ -15,7 +15,17 @@ export interface ResolvedPrintedPageGeometry {
 export interface PrintedGeometrySource {
   print?: Print
   style?: StyleSheet
-  printedPages?: { parents: ParentPage[]; sections?: readonly { pageGeometry?: string }[] }
+  printedPages?: {
+    parents: ParentPage[]
+    sections?: readonly { id: string; title?: string; pageGeometry?: string; pages?: readonly unknown[] }[]
+  }
+}
+
+export interface PrintedSectionPaper {
+  section: string
+  pageGeometry?: string
+  paper: { width: number; height: number }
+  print: Print
 }
 
 function resolvedParents(parents: ParentPage[], margin: typeof ZERO_MARGIN): ResolvedParentPage[] {
@@ -58,4 +68,35 @@ export function printedPageGeometries(source: PrintedGeometrySource): ResolvedPr
       return geometry ? [geometry] : []
     }),
   ]
+}
+
+export function printedPageGeometryByName(source: PrintedGeometrySource, name?: string): ResolvedPrintedPageGeometry | undefined {
+  return printedPageGeometries(source).find((geometry) => geometry.name === name)
+}
+
+export function unknownPrintedPageGeometryRefusal(source: PrintedGeometrySource, name: string): string {
+  const section = source.printedPages?.sections?.find((candidate) => candidate.pageGeometry === name)
+  const label = section?.title ?? section?.id ?? name
+  return `Section ${JSON.stringify(label)} names unknown page geometry ${JSON.stringify(name)}; declare it in style.pageGeometries, or remove pageGeometry to clear this refusal.`
+}
+
+export function printedSectionPapers(source: PrintedGeometrySource): PrintedSectionPaper[] {
+  const sourcePrint = source.print
+  if (!sourcePrint) return []
+  return (source.printedPages?.sections ?? []).flatMap((section) => {
+    const geometry = printedPageGeometryByName(source, section.pageGeometry)
+    if (!geometry && section.pageGeometry !== undefined) throw new RangeError(unknownPrintedPageGeometryRefusal(source, section.pageGeometry))
+    if (!geometry) return []
+    const print: Print = {
+      ...sourcePrint,
+      paper: { ...geometry.paper, unit: 'mm' },
+      orientation: geometry.paper.width > geometry.paper.height ? 'landscape' : 'portrait',
+    }
+    return Array.from({ length: section.pages?.length ?? 1 }, () => ({
+      section: section.id,
+      ...(section.pageGeometry === undefined ? {} : { pageGeometry: section.pageGeometry }),
+      paper: geometry.paper,
+      print,
+    }))
+  })
 }

@@ -125,11 +125,9 @@ export {
   type PrintedHtmlPage,
   printedPageAuthorHtml,
   printedPageDirection,
-  printedSectionBodies,
   type ResolvePageHtmlOptions,
   resolvePageHtml,
   resolvePrintedPageHtml,
-  withPrintedSectionBodies,
 } from './markdown.ts'
 export { measureAttributeIssues } from './measure-attributes.ts'
 export {
@@ -164,7 +162,7 @@ export {
   type ResolvePlacement,
   resolvePlacements,
 } from './placements.ts'
-export { printedSectionFlows, printedSectionOutlineHtml } from './printed-section-flows.ts'
+export { printedSectionBodies, printedSectionFlows, printedSectionOutlineHtml, withPrintedSectionBodies } from './printed-section-flows.ts'
 export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, fillDeckAsOfBindings, mapBookHtml } from './record-as-of.ts'
 export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
 export { resolveEdition } from './resolve-edition.ts'

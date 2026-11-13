@@ -181,6 +181,19 @@ export type DocumentNodeType = (typeof DOCUMENT_PROFILES)[DocumentKind]['childre
 export type DocumentDefinition = (typeof DOCUMENT_PROFILES)[DocumentKind]['definitions'][number]
 export type DocumentField = (typeof DOCUMENT_PROFILES)[DocumentKind]['fields'][number]
 
+interface ChildForm {
+  nodes: readonly string[]
+  exact?: number
+  min?: number
+}
+
+export function matchesChildForms(children: readonly { type: string }[], forms: readonly ChildForm[]): boolean {
+  return forms.some((form) => {
+    if (children.some((node) => !form.nodes.includes(node.type))) return false
+    return form.exact === undefined ? form.min !== undefined && children.length >= form.min : children.length === form.exact
+  })
+}
+
 export function profileRefusal(value: string, kind: DocumentKind, allowed: readonly string[], subject = 'node'): string {
   return `${subject} ${value} is not allowed in a ${kind} document; use one of ${allowed.join(', ')} to clear this refusal`
 }

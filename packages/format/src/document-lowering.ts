@@ -3,6 +3,7 @@ import { Book, type Book as BookValue } from './book.ts'
 import { Deck, type Deck as DeckValue } from './deck.ts'
 import { Document, type DocumentShapeValue, type Document as DocumentValue } from './document.ts'
 import { documentBookProjection, documentSectionFields } from './document-book-items.ts'
+import { DOCUMENT_PROFILES } from './document-profile.ts'
 import { Page, type Page as PageValue } from './page.ts'
 import type { PrintedPages } from './printed-pages.ts'
 import { recordExpansion } from './record-expansion.ts'
@@ -194,7 +195,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
       ]
     }
     const flow = node.children[0]
-    if (flow?.type !== 'flow') throw new Error('a printed section needs exactly one flow child or one or more page children')
+    if (flow?.type !== 'flow') throw new Error(DOCUMENT_PROFILES.printed.sectionChildren.message)
     return [
       {
         path,

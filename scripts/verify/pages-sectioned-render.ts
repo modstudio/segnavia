@@ -33,4 +33,24 @@ export function verifySectionedRender(output: string, check: Check): void {
   )
   const mixedText = execFileSync('pdftotext', ['-layout', mixedPath, '-'], { encoding: 'utf8' })
   check('the flowing landscape section renders its body on the landscape paper', mixedText.includes('LANDSCAPE FLOW'))
+
+  const bleedInfo = execFileSync('pdfinfo', ['-box', '-f', '1', '-l', '3', path.join(output, 'pages-mixed-paper-bleed.pdf')], { encoding: 'utf8' })
+  const pageBoxes = (name: string) =>
+    [...bleedInfo.matchAll(new RegExp(`Page\\s+\\d+\\s+${name}:\\s+([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)\\s+([\\d.]+)`, 'g'))].map((match) =>
+      match.slice(1).map(Number),
+    )
+  const pt = (millimeters: number) => (millimeters * 72) / 25.4
+  const expected = [
+    { media: [0, 0, pt(228), pt(315)], bleed: [pt(6), pt(6), pt(222), pt(309)], trim: [pt(9), pt(9), pt(219), pt(306)] },
+    { media: [0, 0, pt(315), pt(228)], bleed: [pt(6), pt(6), pt(309), pt(222)], trim: [pt(9), pt(9), pt(306), pt(219)] },
+    { media: [0, 0, pt(233.9), pt(297.4)], bleed: [pt(6), pt(6), pt(227.9), pt(291.4)], trim: [pt(9), pt(9), pt(224.9), pt(288.4)] },
+  ]
+  const media = pageBoxes('MediaBox')
+  const bleed = pageBoxes('BleedBox')
+  const trim = pageBoxes('TrimBox')
+  check(
+    'mixed-paper bleed prints each page with its own media, bleed and trim boxes',
+    expected.every((boxes, index) => close(media[index], boxes.media) && close(bleed[index], boxes.bleed) && close(trim[index], boxes.trim)),
+    JSON.stringify({ media, bleed, trim }),
+  )
 }

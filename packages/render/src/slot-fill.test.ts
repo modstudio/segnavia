@@ -163,7 +163,10 @@ test('sectioned printed pages fill every designed and flowing body and refuse mu
         parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
         parentRules: [{ parent: 'body' }],
         sections: [
-          { id: 'one', pages: [{ html: '<p data-slot-value="name">Designed</p>' }] },
+          {
+            id: 'one',
+            pages: [{ html: '<p data-slot-value="name">First designed</p>' }, { html: '<p data-slot-value="name">Second designed</p><p>Second marker</p>' }],
+          },
           { id: 'two', html: '<p data-slot-value="name">Flow</p>' },
         ],
       },
@@ -173,16 +176,17 @@ test('sectioned printed pages fill every designed and flowing body and refuse mu
   const { value, slots: prepared } = await filledPage(page, fill)
   expect(value.printedPages.sections.flatMap((section) => ('pages' in section ? section.pages.map((held) => held.html) : [section.html]))).toEqual([
     '<p dir="auto">Ada</p>',
+    '<p dir="auto">Ada</p><p>Second marker</p>',
     '<p dir="auto">Ada</p>',
   ])
-  expect(prepared.frames).toHaveLength(2)
+  expect(prepared.frames).toHaveLength(3)
   const collection = await filledPages([page], fill)
   const collected = collection.value[0]
   expect(collected && 'printedPages' in collected ? collected.printedPages?.sections?.[0] : undefined).toMatchObject({
-    pages: [{ html: '<p dir="auto">Ada</p>' }],
+    pages: [{ html: '<p dir="auto">Ada</p>' }, { html: '<p dir="auto">Ada</p><p>Second marker</p>' }],
   })
-  expect(collection.slots.frames).toHaveLength(2)
-  expect(collection.frameGroups).toEqual([[0, 1]])
+  expect(collection.slots.frames).toHaveLength(3)
+  expect(collection.frameGroups).toEqual([[0, 1, 2]])
   await expect(filledPage(page, { fills: [fill, fill] })).rejects.toThrow('Pass fill or source for a single copy')
 })
 

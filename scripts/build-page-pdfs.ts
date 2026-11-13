@@ -2,7 +2,7 @@ import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import type { MotifsOptions, Renderer } from '@segnavia/render'
 import { editionWorksheet, worksheetPage } from './demo-field-fixture.ts'
-import { printedMixedPaperDocument } from './demo-mixed-paper-fixture.ts'
+import { printedMixedPaperBleedDocument, printedMixedPaperDocument } from './demo-mixed-paper-fixture.ts'
 import {
   bleedGridImposition,
   bleedGridPages,
@@ -59,6 +59,7 @@ export async function buildPagePdfs(renderer: Renderer, output: string, site?: s
   writeFileSync(path.join(output, 'pages-sectioned.pdf'), await renderer.pagePdf(printedSectionDocument))
   writeFileSync(path.join(output, 'pages-sectioned-multi.pdf'), await renderer.pagesPdf([printedSectionDocument]))
   writeFileSync(path.join(output, 'pages-mixed-paper.pdf'), await renderer.pagePdf(printedMixedPaperDocument))
+  writeFileSync(path.join(output, 'pages-mixed-paper-bleed.pdf'), await renderer.pagePdf(printedMixedPaperBleedDocument))
   writeFileSync(path.join(output, 'records-table.pdf'), await renderer.pagePdf(recordsTableDocument))
   writeFileSync(path.join(output, 'records-hebrew.pdf'), await renderer.pagePdf(hebrewRecordsDocument))
   writeFileSync(path.join(output, 'page-worksheet.pdf'), await renderer.pagePdf(worksheetPage))

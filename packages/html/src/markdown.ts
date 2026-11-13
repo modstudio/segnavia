@@ -8,6 +8,7 @@ import remarkRehype from 'remark-rehype'
 import { unified } from 'unified'
 import { parse as parseYaml } from 'yaml'
 import { MARKDOWN_CONVERTER_POLICY } from './markdown-policy.ts'
+import { printedSectionBodies } from './printed-section-flows.ts'
 import { sanitize } from './sanitize.ts'
 
 export type MarkdownHeading = { id: string; level: number; title: string }
@@ -357,16 +358,6 @@ export function resolvePrintedPageHtml(page: Page | HtmlPage | PrintedHtmlPage):
 
 export function isPrintedHtmlPage(page: Page | HtmlPage | PrintedHtmlPage): page is PrintedHtmlPage {
   return 'printedPages' in page && page.printedPages?.sections !== undefined && !('html' in page)
-}
-
-export function printedSectionBodies(section: PrintedSection): string[] {
-  return 'pages' in section ? section.pages.map((page) => page.html) : [section.html]
-}
-
-export function withPrintedSectionBodies(section: PrintedSection, bodies: string[]): PrintedSection {
-  return 'pages' in section
-    ? { ...section, pages: section.pages.map((page, index) => ({ ...page, html: bodies[index] ?? page.html })) }
-    : { ...section, html: bodies[0] ?? section.html }
 }
 
 export function printedPageAuthorHtml(page: HtmlPage | PrintedHtmlPage): string {

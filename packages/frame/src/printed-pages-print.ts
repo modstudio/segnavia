@@ -4,7 +4,7 @@ import {
   isPrintedPageIdentityImposition,
   mixedImpositionGeometryRefusal,
   paperViewport,
-  printedPageGeometries,
+  printedSectionPapers,
   sheetMm,
 } from '@segnavia/format'
 import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
@@ -41,14 +41,7 @@ export async function printedPagesPrintDocument(
   const printed = pages.filter((page) => page.printedPages)
   for (const page of printed) {
     const resolved = resolvePrintedPageHtml(page)
-    const byName = new Map(printedPageGeometries(resolved).map((geometry) => [geometry.name, geometry.paper]))
-    const pieces = resolved.printedPages.sections.flatMap((section) => {
-      const paper = byName.get(section.pageGeometry)
-      if (!paper) return []
-      return Array.from({ length: 'pages' in section ? section.pages.length : 1 }, () => ({
-        print: { paper: { ...paper, unit: 'mm' as const }, orientation: paper.width > paper.height ? ('landscape' as const) : ('portrait' as const) },
-      }))
-    })
+    const pieces = printedSectionPapers(resolved)
     const sectionRefusal = mixedImpositionGeometryRefusal(pieces)
     if (sectionRefusal) throw new RangeError(sectionRefusal)
     if (!page.print || !isPrintedPageIdentityImposition(page.print, imposition)) {
