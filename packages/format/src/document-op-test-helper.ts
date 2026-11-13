@@ -122,8 +122,7 @@ export function generatedCandidateDocuments(seed: number): DocumentValue[] {
                 { type: 'division', name: 'body', children: [DOCUMENT_NODE_SAMPLES.flow(seed + 1)] },
               ]
             : [childForKind(type, kind, seed)]
-      }
-      else continue
+      } else continue
       candidates.push(candidate)
     }
   }
@@ -235,6 +234,7 @@ function bookStructureEdit(edited: DocumentValue, mode: 'insert' | 'remove' | 'w
     return true
   }
   if (mode === 'remove') {
+    if (held.length < 2) return false
     const index = held.findIndex((node) => Array.isArray(node.children) && node.children.length > 0)
     if (index >= 0) held.splice(index, 1)
     return index >= 0

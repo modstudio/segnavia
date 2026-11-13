@@ -4,7 +4,7 @@ import { documentBookProjection, documentSourcePath } from './document-book-item
 import { bookInputFromDocument, pageInputFromDocument } from './document-lowering.ts'
 import { Page } from './page.ts'
 
-type Path = PropertyKey[]
+type Path = (string | number)[]
 type LowerableDocument = Parameters<typeof bookInputFromDocument>[0]
 
 const BOOK_ROOT_PATHS: Readonly<Record<string, Path>> = {
@@ -108,7 +108,10 @@ function addResultIssues(
   ctx: z.RefinementCtx,
 ): void {
   if (result.success) return
-  for (const issue of result.error.issues) ctx.addIssue({ code: 'custom', path: path(issue.path), message: issue.message })
+  for (const issue of result.error.issues) {
+    const issuePath = issue.path.map((part) => (typeof part === 'symbol' ? String(part) : part))
+    ctx.addIssue({ code: 'custom', path: path(issuePath), message: issue.message })
+  }
 }
 
 export function refineLoweredDocument(document: LowerableDocument, ctx: z.RefinementCtx): void {

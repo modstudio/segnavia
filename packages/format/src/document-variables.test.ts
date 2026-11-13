@@ -63,7 +63,8 @@ test('names the document node holding an undeclared data-variable', () => {
   })
   expect(result.success).toBe(false)
   if (result.success) return
-  expect(result.error.issues).toContainEqual(
+  const error = result.error as { issues: Array<{ path: PropertyKey[]; message: string }> }
+  expect(error.issues).toContainEqual(
     expect.objectContaining({
       path: ['children', 0, 'children', 0],
       message: expect.stringContaining('children[0].children[0]: data-variable names undeclared variable "missing"'),

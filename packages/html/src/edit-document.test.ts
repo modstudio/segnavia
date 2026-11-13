@@ -164,7 +164,12 @@ describe('editDocument command handlers', () => {
             { type: 'section', id: 'kept-one', title: 'Kept one', children: [{ type: 'flow', id: 'kept-one-flow', html: '' }] },
           ],
         },
-        { type: 'part', id: 'two', name: 'Two', children: [{ type: 'section', id: 'kept-two', title: 'Kept two', children: [{ type: 'flow', id: 'kept-two-flow', html: '' }] }] },
+        {
+          type: 'part',
+          id: 'two',
+          name: 'Two',
+          children: [{ type: 'section', id: 'kept-two', title: 'Kept two', children: [{ type: 'flow', id: 'kept-two-flow', html: '' }] }],
+        },
       ],
     })
     const result = editDocument(input, [{ type: 'move', node: { id: 'section' }, to: { parent: { id: 'two' }, index: 0 } }])
@@ -225,7 +230,6 @@ describe('editDocument refusals', () => {
       kind: 'book',
       metadata: { title: 'Book' },
       mode: 'continuous',
-      children: [{ type: 'flow', id: 'flow', title: 'Body', html: '' }],
       children: [
         { type: 'part', id: 'a', name: 'same', children: [{ type: 'flow', id: 'a-flow', title: 'A', html: '' }] },
         { type: 'part', id: 'b', name: 'same', children: [{ type: 'flow', id: 'b-flow', title: 'B', html: '' }] },

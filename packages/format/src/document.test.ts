@@ -117,8 +117,7 @@ describe('Document', () => {
         settings: { dir: 'auto' },
         limits: { pages: 12 },
         children: [{ type: 'flow', title: 'Body', html: '' }],
-      })
-        .limits,
+      }).limits,
     ).toEqual({ pages: 12 })
     expect(() => Document.parse({ type: 'document', kind: 'board', limits: { pages: 12 }, children: [] })).toThrow(
       'document field limits is not yet supported; remove it to clear this refusal',
