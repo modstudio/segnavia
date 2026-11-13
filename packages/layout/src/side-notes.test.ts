@@ -29,9 +29,9 @@ test('places tiled notes once on the tile that shows their physical side', () =>
     const firstTile = direction === 'ltr' ? 0 : 2
     const lastTile = direction === 'ltr' ? 2 : 0
     expect(start[firstTile]?.notes.map((note) => note.id)).toEqual(['start', 'end'])
-    expect(start.filter((held, index) => index < 3 && index !== firstTile).every((held) => held.notes.length === 0)).toBe(true)
+    expect(start.filter((_held, index) => index < 3 && index !== firstTile).every((held) => held.notes.length === 0)).toBe(true)
     expect(end[lastTile]?.notes.map((note) => note.id)).toEqual(['start', 'end'])
-    expect(end.filter((held, index) => index < 3 && index !== lastTile).every((held) => held.notes.length === 0)).toBe(true)
+    expect(end.filter((_held, index) => index < 3 && index !== lastTile).every((held) => held.notes.length === 0)).toBe(true)
     expect(start[3]).toEqual({ page: 3, notes: [{ id: 'untiled', top: 25, column: 0, columns: 1, side: 'right' }] })
   }
 })

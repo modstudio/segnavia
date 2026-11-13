@@ -1,8 +1,6 @@
 import { type Measurements, type Plan, type PreflightEntry, type ResolvedLineNumbers, resolveDirection, type SideNotes } from '@segnavia/format'
 import { type NumberedLine, numberLines, type PageLineNumbers, type PageSideNotes, placeSideNotes, stackDownward } from '@segnavia/layout'
 
-const MARGIN_LINE_NUMBER_SELECTOR = '[data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-line-number]'
-
 interface DrawConfig {
   area: 'text' | 'margin'
   direction: 'ltr' | 'rtl'
@@ -10,6 +8,11 @@ interface DrawConfig {
   pageMarker: string
   lineNumbers?: ResolvedLineNumbers
   sideNotes?: SideNotes
+}
+
+export function marginLineNumberSelector(side?: 'left' | 'right'): string {
+  const selector = '[data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-line-number]'
+  return side ? `${selector}[data-segnavia-side="${side}"]` : selector
 }
 
 export function intersects(a: DOMRect, b: DOMRect): boolean {
@@ -111,7 +114,7 @@ export function appendMissingSideNote(entries: PreflightEntry[], id: string, fol
 
 export function widestLineNumber(page: HTMLElement, side: 'left' | 'right'): number {
   let width = 0
-  for (const number of page.querySelectorAll(`${MARGIN_LINE_NUMBER_SELECTOR}[data-segnavia-side="${side}"]`)) {
+  for (const number of page.querySelectorAll(marginLineNumberSelector(side))) {
     width = Math.max(width, number.getBoundingClientRect().width)
   }
   return width
@@ -212,7 +215,7 @@ export function drawPageSideNotes(
   }
   text.append(container)
   const furniture = page.querySelectorAll('[data-segnavia-region]')
-  const numbers = page.querySelectorAll(MARGIN_LINE_NUMBER_SELECTOR)
+  const numbers = page.querySelectorAll(marginLineNumberSelector())
   for (const side of ['left', 'right'] as const) stackPageSideNotes(drawn, side, gap, pageRect, furniture, numbers, entries, folio)
 }
 

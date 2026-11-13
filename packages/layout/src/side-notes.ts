@@ -22,14 +22,15 @@ function placeSourcePageSideNotes(
   direction: 'ltr' | 'rtl',
   result: PageSideNotes[],
 ): void {
-  const page = group.tiles[0]!.page
+  const page = group.tiles[0].page
   for (const window of page.windows) {
     const flow = measurements.flows.find((candidate) => candidate.id === window.flow)
     for (const note of flow?.sideNotes ?? []) {
       if (note.top < window.start || note.top >= window.end) continue
       const side = resolveMarginSide(settings.side, page, note.direction)
       const inlineStart = direction === 'ltr' ? 'left' : 'right'
-      const tile = side === inlineStart ? group.tiles[0]! : group.tiles.at(-1)!
+      const tile = group.tiles[side === inlineStart ? 0 : group.tiles.length - 1]
+      if (!tile) continue
       result[tile.index]?.notes.push({
         id: note.id,
         top: windowAnchorTop(window, note.top),

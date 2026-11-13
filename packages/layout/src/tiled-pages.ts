@@ -9,7 +9,7 @@ export interface PlanPageTile {
 
 export interface PlanPageTiles {
   sourceIndex: number
-  tiles: PlanPageTile[]
+  tiles: [PlanPageTile, ...PlanPageTile[]]
 }
 
 /** Enumerates each source page together with its consecutive inline overflow tiles. */
@@ -18,8 +18,8 @@ export function tiledPageGroups(plan: Plan): PlanPageTiles[] {
   for (let index = 0; index < plan.pages.length; index += 1) {
     const page = plan.pages[index] as TiledPlanPage | undefined
     if (!page) continue
-    if (page.inlineTile === undefined || page.inlineTile === 0) groups.push({ sourceIndex: groups.length, tiles: [] })
-    groups.at(-1)?.tiles.push({ index, page })
+    if (page.inlineTile === undefined || page.inlineTile === 0) groups.push({ sourceIndex: groups.length, tiles: [{ index, page }] })
+    else groups.at(-1)?.tiles.push({ index, page })
   }
   return groups
 }

@@ -68,8 +68,8 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Re
   let counter = settings.start
   let previousFlow: string | undefined
   let previousChapter: number | undefined
-  for (let pageIndex = 0; pageIndex < groups.length; pageIndex += 1) {
-    const page = groups[pageIndex]!.tiles[0]!.page
+  for (const [pageIndex, group] of groups.entries()) {
+    const page = group.tiles[0].page
     if (settings.restart === 'page') counter = settings.start
     const windows = page.windows
     for (const window of windows) {
