@@ -364,6 +364,11 @@ export const printedSectionDocument: DocumentInput = {
   ],
 }
 
+export const printedSectionPressDocument: DocumentInput = {
+  ...printedSectionDocument,
+  print: { paper: 'letter', bleed: 3, marks: true },
+}
+
 const imageWords = Array.from({ length: 220 }, (_, index) => `<span>ImageWord-${index + 1} </span>`)
 const unsizedImage = encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="420"><rect width="240" height="420" fill="#ddd"/></svg>')
 

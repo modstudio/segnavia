@@ -13,7 +13,7 @@ import { addPressBoxesByPage, assertPrintOptions, printPage } from './page-paper
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { setPdfPageSizes } from './pdf-page-size.ts'
-import { printedPagePdfPlan } from './printed-page-pdf-plan.ts'
+import { printedPagePdfPlan, usesPrintedPagePdfPlan } from './printed-page-pdf-plan.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import { renderReadiness } from './render-readiness.ts'
@@ -68,19 +68,20 @@ export async function renderPagePdf(
   tagged = false,
 ): Promise<PrintResult<true>> {
   if (page.print) assertPrintOptions(page.print, opts.preferCssPageSize)
-  const perGeometry = Boolean(page.print && page.printedPages?.sections?.some((section) => section.pageGeometry !== undefined))
   const geometryPlan =
-    page.print && perGeometry
+    page.print && page.printedPages
       ? printedPagePdfPlan(
           printedPageGeometries(page).map((geometry) => geometry.paper),
           page.print,
         )
       : undefined
+  // Keep the legacy no-press, one-paper path so single-geometry printed goldens remain byte-identical.
+  const perPagePlan = geometryPlan && usesPrintedPagePdfPlan(geometryPlan) ? geometryPlan : undefined
   const { grows: _grows, ...defaultViewport } = pageViewport(page, undefined, opts.pageWidths)
-  const viewport = geometryPlan
+  const viewport = perPagePlan
     ? {
-        width: Math.round(Math.max(...geometryPlan.sizes.map((paper) => paper.width)) * PX_PER_MM),
-        height: Math.round(Math.max(...geometryPlan.sizes.map((paper) => paper.height)) * PX_PER_MM),
+        width: Math.round(Math.max(...perPagePlan.sizes.map((paper) => paper.width)) * PX_PER_MM),
+        height: Math.round(Math.max(...perPagePlan.sizes.map((paper) => paper.height)) * PX_PER_MM),
       }
     : defaultViewport
   return services.withTab(
@@ -103,7 +104,7 @@ export async function renderPagePdf(
       const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
         const print = page.print
-        if (perGeometry) {
+        if (perPagePlan) {
           const names = await tab.evaluate(() =>
             [...document.querySelectorAll('[data-segnavia-printed-page]')].map((paper) => paper.getAttribute('data-segnavia-page-geometry') ?? ''),
           )

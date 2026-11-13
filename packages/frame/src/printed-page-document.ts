@@ -22,6 +22,7 @@ import {
   regionOverflowRefusalEnabled,
   resolveLimits,
   resolveLineNumbers,
+  usesPressLayout,
   withLibraryEntries,
 } from '@segnavia/format'
 import {
@@ -133,7 +134,7 @@ function printedRecordSlots(sections: PrintedHtmlPage['printedPages']['sections'
 }
 
 function printedGeometryConfig(geometries: ReturnType<typeof printedComposerGeometries>, print: PrintedHtmlPage['print']) {
-  if (geometries.length !== 1) return { pageRules: composerPageRules(geometries, print), geometries }
+  if (geometries.length !== 1 || (print && usesPressLayout(print))) return { pageRules: composerPageRules(geometries, print), geometries }
   const geometry = geometries[0] as (typeof geometries)[number]
   return {
     pageRules: `@page{size:${geometry.paper.width}mm ${geometry.paper.height}mm;margin:0}`,

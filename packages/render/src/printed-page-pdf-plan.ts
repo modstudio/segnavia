@@ -16,3 +16,7 @@ export function printedPagePdfPlan(papers: readonly Paper[], print: Print): Prin
   )
   return { sizes: boxes.map((item) => item.bleedBox), pressBoxes: boxes, sourceBox: 'bleed' }
 }
+
+export function usesPrintedPagePdfPlan(plan: PrintedPagePdfPlan): boolean {
+  return plan.pressBoxes !== undefined || plan.sizes.length > 1
+}

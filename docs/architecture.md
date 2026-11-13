@@ -1276,9 +1276,11 @@ exact trim, bleed and media boxes around it, and an imposition piece is
 corrected before it is embedded, so both are drawn at scale 1. A browser page whose width or height is more than 2 points from the requested
 paper is refused rather than treated as a rounding difference.
 
-**Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. These settings are document-wide and apply separately to every paper in a printed document. Identity imposition refuses mixed papers. Its
-`paper` is the trim, the finished size after cutting. The page lays out inside
-the trim. A page's root background continues through the bleed. A book's
+**Trim, bleed and safe area.** `Print` has `bleed`, `safe` and `marks`. Its
+`paper` is the trim, the finished size after cutting. These settings are
+document-wide and apply separately to every paper in a printed document.
+Identity imposition refuses mixed papers. The page lays out inside the trim. A
+page's root background continues through the bleed. A book's
 bleed is part of its CSS page box, so an `@page` background paints it and a
 root background stops at the trim. In both,
 `--segnavia-bleed` and `--segnavia-safe` give author CSS the two distances, so

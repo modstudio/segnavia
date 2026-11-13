@@ -135,6 +135,34 @@ test('a structurally cloned filled value renders with its explicit slots', async
   expect(renderedSlots).toBe(result.slots)
 })
 
+test('an unnamed composed press page selects the per-page bleed plan', async () => {
+  const page = resolvePrintedPageHtml(
+    Page.parse({
+      html: '<p>Two-page body</p><p style="break-before:page">Second page</p>',
+      print: { paper: 'a4', bleed: 3, marks: true },
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+        parentRules: [{ parent: 'body' }],
+      },
+    }),
+  )
+  const filled = await filledPage(page, {})
+  let viewport: { width: number; height: number } | undefined
+  const rendered = renderPagePdf(
+    filled.value,
+    filled.slots,
+    {},
+    {
+      withTab: async (setup) => {
+        viewport = setup.viewport
+        throw new Error('stop after setup')
+      },
+    },
+  )
+  await expect(rendered).rejects.toThrow('stop after setup')
+  expect(viewport).toEqual({ width: 816, height: 1145 })
+})
+
 test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor host declarations', async () => {
   const page = Page.parse({ html: '<p data-slot-value="host.name">Design text</p>' })
   const { value: filledPageResult } = await filledPage(page, slots)
