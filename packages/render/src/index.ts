@@ -1,5 +1,5 @@
 import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
-import { fillPageAsOfBindings, type PreparedSlots, parseDocument, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
+import { fillPageAsOfBindings, isPrintedHtmlPage, type PreparedSlots, parseDocument, printedPageAuthorHtml, printedPageDirection } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
 import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
@@ -196,6 +196,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             prepared.fontFailures,
             resolvedLayoutScripts,
             Boolean(parsedOptions.watermark),
+            isPrintedHtmlPage(page),
           )
           if (printed.overflow) overflows.push(printed.overflow)
           const [watermarked] = await watermarkCopies.stamp([{ ...printed, page }])

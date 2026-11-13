@@ -166,12 +166,13 @@
       "depth": 0
     }
   ],
+  "structure": { "tree": true, "marked": true },
   "fonts": ["DejaVuSans", "DejaVuSansMono", "LiberationSerif", "LiberationSerif-Bold"],
   "info": {
     "Title": "The Paged Book",
     "Custom Metadata": "no",
     "Metadata Stream": "yes",
-    "Tagged": "no",
+    "Tagged": "yes",
     "UserProperties": "no",
     "Suspects": "no",
     "Form": "none",

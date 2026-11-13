@@ -18,6 +18,7 @@
     }
   ],
   "outline": [],
+  "structure": { "tree": false, "marked": false },
   "fonts": ["DejaVuSans", "DejaVuSans-Bold"],
   "info": {
     "Title": "Creating a class",

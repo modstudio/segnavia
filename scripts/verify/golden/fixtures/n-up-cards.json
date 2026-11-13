@@ -10,6 +10,7 @@
     }
   ],
   "outline": [],
+  "structure": { "tree": false, "marked": false },
   "fonts": ["LiberationSans"],
   "info": {
     "Custom Metadata": "no",

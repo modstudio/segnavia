@@ -12,6 +12,7 @@ export interface GoldenPage {
 export interface GoldenPdf {
   pages: GoldenPage[]
   outline: GoldenOutlineItem[]
+  structure: { tree: boolean; marked: boolean }
   fonts: string[]
   info: Record<string, string>
   xmp: string

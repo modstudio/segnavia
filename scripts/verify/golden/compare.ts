@@ -16,6 +16,7 @@ export function firstGoldenDifference(expected: GoldenPdf, actual: GoldenPdf): G
     if (!same(wanted?.size, found?.size)) return { field: `page ${index + 1} size`, expected: wanted?.size, actual: found?.size }
   }
   if (!same(expected.outline, actual.outline)) return { field: 'outline', expected: expected.outline, actual: actual.outline }
+  if (!same(expected.structure, actual.structure)) return { field: 'structure', expected: expected.structure, actual: actual.structure }
   for (let index = 0; index < expected.pages.length; index += 1) {
     const wanted = expected.pages[index]?.text
     const found = actual.pages[index]?.text

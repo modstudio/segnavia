@@ -8,6 +8,7 @@ const fixture = (): GoldenPdf => ({
     { size: [100, 200], text: 'body' },
   ],
   outline: [{ title: 'Chapter', page: 2, depth: 0 }],
+  structure: { tree: true, marked: true },
   fonts: ['NotoSerifHebrew'],
   info: { Title: 'Book' },
   xmp: '<title>Book</title>',
@@ -18,6 +19,7 @@ describe('golden PDF comparison', () => {
     ['page count', (actual: GoldenPdf) => actual.pages.push({ size: [100, 200], text: '' })],
     ['page 1 text', (actual: GoldenPdf) => (actual.pages[0] = { ...(actual.pages[0] as GoldenPdf['pages'][number]), text: 'folio ט״ז' })],
     ['outline', (actual: GoldenPdf) => actual.outline.push({ title: 'Duplicate', page: 2, depth: 0 })],
+    ['structure', (actual: GoldenPdf) => (actual.structure.marked = false)],
   ])('names the fixture and first differing %s field', (field, mutate) => {
     const expected = fixture()
     const actual = structuredClone(expected)
