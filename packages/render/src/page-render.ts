@@ -1,4 +1,4 @@
-import type { FontFailure } from '@segnavia/format'
+import { type FontFailure, printedPageGeometries, printBoxes, usesPressLayout } from '@segnavia/format'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type HtmlPage, type PreparedSlots, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
 import type { Frame, Page as Tab } from 'playwright-core'
@@ -8,7 +8,8 @@ import { assetSetup, type ComposedRenderOptions, type RenderOptions } from './op
 import { measureOverflow, type PageFontFacts, type PrintResult, printWithOverflow } from './overflow.ts'
 import { containFixedPageOverflow } from './overflow-containment.ts'
 import { resolvedPageDocument } from './page-document.ts'
-import { assertPrintOptions, printPage } from './page-paper.ts'
+import { addPressBoxesByPage, assertPrintOptions, printPage } from './page-paper.ts'
+import { setPdfPageSizes } from './pdf-page-size.ts'
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
@@ -85,6 +86,29 @@ export async function renderPagePdf(
       const captures = await prepareBackdropRasters(tab, opts.effects)
       const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
       if (page.print) {
+        const perGeometry = Boolean(page.printedPages?.sections?.some((section) => section.pageGeometry !== undefined))
+        if (perGeometry) {
+          const names = await tab.evaluate(() =>
+            [...document.querySelectorAll('[data-segnavia-printed-page]')].map((paper) => paper.getAttribute('data-segnavia-page-geometry') ?? ''),
+          )
+          const byName = new Map(printedPageGeometries(page).map((geometry) => [geometry.name ?? '', geometry]))
+          const papers = names.map((name) => {
+            const geometry = byName.get(name)
+            if (!geometry) throw new Error(`The composed paper names unknown page geometry ${JSON.stringify(name)}.`)
+            return geometry.paper
+          })
+          const printed = await printPage(tab, page.print, true, inputIndex, printedPageDirection(page), tagged)
+          const exact = await setPdfPageSizes(printed.bytes, papers)
+          const bytes = usesPressLayout(page.print)
+            ? await addPressBoxesByPage(
+                exact,
+                papers.map((paper) => printBoxes({ ...page.print, paper: { ...paper, unit: 'mm' }, orientation: 'portrait' })),
+                page.print.markColor,
+                'trim',
+              )
+            : exact
+          return { ...printed, ...font, bytes: await tagBackdropRasters(bytes, captures) }
+        }
         const printed = await printPage(tab, page.print, opts.preferCssPageSize, inputIndex, printedPageDirection(page), tagged)
         return { ...printed, ...font, bytes: await tagBackdropRasters(printed.bytes, captures) }
       }

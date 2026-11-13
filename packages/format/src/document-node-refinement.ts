@@ -1,6 +1,6 @@
 import type { z } from 'zod'
 import type { DocumentNode } from './document-nodes.ts'
-import { type DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
+import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document-profile.ts'
 import { renamedParentRulesFieldIssue } from './parent-rules.ts'
 import { refineRecords } from './record-refinement.ts'
 
@@ -49,6 +49,17 @@ function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: P
   const requirement = profile.sectionChildren
   if (requirement && (node.children.length !== requirement.exact || node.children[0]?.type !== requirement.node)) {
     ctx.addIssue({ code: 'custom', path: [...path, 'children'], message: requirement.message })
+  }
+  if (profile === DOCUMENT_PROFILES.printed) {
+    const flowing = node.children.length === 1 && node.children[0]?.type === 'flow'
+    const designed = node.children.length > 0 && node.children.every((child) => child.type === 'page')
+    if (!flowing && !designed) {
+      ctx.addIssue({
+        code: 'custom',
+        path: [...path, 'children'],
+        message: 'a printed section needs exactly one flow child or one or more page children; replace its children to clear this refusal',
+      })
+    }
   }
 }
 

@@ -41,7 +41,7 @@ export function pageGeometryIssues(facts: readonly PageGeometryFact[]): Document
 }
 
 export function documentPageGeometryIssues(document: DocumentPageGeometryFacts): DocumentPageGeometryIssue[] {
-  if (document.kind !== 'book') return []
+  if (document.kind !== 'book' && document.kind !== 'printed') return []
   const facts: PageGeometryFact[] = []
   const declaredNames = Object.keys(document.style?.pageGeometries ?? {})
   const visit = (nodes: DocumentNode[], path: (string | number)[]): void => {
@@ -49,7 +49,7 @@ export function documentPageGeometryIssues(document: DocumentPageGeometryFacts):
       const nodePath = [...path, index]
       if (node.type === 'section' && node.pageGeometry !== undefined) {
         const label = node.title ?? node.id ?? nodePath.join('.')
-        facts.push({ label, path: nodePath, pageGeometry: node.pageGeometry, declaredNames, mode: document.mode })
+        facts.push({ label, path: nodePath, pageGeometry: node.pageGeometry, declaredNames, mode: document.kind === 'book' ? document.mode : undefined })
       }
       if ('children' in node && node.children !== undefined) visit(node.children, [...nodePath, 'children'])
     })

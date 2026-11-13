@@ -16,12 +16,11 @@ import {
   type ParentRules,
   PX_PER_MM,
   preflightEnabled,
+  printedPageGeometries,
   printedFromDocument,
   regionOverflowRefusalEnabled,
   resolveLimits,
   resolveLineNumbers,
-  resolveParentPages,
-  sheetMm,
   textArea,
   withLibraryEntries,
 } from '@segnavia/format'
@@ -38,6 +37,7 @@ import {
   TARGET_LINKS_CSS,
 } from '@segnavia/html'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
+import { composerPageRules, type ComposerPageGeometry } from './book-page-geometries.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, COMPOSER_SCRIPT, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { refuseNamedDocumentBrand } from './document-brand-refusal.ts'
@@ -49,7 +49,8 @@ import { PrintedPagesRefusedError, printedPageGeometry } from './printed-page-ge
 export type { PageOrPrintedInput } from '@segnavia/format'
 
 function onlyImplicitSection(sections: PrintedHtmlPage['printedPages']['sections']) {
-  return sections.length === 1 && sections[0]?.implicit === true ? sections[0] : undefined
+  const section = sections[0]
+  return sections.length === 1 && section?.implicit === true && !('pages' in section) ? section : undefined
 }
 
 export {
@@ -116,22 +117,27 @@ export function printedPageValueDocument(
   const progress = options.progress !== false
   const metadata = options.metadata === undefined ? undefined : DocumentMetadata.parse(options.metadata)
   if (!page.printedPages || !page.print) throw new PrintedPagesRefusedError('A composed page needs printedPages and print.paper.')
-  const paper = sheetMm(page.print)
-  const resolved = resolveParentPages(page.printedPages.parents)
-  const measured = printedPageGeometry(page, resolved, paper.width, paper.height)
+  const geometries: ComposerPageGeometry[] = printedPageGeometries(page).map((geometry, index) => {
+    const measured = printedPageGeometry(page, geometry.parents, geometry.paper.width, geometry.paper.height, geometry.name)
+    const parents = geometry.parents.map((parent) => {
+      const margin = Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])) as typeof parent.margin
+      return { ...parent, margin, textArea: textArea({ margin }, { width: measured.paperWidth, height: measured.paperHeight }) }
+    })
+    return {
+      ...measured,
+      name: geometry.name,
+      pageName: `segnavia-page-${index + 1}`,
+      paper: geometry.paper,
+      columnGap: geometry.columns.gap * PX_PER_MM,
+      columnCount: geometry.columns.count,
+      parents,
+    }
+  })
   const direction = printedPageDirection(page)
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
-  const parents = resolved.map((parent) => {
-    const margin = Object.fromEntries(Object.entries(parent.margin).map(([key, value]) => [key, value * PX_PER_MM])) as typeof parent.margin
-    return {
-      ...parent,
-      margin,
-      textArea: textArea({ margin }, { width: measured.paperWidth, height: measured.paperHeight }),
-    }
-  })
   const parentRules: ParentRules = page.printedPages.parentRules
-  const baseCss = `@page{size:${paper.width}mm ${paper.height}mm;margin:0}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${paper.width}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_BASE_CSS}${page.printedPages.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS}${TARGET_LINKS_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
+  const baseCss = `${composerPageRules(geometries)}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${Math.max(...geometries.map((geometry) => geometry.paper.width))}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_BASE_CSS}${page.printedPages.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS}${TARGET_LINKS_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const preflightSeed = [...(options.preflightSeed ?? [])]
   const sheets = frameStyleSheets(
     page.style,
@@ -143,7 +149,7 @@ export function printedPageValueDocument(
     direction,
     dir: page.dir,
     lang: page.lang,
-    geometries: [{ ...measured, columnGap: 0, parents }],
+    geometries,
     notesGap: 0,
     orphans: 2,
     widows: 2,
@@ -151,7 +157,7 @@ export function printedPageValueDocument(
     endnotePlacement: 'chapter',
     variables: withLibraryEntries(LIBRARY_VARIABLES, page.printedPages.variables),
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, page.printedPages.headTemplates),
-    recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.values ?? {}])),
+    recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, 'values' in section ? (section.values ?? {}) : {}])),
     pageMarker: 'data-segnavia-printed-page',
     pageAttributes: ['data-segnavia-page-view'],
     refusalSubject: 'The printed page',
@@ -174,16 +180,18 @@ export function printedPageValueDocument(
   }
   const json = JSON.stringify(config).replace(/</g, '\\u003c')
   const sections = page.printedPages.sections
-  const parts = sections.map((section) => pageParts(section.html))
+  const parts = sections.map((section) => ('pages' in section ? section.pages.map((held) => pageParts(held.html)) : [pageParts(section.html)]))
+  const normalizedSections = sections.map((section, index) =>
+    'pages' in section
+      ? { ...section, pages: section.pages.map((held, pageIndex) => ({ html: parts[index]?.[pageIndex]?.body ?? held.html })) }
+      : { ...section, html: parts[index]?.[0]?.body ?? section.html },
+  )
   const implicit = onlyImplicitSection(sections)
   const flows = implicit
-    ? `<div data-segnavia-flow="${implicit.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${printedSectionOutlineHtml({ ...implicit, html: parts[0]?.body ?? '' })}</div>`
-    : printedSectionFlows(
-        sections.map((section, index) => ({ ...section, html: parts[index]?.body ?? '' })),
-        parentRules,
-      )
+    ? `<div data-segnavia-flow="${implicit.id}" data-segnavia-parent-rules="${JSON.stringify(parentRules).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">${printedSectionOutlineHtml({ ...implicit, html: parts[0]?.[0]?.body ?? '' })}</div>`
+    : printedSectionFlows(normalizedSections, parentRules)
   const flow = `<div data-segnavia-galleys>${flows}</div>`
-  const body = `${parts.map((part) => part.head).join('')}${flow}<script nonce="${options.nonce}">${composerScript(json)}</script>`
+  const body = `${parts.flat().map((part) => part.head).join('')}${flow}<script nonce="${options.nonce}">${composerScript(json)}</script>`
   return frameDocument(body, {
     scripts: 'refuse',
     nonce: options.nonce,

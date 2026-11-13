@@ -224,14 +224,26 @@ describe('Document', () => {
           { type: 'section', children: [flow] },
         ],
       }),
-    ).toThrow('remove the page or the sections to clear this refusal')
+    ).not.toThrow()
     expect(() => Document.parse({ ...root, children: [{ type: 'section', children: [] }] })).toThrow(
-      'replace its children with one flow child to clear this refusal',
+      'replace its children to clear this refusal',
     )
     expect(() => Document.parse({ ...root, children: [{ type: 'section', parentRules: [{ parent: 'body' }], children: [flow] }] })).not.toThrow()
-    expect(() => Document.parse({ ...root, children: [{ type: 'section', pageGeometry: 'wide', children: [flow] }] })).toThrow(
-      'remove it because printed sections share the document paper to clear this refusal',
-    )
+    expect(() =>
+      Document.parse({
+        ...root,
+        style: {
+          pageGeometries: {
+            wide: {
+              paper: 'a4',
+              orientation: 'landscape',
+              margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+            },
+          },
+        },
+        children: [{ type: 'section', pageGeometry: 'wide', children: [flow] }],
+      }),
+    ).not.toThrow()
     expect(() => Document.parse({ ...root, children: [{ type: 'section', opens: 'continue', children: [flow] }] })).toThrow(
       'use another opens value to clear this refusal',
     )

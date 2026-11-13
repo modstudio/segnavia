@@ -69,6 +69,11 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
         options.report?.(message.report)
       }
       if (message?.type === MESSAGE.composeFailure && message.text) return finish(new Error(message.text), true)
+      if (message?.type === MESSAGE.composeProgress && message.pages !== undefined && message.pages === message.total) {
+        const limits = resolveLimits(page.limits, options.limits)
+        if (message.total > limits.pages) return finish(new LimitExceededError('pages', message.total, limits.pages, { pagesSource: limits.pagesSource }), true)
+        return finish(message.total)
+      }
       if (message?.type !== MESSAGE.height || message.height === undefined || message.height < (paper.height * PX_PER_MM) / 2) return
       const count = Math.round(message.height / (paper.height * PX_PER_MM))
       const limits = resolveLimits(page.limits, options.limits)

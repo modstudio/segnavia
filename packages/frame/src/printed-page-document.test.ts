@@ -101,6 +101,34 @@ describe('printedPageDocument', () => {
     )
   })
 
+  test('configures named papers and fixed designed-page holders', () => {
+    const mixed = Page.parse({
+      ...page,
+      body: undefined,
+      style: {
+        pageGeometries: {
+          wide: {
+            paper: 'a4',
+            orientation: 'landscape',
+            margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 },
+          },
+        },
+      },
+      printedPages: {
+        ...page.printedPages,
+        sections: [
+          { id: 'cover', kind: 'fixed', pages: [{ html: '<h2>One</h2>' }] },
+          { id: 'wide', pageGeometry: 'wide', html: '<p>Wide</p>' },
+        ],
+      },
+    })
+    const html = printedPageValueDocument(resolvePrintedPageHtml(mixed), { nonce: 'held' })
+    expect(html).toContain('@page segnavia-page-1{size:210mm 297mm;margin:0}@page segnavia-page-2{size:297mm 210mm;margin:0}')
+    expect(html).toContain('data-segnavia-kind="fixed"')
+    expect(html).toContain('data-segnavia-designed-page="1"')
+    expect(html).toContain('data-page-geometry="wide"')
+  })
+
   test('joins a continuing printed section behind a section boundary', () => {
     const sectioned = Page.parse({
       ...page,

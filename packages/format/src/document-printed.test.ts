@@ -50,3 +50,46 @@ test('lowers printed line-number settings into printed pages', () => {
 
   expect(printedFromDocument(document).printedPages?.lineNumbers).toEqual(document.settings?.lineNumbers)
 })
+
+test('keeps designed pages, flowing sections, and records in author order', () => {
+  const document = Document.parse({
+    type: 'document',
+    kind: 'printed',
+    print: { paper: 'a4' },
+    parentPages: [{ type: 'parentPage', name: 'body' }],
+    parentRules: [{ parent: 'body' }],
+    children: [
+      { type: 'page', id: 'cover', body: { html: '<h2>Cover one</h2><h2>Cover two</h2>' } },
+      { type: 'section', id: 'text', pageGeometry: 'wide', children: [{ type: 'flow', html: '<p>Text</p>' }] },
+      { type: 'section', id: 'answer', children: [{ type: 'page', body: { html: '<p>Answer</p>' } }] },
+    ],
+    style: {
+      pageGeometries: {
+        wide: {
+          paper: 'a4',
+          orientation: 'landscape',
+          margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 },
+        },
+      },
+    },
+  })
+
+  expect(printedFromDocument(document).printedPages?.sections).toEqual([
+    { id: 'cover', kind: 'fixed', pages: [{ html: '<h2>Cover one</h2><h2>Cover two</h2>' }] },
+    { id: 'text', pageGeometry: 'wide', html: '<p>Text</p>' },
+    { id: 'answer', kind: 'fixed', pages: [{ html: '<p>Answer</p>' }] },
+  ])
+})
+
+test('refuses an unknown printed page geometry by section and name', () => {
+  expect(() =>
+    Document.parse({
+      type: 'document',
+      kind: 'printed',
+      print: { paper: 'a4' },
+      parentPages: [{ type: 'parentPage', name: 'body' }],
+      parentRules: [{ parent: 'body' }],
+      children: [{ type: 'section', id: 'answer', pageGeometry: 'missing', children: [{ type: 'page', body: { html: '<p>Answer</p>' } }] }],
+    }),
+  ).toThrow(/answer.*unknown page geometry.*missing/)
+})

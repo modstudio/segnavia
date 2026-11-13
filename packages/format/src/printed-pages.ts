@@ -26,6 +26,33 @@ export const ParentPage = closedObject({
   regions: ParentRegions.default({}),
 })
 
+const PrintedFlowSection = closedObject({
+  id: z.string(),
+  title: z.string().optional(),
+  opens: BookOpens.optional(),
+  numbering: SectionNumbering.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
+  pageGeometry: z.string().optional(),
+  html: z.string(),
+  values: RecordValues.optional(),
+  record: RecordFacts.optional(),
+  recordTemplate: closedObject({ name: z.string(), slots: z.array(closedObject({ key: z.string() })) }).optional(),
+  recordBody: z.string().optional(),
+})
+
+const PrintedDesignedSection = closedObject({
+  id: z.string(),
+  title: z.string().optional(),
+  opens: BookOpens.optional(),
+  numbering: SectionNumbering.optional(),
+  parentRules: parentRules.optional(),
+  parents: z.unknown().optional(),
+  pageGeometry: z.string().optional(),
+  kind: z.literal('fixed'),
+  pages: z.array(closedObject({ html: z.string() })).min(1),
+})
+
 export const PrintedPages = closedObject({
   outline: DefaultOutline,
   lineNumbers: LineNumbers.optional(),
@@ -38,21 +65,7 @@ export const PrintedPages = closedObject({
   numbering: NumberSystem.optional(),
   fragmentation: Fragmentation.default('safe'),
   sections: z
-    .array(
-      closedObject({
-        id: z.string(),
-        title: z.string().optional(),
-        opens: BookOpens.optional(),
-        numbering: SectionNumbering.optional(),
-        parentRules: parentRules.optional(),
-        parents: z.unknown().optional(),
-        html: z.string(),
-        values: RecordValues.optional(),
-        record: RecordFacts.optional(),
-        recordTemplate: closedObject({ name: z.string(), slots: z.array(closedObject({ key: z.string() })) }).optional(),
-        recordBody: z.string().optional(),
-      }),
-    )
+    .array(z.union([PrintedFlowSection, PrintedDesignedSection]))
     .min(1)
     .superRefine((sections, ctx) => {
       if (sections[0]?.opens !== 'continue') return
@@ -207,7 +220,5 @@ export function pagePrintedPagesIssues(page: {
   if (page.scripts !== 'refuse') {
     issues.push({ path: ['scripts'], message: 'printedPages could not establish deterministic cloned content; set scripts to "refuse" to clear this refusal' })
   }
-  if (page.print?.margin)
-    issues.push({ path: ['print', 'margin'], message: 'printedPages and print.margin both own the margins; remove print.margin to clear this refusal' })
   return issues
 }

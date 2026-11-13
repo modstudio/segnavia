@@ -30,21 +30,29 @@ export function printedHeadingDestinations(html: string, prefix?: string): strin
 }
 
 export function printedSectionOutlineHtml(section: PrintedSection): string {
+  if ('pages' in section) return section.pages.map((page) => printedHeadingDestinations(page.html)).join('')
   const bound = bindRecordValues(section)
   return printedHeadingDestinations(bound.html, bound.record ? bound.id : undefined)
 }
 
 export function printedSectionFlows(sections: readonly PrintedSection[], rules: ParentRules): string {
   const built: BuiltSection[] = sections.map((section) => {
-    const document = parse(printedSectionOutlineHtml(section))
+    const fixed = 'pages' in section
+    const document = parse(fixed ? '' : printedSectionOutlineHtml(section))
     const attribs = flowAttribs(section.opens, section.parentRules ?? rules, {
       ...numberingAttribs(section.numbering),
       'data-sequence': 'body',
-      ...recordAttribs(section.record),
-    })
+      ...(!fixed && 'record' in section ? recordAttribs(section.record) : {}),
+      ...(fixed ? { 'data-segnavia-kind': 'fixed' } : {}),
+    }, section.pageGeometry)
+    const children = fixed
+      ? section.pages.map((page, index) =>
+          element('div', { 'data-segnavia-designed-page': String(index + 1), hidden: '' }, parse(printedHeadingDestinations(page.html)).children),
+        )
+      : document.children
     return {
       info: { id: section.id, kind: 'chapter', division: 'body', title: section.title, opens: section.opens },
-      node: element('div', { 'data-segnavia-flow': section.id, id: section.id, ...attribs }, document.children),
+      node: element('div', { 'data-segnavia-flow': section.id, id: section.id, ...attribs }, children),
     }
   })
   return continuingFlowRoots(built)

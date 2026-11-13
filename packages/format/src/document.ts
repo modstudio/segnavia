@@ -207,7 +207,9 @@ function refineRequirements(document: DocumentShapeValue, profile: DocumentProfi
 function refineChildCount(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
   if (profile.childForms) {
     const recordSections =
-      document.kind === 'printed' && document.children.length > 0 && document.children.every((node) => node.type === 'section' || node.type === 'record')
+      document.kind === 'printed' &&
+      document.children.length > 0 &&
+      document.children.every((node) => node.type === 'page' || node.type === 'section' || node.type === 'record')
     const matches =
       recordSections ||
       profile.childForms.forms.some((form) => {

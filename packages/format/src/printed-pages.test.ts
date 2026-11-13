@@ -81,7 +81,6 @@ describe('Page printedPages', () => {
   test.each([
     [{ ...base, print: undefined }, 'add print.paper'],
     [{ ...base, scripts: 'sandboxed' }, 'deterministic cloned content'],
-    [{ ...base, print: { ...base.print, margin: { blockStart: 1, blockEnd: 1, inlineStart: 1, inlineEnd: 1 } } }, 'remove print.margin'],
     [{ ...base, printedPages: { ...base.printedPages, parentRules: [{ parent: 'missing' }] } }, 'add that parent page'],
     [{ ...base, printedPages: { ...base.printedPages, parents: [...base.printedPages.parents, base.printedPages.parents[0]] } }, 'unique name'],
     [
