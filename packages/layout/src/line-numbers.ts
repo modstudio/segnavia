@@ -1,5 +1,5 @@
 import { formatNumber, type LineNumbers, type Measurements, numberSystemMaximum, type Plan, type ResolvedLineNumbers } from '@segnavia/format'
-import { tiledPageGroups, windowAnchorTop } from './tiled-pages.ts'
+import { windowAnchorTop } from './plan-windows.ts'
 
 export interface NumberedLine {
   value: number
@@ -46,19 +46,11 @@ function windowLines(
 }
 
 export function numberLinesScript(): string {
-  return `${tiledPageGroups.toString()}\n${windowAnchorTop.toString()}\n${windowLines.toString()}\n${countedPlanLines.toString()}\n${resolveMarginSide.toString()}\n${numberLabel.toString()}\n${expandLineNumberTiles.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
+  return `${windowAnchorTop.toString()}\n${windowLines.toString()}\n${countedPlanLines.toString()}\n${resolveMarginSide.toString()}\n${numberLabel.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
 }
 
 export function lineKeyedLabelsScript(): string {
-  return `${tiledPageGroups.toString()}\n${windowLines.toString()}\n${countedPlanLines.toString()}\n${lineKeyedLabels.toString()}\nvar lineKeyedLabels=${lineKeyedLabels.name};`
-}
-
-function expandLineNumberTiles(plan: Plan, groups: ReturnType<typeof tiledPageGroups>, source: readonly PageLineNumbers[]): PageLineNumbers[] {
-  const result = plan.pages.map((_page, page) => ({ page, lines: [] as NumberedLine[] }))
-  for (const group of groups) {
-    for (const tile of group.tiles) result[tile.index] = { page: tile.index, lines: source[group.sourceIndex]?.lines.map((line) => ({ ...line })) ?? [] }
-  }
-  return result
+  return `${windowLines.toString()}\n${countedPlanLines.toString()}\n${lineKeyedLabels.toString()}\nvar lineKeyedLabels=${lineKeyedLabels.name};`
 }
 
 export function resolveMarginSide(side: LineNumbers['side'], page: Pick<Plan['pages'][number], 'side'>, direction: 'ltr' | 'rtl'): 'left' | 'right' {
@@ -79,13 +71,11 @@ function numberLabel(value: number, system: ResolvedLineNumbers['system']): stri
 }
 
 function countedPlanLines(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): CountedPlanLine[] {
-  const groups = tiledPageGroups(plan)
   const result: CountedPlanLine[] = []
   let counter = settings.start
   let previousFlow: string | undefined
   let previousChapter: number | undefined
-  for (const [pageIndex, group] of groups.entries()) {
-    const page = group.tiles[0].page
+  for (const [pageIndex, page] of plan.pages.entries()) {
     if (settings.restart === 'page') counter = settings.start
     for (const window of page.windows) {
       for (const held of windowLines(measurements, window)) {
@@ -119,13 +109,12 @@ export function lineKeyedLabels(measurements: Measurements, plan: Plan, settings
 }
 
 export function numberLines(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): readonly PageLineNumbers[] {
-  const groups = tiledPageGroups(plan)
-  const sourceResult = groups.map((_group, page) => ({ page, lines: [] as NumberedLine[] }))
+  const result = plan.pages.map((_page, page) => ({ page, lines: [] as NumberedLine[] }))
   for (const { value, page: pageIndex, window, line, direction } of countedPlanLines(measurements, plan, settings)) {
     if (value % settings.interval !== 0) continue
-    const page = groups[pageIndex]?.tiles[0].page
+    const page = plan.pages[pageIndex]
     if (!page) continue
-    sourceResult[pageIndex]?.lines.push({
+    result[pageIndex]?.lines.push({
       value,
       label: numberLabel(value, settings.system),
       top: windowAnchorTop(window, line.top),
@@ -135,5 +124,5 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Re
       side: resolveMarginSide(settings.side, page, direction),
     })
   }
-  return expandLineNumberTiles(plan, groups, sourceResult)
+  return result
 }

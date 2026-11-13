@@ -9,7 +9,6 @@ import {
   decideBookMeasurement,
   embeddedComposerFunctions,
   flowSectionNumbering,
-  inlineTileCount,
   noteFragmentExtent,
   noteSettlementOverlapsBody,
   noteStackTops,
@@ -18,6 +17,7 @@ import {
 } from './composer.ts'
 import { mergeRegionFact } from './composer-fill-policy.ts'
 import { embeddedComposerFitFunctions } from './composer-fit.ts'
+import { embeddedComposerInlineOverflowFunctions } from './composer-inline-overflow.ts'
 import { embeddedPreflightFunctions, PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
 test('embedded region geometry includes its physical-margin dependency', () => {
@@ -53,6 +53,16 @@ test('embedded copyfit reads slot markers without module constants', () => {
 
   expect(readMarker('name:refuse')).toEqual({ key: 'name', mode: 'refuse', minSize: undefined })
   expect(embeddedComposerFitFunctions()).not.toContain('var FITTED_SLOT_MODES=')
+})
+
+test('composer script contains the self-contained inline overflow bundle', () => {
+  expect(composerScript('{}')).toContain(embeddedComposerInlineOverflowFunctions())
+})
+
+test('inline overflow uses the block subject for report identity and deduplication', () => {
+  const script = composerScript('{}')
+  expect(script).toContain("var subject=blockSubject(child,win.flow+' '+tag+' block '+i)")
+  expect(script).toContain("held.check==='inline-overflow'&&held.subject===entry.subject")
 })
 
 test('publishes preflight from the embedded functions alone, given the measured flows', () => {
@@ -332,11 +342,6 @@ describe('block keeps', () => {
     expect(script).toContain("document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-flow]')")
     expect(script).toContain("document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-note]')")
   })
-})
-
-test('counts inline paper tiles from the measured extent', () => {
-  expect(inlineTileCount(100, 100)).toBe(1)
-  expect(inlineTileCount(250, 100)).toBe(3)
 })
 
 test('lists exactly the unmeasured source flows in order', () => {

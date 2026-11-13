@@ -15,6 +15,7 @@ import {
   letterFoldImposition,
   letterFoldPages,
   parentPageFurnitureOverflow,
+  parentPageInlineOverflow,
   parentPageNarrowBreak,
   parentPageUnsizedImage,
   postcardBackPage,
@@ -32,7 +33,7 @@ import { hebrewRecordsDocument, recordsTableDocument } from './demo-record-fixtu
 function buildParentPageBrowserFixtures(site: string): void {
   writeFileSync(
     path.join(site, 'parent-pages-print.json'),
-    JSON.stringify({ cases: printedParentPageCases, motifs: printedPageMotifs, sectioned: printedSectionDocument }),
+    JSON.stringify({ cases: printedParentPageCases, inlineOverflow: parentPageInlineOverflow, motifs: printedPageMotifs, sectioned: printedSectionDocument }),
   )
 }
 

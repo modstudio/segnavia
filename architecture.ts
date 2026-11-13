@@ -143,6 +143,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/composer-decoration.ts',
       'src/composer-fit.ts',
       'src/composer-fit-policy.ts',
+      'src/composer-inline-overflow.ts',
       'src/composer-axis-policy.ts',
       'src/composer-fill.ts',
       'src/composer-fill-policy.ts',

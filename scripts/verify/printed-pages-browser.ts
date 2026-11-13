@@ -6,6 +6,7 @@ import { Print, paperViewport } from '@segnavia/format'
 import { printedPageDocument } from '@segnavia/frame/printed-page-document'
 import type { Page } from 'playwright-core'
 import { type Harness, ROOT } from './harness.ts'
+import { verifyPrintedPageInlineOverflow } from './printed-page-inline-overflow.ts'
 
 interface PdfWord {
   text: string
@@ -316,14 +317,16 @@ export async function verifyPrintedParentPages(page: Page, url: string, check: H
       },
     ]) {
       const papers = await countPrintedPapers({ ...fixture.page, print: { paper: 'letter' }, printedPages: parentPages })
-      check(`a 2.5-column-wide ${fixture.name} table prints three papers`, papers === 3, `papers=${papers}`)
+      check(`a 2.5-column-wide ${fixture.name} table is clipped to one paper`, papers === 1, `papers=${papers}`)
     }
 
     const fixtures = (await page.evaluate(() => fetch('/parent-pages-print.json').then((response) => response.json()))) as {
       cases: Array<{ name: string; page: unknown }>
+      inlineOverflow: unknown
       motifs: Array<{ key: string }>
       sectioned: unknown
     }
+    await verifyPrintedPageInlineOverflow(page, fixtures.inlineOverflow, fixtures.motifs, check)
     await page.evaluate(async (documentInput) => {
       await customElements.whenDefined('segnavia-page')
       const shown = document.createElement('segnavia-page') as HTMLElement & { page: unknown }
