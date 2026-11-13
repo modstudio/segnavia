@@ -45,7 +45,9 @@ describe('bodyHtml', () => {
   test('emits GFM tables, tasks, strikethrough and autolinks', () => {
     const html = bodyHtml({ markdown: '| A | B |\n| - | - |\n| 1 | 2 |\n\n- [x] done\n\n~~gone~~ <https://example.test>' })
     expect(html).toContain('<div data-segnavia-overflow><table>')
-    expect(html).toContain('<li class="task-list-item"><span data-segnavia-field="checkbox" data-segnavia-field-checked role="img" aria-label="checked"></span> done</li>')
+    expect(html).toContain(
+      '<li class="task-list-item"><span data-segnavia-field="checkbox" data-segnavia-field-checked role="img" aria-label="checked"></span> done</li>',
+    )
     expect(html).not.toContain('<input')
     expect(html).toContain('<del>gone</del>')
     expect(html).toContain('href="https://example.test"')

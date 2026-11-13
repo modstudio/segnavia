@@ -179,7 +179,7 @@ export function safeMarkdownUrl(attribute: 'href' | 'src', value: string, approv
   return linkAllowed(value, linkPolicyFromConverter(MARKDOWN_CONVERTER_POLICY.urls, linkOrigins === undefined ? undefined : originSet(linkOrigins)))
 }
 
-function refusedElement(element: Element, refused: ReadonlySet<string>, options: SanitizeOptions, keepScripts: boolean): boolean {
+function refusedElement(element: Element, refused: ReadonlySet<string>, keepScripts: boolean): boolean {
   const name = element.name.toLowerCase()
   if (name === 'script') return !keepScripts
   if (name === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet') return false
@@ -265,7 +265,7 @@ export function findActiveContent(html: string, options: SanitizeOptions = {}): 
   const keepScripts = options.keepScripts ?? false
   const found: string[] = []
   for (const element of elements(parse(html).children)) {
-    if (refusedElement(element, refused, options, keepScripts)) found.push(`<${element.name}>`)
+    if (refusedElement(element, refused, keepScripts)) found.push(`<${element.name}>`)
     found.push(...styleFindings(element, options))
     for (const [name, value] of Object.entries(element.attribs)) {
       const reason = refusedAttribute(element, name, value, links, options)
@@ -310,7 +310,7 @@ export function sanitize(html: string, options: SanitizeOptions = {}): string {
   const prune = (nodes: ChildNode[]): ChildNode[] =>
     nodes.filter((node) => {
       if (!isTag(node)) return true
-      if (refusedElement(node, refused, options, keepScripts)) return false
+      if (refusedElement(node, refused, keepScripts)) return false
       cleanStyleElement(node, options)
       cleanAttributes(node, links, options)
       node.children = prune(node.children)

@@ -249,6 +249,14 @@ describe('sanitize', () => {
     expect(sanitize('<p onclick="x()">a</p><script>x()</script>', { keepScripts: true })).toBe('<p onclick="x()">a</p><script>x()</script>')
   })
 
+  test('field markup survives both sanitizer modes while a native author checkbox is refused', () => {
+    const fields =
+      '<p><span data-segnavia-field="checkbox" data-segnavia-field-checked role="img" aria-label="checked"></span><span data-segnavia-field="line" data-segnavia-field-length="8ch">answer</span></p><div data-segnavia-field="box" data-segnavia-field-lines="2" data-segnavia-field-rule="ruled">work</div>'
+    expect(sanitize(fields)).toBe(fields)
+    expect(sanitize(fields, { keepScripts: true })).toBe(fields)
+    expect(sanitize('<input type="checkbox" disabled>')).toBe('')
+  })
+
   test('scripted pages keep controls but never form destinations', () => {
     const controls =
       '<form action="/send"><input><button formaction="/other">Send</button><select><option>One</option></select><textarea>Text</textarea></form>'

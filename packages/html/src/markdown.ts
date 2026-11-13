@@ -219,8 +219,7 @@ function hastPlugin() {
       node.properties = { dataSegnaviaOverflow: '' }
       node.children = [copy]
     }
-    const transform = (node: HastNode) => {
-      if (node.type !== 'element') return
+    const taskCheckbox = (node: HastNode): boolean => {
       if (node.tagName === 'input' && node.properties?.type === 'checkbox') {
         const checked = node.properties.checked === true
         node.tagName = 'span'
@@ -231,8 +230,12 @@ function hastPlugin() {
           ariaLabel: checked ? 'checked' : 'unchecked',
         }
         node.children = []
-        return
+        return true
       }
+      return false
+    }
+    const transform = (node: HastNode) => {
+      if (node.type !== 'element' || taskCheckbox(node)) return
       if (node.tagName === 'table') wrap(node)
       if (node.tagName !== 'pre') return
       const code = node.children?.[0]
