@@ -5,8 +5,7 @@ import { mergeSurfacePreflightReports, SurfacePreflightCoordinator, type Surface
 const facts = { pageCount: 1, pages: [], fits: [] }
 const report = (entries: PreflightEntry[] = []) => boundPreflightReport({ entries, facts }, PREFLIGHT_PRESETS.default)
 const overset = (subject: string): PreflightEntry => ({ check: 'slot-overset', subject, message: `${subject} is overset` })
-const surface = (...keys: string[]): SurfacePreflightItem<string>[] => keys.map((key, index) => ({ key, folio: String(index + 1), kind: 'page' }))
-const slideSurface = (...keys: string[]): SurfacePreflightItem<string>[] => keys.map((key, index) => ({ key, folio: String(index + 1), kind: 'slide' }))
+const surface = (...keys: string[]): SurfacePreflightItem<string>[] => keys.map((key, index) => ({ key, folio: String(index + 1) }))
 
 function coordinator() {
   const target = new EventTarget()
@@ -17,7 +16,7 @@ function coordinator() {
 
 test('receive dispatches a merged report with measured coverage', () => {
   const seen = coordinator()
-  seen.coordinator.setSurface(surface('first', 'second'), true)
+  seen.coordinator.setSurface(surface('first', 'second'), 'page', true)
   seen.coordinator.receive('second', report())
   expect(seen.reports.at(-1)).toMatchObject({
     status: 'warnings',
@@ -30,7 +29,7 @@ test('receive dispatches a merged report with measured coverage', () => {
 
 test('a later report for the same key replaces the earlier report', () => {
   const seen = coordinator()
-  seen.coordinator.setSurface(surface('slide'), true)
+  seen.coordinator.setSurface(surface('slide'), 'page', true)
   seen.coordinator.receive('slide', report([overset('old')]))
   seen.coordinator.receive('slide', report([overset('new')]))
   expect(seen.reports.at(-1)?.issues.map(({ subject }) => subject)).toEqual(['new'])
@@ -46,6 +45,7 @@ test('merged surfaces retain measured and total slot coverage', () => {
       ['second', second],
     ]),
     surface('first', 'second'),
+    'page',
     PREFLIGHT_PRESETS.default,
   )
   expect(merged).toMatchObject({
@@ -71,6 +71,7 @@ test('merged surface slot coverage remains reported above the slot-key message l
         ['second', second],
       ]),
       surface('first', 'second'),
+      'page',
       PREFLIGHT_PRESETS.default,
     ),
   ).toMatchObject({ status: 'warnings', coverage: { slots: { measured: 200, total: 240 } }, issues: [{ check: 'coverage-incomplete', subject: 'slots' }] })
@@ -78,22 +79,22 @@ test('merged surface slot coverage remains reported above the slot-key message l
 
 test('deck changes keep reports by slide id and drop ids that leave', () => {
   const seen = coordinator()
-  seen.coordinator.setSurface(surface('kept', 'removed'), true)
+  seen.coordinator.setSurface(surface('kept', 'removed'), 'page', true)
   seen.coordinator.receive('kept', report([overset('kept')]))
-  seen.coordinator.setSurface(surface('added', 'kept'), true)
+  seen.coordinator.setSurface(surface('added', 'kept'), 'page', true)
   seen.coordinator.receive('added', report([overset('added')]))
   expect(seen.reports.at(-1)?.issues.map(({ subject, location }) => [subject, location?.folio])).toEqual([
     ['added', '1'],
     ['kept', '2'],
   ])
-  seen.coordinator.setSurface(surface('added'), true)
+  seen.coordinator.setSurface(surface('added'), 'page', true)
   seen.coordinator.receive('added', report([overset('latest')]))
   expect(seen.reports.at(-1)?.issues.map(({ subject }) => subject)).toEqual(['latest'])
 })
 
 test('an invalid profile leaves the current profile and reports intact', () => {
   const seen = coordinator()
-  seen.coordinator.setSurface(surface('first', 'second'), true)
+  seen.coordinator.setSurface(surface('first', 'second'), 'page', true)
   seen.coordinator.receive('first', report([overset('kept')]))
   expect(() => {
     seen.coordinator.profile = 'unknown' as never
@@ -105,7 +106,7 @@ test('an invalid profile leaves the current profile and reports intact', () => {
 
 test('an off profile ignores received reports', () => {
   const seen = coordinator()
-  seen.coordinator.setSurface(surface('slide'), true)
+  seen.coordinator.setSurface(surface('slide'), 'page', true)
   seen.coordinator.profile = 'off'
   seen.coordinator.receive('slide', report([overset('ignored')]))
   expect(seen.reports).toEqual([])
@@ -113,12 +114,12 @@ test('an off profile ignores received reports', () => {
 
 test('reports incomplete coverage after other issues at their profile severity', () => {
   const warned = new Map([['slide', report([overset('warning')])]])
-  const slides = slideSurface('slide', 'unmeasured')
-  expect(mergeSurfacePreflightReports(warned, slides, PREFLIGHT_PRESETS.default)).toMatchObject({
+  const slides = surface('slide', 'unmeasured')
+  expect(mergeSurfacePreflightReports(warned, slides, 'slide', PREFLIGHT_PRESETS.default)).toMatchObject({
     status: 'warnings',
     issues: [{ check: 'slot-overset' }, { check: 'coverage-incomplete', subject: 'slides', severity: 'warning' }],
   })
-  expect(mergeSurfacePreflightReports(warned, slides, PREFLIGHT_PRESETS.strict)).toMatchObject({
+  expect(mergeSurfacePreflightReports(warned, slides, 'slide', PREFLIGHT_PRESETS.strict)).toMatchObject({
     status: 'errors',
     issues: [{ check: 'slot-overset' }, { check: 'coverage-incomplete', subject: 'slides', severity: 'error' }],
   })
@@ -132,6 +133,7 @@ test('merging short page reports computes one coverage issue from the merged cou
       ['second', short],
     ]),
     surface('first', 'second', 'third'),
+    'page',
     PREFLIGHT_PRESETS.default,
   )
   expect(merged.coverage).toMatchObject({ measured: 2, total: 3 })

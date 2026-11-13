@@ -158,11 +158,30 @@ describe('boundPreflightReport', () => {
     expect(shortSlots.status).toBe('errors')
     expect(preflightRefusal(shortSlots)).toBe(slotMessage)
 
+    expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.default).issues[0]?.message).toBe(
+      'Preflight measured 0 of 1 page; a page that is never laid out cannot be checked. Lay out every page to clear this.',
+    )
+
     expect(boundPreflightReport({ entries: [entry('region-overset')], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.off)).toMatchObject({
       status: 'clean',
       issues: [],
     })
     expect(boundPreflightReport({ entries: [], facts, coverage: { measured: 1, total: 1 } }, PREFLIGHT_PRESETS.default).issues).toEqual([])
+  })
+
+  test('sorts a coverage error before an earlier warning', () => {
+    const report = boundPreflightReport(
+      {
+        entries: [{ check: 'slot-overset', subject: 'name', message: 'Name is overset.' }],
+        facts,
+        coverage: { measured: 1, total: 2 },
+      },
+      resolvePreflightProfile({ 'coverage-incomplete': 'error' }),
+    )
+    expect(report.issues.map(({ check, severity }) => [check, severity])).toEqual([
+      ['coverage-incomplete', 'error'],
+      ['slot-overset', 'warning'],
+    ])
   })
 
   test('recomputes forged coverage issues from bounded coverage', () => {
@@ -182,17 +201,6 @@ describe('boundPreflightReport', () => {
         id: 'coverage-incomplete:pages',
         severity: 'warning',
       },
-    ])
-  })
-
-  test('uses singular coverage subjects', () => {
-    const report = boundPreflightReport(
-      { entries: [], facts, coverage: { measured: 0, total: 1, slots: { measured: 0, total: 1 } } },
-      PREFLIGHT_PRESETS.default,
-    )
-    expect(report.issues.map(({ message }) => message)).toEqual([
-      'Preflight measured 0 of 1 page; a page that is never laid out cannot be checked. Lay out every page to clear this.',
-      'Preflight measured 0 of 1 marked slot; a slot that is never laid out cannot be checked. Lay out every marked slot to clear this.',
     ])
   })
 

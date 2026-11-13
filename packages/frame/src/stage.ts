@@ -16,7 +16,6 @@ import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, dispatchFontFailures, MESSAGE, messageFrom, type PageSelection } from './bridge.ts'
 import { DeckController, type DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
-import { deckFolioAt, deckFolios } from './deck-folios.ts'
 import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
@@ -29,6 +28,7 @@ import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.
 import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
 import { measureStage } from './stage-measure.ts'
+import { setStagePreflightSurface } from './stage-preflight-surface.ts'
 import { defineStagePropertyAccessors } from './stage-property-accessors.ts'
 import { StageFrameRebuilder } from './stage-rebuild.ts'
 import type { StageReserve } from './stage-reserve.ts'
@@ -277,11 +277,7 @@ export class SegnaviaStage extends AsOfElement {
     this.style.setProperty('--segnavia-aspect', `${deck.size.width} / ${deck.size.height}`)
     this.dataset.layout = deck.layout
     const scripts = shownScripts(deck.scripts, this.authoringRefusesScripts)
-    const folios = deckFolios(deck)
-    surfacePreflightFor(this).setSurface(
-      deck.slides.map((slide, index) => ({ key: slide.id, folio: deckFolioAt(folios, index).text, kind: 'slide' })),
-      true,
-    )
+    setStagePreflightSurface(this, deck)
     const shownState = scripts === deck.scripts ? state : { ...state, deck: { ...deck, scripts } }
     this.pool.update(shownState, this.attached as DeckController, {
       neighbors: this.neighbors,

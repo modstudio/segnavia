@@ -233,7 +233,8 @@ export class SegnaviaDocument extends DocumentAsOfElement {
 
   private paint() {
     surfacePreflightFor(this).setSurface(
-      this.pageValues.map((_, index) => ({ key: index, folio: String(index + 1), kind: 'page' })),
+      this.pageValues.map((_, index) => ({ key: index, folio: String(index + 1) })),
+      'page',
       false,
     )
     this.cancelSlotPreparation()

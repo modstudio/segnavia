@@ -1,9 +1,16 @@
 import type { PreflightRegion } from './fill.ts'
 import { FIT_STRATEGIES } from './fit.ts'
 import type { FontFailure } from './fonts.ts'
+import { coverageIncompleteEntries } from './preflight-messages.ts'
 import type { SlotFitState } from './slots.ts'
 
-export { cssVarInvalidMessage, preflightRefusal } from './preflight-messages.ts'
+export {
+  coverageIncompleteEntries,
+  coverageIncompleteMessage,
+  cssVarInvalidMessage,
+  preflightRefusal,
+  slotCoverageIncompleteMessage,
+} from './preflight-messages.ts'
 
 export const PREFLIGHT_CHECKS = [
   'fit-limit',
@@ -156,6 +163,7 @@ export interface PreflightCountCoverage {
 export interface PreflightCoverage extends PreflightCountCoverage {
   readonly slots: PreflightCountCoverage
 }
+export type PreflightCoverageUnit = 'page' | 'slide'
 export interface PreflightReport {
   readonly status: 'clean' | 'warnings' | 'errors'
   readonly issues: readonly PreflightIssue[]
@@ -181,50 +189,32 @@ export const PREFLIGHT_SLOTS_LIMIT = 10_000
 export function boundPreflightReport(
   input: { readonly entries: unknown; readonly facts: unknown; readonly omitted?: unknown; readonly coverage?: unknown },
   profile: PreflightProfile,
-  options: { readonly unit?: 'page' | 'slide' } = {},
-  bounds?: {
-    readonly checks: readonly PreflightCheck[]
-    readonly issuesPerCheck: number
-    readonly subject: number
-    readonly message: number
-    readonly folio: number
-    readonly block: number
-    readonly pages: number
-    readonly fits: number
-    readonly fitGroup: number
-    readonly fitSize: number
-    readonly fitValues: number
-    readonly regions?: number
-    readonly droppedIds?: number
-    readonly regionCount?: number
-    readonly regionId?: number
-    readonly slots?: number
-  },
+  options: {
+    readonly unit?: PreflightCoverageUnit
+    readonly bounds?: {
+      readonly checks: readonly PreflightCheck[]
+      readonly issuesPerCheck: number
+      readonly subject: number
+      readonly message: number
+      readonly folio: number
+      readonly block: number
+      readonly pages: number
+      readonly fits: number
+      readonly fitGroup: number
+      readonly fitSize: number
+      readonly fitValues: number
+      readonly regions?: number
+      readonly droppedIds?: number
+      readonly regionCount?: number
+      readonly regionId?: number
+      readonly slots?: number
+    }
+  } = {},
 ): PreflightReport {
-  const coverageUnits = { page: ['page', 'pages'], slide: ['slide', 'slides'] } as const
-  const [coverageUnit, coverageUnitsPlural] = coverageUnits[options.unit ?? 'page']
   const isCoverageIncompleteEntry = (value: unknown): boolean =>
     !!value && typeof value === 'object' && !Array.isArray(value) && (value as { check?: unknown }).check === 'coverage-incomplete'
-  const coverageIncompleteEntries = (coverage: PreflightCoverage): PreflightEntry[] => {
-    const entries: PreflightEntry[] = []
-    if (coverage.measured < coverage.total) {
-      entries.push({
-        check: 'coverage-incomplete',
-        subject: coverageUnitsPlural,
-        message: `Preflight measured ${coverage.measured} of ${coverage.total} ${coverage.total === 1 ? coverageUnit : coverageUnitsPlural}; a ${coverageUnit} that is never laid out cannot be checked. Lay out every ${coverageUnit} to clear this.`,
-      })
-    }
-    if (coverage.slots.measured < coverage.slots.total) {
-      entries.push({
-        check: 'coverage-incomplete',
-        subject: 'slots',
-        message: `Preflight measured ${coverage.slots.measured} of ${coverage.slots.total} ${coverage.slots.total === 1 ? 'marked slot' : 'marked slots'}; a slot that is never laid out cannot be checked. Lay out every marked slot to clear this.`,
-      })
-    }
-    return entries
-  }
   const limits =
-    bounds ??
+    options.bounds ??
     ({
       checks: PREFLIGHT_CHECKS,
       issuesPerCheck: PREFLIGHT_ISSUES_PER_CHECK,
@@ -326,6 +316,32 @@ export function boundPreflightReport(
     return { pageCount: Math.min(source.pageCount as number, limits.pages), pages, fits, regions }
   }
   const entries = Array.isArray(input.entries) ? input.entries : []
+  const facts = boundedPreflightFacts(input.facts)
+  const coverage = (() => {
+    const countCoverage = (value: unknown, limit: number): PreflightCountCoverage | undefined => {
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return { measured: 0, total: 0 }
+      const source = value as { measured?: unknown; total?: unknown }
+      if (!Number.isSafeInteger(source.measured) || (source.measured as number) < 0 || !Number.isSafeInteger(source.total) || (source.total as number) < 0) {
+        return undefined
+      }
+      const inputMeasured = source.measured as number
+      const inputTotal = source.total as number
+      const total = Math.min(inputTotal, limit)
+      let measured = Math.min(inputMeasured, total)
+      if (inputMeasured < inputTotal && measured === total && total > 0) measured = total - 1
+      return { measured, total }
+    }
+    const slotCoverage = (value: unknown): PreflightCountCoverage => countCoverage(value, limits.slots ?? PREFLIGHT_SLOTS_LIMIT) ?? { measured: 0, total: 0 }
+    if (!input.coverage || typeof input.coverage !== 'object' || Array.isArray(input.coverage)) {
+      return { measured: facts.pageCount, total: facts.pageCount, slots: { measured: 0, total: 0 } }
+    }
+    const source = input.coverage as { measured?: unknown; total?: unknown; slots?: unknown }
+    const pageCoverage = countCoverage(source, limits.pages)
+    if (!pageCoverage) {
+      return { measured: facts.pageCount, total: facts.pageCount, slots: slotCoverage(source.slots) }
+    }
+    return { ...pageCoverage, slots: slotCoverage(source.slots) }
+  })()
   const counts: Partial<Record<PreflightCheck, number>> = {}
   const omitted: Partial<Record<PreflightCheck, number>> = {}
   const omittedLimit = 10_000
@@ -358,40 +374,14 @@ export function boundPreflightReport(
     if (isCoverageIncompleteEntry(entry)) continue
     addIssue(entry, order)
   }
+  coverageIncompleteEntries(coverage, options.unit ?? 'page').forEach((entry, index) => {
+    addIssue(entry, entries.length + index)
+  })
   issues.sort((a, b) => {
     const severity = Number(b.severity === 'error') - Number(a.severity === 'error')
     if (severity) return severity
     const check = limits.checks.indexOf(a.check) - limits.checks.indexOf(b.check)
     return check || a.order - b.order
-  })
-  const facts = boundedPreflightFacts(input.facts)
-  const coverage = (() => {
-    const countCoverage = (value: unknown, limit: number): PreflightCountCoverage | undefined => {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) return { measured: 0, total: 0 }
-      const source = value as { measured?: unknown; total?: unknown }
-      if (!Number.isSafeInteger(source.measured) || (source.measured as number) < 0 || !Number.isSafeInteger(source.total) || (source.total as number) < 0) {
-        return undefined
-      }
-      const inputMeasured = source.measured as number
-      const inputTotal = source.total as number
-      const total = Math.min(inputTotal, limit)
-      let measured = Math.min(inputMeasured, total)
-      if (inputMeasured < inputTotal && measured === total && total > 0) measured = total - 1
-      return { measured, total }
-    }
-    const slotCoverage = (value: unknown): PreflightCountCoverage => countCoverage(value, limits.slots ?? PREFLIGHT_SLOTS_LIMIT) ?? { measured: 0, total: 0 }
-    if (!input.coverage || typeof input.coverage !== 'object' || Array.isArray(input.coverage)) {
-      return { measured: facts.pageCount, total: facts.pageCount, slots: { measured: 0, total: 0 } }
-    }
-    const source = input.coverage as { measured?: unknown; total?: unknown; slots?: unknown }
-    const pageCoverage = countCoverage(source, limits.pages)
-    if (!pageCoverage) {
-      return { measured: facts.pageCount, total: facts.pageCount, slots: slotCoverage(source.slots) }
-    }
-    return { ...pageCoverage, slots: slotCoverage(source.slots) }
-  })()
-  coverageIncompleteEntries(coverage).forEach((entry, index) => {
-    addIssue(entry, entries.length + index)
   })
   const cleanIssues = issues.map(({ order: _, ...issue }) => issue)
   const status = cleanIssues.some((issue) => issue.severity === 'error') ? 'errors' : cleanIssues.length ? 'warnings' : 'clean'
