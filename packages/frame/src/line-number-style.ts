@@ -12,5 +12,5 @@ export const LINE_NUMBER_BASE_CSS = `
 export const SIDE_NOTE_BASE_CSS = `
 :where([data-side-note]){position:absolute;visibility:hidden;pointer-events:none}
 :where([data-segnavia-side-notes]){position:absolute;inset:0;pointer-events:none}
-:where([data-segnavia-side-notes] [data-side-note]){box-sizing:border-box;visibility:visible;unicode-bidi:isolate}
+:where([data-segnavia-side-notes] [data-side-note]){box-sizing:border-box;margin-block-start:0;visibility:visible;unicode-bidi:isolate}
 `
