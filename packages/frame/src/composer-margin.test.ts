@@ -8,6 +8,7 @@ import {
   crossedLimit,
   drawLineNumbers,
   drawPageLineNumbers,
+  drawPageSideNotes,
   lineNumberEdge,
   physicalColumn,
   prepareSideNote,
@@ -204,13 +205,35 @@ test('reserves margin-area line-number width on each physical side only', () => 
   const paper = rect(0, 0, 100, 100)
   const left = prepareSideNote({ id: 'elsewhere', top: 10, side: 'left', column: 0, columns: 1 }, note, page, text, paper, 4)
   expect(left.element.style.left).toBe('-4px')
-  expect(left.element.style.width).toBe('4px')
+  expect(left.element.style.width).toBe('0px')
   expect(left.element.getAttribute('dir')).toBe('rtl')
   const right = prepareSideNote({ id: 'elsewhere', top: 10, side: 'right', column: 0, columns: 1 }, note, page, text, paper, 4)
   expect(right.element.style.left).toBe('64px')
-  expect(right.element.style.width).toBe('16px')
+  expect(right.element.style.width).toBe('12px')
   expect(widestLineNumber(page, 'left')).toBe(8)
   expect(widestLineNumber(page, 'right')).toBe(0)
+
+  const pageWithoutNumbers = { querySelectorAll: () => [] } as unknown as HTMLElement
+  const unreservedLeft = prepareSideNote({ id: 'elsewhere', top: 10, side: 'left', column: 0, columns: 1 }, note, pageWithoutNumbers, text, paper, 4)
+  expect(unreservedLeft.element.style.left).toBe('-16px')
+  expect(unreservedLeft.element.style.width).toBe('12px')
+  const unreservedRight = prepareSideNote({ id: 'elsewhere', top: 10, side: 'right', column: 0, columns: 1 }, note, pageWithoutNumbers, text, paper, 4)
+  expect(unreservedRight.element.style.left).toBe('64px')
+  expect(unreservedRight.element.style.width).toBe('12px')
+})
+
+test('reports a placed side note that has no composed copy', () => {
+  const { doc, page } = fakePage(1, '7')
+  const entries: PreflightEntry[] = []
+  drawPageSideNotes({ page: 0, notes: [{ id: 'missing', top: 10, side: 'left', column: 0, columns: 1 }] }, page, config(), entries, doc, new Map())
+  expect(entries).toEqual([
+    {
+      check: 'margin-overset',
+      subject: 'side-note:missing',
+      message: expect.stringContaining('source flow'),
+      location: { folio: '7' },
+    },
+  ])
 })
 
 test('reports and deduplicates side notes crossing edges, furniture and margin numbers, including stacking overflow', () => {

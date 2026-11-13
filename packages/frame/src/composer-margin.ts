@@ -142,10 +142,10 @@ export function prepareSideNote(
   const reserve = numberWidth > 0 ? numberWidth + gap : 0
   if (placement.side === 'left') {
     note.style.left = `${pageRect.left - textRect.left + gap + reserve}px`
-    note.style.width = `${Math.max(0, textRect.left - pageRect.left - gap - reserve)}px`
+    note.style.width = `${Math.max(0, textRect.left - pageRect.left - 2 * gap - reserve)}px`
   } else {
     note.style.left = `${textRect.width + gap}px`
-    note.style.width = `${Math.max(0, pageRect.right - textRect.right - gap - reserve)}px`
+    note.style.width = `${Math.max(0, pageRect.right - textRect.right - 2 * gap - reserve)}px`
   }
   return { id: placement.id, top: placement.top, side: placement.side, element: note }
 }
