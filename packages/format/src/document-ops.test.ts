@@ -225,8 +225,9 @@ describe('document diff insertion ordering', () => {
   const section = { type: 'section', id: 'sb', title: 'Section', children: [flow] }
 
   test('inserts a new part and its descendants without aliasing the emitted nodes', () => {
-    const before = book('book', [])
-    const after = book('book', [{ type: 'part', id: 'pb', name: 'part', children: [section] }])
+    const existing = { type: 'flow', id: 'existing', title: 'Existing', html: HEBREW }
+    const before = book('book', [existing])
+    const after = book('book', [existing, { type: 'part', id: 'pb', name: 'part', children: [section] }])
     expect(applyOps(before, batch(before, diffDocuments(before, after)))).toEqual(after)
   })
 

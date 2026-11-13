@@ -41,7 +41,7 @@ export const DOCUMENT_NODE_SAMPLES: Record<DocumentNodeType, Sample> = {
   }),
   parentPage: (seed) => ({ type: 'parentPage', id: `parent-${seed}`, name: 'body', geometry: {}, regions: { side: { edge: 'inlineEnd', html: HEBREW } } }),
   template: (seed) => ({ type: 'template', id: `template-${seed}`, name: 'body', html: HEBREW }),
-  noteSeries: (seed) => ({ type: 'noteSeries', id: `notes-${seed}`, name: 'notes' }),
+  noteSeries: (seed) => ({ type: 'noteSeries', id: `notes-${seed}`, name: `notes-${seed}`, placement: 'book', numbering: 'book' }),
   variable: (seed) => ({ type: 'variable', id: `variable-${seed}`, name: 'folio', kind: 'folio' }),
   headTemplate: (seed) => ({ type: 'headTemplate', id: `head-template-${seed}`, name: `head-${seed}`, parts: [{ variable: 'folio' }] }),
   condition: (seed) => ({ type: 'condition', id: `condition-${seed}`, name: 'edition' }),
@@ -53,7 +53,8 @@ function base(kind: DocumentKind, seed: number): Record<string, unknown> {
     return {
       ...common,
       title: 'Book',
-      mode: 'continuous',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
       style: { css: 'body{}' },
       children: [
         {
@@ -73,13 +74,14 @@ function base(kind: DocumentKind, seed: number): Record<string, unknown> {
       ],
       parentPages: [{ type: 'parentPage', id: `base-parent-${seed}`, name: 'body', geometry: {}, regions: { head: { edge: 'blockStart', html: HEBREW } } }],
       templates: [{ type: 'template', id: `base-template-${seed}`, name: 'body', html: HEBREW, slots: [{ key: 'name', label: 'Name', type: 'text' }] }],
-      noteSeries: [{ type: 'noteSeries', id: `base-notes-${seed}`, name: 'notes' }],
+      noteSeries: [{ type: 'noteSeries', id: `base-notes-${seed}`, name: 'notes', placement: 'book', numbering: 'book' }],
     }
   if (kind === 'deck') return { ...common, title: 'Deck', children: [DOCUMENT_NODE_SAMPLES.slide(seed), DOCUMENT_NODE_SAMPLES.slide(seed + 10_000)] }
   if (kind === 'page') return { ...common, style: { fonts: {} }, children: [DOCUMENT_NODE_SAMPLES.page(seed)] }
   if (kind === 'printed')
     return {
       ...common,
+      print: { paper: 'a4' },
       parentRules: [{ parent: 'body' }],
       style: { fonts: {} },
       parentPages: [{ type: 'parentPage', id: `printed-parent-${seed}`, name: 'body', geometry: {}, regions: { foot: { edge: 'blockEnd', html: HEBREW } } }],
@@ -112,7 +114,15 @@ export function generatedCandidateDocuments(seed: number): DocumentValue[] {
       const candidate = base(kind, seed)
       if (collection && (profile.definitions as readonly string[]).includes(collection))
         (candidate[collection] as unknown[]) = [DOCUMENT_NODE_SAMPLES[type](seed)]
-      else if (!collection && (profile.children as readonly string[]).includes(type)) candidate.children = [childForKind(type, kind, seed)]
+      else if (!collection && (profile.children as readonly string[]).includes(type)) {
+        candidate.children =
+          kind === 'book' && type === 'contents'
+            ? [
+                { type: 'division', name: 'front', children: [DOCUMENT_NODE_SAMPLES.contents(seed)] },
+                { type: 'division', name: 'body', children: [DOCUMENT_NODE_SAMPLES.flow(seed + 1)] },
+              ]
+            : [childForKind(type, kind, seed)]
+      }
       else continue
       candidates.push(candidate)
     }
@@ -235,7 +245,7 @@ function bookStructureEdit(edited: DocumentValue, mode: 'insert' | 'remove' | 'w
   }
   if (mode === 'across') {
     const source = held.find((node) => node.type === 'part' && Array.isArray(node.children) && node.children.length > 0)
-    if (!source?.children) return false
+    if (!source?.children || source.children.length < 2) return false
     const parent = DOCUMENT_NODE_SAMPLES.part(seed + 30_000) as { children: unknown[] }
     parent.children = [source.children.shift()]
     held.push(parent as never)

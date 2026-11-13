@@ -19,12 +19,13 @@ import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LineNumbers } from './line-numbers.ts'
 import { LogicalMargin } from './margins.ts'
-import { NumberSystem } from './numbering.ts'
+import { defaultPageNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { parentRules } from './parent-rules.ts'
 import { Print, pressGeometryFields, pressSafeAreaIssues, refinePressGeometry } from './print.ts'
 import { Scripts } from './scripts.ts'
+import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
@@ -124,6 +125,36 @@ function visibleTitle(document: z.infer<typeof DocumentShape>): boolean {
   return document.metadata?.title !== undefined || document.title !== undefined
 }
 
+function documentNumberedSections(document: DocumentShapeValue): SectionNumberingFact[] {
+  const sections: SectionNumberingFact[] = []
+  const collect = (nodes: DocumentNodeValue[], division: 'front' | 'body' | 'end', path: (string | number)[]): void => {
+    nodes.forEach((node, index) => {
+      const nodePath = [...path, index]
+      const heldDivision = node.type === 'division' ? node.name : division
+      if ((node.type === 'section' || node.type === 'contents') && node.numbering !== undefined) {
+        const id = node.id ?? node.title ?? nodePath.join('.')
+        sections.push({ id, title: node.title, division: heldDivision, path: nodePath, numbering: node.numbering })
+      }
+      if ('children' in node) collect(node.children, heldDivision, [...nodePath, 'children'])
+    })
+  }
+  collect(document.children, 'body', ['children'])
+  return sections
+}
+
+// Page does not check printed section numbering restarts, so printed documents establish them here.
+function refinePrintedSectionNumbering(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
+  if (document.kind !== 'printed') return
+  const system = typeof document.numbering === 'string' ? document.numbering : defaultPageNumbering(document.settings?.lang)
+  for (const issue of sectionNumberingIssues({
+    mode: document.mode ?? 'paginated',
+    systems: { frontMatter: system, body: system },
+    sections: documentNumberedSections(document),
+  })) {
+    ctx.addIssue({ code: 'custom', ...issue })
+  }
+}
+
 type DocumentShapeValue = z.infer<typeof DocumentShape>
 type DocumentProfile = (typeof DOCUMENT_PROFILES)[DocumentKind]
 
@@ -162,10 +193,6 @@ function refineRequirements(document: DocumentShapeValue, profile: DocumentProfi
         message: profileRefusal(requirement, document.kind, [requirement], 'required field'),
       })
     }
-  }
-  if (profile.requiredWhen && document[profile.requiredWhen.when[0]] === profile.requiredWhen.when[1] && document[profile.requiredWhen.field] === undefined) {
-    const requirement = profile.requiredWhen.field
-    ctx.addIssue({ code: 'custom', path: [requirement], message: profileRefusal(requirement, document.kind, [requirement], 'required field') })
   }
 }
 
@@ -281,6 +308,7 @@ export function defaultSectionContents(nodes: DocumentNodeValue[], enabled: bool
 
 const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   const profile = DOCUMENT_PROFILES[document.kind]
+  refinePrintedSectionNumbering(document, ctx)
   for (const issue of documentPageGeometryIssues(document)) ctx.addIssue({ code: 'custom', ...issue })
   refineRootFields(document, profile, ctx)
   refineDocumentNodes(document, profile, ctx)
@@ -289,20 +317,22 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   refineDocumentVariables({ ...document, lang: document.settings?.lang }, ctx)
   refineProfileShape(document, profile, ctx)
   refinePrint(document, profile, ctx)
-}).transform((document) => {
-  const profile = DOCUMENT_PROFILES[document.kind]
-  const withSectionDefaults = {
-    ...document,
-    children: defaultSectionContents(document.children, (profile.sectionFields as readonly string[]).includes('contents')),
-  }
-  const withScripts =
-    withSectionDefaults.settings === undefined || !(profile.settings as readonly string[]).includes('scripts')
-      ? withSectionDefaults
-      : { ...withSectionDefaults, settings: { scripts: 'refuse' as const, ...withSectionDefaults.settings } }
-  if (!profile.canonicalChildren) return withScripts
-  const children = profile.canonicalChildren.flatMap((type) => withScripts.children.filter((node) => node.type === type))
-  return { ...withScripts, children }
-}).superRefine((document, ctx) => refineLoweredDocument(document as Parameters<typeof refineLoweredDocument>[0], ctx))
+})
+  .transform((document) => {
+    const profile = DOCUMENT_PROFILES[document.kind]
+    const withSectionDefaults = {
+      ...document,
+      children: defaultSectionContents(document.children, (profile.sectionFields as readonly string[]).includes('contents')),
+    }
+    const withScripts =
+      withSectionDefaults.settings === undefined || !(profile.settings as readonly string[]).includes('scripts')
+        ? withSectionDefaults
+        : { ...withSectionDefaults, settings: { scripts: 'refuse' as const, ...withSectionDefaults.settings } }
+    if (!profile.canonicalChildren) return withScripts
+    const children = profile.canonicalChildren.flatMap((type) => withScripts.children.filter((node) => node.type === type))
+    return { ...withScripts, children }
+  })
+  .superRefine((document, ctx) => refineLoweredDocument(document as Parameters<typeof refineLoweredDocument>[0], ctx))
 
 export type DocumentInput = z.input<typeof DocumentSchema>
 export type Document = IdentifiedDocument<z.infer<typeof DocumentSchema>>

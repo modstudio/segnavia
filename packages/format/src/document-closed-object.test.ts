@@ -87,10 +87,10 @@ describe('Document closed objects', () => {
       page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
       metadata: { title: 'Book', extra: { 'catalog-name': 'Voyages' } },
       templates: [{ type: 'template', name: 'record', html: '<p>Record</p>', slots: [{ key: 'custom.value', label: 'Value', type: 'text' }] }],
-      children: [{ type: 'record', title: 'One', template: 'record', values: { 'custom.value': 'One' } }],
+      children: [{ type: 'part', name: 'records', children: [{ type: 'record', title: 'One', template: 'record', values: { 'custom.value': 'One' } }] }],
     })
     expect(parsed.metadata?.extra).toEqual({ 'catalog-name': 'Voyages' })
-    expect(parsed.children[0]).toMatchObject({ values: { 'custom.value': 'One' } })
+    expect(parsed.children[0]).toMatchObject({ children: [{ values: { 'custom.value': 'One' } }] })
     expect(FillValues.parse({ 'custom.asset': { asset: 'media/one' }, 'custom.text': 'Text' })).toEqual({
       'custom.asset': { asset: 'media/one' },
       'custom.text': 'Text',

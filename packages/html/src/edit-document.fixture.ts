@@ -4,7 +4,7 @@ import { parseDocument } from './document.ts'
 import { editDocument } from './edit-document.ts'
 
 export function editDocumentBookFixture() {
-  let next = 0
+  let next = 1
   const newId = () => `fixture-${++next}`
   const input = parseDocument(
     {
@@ -14,14 +14,13 @@ export function editDocumentBookFixture() {
       metadata: { title: 'ספר לדוגמה' },
       mode: 'continuous',
       settings: { dir: 'rtl', lang: 'he' },
-      children: [],
+      children: [{ type: 'part', id: 'fixture-1', name: 'תוכן', title: 'תוכן', children: [{ type: 'flow', id: 'placeholder', title: 'Placeholder', html: '' }] }],
     },
     { newId },
   )
   const result = editDocument(
     input,
     [
-      { type: 'add', node: { type: 'part', name: 'תוכן', title: 'תוכן', children: [] }, at: { parent: { id: 'hebrew-book' }, index: 0 } },
       {
         type: 'add',
         node: {
@@ -42,6 +41,7 @@ export function editDocumentBookFixture() {
         },
         at: { parent: { name: 'תוכן' }, index: 1 },
       },
+      { type: 'remove', node: { id: 'placeholder' } },
       { type: 'insertBlock', html: '<p dir="rtl" lang="he">וַיְהִי־אֽוֹר</p>', position: { in: { node: { id: 'flow-two' }, field: 'html' }, at: 'end' } },
       { type: 'moveBlock', block: 'fixture-6', position: { before: 'fixture-4' } },
       { type: 'setStyle', fields: { css: ':root { direction: rtl; }' } },

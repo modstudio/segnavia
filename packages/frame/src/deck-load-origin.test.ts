@@ -64,7 +64,7 @@ test('host deck inputs are never mutated for load provenance', async () => {
 })
 
 test('a host deck load refuses another document kind and names the accepted kind', () => {
-  expect(() => parseDeckLoad({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: [] })).toThrow(
+  expect(() => parseDeckLoad({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: [{ type: 'flow', title: 'Body', html: '' }] })).toThrow(
     'document kind book is not accepted here; use kind deck to clear this refusal',
   )
 })

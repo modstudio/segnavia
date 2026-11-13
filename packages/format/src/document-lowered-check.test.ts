@@ -49,10 +49,10 @@ describe('lowered document checks', () => {
   test('maps a part-depth refusal to the nested document part', () => {
     const section = { type: 'section', children: [flow] }
     const nested = (name: string, children: unknown[]) => ({ type: 'part', name, children })
-    const children = [nested('one', [nested('two', [nested('three', [nested('four', [section])])])])]
+    const children = [nested('one', [nested('two', [nested('three', [nested('four', [nested('five', [nested('six', [nested('seven', [section])])])])])])])]
     expect(issues(book({ children }))).toContainEqual(
       expect.objectContaining({
-        path: ['children', 0, 'children', 0, 'children', 0, 'children', 0],
+        path: ['children', 0, 'children', 0, 'children', 0, 'children', 0, 'children', 0, 'children', 0, 'children', 0],
         message: expect.stringContaining('exceeds the maximum part depth'),
       }),
     )

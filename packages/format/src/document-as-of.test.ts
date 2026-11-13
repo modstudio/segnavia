@@ -29,12 +29,13 @@ describe('Document as-of', () => {
       {
         type: 'document',
         kind: 'printed',
+        print: { paper: 'a4' },
         parentRules: [{ parent: 'body' }],
         parentPages: [{ type: 'parentPage', name: 'body' }],
         children: [{ type: 'page', body: { html: '<p>Printed</p>' } }],
       },
     ],
-    ['book', { type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: [] }],
+    ['book', { type: 'document', kind: 'book', title: 'Book', mode: 'continuous', children: [{ type: 'flow', title: 'Body', html: '' }] }],
     ['deck', { type: 'document', kind: 'deck', title: 'Deck', children: [{ type: 'slide', content: { kind: 'html', html: '<p>Slide</p>' } }] }],
   ] as const)('keeps and JSON round-trips asOf on a %s document', (_kind, input) => {
     const asOf = { kind: 'fixed' as const, date: '2026-11-14' as const, zone: 'America/New_York' as const }
