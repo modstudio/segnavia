@@ -3,12 +3,12 @@ import { parseAsOfInputs } from '@segnavia/html'
 import { RenderRefusedError } from './errors.ts'
 import { parseComposedRenderOptions, parseRenderOptions } from './options.ts'
 import { parsePdfOptions } from './protection-options.ts'
-import { BOOK_PDF_OPTION_KEYS, BOOK_PLAN_OPTION_KEYS, refuseUnknownOptions } from './render-option-keys.ts'
+import { refuseUnknownOptions } from './render-option-keys.ts'
 import type { BookPdfOptions, BookPlanOptions, ParsedBookPdfOptions } from './renderer.ts'
 import { parseWatermarkOption } from './watermark-options.ts'
 
 export function parseBookPdfOptions(options: BookPdfOptions): ParsedBookPdfOptions {
-  refuseUnknownOptions('bookPdf', options, BOOK_PDF_OPTION_KEYS)
+  refuseUnknownOptions('bookPdf', options)
   const base = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(options), 'bookPdf'))
   const parsed = parseWatermarkOption(base, 'bookPdf')
   if (parsed.plan === undefined) return parsed
@@ -20,6 +20,6 @@ export function parseBookPdfOptions(options: BookPdfOptions): ParsedBookPdfOptio
 }
 
 export function parseBookPlanOptions(options: BookPlanOptions) {
-  refuseUnknownOptions('bookPlan', options, BOOK_PLAN_OPTION_KEYS)
+  refuseUnknownOptions('bookPlan', options)
   return parseAsOfInputs(parseRenderOptions(options))
 }

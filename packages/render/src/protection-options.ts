@@ -1,5 +1,5 @@
 import { RenderRefusedError } from './errors.ts'
-import { refuseUnknownOptions } from './render-option-keys.ts'
+import { refuseUnknownNestedOptions } from './render-option-keys.ts'
 import type { RenderCall } from './renderer.ts'
 
 export interface PdfPermissions {
@@ -34,9 +34,6 @@ const PERMISSION_TABLE = {
   fillForms: { argument: 'form', defaultValue: false, enabledValue: 'y', disabledValue: 'n' },
   assemble: { argument: 'assemble', defaultValue: false, enabledValue: 'y', disabledValue: 'n' },
 } as const satisfies Record<keyof PdfPermissions, PermissionRule>
-type Same<Left, Right> = (<Value>() => Value extends Left ? 1 : 2) extends <Value>() => Value extends Right ? 1 : 2 ? true : false
-const exactPermissionTableKeys: Same<keyof typeof PERMISSION_TABLE, keyof PdfPermissions> = true
-void exactPermissionTableKeys
 export const PERMISSION_OPTION_KEYS = Object.fromEntries(Object.keys(PERMISSION_TABLE).map((field) => [field, true])) as Record<
   keyof typeof PERMISSION_TABLE,
   true
@@ -85,7 +82,7 @@ function password(value: unknown, field: 'ownerPassword' | 'openPassword'): stri
 function permissions(value: unknown, call: PdfRenderCall): PdfPermissions | undefined {
   if (value === undefined) return undefined
   const input = object(value, 'protection.permissions')
-  refuseUnknownOptions(call, input, PERMISSION_OPTION_KEYS, ['protection', 'permissions'])
+  refuseUnknownNestedOptions(call, input, PERMISSION_OPTION_KEYS, ['protection', 'permissions'])
   if (input.print !== undefined && input.print !== 'none' && input.print !== 'low' && input.print !== 'high') {
     throw new RenderRefusedError(
       "The protection.permissions.print field needs 'none', 'low', or 'high'; pass one of those values, or omit protection.permissions.print for high-quality printing to clear this refusal.",
@@ -115,7 +112,7 @@ export function permissionArguments(permissions: PdfPermissions = {}): string[] 
 export function parseProtection(value: unknown, call: PdfRenderCall): Protection | undefined {
   if (value === undefined) return undefined
   const input = object(value, 'protection')
-  refuseUnknownOptions(call, input, PROTECTION_OPTION_KEYS, ['protection'])
+  refuseUnknownNestedOptions(call, input, PROTECTION_OPTION_KEYS, ['protection'])
   return {
     ...(input.ownerPassword === undefined ? {} : { ownerPassword: password(input.ownerPassword, 'ownerPassword') }),
     ...(input.openPassword === undefined ? {} : { openPassword: password(input.openPassword, 'openPassword') }),

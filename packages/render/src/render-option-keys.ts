@@ -127,6 +127,18 @@ export const PROOF_IMAGE_OPTION_KEYS = {
 
 export type KnownOptionKeys = Readonly<Record<string, true>>
 
+export const RENDER_OPTION_KEYS = {
+  bookPdf: BOOK_PDF_OPTION_KEYS,
+  bookPlan: BOOK_PLAN_OPTION_KEYS,
+  pagePdf: PAGE_PDF_OPTION_KEYS,
+  pagesPdf: PAGES_PDF_OPTION_KEYS,
+  pageImage: PAGE_IMAGE_OPTION_KEYS,
+  coverImage: COVER_IMAGE_OPTION_KEYS,
+  deckPdf: DECK_PDF_OPTION_KEYS,
+  slideImage: SLIDE_IMAGE_OPTION_KEYS,
+  proofImage: PROOF_IMAGE_OPTION_KEYS,
+} as const satisfies Record<RenderCall, KnownOptionKeys>
+
 export function unknownOptionIssues(call: RenderCall, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[] = []): string[] {
   if (!options || typeof options !== 'object' || Array.isArray(options)) return []
   return Object.keys(options)
@@ -134,7 +146,12 @@ export function unknownOptionIssues(call: RenderCall, options: unknown, known: K
     .map((key) => `${call} ${renderIssuePath(['options', ...path, key])}: unknown option ${JSON.stringify(key)}; remove it to clear this refusal`)
 }
 
-export function refuseUnknownOptions(call: RenderCall, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[] = []): void {
+export function refuseUnknownOptions(call: RenderCall, options: unknown): void {
+  const issues = unknownOptionIssues(call, options, RENDER_OPTION_KEYS[call])
+  if (issues.length > 0) throw new RenderRefusedError(issues.join('; '))
+}
+
+export function refuseUnknownNestedOptions(call: RenderCall, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[]): void {
   const issues = unknownOptionIssues(call, options, known, path)
   if (issues.length > 0) throw new RenderRefusedError(issues.join('; '))
 }

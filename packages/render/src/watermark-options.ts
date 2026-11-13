@@ -1,5 +1,5 @@
 import { RenderRefusedError } from './errors.ts'
-import { refuseUnknownOptions } from './render-option-keys.ts'
+import { refuseUnknownNestedOptions } from './render-option-keys.ts'
 import type { RenderCall } from './renderer.ts'
 
 export type WatermarkPosition = 'start' | 'center' | 'end'
@@ -50,7 +50,7 @@ function parsePosition(value: unknown, call: WatermarkRenderCall): Watermark['po
   if (value === undefined) return undefined
   if (!value || typeof value !== 'object' || Array.isArray(value)) refusal('position', 'needs to be an object')
   const position = value as Record<string, unknown>
-  refuseUnknownOptions(call, position, WATERMARK_POSITION_OPTION_KEYS, ['watermark', 'position'])
+  refuseUnknownNestedOptions(call, position, WATERMARK_POSITION_OPTION_KEYS, ['watermark', 'position'])
   for (const axis of ['inline', 'block'] as const) {
     if (position[axis] !== undefined && !POSITIONS.has(position[axis] as WatermarkPosition)) {
       refusal(`position.${axis}`, 'needs to be start, center or end')
@@ -93,7 +93,7 @@ export function parseWatermark(value: unknown, call: WatermarkRenderCall): Water
   if (value === undefined) return undefined
   if (!value || typeof value !== 'object' || Array.isArray(value)) refusal('option', 'needs to be an object')
   const input = value as Record<string, unknown>
-  refuseUnknownOptions(call, input, WATERMARK_OPTION_KEYS, ['watermark'])
+  refuseUnknownNestedOptions(call, input, WATERMARK_OPTION_KEYS, ['watermark'])
   const hasText = input.text !== undefined
   const hasImage = input.image !== undefined
   if (hasText === hasImage) {

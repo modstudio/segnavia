@@ -46,6 +46,7 @@ describe('PDF protection options', () => {
   })
 
   test('refuses unknown nested options with the render call path', () => {
+    expect(() => parseProtection({ extra: true }, 'bookPdf')).toThrow(RenderRefusedError)
     expect(() => parseProtection({ extra: true }, 'bookPdf')).toThrow(
       'bookPdf options.protection.extra: unknown option "extra"; remove it to clear this refusal',
     )
