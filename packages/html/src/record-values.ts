@@ -1,4 +1,4 @@
-import type { SlotDeclaration } from '@segnavia/format'
+import { htmlTextSample, resolveDirection, type SlotDeclaration } from '@segnavia/format'
 import { Text } from 'domhandler'
 import { elements, parse, serialize } from './sanitize.ts'
 
@@ -6,13 +6,29 @@ export interface RecordValueSection {
   html: string
   values?: Record<string, string>
   recordTemplate?: { name: string; slots: readonly Pick<SlotDeclaration, 'key'>[] }
+  recordBody?: string
 }
 
-export type BoundRecordSection<T extends RecordValueSection> = Omit<T, 'values'> & { values?: never }
+export type BoundRecordSection<T extends RecordValueSection> = Omit<T, 'recordBody' | 'recordTemplate' | 'values'> & {
+  recordBody?: never
+  recordTemplate?: never
+  values?: never
+}
 
 export function bindRecordValues<T extends RecordValueSection>(section: T): BoundRecordSection<T> {
-  if (!section.values || !section.recordTemplate) return section as BoundRecordSection<T>
   const document = parse(section.html)
+  const bodyPoints = elements(document.children).filter((element) => element.attribs['data-record-body'] !== undefined)
+  const bodyPoint = bodyPoints[0]
+  if (bodyPoint && section.recordTemplate) {
+    const body = section.recordBody === undefined ? [] : parse(section.recordBody).children
+    for (const child of body) child.parent = bodyPoint
+    bodyPoint.children = body
+    if (section.recordBody !== undefined) bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(section.recordBody))
+  }
+  if (!section.values || !section.recordTemplate) {
+    const { recordBody: _recordBody, recordTemplate: _recordTemplate, ...composed } = section
+    return { ...composed, html: serialize(document) } as BoundRecordSection<T>
+  }
   const bindings = new Map<string, ReturnType<typeof elements>[number][]>()
   for (const element of elements(document.children)) {
     const key = element.attribs['data-slot-value']
@@ -37,6 +53,7 @@ export function bindRecordValues<T extends RecordValueSection>(section: T): Boun
       if (element.attribs.dir === undefined) element.attribs.dir = 'auto'
     }
   }
-  const { values: _values, ...bound } = section
+  if (bodyPoint && section.recordBody !== undefined) bodyPoint.attribs.dir = resolveDirection(undefined, undefined, htmlTextSample(serialize(bodyPoint.children)))
+  const { recordBody: _recordBody, recordTemplate: _recordTemplate, values: _values, ...bound } = section
   return { ...bound, html: serialize(document) } as BoundRecordSection<T>
 }

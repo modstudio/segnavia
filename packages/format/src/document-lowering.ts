@@ -155,7 +155,9 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
           value: {
             ...section,
             id: section.id ?? `children.${index}`,
-            recordTemplate: { name: section.recordTemplate.name, slots: section.recordTemplate.slots.map(({ key }) => ({ key })) },
+            ...(section.recordTemplate
+              ? { recordTemplate: { name: section.recordTemplate.name, slots: section.recordTemplate.slots.map(({ key }) => ({ key })) } }
+              : {}),
           },
         },
       ]

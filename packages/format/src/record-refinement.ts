@@ -10,8 +10,12 @@ export function refineRecords(
   const templates = new Map(document.templates.map((template) => [template.name, template]))
   const hostSlots = new Set(document.data?.slots?.map((slot) => slot.key) ?? [])
   for (const { node: record, path } of collectRecords(document.children)) {
-    refineRecord(document, record, path, templates.get(record.template), hostSlots, ctx)
+    refineRecord(document, record, path, record.template === undefined ? undefined : templates.get(record.template), hostSlots, ctx)
   }
+}
+
+function recordBodyMarkerCount(html: string): number {
+  return [...html.matchAll(/<[a-z][^>]*\sdata-record-body(?:\s|=|\/?>)/gi)].length
 }
 
 function refineRecord(
@@ -23,13 +27,81 @@ function refineRecord(
   ctx: z.RefinementCtx,
 ): void {
   const recordName = record.id ?? path.join('.')
+  const hasBody = refineRecordShape(record, recordName, path, ctx)
+  refineRecordBody(template, hasBody, recordName, path, ctx)
   if (!template) {
+    refineContinuousRecord(document, recordName, path, ctx)
+    return
+  }
+  refineRecordTemplate(document, record, recordName, path, template, hostSlots, ctx)
+  refineContinuousRecord(document, recordName, path, ctx)
+}
+
+function refineRecordShape(
+  record: Extract<DocumentNode, { type: 'record' }>,
+  recordName: string,
+  path: DocumentNodePath,
+  ctx: z.RefinementCtx,
+): boolean {
+  const body = record.children?.[0]
+  const hasBody = record.children?.length === 1 && body?.type === 'flow'
+  if (record.children !== undefined && (record.children.length !== 1 || body?.type !== 'flow')) {
+    ctx.addIssue({
+      code: 'custom',
+      path: [...path, 'children'],
+      message: `record ${recordName} needs exactly one flow child; replace its children with one flow child to clear this refusal`,
+    })
+  }
+  if (record.template === undefined && !hasBody) {
+    ctx.addIssue({
+      code: 'custom',
+      path,
+      message: `record ${recordName} has neither a template nor a flow; provide a template or one flow child to clear this refusal`,
+    })
+  }
+  if (record.template === undefined && Object.keys(record.values ?? {}).length > 0) {
+    ctx.addIssue({
+      code: 'custom',
+      path: [...path, 'values'],
+      message: `record ${recordName} has values but no template to declare them; provide a template or remove the values to clear this refusal`,
+    })
+  return hasBody
+}
+
+function refineRecordBody(
+  template: TemplateNode | undefined,
+  hasBody: boolean,
+  recordName: string,
+  path: DocumentNodePath,
+  ctx: z.RefinementCtx,
+): void {
+  const templateName = template?.name
+  if (!template && templateName === undefined) return
+  if (!hasBody) return
+  const markers = recordBodyMarkerCount(template.html)
+  if (markers !== 1)
+    ctx.addIssue({
+      code: 'custom',
+      path: [...path, 'children'],
+      message: `record ${recordName} has a flow, but template ${template.name} has ${markers === 0 ? 'no' : markers} data-record-body ${markers === 1 ? 'element' : 'elements'}; add exactly one data-record-body element to template ${template.name} to clear this refusal`,
+    })
+}
+
+function refineRecordTemplate(
+  document: Parameters<typeof refineRecords>[0],
+  record: Extract<DocumentNode, { type: 'record' }>,
+  recordName: string,
+  path: DocumentNodePath,
+  template: TemplateNode,
+  hostSlots: ReadonlySet<string>,
+  ctx: z.RefinementCtx,
+): void {
+  if (record.template !== undefined && !template) {
     ctx.addIssue({
       code: 'custom',
       path: [...path, 'template'],
       message: `record template ${JSON.stringify(record.template)} is not defined; define template ${JSON.stringify(record.template)} to clear this refusal`,
     })
-    return
   }
   if (template.parentRules !== undefined) {
     ctx.addIssue({
@@ -39,7 +111,7 @@ function refineRecord(
     })
   }
   if (!template.slots?.length) {
-    const valueKeys = Object.keys(record.values)
+    const valueKeys = Object.keys(record.values ?? {})
     const namedValueKeys = valueKeys.map((key) => JSON.stringify(key)).join(', ')
     ctx.addIssue({
       code: 'custom',
@@ -52,7 +124,7 @@ function refineRecord(
     return
   }
   const declarations = new Set(template.slots.map((slot) => slot.key))
-  for (const key of Object.keys(record.values)) {
+  for (const key of Object.keys(record.values ?? {})) {
     if (!declarations.has(key))
       ctx.addIssue({
         code: 'custom',
@@ -62,6 +134,9 @@ function refineRecord(
   }
   const templatePath = ['templates', document.templates.indexOf(template)]
   for (const slot of template.slots) refineSlot(record, recordName, path, template, templatePath, slot, hostSlots, ctx)
+}
+
+function refineContinuousRecord(document: Parameters<typeof refineRecords>[0], recordName: string, path: DocumentNodePath, ctx: z.RefinementCtx): void {
   if (document.kind === 'book' && document.mode === 'continuous')
     ctx.addIssue({
       code: 'custom',
@@ -80,7 +155,7 @@ function refineSlot(
   hostSlots: ReadonlySet<string>,
   ctx: z.RefinementCtx,
 ): void {
-  if (slot.required && record.values[slot.key] === undefined)
+  if (slot.required && record.values?.[slot.key] === undefined)
     ctx.addIssue({
       code: 'custom',
       path: [...recordPath, 'values'],

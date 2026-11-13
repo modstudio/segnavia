@@ -26,11 +26,11 @@ export const SlideNode = Slide.omit({ id: true }).extend({ type: z.literal('slid
 
 export const PlacedNode = PlacementShape.extend({ type: z.literal('placed'), id: z.string().optional() })
 
-export const RecordNode = NodeId.extend({
+export const RecordNodeBase = NodeId.extend({
   type: z.literal('record'),
   title: z.string().optional(),
-  template: z.string().min(1),
-  values: RecordValues,
+  template: z.string().min(1).optional(),
+  values: RecordValues.optional(),
 })
 
 export const BoardItemNode = BoardItem.omit({ id: true }).extend({ type: z.literal('item'), id: z.string().optional() })
@@ -44,7 +44,6 @@ export type FlowNode = z.infer<typeof FlowNode>
 export type PageNode = z.infer<typeof PageNode>
 export type SlideNode = z.infer<typeof SlideNode>
 export type PlacedNode = z.infer<typeof PlacedNode>
-export type RecordNode = z.infer<typeof RecordNode>
 export type BoardItemNode = z.infer<typeof BoardItemNode>
 export type LabelNode = z.infer<typeof LabelNode>
 export type BoardSectionNode = z.infer<typeof BoardSectionNode>

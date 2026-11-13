@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { DivisionNodeFields, type DocumentNode, PartNodeFields, SectionNodeFields } from './document-nodes.ts'
+import { DivisionNodeFields, type DocumentNode, PartNodeFields, RecordNode, SectionNodeFields } from './document-nodes.ts'
 import { ConditionNode, ContentsNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode } from './document-nodes-book.ts'
-import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, RecordNode, SlideNode } from './document-nodes-common.ts'
+import { BoardItemNode, BoardSectionNode, FlowNode, LabelNode, PageNode, PlacedNode, SlideNode } from './document-nodes-common.ts'
 import { ContentTextVariable, NumberVariable, PartTitleTextVariable, RecordVariable, SectionTitleTextVariable } from './variable.ts'
 
 type ObjectSchema = z.ZodObject<z.ZodRawShape>

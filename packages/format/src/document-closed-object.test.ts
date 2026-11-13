@@ -16,9 +16,9 @@ describe('Document closed objects', () => {
         {
           ...root,
           templates: [{ type: 'template', name: 'record', html: '<p>Record</p>', slots: [{ key: 'name', label: 'Name', type: 'text' }] }],
-          children: [{ type: 'record', template: 'record', values: { name: 'One' }, children: [] }],
+          children: [{ type: 'record', template: 'record', values: { name: 'One' }, bodies: [] }],
         },
-        'children[0].children',
+        'children[0].bodies',
       ],
       [{ ...root, settings: { unknown: true }, children: [] }, 'settings.unknown'],
       [{ ...root, settings: { lineNumbers: { interval: 5, every: 5 } }, children: [] }, 'settings.lineNumbers.every'],

@@ -58,6 +58,7 @@ const sectionFields = {
   values: RecordValues.optional(),
   record: RecordFacts.optional(),
   recordTemplate: closedObject({ name: z.string(), slots: Slots }).optional(),
+  recordBody: z.string().optional(),
 }
 
 const partFields = {

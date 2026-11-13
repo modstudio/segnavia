@@ -8,9 +8,10 @@ export interface ExpandedRecordSection {
   opens: 'any'
   numbering: { restart: 1 }
   html: string
-  values: RecordValues
+  values?: RecordValues
   record: RecordFacts
-  recordTemplate: { name: string; slots: NonNullable<TemplateNode['slots']> }
+  recordTemplate?: { name: string; slots: NonNullable<TemplateNode['slots']> }
+  recordBody?: string
 }
 
 export function recordExpansion(document: {
@@ -21,8 +22,11 @@ export function recordExpansion(document: {
   const templates = new Map(document.templates.map((template) => [template.name, template]))
   return new Map(
     records.map((record, offset) => {
-      const template = templates.get(record.template)
-      if (!template?.slots) throw new Error(`record template ${JSON.stringify(record.template)} was not established during parsing`)
+      const template = record.template === undefined ? undefined : templates.get(record.template)
+      if (record.template !== undefined && !template?.slots)
+        throw new Error(`record template ${JSON.stringify(record.template)} was not established during parsing`)
+      const body = record.children?.[0]
+      if (!template && body?.type !== 'flow') throw new Error('record flow was not established during parsing')
       return [
         record,
         {
@@ -30,10 +34,11 @@ export function recordExpansion(document: {
           title: record.title,
           opens: 'any',
           numbering: { restart: 1 },
-          html: template.html,
-          values: record.values,
+          html: template?.html ?? body?.html ?? '',
+          ...(record.values === undefined ? {} : { values: record.values }),
           record: { index: offset + 1, count: records.length },
-          recordTemplate: { name: template.name, slots: template.slots },
+          ...(template ? { recordTemplate: { name: template.name, slots: template.slots ?? [] } } : {}),
+          ...(template && body ? { recordBody: body.html } : {}),
         },
       ]
     }),
