@@ -2,7 +2,7 @@ import { AsOf, CalendarDate, Zone } from './as-of.ts'
 import { BoardCommand } from './board-commands.ts'
 import { BookView } from './book.ts'
 import { Cover } from './cover.ts'
-import { Manifest, PublishedShot } from './deck.ts'
+import { Manifest, Narration, PublishedShot } from './deck.ts'
 import { DocumentJsonSchema } from './document-json-schema.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { DocumentBatch, DocumentOp } from './document-op.ts'
@@ -27,6 +27,7 @@ export const EXPORTED_SCHEMAS = {
   lexicon: Lexicon,
   imposition: Imposition,
   manifest: Manifest,
+  narration: Narration,
   publishedShot: PublishedShot,
   boardCommand: BoardCommand,
   printSetting: PrintSetting,

@@ -3,12 +3,17 @@ import { Deck } from './deck.ts'
 import { Document } from './document.ts'
 import { applyOps } from './document-apply.ts'
 import { fingerprintDocument } from './document-fingerprint.ts'
+import { jsonSchemas } from './json-schemas.ts'
 import { DEFAULT_READING_SPEED, narrationTiming } from './narration-timing.ts'
 
 const content = { kind: 'html' as const, html: '' }
 const textNarration = { kind: 'text' as const, text: 'Hello there' }
 
 describe('text narration timing', () => {
+  test('publishes the narration union as JSON Schema', () => {
+    expect(jsonSchemas().narration).toHaveProperty('anyOf')
+  })
+
   test('keeps an existing voiced narration unchanged when kind is absent', () => {
     const voiced = {
       text: 'Hello there',
