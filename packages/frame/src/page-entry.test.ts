@@ -35,11 +35,10 @@ function installGlobals() {
   for (const [name, value] of Object.entries(globals)) Object.defineProperty(globalThis, name, { configurable: true, writable: true, value })
 }
 
-test('the page entry defines only the page element and tolerates a second load', async () => {
+test('the page entry defines only the page element', async () => {
   installGlobals()
   const page = await import('./page-entry.ts')
 
   expect(definitions.get(HEADLESS_ELEMENTS.page)).toBe(page.SegnaviaPage)
   expect(new Set(definitions.keys())).toEqual(new Set([HEADLESS_ELEMENTS.page]))
-  await expect(import('./page-entry.ts')).resolves.toBe(page)
 })

@@ -1,9 +1,12 @@
+import type { DocumentParseOptions } from '@segnavia/format'
 import type { AlertLabels } from '@segnavia/html'
 import { PageAsOfElement } from './page-as-of-element.ts'
 
+export type PageParseOption = 'alertLabels' | 'newId'
+
 export abstract class PageParseOptionsElement extends PageAsOfElement {
   private alertLabelOptions: Partial<AlertLabels> | undefined
-  private newIdOption: (() => string) | undefined
+  private newIdOption: DocumentParseOptions['newId']
 
   get alertLabels(): Partial<AlertLabels> | undefined {
     return this.alertLabelOptions
@@ -11,17 +14,18 @@ export abstract class PageParseOptionsElement extends PageAsOfElement {
 
   set alertLabels(value: Partial<AlertLabels> | undefined) {
     this.alertLabelOptions = value
-    this.pageParseOptionsChanged(true)
+    this.pageParseOptionsChanged('alertLabels')
   }
 
-  get newId(): (() => string) | undefined {
+  get newId(): DocumentParseOptions['newId'] {
     return this.newIdOption
   }
 
-  set newId(value: (() => string) | undefined) {
+  set newId(value: DocumentParseOptions['newId']) {
+    if (Object.is(value, this.newIdOption)) return
     this.newIdOption = value
-    this.pageParseOptionsChanged(false)
+    this.pageParseOptionsChanged('newId')
   }
 
-  protected abstract pageParseOptionsChanged(reloadValue: boolean): void
+  protected abstract pageParseOptionsChanged(option: PageParseOption): void
 }

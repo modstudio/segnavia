@@ -28,7 +28,7 @@ import type { FontsOptions } from './page-fonts.ts'
 import type { PageFrameIdentity } from './page-frame.ts'
 import { handlePageFrameMessage } from './page-frame-message.ts'
 import { scrollPageToHeading } from './page-heading.ts'
-import { PageParseOptionsElement } from './page-parse-options-element.ts'
+import { type PageParseOption, PageParseOptionsElement } from './page-parse-options-element.ts'
 import { printedPageRequestRefusal } from './page-printed.ts'
 import { cancelPageRequests, createPageRequestState, releaseReadyPageRequests } from './page-request.ts'
 import { readPageSelection } from './page-selection.ts'
@@ -68,9 +68,9 @@ export class SegnaviaPage extends PageParseOptionsElement {
     super()
     upgradeProperties(this)
   }
-  protected pageParseOptionsChanged(reloadValue: boolean): void {
+  protected pageParseOptionsChanged(option: PageParseOption): void {
     if (this.pageInput !== undefined) this.load(this.pageInput)
-    else if (reloadValue && this.pageValue) this.loadValue(this.pageValue)
+    else if (option === 'alertLabels' && this.pageValue) this.loadValue(this.pageValue)
   }
   get slots(): SlotsOptions | undefined {
     return this.slotOptions
@@ -284,6 +284,10 @@ export class SegnaviaPage extends PageParseOptionsElement {
   }
 
   showUrl(url: string, size: Page['size'] = FULL_PAGE_SIZE) {
+    this.brandResolution?.abort()
+    this.brandResolution = undefined
+    this.pageInput = undefined
+    this.documentValue = null
     this.hostServed = true
     this.releaseFrame()
     const iframe = this.mount(Page.parse({ html: '', size }))
