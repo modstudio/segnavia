@@ -3,6 +3,7 @@ import { computeFolios, type DocumentInput, Page, type Page as PageValue } from 
 import { fragmentationCss, markdownHtml, resolvePageHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { layoutScript } from '@segnavia/layout'
 import { MESSAGE } from './bridge.ts'
+import { composerConfigFromDocument } from './composer-test-helper.ts'
 import { expandFramePage } from './motif-expansion.ts'
 import {
   COMPOSER_SCRIPT,
@@ -73,6 +74,10 @@ const printedPageDocument = (page: PageValue, options: Parameters<typeof documen
 }
 
 describe('printedPageDocument', () => {
+  test('builds a composer config without inline tiling', () => {
+    expect(composerConfigFromDocument(printedPageDocument(page, { nonce: 'held' }))).not.toHaveProperty('inlineOverflow')
+  })
+
   test('keeps the implicit single flow markup byte-identical', () => {
     const html = printedPageValueDocument(resolvePrintedPageHtml(page), { nonce: 'held' })
     expect(html).toContain(

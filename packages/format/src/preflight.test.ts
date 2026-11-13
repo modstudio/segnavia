@@ -23,6 +23,13 @@ const facts = {
 const entry = (check: 'region-overset' | 'furniture-overset', subject = 'body') => ({ check, subject, message: `Shorten ${subject} to clear it.` })
 
 describe('preflight profiles', () => {
+  test('resolves inline overflow under every preset and in a profile map', () => {
+    expect(PREFLIGHT_PRESETS.default['inline-overflow']).toBe('warning')
+    expect(PREFLIGHT_PRESETS.strict['inline-overflow']).toBe('error')
+    expect(PREFLIGHT_PRESETS.off['inline-overflow']).toBe('off')
+    expect(resolvePreflightProfile({ 'inline-overflow': 'error' })['inline-overflow']).toBe('error')
+  })
+
   test('resolves presets and fills a partial map with warnings', () => {
     expect(resolvePreflightProfile('strict')).toEqual(PREFLIGHT_PRESETS.strict)
     expect(resolvePreflightProfile({ 'region-overset': 'error' })['furniture-overset']).toBe('warning')

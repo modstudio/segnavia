@@ -9,7 +9,6 @@ import {
   decideBookMeasurement,
   embeddedComposerFunctions,
   flowSectionNumbering,
-  inlineTileCount,
   noteFragmentExtent,
   noteSettlementOverlapsBody,
   noteStackTops,
@@ -332,11 +331,6 @@ describe('block keeps', () => {
     expect(script).toContain("document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-flow]')")
     expect(script).toContain("document.querySelectorAll('[data-segnavia-galleys] [data-segnavia-note]')")
   })
-})
-
-test('counts inline paper tiles from the measured extent', () => {
-  expect(inlineTileCount(100, 100)).toBe(1)
-  expect(inlineTileCount(250, 100)).toBe(3)
 })
 
 test('lists exactly the unmeasured source flows in order', () => {

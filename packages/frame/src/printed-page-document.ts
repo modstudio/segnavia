@@ -158,7 +158,6 @@ export function printedPageValueDocument(
     only: options.only ?? null,
     expectedCount: options.expectedCount ?? null,
     measure: options.measure ?? false,
-    inlineOverflow: 'tile',
     numbering: divisionNumbering(undefined, { frontMatter: numbering, body: numbering }),
     ...printedMarginSettings(page, numbering),
     parentRules,
