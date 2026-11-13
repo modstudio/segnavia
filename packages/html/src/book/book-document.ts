@@ -66,7 +66,7 @@ function appendDesigned(entry: DesignedSection, id: string, kind: 'front' | 'des
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)
   build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...designedSectionAttributeIssues(entry, id))
-  build.headings.push(...withSectionDepth(held.headings, sectionEntry.depth))
+  appendHeldHeadings(entry, held.headings, sectionEntry.depth, build)
   const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')
 }
@@ -85,9 +85,13 @@ function appendTemplated(entry: TemplatedSection, id: string, kind: 'front' | 't
   build.sections.push(held.built)
   decorateSection(sectionEntry, build)
   build.issues.push(...reservedIdIssues(held.built), ...columnIssues(held.built), ...templatedSectionIssues(entry, id, build.templates))
-  build.headings.push(...withSectionDepth(held.headings, sectionEntry.depth))
+  appendHeldHeadings(entry, held.headings, sectionEntry.depth, build)
   const context = noteContext(sectionEntry, held.built.info.id, 0, entry.title, build)
   transformNotes(held.built.node, book, context, build.notes, build.build === 'galley')
+}
+
+function appendHeldHeadings(entry: Pick<DesignedSection | TemplatedSection, 'contents'>, headings: BookHeading[], depth: number, build: DocumentBuild): void {
+  if (entry.contents) build.headings.push(...withSectionDepth(headings, depth))
 }
 
 function withSectionDepth(headings: BookHeading[], depth: number): BookHeading[] {
