@@ -1,4 +1,6 @@
-import { attributeValues, type HtmlElementAttributes, htmlElementAttributes } from '@segnavia/html'
+import { attributeValues, htmlElementAttributes } from '@segnavia/html'
+import { matchingLayoutMarkers } from './layout-markers.ts'
+import { type LayoutSelection, parseSelection, selectionMatches } from './layout-selection.ts'
 
 export const LAYOUT_ATTRIBUTE = 'data-segnavia-layout'
 export const LAYOUT_FRAME_ATTRIBUTE = 'data-segnavia-layout-frame'
@@ -23,34 +25,7 @@ interface RegisteredLayoutProvider {
   readonly priority: number
   readonly selects: string
   readonly order: number
-  readonly selection: ProviderSelection
-}
-
-interface ProviderSelection {
-  readonly tag?: string
-  readonly attributes: readonly { name: string; operator: 'present' | 'exact' | 'token'; value?: string }[]
-}
-
-function parseSelection(selects: string): ProviderSelection | undefined {
-  const match = /^([a-z][a-z0-9-]*)?((?:\[[a-z][a-z0-9-]*(?:(?:=|~=)"[^"]*")?\])+)$/i.exec(selects)
-  if (!match) return undefined
-  const attributes = Array.from(match[2]?.matchAll(/\[([a-z][a-z0-9-]*)(?:(=|~=)"([^"]*)")?\]/gi) ?? [], (held) => ({
-    name: held[1]?.toLowerCase() ?? '',
-    operator: held[2] === '=' ? ('exact' as const) : held[2] === '~=' ? ('token' as const) : ('present' as const),
-    ...(held[3] === undefined ? {} : { value: held[3] }),
-  }))
-  return attributes.length > 0 ? { ...(match[1] ? { tag: match[1].toLowerCase() } : {}), attributes } : undefined
-}
-
-function selectionMatches(selection: ProviderSelection, element: HtmlElementAttributes): boolean {
-  if (selection.tag && selection.tag !== element.name) return false
-  return selection.attributes.every(({ name, operator, value }) => {
-    const held = element.attributes[name]
-    if (held === undefined) return false
-    if (operator === 'present') return true
-    if (operator === 'exact') return held === value
-    return held.split(/\s+/).includes(value ?? '')
-  })
+  readonly selection: LayoutSelection
 }
 
 const LAYOUT_PROVIDERS_KEY = Symbol.for('segnavia.layout-providers')
@@ -84,6 +59,10 @@ export function registerLayoutProvider(name: string, provider: LayoutProvider): 
   providers.set(name, { script: provider.script, priority, selects, selection, order: previous?.order ?? providers.size })
 }
 
+export function hasLayoutProvider(name: string): boolean {
+  return registry().has(name)
+}
+
 function selectedLayoutNames(html: string): string[] {
   const names: string[] = []
   const seen = new Set<string>()
@@ -101,6 +80,11 @@ export function layoutsUsed(html: string): string[] {
   const names = selectedLayoutNames(html)
   const seen = new Set(names)
   const elements = htmlElementAttributes(html)
+  for (const marker of matchingLayoutMarkers(html)) {
+    if (seen.has(marker.name)) continue
+    seen.add(marker.name)
+    names.push(marker.name)
+  }
   for (const [name, provider] of registry()) {
     if (!seen.has(name) && elements.some((element) => selectionMatches(provider.selection, element))) {
       seen.add(name)
@@ -114,9 +98,14 @@ export async function loadLayoutScripts(html: string): Promise<LoadedLayoutScrip
   const names = layoutsUsed(html)
   if (names.length === 0) return []
   const providers = registry()
+  const markers = new Map(matchingLayoutMarkers(html).map((marker) => [marker.name, marker]))
   const selected = names.map((name) => {
     const provider = providers.get(name)
     if (!provider) {
+      const marker = markers.get(name)
+      if (marker) {
+        throw new Error(`This content uses layout provider ${JSON.stringify(name)}, but it is not registered. To clear this refusal: ${marker.remedy}.`)
+      }
       throw new Error(
         `This content selects layout provider ${JSON.stringify(name)}, but it is not registered. Call registerLayoutProvider(${JSON.stringify(name)}, …) from '@segnavia/frame/layout' to clear this refusal.`,
       )

@@ -7,10 +7,12 @@
 
 Draw Mermaid diagrams through the layout provider runtime.
 
-- Replace `withDiagramScript` with `withLayoutScripts`.
+- Replace `withDiagramScript` with the public `layoutScripts` frame option.
 - Replace `loadDiagramScript` with `loadLayoutScripts`.
 - Replace `loadDiagramScriptResult` with the rejection result from `loadLayoutScripts`.
 - Replace `DIAGRAM_READY_EXPR` with layout phase settlement.
 - Replace `DIAGRAM_READY_NAME` with `segnaviaLayout.run('galley')` settlement.
 - Replace `DIAGRAMS_DRAWN_ATTRIBUTE` with layout phase settlement.
 - Replace the render option `diagramScript` with `layoutScripts`.
+- Replace the `@segnavia/diagrams/script` export `diagramScript` with `diagramProviderScript`.
+- Use `hasLayoutProvider` from `@segnavia/frame/layout` to query the shared provider registry.

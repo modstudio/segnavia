@@ -384,25 +384,25 @@ text.
 
 Ordinary hosts opt into drawing by calling `registerDiagramProvider(diagrams)`,
 where `diagrams` is the lazy provider from `@segnavia/diagrams`, or by importing
-`@segnavia/diagrams/auto`. The registry is shared through
-the layout provider registry, so duplicate copies of frame see the same
-provider. The diagrams package's main entry exports only the lazy
-provider: it has no import side effect and does not statically load the script
-module. Only its `./auto` entry registers. A page, book or browser print containing a
-diagram refuses through its existing load-error path when no provider is
-registered. Server render dynamically loads the
-optional diagrams package when no provider is registered. It refuses diagram
-content when neither source is available, and imports no diagram module for
-content without a diagram.
+`@segnavia/diagrams/auto`. The registry lives at
+`globalThis[Symbol.for('segnavia.layout-providers')]`, so duplicate copies of
+frame see the same provider. The diagrams package's main entry exports only the
+lazy provider: it has no import side effect and does not statically load the
+script module. Only its `./auto` entry registers. A page, book or browser print
+containing a diagram refuses through its existing load-error path when no
+provider is registered. Server render dynamically loads the optional diagrams
+package when no provider is registered. It refuses diagram content when neither
+source is available, and imports no diagram module for content without a diagram.
 
 Layout providers are host-supplied, offline scripts registered through the
-server-safe `@segnavia/frame/layout` entry. Content selects a provider with
-`data-segnavia-layout="name"`. Names are read from parsed element attributes,
-so text in comments, scripts, styles or code samples selects nothing. Only
-Providers may also select one compound selector made from an optional tag and
-attribute presence, exact-value or token tests; matching authored elements use
-that provider without changing their HTML. Only selected providers are loaded.
-They are injected under the frame nonce, after
+server-safe `@segnavia/frame/layout` entry. A provider's `selects` value is one
+compound selector made from an optional tag and attribute presence, exact-value
+or token tests. A provider is used when content names it in
+`data-segnavia-layout`, matches its `selects` value or matches a library marker.
+Names and matches come from parsed element attributes, so text in comments,
+scripts, styles or code samples selects nothing. A provider used through a
+library marker that is not registered refuses with that marker's remedy. Only
+used providers are loaded. They are injected under the frame nonce, after
 the runtime and ahead of any document script, so the runtime exists before the
 composer or bridge reaches a phase. A provider script containing `</script`
 refuses at load, naming the provider. Each provider's definition loads in its

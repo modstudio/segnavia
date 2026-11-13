@@ -1,5 +1,5 @@
 import { afterEach, expect, test } from 'bun:test'
-import { layoutsUsed, loadLayoutScripts, registerLayoutProvider, resetLayoutProvidersForTest } from './layout.ts'
+import { hasLayoutProvider, layoutsUsed, loadLayoutScripts, registerLayoutProvider, resetLayoutProvidersForTest } from './layout.ts'
 
 afterEach(resetLayoutProvidersForTest)
 
@@ -21,6 +21,28 @@ test('layout loading is byte-neutral without a selection and refuses unknown nam
   expect(layoutsUsed('<p data-segnavia-layout="known known">x</p>')).toEqual(['known'])
   expect(await loadLayoutScripts('<p>plain</p>')).toEqual([])
   expect(loadLayoutScripts('<p data-segnavia-layout="missing"></p>')).rejects.toThrow('registerLayoutProvider("missing", …)')
+})
+
+test('the shared registry reports whether a provider is registered', () => {
+  expect(hasLayoutProvider('known')).toBe(false)
+  registerLayoutProvider('known', { script: async () => 'KNOWN' })
+  expect(hasLayoutProvider('known')).toBe(true)
+  resetLayoutProvidersForTest()
+  expect(hasLayoutProvider('known')).toBe(false)
+})
+
+test('a library marker refuses an unregistered provider with its remedy', async () => {
+  const diagram = '<pre data-segnavia-diagram="mermaid"><code>flowchart TD</code></pre>'
+  expect(layoutsUsed(diagram)).toEqual(['diagram'])
+  expect(loadLayoutScripts(diagram)).rejects.toThrow(
+    "Call registerDiagramProvider(diagrams) from '@segnavia/frame/diagrams', or import '@segnavia/diagrams/auto'",
+  )
+})
+
+test('library marker text inside a code sample selects no provider', async () => {
+  const sample = '<code>&lt;pre data-segnavia-diagram="mermaid"&gt;&lt;/pre&gt;</code>'
+  expect(layoutsUsed(sample)).toEqual([])
+  expect(await loadLayoutScripts(sample)).toEqual([])
 })
 
 test('layout selection reads only real author attributes in every HTML attribute form', () => {
