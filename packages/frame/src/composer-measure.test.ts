@@ -261,6 +261,7 @@ function measuredElement(options: {
   }
   return {
     tagName: options.tag ?? 'DIV',
+    childNodes: [],
     ownerDocument: document,
     querySelectorAll: (selector: string) => (selector === 'table' ? (options.tables ?? []) : []),
     getBoundingClientRect: () => box,
@@ -271,6 +272,7 @@ test('a hidden descendant table does not change its block lines', () => {
   const hiddenTable = {
     tagName: 'TABLE',
     parentElement: null,
+    closest: () => null,
     getClientRects: () => [],
   }
   const plain = measuredElement({ range: [{ top: 12, bottom: 18 }] })
@@ -305,6 +307,7 @@ test('a figure with an in-flow table uses the table row bands', () => {
   const table = {
     tagName: 'TABLE',
     parentElement: null as unknown,
+    closest: () => null,
     ownerDocument: {},
     getClientRects: () => [{}],
     getBoundingClientRect: () => ({ top: 20, bottom: 60 }),
@@ -322,7 +325,7 @@ test('a figure with an in-flow table uses the table row bands', () => {
 })
 
 test('a numbered container marks heading lines as uncounted while keeping paragraph lines counted', () => {
-  const heading = { getBoundingClientRect: () => ({ top: 10, bottom: 20 }) }
+  const heading = { closest: () => null, getBoundingClientRect: () => ({ top: 10, bottom: 20 }) }
   const ranges = new Map<unknown, Array<{ top: number; bottom: number }>>([[heading, [{ top: 10, bottom: 20 }]]])
   let selected: unknown
   const element = {

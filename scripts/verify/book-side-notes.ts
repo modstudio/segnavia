@@ -17,6 +17,30 @@ export async function verifyBookSideNotes(h: Harness) {
       return printed ? Math.max(Math.abs(note.x - printed.x), Math.abs(note.y - printed.y)) : Number.POSITIVE_INFINITY
     })
     const directions = await frame.locator('[data-segnavia-side-notes] [data-side-note]').evaluateAll((notes) => notes.map((note) => note.getAttribute('dir')))
+    const lineCounts = await frame.locator('html').evaluate(() => {
+      const lineCount = (element: Element | null, excludeSideNotes: boolean) => {
+        if (!element) return 0
+        const tops = new Set<number>()
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+        let node = walker.nextNode()
+        while (node) {
+          if (!excludeSideNotes || !node.parentElement?.closest('[data-side-note]')) {
+            const range = document.createRange()
+            range.selectNodeContents(node)
+            for (const rect of range.getClientRects()) tops.add(Math.round(rect.top * 2) / 2)
+          }
+          node = walker.nextNode()
+        }
+        return tops.size
+      }
+      const source = document.querySelector('[data-segnavia-galleys]')
+      const inline = document.querySelector('[data-segnavia-side-notes] [data-side-note-kind="inline"]')
+      return {
+        holder: lineCount(source?.querySelector('[data-side-note-holder]') ?? null, true),
+        control: lineCount(source?.querySelector('[data-side-note-control]') ?? null, true),
+        note: lineCount(inline, false),
+      }
+    })
     const heading = await frame.locator('html').evaluate(() => ({
       count: document.querySelectorAll('#side-heading').length,
       tag: document.getElementById('side-heading')?.tagName,
@@ -38,9 +62,11 @@ export async function verifyBookSideNotes(h: Harness) {
         heading.contents.trim() !== '' &&
         headingOutline !== undefined &&
         headingOutline.page > 0 &&
+        lineCounts.holder === lineCounts.control &&
+        lineCounts.note >= 3 &&
         anchorsMatch &&
         onlyStackDown,
-      JSON.stringify({ screen, pdf, differences, directions, heading, headingOutline, anchorsMatch, onlyStackDown }),
+      JSON.stringify({ screen, pdf, differences, directions, lineCounts, heading, headingOutline, anchorsMatch, onlyStackDown }),
     )
   }
 }

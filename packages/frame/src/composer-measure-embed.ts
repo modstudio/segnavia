@@ -1,5 +1,6 @@
 import { embedFunction } from '@segnavia/html'
 import { backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from './composer-decoration.ts'
+import { contentRangesExcludingSideNotes } from './composer-line-range.ts'
 import {
   applyBoxDecorations,
   composerLayoutReady,
@@ -50,6 +51,7 @@ export function embeddedComposerMeasureFunctions(): string {
     embedFunction('applyBoxDecorations', applyBoxDecorations),
     embedFunction('forcedPageBreak', forcedPageBreak),
     embedFunction('composerLayoutReady', composerLayoutReady),
+    embedFunction('contentRangesExcludingSideNotes', contentRangesExcludingSideNotes),
     embedFunction('sizeFlowGalley', sizeFlowGalley),
     embedFunction('tableRowLines', tableRowLines),
     embedFunction('linesWithDescendantTables', linesWithDescendantTables),

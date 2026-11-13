@@ -26,6 +26,6 @@ test('side-note anchors use the following text line for blocks and their contain
   ).toBe(20)
   expect(sideNoteAnchorTop('block', 4, [], [])).toBe(4)
   expect(sideNoteAnchorTop('inline', 24, held, [])).toBe(20)
-  expect(sideNoteAnchorTop('inline', 18, held, [])).toBe(20)
-  expect(sideNoteAnchorTop('inline', 18, [{ top: 18, bottom: 33 }, second], [])).toBe(20)
+  expect(sideNoteAnchorTop('inline', 18, held, [])).toBe(10)
+  expect(sideNoteAnchorTop('inline', 40, held, [])).toBe(40)
 })

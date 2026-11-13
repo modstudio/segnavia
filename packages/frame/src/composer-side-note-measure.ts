@@ -5,15 +5,7 @@ export function sideNoteKind(note: { parentElement: Element | null }, flow: Elem
 }
 
 export function inlineSideNoteAnchorTop(staticTop: number, containingLines: readonly MeasuredLineBox[]): number {
-  let nearest: MeasuredLineBox | undefined
-  for (const line of containingLines) if (!nearest || Math.abs(line.top - staticTop) < Math.abs(nearest.top - staticTop)) nearest = line
-  if (!nearest || Math.abs(nearest.top - staticTop) >= 0.5) return nearest?.top ?? staticTop
-  let adjacent: MeasuredLineBox | undefined
-  for (const line of containingLines) {
-    if (Math.abs(line.top - nearest.top) < 0.5) continue
-    if (!adjacent || Math.abs(line.top - staticTop) < Math.abs(adjacent.top - staticTop)) adjacent = line
-  }
-  return adjacent && Math.abs(adjacent.top - staticTop) < (nearest.bottom - nearest.top) / 2 ? adjacent.top : nearest.top
+  return containingLines.find((line) => staticTop >= line.top - 0.5 && staticTop < line.bottom + 0.5)?.top ?? staticTop
 }
 
 export function sideNoteAnchorTop(

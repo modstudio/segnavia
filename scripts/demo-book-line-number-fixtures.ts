@@ -95,6 +95,9 @@ export function numberedBookFixture(hebrew: boolean): DocumentInput {
 
 export function sideNoteBookFixture(hebrew: boolean): DocumentInput {
   const note = hebrew ? 'הערת שוליים עשירה' : 'A rich margin note'
+  const inlineNote = hebrew
+    ? 'הערת שוליים ארוכה ועשירה שנעטפת לכמה שורות בשוליים הצרים של העמוד'
+    : 'A long rich margin note whose text wraps across several lines in the narrow page margin'
   const text = hebrew ? 'הטקסט ממשיך בשורה הזאת' : 'The text continues on this line'
   return {
     type: 'document',
@@ -120,7 +123,7 @@ export function sideNoteBookFixture(hebrew: boolean): DocumentInput {
             children: [
               {
                 type: 'flow',
-                html: `<p>${text}</p><h2 id="side-heading" data-side-note data-side-note-kind="block">${note} <em>${hebrew ? 'מודגשת' : 'emphasized'}</em></h2><p><span data-side-note-anchor="block">${text}</span></p><p>${text}<br><span data-side-note-anchor="inline">${text}</span> <span data-side-note data-side-note-kind="inline">${note}</span></p><p>${text}</p>`,
+                html: `<p>${text}</p><h2 id="side-heading" data-side-note data-side-note-kind="block">${note} <em>${hebrew ? 'מודגשת' : 'emphasized'}</em></h2><p><span data-side-note-anchor="block">${text}</span></p><p data-side-note-holder>${text}<br><span data-side-note-anchor="inline">${text}</span> <span data-side-note data-side-note-kind="inline">${inlineNote}</span></p><p data-side-note-control>${text}<br><span>${text}</span></p><p>${text}</p>`,
               },
             ],
           },
