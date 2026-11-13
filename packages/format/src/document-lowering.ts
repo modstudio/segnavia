@@ -109,6 +109,7 @@ export function bookFromDocument(document: DocumentValue, brand?: Brand): BookVa
       widows: document.widows,
       fragmentation: document.fragmentation,
       lineNumbers: document.settings?.lineNumbers,
+      sideNotes: document.settings?.sideNotes,
       contents: contentsOptions(document),
     }),
   )
@@ -143,6 +144,7 @@ function pageValue(document: DocumentValue, printed: boolean, brand?: Brand): Pa
         variables: document.variables.map(variable),
         headTemplates: document.headTemplates.map(headTemplate),
         lineNumbers: document.settings?.lineNumbers,
+        sideNotes: document.settings?.sideNotes,
         ...(sections.length > 0 ? { sections } : {}),
       }
     : undefined

@@ -69,3 +69,19 @@ test('line numbers require a block, their document setting, and stay out of pare
     'use a book or printed document',
   )
 })
+
+test('side notes require flowing configured content, reject nesting, and identify inline notes', () => {
+  expect(() => identifyHtmlBlocks('<p data-side-note>Note</p>', 'chapter', () => 'note', new Map())).toThrow('settings.sideNotes setting')
+  expect(() =>
+    identifyHtmlBlocks('<p data-side-note>Note</p>', 'parent page', () => 'note', new Map(), { parentRegion: true, sideNotes: 'set' }),
+  ).toThrow('cannot take effect in a parent-page region')
+  expect(() => identifyHtmlBlocks('<p data-side-note>Note</p>', 'page', () => 'note', new Map(), { flowing: false, sideNotes: 'set' })).toThrow(
+    "move it to a flow or part's HTML, or a printed document's page body",
+  )
+  expect(() =>
+    identifyHtmlBlocks('<p data-side-note>Outer <span data-side-note>Inner</span></p>', 'chapter', () => 'note', new Map(), { sideNotes: 'set' }),
+  ).toThrow('nested inside another side note')
+  const parsed = identifyHtmlBlocks('<p>Text <span data-side-note lang="he">הערה</span></p>', 'chapter', () => 'inline-note', new Map(), { sideNotes: 'set' })
+  expect(parsed.html).toContain('data-segnavia-id="inline-note"')
+  expect(parsed.added).toContain('inline-note')
+})

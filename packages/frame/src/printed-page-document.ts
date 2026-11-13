@@ -54,9 +54,13 @@ export { PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
 export { PrintedPagesRefusedError }
 
-function printedLineNumbers(page: PrintedHtmlPage, system: NumberSystem) {
-  const settings = page.printedPages.lineNumbers
-  return settings === undefined ? {} : { lineNumbers: resolveLineNumbers(settings, system) }
+function printedMarginSettings(page: PrintedHtmlPage, system: NumberSystem) {
+  const lineNumbers = page.printedPages.lineNumbers
+  const sideNotes = page.printedPages.sideNotes
+  return {
+    ...(lineNumbers === undefined ? {} : { lineNumbers: resolveLineNumbers(lineNumbers, system) }),
+    ...(sideNotes === undefined ? {} : { sideNotes }),
+  }
 }
 
 function printedHeightReporting(options: { measure?: boolean; screen?: ScreenPresentation }): boolean | 'body' {
@@ -156,7 +160,7 @@ export function printedPageValueDocument(
     measure: options.measure ?? false,
     inlineOverflow: 'tile',
     numbering: divisionNumbering(undefined, { frontMatter: numbering, body: numbering }),
-    ...printedLineNumbers(page, numbering),
+    ...printedMarginSettings(page, numbering),
     parentRules,
     fontLoads: declaredFontLoads(page.style?.fonts),
     ...(options.profile && preflightEnabled(options.profile) ? { preflight: options.profile, preflightSeed } : {}),

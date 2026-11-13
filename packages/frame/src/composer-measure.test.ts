@@ -14,6 +14,7 @@ import {
   measureLineBoxes,
   measurementRefusal,
   skippableDescendantBoxDisplay,
+  sideNoteAnchorTop,
   tableRowLines,
 } from './composer-measure.ts'
 
@@ -349,6 +350,13 @@ test('a numbered container marks heading lines as uncounted while keeping paragr
     { top: 10, bottom: 20, counted: false },
     { top: 20, bottom: 30 },
   ])
+})
+
+test('side-note anchors use the following text line for blocks and their containing line inline', () => {
+  const held = [{ top: 10, bottom: 20 }, { top: 20, bottom: 30 }]
+  expect(sideNoteAnchorTop('block', 4, [], [{ kind: 'heading', lines: held }, { kind: 'text', lines: [{ ...held[0]!, counted: false }, held[1]!] }])).toBe(20)
+  expect(sideNoteAnchorTop('block', 4, [], [])).toBe(4)
+  expect(sideNoteAnchorTop('inline', 24, held, [])).toBe(20)
 })
 
 test('an unmeasurable printed-page galley refuses with its own subject', () => {

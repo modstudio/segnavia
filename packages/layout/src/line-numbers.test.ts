@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { Measurements, Plan } from '@segnavia/format'
-import { numberLines, resolveLineNumberSide } from './line-numbers.ts'
+import { numberLines, resolveMarginSide } from './line-numbers.ts'
 
 function fixtures() {
   const blocks = [
@@ -179,8 +179,8 @@ describe('numberLines', () => {
 })
 
 test('resolves physical and directional sides', () => {
-  expect(resolveLineNumberSide('outer', { side: 'left' }, 'ltr')).toBe('left')
-  expect(resolveLineNumberSide('inner', { side: 'left' }, 'ltr')).toBe('right')
-  expect(resolveLineNumberSide('start', { side: 'left' }, 'rtl')).toBe('right')
-  expect(resolveLineNumberSide('end', { side: 'right' }, 'rtl')).toBe('left')
+  expect(resolveMarginSide('outer', { side: 'left' }, 'ltr')).toBe('left')
+  expect(resolveMarginSide('inner', { side: 'left' }, 'ltr')).toBe('right')
+  expect(resolveMarginSide('start', { side: 'left' }, 'rtl')).toBe('right')
+  expect(resolveMarginSide('end', { side: 'right' }, 'rtl')).toBe('left')
 })

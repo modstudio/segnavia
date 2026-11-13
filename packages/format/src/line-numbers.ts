@@ -3,6 +3,11 @@ import { NumberSystem } from './numbering.ts'
 
 export const LineNumberArea = z.enum(['text', 'margin'])
 export const LineNumberSide = z.enum(['outer', 'inner', 'start', 'end'])
+export const SideNotes = z.object({
+  area: z.literal('margin', { error: 'sideNotes.area must be margin; use margin to clear this refusal' }).default('margin'),
+  side: LineNumberSide.default('outer'),
+})
+export type SideNotes = z.infer<typeof SideNotes>
 export const LineNumbers = z.object({
   interval: z.number().int().positive().default(5),
   start: z.number().int().positive().default(1),

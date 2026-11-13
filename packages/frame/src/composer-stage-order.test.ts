@@ -16,13 +16,13 @@ test('fill and measured properties run once after copyfit and before the first p
   expect(script).toContain('properties:propertyResults')
 })
 
-test('draws line numbers once after composed layout and before preflight completes', () => {
+test('draws margin content once after composed layout and before preflight completes', () => {
   const script = composerScript('{}')
   const composed = script.indexOf("window.segnaviaLayout.run('composed')")
-  const lineNumbers = script.indexOf('drawLineNumbers(', composed)
-  const preflight = script.indexOf('completePreflight(', lineNumbers)
+  const margin = script.indexOf('drawMarginContent(', composed)
+  const preflight = script.indexOf('completePreflight(', margin)
   expect(composed).toBeGreaterThan(-1)
-  expect(lineNumbers).toBeGreaterThan(composed)
-  expect(preflight).toBeGreaterThan(lineNumbers)
-  expect(script.slice(composed).match(/drawLineNumbers\(/g)).toHaveLength(1)
+  expect(margin).toBeGreaterThan(composed)
+  expect(preflight).toBeGreaterThan(margin)
+  expect(script.slice(composed).match(/drawMarginContent\(/g)).toHaveLength(1)
 })

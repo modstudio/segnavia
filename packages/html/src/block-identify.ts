@@ -7,6 +7,7 @@ import { FIT_ATTRIBUTE_FAMILY } from './fit-attributes.ts'
 import { LINE_NUMBER_ATTRIBUTE_FAMILY } from './line-number-attributes.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from './measure-attributes.ts'
 import { parse, serialize } from './sanitize.ts'
+import { SIDE_NOTE_ATTRIBUTE_FAMILY } from './side-note-attributes.ts'
 import { parentRegionAttributeIssue, sourceAttributeIssues } from './source-attributes.ts'
 
 export interface BlockIdLocation {
@@ -42,11 +43,63 @@ export function lineNumbersState(document: Pick<Document, 'kind' | 'settings'>):
   return document.settings?.lineNumbers === undefined ? 'unset' : 'set'
 }
 
+export type SideNotesState = 'set' | 'unset' | 'unsupported'
+
+export function sideNotesState(document: Pick<Document, 'kind' | 'settings'>): SideNotesState {
+  if (!(DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes('sideNotes')) return 'unsupported'
+  return document.settings?.sideNotes === undefined ? 'unset' : 'set'
+}
+
 function lineNumberDocumentKinds(): string {
   const kinds = Object.entries(DOCUMENT_PROFILES)
     .filter(([, profile]) => (profile.settings as readonly string[]).includes('lineNumbers'))
     .map(([kind]) => kind)
   return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
+}
+
+function sideNoteDocumentKinds(): string {
+  const kinds = Object.entries(DOCUMENT_PROFILES)
+    .filter(([, profile]) => (profile.settings as readonly string[]).includes('sideNotes'))
+    .map(([kind]) => kind)
+  return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
+}
+
+function sideNoteAttributeIssues(children: readonly ChildNode[], where: string, parentRegion: boolean, flowing: boolean): string[] {
+  const issues: string[] = []
+  const visit = (nodes: readonly ChildNode[], insideSideNote: boolean): void => {
+    for (const node of nodes) {
+      if (!isTag(node)) continue
+      const nodeWhere = `${where} <${node.name}>`
+      const sideNote = node.attribs['data-side-note'] !== undefined
+      if (sideNote) {
+        issues.push(...SIDE_NOTE_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs))
+        if (parentRegion) issues.push(parentRegionAttributeIssue(nodeWhere, 'data-side-note'))
+        else if (!flowing) {
+          issues.push(
+            `${nodeWhere} data-side-note cannot take effect because side notes belong to flowing content; move it to a flow or part's HTML, or a printed document's page body, to clear this refusal`,
+          )
+        } else if (insideSideNote) {
+          issues.push(`${nodeWhere} data-side-note is nested inside another side note; remove one data-side-note attribute to clear this refusal`)
+        }
+      }
+      visit(node.children, insideSideNote || sideNote)
+    }
+  }
+  visit(children, false)
+  return issues
+}
+
+function sideNoteElements(children: readonly ChildNode[]): Element[] {
+  const result: Element[] = []
+  const visit = (nodes: readonly ChildNode[]): void => {
+    for (const node of nodes) {
+      if (!isTag(node)) continue
+      if (node.attribs['data-side-note'] !== undefined && !BLOCK_KINDS.has(node.name.toLowerCase())) result.push(node)
+      visit(node.children)
+    }
+  }
+  visit(children)
+  return result
 }
 
 function lineNumberPlacementIssue(nodeWhere: string, parentRegion: boolean, flowing: boolean, topLevel: Element | undefined): string | undefined {
@@ -105,13 +158,14 @@ export function identifyHtmlBlocks(
   node: string,
   newId: () => string,
   seen: Map<string, BlockIdLocation>,
-  options: { parentRegion?: boolean; flowing?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState } = {},
+  options: { parentRegion?: boolean; flowing?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState; sideNotes?: SideNotesState } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
   const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
     ...(options.parentRegion ? { refusedFamilies: ['data-measure'] } : {}),
   })
   issues.push(...lineNumberAttributeIssues(tree.children, node, options.parentRegion === true, options.flowing ?? true))
+  issues.push(...sideNoteAttributeIssues(tree.children, node, options.parentRegion === true, options.flowing ?? true))
   if (hasLineNumbers(tree.children)) {
     if ((options.lineNumbers ?? 'unset') === 'unset') {
       issues.push(`${node} data-line-numbers needs the document settings.lineNumbers setting; add that setting to clear this refusal`)
@@ -121,9 +175,19 @@ export function identifyHtmlBlocks(
       )
     }
   }
+  if (sideNoteElements(tree.children).length > 0 || blockElements(tree.children).some((element) => element.attribs['data-side-note'] !== undefined)) {
+    if ((options.sideNotes ?? 'unset') === 'unset') {
+      issues.push(`${node} data-side-note needs the document settings.sideNotes setting; add that setting to clear this refusal`)
+    } else if (options.sideNotes === 'unsupported') {
+      issues.push(
+        `${node} data-side-note cannot take effect because this document kind does not place side notes; use a ${sideNoteDocumentKinds()} document to clear this refusal`,
+      )
+    }
+  }
   issues.push(...fillAttributeIssues(tree.children, node, options.insideNamedRegion))
   if (issues.length) throw new RangeError(issues.join(' '))
   const added = identifyBlockElements(blockElements(tree.children), node, newId, seen)
+  added.push(...identifyBlockElements(sideNoteElements(tree.children), node, newId, seen))
   return { html: serialize(tree), added }
 }
 

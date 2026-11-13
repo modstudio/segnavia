@@ -83,6 +83,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     recordSlotsByFlow: pagination.recordSlotsByFlow ?? {},
     numbering: pagination.numbering,
     ...(pagination.lineNumbers === undefined ? {} : { lineNumbers: resolveLineNumbers(pagination.lineNumbers, pagination.numbering.body) }),
+    ...(pagination.sideNotes === undefined ? {} : { sideNotes: pagination.sideNotes }),
     limit: limits.pages,
     limitRefusal: {
       template: limitRefusalTemplate('pages', limits.pages, { pagesSource: limits.pagesSource }),

@@ -19,7 +19,7 @@ import { pageGeometryIssues } from './document-page-geometry-policy.ts'
 import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { HeadTemplates } from './head-template.ts'
 import { DocumentLimitsValue } from './limits.ts'
-import { LineNumbers } from './line-numbers.ts'
+import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { RequiredLogicalMargin } from './margins.ts'
 import { NoteSeries, noteSeriesIssues, resolveNoteSeries } from './note-series.ts'
 import { divisionNumbering, divisionPrints, NoteMarker, NumberSystem } from './numbering.ts'
@@ -96,6 +96,7 @@ export const BookShape = z.object({
   dir: Direction.optional(),
   lang: z.string().optional(),
   lineNumbers: LineNumbers.optional(),
+  sideNotes: SideNotes.optional(),
   frontMatter: z.array(BookItem).default([]),
   body: z.array(BookItem).optional(),
   endMatter: z.array(BookItem).default([]),
@@ -171,6 +172,7 @@ export const BookViewPagination = z
     recordSlotsByFlow: z.record(z.string(), z.record(z.string(), z.string())).optional(),
     document: VariableDocumentFacts.optional(),
     lineNumbers: LineNumbers.optional(),
+    sideNotes: SideNotes.optional(),
   })
   .superRefine((pagination, ctx) =>
     refineDocumentVariables(
@@ -389,6 +391,7 @@ export function resolveBookPagination(book: Book): BookViewPagination | undefine
     variables: book.variables,
     headTemplates: book.headTemplates,
     ...(book.lineNumbers === undefined ? {} : { lineNumbers: book.lineNumbers }),
+    ...(book.sideNotes === undefined ? {} : { sideNotes: book.sideNotes }),
     recordSlotsByFlow: Object.fromEntries(bookSections(book).flatMap(({ entry }) => ('values' in entry && entry.values ? [[entry.id, entry.values]] : []))),
     ...(book.variables.some(variableReadsDocumentFacts) ? { document: bookVariableDocumentFacts(book) } : {}),
   }

@@ -24,6 +24,7 @@ import {
   outermostKeepValue,
   sizeFlowGalley,
   skippableDescendantBoxDisplay,
+  sideNoteAnchorTop,
   tableRenderedInFlow,
   tableRowLines,
 } from './composer-measure.ts'
@@ -53,6 +54,7 @@ export function embeddedComposerMeasureFunctions(): string {
     embedFunction('tableRowLines', tableRowLines),
     embedFunction('linesWithDescendantTables', linesWithDescendantTables),
     embedFunction('lineNumberedLines', lineNumberedLines),
+    embedFunction('sideNoteAnchorTop', sideNoteAnchorTop),
     embedFunction('measureTableLines', measureTableLines),
     embedFunction('tableRenderedInFlow', tableRenderedInFlow),
     embedFunction('headerTableFor', headerTableFor),

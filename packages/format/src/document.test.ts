@@ -54,6 +54,12 @@ test('refuses duplicate node ids with both nodes and the clearance', () => {
 import { jsonSchemas } from './json-schemas.ts'
 
 describe('Document', () => {
+  test('defaults side notes to the outer margin and refuses a text area', () => {
+    const input = { type: 'document', kind: 'printed', settings: { sideNotes: {} }, children: [{ type: 'page', body: { html: '<p>Body</p>' } }], parentPages: [], parentRules: [] }
+    expect(Document.parse(input).settings?.sideNotes).toEqual({ area: 'margin', side: 'outer' })
+    expect(() => Document.parse({ ...input, settings: { sideNotes: { area: 'text' } } })).toThrow('sideNotes.area must be margin')
+  })
+
   test('keeps optional ids and refuses nodes outside the kind profile', () => {
     const parsed = Document.parse({ type: 'document', id: 'page-doc', kind: 'page', children: [{ type: 'page', id: 'body', body: { html: '<p>Body</p>' } }] })
     expect(parsed.id).toBe('page-doc')

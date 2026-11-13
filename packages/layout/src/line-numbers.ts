@@ -33,10 +33,10 @@ function windowLines(
 }
 
 export function numberLinesScript(): string {
-  return `${windowLines.toString()}\n${resolveLineNumberSide.toString()}\n${numberLabel.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
+  return `${windowLines.toString()}\n${resolveMarginSide.toString()}\n${numberLabel.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
 }
 
-export function resolveLineNumberSide(side: LineNumbers['side'], page: Pick<Plan['pages'][number], 'side'>, direction: 'ltr' | 'rtl'): 'left' | 'right' {
+export function resolveMarginSide(side: LineNumbers['side'], page: Pick<Plan['pages'][number], 'side'>, direction: 'ltr' | 'rtl'): 'left' | 'right' {
   if (side === 'outer') return page.side
   if (side === 'inner') return page.side === 'left' ? 'right' : 'left'
   if (side === 'start') return direction === 'ltr' ? 'left' : 'right'
@@ -81,7 +81,7 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Re
           height: line.bottom - line.top,
           column: window.column,
           columns: window.columns,
-          side: resolveLineNumberSide(settings.side, page, direction),
+          side: resolveMarginSide(settings.side, page, direction),
         })
       }
     }
