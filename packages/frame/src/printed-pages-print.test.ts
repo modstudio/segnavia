@@ -3,6 +3,7 @@ import type { TextDirection } from '@segnavia/format'
 import { DEFAULT_PAGE_LIMIT, Imposition, type LimitExceededError, limitRefusal, Page, PX_PER_MM } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 import { MESSAGE } from './bridge.ts'
+import { measurePrintedPageCount } from './printed-page-count.ts'
 import { printedPagesPrintDocument } from './printed-pages-print.ts'
 
 const identity = Imposition.parse({ paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } })
@@ -29,9 +30,10 @@ afterEach(() => {
   else Reflect.deleteProperty(globalThis, 'document')
 })
 
-function fakeMeasurement(height: number): { styles: Array<{ cssText: string }>; documents: string[] } {
+function fakeMeasurement(height: number): { styles: Array<{ cssText: string }>; documents: string[]; removed: { count: number } } {
   const styles: Array<{ cssText: string }> = []
   const documents: string[] = []
+  const removed = { count: 0 }
   const messages = new EventTarget() as EventTarget & Pick<Window, 'setTimeout' | 'clearTimeout'>
   messages.setTimeout = globalThis.setTimeout.bind(globalThis) as Window['setTimeout']
   messages.clearTimeout = globalThis.clearTimeout.bind(globalThis) as Window['clearTimeout']
@@ -51,7 +53,7 @@ function fakeMeasurement(height: number): { styles: Array<{ cssText: string }>; 
       styles.push(style)
       return {
         contentWindow: {},
-        remove: () => {},
+        remove: () => removed.count++,
         setAttribute: () => {},
         style,
         set srcdoc(value: string) {
@@ -62,7 +64,7 @@ function fakeMeasurement(height: number): { styles: Array<{ cssText: string }>; 
   }
   Object.defineProperty(globalThis, 'window', { configurable: true, value: messages })
   Object.defineProperty(globalThis, 'document', { configurable: true, value: document })
-  return { styles, documents }
+  return { styles, documents, removed }
 }
 
 describe('printedPagesPrintDocument', () => {
@@ -113,5 +115,28 @@ describe('printedPagesPrintDocument', () => {
     expect(documents).toHaveLength(1)
     expect(documents[0]).toMatch(/img-src [^;]*https:\/\/images\.example/)
     expect(result.html).toMatch(/img-src [^;]*https:\/\/images\.example/)
+  })
+
+  test('does not carry the host print base CSS into count measurement', async () => {
+    const { documents } = fakeMeasurement(279.4 * PX_PER_MM)
+    await printedPagesPrintDocument([printed()], identity, {
+      deadlineAt: Date.now() + 100,
+      baseCss: '.print-host-marker{break-before:page}',
+    })
+
+    expect(documents).toHaveLength(1)
+    expect(documents[0]).not.toContain('print-host-marker')
+  })
+
+  test('an aborted count measurement removes its hidden frame and rejects with the abort reason', async () => {
+    const { removed } = fakeMeasurement(279.4 * PX_PER_MM)
+    const controller = new AbortController()
+    const reason = new Error('superseded load')
+    const measurement = measurePrintedPageCount(printed(), { signal: controller.signal }, Date.now() + 100)
+
+    controller.abort(reason)
+
+    await expect(measurement).rejects.toBe(reason)
+    expect(removed.count).toBe(1)
   })
 })

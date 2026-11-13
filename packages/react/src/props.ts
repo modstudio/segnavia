@@ -20,6 +20,7 @@ import type {
   SegnaviaDocument,
   SegnaviaPage,
   SegnaviaPaper,
+  SegnaviaPrintedPages,
   SegnaviaStage,
   SegnaviaThumbnail,
   StageFrameDetail,
@@ -184,6 +185,39 @@ export interface PageProps extends Omit<ElementProps<SegnaviaPage>, 'onError'> {
   label?: string
   bounded?: boolean
   unstyled?: boolean
+}
+
+export interface PrintedPagesProps extends Omit<ElementProps<SegnaviaPrintedPages>, 'onError'> {
+  document?: DocumentInput | null
+  page?: SegnaviaPrintedPages['page']
+  recordFor?: SegnaviaPrintedPages['recordFor']
+  layout?: SegnaviaPrintedPages['layout']
+  fit?: SegnaviaPrintedPages['fit']
+  zoom?: SegnaviaPrintedPages['zoom']
+  composeMargin?: SegnaviaPrintedPages['composeMargin']
+  keepMargin?: SegnaviaPrintedPages['keepMargin']
+  reloadDelay?: SegnaviaPrintedPages['reloadDelay']
+  css?: string
+  cspExtra?: string
+  origins?: SegnaviaPrintedPages['origins']
+  slots?: SegnaviaPrintedPages['slots']
+  motifs?: SegnaviaPrintedPages['motifs']
+  fonts?: SegnaviaPrintedPages['fonts']
+  brands?: SegnaviaPrintedPages['brands']
+  alertLabels?: SegnaviaPrintedPages['alertLabels']
+  newId?: SegnaviaPrintedPages['newId']
+  placements?: SegnaviaPrintedPages['placements']
+  pageWidths?: SegnaviaPrintedPages['pageWidths']
+  anchors?: SegnaviaPrintedPages['anchors']
+  asOf?: SegnaviaPrintedPages['asOf']
+  moment?: SegnaviaPrintedPages['moment']
+  profile?: SegnaviaPrintedPages['profile']
+  onPage?: CustomEventProp<{ page: number; pageCount: number }>
+  onRecord?: CustomEventProp<{ record: string | undefined }>
+  onAsof?: CustomEventProp<AsOfDay>
+  onPreflight?: CustomEventProp<PreflightReport>
+  onFontfailure?: CustomEventProp<FontFailureDetail>
+  onError?: ErrorEventProp
 }
 
 export interface BookProps extends Omit<ElementProps<SegnaviaBook>, 'onError'> {

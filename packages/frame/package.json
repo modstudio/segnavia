@@ -20,6 +20,8 @@
     "./dist/deck.js",
     "./src/page-entry.ts",
     "./dist/page-entry.js",
+    "./src/printed-pages-entry.ts",
+    "./dist/printed-pages-entry.js",
     "./src/player-entry.ts",
     "./dist/player-entry.js",
     "./src/controls-entry.ts",
@@ -60,6 +62,11 @@
       "@segnavia/source": "./src/page-entry.ts",
       "types": "./dist/page-entry.d.ts",
       "default": "./dist/page-entry.js"
+    },
+    "./printed-pages": {
+      "@segnavia/source": "./src/printed-pages-entry.ts",
+      "types": "./dist/printed-pages-entry.d.ts",
+      "default": "./dist/printed-pages-entry.js"
     },
     "./svg": {
       "@segnavia/source": "./src/svg.ts",

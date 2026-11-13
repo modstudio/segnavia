@@ -5,6 +5,7 @@ export const HEADLESS_ELEMENTS = {
   boardList: 'segnavia-board-list',
   boardToolbar: 'segnavia-board-toolbar',
   page: 'segnavia-page',
+  printedPages: 'segnavia-printed-pages',
   paper: 'segnavia-paper',
   document: 'segnavia-document',
   book: 'segnavia-book',

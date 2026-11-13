@@ -1,6 +1,7 @@
 import { writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { buildInPageLinkDemo } from './build-in-page-link-demo.ts'
+import { buildPrintedPagesViewerDemo } from './build-printed-pages-viewer-demo.ts'
 import { buildScriptedDependencyDemo } from './build-scripted-dependency-demo.ts'
 import { emptyDirectionPage, fixedPage, fluidPage, hebrewPage, markdownPage, ownDirectionPage, postcardPage, rightToLeftDivPage } from './demo-page-fixtures.ts'
 
@@ -75,6 +76,7 @@ export const AS_OF_DEMO_DATE = '2026-11-14'
 
 // The page demo: each page fixture as JSON, and one host page showing them all, with the in-page link frames beside them.
 export function buildPageDemo(site: string, shell: (body: string) => string): void {
+  buildPrintedPagesViewerDemo(site, shell)
   buildScriptedDependencyDemo(site, shell)
   for (const page of PAGE_DEMO_PAGES) writeFileSync(path.join(site, page.file), JSON.stringify(page.fixture))
   for (const page of PRINTED_PAGE_DEMO_PAGES) writeFileSync(path.join(site, page.file), JSON.stringify(page.fixture))

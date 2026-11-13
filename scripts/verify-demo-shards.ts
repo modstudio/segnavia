@@ -22,6 +22,7 @@ export const VERIFY_DEMO_SECTIONS_BY_DURATION = [
   'verifyBooks',
   'verifyLayoutProviders',
   'verifyPages',
+  'verifyPrintedPagesViewer',
   'verifyFontCollection',
   'verifyComponents',
   'verifyCssSanitizer',

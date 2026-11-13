@@ -24,7 +24,7 @@ Every published package includes its `CHANGELOG.md` alongside its built distribu
 
 | Package entry | What it provides |
 |---|---|
-| `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and every DOM event name it dispatches; and `upgradeProperties`, which applies properties set before an element's definition loaded. Adapters map those event names to their own prop conventions, React owns its typed `on…` maps, and the Vue opt-ins derive their typed props and events from the same descriptors. The page, paper, document, book and stage elements report a failure as a non-bubbling `error` `ErrorEvent` whose `error` is an `Error`. |
+| `@segnavia/frame/element-properties` | Server-safe `ELEMENT_PROPERTIES`: each element's tag, host-set properties and every DOM event name it dispatches; and `upgradeProperties`, which applies properties set before an element's definition loaded. Generated property accessors take an explicit change callback when their owner needs notification. Adapters map those event names to their own prop conventions, React owns its typed `on…` maps, and the Vue opt-ins derive their typed props and events from the same descriptors. The page, paper, document, book and stage elements report a failure as a non-bubbling `error` `ErrorEvent` whose `error` is an `Error`. |
 | `@segnavia/frame/vue` | A types-only Vue 3.5+ opt-in that derives global component props and typed events for every frame descriptor: a custom event carries its typed detail, a native event such as `ErrorEvent` keeps its own class, and an event name whose type differs by element takes that element's own entry. Its JavaScript is empty and no runtime entry imports it. |
 | `@segnavia/frame/vue-types` | Types-only helpers shared by both Vue opt-ins. It makes no Vue augmentation, and the packed-package check asserts that its JavaScript is empty. |
 | `@segnavia/markdown-editor/vue` | The editor's types-only Vue 3.5+ global component opt-in, derived from its property and event descriptor. Its JavaScript is empty and no runtime entry imports it. |
@@ -1320,8 +1320,8 @@ the current `{ pageId }`; the host opens its own settings element wherever it
 placed it. `useDocumentAuthoring` exposes the same attachment and option
 through `@segnavia/react`.
 
-`@segnavia/react` exports `Page`, `Paper`, and `Document` wrappers in addition
-to `Thumbnail`; object values are assigned as element properties rather than
+`@segnavia/react` exports `Page`, `PrintedPages`, `Book`, `Paper`, and `Document`
+wrappers in addition to `Thumbnail`; object values are assigned as element properties rather than
 serialized as attributes.
 
 A label template is an imposition: label stock is a grid. The host supplies
@@ -2286,6 +2286,15 @@ and screen elements. `render` owns printing and finishing, including one
 metadata writer and one outline writer. `idml` maps named styles, regions,
 sections and conditions onto `Document`.
 
+`<segnavia-printed-pages>` is the headless screen viewer for a printed
+document. It measures the document once, gives every paper its full
+`paperViewport` box immediately, and composes only papers near its scroll
+viewport. Composed papers remain mounted through a larger keep window. The
+viewer owns paper and spread navigation, while `recordFor(page)` is the host's
+explicit mapping from papers to records. Single and facing layouts preserve
+the document direction; fitting and zooming transform the paper geometry
+without changing the composed document.
+
 The document model adds `BrandSource.brand` to resolve a brand by name;
 `layoutProvider` registers named work by phase and priority; `newId` mints node
 and block ids; and `assets` resolves an address to bytes within a budget.
@@ -2326,7 +2335,7 @@ absorbed roadmap task.
 | 5 | SEGNA-400 — S5.3 Fit, measured properties, and fill and overflow (absorbs 362, 369 and 363) | SEGNA-362; SEGNA-369; SEGNA-363 |
 | 6 | SEGNA-413 — S6.1 Line numbers and side titles (366) | SEGNA-366 |
 | 6 | SEGNA-401 — S6.2 Layout providers (367) | SEGNA-367 |
-| 6 | SEGNA-414 — S6.3 Printed-pages viewer (370) | SEGNA-370 |
+| 6 | SEGNA-414 — S6.3 Printed-pages viewer (370) — delivered | SEGNA-370 |
 | 6 | SEGNA-402 — S6.4 Outline and tags (372) | SEGNA-372 |
 | 6 | SEGNA-403 — S6.5 Form fields (345) | SEGNA-345 |
 | 6 | SEGNA-415 — S6.6 Protection and watermark (360) | SEGNA-360 |

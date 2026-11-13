@@ -12,6 +12,7 @@ import { SegnaviaDocument } from './document.ts'
 import { HEADLESS_ELEMENTS } from './headless-elements.ts'
 import { SegnaviaPage } from './page.ts'
 import { SegnaviaPaper } from './paper.ts'
+import { SegnaviaPrintedPages } from './printed-pages.ts'
 import { SegnaviaStage } from './stage.ts'
 import { SegnaviaThumbnail } from './thumbnail.ts'
 
@@ -56,6 +57,8 @@ export { FontRefusedError, type FontsOptions, type ResolvedFonts, type ResolveFo
 export { SegnaviaPaper } from './paper.ts'
 export { type BrowserPagesPrintOptions, type BrowserPrintOptions, type PrintDialogOptions, printDeck, printPages, SLIDES_READY_DEADLINE_MS } from './print.ts'
 export { htmlSlideDocument, notesLayoutGeometry, printableDeck, printablePaper } from './print-document.ts'
+export { SegnaviaPrintedPages } from './printed-pages.ts'
+export { createPrintedPagesElement } from './printed-pages-element.ts'
 export { SlideFrameError } from './slide-frame-error.ts'
 export { slotAssetFrom } from './slot-render.ts'
 export { SegnaviaStage } from './stage.ts'
@@ -72,6 +75,7 @@ if (!customElements.get(HEADLESS_ELEMENTS.boardList)) customElements.define(HEAD
 if (!customElements.get(HEADLESS_ELEMENTS.boardToolbar)) customElements.define(HEADLESS_ELEMENTS.boardToolbar, SegnaviaBoardToolbar)
 if (!customElements.get(HEADLESS_ELEMENTS.thumbnail)) customElements.define(HEADLESS_ELEMENTS.thumbnail, SegnaviaThumbnail)
 if (!customElements.get(HEADLESS_ELEMENTS.page)) customElements.define(HEADLESS_ELEMENTS.page, SegnaviaPage)
+if (!customElements.get(HEADLESS_ELEMENTS.printedPages)) customElements.define(HEADLESS_ELEMENTS.printedPages, SegnaviaPrintedPages)
 if (!customElements.get(HEADLESS_ELEMENTS.paper)) customElements.define(HEADLESS_ELEMENTS.paper, SegnaviaPaper)
 if (!customElements.get(HEADLESS_ELEMENTS.document)) customElements.define(HEADLESS_ELEMENTS.document, SegnaviaDocument)
 if (!customElements.get(HEADLESS_ELEMENTS.book)) customElements.define(HEADLESS_ELEMENTS.book, SegnaviaBook)

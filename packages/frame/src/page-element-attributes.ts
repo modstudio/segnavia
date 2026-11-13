@@ -4,7 +4,9 @@ import { defineStylesheetPropertyAccessors } from './element-property-accessors.
 
 export class PageElementAttributes extends HTMLElement {
   static {
-    defineStylesheetPropertyAccessors(PageElementAttributes.prototype)
+    defineStylesheetPropertyAccessors(PageElementAttributes.prototype, undefined, (element, property) =>
+      (element as PageElementAttributes).stylesheetPropertyChanged(property),
+    )
   }
   declare css: string
   declare cspExtra: string
@@ -21,6 +23,8 @@ export class PageElementAttributes extends HTMLElement {
   }
 
   protected brandsChanged(): void {}
+
+  protected stylesheetPropertyChanged(_property: string): void {}
 
   get bounded(): boolean {
     return this.hasAttribute('bounded')

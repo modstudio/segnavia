@@ -102,7 +102,7 @@ export const PACKAGES: Record<string, PackageRule> = {
   frame: {
     runtime: 'browser',
     imports: ['@segnavia/format', '@segnavia/html', '@segnavia/layout'],
-    // Optional browser entries (package.json): authoring, deck, page, document-authoring, board-editing, item-settings and local-fonts.
+    // Optional browser entries (package.json): authoring, deck, page, printed-pages, document-authoring, board-editing, item-settings and local-fonts.
     serverSafe: [
       'src/deck-model.ts',
       'src/control-values.ts',
