@@ -1,12 +1,10 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFName, PDFRef } from 'pdf-lib'
-import { pdfOutlineItems } from '../book-pdf-readback.ts'
+import { PDFArray, PDFBool, PDFDict, PDFDocument, PDFName } from 'pdf-lib'
+import { pdfOutlineItems, resolve } from '../book-pdf-readback.ts'
 import type { GoldenPdf } from './model.ts'
 
 const run = (command: string, arguments_: string[]): string => execFileSync(command, arguments_, { encoding: 'utf8' }).replaceAll('\r\n', '\n')
-const resolve = (document: PDFDocument, value: unknown): unknown => (value instanceof PDFRef ? document.context.lookup(value) : value)
-
 const normalizedText = (value: string): string =>
   value
     .normalize('NFC')

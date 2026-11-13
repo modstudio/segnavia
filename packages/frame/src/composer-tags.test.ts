@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import type { OutlineSource } from '@segnavia/format'
+import { composerScript } from './composer.ts'
 import { addMissingComposerHeadings, composerTagEntries, stripCloneIds, tagComposerHeadings } from './composer-tags.ts'
 
 class FixtureElement {
@@ -113,6 +114,19 @@ function composedFixture(direction: 'ltr' | 'rtl' = 'ltr') {
 }
 
 describe('composer outline tags', () => {
+  test('escapes outline titles at the composer script boundary (mutation: drop the less-than escape)', () => {
+    const held = source()
+    const outline = { ...held, headings: held.headings.map((heading, index) => (index === 0 ? { ...heading, title: 'Before </script> after' } : heading)) }
+    const script = composerScript(JSON.stringify({ outline }).replace(/</g, '\\u003c'))
+    expect(script.toLowerCase()).not.toContain('</script')
+    expect(script).toContain('Before \\u003c/script> after')
+  })
+
+  test('places hidden headings on first designed and templated pages (mutation: omit fixed-page heading placement)', () => {
+    const script = composerScript('{}')
+    expect(script.match(/if\(m===1\)addMissingComposerHeadings\(clone,document,page\.flow,true,outlineEntries\)/g)).toHaveLength(2)
+  })
+
   test('uses structural depths rather than heading ranks, including a right-to-left fixture (mutation: write rank instead of depth)', () => {
     for (const direction of ['ltr', 'rtl'] as const) {
       const fixture = composedFixture(direction)
@@ -128,14 +142,15 @@ describe('composer outline tags', () => {
     expect(fixture.unlisted.getAttribute('role')).toBe('none')
   })
 
-  test('leaves heading semantics unchanged without an outline (mutation: always run tagComposerHeadings)', () => {
+  test('leaves heading semantics unchanged without outline entries (mutation: remove the undefined-entry returns)', () => {
     const fixture = composedFixture()
-    const entries = composerTagEntries(undefined)
-    if (entries) tagComposerHeadings(fixture.document as unknown as Document, entries)
+    tagComposerHeadings(fixture.document as unknown as Document, undefined)
+    addMissingComposerHeadings(fixture.flow as unknown as Element, fixture.document as unknown as Document, 'chapter', true, undefined)
     expect(fixture.one.getAttribute('role')).toBeNull()
     expect(fixture.one.getAttribute('aria-level')).toBeNull()
     expect(fixture.unlisted.getAttribute('role')).toBeNull()
     expect(fixture.unlisted.getAttribute('aria-level')).toBeNull()
+    expect(fixture.flow.children).toHaveLength(6)
   })
 
   test('adds a direction-isolated hidden heading for a titled part with no heading block', () => {
@@ -171,6 +186,20 @@ describe('composer outline tags', () => {
     expect(hidden).toHaveLength(1)
     expect(opening.children).toHaveLength(1)
     expect(continuation.children).toHaveLength(0)
+  })
+
+  test('adds exactly one hidden heading at a designed-section root depth (mutation: treat its first page as a continuation)', () => {
+    const fixture = composedFixture()
+    const outline: OutlineSource = {
+      ...source(),
+      blocks: ['chapter', ...source().blocks],
+      headings: [{ id: 'chapter', title: 'Designed Part', level: 2, listed, block: 'chapter' }, ...source().headings],
+    }
+    const designedPage = new FixtureElement('div')
+    addMissingComposerHeadings(designedPage as unknown as Element, fixture.document as unknown as Document, 'chapter', true, composerTagEntries(outline))
+    const hidden = designedPage.children.filter((node) => node.getAttribute('data-segnavia-outline-heading') !== null)
+    expect(hidden).toHaveLength(1)
+    expect(hidden[0]?.getAttribute('aria-level')).toBe('1')
   })
 
   test('hides a non-home clone when it drops the source id', () => {

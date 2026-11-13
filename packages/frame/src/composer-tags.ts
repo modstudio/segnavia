@@ -27,7 +27,8 @@ export function composerTagEntries(source: OutlineSource | undefined): ComposerT
   }))
 }
 
-export function tagComposerHeadings(root: Pick<Document, 'querySelectorAll'>, entries: readonly ComposerTagEntry[]): void {
+export function tagComposerHeadings(root: Pick<Document, 'querySelectorAll'>, entries: readonly ComposerTagEntry[] | undefined): void {
+  if (!entries) return
   const depths = new Map(entries.map((entry) => [entry.id, entry.depth]))
   const headings = root.querySelectorAll('h1,h2,h3,h4,h5,h6')
   for (let index = 0; index < headings.length; index += 1) {
@@ -44,8 +45,9 @@ export function addMissingComposerHeadings(
   source: Pick<Document, 'getElementById' | 'createElement'>,
   rootId: string,
   opening: boolean,
-  entries: readonly ComposerTagEntry[],
+  entries: readonly ComposerTagEntry[] | undefined,
 ): void {
+  if (!entries) return
   const missing = entries.filter((entry) => !source.getElementById(entry.id)?.matches('h1,h2,h3,h4,h5,h6'))
   for (let index = missing.length - 1; index >= 0; index -= 1) {
     const entry = missing[index]
@@ -100,5 +102,8 @@ export function stripCloneIds(
 }
 
 export function embeddedComposerTagFunctions(): string {
-  return [tagComposerHeadings, addMissingComposerHeadings, stripCloneIds].map((fn) => embedFunction(fn.name, fn)).join('\n')
+  return `${embedFunction('tagComposerHeadings', tagComposerHeadings)}\n${embedFunction(
+    'addMissingComposerHeadings',
+    addMissingComposerHeadings,
+  )}\n${embedFunction('stripCloneIds', stripCloneIds)}`
 }

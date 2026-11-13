@@ -109,7 +109,7 @@ describe('bookDocument', () => {
     expect(bookDocument(book, { nonce: 'held' })).not.toContain('"document":')
   })
 
-  test('minified embedded composer functions retain their aliases and have no module dependencies', async () => {
+  test('minified embedded composer functions retain their aliases and have no module dependencies (mutation: pass minified function names to embedFunction)', async () => {
     const built = await Bun.build({
       entrypoints: ['virtual:composer-functions'],
       minify: true,
@@ -122,7 +122,7 @@ describe('bookDocument', () => {
           setup(builder) {
             builder.onResolve({ filter: /^virtual:composer-functions$/ }, () => ({ path: 'composer-functions', namespace: 'virtual' }))
             builder.onLoad({ filter: /.*/, namespace: 'virtual' }, () => ({
-              contents: `import { layoutScript } from ${JSON.stringify(Bun.resolveSync('@segnavia/layout', import.meta.dir))}; import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/composer.ts`)}; export const script = layoutScript() + embeddedComposerFunctions();`,
+              contents: `import { layoutScript } from ${JSON.stringify(Bun.resolveSync('@segnavia/layout', import.meta.dir))}; import { embeddedComposerFunctions } from ${JSON.stringify(`${import.meta.dir}/composer.ts`)}; import { embeddedComposerTagFunctions } from ${JSON.stringify(`${import.meta.dir}/composer-tags.ts`)}; export const script = layoutScript() + embeddedComposerFunctions() + embeddedComposerTagFunctions();`,
               loader: 'ts',
             }))
           },
@@ -134,7 +134,7 @@ describe('bookDocument', () => {
     expect(bundle).toBeDefined()
     const script = new Function('module', 'exports', `${bundle};return module.exports.script`)({ exports: {} }, {}) as string
     const embedded = new Function(
-      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal,cssVarInvalidMessage,appendSlotOversetEntries,inlineVarHasFallback,inlineVariablesWithoutFallback,markFurnitureInvalidVariables,fontMissingEntries}`,
+      `${script};return {flowTextArea,spreadSlots,pageScale,unmeasuredFlows,decideBookMeasurement,forcedPageBreak,fillRegion,fillFurniture,resolveRegionHeads,pageBlockRange,preflightPageFacts,boundPreflightReport,preflightRefusal,cssVarInvalidMessage,appendSlotOversetEntries,inlineVarHasFallback,inlineVariablesWithoutFallback,markFurnitureInvalidVariables,fontMissingEntries,tagComposerHeadings,addMissingComposerHeadings,stripCloneIds}`,
     )() as {
       resolveRegionHeads: (
         templates: { name: string; parts: { variable: string }[]; separator: string; dropEmpty: boolean; collapseEqual: boolean }[],
@@ -159,6 +159,9 @@ describe('bookDocument', () => {
       inlineVariablesWithoutFallback: (style: string) => string[]
       markFurnitureInvalidVariables: (root: Element, entries: unknown[], computed: typeof getComputedStyle) => void
       fontMissingEntries: (failures: unknown[]) => unknown[]
+      tagComposerHeadings: (root: Document, entries: unknown[]) => void
+      addMissingComposerHeadings: (clone: Element, source: Document, rootId: string, opening: boolean, entries: unknown[]) => void
+      stripCloneIds: (clone: Element, original: Element, start: number, end: number, origin: number, linesFor: () => unknown[]) => void
       fillRegion: (html: string, values: { heads: Record<string, string> }) => string
       fillFurniture: (
         root: { innerHTML: string; querySelectorAll: () => never[] },
