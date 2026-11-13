@@ -18,7 +18,11 @@ test('receive dispatches a merged report with measured coverage', () => {
   const seen = coordinator()
   seen.coordinator.setSurface(surface('first', 'second'), true)
   seen.coordinator.receive('second', report())
-  expect(seen.reports.at(-1)).toMatchObject({ status: 'incomplete', coverage: { measured: 1, total: 2 } })
+  expect(seen.reports.at(-1)).toMatchObject({
+    status: 'warnings',
+    coverage: { measured: 1, total: 2 },
+    issues: [{ check: 'coverage-incomplete', subject: 'pages' }],
+  })
   seen.coordinator.receive('first', report())
   expect(seen.reports.at(-1)).toMatchObject({ status: 'clean', coverage: { measured: 2, total: 2 } })
 })
@@ -43,10 +47,14 @@ test('merged surfaces retain measured and total slot coverage', () => {
     surface('first', 'second'),
     PREFLIGHT_PRESETS.default,
   )
-  expect(merged).toMatchObject({ status: 'incomplete', coverage: { slots: { measured: 3, total: 4 } } })
+  expect(merged).toMatchObject({
+    status: 'warnings',
+    coverage: { slots: { measured: 3, total: 4 } },
+    issues: [{ check: 'coverage-incomplete', subject: 'slots' }],
+  })
 })
 
-test('merged surface slot coverage remains incomplete above the slot-key message limit', () => {
+test('merged surface slot coverage remains reported above the slot-key message limit', () => {
   const first = boundPreflightReport(
     { entries: [], facts, coverage: { measured: 1, total: 1, slots: { measured: 100, total: 120 } } },
     PREFLIGHT_PRESETS.default,
@@ -64,7 +72,7 @@ test('merged surface slot coverage remains incomplete above the slot-key message
       surface('first', 'second'),
       PREFLIGHT_PRESETS.default,
     ),
-  ).toMatchObject({ status: 'incomplete', coverage: { slots: { measured: 200, total: 240 } } })
+  ).toMatchObject({ status: 'warnings', coverage: { slots: { measured: 200, total: 240 } }, issues: [{ check: 'coverage-incomplete', subject: 'slots' }] })
 })
 
 test('deck changes keep reports by slide id and drop ids that leave', () => {
@@ -102,9 +110,37 @@ test('an off profile ignores received reports', () => {
   expect(seen.reports).toEqual([])
 })
 
-test('errors and warnings take precedence over incomplete coverage', () => {
+test('reports incomplete coverage after other issues at their profile severity', () => {
   const warned = new Map([['slide', report([overset('warning')])]])
   const slides = surface('slide', 'unmeasured')
-  expect(mergeSurfacePreflightReports(warned, slides, PREFLIGHT_PRESETS.default).status).toBe('warnings')
-  expect(mergeSurfacePreflightReports(warned, slides, PREFLIGHT_PRESETS.strict).status).toBe('errors')
+  expect(mergeSurfacePreflightReports(warned, slides, PREFLIGHT_PRESETS.default)).toMatchObject({
+    status: 'warnings',
+    issues: [{ check: 'slot-overset' }, { check: 'coverage-incomplete', subject: 'pages', severity: 'warning' }],
+  })
+  expect(mergeSurfacePreflightReports(warned, slides, PREFLIGHT_PRESETS.strict)).toMatchObject({
+    status: 'errors',
+    issues: [{ check: 'slot-overset' }, { check: 'coverage-incomplete', subject: 'pages', severity: 'error' }],
+  })
+})
+
+test('merging short page reports computes one coverage issue from the merged counts', () => {
+  const short = boundPreflightReport({ entries: [], facts, coverage: { measured: 0, total: 1 } }, PREFLIGHT_PRESETS.default)
+  const merged = mergeSurfacePreflightReports(
+    new Map([
+      ['first', short],
+      ['second', short],
+    ]),
+    surface('first', 'second', 'third'),
+    PREFLIGHT_PRESETS.default,
+  )
+  expect(merged.coverage).toMatchObject({ measured: 2, total: 3 })
+  expect(merged.issues.filter(({ check }) => check === 'coverage-incomplete')).toEqual([
+    {
+      check: 'coverage-incomplete',
+      subject: 'pages',
+      message: 'Preflight measured 2 of 3 pages; a page that is never laid out cannot be checked. Lay out every page to clear this.',
+      id: 'coverage-incomplete:pages',
+      severity: 'warning',
+    },
+  ])
 })

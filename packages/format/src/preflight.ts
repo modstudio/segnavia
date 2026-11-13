@@ -3,6 +3,8 @@ import { FIT_STRATEGIES } from './fit.ts'
 import type { FontFailure } from './fonts.ts'
 import type { SlotFitState } from './slots.ts'
 
+export { cssVarInvalidMessage, preflightRefusal } from './preflight-messages.ts'
+
 export const PREFLIGHT_CHECKS = [
   'fit-limit',
   'region-truncated',
@@ -15,6 +17,7 @@ export const PREFLIGHT_CHECKS = [
   'css-var-invalid',
   'css-url-network',
   'layout-report',
+  'coverage-incomplete',
 ] as const
 
 export type PreflightCheck = (typeof PREFLIGHT_CHECKS)[number]
@@ -129,10 +132,6 @@ export function fontMissingEntries(failures: readonly FontFailure[], location?: 
   })
 }
 
-export function cssVarInvalidMessage(subject: string): string {
-  return `Custom property ${subject} is invalid; define it or add a var() fallback to clear it.`
-}
-
 export type PreflightIssue = PreflightEntry & { readonly id: string; readonly severity: 'warning' | 'error' }
 export interface PreflightPageFacts {
   readonly folio: string
@@ -158,7 +157,7 @@ export interface PreflightCoverage extends PreflightCountCoverage {
   readonly slots: PreflightCountCoverage
 }
 export interface PreflightReport {
-  readonly status: 'clean' | 'incomplete' | 'warnings' | 'errors'
+  readonly status: 'clean' | 'warnings' | 'errors'
   readonly issues: readonly PreflightIssue[]
   readonly omitted: Readonly<Partial<Record<PreflightCheck, number>>>
   readonly facts: PreflightFacts
@@ -202,6 +201,26 @@ export function boundPreflightReport(
     readonly slots?: number
   },
 ): PreflightReport {
+  const isCoverageIncompleteEntry = (value: unknown): boolean =>
+    !!value && typeof value === 'object' && !Array.isArray(value) && (value as { check?: unknown }).check === 'coverage-incomplete'
+  const coverageIncompleteEntries = (coverage: PreflightCoverage): PreflightEntry[] => {
+    const entries: PreflightEntry[] = []
+    if (coverage.measured < coverage.total) {
+      entries.push({
+        check: 'coverage-incomplete',
+        subject: 'pages',
+        message: `Preflight measured ${coverage.measured} of ${coverage.total} ${coverage.total === 1 ? 'page' : 'pages'}; a page that is never laid out cannot be checked. Lay out every page to clear this.`,
+      })
+    }
+    if (coverage.slots.measured < coverage.slots.total) {
+      entries.push({
+        check: 'coverage-incomplete',
+        subject: 'slots',
+        message: `Preflight measured ${coverage.slots.measured} of ${coverage.slots.total} ${coverage.slots.total === 1 ? 'marked slot' : 'marked slots'}; a slot that is never laid out cannot be checked. Lay out every marked slot to clear this.`,
+      })
+    }
+    return entries
+  }
   const limits =
     bounds ??
     ({
@@ -332,14 +351,17 @@ export function boundPreflightReport(
     }
     issues.push(issue)
   }
-  for (let order = 0; order < Math.min(entries.length, scanLimit); order += 1) addIssue(entries[order], order)
+  for (let order = 0; order < Math.min(entries.length, scanLimit); order += 1) {
+    const entry = entries[order]
+    if (isCoverageIncompleteEntry(entry)) continue
+    addIssue(entry, order)
+  }
   issues.sort((a, b) => {
     const severity = Number(b.severity === 'error') - Number(a.severity === 'error')
     if (severity) return severity
     const check = limits.checks.indexOf(a.check) - limits.checks.indexOf(b.check)
     return check || a.order - b.order
   })
-  const cleanIssues = issues.map(({ order: _, ...issue }) => issue)
   const facts = boundedPreflightFacts(input.facts)
   const coverage = (() => {
     const countCoverage = (value: unknown, limit: number): PreflightCountCoverage | undefined => {
@@ -366,16 +388,10 @@ export function boundPreflightReport(
     }
     return { ...pageCoverage, slots: slotCoverage(source.slots) }
   })()
-  const status = cleanIssues.some((issue) => issue.severity === 'error')
-    ? 'errors'
-    : cleanIssues.length
-      ? 'warnings'
-      : coverage.measured < coverage.total || coverage.slots.measured < coverage.slots.total
-        ? 'incomplete'
-        : 'clean'
+  coverageIncompleteEntries(coverage).forEach((entry, index) => {
+    addIssue(entry, entries.length + index)
+  })
+  const cleanIssues = issues.map(({ order: _, ...issue }) => issue)
+  const status = cleanIssues.some((issue) => issue.severity === 'error') ? 'errors' : cleanIssues.length ? 'warnings' : 'clean'
   return { status, issues: cleanIssues, omitted, facts, coverage }
-}
-
-export function preflightRefusal(report: PreflightReport): string | undefined {
-  return report.issues.find((issue) => issue.severity === 'error')?.message
 }

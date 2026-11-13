@@ -90,12 +90,26 @@ test('surface preflight reports before refusing strict issues and stays silent w
 test.each([
   ['an unmeasured post', [{ name: 'unmeasured' }]],
   ['a missing post', []],
-] as const)('surface preflight counts a marked slot with %s as incomplete', (_, slotFits) => {
+] as const)('surface preflight reports incomplete coverage for a marked slot with %s', (_, slotFits) => {
   const reports: import('@segnavia/format').PreflightReport[] = []
   const preflight = surfacePreflight(resolveRenderPreflight({ profile: 'default', report: (report) => reports.push(report) }), 1)
   preflight?.capture()({ slotFits, slotKeys: ['name'], fontFailures: [] })
   preflight?.complete()
-  expect(reports[0]).toMatchObject({ status: 'incomplete', coverage: { slots: { measured: 0, total: 1 } }, issues: [] })
+  expect(reports[0]).toMatchObject({
+    status: 'warnings',
+    coverage: { slots: { measured: 0, total: 1 } },
+    issues: [{ check: 'coverage-incomplete', subject: 'slots', severity: 'warning' }],
+  })
+})
+
+test('strict surface preflight refuses incomplete slot coverage', () => {
+  const reports: import('@segnavia/format').PreflightReport[] = []
+  const preflight = surfacePreflight(resolveRenderPreflight({ profile: 'strict', report: (report) => reports.push(report) }), 1)
+  preflight?.capture()({ slotFits: [], slotKeys: ['name'], fontFailures: [] })
+  expect(() => preflight?.complete()).toThrow(
+    'Preflight measured 0 of 1 marked slot; a slot that is never laid out cannot be checked. Lay out every marked slot to clear this.',
+  )
+  expect(reports[0]).toMatchObject({ status: 'errors', issues: [{ check: 'coverage-incomplete', subject: 'slots', severity: 'error' }] })
 })
 
 test('surface preflight includes unmeasured refuse slot errors', () => {

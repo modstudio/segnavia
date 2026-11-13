@@ -19,7 +19,10 @@ export function surfacePreflightProfile(input: PreflightProfileInput): Preflight
   const resolved = resolvePreflightProfile(input)
   return Object.freeze(
     Object.fromEntries(
-      Object.entries(resolved).map(([check, severity]) => [check, check === 'slot-overset' || check === 'font-missing' ? severity : 'off']),
+      Object.entries(resolved).map(([check, severity]) => [
+        check,
+        check === 'slot-overset' || check === 'font-missing' || check === 'coverage-incomplete' ? severity : 'off',
+      ]),
     ) as unknown as PreflightProfile,
   )
 }

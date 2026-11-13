@@ -95,16 +95,24 @@ test('embedded surface preflight reports an unmeasured refuse mark under strict'
   const publish = new Function(
     'post',
     'document',
+    'window',
     `${embeddedSurfacePreflight(PREFLIGHT_PRESETS.strict, 'data-report', 'preflight')};return publishSurfacePreflight`,
-  )((message: { report: import('@segnavia/format').PreflightReport }) => posted.push(message), {
-    documentElement: { setAttribute: () => {} },
-    querySelectorAll: () => [{ getAttribute: () => 'name:refuse' }],
-  }) as (slots: Record<string, string>, failures: unknown[]) => void
+  )(
+    (message: { report: import('@segnavia/format').PreflightReport }) => posted.push(message),
+    {
+      documentElement: { setAttribute: () => {} },
+      querySelectorAll: () => [{ getAttribute: () => 'name:refuse' }],
+    },
+    {},
+  ) as (slots: Record<string, string>, failures: unknown[]) => void
   publish({ name: 'unmeasured' }, [])
   expect(posted[0]?.report).toMatchObject({
     status: 'errors',
     coverage: { slots: { measured: 0, total: 1 } },
-    issues: [{ check: 'slot-overset', subject: 'name', severity: 'error' }],
+    issues: [
+      { check: 'slot-overset', subject: 'name', severity: 'error' },
+      { check: 'coverage-incomplete', subject: 'slots', severity: 'error' },
+    ],
   })
 })
 
