@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { COMPOSER_SCRIPT, decideVisibleMeasurement } from './composer.ts'
 import { lineNumberedLines, measuredBlockConstraints, measureLineBoxes, measurementRefusal } from './composer-measure.ts'
+import { embeddedComposerMeasureFunctions } from './composer-measure-embed.ts'
 import { linesWithDescendantTables, linesWithTableHeaderHeights, repeatedTableHeaderIndexes, tableRowLines } from './composer-table-measure.ts'
 
 test('a display table element carries no orphan or widow constraint', () => {
@@ -151,7 +151,7 @@ test('the embedded table measurement includes every helper it calls', () => {
   const originalStyle = globalThis.getComputedStyle
   const originalFilter = globalThis.NodeFilter
   globalThis.NodeFilter = { SHOW_TEXT: 4 } as typeof NodeFilter
-  globalThis.getComputedStyle = (() => ({ borderCollapse: 'separate' })) as typeof getComputedStyle
+  globalThis.getComputedStyle = (() => ({ borderCollapse: 'separate' })) as unknown as typeof getComputedStyle
   try {
     expect(rebuilt(table as unknown as Element, 0)).toEqual([{ top: 10, bottom: 30 }])
   } finally {
