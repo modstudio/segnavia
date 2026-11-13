@@ -108,6 +108,14 @@ describe('record expansion', () => {
     }
     const untitled = { type: 'record' as const, template: 'row', values: { name: 'Name' } }
     expect(() => Document.parse({ ...base, children: [untitled] })).toThrow('a body record needs a title; provide title to clear this refusal')
-    expect(() => Document.parse({ ...base, children: [{ type: 'division', name: 'front', children: [untitled] }] })).not.toThrow()
+    expect(() =>
+      Document.parse({
+        ...base,
+        children: [
+          { type: 'division', name: 'front', children: [untitled] },
+          { type: 'division', name: 'body', children: [{ type: 'flow', title: 'Body', html: '' }] },
+        ],
+      }),
+    ).not.toThrow()
   })
 })

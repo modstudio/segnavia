@@ -44,6 +44,78 @@ test('parses typed variables and refuses invalid names and references with remed
   )
 })
 
+test('names the document node holding an undeclared data-variable', () => {
+  const result = Document.safeParse({
+    type: 'document',
+    kind: 'book',
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
+    templates: [{ type: 'template', name: 'layout', html: '<main data-region="body"></main>' }],
+    children: [
+      {
+        type: 'section',
+        title: 'Section',
+        template: 'layout',
+        children: [{ type: 'page', regions: { body: '<p data-variable="missing">Body</p>' } }],
+      },
+    ],
+  })
+  expect(result.success).toBe(false)
+  if (result.success) return
+  const error = result.error as { issues: Array<{ path: PropertyKey[]; message: string }> }
+  expect(error.issues).toContainEqual(
+    expect.objectContaining({
+      path: ['children', 0, 'children', 0],
+      message: expect.stringContaining('children[0].children[0]: data-variable names undeclared variable "missing"'),
+    }),
+  )
+})
+
+test('refuses a data-motif field on an element without data-motif', () => {
+  expect(() =>
+    Document.parse({
+      type: 'document',
+      kind: 'page',
+      children: [{ type: 'page', body: { html: '<h1 data-motif-title="Held">Title</h1>' } }],
+    }),
+  ).toThrow(/children\[0\]: data-motif-title needs data-motif on the same element; add data-motif or remove data-motif-title to clear this refusal/)
+})
+
+test('ignores data-motif field text in comments and attribute values', () => {
+  expect(() =>
+    Document.parse({
+      type: 'document',
+      kind: 'page',
+      children: [
+        {
+          type: 'page',
+          body: { html: '<!-- data-motif-comment --><a href="/x?data-motif-link=1" title="data-motif-title=x">Link</a>' },
+        },
+      ],
+    }),
+  ).not.toThrow()
+})
+
+test('names template html holding an undeclared data-variable', () => {
+  const result = Document.safeParse({
+    type: 'document',
+    kind: 'book',
+    title: 'Book',
+    mode: 'continuous',
+    templates: [{ type: 'template', name: 'layout', html: '<main data-variable="missing"></main>' }],
+    children: [{ type: 'flow', title: 'Body', html: '<p>Body</p>' }],
+  })
+  expect(result.success).toBe(false)
+  if (result.success) return
+  expect((result.error as { issues: Array<{ path: PropertyKey[]; message: string }> }).issues).toContainEqual(
+    expect.objectContaining({
+      path: ['templates', 0],
+      message: expect.stringContaining('templates[0]: data-variable names undeclared variable "missing"'),
+    }),
+  )
+})
+
 test('validates head template placements and parts at parse', () => {
   const base = {
     type: 'document' as const,

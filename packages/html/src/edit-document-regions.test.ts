@@ -11,7 +11,7 @@ const bookWithParentRegion = () =>
     metadata: { title: 'Book' },
     mode: 'paginated',
     page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
-    children: [],
+    children: [{ type: 'flow', id: 'flow', title: 'Body', html: '<p>Body</p>' }],
     parentPages: [
       {
         type: 'parentPage',

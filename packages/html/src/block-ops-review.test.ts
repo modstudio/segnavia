@@ -83,7 +83,8 @@ test('a move between region keys compiles to one invertible field op', () => {
     type: 'document',
     kind: 'book',
     title: 'Book',
-    mode: 'continuous',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
     children: [
       {
         type: 'section',

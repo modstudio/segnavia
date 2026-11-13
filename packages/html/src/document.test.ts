@@ -44,7 +44,8 @@ test('deterministic ids are repeatable and unique across missing nodes and Hebre
     kind: 'book' as const,
     id: 'hebrew',
     title: 'ספר',
-    mode: 'continuous' as const,
+    mode: 'paginated' as const,
+    page: { paper: 'a5' as const, margin: { blockStart: 12, blockEnd: 12, inlineStart: 12, inlineEnd: 12 } },
     children: [
       {
         type: 'section' as const,
@@ -131,6 +132,7 @@ test('accepts line numbers in flowing content and refuses fixed page and templat
     parseDocument({
       type: 'document',
       kind: 'printed',
+      print: { paper: 'a4' },
       settings,
       parentRules: [{ parent: 'body' }],
       parentPages: [{ type: 'parentPage', name: 'body' }],
