@@ -26,7 +26,7 @@ export const ParentPage = closedObject({
   regions: ParentRegions.default({}),
 })
 
-const PrintedSection = closedObject({
+const PrintedSectionFields = {
   id: z.string(),
   title: z.string().optional(),
   opens: BookOpens.optional(),
@@ -34,24 +34,23 @@ const PrintedSection = closedObject({
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
   pageGeometry: z.string().optional(),
-  html: z.string().default(''),
-  kind: z.literal('fixed').optional(),
-  pages: z
-    .array(closedObject({ html: z.string() }))
-    .min(1)
-    .optional(),
+}
+
+const PrintedFlowSection = closedObject({
+  ...PrintedSectionFields,
+  html: z.string(),
   values: RecordValues.optional(),
   record: RecordFacts.optional(),
   recordTemplate: closedObject({ name: z.string(), slots: z.array(closedObject({ key: z.string() })) }).optional(),
   recordBody: z.string().optional(),
-}).superRefine((section, ctx) => {
-  if (section.kind === 'fixed' && section.pages === undefined) {
-    ctx.addIssue({ code: 'custom', path: ['pages'], message: 'a fixed printed section needs one or more pages; add pages to clear this refusal' })
-  }
-  if (section.kind === undefined && section.pages !== undefined) {
-    ctx.addIssue({ code: 'custom', path: ['kind'], message: 'printed section pages need kind fixed; set kind to fixed to clear this refusal' })
-  }
 })
+
+const PrintedDesignedSection = closedObject({
+  ...PrintedSectionFields,
+  pages: z.array(closedObject({ html: z.string() })).min(1),
+})
+
+const PrintedSection = z.union([PrintedFlowSection, PrintedDesignedSection])
 
 export const PrintedPages = closedObject({
   outline: DefaultOutline,
@@ -220,5 +219,7 @@ export function pagePrintedPagesIssues(page: {
   if (page.scripts !== 'refuse') {
     issues.push({ path: ['scripts'], message: 'printedPages could not establish deterministic cloned content; set scripts to "refuse" to clear this refusal' })
   }
+  if (page.print?.margin)
+    issues.push({ path: ['print', 'margin'], message: 'printedPages and print.margin both own the margins; remove print.margin to clear this refusal' })
   return issues
 }

@@ -23,6 +23,7 @@ import {
   postcardPage,
   printedPageMotifSource,
   printedPageMotifs,
+  printedMixedPaperDocument,
   printedParentPageCases,
   printedSectionDocument,
   twoSidedCardImposition,
@@ -57,6 +58,7 @@ export async function buildPagePdfs(renderer: Renderer, output: string, site?: s
   writeFileSync(path.join(output, 'pages-parent-english-overflow.json'), englishOverflow)
   writeFileSync(path.join(output, 'pages-sectioned.pdf'), await renderer.pagePdf(printedSectionDocument))
   writeFileSync(path.join(output, 'pages-sectioned-multi.pdf'), await renderer.pagesPdf([printedSectionDocument]))
+  writeFileSync(path.join(output, 'pages-mixed-paper.pdf'), await renderer.pagePdf(printedMixedPaperDocument))
   writeFileSync(path.join(output, 'records-table.pdf'), await renderer.pagePdf(recordsTableDocument))
   writeFileSync(path.join(output, 'records-hebrew.pdf'), await renderer.pagePdf(hebrewRecordsDocument))
   writeFileSync(path.join(output, 'page-worksheet.pdf'), await renderer.pagePdf(worksheetPage))

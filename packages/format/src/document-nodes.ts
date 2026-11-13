@@ -46,6 +46,7 @@ type SectionFieldValues = z.infer<z.ZodObject<typeof SectionFields>>
 export interface SectionNode extends SectionFieldValues {
   type: 'section'
   id?: string
+  orientation?: unknown
   template?: string
   children: DocumentNode[]
 }
@@ -107,6 +108,7 @@ export const SectionNodeFields = {
   type: z.literal('section'),
   id: z.string().optional(),
   ...SectionFields,
+  orientation: z.unknown().optional(),
   template: z.string().min(1).optional(),
   children: z.lazy(() => z.array(DocumentNode)),
 }

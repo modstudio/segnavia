@@ -21,6 +21,9 @@ test('accepts mixed printed children and refuses invalid printed sections', () =
     }),
   ).not.toThrow()
   expect(() => Document.parse({ ...root, children: [{ type: 'section', children: [] }] })).toThrow('replace its children to clear this refusal')
+  expect(() => Document.parse({ ...root, children: [{ type: 'section', orientation: 'landscape', children: [flow] }] })).toThrow(
+    'name a pageGeometry declared in style.pageGeometries to clear this refusal',
+  )
   expect(() =>
     Document.parse({
       ...root,
@@ -114,9 +117,9 @@ test('keeps designed pages, flowing sections, and records in author order', () =
   })
 
   expect(printedFromDocument(document).printedPages?.sections).toEqual([
-    { id: 'cover', html: '', kind: 'fixed', pages: [{ html: '<h2>Cover one</h2><h2>Cover two</h2>' }] },
+    { id: 'cover', pages: [{ html: '<h2>Cover one</h2><h2>Cover two</h2>' }] },
     { id: 'text', pageGeometry: 'wide', html: '<p>Text</p>' },
-    { id: 'answer', html: '', kind: 'fixed', pages: [{ html: '<p>Answer</p>' }] },
+    { id: 'answer', pages: [{ html: '<p>Answer</p>' }] },
   ])
 })
 

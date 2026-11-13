@@ -58,7 +58,7 @@ export const DOCUMENT_PROFILES = {
     childIds: false,
     childCount: null,
     childForms: {
-      forms: [{ min: 1, node: 'page' }],
+      forms: [{ min: 1, nodes: ['page', 'section', 'record'] }],
       message: 'a printed document needs one or more page, section or record children; add one to clear this refusal',
     },
     topology: null,
@@ -70,8 +70,16 @@ export const DOCUMENT_PROFILES = {
         'section field contentsLabel is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
       subtitle: 'section field subtitle is not allowed in a printed document; remove it because a printed document has no contents to clear this refusal',
       template: 'section field template is not allowed in a printed document; remove it to clear this refusal',
+      orientation:
+        'section field orientation is not allowed in a printed document; name a pageGeometry declared in style.pageGeometries to clear this refusal',
     },
-    sectionChildren: null,
+    sectionChildren: {
+      forms: [
+        { exact: 1, nodes: ['flow'] },
+        { min: 1, nodes: ['page'] },
+      ],
+      message: 'a printed section needs exactly one flow child or one or more page children; replace its children to clear this refusal',
+    },
     numbering: 'printed',
     canonicalChildren: null,
     fields: ['brand', 'settings', 'style', 'data', 'size', 'asOf', 'print', 'numbering', 'fragmentation', 'parentRules', 'outline', 'limits', 'defaultEdition'],

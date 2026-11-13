@@ -30,7 +30,10 @@ afterEach(() => {
   else Reflect.deleteProperty(globalThis, 'document')
 })
 
-function fakeMeasurement(height: number): { styles: Array<{ cssText: string }>; documents: string[]; removed: { count: number } } {
+function fakeMeasurement(
+  height: number,
+  progress?: { pages: number; total: number },
+): { styles: Array<{ cssText: string }>; documents: string[]; removed: { count: number } } {
   const styles: Array<{ cssText: string }> = []
   const documents: string[] = []
   const removed = { count: 0 }
@@ -40,9 +43,13 @@ function fakeMeasurement(height: number): { styles: Array<{ cssText: string }>; 
   const body = {
     append: (frame: { contentWindow: object }) => {
       queueMicrotask(() => {
-        const event = new MessageEvent('message', { data: { type: MESSAGE.height, height } })
-        Object.defineProperty(event, 'source', { value: frame.contentWindow })
-        messages.dispatchEvent(event)
+        const dispatch = (data: object) => {
+          const event = new MessageEvent('message', { data })
+          Object.defineProperty(event, 'source', { value: frame.contentWindow })
+          messages.dispatchEvent(event)
+        }
+        if (progress) dispatch({ type: MESSAGE.composeProgress, ...progress })
+        dispatch({ type: MESSAGE.height, height })
       })
     },
   }
@@ -85,8 +92,8 @@ describe('printedPagesPrintDocument', () => {
           parents: [{ name: 'body' }],
           parentRules: [{ parent: 'body' }],
           sections: [
-            { id: 'one', kind: 'fixed', pages: [{ html: '<p>One</p>' }] },
-            { id: 'two', kind: 'fixed', pageGeometry: 'wide', pages: [{ html: '<p>Two</p>' }] },
+            { id: 'one', pages: [{ html: '<p>One</p>' }] },
+            { id: 'two', pageGeometry: 'wide', pages: [{ html: '<p>Two</p>' }] },
           ],
         },
       }),
@@ -117,6 +124,11 @@ describe('printedPagesPrintDocument', () => {
         },
       ],
     } satisfies Partial<LimitExceededError>)
+  })
+
+  test('counts completed mixed-height papers from compose progress', async () => {
+    fakeMeasurement(2 * 279.4 * PX_PER_MM, { pages: 3, total: 3 })
+    await expect(measurePrintedPageCount(printed(), {}, Date.now() + 100)).resolves.toBe(3)
   })
 
   test('uses a paper-sized viewport for LTR and RTL measuring and printable frames', async () => {

@@ -137,7 +137,11 @@ export function printedPageValueDocument(
   const numbering = page.printedPages.numbering ?? defaultPageNumbering(page.lang)
   const limits = resolveLimits(page.limits, options.limits)
   const parentRules: ParentRules = page.printedPages.parentRules
-  const baseCss = `${composerPageRules(geometries)}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${Math.max(...geometries.map((geometry) => geometry.paper.width))}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_BASE_CSS}${page.printedPages.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS}${TARGET_LINKS_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
+  const singleGeometry = geometries.length === 1 ? geometries[0] : undefined
+  const pageRules = singleGeometry
+    ? `@page{size:${singleGeometry.paper.width}mm ${singleGeometry.paper.height}mm;margin:0}`
+    : composerPageRules(geometries)
+  const baseCss = `${pageRules}:where(html,body){margin:0!important;padding:0!important}:where(html:not([${COMPOSED_ATTRIBUTE}]),html:not([${COMPOSED_ATTRIBUTE}]) body){block-size:0!important;min-block-size:0!important}:where([data-segnavia-flow]){position:absolute}:where([data-segnavia-pages]){inline-size:${Math.max(...geometries.map((geometry) => geometry.paper.width))}mm}:where([data-segnavia-printed-page]:last-child){break-after:auto}${GALLEY_PRINT_CSS}${LINE_NUMBER_BASE_CSS}${page.printedPages.sideNotes === undefined ? '' : SIDE_NOTE_BASE_CSS}${TARGET_LINKS_CSS}${fragmentationCss(page.printedPages.fragmentation)}${options.baseCss ?? ''}`
   const preflightSeed = [...(options.preflightSeed ?? [])]
   const sheets = frameStyleSheets(
     page.style,
@@ -149,7 +153,9 @@ export function printedPageValueDocument(
     direction,
     dir: page.dir,
     lang: page.lang,
-    geometries,
+    geometries: singleGeometry
+      ? [{ paperWidth: singleGeometry.paperWidth, paperHeight: singleGeometry.paperHeight, textWidth: singleGeometry.textWidth, textHeight: singleGeometry.textHeight, firstHeight: singleGeometry.firstHeight, columnGap: 0, parents: singleGeometry.parents }]
+      : geometries,
     notesGap: 0,
     orphans: 2,
     widows: 2,
@@ -157,7 +163,7 @@ export function printedPageValueDocument(
     endnotePlacement: 'chapter',
     variables: withLibraryEntries(LIBRARY_VARIABLES, page.printedPages.variables),
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, page.printedPages.headTemplates),
-    recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, 'values' in section ? (section.values ?? {}) : {}])),
+    recordSlotsByFlow: Object.fromEntries(page.printedPages.sections.map((section) => [section.id, section.pages === undefined ? (section.values ?? {}) : {}])),
     pageMarker: 'data-segnavia-printed-page',
     pageAttributes: ['data-segnavia-page-view'],
     refusalSubject: 'The printed page',

@@ -45,7 +45,7 @@ export function printedSectionFlows(sections: readonly PrintedSection[], rules: 
       {
         ...numberingAttribs(section.numbering),
         'data-sequence': 'body',
-        ...(!fixed && 'record' in section ? recordAttribs(section.record) : {}),
+        ...(!fixed && section.record ? recordAttribs(section.record) : {}),
         ...(fixed ? { 'data-segnavia-kind': 'fixed' } : {}),
       },
       section.pageGeometry,

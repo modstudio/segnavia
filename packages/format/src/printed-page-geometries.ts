@@ -15,7 +15,7 @@ export interface ResolvedPrintedPageGeometry {
 export interface PrintedGeometrySource {
   print?: Print
   style?: StyleSheet
-  printedPages?: { parents: ParentPage[] }
+  printedPages?: { parents: ParentPage[]; sections?: readonly { pageGeometry?: string }[] }
 }
 
 function resolvedParents(parents: ParentPage[], margin: typeof ZERO_MARGIN): ResolvedParentPage[] {
@@ -40,7 +40,7 @@ export function resolvePrintedPageGeometry(source: PrintedGeometrySource, name?:
     return resolve(source, undefined, {
       paper: source.print.paper,
       orientation: source.print.orientation,
-      margin: source.print.margin ?? ZERO_MARGIN,
+      margin: ZERO_MARGIN,
     })
   }
   const geometry = source.style?.pageGeometries?.[name]
@@ -50,9 +50,10 @@ export function resolvePrintedPageGeometry(source: PrintedGeometrySource, name?:
 export function printedPageGeometries(source: PrintedGeometrySource): ResolvedPrintedPageGeometry[] {
   const base = resolvePrintedPageGeometry(source)
   if (!base) return []
+  const names = [...new Set(source.printedPages?.sections?.flatMap((section) => (section.pageGeometry ? [section.pageGeometry] : [])) ?? [])]
   return [
     base,
-    ...Object.keys(source.style?.pageGeometries ?? {}).flatMap((name) => {
+    ...names.flatMap((name) => {
       const geometry = resolvePrintedPageGeometry(source, name)
       return geometry ? [geometry] : []
     }),

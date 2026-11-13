@@ -170,7 +170,7 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
       return [
         {
           path,
-          value: { id: node.id ?? `children.${index}`, html: '', kind: 'fixed', pages: [{ html: printedPageHtml(node) }] },
+          value: { id: node.id ?? `children.${index}`, pages: [{ html: printedPageHtml(node) }] },
         },
       ]
     }
@@ -188,8 +188,6 @@ export function printedSectionEntries(document: DocumentShapeValue): PrintedSect
             numbering: fields.numbering,
             parentRules: fields.parentRules,
             pageGeometry: fields.pageGeometry,
-            html: '',
-            kind: 'fixed' as const,
             pages: pages.map((page) => ({ html: printedPageHtml(page) })),
           }),
         },

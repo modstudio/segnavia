@@ -33,6 +33,7 @@ export const PROFILED_SECTION_FIELDS = [
   'parentRules',
   'pageGeometry',
   'template',
+  'orientation',
 ] as const
 export const UNRESTRICTED_SECTION_FIELDS = ['dir', 'lang'] as const
 
@@ -46,16 +47,12 @@ function refineSection(node: Extract<DocumentNode, { type: 'section' }>, path: P
     const message = remedies[field] ?? `section field ${field} is not yet supported; remove it to clear this refusal`
     ctx.addIssue({ code: 'custom', path: [...path, field], message })
   }
-  if (profile === DOCUMENT_PROFILES.printed) {
-    const flowing = node.children.length === 1 && node.children[0]?.type === 'flow'
-    const designed = node.children.length > 0 && node.children.every((child) => child.type === 'page')
-    if (!flowing && !designed) {
-      ctx.addIssue({
-        code: 'custom',
-        path: [...path, 'children'],
-        message: 'a printed section needs exactly one flow child or one or more page children; replace its children to clear this refusal',
-      })
-    }
+  if (profile.sectionChildren) {
+    const matches = profile.sectionChildren.forms.some((form) => {
+      if (node.children.some((child) => !(form.nodes as readonly string[]).includes(child.type))) return false
+      return 'exact' in form ? node.children.length === form.exact : node.children.length >= form.min
+    })
+    if (!matches) ctx.addIssue({ code: 'custom', path: [...path, 'children'], message: profile.sectionChildren.message })
   }
 }
 
