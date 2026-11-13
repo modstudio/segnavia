@@ -52,33 +52,33 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
     let timer = 0
     let reported = false
     let finished = false
-    const finish = (result: number | Error) => {
+    const finish = (result: unknown, rejected = false) => {
       if (finished) return
       finished = true
       window.removeEventListener('message', onMessage)
       options.signal?.removeEventListener('abort', onAbort)
       window.clearTimeout(timer)
       frame.remove()
-      result instanceof Error ? reject(result) : resolve(result)
+      rejected ? reject(result) : resolve(result as number)
     }
-    const onAbort = () => finish(options.signal?.reason instanceof Error ? options.signal.reason : new DOMException('The operation was aborted.', 'AbortError'))
+    const onAbort = () => finish(options.signal?.reason, true)
     const onMessage = (event: MessageEvent) => {
       const message = messageFrom(event, frame, options.profile)
       if (message?.type === MESSAGE.preflight && message.report && !reported) {
         reported = true
         options.report?.(message.report)
       }
-      if (message?.type === MESSAGE.composeFailure && message.text) return finish(new Error(message.text))
+      if (message?.type === MESSAGE.composeFailure && message.text) return finish(new Error(message.text), true)
       if (message?.type !== MESSAGE.height || message.height === undefined || message.height < (paper.height * PX_PER_MM) / 2) return
       const count = Math.round(message.height / (paper.height * PX_PER_MM))
       const limits = resolveLimits(page.limits, options.limits)
-      if (count > limits.pages) return finish(new LimitExceededError('pages', count, limits.pages, { pagesSource: limits.pagesSource }))
+      if (count > limits.pages) return finish(new LimitExceededError('pages', count, limits.pages, { pagesSource: limits.pagesSource }), true)
       finish(count)
     }
     window.addEventListener('message', onMessage)
     options.signal?.addEventListener('abort', onAbort, { once: true })
     if (options.signal?.aborted) return onAbort()
-    timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL)), Math.max(0, deadlineAt - Date.now()))
+    timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL), true), Math.max(0, deadlineAt - Date.now()))
     frame.srcdoc = srcdoc
     document.body.append(frame)
   })
