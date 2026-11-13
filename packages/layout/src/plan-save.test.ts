@@ -20,6 +20,18 @@ function hebrewMeasurements() {
 }
 
 describe('saved book plans', () => {
+  test('refuses a plan built from one edition under another edition', () => {
+    const student = input({ flows: [flow('worksheet', 'chapter', [block('question', 'p', 1, 1, 1, 0)])] })
+    const teacher = input({ flows: [flow('worksheet', 'chapter', [block('question', 'p', 1, 1, 1, 0), block('answer', 'p', 1, 1, 1, 1)])] })
+    const saved = savePlan(student, planned(student), numbering)
+
+    expect(replayPlan(teacher, saved, numbering)).toEqual({
+      ok: false,
+      page: 1,
+      refusal: "the plan's inputs changed (settings, geometry, breaks or block order); compute a new plan to clear this refusal",
+    })
+  })
+
   test('keeps a measured property kind, numeric value and unit in the saved input fingerprint', () => {
     const measurements = input({
       flows: [flow('chapter', 'chapter', [block('text', 'p', 1, 1, 1, 0)])],

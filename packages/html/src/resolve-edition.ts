@@ -1,19 +1,25 @@
 import type { Document } from '@segnavia/format'
-import { isTag } from 'domhandler'
+import { type ChildNode, isTag } from 'domhandler'
 import { CONDITION_ATTRIBUTE, conditionNames } from './condition-attributes.ts'
 import { parse, serialize } from './sanitize.ts'
 
 function resolveHtml(html: string, enabled: ReadonlySet<string>): string {
   const tree = parse(html)
-  const resolve = (nodes: typeof tree.children): typeof tree.children =>
-    nodes.flatMap((node) => {
-      if (!isTag(node)) return [node]
+  const resolve = (nodes: ChildNode[]): ChildNode[] => {
+    const kept: ChildNode[] = []
+    for (const node of nodes) {
+      if (!isTag(node)) {
+        kept.push(node)
+        continue
+      }
       const marker = node.attribs[CONDITION_ATTRIBUTE]
-      if (marker !== undefined && !conditionNames(marker).some((name) => enabled.has(name))) return []
+      if (marker !== undefined && !conditionNames(marker).some((name) => enabled.has(name))) continue
       delete node.attribs[CONDITION_ATTRIBUTE]
       node.children = resolve(node.children)
-      return [node]
-    })
+      kept.push(node)
+    }
+    return kept
+  }
   tree.children = resolve(tree.children)
   return serialize(tree)
 }
@@ -54,9 +60,7 @@ export function resolveEdition(document: Document, edition?: string): Document {
     templates: document.templates.map((template) => ({ ...template, html: resolveHtml(template.html, enabled) })),
     parentPages: document.parentPages.map((parent) => ({
       ...parent,
-      regions: Object.fromEntries(
-        Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: resolveHtml(region.html, enabled) }]),
-      ),
+      regions: Object.fromEntries(Object.entries(parent.regions).map(([name, region]) => [name, { ...region, html: resolveHtml(region.html, enabled) }])),
     })),
   }
 }

@@ -81,7 +81,6 @@ export { type BrandSpecimenOptions, brandSpecimen } from './brand-specimen.ts'
 export { asOfValues, slotsForDay, slotsOptionsRefusal, slotsWithDay } from './day-slots.ts'
 export { type DescribeDocumentOptions, type DocumentDescription, type DocumentDescriptionNode, describeDocument } from './describe-document.ts'
 export { BLOCK_ELEMENTS, type ParseDocumentOptions, pageOrPrintedFromInput, parseDocument } from './document.ts'
-export { resolveEdition } from './resolve-edition.ts'
 export type { EditDocumentOptions } from './document-command-core.ts'
 export {
   type CommandContentAddress,
@@ -166,6 +165,7 @@ export {
 export { printedSectionFlows, printedSectionOutlineHtml } from './printed-section-flows.ts'
 export { bindBookRecordValues, fillBookAsOfBindings, fillBookViewAsOfBindings, fillDeckAsOfBindings, mapBookHtml } from './record-as-of.ts'
 export { type BoundRecordSection, bindRecordValues, type RecordValueSection } from './record-values.ts'
+export { resolveEdition } from './resolve-edition.ts'
 export {
   assetOriginRefusals,
   attributeValues,

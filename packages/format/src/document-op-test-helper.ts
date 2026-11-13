@@ -107,6 +107,18 @@ function childForKind(type: DocumentNodeType, kind: DocumentKind, seed: number):
   return sample
 }
 
+function setDefinitionSample(
+  candidate: Record<string, unknown>,
+  collection: Exclude<NonNullable<ReturnType<typeof nodeModel>>['collection'], undefined>,
+  type: DocumentNodeType,
+  seed: number,
+): void {
+  candidate[collection] = [DOCUMENT_NODE_SAMPLES[type](seed)]
+  if (collection !== 'conditions') return
+  candidate.editions = [{ type: 'edition', id: `condition-edition-${seed}`, name: 'default', conditions: ['edition'] }]
+  candidate.defaultEdition = 'default'
+}
+
 export function generatedCandidateDocuments(seed: number): DocumentValue[] {
   const candidates: unknown[] = []
   for (const type of Object.keys(DOCUMENT_NODE_MODEL) as DocumentNodeType[]) {
@@ -114,13 +126,8 @@ export function generatedCandidateDocuments(seed: number): DocumentValue[] {
     for (const [kind, profile] of Object.entries(DOCUMENT_PROFILES) as [DocumentKind, (typeof DOCUMENT_PROFILES)[DocumentKind]][]) {
       const candidate = base(kind, seed)
       if (collection && (profile.definitions as readonly string[]).includes(collection)) {
-        (candidate[collection] as unknown[]) = [DOCUMENT_NODE_SAMPLES[type](seed)]
-        if (collection === 'conditions') {
-          candidate.editions = [{ type: 'edition', id: `condition-edition-${seed}`, name: 'default', conditions: ['edition'] }]
-          candidate.defaultEdition = 'default'
-        }
-      }
-      else if (!collection && (profile.children as readonly string[]).includes(type)) {
+        setDefinitionSample(candidate, collection, type, seed)
+      } else if (!collection && (profile.children as readonly string[]).includes(type)) {
         candidate.children =
           kind === 'book' && type === 'contents'
             ? [

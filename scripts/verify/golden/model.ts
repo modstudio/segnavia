@@ -38,4 +38,6 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   { id: 'printed-pages-bleed', pdf: 'pages-bleed-grid.pdf' },
   { id: 'pages-sectioned', pdf: 'pages-sectioned.pdf' },
   { id: 'worksheet', pdf: 'page-worksheet.pdf' },
+  { id: 'worksheet-student', pdf: 'worksheet-student.pdf', taggedOutline: true },
+  { id: 'worksheet-teacher', pdf: 'worksheet-teacher.pdf', taggedOutline: true },
 ]

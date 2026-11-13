@@ -174,9 +174,14 @@ export function identifyHtmlBlocks(
   options: { parentRegion?: boolean; flowing?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState; sideNotes?: SideNotesState } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
-  const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY, LEMMA_ATTRIBUTE_FAMILY, FIELD_ATTRIBUTE_FAMILY, CONDITION_ATTRIBUTE_FAMILY], {
-    ...(options.parentRegion ? { refusedFamilies: ['data-measure'] } : {}),
-  })
+  const issues = sourceAttributeIssues(
+    tree.children,
+    node,
+    [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY, LEMMA_ATTRIBUTE_FAMILY, FIELD_ATTRIBUTE_FAMILY, CONDITION_ATTRIBUTE_FAMILY],
+    {
+      ...(options.parentRegion ? { refusedFamilies: ['data-measure'] } : {}),
+    },
+  )
   issues.push(...lineNumberAttributeIssues(tree.children, node, options.parentRegion === true, options.flowing ?? true))
   issues.push(...sideNoteAttributeIssues(tree.children, node, options.parentRegion === true, options.flowing ?? true))
   if (hasLineNumbers(tree.children)) {

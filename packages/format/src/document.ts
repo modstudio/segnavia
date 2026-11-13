@@ -5,11 +5,12 @@ import { closedObject } from './closed-object.ts'
 import { DeckShape, deckTrim } from './deck.ts'
 import { SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
+import { refineDocumentEditions } from './document-edition-refinement.ts'
 import { refineUnsupportedDocumentFields } from './document-field-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
 import { refineLoweredDocument } from './document-lowered-check.ts'
 import { DocumentMetadata } from './document-metadata.ts'
-import { refineDocumentNodes, walkDocumentNodes } from './document-node-refinement.ts'
+import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
 import { ConditionNode, EditionNode, HeadTemplateNode, NoteSeriesNode, ParentPageNode, TemplateNode, VariableNode } from './document-nodes-book.ts'
 import { documentPageGeometryIssues } from './document-page-geometry-policy.ts'
@@ -188,42 +189,6 @@ function refineDefinitions(document: DocumentShapeValue, profile: DocumentProfil
   }
 }
 
-function unknownConditionIssue(subject: string, name: string): string {
-  return `${subject} names unknown condition ${JSON.stringify(name)}; declare it or remove the reference to clear this refusal`
-}
-
-function refineEditions(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
-  const declared = new Set(document.conditions.map((condition) => condition.name))
-  const editions = new Set(document.editions.map((edition) => edition.name))
-  if (document.conditions.length > 0 && document.defaultEdition === undefined) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['defaultEdition'],
-      message: 'conditions need a defaultEdition; declare defaultEdition to clear this refusal',
-    })
-  }
-  if (document.defaultEdition !== undefined && !editions.has(document.defaultEdition)) {
-    ctx.addIssue({
-      code: 'custom',
-      path: ['defaultEdition'],
-      message: `defaultEdition names unknown edition ${JSON.stringify(document.defaultEdition)}; declare it or name a declared edition to clear this refusal`,
-    })
-  }
-  document.editions.forEach((edition, index) => {
-    edition.conditions.forEach((name, conditionIndex) => {
-      if (!declared.has(name)) {
-        ctx.addIssue({ code: 'custom', path: ['editions', index, 'conditions', conditionIndex], message: unknownConditionIssue(`edition ${JSON.stringify(edition.name)}`, name) })
-      }
-    })
-  })
-  walkDocumentNodes(document.children, (node, path) => {
-    if (!('conditions' in node) || node.conditions === undefined) return
-    node.conditions.forEach((name, index) => {
-      if (!declared.has(name)) ctx.addIssue({ code: 'custom', path: [...path, 'conditions', index], message: unknownConditionIssue(`${node.type} node`, name) })
-    })
-  })
-}
-
 function requirementPresent(document: DocumentShapeValue, requirement: string): boolean {
   if (requirement === 'title') return visibleTitle(document)
   if (requirement === 'mode') return document.mode !== undefined
@@ -378,7 +343,7 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   refineRootFields(document, profile, ctx)
   refineDocumentNodes(document, profile, ctx)
   refineDefinitions(document, profile, ctx)
-  refineEditions(document, ctx)
+  refineDocumentEditions(document, ctx)
   refineUnsupportedDocumentFields(document, ctx)
   refineDocumentVariables({ ...document, lang: document.settings?.lang }, ctx)
   refineProfileShape(document, profile, ctx)
