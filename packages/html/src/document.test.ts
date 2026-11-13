@@ -55,7 +55,8 @@ test('accepts valid form fields and refuses each malformed field value', () => {
     }),
     { newId: counter() },
   )
-  expect(JSON.stringify(valid)).toContain('data-segnavia-field="box"')
+  const validBody = valid.children[0]?.type === 'page' ? valid.children[0].body : undefined
+  expect(validBody && 'html' in validBody ? validBody.html : '').toContain('data-segnavia-field="box"')
   const refusals = [
     ['<span data-segnavia-field="choice"></span>', 'data-segnavia-field value "choice" is not accepted; use one of checkbox, line, box'],
     ['<span data-segnavia-field="line" data-segnavia-field-length="12px"></span>', 'data-segnavia-field-length value "12px" is not accepted'],
