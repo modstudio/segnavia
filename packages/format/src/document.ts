@@ -1,13 +1,13 @@
 import { z } from 'zod'
 import { AsOf } from './as-of.ts'
 import { BookMode, BookPage, BookShape } from './book.ts'
-import { resolveBookPageGeometry } from './book-page-geometry.ts'
-import { bookSectionOpensFacts } from './book-section.ts'
+import { closedObject } from './closed-object.ts'
 import { DeckShape, deckTrim } from './deck.ts'
-import { documentBookProjectionForRefinement, documentSourcePath, SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
+import { SECTION_CONTENTS_DEFAULT } from './document-book-items.ts'
 import { refineBookNodes } from './document-book-refinement.ts'
 import { refineUnsupportedDocumentFields } from './document-field-refinement.ts'
 import { type DocumentParseOptions, type IdentifiedDocument, identifyDocument } from './document-identity.ts'
+import { refineLoweredDocument } from './document-lowered-check.ts'
 import { DocumentMetadata } from './document-metadata.ts'
 import { refineDocumentNodes } from './document-node-refinement.ts'
 import { DocumentNode, type DocumentNode as DocumentNodeValue } from './document-nodes.ts'
@@ -19,28 +19,32 @@ import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
 import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { LogicalMargin } from './margins.ts'
-import { defaultPageNumbering, divisionNumbering, NumberSystem } from './numbering.ts'
+import { defaultPageNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 import { parentRules } from './parent-rules.ts'
-import { PressGeometry, Print, pressSafeAreaIssues } from './print.ts'
+import { Print, pressGeometryFields, pressSafeAreaIssues, refinePressGeometry } from './print.ts'
 import { Scripts } from './scripts.ts'
 import { type SectionNumberingFact, sectionNumberingIssues } from './section-numbering-policy.ts'
-import { sectionOpensIssues } from './section-opens-policy.ts'
 import { Slots } from './slots.ts'
 import { StyleSheet } from './style-sheet.ts'
 
-const DocumentSettings = z.object({
+const DocumentSettings = closedObject({
   scripts: Scripts.optional(),
   dir: DeckShape.shape.dir,
   lang: z.string().optional(),
   lineNumbers: LineNumbers.optional(),
   sideNotes: SideNotes.optional(),
 })
-const DocumentData = z.object({ slots: Slots.optional() })
-const DocumentPrint = PressGeometry.and(z.object({ paper: Paper.optional(), orientation: Orientation.optional(), margin: LogicalMargin.optional() }))
+const DocumentData = closedObject({ slots: Slots.optional() })
+const DocumentPrint = closedObject({
+  ...pressGeometryFields,
+  paper: Paper.optional(),
+  orientation: Orientation.optional(),
+  margin: LogicalMargin.optional(),
+}).superRefine(refinePressGeometry)
 
-export const DocumentShape = z.object({
+export const DocumentShape = closedObject({
   type: z.literal('document'),
   id: z.string().optional(),
   kind: z.enum(['deck', 'page', 'printed', 'book', 'board']),
@@ -139,38 +143,20 @@ function documentNumberedSections(document: DocumentShapeValue): SectionNumberin
   return sections
 }
 
-function refineSectionNumberingPolicy(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
-  if (!(profile.children as readonly string[]).includes('section')) return
-  const defaultSystem = defaultPageNumbering(document.settings?.lang)
-  const systems =
-    profile.numbering === 'book'
-      ? divisionNumbering(document.settings?.lang, typeof document.numbering === 'object' ? document.numbering : undefined)
-      : {
-          frontMatter: typeof document.numbering === 'string' ? document.numbering : defaultSystem,
-          body: typeof document.numbering === 'string' ? document.numbering : defaultSystem,
-        }
+// Page does not check printed section numbering restarts, so printed documents establish them here.
+function refinePrintedSectionNumbering(document: DocumentShapeValue, ctx: z.RefinementCtx): void {
+  if (document.kind !== 'printed') return
+  const system = typeof document.numbering === 'string' ? document.numbering : defaultPageNumbering(document.settings?.lang)
   for (const issue of sectionNumberingIssues({
     mode: document.mode ?? 'paginated',
-    systems,
+    systems: { frontMatter: system, body: system },
     sections: documentNumberedSections(document),
   })) {
     ctx.addIssue({ code: 'custom', ...issue })
   }
 }
 
-function refineSectionOpensPolicy(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
-  if (!(profile.children as readonly string[]).includes('section')) return
-  const projection = documentBookProjectionForRefinement(document)
-  if (!projection) return
-  const facts = bookSectionOpensFacts(projection.divisions).map((fact) => ({
-    ...fact,
-    path: documentSourcePath(projection, fact.path),
-    geometry: resolveBookPageGeometry(document, fact.pageGeometry),
-  }))
-  for (const issue of sectionOpensIssues(facts)) ctx.addIssue({ code: 'custom', ...issue })
-}
-
-type DocumentShapeValue = z.infer<typeof DocumentShape>
+export type DocumentShapeValue = z.infer<typeof DocumentShape>
 type DocumentProfile = (typeof DOCUMENT_PROFILES)[DocumentKind]
 
 function refineRootFields(document: DocumentShapeValue, profile: DocumentProfile, ctx: z.RefinementCtx): void {
@@ -208,10 +194,6 @@ function refineRequirements(document: DocumentShapeValue, profile: DocumentProfi
         message: profileRefusal(requirement, document.kind, [requirement], 'required field'),
       })
     }
-  }
-  if (profile.requiredWhen && document[profile.requiredWhen.when[0]] === profile.requiredWhen.when[1] && document[profile.requiredWhen.field] === undefined) {
-    const requirement = profile.requiredWhen.field
-    ctx.addIssue({ code: 'custom', path: [requirement], message: profileRefusal(requirement, document.kind, [requirement], 'required field') })
   }
 }
 
@@ -325,19 +307,7 @@ export function defaultSectionContents(nodes: DocumentNodeValue[], enabled: bool
   })
 }
 
-const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
-  const profile = DOCUMENT_PROFILES[document.kind]
-  refineSectionNumberingPolicy(document, profile, ctx)
-  refineSectionOpensPolicy(document, profile, ctx)
-  for (const issue of documentPageGeometryIssues(document)) ctx.addIssue({ code: 'custom', ...issue })
-  refineRootFields(document, profile, ctx)
-  refineDocumentNodes(document, profile, ctx)
-  refineDefinitions(document, profile, ctx)
-  refineUnsupportedDocumentFields(document, ctx)
-  refineDocumentVariables({ ...document, lang: document.settings?.lang }, ctx)
-  refineProfileShape(document, profile, ctx)
-  refinePrint(document, profile, ctx)
-}).transform((document) => {
+function normalizedDocument(document: DocumentShapeValue): DocumentShapeValue {
   const profile = DOCUMENT_PROFILES[document.kind]
   const withSectionDefaults = {
     ...document,
@@ -350,7 +320,21 @@ const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
   if (!profile.canonicalChildren) return withScripts
   const children = profile.canonicalChildren.flatMap((type) => withScripts.children.filter((node) => node.type === type))
   return { ...withScripts, children }
-})
+}
+
+const DocumentSchema = DocumentShape.superRefine((document, ctx) => {
+  const profile = DOCUMENT_PROFILES[document.kind]
+  refinePrintedSectionNumbering(document, ctx)
+  for (const issue of documentPageGeometryIssues(document)) ctx.addIssue({ code: 'custom', ...issue })
+  refineRootFields(document, profile, ctx)
+  refineDocumentNodes(document, profile, ctx)
+  refineDefinitions(document, profile, ctx)
+  refineUnsupportedDocumentFields(document, ctx)
+  refineDocumentVariables({ ...document, lang: document.settings?.lang }, ctx)
+  refineProfileShape(document, profile, ctx)
+  refinePrint(document, profile, ctx)
+  refineLoweredDocument(normalizedDocument(document), ctx)
+}).transform(normalizedDocument)
 
 export type DocumentInput = z.input<typeof DocumentSchema>
 export type Document = IdentifiedDocument<z.infer<typeof DocumentSchema>>

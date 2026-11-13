@@ -4,7 +4,7 @@ import { parseDocument } from './document.ts'
 import { editDocument } from './edit-document.ts'
 
 export function editDocumentBookFixture() {
-  let next = 0
+  let next = 1
   const newId = () => `fixture-${++next}`
   const input = parseDocument(
     {
@@ -14,14 +14,15 @@ export function editDocumentBookFixture() {
       metadata: { title: 'ספר לדוגמה' },
       mode: 'continuous',
       settings: { dir: 'rtl', lang: 'he' },
-      children: [],
+      children: [
+        { type: 'part', id: 'fixture-1', name: 'body', title: 'תוכן', children: [{ type: 'flow', id: 'placeholder', title: 'Placeholder', html: '' }] },
+      ],
     },
     { newId },
   )
   const result = editDocument(
     input,
     [
-      { type: 'add', node: { type: 'part', name: 'תוכן', title: 'תוכן', children: [] }, at: { parent: { id: 'hebrew-book' }, index: 0 } },
       {
         type: 'add',
         node: {
@@ -30,7 +31,7 @@ export function editDocumentBookFixture() {
           title: 'בְּרֵאשִׁית',
           children: [{ type: 'flow', id: 'flow-one', html: '<h1 dir="rtl" lang="he">בְּרֵאשִׁית</h1><p dir="rtl" lang="he">בְּרֵאשִׁ֖ית בָּרָ֣א אֱלֹהִ֑ים</p>' }],
         },
-        at: { parent: { name: 'תוכן' }, index: 0 },
+        at: { parent: { name: 'body' }, index: 0 },
       },
       {
         type: 'add',
@@ -40,8 +41,9 @@ export function editDocumentBookFixture() {
           title: 'וַיֹּאמֶר',
           children: [{ type: 'flow', id: 'flow-two', html: '<h1 dir="rtl" lang="he">וַיֹּאמֶר</h1><p dir="rtl" lang="he">וַיֹּ֥אמֶר אֱלֹהִ֖ים יְהִ֣י א֑וֹר</p>' }],
         },
-        at: { parent: { name: 'תוכן' }, index: 1 },
+        at: { parent: { name: 'body' }, index: 1 },
       },
+      { type: 'remove', node: { id: 'placeholder' } },
       { type: 'insertBlock', html: '<p dir="rtl" lang="he">וַיְהִי־אֽוֹר</p>', position: { in: { node: { id: 'flow-two' }, field: 'html' }, at: 'end' } },
       { type: 'moveBlock', block: 'fixture-6', position: { before: 'fixture-4' } },
       { type: 'setStyle', fields: { css: ':root { direction: rtl; }' } },

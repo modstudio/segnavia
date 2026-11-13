@@ -11,7 +11,7 @@ const document = (dir: 'ltr' | 'rtl' = 'ltr') =>
     metadata: { title: 'Book' },
     mode: 'continuous',
     settings: { dir, ...(dir === 'rtl' ? { lang: 'he' } : {}) },
-    children: [],
+    children: [{ type: 'flow', id: 'flow', title: 'Body', html: '<p data-segnavia-id="body">Body</p>' }],
   })
 
 function page(number: number, face: PlanPage['face'], side: PlanPage['side'], start?: PlanPage['start']): PlanPage {

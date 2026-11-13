@@ -13,6 +13,7 @@ export {
 export * from './board-exports.ts'
 export * from './book-exports.ts'
 export { type BrandSource, resolveBrand } from './brand.ts'
+export { closedObject, renderIssuePath } from './closed-object.ts'
 export { boundComposeProgress, COMPOSE_PROGRESS_PAGES_LIMIT, type ComposeProgress } from './compose-progress.ts'
 export {
   COVER_DRAWING_VERSION,

@@ -1,4 +1,6 @@
 import { RenderRefusedError } from './errors.ts'
+import { refuseUnknownNestedOptions } from './render-option-keys.ts'
+import type { RenderCall } from './renderer.ts'
 
 export type WatermarkPosition = 'start' | 'center' | 'end'
 
@@ -17,16 +19,38 @@ export interface Watermark {
   pages?: 'all' | number[]
 }
 
+export const WATERMARK_OPTION_KEYS = {
+  text: true,
+  image: true,
+  lang: true,
+  dir: true,
+  font: true,
+  color: true,
+  opacity: true,
+  rotation: true,
+  size: true,
+  position: true,
+  pages: true,
+} as const satisfies Record<keyof Watermark, true>
+
+type WatermarkPositionOptions = NonNullable<Watermark['position']>
+export const WATERMARK_POSITION_OPTION_KEYS = {
+  inline: true,
+  block: true,
+} as const satisfies Record<keyof WatermarkPositionOptions, true>
+
 const POSITIONS = new Set<WatermarkPosition>(['start', 'center', 'end'])
+type WatermarkRenderCall = Exclude<RenderCall, 'bookPlan' | 'proofImage'>
 
 function refusal(field: string, need: string): never {
   throw new RenderRefusedError(`The watermark ${field} ${need}; change watermark.${field} or omit the watermark to clear this refusal.`)
 }
 
-function parsePosition(value: unknown): Watermark['position'] {
+function parsePosition(value: unknown, call: WatermarkRenderCall): Watermark['position'] {
   if (value === undefined) return undefined
   if (!value || typeof value !== 'object' || Array.isArray(value)) refusal('position', 'needs to be an object')
   const position = value as Record<string, unknown>
+  refuseUnknownNestedOptions(call, position, WATERMARK_POSITION_OPTION_KEYS, ['watermark', 'position'])
   for (const axis of ['inline', 'block'] as const) {
     if (position[axis] !== undefined && !POSITIONS.has(position[axis] as WatermarkPosition)) {
       refusal(`position.${axis}`, 'needs to be start, center or end')
@@ -65,10 +89,11 @@ function validateNumbers(input: Record<string, unknown>): void {
   }
 }
 
-export function parseWatermark(value: unknown): Watermark | undefined {
+export function parseWatermark(value: unknown, call: WatermarkRenderCall): Watermark | undefined {
   if (value === undefined) return undefined
   if (!value || typeof value !== 'object' || Array.isArray(value)) refusal('option', 'needs to be an object')
   const input = value as Record<string, unknown>
+  refuseUnknownNestedOptions(call, input, WATERMARK_OPTION_KEYS, ['watermark'])
   const hasText = input.text !== undefined
   const hasImage = input.image !== undefined
   if (hasText === hasImage) {
@@ -91,11 +116,11 @@ export function parseWatermark(value: unknown): Watermark | undefined {
     refusal('dir', 'needs to be ltr, rtl or auto')
   }
   validateNumbers(input)
-  return { ...input, position: parsePosition(input.position), pages: parsePages(input.pages) } as Watermark
+  return { ...input, position: parsePosition(input.position, call), pages: parsePages(input.pages) } as Watermark
 }
 
-export function parseWatermarkOption<T extends { watermark?: Watermark }>(parsed: T): T {
-  const watermark = parseWatermark(parsed.watermark)
+export function parseWatermarkOption<T extends { watermark?: Watermark }>(parsed: T, call: WatermarkRenderCall): T {
+  const watermark = parseWatermark(parsed.watermark, call)
   return { ...parsed, ...(watermark === undefined ? {} : { watermark }) }
 }
 

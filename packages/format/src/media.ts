@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { Direction, resolveDirection, type TextDirection } from './direction.ts'
 import { Box, PixelSize } from './geometry.ts'
 
@@ -15,7 +16,7 @@ export const MEDIA_FORMATS: Record<MediaFormat, { pages: boolean; raster: boolea
   ai: { pages: true, raster: false },
 }
 
-export const MediaText = z.object({ text: z.string().min(1), lang: z.string().optional(), dir: Direction.optional() })
+export const MediaText = closedObject({ text: z.string().min(1), lang: z.string().optional(), dir: Direction.optional() })
 export type MediaText = z.infer<typeof MediaText>
 
 export function mediaTextDirection(text: MediaText): TextDirection {

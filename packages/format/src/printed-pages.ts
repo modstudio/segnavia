@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
+import { closedObject } from './closed-object.ts'
 import { SectionNumbering } from './folio.ts'
 import { HeadTemplates } from './head-template.ts'
 import { LineNumbers, SideNotes } from './line-numbers.ts'
@@ -16,7 +17,7 @@ import { Variables } from './variable.ts'
 export const Fragmentation = z.enum(['safe', 'none'])
 export type Fragmentation = z.infer<typeof Fragmentation>
 
-export const ParentPage = z.object({
+export const ParentPage = closedObject({
   ...RemovedParentPageFields,
   name: z.string().min(1),
   basedOn: z.string().min(1).optional(),
@@ -24,7 +25,7 @@ export const ParentPage = z.object({
   regions: ParentRegions.default({}),
 })
 
-export const PrintedPages = z.object({
+export const PrintedPages = closedObject({
   lineNumbers: LineNumbers.optional(),
   sideNotes: SideNotes.optional(),
   variables: Variables,
@@ -36,7 +37,7 @@ export const PrintedPages = z.object({
   fragmentation: Fragmentation.default('safe'),
   sections: z
     .array(
-      z.object({
+      closedObject({
         id: z.string(),
         title: z.string().optional(),
         opens: BookOpens.optional(),
@@ -46,7 +47,7 @@ export const PrintedPages = z.object({
         html: z.string(),
         values: RecordValues.optional(),
         record: RecordFacts.optional(),
-        recordTemplate: z.object({ name: z.string(), slots: z.array(z.object({ key: z.string() })) }).optional(),
+        recordTemplate: closedObject({ name: z.string(), slots: z.array(closedObject({ key: z.string() })) }).optional(),
       }),
     )
     .min(1)

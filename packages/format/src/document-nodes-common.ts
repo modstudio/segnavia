@@ -1,12 +1,13 @@
 import { z } from 'zod'
 import { BoardItem, BoardLabel, BoardSection } from './board.ts'
+import { closedObject } from './closed-object.ts'
 import { Slide } from './deck.ts'
 import { Numbering } from './folio.ts'
 import { PageBody } from './page.ts'
 import { PlacementShape } from './placement.ts'
 import { RecordValues } from './record-facts.ts'
 
-export const NodeId = z.object({ id: z.string().optional() })
+export const NodeId = closedObject({ id: z.string().optional() })
 
 export const FlowNode = NodeId.extend({
   type: z.literal('flow'),
@@ -37,7 +38,7 @@ export const LabelNode = BoardLabel.omit({ id: true }).extend({ type: z.literal(
 export const BoardSectionNode = BoardSection.omit({ id: true }).extend({ type: z.literal('boardSection'), id: z.string().optional() })
 
 export const DivisionName = z.enum(['front', 'body', 'end'])
-export const DivisionSettings = z.object({ numbering: Numbering.optional() })
+export const DivisionSettings = closedObject({ numbering: Numbering.optional() })
 
 export type FlowNode = z.infer<typeof FlowNode>
 export type PageNode = z.infer<typeof PageNode>

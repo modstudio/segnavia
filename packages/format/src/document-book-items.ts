@@ -158,14 +158,6 @@ export function documentBookDivisions(document: { children: DocumentNode[]; temp
   return documentBookProjection(document).divisions
 }
 
-export function documentBookProjectionForRefinement(document: { children: DocumentNode[] }): DocumentBookProjection | undefined {
-  try {
-    return documentBookProjection(document)
-  } catch {
-    return undefined
-  }
-}
-
 export function documentSourcePath(projection: DocumentBookProjection, bookPath: Path): Path {
   return projection.sourcePaths.get(pathKey(bookPath)) ?? bookPath
 }

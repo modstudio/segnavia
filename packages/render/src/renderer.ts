@@ -47,3 +47,8 @@ export interface Renderer {
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
   close(): Promise<void>
 }
+
+export type RenderCall = Exclude<keyof Renderer, 'close'>
+export type PagesPdfInputOptions = NonNullable<Parameters<Renderer['pagesPdf']>[1]>
+export type DeckPdfInputOptions = NonNullable<Parameters<Renderer['deckPdf']>[1]>
+export type SlideImageInputOptions = NonNullable<Parameters<Renderer['slideImage']>[2]>

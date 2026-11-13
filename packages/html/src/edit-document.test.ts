@@ -91,7 +91,7 @@ describe('editDocument command handlers', () => {
       metadata: { title: 'Book' },
       mode: 'paginated',
       page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
-      children: [],
+      children: [{ type: 'flow', id: 'existing', title: 'Existing', html: '' }],
     })
     const result = editDocument(
       input,
@@ -159,16 +159,24 @@ describe('editDocument command handlers', () => {
           type: 'part',
           id: 'one',
           name: 'One',
-          children: [{ type: 'section', id: 'section', title: 'Section', children: [{ type: 'flow', id: 'flow', html: '' }] }],
+          children: [
+            { type: 'section', id: 'section', title: 'Section', children: [{ type: 'flow', id: 'flow', html: '' }] },
+            { type: 'section', id: 'kept-one', title: 'Kept one', children: [{ type: 'flow', id: 'kept-one-flow', html: '' }] },
+          ],
         },
-        { type: 'part', id: 'two', name: 'Two', children: [] },
+        {
+          type: 'part',
+          id: 'two',
+          name: 'Two',
+          children: [{ type: 'section', id: 'kept-two', title: 'Kept two', children: [{ type: 'flow', id: 'kept-two-flow', html: '' }] }],
+        },
       ],
     })
     const result = editDocument(input, [{ type: 'move', node: { id: 'section' }, to: { parent: { id: 'two' }, index: 0 } }])
     expectComposes(input, result)
     expect(result.document.children).toMatchObject([
-      { id: 'one', children: [] },
-      { id: 'two', children: [{ id: 'section' }] },
+      { id: 'one', children: [{ id: 'kept-one' }] },
+      { id: 'two', children: [{ id: 'section' }, { id: 'kept-two' }] },
     ])
     expect(result.added).toEqual({ 0: [] })
   })
@@ -185,13 +193,16 @@ describe('editDocument command handlers', () => {
           type: 'part',
           id: 'part',
           name: 'Part',
-          children: [{ type: 'section', id: 'section', title: 'Section', children: [{ type: 'flow', id: 'flow', html: '' }] }],
+          children: [
+            { type: 'section', id: 'section', title: 'Section', children: [{ type: 'flow', id: 'flow', html: '' }] },
+            { type: 'section', id: 'kept', title: 'Kept', children: [{ type: 'flow', id: 'kept-flow', html: '' }] },
+          ],
         },
       ],
     })
     const result = editDocument(input, [{ type: 'remove', node: { id: 'section' } }])
     expectComposes(input, result)
-    expect(result.document.children[0]).toMatchObject({ children: [] })
+    expect(result.document.children[0]).toMatchObject({ children: [{ id: 'kept' }] })
     expect(result.added).toEqual({ 0: [] })
   })
 
@@ -219,10 +230,9 @@ describe('editDocument refusals', () => {
       kind: 'book',
       metadata: { title: 'Book' },
       mode: 'continuous',
-      children: [],
-      templates: [
-        { type: 'template', id: 'a', name: 'same', html: '' },
-        { type: 'template', id: 'b', name: 'same', html: '' },
+      children: [
+        { type: 'part', id: 'a', name: 'same', children: [{ type: 'flow', id: 'a-flow', title: 'A', html: '' }] },
+        { type: 'part', id: 'b', name: 'same', children: [{ type: 'flow', id: 'b-flow', title: 'B', html: '' }] },
       ],
     })
     const result = editDocument(book, [{ type: 'remove', node: { name: 'same' } }])

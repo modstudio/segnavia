@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
+import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
 import { SectionNumbering } from './folio.ts'
 import { REGION_NAME } from './parent-regions.ts'
@@ -14,19 +15,19 @@ export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
 const PartOpens = z.enum(['recto', 'verso', 'any'])
 
-export const DesignedPage = z.object({ html: z.string() })
+export const DesignedPage = closedObject({ html: z.string() })
 export type DesignedPage = z.infer<typeof DesignedPage>
 
 export { REGION_NAME } from './parent-regions.ts'
 export const MAX_PART_DEPTH = 6
 
-export const TemplatedPage = z.object({
+export const TemplatedPage = closedObject({
   template: z.string().min(1).optional(),
   regions: z.record(z.string(), z.string()),
 })
 export type TemplatedPage = z.infer<typeof TemplatedPage>
 
-export const BookTemplate = z.object({
+export const BookTemplate = closedObject({
   name: z.string().min(1),
   html: z.string(),
   parentRules: parentRules.optional(),
@@ -56,7 +57,7 @@ const sectionFields = {
   dir: Direction.optional(),
   values: RecordValues.optional(),
   record: RecordFacts.optional(),
-  recordTemplate: z.object({ name: z.string(), slots: Slots }).optional(),
+  recordTemplate: closedObject({ name: z.string(), slots: Slots }).optional(),
 }
 
 const partFields = {
@@ -70,14 +71,14 @@ const partFields = {
   parents: z.unknown().optional(),
 }
 
-export const DesignedSection = z.object({
+export const DesignedSection = closedObject({
   kind: z.literal('designed'),
   ...sectionFields,
   pages: z.array(DesignedPage, { error: designedPagesRefusal }).min(1, designedPagesRefusal),
 })
 export type DesignedSection = z.infer<typeof DesignedSection>
 
-export const TemplatedSection = z.object({
+export const TemplatedSection = closedObject({
   kind: z.literal('templated'),
   ...sectionFields,
   template: z.string().min(1),
@@ -85,13 +86,13 @@ export const TemplatedSection = z.object({
 })
 export type TemplatedSection = z.infer<typeof TemplatedSection>
 
-export const BookSection = z.object({
+export const BookSection = closedObject({
   html: z.string(),
   ...sectionFields,
 })
 export type BookSection = z.infer<typeof BookSection>
 
-export const BookContents = z.object({
+export const BookContents = closedObject({
   id: z.string(),
   kind: z.literal('contents'),
   title: z.string().optional(),
@@ -102,7 +103,7 @@ export const BookContents = z.object({
 })
 export type BookContents = z.infer<typeof BookContents>
 
-export const PlacedSection = z.object({ kind: z.literal('placed'), placement: PlacementShape, ...sectionFields })
+export const PlacedSection = closedObject({ kind: z.literal('placed'), placement: PlacementShape, ...sectionFields })
 export type PlacedSection = z.infer<typeof PlacedSection>
 
 const flowingFront = BookSection.extend({ kind: z.literal('front').optional() })
@@ -124,7 +125,7 @@ export interface Part extends z.infer<z.ZodObject<typeof partFields>> {
 
 export type BookItem = Part | BookFrontMatterEntry | BookChapterEntry
 
-export const Part: z.ZodType<Part> = z.lazy(() => z.object({ ...partFields, children: z.array(BookItem).default([]) }))
+export const Part: z.ZodType<Part> = z.lazy(() => closedObject({ ...partFields, children: z.array(BookItem).default([]) }))
 export const BookItem: z.ZodType<BookItem> = z.lazy(() => z.union([Part, BookFrontMatterEntry, BookChapterEntry]))
 
 export type BookDivision = 'front' | 'body' | 'end'

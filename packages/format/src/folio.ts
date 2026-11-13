@@ -1,7 +1,8 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { formatNumber, NumberSystem, numberingScript } from './numbering.ts'
 
-export const Numbering = z.object({
+export const Numbering = closedObject({
   system: NumberSystem,
   start: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   restart: z.boolean(),

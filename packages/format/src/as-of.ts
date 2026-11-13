@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 
 const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})$/
 
@@ -33,9 +34,9 @@ export type Zone = z.infer<typeof Zone>
 
 // An absent as-of means the current day.
 export const AsOf = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('fixed'), date: CalendarDate, zone: Zone.optional() }),
-  z.object({ kind: z.literal('current'), zone: Zone.optional() }),
-  z.object({ kind: z.literal('anchor'), anchor: z.string().min(1), zone: Zone.optional() }),
+  closedObject({ kind: z.literal('fixed'), date: CalendarDate, zone: Zone.optional() }),
+  closedObject({ kind: z.literal('current'), zone: Zone.optional() }),
+  closedObject({ kind: z.literal('anchor'), anchor: z.string().min(1), zone: Zone.optional() }),
 ])
 export type AsOf = z.infer<typeof AsOf>
 

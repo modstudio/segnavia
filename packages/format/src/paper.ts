@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import type { Print } from './print.ts'
 
 export const NAMED_PAPERS = [
@@ -77,7 +78,7 @@ export const PAPER_UNITS = ['mm', 'in', 'pt'] as const
 export const PaperUnit = z.enum(PAPER_UNITS)
 export type PaperUnit = z.infer<typeof PaperUnit>
 /** Physical paper geometry in the unit stated by the value. */
-export const PaperSize = z.object({ width: z.number().positive(), height: z.number().positive(), unit: PaperUnit })
+export const PaperSize = closedObject({ width: z.number().positive(), height: z.number().positive(), unit: PaperUnit })
 export type PaperSize = z.infer<typeof PaperSize>
 export const ORIENTATIONS = ['portrait', 'landscape'] as const
 export const Orientation = z.enum(ORIENTATIONS)
@@ -99,11 +100,10 @@ export const Paper = z.union([z.enum(NAMED_PAPERS), CustomPaper])
 export type Paper = z.infer<typeof Paper>
 
 const PrintSettingShape = { paper: Paper, orientation: Orientation } as const
-// Reading stored history ignores fields added by a newer host. Writes use the
-// strict form so a typo cannot silently enter storage.
+// Reading stored history ignores fields added by a newer host. Writes use the strict form so a typo cannot silently enter storage.
 export const PrintSetting = z.object(PrintSettingShape)
 export type PrintSetting = z.infer<typeof PrintSetting>
-export const PrintSettingInput = z.strictObject(PrintSettingShape)
+export const PrintSettingInput = closedObject(PrintSettingShape)
 export type PrintSettingInput = z.input<typeof PrintSettingInput>
 
 export const MM_PER_PT = 25.4 / 72

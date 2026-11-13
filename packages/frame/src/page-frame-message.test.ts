@@ -69,7 +69,7 @@ test('a plain mounted document page advances document preflight coverage', () =>
   const pageElement = new EventTarget() as HTMLElement
   const documentElement = new EventTarget()
   const documentPreflight = new SurfacePreflightCoordinator<number>(documentElement)
-  documentPreflight.setSurface([{ key: 0, folio: '1' }], false)
+  documentPreflight.setSurface([{ key: 0, folio: '1' }], 'page', false)
   installDocumentPagePreflight(pageElement, (report) => documentPreflight.receive(0, report))
   let received: import('@segnavia/format').PreflightReport | undefined
   documentElement.addEventListener('preflight', (event) => {

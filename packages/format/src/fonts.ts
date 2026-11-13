@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 
 export const APP_FONT_NAME = /^[a-z0-9-]+$/
 export const APP_FONT_NAME_MESSAGE = 'app font names are lowercase letters, digits and hyphens'
@@ -55,15 +56,15 @@ const FontDeclarationShape = {
   script: z.enum(['hebrew']).optional(),
 } as const
 
-export const FontDeclaration = z
-  .strictObject({ ...FontDeclarationShape, unicodeRange: FontDeclarationShape.unicodeRange.optional() })
-  .transform((face) => (face.script === 'hebrew' && face.unicodeRange === undefined ? { ...face, unicodeRange: HEBREW_UNICODE_RANGE } : face))
+export const FontDeclaration = closedObject({ ...FontDeclarationShape, unicodeRange: FontDeclarationShape.unicodeRange.optional() }).transform((face) =>
+  face.script === 'hebrew' && face.unicodeRange === undefined ? { ...face, unicodeRange: HEBREW_UNICODE_RANGE } : face,
+)
 export type FontDeclaration = z.infer<typeof FontDeclaration>
 
-export const AppFontDeclaration = z.strictObject({ faces: z.array(FontDeclaration).min(1), generic: z.enum(FONT_GENERICS).optional() })
+export const AppFontDeclaration = closedObject({ faces: z.array(FontDeclaration).min(1), generic: z.enum(FONT_GENERICS).optional() })
 export type AppFontDeclaration = z.infer<typeof AppFontDeclaration>
 
-export const LocalFontDeclaration = z.strictObject({ local: z.string().min(1), fallback: AppFontName })
+export const LocalFontDeclaration = closedObject({ local: z.string().min(1), fallback: AppFontName })
 export type LocalFontDeclaration = z.infer<typeof LocalFontDeclaration>
 
 export const FontManifestEntry = z.union([AppFontDeclaration, LocalFontDeclaration])
@@ -138,11 +139,11 @@ export interface FontFailure {
 const AppFontShape = { app: AppFontName } as const
 const LocalFontShape = { local: z.string().min(1), fallback: AppFontName } as const
 
-export const FontReference = z.union([z.object(AppFontShape), z.object(LocalFontShape)])
+export const FontReference = z.union([closedObject(AppFontShape), closedObject(LocalFontShape)])
 export type FontReference = z.infer<typeof FontReference>
 export type FontReferencesSource = readonly FontReference[] | FontManifest | undefined
 
-export const FontReferenceInput = z.union([z.strictObject(AppFontShape), z.strictObject(LocalFontShape)])
+export const FontReferenceInput = z.union([closedObject(AppFontShape), closedObject(LocalFontShape)])
 export type FontReferenceInput = z.input<typeof FontReferenceInput>
 
 export function localFontReferences(fonts: FontReferencesSource): LocalFontDeclaration[] {
@@ -172,7 +173,7 @@ const LocalFaceTransportShape = {
   data: z.string(),
 } as const
 
-export const LocalFaceTransport = z.strictObject(LocalFaceTransportShape)
+export const LocalFaceTransport = closedObject(LocalFaceTransportShape)
 export type LocalFaceTransport = z.infer<typeof LocalFaceTransport>
 export const LocalFacesTransport = z.array(LocalFaceTransport)
 export type LocalFacesInput = LocalFaceTransport[]

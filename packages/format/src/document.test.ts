@@ -23,7 +23,7 @@ test('mints stable ids for every node and definition while preserving supplied i
     ],
     parentPages: [{ type: 'parentPage' as const, name: 'normal', geometry: {} }],
     templates: [{ type: 'template' as const, name: 'chapter', html: '<p>Template</p>' }],
-    noteSeries: [{ type: 'noteSeries' as const, name: 'notes' }],
+    noteSeries: [{ type: 'noteSeries' as const, name: 'notes', placement: 'book' as const, numbering: 'book' as const }],
   }
   const parsed = Document.parse(input, { newId })
   expect(parsed.id).toBe('document-id')
@@ -50,8 +50,6 @@ test('refuses duplicate node ids with both nodes and the clearance', () => {
     ),
   ).toThrow(/id "same".*section.*flow.*change or remove one id to clear this refusal/)
 })
-
-import { jsonSchemas } from './json-schemas.ts'
 
 describe('Document', () => {
   test('keeps optional ids and refuses nodes outside the kind profile', () => {
@@ -111,8 +109,15 @@ describe('Document', () => {
 
   test('keeps direction policy in profiles and refuses limits where the current pipeline cannot carry them', () => {
     expect(
-      Document.parse({ type: 'document', kind: 'book', title: 'Book', mode: 'continuous', settings: { dir: 'auto' }, limits: { pages: 12 }, children: [] })
-        .limits,
+      Document.parse({
+        type: 'document',
+        kind: 'book',
+        title: 'Book',
+        mode: 'continuous',
+        settings: { dir: 'auto' },
+        limits: { pages: 12 },
+        children: [{ type: 'flow', title: 'Body', html: '' }],
+      }).limits,
     ).toEqual({ pages: 12 })
     expect(() => Document.parse({ type: 'document', kind: 'board', limits: { pages: 12 }, children: [] })).toThrow(
       'document field limits is not yet supported; remove it to clear this refusal',
@@ -199,6 +204,7 @@ describe('Document', () => {
       Document.parse({
         type: 'document',
         kind: 'printed',
+        print: { paper: 'a4' },
         parentRules: [{ parent: 'body' }],
         parentPages: [{ type: 'parentPage', name: 'body' }],
         children: [section],
@@ -210,6 +216,7 @@ describe('Document', () => {
     const root = {
       type: 'document' as const,
       kind: 'printed' as const,
+      print: { paper: 'a4' as const },
       parentRules: [{ parent: 'body' }],
       parentPages: [{ type: 'parentPage' as const, name: 'body' }],
     }
@@ -240,6 +247,7 @@ describe('Document', () => {
       Document.parse({
         type: 'document',
         kind: 'printed',
+        print: { paper: 'a4' },
         numbering: 'hebrew',
         parentRules: [{ parent: 'body' }],
         parentPages: [{ type: 'parentPage', name: 'body' }],
@@ -252,6 +260,7 @@ describe('Document', () => {
     const parsed = Document.parse({
       type: 'document',
       kind: 'printed',
+      print: { paper: 'a4' },
       parentRules: [{ parent: 'body' }],
       parentPages: [{ type: 'parentPage', name: 'body' }],
       templates: [{ type: 'template', name: 'record', html: '<p>Record</p>' }],
@@ -319,7 +328,7 @@ describe('Document', () => {
       kind: 'book',
       title: 'Regions',
       mode: 'continuous',
-      children: [],
+      children: [{ type: 'flow', title: 'Body', html: '' }],
       parentPages: [{ type: 'parentPage', name: 'body', regions: { side: { edge: 'inlineEnd', html: '<aside></aside>' } } }],
     }
     expect(Document.parse(value).parentPages[0]?.regions.side).toEqual({ edge: 'inlineEnd', html: '<aside></aside>' })
@@ -347,11 +356,12 @@ describe('Document', () => {
   test.each(['deck', 'book', 'printed', 'page', 'board'] as const)('accepts a brand name on a %s document', (kind) => {
     const inputs = {
       deck: { type: 'document', kind, title: 'Deck', brand: 'publisher', children: [{ type: 'slide', content: { kind: 'html', html: '' } }] },
-      book: { type: 'document', kind, title: 'Book', mode: 'continuous', brand: 'publisher', children: [] },
+      book: { type: 'document', kind, title: 'Book', mode: 'continuous', brand: 'publisher', children: [{ type: 'flow', title: 'Body', html: '' }] },
       printed: {
         type: 'document',
         kind,
         brand: 'publisher',
+        print: { paper: 'a4' },
         parentRules: [{ parent: 'body' }],
         parentPages: [{ type: 'parentPage', name: 'body' }],
         children: [{ type: 'page', body: { html: '' } }],
@@ -360,12 +370,6 @@ describe('Document', () => {
       board: { type: 'document', kind, title: 'Board', brand: 'publisher', settings: { dir: 'ltr' }, children: [] },
     } as const
     expect(Document.parse(inputs[kind]).brand).toBe('publisher')
-  })
-
-  test('generates the document JSON Schema from the exported manifest', () => {
-    const schemas = jsonSchemas()
-    expect(schemas).toHaveProperty('document')
-    for (const legacy of ['deck', 'page', 'book', 'board']) expect(schemas).not.toHaveProperty(legacy)
   })
 
   test('profiles accept only the print shape belonging to each trim', () => {

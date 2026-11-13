@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { REGION_NAME } from './book-section.ts'
+import { closedObject } from './closed-object.ts'
 import { isHebrew, NoteMarker, type NoteMarkerSource, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarkerSource } from './numbering.ts'
 import { primitiveRoot } from './repeated-mark.ts'
 
@@ -9,7 +10,7 @@ export type NotePlacement = z.infer<typeof NotePlacement>
 export const NoteNumbering = z.enum(['chapter', 'part', 'book'])
 export type NoteNumbering = z.infer<typeof NoteNumbering>
 
-export const NoteSeries = z.object({
+export const NoteSeries = closedObject({
   name: z.string().regex(REGION_NAME, 'a note series name must be an HTML name token'),
   placement: NotePlacement.optional(),
   numbering: NoteNumbering.optional(),
@@ -39,6 +40,31 @@ type SeriesPresentation = Pick<
   ResolvedNoteSeries,
   'idStem' | 'idScope' | 'blockClass' | 'bodyClass' | 'titleClass' | 'sectionIdPrefix' | 'markerLabel' | 'markerConflictSuffixes' | 'markBlockSeries'
 >
+
+const SERIES_PRESENTATION_KEYS = [
+  'idStem',
+  'idScope',
+  'blockClass',
+  'bodyClass',
+  'titleClass',
+  'sectionIdPrefix',
+  'markerLabel',
+  'markerConflictSuffixes',
+  'markBlockSeries',
+] as const satisfies readonly (keyof SeriesPresentation)[]
+
+type CompletePresentationKeys<Keys extends readonly (keyof SeriesPresentation)[]> = Exclude<keyof SeriesPresentation, Keys[number]> extends never ? Keys : never
+
+const RESOLVED_PRESENTATION_KEYS: CompletePresentationKeys<typeof SERIES_PRESENTATION_KEYS> = SERIES_PRESENTATION_KEYS
+
+function withoutResolvedPresentation(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || !RESOLVED_PRESENTATION_KEYS.every((key) => key in value)) return value
+  const authored: Record<string, unknown> = { ...value }
+  for (const key of RESOLVED_PRESENTATION_KEYS) delete authored[key]
+  return authored
+}
+
+export const NoteSeriesEntries = z.array(z.preprocess(withoutResolvedPresentation, NoteSeries))
 
 type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker'> & { marker?: NoteMarkerValue; preferredMarker?: NoteMarkerValue }
 

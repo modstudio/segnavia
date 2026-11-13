@@ -1,8 +1,9 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import type { TextDirection } from './direction.ts'
 
 /** Binding-relative margins; inlineStart is the binding edge, not CSS inline-start, and inlineEnd is the outer edge. */
-export const LogicalMargin = z.object({
+export const LogicalMargin = closedObject({
   blockStart: z.number().nonnegative().default(0),
   blockEnd: z.number().nonnegative().default(0),
   inlineStart: z.number().nonnegative().default(0),
@@ -25,7 +26,7 @@ export const RequiredLogicalMargin = z.strictObject(requiredLogicalMarginShape, 
       : undefined,
 })
 
-export const PhysicalMargin = z.object({
+export const PhysicalMargin = closedObject({
   top: z.number().nonnegative().default(0),
   right: z.number().nonnegative().default(0),
   bottom: z.number().nonnegative().default(0),

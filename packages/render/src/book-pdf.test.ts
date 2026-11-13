@@ -23,7 +23,7 @@ test('continuous margin facts select a host parent from the owning section rules
     title: 'Book',
     mode: 'continuous',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-    parentPages: [{ type: 'parentPage', name: 'host', basedOn: 'segnavia:recto' }],
+    parentPages: [{ name: 'host', basedOn: 'segnavia:recto' }],
     chapters: [{ id: 'body-section', title: 'One', parentRules: [{ parent: 'host' }], html: '<p>Text</p>' }],
   })
   const sections = bookDocument(book).sections
@@ -46,7 +46,7 @@ test("continuous margin facts fall back to the book's parent rules", () => {
     title: 'Book',
     mode: 'continuous',
     page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
-    parentPages: [{ type: 'parentPage', name: 'host', basedOn: 'segnavia:recto' }],
+    parentPages: [{ name: 'host', basedOn: 'segnavia:recto' }],
     parentRules: [{ parent: 'host' }],
     chapters: [{ id: 'body-section', title: 'One', html: '<p>Text</p>' }],
   })

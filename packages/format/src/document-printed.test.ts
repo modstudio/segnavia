@@ -36,3 +36,17 @@ test('lowers printed sections with their plan fields and keeps Hebrew settings',
   ])
   expect(lowered.body).toBeUndefined()
 })
+
+test('lowers printed line-number settings into printed pages', () => {
+  const document = Document.parse({
+    type: 'document',
+    kind: 'printed',
+    settings: { lineNumbers: { interval: 5, restart: 'page' } },
+    print: { paper: 'a4' },
+    parentPages: [{ type: 'parentPage', name: 'body' }],
+    parentRules: [{ parent: 'body' }],
+    children: [{ type: 'page', body: { html: '<p>Numbered</p>' } }],
+  })
+
+  expect(printedFromDocument(document).printedPages?.lineNumbers).toEqual(document.settings?.lineNumbers)
+})

@@ -15,23 +15,26 @@ test.each([
   [{ text: 'Draft', font: 'Body, ' }, 'font'],
   [{ text: 'Draft', font: '"Foo, Bar", serif' }, 'give family names without quotes; they are quoted for you'],
 ] as const)('refuses invalid watermark options %#', (input, message) => {
-  expect(() => parseWatermark(input)).toThrow(message)
+  expect(() => parseWatermark(input, 'pagePdf')).toThrow(message)
 })
 
 test('parses a watermark without changing its public option names', () => {
   expect(
-    parseWatermark({
-      text: 'Draft',
-      lang: 'en',
-      dir: 'ltr',
-      font: 'Body',
-      color: '#888',
-      opacity: 0.2,
-      rotation: 'diagonal',
-      size: 0.7,
-      position: { inline: 'end', block: 'start' },
-      pages: [2, 4],
-    }),
+    parseWatermark(
+      {
+        text: 'Draft',
+        lang: 'en',
+        dir: 'ltr',
+        font: 'Body',
+        color: '#888',
+        opacity: 0.2,
+        rotation: 'diagonal',
+        size: 0.7,
+        position: { inline: 'end', block: 'start' },
+        pages: [2, 4],
+      },
+      'pagePdf',
+    ),
   ).toEqual({
     text: 'Draft',
     lang: 'en',
@@ -44,6 +47,15 @@ test('parses a watermark without changing its public option names', () => {
     position: { inline: 'end', block: 'start' },
     pages: [2, 4],
   })
+})
+
+test('refuses unknown nested watermark options with the render call path', () => {
+  expect(() => parseWatermark({ text: 'Draft', extra: true }, 'pagePdf')).toThrow(
+    'pagePdf options.watermark.extra: unknown option "extra"; remove it to clear this refusal',
+  )
+  expect(() => parseWatermark({ text: 'Draft', position: { inline: 'start', extra: true } }, 'pagePdf')).toThrow(
+    'pagePdf options.watermark.position.extra: unknown option "extra"; remove it to clear this refusal',
+  )
 })
 
 test('refuses a selected physical page beyond the laid-out page count', () => {
