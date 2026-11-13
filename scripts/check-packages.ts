@@ -123,23 +123,16 @@ if (typeof diagramProviderModule.diagramProviderScript !== 'string' || diagramPr
   throw new Error('@segnavia/diagrams/script must export a non-empty diagramProviderScript string.')
 }
 
-const layoutProvidersKey = Symbol.for('segnavia.layout-providers')
-const registeredDiagramScript = (): unknown => {
-  const providers: unknown = Reflect.get(globalThis, layoutProvidersKey)
-  if (!(providers instanceof Map)) return undefined
-  const diagram: unknown = providers.get('diagram')
-  return typeof diagram === 'object' && diagram !== null ? Reflect.get(diagram, 'script') : undefined
-}
-if (typeof registeredDiagramScript() === 'function') {
+const builtLayout = await import(pathToFileURL(path.join(ROOT, 'packages/frame/dist/layout.js')).href)
+if (builtLayout.hasLayoutProvider('diagram')) {
   throw new Error('@segnavia/diagrams/auto must be the entry that registers the diagram provider.')
 }
 await import(pathToFileURL(path.join(ROOT, 'packages/diagrams/dist/auto.js')).href)
-const builtDiagramProvider = registeredDiagramScript()
-if (typeof builtDiagramProvider !== 'function') {
+const providedLayoutScripts = await builtLayout.loadLayoutScripts('<pre data-segnavia-diagram="mermaid"></pre>')
+if (providedLayoutScripts.length !== 1 || providedLayoutScripts[0]?.name !== 'diagram') {
   throw new Error('@segnavia/diagrams/auto must register a diagram provider when imported.')
 }
-const providedDiagramScript = await builtDiagramProvider()
-if (typeof providedDiagramScript !== 'string' || providedDiagramScript.length === 0) {
+if (typeof providedLayoutScripts[0].script !== 'string' || providedLayoutScripts[0].script.length === 0) {
   throw new Error('@segnavia/diagrams/auto must register a provider that resolves to a non-empty diagram script.')
 }
 

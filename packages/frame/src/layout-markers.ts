@@ -1,4 +1,4 @@
-import { htmlElementAttributes } from '@segnavia/html'
+import type { HtmlElementAttributes } from '@segnavia/html'
 import { parseSelection, selectionMatches } from './layout-selection.ts'
 
 export interface LayoutMarker {
@@ -21,7 +21,6 @@ const PARSED_LAYOUT_MARKERS = LIBRARY_LAYOUT_MARKERS.map((marker) => {
   return { marker, selection }
 })
 
-export function matchingLayoutMarkers(html: string): readonly LayoutMarker[] {
-  const elements = htmlElementAttributes(html)
+export function matchingLayoutMarkers(elements: readonly HtmlElementAttributes[]): readonly LayoutMarker[] {
   return PARSED_LAYOUT_MARKERS.filter(({ selection }) => elements.some((element) => selectionMatches(selection, element))).map(({ marker }) => marker)
 }

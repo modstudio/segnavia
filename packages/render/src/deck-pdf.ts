@@ -14,7 +14,7 @@ import {
 } from '@segnavia/format'
 import { newNonce, StyleSheetRefusedError } from '@segnavia/frame/bridge'
 import { resolveNotesFontCss } from '@segnavia/frame/fonts'
-import type { LoadedLayoutScript } from '@segnavia/frame/layout'
+import { type LoadedLayoutScript, layoutsForHtml } from '@segnavia/frame/layout'
 import {
   deckPressSettings,
   htmlSlideDocument,
@@ -40,7 +40,6 @@ import { deckFontFailures, firstNotesPages } from './deck-render-helpers.ts'
 import { captureDeckFont, type DeckWatermark, type RenderedDeckPage, watermarkImposedDeck, watermarkRegularDeck } from './deck-watermark.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './index.ts'
-import { layoutsForHtml } from './layout-scripts.ts'
 import type { ComposedRenderOptions } from './options.ts'
 import { type Assets, assetSetup } from './options.ts'
 import type { PageFontFacts } from './overflow.ts'

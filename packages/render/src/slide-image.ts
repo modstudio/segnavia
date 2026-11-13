@@ -1,10 +1,12 @@
 import { type Deck, resolveDirection } from '@segnavia/format'
+import { COMPOSE_FAILURE_ATTRIBUTE, PRINT_READY_ATTRIBUTE } from '@segnavia/frame/bridge'
 import type { LoadedLayoutScript } from '@segnavia/frame/layout'
 import { type PrintOptions, printableDeckValue, resolveDeckMedia } from '@segnavia/frame/print-document'
 import type { EstablishedPageDay } from '@segnavia/html'
 import { fontLoadSetup, type TabRunner } from './browser-tab.ts'
 import { captureImage } from './capture-image.ts'
 import { resolveDeckFonts } from './deck-pdf.ts'
+import { RenderRefusedError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { enforceImageBytes } from './image-bytes.ts'
 import { imageWatermarkPage, injectImageWatermark, nestedFrameFontFacts, selectedImageWatermarkMarkup } from './image-watermark.ts'
@@ -13,7 +15,8 @@ import { outputDate } from './output-date.ts'
 import { surfacePreflight } from './preflight.ts'
 import { proofCapturedImage, proofCaptureOptions } from './proof-image.ts'
 import type { RenderDeadline } from './render-deadline.ts'
-import { renderReadiness } from './render-readiness.ts'
+import { readinessRefusal, recordedLayoutRefusal, renderReadiness } from './render-readiness.ts'
+import { PAGE_READY_BOUND_MS } from './renderer.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay } from './slot-fill.ts'
 import { stampImage } from './stamp-image.ts'
@@ -21,6 +24,21 @@ import { stampImage } from './stamp-image.ts'
 interface SlideImageServices {
   withTab: TabRunner
   layoutScripts(html: string): Promise<LoadedLayoutScript[]>
+}
+
+async function waitForSlideLayout(tab: Parameters<Parameters<TabRunner>[1]>[0]): Promise<void> {
+  const frame = tab.locator('iframe').contentFrame()
+  const readiness = renderReadiness('refuse', true, true)
+  try {
+    await frame.locator(`html[${PRINT_READY_ATTRIBUTE}]`).waitFor({ timeout: PAGE_READY_BOUND_MS })
+  } catch {
+    const recorded = await frame
+      .locator('html')
+      .getAttribute(COMPOSE_FAILURE_ATTRIBUTE)
+      .catch(() => null)
+    const generic = readinessRefusal(readiness, { author: true, layouts: false }, PAGE_READY_BOUND_MS / 1000)
+    throw new RenderRefusedError(recordedLayoutRefusal(recorded, generic))
+  }
 }
 
 export async function renderSlideImage(
@@ -58,6 +76,7 @@ export async function renderSlideImage(
       preflightReport: preflight?.capture({ index, folio: String(index + 1) }),
     },
     async (tab) => {
+      if (opts.waitForPageReady !== false && resolvedLayoutScripts.length > 0) await waitForSlideLayout(tab)
       preflight?.complete()
       const font = opts.watermark ? await nestedFrameFontFacts(tab) : {}
       const watermark = selectedImageWatermarkMarkup(

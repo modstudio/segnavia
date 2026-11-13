@@ -1856,12 +1856,13 @@ Every render runs in its own context, offline, with requests that leave the
 page refused, WebSockets closed and the browser's own sockets sent to a dead
 proxy. Author scripts run only when the page or deck allows them. A render
 waits for the conjunction of the facts its document requires: a page that runs
-code must call `window.pageReady()`, and a document that carries a diagram
-placeholder must receive the library bridge's signal after every diagram has
-settled. These signals are independent, so an author's early ready call cannot
-stand in for unfinished diagrams and a drawn diagram cannot stand in for the
-author's call. Refused-script documents require only the diagram fact when they
-carry a placeholder. `waitForPageReady: false` opts out of both waits. Renders
+code must call `window.pageReady()`, and a document that carries layout
+providers must receive the library bridge's signal after the layout runtime's
+`galley` and `composed` phases settle. The diagram provider is one such layout
+provider. These facts are independent, so an author's early ready call cannot
+stand in for unsettled layout and settled layout cannot stand in for the
+author's call. Refused-script documents require only the layout fact when their
+profile enables it. `waitForPageReady: false` opts out of both waits. Renders
 call `beforeOutput` with the live page after that readiness and before output;
 the hook runs under the page's deliberate script policy, where `scripts:
 'refuse'` permits only nonce-bearing scripts and therefore refuses an inline
@@ -2152,8 +2153,9 @@ content, selects parent-page regions and adds furniture and marginal material.
 Layout providers run in priority order at two phases: `galley`, before the
 first pagination measurement, and `composed`, after note settlement.
 
-Copyfit runs once after fonts, images and diagrams are ready and before the
-first pagination measurement. Authors mark source content with `data-fit`, an
+Copyfit runs once after fonts and images are ready. Layout providers, including
+the `diagram` provider, then run their `galley` phase before the first pagination
+measurement. Authors mark source content with `data-fit`, an
 ordered list of `size`, `leading` and `tracking`; `data-fit-min`,
 `data-fit-max` and `data-fit-step` carry one bound per strategy. The optional
 strategy list defaults to `size`. The optional

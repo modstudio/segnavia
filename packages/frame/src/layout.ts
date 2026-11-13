@@ -1,4 +1,4 @@
-import { attributeValues, htmlElementAttributes } from '@segnavia/html'
+import { type HtmlElementAttributes, htmlElementAttributes } from '@segnavia/html'
 import { matchingLayoutMarkers } from './layout-markers.ts'
 import { type LayoutSelection, parseSelection, selectionMatches } from './layout-selection.ts'
 
@@ -63,10 +63,10 @@ export function hasLayoutProvider(name: string): boolean {
   return registry().has(name)
 }
 
-function selectedLayoutNames(html: string): string[] {
+function selectedLayoutNames(elements: readonly HtmlElementAttributes[]): string[] {
   const names: string[] = []
   const seen = new Set<string>()
-  for (const value of attributeValues(html, LAYOUT_ATTRIBUTE)) {
+  for (const value of elements.flatMap((element) => element.attributes[LAYOUT_ATTRIBUTE] ?? [])) {
     for (const name of value.trim().split(/\s+/)) {
       if (!name || seen.has(name)) continue
       seen.add(name)
@@ -76,11 +76,10 @@ function selectedLayoutNames(html: string): string[] {
   return names
 }
 
-export function layoutsUsed(html: string): string[] {
-  const names = selectedLayoutNames(html)
+function layoutsForElements(elements: readonly HtmlElementAttributes[], markers = matchingLayoutMarkers(elements)): string[] {
+  const names = selectedLayoutNames(elements)
   const seen = new Set(names)
-  const elements = htmlElementAttributes(html)
-  for (const marker of matchingLayoutMarkers(html)) {
+  for (const marker of markers) {
     if (seen.has(marker.name)) continue
     seen.add(marker.name)
     names.push(marker.name)
@@ -94,11 +93,22 @@ export function layoutsUsed(html: string): string[] {
   return names
 }
 
+export function layoutsUsed(html: string): string[] {
+  return layoutsForElements(htmlElementAttributes(html))
+}
+
+export function layoutsForHtml(html: string, scripts: readonly LoadedLayoutScript[]): readonly LoadedLayoutScript[] {
+  const names = new Set(layoutsUsed(html))
+  return scripts.filter((script) => names.has(script.name))
+}
+
 export async function loadLayoutScripts(html: string): Promise<LoadedLayoutScript[]> {
-  const names = layoutsUsed(html)
+  const elements = htmlElementAttributes(html)
+  const matchedMarkers = matchingLayoutMarkers(elements)
+  const names = layoutsForElements(elements, matchedMarkers)
   if (names.length === 0) return []
   const providers = registry()
-  const markers = new Map(matchingLayoutMarkers(html).map((marker) => [marker.name, marker]))
+  const markers = new Map(matchedMarkers.map((marker) => [marker.name, marker]))
   const selected = names.map((name) => {
     const provider = providers.get(name)
     if (!provider) {

@@ -9,8 +9,9 @@ import {
   resolveLimits,
   sheetMm,
 } from '@segnavia/format'
-import { type HtmlPage, resolvePrintedPageHtml } from '@segnavia/html'
+import { type HtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
+import { layoutsForHtml } from './layout.ts'
 import { imposedPaperDocument, type PrintablePagesOptions, type PrintablePaperBody, printablePaper } from './print-document.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
 import { escapeHtml } from './svg.ts'
@@ -20,13 +21,14 @@ export const PRINTED_PAGE_COUNT_REFUSAL =
 
 function composedFrame(page: HtmlPage, index: number, expectedCount: number, options: PrintablePagesOptions): string {
   const viewport = paperViewport(page.print as NonNullable<HtmlPage['print']>)
-  const srcdoc = printedPageValueDocument(resolvePrintedPageHtml(page), {
+  const resolved = resolvePrintedPageHtml(page)
+  const srcdoc = printedPageValueDocument(resolved, {
     nonce: options.nonce ?? newNonce(),
     css: options.css,
     only: index,
     expectedCount,
     printBackground: true,
-    layoutScripts: options.layoutScripts,
+    layoutScripts: layoutsForHtml(printedPageAuthorHtml(resolved), options.layoutScripts ?? []),
     limits: options.limits,
     origins: options.origins,
   })
@@ -39,11 +41,12 @@ function measurePrintedPage(page: HtmlPage, options: PrintablePagesOptions, dead
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', frameSandbox('refuse'))
   frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${viewport.width}px;height:${viewport.height}px;border:0;opacity:0;pointer-events:none`
-  const srcdoc = printedPageValueDocument(resolvePrintedPageHtml(page), {
+  const resolved = resolvePrintedPageHtml(page)
+  const srcdoc = printedPageValueDocument(resolved, {
     nonce: options.nonce ?? newNonce(),
     css: options.css,
     measure: true,
-    layoutScripts: options.layoutScripts,
+    layoutScripts: layoutsForHtml(printedPageAuthorHtml(resolved), options.layoutScripts ?? []),
     limits: options.limits,
     origins: options.origins,
   })

@@ -1,4 +1,4 @@
-import { hasDiagram, registerDiagramProvider } from '@segnavia/frame/diagrams'
+import { DIAGRAM_PROVIDER_NAME, hasDiagram, registerDiagramProvider } from '@segnavia/frame/diagrams'
 import { hasLayoutProvider } from '@segnavia/frame/layout'
 import { RenderRefusedError } from './errors.ts'
 import { layoutScripts } from './layout-scripts.ts'
@@ -10,7 +10,7 @@ const importDiagrams: DiagramModuleLoader = () => import('@segnavia/diagrams')
 
 export async function resolveRenderLayoutScripts(html: string, load: DiagramModuleLoader = importDiagrams) {
   if (!hasDiagram(html)) return layoutScripts(html)
-  if (hasLayoutProvider('diagram')) return layoutScripts(html)
+  if (hasLayoutProvider(DIAGRAM_PROVIDER_NAME)) return layoutScripts(html)
   let module: DiagramModule
   try {
     module = await load()
