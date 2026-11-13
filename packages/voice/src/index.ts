@@ -81,7 +81,7 @@ export function wordsFromCharacters(characters: string[], startsSec: number[], e
 export function pacedProvider(options: { wordsPerMinute?: number } = {}): VoiceProvider {
   const wordsPerMinute = options.wordsPerMinute ?? 160
   return {
-    id: `paced-${wordsPerMinute}`,
+    id: `paced-v2-${wordsPerMinute}`,
     async synthesize(text) {
       return { ...pacedWords(text, wordsPerMinute), audio: null }
     },

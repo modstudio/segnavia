@@ -12,17 +12,18 @@ function pacedLength(word: string): number {
   return [...word].filter((character) => !/\p{M}/u.test(character)).length
 }
 
+export function splitWords(text: string): string[] {
+  return text.split(/\s+/).filter(Boolean)
+}
+
 export function pacedWords(text: string, wordsPerMinute: number): NarrationTiming {
   const msPerCharacter = 60_000 / (wordsPerMinute * 5.5)
   let clock = 0
-  const words = text
-    .split(/\s+/)
-    .filter(Boolean)
-    .map((word) => {
-      const startMs = clock
-      const endMs = startMs + Math.max(140, pacedLength(word) * msPerCharacter)
-      clock = endMs + (SENTENCE_END.test(word) ? 350 : CLAUSE_END.test(word) ? 150 : 60)
-      return { text: word, startMs: Math.round(startMs), endMs: Math.round(endMs) }
-    })
+  const words = splitWords(text).map((word) => {
+    const startMs = clock
+    const endMs = startMs + Math.max(140, pacedLength(word) * msPerCharacter)
+    clock = endMs + (SENTENCE_END.test(word) ? 350 : CLAUSE_END.test(word) ? 150 : 60)
+    return { text: word, startMs: Math.round(startMs), endMs: Math.round(endMs) }
+  })
   return { words, durationMs: Math.round(clock + 400) }
 }

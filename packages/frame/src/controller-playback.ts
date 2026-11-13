@@ -57,15 +57,16 @@ export class ControllerPlayback {
   startClock(position = 0) {
     const current = this.host.state()
     const slide = current.slide
-    if (!slide || slideDurationMs(slide) === null) return
+    const deck = current.deck
+    if (!slide || !deck || slideDurationMs(slide, deck) === null) return
     const narration = slide.narration
     const audio = narration?.kind !== 'text' && narration?.audio ? this.host.url(narration.audio) : null
     const options = this.host.options()
     this.clock = options.clock
-      ? options.clock(slide, audio)
+      ? options.clock(slide, audio, deck)
       : narration?.kind !== 'text' && narration?.live
-        ? speechClock(slide, narration.voice, current.deck ?? {})
-        : timedClock(slide, audio, current.deck ?? {})
+        ? speechClock(slide, narration.voice, deck)
+        : timedClock(slide, audio, deck)
     this.clock.muted = current.muted
     if (!current.playing) this.clock.pause()
     this.clock.seek(position)

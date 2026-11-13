@@ -214,6 +214,7 @@ export class SegnaviaFullscreen extends SegnaviaControl {
 export class SegnaviaTrack extends SegnaviaControl {
   private count = -1
   private mode: DeckState['playback'] | null = null
+  private deck: DeckState['deck'] = null
   private dragging = false
   private listening = false
   connectedCallback() {
@@ -260,9 +261,10 @@ export class SegnaviaTrack extends SegnaviaControl {
     list.classList.toggle('continuous', continuous)
     list.style.setProperty('--_reach', String(trackReach(state)))
     this.configureAccessibility(list, state, continuous)
-    if (this.count !== slides.length || this.mode !== state.playback) {
+    if (this.count !== slides.length || this.mode !== state.playback || this.deck !== state.deck) {
       this.count = slides.length
       this.mode = state.playback
+      this.deck = state.deck
       list.innerHTML = state.deck ? (continuous ? this.continuousSegments(state.deck) : this.stepSegments(state.deck)) : ''
     }
     this.renderSegments(list, state, continuous)

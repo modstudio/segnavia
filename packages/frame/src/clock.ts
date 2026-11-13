@@ -1,7 +1,7 @@
 // A positionable clock for one whole slide. Recorded audio is authoritative
 // while narration plays; pauses around it and unnarrated holds use wall time.
 
-import type { Deck, Slide } from '@segnavia/format'
+import type { NarrationPacing, Slide } from '@segnavia/format'
 import { phaseBounds, slideDurationMs, slideStateAt, wordAtOffset, wordOffsets } from './timeline.ts'
 
 export interface Clock {
@@ -16,7 +16,7 @@ export interface Clock {
   stop(): void
 }
 
-function wallClock(slide: Slide, deck: Pick<Deck, 'readingSpeed'> = {}): Clock {
+function wallClock(slide: Slide, deck: NarrationPacing): Clock {
   const duration = slideDurationMs(slide, deck) ?? 0
   let position = 0
   let anchor = performance.now()
@@ -54,7 +54,7 @@ function wallClock(slide: Slide, deck: Pick<Deck, 'readingSpeed'> = {}): Clock {
   }
 }
 
-export function timedClock(slide: Slide, audioSrc: string | null, deck: Pick<Deck, 'readingSpeed'> = {}): Clock {
+export function timedClock(slide: Slide, audioSrc: string | null, deck: NarrationPacing): Clock {
   if (!audioSrc || !slide.narration || slide.narration.kind === 'text') return wallClock(slide, deck)
   const narration = slide.narration
   const audio = new Audio(audioSrc)
@@ -148,7 +148,7 @@ export function timedClock(slide: Slide, audioSrc: string | null, deck: Pick<Dec
 
 // Browser speech cannot seek or change volume mid-utterance. Muting cancels
 // it and leaves the declared slide timing to pace the remainder.
-export function speechClock(slide: Slide, voiceName?: string, deck: Pick<Deck, 'readingSpeed'> = {}): Clock {
+export function speechClock(slide: Slide, voiceName: string | undefined, deck: NarrationPacing): Clock {
   if (!slide.narration || slide.narration.kind === 'text') return wallClock(slide, deck)
   const narration = slide.narration
   const synth = window.speechSynthesis

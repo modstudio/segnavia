@@ -6,7 +6,7 @@
 // Both read in their text's own direction and language, whatever the page
 // around them, and set data-empty when the slide has nothing to show.
 
-import { resolveDirection } from '@segnavia/format'
+import { resolveDirection, splitWords } from '@segnavia/format'
 import { captionHasContent } from './caption-visibility.ts'
 import { SegnaviaControl } from './control.ts'
 import type { DeckState } from './controller.ts'
@@ -43,7 +43,7 @@ export class SegnaviaCaption extends SegnaviaControl {
       if (narration) {
         line.dir = resolveDirection(narration.dir, narration.lang ?? state.deck?.lang, narration.text)
         line.lang = narration.lang ?? state.deck?.lang ?? ''
-        for (const word of narration.text.split(/\s+/).filter(Boolean)) {
+        for (const word of splitWords(narration.text)) {
           const span = document.createElement('span')
           span.textContent = word
           line.append(span, ' ')

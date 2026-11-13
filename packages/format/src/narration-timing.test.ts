@@ -37,7 +37,11 @@ describe('text narration timing', () => {
     })
     expect(deck).not.toHaveProperty('readingSpeed')
     expect(deck.slides[0]?.narration).toEqual({ ...textNarration, cues: [] })
-    expect(narrationTiming(deck.slides[0]?.narration as never, deck)).toEqual(narrationTiming(deck.slides[0]?.narration as never, deck))
+    const narration = deck.slides[0]?.narration as never
+    const explicit = Deck.parse({ title: 'Text', readingSpeed: 180, slides: [{ id: 'one', content, narration: textNarration }] })
+    const other = Deck.parse({ title: 'Text', readingSpeed: 160, slides: [{ id: 'one', content, narration: textNarration }] })
+    expect(narrationTiming(narration, deck).durationMs).toBe(narrationTiming(explicit.slides[0]?.narration as never, explicit).durationMs)
+    expect(narrationTiming(narration, deck).durationMs).not.toBe(narrationTiming(other.slides[0]?.narration as never, other).durationMs)
     expect(DEFAULT_READING_SPEED).toBe(180)
   })
 
@@ -65,6 +69,24 @@ describe('text narration timing', () => {
     })
     expect(result.error?.issues).toHaveLength(1)
     expect(result.error?.issues[0]?.message).toContain(field)
+  })
+
+  test.each([
+    [{ kind: 'voiced', text: 'Hi' }, 'words, durationMs, audio'],
+    [{ kind: 'text' }, 'text'],
+    [{ kind: 'text', text: 5 }, 'text'],
+    [{ kind: 'text', audio: null }, 'audio'],
+    [{ kind: 'text', text: 'hi', voice: 'en-US' }, 'voice'],
+  ])('gives an actionable refusal for %o', (narration, field) => {
+    const result = Deck.safeParse({ title: 'Wrong narration', slides: [{ id: 'one', content, narration }] })
+    expect(result.error?.issues).toHaveLength(1)
+    expect(result.error?.issues[0]?.message).toContain(field as string)
+    expect(result.error?.issues[0]?.message).not.toBe('Invalid input')
+  })
+
+  test('reports only the reading-speed range refusal for a nonpositive speed', () => {
+    const result = Deck.safeParse({ title: 'Speed', readingSpeed: 0, slides: [{ id: 'one', content, narration: textNarration }] })
+    expect(result.error?.issues).toHaveLength(1)
   })
 
   test('checks text cues against the computed words', () => {

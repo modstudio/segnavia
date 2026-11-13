@@ -205,7 +205,7 @@ export {
   PointSize,
 } from './media.ts'
 export * from './motif.ts'
-export { DEFAULT_READING_SPEED, narrationTiming } from './narration-timing.ts'
+export { DEFAULT_READING_SPEED, type NarrationPacing, narrationTiming } from './narration-timing.ts'
 export * from './numbering.ts'
 export {
   type AssetRefusal,
@@ -233,7 +233,7 @@ export {
   OutlineHeading,
   OutlineSource,
 } from './outline.ts'
-export { type NarrationTiming, pacedWords } from './paced-words.ts'
+export { type NarrationTiming, pacedWords, splitWords } from './paced-words.ts'
 export {
   FlowingWidth,
   FULL_PAGE_SIZE,

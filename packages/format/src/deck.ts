@@ -5,7 +5,7 @@ import { Direction, TextDirection } from './direction.ts'
 import { Box, MeasuredSize, PixelSize, Point } from './geometry.ts'
 import { ImageFit } from './image-fit.ts'
 import { type LimitExceeded, type Limits, limitExceeded } from './limits.ts'
-import { narrationTiming } from './narration-timing.ts'
+import { type NarrationPacing, narrationTiming } from './narration-timing.ts'
 import { PX_PER_MM } from './paper.ts'
 import { Placement, PlacementShape } from './placement.ts'
 import { PressGeometry } from './print.ts'
@@ -96,19 +96,35 @@ const VoicedNarration = closedObject({
 })
 export type VoicedNarration = z.infer<typeof VoicedNarration>
 
-function narrationUnionMessage(input: unknown): string | undefined {
-  if (typeof input !== 'object' || input === null) return undefined
-  const value = input as Record<string, unknown>
-  if (value.kind === 'text') {
-    const voicedFields = ['audio', 'words', 'durationMs', 'live'].filter((field) => field in value)
-    if (voicedFields.length > 0) return `a text narration does not accept ${voicedFields.join(', ')}; remove ${voicedFields.join(', ')} to clear this refusal`
+const VOICED_ONLY_KEYS = Object.keys(VoicedNarration.shape).filter((key) => !(key in TextNarration.shape))
+
+function issueMessage(issue: z.core.$ZodIssue): string {
+  const path = issue.path?.map(String).join('.')
+  if (issue.code === 'invalid_type' && path) return `${path}: expected ${issue.expected}; supply ${path} as ${issue.expected} to clear this refusal`
+  return path ? `${path}: ${issue.message}` : issue.message
+}
+
+function schemaMessage(schema: typeof TextNarration | typeof VoicedNarration, input: unknown, preferredKeys: readonly string[] = []): string {
+  const result = schema.safeParse(input)
+  if (result.success) return 'the narration does not match its kind; correct its fields to clear this refusal'
+  const preferred = result.error.issues.find((issue) => issue.code === 'unrecognized_keys' && issue.keys.some((key) => preferredKeys.includes(key)))
+  return issueMessage(preferred ?? (result.error.issues[0] as z.core.$ZodIssue))
+}
+
+function narrationUnionMessage(input: unknown): string {
+  const value = typeof input === 'object' && input !== null ? (input as Record<string, unknown>) : null
+  if (value?.kind === 'text') return schemaMessage(TextNarration, input, VOICED_ONLY_KEYS)
+  const result = VoicedNarration.safeParse(input)
+  if (!result.success && value) {
+    const missing = result.error.issues
+      .filter((issue) => issue.code === 'invalid_type' && issue.input === undefined && issue.path.length === 1)
+      .map((issue) => String(issue.path[0]))
+    if (missing.length > 0) {
+      const alternative = value.kind === undefined ? ", or set kind: 'text' and supply text" : ''
+      return `a voiced narration requires ${missing.join(', ')}; supply ${missing.join(', ')}${alternative} to clear this refusal`
+    }
   }
-  if (value.kind === undefined) {
-    const missing = ['words', 'durationMs', 'audio'].filter((field) => !(field in value))
-    if (missing.length > 0)
-      return `a voiced narration requires ${missing.join(', ')}; supply ${missing.join(', ')}, or set kind: 'text' and supply text to clear this refusal`
-  }
-  return undefined
+  return schemaMessage(VoicedNarration, input)
 }
 
 export const Narration = z.union([TextNarration, VoicedNarration], { error: (issue) => narrationUnionMessage(issue.input) })
@@ -192,13 +208,23 @@ interface NarrationIssue {
   message: string
 }
 
-function narrationIssues(slide: Slide, deck: Pick<Deck, 'readingSpeed'>): NarrationIssue[] {
+function textDurationIssue(narration: Narration, deck: NarrationPacing, durationMs: number | undefined): NarrationIssue | null {
+  if (narration.kind !== 'text' || durationMs === undefined) return null
+  if (deck.readingSpeed !== undefined && (!Number.isFinite(deck.readingSpeed) || deck.readingSpeed <= 0)) return null
+  if (durationMs <= MAX_SLIDE_TIMING_MS) return null
+  return {
+    message: `the text narration computes to ${durationMs} ms, above the ${MAX_SLIDE_TIMING_MS} ms cap; shorten the text or raise readingSpeed to clear this refusal`,
+  }
+}
+
+function narrationIssues(slide: Slide, deck: NarrationPacing): NarrationIssue[] {
   const narration = slide.narration
   if (!narration) return []
   // A shot named by reference has its annotations only once resolved, and a
   // live narration learns its words while it speaks, so neither is checked here.
   const annotations = 'kind' in slide.content && slide.content.kind === 'shot' ? slide.content.shot.annotations.length : null
-  const words = narration.kind !== 'text' && narration.live ? null : narrationTiming(narration, deck).words.length
+  const timing = narration.kind !== 'text' && narration.live ? null : narrationTiming(narration, deck)
+  const words = timing?.words.length ?? null
   const issues: NarrationIssue[] = []
   for (const cue of narration.cues) {
     for (const word of [cue.word, cue.untilWord]) {
@@ -209,13 +235,8 @@ function narrationIssues(slide: Slide, deck: Pick<Deck, 'readingSpeed'>): Narrat
       issues.push({ field: 'cues', message: 'a cue names an annotation, but only a shot carries annotations' })
   }
   if (annotations !== null) issues.push(...annotationCueIssues(narration, annotations).map((message) => ({ field: 'cues' as const, message })))
-  if (narration.kind === 'text') {
-    const computed = narrationTiming(narration, deck).durationMs
-    if (computed > MAX_SLIDE_TIMING_MS)
-      issues.push({
-        message: `the text narration computes to ${computed} ms, above the ${MAX_SLIDE_TIMING_MS} ms cap; shorten the text or raise readingSpeed to clear this refusal`,
-      })
-  }
+  const durationIssue = textDurationIssue(narration, deck, timing?.durationMs)
+  if (durationIssue) issues.push(durationIssue)
   return issues
 }
 

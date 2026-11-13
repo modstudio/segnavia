@@ -983,7 +983,8 @@ Every inner styling hook crosses the player shadow boundary. The stable exported
    the slide is untimed. `deckTimeline` gives every slide its start and
    duration, marks untimed entries and totals timed durations, and
    `positionAt` maps a deck-wide time back to a slide and an offset within it.
-   Pure `slideStateAt`, built on `phaseBounds`, gives export and playback the
+   The frame timing functions require the deck's pacing input, so every host
+   computes text timing at the same reading speed. Pure `slideStateAt`, built on `phaseBounds`, gives export and playback the
    same computed word, cues and phase, including a distinct `untimed` phase for slides
    without a duration. A slide without narration shows all its annotations.
 5. A timed slide gets a positionable clock. `timedClock` uses wall time for

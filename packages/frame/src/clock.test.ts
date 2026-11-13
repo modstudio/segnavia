@@ -26,7 +26,7 @@ describe('slide clock', () => {
   test('a wall clock pauses, resumes and seeks within a hold', () => {
     let now = 0
     Object.defineProperty(globalThis, 'performance', { configurable: true, value: { now: () => now } })
-    const clock = timedClock(slide({ holdMs: 1000 }), null)
+    const clock = timedClock(slide({ holdMs: 1000 }), null, {})
     now = 300
     expect(clock.elapsed()).toBe(300)
     clock.pause()
@@ -54,7 +54,7 @@ describe('slide clock', () => {
     }
     Object.defineProperty(globalThis, 'Audio', { configurable: true, value: FakeAudio })
     const narration = { text: 'hello', words: [{ text: 'hello', startMs: 0, endMs: 500 }], durationMs: 500, audio: 'a.mp3', live: false, cues: [] }
-    const clock = timedClock(slide({ narration, beforeMs: 100, afterMs: 200 }), 'a.mp3')
+    const clock = timedClock(slide({ narration, beforeMs: 100, afterMs: 200 }), 'a.mp3', {})
     expect(clock.word()).toBeNull()
     clock.seek(250)
     expect(clock.elapsed()).toBe(250)
@@ -83,7 +83,7 @@ describe('slide clock', () => {
     }
     Object.defineProperty(globalThis, 'Audio', { configurable: true, value: FakeAudio })
     const narration = { text: 'hello', words: [], durationMs: 500, audio: 'a.mp3', live: false, cues: [] }
-    const clock = timedClock(slide({ narration, beforeMs: 100 }), 'a.mp3')
+    const clock = timedClock(slide({ narration, beforeMs: 100 }), 'a.mp3', {})
     clock.pause()
     clock.seek(250)
     expect(plays).toBe(0)
@@ -110,7 +110,7 @@ describe('slide clock', () => {
     Object.defineProperty(globalThis, 'window', { configurable: true, value: { speechSynthesis: synth } })
     Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', { configurable: true, value: FakeUtterance })
     const narration = { text: 'hello', words: [], durationMs: 500, audio: null, live: true, cues: [] }
-    const clock = speechClock(slide({ narration, beforeMs: 100 }), undefined)
+    const clock = speechClock(slide({ narration, beforeMs: 100 }), undefined, {})
     now = 200
     clock.word()
     clock.muted = true
@@ -139,7 +139,7 @@ describe('slide clock', () => {
     Object.defineProperty(globalThis, 'window', { configurable: true, value: { speechSynthesis: synth } })
     Object.defineProperty(globalThis, 'SpeechSynthesisUtterance', { configurable: true, value: FakeUtterance })
     const narration = { text: 'hello', words: [], durationMs: 500, audio: null, live: true, cues: [] }
-    const clock = speechClock(slide({ narration }), undefined)
+    const clock = speechClock(slide({ narration }), undefined, {})
     clock.pause()
     clock.seek(300)
     clock.word()

@@ -240,8 +240,8 @@ export class DeckController extends EventTarget {
   async play(): Promise<void> {
     const { deck, index, slide } = this.current
     this.current = { ...this.current, playing: true }
-    if (slide && index + 1 === deck?.slides.length && (this.playback.clock?.ended() || slideDurationMs(slide) === null)) return this.go(0)
-    if (!slide || slideDurationMs(slide) === null) return this.next()
+    if (slide && deck && index + 1 === deck.slides.length && (this.playback.clock?.ended() || slideDurationMs(slide, deck) === null)) return this.go(0)
+    if (!slide || !deck || slideDurationMs(slide, deck) === null) return this.next()
     if (this.playback.clock) {
       this.playback.clock.resume()
       this.playback.scheduleTick()

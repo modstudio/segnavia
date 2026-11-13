@@ -30,7 +30,7 @@ describe('timeline', () => {
         { id: 'c', content: { kind: 'html', html: '' } },
       ],
     })
-    expect(deck.slides.map((slide) => slideDurationMs(slide))).toEqual([2500, 500, null])
+    expect(deck.slides.map((slide) => slideDurationMs(slide, deck))).toEqual([2500, 500, null])
     expect(deckTimeline(deck)).toEqual({
       slides: [
         { startMs: 0, durationMs: 2500, untimed: false },
@@ -91,16 +91,16 @@ describe('timeline', () => {
 
   test('slide state has no word before narration and keeps the last word after it', () => {
     const slide = { id: 'a', content: { kind: 'html' as const, html: '' }, narration, beforeMs: 100, afterMs: 200 }
-    expect(phaseBounds(slide)).toEqual({ beforeMs: 100, narrationEndMs: 2300 })
-    expect(slideStateAt(slide, 99)).toEqual({ word: null, shown: [], phase: 'before' })
-    expect(slideStateAt(slide, 100).phase).toBe('narration')
-    expect(slideStateAt(slide, 2300)).toEqual({ word: 4, shown: [1], phase: 'after' })
+    expect(phaseBounds(slide, {})).toEqual({ beforeMs: 100, narrationEndMs: 2300 })
+    expect(slideStateAt(slide, 99, {})).toEqual({ word: null, shown: [], phase: 'before' })
+    expect(slideStateAt(slide, 100, {}).phase).toBe('narration')
+    expect(slideStateAt(slide, 2300, {})).toEqual({ word: 4, shown: [1], phase: 'after' })
   })
 
   test('untimed slides have a distinct phase from timed holds', () => {
     const content = { kind: 'html' as const, html: '' }
-    expect(slideStateAt({ id: 'untimed', content }, 0)).toEqual({ word: null, shown: null, phase: 'untimed' })
-    expect(slideStateAt({ id: 'hold', content, holdMs: 500 }, 0)).toEqual({ word: null, shown: null, phase: 'hold' })
+    expect(slideStateAt({ id: 'untimed', content }, 0, {})).toEqual({ word: null, shown: null, phase: 'untimed' })
+    expect(slideStateAt({ id: 'hold', content, holdMs: 500 }, 0, {})).toEqual({ word: null, shown: null, phase: 'hold' })
   })
   test('a pause keeps the word just spoken, so the caption never blanks', () => {
     expect(wordAt(narration, 350)).toBe(0)
@@ -113,16 +113,16 @@ describe('timeline', () => {
 
   test('a cue shows from its word until the word that ends it, and not after', () => {
     const slide = { id: 'a', content: { kind: 'html' as const, html: '' }, narration }
-    expect(slideStateAt(slide, 399).shown).toEqual([])
-    expect(slideStateAt(slide, 400).shown).toEqual([0])
-    expect(slideStateAt(slide, 1099).shown).toEqual([0])
-    expect(slideStateAt(slide, 1100).shown).toEqual([])
-    expect(slideStateAt(slide, 1500).shown).toEqual([1])
+    expect(slideStateAt(slide, 399, {}).shown).toEqual([])
+    expect(slideStateAt(slide, 400, {}).shown).toEqual([0])
+    expect(slideStateAt(slide, 1099, {}).shown).toEqual([0])
+    expect(slideStateAt(slide, 1100, {}).shown).toEqual([])
+    expect(slideStateAt(slide, 1500, {}).shown).toEqual([1])
   })
 
   test('the slide ends at its duration, not at its last word', () => {
-    expect(momentAt(narration, 1900).ended).toBe(false)
-    expect(momentAt(narration, 2200).ended).toBe(true)
+    expect(momentAt(narration, 1900, {}).ended).toBe(false)
+    expect(momentAt(narration, 2200, {}).ended).toBe(true)
   })
 
   test('a cue names a word by its text, ignoring case and punctuation', () => {
