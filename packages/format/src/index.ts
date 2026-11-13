@@ -119,6 +119,7 @@ export {
   sequenceFolios,
 } from './folio.ts'
 export { collectionFaces, type ExtractedFontFace, extractFace } from './font-collection.ts'
+export { closedObject, renderIssuePath } from './closed-object.ts'
 export { type ResolvedFontFace, resolveFontFace } from './font-face.ts'
 export { FontFaceRefusedError } from './font-refusal.ts'
 export { COLLECTION_TAG, classifyFont } from './font-signature.ts'

@@ -1,7 +1,7 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 
-export const ParentRuleWhen = z
-  .object({
+export const ParentRuleWhen = closedObject({
     position: z.enum(['documentFirst', 'documentLast', 'sectionFirst', 'sectionLast']).optional(),
     face: z.enum(['recto', 'verso']).optional(),
     blank: z.boolean().optional(),
@@ -10,7 +10,7 @@ export const ParentRuleWhen = z
     message: 'a parent rule when states no condition; state a position, face or blank condition, or remove when to clear this refusal',
   })
 
-export const ParentRule = z.object({
+export const ParentRule = closedObject({
   when: ParentRuleWhen.optional(),
   parent: z.string().min(1),
 })

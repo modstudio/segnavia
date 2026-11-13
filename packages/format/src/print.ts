@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { LogicalMargin } from './margins.ts'
 import { Orientation, Paper, sheetMm } from './paper.ts'
 
@@ -17,7 +18,7 @@ const pressGeometryFields = {
   markColor: MarkColor.default('black'),
 }
 
-export const PressGeometry = z.object(pressGeometryFields).superRefine((press, ctx) => {
+export const PressGeometry = closedObject(pressGeometryFields).superRefine((press, ctx) => {
   if (press.markColor === 'registration' && !press.marks) {
     ctx.addIssue({ code: 'custom', path: ['markColor'], message: 'markColor requires marks to be true' })
   }
@@ -36,7 +37,7 @@ export function pressSafeAreaIssues(press: Pick<PressGeometry, 'safe'>, trim: { 
   return issues
 }
 
-const PrintShape = z.object({
+const PrintShape = closedObject({
   paper: Paper,
   orientation: Orientation.default('portrait'),
   margin: LogicalMargin.optional(),

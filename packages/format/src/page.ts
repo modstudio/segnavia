@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AsOf } from './as-of.ts'
+import { closedObject } from './closed-object.ts'
 import { PixelSize } from './deck.ts'
 import { Direction } from './direction.ts'
 import { DocumentLimitsValue } from './limits.ts'
@@ -17,10 +18,10 @@ export const FULL_PAGE_SIZE = { width: 'full', height: 'auto' } as const
 export const FlowingWidth = z.union([z.literal('full'), z.literal('standard'), z.literal('wide'), z.number().int().positive()])
 export type FlowingWidth = z.infer<typeof FlowingWidth>
 
-export const PageWidths = z.object({ standard: z.number().positive().optional(), wide: z.number().positive().optional() })
+export const PageWidths = closedObject({ standard: z.number().positive().optional(), wide: z.number().positive().optional() })
 export type PageWidths = z.infer<typeof PageWidths>
 
-const FlowingPageSize = z.object({ width: FlowingWidth, height: z.literal('auto') })
+const FlowingPageSize = closedObject({ width: FlowingWidth, height: z.literal('auto') })
 const LegacyFluidPageSize = z.literal('fluid').transform(() => FULL_PAGE_SIZE)
 
 export const PageSize = z.union([LegacyFluidPageSize, PixelSize, FlowingPageSize])
@@ -31,7 +32,7 @@ export interface ResolvedPageWidth {
   viewportWidth: number
 }
 
-export const PageBody = z.union([z.strictObject({ html: z.string(), markdown: z.string().optional() }), z.strictObject({ markdown: z.string() })])
+export const PageBody = z.union([closedObject({ html: z.string(), markdown: z.string().optional() }), closedObject({ markdown: z.string() })])
 export type PageBody = z.infer<typeof PageBody>
 
 export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): ResolvedPageWidth {
@@ -42,8 +43,7 @@ export function resolvePageWidth(size: PageSize, overrides: PageWidths = {}): Re
   return { measure, viewportWidth: measure }
 }
 
-const PageShape = z
-  .object({
+const PageShape = closedObject({
     brand: Brand.optional(),
     id: z.string().optional(),
     body: PageBody.optional(),

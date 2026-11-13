@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { AsOf } from './as-of.ts'
+import { closedObject } from './closed-object.ts'
 import { bookPageGeometries, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 import { parentPaperIssues } from './book-parent-geometry-policy.ts'
 import {
@@ -73,9 +74,9 @@ export type { PageGeometry } from './style-sheet.ts'
 export const BookMode = z.enum(['continuous', 'paginated'])
 export type BookMode = z.infer<typeof BookMode>
 
-const BookPrinted = z.object({ frontMatter: z.boolean().optional(), body: z.boolean().optional() })
+const BookPrinted = closedObject({ frontMatter: z.boolean().optional(), body: z.boolean().optional() })
 
-export const BookPage = z.object({
+export const BookPage = closedObject({
   paper: Paper,
   orientation: Orientation.default('portrait'),
   margin: RequiredLogicalMargin,
@@ -83,7 +84,7 @@ export const BookPage = z.object({
 })
 export type BookPage = z.infer<typeof BookPage>
 
-export const BookShape = z.object({
+export const BookShape = closedObject({
   brand: Brand.optional(),
   title: z.string(),
   authors: z.array(z.string()).optional(),
@@ -109,21 +110,18 @@ export const BookShape = z.object({
   style: StyleSheet.optional(),
   asOf: AsOf.optional(),
   print: PressGeometry.optional(),
-  numbering: z
-    .object({
+  numbering: closedObject({
       frontMatter: NumberSystem.optional(),
       body: NumberSystem.optional(),
       printed: BookPrinted.optional(),
     })
     .default({}),
-  footnotes: z
-    .object({
+  footnotes: closedObject({
       marker: NoteMarker.optional(),
       restart: z.enum(['chapter', 'book']).default('chapter'),
     })
     .default({ restart: 'chapter' }),
-  endnotes: z
-    .object({
+  endnotes: closedObject({
       marker: NoteMarker.optional(),
       placement: z.enum(['book', 'chapter']).default('book'),
       title: z.string().optional(),
@@ -134,25 +132,24 @@ export const BookShape = z.object({
   orphans: z.number().int().min(1).default(2),
   widows: z.number().int().min(1).default(2),
   fragmentation: Fragmentation.default('safe'),
-  contents: z.object({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
+  contents: closedObject({ pageNumbers: z.boolean().default(true), depth: z.number().int().min(1).max(6).default(2) }).default({ pageNumbers: true, depth: 2 }),
 })
 
-export const BookViewPagination = z
-  .object({
-    paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
+export const BookViewPagination = closedObject({
+    paper: closedObject({ width: z.number().positive(), height: z.number().positive() }),
     margin: BookPage.shape.margin,
     columnGap: z.number().nonnegative(),
     geometries: z.array(
-      z.object({
+      closedObject({
         name: z.string().optional(),
-        paper: z.object({ width: z.number().positive(), height: z.number().positive() }),
+        paper: closedObject({ width: z.number().positive(), height: z.number().positive() }),
         margin: BookPage.shape.margin,
-        columns: z.object({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
+        columns: closedObject({ count: z.number().int().positive(), gap: z.number().nonnegative() }),
         parents: z.array(ParentPage.pick({ name: true }).extend({ margin: BookPage.shape.margin })),
       }),
     ),
     direction: TextDirection,
-    numbering: z.object({
+    numbering: closedObject({
       frontMatter: NumberSystem,
       body: NumberSystem,
       printed: BookPrinted.default({}).transform((printed) => ({
@@ -165,7 +162,7 @@ export const BookViewPagination = z
     widows: z.number().int().min(1),
     parents: z.array(ParentPage),
     endnotePlacement: z.enum(['book', 'chapter']),
-    contents: z.object({ pageNumbers: z.boolean(), depth: z.number().int().min(1).max(6) }),
+    contents: closedObject({ pageNumbers: z.boolean(), depth: z.number().int().min(1).max(6) }),
     variables: Variables,
     headTemplates: HeadTemplates,
     recordSlotsByFlow: z.record(z.string(), z.record(z.string(), z.string())).optional(),

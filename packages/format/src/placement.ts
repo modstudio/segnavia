@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { ImageFit } from './image-fit.ts'
 import { MEDIA_FORMATS, type Media, MediaText, PAGE_BOXES, PageBoxName, PageSelector } from './media.ts'
 import { PlacementRefusedError } from './placement-refusal.ts'
@@ -50,8 +51,7 @@ function addCropAxisIssue(crop: Partial<Record<CropSide, string>>, first: CropSi
   })
 }
 
-export const PlacementCrop = z
-  .object({ top: CropEdge.optional(), right: CropEdge.optional(), bottom: CropEdge.optional(), left: CropEdge.optional() })
+export const PlacementCrop = closedObject({ top: CropEdge.optional(), right: CropEdge.optional(), bottom: CropEdge.optional(), left: CropEdge.optional() })
   .superRefine((crop, ctx) => {
     for (const [first, second] of [
       ['top', 'bottom'],
@@ -62,7 +62,7 @@ export const PlacementCrop = z
   })
 export type PlacementCrop = z.infer<typeof PlacementCrop>
 
-export const PlacementShape = z.object({
+export const PlacementShape = closedObject({
   kind: AssetKind,
   address: z.string().min(1),
   page: PageSelector.optional(),

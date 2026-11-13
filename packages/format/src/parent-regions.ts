@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 
 export const REGION_NAME = /^[A-Za-z][\w-]*$/
 
@@ -7,7 +8,7 @@ export const RegionEdge = z.enum(['blockStart', 'blockEnd', 'inlineStart', 'inli
 })
 export type RegionEdge = z.infer<typeof RegionEdge>
 
-export const ParentRegion = z.object({ edge: RegionEdge, html: z.string() })
+export const ParentRegion = closedObject({ edge: RegionEdge, html: z.string() })
 export type ParentRegion = z.infer<typeof ParentRegion>
 
 export const ParentRegions = z.record(

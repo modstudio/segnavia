@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { REGION_NAME } from './book-section.ts'
 import { isHebrew, NoteMarker, type NoteMarkerSource, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarkerSource } from './numbering.ts'
 import { primitiveRoot } from './repeated-mark.ts'
@@ -9,7 +10,7 @@ export type NotePlacement = z.infer<typeof NotePlacement>
 export const NoteNumbering = z.enum(['chapter', 'part', 'book'])
 export type NoteNumbering = z.infer<typeof NoteNumbering>
 
-export const NoteSeries = z.object({
+export const NoteSeries = closedObject({
   name: z.string().regex(REGION_NAME, 'a note series name must be an HTML name token'),
   placement: NotePlacement.optional(),
   numbering: NoteNumbering.optional(),

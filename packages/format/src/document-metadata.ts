@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BookShape } from './book.ts'
+import { closedObject } from './closed-object.ts'
 import { metadataExtraKeyIssue } from './metadata-extra-key.ts'
 
 const DEFINED_FIELD_SHAPE = {
@@ -10,8 +11,7 @@ const DEFINED_FIELD_SHAPE = {
   subject: z.string().optional(),
   lang: BookShape.shape.lang,
 }
-export const DocumentMetadata = z
-  .object({
+export const DocumentMetadata = closedObject({
     ...DEFINED_FIELD_SHAPE,
     extra: z.record(z.string(), z.string()).optional(),
   })

@@ -1,9 +1,10 @@
 import { z } from 'zod'
+import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
 import { refineLibraryNames } from './library-names.ts'
 
-export const HeadTemplatePart = z.union([z.object({ variable: z.string().min(1) }), z.object({ record: z.string().min(1) })])
-export const HeadTemplate = z.object({
+export const HeadTemplatePart = z.union([closedObject({ variable: z.string().min(1) }), closedObject({ record: z.string().min(1) })])
+export const HeadTemplate = closedObject({
   name: z.string().min(1),
   parts: z.array(HeadTemplatePart),
   separator: z.string().default(''),
