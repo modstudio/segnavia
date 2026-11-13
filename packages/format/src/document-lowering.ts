@@ -122,6 +122,7 @@ export function bookLoweringFromDocument(document: DocumentShapeValue, brand?: B
     widows: document.widows,
     fragmentation: document.fragmentation,
     lineNumbers: document.settings?.lineNumbers,
+    sideNotes: document.settings?.sideNotes,
     contents: contentsOptions(document),
   })
   return { value, projection }
@@ -193,6 +194,7 @@ export function pageLoweringFromDocument(document: DocumentShapeValue, brand?: B
         variables: document.variables.map(variable),
         headTemplates: document.headTemplates.map(headTemplate),
         lineNumbers: document.settings?.lineNumbers,
+        sideNotes: document.settings?.sideNotes,
         ...(sections.length > 0 ? { sections } : {}),
       }
     : undefined

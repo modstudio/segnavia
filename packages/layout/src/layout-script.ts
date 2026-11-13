@@ -20,10 +20,12 @@ import { paginateScript } from './paginate-book.ts'
 import { numberVariableValue, pagesWithNumberVariables, planBookScript } from './plan-book.ts'
 import { savedPlanScript } from './plan-save.ts'
 import { planPrintedPages } from './printed-pages.ts'
+import { placeSideNotesScript } from './side-notes.ts'
 
 export function layoutScript(): string {
   return `${paginateScript()}
 ${numberLinesScript()}
+${placeSideNotesScript()}
 ${headTemplateScript()}
 ${fingerprintScript()}
 ${savedPlanScript()}

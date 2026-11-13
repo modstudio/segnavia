@@ -1,5 +1,6 @@
 import { embedFunction } from '@segnavia/html'
 import { backgroundPaints, decorationEdges, parseBoxShadows, shadowParts } from './composer-decoration.ts'
+import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
 import {
   applyBoxDecorations,
   composerLayoutReady,
@@ -27,6 +28,7 @@ import {
   tableRenderedInFlow,
   tableRowLines,
 } from './composer-measure.ts'
+import { inlineSideNoteAnchorTop, measureSideNotes, sideNoteAnchorTop, sideNoteKind } from './composer-side-note-measure.ts'
 
 export function embeddedComposerMeasureFunctions(): string {
   return [
@@ -49,10 +51,16 @@ export function embeddedComposerMeasureFunctions(): string {
     embedFunction('applyBoxDecorations', applyBoxDecorations),
     embedFunction('forcedPageBreak', forcedPageBreak),
     embedFunction('composerLayoutReady', composerLayoutReady),
+    embedFunction('insideSideNote', insideSideNote),
+    embedFunction('contentRangesExcludingSideNotes', contentRangesExcludingSideNotes),
     embedFunction('sizeFlowGalley', sizeFlowGalley),
     embedFunction('tableRowLines', tableRowLines),
     embedFunction('linesWithDescendantTables', linesWithDescendantTables),
     embedFunction('lineNumberedLines', lineNumberedLines),
+    embedFunction('inlineSideNoteAnchorTop', inlineSideNoteAnchorTop),
+    embedFunction('sideNoteAnchorTop', sideNoteAnchorTop),
+    embedFunction('sideNoteKind', sideNoteKind),
+    embedFunction('measureSideNotes', measureSideNotes),
     embedFunction('measureTableLines', measureTableLines),
     embedFunction('tableRenderedInFlow', tableRenderedInFlow),
     embedFunction('headerTableFor', headerTableFor),

@@ -1,4 +1,5 @@
 import { formatNumber, type LineNumbers, type Measurements, numberSystemMaximum, type Plan, type ResolvedLineNumbers } from '@segnavia/format'
+import { tiledPageGroups, windowAnchorTop } from './tiled-pages.ts'
 
 export interface NumberedLine {
   value: number
@@ -33,10 +34,18 @@ function windowLines(
 }
 
 export function numberLinesScript(): string {
-  return `${windowLines.toString()}\n${resolveLineNumberSide.toString()}\n${numberLabel.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
+  return `${tiledPageGroups.toString()}\n${windowAnchorTop.toString()}\n${windowLines.toString()}\n${resolveMarginSide.toString()}\n${numberLabel.toString()}\n${expandLineNumberTiles.toString()}\n${numberLines.toString()}\nvar numberLines=${numberLines.name};`
 }
 
-export function resolveLineNumberSide(side: LineNumbers['side'], page: Pick<Plan['pages'][number], 'side'>, direction: 'ltr' | 'rtl'): 'left' | 'right' {
+function expandLineNumberTiles(plan: Plan, groups: ReturnType<typeof tiledPageGroups>, source: readonly PageLineNumbers[]): PageLineNumbers[] {
+  const result = plan.pages.map((_page, page) => ({ page, lines: [] as NumberedLine[] }))
+  for (const group of groups) {
+    for (const tile of group.tiles) result[tile.index] = { page: tile.index, lines: source[group.sourceIndex]?.lines.map((line) => ({ ...line })) ?? [] }
+  }
+  return result
+}
+
+export function resolveMarginSide(side: LineNumbers['side'], page: Pick<Plan['pages'][number], 'side'>, direction: 'ltr' | 'rtl'): 'left' | 'right' {
   if (side === 'outer') return page.side
   if (side === 'inner') return page.side === 'left' ? 'right' : 'left'
   if (side === 'start') return direction === 'ltr' ? 'left' : 'right'
@@ -53,17 +62,14 @@ function numberLabel(value: number, system: ResolvedLineNumbers['system']): stri
   return formatNumber(value, system)
 }
 
-type TiledPage = Plan['pages'][number] & { inlineTile?: number }
-
 export function numberLines(measurements: Measurements, plan: Plan, settings: ResolvedLineNumbers): readonly PageLineNumbers[] {
-  const sourcePages = (plan.pages as readonly TiledPage[]).filter((page) => page.inlineTile === undefined || page.inlineTile === 0)
-  const sourceResult = sourcePages.map((_page, page) => ({ page, lines: [] as NumberedLine[] }))
+  const groups = tiledPageGroups(plan)
+  const sourceResult = groups.map((_group, page) => ({ page, lines: [] as NumberedLine[] }))
   let counter = settings.start
   let previousFlow: string | undefined
   let previousChapter: number | undefined
-  for (let pageIndex = 0; pageIndex < sourcePages.length; pageIndex += 1) {
-    const page = sourcePages[pageIndex]
-    if (!page) continue
+  for (const [pageIndex, group] of groups.entries()) {
+    const page = group.tiles[0].page
     if (settings.restart === 'page') counter = settings.start
     const windows = page.windows
     for (const window of windows) {
@@ -77,18 +83,14 @@ export function numberLines(measurements: Measurements, plan: Plan, settings: Re
         sourceResult[pageIndex]?.lines.push({
           value,
           label: numberLabel(value, settings.system),
-          top: window.top + line.top - window.start,
+          top: windowAnchorTop(window, line.top),
           height: line.bottom - line.top,
           column: window.column,
           columns: window.columns,
-          side: resolveLineNumberSide(settings.side, page, direction),
+          side: resolveMarginSide(settings.side, page, direction),
         })
       }
     }
   }
-  let sourceIndex = -1
-  return (plan.pages as readonly TiledPage[]).map((page, pageIndex) => {
-    if (page.inlineTile === undefined || page.inlineTile === 0) sourceIndex += 1
-    return { page: pageIndex, lines: sourceResult[sourceIndex]?.lines.map((line) => ({ ...line })) ?? [] }
-  })
+  return expandLineNumberTiles(plan, groups, sourceResult)
 }

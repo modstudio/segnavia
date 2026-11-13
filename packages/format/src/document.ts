@@ -17,7 +17,7 @@ import { DOCUMENT_PROFILES, type DocumentKind, profileRefusal } from './document
 import { refineDocumentVariables } from './document-variable-refinement.ts'
 import { refineLibraryNames } from './library-names.ts'
 import { DocumentLimitsValue } from './limits.ts'
-import { LineNumbers } from './line-numbers.ts'
+import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { LogicalMargin } from './margins.ts'
 import { defaultPageNumbering, NumberSystem } from './numbering.ts'
 import { PageSize } from './page.ts'
@@ -34,6 +34,7 @@ const DocumentSettings = closedObject({
   dir: DeckShape.shape.dir,
   lang: z.string().optional(),
   lineNumbers: LineNumbers.optional(),
+  sideNotes: SideNotes.optional(),
 })
 const DocumentData = closedObject({ slots: Slots.optional() })
 const DocumentPrint = closedObject({

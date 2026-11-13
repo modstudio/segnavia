@@ -60,6 +60,17 @@ const PaginateFlowBase = {
   numbering: SectionNumbering.optional(),
   record: RecordFacts.optional(),
   pageGeometry: z.string().optional(),
+  sideNotes: z
+    .array(
+      z.object({
+        id: z.string(),
+        kind: z.enum(['block', 'inline']),
+        top: z.number(),
+        /** The computed direction of the block that anchors this note. */
+        direction: TextDirection,
+      }),
+    )
+    .optional(),
 }
 
 export const PaginateFlow = z.discriminatedUnion('kind', [

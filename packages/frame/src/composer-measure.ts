@@ -1,5 +1,6 @@
 import { defaultParentRules, type PaginateLine, type ParentRules, type TextArea, textHoldingParentRules } from '@segnavia/format'
 import { backgroundPaints, decorationEdges, type MeasuredDecorationBox, parseBoxShadows } from './composer-decoration.ts'
+import { contentRangesExcludingSideNotes, insideSideNote } from './composer-line-range.ts'
 
 export interface MeasuredKeepCandidate {
   top: number
@@ -26,6 +27,7 @@ export interface MeasuredLineBox {
 export function lineNumberedLines(lines: readonly MeasuredLineBox[], element: Element, origin: number): MeasuredLineBox[] {
   const excluded: Array<{ top: number; bottom: number }> = []
   for (const candidate of element.querySelectorAll('h1,h2,h3,h4,h5,h6,table,figure,img')) {
+    if (insideSideNote(candidate)) continue
     const range = element.ownerDocument.createRange()
     range.selectNodeContents(candidate)
     const rects = Array.from(range.getClientRects())
@@ -258,12 +260,17 @@ export function measureTableLines(element: Element, origin: number): MeasuredLin
       const walker = element.ownerDocument.createTreeWalker(cell, NodeFilter.SHOW_TEXT)
       let node = walker.nextNode()
       while (node) {
+        if (insideSideNote(node.parentElement)) {
+          node = walker.nextNode()
+          continue
+        }
         const textRange = element.ownerDocument.createRange()
         textRange.selectNodeContents(node)
         for (const rect of textRange.getClientRects()) boxes.push({ top: rect.top - origin, bottom: rect.bottom - origin })
         node = walker.nextNode()
       }
       for (const replaced of cell.querySelectorAll('img,svg,video,canvas,picture,iframe,object,embed,math')) {
+        if (insideSideNote(replaced)) continue
         const box = replaced.getBoundingClientRect()
         boxes.push({ top: box.top - origin, bottom: box.bottom - origin })
       }
@@ -337,6 +344,7 @@ export function measureLineBoxes(element: Element, origin: number): MeasuredLine
   }
   const tables = Array.from(element.querySelectorAll('table'))
     .filter((table) => {
+      if (insideSideNote(table)) return false
       if (!tableRenderedInFlow(table)) return false
       let ancestor = table.parentElement
       while (ancestor && ancestor !== element) {
@@ -353,15 +361,15 @@ export function measureLineBoxes(element: Element, origin: number): MeasuredLine
     const box = element.getBoundingClientRect()
     return [{ top: box.top - origin, bottom: box.bottom - origin }]
   }
-  const range = element.ownerDocument.createRange()
-  range.selectNodeContents(element)
   const groups: MeasuredLineBox[] = []
-  for (const rect of range.getClientRects()) {
-    const top = rect.top - origin
-    const bottom = rect.bottom - origin
-    const found = groups.find((group) => Math.abs(group.top - top) < 0.5)
-    if (!found) groups.push({ top, bottom })
-    else if (bottom > found.bottom) found.bottom = bottom
+  for (const range of contentRangesExcludingSideNotes(element)) {
+    for (const rect of range.getClientRects()) {
+      const top = rect.top - origin
+      const bottom = rect.bottom - origin
+      const found = groups.find((group) => Math.abs(group.top - top) < 0.5)
+      if (!found) groups.push({ top, bottom })
+      else if (bottom > found.bottom) found.bottom = bottom
+    }
   }
   groups.sort((left, right) => left.top - right.top)
   if (groups.length > 0 || tables.length > 0) return linesWithDescendantTables(groups, tables)

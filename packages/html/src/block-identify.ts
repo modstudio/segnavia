@@ -7,6 +7,7 @@ import { FIT_ATTRIBUTE_FAMILY } from './fit-attributes.ts'
 import { LINE_NUMBER_ATTRIBUTE_FAMILY } from './line-number-attributes.ts'
 import { MEASURE_ATTRIBUTE_FAMILY } from './measure-attributes.ts'
 import { parse, serialize } from './sanitize.ts'
+import { SIDE_NOTE_ATTRIBUTE_FAMILY } from './side-note-attributes.ts'
 import { parentRegionAttributeIssue, sourceAttributeIssues } from './source-attributes.ts'
 
 export interface BlockIdLocation {
@@ -35,18 +36,80 @@ function hasLineNumbers(children: readonly import('domhandler').ChildNode[]): bo
   return false
 }
 
+function hasSideNotes(children: readonly import('domhandler').ChildNode[]): boolean {
+  for (const node of children) {
+    if (!isTag(node)) continue
+    if (node.attribs['data-side-note'] !== undefined || hasSideNotes(node.children)) return true
+  }
+  return false
+}
+
+type DocumentSetting = 'lineNumbers' | 'sideNotes'
+type SettingsState = 'set' | 'unset' | 'unsupported'
+
+function settingsState(document: Pick<Document, 'kind' | 'settings'>, key: DocumentSetting): SettingsState {
+  if (!(DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes(key)) return 'unsupported'
+  return document.settings?.[key] === undefined ? 'unset' : 'set'
+}
+
+function documentKindsWithSetting(key: DocumentSetting): string {
+  const kinds = Object.entries(DOCUMENT_PROFILES)
+    .filter(([, profile]) => (profile.settings as readonly string[]).includes(key))
+    .map(([kind]) => kind)
+  return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
+}
+
 export type LineNumbersState = 'set' | 'unset' | 'unsupported'
 
 export function lineNumbersState(document: Pick<Document, 'kind' | 'settings'>): LineNumbersState {
-  if (!(DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes('lineNumbers')) return 'unsupported'
-  return document.settings?.lineNumbers === undefined ? 'unset' : 'set'
+  return settingsState(document, 'lineNumbers')
 }
 
-function lineNumberDocumentKinds(): string {
-  const kinds = Object.entries(DOCUMENT_PROFILES)
-    .filter(([, profile]) => (profile.settings as readonly string[]).includes('lineNumbers'))
-    .map(([kind]) => kind)
-  return kinds.length < 2 ? (kinds[0] ?? '') : `${kinds.slice(0, -1).join(', ')} or ${kinds.at(-1)}`
+export type SideNotesState = 'set' | 'unset' | 'unsupported'
+
+export function sideNotesState(document: Pick<Document, 'kind' | 'settings'>): SideNotesState {
+  return settingsState(document, 'sideNotes')
+}
+
+function sideNotePlacementIssue(nodeWhere: string, parentRegion: boolean, flowing: boolean, nested: boolean): string | undefined {
+  if (parentRegion) return parentRegionAttributeIssue(nodeWhere, 'data-side-note')
+  if (!flowing) {
+    return `${nodeWhere} data-side-note cannot take effect because side notes belong to flowing content; move it to a flow or part's HTML, or a printed document's page body, to clear this refusal`
+  }
+  if (nested) return `${nodeWhere} data-side-note is nested inside another side note; remove one data-side-note attribute to clear this refusal`
+  return undefined
+}
+
+function sideNoteAttributeIssues(children: readonly ChildNode[], where: string, parentRegion: boolean, flowing: boolean): string[] {
+  const issues: string[] = []
+  const visit = (nodes: readonly ChildNode[], insideSideNote: boolean): void => {
+    for (const node of nodes) {
+      if (!isTag(node)) continue
+      const nodeWhere = `${where} <${node.name}>`
+      const sideNote = node.attribs['data-side-note'] !== undefined
+      if (sideNote) {
+        issues.push(...SIDE_NOTE_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs))
+        const placement = sideNotePlacementIssue(nodeWhere, parentRegion, flowing, insideSideNote)
+        if (placement) issues.push(placement)
+      }
+      visit(node.children, insideSideNote || sideNote)
+    }
+  }
+  visit(children, false)
+  return issues
+}
+
+function sideNoteElements(children: readonly ChildNode[]): Element[] {
+  const result: Element[] = []
+  const visit = (nodes: readonly ChildNode[]): void => {
+    for (const node of nodes) {
+      if (!isTag(node)) continue
+      if (node.attribs['data-side-note'] !== undefined && !BLOCK_KINDS.has(node.name.toLowerCase())) result.push(node)
+      visit(node.children)
+    }
+  }
+  visit(children)
+  return result
 }
 
 function lineNumberPlacementIssue(nodeWhere: string, parentRegion: boolean, flowing: boolean, topLevel: Element | undefined): string | undefined {
@@ -105,25 +168,36 @@ export function identifyHtmlBlocks(
   node: string,
   newId: () => string,
   seen: Map<string, BlockIdLocation>,
-  options: { parentRegion?: boolean; flowing?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState } = {},
+  options: { parentRegion?: boolean; flowing?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState; sideNotes?: SideNotesState } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
   const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
     ...(options.parentRegion ? { refusedFamilies: ['data-measure'] } : {}),
   })
   issues.push(...lineNumberAttributeIssues(tree.children, node, options.parentRegion === true, options.flowing ?? true))
+  issues.push(...sideNoteAttributeIssues(tree.children, node, options.parentRegion === true, options.flowing ?? true))
   if (hasLineNumbers(tree.children)) {
     if ((options.lineNumbers ?? 'unset') === 'unset') {
       issues.push(`${node} data-line-numbers needs the document settings.lineNumbers setting; add that setting to clear this refusal`)
     } else if (options.lineNumbers === 'unsupported') {
       issues.push(
-        `${node} data-line-numbers cannot take effect because this document kind does not number lines; use a ${lineNumberDocumentKinds()} document to clear this refusal`,
+        `${node} data-line-numbers cannot take effect because this document kind does not number lines; use a ${documentKindsWithSetting('lineNumbers')} document to clear this refusal`,
+      )
+    }
+  }
+  if (hasSideNotes(tree.children)) {
+    if ((options.sideNotes ?? 'unset') === 'unset') {
+      issues.push(`${node} data-side-note needs the document settings.sideNotes setting; add that setting to clear this refusal`)
+    } else if (options.sideNotes === 'unsupported') {
+      issues.push(
+        `${node} data-side-note cannot take effect because this document kind does not place side notes; use a ${documentKindsWithSetting('sideNotes')} document to clear this refusal`,
       )
     }
   }
   issues.push(...fillAttributeIssues(tree.children, node, options.insideNamedRegion))
   if (issues.length) throw new RangeError(issues.join(' '))
   const added = identifyBlockElements(blockElements(tree.children), node, newId, seen)
+  added.push(...identifyBlockElements(sideNoteElements(tree.children), node, newId, seen))
   return { html: serialize(tree), added }
 }
 

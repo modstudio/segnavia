@@ -9,7 +9,7 @@ import {
   pageOrPrintedFromDocument,
 } from '@segnavia/format'
 import { contentFieldFlows, type FragmentShape } from './block-fragments.ts'
-import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState } from './block-identify.ts'
+import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState, sideNotesState } from './block-identify.ts'
 import { type AlertLabels, type BodyHtmlOptions, bodyHtml } from './markdown.ts'
 
 export { BLOCK_ELEMENTS } from './block-context.ts'
@@ -34,7 +34,7 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const newId = options.newId ?? defaultNewId
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockIdLocation>()
-  const identifyOptions = { lineNumbers: lineNumbersState(document) }
+  const identifyOptions = { lineNumbers: lineNumbersState(document), sideNotes: sideNotesState(document) }
   const html = (value: string, node: { type: string; id: string }, flowing: boolean): string =>
     identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, flowing }).html
   const contentHtml = (value: string, node: ParsedDocument['children'][number], shape: FragmentShape): string =>

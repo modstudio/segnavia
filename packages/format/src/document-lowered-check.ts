@@ -21,6 +21,7 @@ const BOOK_ROOT_PATHS: Readonly<Record<string, Path>> = {
   dir: ['settings', 'dir'],
   lang: ['settings', 'lang'],
   lineNumbers: ['settings', 'lineNumbers'],
+  sideNotes: ['settings', 'sideNotes'],
   style: ['style'],
   slots: ['data', 'slots'],
   parentPages: ['parentPages'],
@@ -66,6 +67,7 @@ const PRINTED_PAGES_PATHS: Readonly<Record<string, Path>> = {
   variables: ['variables'],
   headTemplates: ['headTemplates'],
   lineNumbers: ['settings', 'lineNumbers'],
+  sideNotes: ['settings', 'sideNotes'],
 }
 
 function startsWith(left: Path, right: Path): boolean {

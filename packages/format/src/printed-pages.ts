@@ -3,7 +3,7 @@ import { BookOpens } from './book-opens.ts'
 import { closedObject } from './closed-object.ts'
 import { SectionNumbering } from './folio.ts'
 import { HeadTemplates } from './head-template.ts'
-import { LineNumbers } from './line-numbers.ts'
+import { LineNumbers, SideNotes } from './line-numbers.ts'
 import { type LogicalMargin, RequiredLogicalMargin } from './margins.ts'
 import { headTemplatePlacement } from './motif.ts'
 import { NumberSystem } from './numbering.ts'
@@ -27,6 +27,7 @@ export const ParentPage = closedObject({
 
 export const PrintedPages = closedObject({
   lineNumbers: LineNumbers.optional(),
+  sideNotes: SideNotes.optional(),
   variables: Variables,
   headTemplates: HeadTemplates,
   parents: z.array(ParentPage).min(1),

@@ -11,7 +11,7 @@ import {
   type OperationNode,
 } from '@segnavia/format'
 import { CONTENT_FIELD_SHAPES, contentFieldFlows, contentFieldShape, type FragmentShape } from './block-fragments.ts'
-import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState } from './block-identify.ts'
+import { type BlockIdLocation, identifyHtmlBlocks, lineNumbersState, sideNotesState } from './block-identify.ts'
 import { blockView } from './block-view.ts'
 import { pageBodyFromHtml, pageBodyHtml } from './document.ts'
 import { DocumentCommandRefusal, resolveLocation, resolveNode } from './document-addresses.ts'
@@ -77,6 +77,7 @@ function identifiedField(
     const result = identifyHtmlBlocks(html, nodeLabel, context.options.newId ?? defaultNewId, usedBlocks, {
       ...options,
       lineNumbers: lineNumbersState(context.document),
+      sideNotes: sideNotesState(context.document),
     })
     added.push(...result.added)
     return result.html
@@ -172,6 +173,7 @@ export function htmlWithIds(
     ...(shape === 'regionRecord' ? { parentRegion: true } : {}),
     flowing: node && shape ? contentFieldFlows(context.document.kind, node.type as keyof typeof CONTENT_FIELD_SHAPES, shape) : false,
     lineNumbers: lineNumbersState(context.document),
+    sideNotes: sideNotesState(context.document),
   })
 }
 
