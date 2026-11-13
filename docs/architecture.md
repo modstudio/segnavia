@@ -136,7 +136,7 @@ An unmapped font emits no `font-family`, while known weight and italic intent
 from its IDML style name still apply to the inherited family.
 It never resolves linked resources or reaches the network. `frame` defines
 the custom elements, but its server-safe entry points are the single source
-of the frame document, the annotation drawing, fit and image-fit geometry, the
+of the deck model, the frame document, the annotation drawing, fit and image-fit geometry, the
 timeline and the print document. The browser uses that frame-based print layout; the
 server uses its geometry while composing top-level renders.
 Frame imports the universal HTML package for the one binding transform shared
