@@ -201,6 +201,14 @@ exists); content reloaded without ids gets new ids. Active HTML remains present
 at this edge; the sandboxed realize policy sanitizes or refuses it when the
 content is shown.
 
+The same edge validates print-safe form fields on `data-segnavia-field` and
+their length, line-count, rule, and checked attributes. Markdown task lists
+lower to accessible checkbox field spans rather than native controls; the
+converter policy has no control exemption. Every content frame receives the
+zero-specificity field geometry in the frame base layer. `frameDocument`
+derives a separate size sheet from validated line lengths and box line counts
+without rewriting author HTML.
+
 ### Migration from legacy deck and page input
 
 | Legacy shape and field | Document form |
