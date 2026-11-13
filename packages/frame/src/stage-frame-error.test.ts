@@ -6,9 +6,12 @@ import { FrameEntry } from './frame-entry.ts'
 import type { PoolOptions } from './frame-pool-options.ts'
 import { SlideFrameError } from './slide-frame-error.ts'
 import { EMPTY_SLOTS } from './slot-render.ts'
+import { StageRefusalState } from './stage-refusal-state.ts'
 import { surfacePreflightFor } from './surface-preflight.ts'
 
-class TestElement extends EventTarget {}
+class TestElement extends EventTarget {
+  dataset: Record<string, string> = {}
+}
 Object.assign(globalThis, {
   HTMLElement: TestElement,
   ResizeObserver: class {
@@ -92,8 +95,7 @@ test('document surface reports incomplete page coverage in page units', () => {
   })
 })
 
-test('a neighbor bridge-ready timeout reports its slide id and current deck index', async () => {
-  const shownContent = { kind: 'url' as const, src: 'shown.html' }
+test('a bridge-ready timeout reports its slide id and marks the shown frame refused', async () => {
   const failedContent = { kind: 'url' as const, src: 'failed.html', bridge: true as const }
   const deck = Deck.parse({
     title: 'Neighbors',
@@ -107,12 +109,17 @@ test('a neighbor bridge-ready timeout reports its slide id and current deck inde
   const state: DeckState = {
     ...initialDeckState(),
     deck,
-    index: 1,
-    slide: deck.slides[1] ?? null,
-    content: shownContent,
+    index: 2,
+    slide: deck.slides[2] ?? null,
+    content: failedContent,
   }
   const events: ErrorEvent[] = []
   const stage = new TestElement() as TestElement & Record<string, unknown>
+  let entry: FrameEntry | undefined
+  const refused = new StageRefusalState(stage as unknown as HTMLElement, (shown) =>
+    entry?.content === shown.content && entry.failure instanceof SlideFrameError ? entry.failure : null,
+  )
+  const stageMethods = SegnaviaStage.prototype as unknown as { update(state: DeckState): void }
   Object.assign(stage, {
     attached: { state } as DeckController,
     slotDeck: deck,
@@ -126,16 +133,25 @@ test('a neighbor bridge-ready timeout reports its slide id and current deck inde
     transition: undefined,
     pool: {
       update(shown: DeckState, _controller: DeckController, options: PoolOptions) {
-        expect(shown.index).toBe(1)
+        expect(shown.index).toBe(2)
         expect(options.neighbors).toBeTrue()
-        const entry = new FrameEntry('failed-neighbor', { content: failedContent, scripts: 'refuse', css: '', cspExtra: '', origins: '' }, failedContent)
+        entry = new FrameEntry('failed-neighbor', { content: failedContent, scripts: 'refuse', css: '', cspExtra: '', origins: '' }, failedContent)
         entry.markLoaded(options)
       },
+      failureFor: (shown: DeckState) => (entry?.content === shown.content ? entry.failure : null),
+      markFailed: (_slideId: string, failure: Error) => entry?.markFailed(failure),
     },
     style: { setProperty() {} },
     dataset: {},
     querySelector: () => null,
-    update: (SegnaviaStage.prototype as unknown as { update(state: DeckState): void }).update,
+    refused,
+    reportFrameRefusal(slideId: string, cause: unknown) {
+      const error = new SlideFrameError(slideId, state.index, cause)
+      entry?.markFailed(error)
+      refused.update(state)
+      stage.dispatchEvent(new ErrorEvent('error', { error, message: error.message }))
+    },
+    update: stageMethods.update,
   })
   stage.addEventListener('error', (event) => events.push(event as ErrorEvent))
 
@@ -146,4 +162,6 @@ test('a neighbor bridge-ready timeout reports its slide id and current deck inde
   expect(events[0]?.error).toBeInstanceOf(SlideFrameError)
   expect(events[0]?.error).toMatchObject({ name: 'SlideFrameError', slideId: 'failed-neighbor', index: 2 })
   expect(events[0]?.message).toContain('Slide "failed-neighbor" loaded a document that did not report ready')
+  expect(refused.refusal).toBe(events[0]?.error)
+  expect(stage.dataset.refused).toBe('slide-frame')
 })

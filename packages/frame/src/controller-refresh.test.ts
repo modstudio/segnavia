@@ -79,11 +79,11 @@ describe('controller content refresh', () => {
     await controller.play()
     let detail: unknown
     controller.addEventListener('error', (event) => {
-      detail = (event as CustomEvent).detail
+      detail = (event as ErrorEvent).error
     })
 
     expect(await controller.refreshContent()).toBe('failed')
-    expect(detail).toEqual({ index: 0, message: 'refresh failed' })
+    expect(detail).toMatchObject({ code: 'slide', index: 0, subject: 'a' })
     expect(controller.state.playing).toBeTrue()
   })
 

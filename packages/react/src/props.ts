@@ -38,6 +38,7 @@ import type {
   SegnaviaPaperPicker,
   SegnaviaPlay,
   SegnaviaRail,
+  SegnaviaRefusal,
   SegnaviaStep,
   SegnaviaTime,
   SegnaviaTrack,
@@ -111,6 +112,7 @@ export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'>
   onPreflight?: CustomEventProp<PreflightReport>
   onFontfailure?: CustomEventProp<FontFailureDetail>
   onError?: ErrorEventProp
+  onRefusalchange?: (event: Event) => void
   onAsof?: CustomEventProp<AsOfDay>
 }
 
@@ -338,6 +340,10 @@ export type FullscreenProps = ControlProps<SegnaviaFullscreen> & {
   targetElement?: Element | null
 }
 export type RailProps = ControlProps<SegnaviaRail> & { mountMargin?: number }
+export type RefusalProps = ElementProps<SegnaviaRefusal> & {
+  labels?: Partial<PlayerLabels>
+  refusal?: SegnaviaRefusal['refusal']
+}
 
 type Assert<T extends true> = T
 type EventParameter<T> = T extends (event: infer E) => void ? E : never

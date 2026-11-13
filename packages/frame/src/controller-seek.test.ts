@@ -68,8 +68,8 @@ test('a superseded failed seek cannot pause or report over a newer seek', async 
     ],
   })
   await controller.play()
-  const errors: Array<{ index: number; message: string }> = []
-  controller.addEventListener('error', (event) => errors.push((event as CustomEvent).detail))
+  const errors: Error[] = []
+  controller.addEventListener('error', (event) => errors.push((event as ErrorEvent).error))
 
   const older = controller.seek(1400)
   await Bun.sleep(0)
@@ -99,11 +99,12 @@ test('a failed seek pauses playback and reports the target slide once', async ()
     ],
   })
   await controller.play()
-  const errors: Array<{ index: number; message: string }> = []
-  controller.addEventListener('error', (event) => errors.push((event as CustomEvent).detail))
+  const errors: Error[] = []
+  controller.addEventListener('error', (event) => errors.push((event as ErrorEvent).error))
 
   await expect(controller.seek(1400)).rejects.toThrow('signed URL expired')
 
   expect(controller.state.playing).toBe(false)
-  expect(errors).toEqual([{ index: 1, message: 'signed URL expired' }])
+  expect(errors).toHaveLength(1)
+  expect(errors[0]).toMatchObject({ code: 'slide', index: 1, subject: 'b' })
 })

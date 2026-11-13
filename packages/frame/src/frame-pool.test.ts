@@ -2,63 +2,15 @@ import { afterAll, beforeAll, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import type { DeckController, DeckState, ResolvedContent } from './controller.ts'
 import { initialDeckState } from './controller-types.ts'
-import { installFramePoolTestDocument, FramePoolTestElement as TestElement } from './frame-pool.test-helper.ts'
+import { type FrameEvent, harness, installFramePoolTestDocument, state, FramePoolTestElement as TestElement } from './frame-pool.test-helper.ts'
 import { FramePool } from './frame-pool.ts'
-import type { PoolOptions } from './frame-pool-options.ts'
-
-type FrameEvent = { kind: 'mounted' | 'released'; slideId: string; content: ResolvedContent; connected?: boolean }
+import { SlideFrameError } from './slide-frame-error.ts'
 
 let restoreDocument = () => {}
 beforeAll(() => {
   restoreDocument = installFramePoolTestDocument()
 })
 afterAll(() => restoreDocument())
-
-const deck = Deck.parse({
-  title: 'Frames',
-  scripts: 'refuse',
-  slides: [
-    { id: 'one', content: { kind: 'url', src: 'one.html' } },
-    { id: 'two', content: { kind: 'url', src: 'two.html' } },
-  ],
-})
-
-function state(index: number, content: ResolvedContent): DeckState {
-  return { ...initialDeckState(), deck, index, slide: deck.slides[index] ?? null, content }
-}
-
-function harness(contents: ResolvedContent[], timeout = 10) {
-  const host = new TestElement('host')
-  host.isConnected = true
-  const errors: Error[] = []
-  const events: FrameEvent[] = []
-  const pool = new FramePool(host as unknown as HTMLElement, () => {}, {
-    mounted: (slideId, content) =>
-      events.push({
-        kind: 'mounted',
-        slideId,
-        content,
-        connected: host.querySelectorAll('iframe').some((frame) => frame.closest(`[data-slide-id="${slideId}"]`)?.isConnected),
-      }),
-    released: (slideId, content) => events.push({ kind: 'released', slideId, content }),
-  })
-  const controller = {
-    state: state(0, contents[0] as ResolvedContent),
-    url: (path: string) => new URL(path, 'https://example.test/').href,
-    contentFor: async (index: number) => contents[index] as ResolvedContent,
-    forgetContent: () => {},
-  } as unknown as DeckController
-  const options: PoolOptions = {
-    neighbors: true,
-    css: '',
-    csp: '',
-    frameTitle: () => '',
-    reducedMotion: true,
-    bridgeReadyTimeoutMs: timeout,
-    reportSlideError: (_slideId: string, message: string) => errors.push(new Error(message)),
-  }
-  return { host, pool, controller, options, errors, events }
-}
 
 function countingHarness(initialDeck: ReturnType<typeof Deck.parse>) {
   const host = new TestElement('host')
@@ -135,6 +87,20 @@ test('a pooled url frame survives a fresh src with the same reuse key without li
   pool.update(state(0, { ...one, src: 'ticket-3' }), controller, options)
   expect(pool.frames().find((frame) => frame.closest('[data-slide-id="one"]'))).toBe(original)
   expect(events).toHaveLength(beforeReuse)
+})
+
+test('a failed neighbor keeps its refusal when reused as the shown frame', async () => {
+  const one = { kind: 'url' as const, src: 'one.html' }
+  const two = { kind: 'url' as const, src: 'two.html' }
+  const { pool, controller, options } = harness([one, two])
+  pool.update(state(0, one), controller, options)
+  await Promise.resolve()
+  const failure = new SlideFrameError('two', 1, new Error('neighbor failed'))
+  pool.markFailed('two', failure)
+
+  expect(pool.failureFor(state(0, one))).toBeNull()
+  expect(pool.failureFor(state(1, two))).toBe(failure)
+  expect(pool.failureFor(state(1, { kind: 'url', src: 'two-revised.html' }))).toBeNull()
 })
 
 test('a ready url frame survives a fresh src with the same reuse key without lifecycle events', async () => {
@@ -382,4 +348,22 @@ test('released readiness waits do not report errors', async () => {
   released.pool.releaseWaits()
   await Bun.sleep(5)
   expect(released.errors).toEqual([])
+})
+
+test('a late image failure from a replaced or cleared frame is not charged to the slide', () => {
+  const first: ResolvedContent = { kind: 'image', src: 'first.png', alt: '' }
+  const second: ResolvedContent = { kind: 'image', src: 'second.png', alt: '' }
+  const replaced = harness([first, first])
+  replaced.options.neighbors = false
+  replaced.pool.update(state(0, first), replaced.controller, replaced.options)
+  const stale = replaced.host.querySelector('img') as TestElement
+  replaced.pool.update(state(0, second), replaced.controller, replaced.options)
+  stale.dispatch('error')
+  expect(replaced.errors).toEqual([])
+  expect(replaced.pool.failureFor(state(0, second))).toBeNull()
+
+  const current = replaced.host.querySelector('img') as TestElement
+  replaced.pool.clear()
+  current.dispatch('error')
+  expect(replaced.errors).toEqual([])
 })

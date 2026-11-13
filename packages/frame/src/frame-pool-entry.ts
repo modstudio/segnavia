@@ -33,13 +33,22 @@ export function addFrame({ entries, events, host, index, content, state, control
   const comparable = comparableContent(content, (path) => controller.url(path), deck.scripts, pool.css, pool.csp, pool.origins)
   if (existing && canReuseFrame({ readiness: existing.ready, sameResolution: existing.content === content }, existing.value, comparable)) return existing.canvas
   const entry = new FrameEntry(slide.id, comparable, content)
+  // A failure is reported only while this entry is the frame the pool holds for the slide: one raised
+  // while the canvas is built waits until the entry is registered, and one from a replaced or cleared
+  // frame is not a fact about the frame now held.
+  const report = (error: Error) => {
+    if (entries.get(slide.id) === entry) pool.reportSlideError(slide.id, error)
+  }
   const canvas = stageCanvas(controller, deck, slide, content, {
     css: pool.css,
     csp: pool.csp,
     origins: pool.origins,
     frameTitle: pool.frameTitle,
     loaded: () => entry.markLoaded(pool),
-    failed: (error) => pool.reportSlideError(slide.id, error.message),
+    failed: (error) => {
+      entry.markFailed(error)
+      report(error)
+    },
     slots: pool.slots,
     folio,
     preflight: pool.preflight,
@@ -52,6 +61,7 @@ export function addFrame({ entries, events, host, index, content, state, control
     events.released(existing.id, existing.content)
   } else if (mount) host.append(canvas)
   if (existing || mount) events.mounted(entry.id, entry.content)
+  if (entry.failure) report(entry.failure)
   return canvas
 }
 

@@ -124,6 +124,7 @@ test('the table covers every public frame element and safe event name', () => {
     'preflight',
     'fontfailure',
     'error',
+    'refusalchange',
   ])
   expect(ELEMENT_PROPERTIES.thumbnail.properties).toEqual(expect.arrayContaining(['anchors', 'asOf', 'moment']))
   expect(ELEMENT_PROPERTIES.thumbnail.events).toEqual(['asof', 'segnavia-thumbnail-error'])
@@ -154,6 +155,7 @@ test('every declared property is an accessor on its element prototype', async ()
       document,
       book,
       player,
+      refusal,
       controls,
       caption,
       rail,
@@ -171,6 +173,7 @@ test('every declared property is an accessor on its element prototype', async ()
       import('./document.ts'),
       import('./book.ts'),
       import('./player.ts'),
+      import('./refusal.ts'),
       import('./controls.ts'),
       import('./caption.ts'),
       import('./rail.ts'),
@@ -189,6 +192,7 @@ test('every declared property is an accessor on its element prototype', async ()
       document: document.SegnaviaDocument,
       book: book.SegnaviaBook,
       player: player.SegnaviaPlayer,
+      refusal: refusal.SegnaviaRefusal,
       play: controls.SegnaviaPlay,
       step: controls.SegnaviaStep,
       track: controls.SegnaviaTrack,

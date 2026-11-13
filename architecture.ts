@@ -105,6 +105,7 @@ export const PACKAGES: Record<string, PackageRule> = {
     // Optional browser entries (package.json): authoring, deck, page, printed-pages, document-authoring, board-editing, item-settings and local-fonts.
     serverSafe: [
       'src/deck-model.ts',
+      'src/deck-refusal.ts',
       'src/control-values.ts',
       'src/navigation-limit.ts',
       'src/svg.ts',
@@ -132,6 +133,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/notes-layout.ts',
       'src/deck-folios.ts',
       'src/stage-layout.ts',
+      'src/stage-refusal.ts',
       'src/print-document.ts',
       'src/imposed-paper.ts',
       'src/document-brand-refusal.ts',

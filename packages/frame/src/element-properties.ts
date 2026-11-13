@@ -40,7 +40,7 @@ export const ELEMENT_PROPERTIES = {
       'moment',
       'profile',
     ],
-    ['asof', 'segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release', 'preflight', 'fontfailure', 'error'],
+    ['asof', 'segnavia-controller', 'segnavia-fit', 'segnavia-frame-mount', 'segnavia-frame-release', 'preflight', 'fontfailure', 'error', 'refusalchange'],
   ),
   thumbnail: descriptor(
     HEADLESS_ELEMENTS.thumbnail,
@@ -175,6 +175,7 @@ export const ELEMENT_PROPERTIES = {
     ['labels', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots', 'anchors', 'asOf', 'moment'],
     ['segnavia-labels'],
   ),
+  refusal: descriptor(STYLED_ELEMENTS.refusal, ['refusal', 'labels'], []),
   play: descriptor(STYLED_ELEMENTS.play, controlProperties, []),
   step: descriptor(STYLED_ELEMENTS.step, controlProperties, []),
   track: descriptor(STYLED_ELEMENTS.track, controlProperties, []),

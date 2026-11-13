@@ -3,6 +3,11 @@ import type { ResolvedContent } from './controller.ts'
 
 export const SLIDE_CHANGED_SELECTION_ERROR = 'Cannot read the selection because the slide changed before it replied. Read the selection from the current slide.'
 
+export function cancelStageSelectionRequests<T>(requests: ReadonlyMap<(reason: Error) => void, T>, keep: (request: T) => boolean = () => false) {
+  const reason = new Error(SLIDE_CHANGED_SELECTION_ERROR)
+  for (const [cancel, request] of requests) if (!keep(request)) cancel(reason)
+}
+
 export function shownScripts(scripts: Scripts, authoringRefusesScripts: boolean): Scripts {
   return authoringRefusesScripts && scripts !== 'refuse' ? 'refuse' : scripts
 }

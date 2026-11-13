@@ -46,6 +46,19 @@ describe('stageCanvas', () => {
     expect(errors[0]?.message).toContain('textStyles.body.basedOn')
   })
 
+  test('reports an image load failure without exposing its resolved URL', () => {
+    const selected = Deck.parse({ title: 'Image', slides: [{ id: 'image', content: { kind: 'image', src: 'missing.png', alt: 'Missing' } }] })
+    const slide = selected.slides[0]
+    if (!slide) throw new Error('Expected the image slide.')
+    const errors: Error[] = []
+    const canvas = stageCanvas(controller, selected, slide, slide.content as ResolvedContent, { ...options, failed: (error) => errors.push(error) })
+
+    ;(canvas.querySelector('img') as (HTMLImageElement & { dispatch(name: string): void }) | null)?.dispatch('error')
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0]?.message).toBe('The image for slide "image" could not be loaded.')
+  })
+
   test('a layout slide waits for the written document load and paints a refusal document when loading fails', async () => {
     const selected = Deck.parse({
       ...deck,

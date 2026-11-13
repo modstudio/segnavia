@@ -17,7 +17,8 @@ export const PLAYER_CSS = `${TOKENS_CSS}
 .player{display:grid;grid-template-columns:minmax(0,1fr);grid-template-areas:"body" "caption" "bar" "below";grid-template-rows:minmax(0,1fr) auto auto auto;min-height:inherit}
 :host([rail]) .player{grid-template-columns:calc(var(--segnavia-rail-size,160px) + 24px) minmax(0,1fr);grid-template-areas:"rail body" "rail caption" "bar bar" "below below"}
 .body{grid-area:body;min-height:0;display:flex}
-.screen{flex:1;min-width:0;container-type:inline-size;display:block;padding-block-end:8px}
+.screen{flex:1;min-width:0;container-type:inline-size;display:block;position:relative;padding-block-end:8px}
+segnavia-refusal{position:absolute;inset:0;z-index:1}
 /* Contain: the gutter is the room the stage's shadow throws into, inside the host's clip. */
 :host(:not([data-presenting]):not([fit="width"]):not([fit="height"])) .screen{display:grid;place-items:center;padding:var(--segnavia-stage-gutter,24px)}
 segnavia-stage{width:100%;height:auto;border-radius:calc(var(--_radius) - 4px);

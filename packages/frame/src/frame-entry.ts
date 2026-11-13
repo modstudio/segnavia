@@ -1,9 +1,22 @@
 import type { ContentValue } from './content-value.ts'
 import type { ResolvedContent } from './controller.ts'
+import { SlideFrameError } from './slide-frame-error.ts'
 
 export interface FrameReadinessOptions {
   bridgeReadyTimeoutMs: number
-  reportSlideError: (slideId: string, message: string) => void
+  reportSlideError: (slideId: string, error: Error) => void
+}
+
+// A bridged document that has not said ready yet may still say it, so this
+// failure, unlike a document that could not be written, is one a late ready
+// recovers.
+export class BridgeReadyTimeoutError extends Error {
+  constructor(slideId: string, timeoutMs: number) {
+    super(
+      `Slide "${slideId}" loaded a document that did not report ready within ${timeoutMs} ms; serve the document with Segnavia's bridge, or drop bridge: true.`,
+    )
+    this.name = 'BridgeReadyTimeoutError'
+  }
 }
 
 export type FrameReadiness = 'waiting' | 'ready' | 'failed'
@@ -12,6 +25,7 @@ export class FrameEntry {
   canvas!: HTMLElement
   loaded = false
   ready: FrameReadiness = 'waiting'
+  failure: Error | null = null
   private readyTimeout: ReturnType<typeof setTimeout> | undefined
   private loadWaiters = new Set<() => void>()
   private selectionWaiters = new Set<() => void>()
@@ -31,19 +45,24 @@ export class FrameEntry {
     if (this.value.content.kind === 'url' && this.value.content.bridge && this.ready === 'waiting') {
       this.readyTimeout = setTimeout(() => {
         this.readyTimeout = undefined
-        this.ready = 'failed'
-        options.reportSlideError(
-          this.id,
-          `Slide "${this.id}" loaded a document that did not report ready within ${options.bridgeReadyTimeoutMs} ms; serve the document with Segnavia's bridge, or drop bridge: true.`,
-        )
+        const failure = new BridgeReadyTimeoutError(this.id, options.bridgeReadyTimeoutMs)
+        this.markFailed(failure)
+        options.reportSlideError(this.id, failure)
       }, options.bridgeReadyTimeoutMs)
     }
   }
 
   markReady() {
     this.ready = 'ready'
+    if (this.failure instanceof BridgeReadyTimeoutError || (this.failure instanceof SlideFrameError && this.failure.cause instanceof BridgeReadyTimeoutError))
+      this.failure = null
     this.cancelReadyTimeout()
     this.releaseSelectionWaiters()
+  }
+
+  markFailed(error: Error) {
+    this.failure = error
+    this.ready = 'failed'
   }
 
   releaseReadinessWait() {

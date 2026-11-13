@@ -18,6 +18,7 @@ import type {
   SegnaviaPaperPicker,
   SegnaviaPlay,
   SegnaviaRail,
+  SegnaviaRefusal,
   SegnaviaStep,
   SegnaviaTime,
   SegnaviaTrack,
@@ -43,6 +44,7 @@ import type {
   PlayProps,
   PrintedPagesProps,
   RailProps,
+  RefusalProps,
   StageProps,
   StepProps,
   ThumbnailProps,
@@ -87,6 +89,7 @@ const stageEvents = reactEvents<StageProps>()(FRAME_ELEMENTS.stage.events, {
   preflight: 'onPreflight',
   fontfailure: 'onFontfailure',
   error: 'onError',
+  refusalchange: 'onRefusalchange',
 })
 const thumbnailEvents = reactEvents<ThumbnailProps>()(FRAME_ELEMENTS.thumbnail.events, {
   asof: 'onAsof',
@@ -106,6 +109,7 @@ function element<E extends object, P extends object, Tag extends `segnavia-${str
 
 export const ELEMENTS = {
   player: element<SegnaviaPlayer, PlayerProps, typeof FRAME_ELEMENTS.player.tag>({ ...FRAME_ELEMENTS.player, events: playerEvents }),
+  refusal: element<SegnaviaRefusal, RefusalProps, typeof FRAME_ELEMENTS.refusal.tag>({ ...FRAME_ELEMENTS.refusal, events: {} }),
   stage: element<SegnaviaStage, StageProps, typeof FRAME_ELEMENTS.stage.tag>({ ...FRAME_ELEMENTS.stage, events: stageEvents }),
   thumbnail: element<SegnaviaThumbnail, ThumbnailProps, typeof FRAME_ELEMENTS.thumbnail.tag>({ ...FRAME_ELEMENTS.thumbnail, events: thumbnailEvents }),
   board: element<SegnaviaBoard, BoardProps, typeof FRAME_ELEMENTS.board.tag>({

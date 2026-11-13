@@ -258,15 +258,16 @@ describe('deck controller', () => {
           },
         ],
       }
-      const errors: Array<{ index: number; message: string }> = []
-      controller.addEventListener('error', (event) => errors.push((event as CustomEvent<{ index: number; message: string }>).detail))
+      const errors: Error[] = []
+      controller.addEventListener('error', (event) => errors.push((event as ErrorEvent).error))
       await controller.loadDeckValue(input, 'https://example.com/deck.json')
       const before = controller.state
       await expect(controller.go(1)).rejects.toThrow('Slide "refused" has invalid cues')
       expect(controller.state.index).toBe(before.index)
       expect(controller.state.slide).toBe(before.slide)
       expect(controller.state.content).toBe(before.content)
-      expect(errors).toEqual([{ index: 1, message: 'Slide "refused" has invalid cues: a cue names annotation 1, but the slide has 1.' }])
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toMatchObject({ code: 'slide', index: 1, subject: 'refused' })
     } finally {
       globalThis.fetch = realFetch
     }
@@ -288,8 +289,8 @@ describe('deck controller', () => {
           },
         ],
       }
-      const errors: Array<{ index: number; message: string }> = []
-      controller.addEventListener('error', (event) => errors.push((event as CustomEvent<{ index: number; message: string }>).detail))
+      const errors: Error[] = []
+      controller.addEventListener('error', (event) => errors.push((event as ErrorEvent).error))
       await controller.loadDeckValue(input, 'https://example.com/deck.json')
       await controller.play()
       const before = controller.state
@@ -298,7 +299,8 @@ describe('deck controller', () => {
       expect(controller.state.index).toBe(before.index)
       expect(controller.state.slide).toBe(before.slide)
       expect(controller.state.content).toBe(before.content)
-      expect(errors).toEqual([{ index: 1, message: 'Slide "refused" has invalid cues: a cue names annotation 1, but the slide has 1.' }])
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toMatchObject({ code: 'slide', index: 1, subject: 'refused' })
     } finally {
       globalThis.fetch = realFetch
     }
@@ -349,13 +351,14 @@ describe('deck controller', () => {
           },
         ],
       }
-      const errors: Array<{ index: number; message: string }> = []
-      controller.addEventListener('error', (event) => errors.push((event as CustomEvent<{ index: number; message: string }>).detail))
+      const errors: Error[] = []
+      controller.addEventListener('error', (event) => errors.push((event as ErrorEvent).error))
       await controller.loadDeckValue(input, 'https://example.com/deck.json')
       expect(controller.key('ArrowRight')).toBe('next')
       await Bun.sleep(0)
       expect(controller.state.index).toBe(0)
-      expect(errors).toEqual([{ index: 1, message: 'Slide "refused" has invalid cues: a cue names annotation 1, but the slide has 1.' }])
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toMatchObject({ code: 'slide', index: 1, subject: 'refused' })
     } finally {
       globalThis.fetch = realFetch
     }
