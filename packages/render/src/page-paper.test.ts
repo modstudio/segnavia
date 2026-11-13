@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test'
 import { MM_PER_PT, Print, printBoxes } from '@segnavia/format'
-import { PDFDocument, PDFName } from 'pdf-lib'
+import { beginMarkedContent, endMarkedContent, PDFDocument, PDFName } from 'pdf-lib'
 import { RenderOversetError, RenderRefusedError } from './errors.ts'
-import { addPressBoxes, assertPrintOptions, oversetRefusal, pressContentPlacement, printCss } from './page-paper.ts'
+import { addPressBoxes, addPressBoxesByPage, assertPrintOptions, oversetRefusal, pressContentPlacement, printCss } from './page-paper.ts'
 import { firstStroke, pageContent } from './pdf-content.test-helper.ts'
 import { pt } from './pdf-geometry.ts'
 import { setPdfPageSize } from './pdf-page-size.ts'
@@ -109,4 +109,30 @@ test('press boxes are applied to every page', async () => {
     expect(page.getBleedBox()).toEqual({ x: pt(6), y: pt(6), width: pt(106), height: pt(106) })
     expect(page.getTrimBox()).toEqual({ x: pt(9), y: pt(9), width: pt(100), height: pt(100) })
   }
+})
+
+test('per-page crop marks stay outside the translated page content', async () => {
+  const print = Print.parse({ paper: 'a4', bleed: 3, marks: true })
+  const boxes = printBoxes(print)
+  const source = await PDFDocument.create()
+  source.addPage([pt(boxes.bleedBox.width), pt(boxes.bleedBox.height)]).pushOperators(beginMarkedContent('OriginalContent'), endMarkedContent())
+
+  const text = await pageContent(await addPressBoxesByPage(await source.save(), [boxes]))
+  const translationStart = text.search(/q\s+1 0 0 1 [^\n]+ cm/)
+  const originalContent = text.indexOf('/OriginalContent BMC')
+  const firstCropMark = text.search(/\bm\b/)
+  let depth = 0
+  let translationEnd = -1
+  for (const operator of text.slice(translationStart).matchAll(/(?:^|\s)(q|Q)(?=\s|$)/g)) {
+    depth += operator[1] === 'q' ? 1 : -1
+    if (depth === 0) {
+      translationEnd = translationStart + (operator.index ?? 0)
+      break
+    }
+  }
+
+  expect(translationStart).toBeGreaterThanOrEqual(0)
+  expect(originalContent).toBeGreaterThan(translationStart)
+  expect(originalContent).toBeLessThan(translationEnd)
+  expect(firstCropMark).toBeGreaterThan(translationEnd)
 })
