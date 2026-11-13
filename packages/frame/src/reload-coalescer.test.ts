@@ -6,7 +6,13 @@ test('reload scheduling coalesces changes over a fake clock', () => {
   let clears = 0
   let reloads = 0
   const coalescer = new ReloadCoalescer(
-    { set: (next) => ((callback = next), 1), clear: () => clears++ },
+    {
+      set: (next) => {
+        callback = next
+        return 1
+      },
+      clear: () => clears++,
+    },
     () => reloads++,
   )
   coalescer.schedule(150)

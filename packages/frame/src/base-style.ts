@@ -101,6 +101,12 @@ export const BASE_CSS = `
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet){position:relative;transform-origin:0 0}
 :where(segnavia-page:not([unstyled]) .segnavia-page__sheet iframe){display:block;border:0;width:100%;height:100%}
 :where(segnavia-page:not([unstyled])[data-composed-papers] .segnavia-page__sheet){inline-size:100%;block-size:100%}
+:where(segnavia-printed-pages:not([unstyled])){display:block;position:relative;overflow:auto}
+:where(segnavia-printed-pages:not([unstyled]) .segnavia-printed-pages__spread){position:relative;margin-inline:auto}
+:where(segnavia-printed-pages:not([unstyled]) .segnavia-printed-pages__spread-content){display:flex;flex-direction:row;transform-origin:inline-start block-start}
+:where(segnavia-printed-pages:not([unstyled]) .segnavia-printed-pages__paper[data-page]){position:relative;flex:none;background:var(--segnavia-paper,#fff)}
+:where(segnavia-printed-pages:not([unstyled]) .segnavia-printed-pages__paper iframe){position:absolute;inset:0;display:block;border:0;inline-size:100%;block-size:100%}
+:where(segnavia-printed-pages:not([unstyled]) [part~="failure"]){position:sticky;inset-block-start:0;color:var(--segnavia-failure,currentColor)}
 :where(segnavia-book:not([unstyled])){display:block;overflow:hidden}
 :where(segnavia-book:not([unstyled]) iframe){display:block;border:0;inline-size:100%;block-size:100%}
 :where(segnavia-paper:not([unstyled])){display:block;position:relative;overflow:hidden;aspect-ratio:var(--segnavia-paper-aspect)}

@@ -36,6 +36,7 @@ import type {
   SegnaviaDocument,
   SegnaviaPage,
   SegnaviaPaper,
+  SegnaviaPrintedPages,
   SegnaviaStage,
   SegnaviaThumbnail,
 } from './index.ts'
@@ -51,6 +52,7 @@ type ElementClasses = {
   boardList: SegnaviaBoardList
   boardToolbar: SegnaviaBoardToolbar
   page: SegnaviaPage
+  printedPages: SegnaviaPrintedPages
   paper: SegnaviaPaper
   document: SegnaviaDocument
   book: SegnaviaBook
@@ -77,6 +79,8 @@ export interface FrameVueEventDetails {
   ready: PlainEvent
   error: NativeEvent<ErrorEvent>
   composeprogress: ComposeProgress
+  page: { page: number; pageCount: number }
+  record: { record: string | undefined }
   'segnavia-controller': unknown
   'segnavia-fit': FittedSize
   'segnavia-frame-mount': StageFrameDetail

@@ -54,6 +54,7 @@ const replayValues = {
   boardList: ['labels', { search: 'Find' }],
   boardToolbar: ['labels', { share: 'Share' }],
   page: ['css', ':root{--vue-replay:page}'],
+  printedPages: ['css', ':root{--vue-replay:printed-pages}'],
   paper: ['css', ':root{--vue-replay:paper}'],
   document: ['css', ':root{--vue-replay:document}'],
   book: ['pageWidths', { standard: 777, wide: 999 }],

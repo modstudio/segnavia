@@ -1,5 +1,14 @@
-import { type FontFailure, LimitExceededError, type PreflightEntry, type PreflightProfile, PX_PER_MM, paperViewport, resolveLimits, sheetMm } from '@segnavia/format'
-import { type HtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
+import {
+  type FontFailure,
+  LimitExceededError,
+  type PreflightEntry,
+  type PreflightProfile,
+  PX_PER_MM,
+  paperViewport,
+  resolveLimits,
+  sheetMm,
+} from '@segnavia/format'
+import { type HtmlPage, type PrintedHtmlPage, printedPageAuthorHtml, resolvePrintedPageHtml } from '@segnavia/html'
 import { frameSandbox, MESSAGE, messageFrom, newNonce } from './bridge.ts'
 import { layoutsForHtml } from './layout.ts'
 import type { PrintablePagesOptions } from './print-document.ts'
@@ -15,12 +24,12 @@ export interface PrintedPageCountOptions extends PrintablePagesOptions {
   report?: (report: NonNullable<ReturnType<typeof messageFrom>>['report']) => void
 }
 
-export function measurePrintedPageCount(page: HtmlPage, options: PrintedPageCountOptions, deadlineAt: number): Promise<number> {
+export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, options: PrintedPageCountOptions, deadlineAt: number): Promise<number> {
   const paper = sheetMm(page.print as NonNullable<HtmlPage['print']>)
   const viewport = paperViewport(page.print as NonNullable<HtmlPage['print']>)
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', frameSandbox('refuse'))
-  frame.style.cssText = `position:fixed;inset-inline-start:-20000px;inset-block-start:0;inline-size:${viewport.width}px;block-size:${viewport.height}px;border:0;opacity:0;pointer-events:none`
+  frame.style.cssText = `position:fixed;left:-20000px;top:0;width:${viewport.width}px;height:${viewport.height}px;border:0;opacity:0;pointer-events:none`
   const resolved = resolvePrintedPageHtml(page)
   const srcdoc = printedPageValueDocument(resolved, {
     nonce: options.nonce ?? newNonce(),
@@ -37,6 +46,7 @@ export function measurePrintedPageCount(page: HtmlPage, options: PrintedPageCoun
   })
   return new Promise((resolve, reject) => {
     let timer = 0
+    let reported = false
     const finish = (result: number | Error) => {
       window.removeEventListener('message', onMessage)
       window.clearTimeout(timer)
@@ -45,7 +55,10 @@ export function measurePrintedPageCount(page: HtmlPage, options: PrintedPageCoun
     }
     const onMessage = (event: MessageEvent) => {
       const message = messageFrom(event, frame, options.profile)
-      if (message?.type === MESSAGE.preflight && message.report) options.report?.(message.report)
+      if (message?.type === MESSAGE.preflight && message.report && !reported) {
+        reported = true
+        options.report?.(message.report)
+      }
       if (message?.type === MESSAGE.composeFailure && message.text) return finish(new Error(message.text))
       if (message?.type !== MESSAGE.height || message.height === undefined || message.height < (paper.height * PX_PER_MM) / 2) return
       const count = Math.round(message.height / (paper.height * PX_PER_MM))

@@ -16,6 +16,7 @@ export type ElementPropertyWrites = {
   }
   board: { board: DocumentInput | null }
   page: { page: DocumentInput | null | undefined }
+  printedPages: { document: DocumentInput | null | undefined }
   document: { pages: PageOrPrintedInput[] | undefined; print: PrintInput | null | undefined }
   book: { view: unknown }
   player: { labels: Partial<PlayerLabels>; transition: TransitionInput | 'none' }

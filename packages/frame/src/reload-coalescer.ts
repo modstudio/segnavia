@@ -5,7 +5,10 @@ export interface ReloadClock {
 
 export class ReloadCoalescer {
   private timer: unknown
-  constructor(private readonly clock: ReloadClock, private readonly run: () => void) {}
+  constructor(
+    private readonly clock: ReloadClock,
+    private readonly run: () => void,
+  ) {}
 
   schedule(delay: number): void {
     if (this.timer !== undefined) this.clock.clear(this.timer)

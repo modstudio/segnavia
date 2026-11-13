@@ -45,7 +45,8 @@ export function printedPagesScale(
   available: { inline: number; block: number },
   zoom: number,
 ): number {
-  const fitted = fit === 'none' ? 1 : fit === 'width' ? available.inline / content.inline : Math.min(available.inline / content.inline, available.block / content.block)
+  const fitted =
+    fit === 'none' ? 1 : fit === 'width' ? available.inline / content.inline : Math.min(available.inline / content.inline, available.block / content.block)
   return fitted * zoom
 }
 

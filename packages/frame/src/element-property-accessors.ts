@@ -18,6 +18,8 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
       },
       set(this: object, value: T[typeof name]) {
         valueFor(this)[name] = (name === 'origins' && value !== undefined ? [...(value as Iterable<unknown>)] : value) as T[typeof name]
+        const changed = (this as { elementPropertyChanged?: (property: string) => void }).elementPropertyChanged
+        if (typeof changed === 'function') changed.call(this, String(name))
       },
     })
   }

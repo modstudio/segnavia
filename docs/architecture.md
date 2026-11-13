@@ -2286,6 +2286,15 @@ and screen elements. `render` owns printing and finishing, including one
 metadata writer and one outline writer. `idml` maps named styles, regions,
 sections and conditions onto `Document`.
 
+`<segnavia-printed-pages>` is the headless screen viewer for a printed
+document. It measures the document once, gives every paper its full
+`paperViewport` box immediately, and composes only papers near its scroll
+viewport. Composed papers remain mounted through a larger keep window. The
+viewer owns paper and spread navigation, while `recordFor(page)` is the host's
+explicit mapping from papers to records. Single and facing layouts preserve
+the document direction; fitting and zooming transform the paper geometry
+without changing the composed document.
+
 The document model adds `BrandSource.brand` to resolve a brand by name;
 `layoutProvider` registers named work by phase and priority; `newId` mints node
 and block ids; and `assets` resolves an address to bytes within a budget.
@@ -2326,7 +2335,7 @@ absorbed roadmap task.
 | 5 | SEGNA-400 — S5.3 Fit, measured properties, and fill and overflow (absorbs 362, 369 and 363) | SEGNA-362; SEGNA-369; SEGNA-363 |
 | 6 | SEGNA-413 — S6.1 Line numbers and side titles (366) | SEGNA-366 |
 | 6 | SEGNA-401 — S6.2 Layout providers (367) | SEGNA-367 |
-| 6 | SEGNA-414 — S6.3 Printed-pages viewer (370) | SEGNA-370 |
+| 6 | SEGNA-414 — S6.3 Printed-pages viewer (370) — delivered | SEGNA-370 |
 | 6 | SEGNA-402 — S6.4 Outline and tags (372) | SEGNA-372 |
 | 6 | SEGNA-403 — S6.5 Form fields (345) | SEGNA-345 |
 | 6 | SEGNA-415 — S6.6 Protection and watermark (360) | SEGNA-360 |
