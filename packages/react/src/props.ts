@@ -167,6 +167,7 @@ export interface PageProps extends Omit<ElementProps<SegnaviaPage>, 'onError'> {
   fonts?: SegnaviaPage['fonts']
   brands?: SegnaviaPage['brands']
   alertLabels?: SegnaviaPage['alertLabels']
+  newId?: SegnaviaPage['newId']
   placements?: SegnaviaPage['placements']
   anchors?: SegnaviaPage['anchors']
   asOf?: SegnaviaPage['asOf']
