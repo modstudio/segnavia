@@ -48,6 +48,38 @@ test('refuses data-contents=exclude and names the replacement attribute', () => 
   expect(() => parseDocument(page({ html: '<h1 data-contents="exclude">Heading</h1>' }), { newId: counter() })).toThrow(/data-segnavia-listed="outline"/)
 })
 
+test('accepts valid form fields and refuses each malformed field value', () => {
+  const valid = parseDocument(
+    page({
+      html: '<p>Name <span data-segnavia-field="line" data-segnavia-field-length="12ch">Ada</span></p><div data-segnavia-field="box" data-segnavia-field-lines="3" data-segnavia-field-rule="ruled">Work</div><p><span data-segnavia-field="checkbox" data-segnavia-field-checked></span></p>',
+    }),
+    { newId: counter() },
+  )
+  const validBody = valid.children[0]?.type === 'page' ? valid.children[0].body : undefined
+  expect(validBody && 'html' in validBody ? validBody.html : '').toContain('data-segnavia-field="box"')
+  const refusals = [
+    ['<span data-segnavia-field="choice"></span>', 'data-segnavia-field value "choice" is not accepted; use one of checkbox, line, box'],
+    ['<span data-segnavia-field="line" data-segnavia-field-length="12px"></span>', 'data-segnavia-field-length value "12px" is not accepted'],
+    ['<div data-segnavia-field="box" data-segnavia-field-lines="0"></div>', 'data-segnavia-field-lines value "0" is not accepted'],
+    ['<div data-segnavia-field="box" data-segnavia-field-rule="lines"></div>', 'data-segnavia-field-rule value "lines" is not accepted'],
+    ['<span data-segnavia-field="checkbox" data-segnavia-field-checked="yes"></span>', 'data-segnavia-field-checked is a presence attribute'],
+    ['<p data-segnavia-field="line"></p>', 'data-segnavia-field line needs a span'],
+    ['<span data-segnavia-field="box"></span>', 'data-segnavia-field box needs a div'],
+    ['<div data-segnavia-field="box" data-segnavia-field-length="10ch"></div>', 'data-segnavia-field-length belongs only to a line field'],
+    ['<span data-segnavia-field="line" data-segnavia-field-lines="2"></span>', 'data-segnavia-field-lines belongs only to a box field'],
+    ['<span data-segnavia-field="checkbox" data-segnavia-field-rule="ruled"></span>', 'data-segnavia-field-rule belongs only to a box field'],
+    ['<div data-segnavia-field="box" data-segnavia-field-checked></div>', 'data-segnavia-field-checked belongs only to a checkbox field'],
+    ['<span data-segnavia-field-length="10ch"></span>', 'field options have no field'],
+    ['<span data-segnavia-field="line" data-segnavia-field-length="0em"></span>', 'data-segnavia-field-length value "0em" is not accepted'],
+    [
+      '<span data-segnavia-field="line" data-segnavia-field-length="1.50em"></span>',
+      'use a positive number in canonical form followed by em or ch, like 1.5em or 12ch',
+    ],
+    ['<div data-segnavia-field="box" data-segnavia-field-lines="05"></div>', 'use a whole number from 1 to 99 without leading zeros'],
+  ] as const
+  for (const [html, message] of refusals) expect(() => parseDocument(page({ html }), { newId: counter() })).toThrow(message)
+})
+
 test('deterministic ids are repeatable and unique across missing nodes and Hebrew blocks', () => {
   const input = {
     type: 'document' as const,

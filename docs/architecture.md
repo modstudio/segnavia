@@ -201,6 +201,18 @@ exists); content reloaded without ids gets new ids. Active HTML remains present
 at this edge; the sandboxed realize policy sanitizes or refuses it when the
 content is shown.
 
+The same edge validates print-safe form fields on `data-segnavia-field` and
+their length, line-count, rule, and checked attributes. Markdown task lists
+lower to accessible checkbox field spans rather than native controls; the
+converter policy has no control exemption. Every content frame receives the
+field geometry in the frame base layer. Every ordinary field rule has zero
+specificity. A pseudo-element rule is written `:where(subject)::before` or
+`:where(subject)::after`: a pseudo-element cannot sit inside `:where()`, so
+those rules carry element-level specificity. A filling line's direct parent
+becomes its positioned, inline-clipping containing block. `frameDocument`
+derives a separate size sheet from validated line lengths and box line counts
+without rewriting author HTML.
+
 ### Migration from legacy deck and page input
 
 | Legacy shape and field | Document form |

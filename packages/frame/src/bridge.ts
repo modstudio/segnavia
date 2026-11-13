@@ -4,7 +4,6 @@
 // admits only our nonce keeps them from running while the bridge still can:
 // a key pressed inside a slide still pages the deck, a fluid page still
 // reports its height, and print still learns when the slide is painted.
-//
 // Pure string building, so the browser and a server produce the same bytes.
 
 import {
@@ -21,12 +20,14 @@ import {
   type Scripts,
   type SlotFitState,
 } from '@segnavia/format'
+import { baseLayerCss } from '@segnavia/html'
 import { animationReport } from './animation-timing.ts'
 import { compositionWait } from './bridge-composition.ts'
 import { type FrameMessage, messageFromFrames, slotFitMessageData as validateSlotFitMessage } from './bridge-message.ts'
 import { slotFitBridgeScript } from './bridge-slot-fit.ts'
 import { COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
+import { fieldSizeCss } from './field-style.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
 import { keepPassScript } from './keep-pass.ts'
@@ -62,7 +63,6 @@ export const MESSAGE = {
   fontFailures: 'segnavia:font-failures',
   preflight: 'segnavia:preflight',
 } as const
-
 export const HEADING_ID_LIMIT = 256
 
 export function scriptJson(value: unknown): string {
@@ -319,6 +319,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
   const origins = options.origins === undefined ? undefined : [...options.origins]
   const bridge = options.bridge !== false
   const body = withLayoutScripts(html.replace(/^\s*<!doctype[^>]*>/i, ''), options.nonce, options.layoutScripts ?? [])
+  const fieldSizes = fieldSizeCss(body)
   const sources = (kind: FetchKind) => {
     const values = [...approvedSources(origins, kind, scripts === 'sandboxed')].sort()
     return values.length ? ` ${values.join(' ')}` : ''
@@ -348,6 +349,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
     bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     ...(options.sheets ?? frameStyleSheets(undefined, undefined)).map((sheet) => `<style>${sheet}</style>`),
+    ...(fieldSizes ? [`<style>${baseLayerCss(fieldSizes)}</style>`] : []),
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')
   // An author's root dir and lang win, so library values fill only missing

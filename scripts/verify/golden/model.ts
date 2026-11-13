@@ -37,4 +37,5 @@ export const GOLDEN_FIXTURES: readonly GoldenFixture[] = [
   { id: 'deck', pdf: 'deck.pdf' },
   { id: 'printed-pages-bleed', pdf: 'pages-bleed-grid.pdf' },
   { id: 'pages-sectioned', pdf: 'pages-sectioned.pdf' },
+  { id: 'worksheet', pdf: 'page-worksheet.pdf' },
 ]

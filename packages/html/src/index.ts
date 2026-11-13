@@ -101,6 +101,7 @@ export {
 export { bookOutlineSource, documentOutlineSource } from './document-outline.ts'
 export { type EditDocumentFailure, type EditDocumentResult, type EditDocumentSuccess, editDocument } from './edit-document.ts'
 export { embedFunction } from './embed-function.ts'
+export { FIELD_KINDS, fieldAttributeIssues, fieldLength, fieldLines } from './field-attributes.ts'
 export { fillAttributeIssues } from './fill-attributes.ts'
 export { ABSOLUTE_PX, ABSOLUTE_UNITS, fitAttributeIssues, fitList, lengthPx, parseCssLength } from './fit-attributes.ts'
 export { FontCssRefusedError, fontCss, fontFaceCss } from './font-css.ts'
@@ -207,7 +208,7 @@ export {
   UnmeasuredSlotsRefusedError,
   unmeasuredSlotRefusal,
 } from './slots.ts'
-export { type CompileStyleSheetOptions, type CompileStyleSheetResult, compileStyleSheet } from './style-compile.ts'
+export { baseLayerCss, type CompileStyleSheetOptions, type CompileStyleSheetResult, compileStyleSheet } from './style-compile.ts'
 export { parseUnicodeRange, UNICODE_RANGE_CLEARANCE, type UnicodeRangeParse } from './unicode-range.ts'
 
 // How a page runs, decided only by what it holds: plain, filled from data,

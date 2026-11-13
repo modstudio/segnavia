@@ -124,6 +124,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       'src/embedded-preflight.ts',
       'src/bridge-selection.ts',
       'src/font-load.ts',
+      'src/field-style.ts',
       'src/frame-style-sheets.ts',
       'src/keep-gap.ts',
       'src/keep-pass.ts',

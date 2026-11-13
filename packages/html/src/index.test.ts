@@ -146,7 +146,6 @@ describe('sanitize', () => {
   test('links decides authored hrefs when a converter policy is also supplied', () => {
     const converterPolicy = {
       urls: { linkProtocols: ['https:'], linkFragments: true, dataImages: false },
-      inertControls: [],
     }
     expect(sanitize('<a href="mailto:a@b.c">m</a>', { links: { protocols: ['https:', 'mailto:'] }, converterPolicy })).toBe('<a href="mailto:a@b.c">m</a>')
   })
@@ -248,6 +247,14 @@ describe('sanitize', () => {
   test('a refused element goes with its content; scripts stay only when asked', () => {
     expect(sanitize('<p>a</p><script>x()</script><form><input></form>')).toBe('<p>a</p>')
     expect(sanitize('<p onclick="x()">a</p><script>x()</script>', { keepScripts: true })).toBe('<p onclick="x()">a</p><script>x()</script>')
+  })
+
+  test('field markup survives both sanitizer modes while a native author checkbox is refused', () => {
+    const fields =
+      '<p><span data-segnavia-field="checkbox" data-segnavia-field-checked role="img" aria-label="checked"></span><span data-segnavia-field="line" data-segnavia-field-length="8ch">answer</span></p><div data-segnavia-field="box" data-segnavia-field-lines="2" data-segnavia-field-rule="ruled">work</div>'
+    expect(sanitize(fields)).toBe(fields)
+    expect(sanitize(fields, { keepScripts: true })).toBe(fields)
+    expect(sanitize('<input type="checkbox" disabled>')).toBe('')
   })
 
   test('scripted pages keep controls but never form destinations', () => {

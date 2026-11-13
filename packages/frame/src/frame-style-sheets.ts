@@ -1,5 +1,6 @@
 import { cssVarInvalidMessage, type PreflightEntry, type PreflightProfile, Refusal, type StyleSheet } from '@segnavia/format'
 import { type CssPreflightFinding, compileStyleSheet } from '@segnavia/html'
+import { FIELD_BASE_CSS } from './field-style.ts'
 
 // Blocks without an explicit direction read from their first strong letter,
 // while :where() keeps the library default at zero specificity.
@@ -30,7 +31,7 @@ export function frameStyleSheets(
   preflight?: { profile: PreflightProfile; entries: PreflightEntry[] },
 ): string[] {
   const findings: CssPreflightFinding[] | undefined = preflight ? [] : undefined
-  const compiled = compileStyleSheet({ brand, document: document ?? {}, baseCss: `${BLOCK_DIRECTION_CSS}${baseCss}`, preflight: findings })
+  const compiled = compileStyleSheet({ brand, document: document ?? {}, baseCss: `${FIELD_BASE_CSS}${BLOCK_DIRECTION_CSS}${baseCss}`, preflight: findings })
   if (!compiled.ok) throw new StyleSheetRefusedError(compiled.refusal)
   if (preflight && findings) preflight.entries.push(...cssPreflightEntries(findings).filter((entry) => preflight.profile[entry.check] !== 'off'))
   return compiled.sheets

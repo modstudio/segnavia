@@ -399,6 +399,7 @@ every change follows.
 - [`docs/vocabulary.md`](docs/vocabulary.md): the words the API uses and the ones it avoids
 - [`docs/architecture.md`](docs/architecture.md): packages, runtimes, seams and data flow
 - [`docs/decisions.md`](docs/decisions.md): what was decided and why
+- [`docs/form-fields.md`](docs/form-fields.md): authoring print-safe checkboxes, answer lines and answer boxes
 - [`docs/continuous-integration.md`](docs/continuous-integration.md): local and CI checks
 
 ## License
