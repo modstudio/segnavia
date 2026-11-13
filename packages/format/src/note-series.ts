@@ -190,6 +190,8 @@ function resolveCustomSeries(series: NoteSeriesInput): ResolvableNoteSeries {
   }
   return {
     ...series,
+    key: series.key ?? 'counter',
+    lemmaSeparator: series.lemmaSeparator ?? ']',
     placement: series.placement,
     numbering: series.numbering,
     title: series.title ?? series.name,
@@ -242,6 +244,8 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
   }
   const footnote: ResolvableNoteSeries = {
     name: 'footnote',
+    key: 'counter',
+    lemmaSeparator: ']',
     placement: 'page',
     numbering: settings.footnotes.restart,
     marker: settings.footnotes.marker,
@@ -252,6 +256,8 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
   }
   const endnote: ResolvableNoteSeries = {
     name: 'endnote',
+    key: 'counter',
+    lemmaSeparator: ']',
     placement: settings.endnotes.placement,
     numbering: 'book',
     marker: settings.endnotes.marker,

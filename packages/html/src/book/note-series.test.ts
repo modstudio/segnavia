@@ -327,7 +327,7 @@ describe('note series document', () => {
     expect(result.html).not.toContain('class="segnavia-note-ref"')
     expect(result.html).toContain('data-segnavia-line-note-anchor="segnavia-note-sources-1"')
     expect(result.html).toContain('data-segnavia-line-note="segnavia-note-sources-1"')
-    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> <bdi>long lemma</bdi>] body')
+    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> <bdi>long lemma</bdi>] </span>body')
   })
 
   test('keeps the separator as plain note-direction text and omits a missing lemma', () => {
@@ -341,7 +341,7 @@ describe('note series document', () => {
         }),
       ),
     )
-    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> הערה')
+    expect(result.html).toContain('<bdi data-segnavia-line-number></bdi> </span>הערה')
     expect(result.html).not.toContain('<bdi>]</bdi>')
   })
 

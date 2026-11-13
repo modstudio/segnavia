@@ -23,7 +23,7 @@ export function measureLineNoteAnchors(
     let container = anchor
     while (container.parentElement && container.parentElement !== flow) container = container.parentElement
     const elementIndex = blockElements.indexOf(container)
-    const block = blocks.find((candidate) => candidate.position.block === elementIndex + 1)
+    const block = blocks[elementIndex]
     if (!block) continue
     result.push({ id, top: anchor.getBoundingClientRect().top - origin, block: block.position.block })
   }

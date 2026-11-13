@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { Book } from './book.ts'
 import { noteMarkerIssues, resolveLineKeyedNoteSystem, resolveNoteSeries } from './note-series.ts'
 import type { NoteMarker } from './numbering.ts'
 
@@ -21,6 +22,18 @@ describe('note series', () => {
         notes: [{ name: 'sources', key: 'line', lemmaSeparator: ':', placement: 'page', numbering: 'book' }],
       })[2],
     ).toMatchObject({ name: 'sources', key: 'line', lemmaSeparator: ':', lineNumberSystem: 'hebrew' })
+  })
+
+  test('refuses line keying without line numbers and with a nonnumeric marker', () => {
+    const base = {
+      title: 'Book',
+      mode: 'paginated' as const,
+      page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      body: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+      notes: [{ name: 'sources', key: 'line' as const, placement: 'page' as const, numbering: 'book' as const }],
+    }
+    expect(() => Book.parse(base)).toThrow('add lineNumbers to clear this refusal')
+    expect(() => Book.parse({ ...base, lineNumbers: {}, notes: [{ ...base.notes[0], marker: 'symbols' }] })).toThrow('marker must be a number system')
   })
   test('resolves compatible defaults and id stems', () => {
     expect(resolveNoteSeries(settings())).toMatchObject([
