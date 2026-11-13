@@ -49,6 +49,10 @@ include that fixture.
 formatting and lint with Biome, types, every unit test, package shape, and a
 release dry run.
 
+Repository structure includes each package README's entry table, which
+`bun run readmes` generates from the package's exports and the runtime rules in
+`architecture.ts`; the gate refuses a table that no longer matches.
+
 The pre-commit hook runs `bun run check --changed --staged`. The structural,
 Biome and type checks still cover the repository. Unit tests run for:
 
