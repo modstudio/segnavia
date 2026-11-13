@@ -357,7 +357,7 @@ export const printedSectionDocument: DocumentInput = {
       children: [
         {
           type: 'flow',
-          html: '<div style="block-size:243.4mm;overflow:hidden;font:18px sans-serif"><h1 id="sectioned-body-one">SECTIONED BODY ONE</h1><h2 id="sectioned-body-detail">BODY DETAIL</h2><h3 id="sectioned-body-two">DEEP BODY DETAIL</h3></div><div style="block-size:243.4mm;overflow:hidden;font:18px sans-serif">SECTIONED BODY TWO</div>',
+          html: '<h1 id="sectioned-body-one">SECTIONED BODY ONE</h1><h2 id="sectioned-body-detail">BODY DETAIL</h2><h3 id="sectioned-body-deep">DEEP BODY DETAIL</h3><p>First body page.</p><h1 id="sectioned-body-two" style="break-before:page">SECTIONED BODY TWO</h1><p>Second body page.</p>',
         },
       ],
     },
