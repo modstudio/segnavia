@@ -45,9 +45,17 @@ describe('bodyHtml', () => {
   test('emits GFM tables, tasks, strikethrough and autolinks', () => {
     const html = bodyHtml({ markdown: '| A | B |\n| - | - |\n| 1 | 2 |\n\n- [x] done\n\n~~gone~~ <https://example.test>' })
     expect(html).toContain('<div data-segnavia-overflow><table>')
-    expect(html).toContain('type="checkbox" checked disabled')
+    expect(html).toContain('<li class="task-list-item"><span data-segnavia-field="checkbox" data-segnavia-field-checked role="img" aria-label="checked"></span> done</li>')
+    expect(html).not.toContain('<input')
     expect(html).toContain('<del>gone</del>')
     expect(html).toContain('href="https://example.test"')
+  })
+
+  test('renders checked and unchecked task items as print-safe checkbox fields', () => {
+    const html = bodyHtml({ markdown: '- [ ] open\n- [x] complete' })
+    expect(html).toContain('<span data-segnavia-field="checkbox" role="img" aria-label="unchecked"></span> open')
+    expect(html).toContain('<span data-segnavia-field="checkbox" data-segnavia-field-checked role="img" aria-label="checked"></span> complete')
+    expect(html).not.toContain('<input')
   })
 
   test('renders readable, cyclic and unreadable frontmatter without an hr', () => {

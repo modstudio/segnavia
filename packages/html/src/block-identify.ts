@@ -3,6 +3,7 @@ import type { ChildNode, Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
 import { fillAttributeIssues } from './fill-attributes.ts'
+import { FIELD_ATTRIBUTE_FAMILY } from './field-attributes.ts'
 import { FIT_ATTRIBUTE_FAMILY } from './fit-attributes.ts'
 import { LEMMA_ATTRIBUTE_FAMILY } from './lemma-attributes.ts'
 import { LINE_NUMBER_ATTRIBUTE_FAMILY } from './line-number-attributes.ts'
@@ -172,7 +173,7 @@ export function identifyHtmlBlocks(
   options: { parentRegion?: boolean; flowing?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState; sideNotes?: SideNotesState } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
-  const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY, LEMMA_ATTRIBUTE_FAMILY], {
+  const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY, LEMMA_ATTRIBUTE_FAMILY, FIELD_ATTRIBUTE_FAMILY], {
     ...(options.parentRegion ? { refusedFamilies: ['data-measure'] } : {}),
   })
   issues.push(...lineNumberAttributeIssues(tree.children, node, options.parentRegion === true, options.flowing ?? true))

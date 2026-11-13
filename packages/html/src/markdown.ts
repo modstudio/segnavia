@@ -221,6 +221,18 @@ function hastPlugin() {
     }
     const transform = (node: HastNode) => {
       if (node.type !== 'element') return
+      if (node.tagName === 'input' && node.properties?.type === 'checkbox') {
+        const checked = node.properties.checked === true
+        node.tagName = 'span'
+        node.properties = {
+          dataSegnaviaField: 'checkbox',
+          ...(checked ? { dataSegnaviaFieldChecked: '' } : {}),
+          role: 'img',
+          ariaLabel: checked ? 'checked' : 'unchecked',
+        }
+        node.children = []
+        return
+      }
       if (node.tagName === 'table') wrap(node)
       if (node.tagName !== 'pre') return
       const code = node.children?.[0]

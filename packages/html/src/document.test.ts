@@ -48,6 +48,26 @@ test('refuses data-contents=exclude and names the replacement attribute', () => 
   expect(() => parseDocument(page({ html: '<h1 data-contents="exclude">Heading</h1>' }), { newId: counter() })).toThrow(/data-segnavia-listed="outline"/)
 })
 
+test('accepts valid form fields and refuses each malformed field value', () => {
+  const valid = parseDocument(
+    page({
+      html: '<p>Name <span data-segnavia-field="line" data-segnavia-field-length="12ch">Ada</span></p><div data-segnavia-field="box" data-segnavia-field-lines="3" data-segnavia-field-rule="ruled">Work</div><p><span data-segnavia-field="checkbox" data-segnavia-field-checked></span></p>',
+    }),
+    { newId: counter() },
+  )
+  expect(JSON.stringify(valid)).toContain('data-segnavia-field="box"')
+  const refusals = [
+    ['<span data-segnavia-field="choice"></span>', 'data-segnavia-field value "choice" is not accepted; use one of checkbox, line, box'],
+    ['<span data-segnavia-field="line" data-segnavia-field-length="12px"></span>', 'data-segnavia-field-length value "12px" is not accepted'],
+    ['<div data-segnavia-field="box" data-segnavia-field-lines="0"></div>', 'data-segnavia-field-lines value "0" is not accepted'],
+    ['<div data-segnavia-field="box" data-segnavia-field-rule="lines"></div>', 'data-segnavia-field-rule value "lines" is not accepted'],
+    ['<span data-segnavia-field="checkbox" data-segnavia-field-checked="yes"></span>', 'data-segnavia-field-checked is a presence attribute'],
+    ['<p data-segnavia-field="line"></p>', 'data-segnavia-field line needs a span'],
+    ['<span data-segnavia-field="box"></span>', 'data-segnavia-field box needs a div'],
+  ] as const
+  for (const [html, message] of refusals) expect(() => parseDocument(page({ html }), { newId: counter() })).toThrow(message)
+})
+
 test('deterministic ids are repeatable and unique across missing nodes and Hebrew blocks', () => {
   const input = {
     type: 'document' as const,

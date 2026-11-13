@@ -6,5 +6,4 @@ export const MARKDOWN_CONVERTER_POLICY: ConverterPolicy = {
     linkFragments: true,
     dataImages: true,
   },
-  inertControls: [{ element: 'input', type: 'checkbox', attribute: 'disabled' }],
 }

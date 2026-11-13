@@ -70,7 +70,6 @@ export interface UrlPolicy {
 
 export interface ConverterPolicy {
   urls: UrlPolicy
-  inertControls: readonly { element: 'input'; type: 'checkbox'; attribute: 'disabled' }[]
 }
 
 export function parse(html: string): Document {
@@ -184,12 +183,6 @@ function refusedElement(element: Element, refused: ReadonlySet<string>, options:
   const name = element.name.toLowerCase()
   if (name === 'script') return !keepScripts
   if (name === 'link' && element.attribs.rel?.toLowerCase() === 'stylesheet') return false
-  if (
-    options.converterPolicy?.inertControls.some(
-      (control) => control.element === name && element.attribs.type?.toLowerCase() === control.type && control.attribute in element.attribs,
-    )
-  )
-    return false
   if (refused.has(name)) return true
   if (insideSvg(element) && REFUSED_SVG_ELEMENTS.has(name)) return true
   // http-equiv can set a CSP, a refresh or a cookie from inside the document.

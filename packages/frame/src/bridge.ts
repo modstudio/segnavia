@@ -29,6 +29,7 @@ import { COMPOSE_FAILURE_TEXT_LIMIT } from './composition-failure.ts'
 import { embeddedSurfacePreflight, PREFLIGHT_ATTRIBUTE } from './embedded-preflight.ts'
 import { declaredFontLoadExpression, declaredFontLoads, FONT_FAILURE_ATTRIBUTE, FONT_FAILURE_LIMIT } from './font-load.ts'
 import { frameStyleSheets } from './frame-style-sheets.ts'
+import { fieldSizeCss } from './field-style.ts'
 import { keepPassScript } from './keep-pass.ts'
 import type { LoadedLayoutScript } from './layout.ts'
 import { layoutReadyBridgeScript, withLayoutScripts } from './layout-runtime.ts'
@@ -348,6 +349,7 @@ export function frameDocument(html: string, options: FrameOptions): string {
     bridge ? `<script nonce="${options.nonce}">${bridgeScript({ ...options, scripts })}</script>` : '',
     options.printAtMs === undefined ? '' : '<style>*,*::before,*::after{animation-play-state:paused!important}</style>',
     ...(options.sheets ?? frameStyleSheets(undefined, undefined)).map((sheet) => `<style>${sheet}</style>`),
+    `<style>${fieldSizeCss(body)}</style>`,
     options.css ? `<style>${options.css}</style>` : '',
   ].join('')
   // An author's root dir and lang win, so library values fill only missing
