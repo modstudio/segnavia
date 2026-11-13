@@ -72,7 +72,7 @@ export { applyOps } from './document-apply.ts'
 export { type AnchorSource, type DocumentDayOptions, resolveDocumentDay, resolveDocumentDayResult } from './document-day.ts'
 export { diffDocuments } from './document-diff.ts'
 export { fingerprintDocument, fingerprintScript, fingerprintValue, requireParsedDocument } from './document-fingerprint.ts'
-export { defaultNewId } from './document-identity.ts'
+export { DocumentIdRefusedError, defaultNewId } from './document-identity.ts'
 export { inverseBatch, invertOps } from './document-invert.ts'
 export {
   boardFromDocument,
@@ -298,6 +298,7 @@ export {
 export { isPrintedPageIdentityImposition } from './printed-page-imposition.ts'
 export * from './printed-pages.ts'
 export { RecordFacts, RecordValues } from './record-facts.ts'
+export { Refusal, type RefusalCause, type RefusalOptions } from './refusal.ts'
 export { Scripts } from './scripts.ts'
 export { type ShotUse, shotsUsed } from './shots-used.ts'
 export * from './slot-values.ts'

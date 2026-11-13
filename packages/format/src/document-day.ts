@@ -20,7 +20,7 @@ export interface DocumentDayOptions {
 }
 
 function refused(anchor: string, reason: string): AsOfRefusedError {
-  return new AsOfRefusedError(asOfRefusal(anchor, reason))
+  return new AsOfRefusedError(asOfRefusal(anchor, reason), { subject: anchor })
 }
 
 export async function resolveDocumentDay(asOf: AsOf | undefined, options: DocumentDayOptions): Promise<AsOfDay> {

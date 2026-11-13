@@ -1,5 +1,6 @@
 import {
   mergeSlotDeclarations,
+  Refusal,
   resolveSlotValue,
   type Scripts,
   SLOT_KEYS_LIMIT,
@@ -24,11 +25,12 @@ const ASSET_RESOLUTION_CONCURRENCY = 4
 
 export type { PreparedSlots } from './prepared-slots.ts'
 
-export class SlotFillRefusedError extends Error {
+export class SlotFillRefusedError extends Refusal {
   readonly scripts: Exclude<Scripts, 'refuse'>
 
   constructor(scripts: Exclude<Scripts, 'refuse'>) {
     super(
+      'slot-fill',
       `A fill was not applied because this item runs its own scripts (scripts: '${scripts}'), which could read the filled values. Set the item's scripts to 'refuse', or show it without a fill.`,
     )
     this.name = 'SlotFillRefusedError'

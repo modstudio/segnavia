@@ -28,13 +28,13 @@ test('page and trim pixels are expressed as equivalent CSS points', () => {
 })
 
 test('an unapproved watermark image refuses before overlay injection', async () => {
-  const markup = selectedImageWatermarkMarkup({ image: 'https://outside.example/watermark.png' }, 1, page)
+  const url = 'https://outside.example/watermark.png'
+  const markup = selectedImageWatermarkMarkup({ image: url }, 1, page)
   expect(markup).toBeDefined()
   const tab = { evaluateHandle: () => Promise.reject(new Error('overlay injection should not run')) }
+  const message = `${url} at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal`
   await expect(injectImageWatermark(tab as never, markup ?? '', { scripts: true })).rejects.toEqual(
-    new RenderRefusedError(
-      'https://outside.example/watermark.png at origin https://outside.example is not approved for image; add { origin: "https://outside.example", kinds: ["image"] } to origins to clear this refusal',
-    ),
+    new RenderRefusedError(message, { code: 'asset', refusals: [{ code: 'unapproved-origin', subject: url, message }] }),
   )
 })
 

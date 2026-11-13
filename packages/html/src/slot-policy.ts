@@ -1,10 +1,19 @@
-import { isMeasuredSlotFit, type SlotDeclaration, type SlotFitState, type SlotReport, type SlotState, unmeasuredSlotsRefusalMessage } from '@segnavia/format'
+import {
+  isMeasuredSlotFit,
+  Refusal,
+  type SlotDeclaration,
+  type SlotFitState,
+  type SlotReport,
+  type SlotState,
+  unmeasuredSlotsRefusalMessage,
+} from '@segnavia/format'
 
-export class RequiredSlotsRefusedError extends Error {
+export class RequiredSlotsRefusedError extends Refusal {
   readonly slots: ReadonlyArray<{ key: string; state: SlotState }>
 
   constructor(slots: ReadonlyArray<{ key: string; state: SlotState }>) {
     super(
+      'required-slots',
       `Output was refused because slots prevent printing: ${slots.map(({ key, state }) => `"${key}" (${state})`).join(', ')}. Fill required slots; for an overflowed refuse slot, shorten its value or change the slot's overflow.`,
     )
     this.name = 'RequiredSlotsRefusedError'
@@ -12,11 +21,11 @@ export class RequiredSlotsRefusedError extends Error {
   }
 }
 
-export class UnmeasuredSlotsRefusedError extends Error {
+export class UnmeasuredSlotsRefusedError extends Refusal {
   readonly keys: readonly string[]
 
   constructor(slots: readonly string[]) {
-    super(unmeasuredSlotsRefusalMessage(slots))
+    super('unmeasured-slots', unmeasuredSlotsRefusalMessage(slots))
     this.name = 'UnmeasuredSlotsRefusedError'
     this.keys = slots
   }

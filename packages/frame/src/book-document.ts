@@ -1,4 +1,4 @@
-import { type Book, type BookView, bookFromDocument, type DocumentInput } from '@segnavia/format'
+import { type Book, type BookView, bookFromDocument, type DocumentInput, Refusal } from '@segnavia/format'
 import { bookViewFromHtml, bookDocument as htmlBookDocument, parseDocument } from '@segnavia/html'
 import { type PaginatedDocumentOptions, paginatedViewDocument } from './book-view-document.ts'
 import { COMPOSER_SCRIPT } from './composer.ts'
@@ -11,9 +11,9 @@ export {
 } from './composer.ts'
 export { PREFLIGHT_ATTRIBUTE } from './composer-preflight.ts'
 
-export class PaginatedBookRefusedError extends Error {
+export class PaginatedBookRefusedError extends Refusal {
   constructor(message: string) {
-    super(message)
+    super('paginated-book', message)
     this.name = 'PaginatedBookRefusedError'
   }
 }

@@ -1,4 +1,4 @@
-import type { Fill, SlotReport, SlotsOptions } from '@segnavia/format'
+import { type Fill, Refusal, type SlotReport, type SlotsOptions } from '@segnavia/format'
 import { RequiredSlotsRefusedError, UnmeasuredSlotsRefusedError } from './slot-policy.ts'
 import { SlotFillRefusedError } from './slots.ts'
 
@@ -14,9 +14,12 @@ export interface SlotPrintOptions extends SlotsOptions {
   skipRefused?: boolean
 }
 
-export class SlotFillsConflictError extends Error {
+export class SlotFillsConflictError extends Refusal {
   constructor() {
-    super('slots.fills cannot be given together with slots.fill or slots.source. Pass only fills, or only fill and source, to clear this refusal.')
+    super(
+      'slot-fills-conflict',
+      'slots.fills cannot be given together with slots.fill or slots.source. Pass only fills, or only fill and source, to clear this refusal.',
+    )
     this.name = 'SlotFillsConflictError'
   }
 }
@@ -25,14 +28,16 @@ export interface SlotFillRefusal {
   index: number
   id: string
   slots: ReadonlyArray<{ key: string; state: string }>
-  error: Error
+  error: Refusal
 }
 
-export class SlotFillsRefusedError extends Error {
+export class SlotFillsRefusedError extends Refusal {
   readonly entries: readonly SlotFillRefusal[]
 
   constructor(entries: readonly SlotFillRefusal[]) {
-    super(slotFillsRefusedMessage(entries))
+    super('slot-fills', slotFillsRefusedMessage(entries), {
+      refusals: entries.map((entry) => ({ code: entry.error.code, subject: entry.id, message: entry.error.message })),
+    })
     this.name = 'SlotFillsRefusedError'
     this.entries = entries
   }
@@ -60,7 +65,7 @@ export function assertSingleSlotCopy(options: SlotsOptions | undefined): void {
   }
 }
 
-export function isSlotCopyRefusal(error: unknown): error is Error {
+export function isSlotCopyRefusal(error: unknown): error is RequiredSlotsRefusedError | UnmeasuredSlotsRefusedError | SlotFillRefusedError {
   return error instanceof RequiredSlotsRefusedError || error instanceof UnmeasuredSlotsRefusedError || error instanceof SlotFillRefusedError
 }
 
@@ -79,7 +84,11 @@ function emptyReport(entry: SlotFillEntry): SlotReport {
   return { fill: entry.fill?.id ?? entry.source?.id ?? null, slots: {}, origins: {} }
 }
 
-function refusalFrom(error: Error, entry: SlotFillEntry, index: number): SlotFillRefusal {
+function refusalFrom(
+  error: RequiredSlotsRefusedError | UnmeasuredSlotsRefusedError | SlotFillRefusedError,
+  entry: SlotFillEntry,
+  index: number,
+): SlotFillRefusal {
   const id = slotFillCopyId(entry, index)
   if (error instanceof RequiredSlotsRefusedError) return { index, id, slots: error.slots, error }
   if (error instanceof UnmeasuredSlotsRefusedError) {

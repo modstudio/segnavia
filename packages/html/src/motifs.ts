@@ -11,6 +11,7 @@ import {
   type MotifSource,
   motifFieldAttribute,
   RECORD_CONTEXT,
+  Refusal,
   resolveDirection,
   type Scripts,
 } from '@segnavia/format'
@@ -47,9 +48,9 @@ export interface ExpandedMotifs {
   unavailable: string[]
 }
 
-export class MotifRefusedError extends Error {
+export class MotifRefusedError extends Refusal {
   constructor(message: string) {
-    super(message)
+    super('motif', message)
     this.name = 'MotifRefusedError'
   }
 }

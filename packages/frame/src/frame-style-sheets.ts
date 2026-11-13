@@ -1,4 +1,4 @@
-import { cssVarInvalidMessage, type PreflightEntry, type PreflightProfile, type StyleSheet } from '@segnavia/format'
+import { cssVarInvalidMessage, type PreflightEntry, type PreflightProfile, Refusal, type StyleSheet } from '@segnavia/format'
 import { type CssPreflightFinding, compileStyleSheet } from '@segnavia/html'
 
 // Blocks without an explicit direction read from their first strong letter,
@@ -6,9 +6,9 @@ import { type CssPreflightFinding, compileStyleSheet } from '@segnavia/html'
 export const BLOCK_DIRECTION_CSS =
   ':where(:is(p,li,dt,dd,h1,h2,h3,h4,h5,h6,blockquote,figcaption,caption,td,th,summary,label,pre,div,section,article,aside,address):not([dir="ltr" i],[dir="rtl" i],[dir="auto" i])){unicode-bidi:plaintext}'
 
-export class StyleSheetRefusedError extends Error {
+export class StyleSheetRefusedError extends Refusal {
   constructor(message: string) {
-    super(message)
+    super('style-sheet', message)
     this.name = 'StyleSheetRefusedError'
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { AppFont, FontFace } from '@segnavia/format'
+import { type AppFont, type FontFace, FontFaceRefusedError } from '@segnavia/format'
 import { bytesToBase64 } from './base64.ts'
 import { FontCssRefusedError, fontCss } from './font-css.ts'
 
@@ -58,6 +58,19 @@ describe('fontCss', () => {
     const work = () => fontCss({ app: new Map(), local: [face({ family: 'Collection Face', format: 'collection', postscriptName: 'Missing' })] })
     expect(work).toThrow(FontCssRefusedError)
     expect(work).toThrow('font declared as a collection does not contain a font collection')
+    try {
+      work()
+    } catch (error) {
+      expect(error).toBeInstanceOf(FontCssRefusedError)
+      expect((error as FontCssRefusedError).cause).toBeInstanceOf(FontFaceRefusedError)
+      expect((error as FontCssRefusedError).refusals).toEqual([
+        {
+          code: 'font-face',
+          subject: undefined,
+          message: 'font declared as a collection does not contain a font collection; send bytes with a ttcf signature to clear this refusal.',
+        },
+      ])
+    }
   })
 
   test('writes the exact @font-face rule and :root property for an app font', () => {
