@@ -12,7 +12,7 @@ import {
   sheetMm,
 } from '@segnavia/format'
 import type { HtmlPage, PrintedHtmlPage } from '@segnavia/html'
-import { type PlacementReport, placementMissingEntry, resolvePlacements } from '@segnavia/html'
+import { type PlacementReport, placementMissingEntry, printedSectionBodies, resolvePlacements, withPrintedSectionBodies } from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 
 export interface PlacementPreflight {
@@ -87,16 +87,12 @@ export async function resolvePrintedPagePlacements(
   if (!placements) return page
   const sections = await Promise.all(
     page.printedPages.sections.map(async (section) =>
-      'pages' in section
-        ? {
-            ...section,
-            pages: await Promise.all(
-              section.pages.map(async (held) => ({
-                html: await resolvePagePlacementHtml(page, held.html, placements, purpose, signal, pageWidths, day, preflight),
-              })),
-            ),
-          }
-        : { ...section, html: await resolvePagePlacementHtml(page, section.html, placements, purpose, signal, pageWidths, day, preflight) },
+      withPrintedSectionBodies(
+        section,
+        await Promise.all(
+          printedSectionBodies(section).map((html) => resolvePagePlacementHtml(page, html, placements, purpose, signal, pageWidths, day, preflight)),
+        ),
+      ),
     ),
   )
   const parents = await resolveParentPlacements(page, placements, purpose, signal, pageWidths, day, preflight)

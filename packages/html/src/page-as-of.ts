@@ -1,6 +1,6 @@
 import type { AsOfDay } from '@segnavia/format'
 import { fillAsOfBindings } from './as-of-bindings.ts'
-import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage } from './markdown.ts'
+import { type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, printedSectionBodies, withPrintedSectionBodies } from './markdown.ts'
 import { fillParentRegions } from './record-as-of.ts'
 
 export function fillPageAsOfBindings<T extends HtmlPage | PrintedHtmlPage>(page: T, day: AsOfDay | undefined): T {
@@ -11,9 +11,10 @@ export function fillPageAsOfBindings<T extends HtmlPage | PrintedHtmlPage>(page:
     printedPages: {
       ...page.printedPages,
       sections: page.printedPages.sections.map((section) =>
-        'pages' in section
-          ? { ...section, pages: section.pages.map((held) => ({ html: fillAsOfBindings(held.html, day) })) }
-          : { ...section, html: fillAsOfBindings(section.html, day) },
+        withPrintedSectionBodies(
+          section,
+          printedSectionBodies(section).map((html) => fillAsOfBindings(html, day)),
+        ),
       ),
       parents: page.printedPages.parents.map((parent) => ({
         ...parent,

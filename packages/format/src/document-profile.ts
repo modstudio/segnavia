@@ -16,7 +16,9 @@ export const DOCUMENT_PROFILES = {
     topology: 'book',
     pageFields: ['body', 'template', 'regions'],
     sectionFields: ['title', 'contentsLabel', 'subtitle', 'contents', 'opens', 'numbering', 'parentRules', 'pageGeometry', 'template'],
-    sectionFieldRemedies: {},
+    sectionFieldRemedies: {
+      orientation: 'section field orientation is not allowed in a book; name a pageGeometry declared in style.pageGeometries to clear this refusal',
+    },
     sectionChildren: null,
     numbering: 'book',
     canonicalChildren: null,

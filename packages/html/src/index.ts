@@ -125,9 +125,11 @@ export {
   type PrintedHtmlPage,
   printedPageAuthorHtml,
   printedPageDirection,
+  printedSectionBodies,
   type ResolvePageHtmlOptions,
   resolvePageHtml,
   resolvePrintedPageHtml,
+  withPrintedSectionBodies,
 } from './markdown.ts'
 export { measureAttributeIssues } from './measure-attributes.ts'
 export {

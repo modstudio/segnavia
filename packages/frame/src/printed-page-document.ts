@@ -31,10 +31,12 @@ import {
   type PrintedHtmlPage,
   parseDocument,
   printedPageDirection,
+  printedSectionBodies,
   printedSectionFlows,
   printedSectionOutlineHtml,
   resolvePrintedPageHtml,
   TARGET_LINKS_CSS,
+  withPrintedSectionBodies,
 } from '@segnavia/html'
 import { composerPageRules } from './book-page-geometries.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
@@ -115,14 +117,15 @@ function legacyGeometry(geometry: ReturnType<typeof printedComposerGeometries>[n
 }
 
 function printedSectionParts(sections: PrintedHtmlPage['printedPages']['sections']) {
-  return sections.map((section) => ('pages' in section ? section.pages.map((held) => pageParts(held.html)) : [pageParts(section.html)]))
+  return sections.map((section) => printedSectionBodies(section).map(pageParts))
 }
 
 function normalizedPrintedSections(sections: PrintedHtmlPage['printedPages']['sections'], parts: ReturnType<typeof printedSectionParts>) {
   return sections.map((section, index) =>
-    'pages' in section
-      ? { ...section, pages: section.pages.map((held, pageIndex) => ({ html: parts[index]?.[pageIndex]?.body ?? held.html })) }
-      : { ...section, html: parts[index]?.[0]?.body ?? section.html },
+    withPrintedSectionBodies(
+      section,
+      printedSectionBodies(section).map((html, bodyIndex) => parts[index]?.[bodyIndex]?.body ?? html),
+    ),
   )
 }
 

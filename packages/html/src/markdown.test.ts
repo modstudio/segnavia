@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'bun:test'
 import { Page } from '@segnavia/format'
-import { bodyHtml, isGithubAlertBlock, markdownHtml, markdownOutline, resolvePageHtml, resolvePrintedPageHtml } from './markdown.ts'
+import {
+  bodyHtml,
+  isGithubAlertBlock,
+  markdownHtml,
+  markdownOutline,
+  printedSectionBodies,
+  resolvePageHtml,
+  resolvePrintedPageHtml,
+  withPrintedSectionBodies,
+} from './markdown.ts'
 import { findActiveContent } from './sanitize.ts'
 
 describe('bodyHtml', () => {
@@ -171,6 +180,25 @@ test('resolvePrintedPageHtml keeps the stored-HTML requirement for an implicit b
     printedPages: { parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }], parentRules: [{ parent: 'body' }] },
   })
   expect(() => resolvePrintedPageHtml(page)).toThrow('pass its Document input through @segnavia/html parseDocument')
+})
+
+test('printed section bodies round trip through flowing and designed section shapes', () => {
+  const sections = resolvePrintedPageHtml(
+    Page.parse({
+      print: { paper: 'letter' },
+      printedPages: {
+        parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
+        parentRules: [{ parent: 'body' }],
+        sections: [
+          { id: 'flow', html: '<p>Flow</p>' },
+          { id: 'designed', pages: [{ html: '<p>One</p>' }, { html: '<p>Two</p>' }] },
+        ],
+      },
+    }),
+  ).printedPages.sections
+
+  expect(sections.map(printedSectionBodies)).toEqual([['<p>Flow</p>'], ['<p>One</p>', '<p>Two</p>']])
+  expect(sections.map((section) => withPrintedSectionBodies(section, printedSectionBodies(section)))).toEqual(sections)
 })
 
 test('markdownOutline preserves Hebrew and suffixes duplicate headings at every level', () => {

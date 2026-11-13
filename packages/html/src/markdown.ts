@@ -359,10 +359,18 @@ export function isPrintedHtmlPage(page: Page | HtmlPage | PrintedHtmlPage): page
   return 'printedPages' in page && page.printedPages?.sections !== undefined && !('html' in page)
 }
 
+export function printedSectionBodies(section: PrintedSection): string[] {
+  return 'pages' in section ? section.pages.map((page) => page.html) : [section.html]
+}
+
+export function withPrintedSectionBodies(section: PrintedSection, bodies: string[]): PrintedSection {
+  return 'pages' in section
+    ? { ...section, pages: section.pages.map((page, index) => ({ ...page, html: bodies[index] ?? page.html })) }
+    : { ...section, html: bodies[0] ?? section.html }
+}
+
 export function printedPageAuthorHtml(page: HtmlPage | PrintedHtmlPage): string {
-  return isPrintedHtmlPage(page)
-    ? page.printedPages.sections.flatMap((section) => ('pages' in section ? section.pages.map((held) => held.html) : [section.html])).join('')
-    : page.html
+  return isPrintedHtmlPage(page) ? page.printedPages.sections.flatMap(printedSectionBodies).join('') : page.html
 }
 
 export function printedPageDirection(page: HtmlPage | PrintedHtmlPage): TextDirection {

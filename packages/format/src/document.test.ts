@@ -169,6 +169,12 @@ describe('Document', () => {
       { ...root, children: [{ type: 'section', title: 'One', children: [{ type: 'flow', title: 'Two', html: '' }] }] },
     ]
     for (const value of values) expect(() => Document.parse(value)).toThrow('clear this refusal')
+    expect(() =>
+      Document.parse({
+        ...root,
+        children: [{ type: 'section', title: 'One', orientation: 'landscape', children: [{ type: 'flow', html: '' }] }],
+      }),
+    ).toThrow('name a pageGeometry declared in style.pageGeometries to clear this refusal')
   })
 
   test('accepts section numbering and refuses contradictory or invalid values with a remedy', () => {

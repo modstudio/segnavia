@@ -153,7 +153,7 @@ test('pagePdf, pageImage, pagesPdf, deckPdf and slideImage preparation honor hos
   expect(filledDeckResult.slides[0]?.content).toEqual({ kind: 'html', html: '<p dir="auto">Filled by host</p>' })
 })
 
-test('sectioned printed pages fill every section and refuse multiple copies', async () => {
+test('sectioned printed pages fill every designed and flowing body and refuse multiple copies', async () => {
   const page = resolvePrintedPageHtml(
     Page.parse({
       scripts: 'refuse',
@@ -163,19 +163,26 @@ test('sectioned printed pages fill every section and refuse multiple copies', as
         parents: [{ name: 'body', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } }],
         parentRules: [{ parent: 'body' }],
         sections: [
-          { id: 'one', html: '<p data-slot-value="name">One</p>' },
-          { id: 'two', html: '<p data-slot-value="name">Two</p>' },
+          { id: 'one', pages: [{ html: '<p data-slot-value="name">Designed</p>' }] },
+          { id: 'two', html: '<p data-slot-value="name">Flow</p>' },
         ],
       },
     }),
   )
   const fill = { fill: { id: 'host', values: { name: 'Ada' } } }
   const { value, slots: prepared } = await filledPage(page, fill)
-  expect(value.printedPages.sections.map((section) => ('pages' in section ? undefined : section.html))).toEqual([
+  expect(value.printedPages.sections.flatMap((section) => ('pages' in section ? section.pages.map((held) => held.html) : [section.html]))).toEqual([
     '<p dir="auto">Ada</p>',
     '<p dir="auto">Ada</p>',
   ])
   expect(prepared.frames).toHaveLength(2)
+  const collection = await filledPages([page], fill)
+  const collected = collection.value[0]
+  expect(collected && 'printedPages' in collected ? collected.printedPages?.sections?.[0] : undefined).toMatchObject({
+    pages: [{ html: '<p dir="auto">Ada</p>' }],
+  })
+  expect(collection.slots.frames).toHaveLength(2)
+  expect(collection.frameGroups).toEqual([[0, 1]])
   await expect(filledPage(page, { fills: [fill, fill] })).rejects.toThrow('Pass fill or source for a single copy')
 })
 
