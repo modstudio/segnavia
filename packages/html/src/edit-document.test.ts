@@ -61,6 +61,28 @@ describe('editDocument fixture', () => {
 })
 
 describe('editDocument command handlers', () => {
+  test('honors the line-number setting when replacing content', () => {
+    const input = (lineNumbers: boolean) =>
+      parseDocument({
+        type: 'document',
+        id: 'book',
+        kind: 'book',
+        metadata: { title: 'Book' },
+        mode: 'paginated',
+        ...(lineNumbers ? { settings: { lineNumbers: {} } } : {}),
+        page: { paper: 'a5', margin: { blockStart: 12, blockEnd: 12, inlineStart: 15, inlineEnd: 10 } },
+        children: [{ type: 'section', id: 'section', title: 'Section', children: [{ type: 'flow', id: 'flow', html: '<p>Old</p>' }] }],
+      })
+    const command = [{ type: 'setContent' as const, content: { node: { id: 'flow' }, field: 'html' }, html: '<p data-line-numbers>New</p>' }]
+    expect(editDocument(input(true), command, { newId: () => 'numbered' }).ok).toBe(true)
+    const refused = editDocument(input(false), command, { newId: () => 'numbered' })
+    expect(refused).toMatchObject({ ok: false, refusal: expect.stringContaining('settings.lineNumbers setting') })
+    const unsupported = editDocument(page(), [{ type: 'setContent', content: { node: { id: 'page' }, field: 'body' }, html: '<p data-line-numbers>New</p>' }], {
+      newId: () => 'numbered',
+    })
+    expect(unsupported).toMatchObject({ ok: false, refusal: expect.stringContaining('use a book or printed document') })
+  })
+
   test('uses parseDocument alert labels when adding a markdown page body', () => {
     const input = parseDocument({
       type: 'document',

@@ -12,17 +12,18 @@ import {
   preflightEnabled,
   regionOverflowRefusalEnabled,
   resolveLimits,
+  resolveLineNumbers,
   withLibraryEntries,
 } from '@segnavia/format'
 import { composerPageGeometries, composerPageRules } from './book-page-geometries.ts'
 import { BOOK_LAYOUTS, BOOK_PAGE_ATTRIBUTE, bookPresentationScript, embeddedBookPresentationFunctions } from './book-presentation.ts'
 import { frameDocument, frameStyleSheets } from './bridge.ts'
 import { COMPOSE_FAILURE_ATTRIBUTE, COMPOSED_ATTRIBUTE, composerScript, GALLEY_PRINT_CSS, type ScreenPresentation } from './composer.ts'
-import { LINE_NUMBER_CSS } from './composer-margin.ts'
 import { COMPOSE_PROGRESS_ATTRIBUTE } from './composer-progress.ts'
 import { withDiagramScript } from './diagram-document.ts'
 import { declaredFontLoads } from './font-load.ts'
 import type { LoadedLayoutScript } from './layout.ts'
+import { LINE_NUMBER_BASE_CSS } from './line-number-style.ts'
 
 export interface PaginatedDocumentOptions {
   nonce: string
@@ -56,7 +57,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     `:where([data-segnavia-pages]){inline-size:${Math.max(...pagination.geometries.map((item) => item.paper.width))}mm}` +
     `:where([${BOOK_PAGE_ATTRIBUTE}]:last-child){break-after:auto}` +
     GALLEY_PRINT_CSS +
-    LINE_NUMBER_CSS +
+    LINE_NUMBER_BASE_CSS +
     (options.fontCss ?? '')
   const regionProfile = options.profile
   const preflightSeed = [...(options.preflightSeed ?? [])]
@@ -81,9 +82,7 @@ export function paginatedViewDocument(view: BookView, pagination: BookViewPagina
     headTemplates: withLibraryEntries(LIBRARY_HEAD_TEMPLATES, pagination.headTemplates),
     recordSlotsByFlow: pagination.recordSlotsByFlow ?? {},
     numbering: pagination.numbering,
-    ...(pagination.lineNumbers === undefined
-      ? {}
-      : { lineNumbers: { ...pagination.lineNumbers, system: pagination.lineNumbers.system ?? pagination.numbering.body } }),
+    ...(pagination.lineNumbers === undefined ? {} : { lineNumbers: resolveLineNumbers(pagination.lineNumbers, pagination.numbering.body) }),
     limit: limits.pages,
     limitRefusal: {
       template: limitRefusalTemplate('pages', limits.pages, { pagesSource: limits.pagesSource }),

@@ -30,7 +30,7 @@ function windowLines(
       ? []
       : block.lines
           .filter((line) => line.top >= window.start && line.top < window.end)
-          .map((line) => ({ line, direction: block.direction ?? measurements.settings.direction, chapter: block.position.chapter })),
+          .map((line) => ({ line, direction: block.direction, chapter: block.position.chapter })),
   )
 }
 

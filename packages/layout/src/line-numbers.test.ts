@@ -4,7 +4,14 @@ import { numberLines, resolveLineNumberSide } from './line-numbers.ts'
 
 function fixtures() {
   const blocks = [
-    { kind: 'heading' as const, tag: 'h2', position: { chapter: 0, block: 0 }, lines: [{ top: 0, bottom: 10 }], numbered: true as const },
+    {
+      kind: 'heading' as const,
+      tag: 'h2',
+      position: { chapter: 0, block: 0 },
+      lines: [{ top: 0, bottom: 10 }],
+      numbered: true as const,
+      direction: 'ltr' as const,
+    },
     {
       kind: 'text' as const,
       tag: 'p',
@@ -76,6 +83,38 @@ describe('numberLines', () => {
     expect(numberLines(measurements, plan, { interval: 1, start: 3, restart: 'page', area: 'text', side: 'start', system: 'arabic' })[1]?.lines[0]?.value).toBe(
       3,
     )
+    const flow = measurements.flows[0]
+    if (!flow || !('blocks' in flow)) throw new Error('The fixture flow has no blocks.')
+    flow.blocks.push({
+      kind: 'text',
+      tag: 'p',
+      position: { chapter: 1, block: 0 },
+      lines: [{ top: 170, bottom: 180 }],
+      numbered: true,
+      direction: 'ltr',
+    })
+    measurements.flows.push({
+      id: 'two',
+      kind: 'chapter',
+      blocks: [{ kind: 'text', tag: 'p', position: { chapter: 2, block: 0 }, lines: [{ top: 0, bottom: 10 }], numbered: true, direction: 'ltr' }],
+    })
+    plan.pages.push({
+      ...plan.pages[1],
+      flow: 'two',
+      windows: [
+        { flow: 'one', start: 170, end: 180, top: 0, column: 0, columns: 1 },
+        { flow: 'two', start: 0, end: 10, top: 10, column: 0, columns: 1 },
+      ],
+    } as Plan['pages'][number])
+    expect(
+      numberLines(measurements, plan, { interval: 1, start: 3, restart: 'never', area: 'text', side: 'start', system: 'arabic' }).map((page) =>
+        page.lines.map((line) => line.value),
+      ),
+    ).toEqual([
+      [3, 4, 5, 6, 7, 8, 9],
+      [10, 11, 12, 13, 14, 15, 16, 17],
+      [18, 19],
+    ])
   })
 
   test('restarts a section counter when the chapter changes within one flow', () => {

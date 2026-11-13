@@ -1,9 +1,6 @@
 import type { PreflightEntry } from '@segnavia/format'
 import type { NumberedLine, NumberedPage, numberLines } from '@segnavia/layout'
 
-export const LINE_NUMBER_CSS =
-  ':where([data-segnavia-line-numbers]){position:absolute;inset:0;pointer-events:none}:where([data-segnavia-line-number]){position:absolute;display:block;inline-size:max-content;white-space:nowrap;unicode-bidi:isolate;color:var(--segnavia-line-number-color,inherit);font-size:var(--segnavia-line-number-size,.8em)}:where([data-segnavia-line-numbers][data-segnavia-area="text"] [data-segnavia-side="left"]){translate:calc(-100% - var(--segnavia-line-number-gap,.75em)) 0}:where([data-segnavia-line-numbers][data-segnavia-area="text"] [data-segnavia-side="right"]){translate:var(--segnavia-line-number-gap,.75em) 0}:where([data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-side="left"]){translate:var(--segnavia-line-number-gap,.75em) 0}:where([data-segnavia-line-numbers][data-segnavia-area="margin"] [data-segnavia-side="right"]){translate:calc(0px - var(--segnavia-line-number-gap,.75em)) 0}'
-
 interface DrawConfig {
   area: 'text' | 'margin'
   direction: 'ltr' | 'rtl'
@@ -15,11 +12,21 @@ export function intersects(a: DOMRect, b: DOMRect): boolean {
   return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
 }
 
+export function physicalColumn(line: Pick<NumberedLine, 'column' | 'columns'>, direction: DrawConfig['direction']): number {
+  return direction === 'ltr' ? line.column : line.columns - line.column - 1
+}
+
+export function lineNumberEdge(line: Pick<NumberedLine, 'column' | 'columns' | 'side'>, direction: DrawConfig['direction']): 'outer' | 'interior' {
+  const column = physicalColumn(line, direction)
+  return line.side === 'left' ? (column === 0 ? 'outer' : 'interior') : column === line.columns - 1 ? 'outer' : 'interior'
+}
+
 export function drawLineNumbers(numbered: ReturnType<typeof numberLines>, config: DrawConfig, entries: PreflightEntry[], doc: Document): void {
   const pages = doc.querySelectorAll(`[${config.pageMarker}]`)
-  numbered.forEach((held, pageIndex) => {
-    drawPageLineNumbers(held, pages[pageIndex] as HTMLElement | undefined, config, entries, doc)
-  })
+  for (const page of pages) {
+    const index = Number(page.getAttribute(config.pageMarker)) - 1
+    drawPageLineNumbers(numbered[index], page as HTMLElement, config, entries, doc)
+  }
 }
 
 export function createLineNumber(line: NumberedLine, config: DrawConfig, textRect: DOMRect, pageRect: DOMRect, gap: number, doc: Document): HTMLElement {
@@ -30,11 +37,13 @@ export function createLineNumber(line: NumberedLine, config: DrawConfig, textRec
   number.style.top = `${line.top}px`
   number.style.lineHeight = `${line.height}px`
   const width = (textRect.width - (line.columns - 1) * gap) / line.columns
-  const physicalColumn = config.direction === 'ltr' ? line.column : line.columns - line.column - 1
+  const column = physicalColumn(line, config.direction)
   if (config.area === 'margin' && line.side === 'left') number.style.left = `${pageRect.left - textRect.left}px`
   else if (config.area === 'margin') number.style.right = `${textRect.right - pageRect.right}px`
-  else if (line.side === 'left') number.style.left = `${physicalColumn * (width + gap)}px`
-  else number.style.right = `${textRect.width - (physicalColumn * (width + gap) + width)}px`
+  else {
+    number.setAttribute('data-segnavia-edge', lineNumberEdge(line, config.direction))
+    number.style.left = `${line.side === 'left' ? column * (width + gap) : column * (width + gap) + width}px`
+  }
   return number
 }
 
@@ -44,13 +53,14 @@ export function crossedLimit(
   furniture: NodeListOf<Element>,
   source: NumberedLine,
   area: DrawConfig['area'],
+  direction: DrawConfig['direction'],
   gap: number,
 ): string {
   if (rect.left < pageRect.left || rect.right > pageRect.right || rect.top < pageRect.top || rect.bottom > pageRect.bottom) return 'the page edge'
   for (const held of furniture) {
     if (intersects(rect, held.getBoundingClientRect())) return `region ${held.getAttribute('data-segnavia-region') || 'furniture'}`
   }
-  const interior = source.side === 'left' ? source.column > 0 : source.column < source.columns - 1
+  const interior = lineNumberEdge(source, direction) === 'interior'
   return area === 'text' && source.columns > 1 && interior && rect.width > gap ? 'the column gap' : ''
 }
 
@@ -65,8 +75,14 @@ export function appendMarginOverset(entries: PreflightEntry[], source: NumberedL
   })
 }
 
-export function drawPageLineNumbers(held: NumberedPage, page: HTMLElement | undefined, config: DrawConfig, entries: PreflightEntry[], doc: Document): void {
-  if (!page || held.lines.length === 0) return
+export function drawPageLineNumbers(
+  held: NumberedPage | undefined,
+  page: HTMLElement | undefined,
+  config: DrawConfig,
+  entries: PreflightEntry[],
+  doc: Document,
+): void {
+  if (!held || !page || held.lines.length === 0) return
   const text = page.querySelector('[data-segnavia-text]') as HTMLElement | null
   if (!text) return
   const container = doc.createElement('div')
@@ -85,7 +101,17 @@ export function drawPageLineNumbers(held: NumberedPage, page: HTMLElement | unde
   held.lines.forEach((line, index) => {
     const drawn = container.children[index] as HTMLElement | undefined
     if (!drawn) return
-    const crossed = crossedLimit(drawn.getBoundingClientRect(), pageRect, furniture, line, config.area, gap)
+    const rect = drawn.getBoundingClientRect()
+    const crossed = crossedLimit(rect, pageRect, furniture, line, config.area, config.direction, gap)
     if (crossed) appendMarginOverset(entries, line, crossed, folio)
+    if (config.area === 'margin') {
+      for (let previous = 0; previous < index; previous += 1) {
+        const earlier = container.children[previous] as HTMLElement | undefined
+        if (earlier && intersects(rect, earlier.getBoundingClientRect())) {
+          appendMarginOverset(entries, line, `line number ${held.lines[previous]?.value ?? ''}`, folio)
+          break
+        }
+      }
+    }
   })
 }

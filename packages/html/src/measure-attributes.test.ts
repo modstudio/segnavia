@@ -47,15 +47,25 @@ test('parent-page regions refuse measured properties that cannot be copied from 
 })
 
 test('line numbers require a block, their document setting, and stay out of parent-page regions', () => {
-  expect(() => identifyHtmlBlocks('<p data-line-numbers>Text</p>', 'chapter', () => 'line', new Map())).toThrow('settings.lineNumbers setting')
-  expect(() => identifyHtmlBlocks('<p><em data-line-numbers>Text</em></p>', 'chapter', () => 'line', new Map(), { lineNumbers: true })).toThrow(
-    'must mark a block element',
+  expect(() => identifyHtmlBlocks('<p data-line-numbers>Text</p>', 'chapter', () => 'line', new Map(), { lineNumbers: 'unset' })).toThrow(
+    'settings.lineNumbers setting',
+  )
+  expect(() => identifyHtmlBlocks('<p><em data-line-numbers>Text</em></p>', 'chapter', () => 'line', new Map(), { lineNumbers: 'set' })).toThrow(
+    'move it to the containing top-level <p>',
   )
   expect(() =>
     identifyHtmlBlocks('<p data-line-numbers>Text</p>', 'parent page', () => 'line', new Map(), {
       refuseMeasure: true,
-      lineNumbers: true,
+      lineNumbers: 'set',
     }),
   ).toThrow('cannot take effect in a parent-page region')
-  expect(identifyHtmlBlocks('<p data-line-numbers>Text</p>', 'chapter', () => 'line', new Map(), { lineNumbers: true }).html).toContain('data-line-numbers')
+  expect(identifyHtmlBlocks('<section data-line-numbers><p>Text</p></section>', 'chapter', () => 'line', new Map(), { lineNumbers: 'set' }).html).toContain(
+    'data-line-numbers',
+  )
+  expect(() => identifyHtmlBlocks('<ul><li data-line-numbers>Text</li></ul>', 'chapter', () => 'line', new Map(), { lineNumbers: 'set' })).toThrow(
+    'move it to the containing top-level <ul>',
+  )
+  expect(() => identifyHtmlBlocks('<p data-line-numbers>Text</p>', 'slide', () => 'line', new Map(), { lineNumbers: 'unsupported' })).toThrow(
+    'use a book or printed document',
+  )
 })

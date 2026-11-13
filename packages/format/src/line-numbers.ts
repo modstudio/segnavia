@@ -12,3 +12,9 @@ export const LineNumbers = z.object({
   side: LineNumberSide.default('outer'),
 })
 export type LineNumbers = z.infer<typeof LineNumbers>
+
+export type ResolvedLineNumbers = LineNumbers & { system: z.infer<typeof NumberSystem> }
+
+export function resolveLineNumbers(settings: LineNumbers, bodySystem: z.infer<typeof NumberSystem>): ResolvedLineNumbers {
+  return { ...settings, system: settings.system ?? bodySystem }
+}

@@ -1,4 +1,4 @@
-import type { Element } from 'domhandler'
+import type { ChildNode, Element } from 'domhandler'
 import { isTag } from 'domhandler'
 import { BLOCK_KINDS } from './block-context.ts'
 import { fillAttributeIssues } from './fill-attributes.ts'
@@ -34,6 +34,30 @@ function hasLineNumbers(children: readonly import('domhandler').ChildNode[]): bo
   return false
 }
 
+export type LineNumbersState = 'set' | 'unset' | 'unsupported'
+
+function lineNumberAttributeIssues(children: readonly ChildNode[], where: string, refuse: boolean): string[] {
+  const issues: string[] = []
+  const visit = (nodes: readonly ChildNode[], topLevel: Element | undefined): void => {
+    for (const node of nodes) {
+      if (!isTag(node)) continue
+      const nodeWhere = `${where} <${node.name}>`
+      if (node.attribs['data-line-numbers'] !== undefined) {
+        issues.push(...LINE_NUMBER_ATTRIBUTE_FAMILY.issues(nodeWhere, node.attribs))
+        if (refuse) issues.push(`${nodeWhere} data-line-numbers cannot take effect in a parent-page region; remove it to clear this refusal`)
+        else if (topLevel) {
+          issues.push(
+            `${nodeWhere} data-line-numbers is nested inside <${topLevel.name}>; move it to the containing top-level <${topLevel.name}> to clear this refusal`,
+          )
+        }
+      }
+      visit(node.children, topLevel ?? node)
+    }
+  }
+  visit(children, undefined)
+  return issues
+}
+
 export function identifyBlockElements(elements: readonly Element[], node: string, newId: () => string, seen: Map<string, BlockIdLocation>): string[] {
   const added: string[] = []
   for (const element of elements) {
@@ -61,16 +85,20 @@ export function identifyHtmlBlocks(
   node: string,
   newId: () => string,
   seen: Map<string, BlockIdLocation>,
-  options: { refuseMeasure?: boolean; insideNamedRegion?: string; lineNumbers?: boolean } = {},
+  options: { refuseMeasure?: boolean; insideNamedRegion?: string; lineNumbers?: LineNumbersState } = {},
 ): { html: string; added: string[] } {
   const tree = parse(html)
-  const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY, LINE_NUMBER_ATTRIBUTE_FAMILY], {
-    ...(options.refuseMeasure ? { refusedFamilies: ['data-measure', 'data-line-numbers'] } : {}),
+  const issues = sourceAttributeIssues(tree.children, node, [FIT_ATTRIBUTE_FAMILY, MEASURE_ATTRIBUTE_FAMILY], {
+    ...(options.refuseMeasure ? { refusedFamilies: ['data-measure'] } : {}),
   })
-  if (!options.lineNumbers) {
-    const numbered = sourceAttributeIssues(tree.children, node, [LINE_NUMBER_ATTRIBUTE_FAMILY])
-    if (numbered.length === 0 && hasLineNumbers(tree.children)) {
+  issues.push(...lineNumberAttributeIssues(tree.children, node, options.refuseMeasure === true))
+  if (hasLineNumbers(tree.children)) {
+    if ((options.lineNumbers ?? 'unset') === 'unset') {
       issues.push(`${node} data-line-numbers needs the document settings.lineNumbers setting; add that setting to clear this refusal`)
+    } else if (options.lineNumbers === 'unsupported') {
+      issues.push(
+        `${node} data-line-numbers cannot take effect because this document kind does not number lines; use a book or printed document to clear this refusal`,
+      )
     }
   }
   issues.push(...fillAttributeIssues(tree.children, node, options.insideNamedRegion))

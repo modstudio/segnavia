@@ -96,6 +96,7 @@ export {
   type OperationDocument,
   type OperationNode,
 } from './document-op-model.ts'
+export { DOCUMENT_PROFILES } from './document-profile.ts'
 export { type RebaseResult, rebaseOps } from './document-rebase.ts'
 export { editBoard } from './edit-board.ts'
 export { EXPORTED_SCHEMAS } from './exported-schema-manifest.ts'

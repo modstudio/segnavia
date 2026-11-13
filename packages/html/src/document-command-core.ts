@@ -1,6 +1,7 @@
 import {
   applyOps,
   DOCUMENT_NODE_MODEL,
+  DOCUMENT_PROFILES,
   type Document,
   type DocumentBatch,
   type DocumentOp,
@@ -36,6 +37,11 @@ export interface DocumentCommandResult {
 }
 
 export type DocumentCommandHandler = (context: DocumentCommandContext, command: DocumentCommand) => DocumentCommandResult
+
+function lineNumbersState(document: Document): import('./block-identify.ts').LineNumbersState {
+  const supported = (DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes('lineNumbers')
+  return supported ? (document.settings?.lineNumbers === undefined ? 'unset' : 'set') : 'unsupported'
+}
 
 function uniqueId(context: DocumentCommandContext, supplied: unknown, used: Set<string>, subject: string): string {
   const id = typeof supplied === 'string' && supplied.length > 0 ? supplied : (context.options.newId ?? defaultNewId)()
@@ -73,7 +79,10 @@ function identifiedField(
   nodeLabel: string,
 ): unknown {
   const identify = (html: string, options: { insideNamedRegion?: string; refuseMeasure?: boolean } = {}): string => {
-    const result = identifyHtmlBlocks(html, nodeLabel, context.options.newId ?? defaultNewId, usedBlocks, options)
+    const result = identifyHtmlBlocks(html, nodeLabel, context.options.newId ?? defaultNewId, usedBlocks, {
+      ...options,
+      lineNumbers: lineNumbersState(context.document),
+    })
     added.push(...result.added)
     return result.html
   }
@@ -163,6 +172,7 @@ export function htmlWithIds(
   return identifyHtmlBlocks(html, node ? `${node.type} node "${node.id}"` : 'supplied content', context.options.newId ?? defaultNewId, used, {
     ...(region && (shape === 'record' || shape === 'regionRecord') ? { insideNamedRegion: region } : {}),
     ...(shape === 'regionRecord' ? { refuseMeasure: true } : {}),
+    lineNumbers: lineNumbersState(context.document),
   })
 }
 

@@ -1,4 +1,5 @@
 import {
+  DOCUMENT_PROFILES,
   Document,
   type DocumentInput,
   type DocumentParseOptions,
@@ -35,7 +36,10 @@ export function parseDocument(input: DocumentInput | unknown, options: ParseDocu
   const newId = options.newId ?? defaultNewId
   const document = Document.parse(input, { newId })
   const seen = new Map<string, BlockIdLocation>()
-  const identifyOptions = { lineNumbers: document.settings?.lineNumbers !== undefined }
+  const supportsLineNumbers = (DOCUMENT_PROFILES[document.kind].settings as readonly string[]).includes('lineNumbers')
+  const identifyOptions = {
+    lineNumbers: supportsLineNumbers ? (document.settings?.lineNumbers === undefined ? ('unset' as const) : ('set' as const)) : ('unsupported' as const),
+  }
   const html: ContentHtml = (value, node) => identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, identifyOptions).html
   const regionHtml = (value: string, node: { type: string; id: string }, region: string) =>
     identifyHtmlBlocks(value, contentNodeLabel(node), newId, seen, { ...identifyOptions, insideNamedRegion: region }).html

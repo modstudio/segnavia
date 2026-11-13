@@ -25,7 +25,7 @@ export type PaginateNoteRef = z.infer<typeof PaginateNoteRef>
 export const PaginateVariable = z.object({ name: z.string(), value: z.string(), line: z.number(), scope: z.literal('flow').optional() })
 export type PaginateVariable = z.infer<typeof PaginateVariable>
 
-export const PaginateBlock = z.object({
+const PaginateBlockBase = z.object({
   kind: z.enum(['heading', 'figure', 'table', 'text']),
   tag: z.string(),
   position: z.object({ chapter: z.number(), block: z.number() }),
@@ -42,10 +42,12 @@ export const PaginateBlock = z.object({
   keepRuns: z.array(z.object({ start: z.number().int().nonnegative(), end: z.number().int().positive() })).optional(),
   headerHeight: z.number().optional(),
   footnoteRefs: z.array(PaginateNoteRef).optional(),
-  numbered: z.literal(true).optional(),
-  direction: z.enum(['ltr', 'rtl']).optional(),
   variables: z.array(PaginateVariable).optional(),
 })
+export const PaginateBlock = z.union([
+  PaginateBlockBase.extend({ numbered: z.literal(true), direction: z.enum(['ltr', 'rtl']) }),
+  PaginateBlockBase.extend({ numbered: z.undefined().optional(), direction: z.undefined().optional() }),
+])
 export type PaginateBlock = z.infer<typeof PaginateBlock>
 
 const PaginateFlowBase = {
