@@ -17,9 +17,11 @@ export function printedPagesWindow(
   keepMargin: number,
 ): PrintedPagesWindow {
   const within = (paper: PaperExtent, margin: number) => paper.end >= scroll - margin && paper.start <= scroll + viewport + margin
+  const compose = papers.filter((paper) => within(paper, composeMargin)).map((paper) => paper.page)
+  const composing = new Set(compose)
   return {
-    compose: papers.filter((paper) => within(paper, composeMargin)).map((paper) => paper.page),
-    keep: papers.filter((paper) => within(paper, keepMargin)).map((paper) => paper.page),
+    compose,
+    keep: papers.filter((paper) => composing.has(paper.page) || within(paper, keepMargin)).map((paper) => paper.page),
   }
 }
 
@@ -28,7 +30,7 @@ export interface PrintedSpread {
   inlineEnd?: number
 }
 
-export function printedPageSpreads(pageCount: number, _direction: 'ltr' | 'rtl'): PrintedSpread[] {
+export function printedPageSpreads(pageCount: number): PrintedSpread[] {
   if (pageCount < 1) return []
   const spreads: PrintedSpread[] = [{ inlineEnd: 1 }]
   for (let page = 2; page <= pageCount; page += 2) {
@@ -37,7 +39,15 @@ export function printedPageSpreads(pageCount: number, _direction: 'ltr' | 'rtl')
   return spreads
 }
 
-export type PrintedPagesFit = 'width' | 'page' | 'none'
+export const PRINTED_PAGES_LAYOUTS = ['single', 'facing'] as const
+export type PrintedPagesLayout = (typeof PRINTED_PAGES_LAYOUTS)[number]
+export const PRINTED_PAGES_FITS = ['width', 'page', 'none'] as const
+export type PrintedPagesFit = (typeof PRINTED_PAGES_FITS)[number]
+
+export function printedPagesOption<const Values extends readonly string[]>(value: string, values: Values, name: string): Values[number] {
+  if (!values.includes(value)) throw new RangeError(`${name} must be ${values.map((item) => `'${item}'`).join(' or ')}.`)
+  return value as Values[number]
+}
 
 export function printedPagesScale(
   fit: PrintedPagesFit,

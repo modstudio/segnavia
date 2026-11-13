@@ -19,7 +19,7 @@ export function buildPrintedPagesViewerDemo(site: string, shell: (body: string) 
   writeFileSync(
     path.join(site, 'printed-pages-viewer.html'),
     shell(`<segnavia-printed-pages id="viewer" style="display:block;inline-size:900px;block-size:500px"></segnavia-printed-pages><script type="module">
-const viewer=document.querySelector('#viewer'); viewer.fonts={source:{font:async()=>({family:'sans-serif',faces:[],generic:'sans-serif',present:true})}}; viewer.document=await fetch('printed-pages-viewer.json').then(response=>response.json()); window.viewer=viewer;
+const viewer=document.querySelector('#viewer'); window.recordEvents=[]; viewer.addEventListener('record',event=>window.recordEvents.push(event.detail.record)); viewer.recordFor=page=>'record-'+page; viewer.fonts={source:{font:async()=>({family:'sans-serif',faces:[],generic:'sans-serif',present:true})}}; viewer.document=await fetch('printed-pages-viewer.json').then(response=>response.json()); window.viewer=viewer;
 </script>`),
   )
 }

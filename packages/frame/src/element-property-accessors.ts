@@ -1,6 +1,8 @@
 import type { OriginApproval } from '@segnavia/format'
 
-export function defineElementPropertyAccessors<T extends object>(prototype: object, defaults: () => T): void {
+export type ElementPropertyChanged = (element: object, property: string) => void
+
+export function defineElementPropertyAccessors<T extends object>(prototype: object, defaults: () => T, changed?: ElementPropertyChanged): void {
   const values = new WeakMap<object, T>()
   const valueFor = (element: object) => {
     const current = values.get(element)
@@ -18,8 +20,7 @@ export function defineElementPropertyAccessors<T extends object>(prototype: obje
       },
       set(this: object, value: T[typeof name]) {
         valueFor(this)[name] = (name === 'origins' && value !== undefined ? [...(value as Iterable<unknown>)] : value) as T[typeof name]
-        const changed = (this as { elementPropertyChanged?: (property: string) => void }).elementPropertyChanged
-        if (typeof changed === 'function') changed.call(this, String(name))
+        changed?.(this, String(name))
       },
     })
   }
@@ -34,9 +35,14 @@ interface StylesheetPropertyValues {
 export function defineStylesheetPropertyAccessors(
   prototype: object,
   properties: readonly (keyof StylesheetPropertyValues)[] = ['css', 'cspExtra', 'origins'],
+  changed?: ElementPropertyChanged,
 ): void {
-  defineElementPropertyAccessors(prototype, () => {
-    const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', origins: [] }
-    return Object.fromEntries(properties.map((name) => [name, defaults[name]])) as Partial<StylesheetPropertyValues>
-  })
+  defineElementPropertyAccessors(
+    prototype,
+    () => {
+      const defaults: StylesheetPropertyValues = { css: '', cspExtra: '', origins: [] }
+      return Object.fromEntries(properties.map((name) => [name, defaults[name]])) as Partial<StylesheetPropertyValues>
+    },
+    changed,
+  )
 }

@@ -25,6 +25,7 @@ export interface PrintedPageCountOptions extends Pick<PrintablePagesOptions, 'no
   preflightSeed?: PreflightEntry[]
   profile?: PreflightProfile
   report?: (report: PreflightReport) => void
+  signal?: AbortSignal
 }
 
 export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, options: PrintedPageCountOptions, deadlineAt: number): Promise<number> {
@@ -50,12 +51,17 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
   return new Promise((resolve, reject) => {
     let timer = 0
     let reported = false
+    let finished = false
     const finish = (result: number | Error) => {
+      if (finished) return
+      finished = true
       window.removeEventListener('message', onMessage)
+      options.signal?.removeEventListener('abort', onAbort)
       window.clearTimeout(timer)
       frame.remove()
       result instanceof Error ? reject(result) : resolve(result)
     }
+    const onAbort = () => finish(options.signal?.reason instanceof Error ? options.signal.reason : new DOMException('The operation was aborted.', 'AbortError'))
     const onMessage = (event: MessageEvent) => {
       const message = messageFrom(event, frame, options.profile)
       if (message?.type === MESSAGE.preflight && message.report && !reported) {
@@ -70,6 +76,8 @@ export function measurePrintedPageCount(page: HtmlPage | PrintedHtmlPage, option
       finish(count)
     }
     window.addEventListener('message', onMessage)
+    options.signal?.addEventListener('abort', onAbort, { once: true })
+    if (options.signal?.aborted) return onAbort()
     timer = window.setTimeout(() => finish(new Error(PRINTED_PAGE_COUNT_REFUSAL)), Math.max(0, deadlineAt - Date.now()))
     frame.srcdoc = srcdoc
     document.body.append(frame)

@@ -7,8 +7,6 @@ import { measurePrintedPageCount } from './printed-page-count.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
 import { escapeHtml } from './svg.ts'
 
-export { PRINTED_PAGE_COUNT_REFUSAL } from './printed-page-count.ts'
-
 function composedFrame(page: HtmlPage, index: number, expectedCount: number, options: PrintablePagesOptions): string {
   const viewport = paperViewport(page.print as NonNullable<HtmlPage['print']>)
   const resolved = resolvePrintedPageHtml(page)

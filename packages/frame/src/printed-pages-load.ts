@@ -47,6 +47,7 @@ export async function preparePrintedPages(source: Page, options: PreparePrintedP
       profile: options.profile,
       preflightSeed: expanded.preflight,
       report: options.report,
+      signal: options.signal,
     },
     Date.now() + SLIDES_READY_DEADLINE_MS,
   )

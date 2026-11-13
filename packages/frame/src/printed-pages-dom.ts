@@ -2,11 +2,11 @@ import type { OriginApproval, PreflightProfile } from '@segnavia/format'
 import { frameSandbox, newNonce } from './bridge.ts'
 import { dispatchElementError } from './element-error.ts'
 import { printedPageValueDocument } from './printed-page-document.ts'
-import type { PrintedPagesLayout } from './printed-pages.ts'
 import type { PreparedPrintedPages } from './printed-pages-load.ts'
 import {
   type PaperExtent,
   type PrintedPagesFit,
+  type PrintedPagesLayout,
   type PrintedSpread,
   printedPageSpreads,
   printedPagesScale,
@@ -50,8 +50,7 @@ export function buildPrintedPagesDom(
   const papers = new Map<number, PrintedPaperState>()
   host.replaceChildren()
   host.dir = direction
-  const spreads: PrintedSpread[] =
-    layout === 'facing' ? printedPageSpreads(count, direction) : Array.from({ length: count }, (_, index) => ({ inlineStart: index + 1 }))
+  const spreads: PrintedSpread[] = layout === 'facing' ? printedPageSpreads(count) : Array.from({ length: count }, (_, index) => ({ inlineStart: index + 1 }))
   for (const spread of spreads) {
     const outer = document.createElement('div')
     outer.className = 'segnavia-printed-pages__spread'
@@ -132,6 +131,7 @@ export function composePrintedPaper(
     if (state.shown) state.shown.dataset.generation = String(generation)
     return
   }
+  state.pending?.remove()
   state.nonce = state.srcdoc === undefined ? candidateNonce : newNonce()
   const frame = document.createElement('iframe')
   frame.setAttribute('sandbox', frameSandbox('refuse'))

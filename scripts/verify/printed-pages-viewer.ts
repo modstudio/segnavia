@@ -83,6 +83,29 @@ export async function verifyPrintedPagesViewer(h: Harness): Promise<void> {
     JSON.stringify(zoomOrigin),
   )
 
+  const records = await page.evaluate(() => {
+    const state = window as unknown as {
+      recordEvents: string[]
+      viewer: HTMLElement & { page: number; record?: string; goToRecord(id: string): void }
+    }
+    state.recordEvents.length = 0
+    state.viewer.page = 6
+    const changed = [...state.recordEvents]
+    state.viewer.goToRecord('record-8')
+    let refusal = ''
+    try {
+      state.viewer.goToRecord('missing-record')
+    } catch (error) {
+      refusal = error instanceof Error ? error.message : String(error)
+    }
+    return { changed, page: state.viewer.page, record: state.viewer.record, refusal }
+  })
+  check(
+    'record mapping reports current records, navigates to a mapped paper and names an unmapped record refusal',
+    records.changed.includes('record-6') && records.page === 8 && records.record === 'record-8' && records.refusal.includes('missing-record'),
+    JSON.stringify(records),
+  )
+
   await page.waitForFunction(() => [...document.querySelectorAll<HTMLIFrameElement>('segnavia-printed-pages iframe')].some((frame) => !frame.style.visibility))
   const failure = await page.evaluate(async () => {
     const viewer = (window as unknown as { viewer: HTMLElement & { fonts: unknown } }).viewer

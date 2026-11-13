@@ -1,23 +1,11 @@
-import {
-  type Document,
-  type DocumentInput,
-  type PageWidths,
-  type PreflightProfileInput,
-  pageOrPrintedFromDocument,
-  paperViewport,
-  resolveBrand,
-  resolvePreflightProfile,
-  type SlotsOptions,
-} from '@segnavia/format'
+import { type Document, type DocumentInput, pageOrPrintedFromDocument, paperViewport, resolveBrand, resolvePreflightProfile } from '@segnavia/format'
 import { parseDocument, printedPageDirection } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { resolvePageDayLoad } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { dispatchFontFailures, dispatchPreflight, MESSAGE, messageFrom } from './bridge.ts'
 import { upgradeProperties } from './element-properties.ts'
-import type { MotifsOptions, PlacementsOptions } from './motif-expansion.ts'
-import type { FontsOptions } from './page-fonts.ts'
-import { type PageParseOption, PageParseOptionsElement } from './page-parse-options-element.ts'
+import type { PageParseOption } from './page-parse-options-element.ts'
 import { PRINTED_SLOT_REFUSAL } from './page-printed.ts'
 import {
   buildPrintedPagesDom,
@@ -29,43 +17,24 @@ import {
   scrollToPrintedPaper,
 } from './printed-pages-dom.ts'
 import { type PreparedPrintedPages, preparePrintedPages } from './printed-pages-load.ts'
-import { currentPrintedPage, type PrintedPagesFit, printedPagesWindow } from './printed-pages-policy.ts'
+import { PrintedPagesOptionsElement, positivePrintedPagesOption } from './printed-pages-options.ts'
+import { currentPrintedPage, printedPagesWindow } from './printed-pages-policy.ts'
 import { ReloadCoalescer } from './reload-coalescer.ts'
 import { fillsSlotValues } from './slot-render.ts'
 
-export type PrintedPagesLayout = 'single' | 'facing'
-const positive = (value: number, name: string) => {
-  if (!Number.isFinite(value) || value <= 0) throw new RangeError(`${name} must be a positive number.`)
-  return value
-}
-const nonNegative = (value: number, name: string) => {
-  if (!Number.isFinite(value) || value < 0) throw new RangeError(`${name} must be a non-negative number.`)
-  return value
-}
-
-export class SegnaviaPrintedPages extends PageParseOptionsElement {
+export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
   private documentValue: Document | null = null
   private papers = new Map<number, PrintedPaperState>()
   private abort: AbortController | undefined
   private generation = 0
+  private appliedGeneration = 0
+  private fontFailureGeneration: number | undefined
   private currentPage = 1
   private count = 0
   private currentRecord: string | undefined
   private reloadAnchor: number | undefined
   private programmaticScrollTop: number | undefined
   private composeCurrent: ((page: number) => void) | undefined
-  private layoutValue: PrintedPagesLayout = 'single'
-  private fitValue: PrintedPagesFit = 'width'
-  private zoomValue = 1
-  private composeMarginValue = 1
-  private keepMarginValue = 3
-  private reloadDelayValue = 150
-  private slotsValue: SlotsOptions | undefined
-  private motifsValue: MotifsOptions | undefined
-  private placementsValue: PlacementsOptions | undefined
-  private widthsValue: PageWidths | undefined
-  private fontsValue: FontsOptions | undefined
-  private profileValue: PreflightProfileInput = 'default'
   private recordMapping: (page: number) => string | undefined = () => undefined
   private readonly resize = new ResizeObserver(() => this.refit())
   private readonly reloads = new ReloadCoalescer(
@@ -92,6 +61,7 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
       this.schedule()
     } catch (error) {
       this.documentValue = null
+      this.discardLoad()
       renderPrintedPagesFailure(this, error)
     }
   }
@@ -99,7 +69,7 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
     return this.currentPage
   }
   set page(value: number) {
-    const requested = Math.trunc(positive(value, 'page'))
+    const requested = Math.trunc(positivePrintedPagesOption(value, 'page'))
     if (this.count) this.scrollToPage(Math.min(this.count, requested))
     else this.currentPage = requested
   }
@@ -117,94 +87,13 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
     this.updateCurrent(this.currentPage)
     this.schedule()
   }
-  get layout(): PrintedPagesLayout {
-    return this.layoutValue
-  }
-  set layout(value: PrintedPagesLayout) {
-    if (value !== 'single' && value !== 'facing') throw new RangeError("layout must be 'single' or 'facing'.")
-    this.layoutValue = value
+  protected printedPagesReload(): void {
     this.schedule()
   }
-  get fit(): PrintedPagesFit {
-    return this.fitValue
-  }
-  set fit(value: PrintedPagesFit) {
-    if (!['width', 'page', 'none'].includes(value)) throw new RangeError("fit must be 'width', 'page' or 'none'.")
-    this.fitValue = value
-    this.schedule()
-  }
-  get zoom(): number {
-    return this.zoomValue
-  }
-  set zoom(value: number) {
-    this.zoomValue = positive(value, 'zoom')
-    this.schedule()
-  }
-  get composeMargin(): number {
-    return this.composeMarginValue
-  }
-  set composeMargin(value: number) {
-    this.composeMarginValue = nonNegative(value, 'composeMargin')
+  protected printedPagesWindowChanged(): void {
     this.updateWindow()
   }
-  get keepMargin(): number {
-    return this.keepMarginValue
-  }
-  set keepMargin(value: number) {
-    this.keepMarginValue = nonNegative(value, 'keepMargin')
-    this.updateWindow()
-  }
-  get reloadDelay(): number {
-    return this.reloadDelayValue
-  }
-  set reloadDelay(value: number) {
-    if (!Number.isFinite(value) || value < 0) throw new RangeError('reloadDelay must be non-negative.')
-    this.reloadDelayValue = value
-  }
-  get slots(): SlotsOptions | undefined {
-    return this.slotsValue
-  }
-  set slots(value: SlotsOptions | undefined) {
-    this.slotsValue = value
-    this.schedule()
-  }
-  get motifs(): MotifsOptions | undefined {
-    return this.motifsValue
-  }
-  set motifs(value: MotifsOptions | undefined) {
-    this.motifsValue = value
-    this.schedule()
-  }
-  get placements(): PlacementsOptions | undefined {
-    return this.placementsValue
-  }
-  set placements(value: PlacementsOptions | undefined) {
-    this.placementsValue = value
-    this.schedule()
-  }
-  get pageWidths(): PageWidths | undefined {
-    return this.widthsValue
-  }
-  set pageWidths(value: PageWidths | undefined) {
-    this.widthsValue = value
-    this.schedule()
-  }
-  get fonts(): FontsOptions | undefined {
-    return this.fontsValue
-  }
-  set fonts(value: FontsOptions | undefined) {
-    this.fontsValue = value
-    this.schedule()
-  }
-  get profile(): PreflightProfileInput {
-    return this.profileValue
-  }
-  set profile(value: PreflightProfileInput) {
-    resolvePreflightProfile(value)
-    this.profileValue = value
-    this.schedule()
-  }
-  protected elementPropertyChanged(_property: string): void {
+  protected stylesheetPropertyChanged(_property: string): void {
     this.schedule()
   }
   protected pageParseOptionsChanged(_option: PageParseOption): void {
@@ -225,7 +114,7 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
   }
   disconnectedCallback(): void {
     this.reloads.cancel()
-    this.abort?.abort()
+    this.discardLoad()
     this.removeEventListener('scroll', this.onScroll)
     window.removeEventListener('message', this.onMessage)
     this.resize.disconnect()
@@ -258,13 +147,13 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
     if (!document) return
     const keepPage = this.reloadAnchor ?? this.currentPage
     this.reloadAnchor = undefined
-    const generation = ++this.generation
+    this.discardLoad()
+    const generation = this.generation
     const asOfLoad = captureAsOfLoad(this)
     for (const state of this.papers.values()) {
       state.pending?.remove()
       state.pending = undefined
     }
-    this.abort?.abort()
     const controller = new AbortController()
     this.abort = controller
     try {
@@ -286,7 +175,10 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
         origins: this.origins,
         profile,
         day: established.day,
-        report: (report) => this.dispatchEvent(new CustomEvent('preflight', { detail: report, bubbles: true, composed: true })),
+        report: (report) => {
+          if (generation === this.generation && !controller.signal.aborted)
+            this.dispatchEvent(new CustomEvent('preflight', { detail: report, bubbles: true, composed: true }))
+        },
       })
       if (generation !== this.generation || controller.signal.aborted) return
       this.applyPrepared(prepared, generation, keepPage)
@@ -303,8 +195,8 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
     if (this.dataset.geometry !== geometry) this.papers = buildPrintedPagesDom(this, prepared.count, direction, viewport, this.layoutValue)
     this.dataset.geometry = geometry
     this.count = prepared.count
+    this.appliedGeneration = generation
     renderPrintedPagesFailure(this)
-    this.refit()
     this.composeCurrent = (page) => {
       const state = this.papers.get(page)
       if (state)
@@ -315,6 +207,7 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
           profile: resolvePreflightProfile(this.profileValue),
         })
     }
+    this.refit()
     this.updateWindow()
     this.updateCurrent(keepPage)
     this.scrollIfMoved(keepPage)
@@ -324,9 +217,12 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
     const state = [...this.papers.values()].find((item) => item.pending?.contentWindow === event.source || item.shown?.contentWindow === event.source)
     if (!state) return
     const frame = state.pending?.contentWindow === event.source ? state.pending : state.shown
-    if (!frame || Number(frame.dataset.generation) !== this.generation) return
+    if (!frame || Number(frame.dataset.generation) !== this.appliedGeneration) return
     const message = messageFrom(event, frame, resolvePreflightProfile(this.profileValue))
-    dispatchFontFailures(this, message)
+    if (message?.failures && this.fontFailureGeneration !== this.appliedGeneration) {
+      this.fontFailureGeneration = this.appliedGeneration
+      dispatchFontFailures(this, message)
+    }
     if (dispatchPreflight(this, message)) return
     if (message?.type === MESSAGE.composeFailure && message.text) return renderPrintedPagesFailure(this, new Error(message.text))
     if (message?.type !== MESSAGE.ready || frame !== state.pending) return
@@ -388,11 +284,24 @@ export class SegnaviaPrintedPages extends PageParseOptionsElement {
     }
   }
   private clear(): void {
-    this.abort?.abort()
-    this.generation++
+    this.discardLoad()
+    delete this.dataset.geometry
     this.count = 0
+    this.currentPage = 1
+    this.currentRecord = undefined
+    this.reloadAnchor = undefined
+    this.composeCurrent = undefined
+    this.appliedGeneration = 0
+    this.fontFailureGeneration = undefined
     this.papers.clear()
     this.replaceChildren()
     renderPrintedPagesFailure(this)
+    this.dispatchEvent(new CustomEvent('page', { detail: { page: 1, pageCount: 0 } }))
+    this.dispatchEvent(new CustomEvent('record', { detail: { record: undefined } }))
+  }
+  private discardLoad(): void {
+    this.abort?.abort()
+    this.abort = undefined
+    this.generation++
   }
 }

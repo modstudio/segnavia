@@ -7,12 +7,12 @@ test('windowing composes nearby papers while hysteresis keeps farther papers', (
   expect(printedPagesWindow(papers, 200, 100, 100, 300)).toEqual({ compose: [2, 3, 4, 5], keep: [1, 2, 3, 4, 5, 6] })
 })
 
-test('facing pairing puts an LTR recto at inline-end', () => {
-  expect(printedPageSpreads(4, 'ltr')).toEqual([{ inlineEnd: 1 }, { inlineStart: 2, inlineEnd: 3 }, { inlineStart: 4, inlineEnd: undefined }])
+test('the keep window contains the compose window when its margin is smaller', () => {
+  expect(printedPagesWindow(papers, 200, 100, 300, 0)).toEqual({ compose: [1, 2, 3, 4, 5, 6], keep: [1, 2, 3, 4, 5, 6] })
 })
 
-test('facing pairing puts an RTL recto at inline-end, which is the left', () => {
-  expect(printedPageSpreads(4, 'rtl')).toEqual([{ inlineEnd: 1 }, { inlineStart: 2, inlineEnd: 3 }, { inlineStart: 4, inlineEnd: undefined }])
+test('facing pairing puts an LTR recto at inline-end', () => {
+  expect(printedPageSpreads(4)).toEqual([{ inlineEnd: 1 }, { inlineStart: 2, inlineEnd: 3 }, { inlineStart: 4, inlineEnd: undefined }])
 })
 
 test('fit and zoom scale paper geometry', () => {

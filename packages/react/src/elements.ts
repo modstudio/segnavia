@@ -1,4 +1,13 @@
-import type { SegnaviaBoard, SegnaviaBook, SegnaviaDocument, SegnaviaPage, SegnaviaPaper, SegnaviaStage, SegnaviaThumbnail } from '@segnavia/frame'
+import type {
+  SegnaviaBoard,
+  SegnaviaBook,
+  SegnaviaDocument,
+  SegnaviaPage,
+  SegnaviaPaper,
+  SegnaviaPrintedPages,
+  SegnaviaStage,
+  SegnaviaThumbnail,
+} from '@segnavia/frame'
 import type {
   SegnaviaCaption,
   SegnaviaCaptions,
@@ -32,6 +41,7 @@ import type {
   PaperProps,
   PlayerProps,
   PlayProps,
+  PrintedPagesProps,
   RailProps,
   StageProps,
   StepProps,
@@ -128,6 +138,17 @@ export const ELEMENTS = {
       fontfailure: 'onFontfailure',
       error: 'onError',
       composeprogress: 'onComposeprogress',
+    }),
+  }),
+  printedPages: element<SegnaviaPrintedPages, PrintedPagesProps, typeof FRAME_ELEMENTS.printedPages.tag>({
+    ...FRAME_ELEMENTS.printedPages,
+    events: reactEvents<PrintedPagesProps>()(FRAME_ELEMENTS.printedPages.events, {
+      page: 'onPage',
+      record: 'onRecord',
+      asof: 'onAsof',
+      preflight: 'onPreflight',
+      fontfailure: 'onFontfailure',
+      error: 'onError',
     }),
   }),
   book: element<SegnaviaBook, BookProps, typeof FRAME_ELEMENTS.book.tag>({
