@@ -275,7 +275,7 @@ document.
 | `slots` | `data.slots` |
 | `fonts` | `style.fonts` |
 | `css` | `style.css` |
-| `numbering` | root `numbering` |
+| `numbering` | root `numbering`; `frontMatter` and `body` choose folio systems, while `parts.style` and `chapters.style` choose structure-number styles |
 | `footnotes` | root `footnotes` |
 | `endnotes` | root `endnotes` |
 | `notes` | root `noteSeries`, with `type: 'noteSeries'` on every definition |
@@ -285,9 +285,9 @@ document.
 | `fragmentation` | root `fragmentation` |
 | `contents.pageNumbers` | a `contents` node's `pageNumbers` |
 | `contents.depth` | a `contents` node's `contentsDepth` |
-| part `name`, `title`, `html`, `contents`, `opens`, `parentRules`, `children` | a `part` node with the same fields and `type: 'part'` |
-| chapter `title`, `html` | a `section` node holding a `flow` child; the flow holds `html` |
-| section `title`, `contentsLabel`, `subtitle`, `contents`, `contentsDepth`, `opens`, `parentRules` | the same fields on a `section` node |
+| part `name`, `title`, `contentsLabel`, `html`, `number`, `numbering`, `contents`, `opens`, `parentRules`, `children` | a `part` node with the same fields and `type: 'part'` |
+| chapter `title`, `html`, `number` | a `section` node holding a `flow` child; the flow holds `html` |
+| section `title`, `contentsLabel`, `subtitle`, `contents`, `contentsDepth`, `number`, `opens`, `parentRules` | the same fields on a `section` node |
 | designed section `pages[].html` | `section.children[]` page nodes with `body: { html }` |
 | templated section `template` | `section.template` |
 | templated section `pages[].template` and `pages[].regions` | page-node `template` and `regions` fields under `section.children` |
@@ -1134,6 +1134,12 @@ margin-layer furniture is likewise drawn as form XObjects and is not part of
 the book's structure tree.
 
 ### Printed book structure
+
+Part and chapter numbers are opt-in structure numbers, separate from page folios and from the internal chapter counter used by notes. Root `numbering.parts.style` and `numbering.chapters.style` enable their levels. Styles are `arabic`, `roman-lower`, `roman-upper` and `hebrew`; English defaults to upper Roman parts and Arabic chapters, while a Hebrew book defaults both levels to Hebrew letters. A part may override either style for its descendants and set `numbering.parts.restart` or `numbering.chapters.restart` to a positive integer start value. Chapter counts continue across parts unless restarted, while nested part counts restart in each parent. An authored non-empty string or positive-integer `number` replaces one node's displayed text without removing it from the count; `number: false` skips that node. Front matter, end matter, contents, generated notes and records are not chapters.
+
+The computed number is shared by the contents, PDF outline and text variables. Contents place it before the label in an isolated `segnavia-contents-number` span; the outline uses “number label”. `chapter-number` reads the current chapter, while `part-number` names a part as `part-title` does. A part's `contentsLabel` replaces its title in both lists. These generated classes and values are headless and add no appearance.
+
+A part may use `opens: 'continue'` after a flowing section when its resolved geometry is unchanged and it sets no `parentRules`. Authored part HTML joins that flow. Without HTML, the library generates an isolated `segnavia-part-heading` containing `segnavia-part-number` and `segnavia-part-title` spans. A continuing part cannot be first in its division or part sequence or follow a non-flowing section. Other parts retain their forced print break, and a non-continuing title-only part remains an outline level rather than gaining a page.
 
 Part depth is added to the heading level inside a section for both contents and PDF outlines. A `contents` node's `contentsDepth`, which defaults to 2, lowers to `contents.depth` and counts only levels inside each section, so adding parts does not remove chapter h2 entries and parts always appear when included. A section's optional `contentsDepth` caps its own entries at the lower of that value and the book depth; it cannot raise the book depth, and `contents: false` still removes the section and its headings. A chapter's headings start at level 2 under its level-1 title, while a designed or templated page's `<h1>` shares the title's level 1, so a cap of 1 lists a chapter's title alone and a designed section's title with its page `<h1>` headings. The separate root `outline.depth` accepts 1 through 6, defaults to 6, is available only on book and printed documents, and is unaffected by section contents caps.
 
