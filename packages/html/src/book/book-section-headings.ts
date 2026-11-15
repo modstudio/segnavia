@@ -18,7 +18,7 @@ export function withSectionDepth(headings: BookHeading[], depth: number, content
 }
 
 export function appendHeldHeadings(entry: { contents?: boolean; contentsDepth?: number }, headings: BookHeading[], depth: number, listed: BookHeading[]): void {
-  if (entry.contents) listed.push(...withSectionDepth(headings, depth))
+  if (entry.contents) listed.push(...withSectionDepth(headings, depth, entry.contentsDepth))
 }
 
 export function appendChapterHeadings(entry: ChapterHeadingEntry, section: BuiltSection, depth: number, maxHeadingLevel: number, listed: BookHeading[]): void {
