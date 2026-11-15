@@ -100,7 +100,10 @@ function runLength(input: Uint8Array, object: number, limit: number): Uint8Array
 
 class BitReader {
   private bit = 0
-  constructor(private readonly bytes: Uint8Array) {}
+  private readonly bytes: Uint8Array
+  constructor(bytes: Uint8Array) {
+    this.bytes = bytes
+  }
   read(width: number): number | undefined {
     if (this.bit + width > this.bytes.length * 8) return undefined
     let value = 0
