@@ -3,7 +3,7 @@ import type { TabRunner } from './browser-tab.ts'
 import { RenderLimitError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
 import { assetSetup } from './options.ts'
-import { enforce, enforcePdfBytes } from './pdf-finish.ts'
+import { enforcePdfBytes } from './pdf-finish.ts'
 import { loadPdf } from './pdf-load.ts'
 import { receivedPageFacts } from './received-page.ts'
 import type { RenderDeadline } from './render-deadline.ts'
@@ -71,5 +71,5 @@ export async function stampReceivedPdf(bytes: Uint8Array, options: StampPdfOptio
     layer,
     selected.map(({ number, facts }, layerPage) => ({ layerPage, outputPage: number, facts })),
   )
-  return enforce(output, options.limits)
+  return enforcePdfBytes(output, options.limits)
 }
