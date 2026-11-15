@@ -4,8 +4,9 @@ import { PDFDocument, PDFName } from 'pdf-lib'
 import type { TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import { pageContent } from './pdf-content.test-helper.ts'
+import { receivedPageFacts } from './received-page.ts'
 import type { RenderDeadline } from './render-deadline.ts'
-import { applyWatermark, stampWatermark, watermarkCopyStamper, watermarkPartFromFacts } from './watermark-stamp.ts'
+import { applyWatermark, stampReceivedWatermark, stampWatermark, watermarkCopyStamper, watermarkPartFromFacts } from './watermark-stamp.ts'
 
 async function fixture(pages: number, prefix: string): Promise<Uint8Array> {
   const document = await PDFDocument.create()
@@ -41,6 +42,19 @@ test('refuses a placement whose output page is beyond the PDF', async () => {
   await expect(stampWatermark(await fixture(2, 'source'), await fixture(1, 'layer'), [{ layerPage: 0, outputPage: 3 }])).rejects.toThrow(
     new RenderRefusedError('The watermark layer could not be matched to output page 3; rebuild the output to clear this refusal.'),
   )
+})
+
+test('received stamping refuses a mismatched layer and invalid placements', async () => {
+  const facts = receivedPageFacts({ mediaBox: { x: 0, y: 0, width: 200, height: 300 }, rotate: 0, page: 1 })
+  await expect(
+    stampReceivedWatermark(await PDFDocument.load(await fixture(1, 'source')), await fixture(2, 'layer'), [{ layerPage: 0, outputPage: 1, facts }]),
+  ).rejects.toThrow('watermark layer has 2 pages for 1 selected output pages')
+  await expect(
+    stampReceivedWatermark(await PDFDocument.load(await fixture(1, 'source')), await fixture(1, 'layer'), [{ layerPage: 1, outputPage: 1, facts }]),
+  ).rejects.toThrow('could not be matched to output page 1')
+  await expect(
+    stampReceivedWatermark(await PDFDocument.load(await fixture(1, 'source')), await fixture(1, 'layer'), [{ layerPage: 0, outputPage: 2, facts }]),
+  ).rejects.toThrow('could not be matched to output page 2')
 })
 
 test('keeps physical page selection across pagesPdf slot-fill copies', async () => {

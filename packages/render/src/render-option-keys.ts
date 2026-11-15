@@ -127,6 +127,9 @@ export const PROOF_IMAGE_OPTION_KEYS = {
 } as const satisfies Record<keyof ProofImageOptions, true>
 
 export const STAMP_PDF_OPTION_KEYS = {
+  origins: true,
+  assets: true,
+  assetBudget: true,
   watermark: true,
   protection: true,
   limits: true,

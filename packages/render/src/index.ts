@@ -140,7 +140,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
     finishPdfWithBrowser(pdf, options, withTab, deadline)
   const renderer: Renderer = {
-    async stampPdf(bytes, opts) {
+    async stampPdf(bytes, opts = {}) {
       const parsedOptions = parseStampPdfOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
         const output = await stampReceivedPdf(bytes, parsedOptions, deadline, withTab)

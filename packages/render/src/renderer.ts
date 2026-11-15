@@ -35,7 +35,7 @@ export type ParsedPagePdfOptions = ParsedPageRenderOptions & PdfOptions & { moti
 export type BookPdfOptions = ComposedRenderInput & PdfOptions & AsOfInputs & { motifs?: MotifsOptions; plan?: Plan; breaks?: string[]; watermark?: Watermark }
 export type ParsedBookPdfOptions = ParsedComposedRenderOptions<BookPdfOptions>
 export type BookPlanOptions = RenderOptions & AsOfInputs & { motifs?: MotifsOptions; breaks?: string[] }
-export interface StampPdfOptions extends PdfOptions {
+export interface StampPdfOptions extends PdfOptions, Pick<RenderOptions, 'origins' | 'assets' | 'assetBudget'> {
   watermark?: Watermark
   limits?: Limits
   fonts?: FontFace[]
@@ -51,7 +51,7 @@ export interface Renderer {
   deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PdfOptions & PrintOptions & AsOfInputs & { watermark?: Watermark }): Promise<Uint8Array>
   slideImage(deck: DocumentInput, index: number, options?: SlideImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
-  stampPdf(bytes: Uint8Array, options: StampPdfOptions): Promise<Uint8Array>
+  stampPdf(bytes: Uint8Array, options?: StampPdfOptions): Promise<Uint8Array>
   close(): Promise<void>
 }
 

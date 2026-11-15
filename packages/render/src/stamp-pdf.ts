@@ -1,7 +1,9 @@
-import { resolveDirection } from '@segnavia/format'
+import { resolveDirection, resolveLimits } from '@segnavia/format'
 import type { TabRunner } from './browser-tab.ts'
+import { RenderLimitError } from './errors.ts'
 import { fontFaces } from './font-faces.ts'
-import { enforce } from './pdf-finish.ts'
+import { assetSetup } from './options.ts'
+import { enforce, enforcePdfBytes } from './pdf-finish.ts'
 import { loadPdf } from './pdf-load.ts'
 import { receivedPageFacts } from './received-page.ts'
 import type { RenderDeadline } from './render-deadline.ts'
@@ -12,8 +14,13 @@ import { watermarkPageNumbers } from './watermark-options.ts'
 import { stampReceivedWatermark } from './watermark-stamp.ts'
 
 export async function stampReceivedPdf(bytes: Uint8Array, options: StampPdfOptions, deadline: RenderDeadline, withTab: TabRunner): Promise<Uint8Array> {
-  const received = await loadPdf(bytes, { source: 'received', limits: options.limits })
-  if (!options.watermark) return enforce(bytes, options.limits)
+  const resolvedLimits = resolveLimits(undefined, options.limits)
+  const received = await loadPdf(bytes, { source: 'received', limits: resolvedLimits })
+  enforcePdfBytes(bytes, options.limits)
+  if (options.limits?.sheets !== undefined && received.getPageCount() > options.limits.sheets) {
+    throw new RenderLimitError('sheets', received.getPageCount(), options.limits.sheets)
+  }
+  if (!options.watermark) return bytes
   const pages = received.getPages()
   const selectedNumbers = new Set(watermarkPageNumbers(options.watermark, pages.length))
   const selected = pages.flatMap((page, index) => {
@@ -28,8 +35,9 @@ export async function stampReceivedPdf(bytes: Uint8Array, options: StampPdfOptio
     })
     return [{ number, facts }]
   })
-  if (selected.length === 0) return enforce(bytes, options.limits)
+  if (selected.length === 0) return bytes
   const direction = resolveDirection(options.watermark.dir, options.watermark.lang, options.watermark.text ?? '')
+  const fontFamily = options.fonts?.[0]?.family ?? 'sans-serif'
   const layer = await withTab(
     {
       viewport: { width: 1024, height: 768 },
@@ -41,13 +49,13 @@ export async function stampReceivedPdf(bytes: Uint8Array, options: StampPdfOptio
           trim: facts.viewed.frame,
           direction,
           ...(options.watermark?.lang ? { lang: options.watermark.lang } : {}),
-          fontFamily: 'sans-serif',
+          fontFamily,
         })),
         fontFaces(options.fonts),
       ),
       readiness: { author: false },
       deadline,
-      limits: options.limits,
+      ...assetSetup({ ...options, limits: resolvedLimits }),
     },
     async (tab) => {
       await tab.evaluate(fitWatermarkText, undefined)
@@ -59,10 +67,9 @@ export async function stampReceivedPdf(bytes: Uint8Array, options: StampPdfOptio
     },
   )
   const output = await stampReceivedWatermark(
-    bytes,
+    received,
     layer,
     selected.map(({ number, facts }, layerPage) => ({ layerPage, outputPage: number, facts })),
-    options.limits,
   )
   return enforce(output, options.limits)
 }

@@ -9,6 +9,30 @@ function bits(codes: readonly number[]): Uint8Array {
   )
 }
 
+function lzwBits(codes: readonly number[], earlyChange: 0 | 1): Uint8Array {
+  let tableLength = 258
+  let width = 9
+  let previous = false
+  let value = ''
+  for (const code of codes) {
+    value += code.toString(2).padStart(width, '0')
+    if (code === 256) {
+      tableLength = 258
+      width = 9
+      previous = false
+      continue
+    }
+    if (code !== 257 && previous && tableLength < 4096) {
+      tableLength += 1
+      if (tableLength === (1 << width) - earlyChange && width < 12) width += 1
+    }
+    if (code !== 257) previous = true
+  }
+  return Uint8Array.from(
+    Array.from({ length: Math.ceil(value.length / 8) }, (_, index) => Number.parseInt(value.slice(index * 8, index * 8 + 8).padEnd(8, '0'), 2)),
+  )
+}
+
 test.each([
   ['FlateDecode', deflateSync(Uint8Array.of(65)), Uint8Array.of(65)],
   ['LZWDecode', bits([256, 65, 257]), Uint8Array.of(65)],
@@ -31,4 +55,10 @@ test('decodes a filter chain stage by stage and refuses nine filters', () => {
       8,
     ),
   ).toThrow('decode filter chain of 9')
+})
+
+test('decodes LZW streams with EarlyChange 0', () => {
+  const decoded = new Uint8Array(260).fill(65)
+  const encoded = lzwBits([256, ...decoded, 257], 0)
+  expect(decodePdfStreamBounded(encoded, ['LZWDecode'], 4, decoded.length, [{ earlyChange: 0 }])).toEqual(decoded)
 })

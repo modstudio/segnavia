@@ -5,7 +5,7 @@ import { refuseUnknownOptions } from './render-option-keys.ts'
 import type { StampPdfOptions } from './renderer.ts'
 import { parseWatermarkOption } from './watermark-options.ts'
 
-export function parseStampPdfOptions(options: StampPdfOptions): StampPdfOptions {
+export function parseStampPdfOptions(options: StampPdfOptions = {}): StampPdfOptions {
   refuseUnknownOptions('stampPdf', options)
   if (options.watermark === undefined && options.protection === undefined) {
     throw new RenderRefusedError('stampPdf needs watermark or protection; pass at least one of options.watermark and options.protection to clear this refusal.')

@@ -112,7 +112,7 @@ class BitReader {
   }
 }
 
-function lzw(input: Uint8Array, object: number, limit: number): Uint8Array {
+function lzw(input: Uint8Array, object: number, limit: number, earlyChange: 0 | 1): Uint8Array {
   const reader = new BitReader(input)
   let table: Uint8Array[] = []
   let width = 9
@@ -139,14 +139,14 @@ function lzw(input: Uint8Array, object: number, limit: number): Uint8Array {
     if (output.length > limit) overLimit(object, limit)
     if (previous && table.length < 4096) {
       table.push(Uint8Array.from([...previous, entry[0] as number]))
-      if (table.length === (1 << width) - 1 && width < 12) width += 1
+      if (table.length === (1 << width) - earlyChange && width < 12) width += 1
     }
     previous = entry
   }
   return Uint8Array.from(output)
 }
 
-function decodeStage(input: Uint8Array, filter: PdfStreamFilter, object: number, limit: number): Uint8Array {
+function decodeStage(input: Uint8Array, filter: PdfStreamFilter, object: number, limit: number, earlyChange: 0 | 1): Uint8Array {
   if (filter === 'FlateDecode') {
     try {
       return bounded(inflateSync(input, { maxOutputLength: limit + 1 }), object, limit)
@@ -158,24 +158,34 @@ function decodeStage(input: Uint8Array, filter: PdfStreamFilter, object: number,
   if (filter === 'ASCIIHexDecode') return asciiHex(input, object, limit)
   if (filter === 'ASCII85Decode') return ascii85(input, object, limit)
   if (filter === 'RunLengthDecode') return runLength(input, object, limit)
-  return lzw(input, object, limit)
+  return lzw(input, object, limit, earlyChange)
 }
 
-export function decodePdfStreamBounded(input: Uint8Array, filters: readonly string[], object: number, limit: number): Uint8Array {
+export interface PdfStreamDecodeParameter {
+  earlyChange?: 0 | 1
+}
+
+export function decodePdfStreamBounded(
+  input: Uint8Array,
+  filters: readonly string[],
+  object: number,
+  limit: number,
+  parameters: readonly (PdfStreamDecodeParameter | undefined)[] = [],
+): Uint8Array {
   if (filters.length > MAX_PDF_FILTER_CHAIN) {
     throw new RenderRefusedError(
       `Received PDF stream object ${object} has a decode filter chain of ${filters.length}, above the supported maximum of ${MAX_PDF_FILTER_CHAIN}; use at most ${MAX_PDF_FILTER_CHAIN} stream filters to clear this refusal.`,
     )
   }
   let output = filters.length === 0 ? bounded(input, object, limit) : input
-  for (const filter of filters) {
+  for (const [index, filter] of filters.entries()) {
     if (!['FlateDecode', 'LZWDecode', 'ASCII85Decode', 'ASCIIHexDecode', 'RunLengthDecode'].includes(filter)) {
       throw new RenderRefusedError(
         `Received PDF stream object ${object} uses unsupported decode filter ${filter}; use FlateDecode, LZWDecode, ASCII85Decode, ASCIIHexDecode or RunLengthDecode for object and cross-reference streams to clear this refusal.`,
       )
     }
     try {
-      output = decodeStage(output, filter as PdfStreamFilter, object, limit)
+      output = decodeStage(output, filter as PdfStreamFilter, object, limit, parameters[index]?.earlyChange ?? 1)
     } catch (error) {
       if (error instanceof RenderRefusedError) throw error
       throw new RenderRefusedError(`Received PDF stream object ${object} could not be decoded as ${filter}; use a valid PDF stream to clear this refusal.`)
