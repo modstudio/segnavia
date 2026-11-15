@@ -1,5 +1,5 @@
 import { type BookDivisions, type BookSectionEntry, bookSections, isBookContents, isPart } from './book-section.ts'
-import { numberSystemMaximum, type NumberSystem } from './numbering.ts'
+import { type NumberSystem, numberSystemMaximum } from './numbering.ts'
 import { type StructureNumberSettings, structureNumberStyle } from './structure-numbers.ts'
 
 export interface StructureNumberingIssue {
@@ -19,11 +19,12 @@ function issue(path: (string | number)[], node: string, field: string, value: nu
   }
 }
 
-export function structureNumberingIssues(
-  book: BookDivisions,
-  settings: StructureNumberSettings,
-): StructureNumberingIssue[] {
-  const issues: StructureNumberingIssue[] = []
+type StructureNumberingBook = BookDivisions & {
+  lang?: string
+  numbering: Pick<StructureNumberSettings, 'parts' | 'chapters'>
+}
+
+function partEntries(book: BookDivisions): BookSectionEntry[] {
   const parts: BookSectionEntry[] = []
   const collectParts = (
     items: BookDivisions['body'],
@@ -35,56 +36,52 @@ export function structureNumberingIssues(
       if (!isPart(entry)) return
       const path = [...parentPath, index]
       parts.push({ entry, division, path, ancestry, depth: ancestry.length, id: entry.id })
-      collectParts(entry.children, division, [...path, 'children'], [
-        ...ancestry,
-        { name: entry.name, title: entry.title, id: entry.id, number: entry.number, numbering: entry.numbering },
-      ])
+      collectParts(
+        entry.children,
+        division,
+        [...path, 'children'],
+        [...ancestry, { name: entry.name, title: entry.title, id: entry.id, number: entry.number, numbering: entry.numbering }],
+      )
     })
   }
   collectParts(book.frontMatter, 'front', ['frontMatter'], [])
   collectParts(book.body, 'body', [book.bodyKey ?? 'body'], [])
   collectParts(book.endMatter, 'end', ['endMatter'], [])
+  return parts
+}
 
-  for (const section of parts) {
-    const entry = section.entry
-    if (!isPart(entry)) continue
-    if (typeof entry.number === 'number') {
-      const style = structureNumberStyle(section, 'part', settings)
-      const maximum = numberSystemMaximum(style)
-      if (maximum !== undefined && entry.number > maximum) {
-        issues.push(issue([...section.path, 'number'], `part ${JSON.stringify(entry.title ?? section.id)}`, 'number', entry.number, style, maximum))
-      }
-    }
-    if (entry.numbering === undefined) continue
-    for (const restartLevel of ['parts', 'chapters'] as const) {
-      const restart = entry.numbering[restartLevel]?.restart
-      if (restart === undefined) continue
-      const descendant = { ...section, ancestry: [...section.ancestry, { ...entry, id: section.id }] }
-      const style = structureNumberStyle(descendant, restartLevel === 'parts' ? 'part' : 'chapter', settings)
-      const maximum = numberSystemMaximum(style)
-      if (maximum !== undefined && restart > maximum) {
-        issues.push(
-          issue(
-            [...section.path, 'numbering', restartLevel, 'restart'],
-            `part ${JSON.stringify(entry.title ?? section.id)}`,
-            `${restartLevel} restart`,
-            restart,
-            style,
-            maximum,
-          ),
-        )
-      }
-    }
-  }
-  for (const section of bookSections(book)) {
-    if (!isChapter(section)) continue
-    const entry = section.entry as BookSectionEntry['entry'] & { number?: string | number | false }
-    if (typeof entry.number !== 'number') continue
-    const style = structureNumberStyle(section, 'chapter', settings)
+function authoredNumberIssue(section: BookSectionEntry, level: 'part' | 'chapter', settings: StructureNumberSettings): StructureNumberingIssue[] {
+  const entry = section.entry as BookSectionEntry['entry'] & { number?: string | number | false }
+  if (typeof entry.number !== 'number') return []
+  const style = structureNumberStyle(section, level, settings)
+  const maximum = numberSystemMaximum(style)
+  if (maximum === undefined || entry.number <= maximum) return []
+  return [issue([...section.path, 'number'], `${level} ${JSON.stringify(entry.title ?? section.id)}`, 'number', entry.number, style, maximum)]
+}
+
+function restartIssues(section: BookSectionEntry, settings: StructureNumberSettings): StructureNumberingIssue[] {
+  if (!isPart(section.entry) || section.entry.numbering === undefined) return []
+  const entry = section.entry
+  const descendant = { ...section, ancestry: [...section.ancestry, { ...entry, id: section.id }] }
+  return (['parts', 'chapters'] as const).flatMap((level) => {
+    const restart = entry.numbering?.[level]?.restart
+    if (restart === undefined) return []
+    const style = structureNumberStyle(descendant, level === 'parts' ? 'part' : 'chapter', settings)
     const maximum = numberSystemMaximum(style)
-    if (maximum !== undefined && entry.number > maximum) {
-      issues.push(issue([...section.path, 'number'], `chapter ${JSON.stringify(entry.title ?? section.id)}`, 'number', entry.number, style, maximum))
-    }
-  }
-  return issues
+    if (maximum === undefined || restart <= maximum) return []
+    return [
+      issue([...section.path, 'numbering', level, 'restart'], `part ${JSON.stringify(entry.title ?? section.id)}`, `${level} restart`, restart, style, maximum),
+    ]
+  })
+}
+
+export function structureNumberingIssues(book: StructureNumberingBook): StructureNumberingIssue[] {
+  const settings = { lang: book.lang, parts: book.numbering.parts, chapters: book.numbering.chapters }
+  const parts = partEntries(book)
+  const chapters = bookSections(book).filter(isChapter)
+  return [
+    ...parts.flatMap((part) => authoredNumberIssue(part, 'part', settings)),
+    ...parts.flatMap((part) => restartIssues(part, settings)),
+    ...chapters.flatMap((chapter) => authoredNumberIssue(chapter, 'chapter', settings)),
+  ]
 }

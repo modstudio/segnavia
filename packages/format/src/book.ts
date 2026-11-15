@@ -35,8 +35,8 @@ import { bookParentPages, Fragmentation, ParentPage, textArea } from './printed-
 import { Scripts } from './scripts.ts'
 import { sectionNumberingIssues } from './section-numbering-policy.ts'
 import { sectionOpensIssues } from './section-opens-policy.ts'
-import { structureNumberingIssues } from './structure-numbering-policy.ts'
 import { Slots } from './slots.ts'
+import { structureNumberingIssues } from './structure-numbering-policy.ts'
 import { Brand, StyleSheet } from './style-sheet.ts'
 import { Variables } from './variable.ts'
 import { VariableDocumentFacts } from './variable-document-facts.ts'
@@ -369,13 +369,7 @@ export function refineBookPolicies(book: ResolvedBookValue, ctx: z.RefinementCtx
   for (const issue of sectionNumberingIssues({ mode: book.mode, systems: book.numbering, sections: numberedSections })) {
     ctx.addIssue({ code: 'custom', ...issue })
   }
-  for (const issue of structureNumberingIssues(book, {
-    lang: book.lang,
-    parts: book.numbering.parts,
-    chapters: book.numbering.chapters,
-  })) {
-    ctx.addIssue({ code: 'custom', ...issue })
-  }
+  for (const issue of structureNumberingIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   if (book.mode === 'paginated' && !book.page) {
     ctx.addIssue({ code: 'custom', path: ['page'], message: 'a paginated book needs page; set page or use continuous mode' })
   }

@@ -6,13 +6,11 @@ import {
   headTemplatePlacements,
   MOTIF_ATTRIBUTE,
   type OutlineSource,
-  type PaginateVariable,
   PREFLIGHT_SUBJECT_LIMIT,
   PX_PER_MM,
   pageNotPrintedRefusal,
   SECTION_BOUNDARY_CLASS,
   textHoldingParentRules,
-  type Variable,
 } from '@segnavia/format'
 import {
   ABSOLUTE_PX,
@@ -54,6 +52,7 @@ import { embeddedComposerProgressFunctions } from './composer-progress.ts'
 import { embeddedComposerPropertyFunctions } from './composer-properties-embed.ts'
 import { placeParentRegions } from './composer-regions.ts'
 import { composerTagEntries, embeddedComposerTagFunctions } from './composer-tags.ts'
+import { parsePartValues, partTitleValues, sectionTitleValues } from './composer-title-values.ts'
 import { correctedWindowSpacer, windowContentTop, windowSpacerOffset, windowSpacerProperties } from './composer-window-placement.ts'
 import { declaredFontLoadExpression } from './font-load.ts'
 import { LAYOUT_ATTRIBUTE } from './layout.ts'
@@ -75,65 +74,7 @@ export function flowSectionNumbering(element: Pick<Element, 'getAttribute'>): { 
   return { counted: counted === 'false' ? false : undefined, restart: restart === null ? undefined : Number(restart) }
 }
 
-export function partTitleValues(variables: readonly Variable[], parts: Record<string, string>): PaginateVariable[] {
-  var values: PaginateVariable[] = []
-  var index: number
-  var variable: Variable | undefined
-  var value: string | undefined
-  for (index = 0; index < variables.length; index += 1) {
-    variable = variables[index]
-    if (variable === undefined || variable.kind !== 'text') continue
-    if (variable.from === 'part-title') value = Object.hasOwn(parts, variable.part) ? parts[variable.part] : undefined
-    else if (variable.from === 'part-number') {
-      const key = partNumberKey(variable.part)
-      value = Object.hasOwn(parts, key) ? parts[key] : undefined
-    }
-    else continue
-    values.push({ name: variable.name, value: value === undefined ? '' : value, line: 0, scope: 'flow' })
-  }
-  return values
-}
-
-export function parsePartValues(value: string | null): Record<string, string> {
-  if (!value) return {}
-  try {
-    const parsed = JSON.parse(value)
-    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : {}
-  } catch (_error) {
-    return {}
-  }
-}
-
-interface SectionTitleNode {
-  getAttribute(name: string): string | null
-  getBoundingClientRect(): { top: number }
-}
-
-export function sectionTitleValues(
-  variables: readonly Variable[],
-  titleNodes: readonly SectionTitleNode[],
-  lines: readonly MeasuredLineBox[],
-  origin: number,
-  lineFor: (top: number, lines: readonly MeasuredLineBox[]) => number,
-): PaginateVariable[] {
-  const values: PaginateVariable[] = []
-  for (const variable of variables) {
-    if (variable.kind !== 'text' || !['section-title', 'chapter-number', 'part-title', 'part-number'].includes(variable.from)) continue
-    for (const titleNode of titleNodes) {
-      const titleTop = titleNode.getBoundingClientRect().top - origin
-      let value = ''
-      if (variable.from === 'section-title') value = titleNode.getAttribute('data-segnavia-section-title') ?? ''
-      else if (variable.from === 'chapter-number') value = titleNode.getAttribute('data-segnavia-section-number') ?? ''
-      else {
-        const heldParts = parsePartValues(titleNode.getAttribute('data-segnavia-parts'))
-        const partKey = variable.from === 'part-number' ? partNumberKey(variable.part) : variable.part
-        value = Object.hasOwn(heldParts, partKey) ? heldParts[partKey] || '' : ''
-      }
-      values.push({ name: variable.name, value, line: lineFor(titleTop, lines), scope: 'flow' })
-    }
-  }
-  return values
-}
+export { parsePartValues, partTitleValues, sectionTitleValues } from './composer-title-values.ts'
 
 export interface FlowMeasurementFacts {
   id: string

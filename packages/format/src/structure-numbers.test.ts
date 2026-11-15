@@ -79,10 +79,7 @@ describe('structureNumbers', () => {
               title: 'Inner',
               contents: true,
               numbering: { parts: { restart: 3 }, chapters: { restart: 4 } },
-              children: [
-                { id: 'nested', name: 'nested', title: 'Nested', contents: true, children: [] },
-                chapter('chapter'),
-              ],
+              children: [{ id: 'nested', name: 'nested', title: 'Nested', contents: true, children: [] }, chapter('chapter')],
             },
           ],
         },

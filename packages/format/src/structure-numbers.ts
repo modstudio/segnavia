@@ -26,7 +26,11 @@ function enclosingLevelValue<K extends 'style' | 'restart'>(section: BookSection
 }
 
 export function structureNumberStyle(section: BookSectionEntry, level: Level, settings: StructureNumberSettings): NumberSystem {
-  return enclosingLevelValue(section, level, 'style') ?? settings[level === 'part' ? 'parts' : 'chapters']?.style ?? defaultStructureNumberStyle(level, settings.lang)
+  return (
+    enclosingLevelValue(section, level, 'style') ??
+    settings[level === 'part' ? 'parts' : 'chapters']?.style ??
+    defaultStructureNumberStyle(level, settings.lang)
+  )
 }
 
 function authoredText(authored: string | number | false | undefined, count: number, style: NumberSystem): string | undefined {
