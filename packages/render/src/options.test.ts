@@ -185,10 +185,8 @@ test('placed PDF validation refuses a selected page beyond the received source p
           kind: 'media' as const,
           media: {
             format: 'pdf' as const,
-            pages: [
-              { boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } },
-              { boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } },
-            ],
+            size: { width: 10, height: 10 },
+            pages: [{ boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } }, { boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } }],
           },
           src: 'data:image/png;base64,AA==',
           bytes: await document.save(),

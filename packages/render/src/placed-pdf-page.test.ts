@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test'
 import { PLACED_PDF_SOURCES } from '@segnavia/html'
 import { degrees, PDFArray, PDFDict, PDFDocument, PDFName, PDFNumber, type PDFRef, PDFString, StandardFonts } from 'pdf-lib'
-import { pageContent } from './pdf-content.test-helper.ts'
 import { RenderRefusedError } from './errors.ts'
+import { pageContent } from './pdf-content.test-helper.ts'
 import { markerMeasurements } from './placed-pdf-markers.ts'
 import { drawPlacedPdfPages, placedPdfCrop } from './placed-pdf-page.ts'
 
@@ -172,7 +172,7 @@ test('leaves a transparent marker when the selected source page has no contents'
             'blank',
             {
               bytes: await source.save(),
-              media: { format: 'pdf', pages: [{ boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }] },
+              media: { format: 'pdf', size: { width: 200, height: 100 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }] },
             },
           ],
         ]),

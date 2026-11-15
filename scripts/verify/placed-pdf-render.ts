@@ -26,10 +26,7 @@ async function sourcePdf(): Promise<{ bytes: Uint8Array; media: Media }> {
     media: {
       format: 'pdf',
       size: { width: 200, height: 100 },
-      pages: [
-        { boxes: { media: { x: 0, y: 0, width: 120, height: 80 } } },
-        { boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } },
-      ],
+      pages: [{ boxes: { media: { x: 0, y: 0, width: 120, height: 80 } } }, { boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }],
     },
   }
 }
@@ -168,7 +165,17 @@ export async function verifyPlacedPdfRender(renderer: Renderer, work: string, ch
   const outputs = [
     { name: 'pagePdf', bytes: pageBytes, expectedPage: 0, contentLeft: 48, markerLeft: 12 * 0.75, markerTop: 79.5, cropLeft: 0, scaleX: 0.45, scaleY: 0.45 },
     { name: 'pagesPdf', bytes: pagesBytes, expectedPage: 1, contentLeft: 48, markerLeft: 20 * 0.75, markerTop: 79.5, cropLeft: 0, scaleX: 1, scaleY: 1 },
-    { name: 'bookPdf', bytes: bookBytes, expectedPage: 1, contentLeft: 48.75, markerLeft: 28 * 0.75, markerTop: 56.25, cropLeft: 15, scaleX: 90 / 185, scaleY: 0.45 },
+    {
+      name: 'bookPdf',
+      bytes: bookBytes,
+      expectedPage: 1,
+      contentLeft: 48.75,
+      markerLeft: 28 * 0.75,
+      markerTop: 56.25,
+      cropLeft: 15,
+      scaleX: 90 / 185,
+      scaleY: 0.45,
+    },
   ]
   for (const output of outputs) {
     const document = await PDFDocument.load(output.bytes)

@@ -2,9 +2,9 @@ import { cssPixelsToPoints, displayedPdfPage, type PageBoxName, placedPdfPage, r
 import { PLACED_PDF_SOURCES, type PlacedPdfSource, type PlacementsOptions } from '@segnavia/html'
 import { endMarkedContent, PDFName, PDFOperator, type PDFPage, PDFRawStream } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
+import { RenderRefusedError } from './errors.ts'
 import type { RenderOptions } from './options.ts'
 import { drawClippedPage } from './pdf-compose.ts'
-import { RenderRefusedError } from './errors.ts'
 import { loadPdf } from './pdf-load.ts'
 import { MARKER_LINK_PREFIX, markerMeasurements } from './placed-pdf-markers.ts'
 import { sourcePdfPageFacts } from './placed-pdf-source.ts'
@@ -191,9 +191,7 @@ export function placedPdfCrop(
     height: bounds.height - edges.top - edges.bottom,
   }
   if (cropped.width <= 0 || cropped.height <= 0) {
-    throw new RenderRefusedError(
-      `Cannot place PDF at ${address}; its crop leaves no area of the page. Use a smaller crop to clear this refusal.`,
-    )
+    throw new RenderRefusedError(`Cannot place PDF at ${address}; its crop leaves no area of the page. Use a smaller crop to clear this refusal.`)
   }
   return cropped
 }

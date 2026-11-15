@@ -246,15 +246,21 @@ test('placed media entries use image resolution and missing reporting', async ()
 test('a printed placed PDF entry emits the vector draw marker when a registry is present', async () => {
   const book = parseBookFixture({ title: 'Placed', mode: 'continuous', chapters: [{ kind: 'placed', placement: { kind: 'media', address: 'media/source' } }] })
   const registry = new Map()
-  const expanded = await expandFrameBook(book, undefined, signal, {
-    resolve: async () => ({
-      kind: 'media',
-      media: { format: 'pdf', pages: [{ boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }] },
-      src,
-      bytes: new Uint8Array([1]),
-    }),
-    [PLACED_PDF_SOURCES]: registry,
-  }, 'print')
+  const expanded = await expandFrameBook(
+    book,
+    undefined,
+    signal,
+    {
+      resolve: async () => ({
+        kind: 'media',
+        media: { format: 'pdf', size: { width: 200, height: 100 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }] },
+        src,
+        bytes: new Uint8Array([1]),
+      }),
+      [PLACED_PDF_SOURCES]: registry,
+    },
+    'print',
+  )
   expect(bookDocument(expanded.book).html).toContain('data-segnavia-placed-pdf="1"')
   expect(registry.has('media/source')).toBe(true)
 })

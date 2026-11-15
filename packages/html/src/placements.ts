@@ -6,8 +6,8 @@ import {
   Placement,
   type Placement as PlacementValue,
   type PreflightEntry,
-  pointsToCssPixels,
   placedPdfPage,
+  pointsToCssPixels,
 } from '@segnavia/format'
 import type { Element } from 'domhandler'
 import { elements, parse, safeImageSource, serialize } from './sanitize.ts'
