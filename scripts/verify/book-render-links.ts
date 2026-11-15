@@ -1,5 +1,5 @@
 export function expectedBookLinkPages(chapterPages: number[], frontPage: number, endnotes: number, frontPages: number): number[] {
-  const contentsTextLinks = [frontPage, ...chapterPages.flatMap((page) => Array.from({ length: 7 }, () => page))]
+  const contentsTextLinks = [frontPage, ...chapterPages.flatMap((page) => Array.from({ length: 7 }, () => page)), endnotes]
   const contentsNumberLinks = [...contentsTextLinks]
   const footnote = chapterPages[0] ?? 0
   const endnote = chapterPages[2] ?? 0
