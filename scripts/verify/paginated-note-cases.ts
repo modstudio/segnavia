@@ -24,6 +24,16 @@ function pageNotes(): string[][] {
   )
 }
 
+function splitBlockNote() {
+  const views = Array.from(document.querySelectorAll('[data-segnavia-page-note]')).filter((view) => view.querySelector('.padded-note'))
+  const visibleMarkers = views.filter((view) => {
+    const box = view.getBoundingClientRect()
+    const marker = view.querySelector('[data-segnavia-note] a')?.getBoundingClientRect()
+    return marker && marker.bottom > box.top && marker.top < box.bottom
+  }).length
+  return { views: views.length, visibleMarkers }
+}
+
 async function notesFrame(h: Harness, id: string) {
   const element = await h.page.$(`#${id}`)
   const frame = await element?.contentFrame()
@@ -46,6 +56,8 @@ export async function verifyNoteCaseBooks(h: Harness) {
     check(`${id} composed without a planner refusal`, !failure, failure ?? 'composed')
     const geometry = await frame.evaluate(inspectNoteViewGeometry)
     check(`${id} every page note's text ink lies in its view`, geometry.views > 0 && geometry.outside === 0 && geometry.empty === 0, geometry.detail)
+    const split = await frame.evaluate(splitBlockNote)
+    check(`${id} splits a two-paragraph note without repeating its marker`, split.views > 1 && split.visibleMarkers === 1, JSON.stringify(split))
     const firstChild = await frame.evaluate(inspectFirstChildNoteColor)
     check(
       `${id} the first-child note keeps p:first-child color on the clone`,

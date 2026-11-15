@@ -14,7 +14,8 @@ function paddedNote(hebrew: boolean): string {
   const body = hebrew
     ? 'הערת שוליים עם ריפוד ומסגרת נמשכת אל שורה שנייה כדי שאיחור ישמיט דיו.'
     : 'A padded bordered footnote continues onto a second line so a downward shift would clip later ink.'
-  return `<span class="padded-note">${body} ${body}</span>`
+  const paragraph = Array.from({ length: 18 }, () => body).join(' ')
+  return `<p class="padded-note">${paragraph}</p><p>${paragraph}</p>`
 }
 
 function mixedNote(hebrew: boolean): string {
