@@ -102,7 +102,9 @@ test('uses and removes Chromium marker annotations for fragmented page placement
   const second = target.addPage([600, 800])
   second.node.set(
     PDFName.of('Annots'),
-    target.context.obj([{ Type: 'Annot', Subtype: 'Link', Rect: [72, 144, 216, 216], A: { S: 'URI', URI: PDFString.of('https://placed-pdf.invalid/marker') } }]),
+    target.context.obj([
+      { Type: 'Annot', Subtype: 'Link', Rect: [72, 144, 216, 216], A: { S: 'URI', URI: PDFString.of('https://placed-pdf.invalid/marker') } },
+    ]),
   )
   const output = await drawPlacedPdfPages(
     await target.save(),

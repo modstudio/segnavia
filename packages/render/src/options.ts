@@ -26,8 +26,8 @@ import {
   type PrintedHtmlPage,
   type SlotPrintOptions,
 } from '@segnavia/html'
-import type { Page as Tab } from 'playwright-core'
 import { PDFName, PDFNumber } from 'pdf-lib'
+import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { ReceivedPdfError, RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'

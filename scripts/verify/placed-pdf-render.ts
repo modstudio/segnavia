@@ -43,7 +43,7 @@ function placementX(document: PDFDocument, page: number): number {
   const content = pageContent(document, page)
   const before = content.slice(0, content.indexOf('/EmbeddedPdfPage'))
   const translations = [...before.matchAll(/1 0 0 1 ([\d.]+) ([\d.]+) cm/g)]
-  return Number(translations.at(-1)?.[1])
+  return Number(translations.find((translation) => Number(translation[1]) !== 0 || Number(translation[2]) !== 0)?.[1])
 }
 
 function unsafeActions(document: PDFDocument): boolean {
@@ -89,7 +89,9 @@ export async function verifyPlacedPdfRender(renderer: Renderer, work: string, ch
       {
         type: 'division',
         name: 'body',
-        children: [{ type: 'section', title: 'Proof', children: [{ type: 'flow', html: `<p>BOOK FIRST</p><div style="break-before:page">BOOK SECOND${marker}</div>` }] }],
+        children: [
+          { type: 'section', title: 'Proof', children: [{ type: 'flow', html: `<p>BOOK FIRST</p><div style="break-before:page">BOOK SECOND${marker}</div>` }] },
+        ],
       },
     ],
   }

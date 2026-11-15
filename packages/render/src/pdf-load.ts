@@ -236,7 +236,10 @@ export async function loadPdf(pdf: Uint8Array, options?: Parameters<typeof PDFDo
   } catch (error) {
     if (error instanceof ReceivedPdfError) throw error
     if (error instanceof EncryptedPDFError) {
-      throw new ReceivedPdfError('encrypted', 'The received PDF is encrypted and cannot be read; decrypt it before passing it to stampPdf to clear this refusal.')
+      throw new ReceivedPdfError(
+        'encrypted',
+        'The received PDF is encrypted and cannot be read; decrypt it before passing it to stampPdf to clear this refusal.',
+      )
     }
     if (error instanceof RenderRefusedError) throw new ReceivedPdfError('unreadable', error.message)
     throw new ReceivedPdfError('unreadable', 'The received PDF could not be read; pass a complete, valid PDF to stampPdf to clear this refusal.')

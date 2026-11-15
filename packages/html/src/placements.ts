@@ -85,10 +85,7 @@ type MediaFailure = Exclude<MediaAnswer, { status: 'ok' }>
 export class PlacementResolutionError extends Error {
   readonly reason: 'encrypted' | 'unreadable' | 'too-large'
 
-  constructor(
-    reason: 'encrypted' | 'unreadable' | 'too-large',
-    message: string,
-  ) {
+  constructor(reason: 'encrypted' | 'unreadable' | 'too-large', message: string) {
     super(message)
     this.name = 'PlacementResolutionError'
     this.reason = reason

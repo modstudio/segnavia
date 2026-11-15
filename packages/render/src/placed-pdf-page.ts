@@ -26,11 +26,12 @@ export async function preparePlacedPdfPages(tab: Tab): Promise<void> {
       if (element.hasAttribute('data-segnavia-placed-pdf-id')) continue
       const id = String(index)
       element.setAttribute('data-segnavia-placed-pdf-id', id)
+      const rectangle = element.getBoundingClientRect()
       const link = document.createElement('a')
       link.href = `${prefix}${id}`
-      link.style.display = 'contents'
-      element.replaceWith(link)
-      link.append(element)
+      link.textContent = '.'
+      link.style.cssText = `position:absolute;left:${rectangle.left + scrollX}px;top:${rectangle.top + scrollY}px;width:${rectangle.width}px;height:${rectangle.height}px;display:block;color:transparent;text-decoration:none;font-size:1px;line-height:1px`
+      document.body.append(link)
     }
   }, MARKER_LINK_PREFIX)
 }
@@ -112,7 +113,8 @@ function markerMeasurements(document: Awaited<ReturnType<typeof loadPdf>>): Map<
     if (!annotations) continue
     for (let index = annotations.size() - 1; index >= 0; index -= 1) {
       const annotation = annotations.lookupMaybe(index, PDFDict)
-      const uri = annotation && markerUri(annotation)
+      if (!annotation) continue
+      const uri = markerUri(annotation)
       if (!uri?.startsWith(MARKER_LINK_PREFIX)) continue
       const rectangle = annotation.lookupMaybe(PDFName.of('Rect'), PDFArray)?.asRectangle()
       annotations.remove(index)
