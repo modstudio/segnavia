@@ -15,7 +15,7 @@ import { stampReceivedWatermark } from './watermark-stamp.ts'
 
 export async function stampReceivedPdf(bytes: Uint8Array, options: StampPdfOptions, deadline: RenderDeadline, withTab: TabRunner): Promise<Uint8Array> {
   const resolvedLimits = resolveLimits(undefined, options.limits)
-  const received = await loadPdf(bytes, { source: 'received', limits: resolvedLimits })
+  const received = await loadPdf(bytes, { source: 'received', operation: 'stampPdf', limits: resolvedLimits })
   enforcePdfBytes(bytes, options.limits)
   if (options.limits?.sheets !== undefined && received.getPageCount() > options.limits.sheets) {
     throw new RenderLimitError('sheets', received.getPageCount(), options.limits.sheets)

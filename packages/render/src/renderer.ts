@@ -1,4 +1,4 @@
-import type { CoverInput, DocumentInput, DocumentMetadata, FontFace, ImpositionInput, Limits, PageOrPrintedInput, Plan } from '@segnavia/format'
+import type { CoverInput, DocumentInput, DocumentMetadata, FontFace, ImpositionInput, Limits, PageBoxName, PageOrPrintedInput, Plan } from '@segnavia/format'
 import type { MotifsOptions } from '@segnavia/frame/motifs'
 import type { PrintOptions } from '@segnavia/frame/print-document'
 import type { AsOfInputs } from '@segnavia/html'
@@ -41,6 +41,12 @@ export interface StampPdfOptions extends PdfOptions, Pick<RenderOptions, 'origin
   fonts?: FontFace[]
   boundMs?: number
 }
+export interface PdfPageImageOptions {
+  page?: number
+  box?: PageBoxName
+  width: number
+  limits?: Limits
+}
 export interface Renderer {
   bookPdf(book: DocumentInput, options?: BookPdfOptions): Promise<Uint8Array>
   bookPlan(book: DocumentInput, options?: BookPlanOptions): Promise<Plan>
@@ -51,6 +57,7 @@ export interface Renderer {
   deckPdf(deck: DocumentInput, options?: ComposedRenderInput & PdfOptions & PrintOptions & AsOfInputs & { watermark?: Watermark }): Promise<Uint8Array>
   slideImage(deck: DocumentInput, index: number, options?: SlideImageOptions & Pick<PrintOptions, 'inline'>): Promise<Uint8Array>
   proofImage(image: Uint8Array, options: ProofImageOptions): Promise<Uint8Array>
+  pdfPageImage(bytes: Uint8Array, options: PdfPageImageOptions): Promise<Uint8Array>
   stampPdf(bytes: Uint8Array, options?: StampPdfOptions): Promise<Uint8Array>
   close(): Promise<void>
 }

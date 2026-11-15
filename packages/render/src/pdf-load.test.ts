@@ -67,33 +67,37 @@ test('loads a normal generated PDF', async () => {
 })
 
 test('received input is refused above its byte limit before parsing', async () => {
-  await expect(loadPdf(Uint8Array.of(1, 2), { source: 'received', limits: receivedLimits({ bytes: 1 }) })).rejects.toThrow(
+  await expect(loadPdf(Uint8Array.of(1, 2), { source: 'received', operation: 'stampPdf', limits: receivedLimits({ bytes: 1 }) })).rejects.toThrow(
     'above the limits.input.bytes limit of 1',
   )
 })
 
 test.each(['/Filter /FlateDecode', '/Filter[/FlateDecode]', '/Filter 2 0 R'])('received stream cap follows %s', async (filter) => {
   const pdf = objectStream(new Uint8Array(4096), filter)
-  await expect(loadPdf(pdf, { source: 'received', limits: receivedLimits({ streamBytes: 1000 }) })).rejects.toThrow('limits.input.streamBytes limit of 1000')
+  await expect(loadPdf(pdf, { source: 'received', operation: 'stampPdf', limits: receivedLimits({ streamBytes: 1000 }) })).rejects.toThrow(
+    'limits.input.streamBytes limit of 1000',
+  )
 })
 
 test('received stream cap uses the host value and defaults when omitted', async () => {
   const contents = new TextEncoder().encode(`2 0 <<>>${' '.repeat(56)}`)
   const pdf = objectStream(contents)
-  await expect(loadPdf(pdf, { source: 'received', limits: receivedLimits({ streamBytes: 32 }) })).rejects.toThrow('limits.input.streamBytes limit of 32')
-  await expect(loadPdf(pdf, { source: 'received', limits: receivedLimits() })).resolves.toBeInstanceOf(PDFDocument)
+  await expect(loadPdf(pdf, { source: 'received', operation: 'stampPdf', limits: receivedLimits({ streamBytes: 32 }) })).rejects.toThrow(
+    'limits.input.streamBytes limit of 32',
+  )
+  await expect(loadPdf(pdf, { source: 'received', operation: 'stampPdf', limits: receivedLimits() })).resolves.toBeInstanceOf(PDFDocument)
 })
 
 test('received LZW stream reads direct EarlyChange 0 decode parameters', async () => {
   const contents = new TextEncoder().encode(`2 0 <<>>${' '.repeat(252)}`)
   const pdf = encodedObjectStream(lzwEarlyChangeZero(contents), '/Filter /LZWDecode /DecodeParms << /EarlyChange 0 >>')
-  await expect(loadPdf(pdf, { source: 'received', limits: receivedLimits() })).resolves.toBeInstanceOf(PDFDocument)
+  await expect(loadPdf(pdf, { source: 'received', operation: 'stampPdf', limits: receivedLimits() })).resolves.toBeInstanceOf(PDFDocument)
 })
 
 test('received truncated input has its source-specific unreadable refusal', async () => {
-  await expect(loadPdf(new TextEncoder().encode('%PDF-1.7\ntruncated'), { source: 'received', limits: receivedLimits() })).rejects.toThrow(
-    'The received PDF could not be read',
-  )
+  await expect(
+    loadPdf(new TextEncoder().encode('%PDF-1.7\ntruncated'), { source: 'received', operation: 'stampPdf', limits: receivedLimits() }),
+  ).rejects.toThrow('The received PDF could not be read')
 })
 
 test('received encrypted input has its source-specific encrypted refusal', async () => {
@@ -101,7 +105,9 @@ test('received encrypted input has its source-specific encrypted refusal', async
   document.addPage()
   const plain = await document.save({ useObjectStreams: false })
   const encryptedTrailer = new TextEncoder().encode(new TextDecoder().decode(plain).replace('/Info 3 0 R', '/Encrypt 3 0 R'))
-  await expect(loadPdf(encryptedTrailer, { source: 'received', limits: receivedLimits() })).rejects.toThrow('The received PDF is encrypted and cannot be read')
+  await expect(loadPdf(encryptedTrailer, { source: 'received', operation: 'stampPdf', limits: receivedLimits() })).rejects.toThrow(
+    'The received PDF is encrypted and cannot be read',
+  )
 })
 
 test('created and loaded documents do not gain automatic metadata', async () => {
