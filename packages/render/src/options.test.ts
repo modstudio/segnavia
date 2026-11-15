@@ -84,6 +84,22 @@ test('parsed options materialize one-shot origin approvals', () => {
   expect([...(parsed.origins ?? [])]).toEqual([{ origin: 'https://images.example', kinds: ['image'] }])
 })
 
+test('placed PDF bytes are validated through received input limits before composition', async () => {
+  const parsed = parseRenderOptions({
+    limits: { input: { bytes: 2 } },
+    placements: {
+      resolve: async () => ({
+        kind: 'media' as const,
+        media: { format: 'pdf' as const, size: { width: 10, height: 10 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } }] },
+        src: 'data:image/png;base64,AA==',
+        bytes: new Uint8Array([1, 2, 3]),
+      }),
+    },
+  })
+  const work = parsed.placements?.resolve({ kind: 'media', address: 'document' }, { purpose: 'print', signal: new AbortController().signal })
+  await expect(work).rejects.toEqual(expect.objectContaining({ reason: 'too-large' }))
+})
+
 test('progress is normalized to one report function at the option edge', () => {
   const report = () => {}
   expect(parseRenderOptions({ progress: { report } }).progress).toEqual({ report })

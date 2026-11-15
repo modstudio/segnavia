@@ -13,6 +13,8 @@ import {
   type Page,
   PageWidths,
   parseLimits,
+  placedPdfPage,
+  resolveLimits,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
 import {
@@ -148,7 +150,7 @@ function placementPdfFailure(message: string): PlacementResolutionError {
 
 function checkedPlacements(placements: NonNullable<RenderOptions['placements']>, limits: ReturnType<typeof parseLimits>) {
   if (placements[PLACED_PDF_SOURCES]) return placements
-  const checked = new Map<string, Promise<void>>()
+  const checked = new Map<string, ReturnType<typeof loadPdf>>()
   return {
     ...placements,
     async resolve(...args: Parameters<typeof placements.resolve>) {
@@ -157,12 +159,20 @@ function checkedPlacements(placements: NonNullable<RenderOptions['placements']>,
       const address = args[0].address
       let validation = checked.get(address)
       if (!validation) {
-        validation = loadPdf(answer.bytes, { source: 'received', limits }).then(() => undefined)
+        validation = loadPdf(answer.bytes, { source: 'received', limits: resolveLimits(undefined, limits) })
         checked.set(address, validation)
       }
       try {
-        await validation
+        const document = await validation
+        const selected = placedPdfPage(answer.media, args[0].page, args[0].box)
+        if (selected !== 'no-page' && selected.page > document.getPageCount()) {
+          throw new PlacementResolutionError(
+            'unreadable',
+            `Placement ${JSON.stringify(address)} names PDF page ${selected.page}, but the source has ${document.getPageCount()} pages.`,
+          )
+        }
       } catch (error) {
+        if (error instanceof PlacementResolutionError) throw error
         throw placementPdfFailure(error instanceof Error ? error.message : String(error))
       }
       return answer

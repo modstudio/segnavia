@@ -80,6 +80,7 @@ export type MediaAnswer =
   | { status: 'missing' | 'refused-src'; message?: undefined }
   | { status: 'invalid'; message: string }
   | { status: 'failed' | 'encrypted' | 'unreadable' | 'too-large'; message: string }
+type MediaFailure = Exclude<MediaAnswer, { status: 'ok' }>
 
 export class PlacementResolutionError extends Error {
   constructor(
@@ -92,7 +93,7 @@ export class PlacementResolutionError extends Error {
 }
 
 export function classifyMediaAnswer(input: { answer: { kind: string } | undefined }): Exclude<MediaAnswer, { status: 'failed' }>
-export function classifyMediaAnswer(input: { error: unknown }): MediaAnswer
+export function classifyMediaAnswer(input: { error: unknown }): MediaFailure
 export function classifyMediaAnswer(input: { answer: { kind: string } | undefined } | { error: unknown }): MediaAnswer {
   if ('error' in input) {
     if (input.error instanceof PlacementResolutionError) return { status: input.error.reason, message: input.error.message }
@@ -203,16 +204,6 @@ function applyResolved(
   purpose: 'screen' | 'print',
   pdfSources?: Map<string, PlacedPdfSource>,
 ): 'no-page' | undefined {
-  if (purpose === 'print' && resolved.media.format === 'pdf' && resolved.bytes) {
-    const selected = placedPdfPage(resolved.media, entry.placement.page, entry.placement.box)
-    if (selected === 'no-page') return selected
-    element.attribs.src = transparentPageSource(selected.bounds.width, selected.bounds.height)
-    element.attribs['data-segnavia-placed-pdf'] = String(selected.page)
-    pdfSources?.set(entry.placement.address, { bytes: resolved.bytes, media: resolved.media })
-    if (!('alt' in element.attribs)) element.attribs.alt = ''
-    return
-  }
-  element.attribs.src = resolved.src
   if (entry.alt === undefined && resolved.media.alt) {
     element.attribs.alt = resolved.media.alt.text
     if (entry.lang === undefined && entry.dir === undefined) {
@@ -226,6 +217,16 @@ function applyResolved(
     const authored = element.attribs.style?.trim()
     element.attribs.style = authored ? `${authored.replace(/;?$/, ';')} ${declaration}` : declaration
   }
+  if (purpose === 'print' && resolved.media.format === 'pdf' && resolved.bytes) {
+    const selected = placedPdfPage(resolved.media, entry.placement.page, entry.placement.box)
+    if (selected === 'no-page') return selected
+    element.attribs.src = transparentPageSource(selected.bounds.width, selected.bounds.height)
+    element.attribs['data-segnavia-placed-pdf'] = String(selected.page)
+    pdfSources?.set(entry.placement.address, { bytes: resolved.bytes, media: resolved.media })
+    if (!('alt' in element.attribs)) element.attribs.alt = ''
+    return
+  }
+  element.attribs.src = resolved.src
   for (const attribute of PLACEMENT_ATTRIBUTES) delete element.attribs[attribute]
 }
 

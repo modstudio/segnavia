@@ -1,6 +1,6 @@
 import { displayedPdfPage, type PageBoxName, placedPdfPage, resolveLimits } from '@segnavia/format'
 import { PLACED_PDF_SOURCES, type PlacedPdfSource, type PlacementsOptions } from '@segnavia/html'
-import { endMarkedContent, PDFDict, PDFName, PDFNumber, PDFOperator, type PDFPage } from 'pdf-lib'
+import { endMarkedContent, PDFName, PDFNumber, PDFOperator, type PDFPage, PDFRawStream } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import type { RenderOptions } from './options.ts'
 import { drawClippedPage } from './pdf-compose.ts'
@@ -10,6 +10,7 @@ export interface PlacedPdfMeasurement {
   address: string
   page: number
   box?: PageBoxName
+  crop?: string
   paper: number
   draw: { x: number; y: number; width: number; height: number }
   clip: { x: number; y: number; width: number; height: number }
@@ -25,30 +26,45 @@ export async function measurePlacedPdfPages(tab: Tab): Promise<PlacedPdfMeasurem
       const bottom = Math.min(a.bottom, b.bottom)
       return new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top))
     }
-    const papers = [...document.querySelectorAll<HTMLElement>('[data-segnavia-printed-page]')]
-    return [...document.querySelectorAll<HTMLElement>('[data-segnavia-placed-pdf]')].flatMap((element) => {
-      const address = element.getAttribute('data-segnavia-media')
-      const page = Number(element.getAttribute('data-segnavia-placed-pdf'))
-      const box = element.getAttribute('data-segnavia-box') as PageBoxName | null
-      if (!address || !Number.isSafeInteger(page) || page < 1) return []
-      const paperElement = element.closest<HTMLElement>('[data-segnavia-printed-page]')
-      const paper = paperElement ? papers.indexOf(paperElement) : 0
-      const paperBox = paperElement?.getBoundingClientRect() ?? document.documentElement.getBoundingClientRect()
-      const draw = element.getBoundingClientRect()
+    const visibleBox = (element: HTMLElement, paper: HTMLElement | null, draw: DOMRect) => {
       let visible = draw
-      for (let parent = element.parentElement; parent && parent !== paperElement; parent = parent.parentElement) {
+      for (let parent = element.parentElement; parent && parent !== paper; parent = parent.parentElement) {
         const style = getComputedStyle(parent)
         if ([style.overflow, style.overflowX, style.overflowY].some((value) => value === 'hidden' || value === 'clip')) {
           visible = intersect(visible, parent.getBoundingClientRect())
         }
       }
+      return visible
+    }
+    const papers = [...document.querySelectorAll<HTMLElement>('[data-segnavia-printed-page]')]
+    return [...document.querySelectorAll<HTMLElement>('[data-segnavia-placed-pdf]')].flatMap((element) => {
+      const address = element.getAttribute('data-segnavia-media')
+      const page = Number(element.getAttribute('data-segnavia-placed-pdf'))
+      const box = element.getAttribute('data-segnavia-box') as PageBoxName | null
+      const crop = element.getAttribute('data-segnavia-crop')
+      if (!address || !Number.isSafeInteger(page) || page < 1) return []
+      const paperElement = element.closest<HTMLElement>('[data-segnavia-printed-page]')
+      const paper = paperElement ? papers.indexOf(paperElement) : 0
+      const paperBox = paperElement?.getBoundingClientRect() ?? document.documentElement.getBoundingClientRect()
+      const draw = element.getBoundingClientRect()
+      const visible = visibleBox(element, paperElement, draw)
       const relative = (box: DOMRect) => ({
         x: box.left - paperBox.left,
         y: paperBox.bottom - box.bottom,
         width: box.width,
         height: box.height,
       })
-      return [{ address, page, ...(box ? { box } : {}), paper: Math.max(0, paper), draw: relative(draw), clip: relative(visible) }]
+      return [
+        {
+          address,
+          page,
+          ...(box ? { box } : {}),
+          ...(crop ? { crop } : {}),
+          paper: Math.max(0, paper),
+          draw: relative(draw),
+          clip: relative(visible),
+        },
+      ]
     })
   })
 }
@@ -65,9 +81,57 @@ function sources(options: Pick<RenderOptions, 'placements'>): Map<string, Placed
   return (options.placements as PlacementsOptions | undefined)?.[PLACED_PDF_SOURCES]
 }
 
+export function hasPlacedPdfPages(options: Pick<RenderOptions, 'placements'>): boolean {
+  return (sources(options)?.size ?? 0) > 0
+}
+
 function transparencyGroup(page: PDFPage, ref: Parameters<typeof page.doc.context.lookup>[0]): void {
-  const form = page.doc.context.lookup(ref, PDFDict)
-  form.set(PDFName.of('Group'), page.doc.context.obj({ S: 'Transparency', I: true, K: false }))
+  const form = page.doc.context.lookup(ref)
+  if (!(form instanceof PDFRawStream)) throw new Error('An embedded PDF page did not produce a Form XObject stream.')
+  form.dict.set(PDFName.of('Group'), page.doc.context.obj({ S: 'Transparency', I: true, K: false }))
+}
+
+function cropEdge(value: string, extent: number): number {
+  if (value.endsWith('%')) return (Number(value.slice(0, -1)) / 100) * extent
+  return Number(value.replace(/px$/, ''))
+}
+
+export function placedPdfCrop(
+  bounds: { x: number; y: number; width: number; height: number },
+  crop: string | undefined,
+): { x: number; y: number; width: number; height: number } {
+  if (!crop) return bounds
+  const values = crop.trim().split(/\s+/)
+  const [top, right = top, bottom = top, left = right] = values
+  if (!top || !right || !bottom || !left) return bounds
+  const edges = {
+    top: cropEdge(top, bounds.height),
+    right: cropEdge(right, bounds.width),
+    bottom: cropEdge(bottom, bounds.height),
+    left: cropEdge(left, bounds.width),
+  }
+  if (Object.values(edges).some((edge) => !Number.isFinite(edge))) return bounds
+  return {
+    x: bounds.x + edges.left,
+    y: bounds.y + edges.bottom,
+    width: bounds.width - edges.left - edges.right,
+    height: bounds.height - edges.top - edges.bottom,
+  }
+}
+
+function uncroppedDraw(
+  draw: PlacedPdfMeasurement['draw'],
+  bounds: { x: number; y: number; width: number; height: number },
+  crop: { x: number; y: number; width: number; height: number },
+): PlacedPdfMeasurement['draw'] {
+  const scaleX = draw.width / crop.width
+  const scaleY = draw.height / crop.height
+  return {
+    x: draw.x - (crop.x - bounds.x) * scaleX,
+    y: draw.y - (crop.y - bounds.y) * scaleY,
+    width: bounds.width * scaleX,
+    height: bounds.height * scaleY,
+  }
 }
 
 /** Replaces measured transparent markers with clipped PDF Form XObjects. */
@@ -95,7 +159,8 @@ export async function drawPlacedPdfPages(
     if (selected === 'no-page') continue
     const sourcePage = document.getPage(selected.page - 1)
     if (!sourcePage) continue
-    const userUnit = sourcePage.node.lookup(PDFName.of('UserUnit'), PDFNumber)?.asNumber() ?? 1
+    const crop = placedPdfCrop(selected.bounds, placement.crop)
+    const userUnit = sourcePage.node.lookupMaybe(PDFName.of('UserUnit'), PDFNumber)?.asNumber() ?? 1
     const display = displayedPdfPage(selected.bounds, sourcePage.getRotation().angle, userUnit)
     const key = `${placement.address}\0${selected.page}\0${selected.box}`
     let form = embedded.get(key)
@@ -110,11 +175,12 @@ export async function drawPlacedPdfPages(
         },
         [...display.matrix],
       )
+      await form.embed()
       embedded.set(key, form)
       transparencyGroup(target, form.ref)
     }
     target.pushOperators(PDFOperator.of('BDC' as never, [PDFName.of('Artifact')]))
-    drawClippedPage(target, form, rectanglePoints(placement.draw), rectanglePoints(placement.clip))
+    drawClippedPage(target, form, rectanglePoints(uncroppedDraw(placement.draw, selected.bounds, crop)), rectanglePoints(placement.clip))
     target.pushOperators(endMarkedContent())
   }
   return output.save()
