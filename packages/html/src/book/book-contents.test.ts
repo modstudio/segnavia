@@ -120,6 +120,20 @@ test('a designed section contentsDepth caps its page headings and contents false
   expect(html).not.toContain('href="#hidden-two"')
 })
 
+test('a designed section capped at 1 keeps its page h1, which shares the title level', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    contents: { depth: 6 },
+    frontMatter: [{ kind: 'contents', title: 'Contents' }],
+    body: [{ kind: 'designed', title: 'Designed', contentsDepth: 1, pages: [{ html: '<h1 id="designed-one">One</h1><h2 id="designed-two">Two</h2>' }] }],
+  })
+  const html = bookDocument(book).html
+  expect(html).toContain('href="#designed-one"')
+  expect(html).not.toContain('href="#designed-two"')
+})
+
 test('a capped right-to-left chapter lists only its expected Hebrew entries', () => {
   const book = parseBookFixture({
     title: 'ספר',
