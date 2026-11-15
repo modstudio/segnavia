@@ -5,8 +5,6 @@ import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
   COMPOSITION_IDENTITY_ATTRIBUTE,
   COMPOSITION_VARIABLE_VALUE_ATTRIBUTE,
-  correctedWordSpacing,
-  fitLineToMeasure,
   lineFragment,
   markCompositionContinuations,
   markCompositionIdentities,
@@ -298,7 +296,6 @@ export function composeParagraphs(
     profile.tokens += tokens.length
     pass.tokens += tokens.length
     const indent = Number.parseFloat(style.textIndent) || 0
-    const measures = paragraphMeasures(inlineSize, indent)
     const lines = planLines(
       tokens,
       {
@@ -329,8 +326,6 @@ export function composeParagraphs(
       identityAttribute,
       continuationAttribute,
       variableValueAttribute,
-      measures,
-      style.writingMode,
     )
     profile.rewriteMs += now() - rewriteStarted
   }
@@ -362,8 +357,6 @@ ${embedFunction('lineFragment', lineFragment)}
 ${embedFunction('markCompositionIdentities', markCompositionIdentities)}
 ${embedFunction('markCompositionContinuations', markCompositionContinuations)}
 ${embedFunction('removeContinuationIds', removeContinuationIds)}
-${embedFunction('correctedWordSpacing', correctedWordSpacing)}
-${embedFunction('fitLineToMeasure', fitLineToMeasure)}
 ${embedFunction('rewriteParagraph', rewriteParagraph)}
 ${embedFunction('contentInlineSize', contentInlineSize)}
 ${embedFunction('paragraphLanguage', paragraphLanguage)}

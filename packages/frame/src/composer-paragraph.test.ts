@@ -7,7 +7,6 @@ import { contentInlineSize } from './composer-paragraph-box.ts'
 import {
   COMPOSITION_CONTINUATION_ATTRIBUTE,
   COMPOSITION_IDENTITY_ATTRIBUTE,
-  correctedWordSpacing,
   markCompositionContinuations,
   removeContinuationIds,
 } from './composer-paragraph-dom.ts'
@@ -56,12 +55,6 @@ test('uses the indented first-line measure for positive and hanging indents', ()
   const plain = planParagraphLines(tokens('one two three'), { ...base, measure: 38 })
   const indented = planParagraphLines(tokens('one two three'), { ...base, measure: 38, indent: 12 })
   expect(indented[0]?.end).toBeLessThan(plain[0]?.end ?? 0)
-})
-
-test('corrects planned word spacing from the rendered line extent', () => {
-  expect(correctedWordSpacing(4, 90, 95, 100)).toBe(6)
-  expect(correctedWordSpacing(4, 110, 115, 100)).toBe(2)
-  expect(correctedWordSpacing(4, 90, 90, 100)).toBe(4)
 })
 
 test('plans br as a forced start-aligned break and counts an atomic inline box', () => {

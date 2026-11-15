@@ -96,10 +96,10 @@ function lineStart(items: readonly Item[], previous: Breakpoint): number {
   }
 }
 
-function breakpointStarts(items: readonly Item[], points: readonly Breakpoint[], startPoint: Breakpoint): Map<number, number> {
-  const starts = new Map<number, number>()
-  starts.set(startPoint.index, lineStart(items, startPoint))
-  for (const point of points) starts.set(point.index, lineStart(items, point))
+function breakpointStarts(items: readonly Item[], points: readonly Breakpoint[], startPoint: Breakpoint): number[] {
+  const starts: number[] = []
+  starts[startPoint.index + 1] = lineStart(items, startPoint)
+  for (const point of points) starts[point.index + 1] = lineStart(items, point)
   return starts
 }
 
@@ -206,19 +206,19 @@ function candidatesAtPoint(
   singleMeasure: boolean,
   nodes: readonly Node[],
   point: Breakpoint,
-  starts: ReadonlyMap<number, number>,
+  starts: readonly number[],
   infiniteBadness: number,
 ): Node[] {
-  const best = new Map<number, Node>()
+  const best: Array<Node | undefined> = []
   for (const previous of nodes) {
-    const start = starts.get(previous.breakpoint.index) ?? 0
+    const start = starts[previous.breakpoint.index + 1] ?? 0
     const candidate = candidateNode(items, sums, widths, widthOffset, settings, enforceLimits, previous, point, start, infiniteBadness)
     if (!candidate) continue
     const key = singleMeasure ? candidate.fitness : candidate.line * 4 + candidate.fitness
-    const held = best.get(key)
-    if (!held || candidate.demerits < held.demerits) best.set(key, candidate)
+    const held = best[key]
+    if (!held || candidate.demerits < held.demerits) best[key] = candidate
   }
-  return [...best.values()]
+  return best.filter((node): node is Node => node !== undefined)
 }
 
 function solve(
@@ -242,16 +242,16 @@ function solve(
     if (point.flagged && !pass.hyphens && !point.forced) continue
     const atPoint = candidatesAtPoint(items, sums, widths, widthOffset, pass.settings, pass.enforceLimits, singleMeasure, active, point, starts, infiniteBadness)
     const removed: Node[] = []
-    const surviving = point.forced
-      ? []
-      : active.filter((node) => {
-          const widthIndex = widthOffset + node.line
-          const target = widths[widthIndex] ?? widths.at(-1) ?? 0
-          const start = starts.get(node.breakpoint.index) ?? 0
-          const overfull = overfullPastShrink(items, sums, start, point, target)
-          if (overfull) removed.push(node)
-          return !overfull
-        })
+    const surviving: Node[] = []
+    if (!point.forced) {
+      const finalWidth = widths.at(-1) ?? 0
+      for (const node of active) {
+        const target = widths[widthOffset + node.line] ?? finalWidth
+        const start = starts[node.breakpoint.index + 1] ?? 0
+        if (overfullPastShrink(items, sums, start, point, target)) removed.push(node)
+        else surviving.push(node)
+      }
+    }
     if (!pass.enforceLimits && !point.forced && surviving.length === 0 && removed.length > 0) {
       const least = removed.reduce((best, node) => (node.demerits < best.demerits ? node : best))
       surviving.push(least)

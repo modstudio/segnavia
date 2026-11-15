@@ -64,23 +64,6 @@ export function removeContinuationIds(fragments: readonly ParentNode[]): void {
   }
 }
 
-export function correctedWordSpacing(planned: number, measured: number, measuredWithOneMore: number, target: number): number {
-  const opportunities = measuredWithOneMore - measured
-  return opportunities > 0 ? planned + (target - measured) / opportunities : planned
-}
-
-export function fitLineToMeasure(line: HTMLElement, target: number, writingMode: string, planned: number): void {
-  const range = line.ownerDocument.createRange()
-  range.selectNodeContents(line)
-  line.style.wordSpacing = `${planned}px`
-  const measuredRect = range.getBoundingClientRect()
-  const measured = writingMode.startsWith('vertical') ? measuredRect.height : measuredRect.width
-  line.style.wordSpacing = `${planned + 1}px`
-  const probeRect = range.getBoundingClientRect()
-  const measuredWithOneMore = writingMode.startsWith('vertical') ? probeRect.height : probeRect.width
-  line.style.wordSpacing = `${correctedWordSpacing(planned, measured, measuredWithOneMore, target)}px`
-}
-
 export function rewriteParagraph(
   paragraph: Element,
   tokens: readonly ParagraphToken[],
@@ -90,8 +73,6 @@ export function rewriteParagraph(
   identityAttribute: string,
   continuationAttribute: string,
   variableValueAttribute: string,
-  measures: readonly number[],
-  writingMode: string,
 ): void {
   const clearIdentities = markCompositionIdentities(paragraph, identityAttribute, variableValueAttribute)
   const fragments = lines.map((line) => lineFragment(tokens, line, doc))
@@ -119,10 +100,4 @@ export function rewriteParagraph(
     return span
   })
   paragraph.replaceChildren(...output)
-  for (let index = 0; index < output.length - 1; index++) {
-    const line = lines[index]
-    const span = output[index]
-    if (!line || !span || line.forced) continue
-    fitLineToMeasure(span, measures[index] ?? measures.at(-1) ?? 0, writingMode, line.wordSpacing)
-  }
 }
