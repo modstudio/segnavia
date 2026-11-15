@@ -209,13 +209,12 @@ function candidatesAtPoint(
   starts: ReadonlyMap<number, number>,
   infiniteBadness: number,
 ): Node[] {
-  const best = new Map<string, Node>()
+  const best = new Map<number, Node>()
   for (const previous of nodes) {
     const start = starts.get(previous.breakpoint.index) ?? 0
     const candidate = candidateNode(items, sums, widths, widthOffset, settings, enforceLimits, previous, point, start, infiniteBadness)
     if (!candidate) continue
-    const lineKey = singleMeasure ? '' : candidate.line
-    const key = `${lineKey}:${candidate.fitness}:${point.flagged ? 1 : 0}`
+    const key = singleMeasure ? candidate.fitness : candidate.line * 4 + candidate.fitness
     const held = best.get(key)
     if (!held || candidate.demerits < held.demerits) best.set(key, candidate)
   }

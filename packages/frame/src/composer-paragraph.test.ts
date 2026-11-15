@@ -21,6 +21,9 @@ const base = { measure: 32, language: 'en-US', hyphenate: true, spacing: { minim
 test('plans explicit lines and leaves a one-line paragraph as one line', () => {
   expect(planParagraphLines(tokens('one two three'), base).length).toBeGreaterThan(1)
   expect(planParagraphLines(tokens('one'), base)).toEqual([{ start: 0, end: 3, wordSpacing: 0, hyphen: false, forced: false }])
+  const short = planParagraphLines(tokens('one two three'), { ...base, measure: 100 })
+  expect(short).toHaveLength(1)
+  expect(short[0]?.end).toBe(13)
 })
 
 test('plans a library hyphen marker but a maqaf break without one', () => {
