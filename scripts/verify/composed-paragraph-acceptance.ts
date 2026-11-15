@@ -127,9 +127,7 @@ async function printedCompositionWaitState(frame: Frame): Promise<PrintedComposi
 export async function waitForPrintedComposition(frame: Frame, language: string, index: number): Promise<void> {
   await frame
     .waitForFunction(
-      () =>
-        document.documentElement.hasAttribute('data-segnavia-composed') ||
-        document.documentElement.hasAttribute('data-segnavia-compose-failure'),
+      () => document.documentElement.hasAttribute('data-segnavia-composed') || document.documentElement.hasAttribute('data-segnavia-compose-failure'),
       undefined,
       { polling: 100 },
     )
