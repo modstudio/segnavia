@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { BookOpens } from './book-opens.ts'
 import { closedObject } from './closed-object.ts'
 import { Direction } from './direction.ts'
-import { SectionNumbering } from './folio.ts'
+import { NumberingRestart, SectionNumbering } from './folio.ts'
 import { NumberSystem } from './numbering.ts'
 import { REGION_NAME } from './parent-regions.ts'
 import { type ParentRules, parentRuleIssues, parentRules, renamedParentRulesFieldIssue } from './parent-rules.ts'
@@ -14,15 +14,8 @@ import { Slots } from './slots.ts'
 
 export { BookOpens }
 export const SECTION_BOUNDARY_CLASS = 'segnavia-section-boundary'
-const PartOpens = z.enum(['recto', 'verso', 'any', 'continue'])
-
-const positiveSafeInteger = z
-  .number()
-  .int('restart must be a positive integer; set restart to a positive integer to clear this refusal')
-  .positive('restart must be a positive integer; set restart to a positive integer to clear this refusal')
-  .max(Number.MAX_SAFE_INTEGER, 'restart must be a positive integer; set restart to a positive safe integer to clear this refusal')
 export const StructureNumber = z.union([z.string().min(1), z.number().int().positive().max(Number.MAX_SAFE_INTEGER), z.literal(false)])
-export const StructureNumberingLevel = closedObject({ style: NumberSystem.optional(), restart: positiveSafeInteger.optional() })
+export const StructureNumberingLevel = closedObject({ style: NumberSystem.optional(), restart: NumberingRestart.optional() })
 export const PartNumbering = closedObject({ parts: StructureNumberingLevel.optional(), chapters: StructureNumberingLevel.optional() })
 
 export const DesignedPage = closedObject({ html: z.string() })
@@ -82,7 +75,7 @@ const partFields = {
   number: StructureNumber.optional(),
   numbering: PartNumbering.optional(),
   contents: z.boolean().default(true),
-  opens: PartOpens.optional(),
+  opens: BookOpens.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
 }

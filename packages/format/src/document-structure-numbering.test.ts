@@ -46,3 +46,52 @@ test('refuses invalid structure numbering with remedies', () => {
   }
   expect(() => Document.parse({ ...root, numbering: { chapters: { style: 'decimal' } }, children: [] })).toThrow('Invalid option: expected one of')
 })
+
+test('refuses structure numbers outside the effective style range at parse', () => {
+  const root = {
+    type: 'document',
+    kind: 'book',
+    title: 'Book',
+    mode: 'continuous',
+  } as const
+  const result = Document.safeParse({
+    ...root,
+    numbering: { parts: { style: 'roman-upper' } },
+    children: [{ type: 'part', name: 'one', title: 'One', number: 4000, children: [] }],
+  })
+  expect(result.success).toBeFalse()
+  if (result.success) throw new Error('expected the out-of-range structure number to be refused')
+  expect(result.error.issues).toContainEqual(
+    expect.objectContaining({
+      path: ['children', 0, 'number'],
+      message: expect.stringContaining('part "One" at body.0 sets number 4000, outside the roman-upper maximum 3999'),
+    }),
+  )
+
+  const chapter = Document.safeParse({
+    ...root,
+    numbering: { chapters: { style: 'roman-lower' } },
+    children: [{ type: 'section', title: 'Chapter', number: 4000, children: [{ type: 'flow', html: '<p>Text</p>' }] }],
+  })
+  expect(chapter.success).toBeFalse()
+  if (chapter.success) throw new Error('expected the out-of-range chapter number to be refused')
+  expect(chapter.error.issues).toContainEqual(expect.objectContaining({ path: ['children', 0, 'number'], message: expect.stringContaining('roman-lower maximum 3999') }))
+
+  const restart = Document.safeParse({
+    ...root,
+    numbering: { chapters: { style: 'hebrew' } },
+    children: [
+      {
+        type: 'part',
+        name: 'one',
+        numbering: { chapters: { restart: 10000 } },
+        children: [{ type: 'section', title: 'Chapter', children: [{ type: 'flow', html: '<p>Text</p>' }] }],
+      },
+    ],
+  })
+  expect(restart.success).toBeFalse()
+  if (restart.success) throw new Error('expected the out-of-range restart to be refused')
+  expect(restart.error.issues).toContainEqual(
+    expect.objectContaining({ path: ['children', 0, 'numbering', 'chapters', 'restart'], message: expect.stringContaining('hebrew maximum 9999') }),
+  )
+})

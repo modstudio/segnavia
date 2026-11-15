@@ -21,8 +21,15 @@ export function appendHeldHeadings(entry: { contents?: boolean; contentsDepth?: 
   if (entry.contents) listed.push(...withSectionDepth(headings, depth, entry.contentsDepth))
 }
 
-export function appendChapterHeadings(entry: ChapterHeadingEntry, section: BuiltSection, depth: number, maxHeadingLevel: number, listed: BookHeading[]): void {
+export function appendChapterHeadings(
+  entry: ChapterHeadingEntry,
+  section: BuiltSection,
+  depth: number,
+  maxHeadingLevel: number,
+  listed: BookHeading[],
+  number?: string,
+): void {
   if (entry.contents === false) return
-  const title = entry.title === undefined ? [] : [sectionHeading({ ...entry, title: entry.title }, section.info.id)]
+  const title = entry.title === undefined ? [] : [sectionHeading({ ...entry, title: entry.title }, section.info.id, number)]
   listed.push(...withSectionDepth([...title, ...collectHeadings(section.node.children, section.info.id, maxHeadingLevel, 2)], depth, entry.contentsDepth))
 }

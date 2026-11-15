@@ -18,6 +18,7 @@ import { MEASURE_ATTRIBUTE_FAMILY } from '../measure-attributes.ts'
 import { elements, parse } from '../sanitize.ts'
 import { sourceAttributeIssues } from '../source-attributes.ts'
 import { type BookFlowPageGeometry, flowPageStyle } from './book-flow.ts'
+import { encodedPartNumbers } from './book-part-values.ts'
 import { element, headingText, linkChildren } from './dom.ts'
 import type { BookBuild, BookHeading, BookSectionInfo } from './types.ts'
 
@@ -107,8 +108,7 @@ export function partSection(
   const children = entry.html === undefined ? [] : parse(entry.html).children
   const extra = flowAttribs(entry.opens, entry.parentRules, {
     'data-segnavia-kind': 'part',
-    'data-segnavia-parts': JSON.stringify({ ...parts, ...Object.fromEntries(Object.entries(partNumbers).map(([name, value]) => [`#${name}`, value])) }),
-    ...(Object.keys(partNumbers).length === 0 ? {} : { 'data-segnavia-part-numbers': JSON.stringify(partNumbers) }),
+    'data-segnavia-parts': JSON.stringify({ ...parts, ...encodedPartNumbers(partNumbers) }),
     ...(division === 'front' ? { 'data-sequence': 'front' } : {}),
   })
   return {
@@ -153,12 +153,13 @@ export function collectHeadings(children: ChildNode[], sectionId: string, depth:
   })
 }
 
-export function sectionHeading(entry: { title: string; contentsLabel?: string; subtitle?: string }, id: string): BookHeading {
+export function sectionHeading(entry: { title: string; contentsLabel?: string; subtitle?: string }, id: string, number?: string): BookHeading {
   return {
     id,
     block: id,
     level: 1,
     text: entry.title,
+    ...(number === undefined ? {} : { number }),
     ...(entry.contentsLabel === undefined ? {} : { contentsLabel: entry.contentsLabel }),
     ...(entry.subtitle === undefined ? {} : { subtitle: entry.subtitle }),
     sectionId: id,
@@ -178,6 +179,7 @@ export function designedSection(
   build: BookBuild,
   depth: number,
   geometry?: BookFlowPageGeometry,
+  number?: string,
 ): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(
     entry.opens,
@@ -199,7 +201,7 @@ export function designedSection(
       : element('div', { 'data-segnavia-designed-page': String(offset + 1), hidden: '' }, document.children)
   })
   if (entry.title !== undefined) {
-    headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
+    headings.unshift(sectionHeading({ ...entry, title: entry.title }, id, number))
   }
   return {
     built: {
@@ -299,6 +301,7 @@ export function templatedSection(
   depth: number,
   templates?: Map<string, BookTemplate>,
   geometry?: BookFlowPageGeometry,
+  number?: string,
 ): { built: BuiltSection; headings: BookHeading[] } {
   const extra = flowAttribs(
     entry.opens,
@@ -337,7 +340,7 @@ export function templatedSection(
     return element('div', { 'data-segnavia-templated-page': String(offset + 1), 'data-template': name, hidden: '' }, regions)
   })
   if (entry.title !== undefined) {
-    headings.unshift(sectionHeading({ ...entry, title: entry.title }, id))
+    headings.unshift(sectionHeading({ ...entry, title: entry.title }, id, number))
   }
   return {
     built: {

@@ -62,4 +62,34 @@ describe('structureNumbers', () => {
     expect(held.get('c14')?.text).toBe('טו')
     expect(held.get('c15')?.text).toBe('טז')
   })
+
+  test('inherits outer styles when an inner part sets only restart', () => {
+    const held = numbers(
+      [
+        {
+          id: 'outer',
+          name: 'outer',
+          title: 'Outer',
+          contents: true,
+          numbering: { parts: { style: 'roman-lower' }, chapters: { style: 'roman-lower' } },
+          children: [
+            {
+              id: 'inner',
+              name: 'inner',
+              title: 'Inner',
+              contents: true,
+              numbering: { parts: { restart: 3 }, chapters: { restart: 4 } },
+              children: [
+                { id: 'nested', name: 'nested', title: 'Nested', contents: true, children: [] },
+                chapter('chapter'),
+              ],
+            },
+          ],
+        },
+      ],
+      { parts: { style: 'roman-upper' }, chapters: { style: 'arabic' } },
+    )
+    expect(held.get('nested')?.text).toBe('iii')
+    expect(held.get('chapter')?.text).toBe('iv')
+  })
 })

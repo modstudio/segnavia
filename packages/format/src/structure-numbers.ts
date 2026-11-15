@@ -15,14 +15,18 @@ export interface StructureNumberSettings {
 
 type Level = StructureNumberValue['level']
 
-function defaultStyle(level: Level, lang: string | undefined): NumberSystem {
+export function defaultStructureNumberStyle(level: Level, lang: string | undefined): NumberSystem {
   if (isHebrew(lang)) return 'hebrew'
   return level === 'part' ? 'roman-upper' : 'arabic'
 }
 
-function enclosingSetting(section: BookSectionEntry, level: Level) {
+function enclosingLevelValue<K extends 'style' | 'restart'>(section: BookSectionEntry, level: Level, field: K) {
   const key = level === 'part' ? 'parts' : 'chapters'
-  return [...section.ancestry].reverse().find((part) => part.numbering?.[key] !== undefined)?.numbering?.[key]
+  return [...section.ancestry].reverse().find((part) => part.numbering?.[key]?.[field] !== undefined)?.numbering?.[key]?.[field]
+}
+
+export function structureNumberStyle(section: BookSectionEntry, level: Level, settings: StructureNumberSettings): NumberSystem {
+  return enclosingLevelValue(section, level, 'style') ?? settings[level === 'part' ? 'parts' : 'chapters']?.style ?? defaultStructureNumberStyle(level, settings.lang)
 }
 
 function authoredText(authored: string | number | false | undefined, count: number, style: NumberSystem): string | undefined {
@@ -48,12 +52,12 @@ function addPartNumber(section: BookSectionEntry, settings: StructureNumberSetti
   if (!isPart(entry) || entry.number === false) return
   const parent = section.ancestry.map((part) => part.id).join('/')
   const key = `${section.depth}:${parent}`
-  const configured = enclosingSetting(section, 'part')
+  const restart = enclosingLevelValue(section, 'part', 'restart')
   const held = state.partCounts.get(key)
-  const count = held === undefined ? (configured?.restart ?? 1) : held + 1
+  const count = held === undefined ? (restart ?? 1) : held + 1
   state.partCounts.set(key, count)
-  const enabled = settings.parts !== undefined || configured !== undefined || entry.number !== undefined
-  const style = configured?.style ?? settings.parts?.style ?? defaultStyle('part', settings.lang)
+  const enabled = settings.parts !== undefined || section.ancestry.some((part) => part.numbering?.parts !== undefined) || entry.number !== undefined
+  const style = structureNumberStyle(section, 'part', settings)
   state.result.set(section.id, { level: 'part', count, ...(enabled ? { text: authoredText(entry.number, count, style) } : {}) })
 }
 
@@ -61,14 +65,13 @@ function addChapterNumber(section: BookSectionEntry, settings: StructureNumberSe
   if (!isChapterSection(section)) return
   const entry = section.entry as BookSectionEntry['entry'] & { number?: string | number | false }
   if (entry.number === false) return
-  const configured = enclosingSetting(section, 'chapter')
   const owner = [...section.ancestry].reverse().find((part) => part.numbering?.chapters?.restart !== undefined)
   if (owner && !state.restartedParts.has(owner.id)) {
     state.chapterCount = owner.numbering?.chapters?.restart ?? state.chapterCount
     state.restartedParts.add(owner.id)
   } else state.chapterCount += 1
-  const enabled = settings.chapters !== undefined || configured !== undefined || entry.number !== undefined
-  const style = configured?.style ?? settings.chapters?.style ?? defaultStyle('chapter', settings.lang)
+  const enabled = settings.chapters !== undefined || section.ancestry.some((part) => part.numbering?.chapters !== undefined) || entry.number !== undefined
+  const style = structureNumberStyle(section, 'chapter', settings)
   state.result.set(section.id, {
     level: 'chapter',
     count: state.chapterCount,

@@ -55,6 +55,22 @@ test('resolves chapter-number on the server margin path', () => {
   expect(facts[0]?.variables?.chapter).toBe('4')
 })
 
+test('leaves chapter-number empty on a part opening page', () => {
+  const facts = marginFactsFor(
+    [{ id: 'part', kind: 'part', division: 'body', partNumbers: { gate: 'II' } }],
+    new Map([['part', { page: 1, x: 0, y: 0 }]]),
+    1,
+    new Set(),
+    { system: 'arabic', printed: true },
+    [
+      { name: 'chapter', kind: 'text', from: 'chapter-number', pick: 'first' },
+      { name: 'part', kind: 'text', from: 'part-number', part: 'gate', pick: 'first' },
+    ],
+  )
+  expect(facts[0]?.variables?.chapter).toBeUndefined()
+  expect(facts[0]?.variables?.part).toBe('II')
+})
+
 test('places asymmetric binding margins on the physical spine edges of an RTL book', () => {
   const book = parseBookFixture({
     title: 'ספר',

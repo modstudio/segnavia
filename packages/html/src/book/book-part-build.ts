@@ -41,10 +41,6 @@ function addPartOpening(sectionEntry: BookSectionEntry, build: DocumentBuild, bo
     section.node.children = [generatedPartHeading(number, entry.title ?? '', book)]
     linkChildren(section.node)
   }
-  if (number !== undefined) {
-    section.info.number = number
-    section.node.attribs['data-segnavia-section-number'] = number
-  }
   build.sections.push(section)
   attachPendingPartHeadings(build, sectionEntry, id)
 }
@@ -68,14 +64,14 @@ export function addPart(sectionEntry: BookSectionEntry, build: DocumentBuild, bo
   const { entry } = sectionEntry
   if (!isPart(entry)) return false
   const id = sectionEntry.id ?? ''
-  addPartOpening(sectionEntry, build, book, id)
   addPartHeading(sectionEntry, build, id)
+  addPartOpening(sectionEntry, build, book, id)
   return true
 }
 
 export function attachPendingPartHeadings(build: DocumentBuild, sectionEntry: BookSectionEntry, id: string): void {
-  const ancestryIds = new Set(sectionEntry.ancestry.map((part) => part.id))
-  const attached = build.pendingPartHeadings.filter((heading) => ancestryIds.has(heading.partId))
+  const attachmentIds = new Set([...sectionEntry.ancestry.map((part) => part.id), ...(isPart(sectionEntry.entry) ? [sectionEntry.id] : [])])
+  const attached = build.pendingPartHeadings.filter((heading) => attachmentIds.has(heading.partId))
   build.headings.push(...attached.map(({ partId: _partId, ...heading }) => ({ ...heading, id, block: id, sectionId: id, listed: DEFAULT_HEADING_LISTING })))
-  build.pendingPartHeadings = build.pendingPartHeadings.filter((heading) => !ancestryIds.has(heading.partId))
+  build.pendingPartHeadings = build.pendingPartHeadings.filter((heading) => !attachmentIds.has(heading.partId))
 }

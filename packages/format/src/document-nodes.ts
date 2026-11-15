@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ContentsLabel, PartNumbering, StructureNumber } from './book-section.ts'
+import { BookOpens } from './book-opens.ts'
 import { closedObject } from './closed-object.ts'
 import { discriminatedNodeUnion } from './document-node-discriminator.ts'
 import { ContentsNode, SectionFields } from './document-nodes-book.ts'
@@ -38,7 +39,7 @@ export interface PartNode {
   number?: z.infer<typeof StructureNumber>
   numbering?: z.infer<typeof PartNumbering>
   contents: boolean
-  opens?: 'recto' | 'verso' | 'any' | 'continue'
+  opens?: z.infer<typeof BookOpens>
   parentRules?: ParentRules
   parents?: unknown
   conditions?: z.infer<(typeof NodeConditions)['conditions']>
@@ -102,7 +103,7 @@ export const PartNodeFields = {
   number: StructureNumber.optional(),
   numbering: PartNumbering.optional(),
   contents: z.boolean().default(true),
-  opens: z.enum(['recto', 'verso', 'any', 'continue']).optional(),
+  opens: BookOpens.optional(),
   parentRules: parentRules.optional(),
   parents: z.unknown().optional(),
   ...NodeConditions,

@@ -61,17 +61,9 @@ function refineContents(node: Extract<DocumentNode, { type: 'contents' }>, path:
   }
 }
 
-function refinePart(node: Extract<DocumentNode, { type: 'part' }>, path: Path, profile: DocumentProfile, ctx: z.RefinementCtx): void {
+function refinePart(node: Extract<DocumentNode, { type: 'part' }>, path: Path, ctx: z.RefinementCtx): void {
   if (node.parents !== undefined) {
     ctx.addIssue({ code: 'custom', ...renamedParentRulesFieldIssue('part field parents', [...path, 'parents']) })
-  }
-  for (const field of ['title', 'contentsLabel', 'html', 'contents', 'opens', 'numbering', 'number', 'parentRules'] as const) {
-    if (node[field] === undefined || (profile.partFields as readonly string[]).includes(field)) continue
-    ctx.addIssue({
-      code: 'custom',
-      path: [...path, field],
-      message: `part field ${field} is not allowed in a printed document; remove it because parts are book-only to clear this refusal`,
-    })
   }
 }
 
@@ -86,7 +78,7 @@ export function refineDocumentNodes(
     }
     if (node.type === 'page') refinePage(node, path, document.kind, profile, ctx)
     if (node.type === 'section') refineSection(node, path, profile, ctx)
-    if (node.type === 'part') refinePart(node, path, profile, ctx)
+    if (node.type === 'part') refinePart(node, path, ctx)
     if (node.type === 'contents') refineContents(node, path, ctx)
   })
   refineRecords(document, ctx)

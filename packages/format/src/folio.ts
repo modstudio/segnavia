@@ -11,16 +11,17 @@ export const Numbering = closedObject({
 })
 export type Numbering = z.infer<typeof Numbering>
 
+export const NumberingRestart = z
+  .number()
+  .int('restart must be a positive integer; set restart to a positive integer to clear this refusal')
+  .positive('restart must be a positive integer; set restart to a positive integer to clear this refusal')
+  .max(Number.MAX_SAFE_INTEGER, 'restart must be a positive integer; set restart to a positive safe integer to clear this refusal')
+
 export const SectionNumbering = z
   .strictObject(
     {
       counted: z.literal(false, { error: 'counted can only be false; remove counted to clear this refusal' }).optional(),
-      restart: z
-        .number()
-        .int('restart must be a positive integer; set restart to a positive integer to clear this refusal')
-        .positive('restart must be a positive integer; set restart to a positive integer to clear this refusal')
-        .max(Number.MAX_SAFE_INTEGER, 'restart must be a positive integer; set restart to a positive safe integer to clear this refusal')
-        .optional(),
+      restart: NumberingRestart.optional(),
     },
     { error: 'section numbering accepts only counted and restart; remove unknown numbering fields to clear this refusal' },
   )

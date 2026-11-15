@@ -1,6 +1,7 @@
 import { SECTION_BOUNDARY_CLASS } from '@segnavia/format'
 import { cloneNode } from 'domhandler'
 import type { BuiltSection } from './book-held.ts'
+import { encodedPartNumbers } from './book-part-values.ts'
 import { element, text } from './dom.ts'
 
 function boundary(section: BuiltSection): ReturnType<typeof element> {
@@ -10,13 +11,13 @@ function boundary(section: BuiltSection): ReturnType<typeof element> {
     {
       class: SECTION_BOUNDARY_CLASS,
       'data-segnavia-section-title': title,
-      ...(section.info.number === undefined ? {} : { 'data-segnavia-section-number': section.info.number }),
+      ...(section.info.kind === 'chapter' && section.info.number !== undefined ? { 'data-segnavia-section-number': section.info.number } : {}),
       ...(section.info.parts === undefined
         ? {}
         : {
             'data-segnavia-parts': JSON.stringify({
               ...section.info.parts,
-              ...Object.fromEntries(Object.entries(section.info.partNumbers ?? {}).map(([name, value]) => [`#${name}`, value])),
+              ...encodedPartNumbers(section.info.partNumbers ?? {}),
             }),
           }),
       'data-segnavia-chapter': section.node.attribs['data-segnavia-chapter'] ?? '0',

@@ -90,6 +90,9 @@ describe('document JSON Schema', () => {
     expect(bookPart).toHaveProperty('numbering')
     expect(bookPart).toHaveProperty('number')
     expect(bookPart).toHaveProperty('contentsLabel')
+    expect(bookPart).toHaveProperty('name')
+    expect(bookPart).toHaveProperty('conditions')
+    expect(node(branch('book'), 'part').required).toContain('name')
     expect(properties(node(branch('printed'), 'page'))).not.toHaveProperty('template')
   })
 
@@ -123,7 +126,14 @@ describe('document JSON Schema', () => {
         kind: 'book',
         metadata: { title: 'Book' },
         mode: 'continuous',
-        children: [{ type: 'section', title: 'Body', dir: 'rtl', lang: 'he', children: [{ type: 'flow', html: '<p>Body</p>' }] }],
+        children: [
+          {
+            type: 'part',
+            name: 'body',
+            title: 'Body',
+            children: [{ type: 'section', title: 'Chapter', dir: 'rtl', lang: 'he', children: [{ type: 'flow', html: '<p>Body</p>' }] }],
+          },
+        ],
       },
       {
         type: 'document',
