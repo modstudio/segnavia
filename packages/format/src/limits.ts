@@ -21,9 +21,15 @@ const ASSET_LIMITS = [
   { measure: 'each', subject: 'asset', unit: 'bytes' },
 ] as const
 
+const FONT_SOURCE_LIMITS = [
+  { measure: 'bytes', subject: 'font family', unit: 'bytes', clearing: "raise the font source's limits.bytes option, or use a smaller font family" },
+  { measure: 'each', subject: 'font face', unit: 'bytes', clearing: "raise the font source's limits.each option, or use a smaller font" },
+] as const
+
 type TopLevelMeasure = (typeof TOP_LEVEL_LIMITS)[number]['measure']
 type LocalFontMeasure = (typeof LOCAL_FONT_LIMITS)[number]['measure']
 type AssetMeasure = (typeof ASSET_LIMITS)[number]['measure']
+type FontSourceMeasure = (typeof FONT_SOURCE_LIMITS)[number]['measure']
 
 export type Limits = Partial<Record<TopLevelMeasure, number>> & {
   localFonts?: Partial<Record<LocalFontMeasure, number>>
@@ -31,7 +37,7 @@ export type Limits = Partial<Record<TopLevelMeasure, number>> & {
 }
 
 export type DocumentLimits = Pick<Limits, 'pages' | 'descriptionTextChars'>
-export type LimitMeasure = TopLevelMeasure | `localFonts.${LocalFontMeasure}` | `assets.${AssetMeasure}`
+export type LimitMeasure = TopLevelMeasure | `localFonts.${LocalFontMeasure}` | `assets.${AssetMeasure}` | `fontSource.${FontSourceMeasure}`
 export type PageLimitSource = 'document' | 'default' | 'host'
 
 export interface ResolvedLimits extends Limits {
@@ -184,8 +190,9 @@ const TEXT = Object.fromEntries(
     ...TOP_LEVEL_LIMITS,
     ...LOCAL_FONT_LIMITS.map(({ measure, ...text }) => ({ measure: `localFonts.${measure}`, ...text })),
     ...ASSET_LIMITS.map(({ measure, ...text }) => ({ measure: `assets.${measure}`, ...text })),
+    ...FONT_SOURCE_LIMITS.map(({ measure, ...text }) => ({ measure: `fontSource.${measure}`, ...text })),
   ].map(({ measure, ...text }) => [measure, text]),
-) as Record<LimitMeasure, { subject: string; unit: string }>
+) as Record<LimitMeasure, { subject: string; unit: string; clearing?: string }>
 
 const PAGE_CLEAR: Record<PageLimitSource, string> = {
   document: 'declare a higher limits.pages on the document, or shorten the content',
@@ -212,6 +219,8 @@ export interface LimitExceeded {
 export const LIMIT_ACTUAL_PLACEHOLDER = '{{limit.actual}}'
 
 function clearingAction(measure: LimitMeasure, options: LimitRefusalOptions): string {
+  const defined = TEXT[measure].clearing
+  if (defined !== undefined) return defined
   if (measure === 'pages') return PAGE_CLEAR[options.pagesSource ?? 'document']
   const setting = options.setting ?? `limits.${measure}`
   return `raise the host's ${setting}, or reduce the content`
