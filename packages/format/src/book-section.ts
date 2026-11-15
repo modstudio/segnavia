@@ -147,7 +147,13 @@ export const BookItem: z.ZodType<BookItem> = z.lazy(() => z.union([Part, BookFro
 export type BookDivision = 'front' | 'body' | 'end'
 
 interface BookSectionLocation {
-  ancestry: Array<{ name: string; title?: string; id: string }>
+  ancestry: Array<{
+    name: string
+    title?: string
+    id: string
+    number?: z.infer<typeof StructureNumber>
+    numbering?: z.infer<typeof PartNumbering>
+  }>
   depth: number
   path: (string | number)[]
 }
@@ -177,7 +183,10 @@ export function bookSections(book: BookDivisions): BookSectionEntry[] {
       }
       const id = entry.id
       if (entry.html !== undefined || entry.title !== undefined) sections.push({ entry, division, ancestry, depth: ancestry.length, path, id })
-      walk(entry.children, division, [...path, 'children'], [...ancestry, { name: entry.name, title: entry.title, id }])
+      walk(entry.children, division, [...path, 'children'], [
+        ...ancestry,
+        { name: entry.name, title: entry.title, id, number: entry.number, numbering: entry.numbering },
+      ])
     })
   }
   walk(book.frontMatter, 'front', ['frontMatter'], [])

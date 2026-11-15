@@ -42,6 +42,7 @@ import { VariableDocumentFacts } from './variable-document-facts.ts'
 
 export { bookPageGeometries, bookPageName, type ResolvedBookPageGeometry, resolveBookPageGeometry, sectionPageGeometry } from './book-page-geometry.ts'
 export { resolveBookPagination } from './book-pagination.ts'
+export { structureNumbers, type StructureNumberSettings, type StructureNumberValue } from './structure-numbers.ts'
 export {
   BookChapterEntry,
   BookContents,
