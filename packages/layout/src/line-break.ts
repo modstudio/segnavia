@@ -96,16 +96,22 @@ function lineStart(items: readonly Item[], previous: Breakpoint): number {
   }
 }
 
+function breakpointStarts(items: readonly Item[], points: readonly Breakpoint[], startPoint: Breakpoint): Map<number, number> {
+  const starts = new Map<number, number>()
+  starts.set(startPoint.index, lineStart(items, startPoint))
+  for (const point of points) starts.set(point.index, lineStart(items, point))
+  return starts
+}
+
 function adjustment(
   items: readonly Item[],
   sums: ReturnType<typeof prefixes>,
-  previous: Breakpoint,
+  start: number,
   current: Breakpoint,
   target: number,
   emergencyStretch: number,
   infiniteBadness: number,
 ): { ratio: number; badness: number } {
-  const start = lineStart(items, previous)
   const end = current.index
   const penaltyWidth = end < items.length && items[end]?.type === 'penalty' ? items[end].width : 0
   const natural = (sums.width[end] ?? 0) - (sums.width[start] ?? 0) + penaltyWidth
@@ -144,9 +150,22 @@ function lineDemerits(previous: Node, point: Breakpoint, ratio: number, adjustme
   return Math.max(0, base + penalty) + flagged + fitness
 }
 
-function hasSkippedForced(sums: ReturnType<typeof prefixes>, items: readonly Item[], previous: Breakpoint, current: Breakpoint): boolean {
-  const start = Math.min(lineStart(items, previous), current.index)
+function hasSkippedForced(sums: ReturnType<typeof prefixes>, start: number, current: Breakpoint): boolean {
+  start = Math.min(start, current.index)
   return (sums.forced[current.index] ?? 0) - (sums.forced[start] ?? 0) > 0
+}
+
+function overfullPastShrink(
+  items: readonly Item[],
+  sums: ReturnType<typeof prefixes>,
+  start: number,
+  current: Breakpoint,
+  target: number,
+): boolean {
+  const end = current.index
+  const natural = (sums.width[end] ?? 0) - (sums.width[start] ?? 0)
+  const shrink = (sums.shrink[end] ?? 0) - (sums.shrink[start] ?? 0)
+  return natural - shrink >= target
 }
 
 function candidateNode(
@@ -158,12 +177,13 @@ function candidateNode(
   enforceLimits: boolean,
   previous: Node,
   point: Breakpoint,
+  start: number,
   infiniteBadness: number,
 ): Node | undefined {
-  if (hasSkippedForced(sums, items, previous.breakpoint, point)) return undefined
+  if (hasSkippedForced(sums, start, point)) return undefined
   const widthIndex = widthOffset + previous.line
   const target = widths[widthIndex] ?? widths.at(-1) ?? 0
-  const measured = adjustment(items, sums, previous.breakpoint, point, target, settings.emergencyStretch, infiniteBadness)
+  const measured = adjustment(items, sums, start, point, target, settings.emergencyStretch, infiniteBadness)
   if (enforceLimits && (measured.ratio < settings.minRatio || measured.ratio > settings.maxRatio)) return undefined
   const fitness = fitnessClass(measured.ratio)
   return {
@@ -186,11 +206,13 @@ function candidatesAtPoint(
   singleMeasure: boolean,
   nodes: readonly Node[],
   point: Breakpoint,
+  starts: ReadonlyMap<number, number>,
   infiniteBadness: number,
 ): Node[] {
   const best = new Map<string, Node>()
   for (const previous of nodes) {
-    const candidate = candidateNode(items, sums, widths, widthOffset, settings, enforceLimits, previous, point, infiniteBadness)
+    const start = starts.get(previous.breakpoint.index) ?? 0
+    const candidate = candidateNode(items, sums, widths, widthOffset, settings, enforceLimits, previous, point, start, infiniteBadness)
     if (!candidate) continue
     const lineKey = singleMeasure ? '' : candidate.line
     const key = `${lineKey}:${candidate.fitness}:${point.flagged ? 1 : 0}`
@@ -213,13 +235,29 @@ function solve(
   const singleMeasure = widths.length === 1
   const terminalIndex = points.at(-1)?.index
   const startPoint: Breakpoint = { index: -1, penalty: 0, flagged: initial.flagged, forced: true }
-  const nodes: Node[] = [{ breakpoint: startPoint, line: 0, ratio: 0, demerits: 0, fitness: initial.fitness }]
+  const starts = breakpointStarts(items, points, startPoint)
+  let active: Node[] = [{ breakpoint: startPoint, line: 0, ratio: 0, demerits: 0, fitness: initial.fitness }]
   let endings: Node[] = []
 
   for (const point of points) {
     if (point.flagged && !pass.hyphens && !point.forced) continue
-    const atPoint = candidatesAtPoint(items, sums, widths, widthOffset, pass.settings, pass.enforceLimits, singleMeasure, nodes, point, infiniteBadness)
-    nodes.push(...atPoint)
+    const atPoint = candidatesAtPoint(items, sums, widths, widthOffset, pass.settings, pass.enforceLimits, singleMeasure, active, point, starts, infiniteBadness)
+    const removed: Node[] = []
+    const surviving = point.forced
+      ? []
+      : active.filter((node) => {
+          const widthIndex = widthOffset + node.line
+          const target = widths[widthIndex] ?? widths.at(-1) ?? 0
+          const start = starts.get(node.breakpoint.index) ?? 0
+          const overfull = overfullPastShrink(items, sums, start, point, target)
+          if (overfull) removed.push(node)
+          return !overfull
+        })
+    if (!pass.enforceLimits && !point.forced && surviving.length === 0 && removed.length > 0) {
+      const least = removed.reduce((best, node) => (node.demerits < best.demerits ? node : best))
+      surviving.push(least)
+    }
+    active = [...surviving, ...atPoint]
     if (point.index === terminalIndex) endings = atPoint
   }
   return endings.reduce<Node | undefined>((best, node) => (!best || node.demerits < best.demerits ? node : best), undefined)
@@ -302,7 +340,7 @@ function breakLinesWith(
       const measured = adjustment(
         chunk,
         sums,
-        line.previous?.breakpoint ?? { index: -1, penalty: 0, flagged: false, forced: true },
+        lineStart(chunk, line.previous?.breakpoint ?? { index: -1, penalty: 0, flagged: false, forced: true }),
         line.breakpoint,
         target,
         0,
@@ -343,12 +381,14 @@ export function breakLinesScript(): string {
 ${breakpoints.toString()}
 ${prefixes.toString()}
 ${lineStart.toString()}
+${breakpointStarts.toString()}
 ${adjustment.toString()}
 ${overflowBadness.toString()}
 ${fitnessClass.toString()}
 ${adjustmentForRatio.toString()}
 ${lineDemerits.toString()}
 ${hasSkippedForced.toString()}
+${overfullPastShrink.toString()}
 ${candidateNode.toString()}
 ${candidatesAtPoint.toString()}
 ${solve.toString()}

@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test'
 import type { Box, Glue, Penalty } from './line-break.ts'
 import { breakLines } from './line-break.ts'
+import { breakLinesReference } from './line-break-legacy.test-helper.ts'
 
 const box = (width: number): Box => ({ type: 'box', width })
 const glue = (width = 1, stretch = 1, shrink = 1): Glue => ({ type: 'glue', width, stretch, shrink })
@@ -141,4 +142,37 @@ test('does not invent a line at the two-thousand-item chunk boundary', () => {
   expect(result.breaks.every((index) => index < items.length)).toBe(true)
   expect(result.ratios).toHaveLength(result.breaks.length)
   expect(result.violations).toHaveLength(result.breaks.length)
+})
+
+test('active-node deactivation preserves ratio-limited breaks over generated paragraphs', () => {
+  let state = 0x5e67a577
+  const random = () => {
+    state = (Math.imul(state, 1_664_525) + 1_013_904_223) >>> 0
+    return state / 0x1_0000_0000
+  }
+  const generated = Array.from({ length: 80 }, (_, caseIndex) => {
+    const items: Array<Box | Glue | Penalty> = []
+    const words = 6 + Math.floor(random() * 18)
+    for (let index = 0; index < words; index++) {
+      const first = 2 + Math.floor(random() * 5)
+      const second = 1 + Math.floor(random() * 4)
+      items.push(box(first))
+      if (index % 4 === 2) items.push(penalty(25, true, 1), box(second))
+      if (index < words - 1) items.push(glue(2, 8, 1))
+      if (caseIndex % 9 === 0 && index === Math.floor(words / 2)) items.push(penalty(Number.NEGATIVE_INFINITY))
+    }
+    items.push(penalty(Number.POSITIVE_INFINITY), glue(0, 100_000, 0), penalty(Number.NEGATIVE_INFINITY))
+    const firstMeasure = 15 + Math.floor(random() * 15)
+    const widths = caseIndex % 3 === 0 ? [firstMeasure, firstMeasure + 3, firstMeasure - 2] : [firstMeasure]
+    return { items, widths }
+  })
+  const chunked: Array<Box | Glue | Penalty> = Array.from({ length: 1_010 }, (_, index) => [box(1 + (index % 3)), glue(1, 8, 1)]).flat()
+  chunked.push(box(2), penalty(Number.NEGATIVE_INFINITY))
+  generated.push({ items: chunked, widths: [42] })
+
+  for (const sample of generated) {
+    const reference = breakLinesReference(sample.items, sample.widths)
+    expect(reference.violations).not.toContain(true)
+    expect(breakLines(sample.items, sample.widths)).toEqual(reference)
+  }
 })
