@@ -42,6 +42,7 @@ test('carries chapter and part numbers through browser text facts', () => {
     { name: 'chapter', value: '3', line: 0, scope: 'flow' },
     { name: 'part', value: 'II', line: 0, scope: 'flow' },
   ])
+  expect(composerScript('{}')).toContain("titleVariable.from==='part-number'?'#'+titleVariable.part:titleVariable.part")
 })
 
 test('embedded copyfit bounds include their value parser dependency', () => {
