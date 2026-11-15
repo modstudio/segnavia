@@ -14,9 +14,9 @@ import { type OriginApproval, type PreflightProfileInput, Refusal, type SlotsOpt
 import { AsOfElement, captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { ensureBaseStyle } from './base-style.ts'
 import { animationMessage, MESSAGE, type PageSelection } from './bridge.ts'
-import { DeckController, type DeckState } from './controller.ts'
+import type { DeckController, DeckState } from './controller.ts'
 import { resumeController, suspendController } from './controller-connection.ts'
-import { defineEditionPropertyAccessor, editionAttribute } from './edition-property.ts'
+import { editionAttribute } from './edition-property.ts'
 import { dispatchElementError } from './element-error.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { FittedSize } from './fit.ts'
@@ -24,6 +24,7 @@ import { FramePool } from './frame-pool.ts'
 import type { FrameTitle } from './frame-title.ts'
 import { requestSelection } from './selection-request.ts'
 import { EMPTY_SLOTS, type PreparedSlots, slotFillRefusal } from './slot-render.ts'
+import { stageControllerEdition } from './stage-controller-edition.ts'
 import { prepareStageDay, stageDayChangesFrames } from './stage-day.ts'
 import { stageFrameEvents } from './stage-frame-events.ts'
 import { recordFrameRefusal, shownFrameRefusal } from './stage-frame-refusal.ts'
@@ -35,6 +36,7 @@ import { StageFrameRebuilder } from './stage-rebuild.ts'
 import { StageRefusalState } from './stage-refusal-state.ts'
 import type { StageReserve } from './stage-reserve.ts'
 import { cancelStageSelectionRequests, shownScripts, stageSelectionRefusal } from './stage-selection.ts'
+import { createStageSourceController } from './stage-source-controller.ts'
 import { surfacePreflightFor } from './surface-preflight.ts'
 import type { HostTransition } from './transition.ts'
 import { parseTransitionProperty, transitionFromAttributes } from './transition-option.ts'
@@ -42,7 +44,6 @@ export class SegnaviaStage extends AsOfElement {
   static observedAttributes = ['src', 'edition', 'neighbors', 'fit', 'transition', 'transition-duration']
   static {
     defineStagePropertyAccessors(SegnaviaStage.prototype)
-    defineEditionPropertyAccessor(SegnaviaStage.prototype)
   }
   declare css: string
   declare edition: string | undefined
@@ -82,12 +83,10 @@ export class SegnaviaStage extends AsOfElement {
   get profile(): PreflightProfileInput {
     return surfacePreflightFor(this).profile
   }
-
   set profile(value: PreflightProfileInput) {
     surfacePreflightFor(this).profile = value
     this.rebuildFrames()
   }
-
   set slots(value: SlotsOptions | undefined) {
     this.cancelSelectionRequests()
     this.cancelSlotPreparation()
@@ -100,13 +99,11 @@ export class SegnaviaStage extends AsOfElement {
   protected asOfInputsChanged(): void {
     this.slots = this.slotOptions
   }
-
   setAuthoringScriptsRefused(refused: boolean) {
     if (refused === this.authoringRefusesScripts) return
     this.authoringRefusesScripts = refused
     if (this.attached?.state.deck) this.update(this.attached.state)
   }
-
   get transition(): HostTransition | undefined {
     return this.transitionProperty ?? transitionFromAttributes(this.getAttribute('transition'), this.getAttribute('transition-duration'))
   }
@@ -166,7 +163,8 @@ export class SegnaviaStage extends AsOfElement {
     this.attached?.removeEventListener('change', this.onChange)
     this.attached?.removeEventListener('error', this.onControllerError)
     this.attached = controller
-    if (controller) controller.edition = editionAttribute(this)
+    const statedEdition = stageControllerEdition(controller?.edition, editionAttribute(this))
+    if (controller && statedEdition.stated) controller.edition = statedEdition.edition
     if (this.isConnected) controller?.connectWindow()
     else controller?.disconnectWindow()
     controller?.addEventListener('change', this.onChange)
@@ -242,13 +240,7 @@ export class SegnaviaStage extends AsOfElement {
     const src = this.getAttribute('src')
     if (!src || !this.isConnected) return
     if (!this.owned) {
-      const hash = this.getAttribute('hash')
-      this.owned = new DeckController({
-        hash: hash === 'off' ? null : (hash ?? 'slide-'),
-        prefetch: this.hasAttribute('prefetch'),
-        brands: this.brands,
-        edition: editionAttribute(this),
-      })
+      this.owned = createStageSourceController(this)
       this.controller = this.owned
     }
     this.owned.brands = this.brands
@@ -371,7 +363,6 @@ export class SegnaviaStage extends AsOfElement {
   private cancelSelectionRequests() {
     cancelStageSelectionRequests(this.selectionRequests)
   }
-
   private cancelSelectionRequestsExcept(slideId: string | undefined) {
     cancelStageSelectionRequests(this.selectionRequests, (request) => request.slideId === slideId)
   }

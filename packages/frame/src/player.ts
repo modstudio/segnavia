@@ -19,6 +19,7 @@ import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
+import { PLAYER_ATTRIBUTES } from './player-attributes.ts'
 import { definePlayerForwardedPropertyAccessors, type PlayerForwardedProperties } from './player-forwarded-properties.ts'
 import { handlePlayerKey } from './player-key.ts'
 import {
@@ -65,19 +66,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
     definePlayerForwardedPropertyAccessors(SegnaviaPlayer.prototype)
     defineEditionPropertyAccessor(SegnaviaPlayer.prototype)
   }
-  static observedAttributes = [
-    'src',
-    'edition',
-    'notes',
-    'rail',
-    'fit',
-    'controls',
-    'transition',
-    'transition-duration',
-    'presentation',
-    'playback',
-    'captions',
-  ]
+  static observedAttributes = PLAYER_ATTRIBUTES
   declare anchors: PlayerForwardedProperties['anchors']
   declare edition: string | undefined
   declare asOf: PlayerForwardedProperties['asOf']

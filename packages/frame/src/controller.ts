@@ -368,7 +368,6 @@ export class DeckController extends EventTarget {
   private prefetch() {
     prefetchControllerNeighbors(this.options.prefetch, this.current.deck, this.current.index, (index) => this.contentFor(index))
   }
-
   private resolve(slide: Slide, index: number): Promise<ResolvedContent> {
     const ready = this.prefetched.get(slide.id)
     this.prefetched.delete(slide.id)
