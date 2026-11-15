@@ -204,7 +204,7 @@ test('document element resolves a named brand before keeping lowered pages', asy
       },
     ),
   })
-  element.brandResolution.resolve(element.sourceDocuments, element.brandOptions, [])
+  Reflect.get(element, 'brandResolution').resolve(element.sourceDocuments, element.brandOptions, [])
   expect(element.sourceValues).toHaveLength(0)
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(element.sourceValues[0]?.brand).toEqual({ css: '.house{color:red}' })
