@@ -21,9 +21,15 @@ const ASSET_LIMITS = [
   { measure: 'each', subject: 'asset', unit: 'bytes' },
 ] as const
 
+const FONT_SOURCE_LIMITS = [
+  { measure: 'bytes', subject: 'font family', unit: 'bytes' },
+  { measure: 'each', subject: 'font face', unit: 'bytes' },
+] as const
+
 type TopLevelMeasure = (typeof TOP_LEVEL_LIMITS)[number]['measure']
 type LocalFontMeasure = (typeof LOCAL_FONT_LIMITS)[number]['measure']
 type AssetMeasure = (typeof ASSET_LIMITS)[number]['measure']
+type FontSourceMeasure = (typeof FONT_SOURCE_LIMITS)[number]['measure']
 
 export type Limits = Partial<Record<TopLevelMeasure, number>> & {
   localFonts?: Partial<Record<LocalFontMeasure, number>>
@@ -31,7 +37,7 @@ export type Limits = Partial<Record<TopLevelMeasure, number>> & {
 }
 
 export type DocumentLimits = Pick<Limits, 'pages' | 'descriptionTextChars'>
-export type LimitMeasure = TopLevelMeasure | `localFonts.${LocalFontMeasure}` | `assets.${AssetMeasure}`
+export type LimitMeasure = TopLevelMeasure | `localFonts.${LocalFontMeasure}` | `assets.${AssetMeasure}` | `fontSource.${FontSourceMeasure}`
 export type PageLimitSource = 'document' | 'default' | 'host'
 
 export interface ResolvedLimits extends Limits {
@@ -184,6 +190,7 @@ const TEXT = Object.fromEntries(
     ...TOP_LEVEL_LIMITS,
     ...LOCAL_FONT_LIMITS.map(({ measure, ...text }) => ({ measure: `localFonts.${measure}`, ...text })),
     ...ASSET_LIMITS.map(({ measure, ...text }) => ({ measure: `assets.${measure}`, ...text })),
+    ...FONT_SOURCE_LIMITS.map(({ measure, ...text }) => ({ measure: `fontSource.${measure}`, ...text })),
   ].map(({ measure, ...text }) => [measure, text]),
 ) as Record<LimitMeasure, { subject: string; unit: string }>
 

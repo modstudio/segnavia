@@ -1,0 +1,71 @@
+import { afterEach, describe, expect, test } from 'bun:test'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { type FontCatalog, urlFontSource } from '@segnavia/format'
+import { directoryFontSource } from './directory-font-source.ts'
+
+const roots: string[] = []
+const signal = AbortSignal.any([])
+
+async function root(): Promise<string> {
+  const path = await mkdtemp(join(tmpdir(), 'segnavia-fonts-'))
+  roots.push(path)
+  return path
+}
+
+function catalog(src: string): FontCatalog {
+  return { body: { family: 'Body', faces: [{ src, format: 'woff2' }] } }
+}
+
+afterEach(async () => {
+  await Promise.all(roots.splice(0).map((path) => rm(path, { recursive: true, force: true })))
+})
+
+describe('directoryFontSource', () => {
+  test('loads and caches a regular face beneath the root', async () => {
+    const path = await root()
+    await writeFile(join(path, 'body.woff2'), Buffer.from('wOF2'))
+    const source = directoryFontSource(catalog('body.woff2'), { root: path })
+    const first = await source.font('body', { signal })
+    const second = await source.font('body', { signal })
+    expect(first).toBe(second)
+    expect(first?.faces[0]?.data).toEqual(new Uint8Array(Buffer.from('wOF2')))
+  })
+
+  test('uses the same catalog face description as a host URL source', async () => {
+    const path = await root()
+    const bytes = Buffer.from('wOF2')
+    await writeFile(join(path, 'body.woff2'), bytes)
+    const shared = catalog('body.woff2')
+    const directory = await directoryFontSource(shared, { root: path }).font('body', { signal })
+    const url = await urlFontSource(shared, {
+      baseUrl: 'https://fonts.example/',
+      fetch: async () => new Response(bytes),
+    }).font('body', { signal })
+    expect(directory).toEqual(url)
+  })
+
+  test.each([
+    ['an absolute path', (path: string) => join(path, 'body.woff2'), /absolute/],
+    ['a parent escape', () => '../body.woff2', /escapes/],
+    ['a missing file', () => 'missing.woff2', /missing/],
+  ])('refuses %s', async (_label, src, message) => {
+    const path = await root()
+    await expect(directoryFontSource(catalog(src(path)), { root: path }).font('body', { signal })).rejects.toThrow(message)
+  })
+
+  test('refuses a directory as src', async () => {
+    const path = await root()
+    await mkdir(join(path, 'face'))
+    await expect(directoryFontSource(catalog('face'), { root: path }).font('body', { signal })).rejects.toThrow(/not a regular file/)
+  })
+
+  test('refuses a symbolic link outside the root', async () => {
+    const path = await root()
+    const outside = await root()
+    await writeFile(join(outside, 'body.woff2'), Buffer.from('wOF2'))
+    await symlink(join(outside, 'body.woff2'), join(path, 'body.woff2'))
+    await expect(directoryFontSource(catalog('body.woff2'), { root: path }).font('body', { signal })).rejects.toThrow(/symbolic-link escape/)
+  })
+})
