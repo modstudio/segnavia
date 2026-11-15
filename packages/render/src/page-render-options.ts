@@ -9,7 +9,7 @@ type PagePdfCall = 'pagePdf' | 'pagesPdf'
 
 export function parsePagePdfOptions(options: PagePdfOptions, call: PagePdfCall): ParsedPagePdfOptions {
   refuseUnknownOptions(call, options)
-  const parsed = parsePdfOptions(parseComposedRenderOptions(options), call)
+  const parsed = parsePdfOptions(parseComposedRenderOptions(options, true), call)
   return parseWatermarkOption(
     {
       ...parsed,

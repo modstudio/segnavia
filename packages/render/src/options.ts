@@ -27,8 +27,9 @@ import {
   type SlotPrintOptions,
 } from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
+import { PDFName, PDFNumber } from 'pdf-lib'
 import type { EffectsReport } from './effects/types.ts'
-import { RenderLimitError, RenderRefusedError } from './errors.ts'
+import { ReceivedPdfError, RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
 import { loadPdf } from './pdf-load.ts'
 import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
@@ -142,13 +143,12 @@ export interface RenderOptions {
   }
 }
 
-function placementPdfFailure(message: string): PlacementResolutionError {
-  if (message.includes('encrypted')) return new PlacementResolutionError('encrypted', message)
-  if (message.includes('limits.input.bytes') || message.includes('ceiling')) return new PlacementResolutionError('too-large', message)
-  return new PlacementResolutionError('unreadable', message)
+function placementPdfFailure(error: unknown): PlacementResolutionError {
+  const message = error instanceof Error ? error.message : String(error)
+  return new PlacementResolutionError(error instanceof ReceivedPdfError ? error.reason : 'unreadable', message)
 }
 
-function checkedPlacements(placements: NonNullable<RenderOptions['placements']>, limits: ReturnType<typeof parseLimits>) {
+function checkedPlacements(placements: NonNullable<RenderOptions['placements']>, limits: ReturnType<typeof parseLimits>, drawPlacedPdfs: boolean) {
   if (placements[PLACED_PDF_SOURCES]) return placements
   const checked = new Map<string, ReturnType<typeof loadPdf>>()
   return {
@@ -171,22 +171,29 @@ function checkedPlacements(placements: NonNullable<RenderOptions['placements']>,
             `Placement ${JSON.stringify(address)} names PDF page ${selected.page}, but the source has ${document.getPageCount()} pages.`,
           )
         }
+        if (selected !== 'no-page') {
+          const sourcePage = document.getPage(selected.page - 1)
+          const rotate = (((sourcePage.getRotation().angle % 360) + 360) % 360) as 0 | 90 | 180 | 270
+          const userUnit = sourcePage.node.lookupMaybe(PDFName.of('UserUnit'), PDFNumber)?.asNumber() ?? 1
+          const pages = answer.media.pages?.map((page, index) => (index === selected.page - 1 ? { ...page, rotate, userUnit } : page))
+          return { ...answer, media: { ...answer.media, ...(pages ? { pages } : {}) } }
+        }
       } catch (error) {
         if (error instanceof PlacementResolutionError) throw error
-        throw placementPdfFailure(error instanceof Error ? error.message : String(error))
+        throw placementPdfFailure(error)
       }
       return answer
     },
-    [PLACED_PDF_SOURCES]: new Map(),
+    ...(drawPlacedPdfs ? { [PLACED_PDF_SOURCES]: new Map() } : {}),
   }
 }
 
-export function parseRenderOptions<T extends RenderOptions>(options: T): Omit<T, 'progress'> & RenderOptions {
+export function parseRenderOptions<T extends RenderOptions>(options: T, drawPlacedPdfs = false): Omit<T, 'progress'> & RenderOptions {
   if (typeof options.localFonts === 'object' && options.localFonts !== null && 'limits' in options.localFonts) {
     parseLimits({ localFonts: { limits: options.localFonts.limits } }, 'host')
   }
   const limits = parseLimits(options.limits, 'host')
-  const placements = options.placements ? checkedPlacements(options.placements, limits) : undefined
+  const placements = options.placements ? checkedPlacements(options.placements, limits, drawPlacedPdfs) : undefined
   return {
     ...options,
     origins: options.origins === undefined ? undefined : [...options.origins],
@@ -272,8 +279,8 @@ export type ComposedRenderOptions = RenderOptions & { preflight?: ComposedPrefli
 
 export type ParsedComposedRenderOptions<T extends ComposedRenderInput> = Omit<T, 'preflight' | 'progress'> & ComposedRenderOptions
 
-export function parseComposedRenderOptions<T extends ComposedRenderInput>(options: T): ParsedComposedRenderOptions<T> {
-  const parsed = parseRenderOptions(options)
+export function parseComposedRenderOptions<T extends ComposedRenderInput>(options: T, drawPlacedPdfs = false): ParsedComposedRenderOptions<T> {
+  const parsed = parseRenderOptions(options, drawPlacedPdfs)
   const preflight = resolveRenderPreflight(options.preflight)
   return { ...parsed, ...(preflight === undefined ? {} : { preflight }) } as ParsedComposedRenderOptions<T>
 }

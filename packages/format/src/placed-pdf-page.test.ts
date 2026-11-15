@@ -36,4 +36,19 @@ describe('placedPdfPage', () => {
       { width: 400, height: 200, matrix: [0, 2, -2, 0, 440, -20] },
     ])
   })
+
+  test('returns the selected page in displayed space', () => {
+    const selected = placedPdfPage(
+      {
+        format: 'pdf',
+        pages: [{ rotate: 90, userUnit: 2, boxes: { media: { x: 10, y: 20, width: 100, height: 200 } } }],
+      },
+      1,
+      'media',
+    )
+    expect(selected).toMatchObject({
+      sourceBounds: { x: 10, y: 20, width: 100, height: 200 },
+      bounds: { x: 0, y: 0, width: 400, height: 200 },
+    })
+  })
 })

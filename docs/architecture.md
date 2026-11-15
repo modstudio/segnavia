@@ -1265,7 +1265,7 @@ first strong letter in its visible HTML text, with left to right as the
 fallback. A `dir` on the author's own `<html>` root takes precedence and is not
 duplicated. Composed printed pages resolve direction by the same rule in their
 own builder.
-For `pagePdf`, each part of `pagesPdf`, and each printed part of `bookPdf`, placed PDF forms are drawn immediately after `printToPDF` and before joining, watermarking, tagging, press effects and protection. This keeps their measured geometry local to the Chromium part while allowing every later PDF pass to treat the vector page as ordinary page content.
+For `pagePdf`, each part of `pagesPdf`, and each printed part of `bookPdf`, placed PDF forms are drawn after `printToPDF` and backdrop raster tagging, and before joining, watermarking, press effects and protection. Chromium's document tagging therefore precedes the artifact forms. This keeps their measured geometry local to the Chromium part while allowing every later PDF pass to treat the vector page as ordinary page content.
 `pagePdf`, `pagesPdf`, `bookPdf`, `deckPdf`, `pageImage`, `slideImage` and
 `coverImage` may add a render-only watermark. For PDFs, Chromium prints its
 text or image in a separate transparent layer using the document CSS and

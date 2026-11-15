@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 import { inflateSync } from 'node:zlib'
 import type { ResolvedLimits } from '@segnavia/format'
 import { EncryptedPDFError, PDFDocument } from 'pdf-lib'
-import { RenderRefusedError } from './errors.ts'
+import { ReceivedPdfError, RenderRefusedError } from './errors.ts'
 import { decodePdfStreamBounded } from './pdf-stream-bounds.ts'
 
 // The largest stream in the fidelity and demo renders is 36,325 bytes. 16 MiB
@@ -218,25 +218,28 @@ export async function loadPdf(pdf: Uint8Array, options?: Parameters<typeof PDFDo
   }
   const { bytes: byteLimit, streamBytes: streamLimit } = options.limits.input
   if (pdf.byteLength > byteLimit) {
-    throw new RenderRefusedError(
+    throw new ReceivedPdfError(
+      'too-large',
       `The received PDF is ${pdf.byteLength} bytes, above the limits.input.bytes limit of ${byteLimit}; raise the host's limits.input.bytes, or use a smaller PDF, to clear this refusal.`,
     )
   }
   const receivedText = Buffer.from(pdf.buffer, pdf.byteOffset, pdf.byteLength).toString('latin1')
   if (!receivedText.startsWith('%PDF-') || !receivedText.slice(-1024).includes('%%EOF')) {
-    throw new RenderRefusedError('The received PDF could not be read; pass a complete, valid PDF to stampPdf to clear this refusal.')
+    throw new ReceivedPdfError('unreadable', 'The received PDF could not be read; pass a complete, valid PDF to stampPdf to clear this refusal.')
   }
   if (/\/Encrypt\s+\d+\s+\d+\s+R\b/.test(receivedText)) {
-    throw new RenderRefusedError('The received PDF is encrypted and cannot be read; decrypt it before passing it to stampPdf to clear this refusal.')
+    throw new ReceivedPdfError('encrypted', 'The received PDF is encrypted and cannot be read; decrypt it before passing it to stampPdf to clear this refusal.')
   }
-  assertReceivedStreamsBounded(pdf, streamLimit)
   try {
+    assertReceivedStreamsBounded(pdf, streamLimit)
     return await PDFDocument.load(pdf, { updateMetadata: false })
   } catch (error) {
+    if (error instanceof ReceivedPdfError) throw error
     if (error instanceof EncryptedPDFError) {
-      throw new RenderRefusedError('The received PDF is encrypted and cannot be read; decrypt it before passing it to stampPdf to clear this refusal.')
+      throw new ReceivedPdfError('encrypted', 'The received PDF is encrypted and cannot be read; decrypt it before passing it to stampPdf to clear this refusal.')
     }
-    throw new RenderRefusedError('The received PDF could not be read; pass a complete, valid PDF to stampPdf to clear this refusal.')
+    if (error instanceof RenderRefusedError) throw new ReceivedPdfError('unreadable', error.message)
+    throw new ReceivedPdfError('unreadable', 'The received PDF could not be read; pass a complete, valid PDF to stampPdf to clear this refusal.')
   }
 }
 

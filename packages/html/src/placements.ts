@@ -83,12 +83,15 @@ export type MediaAnswer =
 type MediaFailure = Exclude<MediaAnswer, { status: 'ok' }>
 
 export class PlacementResolutionError extends Error {
+  readonly reason: 'encrypted' | 'unreadable' | 'too-large'
+
   constructor(
-    readonly reason: 'encrypted' | 'unreadable' | 'too-large',
+    reason: 'encrypted' | 'unreadable' | 'too-large',
     message: string,
   ) {
     super(message)
     this.name = 'PlacementResolutionError'
+    this.reason = reason
   }
 }
 
@@ -217,12 +220,12 @@ function applyResolved(
     const authored = element.attribs.style?.trim()
     element.attribs.style = authored ? `${authored.replace(/;?$/, ';')} ${declaration}` : declaration
   }
-  if (purpose === 'print' && resolved.media.format === 'pdf' && resolved.bytes) {
+  if (purpose === 'print' && resolved.media.format === 'pdf' && resolved.bytes && pdfSources) {
     const selected = placedPdfPage(resolved.media, entry.placement.page, entry.placement.box)
     if (selected === 'no-page') return selected
     element.attribs.src = transparentPageSource(selected.bounds.width, selected.bounds.height)
     element.attribs['data-segnavia-placed-pdf'] = String(selected.page)
-    pdfSources?.set(entry.placement.address, { bytes: resolved.bytes, media: resolved.media })
+    pdfSources.set(entry.placement.address, { bytes: resolved.bytes, media: resolved.media })
     if (!('alt' in element.attribs)) element.attribs.alt = ''
     return
   }

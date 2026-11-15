@@ -30,6 +30,7 @@ import { verifyPageAsOfRender } from './verify/page-as-of-render.ts'
 import { verifyPageOverflow } from './verify/page-overflow.ts'
 import { verifyPagesRender } from './verify/pages-render.ts'
 import { verifyParentRegions } from './verify/parent-regions.ts'
+import { verifyPlacedPdfRender } from './verify/placed-pdf-render.ts'
 import { darkestNear, rasterValue, readPgm } from './verify/pgm.ts'
 import { verifyDocumentPressGeometry } from './verify/press-geometry.ts'
 import { verifyPressRender } from './verify/press-render.ts'
@@ -78,6 +79,7 @@ try {
   await verifyPageAsOfRender(renderer, work, check)
   await verifyDependencyRender(renderer, work, refusal, check)
   await verifyDiagramRender(renderer, work, check)
+  await verifyPlacedPdfRender(renderer, work, check)
   const ready = await refusal(
     renderer.pagePdf(
       screenPage(

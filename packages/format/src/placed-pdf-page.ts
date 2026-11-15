@@ -6,6 +6,7 @@ export interface PlacedPdfPage {
   page: number
   name?: string
   box: PageBoxName
+  sourceBounds: { x: number; y: number; width: number; height: number }
   bounds: { x: number; y: number; width: number; height: number }
 }
 
@@ -33,11 +34,14 @@ export function placedPdfPage(
   const source = media.pages[index]
   if (!source) return 'no-page'
   const box = fallback[requested].find((name) => source.boxes[name] !== undefined) as PageBoxName
+  const sourceBounds = source.boxes[box] as PlacedPdfPage['sourceBounds']
+  const displayed = displayedPdfPage(sourceBounds, source.rotate, source.userUnit)
   return {
     page: index + 1,
     ...(source.name === undefined ? {} : { name: source.name }),
     box,
-    bounds: source.boxes[box] as PlacedPdfPage['bounds'],
+    sourceBounds,
+    bounds: { x: 0, y: 0, width: displayed.width, height: displayed.height },
   }
 }
 

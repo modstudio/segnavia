@@ -13,7 +13,7 @@ import { addPressBoxesByPage, assertPrintOptions, printPage } from './page-paper
 import { contentHeight, pageViewport } from './page-viewport.ts'
 import type { PieceGeometry } from './pages-imposition.ts'
 import { setPdfPageSizes } from './pdf-page-size.ts'
-import { drawPlacedPdfPages, hasPlacedPdfPages, measurePlacedPdfPages } from './placed-pdf-page.ts'
+import { drawPlacedPdfPages, hasPlacedPdfPages, measurePlacedPdfPages, preparePlacedPdfPages } from './placed-pdf-page.ts'
 import { printedPagePdfPlan, printedPagePdfPlanWidth, usesPrintedPagePdfPlan } from './printed-page-pdf-plan.ts'
 import { awaitPrintedPageComposition, renderedPageDocument } from './printed-page-render.ts'
 import type { RenderDeadline } from './render-deadline.ts'
@@ -102,6 +102,7 @@ export async function renderPagePdf(
     async (tab) => {
       await awaitPrintedPageComposition(tab, page, opts.preflight)
       const captures = await prepareBackdropRasters(tab, opts.effects)
+      if (hasPlacedPdfPages(opts)) await preparePlacedPdfPages(tab)
       const drawPlaced = async (bytes: Uint8Array, scale = 1) =>
         drawPlacedPdfPages(bytes, hasPlacedPdfPages(opts) ? await measurePlacedPdfPages(tab, scale) : [], opts)
       const font = captureFontFacts ? await pageFontFacts(tab, Boolean(page.printedPages)) : {}
@@ -191,6 +192,7 @@ export async function renderPiecePdf(
       ...assetSetup(opts),
     },
     async (tab) => {
+      if (hasPlacedPdfPages(opts)) await preparePlacedPdfPages(tab)
       const bytes = await pdfWithBackdropRasters(
         tab,
         {

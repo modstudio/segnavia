@@ -46,6 +46,8 @@ const MediaPageBoxesShape = {
 export const MediaPage = z.object({
   name: z.string().min(1).optional(),
   boxes: z.object(MediaPageBoxesShape),
+  rotate: z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)]).optional(),
+  userUnit: z.number().positive('page userUnit must be positive; pass a positive userUnit to clear this refusal').optional(),
 })
 export type MediaPage = z.infer<typeof MediaPage>
 

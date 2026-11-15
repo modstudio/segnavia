@@ -9,7 +9,7 @@ import { parseWatermarkOption } from './watermark-options.ts'
 
 export function parseBookPdfOptions(options: BookPdfOptions): ParsedBookPdfOptions {
   refuseUnknownOptions('bookPdf', options)
-  const base = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(options), 'bookPdf'))
+  const base = parseAsOfInputs(parsePdfOptions(parseComposedRenderOptions(options, true), 'bookPdf'))
   const parsed = parseWatermarkOption(base, 'bookPdf')
   if (parsed.plan === undefined) return parsed
   try {

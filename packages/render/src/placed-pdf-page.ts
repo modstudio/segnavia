@@ -1,12 +1,13 @@
 import { displayedPdfPage, type PageBoxName, placedPdfPage, resolveLimits } from '@segnavia/format'
 import { PLACED_PDF_SOURCES, type PlacedPdfSource, type PlacementsOptions } from '@segnavia/html'
-import { endMarkedContent, PDFName, PDFNumber, PDFOperator, type PDFPage, PDFRawStream } from 'pdf-lib'
+import { endMarkedContent, PDFArray, PDFDict, PDFHexString, PDFName, PDFNumber, PDFOperator, type PDFPage, PDFRawStream, PDFString } from 'pdf-lib'
 import type { Page as Tab } from 'playwright-core'
 import type { RenderOptions } from './options.ts'
 import { drawClippedPage } from './pdf-compose.ts'
 import { loadPdf } from './pdf-load.ts'
 
 export interface PlacedPdfMeasurement {
+  id?: string
   address: string
   page: number
   box?: PageBoxName
@@ -14,6 +15,24 @@ export interface PlacedPdfMeasurement {
   paper: number
   draw: { x: number; y: number; width: number; height: number }
   clip: { x: number; y: number; width: number; height: number }
+}
+
+const MARKER_LINK_PREFIX = 'https://placed-pdf.invalid/'
+
+/** Gives Chromium a link rectangle it can place in the fragmented PDF output. */
+export async function preparePlacedPdfPages(tab: Tab): Promise<void> {
+  await tab.evaluate((prefix) => {
+    for (const [index, element] of [...document.querySelectorAll<HTMLElement>('[data-segnavia-placed-pdf]')].entries()) {
+      if (element.hasAttribute('data-segnavia-placed-pdf-id')) continue
+      const id = String(index)
+      element.setAttribute('data-segnavia-placed-pdf-id', id)
+      const link = document.createElement('a')
+      link.href = `${prefix}${id}`
+      link.style.display = 'contents'
+      element.replaceWith(link)
+      link.append(element)
+    }
+  }, MARKER_LINK_PREFIX)
 }
 
 /** Measures PDF marker images in CSS pixels relative to their output paper. */
@@ -43,6 +62,7 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
       const page = Number(element.getAttribute('data-segnavia-placed-pdf'))
       const box = element.getAttribute('data-segnavia-box') as PageBoxName | null
       const crop = element.getAttribute('data-segnavia-crop')
+      const id = element.getAttribute('data-segnavia-placed-pdf-id')
       if (!address || !Number.isSafeInteger(page) || page < 1) return []
       const paperElement = element.closest<HTMLElement>('[data-segnavia-printed-page]')
       const paper = paperElement ? papers.indexOf(paperElement) : 0
@@ -58,6 +78,7 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
       return [
         {
           address,
+          ...(id ? { id } : {}),
           page,
           ...(box ? { box } : {}),
           ...(crop ? { crop } : {}),
@@ -76,6 +97,37 @@ export async function measurePlacedPdfPages(tab: Tab, scale = 1): Promise<Placed
     height: box.height * scale,
   })
   return measured.map((placement) => ({ ...placement, draw: scaled(placement.draw), clip: scaled(placement.clip) }))
+}
+
+function markerUri(annotation: PDFDict): string | undefined {
+  const action = annotation.lookupMaybe(PDFName.of('A'), PDFDict)
+  const uri = action?.lookupMaybe(PDFName.of('URI'), PDFString, PDFHexString)
+  return uri?.decodeText()
+}
+
+function markerMeasurements(document: Awaited<ReturnType<typeof loadPdf>>): Map<string, Pick<PlacedPdfMeasurement, 'paper' | 'draw' | 'clip'>> {
+  const found = new Map<string, Pick<PlacedPdfMeasurement, 'paper' | 'draw' | 'clip'>>()
+  for (const [paper, page] of document.getPages().entries()) {
+    const annotations = page.node.lookupMaybe(PDFName.of('Annots'), PDFArray)
+    if (!annotations) continue
+    for (let index = annotations.size() - 1; index >= 0; index -= 1) {
+      const annotation = annotations.lookupMaybe(index, PDFDict)
+      const uri = annotation && markerUri(annotation)
+      if (!uri?.startsWith(MARKER_LINK_PREFIX)) continue
+      const rectangle = annotation.lookupMaybe(PDFName.of('Rect'), PDFArray)?.asRectangle()
+      annotations.remove(index)
+      if (!rectangle) continue
+      const draw = {
+        x: (rectangle.x * 96) / 72,
+        y: (rectangle.y * 96) / 72,
+        width: (rectangle.width * 96) / 72,
+        height: (rectangle.height * 96) / 72,
+      }
+      found.set(uri.slice(MARKER_LINK_PREFIX.length), { paper, draw, clip: draw })
+    }
+    if (annotations.size() === 0) page.node.delete(PDFName.of('Annots'))
+  }
+  return found
 }
 
 const pixelPoints = (value: number) => (value * 72) / 96
@@ -152,12 +204,15 @@ export async function drawPlacedPdfPages(
   const registered = sources(options)
   if (!registered || measurements.length === 0) return pdf
   const output = await loadPdf(pdf)
+  const markers = markerMeasurements(output)
   const loaded = new Map<string, Awaited<ReturnType<typeof loadPdf>>>()
   const embedded = new Map<string, Awaited<ReturnType<typeof output.embedPage>>>()
   const limits = resolveLimits(undefined, options.limits)
   for (const placement of measurements) {
+    const measured = placement.id ? markers.get(placement.id) : undefined
+    const positioned = measured ? { ...placement, ...measured } : placement
     const source = registered.get(placement.address)
-    const target = output.getPage(placement.paper)
+    const target = output.getPage(positioned.paper)
     if (!source || !target) continue
     let document = loaded.get(placement.address)
     if (!document) {
@@ -168,19 +223,19 @@ export async function drawPlacedPdfPages(
     if (selected === 'no-page') continue
     const sourcePage = document.getPage(selected.page - 1)
     if (!sourcePage) continue
-    const crop = placedPdfCrop(selected.bounds, placement.crop)
+    const crop = placedPdfCrop(selected.bounds, positioned.crop)
     const userUnit = sourcePage.node.lookupMaybe(PDFName.of('UserUnit'), PDFNumber)?.asNumber() ?? 1
-    const display = displayedPdfPage(selected.bounds, sourcePage.getRotation().angle, userUnit)
+    const display = displayedPdfPage(selected.sourceBounds, sourcePage.getRotation().angle, userUnit)
     const key = `${placement.address}\0${selected.page}\0${selected.box}`
     let form = embedded.get(key)
     if (!form) {
       form = await output.embedPage(
         sourcePage,
         {
-          left: selected.bounds.x,
-          bottom: selected.bounds.y,
-          right: selected.bounds.x + selected.bounds.width,
-          top: selected.bounds.y + selected.bounds.height,
+          left: selected.sourceBounds.x,
+          bottom: selected.sourceBounds.y,
+          right: selected.sourceBounds.x + selected.sourceBounds.width,
+          top: selected.sourceBounds.y + selected.sourceBounds.height,
         },
         [...display.matrix],
       )
@@ -189,7 +244,13 @@ export async function drawPlacedPdfPages(
       transparencyGroup(target, form.ref)
     }
     target.pushOperators(PDFOperator.of('BDC' as never, [PDFName.of('Artifact')]))
-    drawClippedPage(target, form, rectanglePoints(uncroppedDraw(placement.draw, selected.bounds, crop)), rectanglePoints(placement.clip))
+    const draw = rectanglePoints(uncroppedDraw(positioned.draw, selected.bounds, crop))
+    drawClippedPage(
+      target,
+      form,
+      { ...draw, width: (draw.width * form.width) / display.width, height: (draw.height * form.height) / display.height },
+      rectanglePoints(positioned.clip),
+    )
     target.pushOperators(endMarkedContent())
   }
   return output.save()

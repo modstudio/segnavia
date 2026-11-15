@@ -1,5 +1,8 @@
 import { expect, test } from 'bun:test'
 import { Deck, limitRefusal } from '@segnavia/format'
+import { PLACED_PDF_SOURCES } from '@segnavia/html'
+import { degrees, PDFDocument, PDFName, PDFNumber } from 'pdf-lib'
+import { parseBookPdfOptions } from './book-options.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import {
   copyLimits,
@@ -11,6 +14,7 @@ import {
   type RenderOptions,
   refuseProgressUnlessOneComposition,
 } from './options.ts'
+import { parsePagePdfOptions } from './page-render-options.ts'
 
 test('inner renders keep page, local-font and asset limits', () => {
   expect(
@@ -98,6 +102,61 @@ test('placed PDF bytes are validated through received input limits before compos
   })
   const work = parsed.placements?.resolve({ kind: 'media', address: 'document' }, { purpose: 'print', signal: new AbortController().signal })
   await expect(work).rejects.toEqual(expect.objectContaining({ reason: 'too-large' }))
+})
+
+test('only vector-composing PDF operations create a placed PDF registry', () => {
+  const placements = { resolve: async () => undefined }
+  expect(parseRenderOptions({ placements }).placements?.[PLACED_PDF_SOURCES]).toBeUndefined()
+  expect(parsePagePdfOptions({ placements }, 'pagePdf').placements?.[PLACED_PDF_SOURCES]).toBeInstanceOf(Map)
+  expect(parsePagePdfOptions({ placements }, 'pagesPdf').placements?.[PLACED_PDF_SOURCES]).toBeInstanceOf(Map)
+  expect(parseBookPdfOptions({ placements }).placements?.[PLACED_PDF_SOURCES]).toBeInstanceOf(Map)
+})
+
+test('placed PDF validation replaces host rotation and UserUnit with source facts', async () => {
+  const document = await PDFDocument.create()
+  const page = document.addPage([200, 100])
+  page.setRotation(degrees(90))
+  page.node.set(PDFName.of('UserUnit'), PDFNumber.of(2))
+  const placements = parsePagePdfOptions(
+    {
+      placements: {
+        resolve: async () => ({
+          kind: 'media' as const,
+          media: {
+            format: 'pdf' as const,
+            size: { width: 200, height: 100 },
+            pages: [{ rotate: 0 as const, userUnit: 1, boxes: { media: { x: 0, y: 0, width: 200, height: 100 } } }],
+          },
+          src: 'data:image/png;base64,AA==',
+          bytes: await document.save(),
+        }),
+      },
+    },
+    'pagePdf',
+  ).placements
+  const answer = await placements?.resolve({ kind: 'media', address: 'document' }, { purpose: 'print', signal: new AbortController().signal })
+  expect(answer).toMatchObject({ media: { pages: [{ rotate: 90, userUnit: 2 }] } })
+})
+
+test.each([
+  ['encrypted', new TextEncoder().encode('%PDF-1.7\n/Encrypt 1 0 R\n%%EOF')],
+  ['unreadable', new TextEncoder().encode('%PDF-1.7\nnot a document\n%%EOF')],
+] as const)('placed PDF validation carries the %s failure reason as data', async (reason, bytes) => {
+  const parsed = parseRenderOptions(
+    {
+      placements: {
+        resolve: async () => ({
+          kind: 'media' as const,
+          media: { format: 'pdf' as const, size: { width: 10, height: 10 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } }] },
+          src: 'data:image/png;base64,AA==',
+          bytes,
+        }),
+      },
+    },
+    true,
+  )
+  const work = parsed.placements?.resolve({ kind: 'media', address: 'document' }, { purpose: 'print', signal: new AbortController().signal })
+  await expect(work).rejects.toEqual(expect.objectContaining({ reason }))
 })
 
 test('progress is normalized to one report function at the option edge', () => {
