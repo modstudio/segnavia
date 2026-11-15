@@ -10,6 +10,18 @@ const input = {
   children: [{ type: 'item', id: 'one', kind: 'page', address: 'one', x: 0, y: 0, width: 100 }],
 } satisfies DocumentInput
 
+const editionInput = (title: string) =>
+  ({
+    ...input,
+    title,
+    conditions: [{ type: 'condition' as const, name: 'teacher' }],
+    editions: [
+      { type: 'edition' as const, name: 'student', conditions: [] },
+      { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+  }) satisfies DocumentInput
+
 test('board Document input, change detail and editing bridge stay in the host shape', async () => {
   const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
   Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class extends EventTarget {} })
@@ -54,6 +66,15 @@ test('board Document input, change detail and editing bridge stay in the host sh
     expect(boardFromDocument(callback(edited))).toEqual(edited)
     element.optimistic(edited)
     expect(boardFromDocument(element.board as NonNullable<typeof element.board>)).toEqual(edited)
+
+    Object.defineProperty(element, 'edition', { configurable: true, writable: true, value: 'student' })
+    element.board = editionInput('Original')
+    const editionDocument = Reflect.get(element, 'editionDocument')
+    const documentValue = element.board
+    element.edition = 'missing'
+    expect(() => (element.board = editionInput('Replacement'))).toThrow('requested edition "missing" is unknown')
+    expect(Reflect.get(element, 'editionDocument')).toBe(editionDocument)
+    expect(element.board).toBe(documentValue)
   } finally {
     if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
     else Reflect.deleteProperty(globalThis, 'HTMLElement')

@@ -35,6 +35,7 @@ import { internalBoardValue } from './board-value.ts'
 import { upgradeProperties } from './element-properties.ts'
 import type { BoardLabels } from './labels.ts'
 export class SegnaviaBoard extends BoardFrameInputsElement {
+  static observedAttributes = ['edition']
   private value: Board | null = null
   private currentView: BoardView = { zoom: 1, pan: { x: 0, y: 0 }, viewport: { width: 0, height: 0 } }
   private viewWasSet = false

@@ -26,6 +26,7 @@ export const ELEMENT_PROPERTIES = {
     HEADLESS_ELEMENTS.stage,
     [
       'controller',
+      'edition',
       'css',
       'cspExtra',
       'origins',
@@ -46,6 +47,7 @@ export const ELEMENT_PROPERTIES = {
     HEADLESS_ELEMENTS.thumbnail,
     [
       'deck',
+      'edition',
       'page',
       'print',
       'index',
@@ -71,6 +73,7 @@ export const ELEMENT_PROPERTIES = {
     HEADLESS_ELEMENTS.board,
     [
       'board',
+      'edition',
       'motifs',
       'placements',
       'pageWidths',
@@ -107,6 +110,7 @@ export const ELEMENT_PROPERTIES = {
     HEADLESS_ELEMENTS.page,
     [
       'page',
+      'edition',
       'css',
       'cspExtra',
       'origins',
@@ -129,6 +133,7 @@ export const ELEMENT_PROPERTIES = {
     HEADLESS_ELEMENTS.printedPages,
     [
       'document',
+      'edition',
       'page',
       'recordFor',
       'layout',
@@ -157,12 +162,29 @@ export const ELEMENT_PROPERTIES = {
   ),
   paper: descriptor(
     HEADLESS_ELEMENTS.paper,
-    ['paper', 'side', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment'],
+    ['paper', 'side', 'edition', 'css', 'cspExtra', 'origins', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment'],
     ['asof', 'fontfailure', 'error', 'change'],
   ),
   document: descriptor(
     HEADLESS_ELEMENTS.document,
-    ['css', 'cspExtra', 'origins', 'pages', 'print', 'slots', 'motifs', 'fonts', 'brands', 'placements', 'pageWidths', 'anchors', 'asOf', 'moment', 'profile'],
+    [
+      'edition',
+      'css',
+      'cspExtra',
+      'origins',
+      'pages',
+      'print',
+      'slots',
+      'motifs',
+      'fonts',
+      'brands',
+      'placements',
+      'pageWidths',
+      'anchors',
+      'asOf',
+      'moment',
+      'profile',
+    ],
     ['asof', 'preflight', 'fontfailure', 'error', 'segnavia-document-slots', 'segnavia-document-page', 'segnavia-document-change'],
   ),
   book: descriptor(
@@ -172,7 +194,7 @@ export const ELEMENT_PROPERTIES = {
   ),
   player: descriptor(
     STYLED_ELEMENTS.player,
-    ['labels', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots', 'anchors', 'asOf', 'moment'],
+    ['labels', 'edition', 'css', 'cspExtra', 'origins', 'resolveSlide', 'placements', 'transition', 'slots', 'anchors', 'asOf', 'moment'],
     ['segnavia-labels'],
   ),
   refusal: descriptor(STYLED_ELEMENTS.refusal, ['refusal', 'labels'], []),

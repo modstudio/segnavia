@@ -35,6 +35,7 @@ import {
   printedSectionBodies,
   printedSectionFlows,
   printedSectionOutlineHtml,
+  resolveEdition,
   resolvePrintedPageHtml,
   TARGET_LINKS_CSS,
   withPrintedSectionBodies,
@@ -142,8 +143,11 @@ function printedGeometryConfig(geometries: ReturnType<typeof printedComposerGeom
   }
 }
 
-export function printedPageDocument(input: DocumentInput, options: Parameters<typeof printedPageValueDocument>[1] & { newId?: () => string }): string {
-  const document = parseDocument(input, { newId: options.newId })
+export function printedPageDocument(
+  input: DocumentInput,
+  options: Parameters<typeof printedPageValueDocument>[1] & { edition?: string; newId?: () => string },
+): string {
+  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
   refuseNamedDocumentBrand(document, 'printedPageValueDocument')
   return printedPageValueDocument(resolvePrintedPageHtml(printedFromDocument(document)), options)
 }

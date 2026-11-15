@@ -1,5 +1,6 @@
 import type { OriginApproval } from '@segnavia/format'
 import type { BrandsOptions } from './brands.ts'
+import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { defineElementPropertyAccessors, defineStylesheetPropertyAccessors } from './element-property-accessors.ts'
 import { defaultFrameTitle, type FrameTitle } from './frame-title.ts'
 
@@ -14,6 +15,7 @@ export interface StagePropertyValues {
 }
 
 export function defineStagePropertyAccessors(prototype: object): void {
+  defineEditionPropertyAccessor(prototype)
   defineStylesheetPropertyAccessors(prototype)
   defineElementPropertyAccessors(prototype, () => ({
     bridgeReadyTimeoutMs: 10_000,

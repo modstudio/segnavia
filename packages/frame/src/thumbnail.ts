@@ -1,5 +1,5 @@
 import { type Deck, type Document, type DocumentInput, deckFromDocument, type Page, Print, type PrintInput, pageFromDocument } from '@segnavia/format'
-import { type EstablishedPageDay, hasAsOfBinding, parseDocument } from '@segnavia/html'
+import { type EstablishedPageDay, hasAsOfBinding } from '@segnavia/html'
 import { captureAsOfLoad, dispatchAsof } from './as-of-element.ts'
 import { prepareSurfaceSlots, resolveSurfaceDay } from './as-of-slots.ts'
 import { ensureBaseStyle } from './base-style.ts'
@@ -9,11 +9,13 @@ import { type ControllerOptions, DeckController, type ResolvedContent } from './
 import { mountDesignedCover } from './designed-cover.ts'
 import { coverPresentation, type DesignedCover, type ParsedDesignedCover, parseDesignedCover } from './designed-cover-policy.ts'
 import { internalThumbnailDeckLoad, internalThumbnailPageLoad } from './document-value-load.ts'
+import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { hasSlotWork, slotFillRefusal } from './slot-render.ts'
 import { resolveThumbnailDocument } from './thumbnail-brand.ts'
 import { isCurrentThumbnailResolution, thumbnailCanvas, thumbnailScale } from './thumbnail-canvas.ts'
 import { mountThumbnailDesignedCover, thumbnailCoverSources } from './thumbnail-designed-cover.ts'
+import { changeThumbnailEditionSource, resolveThumbnailEditionSource, type ThumbnailEditionSource } from './thumbnail-edition.ts'
 import { mountThumbnailPage, updateThumbnailPageAspect } from './thumbnail-page.ts'
 import { ThumbnailProperties } from './thumbnail-properties.ts'
 
@@ -22,11 +24,17 @@ function thumbnailDayChangesCanvas(deck: Deck, content: ResolvedContent, slots: 
 }
 
 export class SegnaviaThumbnail extends ThumbnailProperties {
+  static {
+    defineEditionPropertyAccessor(SegnaviaThumbnail.prototype)
+  }
+  static observedAttributes = ['edition']
+  declare edition: string | undefined
   private margin = 400
   private value: Deck | null = null
   private deckDocument: Document | null = null
   private pageValue: Page | null = null
   private pageDocument: Document | null = null
+  private editionSource: ThumbnailEditionSource | null = null
   private printValue: Print | null = null
   private slideIndex = 0
   private slideResolver: ControllerOptions['resolveSlide']
@@ -61,12 +69,14 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     return this.deckDocument
   }
   set deck(input: DocumentInput | null) {
-    const parsed = input === null ? null : parseDocument(input)
-    this.deckDocument = parsed
-    this.resolveDeckDocument(parsed)
+    const change = changeThumbnailEditionSource('deck', input, this.edition)
+    this.editionSource = change.source
+    this.deckDocument = change.document
+    this.resolveDeckDocument(change.document)
   }
   [internalThumbnailDeckLoad](deck: Deck | null) {
     this.brandResolution?.abort()
+    this.editionSource = null
     this.deckDocument = null
     this.value = deck
     if (this.value) this.pageValue = null
@@ -79,12 +89,14 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     return this.pageDocument
   }
   set page(input: DocumentInput | null | undefined) {
-    const parsed = input == null ? null : parseDocument(input)
-    this.pageDocument = parsed
-    this.resolvePageDocument(parsed)
+    const change = changeThumbnailEditionSource('page', input, this.edition)
+    this.editionSource = change.source
+    this.pageDocument = change.document
+    this.resolvePageDocument(change.document)
   }
   [internalThumbnailPageLoad](page: Page | null) {
     this.brandResolution?.abort()
+    this.editionSource = null
     this.pageDocument = null
     this.pageValue = page
     if (this.pageValue) this.value = null
@@ -137,6 +149,27 @@ export class SegnaviaThumbnail extends ThumbnailProperties {
     this.brandOptions = value
     if (this.deckDocument) this.resolveDeckDocument(this.deckDocument)
     else if (this.pageDocument) this.resolvePageDocument(this.pageDocument)
+  }
+
+  attributeChangedCallback(name: string) {
+    if (name !== 'edition') return
+    try {
+      this.applyEditionSource()
+    } catch (error) {
+      this.dispatchEvent(new CustomEvent('segnavia-thumbnail-error', { detail: error, bubbles: true, composed: true }))
+    }
+  }
+
+  private applyEditionSource() {
+    const source = resolveThumbnailEditionSource(this.editionSource, this.edition)
+    if (!source) return
+    if (source.kind === 'deck') {
+      this.deckDocument = source.document
+      this.resolveDeckDocument(source.document)
+    } else {
+      this.pageDocument = source.document
+      this.resolvePageDocument(source.document)
+    }
   }
 
   connectedCallback() {

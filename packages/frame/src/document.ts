@@ -9,8 +9,6 @@ import {
   type PreflightProfileInput,
   Print,
   type PrintInput,
-  pageOrPrintedFromDocument,
-  resolveBrand,
   type SlotsOptions,
 } from '@segnavia/format'
 import { type EstablishedPageDay, fillAsOfBindings, type HtmlPage, parseDocument, resolveDocumentDayContexts, resolvePageHtml } from '@segnavia/html'
@@ -19,6 +17,8 @@ import { ensureBaseStyle } from './base-style.ts'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 import type { BrandsOptions } from './brands.ts'
 import { DocumentAsOfElement } from './document-as-of-element.ts'
+import { DocumentBrandLoader } from './document-brand-resolution.ts'
+import { parseDocumentEditions, resolveDocumentEditions } from './document-edition.ts'
 import { mountDocumentPage } from './document-page-mount.ts'
 import { documentSheets } from './document-sheets.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead } from './document-value-load.ts'
@@ -45,6 +45,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   declare origins: Iterable<OriginApproval>
   private sourceValues: Page[] = []
   private sourceDocuments: Document[] = []
+  private editionDocuments: Document[] = []
   private pageValues: HtmlPage[] = []
   private printValue: Print | null = null
   private observer: IntersectionObserver | null = null
@@ -57,7 +58,20 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private widthOptions: PageWidths | undefined
   private fontOptions: FontsOptions | undefined
   private brandOptions: BrandsOptions | undefined
-  private brandResolution: AbortController | undefined
+  private brandResolution = new DocumentBrandLoader(
+    () => this.sourceDocuments,
+    () => {
+      this.sourceValues = []
+      this.pageValues = []
+      this.paint()
+    },
+    (sources, pages) => {
+      this.sourceValues = sources
+      this.pageValues = pages
+      this.paint()
+    },
+    (error) => dispatchElementError(this, error),
+  )
   private slotGeneration = 0
   private slotPreparation: AbortController | undefined
   private filledHtml: string[] | undefined
@@ -136,7 +150,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
 
   set brands(value: BrandsOptions | undefined) {
     this.brandOptions = value
-    this.resolveDocuments(this.sourceDocuments)
+    this.brandResolution.resolve(this.sourceDocuments, this.brandOptions, this.origins)
   }
 
   get css(): string {
@@ -167,9 +181,17 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   set pages(value: PageOrPrintedInput[] | undefined) {
-    this.sourceDocuments = (value ?? []).map((input) => parseDocument(input))
-    this.resolveDocuments(this.sourceDocuments)
+    const documents = parseDocumentEditions(value ?? [], this.edition)
+    this.editionDocuments = documents.authored
+    this.sourceDocuments = documents.resolved
+    this.brandResolution.resolve(documents.resolved, this.brandOptions, this.origins)
     this.changed()
+  }
+
+  protected reloadEdition(): void {
+    if (this.editionDocuments.length === 0) return
+    this.sourceDocuments = resolveDocumentEditions(this.editionDocuments, this.edition)
+    this.brandResolution.resolve(this.sourceDocuments, this.brandOptions, this.origins)
   }
 
   get print(): Print | null {
@@ -198,12 +220,14 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   load(pageInputs: PageOrPrintedInput[], printInput: PrintInput): void {
-    const documents = pageInputs.map((input) => parseDocument(input))
+    const editionDocuments = pageInputs.map((input) => parseDocument(input))
+    const documents = resolveDocumentEditions(editionDocuments, this.edition)
     const print = Print.parse(printInput)
     if (documents.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
+    this.editionDocuments = editionDocuments
     this.sourceDocuments = documents
     this.printValue = print
-    this.resolveDocuments(documents)
+    this.brandResolution.resolve(documents, this.brandOptions, this.origins)
     this.changed()
   }
 
@@ -211,6 +235,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     this.brandResolution?.abort()
     if (sources.length === 0) throw new RangeError('There is nothing to show. Pass at least one page to clear this refusal.')
     this.sourceValues = sources
+    this.editionDocuments = []
     this.sourceDocuments = []
     this.pageValues = sources.map((page) => resolvePageHtml(page, { origins: this.origins }))
     if (print) this.printValue = print
@@ -365,30 +390,6 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
-  }
-  private resolveDocuments(documents: Document[]) {
-    this.brandResolution?.abort()
-    const controller = new AbortController()
-    this.brandResolution = controller
-    const commit = (brands: Awaited<ReturnType<typeof resolveBrand>>[]) => {
-      if (controller.signal.aborted || documents !== this.sourceDocuments) return
-      this.sourceValues = documents.map((document, index) => pageOrPrintedFromDocument(document, brands[index]))
-      this.pageValues = this.sourceValues.map((page) => resolvePageHtml(page, { origins: this.origins }))
-      this.paint()
-    }
-    if (!documents.some((document) => document.brand !== undefined)) {
-      commit(documents.map(() => undefined))
-      return
-    }
-    this.sourceValues = []
-    this.pageValues = []
-    this.paint()
-    void Promise.all(documents.map((document) => resolveBrand(document, this.brandOptions?.source, controller.signal)))
-      .then(commit)
-      .catch((error) => {
-        if (controller.signal.aborted || documents !== this.sourceDocuments) return
-        dispatchElementError(this, error)
-      })
   }
   private changed() {
     this.dispatchEvent(new CustomEvent('segnavia-document-change'))

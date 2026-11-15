@@ -1,5 +1,7 @@
 import type { Deck, PublishedShot, Slide } from '@segnavia/format'
+import { ControllerEdition } from './controller-edition.ts'
 import { emitControllerComplete, emitControllerState } from './controller-events.ts'
+import { handleControllerKey } from './controller-key.ts'
 import { stateForDeckLoad } from './controller-load.ts'
 import { controllerUrl, loadControllerUrl } from './controller-load-url.ts'
 import { controllerHashIndex, goControllerToSlide, handleControllerHash, prefetchControllerNeighbors, writeControllerHash } from './controller-navigation.ts'
@@ -13,7 +15,7 @@ import { type ControllerOptions, type DeckState, initialDeckState, type Resolved
 import { internalDeckLoad, resolveDeckLoad } from './deck-load-origin.ts'
 import { DeckRefusedError, SlideRefusedError } from './deck-refusal.ts'
 import { dispatchElementError } from './element-error.ts'
-import { type DeckAction, keyAction } from './keys.ts'
+import type { DeckAction } from './keys.ts'
 import { navigationError, slideIdAt } from './navigation-error.ts'
 import { addNavigationGuard, type NavigationGuardReason, runNavigationGuard } from './navigation-guard.ts'
 import { limitNavigation, slideRequest } from './navigation-limit.ts'
@@ -23,6 +25,7 @@ import { DEFAULT_VIEWER_SETTINGS, readViewerSettings, writeViewerSettings } from
 
 export type { ControllerOptions, DeckState, ResolvedContent, SeekPolicy, WatchedState } from './controller-types.ts'
 export class DeckController extends EventTarget {
+  declare edition: string | undefined
   private options: ControllerOptions
   private current: DeckState = initialDeckState()
   private playback: ControllerPlayback
@@ -36,12 +39,15 @@ export class DeckController extends EventTarget {
   private bodyOverflow = ''
   private listening = false
   private completeEmitted = false
+  private editions: ControllerEdition
   private settings = { ...DEFAULT_VIEWER_SETTINGS }
   constructor(options: ControllerOptions = {}) {
     super()
     if (options.completeAt !== undefined && (!(options.completeAt > 0) || options.completeAt > 1))
       throw new RangeError(`completeAt ${options.completeAt} is outside the allowed range (0, 1].`)
     this.options = { hash: null, keys: 'stage', seek: 'free', completeAt: 1, ...options }
+    this.editions = new ControllerEdition(this.options, (load) => void this.loadDeck(load.input, load.base, false).catch(() => {}))
+    this.editions.attach(this)
     this.playback = new ControllerPlayback({
       state: () => this.current,
       setState: (state) => {
@@ -122,6 +128,7 @@ export class DeckController extends EventTarget {
     await this.loadDeck(input, undefined, true)
   }
   private async loadDeck(input: unknown, base: string | undefined, internal: boolean): Promise<void> {
+    this.editions.record(input, base, internal)
     const lifetime = replacePlacementLifetime(this.placementLifetime)
     this.placementLifetime = lifetime
     const guarded = this.current.deck ? runNavigationGuard(this, 'load') : undefined
@@ -129,7 +136,7 @@ export class DeckController extends EventTarget {
     if (base) this.options.base = base
     let deck: Deck
     try {
-      deck = await resolveDeckLoad(input, this.options.brands?.source, lifetime.signal, guarded, internal)
+      deck = await resolveDeckLoad(input, this.options.brands?.source, lifetime.signal, guarded, internal, this.options.edition)
     } catch (error) {
       if (lifetime.signal.aborted) return
       const refusal = new DeckRefusedError(error, base)
@@ -318,17 +325,10 @@ export class DeckController extends EventTarget {
 
   // Returns what the key did, so a caller knows whether to prevent its default.
   key(key: string): DeckAction | null {
-    if (this.options.keys === 'page' && key === ' ') return null
-    const action = keyAction(key, this.current.direction)
-    if (action === 'next') void this.next().catch(() => {})
-    else if (action === 'previous') void this.previous().catch(() => {})
-    else if (action === 'toggle') void Promise.resolve(this.toggle()).catch(() => {})
-    else if (action === 'mute') this.setMuted(!this.current.muted)
-    else if (action === 'captions') this.setCaptionsVisible(!this.current.captionsVisible)
-    else if (action === 'exit') {
-      this.stopPresenting()
-      this.dispatchEvent(new CustomEvent('exit'))
-    }
+    const action = handleControllerKey(this, key)
+    if (action !== 'exit') return action
+    this.stopPresenting()
+    this.dispatchEvent(new CustomEvent('exit'))
     return action
   }
 

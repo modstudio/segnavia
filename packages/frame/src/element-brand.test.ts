@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { type Brand, Document, Imposition, impose, pageFromDocument } from '@segnavia/format'
 import { resolvePageHtml } from '@segnavia/html'
 import { frameStyleSheets } from './bridge.ts'
+import { DocumentBrandLoader } from './document-brand-resolution.ts'
 import { loadBrandedPage } from './page-brand.ts'
 import { pageDocument } from './page-document.test-helper.ts'
 import { printablePaper } from './print-document.ts'
@@ -17,7 +18,6 @@ Object.assign(globalThis, {
   window: { addEventListener() {}, removeEventListener() {} },
 })
 
-const { SegnaviaDocument } = await import('./document.ts')
 const { SegnaviaPage } = await import('./page.ts')
 const { SegnaviaPaper } = await import('./paper.ts')
 
@@ -183,13 +183,28 @@ test('document element resolves a named brand before keeping lowered pages', asy
   const element = {
     sourceDocuments: [sourceDocument],
     sourceValues: [] as Array<{ brand?: unknown }>,
-    pageValues: [],
+    pageValues: [] as ReturnType<typeof resolvePageHtml>[],
     brandOptions: { source: { brand: async () => ({ css: '.house{color:red}' }) } },
     paint() {},
     dispatchEvent: () => true,
   }
-  const resolveDocuments = (SegnaviaDocument.prototype as unknown as { resolveDocuments(documents: Document[]): void }).resolveDocuments
-  resolveDocuments.call(element, element.sourceDocuments)
+  Object.assign(element, {
+    brandResolution: new DocumentBrandLoader(
+      () => element.sourceDocuments,
+      () => {
+        element.sourceValues = []
+        element.pageValues = []
+      },
+      (sources, pages) => {
+        element.sourceValues = sources
+        element.pageValues = pages
+      },
+      (error) => {
+        throw error
+      },
+    ),
+  })
+  Reflect.get(element, 'brandResolution').resolve(element.sourceDocuments, element.brandOptions, [])
   expect(element.sourceValues).toHaveLength(0)
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(element.sourceValues[0]?.brand).toEqual({ css: '.house{color:red}' })

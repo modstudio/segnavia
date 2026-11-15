@@ -9,15 +9,17 @@
 
 import type { SegnaviaControl } from './control.ts'
 import { deckHasNarration } from './control-values.ts'
-import { DeckController, type DeckState } from './controller.ts'
+import type { DeckController, DeckState } from './controller.ts'
 import { playerAttributeOptions } from './controller-options.ts'
 import type { SegnaviaFullscreen } from './controls.ts'
 import { DeckSourcesElement } from './deck-sources.ts'
+import { defineEditionPropertyAccessor } from './edition-property.ts'
 import { upgradeProperties } from './element-properties.ts'
 import { forwardedIconSlot, iconSlot } from './icon-slots.ts'
 import { isEditableLetterShortcut } from './keys.ts'
 import { ENGLISH_LABELS, type PlayerLabels, playerLabels } from './labels.ts'
 import { OverlayControlsVisibility } from './overlay-controls.ts'
+import { PLAYER_ATTRIBUTES } from './player-attributes.ts'
 import { definePlayerForwardedPropertyAccessors, type PlayerForwardedProperties } from './player-forwarded-properties.ts'
 import { handlePlayerKey } from './player-key.ts'
 import {
@@ -35,6 +37,7 @@ import { PLAYER_CSS } from './player-style.ts'
 import type { SegnaviaRail } from './rail.ts'
 import type { SegnaviaRefusal } from './refusal.ts'
 import type { SegnaviaStage } from './stage.ts'
+import { createSourceController } from './stage-source-controller.ts'
 import { CONTROLLER_STYLED_ELEMENTS, STYLED_ELEMENTS } from './styled-elements.ts'
 
 const LAYOUT = `<div class="fit-reserve" aria-hidden="true"></div><div class="player" part="player">
@@ -62,9 +65,11 @@ function playerPresentation(player: HTMLElement): 'window' | 'native' | 'off' {
 export class SegnaviaPlayer extends DeckSourcesElement {
   static {
     definePlayerForwardedPropertyAccessors(SegnaviaPlayer.prototype)
+    defineEditionPropertyAccessor(SegnaviaPlayer.prototype)
   }
-  static observedAttributes = ['src', 'notes', 'rail', 'fit', 'controls', 'transition', 'transition-duration', 'presentation', 'playback', 'captions']
+  static observedAttributes = PLAYER_ATTRIBUTES
   declare anchors: PlayerForwardedProperties['anchors']
+  declare edition: string | undefined
   declare asOf: PlayerForwardedProperties['asOf']
   declare moment: PlayerForwardedProperties['moment']
   declare css: PlayerForwardedProperties['css']
@@ -83,11 +88,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
 
   constructor() {
     super()
-    const hash = this.getAttribute('hash')
-    this.controller = new DeckController({
-      hash: hash === 'off' ? null : (hash ?? 'slide-'),
-      prefetch: this.hasAttribute('prefetch'),
-    })
+    this.controller = createSourceController(this)
     this.root.innerHTML = `<style>${PLAYER_CSS}</style>${LAYOUT}`
     this.stage = this.root.querySelector('segnavia-stage') as SegnaviaStage
     connectPlayerRefusal(this.root, this.stage)
@@ -207,6 +208,7 @@ export class SegnaviaPlayer extends DeckSourcesElement {
   }
 
   attributeChangedCallback(name: string, _: string | null, value: string | null) {
+    if (name === 'edition') this.controller.edition = value ?? undefined
     if (name === 'src' && value) {
       this.passPlayerOptions()
       void this.controller.loadUrl(value).catch(() => {})

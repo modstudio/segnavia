@@ -38,6 +38,7 @@ export interface DeckState {
 }
 
 export interface ControllerOptions {
+  edition?: string
   brands?: BrandsOptions
   base?: string
   resolveSlide?: (slide: Slide, index: number) => Promise<SlideContent | ResolvedContent> | SlideContent | ResolvedContent

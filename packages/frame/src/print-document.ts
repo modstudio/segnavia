@@ -36,6 +36,7 @@ import {
   pageOrPrintedFromInput,
   parseDocument,
   placementPlaceholderSource,
+  resolveEdition,
   resolvePageHtml,
 } from '@segnavia/html'
 import { frameDocument, frameSandbox, frameStyleSheets, newNonce } from './bridge.ts'
@@ -113,6 +114,7 @@ export async function resolveDeckMedia<R extends { kind: string }>(
 }
 
 export interface PrintOptions {
+  edition?: string
   newId?: () => string
   // `slides` prints each slide on a sheet of its own size; `notes` prints it
   // on paper with its notes underneath.
@@ -208,7 +210,7 @@ function slideBody(deck: Deck, slide: Slide, options: PrintOptions): string {
 }
 
 export function printableDeck(input: DocumentInput, options: PrintOptions & { notesSheetFont?: { family: string; css: string } } = {}): string {
-  const document = parseDocument(input, { newId: options.newId })
+  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
   refuseNamedDocumentBrand(document, 'printableDeckValue')
   return printableDeckValue(deckFromDocument(document), options)
 }
@@ -243,6 +245,7 @@ export function printableDeckValue(deck: Deck, options: PrintOptions & { notesSh
 }
 
 export interface PrintablePagesOptions {
+  edition?: string
   baseCss?: string
   css?: string
   nonce?: string
@@ -265,7 +268,7 @@ export interface PrintableDeckDocument {
 }
 
 export function printableDeckDocument(input: DocumentInput, options: PrintOptions & { imposition: ImpositionInput }): PrintableDeckDocument {
-  const document = parseDocument(input, { newId: options.newId })
+  const document = resolveEdition(parseDocument(input, { newId: options.newId }), options.edition)
   refuseNamedDocumentBrand(document, 'printableDeckValueDocument')
   return printableDeckValueDocument(deckFromDocument(document), options)
 }
@@ -348,9 +351,9 @@ export function printablePaper(
 // This frame-based document is for a browser to show and print. The frame
 // bridge carries propagated root backgrounds onto a printable element; the
 // server renderer still uses top-level page renders for PDF composition.
-function loweredPrintablePages(inputs: PageOrPrintedInput[], valueEntry: string): HtmlPage[] {
+function loweredPrintablePages(inputs: PageOrPrintedInput[], valueEntry: string, edition?: string): HtmlPage[] {
   return inputs.map((input) => {
-    const document = parseDocument(input)
+    const document = resolveEdition(parseDocument(input), edition)
     refuseNamedDocumentBrand(document, valueEntry)
     const page = pageOrPrintedFromInput(document)
     refuseSectionedImpositionPage(page)
@@ -359,7 +362,7 @@ function loweredPrintablePages(inputs: PageOrPrintedInput[], valueEntry: string)
 }
 
 export function printablePagesDocument(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
-  return printableHtmlPagesDocument(loweredPrintablePages(inputs, 'printablePageValuesDocument'), imposition, options)
+  return printableHtmlPagesDocument(loweredPrintablePages(inputs, 'printablePageValuesDocument', options.edition), imposition, options)
 }
 
 export function printablePageValuesDocument(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): PrintablePagesDocument {
@@ -387,7 +390,7 @@ export function printableHtmlPagesDocument(pages: HtmlPage[], imposition: Imposi
 }
 
 export function printablePages(inputs: PageOrPrintedInput[], imposition: Imposition, options: PrintablePagesOptions = {}): string {
-  return printableHtmlPagesDocument(loweredPrintablePages(inputs, 'printablePageValues'), imposition, options).html
+  return printableHtmlPagesDocument(loweredPrintablePages(inputs, 'printablePageValues', options.edition), imposition, options).html
 }
 
 export function printablePageValues(pages: Page[], imposition: Imposition, options: PrintablePagesOptions = {}): string {

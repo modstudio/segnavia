@@ -57,6 +57,7 @@ type ControlProps<E extends HTMLElement> = ElementProps<E> & {
 }
 
 export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
+  edition?: string
   labels?: Partial<PlayerLabels>
   css?: string
   cspExtra?: string
@@ -84,6 +85,7 @@ export interface PlayerProps extends ElementProps<SegnaviaPlayer> {
 }
 
 export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'> {
+  edition?: string
   controller?: DeckController | null
   css?: string
   cspExtra?: string
@@ -117,6 +119,7 @@ export interface StageProps extends Omit<ElementProps<SegnaviaStage>, 'onError'>
 }
 
 export interface ThumbnailProps extends ElementProps<SegnaviaThumbnail> {
+  edition?: string
   deck?: DocumentInput | null
   page?: DocumentInput | null
   print?: PrintInput | null
@@ -161,6 +164,7 @@ export type ItemSettingsProps = ElementProps<SegnaviaItemSettings> & {
 }
 
 export interface PageProps extends Omit<ElementProps<SegnaviaPage>, 'onError'> {
+  edition?: string
   page?: DocumentInput | null
   css?: string
   cspExtra?: string
@@ -190,6 +194,7 @@ export interface PageProps extends Omit<ElementProps<SegnaviaPage>, 'onError'> {
 }
 
 export interface PrintedPagesProps extends Omit<ElementProps<SegnaviaPrintedPages>, 'onError'> {
+  edition?: string
   document?: DocumentInput | null
   page?: SegnaviaPrintedPages['page']
   recordFor?: SegnaviaPrintedPages['recordFor']
@@ -246,6 +251,7 @@ export interface BookProps extends Omit<ElementProps<SegnaviaBook>, 'onError'> {
 }
 
 export interface PaperProps extends Omit<ElementProps<SegnaviaPaper>, 'onError' | 'onChange'> {
+  edition?: string
   paper?: number
   side?: SegnaviaPaper['side']
   css?: string
@@ -268,6 +274,7 @@ export interface PaperProps extends Omit<ElementProps<SegnaviaPaper>, 'onError' 
 }
 
 export interface BoardProps extends ElementProps<SegnaviaBoard> {
+  edition?: string
   board?: SegnaviaBoard['board']
   motifs?: SegnaviaBoard['motifs']
   placements?: SegnaviaBoard['placements']
@@ -298,6 +305,7 @@ export interface BoardProps extends ElementProps<SegnaviaBoard> {
 }
 
 export interface DocumentProps extends Omit<ElementProps<SegnaviaDocument>, 'onError'> {
+  edition?: string
   pages?: DocumentInput[]
   print?: PrintInput | null
   css?: string
