@@ -4,6 +4,8 @@
 
 The host implements `assets` to answer approved document requests; `limits.assets` bounds each answer and their combined bytes.
 
+Use `renderer.stampPdf(bytes, { watermark, protection })` to apply the same watermark and PDF protection model to a PDF supplied by the host. Its image watermark uses the same offline `origins`, `assets` and `assetBudget` seam as the render methods. A text watermark uses `watermark.font`, then the first family in `fonts`, then `sans-serif`. Received files and decoded object streams are bounded by host-only `limits.input.bytes` and `limits.input.streamBytes`. The renderer stays offline and never follows external references in the PDF. Stamping changes the file, so an original digital signature no longer validates.
+
 ## Folder fonts
 
 Use `directoryFontSource(catalog, { root })` when a catalog's face `src` values name files beneath one server directory. It refuses absolute paths, parent and symbolic-link escapes, missing paths, and non-regular files. A collection face names the face to extract with `postscriptName`. Loaded families are cached for the lifetime of the source, with default bounds of 16 MiB per face and 32 MiB per family; pass `limits: { each, bytes }` to set host bounds.

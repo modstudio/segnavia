@@ -1,10 +1,23 @@
 import { type HtmlPage, type PrintedHtmlPage, printedPageDirection } from '@segnavia/html'
-import { endMarkedContent, type PDFArray, PDFName, PDFNumber, PDFOperator } from 'pdf-lib'
+import {
+  concatTransformationMatrix,
+  endMarkedContent,
+  type PDFArray,
+  type PDFDocument,
+  type PDFEmbeddedPage,
+  PDFName,
+  PDFNumber,
+  PDFOperator,
+  type PDFPage,
+  popGraphicsState,
+  pushGraphicsState,
+} from 'pdf-lib'
 import type { TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import { assetSetup } from './options.ts'
 import type { PageFontFacts } from './overflow.ts'
 import { loadPdf } from './pdf-load.ts'
+import type { ReceivedPageFacts } from './received-page.ts'
 import type { RenderDeadline } from './render-deadline.ts'
 import type { ParsedPagePdfOptions } from './renderer.ts'
 import { fitWatermarkText } from './watermark-fit.ts'
@@ -90,6 +103,57 @@ export interface WatermarkPlacement {
   outputPage: number
 }
 
+export interface ReceivedWatermarkPlacement extends WatermarkPlacement {
+  facts: ReceivedPageFacts
+}
+
+interface EmbeddedPagePlacement {
+  x: number
+  y: number
+  width: number
+  height: number
+  matrix?: readonly [number, number, number, number, number, number]
+}
+
+function stampEmbeddedPage(
+  output: PDFDocument,
+  page: PDFPage,
+  embedded: PDFEmbeddedPage,
+  bounds: { x: number; y: number; width: number; height: number },
+  placement: EmbeddedPagePlacement,
+): void {
+  const bbox = output.context.obj([
+    PDFNumber.of(bounds.x),
+    PDFNumber.of(bounds.y),
+    PDFNumber.of(bounds.x + bounds.width),
+    PDFNumber.of(bounds.y + bounds.height),
+  ]) as PDFArray
+  const properties = output.context.obj({ Type: 'Pagination', Subtype: 'Watermark', BBox: bbox })
+  page.pushOperators(PDFOperator.of('BDC' as never, [PDFName.of('Artifact'), properties as never]))
+  if (placement.matrix) page.pushOperators(pushGraphicsState(), concatTransformationMatrix(...placement.matrix))
+  page.drawPage(embedded, { x: placement.x, y: placement.y, width: placement.width, height: placement.height })
+  page.pushOperators(...(placement.matrix ? [popGraphicsState()] : []), endMarkedContent())
+}
+
+export async function stampReceivedWatermark(output: PDFDocument, layer: Uint8Array, placements: readonly ReceivedWatermarkPlacement[]): Promise<Uint8Array> {
+  const source = await loadPdf(layer)
+  if (source.getPageCount() !== placements.length) {
+    throw new RenderRefusedError(
+      `The watermark layer has ${source.getPageCount()} pages for ${placements.length} selected output pages; rebuild the watermark layer to clear this refusal.`,
+    )
+  }
+  for (const { layerPage, outputPage, facts } of placements) {
+    if (outputPage < 1 || outputPage > output.getPageCount() || layerPage < 0 || layerPage >= source.getPageCount()) {
+      throw new RenderRefusedError(`The watermark layer could not be matched to output page ${outputPage}; rebuild the output to clear this refusal.`)
+    }
+    const page = output.getPage(outputPage - 1)
+    const embedded = await output.embedPage(source.getPage(layerPage))
+    const { frame, matrix } = facts
+    stampEmbeddedPage(output, page, embedded, frame, { x: 0, y: 0, width: facts.viewed.media.width, height: facts.viewed.media.height, matrix })
+  }
+  return output.save()
+}
+
 async function stampWatermarkMapped(pdf: Uint8Array, layer: Uint8Array, placements: readonly WatermarkPlacement[]): Promise<Uint8Array> {
   if (placements.length === 0) return pdf
   const output = await loadPdf(pdf)
@@ -102,16 +166,7 @@ async function stampWatermarkMapped(pdf: Uint8Array, layer: Uint8Array, placemen
     const media = page.getMediaBox()
     const trim = page.getTrimBox()
     const embedded = await output.embedPage(source.getPage(layerIndex))
-    const bbox = output.context.obj([
-      PDFNumber.of(trim.x),
-      PDFNumber.of(trim.y),
-      PDFNumber.of(trim.x + trim.width),
-      PDFNumber.of(trim.y + trim.height),
-    ]) as PDFArray
-    const properties = output.context.obj({ Type: 'Pagination', Subtype: 'Watermark', BBox: bbox })
-    page.pushOperators(PDFOperator.of('BDC' as never, [PDFName.of('Artifact'), properties as never]))
-    page.drawPage(embedded, { x: media.x, y: media.y, width: media.width, height: media.height })
-    page.pushOperators(endMarkedContent())
+    stampEmbeddedPage(output, page, embedded, trim, { x: media.x, y: media.y, width: media.width, height: media.height })
   }
   return output.save()
 }

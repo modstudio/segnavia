@@ -21,6 +21,11 @@ const ASSET_LIMITS = [
   { measure: 'each', subject: 'asset', unit: 'bytes' },
 ] as const
 
+const INPUT_LIMITS = [
+  { measure: 'bytes', subject: 'received PDF', unit: 'bytes' },
+  { measure: 'streamBytes', subject: 'received PDF stream', unit: 'decoded bytes' },
+] as const
+
 const FONT_SOURCE_LIMITS = [
   { measure: 'bytes', subject: 'font family', unit: 'bytes', clearing: "raise the font source's limits.bytes option, or use a smaller font family" },
   { measure: 'each', subject: 'font face', unit: 'bytes', clearing: "raise the font source's limits.each option, or use a smaller font" },
@@ -29,15 +34,22 @@ const FONT_SOURCE_LIMITS = [
 type TopLevelMeasure = (typeof TOP_LEVEL_LIMITS)[number]['measure']
 type LocalFontMeasure = (typeof LOCAL_FONT_LIMITS)[number]['measure']
 type AssetMeasure = (typeof ASSET_LIMITS)[number]['measure']
+type InputMeasure = (typeof INPUT_LIMITS)[number]['measure']
 type FontSourceMeasure = (typeof FONT_SOURCE_LIMITS)[number]['measure']
 
 export type Limits = Partial<Record<TopLevelMeasure, number>> & {
   localFonts?: Partial<Record<LocalFontMeasure, number>>
   assets?: Partial<Record<AssetMeasure, number>>
+  input?: Partial<Record<InputMeasure, number>>
 }
 
 export type DocumentLimits = Pick<Limits, 'pages' | 'descriptionTextChars'>
-export type LimitMeasure = TopLevelMeasure | `localFonts.${LocalFontMeasure}` | `assets.${AssetMeasure}` | `fontSource.${FontSourceMeasure}`
+export type LimitMeasure =
+  | TopLevelMeasure
+  | `localFonts.${LocalFontMeasure}`
+  | `assets.${AssetMeasure}`
+  | `input.${InputMeasure}`
+  | `fontSource.${FontSourceMeasure}`
 export type PageLimitSource = 'document' | 'default' | 'host'
 
 export interface ResolvedLimits extends Limits {
@@ -46,6 +58,7 @@ export interface ResolvedLimits extends Limits {
   descriptionTextChars: number
   localFonts: Record<LocalFontMeasure, number>
   assets: Record<AssetMeasure, number>
+  input: Record<InputMeasure, number>
 }
 
 export const DEFAULT_PAGE_LIMIT = 500
@@ -55,7 +68,8 @@ export const DEFAULT_LIMITS = {
   descriptionTextChars: 240,
   localFonts: { count: 64, bytes: 32 * 1024 * 1024 },
   assets: { bytes: 50 * 1024 * 1024, each: 10 * 1024 * 1024 },
-} as const satisfies Pick<ResolvedLimits, 'pages' | 'descriptionTextChars' | 'localFonts' | 'assets'>
+  input: { bytes: 100 * 1024 * 1024, streamBytes: 16 * 1024 * 1024 },
+} as const satisfies Pick<ResolvedLimits, 'pages' | 'descriptionTextChars' | 'localFonts' | 'assets' | 'input'>
 
 const REMOVED_LIMIT_NAMES: Record<string, string> = {
   maxSheets: 'limits.sheets',
@@ -69,6 +83,7 @@ const REMOVED_LIMIT_NAMES: Record<string, string> = {
 const TOP_LEVEL_MEASURES = TOP_LEVEL_LIMITS.map(({ measure }) => measure)
 const LOCAL_FONT_MEASURES = LOCAL_FONT_LIMITS.map(({ measure }) => measure)
 const ASSET_MEASURES = ASSET_LIMITS.map(({ measure }) => measure)
+const INPUT_MEASURES = INPUT_LIMITS.map(({ measure }) => measure)
 
 function invalidInteger(value: unknown): boolean {
   return typeof value !== 'number' || !Number.isSafeInteger(value) || value < 0
@@ -90,7 +105,7 @@ function documentLimits(value: unknown, ctx: z.RefinementCtx): unknown {
   for (const key of Object.keys(source)) {
     if (key === 'pages' || key === 'descriptionTextChars') continue
     const field = `limits.${key}`
-    const hostLimit = key === 'localFonts' || key === 'assets' || TOP_LEVEL_MEASURES.includes(key as TopLevelMeasure)
+    const hostLimit = key === 'localFonts' || key === 'assets' || key === 'input' || TOP_LEVEL_MEASURES.includes(key as TopLevelMeasure)
     ctx.addIssue({
       code: 'custom',
       path: [key],
@@ -132,6 +147,10 @@ export function resolveLimits(document: DocumentLimits | undefined, host: Limits
       bytes: host?.assets?.bytes ?? DEFAULT_LIMITS.assets.bytes,
       each: host?.assets?.each ?? DEFAULT_LIMITS.assets.each,
     },
+    input: {
+      bytes: host?.input?.bytes ?? DEFAULT_LIMITS.input.bytes,
+      streamBytes: host?.input?.streamBytes ?? DEFAULT_LIMITS.input.streamBytes,
+    },
   }
 }
 
@@ -151,7 +170,7 @@ function parsedNestedLimits<T extends string>(
   value: unknown,
   measures: readonly T[],
   subject: string,
-  prefix: 'localFonts' | 'assets',
+  prefix: 'localFonts' | 'assets' | 'input',
 ): Partial<Record<T, number>> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new RangeError(`The ${subject} limits.${prefix} limit must be an object; pass valid limits.${prefix} to clear this refusal.`)
@@ -171,7 +190,7 @@ export function parseLimits(input: unknown, subject: string): Limits | undefined
     throw new RangeError(`The ${subject} limits must be an object; pass valid limits to clear this refusal.`)
   }
   const source = input as Record<string, unknown>
-  refuseUnknownKeys(source, [...TOP_LEVEL_MEASURES, 'localFonts', 'assets'], subject)
+  refuseUnknownKeys(source, [...TOP_LEVEL_MEASURES, 'localFonts', 'assets', 'input'], subject)
   const parsed: Limits = {}
   for (const measure of TOP_LEVEL_MEASURES) {
     if (source[measure] !== undefined) parsed[measure] = parsedInteger(source[measure], `limits.${measure}`, subject)
@@ -182,6 +201,9 @@ export function parseLimits(input: unknown, subject: string): Limits | undefined
   if (source.assets !== undefined) {
     parsed.assets = parsedNestedLimits(source.assets, ASSET_MEASURES, subject, 'assets')
   }
+  if (source.input !== undefined) {
+    parsed.input = parsedNestedLimits(source.input, INPUT_MEASURES, subject, 'input')
+  }
   return parsed
 }
 
@@ -190,6 +212,7 @@ const TEXT = Object.fromEntries(
     ...TOP_LEVEL_LIMITS,
     ...LOCAL_FONT_LIMITS.map(({ measure, ...text }) => ({ measure: `localFonts.${measure}`, ...text })),
     ...ASSET_LIMITS.map(({ measure, ...text }) => ({ measure: `assets.${measure}`, ...text })),
+    ...INPUT_LIMITS.map(({ measure, ...text }) => ({ measure: `input.${measure}`, ...text })),
     ...FONT_SOURCE_LIMITS.map(({ measure, ...text }) => ({ measure: `fontSource.${measure}`, ...text })),
   ].map(({ measure, ...text }) => [measure, text]),
 ) as Record<LimitMeasure, { subject: string; unit: string; clearing?: string }>

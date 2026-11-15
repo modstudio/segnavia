@@ -43,6 +43,7 @@ export {
   RENDER_BOUND_MS,
   type Renderer,
   type RendererOptions,
+  type StampPdfOptions,
 } from './renderer.ts'
 export { filledBook } from './slot-fill.ts'
 export type { Watermark } from './watermark-options.ts'

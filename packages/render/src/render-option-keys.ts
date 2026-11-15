@@ -10,6 +10,7 @@ import type {
   PagesPdfInputOptions,
   RenderCall,
   SlideImageInputOptions,
+  StampPdfOptions,
 } from './renderer.ts'
 
 const RENDER_KEYS = {
@@ -125,6 +126,17 @@ export const PROOF_IMAGE_OPTION_KEYS = {
   format: true,
 } as const satisfies Record<keyof ProofImageOptions, true>
 
+export const STAMP_PDF_OPTION_KEYS = {
+  origins: true,
+  assets: true,
+  assetBudget: true,
+  watermark: true,
+  protection: true,
+  limits: true,
+  fonts: true,
+  boundMs: true,
+} as const satisfies Record<keyof StampPdfOptions, true>
+
 export type KnownOptionKeys = Readonly<Record<string, true>>
 
 export const RENDER_OPTION_KEYS = {
@@ -137,6 +149,7 @@ export const RENDER_OPTION_KEYS = {
   deckPdf: DECK_PDF_OPTION_KEYS,
   slideImage: SLIDE_IMAGE_OPTION_KEYS,
   proofImage: PROOF_IMAGE_OPTION_KEYS,
+  stampPdf: STAMP_PDF_OPTION_KEYS,
 } as const satisfies Record<RenderCall, KnownOptionKeys>
 
 export function unknownOptionIssues(call: RenderCall, options: unknown, known: KnownOptionKeys, path: readonly PropertyKey[] = []): string[] {

@@ -1,4 +1,4 @@
-import { Cover, type OutlineSource, pageOrPrintedFromDocument } from '@segnavia/format'
+import { Cover, pageOrPrintedFromDocument } from '@segnavia/format'
 import {
   documentOutlineSource,
   fillPageAsOfBindings,
@@ -10,11 +10,9 @@ import {
   resolveEdition,
 } from '@segnavia/html'
 import { type Browser, type BrowserContext, chromium, type Page as Tab } from 'playwright-core'
-import { namedDestinations } from './book-destinations.ts'
 import { prepareRenderBook } from './book-expansion.ts'
 import { parseBookPdfOptions, parseBookPlanOptions } from './book-options.ts'
 import { renderBrowserBookPdf, renderBrowserBookPlan } from './book-render.ts'
-import { writeDocumentStructure } from './book-structure.ts'
 import { resolveRenderBrand, resolveRenderDeck } from './brand.ts'
 import { raceBrowserDisconnect } from './browser-disconnect.ts'
 import { keepBrowser } from './browser-keeper.ts'
@@ -44,7 +42,7 @@ import { renderPagePdf, renderPiecePdf } from './page-render.ts'
 import { parsePagePdfOptions } from './page-render-options.ts'
 import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce } from './pdf-finish.ts'
-import { loadPdf } from './pdf-load.ts'
+import { addPdfOutline } from './pdf-outline.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { pagesTagged } from './pdf-tagging.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
@@ -60,6 +58,8 @@ import { renderSlideImage } from './slide-image.ts'
 import { effectiveCopySlots, renderSlotCopyPdfs } from './slot-copies.ts'
 import { slotsForDocument } from './slot-document.ts'
 import { fillDeckForDay, filledPage, filledPages } from './slot-fill.ts'
+import { stampReceivedPdf } from './stamp-pdf.ts'
+import { parseStampPdfOptions } from './stamp-pdf-options.ts'
 import { watermarkCopyStamper, watermarkPartFromFacts } from './watermark-stamp.ts'
 
 export * from './public.ts'
@@ -83,12 +83,6 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const queue = renderQueue(options.concurrency ?? 2)
   const { acquire, release } = queue
   const protectPdf = createProtectPdf()
-  const addOutline = async (bytes: Uint8Array, source: OutlineSource | undefined): Promise<Uint8Array> => {
-    if (!source) return bytes
-    const document = await loadPdf(bytes)
-    writeDocumentStructure(document, { source, destinations: namedDestinations(document) })
-    return document.save()
-  }
 
   async function withTab<T>(
     setup: BrowserTabSetup & {
@@ -146,6 +140,13 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
   const finishWithBrowser = (pdf: Uint8Array, options: Parameters<typeof finishPdfWithBrowser>[1], deadline?: RenderDeadline) =>
     finishPdfWithBrowser(pdf, options, withTab, deadline)
   const renderer: Renderer = {
+    async stampPdf(bytes, opts = {}) {
+      const parsedOptions = parseStampPdfOptions(opts)
+      return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
+        const output = await stampReceivedPdf(bytes, parsedOptions, deadline, withTab)
+        return protectPdf(output, parsedOptions, deadline)
+      })
+    },
     async bookPdf(input, opts = {}) {
       const parsedOptions = parseBookPdfOptions(opts)
       return withinRenderPermit(parsedOptions.boundMs ?? RENDER_BOUND_MS, acquire, release, async (deadline) => {
@@ -223,7 +224,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         })
         watermarkCopies.validate()
         const output = await withDocumentMetadata(
-          await finishWithBrowser(await addOutline(bytes, prepared.outlineSource), prepared.options, deadline),
+          await finishWithBrowser(await addPdfOutline(bytes, prepared.outlineSource), prepared.options, deadline),
           parsedOptions.metadata,
           outputDate([prepared.established.day]),
           printedPageDirection(prepared.page),

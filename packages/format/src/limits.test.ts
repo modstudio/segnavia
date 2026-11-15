@@ -40,6 +40,12 @@ describe('resolveLimits', () => {
     expect(parseLimits({ assets: { each: 10 } }, 'host')).toEqual({ assets: { each: 10 } })
   })
 
+  test('uses host-only received-PDF defaults and replaces each field independently', () => {
+    expect(DEFAULT_LIMITS.input).toEqual({ bytes: 100 * 1024 * 1024, streamBytes: 16 * 1024 * 1024 })
+    expect(resolveLimits(undefined, { input: { bytes: 20 } }).input).toEqual({ bytes: 20, streamBytes: DEFAULT_LIMITS.input.streamBytes })
+    expect(parseLimits({ input: { streamBytes: 10 } }, 'host')).toEqual({ input: { streamBytes: 10 } })
+  })
+
   test('resolves the concise description text ceiling from document, host, and default values', () => {
     expect(resolveLimits(undefined, undefined).descriptionTextChars).toBe(DEFAULT_LIMITS.descriptionTextChars)
     expect(resolveLimits({ descriptionTextChars: 20 }, { descriptionTextChars: 10 }).descriptionTextChars).toBe(10)
@@ -72,6 +78,7 @@ describe('parseLimits', () => {
     expect(Page.safeParse({ html: '<p>Page</p>', limits: { pages: -1 } }).success).toBe(false)
     expect(Page.safeParse({ html: '<p>Page</p>', limits: { sheets: 1 } }).success).toBe(false)
     expect(Page.safeParse({ html: '<p>Page</p>', limits: { assets: { bytes: 1 } } }).success).toBe(false)
+    expect(Page.safeParse({ html: '<p>Page</p>', limits: { input: { bytes: 1 } } }).success).toBe(false)
     expect(
       Book.safeParse(identifiedBookInput({ title: 'Book', mode: 'continuous', chapters: [{ title: 'Chapter', html: '<p>Text</p>' }], limits: { bytes: 1 } }))
         .success,

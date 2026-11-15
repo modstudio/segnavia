@@ -33,6 +33,8 @@ function renderWithUnknownOption(renderer: Renderer, call: RenderCall): Promise<
       return renderer.slideImage({} as never, 0, { extra: true } as never)
     case 'proofImage':
       return renderer.proofImage(new Uint8Array(), { extra: true } as never)
+    case 'stampPdf':
+      return renderer.stampPdf(new Uint8Array(), { extra: true } as never)
     default: {
       const unhandledCall: never = call
       return unhandledCall
