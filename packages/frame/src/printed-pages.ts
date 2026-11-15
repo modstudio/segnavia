@@ -70,6 +70,7 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
       this.editionDocument = document
       this.schedule()
     } catch (error) {
+      this.editionDocument = null
       this.refuseDocument(error)
     }
   }
@@ -160,7 +161,6 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
     }
   }
   private refuseDocument(error: unknown): void {
-    this.editionDocument = null
     this.documentValue = null
     this.reloads.cancel()
     this.discardLoad()

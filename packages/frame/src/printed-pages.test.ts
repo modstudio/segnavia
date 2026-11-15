@@ -26,7 +26,7 @@ const input = {
   children: [{ type: 'page' as const, body: { html: '<p>Question<span data-segnavia-condition="teacher"> Answer</span></p>' } }],
 }
 
-test('an edition refusal discards a loaded printed-pages document and its scheduled reload', async () => {
+test('an edition refusal keeps its authored document for a corrected edition', async () => {
   const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
   const previousResizeObserver = Object.getOwnPropertyDescriptor(globalThis, 'ResizeObserver')
   Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: TestElement })
@@ -49,6 +49,7 @@ test('an edition refusal discards a loaded printed-pages document and its schedu
   let scheduled = true
   Object.assign(element, {
     generation: 0,
+    isConnected: true,
     querySelector: () => failure,
     setAttribute() {},
     dispatchEvent: (event: ErrorEvent) => {
@@ -67,8 +68,15 @@ test('an edition refusal discards a loaded printed-pages document and its schedu
   element.attributeChangedCallback('edition')
 
   expect(element.document).toBeNull()
-  expect(Reflect.get(element, 'editionDocument')).toBeNull()
+  expect(Reflect.get(element, 'editionDocument')).not.toBeNull()
   expect(scheduled).toBeFalse()
   expect(Reflect.get(element, 'generation')).toBe(1)
   expect(failures.at(-1)?.message).toContain('requested edition "missing" is unknown')
+
+  element.edition = 'teacher'
+  element.attributeChangedCallback('edition')
+
+  expect(element.document).not.toBeNull()
+  expect(JSON.stringify(element.document)).toContain('Answer')
+  expect(scheduled).toBeTrue()
 })
