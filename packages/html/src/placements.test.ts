@@ -66,6 +66,46 @@ describe('resolvePlacements', () => {
     expect(output).not.toContain('data-segnavia-media')
   })
 
+  test('marks a PDF print placeholder at the selected crop aspect while leaving screen and src-only answers unchanged', async () => {
+    const pdf: Media = {
+      format: 'pdf',
+      size: { width: 600, height: 800 },
+      pages: [{ boxes: { media: { x: 0, y: 0, width: 600, height: 800 }, crop: { x: 10, y: 20, width: 580, height: 760 } } }],
+    }
+    const resolve: ResolvePlacement = async () => ({ kind: 'media', media: pdf, src: png, bytes: new Uint8Array([1]) })
+    const printed = await resolvePlacements('<img data-segnavia-media="a">', { resolvePlacement: resolve, purpose: 'print', width: 100, signal })
+    expect(printed).toContain('data-segnavia-placed-pdf="1"')
+    expect(printed).toContain('width%3D%22580%22%20height%3D%22760%22')
+    const screen = await resolvePlacements('<img data-segnavia-media="a">', { resolvePlacement: resolve, purpose: 'screen', width: 100, signal })
+    expect(screen).toContain(`src="${png}"`)
+    expect(screen).not.toContain('data-segnavia-placed-pdf')
+    const srcOnly = await resolvePlacements('<img data-segnavia-media="a">', {
+      resolvePlacement: async () => ({ kind: 'media', media: pdf, src: png }),
+      purpose: 'print',
+      width: 100,
+      signal,
+    })
+    expect(srcOnly).toContain(`src="${png}"`)
+  })
+
+  test('reports an unknown named PDF page and draws a placeholder', async () => {
+    const reports: unknown[] = []
+    const output = await resolvePlacements('<img data-segnavia-media="a" data-segnavia-page="Missing">', {
+      resolvePlacement: async () => ({
+        kind: 'media',
+        media: { format: 'pdf', size: { width: 10, height: 10 }, pages: [{ boxes: { media: { x: 0, y: 0, width: 10, height: 10 } } }] },
+        src: png,
+        bytes: new Uint8Array([1]),
+      }),
+      purpose: 'print',
+      width: 100,
+      signal,
+      report: (entry) => reports.push(entry),
+    })
+    expect(output).toContain('data-segnavia-placement="missing"')
+    expect(reports).toEqual([{ address: 'a', page: 'Missing', reason: 'no-page' }])
+  })
+
   test('accepts a line-wrapped base64 image source as the sanitizer does', async () => {
     const src = 'data:image/png;base64,AA\nBB'
     const output = await resolvePlacements('<img data-segnavia-media="a">', {

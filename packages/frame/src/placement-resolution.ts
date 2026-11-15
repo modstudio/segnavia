@@ -12,7 +12,14 @@ import {
   sheetMm,
 } from '@segnavia/format'
 import type { HtmlPage, PrintedHtmlPage } from '@segnavia/html'
-import { type PlacementReport, placementMissingEntry, printedSectionBodies, resolvePlacements, withPrintedSectionBodies } from '@segnavia/html'
+import {
+  PLACED_PDF_SOURCES,
+  type PlacementReport,
+  placementMissingEntry,
+  printedSectionBodies,
+  resolvePlacements,
+  withPrintedSectionBodies,
+} from '@segnavia/html'
 import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy.ts'
 
 export interface PlacementPreflight {
@@ -56,6 +63,7 @@ export function resolvePagePlacementHtml(
     width,
     signal,
     day,
+    pdfSources: placements[PLACED_PDF_SOURCES],
   })
 }
 

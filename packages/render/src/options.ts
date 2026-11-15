@@ -15,11 +15,20 @@ import {
   parseLimits,
 } from '@segnavia/format'
 import type { MotifsOptions, PlacementsOptions } from '@segnavia/frame/motifs'
-import { type AsOfInputs, type HtmlPage, isPrintedHtmlPage, type PrintedHtmlPage, type SlotPrintOptions } from '@segnavia/html'
+import {
+  type AsOfInputs,
+  type HtmlPage,
+  isPrintedHtmlPage,
+  PLACED_PDF_SOURCES,
+  PlacementResolutionError,
+  type PrintedHtmlPage,
+  type SlotPrintOptions,
+} from '@segnavia/html'
 import type { Page as Tab } from 'playwright-core'
 import type { EffectsReport } from './effects/types.ts'
 import { RenderLimitError, RenderRefusedError } from './errors.ts'
 import type { LocalFontsOptions } from './local-fonts.ts'
+import { loadPdf } from './pdf-load.ts'
 import { type ComposedPreflight, type RenderPreflightOptions, resolveRenderPreflight } from './preflight.ts'
 import type { PressReport } from './press/types.ts'
 import type { RenderProgressOptions } from './progress.ts'
@@ -131,16 +140,50 @@ export interface RenderOptions {
   }
 }
 
+function placementPdfFailure(message: string): PlacementResolutionError {
+  if (message.includes('encrypted')) return new PlacementResolutionError('encrypted', message)
+  if (message.includes('limits.input.bytes') || message.includes('ceiling')) return new PlacementResolutionError('too-large', message)
+  return new PlacementResolutionError('unreadable', message)
+}
+
+function checkedPlacements(placements: NonNullable<RenderOptions['placements']>, limits: ReturnType<typeof parseLimits>) {
+  if (placements[PLACED_PDF_SOURCES]) return placements
+  const checked = new Map<string, Promise<void>>()
+  return {
+    ...placements,
+    async resolve(...args: Parameters<typeof placements.resolve>) {
+      const answer = await placements.resolve(...args)
+      if (answer?.kind !== 'media' || answer.media.format !== 'pdf' || !answer.bytes) return answer
+      const address = args[0].address
+      let validation = checked.get(address)
+      if (!validation) {
+        validation = loadPdf(answer.bytes, { source: 'received', limits }).then(() => undefined)
+        checked.set(address, validation)
+      }
+      try {
+        await validation
+      } catch (error) {
+        throw placementPdfFailure(error instanceof Error ? error.message : String(error))
+      }
+      return answer
+    },
+    [PLACED_PDF_SOURCES]: new Map(),
+  }
+}
+
 export function parseRenderOptions<T extends RenderOptions>(options: T): Omit<T, 'progress'> & RenderOptions {
   if (typeof options.localFonts === 'object' && options.localFonts !== null && 'limits' in options.localFonts) {
     parseLimits({ localFonts: { limits: options.localFonts.limits } }, 'host')
   }
+  const limits = parseLimits(options.limits, 'host')
+  const placements = options.placements ? checkedPlacements(options.placements, limits) : undefined
   return {
     ...options,
     origins: options.origins === undefined ? undefined : [...options.origins],
     assetBudget: { bytes: 0 },
-    limits: parseLimits(options.limits, 'host'),
+    limits,
     progress: parseRenderProgress(options.progress),
+    ...(placements ? { placements } : {}),
     ...(options.pageWidths === undefined ? {} : { pageWidths: PageWidths.parse(options.pageWidths) }),
   }
 }

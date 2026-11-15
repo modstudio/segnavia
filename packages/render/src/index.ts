@@ -45,6 +45,7 @@ import { enforce } from './pdf-finish.ts'
 import { addPdfOutline } from './pdf-outline.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
 import { pagesTagged } from './pdf-tagging.ts'
+import { drawPlacedPdfPages, measurePlacedPdfPages } from './placed-pdf-page.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
 import { createProtectPdf } from './protect-pdf.ts'
@@ -161,8 +162,12 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
             render: (setup, pdf, pageWidth, part) =>
               withTab({ ...setup, deadline }, async (tab) => {
                 const captures = await prepareBackdropRasters(tab, options.effects)
+                const placedPdfPages = await measurePlacedPdfPages(tab)
                 const printed = await printWithOverflow(tab, pageWidth, part, pdf)
-                return { ...printed, bytes: await tagBackdropRasters(printed.bytes, captures) }
+                return {
+                  ...printed,
+                  bytes: await drawPlacedPdfPages(await tagBackdropRasters(printed.bytes, captures), placedPdfPages, options),
+                }
               }),
             fontFaces: (options) => fontFaces(options.fonts),
             finish: (pdf, options) => finishWithBrowser(pdf, options, deadline),

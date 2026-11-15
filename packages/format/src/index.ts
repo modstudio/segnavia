@@ -215,6 +215,7 @@ export {
   MediaPage,
   MediaText,
   mediaTextDirection,
+  type PageBoxName,
   PageSelector,
   PointSize,
 } from './media.ts'
@@ -301,6 +302,7 @@ export {
 export { paperViewport, usesPressLayout } from './paper-viewport.ts'
 export * from './parent-regions.ts'
 export * from './parent-rules.ts'
+export * from './placed-pdf-page.ts'
 export {
   AssetKind,
   CropEdge,
