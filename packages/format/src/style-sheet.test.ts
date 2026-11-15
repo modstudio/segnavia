@@ -34,7 +34,7 @@ describe('StyleSheet', () => {
           body: {
             kind: 'paragraph',
             composer: 'single-line',
-            wordSpacing: { minimum: 85, desired: 100, maximum: 120 },
+            wordSpacing: { minimum: 0.29, desired: 80.15, maximum: 120 },
             hyphenate: false,
           },
         },
@@ -69,6 +69,7 @@ describe('StyleSheet', () => {
   test('round trips word spacing at the supported bounds with one shared grammar', () => {
     for (const spacing of [
       { minimum: 0, desired: 0, maximum: 0 },
+      { minimum: 0.29, desired: 80.15, maximum: 133 },
       { minimum: 0.01, desired: 100.25, maximum: 1000 },
     ]) {
       expect(parseWordSpacing(serializeWordSpacing(spacing))).toEqual(spacing)

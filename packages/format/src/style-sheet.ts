@@ -24,7 +24,7 @@ export type TextStyleKind = 'paragraph' | 'character'
 export type TextStyleTokenGroup = 'colors' | 'dimensions' | 'fontFamilies'
 
 const DimensionValue = z.union([TokenReference, Dimension])
-const WordSpacingPercentage = z.number().refine((value) => Number.isFinite(value) && value >= 0 && value <= 1000 && Number.isInteger(value * 100), {
+const WordSpacingPercentage = z.number().refine((value) => Number.isFinite(value) && value >= 0 && value <= 1000 && Number(value.toFixed(2)) === value, {
   message:
     'word spacing percentages must be from 0 to 1000 with no more than two decimal places; use a percentage in that range rounded to two decimal places to clear this refusal',
 })
