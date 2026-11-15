@@ -1,4 +1,4 @@
-import { type ChildNode, type Element, isTag } from 'domhandler'
+import { type ChildNode, type Element, isTag, isText } from 'domhandler'
 import { element } from './dom.ts'
 
 const PARAGRAPH_CLOSING_ELEMENTS = new Set([
@@ -71,7 +71,11 @@ const RUNNING_TEXT_ELEMENTS = new Set([
 
 function insertLead(content: ChildNode[], lead: ChildNode[]): void {
   let children = content
-  for (let first = children[0]; first && isTag(first) && RUNNING_TEXT_ELEMENTS.has(first.name); first = children[0]) children = first.children
+  for (;;) {
+    const first = children.find((child) => !isText(child) || !/^\s*$/.test(child.data))
+    if (!first || !isTag(first) || !RUNNING_TEXT_ELEMENTS.has(first.name)) break
+    children = first.children
+  }
   children.unshift(...lead)
 }
 

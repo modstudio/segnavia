@@ -19,9 +19,21 @@ test('holds block content in a div and runs the lead into its deepest first text
   )
 })
 
+test('skips whitespace while running the lead into the deepest first text block', () => {
+  const content = [text('\n  '), element('blockquote', [text('\n    '), element('p', [text('Quoted')])]), text('\n')]
+  expect(render(noteBody('note', 'n-1', [text('1'), text(' ')], content))).toBe(
+    '<div class="note" id="n-1">\n  <blockquote>\n    <p>1 Quoted</p></blockquote>\n</div>',
+  )
+})
+
 test('leaves the lead before a first child that does not hold running text', () => {
   const content = [element('ul', [element('li', [text('first')])]), element('p', [text('second')])]
   expect(render(noteBody('note', 'n-1', [text('1'), text(' ')], content))).toBe('<div class="note" id="n-1">1 <ul><li>first</li></ul><p>second</p></div>')
+})
+
+test('keeps the lead before a list after leading whitespace', () => {
+  const content = [text('\n'), element('ul', [element('li', [text('x')])])]
+  expect(render(noteBody('note', 'n-1', [text('1'), text(' ')], content))).toBe('<div class="note" id="n-1">1 \n<ul><li>x</li></ul></div>')
 })
 
 test('uses a div for other elements whose start tag closes a paragraph', () => {
