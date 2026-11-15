@@ -284,10 +284,10 @@ document.
 | `widows` | root `widows` |
 | `fragmentation` | root `fragmentation` |
 | `contents.pageNumbers` | a `contents` node's `pageNumbers` |
-| `contents.depth` | a `contents` node's `depth` |
+| `contents.depth` | a `contents` node's `contentsDepth` |
 | part `name`, `title`, `html`, `contents`, `opens`, `parentRules`, `children` | a `part` node with the same fields and `type: 'part'` |
 | chapter `title`, `html` | a `section` node holding a `flow` child; the flow holds `html` |
-| section `title`, `contentsLabel`, `subtitle`, `contents`, `opens`, `parentRules` | the same fields on a `section` node |
+| section `title`, `contentsLabel`, `subtitle`, `contents`, `contentsDepth`, `opens`, `parentRules` | the same fields on a `section` node |
 | designed section `pages[].html` | `section.children[]` page nodes with `body: { html }` |
 | templated section `template` | `section.template` |
 | templated section `pages[].template` and `pages[].regions` | page-node `template` and `regions` fields under `section.children` |
@@ -1135,7 +1135,7 @@ the book's structure tree.
 
 ### Printed book structure
 
-Part depth is added to the heading level inside a section for both contents and PDF outlines. `contents.depth`, which defaults to 2, continues to count only levels inside each section, so adding parts does not remove chapter h2 entries and parts always appear when included. The separate root `outline.depth` accepts 1 through 6, defaults to 6, and is available only on book and printed documents.
+Part depth is added to the heading level inside a section for both contents and PDF outlines. A `contents` node's `contentsDepth`, which defaults to 2, lowers to `contents.depth` and counts only levels inside each section, so adding parts does not remove chapter h2 entries and parts always appear when included. A section's optional `contentsDepth` caps its own entries at the lower of that value and the book depth; it cannot raise the book depth, and `contents: false` still removes the section and its headings. The separate root `outline.depth` accepts 1 through 6, defaults to 6, is available only on book and printed documents, and is unaffected by section contents caps.
 
 Every heading carries independent `listed.contents` and `listed.outline` facts. Author HTML sets both with `data-segnavia-listed`: an absent attribute means both, `contents` means only the printed contents, `outline` means only the PDF outline, and `none` means neither. Other values are refused with that accepted list. The removed `data-contents="exclude"` is refused with `data-segnavia-listed="outline"` and `data-segnavia-listed="none"` as its replacements. A book section with `contents: false` still omits its title and owned headings from both lists. A heading listed in neither needs no id and is not collected; a listed heading without an id is refused.
 
