@@ -362,6 +362,8 @@ export {
   type TextStyleTokenGroup,
   TokenReference,
   WORD_SPACING_CUSTOM_PROPERTY,
+  WORD_SPACING_MAXIMUM,
+  WORD_SPACING_PATTERN,
   WordSpacing,
 } from './style-sheet.ts'
 export { carryMoment, dayWithHostMoment } from './supplied-moment.ts'

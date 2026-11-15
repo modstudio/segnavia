@@ -1,6 +1,18 @@
 import { embedFunction, type readCompositionStyle } from '@segnavia/html'
 import { breakLines, hyphenationPoints } from '@segnavia/layout'
 import { contentInlineSize } from './composer-paragraph-box.ts'
+import {
+  COMPOSITION_CONTINUATION_ATTRIBUTE,
+  COMPOSITION_IDENTITY_ATTRIBUTE,
+  COMPOSITION_VARIABLE_VALUE_ATTRIBUTE,
+  lineFragment,
+  markCompositionContinuations,
+  markCompositionIdentities,
+  removeContinuationIds,
+  rewriteParagraph,
+  setRangeEnd,
+  setRangeStart,
+} from './composer-paragraph-dom.ts'
 
 export interface ParagraphToken {
   kind: 'text' | 'space' | 'atomic' | 'forced'
@@ -99,7 +111,7 @@ function appendMeasuredTokens(
     } else appendMeasuredTokens(element, tokens, cache, doc, styleFor, writingMode)
   }
 }
-function measuredTokens(paragraph: Element, cache: Map<string, number>, doc: Document, styleFor: typeof getComputedStyle, _showText: number): ParagraphToken[] {
+function measuredTokens(paragraph: Element, cache: Map<string, number>, doc: Document, styleFor: typeof getComputedStyle): ParagraphToken[] {
   const writingMode = styleFor(paragraph).writingMode
   const tokens: ParagraphToken[] = []
   appendMeasuredTokens(paragraph, tokens, cache, doc, styleFor, writingMode)
@@ -156,17 +168,22 @@ function planParagraphLinesWith(
   breakForLines: typeof breakLines,
   pointsForWord: typeof hyphenationPoints,
 ): ParagraphLine[] {
-  const { items, metadata } = paragraphItems(tokens, settings)
-  addHyphenationItems(items, metadata, tokens, settings, markerWidth, pointsForWord)
+  const { items, metadata, tokenItems } = paragraphItems(tokens, settings)
+  addHyphenationItems(items, metadata, tokenItems, tokens, settings, markerWidth, pointsForWord)
   return plannedLines(tokens, settings, items, metadata, breakForLines)
 }
-function paragraphItems(tokens: readonly ParagraphToken[], settings: CompositionSettings): { items: ParagraphItem[]; metadata: Map<number, BreakMeta> } {
+function paragraphItems(
+  tokens: readonly ParagraphToken[],
+  settings: CompositionSettings,
+): { items: ParagraphItem[]; metadata: Map<number, BreakMeta>; tokenItems: number[] } {
   const items: ParagraphItem[] = []
   const metadata = new Map<number, BreakMeta>()
+  const tokenItems: number[] = []
   const desired = settings.spacing.desired / 100
   for (let index = 0; index < tokens.length; index++) {
     const token = tokens[index]
     if (!token) continue
+    tokenItems[index] = items.length
     if (token.kind === 'space') {
       const width = token.width * desired
       items.push({
@@ -175,52 +192,40 @@ function paragraphItems(tokens: readonly ParagraphToken[], settings: Composition
         stretch: token.width * (settings.spacing.maximum / 100 - desired),
         shrink: token.width * (desired - settings.spacing.minimum / 100),
       })
-      metadata.set(items.length - 1, { end: index, next: index + 1, hyphen: false, forced: false })
+      metadata.set(items.length - 1, { end: index + 1, next: index + 1, hyphen: false, forced: false })
     } else if (token.kind === 'forced') {
       items.push({ type: 'penalty', width: 0, penalty: Number.NEGATIVE_INFINITY, flagged: false })
       metadata.set(items.length - 1, { end: index, next: index + 1, hyphen: false, forced: true })
     } else items.push({ type: 'box', width: token.width })
   }
-  return { items, metadata }
+  return { items, metadata, tokenItems }
 }
 function addHyphenationItems(
   items: ParagraphItem[],
   metadata: Map<number, BreakMeta>,
+  tokenItems: readonly number[],
   tokens: readonly ParagraphToken[],
   settings: CompositionSettings,
   markerWidth: number,
   pointsForWord: typeof hyphenationPoints,
 ): void {
+  const breaks: { itemIndex: number; tokenIndex: number; maqaf: boolean }[] = []
   for (const word of wordRanges(tokens)) {
     for (const point of pointsForWord(word.text, settings.language)) {
-      addHyphenationPoint(items, metadata, tokens, settings, markerWidth, word, point)
+      const tokenIndex = tokenForOffset(tokens, word.start, point)
+      if (tokenIndex === undefined) continue
+      const maqaf = word.text[point - 1] === '\u05be'
+      if (!maqaf && !settings.hyphenate) continue
+      const itemIndex = tokenItems[tokenIndex]
+      if (itemIndex === undefined) continue
+      breaks.push({ itemIndex: itemIndex + 1, tokenIndex, maqaf })
     }
   }
-}
-function addHyphenationPoint(
-  items: ParagraphItem[],
-  metadata: Map<number, BreakMeta>,
-  tokens: readonly ParagraphToken[],
-  settings: CompositionSettings,
-  markerWidth: number,
-  word: { start: number; text: string },
-  point: number,
-): void {
-  const tokenIndex = tokenForOffset(tokens, word.start, point)
-  if (tokenIndex === undefined) return
-  const maqaf = word.text[point - 1] === '\u05be'
-  if (!maqaf && !settings.hyphenate) return
-  let itemIndex = -1
-  let seenTokens = 0
-  for (let index = 0; index < items.length; index++) {
-    if (items[index]?.type !== 'penalty') seenTokens++
-    if (seenTokens !== tokenIndex + 1) continue
-    itemIndex = index + 1
-    break
+  for (const point of breaks.sort((a, b) => b.itemIndex - a.itemIndex)) {
+    items.splice(point.itemIndex, 0, { type: 'penalty', width: point.maqaf ? 0 : markerWidth, penalty: 50, flagged: !point.maqaf })
+    shiftMetadata(metadata, point.itemIndex)
+    metadata.set(point.itemIndex, { end: point.tokenIndex + 1, next: point.tokenIndex + 1, hyphen: !point.maqaf, forced: false })
   }
-  items.splice(itemIndex, 0, { type: 'penalty', width: maqaf ? 0 : markerWidth, penalty: 50, flagged: !maqaf })
-  shiftMetadata(metadata, itemIndex)
-  metadata.set(itemIndex, { end: tokenIndex + 1, next: tokenIndex + 1, hyphen: !maqaf, forced: false })
 }
 function shiftMetadata(metadata: Map<number, BreakMeta>, itemIndex: number): void {
   for (const [key, value] of [...metadata.entries()].sort(([a], [b]) => b - a)) {
@@ -263,72 +268,56 @@ function plannedLines(
 export function paragraphMeasures(measure: number, indent: number): number[] {
   return [measure - indent, measure]
 }
-function setRangeStart(range: Range, token: ParagraphToken): void {
-  if (token.node?.nodeType === 3 && token.start !== undefined) range.setStart(token.node, token.start)
-  else if (token.node) range.setStartBefore(token.node)
+
+export type ParagraphCompositionAction = 'skip' | 'leave' | 'restore' | 'compose' | 'restore-and-compose'
+
+export function paragraphCompositionAction(
+  previousInlineSize: number | undefined,
+  inlineSize: number,
+  textAlign: string,
+  composer: string,
+  lineCount: number,
+): ParagraphCompositionAction {
+  if (previousInlineSize !== undefined && Math.abs(previousInlineSize - inlineSize) <= 0.5) return 'skip'
+  const shouldCompose = textAlign === 'justify' && composer === 'paragraph' && lineCount > 1
+  if (previousInlineSize !== undefined) return shouldCompose ? 'restore-and-compose' : 'restore'
+  return shouldCompose ? 'compose' : 'leave'
 }
 
-function setRangeEnd(range: Range, token: ParagraphToken): void {
-  if (token.node?.nodeType === 3 && token.end !== undefined) range.setEnd(token.node, token.end)
-  else if (token.node) range.setEndAfter(token.node)
-}
-
-function lineFragment(tokens: readonly ParagraphToken[], line: ParagraphLine, doc: Document): DocumentFragment {
-  const first = tokens[line.start]
-  const last = tokens[line.end - 1]
-  const fragment = doc.createDocumentFragment()
-  if (!first?.node || !last?.node) return fragment
-  const range = doc.createRange()
-  setRangeStart(range, first)
-  setRangeEnd(range, last)
-  fragment.append(range.cloneContents())
-  return fragment
-}
-
-export function removeContinuationIds(fragments: readonly ParentNode[]): void {
-  const seen = new Set<string>()
-  for (const fragment of fragments) {
-    for (const element of fragment.querySelectorAll('[id]')) {
-      const id = element.getAttribute('id') ?? ''
-      if (seen.has(id)) element.removeAttribute('id')
-      else seen.add(id)
-    }
+function firstStrongDirection(text: string): 'ltr' | 'rtl' | undefined {
+  for (const character of text) {
+    if (/^[\u0590-\u08ff\ufb1d-\ufdff\ufe70-\ufefc]$/u.test(character)) return 'rtl'
+    if (/^\p{Letter}$/u.test(character)) return 'ltr'
   }
+  return undefined
 }
 
-function rewriteParagraph(paragraph: Element, tokens: readonly ParagraphToken[], lines: readonly ParagraphLine[], doc: Document, direction: string): void {
-  const fragments = lines.map((line) => lineFragment(tokens, line, doc))
-  removeContinuationIds(fragments)
-  const output = lines.map((line, index) => {
-    const span = doc.createElement('span')
-    span.setAttribute('data-segnavia-line', '')
-    span.dir = direction
-    span.style.display = 'block'
-    span.style.textAlign = index === lines.length - 1 || line.forced ? 'start' : 'justify'
-    if (index > 0) span.style.textIndent = '0'
-    if (index < lines.length - 1 && !line.forced) span.style.wordSpacing = `${line.wordSpacing}px`
-    span.append(fragments[index] as DocumentFragment)
-    if (line.hyphen) {
-      const marker = doc.createElement('span')
-      marker.setAttribute('data-segnavia-hyphen', '')
-      marker.setAttribute('aria-hidden', 'true')
-      marker.textContent = '-'
-      span.append(marker)
-    }
-    return span
-  })
-  paragraph.replaceChildren(...output)
+export function paragraphBaseDirection(ownDirection: string | null, unicodeBidi: string, text: string, computedDirection: string): 'ltr' | 'rtl' {
+  const pageDirection = computedDirection === 'rtl' ? 'rtl' : 'ltr'
+  const direction = ownDirection?.toLowerCase()
+  if (direction === 'ltr' || direction === 'rtl') return direction
+  if (direction === 'auto' || unicodeBidi === 'plaintext') return firstStrongDirection(text) ?? pageDirection
+  return pageDirection
 }
-
 function paragraphLanguage(paragraph: Element, doc: Document): string {
   return paragraph.closest('[lang]')?.getAttribute('lang') ?? doc.documentElement.lang
+}
+
+function restoreParagraph(
+  paragraph: Element,
+  previous: { children: Node[]; inlineSize: number } | undefined,
+  composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number }>,
+): void {
+  if (!previous) return
+  paragraph.replaceChildren(...previous.children)
+  paragraph.removeAttribute(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)
+  composedParagraphs.delete(paragraph)
 }
 
 export function composeParagraphs(
   root: ParentNode,
   doc: Document,
   styleFor: typeof getComputedStyle,
-  showText: number,
   composedParagraphs: WeakMap<Element, { children: Node[]; inlineSize: number }>,
   readStyle: typeof readCompositionStyle,
   planLines: typeof planParagraphLinesWith,
@@ -343,12 +332,13 @@ export function composeParagraphs(
     const inlineSize = measureContent(rect, style)
     const previous = composedParagraphs.get(paragraph)
     if (previous && Math.abs(previous.inlineSize - inlineSize) <= 0.5) continue
-    if (previous) paragraph.replaceChildren(...previous.children)
+    restoreParagraph(paragraph, previous, composedParagraphs)
     if (style.textAlign !== 'justify') continue
     const composition = readStyle(style)
-    if ((composition.composer ?? 'paragraph') !== 'paragraph') continue
+    const composer = composition.composer ?? 'paragraph'
+    if (composer !== 'paragraph') continue
     const original = Array.from(paragraph.childNodes)
-    const tokens = measuredTokens(paragraph, cache, doc, styleFor, showText)
+    const tokens = measuredTokens(paragraph, cache, doc, styleFor)
     const lines = planLines(
       tokens,
       {
@@ -362,15 +352,22 @@ export function composeParagraphs(
       breakForLines,
       pointsForWord,
     )
-    if (lines.length <= 1) continue
+    const action = paragraphCompositionAction(previous?.inlineSize, inlineSize, style.textAlign, composer, lines.length)
+    if (action === 'leave' || action === 'restore') continue
     composedParagraphs.set(paragraph, { children: original, inlineSize })
-    rewriteParagraph(paragraph, tokens, lines, doc, style.direction)
+    if (paragraph.hasAttribute('data-variable')) paragraph.setAttribute(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE, paragraph.textContent ?? '')
+    rewriteParagraph(
+      paragraph,
+      tokens,
+      lines,
+      doc,
+      paragraphBaseDirection(paragraph.getAttribute('dir'), style.unicodeBidi, paragraph.textContent ?? '', style.direction),
+    )
   }
 }
 
-/** Embeds paragraph composition after the shared layout and style functions. */
 export function paragraphComposerScript(): string {
-  return `var composedParagraphs=new WeakMap();var paragraphBreakLines=typeof ${breakLines.name}==='function'?${breakLines.name}:undefined;var paragraphHyphenationPoints=typeof ${hyphenationPoints.name}==='function'?${hyphenationPoints.name}:undefined;
+  return `var composedParagraphs=new WeakMap();var COMPOSITION_IDENTITY_ATTRIBUTE=${JSON.stringify(COMPOSITION_IDENTITY_ATTRIBUTE)};var COMPOSITION_CONTINUATION_ATTRIBUTE=${JSON.stringify(COMPOSITION_CONTINUATION_ATTRIBUTE)};var COMPOSITION_VARIABLE_VALUE_ATTRIBUTE=${JSON.stringify(COMPOSITION_VARIABLE_VALUE_ATTRIBUTE)};
 ${embedFunction('graphemes', graphemes)}
 ${embedFunction('inlineExtent', inlineExtent)}
 ${embedFunction('measurementStyleKey', measurementStyleKey)}
@@ -382,17 +379,22 @@ ${embedFunction('wordRanges', wordRanges)}
 ${embedFunction('tokenForOffset', tokenForOffset)}
 ${embedFunction('paragraphItems', paragraphItems)}
 ${embedFunction('shiftMetadata', shiftMetadata)}
-${embedFunction('addHyphenationPoint', addHyphenationPoint)}
 ${embedFunction('addHyphenationItems', addHyphenationItems)}
 ${embedFunction('plannedLines', plannedLines)}
-${embedFunction('planParagraphLines', planParagraphLinesWith)}
+${embedFunction('planParagraphLinesWith', planParagraphLinesWith)}
 ${embedFunction('paragraphMeasures', paragraphMeasures)}
+${embedFunction('paragraphCompositionAction', paragraphCompositionAction)}
+${embedFunction('firstStrongDirection', firstStrongDirection)}
+${embedFunction('paragraphBaseDirection', paragraphBaseDirection)}
 ${embedFunction('setRangeStart', setRangeStart)}
 ${embedFunction('setRangeEnd', setRangeEnd)}
 ${embedFunction('lineFragment', lineFragment)}
+${embedFunction('markCompositionIdentities', markCompositionIdentities)}
+${embedFunction('markCompositionContinuations', markCompositionContinuations)}
 ${embedFunction('removeContinuationIds', removeContinuationIds)}
 ${embedFunction('rewriteParagraph', rewriteParagraph)}
 ${embedFunction('contentInlineSize', contentInlineSize)}
 ${embedFunction('paragraphLanguage', paragraphLanguage)}
+${embedFunction('restoreParagraph', restoreParagraph)}
 ${embedFunction('composeParagraphs', composeParagraphs)}`
 }

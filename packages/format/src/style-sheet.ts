@@ -24,10 +24,13 @@ export type TextStyleKind = 'paragraph' | 'character'
 export type TextStyleTokenGroup = 'colors' | 'dimensions' | 'fontFamilies'
 
 const DimensionValue = z.union([TokenReference, Dimension])
-const WordSpacingPercentage = z.number().refine((value) => Number.isFinite(value) && value >= 0 && value <= 1000 && Number(value.toFixed(2)) === value, {
-  message:
-    'word spacing percentages must be from 0 to 1000 with no more than two decimal places; use a percentage in that range rounded to two decimal places to clear this refusal',
-})
+export const WORD_SPACING_MAXIMUM = 1000
+const WordSpacingPercentage = z
+  .number()
+  .refine((value) => Number.isFinite(value) && value >= 0 && value <= WORD_SPACING_MAXIMUM && Number(value.toFixed(2)) === value, {
+    message:
+      'word spacing percentages must be from 0 to 1000 with no more than two decimal places; use a percentage in that range rounded to two decimal places to clear this refusal',
+  })
 export const WordSpacing = closedObject({
   minimum: WordSpacingPercentage,
   desired: WordSpacingPercentage,
@@ -38,7 +41,7 @@ export const WordSpacing = closedObject({
 })
 export type WordSpacing = z.infer<typeof WordSpacing>
 
-const WORD_SPACING_PATTERN = /^(\d+(?:\.\d{1,2})?)%\s+(\d+(?:\.\d{1,2})?)%\s+(\d+(?:\.\d{1,2})?)%$/
+export const WORD_SPACING_PATTERN = /^(\d+(?:\.\d{1,2})?)%\s+(\d+(?:\.\d{1,2})?)%\s+(\d+(?:\.\d{1,2})?)%$/
 
 export function serializeWordSpacing(value: WordSpacing): string {
   return `${value.minimum}% ${value.desired}% ${value.maximum}%`
