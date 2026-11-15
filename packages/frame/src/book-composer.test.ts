@@ -33,6 +33,17 @@ test('embedded region geometry includes its physical-margin dependency', () => {
   ).toEqual({ top: 0, left: 40, width: 100, height: 10 })
 })
 
+test('carries chapter and part numbers through browser text facts', () => {
+  const variables = [
+    { name: 'chapter', kind: 'text' as const, from: 'chapter-number' as const, pick: 'first' as const },
+    { name: 'part', kind: 'text' as const, from: 'part-number' as const, part: 'gate', pick: 'first' as const },
+  ]
+  expect(partTitleValues(variables, { '#chapter': '3', '#gate': 'II' })).toEqual([
+    { name: 'chapter', value: '3', line: 0, scope: 'flow' },
+    { name: 'part', value: 'II', line: 0, scope: 'flow' },
+  ])
+})
+
 test('embedded copyfit bounds include their value parser dependency', () => {
   const embedded = new Function(`${embeddedComposerFitFunctions()};return fitBounds`)() as (
     strategies: string[],
