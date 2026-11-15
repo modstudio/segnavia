@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { Imposition } from '@segnavia/format'
-import { printablePages } from './print-document.ts'
+import { printableDeck, printablePages } from './print-document.ts'
 
 test('printable pages lower the selected document edition', () => {
   const input = {
@@ -29,4 +29,27 @@ test('printable pages lower the selected document edition', () => {
   })
   expect(printablePages([input], imposition)).not.toContain('Answer')
   expect(printablePages([input], imposition, { edition: 'teacher' })).toContain('Answer')
+})
+
+test('printable deck lowers the selected document edition', () => {
+  const input = {
+    type: 'document' as const,
+    kind: 'deck' as const,
+    title: 'Questions',
+    conditions: [{ type: 'condition' as const, name: 'teacher' }],
+    editions: [
+      { type: 'edition' as const, name: 'student', conditions: [] },
+      { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+    children: [
+      {
+        type: 'slide' as const,
+        id: 'question',
+        content: { kind: 'html' as const, html: '<p>Question<span data-segnavia-condition="teacher"> Answer</span></p>' },
+      },
+    ],
+  }
+  expect(printableDeck(input)).not.toContain('Answer')
+  expect(printableDeck(input, { edition: 'teacher' })).toContain('Answer')
 })

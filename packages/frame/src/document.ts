@@ -18,7 +18,7 @@ import type { AssetPlacementsOptions as PlacementsOptions } from './board-policy
 import type { BrandsOptions } from './brands.ts'
 import { DocumentAsOfElement } from './document-as-of-element.ts'
 import { DocumentBrandLoader } from './document-brand-resolution.ts'
-import { resolveDocumentEditions } from './document-edition.ts'
+import { parseDocumentEditions, resolveDocumentEditions } from './document-edition.ts'
 import { mountDocumentPage } from './document-page-mount.ts'
 import { documentSheets } from './document-sheets.ts'
 import { internalDocumentPagesLoad, internalDocumentPagesRead } from './document-value-load.ts'
@@ -150,7 +150,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
 
   set brands(value: BrandsOptions | undefined) {
     this.brandOptions = value
-    this.resolveDocuments(this.sourceDocuments)
+    this.brandResolution.resolve(this.sourceDocuments, this.brandOptions, this.origins)
   }
 
   get css(): string {
@@ -181,16 +181,17 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   }
 
   set pages(value: PageOrPrintedInput[] | undefined) {
-    this.editionDocuments = (value ?? []).map((input) => parseDocument(input))
-    this.sourceDocuments = resolveDocumentEditions(this.editionDocuments, this.edition)
-    this.resolveDocuments(this.sourceDocuments)
+    const documents = parseDocumentEditions(value ?? [], this.edition)
+    this.editionDocuments = documents.authored
+    this.sourceDocuments = documents.resolved
+    this.brandResolution.resolve(documents.resolved, this.brandOptions, this.origins)
     this.changed()
   }
 
   protected reloadEdition(): void {
     if (this.editionDocuments.length === 0) return
     this.sourceDocuments = resolveDocumentEditions(this.editionDocuments, this.edition)
-    this.resolveDocuments(this.sourceDocuments)
+    this.brandResolution.resolve(this.sourceDocuments, this.brandOptions, this.origins)
   }
 
   get print(): Print | null {
@@ -226,7 +227,7 @@ export class SegnaviaDocument extends DocumentAsOfElement {
     this.editionDocuments = editionDocuments
     this.sourceDocuments = documents
     this.printValue = print
-    this.resolveDocuments(documents)
+    this.brandResolution.resolve(documents, this.brandOptions, this.origins)
     this.changed()
   }
 
@@ -389,9 +390,6 @@ export class SegnaviaDocument extends DocumentAsOfElement {
   private cancelSlotPreparation() {
     this.slotPreparation?.abort()
     this.slotPreparation = undefined
-  }
-  private resolveDocuments(documents: Document[]) {
-    this.brandResolution.resolve(documents, this.brandOptions, this.origins)
   }
   private changed() {
     this.dispatchEvent(new CustomEvent('segnavia-document-change'))

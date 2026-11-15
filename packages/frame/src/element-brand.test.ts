@@ -18,7 +18,6 @@ Object.assign(globalThis, {
   window: { addEventListener() {}, removeEventListener() {} },
 })
 
-const { SegnaviaDocument } = await import('./document.ts')
 const { SegnaviaPage } = await import('./page.ts')
 const { SegnaviaPaper } = await import('./paper.ts')
 
@@ -205,8 +204,7 @@ test('document element resolves a named brand before keeping lowered pages', asy
       },
     ),
   })
-  const resolveDocuments = (SegnaviaDocument.prototype as unknown as { resolveDocuments(documents: Document[]): void }).resolveDocuments
-  resolveDocuments.call(element, element.sourceDocuments)
+  element.brandResolution.resolve(element.sourceDocuments, element.brandOptions, [])
   expect(element.sourceValues).toHaveLength(0)
   await new Promise((resolve) => setTimeout(resolve, 0))
   expect(element.sourceValues[0]?.brand).toEqual({ css: '.house{color:red}' })

@@ -24,6 +24,7 @@ import {
   libraryMotifPlacementRefusal,
   MotifRefusedError,
   parseDocument,
+  resolveEdition,
   resolvePlacements,
 } from '@segnavia/html'
 import type { AssetPlacementsOptions } from './board-policy.ts'
@@ -270,8 +271,9 @@ export async function expandFrameBook(
   pageWidths?: PageWidths,
   brands?: BrandsOptions,
   profile?: PreflightProfile,
+  edition?: string,
 ): Promise<ExpandedBook<Book>> {
-  const document = parseDocument(input)
+  const document = resolveEdition(parseDocument(input), edition)
   return expandFrameBookValue(
     bookFromDocument(document, await resolveBrand(document, brands?.source, signal)),
     motifs,

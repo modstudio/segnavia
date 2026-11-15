@@ -34,9 +34,10 @@ export abstract class BoardDocumentElement extends BoardSelectionElement {
   }
 
   set board(input: DocumentInput | null) {
-    const document = input === null ? null : parseDocument(input)
-    this.editionDocument = document
-    this.applyEditionDocument()
+    const editionDocument = input === null ? null : parseDocument(input)
+    const document = editionDocument && resolveEdition(editionDocument, this.edition)
+    this.editionDocument = editionDocument
+    this.acceptEditionDocument(document)
   }
 
   attributeChangedCallback(name: string): void {
@@ -50,6 +51,10 @@ export abstract class BoardDocumentElement extends BoardSelectionElement {
 
   private applyEditionDocument(): void {
     const document = this.editionDocument && resolveEdition(this.editionDocument, this.edition)
+    this.acceptEditionDocument(document)
+  }
+
+  private acceptEditionDocument(document: Document | null): void {
     this.documentValue = document
     this.acceptBoardInput(document === null ? null : boardFromDocument(document))
   }

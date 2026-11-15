@@ -1,7 +1,12 @@
 import { expect, test } from 'bun:test'
 import { isPart, Page } from '@segnavia/format'
 import { bookDocument, parseBookFixture, resolvePageHtml } from '@segnavia/html'
-import { bookMotifRefusal, expandFrameBookValue as expandFrameBook, framePageMotifRefusal } from './motif-expansion.ts'
+import {
+  bookMotifRefusal,
+  expandFrameBookValue as expandFrameBook,
+  expandFrameBook as expandFrameBookDocument,
+  framePageMotifRefusal,
+} from './motif-expansion.ts'
 
 const signal = new AbortController().signal
 const source = {
@@ -181,4 +186,31 @@ test('returns motif font references from a book expansion', async () => {
     signal,
   )
   expect(expanded.fonts).toEqual([{ app: 'ornament' }])
+})
+
+test('expands a book from its selected document edition', async () => {
+  const input = {
+    type: 'document' as const,
+    kind: 'book' as const,
+    title: 'Editions',
+    mode: 'continuous' as const,
+    conditions: [{ type: 'condition' as const, name: 'teacher' }],
+    editions: [
+      { type: 'edition' as const, name: 'student', conditions: [] },
+      { type: 'edition' as const, name: 'teacher', conditions: ['teacher'] },
+    ],
+    defaultEdition: 'student',
+    children: [
+      {
+        type: 'section' as const,
+        title: 'Questions',
+        children: [{ type: 'flow' as const, html: '<p>Question<span data-segnavia-condition="teacher"> Answer</span></p>' }],
+      },
+    ],
+  }
+
+  const student = await expandFrameBookDocument(input, undefined, signal)
+  const teacher = await expandFrameBookDocument(input, undefined, signal, undefined, 'screen', undefined, undefined, undefined, 'teacher')
+  expect(JSON.stringify(student.book)).not.toContain('Answer')
+  expect(JSON.stringify(teacher.book)).toContain('Answer')
 })

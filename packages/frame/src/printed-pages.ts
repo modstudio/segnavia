@@ -70,10 +70,7 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
       this.editionDocument = document
       this.schedule()
     } catch (error) {
-      this.editionDocument = null
-      this.documentValue = null
-      this.discardLoad()
-      renderPrintedPagesFailure(this, error)
+      this.refuseDocument(error)
     }
   }
   attributeChangedCallback(name: string): void {
@@ -82,7 +79,7 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
       this.documentValue = resolveEdition(this.editionDocument, this.edition)
       this.schedule()
     } catch (error) {
-      renderPrintedPagesFailure(this, error)
+      this.refuseDocument(error)
     }
   }
   get page(): number {
@@ -161,6 +158,13 @@ export class SegnaviaPrintedPages extends PrintedPagesOptionsElement {
       this.reloadAnchor ??= this.currentPage
       this.reloads.schedule(this.reloadDelayValue)
     }
+  }
+  private refuseDocument(error: unknown): void {
+    this.editionDocument = null
+    this.documentValue = null
+    this.reloads.cancel()
+    this.discardLoad()
+    renderPrintedPagesFailure(this, error)
   }
   private async reload(): Promise<void> {
     const document = this.documentValue

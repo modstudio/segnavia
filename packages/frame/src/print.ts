@@ -304,7 +304,6 @@ export async function printDeck(input: DocumentInput, options: BrowserPrintOptio
 }
 
 export interface BrowserPagesPrintOptions extends Omit<PrintablePagesOptions, 'slots'>, PrintDialogOptions, AsOfInputs {
-  edition?: string
   slots?: SlotPrintOptions
   motifs?: MotifsOptions
   fonts?: FontsOptions
