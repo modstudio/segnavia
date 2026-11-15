@@ -42,7 +42,10 @@ test('bounds both contentsDepth fields and refuses the renamed contents depth', 
       }),
     ).toThrow()
   }
-  expect(() => Document.parse({ ...root, children: [{ type: 'contents', depth: 3 }] })).toThrow(/depth.*contentsDepth/)
+  expect(() => Document.parse({ ...root, children: [{ type: 'contents', depth: 3 }] })).toThrow(/depth.*rename it to contentsDepth/)
+  expect(() => Document.parse({ ...root, children: [{ type: 'contents', depth: 3, extra: 1 }] })).toThrow(
+    /rename \\?"depth\\?" to contentsDepth and remove \\?"extra\\?"/,
+  )
 })
 
 test('refuses a contents depth cap on printed sections with the printed remedy', () => {

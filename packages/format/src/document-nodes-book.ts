@@ -42,7 +42,7 @@ export const ContentsNode = closedObject(
     parents: z.unknown().optional(),
     numbering: SectionNumbering.optional(),
   },
-  { depth: 'use contentsDepth instead' },
+  { depth: 'rename it to contentsDepth' },
 )
 
 export const ParentPageNode = closedObject(
