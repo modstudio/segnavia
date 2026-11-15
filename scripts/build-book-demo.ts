@@ -9,6 +9,7 @@ import { writeHiddenBookDemo } from './book-hidden-demo.ts'
 import { writeBookFeatureDemos } from './build-book-feature-demos.ts'
 import { writeBookFillDemo } from './build-book-fill-demo.ts'
 import { fixtureIds } from './build-book-fixture-ids.ts'
+import { buildBookSupportDemos } from './build-composition-demo.ts'
 import { basicBookFixture, composeFailureFixture } from './demo-book-basic-fixtures.ts'
 import { alefCss, BOOK_STYLE_CHECK_CSS, designedCss, notoCss } from './demo-book-fonts.ts'
 import { keepBookFixture, keepProbe } from './demo-book-keep-fixtures.ts'
@@ -22,8 +23,6 @@ import { writePlacedMediaBook } from './demo-book-placed-media.ts'
 import { PAGINATED_TABLE_FLOW_IDS, tableFixtureRows, writePaginatedTableBook } from './demo-book-table-fixtures.ts'
 import { writeTitleHeadDemo } from './demo-book-title-head-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
-import { buildIdmlTableDemo } from './demo-idml-table.ts'
-import { buildCompositionDemo } from './build-composition-demo.ts'
 
 const bookFixtureValue = (input: DocumentInput) => bookFromDocument(parseDocument(input, { newId: fixtureIds() }))
 const flowSection = (title: string, html: string, fields: Record<string, unknown> = {}) => ({
@@ -281,7 +280,7 @@ export async function buildNoteCasePdfs(site: string, render: (book: DocumentInp
 }
 
 export async function buildBookDemo(site: string): Promise<void> {
-  await buildIdmlTableDemo(site)
+  await buildBookSupportDemos(site)
   await writePlacedMediaBook(site)
   writeFileSync(path.join(site, 'book-en.json'), JSON.stringify(bookView(bookFixtureValue(basicBookFixture(false)))))
   writeFileSync(path.join(site, 'book-he.json'), JSON.stringify(bookView(bookFixtureValue(basicBookFixture(true)))))
@@ -338,7 +337,6 @@ export async function buildBookDemo(site: string): Promise<void> {
       paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull, profile: PREFLIGHT_PRESETS.default }),
     )
   }
-  await buildCompositionDemo(site)
   const tableCss = `${hebrewFace}${designedCss}:where(html){font:16px/1.7 Alef,serif}`
   writePaginatedTableBook(site, tableCss)
   writeFileSync(

@@ -18,7 +18,6 @@ import { verifyPartsBooks } from './book-parts.ts'
 import { verifyPlacedMediaBook } from './book-placed-media.ts'
 import { verifyBookSlotCopyfit } from './book-slot-copyfit.ts'
 import { verifyBookTitleHeads } from './book-title-heads.ts'
-import { type ComposedParagraphLines, composedLineWidthReport, composedNoteParagraphReport, composedParagraphLines } from './composed-paragraphs.ts'
 import { EVIDENCE, type Harness, SITE } from './harness.ts'
 import {
   compareDesignedPages,
@@ -102,7 +101,6 @@ export async function verifyBooks(h: Harness) {
   )
   await verifyPaginatedBookMotifs(h)
   await verifyPaginatedBooks(h)
-  await verifyComposedParagraphAcceptance(h)
   await verifyKeepBooks(h)
   await verifyPartsBooks(h)
   await verifyBookTitleHeads(h)
@@ -116,39 +114,6 @@ export async function verifyBooks(h: Harness) {
   await verifyBookMeasuredProperties(h)
   await verifyBookFill(h)
   await verifyPageLimit583(h)
-}
-
-async function verifyComposedParagraphAcceptance(h: Harness): Promise<void> {
-  await h.page.goto(h.url('book-composition.html'))
-  for (const language of ['en', 'he'] as const) {
-    const id = `composition-book-${language}`
-    const frame = h.page.frameLocator(`#${id} iframe[data-segnavia-book-layout="pages"]`)
-    await frame.locator('html[data-segnavia-composed]').waitFor({ timeout: 20_000, state: 'attached' })
-    const widths = await frame.locator('html').evaluate(composedLineWidthReport)
-    h.check(
-      `${id} composed non-final line content fills the paragraph measure within 0.5px`,
-      widths.paragraphs > 0 && widths.maxLines >= 3 && widths.checked > 0 && widths.failures.length === 0,
-      JSON.stringify(widths),
-    )
-
-    const screen = await frame.locator('html').evaluate(composedParagraphLines)
-    const printed = await h.page.evaluate(
-      (url) => fetch(url).then((response) => response.json() as Promise<ComposedParagraphLines[]>),
-      h.url(`control-book-${language}-composition-lines.json`),
-    )
-    h.check(
-      `${id} screen and renderer print documents use identical composed paragraph breaks`,
-      screen.length > 0 && JSON.stringify(screen) === JSON.stringify(printed),
-      `screen=${JSON.stringify(screen)} print=${JSON.stringify(printed)}`,
-    )
-
-    const notes = await frame.locator('html').evaluate(composedNoteParagraphReport)
-    h.check(
-      `${id} converged note paragraphs and their window pieces keep the composed line count and one reference`,
-      notes.paragraphs > 0 && notes.matches,
-      notes.detail,
-    )
-  }
 }
 async function paginatedFrame(h: Harness, id: string) {
   const element = await h.page.$(`#${id}`)

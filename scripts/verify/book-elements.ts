@@ -9,6 +9,7 @@ import { type BookPageStyleFacts, bookPageStyleComparisons, bookPageStyleFacts }
 import { verifyBookSideNotes } from './book-side-notes.ts'
 import { collectedComposeProgress, installComposeProgressCollector, LARGE_BOOK_WAIT_MS, REPAGINATE_BOUND_MS, waitForLargeBook } from './book-stress-ready.ts'
 import { pagesText } from './book-text.ts'
+import { verifyComposedBookParagraphs } from './composed-paragraph-acceptance.ts'
 import { type Harness, SITE } from './harness.ts'
 import { unpointed } from './hebrew-text.ts'
 import { inspectNoteViewGeometry, pageContainsNoteText } from './paginated-notes.ts'
@@ -140,6 +141,7 @@ function hasPaginationRelayData(messages: Array<{ data: unknown }>): boolean {
 
 export async function verifyPaginatedBookElements(h: Harness, bridgeMessages: ReadonlySet<string>) {
   const { page, check } = h
+  await verifyComposedBookParagraphs(h)
   await verifyHiddenBookElements(h)
   await verifyBookLineNumbers(h)
   await verifyBookLineKeyed(h)

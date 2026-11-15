@@ -10,6 +10,56 @@ import {
 } from './composed-paragraphs.ts'
 import { type Harness, ROOT } from './harness.ts'
 
+export const LETTER_IMPOSITION = { paper: 'letter', orientation: 'portrait', columns: 1, rows: 1, cell: { width: 215.9, height: 279.4 } }
+
+export interface LegacyPrintedPage {
+  [key: string]: unknown
+  html: string
+  lang?: string
+  dir?: string
+  scripts?: string
+  printedPages?: {
+    parents?: Array<{ name: string; margin: unknown }>
+    parentRules?: unknown
+    fragmentation?: unknown
+  }
+}
+
+export function printedDocument(page: LegacyPrintedPage) {
+  const { html, lang, dir, scripts, printedPages, ...fields } = page
+  return {
+    type: 'document',
+    kind: 'printed',
+    ...fields,
+    settings: { lang, dir, scripts },
+    parentPages: (printedPages?.parents ?? []).map(({ margin, ...parent }) => ({ type: 'parentPage', ...parent, geometry: { margin } })),
+    parentRules: printedPages?.parentRules,
+    fragmentation: printedPages?.fragmentation,
+    children: [{ type: 'page', body: { html } }],
+  }
+}
+
+export async function printPagesInBrowser(input: {
+  imposition: unknown
+  motifs?: Array<{ key: string }>
+  output: 'count' | 'html'
+  printedPage: unknown
+}): Promise<number | string> {
+  const bundle = '/segnavia.js'
+  const { printPages } = (await import(bundle)) as {
+    printPages: (pages: unknown[], imposition: unknown, options: unknown) => Promise<void>
+  }
+  let output: number | string = input.output === 'count' ? 0 : ''
+  const source = input.motifs ? { motif: async (key: string) => input.motifs?.find((motif) => motif.key === key) } : undefined
+  await printPages([input.printedPage], input.imposition, {
+    motifs: source ? { source } : undefined,
+    print: (win: Window) => {
+      output = input.output === 'count' ? win.document.querySelectorAll('.paper').length : `<!doctype html>${win.document.documentElement.outerHTML}`
+    },
+  })
+  return output
+}
+
 export async function verifyComposedBookParagraphs(h: Harness): Promise<void> {
   await h.page.goto(h.url('book-composition.html'))
   for (const language of ['en', 'he'] as const) {
@@ -49,17 +99,24 @@ interface PrintedCompositionFixture {
 
 export async function verifyPrintedComposedParagraphs(
   page: Page,
+  url: string,
   check: Harness['check'],
-  render: (fixture: PrintedCompositionFixture) => Promise<string>,
+  parentPages: LegacyPrintedPage['printedPages'],
 ): Promise<void> {
   const printedComposition: Array<{ language: string; report: ComposedLineWidthReport }> = []
   for (const language of ['en', 'he'] as const) {
-    const html = await render({
+    const fixture: PrintedCompositionFixture = {
       html: readFileSync(path.join(ROOT, `fixtures/fidelity/control-book-${language}.html`), 'utf8'),
       lang: language,
       dir: language === 'he' ? 'rtl' : undefined,
+    }
+    await page.goto(url)
+    const html = await page.evaluate(printPagesInBrowser, {
+      imposition: LETTER_IMPOSITION,
+      output: 'html' as const,
+      printedPage: printedDocument({ ...fixture, print: { paper: 'letter' }, printedPages: parentPages }),
     })
-    await page.setContent(html, { waitUntil: 'load' })
+    await page.setContent(html as string, { waitUntil: 'load' })
     const frames = page.frames().slice(1)
     await Promise.all(frames.map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))))
     const reports = await Promise.all(frames.map((frame) => frame.evaluate(composedLineWidthReport)))

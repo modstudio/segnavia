@@ -3,9 +3,10 @@ import path from 'node:path'
 import { bookFromDocument } from '@segnavia/format'
 import { bookView, parseDocument } from '@segnavia/html'
 import { fixtureIds } from './build-book-fixture-ids.ts'
+import { buildIdmlTableDemo } from './demo-idml-table.ts'
 import { bookFixtures } from './fidelity/book-fixtures.ts'
 
-export async function buildCompositionDemo(site: string): Promise<void> {
+async function buildCompositionDemo(site: string): Promise<void> {
   for (const fixture of await bookFixtures()) {
     const book = bookFromDocument(parseDocument(fixture.book, { newId: fixtureIds() }))
     writeFileSync(path.join(site, `${fixture.id}-composition.json`), JSON.stringify(bookView(book)))
@@ -16,4 +17,8 @@ export async function buildCompositionDemo(site: string): Promise<void> {
       html,body{margin:0}body{display:grid;grid-template-columns:1fr 1fr;gap:16px}segnavia-book{display:block;block-size:70vh}
     </style></head><body><segnavia-book id="composition-book-en" src="control-book-en-composition.json"></segnavia-book><segnavia-book id="composition-book-he" src="control-book-he-composition.json"></segnavia-book><script type="module" src="segnavia.js"></script></body></html>`,
   )
+}
+
+export async function buildBookSupportDemos(site: string): Promise<void> {
+  await Promise.all([buildIdmlTableDemo(site), buildCompositionDemo(site)])
 }
