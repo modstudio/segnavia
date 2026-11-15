@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
-import type { Page } from 'playwright-core'
+import type { Frame, Page } from 'playwright-core'
 import {
   type ComposedLineWidthReport,
   type ComposedParagraphLines,
@@ -102,6 +102,45 @@ interface PrintedCompositionFixture {
   dir?: 'rtl'
 }
 
+interface PrintedCompositionWaitState {
+  composed: boolean
+  composedMs: string | null
+  failure: string | null
+  progress: string | null
+  pages: number
+  paragraphs: number
+  composedParagraphs: number
+}
+
+async function printedCompositionWaitState(frame: Frame): Promise<PrintedCompositionWaitState> {
+  return frame.evaluate(() => ({
+    composed: document.documentElement.hasAttribute('data-segnavia-composed'),
+    composedMs: document.documentElement.getAttribute('data-segnavia-composed-ms'),
+    failure: document.documentElement.getAttribute('data-segnavia-compose-failure'),
+    progress: document.documentElement.getAttribute('data-segnavia-compose-progress'),
+    pages: document.querySelectorAll('[data-segnavia-printed-page]').length,
+    paragraphs: document.querySelectorAll('p').length,
+    composedParagraphs: document.querySelectorAll('p > span[data-segnavia-line]').length,
+  }))
+}
+
+export async function waitForPrintedComposition(frame: Frame, language: string, index: number): Promise<void> {
+  await frame
+    .waitForFunction(
+      () =>
+        document.documentElement.hasAttribute('data-segnavia-composed') ||
+        document.documentElement.hasAttribute('data-segnavia-compose-failure'),
+      undefined,
+      { polling: 100 },
+    )
+    .catch(async (error) => {
+      const state = await printedCompositionWaitState(frame)
+      throw new Error(`Printed composition timed out for ${language} frame ${index}: ${JSON.stringify(state)}; ${String(error)}`)
+    })
+  const state = await printedCompositionWaitState(frame)
+  if (state.failure) throw new Error(`Printed composition failed for ${language} frame ${index}: ${state.failure}`)
+}
+
 export async function verifyPrintedComposedParagraphs(
   page: Page,
   url: string,
@@ -123,7 +162,7 @@ export async function verifyPrintedComposedParagraphs(
     })
     await page.setContent(html as string, { waitUntil: 'load' })
     const frames = page.frames().slice(1)
-    await Promise.all(frames.map((frame) => frame.waitForFunction(() => document.documentElement.hasAttribute('data-segnavia-composed'))))
+    await Promise.all(frames.map((frame, index) => waitForPrintedComposition(frame, language, index)))
     const reports = await Promise.all(frames.map((frame) => frame.evaluate(composedLineWidthReport)))
     printedComposition.push({
       language,
