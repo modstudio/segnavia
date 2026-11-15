@@ -37,7 +37,7 @@ export async function verifyPdfjsBrowser(executablePath: string, renderer: Rende
     const pdf = await fixture()
     const raster = await renderInBrowserTab(
       browser,
-      { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: {}, boundMs: 60_000 },
+      { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: { author: false } },
       undefined,
       { settled: () => false, opened: (opened) => (context = opened), crashed: () => {} },
       (tab) =>
@@ -68,7 +68,7 @@ export async function verifyPdfjsBrowser(executablePath: string, renderer: Rende
     try {
       await renderInBrowserTab(
         browser,
-        { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: { author: false }, boundMs: 60_000 },
+        { viewport: { width: 1, height: 1 }, scripts: true, html: '<!doctype html>', readiness: { author: false } },
         undefined,
         { settled: () => false, opened: () => {}, crashed: () => {} },
         (tab) => tab.evaluate(() => fetch('https://outside.invalid/pdf-page-image')),

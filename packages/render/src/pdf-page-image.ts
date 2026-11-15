@@ -4,11 +4,12 @@ import type { TabRunner } from './browser-tab.ts'
 import { RenderRefusedError } from './errors.ts'
 import { enforceImageBytes } from './image-bytes.ts'
 import { loadPdf } from './pdf-load.ts'
-import type { ParsedPdfPageImageOptions } from './pdf-page-image-options.ts'
+import { type ParsedPdfPageImageOptions, parsePdfPageImageOptions } from './pdf-page-image-options.ts'
 import { rasterPdfPageInBrowser } from './pdfjs-browser.ts'
 import { sourcePdfPageFacts } from './placed-pdf-source.ts'
 import { MAX_PROOF_IMAGE_PIXELS } from './proof-image.ts'
-import type { RenderDeadline } from './render-deadline.ts'
+import { type RenderDeadline, withinRenderPermit } from './render-deadline.ts'
+import { RENDER_BOUND_MS, type Renderer } from './renderer.ts'
 
 const BOX_KEYS: Record<PageBoxName, string> = {
   media: 'MediaBox',
@@ -81,4 +82,11 @@ export async function renderPdfPageImage(
     (tab) => rasterPdfPageInBrowser(tab, bytes, { page: selected.page, box: selected.sourceBounds, ...size }),
   )
   return enforceImageBytes(raster.png, options.limits?.bytes)
+}
+
+export function createPdfPageImageOperation(acquire: () => Promise<void>, release: () => void, withTab: TabRunner): Renderer['pdfPageImage'] {
+  return async (input, opts) => {
+    const options = parsePdfPageImageOptions(opts)
+    return withinRenderPermit(RENDER_BOUND_MS, acquire, release, (deadline) => renderPdfPageImage(input, options, deadline, withTab))
+  }
 }

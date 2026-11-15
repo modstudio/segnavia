@@ -44,8 +44,7 @@ import { renderPagesPdf } from './pages-pdf.ts'
 import { enforce } from './pdf-finish.ts'
 import { addPdfOutline } from './pdf-outline.ts'
 import { finishPdfWithBrowser } from './pdf-output.ts'
-import { renderPdfPageImage } from './pdf-page-image.ts'
-import { parsePdfPageImageOptions } from './pdf-page-image-options.ts'
+import { createPdfPageImageOperation } from './pdf-page-image.ts'
 import { pagesTagged } from './pdf-tagging.ts'
 import { surfacePreflight, withPreflightSeed } from './preflight.ts'
 import { proofRasterImage } from './proof-image.ts'
@@ -385,10 +384,7 @@ export async function openRenderer(options: RendererOptions): Promise<Renderer> 
         ),
       )
     },
-    async pdfPageImage(input, opts) {
-      const options = parsePdfPageImageOptions(opts)
-      return withinRenderPermit(RENDER_BOUND_MS, acquire, release, (deadline) => renderPdfPageImage(input, options, deadline, withTab))
-    },
+    pdfPageImage: createPdfPageImageOperation(acquire, release, withTab),
     async close() {
       closed = true
       queue.close()

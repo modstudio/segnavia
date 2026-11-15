@@ -222,6 +222,7 @@ export const PACKAGES: Record<string, PackageRule> = {
       '@segnavia/layout',
       'playwright-core',
       'pdf-lib',
+      'pdfjs-dist',
     ],
   },
   capture: { runtime: 'server', imports: ['@segnavia/format', '@segnavia/frame', '@segnavia/render', 'playwright-core'] },
