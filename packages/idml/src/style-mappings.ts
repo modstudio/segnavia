@@ -74,3 +74,8 @@ export const STYLE_PROPERTY_MAPPINGS: Readonly<Record<string, StylePropertyMappi
 export function stylePropertyMapping(name: string): StylePropertyMapping | undefined {
   return STYLE_PROPERTY_MAPPINGS[name]
 }
+
+export function consumesStyleProperty(name: string): boolean {
+  const kind = stylePropertyMapping(name)?.kind
+  return kind === 'css' || kind === 'composition'
+}

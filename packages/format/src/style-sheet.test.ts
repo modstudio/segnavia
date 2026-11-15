@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { StyleSheet } from './style-sheet.ts'
+import { parseWordSpacing, StyleSheet, serializeWordSpacing } from './style-sheet.ts'
 
 function refusal(input: unknown): string {
   const result = StyleSheet.safeParse(input)
@@ -46,6 +46,8 @@ describe('StyleSheet', () => {
       ['wordSpacing', { minimum: 101, desired: 100, maximum: 120 }],
       ['wordSpacing', { minimum: -1, desired: 100, maximum: 120 }],
       ['wordSpacing', { minimum: 80, desired: Number.POSITIVE_INFINITY, maximum: 120 }],
+      ['wordSpacing', { minimum: 80, desired: 100.001, maximum: 120 }],
+      ['wordSpacing', { minimum: 80, desired: 100, maximum: 1000.01 }],
       ['hyphenate', 'true'],
     ] as const) {
       const message = refusal({ textStyles: { body: { kind: 'paragraph', [property]: value } } })
@@ -61,6 +63,15 @@ describe('StyleSheet', () => {
       const message = refusal({ textStyles: { emphasis: { kind: 'character', [property]: values[property] } } })
       expect(message).toMatch(new RegExp(`"emphasis"[\\s\\S]*"${property}"`))
       expect(message).toContain(`remove ${property} or change kind to paragraph to clear this refusal`)
+    }
+  })
+
+  test('round trips word spacing at the supported bounds with one shared grammar', () => {
+    for (const spacing of [
+      { minimum: 0, desired: 0, maximum: 0 },
+      { minimum: 0.01, desired: 100.25, maximum: 1000 },
+    ]) {
+      expect(parseWordSpacing(serializeWordSpacing(spacing))).toEqual(spacing)
     }
   })
 

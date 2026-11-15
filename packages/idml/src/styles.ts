@@ -1,10 +1,10 @@
 import type { TextDirection } from '@segnavia/format'
 import { type Element, isTag } from 'domhandler'
-import { compositionStyleDeclarations } from './composition-style.ts'
+import { compositionStyleDeclarations, resolvedCompositionProperties } from './composition-style.ts'
 import type { FontMapper } from './fonts.ts'
 import { paragraphBoxDeclarations } from './paragraph-box.ts'
 import type { ReportCollector } from './report.ts'
-import { STYLE_PROPERTY_MAPPINGS, stylePropertyMapping } from './style-mappings.ts'
+import { consumesStyleProperty, STYLE_PROPERTY_MAPPINGS, stylePropertyMapping } from './style-mappings.ts'
 import { reportableStyleProperties } from './style-property-report.ts'
 import { resolveSwatchColor } from './swatch-color.ts'
 import type { IdmlStyle, IdmlSwatch } from './types.ts'
@@ -19,7 +19,6 @@ function text(element: Element): string {
     .join('')
     .trim()
 }
-
 function properties(element: Element): Record<string, string> {
   const result: Record<string, string> = { ...element.attribs }
   const holder = element.children.find((child): child is Element => isTag(child) && localName(child.name) === 'Properties')
@@ -30,7 +29,6 @@ function properties(element: Element): Record<string, string> {
   }
   return result
 }
-
 export function parseStyles(roots: Element[], part: string): IdmlStyle[] {
   const result: IdmlStyle[] = []
   for (const kind of ['ParagraphStyle', 'CharacterStyle', 'ObjectStyle', 'TableStyle', 'CellStyle'] as const) {
@@ -240,10 +238,8 @@ export class StyleMapper {
       this.report.add(this.report.unsupportedOverrideProperties, name, location)
     }
     if (changed.AppliedFont !== undefined || changed.FontStyle !== undefined) this.report.font(resolved.AppliedFont, resolved.FontStyle, location)
-    const cssProperties = Object.fromEntries(
-      Object.entries(changed).filter(([name]) => ['css', 'composition'].includes(stylePropertyMapping(name)?.kind ?? '')),
-    )
-    Object.assign(cssProperties, resolvedFontProperties(changed, resolved))
+    const cssProperties = Object.fromEntries(Object.entries(changed).filter(([name]) => consumesStyleProperty(name)))
+    Object.assign(cssProperties, resolvedFontProperties(changed, resolved), resolvedCompositionProperties(changed, resolved))
     if (styleDirection && styleDirection !== directionValue) {
       for (const name of ['LeftIndent', 'RightIndent']) cssProperties[name] = base[name] ?? '0'
       for (const name of ['Justification']) {
@@ -312,7 +308,7 @@ export class StyleMapper {
   private declarations(values: Record<string, string>, dir: TextDirection, location: string, unsupported: Map<string, number>, resetShading: boolean): string {
     const output: string[] = []
     output.push(...(this.fonts?.declarations(values.AppliedFont, values.FontStyle, location) ?? []))
-    const mapped = new Set(Object.keys(values).filter((name) => ['css', 'composition'].includes(stylePropertyMapping(name)?.kind ?? '')))
+    const mapped = new Set(Object.keys(values).filter(consumesStyleProperty))
     const pt = (name: string, property: string) => {
       if (!mapped.has(name)) return
       const value = Number(values[name])
@@ -328,7 +324,7 @@ export class StyleMapper {
       ...paragraphBoxDeclarations({ values, mapped, resetShading, direction: dir, swatches: this.swatches, report: this.report, unsupported, location }),
     )
     textDeclarations(values, mapped, output)
-    output.push(...compositionStyleDeclarations(values, mapped))
+    output.push(...compositionStyleDeclarations({ values, mapped, report: this.report, unsupported, location }))
     if (mapped.has('Justification')) this.justification(values.Justification, dir, output, location, unsupported)
     if (hasCssMapping(mapped, 'keeps')) this.keeps(values, output)
     if (mapped.has('StartParagraph') && values.StartParagraph && values.StartParagraph !== 'Anywhere') {

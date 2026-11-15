@@ -7,6 +7,7 @@ import {
   type PageGeometry,
   type StyleOrigin,
   type StyleSheet,
+  serializeWordSpacing,
   TEXT_STYLE_PROPERTIES,
   type TextStyle,
   type TextStyleTokenGroup,
@@ -72,10 +73,7 @@ function flattenedStyle(name: string, styles: MergedStyleSheet['textStyles']): T
 
 function styleValue(property: keyof typeof TEXT_STYLE_PROPERTIES, value: unknown): string | undefined {
   if (property === 'keepWithNext') return value === true ? 'next' : undefined
-  if (property === 'wordSpacing') {
-    const spacing = value as NonNullable<TextStyle['wordSpacing']>
-    return `${spacing.minimum}% ${spacing.desired}% ${spacing.maximum}%`
-  }
+  if (property === 'wordSpacing') return serializeWordSpacing(value as NonNullable<TextStyle['wordSpacing']>)
   if (typeof value === 'object' && value !== null && 'token' in value) {
     const fact = TEXT_STYLE_PROPERTIES[property]
     if (!('tokenGroup' in fact)) return undefined

@@ -263,7 +263,7 @@ test('reports only active root gaps, non-root formatting gaps, and no style meta
           RuleAbove: 'true',
           RuleBelow: 'true',
           ParagraphBorderOn: 'true',
-          Composer: '$ID/HL Composer Optyca',
+          Composer: 'HL Composer Optyca',
           DropCapLines: '2',
           TabList: '48',
           FillTint: '80',
