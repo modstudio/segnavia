@@ -87,6 +87,7 @@ async function verifyLargeBookComposition(check: Harness['check'], stressPage: P
     const report = await frame.locator('html').evaluate(() => ({
       pages: document.querySelectorAll('[data-segnavia-book-page]').length,
       ms: Number(document.documentElement.getAttribute('data-segnavia-composed-ms')),
+      composedParagraphs: document.querySelectorAll('p > span[data-segnavia-line]:first-child').length,
     }))
     const progress = await collectedComposeProgress(stressPage, `book-large-${language}`)
     const progressPages = progress.map((entry) => entry.pages)
@@ -101,8 +102,8 @@ async function verifyLargeBookComposition(check: Harness['check'], stressPage: P
     screenPages[language] = await frame.locator('html').evaluate(screenPageNotes)
     const geometry = await frame.locator('html').evaluate(inspectNoteViewGeometry)
     check(
-      `book-large-${language} composes 300+ pages within the repagination bound`,
-      report.pages >= 300 && report.pages === expectedPages && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
+      `book-large-${language} composes justified paragraphs across 300+ pages within the repagination bound`,
+      report.pages >= 300 && report.pages === expectedPages && report.composedParagraphs > 0 && report.ms > 0 && report.ms <= REPAGINATE_BOUND_MS,
       JSON.stringify({ ...report, expectedPages, bound: REPAGINATE_BOUND_MS }),
     )
     check(

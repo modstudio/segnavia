@@ -11,6 +11,8 @@ import { buildNumberedBookPdfs } from './demo-book-line-number-fixtures.ts'
 import { bookMotifs } from './demo-book-motifs.ts'
 import { haggadahHeadCss } from './demo-book-parents.ts'
 import { partsFixture } from './demo-book-parts-fixtures.ts'
+import { bookFixtures } from './fidelity/book-fixtures.ts'
+import { type ComposedParagraphLines, composedParagraphLines } from './verify/composed-paragraphs.ts'
 
 export async function buildBookPdfs(site: string, bookPdf: DemoBookPdf, bookPlan?: DemoBookPlan): Promise<void> {
   let copyfitReport: PreflightReport | undefined
@@ -46,4 +48,16 @@ export async function buildBookPdfs(site: string, bookPdf: DemoBookPdf, bookPlan
   await buildNumberedBookPdfs(site, bookPdf)
   await buildLargeBookPdfs(site, (book) => bookPdf(book))
   await buildNoteCasePdfs(site, (book, css) => bookPdf(book, { css }))
+  for (const fixture of await bookFixtures()) {
+    let lines: ComposedParagraphLines[] = []
+    writeFileSync(
+      path.join(site, `${fixture.id}-composition.pdf`),
+      await bookPdf(fixture.book, {
+        beforeOutput: async (tab) => {
+          lines = await tab.evaluate(composedParagraphLines)
+        },
+      }),
+    )
+    writeFileSync(path.join(site, `${fixture.id}-composition-lines.json`), JSON.stringify(lines))
+  }
 }

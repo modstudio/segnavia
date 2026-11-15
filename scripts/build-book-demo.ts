@@ -23,6 +23,7 @@ import { PAGINATED_TABLE_FLOW_IDS, tableFixtureRows, writePaginatedTableBook } f
 import { writeTitleHeadDemo } from './demo-book-title-head-fixtures.ts'
 import { workbookCss, workbookFixture } from './demo-book-workbook-fixtures.ts'
 import { buildIdmlTableDemo } from './demo-idml-table.ts'
+import { buildCompositionDemo } from './build-composition-demo.ts'
 
 const bookFixtureValue = (input: DocumentInput) => bookFromDocument(parseDocument(input, { newId: fixtureIds() }))
 const flowSection = (title: string, html: string, fields: Record<string, unknown> = {}) => ({
@@ -255,7 +256,7 @@ export function largePaginatedFixture(hebrew: boolean): DocumentInput {
         children: [
           flowSection(
             hebrew ? 'פתיחה' : 'Preface',
-            `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
+            `<style>${designedCss}${hebrew ? `${alefCss()}${notoCss()}:where(html){font:16px/1.7 Alef,serif}:where([data-pointed]){font-family:NotoSerifHebrew,serif}` : ':where(html){font:16px/1.5 Georgia,serif}'}:where(.segnavia-chapter p){text-align:justify;--segnavia-composer:paragraph;--segnavia-hyphenate:true}</style><p>${hebrew ? pointedRun.repeat(3) : 'A flowing preface for the large book.'}</p>`,
           ),
           { type: 'contents', title: hebrew ? 'תוכן' : 'Contents', pageNumbers: false, contentsDepth: 2 },
         ],
@@ -337,6 +338,7 @@ export async function buildBookDemo(site: string): Promise<void> {
       paginatedBookDocument(workbook, { nonce: newNonce(), css: workbookCssFull, profile: PREFLIGHT_PRESETS.default }),
     )
   }
+  await buildCompositionDemo(site)
   const tableCss = `${hebrewFace}${designedCss}:where(html){font:16px/1.7 Alef,serif}`
   writePaginatedTableBook(site, tableCss)
   writeFileSync(
