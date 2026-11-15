@@ -15,24 +15,22 @@ export interface RenderEnvironment {
 export type OpenRenderer = (options: { executablePath: string; args?: string[] }) => Promise<Renderer>
 
 type AnyFunction = (...args: never[]) => unknown
-type AtomicFunctionOption =
-  | NonNullable<PagePdfOptions['fontSource']>
-  | NonNullable<PagePdfOptions['brandSource']>
-  | NonNullable<NonNullable<PagePdfOptions['motifs']>['source']>
-type FunctionPathForValue<Value, Key extends string> = Value extends unknown
-  ? NonNullable<Value> extends AnyFunction
-    ? Key
-    : NonNullable<Value> extends AtomicFunctionOption
-      ? Key
-      : NonNullable<Value> extends readonly unknown[] | ArrayBufferView
+type AtomicFunctionPath = 'fontSource' | 'brandSource' | 'motifs.source'
+type JoinedPath<Prefix extends string, Key extends string> = Prefix extends '' ? Key : `${Prefix}.${Key}`
+type FunctionPathForValue<Value, Path extends string> = Value extends null | undefined
+  ? never
+  : Path extends AtomicFunctionPath
+    ? Path
+    : Value extends AnyFunction
+      ? Path
+      : Value extends readonly unknown[] | ArrayBufferView
         ? never
-        : NonNullable<Value> extends object
-          ? `${Key}.${NestedFunctionPath<NonNullable<Value>>}`
+        : Value extends object
+          ? NestedFunctionPath<Value, Path>
           : never
-  : never
-type NestedFunctionPath<T> = T extends unknown
+type NestedFunctionPath<T, Prefix extends string = ''> = T extends unknown
   ? {
-      [Key in keyof T & string]-?: FunctionPathForValue<T[Key], Key>
+      [Key in keyof T & string]-?: FunctionPathForValue<T[Key], JoinedPath<Prefix, Key>>
     }[keyof T & string]
   : never
 type CliFunctionOptionPath = NestedFunctionPath<PagePdfOptions | PagesPdfInputOptions | BookPdfOptions | DeckPdfInputOptions>
@@ -59,6 +57,7 @@ const FUNCTION_OPTIONS = {
   'motifs.source': true,
   'motifs.placed': true,
   'asOf.report': true,
+  'anchors.resolve': true,
   inline: true,
 } satisfies Record<CliFunctionOptionPath, true>
 
