@@ -295,7 +295,13 @@ function insertCollectedSections(book: Book, build: DocumentBuild): void {
   for (const notes of collected) {
     if (notes.targetId !== 'book') continue
     const index = build.sections.findIndex(({ info }) => info.division === 'end')
-    build.sections.splice(index < 0 ? build.sections.length : index, 0, notesSection(book, notes, build.build, collectedSectionId(notes), notes.series.title))
+    const sectionIndex = index < 0 ? build.sections.length : index
+    const sectionId = collectedSectionId(notes)
+    build.sections.splice(sectionIndex, 0, notesSection(book, notes, build.build, sectionId, notes.series.title))
+    if (!notes.series.contents) continue
+    const following = new Set(build.sections.slice(sectionIndex + 1).map(({ info }) => info.id))
+    const headingIndex = build.headings.findIndex(({ sectionId: owner }) => following.has(owner))
+    build.headings.splice(headingIndex < 0 ? build.headings.length : headingIndex, 0, sectionHeading(notes.series, sectionId))
   }
 }
 

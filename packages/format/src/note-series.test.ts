@@ -11,6 +11,48 @@ const settings = (lang?: string) => ({
 })
 
 describe('note series', () => {
+  test('resolves contents fields and refuses them outside book placement', () => {
+    const resolved = Book.parse({
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      body: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+      notes: [{ name: 'endnote', contents: false, contentsLabel: 'References' }],
+    })
+    expect(resolved.notes[1]).toMatchObject({ name: 'endnote', placement: 'book', contents: false, contentsLabel: 'References' })
+    expect(resolved.notes[0]).toMatchObject({ name: 'footnote', placement: 'page' })
+    expect(resolved.notes[0]).not.toHaveProperty('contents')
+    expect(Book.parse(resolved)).toEqual(resolved)
+
+    for (const notes of [
+      [{ name: 'endnote', placement: 'chapter', contents: true }],
+      [{ name: 'sources', placement: 'part', numbering: 'part', contentsLabel: 'Sources' }],
+    ]) {
+      expect(() => Book.parse({ ...resolved, notes })).toThrow(/note series .* uses contents.* remove contents.* or set placement: 'book'/)
+    }
+    expect(() =>
+      Book.parse({
+        ...resolved,
+        endnotes: { placement: 'chapter' },
+        notes: [{ name: 'endnote', contentsLabel: 'References' }],
+      }),
+    ).toThrow(/note series endnote uses contentsLabel.* remove contentsLabel.* or set placement: 'book'/)
+    expect(() => Book.parse({ ...resolved, notes: [{ name: 'endnote', contents: 'yes' }] })).toThrow('expected boolean')
+  })
+
+  test('omits contents fields from resolved non-book series', () => {
+    const resolved = Book.parse({
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      body: [{ id: 'one', title: 'One', html: '<p>Text</p>' }],
+      endnotes: { placement: 'chapter' },
+    })
+    expect(resolved.notes[1]).toMatchObject({ name: 'endnote', placement: 'chapter' })
+    expect(resolved.notes[1]).not.toHaveProperty('contents')
+    expect(resolved.notes[1]).not.toHaveProperty('contentsLabel')
+  })
+
   test('resolves line keys, separators and their number system', () => {
     expect(resolveLineKeyedNoteSystem(undefined, 'hebrew')).toBe('hebrew')
     expect(resolveLineKeyedNoteSystem('roman-upper', 'hebrew')).toBe('roman-upper')

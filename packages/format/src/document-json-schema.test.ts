@@ -94,6 +94,10 @@ describe('document JSON Schema', () => {
     expect(bookPart).toHaveProperty('conditions')
     expect(node(branch('book'), 'part').required).toContain('name')
     expect(properties(node(branch('printed'), 'page'))).not.toHaveProperty('template')
+
+    const noteSeries = properties(resolve(object(properties(branch('book')).noteSeries).items))
+    expect(noteSeries).toHaveProperty('contents')
+    expect(noteSeries).toHaveProperty('contentsLabel')
   })
 
   test('publishes profile required fields and restricted root objects', () => {

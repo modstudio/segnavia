@@ -57,6 +57,7 @@ function contentsNumbers(
   fixture: BookRenderFixture,
   text: string,
   chapterPages: number[],
+  endnotes: number,
   frontPages: number,
   frontSystem: 'arabic' | 'roman-lower',
   bodySystem: 'arabic' | 'hebrew',
@@ -71,6 +72,7 @@ function contentsNumbers(
         number: formatNumber(page - frontPages, bodySystem),
       })),
     ]),
+    { text: fixture.endnotesTitle, number: formatNumber(endnotes - frontPages, bodySystem) },
   ]
   return entries.every((entry) => {
     const printed = compact(entry.text)
@@ -78,9 +80,8 @@ function contentsNumbers(
   })
 }
 
-function pageMap(fixture: BookRenderFixture, pages: string[], bboxes: BboxPage[], frontPages: number) {
+function pageMap(fixture: BookRenderFixture, pages: string[], bboxes: BboxPage[], frontPages: number, endnotes: number) {
   const openings = fixture.chapterMarkers.map((marker) => pageWith(pages, marker))
-  const endnotes = pageWith(pages, fixture.endnotesTitle)
   return pages.map((text, index) => {
     const page = index + 1
     const blank = text.trim() === ''
@@ -128,7 +129,8 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: BookRend
   const bboxes = bboxPages(file)
   const chapterPages = fixture.chapterMarkers.map((marker) => pageWith(pages, marker))
   const frontPages = frontPageCount(fixture, pages)
-  const map = pageMap(fixture, pages, bboxes, frontPages)
+  const endnotes = frontPages + pageWith(pages.slice(frontPages), fixture.endnotesTitle)
+  const map = pageMap(fixture, pages, bboxes, frontPages, endnotes)
   console.log(`BOOK MAP [${fixture.key}] ${JSON.stringify(map.map(({ opening: _, ...page }) => page))}`)
   const textMargins = bodyTextMargins(fixture, bboxes, frontPages)
   console.log(`BOOK TEXT MARGINS [${fixture.key}] ${JSON.stringify(textMargins)}`)
@@ -138,7 +140,7 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: BookRend
     pages.length === document.getPageCount() && frontPages > 0,
     `front=${frontPages}, body=${pages.length - frontPages}, total=${pages.length}`,
   )
-  const bodyStarts = [...chapterPages, pageWith(pages, fixture.endnotesTitle)].map((page) => page - frontPages)
+  const bodyStarts = [...chapterPages, endnotes].map((page) => page - frontPages)
   check(
     `${fixture.key} chapters and endnotes start on odd body pages`,
     bodyStarts.every((page) => page > 0 && page % 2 === 1),
@@ -162,7 +164,7 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: BookRend
   })
   check(`${fixture.key} folios use the front and body numbering systems`, foliosOk, map.map((page) => `${page.page}:${page.folio}`).join(', '))
 
-  const numbered = contentsNumbers(fixture, pages.slice(0, frontPages).join('\n'), chapterPages, frontPages, frontSystem, bodySystem)
+  const numbered = contentsNumbers(fixture, pages.slice(0, frontPages).join('\n'), chapterPages, endnotes, frontPages, frontSystem, bodySystem)
   check(`${fixture.key} contents page numbers match heading destination pages`, numbered)
   verifyContinuousPageReference(
     pages,
@@ -190,13 +192,14 @@ async function verifyFixture(renderer: Renderer, work: string, fixture: BookRend
         return { title: fixture.key === 'hebrew' ? `\u200f${title}` : title, page: frontPages + pageWith(pages.slice(frontPages), title) }
       })(),
     ]),
+    { title: fixture.endnotesTitle, page: endnotes },
   ]
   verifyPdfStructure(document, bookFromDocument(Document.parse(fixture.document)), expectedOutline, `${fixture.key} continuous`, check)
   const actualLinks = annotationDestinations(document).sort((left, right) => left - right)
   const expectedLinks = expectedBookLinkPages(
     fixture.chapterMarkers.map((marker) => pageWith(pages, marker)),
     pageWith(pages, fixture.frontMarker),
-    pageWith(pages, fixture.endnotesTitle),
+    endnotes,
     frontPages,
   )
   check(
