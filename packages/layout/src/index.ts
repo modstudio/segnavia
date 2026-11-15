@@ -3,6 +3,7 @@ export { type BookPlanFolioResult, type BookPlanNumbering, type BookPlanPage, ty
 export { type ConvergedLayout, convergeLayout, type LayoutStep, type LayoutWarning } from './converge-layout.ts'
 export { type FitProbe, type FitSearchResult, type FitSearchStrategy, fitSearch, reduceFitGroups } from './fit-search.ts'
 export { resolveHeadTemplate } from './head-template.ts'
+export { hyphenationPoints } from './hyphenate.ts'
 export { layoutScript } from './layout-script.ts'
 export {
   type LineKeyedLabelDecision,
