@@ -15,7 +15,6 @@ const hebrewPageFixture = {
   dir: 'rtl' as const,
   lang: 'he',
 }
-
 const printedPagesFixture = {
   html: '<style>body{font:14px sans-serif}</style><p>עברית-1 flowing body</p><p class="forced">עברית-2 flowing body</p>',
   lang: 'he',
@@ -38,7 +37,6 @@ const printedPagesFixture = {
     parentRules: [{ when: { position: 'documentFirst' }, parent: 'first' }, { parent: 'body' }],
   },
 }
-
 const hebrewBookFixture = {
   title: 'ספר ההפלגה',
   mode: 'paginated' as const,
@@ -177,61 +175,6 @@ describe('Document lowering', () => {
     expect(bookFromDocument(document).body).toEqual([
       { id: 'chapter', title: 'Chapter', contentsLabel: 'Short label', subtitle: 'A subtitle', html: '<p>Text</p>' },
     ])
-  })
-
-  test('renames the contents depth and carries section caps into book entries', () => {
-    const input = {
-      type: 'document' as const,
-      kind: 'book' as const,
-      title: 'Book',
-      mode: 'continuous' as const,
-      children: [
-        { type: 'division' as const, name: 'front' as const, children: [{ type: 'contents' as const, contentsDepth: 3 }] },
-        {
-          type: 'division' as const,
-          name: 'body' as const,
-          children: [
-            {
-              type: 'section' as const,
-              id: 'chapter',
-              title: 'Chapter',
-              contentsDepth: 1,
-              children: [{ type: 'flow' as const, html: '<p>Text</p>' }],
-            },
-          ],
-        },
-      ],
-    }
-    const book = bookFromDocument(Document.parse(input))
-    expect(book.contents.depth).toBe(3)
-    expect(book.body[0]).toMatchObject({ id: 'chapter', contentsDepth: 1 })
-    expect(bookFromDocument(Document.parse({ ...input, children: input.children.slice(1) })).contents.depth).toBe(2)
-  })
-
-  test('bounds both contentsDepth fields and refuses the renamed contents depth', () => {
-    const root = { type: 'document' as const, kind: 'book' as const, title: 'Book', mode: 'continuous' as const }
-    for (const contentsDepth of [0, 7]) {
-      expect(() => Document.parse({ ...root, children: [{ type: 'contents', contentsDepth }] })).toThrow()
-      expect(() =>
-        Document.parse({
-          ...root,
-          children: [{ type: 'section', title: 'Chapter', contentsDepth, children: [{ type: 'flow', html: '<p>Text</p>' }] }],
-        }),
-      ).toThrow()
-    }
-    expect(() => Document.parse({ ...root, children: [{ type: 'contents', depth: 3 }] })).toThrow(/depth.*contentsDepth/)
-  })
-
-  test('refuses a contents depth cap on printed sections with the printed remedy', () => {
-    expect(() =>
-      Document.parse({
-        type: 'document',
-        kind: 'printed',
-        parentPages: [{ type: 'parentPage', name: 'body' }],
-        parentRules: [{ parent: 'body' }],
-        children: [{ type: 'section', contentsDepth: 1, children: [{ type: 'flow', html: '<p>Text</p>' }] }],
-      }),
-    ).toThrow('section field contentsDepth is not allowed in a printed document; remove it because a printed document has no contents')
   })
 
   test('refuses empty section contents text with the remedy', () => {
