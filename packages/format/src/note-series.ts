@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { REGION_NAME } from './book-section.ts'
+import { ContentsLabel, REGION_NAME } from './book-section.ts'
 import { closedObject } from './closed-object.ts'
 import { isHebrew, NoteMarker, type NoteMarkerSource, type NoteMarker as NoteMarkerValue, type NumberSystem, noteMarkerSource } from './numbering.ts'
 import { primitiveRoot } from './repeated-mark.ts'
@@ -21,6 +21,8 @@ export const NoteSeries = closedObject({
   numbering: NoteNumbering.optional(),
   marker: NoteMarker.optional(),
   title: z.string().optional(),
+  contents: z.boolean().optional(),
+  contentsLabel: ContentsLabel.optional(),
 })
 export type NoteSeriesInput = z.input<typeof NoteSeries>
 
@@ -33,6 +35,9 @@ export interface ResolvedNoteSeries {
   numbering: NoteNumbering
   marker: NoteMarkerValue
   title: string
+  /** Whether to list the series section; present only on a book-placed series. */
+  contents?: boolean
+  contentsLabel?: string
   idStem: string
   idScope: 'chapter' | 'numbering'
   blockClass: string
@@ -74,7 +79,11 @@ function withoutResolvedPresentation(value: unknown): unknown {
 
 export const NoteSeriesEntries = z.array(z.preprocess(withoutResolvedPresentation, NoteSeries))
 
-type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker'> & { marker?: NoteMarkerValue; preferredMarker?: NoteMarkerValue }
+type ResolvableNoteSeries = Omit<ResolvedNoteSeries, 'marker' | 'contents'> & {
+  marker?: NoteMarkerValue
+  preferredMarker?: NoteMarkerValue
+  contents?: boolean
+}
 
 interface NoteSeriesSettings {
   lang?: string
@@ -291,6 +300,12 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
       numbering: series.numbering,
       marker,
       title: series.title,
+      ...(series.placement === 'book'
+        ? {
+            contents: series.contents ?? true,
+            ...(series.contentsLabel === undefined ? {} : { contentsLabel: series.contentsLabel }),
+          }
+        : {}),
       idStem: series.idStem,
       idScope: series.idScope,
       blockClass: series.blockClass,
@@ -304,13 +319,28 @@ export function resolveNoteSeries(settings: NoteSeriesSettings): ResolvedNoteSer
   })
 }
 
-export function noteSeriesIssues(series: ResolvedNoteSeries[], mode: 'continuous' | 'paginated'): Array<{ path: (string | number)[]; message: string }> {
+export function noteSeriesIssues(
+  series: ResolvedNoteSeries[],
+  mode: 'continuous' | 'paginated',
+  declared: NoteSeriesInput[] = [],
+): Array<{ path: (string | number)[]; message: string }> {
   const issues: Array<{ path: (string | number)[]; message: string }> = []
   series.forEach((item, index) => {
     if (mode === 'continuous' && (item.placement === 'chapter' || item.placement === 'part')) {
       issues.push({
         path: ['notes', index, 'placement'],
         message: `note series ${item.name} uses ${item.placement} placement only available in paginated mode; use page or book placement, or paginated mode`,
+      })
+    }
+  })
+  declared.forEach((item, index) => {
+    const resolved = series.find(({ name }) => name === item.name)
+    if (resolved?.placement === 'book') return
+    for (const field of ['contents', 'contentsLabel'] as const) {
+      if (item[field] === undefined) continue
+      issues.push({
+        path: ['notes', index, field],
+        message: `note series ${item.name} uses ${field} with ${resolved?.placement ?? item.placement} placement; remove ${field}, or set placement: 'book'`,
       })
     }
   })

@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { afterAll, expect, test } from 'bun:test'
 import { Deck } from '@segnavia/format'
 import { MESSAGE } from './bridge.ts'
 import type { DeckState } from './controller.ts'
@@ -10,6 +10,10 @@ import { SlideFrameError } from './slide-frame-error.ts'
 type MessageListener = (event: MessageEvent) => void
 
 const messageListeners = new Set<MessageListener>()
+
+const replacedGlobals = new Map(
+  ['HTMLElement', 'ResizeObserver', 'matchMedia', 'window'].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const),
+)
 
 class TestElement extends EventTarget {
   dataset: Record<string, string> = {}
@@ -63,6 +67,13 @@ Object.assign(globalThis, {
     },
     visualViewport: { addEventListener() {}, removeEventListener() {} },
   },
+})
+
+afterAll(() => {
+  for (const [name, descriptor] of replacedGlobals) {
+    if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+    else Reflect.deleteProperty(globalThis, name)
+  }
 })
 
 const { SegnaviaStage } = await import('./stage.ts')

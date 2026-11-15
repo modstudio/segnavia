@@ -45,6 +45,129 @@ test('prints chapter numbers in contents and outline only when opted in', () => 
   expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['1 One', '2 Two'])
 })
 
+test('lists a book-placed notes section in reading order with its label, page and outline entry', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    frontMatter: [{ kind: 'contents', title: 'Contents' }],
+    body: [{ title: 'Chapter', html: '<p>Text<span data-note="endnote">Source</span></p>' }],
+    endMatter: [{ title: 'Appendix', html: '<p>After</p>' }],
+    notes: [{ name: 'endnote', contentsLabel: 'References' }],
+  })
+  const built = bookDocument(book, { pageNumbers: { 'segnavia-endnotes': '12' } })
+  expect(built.headings.map(({ id, text, contentsLabel }) => ({ id, text, contentsLabel }))).toEqual([
+    { id: 'section-2', text: 'Chapter', contentsLabel: undefined },
+    { id: 'segnavia-endnotes', text: 'Notes', contentsLabel: 'References' },
+    { id: 'section-3', text: 'Appendix', contentsLabel: undefined },
+  ])
+  expect(built.html).toContain('<a href="#segnavia-endnotes" dir="ltr">References</a>')
+  expect(built.html).toContain(
+    '<a class="segnavia-contents-page" data-segnavia-generated-contents-page href="#segnavia-endnotes" data-ref="page" dir="ltr">12</a>',
+  )
+  expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['Chapter', 'References', 'Appendix'])
+})
+
+test('omits opted-out and chapter-placed notes while keeping their printed sections', () => {
+  const hiddenBook = parseBookFixture({
+    title: 'Book',
+    mode: 'continuous',
+    frontMatter: [{ kind: 'contents', title: 'Contents' }],
+    chapters: [{ title: 'Chapter', html: '<p>Text<span data-note="endnote">Source</span></p>' }],
+    notes: [{ name: 'endnote', contents: false }],
+  })
+  const hidden = bookDocument(hiddenBook)
+  expect(hidden.html).toContain('id="segnavia-endnotes"')
+  expect(hidden.html).not.toContain('href="#segnavia-endnotes"')
+  expect(hidden.headings.some(({ id }) => id === 'segnavia-endnotes')).toBeFalse()
+  expect(bookOutlineSource(hiddenBook, hidden).headings.map(({ title }) => title)).toEqual(['Chapter'])
+
+  const chapterPlaced = bookDocument(
+    parseBookFixture({
+      title: 'Book',
+      mode: 'paginated',
+      page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+      frontMatter: [{ kind: 'contents', title: 'Contents' }],
+      chapters: [{ title: 'Chapter', html: '<p>Text<span data-note="endnote">Source</span></p>' }],
+      endnotes: { placement: 'chapter' },
+    }),
+  )
+  expect(chapterPlaced.html).toContain('id="segnavia-endnotes-section-2"')
+  expect(chapterPlaced.headings.some(({ id }) => id.startsWith('segnavia-endnotes'))).toBeFalse()
+
+  const withoutNotes = bookDocument(
+    parseBookFixture({ title: 'Book', mode: 'continuous', frontMatter: [{ kind: 'contents' }], chapters: [{ title: 'Chapter', html: '<p>Text</p>' }] }),
+  )
+  expect(withoutNotes.html).not.toContain('id="segnavia-endnotes"')
+  expect(withoutNotes.headings.some(({ id }) => id === 'segnavia-endnotes')).toBeFalse()
+})
+
+test('keeps chapter-placed front-matter notes unlisted at book end', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    frontMatter: [
+      { kind: 'contents', title: 'Contents' },
+      { title: 'Preface', html: '<p>Front<span data-note="endnote">Source</span></p>' },
+    ],
+    body: [{ title: 'Chapter', html: '<p>Text</p>' }],
+    endnotes: { placement: 'chapter' },
+  })
+  const built = bookDocument(book)
+  expect(built.html).toContain('id="segnavia-endnotes"')
+  expect(built.html).not.toContain('href="#segnavia-endnotes"')
+  expect(built.headings.some(({ id }) => id.startsWith('segnavia-endnotes'))).toBeFalse()
+  expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['Preface', 'Chapter'])
+})
+
+test('keeps part-placed notes outside a part unlisted at book end', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    frontMatter: [{ kind: 'contents', title: 'Contents' }],
+    body: [{ title: 'Chapter', html: '<p>Text<span data-note="sources">Source</span></p>' }],
+    notes: [{ name: 'sources', placement: 'part', numbering: 'part', title: 'Sources' }],
+  })
+  const built = bookDocument(book)
+  expect(built.html).toContain('id="segnavia-notes-sources"')
+  expect(built.html).not.toContain('href="#segnavia-notes-sources"')
+  expect(built.headings.some(({ id }) => id.startsWith('segnavia-notes-sources'))).toBeFalse()
+  expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['Chapter'])
+})
+
+test('lists multiple book-placed note series once in declaration and reading order', () => {
+  const book = parseBookFixture({
+    title: 'Book',
+    mode: 'paginated',
+    page: { paper: 'a5', margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    frontMatter: [{ kind: 'contents', title: 'Contents' }],
+    body: [{ title: 'Chapter', html: '<p>Text<span data-note="endnote">Comment</span><span data-note="sources">Source</span></p>' }],
+    endMatter: [{ title: 'Appendix', html: '<p>After</p>' }],
+    notes: [{ name: 'sources', placement: 'book', numbering: 'book', title: 'Sources' }],
+  })
+  const built = bookDocument(book)
+  expect(built.headings.map(({ id }) => id)).toEqual(['section-2', 'segnavia-endnotes', 'segnavia-notes-sources', 'section-3'])
+  expect(bookOutlineSource(book, built).headings.map(({ title }) => title)).toEqual(['Chapter', 'Notes', 'Sources', 'Appendix'])
+})
+
+test('uses the note title direction and respects contents depth and disabled generated contents', () => {
+  const input = {
+    title: 'ספר',
+    mode: 'paginated' as const,
+    lang: 'he',
+    page: { paper: 'a5' as const, margin: { blockStart: 10, blockEnd: 10, inlineStart: 10, inlineEnd: 10 } },
+    chapters: [{ title: 'פרק', html: '<p>טקסט<span data-note="endnote">מקור</span></p>' }],
+  }
+  const withContents = bookDocument(parseBookFixture({ ...input, contents: { depth: 1 }, frontMatter: [{ kind: 'contents', title: 'תוכן' }] }))
+  expect(withContents.html).toContain('<a href="#segnavia-endnotes" dir="rtl">הערות</a>')
+
+  const withoutContents = bookDocument(parseBookFixture(input))
+  expect(withoutContents.headings.some(({ id }) => id === 'segnavia-endnotes')).toBeTrue()
+  expect(withoutContents.html).not.toContain('href="#segnavia-endnotes"')
+})
+
 test('prints isolated Hebrew numbers and a part contents label', () => {
   const book = parseBookFixture({
     title: 'ספר',

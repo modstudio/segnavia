@@ -4,30 +4,23 @@ import { Page } from '@segnavia/format'
 import { parseDocument } from '@segnavia/html'
 import { internalThumbnailPageLoad } from './document-value-load.ts'
 
-type Thumbnail = InstanceType<typeof import('./thumbnail.ts').SegnaviaThumbnail>
-
-// The element module may already be loaded by another test file under that
-// file's HTMLElement stand-in, so the instance carries its own attribute read
-// rather than relying on whichever base class the cached module extends.
-async function bareThumbnail(): Promise<Thumbnail> {
-  const previous = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
-  Object.defineProperty(globalThis, 'HTMLElement', {
-    configurable: true,
-    value: class HTMLElement extends EventTarget {},
-  })
-  try {
-    const { SegnaviaThumbnail } = await import('./thumbnail.ts')
-    const thumbnail = Object.create(SegnaviaThumbnail.prototype) as Thumbnail
-    Reflect.set(thumbnail, 'getAttribute', () => null)
-    return thumbnail
-  } finally {
-    if (previous) Object.defineProperty(globalThis, 'HTMLElement', previous)
-    else Reflect.deleteProperty(globalThis, 'HTMLElement')
-  }
+const previousHTMLElement = Object.getOwnPropertyDescriptor(globalThis, 'HTMLElement')
+const installedHTMLElement = globalThis.HTMLElement === undefined
+if (installedHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', { configurable: true, value: class extends EventTarget {} })
+const { SegnaviaThumbnail } = await import('./thumbnail.ts')
+if (installedHTMLElement) {
+  if (previousHTMLElement) Object.defineProperty(globalThis, 'HTMLElement', previousHTMLElement)
+  else Reflect.deleteProperty(globalThis, 'HTMLElement')
 }
 
-test('page readback keeps the parsed document with markdown lowered and ids minted', async () => {
-  const thumbnail = await bareThumbnail()
+function thumbnailHarness() {
+  const thumbnail = Object.create(SegnaviaThumbnail.prototype) as InstanceType<typeof SegnaviaThumbnail>
+  Object.defineProperty(thumbnail, 'edition', { configurable: true, value: undefined })
+  return thumbnail
+}
+
+test('page readback keeps the parsed document with markdown lowered and ids minted', () => {
+  const thumbnail = thumbnailHarness()
   Reflect.set(thumbnail, 'updatePageAspect', () => {})
   Reflect.set(thumbnail, 'changed', () => {})
   let id = 0
@@ -44,8 +37,8 @@ test('page readback keeps the parsed document with markdown lowered and ids mint
   expect(thumbnail.page).toEqual(parsed)
 })
 
-test('an edition change keeps the last document surface selected by the host', async () => {
-  const thumbnail = await bareThumbnail()
+test('an edition change keeps the last document surface selected by the host', () => {
+  const thumbnail = thumbnailHarness()
   Object.defineProperty(thumbnail, 'edition', { configurable: true, value: 'teacher' })
   Reflect.set(thumbnail, 'style', { setProperty() {}, removeProperty() {} })
   Reflect.set(thumbnail, 'updatePageAspect', () => {})
@@ -79,8 +72,8 @@ test('an edition change keeps the last document surface selected by the host', a
   expect(JSON.stringify(thumbnail.page)).not.toContain('Deck')
 })
 
-test('clearing a deck clears the displayed deck', async () => {
-  const thumbnail = await bareThumbnail()
+test('clearing a deck clears the displayed deck', () => {
+  const thumbnail = thumbnailHarness()
   Reflect.set(thumbnail, 'style', { setProperty() {}, removeProperty() {} })
   Reflect.set(thumbnail, 'changed', () => {})
   thumbnail.deck = {
@@ -95,8 +88,8 @@ test('clearing a deck clears the displayed deck', async () => {
   expect(Reflect.get(thumbnail, 'value')).toBeNull()
 })
 
-test('an edition change keeps an internally loaded page', async () => {
-  const thumbnail = await bareThumbnail()
+test('an edition change keeps an internally loaded page', () => {
+  const thumbnail = thumbnailHarness()
   const page = Page.parse({ html: '<p>Internal</p>' })
   Reflect.set(thumbnail, 'updatePageAspect', () => {})
   Reflect.set(thumbnail, 'changed', () => {})

@@ -250,6 +250,7 @@ export const ResolvedBook = ValidatedBookShape.transform((book, ctx) => {
   const footnote = notes[0]
   const endnote = notes[1]
   if (!footnote || !endnote) throw new Error('note series resolution did not produce the two default series')
+  for (const issue of noteSeriesIssues(notes, book.mode, book.notes)) ctx.addIssue({ code: 'custom', ...issue })
   return {
     ...fields,
     body: book.body ?? chapters ?? [],
@@ -380,7 +381,6 @@ export function refineBookPolicies(book: ResolvedBookValue, ctx: z.RefinementCtx
       message: `front-matter and body numbering are both ${book.numbering.body}; the two must differ when both divisions print their folios, or set numbering.printed.frontMatter or numbering.printed.body to false to share the system`,
     })
   }
-  for (const issue of noteSeriesIssues(book.notes, book.mode)) ctx.addIssue({ code: 'custom', ...issue })
   for (const issue of bookParentIssues(book)) ctx.addIssue({ code: 'custom', ...issue })
   refineParentPageGeometry(book, ctx)
 }
